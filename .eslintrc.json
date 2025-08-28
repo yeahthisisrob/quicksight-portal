@@ -1,0 +1,70 @@
+{
+  "root": true,
+  "env": {
+    "browser": true,
+    "es2020": true,
+    "node": true
+  },
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:react-hooks/recommended",
+    "plugin:import/recommended",
+    "plugin:import/typescript"
+  ],
+  "ignorePatterns": ["dist", "lib", "*.js", "*.d.ts", "node_modules"],
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["react-refresh", "import"],
+  "settings": {
+    "import/resolver": {
+      "node": {
+        "extensions": [".js", ".jsx", ".ts", ".tsx"]
+      }
+    },
+    "import/parsers": {
+      "@typescript-eslint/parser": [".ts", ".tsx"]
+    }
+  },
+  "rules": {
+    "react-refresh/only-export-components": [
+      "warn",
+      { "allowConstantExport": true }
+    ],
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "import/no-duplicates": ["error", {"prefer-inline": true}],
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "Literal[value=/^(dashboards|analyses|datasets|datasources|folders|users|groups)$/]",
+        "message": "Asset types must be singular (e.g., 'dashboard' not 'dashboards'). Use ASSET_TYPES constants from shared/types/assetTypes.ts"
+      },
+      {
+        "selector": "TemplateLiteral[quasis.0.value.raw=/\/(dashboards|analyses|datasets|datasources|folders|users|groups)/]",
+        "message": "Asset types in paths must use pluralizeAssetType() function. Import from shared/utils/assetTypes.ts"
+      },
+      {
+        "selector": "ArrayExpression > Literal[value=/^(dashboard|analysis|dataset|datasource|folder|user|group)$/]",
+        "message": "Use ASSET_TYPES_WITH_FIELDS or COLLECTION_ASSET_TYPES constants instead of hardcoded arrays"
+      }
+    ],
+    "import/order": [
+      "error",
+      {
+        "groups": ["builtin", "external", "internal", "parent", "sibling", "index"],
+        "pathGroups": [
+          {
+            "pattern": "@/**",
+            "group": "internal"
+          }
+        ],
+        "pathGroupsExcludedImportTypes": ["builtin"],
+        "newlines-between": "never",
+        "alphabetize": {
+          "order": "asc",
+          "caseInsensitive": true
+        }
+      }
+    ]
+  }
+}

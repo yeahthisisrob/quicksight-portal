@@ -1,0 +1,53 @@
+{
+  "name": "quicksight-assets-portal",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "just dev",
+    "dev:quick": "just quick",
+    "dev:backend": "cd backend/lambda && npm run start",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:api-only": "sam local start-api --template-file sam/template.yaml --env-vars sam/env.json --port 3000 --warm-containers EAGER --skip-pull-image",
+    "kill-sam": "./scripts/kill-sam.sh",
+    "clean:sam": "rm -rf .aws-sam",
+    "build:sam": "sam build --template-file sam/template.yaml",
+    "build:backend:dev": "cd backend/lambda && node build.js dev",
+    "dev:watch": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"cd backend/lambda && npm run watch\"",
+    "build": "npm run lint:fix && npm run build:backend && npm run build:frontend",
+    "build:backend": "cd backend/lambda && npm run build",
+    "build:backend:quick": "cd backend/lambda && npm run build:quick",
+    "build:frontend": "cd frontend && npm run build",
+    "lint": "npm run lint:backend && npm run lint:frontend",
+    "lint:backend": "cd backend/lambda && npm run lint",
+    "lint:frontend": "cd frontend && npm run lint",
+    "lint:fix": "npm run lint:fix:backend && npm run lint:fix:frontend",
+    "lint:fix:backend": "cd backend/lambda && npm run lint:fix",
+    "lint:fix:frontend": "cd frontend && npm run lint:fix",
+    "test": "cd backend/lambda && npm test",
+    "test:watch": "cd backend/lambda && npm run test:watch",
+    "test:coverage": "cd backend/lambda && npm run test:coverage",
+    "test:backend": "cd backend/lambda && npm test",
+    "test:frontend": "cd frontend && npm test",
+    "install:all": "npm ci && cd backend/lambda && npm ci && cd ../../frontend && npm ci && cd ../infrastructure/cdk && npm ci",
+    "deploy": "npm run build:prod && cd infrastructure/cdk && npm run deploy",
+    "deploy:prod": "npm run build:prod && cd infrastructure/cdk && npx cdk deploy --all --require-approval never",
+    "build:prod": "npm run build:backend:quick && npm run build:frontend",
+    "build:prod:validated": "npm run lint:fix && npm run test && npm run build:backend && npm run build:frontend",
+    "deploy:prod:validated": "npm run build:prod:validated && cd infrastructure/cdk && npx cdk deploy --all --require-approval never",
+    "deploy:fresh": "npm run install:all && npm run deploy:prod",
+    "cdk:synth": "npm run build && cd infrastructure/cdk && npx cdk synth",
+    "cdk:diff": "npm run build && cd infrastructure/cdk && npx cdk diff",
+    "cdk:bootstrap": "cd infrastructure/cdk && npx cdk bootstrap",
+    "cdk:deploy": "cd infrastructure/cdk && npx cdk deploy",
+    "cdk:destroy": "cd infrastructure/cdk && npx cdk destroy --all",
+    "cloc": "cloc . --by-file --exclude-dir=node_modules,dist,build,.next,out,cdk.out --match-f='.*\\.(ts|tsx)$'"
+  },
+  "devDependencies": {
+    "@apidevtools/swagger-parser": "^12.0.0",
+    "concurrently": "^9.2.0",
+    "openapi-typescript": "^7.8.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-quicksight": "^3.848.0"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "quicksight-assets-portal-backend",
+  "version": "1.0.0",
+  "description": "Backend for QuickSight Assets Portal - Lambda Runtime",
+  "scripts": {
+    "build": "cd lambda && npm run build",
+    "clean": "cd lambda && npm run clean",
+    "install:lambda": "cd lambda && npm install"
+  }
+}

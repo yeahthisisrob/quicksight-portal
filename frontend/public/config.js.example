@@ -1,0 +1,11 @@
+// Local development configuration
+// Copy this file to config.js and update with your actual values
+// config.js will be ignored by git
+window.APP_CONFIG = {
+  API_URL: 'http://localhost:3000/api',
+  AWS_REGION: 'us-east-1',
+  USER_POOL_ID: 'us-east-1_XXXXXXXXX',
+  USER_POOL_CLIENT_ID: 'your-cognito-client-id-here',
+  COGNITO_DOMAIN: 'https://quicksight-portal-123456789012.auth.us-east-1.amazoncognito.com',
+  ENVIRONMENT: 'development'
+};

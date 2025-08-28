@@ -1,0 +1,2628 @@
+openapi: 3.0.3
+info:
+  title: QuickSight Assets Portal API
+  description: API for managing and viewing QuickSight assets
+  version: 1.0.0
+  
+servers:
+  - url: https://api.quicksight-portal.example.com
+    description: Production API
+  - url: http://localhost:3000
+    description: Local development
+
+# Global security - applies to all endpoints unless overridden
+security:
+  - BearerAuth: []
+
+paths:
+  # Asset listing endpoints
+  /api/assets:
+    get:
+      summary: List all assets
+      parameters:
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/AssetType'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/AssetStatus'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: List of assets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AssetListItem'
+
+  /api/assets/archived:
+    get:
+      summary: List archived assets
+      description: Returns all archived assets across all asset types with archive metadata, with server-side pagination and filtering
+      parameters:
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/AssetType'
+          description: Filter by asset type (optional)
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Number of items per page
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search term to filter assets by name, ID, or archive reason
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [name, type, createdTime, lastUpdatedTime, lastExportTime, archivedDate, archiveReason, archivedBy, lastActivity]
+            default: archivedDate
+          description: Field to sort by
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort order
+        - name: dateRange
+          in: query
+          schema:
+            type: string
+            enum: [all, 24h, 7d, 30d, 90d]
+            default: all
+          description: Filter by archive date range
+      responses:
+        '200':
+          description: Paginated list of archived assets
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [items, totalCount]
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ArchivedAssetItem'
+                      nextToken:
+                        type: string
+                        nullable: true
+                      totalCount:
+                        type: integer
+
+  /api/folders:
+    get:
+      summary: List folders
+      responses:
+        '200':
+          description: List of folders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FolderListItem'
+
+  /api/folders/{folderId}:
+    get:
+      summary: Get folder details
+      parameters:
+        - name: folderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Folder details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FolderDetails'
+
+  /api/folders/{folderId}/members:
+    get:
+      summary: Get folder members
+      parameters:
+        - name: folderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Folder members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FolderMember'
+    post:
+      summary: Add member to folder
+      parameters:
+        - name: folderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - memberId
+                - memberType
+              properties:
+                memberId:
+                  type: string
+                memberType:
+                  type: string
+                  enum: [DASHBOARD, ANALYSIS, DATASET, DATASOURCE, USER, GROUP]
+                role:
+                  type: string
+                  enum: [ADMIN, AUTHOR, VIEWER]
+                  description: Required for USER and GROUP member types
+      responses:
+        '200':
+          description: Member added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+  
+  /api/folders/{folderId}/members/{memberId}:
+    delete:
+      summary: Remove member from folder
+      description: Removes an asset (dashboard, analysis, dataset, datasource) from a folder
+      parameters:
+        - name: folderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [DASHBOARD, ANALYSIS, DATASET, DATASOURCE]
+          description: The type of asset to remove from the folder
+      responses:
+        '200':
+          description: Member removed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+        '400':
+          description: Bad request - missing required parameters
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/dashboards:
+    get:
+      summary: List dashboards
+      responses:
+        '200':
+          description: List of dashboards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DashboardListItem'
+
+  /api/datasets:
+    get:
+      summary: List datasets
+      responses:
+        '200':
+          description: List of datasets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DatasetListItem'
+
+  /api/assets/{assetType}/paginated:
+    get:
+      summary: Get paginated assets by type
+      description: Returns paginated list of assets for a specific type
+      parameters:
+        - name: assetType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [dashboards, datasets, analyses, datasources, folders, users, groups]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 50
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc, ASC, DESC]
+        - name: filters
+          in: query
+          schema:
+            type: string
+            description: JSON stringified filters object
+      responses:
+        '200':
+          description: Paginated asset list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAssetResponse'
+
+  /api/users:
+    get:
+      summary: List users
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserListItem'
+
+  # Lineage endpoints
+  /api/lineage/{assetType}/{assetId}:
+    get:
+      summary: Get asset lineage
+      parameters:
+        - name: assetType
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/AssetType'
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Asset lineage
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetLineage'
+
+  # Cached asset endpoint (for JSON viewer)
+  /api/assets/{assetType}/{assetId}/cached:
+    get:
+      summary: Get cached asset data from S3
+      description: Retrieves the full exported asset data from S3 storage
+      parameters:
+        - name: assetType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [dashboard, analysis, dataset, datasource, folder, user, group]
+            description: Asset type (singular form)
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cached asset data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    description: Full asset data from S3
+        '404':
+          description: Asset not found
+
+  # Tag management endpoints
+  /api/assets/{assetType}/{assetId}/tags:
+    put:
+      summary: Update asset tags
+      parameters:
+        - name: assetType
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/AssetType'
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tags]
+              properties:
+                tags:
+                  type: array
+                  items:
+                    type: object
+                    required: [Key, Value]
+                    properties:
+                      Key:
+                        type: string
+                      Value:
+                        type: string
+      responses:
+        '200':
+          description: Tags updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+
+  # Field catalog endpoints
+  /api/fields:
+    get:
+      summary: Search fields
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+        - name: assetType
+          in: query
+          schema:
+            $ref: '#/components/schemas/AssetType'
+      responses:
+        '200':
+          description: Field search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FieldInfo'
+
+  # Export endpoints
+  /api/export/jobs:
+    get:
+      summary: List export jobs
+      description: Returns a list of recent export jobs with their status
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+            description: Maximum number of jobs to return
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ['queued', 'processing', 'completed', 'failed', 'stopped']
+            description: Filter by job status
+      responses:
+        '200':
+          description: List of export jobs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJobList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+          
+  /api/export/jobs/{jobId}:
+    get:
+      summary: Get export job status
+      description: Returns the current status and progress of an export job
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            description: Export job ID
+      responses:
+        '200':
+          description: Export job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJobStatus'
+        '404':
+          description: Job not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+          
+  /api/export/jobs/{jobId}/logs:
+    get:
+      summary: Get export job logs
+      description: Returns detailed logs for a completed export job
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            description: Export job ID
+      responses:
+        '200':
+          description: Export job logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJobLogs'
+        '404':
+          description: Job not found or logs not available
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/export/jobs/{jobId}/stop:
+    post:
+      summary: Stop an export job
+      description: Request to stop a running export job at the next checkpoint
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            description: Export job ID to stop
+      responses:
+        '200':
+          description: Stop request sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      jobId:
+                        type: string
+                      status:
+                        $ref: '#/components/schemas/JobStatus'
+                      message:
+                        type: string
+        '404':
+          description: Job not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/export/summary:
+    get:
+      summary: Get export summary statistics
+      description: Returns overall export statistics without detailed progress
+      responses:
+        '200':
+          description: Export summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportSummaryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/export:
+    post:
+      summary: Start a new export job
+      description: Queues an export job and returns immediately with job ID
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportJobRequest'
+      responses:
+        '202':
+          description: Export job queued successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJobResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # Export file access (for JSON viewer)
+  /api/export/{assetType}/{assetId}:
+    get:
+      summary: Get full export data for asset
+      parameters:
+        - name: assetType
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/AssetType'
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Full asset export data
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Raw export data (varies by asset type)
+
+  # Ingestion endpoints
+  /api/ingestions:
+    get:
+      summary: Get cached ingestions
+      description: Returns cached ingestion data for all SPICE datasets
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            description: Search term to filter ingestions
+        - name: sortBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [createdTime, status, datasetName, ingestionTimeInSeconds, rowsIngested]
+            default: createdTime
+            description: Field to sort by
+        - name: sortOrder
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+            description: Sort order
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            description: Page number
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 10
+            maximum: 100
+            default: 50
+            description: Number of items per page
+      responses:
+        '200':
+          description: List of ingestions with metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestionListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/ingestions/{datasetId}/{ingestionId}:
+    get:
+      summary: Get ingestion details
+      description: Returns detailed information about a specific ingestion
+      parameters:
+        - name: datasetId
+          in: path
+          required: true
+          schema:
+            type: string
+            description: Dataset ID
+        - name: ingestionId
+          in: path
+          required: true
+          schema:
+            type: string
+            description: Ingestion ID
+      responses:
+        '200':
+          description: Ingestion details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ingestion'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    
+    delete:
+      summary: Cancel an ingestion
+      description: Cancels a running ingestion
+      parameters:
+        - name: datasetId
+          in: path
+          required: true
+          schema:
+            type: string
+            description: Dataset ID
+        - name: ingestionId
+          in: path
+          required: true
+          schema:
+            type: string
+            description: Ingestion ID
+      responses:
+        '200':
+          description: Ingestion cancelled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # Activity endpoints
+  /api/activity/refresh:
+    post:
+      summary: Refresh activity data for specified asset types
+      description: Fetches latest activity data from CloudTrail for dashboards, analyses, and users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assetTypes]
+              properties:
+                assetTypes:
+                  type: array
+                  items:
+                    type: string
+                    enum: [dashboard, analysis, user, all]
+                  description: Asset types to refresh activity for
+                days:
+                  type: integer
+                  minimum: 1
+                  maximum: 90
+                  default: 90
+                  description: Number of days of activity to fetch
+      responses:
+        '200':
+          description: Activity refresh initiated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  refreshed:
+                    type: object
+                    properties:
+                      dashboards:
+                        type: integer
+                      analyses:
+                        type: integer
+                      users:
+                        type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/activity/{assetType}/{assetId}:
+    get:
+      summary: Get activity data for a specific asset
+      parameters:
+        - name: assetType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [dashboard, analysis, user]
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Activity data for the asset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityData'
+        '404':
+          description: Asset not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/scripts/demo-cleanup/preview:
+    get:
+      summary: Preview demo assets that would be deleted
+      description: Returns a list of all QuickSight demo assets that would be deleted without actually deleting them
+      responses:
+        '200':
+          description: List of demo assets to be deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      datasources:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            name:
+                              type: string
+                            bucket:
+                              type: string
+                      datasets:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            name:
+                              type: string
+                            datasourceIds:
+                              type: array
+                              items:
+                                type: string
+                      analyses:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            name:
+                              type: string
+                      totalCount:
+                        type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/scripts/demo-cleanup/execute:
+    post:
+      summary: Delete all QuickSight demo assets
+      description: Deletes all demo datasources, datasets, and analyses, then archives them
+      responses:
+        '200':
+          description: Demo cleanup completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      deleted:
+                        type: object
+                        properties:
+                          datasources:
+                            type: integer
+                          datasets:
+                            type: integer
+                          analyses:
+                            type: integer
+                          total:
+                            type: integer
+                      archived:
+                        type: object
+                        properties:
+                          datasources:
+                            type: integer
+                          datasets:
+                            type: integer
+                          analyses:
+                            type: integer
+                          total:
+                            type: integer
+                      errors:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            assetType:
+                              type: string
+                            assetId:
+                              type: string
+                            error:
+                              type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/activity/summary:
+    get:
+      summary: Get activity summary across all asset types
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 90
+            default: 30
+      responses:
+        '200':
+          description: Activity summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dashboards:
+                    type: object
+                    properties:
+                      totalViews:
+                        type: integer
+                      uniqueViewers:
+                        type: integer
+                      activeAssets:
+                        type: integer
+                  analyses:
+                    type: object
+                    properties:
+                      totalViews:
+                        type: integer
+                      uniqueViewers:
+                        type: integer
+                      activeAssets:
+                        type: integer
+                  users:
+                    type: object
+                    properties:
+                      activeUsers:
+                        type: integer
+                      totalActivities:
+                        type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Data Catalog endpoints
+  /api/data-catalog/full:
+    get:
+      summary: Get full data catalog
+      description: Returns complete field catalog with pagination, filtering, and summary statistics
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: viewMode
+          in: query
+          schema:
+            type: string
+            enum: [all, fields, calculated]
+            default: all
+        - name: tagKey
+          in: query
+          schema:
+            type: string
+        - name: tagValue
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Data catalog with fields and summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/DataCatalogResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/data-catalog/tags:
+    get:
+      summary: Get available tags
+      description: Returns all available tags across assets with usage counts
+      responses:
+        '200':
+          description: Available tags with counts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TagWithCount'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/data-catalog/stats:
+    get:
+      summary: Get catalog statistics
+      description: Returns high-level statistics about the data catalog
+      responses:
+        '200':
+          description: Catalog statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/CatalogStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/data-catalog/visual-fields:
+    get:
+      summary: Get visual field mappings
+      description: Returns field usage in visuals across dashboards and analyses
+      responses:
+        '200':
+          description: Visual field mappings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/VisualFieldCatalogResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Group management endpoints  
+  /api/groups/{groupName}/assets:
+    get:
+      summary: Get assets accessible by a group
+      description: Returns all assets that a group has access to through direct permissions or folder membership
+      parameters:
+        - name: groupName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The name of the group
+        - name: assetType
+          in: query
+          schema:
+            $ref: '#/components/schemas/AssetType'
+          description: Filter by asset type (optional)
+      responses:
+        '200':
+          description: List of accessible assets
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [groupName, totalAssets, assets]
+                    properties:
+                      groupName:
+                        type: string
+                      totalAssets:
+                        type: integer
+                      assetsByType:
+                        type: object
+                        properties:
+                          dashboards:
+                            type: integer
+                          datasets:
+                            type: integer
+                          analyses:
+                            type: integer
+                          datasources:
+                            type: integer
+                          folders:
+                            type: integer
+                      assets:
+                        type: array
+                        items:
+                          type: object
+                          required: [assetId, assetType, assetName, accessType]
+                          properties:
+                            assetId:
+                              type: string
+                            assetType:
+                              $ref: '#/components/schemas/AssetType'
+                            assetName:
+                              type: string
+                            arn:
+                              type: string
+                            accessType:
+                              type: string
+                              enum: [direct, folder_inherited]
+                              description: How the group has access to this asset
+                            folderPath:
+                              type: string
+                              description: Folder path if access is inherited from folder
+                            permissions:
+                              type: array
+                              items:
+                                type: string
+                              description: List of permissions the group has on this asset
+        '404':
+          description: Group not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for API authentication
+  
+  schemas:
+    # Core types
+    AssetType:
+      type: string
+      enum: [dashboard, analysis, dataset, datasource, folder, user, group]
+
+    AssetStatus:
+      type: string
+      enum: [active, archived, deleted]
+
+    EnrichmentStatus:
+      type: string
+      enum: [skeleton, enriched, partial, metadata-update]
+
+    # Paginated response
+    PaginatedAssetResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            dashboards:
+              type: array
+              items:
+                $ref: '#/components/schemas/DashboardListItem'
+            datasets:
+              type: array
+              items:
+                $ref: '#/components/schemas/DatasetListItem'
+            analyses:
+              type: array
+              items:
+                $ref: '#/components/schemas/AnalysisListItem'
+            datasources:
+              type: array
+              items:
+                $ref: '#/components/schemas/DatasourceListItem'
+            folders:
+              type: array
+              items:
+                $ref: '#/components/schemas/FolderListItem'
+            users:
+              type: array
+              items:
+                $ref: '#/components/schemas/UserListItem'
+            groups:
+              type: array
+              items:
+                $ref: '#/components/schemas/GroupListItem'
+            pagination:
+              $ref: '#/components/schemas/PaginationInfo'
+            fromCache:
+              type: boolean
+    
+    PaginationInfo:
+      type: object
+      required: [page, pageSize, totalItems, totalPages]
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalItems:
+          type: integer
+        totalPages:
+          type: integer
+        hasMore:
+          type: boolean
+
+    # Base asset response
+    AssetListItem:
+      type: object
+      required: [id, name, type, status, createdTime, lastUpdatedTime, lastExportTime, enrichmentStatus]
+      properties:
+        id:
+          type: string
+          description: Asset unique identifier
+        name:
+          type: string
+          description: Asset display name
+        type:
+          $ref: '#/components/schemas/AssetType'
+        status:
+          $ref: '#/components/schemas/AssetStatus'
+        createdTime:
+          type: string
+          format: date-time
+          description: When asset was created in QuickSight
+        lastUpdatedTime:
+          type: string
+          format: date-time
+          description: When asset was last updated in QuickSight (QuickSight's lastModifiedTime)
+        lastExportTime:
+          type: string
+          format: date-time
+          description: When asset was last exported to our portal (our timestamp)
+        enrichmentStatus:
+          $ref: '#/components/schemas/EnrichmentStatus'
+        enrichmentTimestamps:
+          type: object
+          description: Timestamps for when each enrichment step was completed
+          properties:
+            definition:
+              type: string
+              format: date-time
+              description: When asset definition was enriched
+            permissions:
+              type: string
+              format: date-time
+              description: When permissions were enriched
+            tags:
+              type: string
+              format: date-time
+              description: When tags were enriched
+            lineage:
+              type: string
+              format: date-time
+              description: When lineage was enriched
+            views:
+              type: string
+              format: date-time
+              description: When view stats were enriched
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+          default: []
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Permission'
+          default: []
+          description: Asset permissions
+
+    # Archived asset response (extends AssetListItem)
+    ArchivedAssetItem:
+      allOf:
+        - $ref: '#/components/schemas/AssetListItem'
+        - type: object
+          required: [archivedDate, archiveReason]
+          properties:
+            archivedDate:
+              type: string
+              format: date-time
+              description: When asset was archived
+            archiveReason:
+              type: string
+              description: Reason for archiving the asset
+            archivedBy:
+              type: string
+              description: User or system that archived the asset
+            lastActivity:
+              type: string
+              format: date-time
+              nullable: true
+              description: Last time the asset was viewed/accessed before archiving
+
+    # Folder-specific responses
+    FolderListItem:
+      allOf:
+        - $ref: '#/components/schemas/AssetListItem'
+        - type: object
+          required: [path, memberCount]
+          properties:
+            path:
+              type: string
+              description: Full folder path like /parent/child
+              example: "/Marketing/Reports"
+            memberCount:
+              type: integer
+              description: Number of assets in folder
+              minimum: 0
+            parentId:
+              type: string
+              description: Parent folder ID (if any)
+
+    FolderDetails:
+      allOf:
+        - $ref: '#/components/schemas/FolderListItem'
+        - type: object
+          properties:
+            createdBy:
+              type: string
+              description: User who created the folder
+            description:
+              type: string
+              description: Folder description
+
+    FolderMember:
+      type: object
+      required: [MemberId, MemberType, MemberName]
+      properties:
+        MemberId:
+          type: string
+          description: Asset ID of the member
+        MemberType:
+          type: string
+          enum: [DASHBOARD, ANALYSIS, DATASET, DATASOURCE]
+          description: Type of asset
+        MemberName:
+          type: string
+          description: Display name of the asset
+
+    # Dashboard-specific responses
+    DashboardListItem:
+      allOf:
+        - $ref: '#/components/schemas/AssetListItem'
+        - type: object
+          required: [dashboardStatus, visualCount, sheetCount, datasetCount]
+          properties:
+            dashboardStatus:
+              type: string
+              description: Dashboard creation status
+              example: "CREATION_SUCCESSFUL"
+            visualCount:
+              type: integer
+              description: Number of visuals in dashboard
+              minimum: 0
+            sheetCount:
+              type: integer
+              description: Number of sheets in dashboard
+              minimum: 0
+            datasetCount:
+              type: integer
+              description: Number of datasets used
+              minimum: 0
+            publishedVersionNumber:
+              type: integer
+              description: Published version number (if any)
+            activity:
+              type: object
+              description: Dashboard activity summary
+              properties:
+                totalViews:
+                  type: integer
+                  minimum: 0
+                uniqueViewers:
+                  type: integer
+                  minimum: 0
+                lastViewed:
+                  type: string
+                  format: date-time
+                  nullable: true
+            definitionErrors:
+              type: array
+              description: Definition validation errors
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    description: Error type (e.g., COLUMN_NOT_FOUND)
+                  message:
+                    type: string
+                    description: Error message
+                  violatedEntities:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                          description: Path to the entity with the error
+
+    # Dataset-specific responses  
+    AnalysisListItem:
+      allOf:
+        - $ref: '#/components/schemas/AssetListItem'
+        - type: object
+          required: [sheetCount, visualCount, datasetCount]
+          properties:
+            sheetCount:
+              type: integer
+              description: Number of sheets in the analysis
+            visualCount:
+              type: integer
+              description: Total number of visuals across all sheets
+            datasetCount:
+              type: integer
+              description: Number of datasets used
+            sourceEntity:
+              type: object
+              properties:
+                sourceTemplate:
+                  type: object
+                  properties:
+                    dataSetReferences:
+                      type: array
+                      items:
+                        type: object
+                    arn:
+                      type: string
+    
+    DatasetListItem:
+      allOf:
+        - $ref: '#/components/schemas/AssetListItem'
+        - type: object
+          required: [importMode, fieldCount]
+          properties:
+            importMode:
+              type: string
+              enum: [SPICE, DIRECT_QUERY]
+              description: How data is imported
+            fieldCount:
+              type: integer
+              description: Number of fields in dataset
+              minimum: 0
+            sizeInBytes:
+              type: integer
+              description: Dataset size in bytes
+            sourceType:
+              type: string
+              description: Type of data source (S3, FILE, ATHENA, etc.)
+            hasRefreshProperties:
+              type: boolean
+              description: Whether dataset has refresh properties configured
+            refreshScheduleCount:
+              type: integer
+              description: Number of refresh schedules configured
+              minimum: 0
+            refreshSchedules:
+              type: array
+              description: List of refresh schedules for the dataset
+              items:
+                $ref: '#/components/schemas/RefreshSchedule'
+            dataSetRefreshProperties:
+              type: object
+              description: Refresh configuration properties for the dataset
+
+    RefreshSchedule:
+      type: object
+      required: [scheduleId, scheduleFrequency, refreshType, arn]
+      properties:
+        scheduleId:
+          type: string
+          description: Unique identifier for the refresh schedule
+        scheduleFrequency:
+          type: object
+          required: [interval]
+          properties:
+            interval:
+              type: string
+              enum: [MINUTE15, MINUTE30, HOURLY, DAILY, WEEKLY, MONTHLY]
+              description: Frequency of the refresh
+            refreshOnDay:
+              type: object
+              properties:
+                dayOfWeek:
+                  type: string
+                  enum: [SUNDAY, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY]
+                  description: Day of the week for weekly schedules
+                dayOfMonth:
+                  type: string
+                  description: Day of the month for monthly schedules
+            timeOfTheDay:
+              type: string
+              description: Time of day for the refresh (HH:MM format)
+            timezone:
+              type: string
+              description: Timezone for the schedule
+        startAfterDateTime:
+          type: string
+          format: date-time
+          description: When the schedule starts
+        refreshType:
+          type: string
+          enum: [INCREMENTAL_REFRESH, FULL_REFRESH]
+          description: Type of refresh to perform
+        arn:
+          type: string
+          description: ARN of the refresh schedule
+
+    # User-specific responses
+    DatasourceListItem:
+      allOf:
+        - $ref: '#/components/schemas/AssetListItem'
+        - type: object
+          required: [type, connectionMode]
+          properties:
+            type:
+              type: string
+              description: Type of datasource (e.g., ATHENA, REDSHIFT, S3)
+            connectionMode:
+              type: string
+              description: Connection mode (DIRECT_QUERY or IMPORT)
+            dataSourceParameters:
+              type: object
+              description: Connection parameters
+            vpcConnectionProperties:
+              type: object
+              properties:
+                vpcConnectionArn:
+                  type: string
+    
+    GroupListItem:
+      allOf:
+        - $ref: '#/components/schemas/AssetListItem'
+        - type: object
+          required: [memberCount]
+          properties:
+            memberCount:
+              type: integer
+              description: Number of members in the group
+            description:
+              type: string
+              description: Group description
+            principalId:
+              type: string
+              description: Principal ID of the group
+    
+    UserListItem:
+      allOf:
+        - $ref: '#/components/schemas/AssetListItem'
+        - type: object
+          required: [email, role, active, groupCount]
+          properties:
+            email:
+              type: string
+              format: email
+              description: User email address
+            role:
+              type: string
+              description: User role in QuickSight
+              example: "AUTHOR"
+            active:
+              type: boolean
+              description: Whether user is active
+            groupCount:
+              type: integer
+              description: Number of groups user belongs to
+              minimum: 0
+            groups:
+              type: array
+              items:
+                type: string
+              description: List of group names user belongs to
+              default: []
+            lastActivityTime:
+              type: string
+              format: date-time
+              description: Last time user was active
+            activityCount:
+              type: integer
+              description: Total number of user activities
+              minimum: 0
+            activity:
+              type: object
+              description: User activity summary
+              properties:
+                totalActivities:
+                  type: integer
+                  minimum: 0
+                lastActive:
+                  type: string
+                  format: date-time
+                  nullable: true
+                dashboardCount:
+                  type: integer
+                  minimum: 0
+                analysisCount:
+                  type: integer
+                  minimum: 0
+
+    # Lineage types
+    AssetLineage:
+      type: object
+      required: [assetId, assetType, assetName, relationships]
+      properties:
+        assetId:
+          type: string
+        assetType:
+          $ref: '#/components/schemas/AssetType'
+        assetName:
+          type: string
+        isArchived:
+          type: boolean
+          description: Whether this asset is archived
+        relationships:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineageRelationship'
+        metadata:
+          type: object
+          properties:
+            datasourceType:
+              type: string
+              description: Type of datasource (S3, ATHENA, etc.)
+
+    LineageRelationship:
+      type: object
+      required: [sourceAssetId, sourceAssetType, sourceAssetName, targetAssetId, targetAssetType, targetAssetName, relationshipType]
+      properties:
+        sourceAssetId:
+          type: string
+        sourceAssetType:
+          $ref: '#/components/schemas/AssetType'
+        sourceAssetName:
+          type: string
+        sourceIsArchived:
+          type: boolean
+          description: Whether the source asset is archived
+        targetAssetId:
+          type: string
+        targetAssetType:
+          $ref: '#/components/schemas/AssetType'
+        targetAssetName:
+          type: string
+        targetIsArchived:
+          type: boolean
+          description: Whether the target asset is archived
+        relationshipType:
+          type: string
+          enum: [uses, used_by]
+
+    # Field catalog types
+    FieldInfo:
+      type: object
+      required: [fieldId, fieldName, dataType, isCalculated, sourceAssetType, sourceAssetId, sourceAssetName, usageCount, analysisCount, dashboardCount, lastUpdated]
+      properties:
+        fieldId:
+          type: string
+        fieldName:
+          type: string
+        displayName:
+          type: string
+        dataType:
+          type: string
+          description: Field data type
+        description:
+          type: string
+        isCalculated:
+          type: boolean
+          description: Whether this is a calculated field
+        expression:
+          type: string
+          description: Calculation expression (if calculated field)
+        sourceAssetType:
+          type: string
+          enum: [dataset, analysis, dashboard]
+        sourceAssetId:
+          type: string
+        sourceAssetName:
+          type: string
+        datasetId:
+          type: string
+        datasetName:
+          type: string
+        columnName:
+          type: string
+          description: Source column name
+        dependencies:
+          type: array
+          items:
+            type: string
+          description: Field IDs this calculated field depends on
+        usageCount:
+          type: integer
+          description: Total usage count
+          minimum: 0
+        analysisCount:
+          type: integer
+          description: Number of analyses using this field
+          minimum: 0
+        dashboardCount:
+          type: integer
+          description: Number of dashboards using this field
+          minimum: 0
+        lastUpdated:
+          type: string
+          format: date-time
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+          default: []
+
+    # Common types
+    Tag:
+      type: object
+      required: [key, value]
+      properties:
+        key:
+          type: string
+          description: Tag key
+        value:
+          type: string
+          description: Tag value
+
+    Permission:
+      type: object
+      required: [principal, principalType, actions]
+      properties:
+        principal:
+          type: string
+          description: Principal ARN or identifier
+        principalType:
+          type: string
+          enum: [USER, GROUP, NAMESPACE, PUBLIC]
+          description: Type of principal
+        actions:
+          type: array
+          items:
+            type: string
+          description: List of allowed actions
+
+    # Activity types
+    ActivityData:
+      type: object
+      required: [assetId, assetType, totalViews, uniqueViewers, lastViewed, viewsByDate, viewers]
+      properties:
+        assetId:
+          type: string
+          description: Asset identifier
+        assetName:
+          type: string
+          description: Asset name from cache
+        assetType:
+          type: string
+          enum: [dashboard, analysis]
+        totalViews:
+          type: integer
+          description: Total number of views in activity window
+        uniqueViewers:
+          type: integer
+          description: Number of unique viewers
+        lastViewed:
+          type: string
+          format: date-time
+          description: Most recent view timestamp (persisted forever)
+        viewsByDate:
+          type: object
+          additionalProperties:
+            type: integer
+          description: View counts by date (YYYY-MM-DD)
+        viewers:
+          type: array
+          description: All viewers with their activity counts
+          items:
+            type: object
+            required: [userName, viewCount, lastViewed]
+            properties:
+              userName:
+                type: string
+                description: User name or ARN
+              viewCount:
+                type: integer
+                description: Number of views by this user
+              lastViewed:
+                type: string
+                format: date-time
+                description: Last time this user viewed the asset
+              groups:
+                type: array
+                items:
+                  type: string
+                description: Groups the user belongs to
+
+    UserActivity:
+      type: object
+      required: [userName, lastActive, totalActivities, activitiesByDate, dashboards, analyses]
+      properties:
+        userName:
+          type: string
+          description: User name or ARN
+        lastActive:
+          type: string
+          format: date-time
+          description: Last activity timestamp (persisted forever)
+        totalActivities:
+          type: integer
+          description: Total number of activities in activity window
+        activitiesByDate:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Activity counts by date (YYYY-MM-DD)
+        dashboards:
+          type: array
+          description: Dashboards viewed with activity counts
+          items:
+            type: object
+            required: [dashboardId, viewCount, lastViewed]
+            properties:
+              dashboardId:
+                type: string
+                description: Dashboard ID
+              dashboardName:
+                type: string
+                description: Dashboard name from cache
+              viewCount:
+                type: integer
+                description: Number of times viewed
+              lastViewed:
+                type: string
+                format: date-time
+                description: Last time viewed
+        analyses:
+          type: array
+          description: Analyses viewed with activity counts
+          items:
+            type: object
+            required: [analysisId, viewCount, lastViewed]
+            properties:
+              analysisId:
+                type: string
+                description: Analysis ID
+              analysisName:
+                type: string
+                description: Analysis name from cache
+              viewCount:
+                type: integer
+                description: Number of times viewed
+              lastViewed:
+                type: string
+                format: date-time
+                description: Last time viewed (YYYY-MM-DD)
+
+    # Export status types
+    ExportStatusResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required: [inventoryComplete, enrichmentInProgress, totalAssets, enrichedAssets, skeletonAssets, percentEnriched, assetsByType, lastUpdated, nextSteps, logs, nextPollInMs]
+          properties:
+            inventoryComplete:
+              type: boolean
+              description: Whether initial asset inventory is complete
+            enrichmentInProgress:
+              type: boolean
+              description: Whether an export is currently running
+            totalAssets:
+              type: integer
+              description: Total number of assets in inventory
+            enrichedAssets:
+              type: integer
+              description: Number of fully enriched assets
+            skeletonAssets:
+              type: integer
+              description: Number of skeleton-only assets
+            percentEnriched:
+              type: integer
+              description: Percentage of assets fully enriched
+              minimum: 0
+              maximum: 100
+            assetsByType:
+              type: object
+              additionalProperties:
+                type: integer
+              description: Count of assets by type
+            lastUpdated:
+              type: string
+              format: date-time
+              description: When the cache was last updated
+            nextSteps:
+              type: object
+              required: [phase, action, description]
+              properties:
+                phase:
+                  type: string
+                  enum: [inventory, enrichment, complete]
+                action:
+                  type: string
+                description:
+                  type: string
+            exportState:
+              type: object
+              nullable: true
+              description: Current export state if an export is running
+              properties:
+                status:
+                  type: string
+                  enum: [idle, running, completed, error]
+                currentStage:
+                  type: string
+                  description: Current stage of export process
+                startedAt:
+                  type: integer
+                  description: Unix timestamp when export started
+                completedAt:
+                  type: integer
+                  nullable: true
+                  description: Unix timestamp when export completed
+                totalAssets:
+                  type: integer
+                enrichedAssets:
+                  type: integer
+                failedAssets:
+                  type: integer
+                assetProgress:
+                  type: object
+                  additionalProperties:
+                    type: object
+                    properties:
+                      listed:
+                        type: integer
+                      enriched:
+                        type: integer
+                      failed:
+                        type: integer
+            logs:
+              type: array
+              description: Recent export log entries
+              items:
+                $ref: '#/components/schemas/ExportLogEntry'
+            nextPollInMs:
+              type: integer
+              description: Suggested milliseconds until next poll
+              minimum: 1000
+              maximum: 60000
+
+    ExportLogEntry:
+      type: object
+      required: [ts, msg]
+      properties:
+        ts:
+          type: integer
+          description: Unix timestamp in milliseconds
+        msg:
+          type: string
+          description: Log message
+        level:
+          type: string
+          enum: [info, warn, error]
+          default: info
+        assetType:
+          type: string
+          description: Asset type context
+        assetId:
+          type: string
+          description: Asset ID context
+        apiCalls:
+          type: integer
+          description: Number of API calls made in this operation
+
+    ExportSummaryResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required: [totalAssets, exportedAssets, lastExportDate, exportInProgress, assetTypeCounts, fieldStatistics]
+          properties:
+            totalAssets:
+              type: integer
+            exportedAssets:
+              type: integer
+            lastExportDate:
+              type: string
+              format: date-time
+              nullable: true
+            exportInProgress:
+              type: boolean
+            needsInitialExport:
+              type: boolean
+              description: Indicates if initial export is needed (no cache exists)
+            message:
+              type: string
+              description: Optional message providing export status context
+            assetTypeCounts:
+              type: object
+              properties:
+                dashboards:
+                  type: integer
+                datasets:
+                  type: integer
+                analyses:
+                  type: integer
+                datasources:
+                  type: integer
+                folders:
+                  type: integer
+                users:
+                  type: integer
+                groups:
+                  type: integer
+            archivedAssetCounts:
+              type: object
+              properties:
+                dashboards:
+                  type: integer
+                datasets:
+                  type: integer
+                analyses:
+                  type: integer
+                datasources:
+                  type: integer
+                folders:
+                  type: integer
+                users:
+                  type: integer
+                groups:
+                  type: integer
+                total:
+                  type: integer
+            fieldStatistics:
+              type: object
+              nullable: true
+              properties:
+                totalFields:
+                  type: integer
+                totalCalculatedFields:
+                  type: integer
+                totalUniqueFields:
+                  type: integer
+            totalSize:
+              type: integer
+              description: Total storage size in bytes
+            cacheVersion:
+              type: string
+
+    # Export job schemas
+    ExportJobRequest:
+      type: object
+      properties:
+        forceRefresh:
+          type: boolean
+          default: false
+          description: Force re-export of all assets even if cached
+        rebuildIndex:
+          type: boolean
+          default: false
+          description: Rebuild all indexes from scratch
+        exportIngestions:
+          type: boolean
+          default: false
+          description: Export ingestion data for SPICE datasets
+        assetTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetType'
+          description: Specific asset types to export (all if not specified)
+        exportOrganizational:
+          type: boolean
+          default: false
+          description: Export all organizational assets (users, groups, folders) together
+        refreshOptions:
+          type: object
+          properties:
+            definitions:
+              type: boolean
+              default: true
+            permissions:
+              type: boolean
+              default: true
+            tags:
+              type: boolean
+              default: true
+
+    ExportJobResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required: [jobId, status, message]
+          properties:
+            jobId:
+              type: string
+              description: Unique job identifier
+            status:
+              $ref: '#/components/schemas/JobStatus'
+            message:
+              type: string
+              description: User-friendly status message
+
+    JobStatus:
+      type: string
+      enum: [queued, processing, completed, failed, stopping, stopped]
+      description: Current status of the export job
+
+    ExportJobStatus:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required: [jobId, status, progress, startTime]
+          properties:
+            jobId:
+              type: string
+            status:
+              $ref: '#/components/schemas/JobStatus'
+            progress:
+              type: integer
+              minimum: 0
+              maximum: 100
+              description: Completion percentage
+            message:
+              type: string
+              description: Current operation or status message
+            startTime:
+              type: string
+              format: date-time
+            endTime:
+              type: string
+              format: date-time
+              nullable: true
+            duration:
+              type: integer
+              description: Duration in milliseconds
+              nullable: true
+            stats:
+              type: object
+              properties:
+                totalAssets:
+                  type: integer
+                processedAssets:
+                  type: integer
+                failedAssets:
+                  type: integer
+                apiCalls:
+                  type: integer
+
+    ExportJobList:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required: [jobs]
+          properties:
+            jobs:
+              type: array
+              items:
+                $ref: '#/components/schemas/JobStatus'
+                
+    ExportJobLogs:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required: [jobId, logs]
+          properties:
+            jobId:
+              type: string
+            logs:
+              type: array
+              items:
+                type: object
+                required: [timestamp, level, message]
+                properties:
+                  timestamp:
+                    type: string
+                    format: date-time
+                  level:
+                    type: string
+                    enum: [info, warn, error]
+                  message:
+                    type: string
+                  details:
+                    type: object
+                    description: Additional context or metadata
+
+    # Ingestion schemas
+    Ingestion:
+      type: object
+      required: [id, datasetId, status, createdTime]
+      properties:
+        id:
+          type: string
+          description: Ingestion ID
+        datasetId:
+          type: string
+          description: Dataset ID
+        datasetName:
+          type: string
+          description: Dataset name
+        datasetArn:
+          type: string
+          description: Dataset ARN
+        datasourceType:
+          type: string
+          description: Type of datasource (S3, REDSHIFT, etc.)
+        ingestionArn:
+          type: string
+          description: Ingestion ARN
+        status:
+          type: string
+          enum: [RUNNING, COMPLETED, FAILED, CANCELLED, INITIALIZED, QUEUED]
+          description: Ingestion status
+        createdTime:
+          type: string
+          format: date-time
+          description: When the ingestion was created
+        ingestionTimeInSeconds:
+          type: integer
+          description: Time taken for ingestion in seconds
+        ingestionSizeInBytes:
+          type: integer
+          description: Size of data ingested in bytes
+        rowsIngested:
+          type: integer
+          description: Number of rows successfully ingested
+        rowsDropped:
+          type: integer
+          description: Number of rows dropped during ingestion
+        errorType:
+          type: string
+          description: Type of error if failed
+        errorMessage:
+          type: string
+          description: Error message if failed
+        requestType:
+          type: string
+          enum: [INITIAL_INGESTION, INCREMENTAL_REFRESH, FULL_REFRESH, EDIT]
+          description: Type of ingestion request
+        queueInfo:
+          type: object
+          properties:
+            waitingOnIngestion:
+              type: string
+              description: ID of ingestion this is waiting on
+            queuedIngestion:
+              type: string
+              description: ID of queued ingestion
+
+    IngestionMetadata:
+      type: object
+      required: [totalIngestions, runningIngestions, failedIngestions, lastUpdated]
+      properties:
+        totalIngestions:
+          type: integer
+          description: Total number of ingestions
+        runningIngestions:
+          type: integer
+          description: Number of currently running ingestions
+        failedIngestions:
+          type: integer
+          description: Number of failed ingestions
+        lastUpdated:
+          type: string
+          format: date-time
+          description: When the data was last updated
+
+    IngestionListResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required: [ingestions, metadata, pagination]
+          properties:
+            ingestions:
+              type: array
+              items:
+                $ref: '#/components/schemas/Ingestion'
+            metadata:
+              $ref: '#/components/schemas/IngestionMetadata'
+            pagination:
+              type: object
+              required: [page, pageSize, totalItems, totalPages, hasMore]
+              properties:
+                page:
+                  type: integer
+                pageSize:
+                  type: integer
+                totalItems:
+                  type: integer
+                totalPages:
+                  type: integer
+                hasMore:
+                  type: boolean
+
+    # Data Catalog schemas
+    TagWithCount:
+      type: object
+      required: [key, value, count]
+      properties:
+        key:
+          type: string
+          description: Tag key
+        value:
+          type: string
+          description: Tag value
+        count:
+          type: integer
+          description: Number of assets with this tag
+
+    CatalogField:
+      type: object
+      required: [fieldId, fieldName, dataType, isCalculated, sourceAssetType, sourceAssetId, sourceAssetName]
+      properties:
+        fieldId:
+          type: string
+        fieldName:
+          type: string
+        dataType:
+          type: string
+        description:
+          type: string
+        isCalculated:
+          type: boolean
+        sourceAssetType:
+          type: string
+        sourceAssetId:
+          type: string
+        sourceAssetName:
+          type: string
+        datasetId:
+          type: string
+        datasetName:
+          type: string
+        columnName:
+          type: string
+          nullable: true
+        expression:
+          type: string
+          nullable: true
+        expressions:
+          type: array
+          items:
+            type: object
+            properties:
+              expression:
+                type: string
+              sources:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    assetType:
+                      type: string
+                    assetId:
+                      type: string
+                    assetName:
+                      type: string
+                    dataType:
+                      type: string
+                    lastUpdated:
+                      type: string
+        dependencies:
+          type: array
+          items:
+            type: string
+        lastUpdated:
+          type: string
+        sources:
+          type: array
+          items:
+            type: object
+        variants:
+          type: array
+          items:
+            type: object
+        hasVariants:
+          type: boolean
+        usageCount:
+          type: integer
+        analysisCount:
+          type: integer
+        dashboardCount:
+          type: integer
+
+    DataCatalogResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogField'
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            pageSize:
+              type: integer
+            totalItems:
+              type: integer
+            totalPages:
+              type: integer
+            hasMore:
+              type: boolean
+        summary:
+          type: object
+          properties:
+            totalFields:
+              type: integer
+            distinctFields:
+              type: integer
+            totalCalculatedFields:
+              type: integer
+            calculatedDatasetFields:
+              type: integer
+            calculatedAnalysisFields:
+              type: integer
+            visualFields:
+              type: integer
+            fieldsByDataType:
+              type: object
+              additionalProperties:
+                type: integer
+            lastUpdated:
+              type: string
+              format: date-time
+            processingTimeMs:
+              type: integer
+
+    CatalogStats:
+      type: object
+      properties:
+        totalAssets:
+          type: integer
+        assetsByType:
+          type: object
+          additionalProperties:
+            type: integer
+        totalFields:
+          type: integer
+        totalTags:
+          type: integer
+        lastUpdated:
+          type: string
+          format: date-time
+
+    VisualFieldCatalogResponse:
+      type: object
+      properties:
+        visualFields:
+          type: array
+          items:
+            type: object
+            properties:
+              fieldId:
+                type: string
+              visualId:
+                type: string
+              visualName:
+                type: string
+              sheetId:
+                type: string
+              sheetName:
+                type: string
+              dashboardId:
+                type: string
+              dashboardName:
+                type: string
+              fieldName:
+                type: string
+              dataType:
+                type: string
+              isCalculated:
+                type: boolean
+              lastUpdated:
+                type: string
+        summary:
+          type: object
+          properties:
+            totalVisualFields:
+              type: integer
+            totalVisuals:
+              type: integer
+            totalSheets:
+              type: integer
+            totalDashboards:
+              type: integer
+            lastUpdated:
+              type: string
+              format: date-time
+            processingTimeMs:
+              type: integer
+
+    # Error responses
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+        details:
+          type: object
+          description: Additional error details
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized - Invalid or missing authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

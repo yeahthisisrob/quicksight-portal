@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: QuickSight Assets Portal - SAM Template for Local Development
+
+Parameters:
+  BucketName:
+    Type: String
+    Default: 'quicksight-assets-local'
+    Description: S3 bucket for asset storage
+  
+  Environment:
+    Type: String
+    Default: 'development'
+    AllowedValues: [development, staging, production]
+
+Globals:
+  Function:
+    Runtime: nodejs18.x
+    Timeout: 900
+    MemorySize: 1024
+    Environment:
+      Variables:
+        NODE_ENV: !Ref Environment
+        LOG_LEVEL: debug
+        AWS_REGION: us-east-1
+        AWS_ACCOUNT_ID: "YOUR-ACCOUNT-ID"
+        COGNITO_USER_POOL_ID: your-user-pool-id
+        COGNITO_CLIENT_ID: your-client-id
+        COGNITO_DOMAIN: your-domain.auth.us-east-1.amazoncognito.com
+        COGNITO_AUTH_ROLE_ARN: arn:aws:iam::YOUR-ACCOUNT-ID:role/YourAuthRole
+        FRONTEND_URL: http://localhost:5173
+
+Resources:
+  # Main API Lambda Function
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/lambda/
+      Handler: dist/index.handler
+      Events:
+        # Catch-all API Gateway proxy
+        ApiProxy:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+            RestApiId: !Ref ApiGateway
+        ApiRoot:
+          Type: Api
+          Properties:
+            Path: /
+            Method: ANY
+            RestApiId: !Ref ApiGateway
+
+  # API Gateway
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'*'"
+        AllowHeaders: "'*'"
+        AllowOrigin: "'*'"
+      DefinitionBody:
+        swagger: '2.0'
+        info:
+          title: QuickSight Assets Portal API
+        paths:
+          /{proxy+}:
+            x-amazon-apigateway-any-method:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations'
+              responses: {}
+
+  # S3 Bucket for local development
+  AssetsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+Outputs:
+  ApiUrl:
+    Description: 'API Gateway URL'
+    Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+  
+  BucketName:
+    Description: 'S3 Bucket Name'
+    Value: !Ref AssetsBucket
+    
+  LocalDevCommand:
+    Description: 'Command to start local development'
+    Value: 'sam local start-api --parameter-overrides BucketName=quicksight-assets-local --env-vars env.json'

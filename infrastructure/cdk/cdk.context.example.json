@@ -1,0 +1,9 @@
+{
+  "existingSamlRoleArn": "arn:aws:iam::your-account-id:role/YourExistingSAMLRole",
+  "existingSamlProviderArn": "arn:aws:iam::your-account-id:saml-provider/YourExistingSAMLProvider",
+  "allowedIpRanges": [
+    "10.0.0.0/8",
+    "172.16.0.0/12"
+  ],
+  "environmentName": "production"
+}

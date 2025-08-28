@@ -1,0 +1,5 @@
+{
+  "existingSamlRoleArn": "arn:aws:iam::YOUR_ACCOUNT_ID:role/YOUR_ROLE_NAME",
+  "existingSamlProviderArn": "arn:aws:iam::YOUR_ACCOUNT_ID:saml-provider/YOUR_PROVIDER_NAME",
+  "oktaAppUrl": "https://YOUR_OKTA_DOMAIN/app/YOUR_APP_ID/YOUR_SSO_ID/sso/saml"
+}

@@ -1,0 +1,89 @@
+name: Checks (just check)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend-checks:
+    name: Backend Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/lambda/package-lock.json
+    
+    - name: Install backend dependencies
+      run: |
+        cd backend/lambda
+        npm ci
+    
+    - name: Run backend lint fix
+      run: |
+        cd backend/lambda
+        npm run lint:fix
+    
+    - name: Run backend typecheck
+      run: |
+        cd backend/lambda
+        npm run typecheck
+    
+    - name: Run backend tests
+      run: |
+        cd backend/lambda
+        npm run test
+
+  frontend-checks:
+    name: Frontend Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+    
+    - name: Run frontend lint fix
+      run: |
+        cd frontend
+        npm run lint:fix
+    
+    - name: Run frontend typecheck
+      run: |
+        cd frontend
+        npx tsc --noEmit
+    
+    - name: Run frontend tests
+      run: |
+        cd frontend
+        npm test -- --watchAll=false --passWithNoTests
+    
+    - name: Run Storybook smoke tests
+      run: |
+        cd frontend
+        npm run test:storybook:ci || true  # Don't fail if Storybook tests aren't set up yet
+
+  all-checks-passed:
+    name: All Checks Passed
+    runs-on: ubuntu-latest
+    needs: [backend-checks, frontend-checks]
+    steps:
+      - name: All checks passed
+        run: echo "✅ All checks passed!"

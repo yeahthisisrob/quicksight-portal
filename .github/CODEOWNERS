@@ -1,0 +1,15 @@
+# Global code owners
+* @yeahthisisrob
+
+# Frontend
+/frontend/ @yeahthisisrob
+
+# Backend
+/backend/ @yeahthisisrob
+
+# Infrastructure
+/infrastructure/ @yeahthisisrob
+
+# Documentation
+*.md @yeahthisisrob
+/docs/ @yeahthisisrob

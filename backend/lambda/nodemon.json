@@ -1,0 +1,18 @@
+{
+  "watch": [
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "ignore": [
+    "dist/**",
+    "node_modules/**",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "coverage/**",
+    ".aws-sam/**"
+  ],
+  "exec": "node build.js dev",
+  "ext": "ts,tsx,json",
+  "delay": 1000,
+  "verbose": false
+}
