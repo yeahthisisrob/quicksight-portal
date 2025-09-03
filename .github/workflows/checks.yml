@@ -73,7 +73,7 @@ jobs:
     - name: Run frontend tests
       run: |
         cd frontend
-        npm test -- --watchAll=false --passWithNoTests
+        npm test
     
     - name: Run Storybook smoke tests
       run: |
