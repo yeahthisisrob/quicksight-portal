@@ -73,6 +73,22 @@ interface BulkOperationMessage {
   maxConcurrency?: number;
 }
 
+interface CSVExportMessage {
+  jobId: string;
+  jobType: 'csv-export';
+  accountId: string;
+  bucketName: string;
+  userId?: string;
+  initialMessage?: string;
+  assetType: string;
+  options?: {
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    filters?: Record<string, any>;
+  };
+}
+
 /**
  * Worker Lambda handler for processing export and deployment jobs from SQS
  */
@@ -158,6 +174,8 @@ async function processRecord(record: any): Promise<void> {
       await processActivityRefreshJob(rawMessage as ActivityRefreshMessage, record);
     } else if (rawMessage.jobType === 'bulk-operation') {
       await processBulkOperationJob(rawMessage as BulkOperationMessage, record);
+    } else if (rawMessage.jobType === 'csv-export') {
+      await processCSVExportJob(rawMessage as CSVExportMessage, record);
     } else {
       await processExportJob(rawMessage as ExportMessage, record);
     }
@@ -441,6 +459,120 @@ async function handleBulkOperationError(
     status: 'failed',
     endTime: new Date().toISOString(),
     message: `Bulk operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    error: error instanceof Error ? error.message : 'Unknown error',
+  });
+}
+
+/**
+ * Process a CSV export job from SQS message
+ */
+async function processCSVExportJob(message: CSVExportMessage, record: any): Promise<void> {
+  const { jobId, accountId: msgAccountId, bucketName, assetType, options } = message;
+
+  logger.info('Processing CSV export job', {
+    jobId,
+    accountId: msgAccountId,
+    messageId: record.messageId,
+    assetType,
+    options,
+  });
+
+  const jobStateService = new JobStateService(s3Service, bucketName, 'csv-export');
+
+  // Import CSVExportProcessor dynamically
+  const { CSVExportProcessor } = await import(
+    './features/asset-management/processors/CSVExportProcessor'
+  );
+  const csvExportProcessor = new CSVExportProcessor(msgAccountId);
+
+  try {
+    await cleanupStuckJobs(jobStateService, 'csv-export');
+    await initializeCSVExportJob(jobStateService, jobId, message);
+
+    // Set up job tracking
+    csvExportProcessor.setJobStateService(jobStateService, jobId);
+
+    // Generate the CSV export
+    const result = await csvExportProcessor.generateCSVExport(assetType, options || {});
+
+    // Save the result
+    const { JobRepository } = await import('./shared/services/jobs/JobRepository');
+    const jobRepository = new JobRepository(s3Service, bucketName);
+    await jobRepository.saveJobResult(jobId, result);
+
+    // Persist the job index immediately so result is available
+    await cacheService.persistJobIndex();
+
+    // Mark job as completed
+    await jobStateService.updateJobStatus(jobId, {
+      status: 'completed',
+      endTime: new Date().toISOString(),
+      message: `CSV export completed: ${result.count} ${assetType}(s) exported`,
+      progress: 100,
+      stats: {
+        totalAssets: result.count,
+        processedAssets: result.count,
+      },
+    });
+
+    logger.info('CSV export job completed successfully', {
+      jobId,
+      assetType,
+      count: result.count,
+    });
+  } catch (error) {
+    await handleCSVExportError(jobStateService, jobId, error);
+  }
+}
+
+/**
+ * Initialize a CSV export job
+ */
+async function initializeCSVExportJob(
+  jobStateService: JobStateService,
+  jobId: string,
+  message: CSVExportMessage
+): Promise<void> {
+  // Check if job already exists (created by API Lambda)
+  const existingJob = await jobStateService.getJobStatus(jobId);
+  if (existingJob) {
+    // Job already exists, just update it to processing
+    await jobStateService.updateJobStatus(jobId, {
+      status: 'processing',
+      message: `Generating CSV export for ${message.assetType}`,
+      progress: 0,
+    });
+    logger.info('Updated existing CSV export job to processing', { jobId });
+  } else {
+    // Fallback: create the job if it doesn't exist
+    await jobStateService.createJob(jobId, {
+      status: 'processing',
+      message: message.initialMessage || `Generating CSV export for ${message.assetType}`,
+      progress: 0,
+      startTime: new Date().toISOString(),
+    });
+    logger.info('Created new CSV export job (fallback)', { jobId });
+  }
+}
+
+/**
+ * Handle CSV export job errors
+ */
+async function handleCSVExportError(
+  jobStateService: JobStateService,
+  jobId: string,
+  error: any
+): Promise<void> {
+  logger.error('CSV export job failed', {
+    jobId,
+    error: error instanceof Error ? error.message : 'Unknown error',
+    stack: error instanceof Error ? error.stack : undefined,
+  });
+
+  await jobStateService.updateJobStatus(jobId, {
+    status: 'failed',
+    endTime: new Date().toISOString(),
+    message: `CSV export failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
     error: error instanceof Error ? error.message : 'Unknown error',
   });
 }

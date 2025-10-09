@@ -340,18 +340,31 @@ export const assetsApi = {
     sortOrder?: string;
     filters?: Record<string, any>;
   }): Promise<any> {
+    // Convert singular asset type to plural for API endpoint
+    const pluralMap: Record<string, string> = {
+      'dashboard': 'dashboards',
+      'analysis': 'analyses',
+      'dataset': 'datasets',
+      'datasource': 'datasources',
+      'folder': 'folders',
+      'user': 'users',
+      'group': 'groups',
+    };
+    const pluralType = pluralMap[assetType] || assetType;
+
     const queryParams: any = { ...params };
     if (params?.filters) {
       queryParams.filters = JSON.stringify(params.filters);
     }
-    const response = await apiClient.get<ApiResponse<any>>(`/assets/${assetType}/export`, {
+    const response = await apiClient.get<ApiResponse<any>>(`/assets/${pluralType}/export`, {
       params: queryParams,
       timeout: 300000 // 5 minutes timeout for export
     });
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to export assets');
     }
-    return response.data.data;
+    // Return the whole data object which contains jobId, status, message
+    return response.data;
   },
 
   // Get archived assets with pagination

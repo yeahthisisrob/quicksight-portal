@@ -66,11 +66,23 @@ export interface BulkOperationJobConfig extends BaseJobConfig {
   maxConcurrency?: number;
 }
 
+export interface CSVExportJobConfig extends BaseJobConfig {
+  jobType: 'csv-export';
+  assetType: string;
+  options?: {
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    filters?: Record<string, any>;
+  };
+}
+
 export type JobConfig =
   | ExportJobConfig
   | DeployJobConfig
   | ActivityRefreshJobConfig
-  | BulkOperationJobConfig;
+  | BulkOperationJobConfig
+  | CSVExportJobConfig;
 
 export class JobFactory {
   private static instance: JobFactory;
@@ -125,6 +137,10 @@ export class JobFactory {
         ...(config.jobType === 'bulk-operation' && {
           operationConfig: config.operationConfig,
           estimatedOperations: config.estimatedOperations,
+        }),
+        ...(config.jobType === 'csv-export' && {
+          assetType: config.assetType,
+          exportOptions: config.options,
         }),
       });
 
@@ -206,6 +222,8 @@ export class JobFactory {
     } else if (config.jobType === 'bulk-operation') {
       const opType = config.operationConfig?.operationType || 'bulk';
       return `Bulk ${opType} operation queued (${config.estimatedOperations} items)`;
+    } else if (config.jobType === 'csv-export') {
+      return `CSV export job for ${config.assetType} queued`;
     }
     return 'Job queued';
   }
@@ -227,6 +245,11 @@ export class JobFactory {
         estimatedOperations: config.estimatedOperations,
         batchSize: config.batchSize,
         maxConcurrency: config.maxConcurrency,
+      };
+    } else if (config.jobType === 'csv-export') {
+      return {
+        assetType: config.assetType,
+        options: config.options,
       };
     }
     return {};

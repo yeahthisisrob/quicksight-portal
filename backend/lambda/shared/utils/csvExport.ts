@@ -22,26 +22,54 @@ const ASSET_CONFIGS: Record<string, CSVColumn[]> = {
   dashboard: [
     { header: 'Name', field: 'name' },
     { header: 'ID', field: 'id' },
-    { header: 'Status', field: ['metadata.status', 'status'], format: (v) => v || 'Unknown' },
+    {
+      header: 'Status',
+      field: ['dashboardStatus', 'metadata.status', 'status'],
+      format: (v) => v || 'Unknown',
+    },
     {
       header: 'Last Modified',
-      field: ['lastModified', 'metadata.lastUpdatedTime'],
+      field: ['lastUpdatedTime', 'lastModified', 'metadata.lastUpdatedTime'],
       format: formatDate,
     },
     {
       header: 'Created',
-      field: ['created', 'metadata.createdTime', 'createdTime'],
+      field: ['createdTime', 'created', 'metadata.createdTime'],
       format: formatDate,
     },
     {
-      header: 'Last 30 Day Views',
-      field: 'viewStats.last30Days.totalViews',
+      header: 'Visual Count',
+      field: 'visualCount',
+      format: (v) => v ?? 0,
+    },
+    {
+      header: 'Sheet Count',
+      field: 'sheetCount',
+      format: (v) => v ?? 0,
+    },
+    {
+      header: 'Dataset Count',
+      field: 'datasetCount',
+      format: (v) => v ?? 0,
+    },
+    {
+      header: 'Total Views',
+      field: ['activity.totalViews', 'viewStats.last30Days.totalViews', 'viewStats.totalViews'],
       format: (v) => v ?? 0,
     },
     {
       header: 'Unique Viewers',
-      field: 'viewStats.last30Days.uniqueViewers',
+      field: [
+        'activity.uniqueViewers',
+        'viewStats.last30Days.uniqueViewers',
+        'viewStats.uniqueViewers',
+      ],
       format: (v) => v ?? 0,
+    },
+    {
+      header: 'Last Viewed',
+      field: ['activity.lastViewed', 'viewStats.lastViewed'],
+      format: formatDate,
     },
     { header: 'Tags', field: 'tags', format: formatTags },
   ],
@@ -51,45 +79,89 @@ const ASSET_CONFIGS: Record<string, CSVColumn[]> = {
     { header: 'ID', field: 'id' },
     {
       header: 'Import Mode',
-      field: ['metadata.importMode', 'importMode'],
+      field: ['importMode', 'metadata.importMode'],
       format: (v) => v || 'Unknown',
     },
     {
       header: 'Source Type',
-      field: ['metadata.datasourceType', 'datasourceType'],
+      field: ['sourceType', 'metadata.sourceType', 'metadata.datasourceType', 'datasourceType'],
       format: (v) => v || 'Unknown',
     },
     {
       header: 'Last Modified',
-      field: ['lastModified', 'metadata.lastUpdatedTime'],
+      field: ['lastUpdatedTime', 'lastModified', 'metadata.lastUpdatedTime'],
       format: formatDate,
     },
     {
       header: 'Created',
-      field: ['created', 'metadata.createdTime', 'createdTime'],
+      field: ['createdTime', 'created', 'metadata.createdTime'],
       format: formatDate,
     },
-    { header: 'Used By', field: 'metadata.relatedAssets', format: countRelatedAssets('used_by') },
-    { header: 'Uses', field: 'metadata.relatedAssets', format: countRelatedAssets('uses') },
+    {
+      header: 'Field Count',
+      field: 'fieldCount',
+      format: (v) => v ?? 0,
+    },
+    {
+      header: 'Size (Bytes)',
+      field: ['sizeInBytes', 'metadata.consumedSpiceCapacityInBytes'],
+      format: (v) => v ?? 0,
+    },
+    { header: 'Used By', field: 'relatedAssets', format: countRelatedAssets('used_by') },
+    { header: 'Uses', field: 'relatedAssets', format: countRelatedAssets('uses') },
     { header: 'Tags', field: 'tags', format: formatTags },
   ],
 
   analysis: [
     { header: 'Name', field: 'name' },
     { header: 'ID', field: 'id' },
-    { header: 'Status', field: ['metadata.status', 'status'], format: (v) => v || 'Unknown' },
+    {
+      header: 'Status',
+      field: ['dashboardStatus', 'metadata.status', 'status'],
+      format: (v) => v || 'Unknown',
+    },
     {
       header: 'Last Modified',
-      field: ['lastModified', 'metadata.lastUpdatedTime'],
+      field: ['lastUpdatedTime', 'lastModified', 'metadata.lastUpdatedTime'],
       format: formatDate,
     },
     {
       header: 'Created',
-      field: ['created', 'metadata.createdTime', 'createdTime'],
+      field: ['createdTime', 'created', 'metadata.createdTime'],
       format: formatDate,
     },
-    { header: 'Used By', field: 'metadata.relatedAssets', format: countRelatedAssets('used_by') },
-    { header: 'Uses', field: 'metadata.relatedAssets', format: countRelatedAssets('uses') },
+    {
+      header: 'Visual Count',
+      field: 'visualCount',
+      format: (v) => v ?? 0,
+    },
+    {
+      header: 'Sheet Count',
+      field: 'sheetCount',
+      format: (v) => v ?? 0,
+    },
+    {
+      header: 'Dataset Count',
+      field: 'datasetCount',
+      format: (v) => v ?? 0,
+    },
+    {
+      header: 'Total Views',
+      field: ['activity.totalViews', 'viewStats.totalViews'],
+      format: (v) => v ?? 0,
+    },
+    {
+      header: 'Unique Viewers',
+      field: ['activity.uniqueViewers', 'viewStats.uniqueViewers'],
+      format: (v) => v ?? 0,
+    },
+    {
+      header: 'Last Viewed',
+      field: ['activity.lastViewed', 'viewStats.lastViewed'],
+      format: formatDate,
+    },
+    { header: 'Used By', field: 'relatedAssets', format: countRelatedAssets('used_by') },
+    { header: 'Uses', field: 'relatedAssets', format: countRelatedAssets('uses') },
     { header: 'Tags', field: 'tags', format: formatTags },
   ],
 
@@ -98,30 +170,36 @@ const ASSET_CONFIGS: Record<string, CSVColumn[]> = {
     { header: 'ID', field: 'id' },
     {
       header: 'Type',
-      field: ['metadata.datasourceType', 'metadata.type', 'datasourceType', 'type'],
+      field: [
+        'sourceType',
+        'metadata.sourceType',
+        'metadata.datasourceType',
+        'datasourceType',
+        'type',
+      ],
       format: (v) => v || 'Unknown',
     },
     {
-      header: 'Connection Status',
-      field: ['metadata.connectionStatus', 'connectionStatus'],
+      header: 'Connection Mode',
+      field: ['connectionMode', 'metadata.connectionMode'],
       format: (v) => v || 'Unknown',
     },
     {
       header: 'Last Modified',
-      field: ['lastModified', 'metadata.lastUpdatedTime'],
+      field: ['lastUpdatedTime', 'lastModified', 'metadata.lastUpdatedTime'],
       format: formatDate,
     },
     {
       header: 'Created',
-      field: ['created', 'metadata.createdTime', 'createdTime'],
+      field: ['createdTime', 'created', 'metadata.createdTime'],
       format: formatDate,
     },
-    { header: 'Used By', field: 'metadata.relatedAssets', format: countRelatedAssets('used_by') },
+    { header: 'Used By', field: 'relatedAssets', format: countRelatedAssets('used_by') },
     { header: 'Tags', field: 'tags', format: formatTags },
   ],
 
   user: [
-    { header: 'Username', field: ['userName', 'UserName', 'name', 'metadata.userName'] },
+    { header: 'Username', field: ['name', 'userName', 'UserName', 'metadata.userName'] },
     { header: 'Email', field: ['email', 'Email', 'metadata.email', 'metadata.Email'] },
     { header: 'Role', field: ['role', 'Role', 'metadata.role', 'metadata.Role'] },
     {
@@ -129,15 +207,30 @@ const ASSET_CONFIGS: Record<string, CSVColumn[]> = {
       field: ['active', 'Active', 'metadata.active'],
       format: (v) => (v !== false ? 'Yes' : 'No'),
     },
-    { header: 'Principal ID', field: ['principalId', 'PrincipalId', 'id', 'metadata.principalId'] },
+    { header: 'Principal ID', field: ['id', 'principalId', 'PrincipalId', 'metadata.principalId'] },
     {
       header: 'Groups',
       field: ['groups', 'metadata.groups'],
       format: (v) => (Array.isArray(v) ? v.join('; ') : ''),
     },
     {
-      header: 'Last Activity',
-      field: ['lastActivityTime', 'metadata.lastActivityTime'],
+      header: 'Group Count',
+      field: 'groupCount',
+      format: (v) => v ?? 0,
+    },
+    {
+      header: 'Total Activities',
+      field: ['activity.totalActivities'],
+      format: (v) => v ?? 0,
+    },
+    {
+      header: 'Last Active',
+      field: ['activity.lastActive', 'lastActivityTime', 'metadata.lastActivityTime'],
+      format: formatDate,
+    },
+    {
+      header: 'Created',
+      field: ['createdTime', 'created', 'metadata.createdTime'],
       format: formatDate,
     },
     { header: 'Tags', field: 'tags', format: formatTags },
@@ -152,8 +245,18 @@ const ASSET_CONFIGS: Record<string, CSVColumn[]> = {
       format: (v) => v || 'SHARED',
     },
     {
+      header: 'Path',
+      field: ['path', 'metadata.fullPath'],
+      format: (v) => v || '/',
+    },
+    {
+      header: 'Parent ID',
+      field: ['parentId', 'metadata.parentId'],
+    },
+    {
       header: 'Created',
       field: [
+        'createdTime',
         'created',
         'CreatedTime',
         'Folder.CreatedTime',
@@ -165,6 +268,7 @@ const ASSET_CONFIGS: Record<string, CSVColumn[]> = {
     {
       header: 'Last Modified',
       field: [
+        'lastUpdatedTime',
         'lastModified',
         'LastUpdatedTime',
         'Folder.LastUpdatedTime',
@@ -192,6 +296,36 @@ const ASSET_CONFIGS: Record<string, CSVColumn[]> = {
       format: (v) => v ?? 0,
     },
     { header: 'Tags', field: ['tags', 'Tags'], format: formatTags },
+  ],
+
+  group: [
+    { header: 'Name', field: ['name', 'groupName', 'GroupName'] },
+    { header: 'ID', field: 'id' },
+    {
+      header: 'Description',
+      field: ['description', 'metadata.description'],
+    },
+    {
+      header: 'Created',
+      field: ['createdTime', 'created', 'metadata.createdTime'],
+      format: formatDate,
+    },
+    {
+      header: 'Last Modified',
+      field: ['lastUpdatedTime', 'lastModified', 'metadata.lastUpdatedTime'],
+      format: formatDate,
+    },
+    {
+      header: 'Member Count',
+      field: ['memberCount', 'metadata.memberCount'],
+      format: (v) => v ?? 0,
+    },
+    {
+      header: 'Assets Count',
+      field: 'assetsCount',
+      format: (v) => v ?? 0,
+    },
+    { header: 'Tags', field: 'tags', format: formatTags },
   ],
 };
 

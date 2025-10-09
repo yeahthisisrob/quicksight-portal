@@ -434,6 +434,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assets/{assetType}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export assets to CSV (queues a job)
+         * @description Queues a background job to generate a CSV export of all assets of the specified type. Returns a job ID for polling progress.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Optional search term to filter assets */
+                    search?: string;
+                    /** @description Optional field to sort by */
+                    sortBy?: string;
+                    /** @description Optional sort order */
+                    sortOrder?: "asc" | "desc";
+                    filters?: string;
+                };
+                header?: never;
+                path: {
+                    assetType: "dashboards" | "datasets" | "analyses" | "datasources" | "folders" | "users" | "groups";
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description CSV export job queued successfully */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            success?: boolean;
+                            /** @example csv-export-1234567890-abcd1234 */
+                            jobId?: string;
+                            /** @example queued */
+                            status?: string;
+                            /** @example CSV export job for dashboards queued */
+                            message?: string;
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                500: components["responses"]["InternalServerError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users": {
         parameters: {
             query?: never;

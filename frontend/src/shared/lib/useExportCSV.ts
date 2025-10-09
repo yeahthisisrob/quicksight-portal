@@ -1,31 +1,81 @@
 import { useSnackbar } from 'notistack';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
-import { assetsApi } from '@/shared/api';
+import { assetsApi, jobsApi } from '@/shared/api';
+import { useJobPolling } from '@/shared/hooks/useJobPolling';
 
-import { downloadCSV, generateCSVFilename } from './exportUtils';
+import { downloadCSV } from './exportUtils';
 
 export function useExportCSV(assetType: string, assetLabel: string) {
   const { enqueueSnackbar } = useSnackbar();
+  const [isExporting, setIsExporting] = useState(false);
 
+  // Handle job completion - download the CSV from job result
+  const handleJobComplete = useCallback(
+    async (job: any) => {
+      try {
+        // Get the job result which contains the CSV data
+        const result = await jobsApi.getJobResult(job.jobId);
+
+        if (result && result.csv && result.filename) {
+          downloadCSV(result.csv, result.filename);
+          enqueueSnackbar(
+            `Export completed! ${result.count || 0} ${assetLabel.toLowerCase()} exported.`,
+            { variant: 'success' }
+          );
+        } else {
+          enqueueSnackbar('Export completed but no data was returned', { variant: 'warning' });
+        }
+      } catch (error) {
+        console.error('Failed to download CSV export:', error);
+        enqueueSnackbar('Export completed but download failed', { variant: 'error' });
+      } finally {
+        setIsExporting(false);
+      }
+    },
+    [assetLabel, enqueueSnackbar]
+  );
+
+  // Handle job failure
+  const handleJobFailed = useCallback(
+    (job: any) => {
+      enqueueSnackbar(job.error || 'Export failed', { variant: 'error' });
+      setIsExporting(false);
+    },
+    [enqueueSnackbar]
+  );
+
+  // Set up job polling
+  const { startPolling } = useJobPolling({
+    onComplete: handleJobComplete,
+    onFailed: handleJobFailed,
+  });
+
+  // Start the export
   const handleExportCSV = useCallback(async () => {
+    if (isExporting) return;
+
+    setIsExporting(true);
+
     try {
       enqueueSnackbar(`Starting export of all ${assetLabel.toLowerCase()}...`, { variant: 'info' });
-      
-      // Call API to export all assets
+
+      // Queue the CSV export job
       const response = await assetsApi.exportAssets(assetType);
-      
-      // The API returns CSV data directly
-      if (response.csv) {
-        downloadCSV(response.csv, response.filename || generateCSVFilename(assetLabel.toLowerCase()));
-        enqueueSnackbar(`Export completed! ${response.count} ${assetLabel.toLowerCase()} exported.`, { variant: 'success' });
+
+      if (response.jobId) {
+        enqueueSnackbar(`Export job queued (Job ID: ${response.jobId})`, { variant: 'info' });
+        startPolling(response.jobId);
       } else {
-        enqueueSnackbar('No data to export', { variant: 'warning' });
+        enqueueSnackbar('Export request failed - no job ID returned', { variant: 'error' });
+        setIsExporting(false);
       }
-    } catch (_error) {
-      enqueueSnackbar('Export failed. Please try again.', { variant: 'error' });
+    } catch (error) {
+      console.error('Failed to start export:', error);
+      enqueueSnackbar('Failed to start export', { variant: 'error' });
+      setIsExporting(false);
     }
-  }, [assetType, assetLabel, enqueueSnackbar]);
+  }, [assetType, assetLabel, enqueueSnackbar, isExporting, startPolling]);
 
   return handleExportCSV;
 }

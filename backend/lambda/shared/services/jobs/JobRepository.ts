@@ -14,7 +14,8 @@ export type JobType =
   | 'ingestion'
   | 'rebuild'
   | 'activity-refresh'
-  | 'bulk-operation';
+  | 'bulk-operation'
+  | 'csv-export';
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';
 
 export interface JobMetadata {

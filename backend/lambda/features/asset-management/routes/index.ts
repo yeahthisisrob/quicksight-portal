@@ -14,6 +14,12 @@ export const assetManagementRoutes: RouteHandler[] = [
 
   {
     method: 'GET',
+    path: /^\/assets\/(dashboards|analyses|datasets|datasources|folders|groups|users)\/export$/,
+    handler: (event) => handler.exportAssets(event),
+  },
+
+  {
+    method: 'GET',
     path: '/assets/archived',
     handler: (event) => handler.listArchived(event),
   },
