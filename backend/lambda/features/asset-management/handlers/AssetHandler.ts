@@ -5,6 +5,7 @@ import { STATUS_CODES, ACTIVITY_LIMITS } from '../../../shared/constants';
 import { S3Service } from '../../../shared/services/aws/S3Service';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
 import { CacheService } from '../../../shared/services/cache/CacheService';
+import { jobFactory } from '../../../shared/services/jobs/JobFactory';
 import { ASSET_TYPES, ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
 import { successResponse, errorResponse, createResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
@@ -97,6 +98,72 @@ export class AssetHandler {
         event,
         STATUS_CODES.INTERNAL_SERVER_ERROR,
         'Failed to clear memory cache'
+      );
+    }
+  }
+
+  /**
+   * Export assets to CSV (queues a job)
+   */
+  public async exportAssets(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+
+      // Extract asset type from path: /assets/{assetType}/export
+      const pathMatch = event.path.match(/\/assets\/([^/]+)\/export/);
+      if (!pathMatch || !pathMatch[1]) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Invalid path format');
+      }
+
+      const assetType = pathMatch[1];
+
+      // Validate asset type
+      const validTypes = Object.values(ASSET_TYPES_PLURAL);
+      if (!validTypes.includes(assetType as any)) {
+        return errorResponse(
+          event,
+          STATUS_CODES.BAD_REQUEST,
+          `Invalid asset type. Must be one of: ${validTypes.join(', ')}`
+        );
+      }
+
+      // Parse query parameters for filtering
+      const params = event.queryStringParameters || {};
+      const options = {
+        search: params.search,
+        sortBy: params.sortBy,
+        sortOrder: (params.sortOrder?.toLowerCase() as 'asc' | 'desc') || undefined,
+        filters: params.filters ? JSON.parse(params.filters) : undefined,
+      };
+
+      logger.info('Starting CSV export job', {
+        user: user.email,
+        assetType,
+        options,
+      });
+
+      // Create CSV export job
+      const result = await jobFactory.createJob({
+        jobType: 'csv-export',
+        assetType,
+        options,
+        accountId: this.accountId,
+        bucketName: this.bucketName,
+        userId: user.email || user.userId || 'unknown',
+      });
+
+      return createResponse(event, STATUS_CODES.ACCEPTED, {
+        success: true,
+        jobId: result.jobId,
+        status: result.status,
+        message: result.message,
+      });
+    } catch (error: any) {
+      logger.error('CSV export failed', { error });
+      return errorResponse(
+        event,
+        STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error.message || 'Failed to start CSV export'
       );
     }
   }

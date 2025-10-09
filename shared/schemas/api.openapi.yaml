@@ -327,6 +327,65 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedAssetResponse'
 
+  /api/assets/{assetType}/export:
+    get:
+      summary: Export assets to CSV (queues a job)
+      description: Queues a background job to generate a CSV export of all assets of the specified type. Returns a job ID for polling progress.
+      parameters:
+        - name: assetType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [dashboards, datasets, analyses, datasources, folders, users, groups]
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Optional search term to filter assets
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+          description: Optional field to sort by
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+          description: Optional sort order
+        - name: filters
+          in: query
+          schema:
+            type: string
+            description: JSON stringified filters object
+      responses:
+        '202':
+          description: CSV export job queued successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  jobId:
+                    type: string
+                    example: "csv-export-1234567890-abcd1234"
+                  status:
+                    type: string
+                    example: "queued"
+                  message:
+                    type: string
+                    example: "CSV export job for dashboards queued"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /api/users:
     get:
       summary: List users
