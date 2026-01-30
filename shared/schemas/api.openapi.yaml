@@ -1370,6 +1370,63 @@ components:
         hasMore:
           type: boolean
 
+    # Filter types (shared across frontend and backend)
+    TagFilter:
+      type: object
+      description: Filter for tags with key-value pairs
+      required: [key, value]
+      properties:
+        key:
+          type: string
+          description: Tag key
+        value:
+          type: string
+          description: Tag value
+
+    AssetFilter:
+      type: object
+      description: Filter for selecting specific assets
+      required: [id, name, type]
+      properties:
+        id:
+          type: string
+          description: Asset ID
+        name:
+          type: string
+          description: Asset display name
+        type:
+          type: string
+          description: Asset type (dashboard, analysis, dataset, etc.)
+
+    # Field search parameters for data catalog
+    FieldSearchParams:
+      type: object
+      description: Parameters for searching and filtering catalog fields
+      properties:
+        query:
+          type: string
+          description: Text search on field name, display name, or description
+        dataType:
+          type: string
+          description: Filter by data type (STRING, INTEGER, DECIMAL, etc.)
+        assetType:
+          type: string
+          description: Filter by source asset type (dashboard, analysis, dataset)
+        isCalculated:
+          type: boolean
+          description: Filter for calculated fields only
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Page number (1-indexed)
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          default: 50
+          description: Number of items per page
+
     # Base asset response
     AssetListItem:
       type: object

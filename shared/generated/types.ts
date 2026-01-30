@@ -1788,6 +1788,43 @@ export interface components {
             totalPages: number;
             hasMore?: boolean;
         };
+        /** @description Filter for tags with key-value pairs */
+        TagFilter: {
+            /** @description Tag key */
+            key: string;
+            /** @description Tag value */
+            value: string;
+        };
+        /** @description Filter for selecting specific assets */
+        AssetFilter: {
+            /** @description Asset ID */
+            id: string;
+            /** @description Asset display name */
+            name: string;
+            /** @description Asset type (dashboard, analysis, dataset, etc.) */
+            type: string;
+        };
+        /** @description Parameters for searching and filtering catalog fields */
+        FieldSearchParams: {
+            /** @description Text search on field name, display name, or description */
+            query?: string;
+            /** @description Filter by data type (STRING, INTEGER, DECIMAL, etc.) */
+            dataType?: string;
+            /** @description Filter by source asset type (dashboard, analysis, dataset) */
+            assetType?: string;
+            /** @description Filter for calculated fields only */
+            isCalculated?: boolean;
+            /**
+             * @description Page number (1-indexed)
+             * @default 1
+             */
+            page: number;
+            /**
+             * @description Number of items per page
+             * @default 50
+             */
+            pageSize: number;
+        };
         AssetListItem: {
             /** @description Asset unique identifier */
             id: string;

@@ -2,12 +2,7 @@ import { GridSortModel } from '@mui/x-data-grid';
 import { useQuery } from '@tanstack/react-query';
 
 import { dataCatalogApi, semanticApi } from '@/shared/api';
-import { useDebounce } from '@/shared/lib';
-
-interface TagFilter {
-  key: string;
-  value: string;
-}
+import { useDebounce, type TagFilter } from '@/shared/lib';
 
 interface UseDataCatalogQueriesProps {
   viewMode: 'physical' | 'semantic' | 'mapping' | 'visual-fields' | 'calculated';
@@ -16,8 +11,6 @@ interface UseDataCatalogQueriesProps {
   searchTerm: string;
   sortModel: GridSortModel;
   unmappedDialogOpen: boolean;
-  tagKey?: string;
-  tagValue?: string;
   includeTags?: TagFilter[];
   excludeTags?: TagFilter[];
   assetIds?: string[];
@@ -30,8 +23,6 @@ export function useDataCatalogQueries({
   searchTerm,
   sortModel,
   unmappedDialogOpen,
-  tagKey,
-  tagValue,
   includeTags,
   excludeTags,
   assetIds,
@@ -56,7 +47,7 @@ export function useDataCatalogQueries({
   }>({
     queryKey: ['data-catalog-paginated', page + 1, pageSize, debouncedSearchTerm, viewMode,
                viewMode !== 'semantic' && sortModel.length > 0 ? `${sortModel[0].field}-${sortModel[0].sort}` : 'no-sort',
-               tagKey, tagValue, includeTagsKey, excludeTagsKey, assetIdsKey],
+               includeTagsKey, excludeTagsKey, assetIdsKey],
     queryFn: () => {
       const sortParams = viewMode !== 'semantic' && sortModel.length > 0 && sortModel[0].sort ? {
         sortBy: sortModel[0].field,
@@ -83,7 +74,6 @@ export function useDataCatalogQueries({
         search: debouncedSearchTerm,
         viewMode: (viewMode === 'physical' ? 'all' : viewMode === 'calculated' ? 'calculated' : viewMode === 'semantic' ? 'all' : 'all') as 'all' | 'calculated' | 'fields',
         ...sortParams,
-        ...(tagKey && tagValue ? { tagKey, tagValue } : {}),
       };
 
       // Add include/exclude tag filters as JSON strings

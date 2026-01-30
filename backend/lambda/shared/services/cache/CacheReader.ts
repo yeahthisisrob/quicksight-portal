@@ -12,6 +12,12 @@ import {
   matchesStatusFilter,
 } from '../../types/assetFilterTypes';
 import { ASSET_TYPES } from '../../types/assetTypes';
+import {
+  type TagFilter,
+  matchesIncludeTags,
+  matchesExcludeTags,
+  matchesAssetIds,
+} from '../../types/filterTypes';
 import { logger } from '../../utils/logger';
 
 export class CacheReader {
@@ -310,11 +316,156 @@ export class CacheReader {
     };
   }
 
+  /**
+   * Search assets with tag filtering at the cache level
+   * This avoids loading all assets and then filtering in JavaScript
+   *
+   * @param options.includeTags - Tags to include (OR logic: asset has at least one)
+   * @param options.excludeTags - Tags to exclude (AND NOT logic: asset has none)
+   * @param options.assetIds - Specific asset IDs to include (whitelist)
+   * @param options.statusFilter - Filter by asset status (default: ACTIVE)
+   * @param options.search - Text search on name/id/description
+   * @param options.types - Asset types to include
+   * @param options.page - Page number (1-indexed)
+   * @param options.pageSize - Number of items per page
+   * @param options.sortBy - Field to sort by
+   * @param options.sortOrder - Sort order (asc/desc)
+   */
+  public async searchAssetsWithFilters(options: {
+    includeTags?: TagFilter[];
+    excludeTags?: TagFilter[];
+    assetIds?: string[];
+    statusFilter?: AssetStatusFilter;
+    search?: string;
+    types?: AssetType[];
+    page?: number;
+    pageSize?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }): Promise<{
+    assets: CacheEntry[];
+    pagination: {
+      page: number;
+      pageSize: number;
+      totalItems: number;
+      totalPages: number;
+      hasMore: boolean;
+    };
+  }> {
+    const page = options.page || 1;
+    const pageSize = options.pageSize || QUICKSIGHT_LIMITS.DEFAULT_MAX_RESULTS;
+    const offset = (page - 1) * pageSize;
+    const statusFilter = options.statusFilter || DEFAULT_STATUS_FILTER;
+
+    // Get assets from cache with status filtering
+    const masterCache = await this.getMasterCache({ statusFilter });
+    let allAssets: CacheEntry[] = [];
+
+    // Collect assets from specified types or all types
+    const types = options.types || Object.values(ASSET_TYPES);
+    for (const type of types) {
+      allAssets = allAssets.concat(masterCache.entries[type as AssetType] || []);
+    }
+
+    // Apply tag and asset ID filters at the cache level
+    const hasTagFilters =
+      (options.includeTags && options.includeTags.length > 0) ||
+      (options.excludeTags && options.excludeTags.length > 0) ||
+      (options.assetIds && options.assetIds.length > 0);
+
+    if (hasTagFilters) {
+      allAssets = allAssets.filter((asset) => {
+        const assetTags: TagFilter[] = (asset.tags || []).map(
+          (t: { key: string; value: string }) => ({
+            key: t.key,
+            value: t.value,
+          })
+        );
+
+        // Check asset ID filter (whitelist)
+        if (!matchesAssetIds(asset.assetId, options.assetIds)) {
+          return false;
+        }
+
+        // Check include tags (OR logic)
+        if (!matchesIncludeTags(assetTags, options.includeTags || [])) {
+          return false;
+        }
+
+        // Check exclude tags (AND NOT logic)
+        if (!matchesExcludeTags(assetTags, options.excludeTags || [])) {
+          return false;
+        }
+
+        return true;
+      });
+
+      logger.debug('Tag filtering applied', {
+        includeTags: options.includeTags?.length || 0,
+        excludeTags: options.excludeTags?.length || 0,
+        assetIds: options.assetIds?.length || 0,
+        remainingAssets: allAssets.length,
+      });
+    }
+
+    // Apply text search filter
+    if (options.search) {
+      const query = options.search.toLowerCase();
+      allAssets = allAssets.filter(
+        (asset) =>
+          asset.assetName.toLowerCase().includes(query) ||
+          asset.assetId.toLowerCase().includes(query) ||
+          asset.metadata?.description?.toLowerCase().includes(query) ||
+          asset.arn?.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply sorting
+    if (options.sortBy) {
+      const sortBy = options.sortBy;
+      const sortOrder = options.sortOrder || 'asc';
+      allAssets.sort((a, b) => {
+        const aVal = this.getAssetSortValue(a, sortBy);
+        const bVal = this.getAssetSortValue(b, sortBy);
+
+        if (sortOrder === 'asc') {
+          return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+        } else {
+          return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+        }
+      });
+    }
+
+    // Apply pagination
+    const totalItems = allAssets.length;
+    const totalPages = Math.ceil(totalItems / pageSize);
+    const paginatedAssets = allAssets.slice(offset, offset + pageSize);
+
+    return {
+      assets: paginatedAssets,
+      pagination: {
+        page,
+        pageSize,
+        totalItems,
+        totalPages,
+        hasMore: offset + pageSize < totalItems,
+      },
+    };
+  }
+
+  /**
+   * Search fields with cache-level filtering
+   * Supports query, asset type, data type, calculated field filtering, and pagination
+   */
   public async searchFields(options: {
     query?: string;
     assetTypes?: AssetType[];
-    includeCalculated?: boolean;
+    dataType?: string;
+    isCalculated?: boolean;
+    includeCalculated?: boolean; // Deprecated: use isCalculated instead
     limit?: number;
+    page?: number;
+    pageSize?: number;
   }): Promise<FieldInfo[]> {
     try {
       const fieldCache = await this.s3Adapter.getFieldCache();
@@ -324,7 +475,7 @@ export class CacheReader {
 
       let filteredFields = fieldCache;
 
-      // Apply filters
+      // Apply text search filter at cache level
       if (options.query) {
         const query = options.query.toLowerCase();
         filteredFields = filteredFields.filter(
@@ -335,6 +486,7 @@ export class CacheReader {
         );
       }
 
+      // Apply asset type filter
       if (options.assetTypes) {
         const assetTypes = options.assetTypes;
         filteredFields = filteredFields.filter((field: FieldInfo) =>
@@ -342,12 +494,25 @@ export class CacheReader {
         );
       }
 
-      if (options.includeCalculated === false) {
+      // Apply data type filter
+      if (options.dataType) {
+        filteredFields = filteredFields.filter(
+          (field: FieldInfo) => field.dataType === options.dataType
+        );
+      }
+
+      // Apply calculated field filter (new isCalculated takes precedence)
+      if (options.isCalculated !== undefined) {
+        filteredFields = filteredFields.filter(
+          (field: FieldInfo) => field.isCalculated === options.isCalculated
+        );
+      } else if (options.includeCalculated === false) {
+        // Backwards compatibility
         filteredFields = filteredFields.filter((field: FieldInfo) => !field.isCalculated);
       }
 
-      // Apply limit
-      if (options.limit) {
+      // Apply limit (for non-paginated calls)
+      if (options.limit && !options.page) {
         filteredFields = filteredFields.slice(0, options.limit);
       }
 
@@ -356,6 +521,56 @@ export class CacheReader {
       logger.error('Failed to search fields', { error });
       return [];
     }
+  }
+
+  /**
+   * Search fields with pagination support - returns paginated results
+   * This is the preferred method for paginated field queries
+   */
+  public async searchFieldsPaginated(options: {
+    query?: string;
+    assetTypes?: AssetType[];
+    dataType?: string;
+    isCalculated?: boolean;
+    page?: number;
+    pageSize?: number;
+  }): Promise<{
+    fields: FieldInfo[];
+    pagination: {
+      page: number;
+      pageSize: number;
+      totalItems: number;
+      totalPages: number;
+      hasMore: boolean;
+    };
+  }> {
+    const page = options.page || 1;
+    const pageSize = options.pageSize || QUICKSIGHT_LIMITS.DEFAULT_MAX_RESULTS;
+    const offset = (page - 1) * pageSize;
+
+    // Get filtered fields using cache-level filtering
+    const filteredFields = await this.searchFields({
+      query: options.query,
+      assetTypes: options.assetTypes,
+      dataType: options.dataType,
+      isCalculated: options.isCalculated,
+    });
+
+    // Apply pagination
+    const totalItems = filteredFields.length;
+    const totalPages = Math.ceil(totalItems / pageSize);
+    const paginatedFields = filteredFields.slice(offset, offset + pageSize);
+
+    return {
+      fields: paginatedFields,
+      pagination: {
+        page,
+        pageSize,
+        totalItems,
+        totalPages,
+        hasMore: offset + pageSize < totalItems,
+      },
+    };
   }
 
   private getAssetSortValue(asset: CacheEntry, sortBy: string): any {

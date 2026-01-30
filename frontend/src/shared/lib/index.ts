@@ -16,3 +16,5 @@ export { useTagRefresh } from './useTagRefresh';
 export * from './columnUtils';
 export * from './exportUtils';
 export { useExportCSV } from './useExportCSV';
+export { useFilters } from './useFilters';
+export type { UseFiltersOptions, UseFiltersReturn, TagFilter, AssetFilter } from './useFilters';

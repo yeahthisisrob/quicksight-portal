@@ -3,6 +3,7 @@ import { cacheService } from '../../../shared/services/cache/CacheService';
 import { type FieldInfo } from '../../../shared/services/cache/types';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
+import { type TagFilter } from '../../../shared/types/filterTypes';
 import { PORTAL_EXCLUDE_TAGS } from '../../../shared/utils/constants';
 import { logger } from '../../../shared/utils/logger';
 import { FolderService } from '../../organization/services/FolderService';
@@ -243,80 +244,62 @@ export class CatalogService {
 
   public async getDataCatalog(
     tagFilter?: { key: string; value: string },
-    includeTags?: Array<{ key: string; value: string }>,
-    excludeTags?: Array<{ key: string; value: string }>,
+    includeTags?: TagFilter[],
+    excludeTags?: TagFilter[],
     assetIds?: string[]
   ): Promise<DataCatalogResult> {
     const startTime = Date.now();
 
     try {
       const allFieldData = await cacheService.searchFields({});
-      const { assets: allCachedAssets } = await cacheService.getAssets({
-        statusFilter: AssetStatusFilter.ACTIVE,
-      });
 
+      // Build combined tag filters for cache-level filtering
+      // Legacy single tag filter is converted to includeTags format
+      const effectiveIncludeTags: TagFilter[] = [...(includeTags || [])];
+      if (tagFilter) {
+        effectiveIncludeTags.push({ key: tagFilter.key, value: tagFilter.value });
+      }
+
+      // Get excluded assets from portal tag
       const excludedAssets = await this.folderService.getExcludedAssets(
         PORTAL_EXCLUDE_TAGS.EXCLUDE_FROM_PORTAL
       );
 
-      let includedAssets = allCachedAssets.filter(
-        (asset: CacheEntry) => !excludedAssets.has(asset.assetId)
-      );
+      // Use cache-level filtering for tag and asset ID filters
+      // This is more efficient than loading all assets and filtering in JavaScript
+      const hasFilters =
+        effectiveIncludeTags.length > 0 ||
+        (excludeTags && excludeTags.length > 0) ||
+        (assetIds && assetIds.length > 0);
 
-      // Legacy single tag filter (backwards compatible)
-      if (tagFilter) {
-        includedAssets = includedAssets.filter((asset: CacheEntry) => {
-          const tags = asset.tags || [];
-          return tags.some(
-            (tag: { key: string; value: string }) =>
-              tag.key === tagFilter.key && tag.value === tagFilter.value
-          );
+      let includedAssets: CacheEntry[];
+
+      if (hasFilters) {
+        // Use efficient cache-level filtering
+        const { assets } = await cacheService.searchAssetsWithFilters({
+          includeTags: effectiveIncludeTags.length > 0 ? effectiveIncludeTags : undefined,
+          excludeTags: excludeTags && excludeTags.length > 0 ? excludeTags : undefined,
+          assetIds: assetIds && assetIds.length > 0 ? assetIds : undefined,
+          statusFilter: AssetStatusFilter.ACTIVE,
         });
-        logger.info(
-          `Applied tag filter ${tagFilter.key}=${tagFilter.value}: ${includedAssets.length} assets`
-        );
-      }
 
-      // Include tags filter: asset must have at least one of these tags (OR logic)
-      if (includeTags && includeTags.length > 0) {
-        includedAssets = includedAssets.filter((asset: CacheEntry) => {
-          const assetTags = asset.tags || [];
-          return includeTags.some((includeTag) =>
-            assetTags.some(
-              (tag: { key: string; value: string }) =>
-                tag.key === includeTag.key && tag.value === includeTag.value
-            )
-          );
+        // Filter out portal-excluded assets
+        includedAssets = assets.filter((asset: CacheEntry) => !excludedAssets.has(asset.assetId));
+
+        logger.info('Applied cache-level tag filtering', {
+          includeTags: effectiveIncludeTags.length,
+          excludeTags: excludeTags?.length || 0,
+          assetIds: assetIds?.length || 0,
+          resultCount: includedAssets.length,
         });
-        logger.info(
-          `Applied include tags filter (${includeTags.length} tags): ${includedAssets.length} assets`
-        );
-      }
-
-      // Exclude tags filter: asset must not have any of these tags (AND NOT logic)
-      if (excludeTags && excludeTags.length > 0) {
-        includedAssets = includedAssets.filter((asset: CacheEntry) => {
-          const assetTags = asset.tags || [];
-          return !excludeTags.some((excludeTag) =>
-            assetTags.some(
-              (tag: { key: string; value: string }) =>
-                tag.key === excludeTag.key && tag.value === excludeTag.value
-            )
-          );
+      } else {
+        // No tag/asset filters - get all active assets
+        const { assets: allCachedAssets } = await cacheService.getAssets({
+          statusFilter: AssetStatusFilter.ACTIVE,
         });
-        logger.info(
-          `Applied exclude tags filter (${excludeTags.length} tags): ${includedAssets.length} assets`
-        );
-      }
 
-      // Asset IDs filter: only include fields from specific assets (OR logic)
-      if (assetIds && assetIds.length > 0) {
-        const assetIdSet = new Set(assetIds);
-        includedAssets = includedAssets.filter((asset: CacheEntry) =>
-          assetIdSet.has(asset.assetId)
-        );
-        logger.info(
-          `Applied asset filter (${assetIds.length} assets): ${includedAssets.length} assets`
+        includedAssets = allCachedAssets.filter(
+          (asset: CacheEntry) => !excludedAssets.has(asset.assetId)
         );
       }
 
@@ -351,47 +334,46 @@ export class CatalogService {
       hasMore: boolean;
     };
   }> {
-    const allFieldData = await cacheService.searchFields({});
+    // Use cache-level filtering for efficiency
+    // Pass filters directly to searchFields to filter at cache layer
+    const filteredFieldData = await cacheService.searchFields({
+      query: filters?.query,
+      dataType: filters?.dataType,
+      assetTypes: filters?.assetType ? [filters.assetType as any] : undefined,
+      isCalculated: filters?.isCalculated,
+    });
+
+    // Get assets for field-to-catalog mapping
     const allAssets = await this.getAllAssets();
     const assetLookup = new Map(allAssets.map((asset) => [asset.assetId, asset]));
 
-    let catalogFields: CatalogField[] = [];
+    // Build catalog fields from filtered field data
     const fieldMap = new Map<string, CatalogField>();
-
-    for (const field of allFieldData) {
+    for (const field of filteredFieldData) {
       const asset = assetLookup.get(field.sourceAssetId);
       if (asset) {
         this.addFieldToCatalog(field, asset, fieldMap);
       }
     }
 
-    catalogFields = Array.from(fieldMap.values());
-
-    // Apply filters
-    if (filters) {
-      if (filters.dataType) {
-        catalogFields = catalogFields.filter((f) => f.dataType === filters.dataType);
-      }
-      if (filters.assetType) {
-        catalogFields = catalogFields.filter((f) => f.sourceAssetType === filters.assetType);
-      }
-      if (filters.isCalculated !== undefined) {
-        catalogFields = catalogFields.filter((f) => f.isCalculated === filters.isCalculated);
-      }
-      if (filters.query) {
-        const query = filters.query.toLowerCase();
-        catalogFields = catalogFields.filter(
-          (f) =>
-            f.fieldName.toLowerCase().includes(query) || f.description.toLowerCase().includes(query)
-        );
-      }
-    }
+    const catalogFields = Array.from(fieldMap.values());
 
     // Calculate pagination
     const totalItems = catalogFields.length;
     const totalPages = Math.ceil(totalItems / pageSize);
     const offset = (page - 1) * pageSize;
     const paginatedFields = catalogFields.slice(offset, offset + pageSize);
+
+    logger.debug('Field search with cache-level filtering', {
+      query: filters?.query,
+      dataType: filters?.dataType,
+      assetType: filters?.assetType,
+      isCalculated: filters?.isCalculated,
+      filteredCount: filteredFieldData.length,
+      catalogFieldCount: catalogFields.length,
+      page,
+      pageSize,
+    });
 
     return {
       fields: paginatedFields,

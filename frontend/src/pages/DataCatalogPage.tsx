@@ -3,15 +3,14 @@
  */
 import { Box, Typography, alpha } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
 
-import { 
-  DialogsContainer, 
+import {
+  DialogsContainer,
   PageComponents,
   rowDataProcessors
 } from '@/widgets/data-catalog-dialogs';
 
-import { 
+import {
   DataCatalogHeader,
   DataCatalogProvider,
   DataCatalogStats,
@@ -22,7 +21,7 @@ import {
 
 import { dataCatalogApi } from '@/shared/api/modules/data-catalog';
 import { colors, spacing } from '@/shared/design-system/theme';
-import { useDebounce } from '@/shared/lib';
+import { useDebounce, useFilters } from '@/shared/lib';
 
 const { ContentView, SearchBar } = PageComponents;
 const {
@@ -74,24 +73,20 @@ function getTotalRows(viewMode: string, terms: any[], visualFieldCatalog: any, c
   return catalogData?.pagination?.totalItems || 0;
 }
 
-interface TagFilter {
-  key: string;
-  value: string;
-}
-
-interface AssetFilter {
-  id: string;
-  name: string;
-  type: string;
-}
-
 function DataCatalogPageContent() {
   const state = useDataCatalogState();
-  const [tagFilter, setTagFilter] = useState<{ key: string; value: string } | null>(null);
-  const [includeTags, setIncludeTags] = useState<TagFilter[]>([]);
-  const [excludeTags, setExcludeTags] = useState<TagFilter[]>([]);
-  const [selectedAssets, setSelectedAssets] = useState<AssetFilter[]>([]);
-  
+
+  // Use shared filter hook for tag and asset filtering (uses OpenAPI generated types)
+  const {
+    includeTags,
+    excludeTags,
+    selectedAssets,
+    setIncludeTags,
+    setExcludeTags,
+    setSelectedAssets,
+    getAssetIds,
+  } = useFilters();
+
   // Fetch available tags
   const { data: availableTags = [], isLoading: tagsLoading } = useQuery({
     queryKey: ['available-tags'],
@@ -107,10 +102,9 @@ function DataCatalogPageContent() {
   });
 
   const debouncedSearchTerm = useDebounce(state.searchTerm, 500);
-  const debouncedTagFilter = useDebounce(tagFilter, 300);
   const debouncedIncludeTags = useDebounce(includeTags, 300);
   const debouncedExcludeTags = useDebounce(excludeTags, 300);
-  const debouncedAssetIds = useDebounce(selectedAssets.map(a => a.id), 300);
+  const debouncedAssetIds = useDebounce(getAssetIds(), 300);
 
   const queries = useDataCatalogQueries({
     viewMode: state.viewMode,
@@ -119,8 +113,6 @@ function DataCatalogPageContent() {
     searchTerm: debouncedSearchTerm,
     sortModel: state.sortModel,
     unmappedDialogOpen: state.dialogState.unmappedDialogOpen,
-    tagKey: debouncedTagFilter?.key,
-    tagValue: debouncedTagFilter?.value,
     includeTags: debouncedIncludeTags,
     excludeTags: debouncedExcludeTags,
     assetIds: debouncedAssetIds,
@@ -167,8 +159,6 @@ function DataCatalogPageContent() {
     unmappedFields: queries.unmappedFields,
     availableTags,
     tagsLoading,
-    tagFilter,
-    setTagFilter,
     includeTags,
     setIncludeTags,
     excludeTags,

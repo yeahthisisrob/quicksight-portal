@@ -549,8 +549,27 @@ export class CacheService extends EventEmitter {
     this.memoryAdapter.delete('cache-ingestions');
   }
 
+  /**
+   * Search assets with tag filtering at the cache level
+   * More efficient than loading all assets and filtering in JavaScript
+   */
+  public async searchAssetsWithFilters(
+    options: Parameters<CacheReader['searchAssetsWithFilters']>[0]
+  ): Promise<ReturnType<CacheReader['searchAssetsWithFilters']>> {
+    return await this.cacheReader.searchAssetsWithFilters(options);
+  }
+
   public async searchFields(options: any): Promise<any[]> {
     return await this.cacheReader.searchFields(options);
+  }
+
+  /**
+   * Search fields with pagination using cache-level filtering
+   */
+  public async searchFieldsPaginated(
+    options: Parameters<CacheReader['searchFieldsPaginated']>[0]
+  ): Promise<ReturnType<CacheReader['searchFieldsPaginated']>> {
+    return await this.cacheReader.searchFieldsPaginated(options);
   }
 
   // Allow setting bucket name after initialization for cases where env vars aren't available

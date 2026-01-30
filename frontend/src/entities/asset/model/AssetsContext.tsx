@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 
 import { assetsApi, requestManager } from '@/shared/api';
 
@@ -23,51 +23,71 @@ interface PaginationInfo {
   hasMore?: boolean;  // Made optional to match backend
 }
 
+type FetchParams = {
+  page: number;
+  pageSize: number;
+  search?: string;
+  dateRange?: string;
+  sortBy?: string;
+  sortOrder?: string;
+  filters?: Record<string, any>;
+};
+
+type AssetFetchFn = (
+  page: number,
+  pageSize: number,
+  search?: string,
+  dateRange?: string,
+  sortBy?: string,
+  sortOrder?: string,
+  filters?: Record<string, any>
+) => Promise<void>;
+
 interface AssetsContextType {
   // Cached data
   exportSummary: any;
   exportSummaryLoading: boolean;
-  
+
   // Asset data by type
   dashboards: AssetData[];
   dashboardsLoading: boolean;
   dashboardsPagination: PaginationInfo | null;
-  
+
   datasets: AssetData[];
   datasetsLoading: boolean;
   datasetsPagination: PaginationInfo | null;
-  
+
   analyses: AssetData[];
   analysesLoading: boolean;
   analysesPagination: PaginationInfo | null;
-  
+
   datasources: AssetData[];
   datasourcesLoading: boolean;
   datasourcesPagination: PaginationInfo | null;
-  
+
   folders: AssetData[];
   foldersLoading: boolean;
   foldersPagination: PaginationInfo | null;
-  
+
   users: AssetData[];
   usersLoading: boolean;
   usersPagination: PaginationInfo | null;
-  
+
   groups: AssetData[];
   groupsLoading: boolean;
   groupsPagination: PaginationInfo | null;
-  
+
   // Methods
-  fetchDashboards: (page: number, pageSize: number, search?: string, dateRange?: string, sortBy?: string, sortOrder?: string, filters?: Record<string, any>) => Promise<void>;
-  fetchDatasets: (page: number, pageSize: number, search?: string, dateRange?: string, sortBy?: string, sortOrder?: string, filters?: Record<string, any>) => Promise<void>;
-  fetchAnalyses: (page: number, pageSize: number, search?: string, dateRange?: string, sortBy?: string, sortOrder?: string, filters?: Record<string, any>) => Promise<void>;
-  fetchDatasources: (page: number, pageSize: number, search?: string, dateRange?: string, sortBy?: string, sortOrder?: string, filters?: Record<string, any>) => Promise<void>;
-  fetchFolders: (page: number, pageSize: number, search?: string, dateRange?: string, sortBy?: string, sortOrder?: string, filters?: Record<string, any>) => Promise<void>;
-  fetchUsers: (page: number, pageSize: number, search?: string, dateRange?: string, sortBy?: string, sortOrder?: string, filters?: Record<string, any>) => Promise<void>;
-  fetchGroups: (page: number, pageSize: number, search?: string, dateRange?: string, sortBy?: string, sortOrder?: string, filters?: Record<string, any>) => Promise<void>;
+  fetchDashboards: AssetFetchFn;
+  fetchDatasets: AssetFetchFn;
+  fetchAnalyses: AssetFetchFn;
+  fetchDatasources: AssetFetchFn;
+  fetchFolders: AssetFetchFn;
+  fetchUsers: AssetFetchFn;
+  fetchGroups: AssetFetchFn;
   refreshExportSummary: () => Promise<void>;
   refreshAssetType: (assetType: 'dashboard' | 'dataset' | 'analysis' | 'datasource' | 'folder' | 'user' | 'group') => Promise<void>;
-  
+
   // Tag updates
   updateAssetTags: (assetType: string, assetId: string, tags: any[]) => void;
 }
@@ -86,38 +106,102 @@ interface AssetsProviderProps {
   children: ReactNode;
 }
 
+// Asset type configuration for the factory
+interface AssetTypeConfig {
+  key: string;                           // Request key prefix
+  apiMethod: (params: FetchParams) => Promise<any>;
+  dataKey: string;                       // Key in response to get items
+  queryKey: string;                      // Query invalidation key
+}
+
+const ASSET_CONFIGS: Record<string, AssetTypeConfig> = {
+  dashboards: {
+    key: 'dashboards',
+    apiMethod: assetsApi.getDashboardsPaginated,
+    dataKey: 'dashboards',
+    queryKey: 'dashboards-paginated',
+  },
+  datasets: {
+    key: 'datasets',
+    apiMethod: assetsApi.getDatasetsPaginated,
+    dataKey: 'datasets',
+    queryKey: 'datasets-paginated',
+  },
+  analyses: {
+    key: 'analyses',
+    apiMethod: assetsApi.getAnalysesPaginated,
+    dataKey: 'analyses',
+    queryKey: 'analyses-paginated',
+  },
+  datasources: {
+    key: 'datasources',
+    apiMethod: assetsApi.getDatasourcesPaginated,
+    dataKey: 'datasources',
+    queryKey: 'datasources-paginated',
+  },
+  folders: {
+    key: 'folders',
+    apiMethod: assetsApi.getFoldersPaginated,
+    dataKey: 'folders',
+    queryKey: 'folders-list',
+  },
+  users: {
+    key: 'users',
+    apiMethod: assetsApi.getUsersPaginated,
+    dataKey: 'users',
+    queryKey: 'users-list',
+  },
+  groups: {
+    key: 'groups',
+    apiMethod: assetsApi.getGroupsPaginated,
+    dataKey: 'groups',
+    queryKey: 'groups',
+  },
+};
+
+// Map from singular to plural for refreshAssetType
+const ASSET_TYPE_MAP: Record<string, string> = {
+  dashboard: 'dashboards',
+  dataset: 'datasets',
+  analysis: 'analyses',
+  datasource: 'datasources',
+  folder: 'folders',
+  user: 'users',
+  group: 'groups',
+};
+
 export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
   const queryClient = useQueryClient();
-  
-  // State for each asset type
+
+  // State for each asset type - using a record pattern for DRY
   const [dashboards, setDashboards] = useState<AssetData[]>([]);
   const [dashboardsLoading, setDashboardsLoading] = useState(false);
   const [dashboardsPagination, setDashboardsPagination] = useState<PaginationInfo | null>(null);
-  
+
   const [datasets, setDatasets] = useState<AssetData[]>([]);
   const [datasetsLoading, setDatasetsLoading] = useState(false);
   const [datasetsPagination, setDatasetsPagination] = useState<PaginationInfo | null>(null);
-  
+
   const [analyses, setAnalyses] = useState<AssetData[]>([]);
   const [analysesLoading, setAnalysesLoading] = useState(false);
   const [analysesPagination, setAnalysesPagination] = useState<PaginationInfo | null>(null);
-  
+
   const [datasources, setDatasources] = useState<AssetData[]>([]);
   const [datasourcesLoading, setDatasourcesLoading] = useState(false);
   const [datasourcesPagination, setDatasourcesPagination] = useState<PaginationInfo | null>(null);
-  
+
   const [folders, setFolders] = useState<AssetData[]>([]);
   const [foldersLoading, setFoldersLoading] = useState(false);
   const [foldersPagination, setFoldersPagination] = useState<PaginationInfo | null>(null);
-  
+
   const [users, setUsers] = useState<AssetData[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersPagination, setUsersPagination] = useState<PaginationInfo | null>(null);
-  
+
   const [groups, setGroups] = useState<AssetData[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [groupsPagination, setGroupsPagination] = useState<PaginationInfo | null>(null);
-  
+
   // Export summary query with proper caching
   const { data: exportSummary, isLoading: exportSummaryLoading, refetch: refetchSummary } = useQuery({
     queryKey: ['export-summary'],
@@ -125,9 +209,31 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
     staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
     gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
   });
-  
+
+  // State setters map for the factory
+  const stateSetters = useMemo(() => ({
+    dashboards: { setData: setDashboards, setLoading: setDashboardsLoading, setPagination: setDashboardsPagination },
+    datasets: { setData: setDatasets, setLoading: setDatasetsLoading, setPagination: setDatasetsPagination },
+    analyses: { setData: setAnalyses, setLoading: setAnalysesLoading, setPagination: setAnalysesPagination },
+    datasources: { setData: setDatasources, setLoading: setDatasourcesLoading, setPagination: setDatasourcesPagination },
+    folders: { setData: setFolders, setLoading: setFoldersLoading, setPagination: setFoldersPagination },
+    users: { setData: setUsers, setLoading: setUsersLoading, setPagination: setUsersPagination },
+    groups: { setData: setGroups, setLoading: setGroupsLoading, setPagination: setGroupsPagination },
+  }), []);
+
+  // Pagination getters for refresh
+  const paginationGetters = useMemo(() => ({
+    dashboards: dashboardsPagination,
+    datasets: datasetsPagination,
+    analyses: analysesPagination,
+    datasources: datasourcesPagination,
+    folders: foldersPagination,
+    users: usersPagination,
+    groups: groupsPagination,
+  }), [dashboardsPagination, datasetsPagination, analysesPagination, datasourcesPagination, foldersPagination, usersPagination, groupsPagination]);
+
   // Create a key for deduplication
-  const createRequestKey = (
+  const createRequestKey = useCallback((
     type: string,
     page: number,
     pageSize: number,
@@ -137,332 +243,101 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
     sortOrder?: string
   ) => {
     return `${type}-${page}-${pageSize}-${search || ''}-${dateRange || ''}-${sortBy || ''}-${sortOrder || ''}`;
-  };
-  
-  // Fetch dashboards with deduplication
-  const fetchDashboards = useCallback(async (
-    page: number,
-    pageSize: number,
-    search?: string,
-    dateRange?: string,
-    sortBy?: string,
-    sortOrder?: string,
-    filters?: Record<string, any>
-  ) => {
-    const requestKey = createRequestKey('dashboards', page, pageSize, search, dateRange, sortBy, sortOrder);
-    setDashboardsLoading(true);
-    
-    try {
-      const data = await requestManager.execute(requestKey, () => 
-        assetsApi.getDashboardsPaginated({ page, pageSize, search, dateRange, sortBy, sortOrder, filters })
-      );
-      setDashboards(data.dashboards || []);
-      setDashboardsPagination(data.pagination);
-    } catch (_error) {
-      setDashboards([]);
-    } finally {
-      setDashboardsLoading(false);
-    }
   }, []);
-  
-  // Fetch datasets with deduplication
-  const fetchDatasets = useCallback(async (
-    page: number,
-    pageSize: number,
-    search?: string,
-    dateRange?: string,
-    sortBy?: string,
-    sortOrder?: string,
-    filters?: Record<string, any>
-  ) => {
-    const requestKey = createRequestKey('datasets', page, pageSize, search, dateRange, sortBy, sortOrder);
-    setDatasetsLoading(true);
-    
-    try {
-      const data = await requestManager.execute(requestKey, () =>
-        assetsApi.getDatasetsPaginated({ page, pageSize, search, dateRange, sortBy, sortOrder, filters })
-      );
-      setDatasets(data.datasets || []);
-      setDatasetsPagination(data.pagination);
-    } catch (_error) {
-      setDatasets([]);
-    } finally {
-      setDatasetsLoading(false);
-    }
-  }, []);
-  
-  // Fetch analyses with deduplication
-  const fetchAnalyses = useCallback(async (
-    page: number,
-    pageSize: number,
-    search?: string,
-    dateRange?: string,
-    sortBy?: string,
-    sortOrder?: string,
-    filters?: Record<string, any>
-  ) => {
-    const requestKey = createRequestKey('analyses', page, pageSize, search, dateRange, sortBy, sortOrder);
-    setAnalysesLoading(true);
-    
-    try {
-      const data = await requestManager.execute(requestKey, () =>
-        assetsApi.getAnalysesPaginated({ page, pageSize, search, dateRange, sortBy, sortOrder, filters })
-      );
-      setAnalyses(data.analyses || []);
-      setAnalysesPagination(data.pagination);
-    } catch (_error) {
-      setAnalyses([]);
-    } finally {
-      setAnalysesLoading(false);
-    }
-  }, []);
-  
-  // Fetch datasources with deduplication
-  const fetchDatasources = useCallback(async (
-    page: number,
-    pageSize: number,
-    search?: string,
-    dateRange?: string,
-    sortBy?: string,
-    sortOrder?: string,
-    filters?: Record<string, any>
-  ) => {
-    const requestKey = createRequestKey('datasources', page, pageSize, search, dateRange, sortBy, sortOrder);
-    setDatasourcesLoading(true);
-    
-    try {
-      const data = await requestManager.execute(requestKey, () =>
-        assetsApi.getDatasourcesPaginated({ page, pageSize, search, dateRange, sortBy, sortOrder, filters })
-      );
-      setDatasources(data.datasources || []);
-      setDatasourcesPagination(data.pagination);
-    } catch (_error) {
-      setDatasources([]);
-    } finally {
-      setDatasourcesLoading(false);
-    }
-  }, []);
-  
-  // Fetch folders with deduplication
-  const fetchFolders = useCallback(async (
-    page: number,
-    pageSize: number,
-    search?: string,
-    _dateRange?: string,
-    sortBy?: string,
-    sortOrder?: string,
-    filters?: Record<string, any>
-  ) => {
-    setFoldersLoading(true);
-    
-    try {
-      // Use assets API for folders (DRY - everything comes from cache)
-      const data = await requestManager.execute(
-        `folders-${page}-${pageSize}-${search || ''}-${sortBy || ''}-${sortOrder || ''}`,
-        () => assetsApi.getFoldersPaginated({ page, pageSize, search, sortBy, sortOrder, filters })
-      );
-      
-      const allFolders = data.folders || [];
-      
-      // Folders are already mapped by backend
-      const transformedFolders = allFolders;
-      
-      setFolders(transformedFolders);
-      setFoldersPagination(data.pagination || {
-        page,
-        pageSize,
-        totalItems: transformedFolders.length,
-        totalPages: Math.ceil(transformedFolders.length / pageSize),
-        hasMore: false
-      });
-    } catch (_error) {
-      setFolders([]);
-    } finally {
-      setFoldersLoading(false);
-    }
-  }, []);
-  
-  // Fetch users with deduplication
-  const fetchUsers = useCallback(async (
-    page: number,
-    pageSize: number,
-    search?: string,
-    dateRange?: string,
-    sortBy?: string,
-    sortOrder?: string,
-    filters?: Record<string, any>
-  ) => {
-    setUsersLoading(true);
-    
-    try {
-      // Use assets API for users (DRY - everything comes from cache)
-      const data = await requestManager.execute(
-        `users-${page}-${pageSize}-${search || ''}-${dateRange || ''}-${sortBy || ''}-${sortOrder || ''}`,
-        () => assetsApi.getUsersPaginated({ page, pageSize, search, dateRange, sortBy, sortOrder, filters })
-      );
-      
-      const allUsers = data.users || [];
-      
-      // Users are already mapped by backend
-      const transformedUsers = allUsers;
-      
-      setUsers(transformedUsers);
-      setUsersPagination(data.pagination || {
-        page,
-        pageSize,
-        totalItems: transformedUsers.length,
-        totalPages: Math.ceil(transformedUsers.length / pageSize),
-        hasMore: false
-      });
-    } catch (_error) {
-      setUsers([]);
-    } finally {
-      setUsersLoading(false);
-    }
-  }, []);
-  
-  // Fetch groups with deduplication
-  const fetchGroups = useCallback(async (
-    page: number,
-    pageSize: number,
-    search?: string,
-    dateRange?: string,
-    sortBy?: string,
-    sortOrder?: string,
-    filters?: Record<string, any>
-  ) => {
-    setGroupsLoading(true);
-    
-    try {
-      // Use the assets API like other asset types
-      const data = await requestManager.execute(
-        `groups-${page}-${pageSize}-${search || ''}-${dateRange || ''}-${sortBy || ''}-${sortOrder || ''}`,
-        () => assetsApi.getGroupsPaginated({ page, pageSize, search, dateRange, sortBy, sortOrder, filters })
-      );
-      
-      // Groups are already mapped by backend
-      const transformedGroups = data.groups || [];
-      
-      setGroups(transformedGroups);
-      setGroupsPagination({
-        page: data.pagination?.page || page,
-        pageSize: data.pagination?.pageSize || pageSize,
-        totalPages: data.pagination?.totalPages || 1,
-        totalItems: data.pagination?.totalItems || transformedGroups.length,
-        hasMore: data.pagination?.hasMore || false
-      });
-    } catch (_error) {
-      setGroups([]);
-    } finally {
-      setGroupsLoading(false);
-    }
-  }, []);
-  
+
+  // Factory function to create fetch methods - eliminates 7 duplicate implementations
+  const createAssetFetcher = useCallback((assetType: keyof typeof ASSET_CONFIGS): AssetFetchFn => {
+    const config = ASSET_CONFIGS[assetType];
+    const setters = stateSetters[assetType];
+
+    return async (
+      page: number,
+      pageSize: number,
+      search?: string,
+      dateRange?: string,
+      sortBy?: string,
+      sortOrder?: string,
+      filters?: Record<string, any>
+    ) => {
+      const requestKey = createRequestKey(config.key, page, pageSize, search, dateRange, sortBy, sortOrder);
+      setters.setLoading(true);
+
+      try {
+        const data = await requestManager.execute(requestKey, () =>
+          config.apiMethod({ page, pageSize, search, dateRange, sortBy, sortOrder, filters })
+        );
+
+        const items = data[config.dataKey] || [];
+        setters.setData(items);
+
+        // Handle pagination with fallback for backwards compatibility
+        setters.setPagination(data.pagination || {
+          page,
+          pageSize,
+          totalItems: items.length,
+          totalPages: Math.ceil(items.length / pageSize),
+          hasMore: false,
+        });
+      } catch (_error) {
+        setters.setData([]);
+      } finally {
+        setters.setLoading(false);
+      }
+    };
+  }, [createRequestKey, stateSetters]);
+
+  // Create all fetch methods using the factory
+  const fetchDashboards = useMemo(() => createAssetFetcher('dashboards'), [createAssetFetcher]);
+  const fetchDatasets = useMemo(() => createAssetFetcher('datasets'), [createAssetFetcher]);
+  const fetchAnalyses = useMemo(() => createAssetFetcher('analyses'), [createAssetFetcher]);
+  const fetchDatasources = useMemo(() => createAssetFetcher('datasources'), [createAssetFetcher]);
+  const fetchFolders = useMemo(() => createAssetFetcher('folders'), [createAssetFetcher]);
+  const fetchUsers = useMemo(() => createAssetFetcher('users'), [createAssetFetcher]);
+  const fetchGroups = useMemo(() => createAssetFetcher('groups'), [createAssetFetcher]);
+
+  // Map of fetch functions for refreshAssetType
+  const fetchFunctions = useMemo(() => ({
+    dashboards: fetchDashboards,
+    datasets: fetchDatasets,
+    analyses: fetchAnalyses,
+    datasources: fetchDatasources,
+    folders: fetchFolders,
+    users: fetchUsers,
+    groups: fetchGroups,
+  }), [fetchDashboards, fetchDatasets, fetchAnalyses, fetchDatasources, fetchFolders, fetchUsers, fetchGroups]);
+
   // Refresh export summary
   const refreshExportSummary = useCallback(async () => {
     await refetchSummary();
   }, [refetchSummary]);
-  
-  // Refresh specific asset type
+
+  // Refresh specific asset type - simplified with config-driven approach
   const refreshAssetType = useCallback(async (assetType: 'dashboard' | 'dataset' | 'analysis' | 'datasource' | 'folder' | 'user' | 'group') => {
-    // Invalidate relevant queries based on asset type
-    switch (assetType) {
-      case 'dashboard':
-        await queryClient.invalidateQueries({ queryKey: ['dashboards-paginated'] });
-        // Force refetch the current page data
-        if (dashboardsPagination) {
-          await fetchDashboards(dashboardsPagination.page, dashboardsPagination.pageSize);
-        }
-        break;
-      case 'dataset':
-        await queryClient.invalidateQueries({ queryKey: ['datasets-paginated'] });
-        // Force refetch the current page data
-        if (datasetsPagination) {
-          await fetchDatasets(datasetsPagination.page, datasetsPagination.pageSize);
-        }
-        break;
-      case 'analysis':
-        await queryClient.invalidateQueries({ queryKey: ['analyses-paginated'] });
-        // Force refetch the current page data
-        if (analysesPagination) {
-          await fetchAnalyses(analysesPagination.page, analysesPagination.pageSize);
-        }
-        break;
-      case 'datasource':
-        await queryClient.invalidateQueries({ queryKey: ['datasources-paginated'] });
-        // Force refetch the current page data
-        if (datasourcesPagination) {
-          await fetchDatasources(datasourcesPagination.page, datasourcesPagination.pageSize);
-        }
-        break;
-      case 'folder':
-        await queryClient.invalidateQueries({ queryKey: ['folders-list'] });
-        // Force refetch the current page data
-        if (foldersPagination) {
-          await fetchFolders(foldersPagination.page, foldersPagination.pageSize);
-        }
-        break;
-      case 'user':
-        await queryClient.invalidateQueries({ queryKey: ['users-list'] });
-        // Force refetch the current page data
-        if (usersPagination) {
-          await fetchUsers(usersPagination.page, usersPagination.pageSize);
-        }
-        break;
-      case 'group':
-        await queryClient.invalidateQueries({ queryKey: ['groups'] });
-        // Force refetch the current page data
-        if (groupsPagination) {
-          await fetchGroups(groupsPagination.page, groupsPagination.pageSize);
-        }
-        break;
+    const pluralType = ASSET_TYPE_MAP[assetType] as keyof typeof ASSET_CONFIGS;
+    const config = ASSET_CONFIGS[pluralType];
+    const pagination = paginationGetters[pluralType];
+    const fetchFn = fetchFunctions[pluralType];
+
+    await queryClient.invalidateQueries({ queryKey: [config.queryKey] });
+
+    if (pagination) {
+      await fetchFn(pagination.page, pagination.pageSize);
     }
-  }, [queryClient, dashboardsPagination, datasetsPagination, analysesPagination, datasourcesPagination,
-      foldersPagination, usersPagination, groupsPagination,
-      fetchDashboards, fetchDatasets, fetchAnalyses, fetchDatasources, fetchFolders, fetchUsers, fetchGroups]);
-  
-  // Update tags for a specific asset (optimistic update)
+  }, [queryClient, paginationGetters, fetchFunctions]);
+
+  // Update tags for a specific asset (optimistic update) - simplified with map
   const updateAssetTags = useCallback((assetType: string, assetId: string, tags: any[]) => {
-    // Optimistically update the local state immediately
-    switch (assetType) {
-      case 'dashboard':
-        setDashboards(prev => prev.map(item => 
-          item.id === assetId ? { ...item, tags } : item
-        ));
-        break;
-      case 'dataset':
-        setDatasets(prev => prev.map(item => 
-          item.id === assetId ? { ...item, tags } : item
-        ));
-        break;
-      case 'analysis':
-        setAnalyses(prev => prev.map(item => 
-          item.id === assetId ? { ...item, tags } : item
-        ));
-        break;
-      case 'datasource':
-        setDatasources(prev => prev.map(item => 
-          item.id === assetId ? { ...item, tags } : item
-        ));
-        break;
-      case 'folder':
-        setFolders(prev => prev.map(item => 
-          item.id === assetId ? { ...item, tags } : item
-        ));
-        break;
-      case 'user':
-        setUsers(prev => prev.map(item => 
-          item.id === assetId ? { ...item, tags } : item
-        ));
-        break;
-      case 'group':
-        setGroups(prev => prev.map(item => 
-          item.id === assetId ? { ...item, tags } : item
-        ));
-        break;
+    const pluralType = ASSET_TYPE_MAP[assetType] as keyof typeof stateSetters | undefined;
+    if (!pluralType) return;
+
+    const setters = stateSetters[pluralType];
+    if (setters) {
+      setters.setData((prev: AssetData[]) => prev.map(item =>
+        item.id === assetId ? { ...item, tags } : item
+      ));
     }
-  }, []);
-  
+  }, [stateSetters]);
+
   const value: AssetsContextType = {
     exportSummary,
     exportSummaryLoading,
@@ -498,6 +373,6 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
     refreshAssetType,
     updateAssetTags,
   };
-  
+
   return <AssetsContext.Provider value={value}>{children}</AssetsContext.Provider>;
 };
