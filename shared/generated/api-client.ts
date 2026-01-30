@@ -2036,6 +2036,8 @@ export interface components {
                  */
                 lastViewed?: string | null;
             };
+            /** @description Tags associated with the target asset */
+            tags?: components["schemas"]["Tag"][];
         };
         FieldInfo: {
             fieldId: string;

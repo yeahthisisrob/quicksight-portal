@@ -198,6 +198,9 @@ export class AssetService {
       // Fetch activity data for assets and related entities
       const activityMap = await this.collectActivityData(assetType, cachedAssets, lineageMap);
 
+      // Build tags map for related assets
+      const tagsMap = this.buildTagsMapForRelatedAssets(lineageMap, cache);
+
       // Build folder membership mapping
       const assetFolderMap = this.buildAssetFolderMap(cache, assetType);
 
@@ -210,7 +213,8 @@ export class AssetService {
             cache,
             assetFolderMap,
             lineageMap,
-            activityMap
+            activityMap,
+            tagsMap
           )
         )
       );
@@ -353,7 +357,8 @@ export class AssetService {
     assetType: string,
     assetId: string,
     lineageMap: Map<string, LineageData>,
-    activityMap: Map<string, ActivityData>
+    activityMap: Map<string, ActivityData>,
+    tagsMap: Map<string, Array<{ key: string; value: string }>>
   ): void {
     const lineageKey = `${assetType}:${assetId}`;
     const assetLineage = lineageMap.get(lineageKey);
@@ -368,7 +373,8 @@ export class AssetService {
     if (assetLineage?.relationships) {
       const allRelationships = this.transformLineageRelationships(
         assetLineage.relationships,
-        activityMap
+        activityMap,
+        tagsMap
       );
       mappedAsset.relatedAssets = this.filterRelationshipsByAssetType(assetType, allRelationships);
     } else {
@@ -1129,7 +1135,8 @@ export class AssetService {
     cache: any,
     assetFolderMap: Map<string, Array<{ id: string; name: string; path: string }>>,
     lineageMap: Map<string, any>,
-    activityMap: Map<string, any>
+    activityMap: Map<string, any>,
+    tagsMap: Map<string, Array<{ key: string; value: string }>>
   ): Promise<any> {
     // For datasets, resolve sourceType before mapping
     let resolvedCacheEntry = cacheEntry;
@@ -1149,8 +1156,8 @@ export class AssetService {
     // Add folder membership data
     this.addFolderMembership(mappedAsset, cacheEntry.assetId, assetFolderMap);
 
-    // Add lineage data with activity
-    this.addLineageData(mappedAsset, assetType, cacheEntry.assetId, lineageMap, activityMap);
+    // Add lineage data with activity and tags
+    this.addLineageData(mappedAsset, assetType, cacheEntry.assetId, lineageMap, activityMap, tagsMap);
 
     // Add activity data
     this.addActivityData(mappedAsset, assetType, cacheEntry.assetId, activityMap);
@@ -1305,11 +1312,12 @@ export class AssetService {
   }
 
   /**
-   * Transform lineage relationships to standard format with activity data
+   * Transform lineage relationships to standard format with activity data and tags
    */
   private transformLineageRelationships(
     relationships: any[],
-    activityMap: Map<string, ActivityData>
+    activityMap: Map<string, ActivityData>,
+    tagsMap: Map<string, Array<{ key: string; value: string }>>
   ): any[] {
     return relationships.map((rel: any) => {
       const transformed: any = {
@@ -1336,7 +1344,46 @@ export class AssetService {
         }
       }
 
+      // Add tags for target asset
+      const tags = tagsMap.get(rel.targetAssetId);
+      if (tags && tags.length > 0) {
+        transformed.tags = tags;
+      }
+
       return transformed;
     });
+  }
+
+  /**
+   * Build a map of asset ID to tags for all related assets in the lineage
+   */
+  private buildTagsMapForRelatedAssets(
+    lineageMap: Map<string, LineageData>,
+    cache: CacheData
+  ): Map<string, Array<{ key: string; value: string }>> {
+    const tagsMap = new Map<string, Array<{ key: string; value: string }>>();
+
+    // Collect all target asset IDs from lineage
+    const assetIds = new Set<string>();
+    lineageMap.forEach((lineageData) => {
+      if (lineageData.relationships) {
+        lineageData.relationships.forEach((rel: any) => {
+          assetIds.add(rel.targetAssetId);
+        });
+      }
+    });
+
+    // Look up tags from cache for each asset type
+    const assetTypes = ['dashboard', 'analysis', 'dataset', 'datasource'] as const;
+    for (const type of assetTypes) {
+      const entries = cache.entries[type] || [];
+      for (const entry of entries) {
+        if (assetIds.has(entry.assetId) && entry.tags && entry.tags.length > 0) {
+          tagsMap.set(entry.assetId, entry.tags);
+        }
+      }
+    }
+
+    return tagsMap;
   }
 }

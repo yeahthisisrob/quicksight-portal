@@ -1,14 +1,19 @@
-import { OpenInNew as OpenInNewIcon , 
+import { OpenInNew as OpenInNewIcon ,
   Dashboard as DashboardIcon,
   Analytics as AnalysisIcon,
   Storage as DatasetIcon,
   CloudQueue as DatasourceIcon,
   Archive as ArchiveIcon,
 } from '@mui/icons-material';
-import { Box, Paper, Typography, alpha, Chip } from '@mui/material';
+import { Box, Paper, Typography, alpha, Chip, Tooltip } from '@mui/material';
 
 import { colors, spacing, borderRadius, typography } from '@/shared/design-system/theme';
 import TypedChip from '@/shared/ui/TypedChip';
+
+interface Tag {
+  key: string;
+  value: string;
+}
 
 // Local interface to avoid dependency on entities layer
 interface Asset {
@@ -22,6 +27,7 @@ interface Asset {
     uniqueViewers?: number;
     lastViewed?: string | null;
   };
+  tags?: Tag[];
 }
 
 interface AssetRelationshipSectionProps {
@@ -193,6 +199,47 @@ export function AssetRelationshipSection({
                     </Box>
                   )}
                 </Box>
+                {/* Tags display */}
+                {asset.tags && asset.tags.length > 0 && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                    {asset.tags.slice(0, 2).map((tag, idx) => (
+                      <Tooltip key={idx} title={`${tag.key}: ${tag.value}`}>
+                        <Box component="span">
+                          <TypedChip
+                            type="TAG"
+                            customLabel={tag.value.length > 12 ? `${tag.value.substring(0, 12)}...` : tag.value}
+                            size="small"
+                            variant="outlined"
+                            showIcon={false}
+                          />
+                        </Box>
+                      </Tooltip>
+                    ))}
+                    {asset.tags.length > 2 && (
+                      <Tooltip
+                        title={
+                          <Box>
+                            {asset.tags.slice(2).map((tag, idx) => (
+                              <Typography key={idx} variant="caption" display="block">
+                                {tag.key}: {tag.value}
+                              </Typography>
+                            ))}
+                          </Box>
+                        }
+                      >
+                        <Box component="span">
+                          <TypedChip
+                            type="TAG"
+                            customLabel={`+${asset.tags.length - 2}`}
+                            size="small"
+                            variant="filled"
+                            showIcon={false}
+                          />
+                        </Box>
+                      </Tooltip>
+                    )}
+                  </Box>
+                )}
               </Box>
               <OpenInNewIcon sx={{ fontSize: 14, color: 'text.secondary', flexShrink: 0, mt: 0.5 }} />
             </Box>

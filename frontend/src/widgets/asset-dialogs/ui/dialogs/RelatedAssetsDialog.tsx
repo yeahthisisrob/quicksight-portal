@@ -62,6 +62,7 @@ export default function RelatedAssetsDialog({
           isArchived: rel.targetIsArchived,
           relationshipType: rel.relationshipType,
           activity: rel.activity,
+          tags: rel.tags,
         };
 
         if (rel.relationshipType === 'used_by') {

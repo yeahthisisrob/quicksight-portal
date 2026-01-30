@@ -143,6 +143,8 @@ export interface RelatedAsset {
     uniqueViewers?: number;
     lastViewed?: string | null;
   };
+  // Tags for the asset
+  tags?: Array<{ key: string; value: string }>;
 }
 
 export interface AssetWithRelations {

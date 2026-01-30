@@ -1791,6 +1791,11 @@ components:
               format: date-time
               nullable: true
               description: Last time the asset was viewed
+        tags:
+          type: array
+          description: Tags associated with the target asset
+          items:
+            $ref: '#/components/schemas/Tag'
 
     # Field catalog types
     FieldInfo:
