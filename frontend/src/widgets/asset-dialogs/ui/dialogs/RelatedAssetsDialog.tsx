@@ -17,11 +17,11 @@ import {
   FormControlLabel,
   Switch,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
 
 import { RelatedAsset } from '@/entities/asset';
 
 import { borderRadius, typography } from '@/shared/design-system/theme';
+import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 import { AssetRelationshipSection } from '@/shared/ui/AssetRelationshipSection';
 
 interface RelatedAssetsDialogProps {
@@ -32,21 +32,6 @@ interface RelatedAssetsDialogProps {
   relatedAssets: RelatedAsset[] | { usedBy?: RelatedAsset[]; uses?: RelatedAsset[] };
 }
 
-const assetTypeConfig = {
-  dashboard: { 
-    path: '/assets/dashboards',
-  },
-  analysis: { 
-    path: '/assets/analyses',
-  },
-  dataset: { 
-    path: '/assets/datasets',
-  },
-  datasource: { 
-    path: '/assets/datasources',
-  },
-} as const;
-
 export default function RelatedAssetsDialog({
   open,
   onClose,
@@ -54,7 +39,6 @@ export default function RelatedAssetsDialog({
   assetType,
   relatedAssets = [],
 }: RelatedAssetsDialogProps) {
-  const navigate = useNavigate();
   const [showArchived, setShowArchived] = useState(false);
 
   // Handle both flat array and object formats
@@ -97,6 +81,10 @@ export default function RelatedAssetsDialog({
     usedByArray = usedByArray.filter(a => !a.isArchived);
   }
 
+  // Sort by views descending for dashboards and analyses
+  const sortByViews = (a: RelatedAsset, b: RelatedAsset) =>
+    (b.activity?.totalViews || 0) - (a.activity?.totalViews || 0);
+
   // Group each relationship type by asset type
   const usesAssets = usesArray.reduce((acc, asset) => {
     if (!acc[asset.type]) acc[asset.type] = [];
@@ -110,12 +98,16 @@ export default function RelatedAssetsDialog({
     return acc;
   }, {} as Record<string, RelatedAsset[]>);
 
+  // Sort dashboards and analyses by views
+  if (usesAssets.dashboard) usesAssets.dashboard.sort(sortByViews);
+  if (usesAssets.analysis) usesAssets.analysis.sort(sortByViews);
+  if (usedByAssets.dashboard) usedByAssets.dashboard.sort(sortByViews);
+  if (usedByAssets.analysis) usedByAssets.analysis.sort(sortByViews);
+
   const handleAssetClick = (asset: { id: string; name: string; type: string }) => {
-    const config = assetTypeConfig[asset.type as keyof typeof assetTypeConfig];
-    if (config) {
-      // Navigate to the list page with the asset name as a search query
-      navigate(`${config.path}?search=${encodeURIComponent(asset.name)}`);
-      onClose();
+    const url = getQuickSightConsoleUrl(asset.type, asset.id);
+    if (url) {
+      window.open(url, '_blank');
     }
   };
 

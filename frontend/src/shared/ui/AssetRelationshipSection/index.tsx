@@ -5,7 +5,7 @@ import { OpenInNew as OpenInNewIcon ,
   CloudQueue as DatasourceIcon,
   Archive as ArchiveIcon,
 } from '@mui/icons-material';
-import { Box, Paper, Typography, alpha, Tooltip, Chip } from '@mui/material';
+import { Box, Paper, Typography, alpha, Chip } from '@mui/material';
 
 import { colors, spacing, borderRadius, typography } from '@/shared/design-system/theme';
 import TypedChip from '@/shared/ui/TypedChip';
@@ -90,8 +90,8 @@ export function AssetRelationshipSection({
               key={asset.id}
               sx={{
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                gap: 1,
                 p: spacing.sm / 8 + 0.5,
                 backgroundColor: asset.isArchived ? alpha('#ff9800', 0.05) : 'background.paper',
                 borderRadius: `${borderRadius.sm}px`,
@@ -99,56 +99,55 @@ export function AssetRelationshipSection({
                 transition: 'all 0.2s',
                 opacity: asset.isArchived ? 0.8 : 1,
                 '&:hover': {
-                  backgroundColor: asset.isArchived 
-                    ? alpha('#ff9800', 0.1) 
+                  backgroundColor: asset.isArchived
+                    ? alpha('#ff9800', 0.1)
                     : alpha(colorConfig.main, 0.05),
                   transform: 'translateX(4px)',
                 }
               }}
               onClick={() => onAssetClick(asset)}
             >
-              <Box sx={{ overflow: 'hidden', flex: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Typography 
-                    variant="body2" 
-                    fontWeight={typography.fontWeight.medium} 
-                    noWrap
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flexWrap: 'wrap' }}>
+                  <Typography
+                    variant="body2"
+                    fontWeight={typography.fontWeight.medium}
                     sx={{
                       textDecoration: asset.isArchived ? 'line-through' : 'none',
                       color: asset.isArchived ? 'text.secondary' : 'text.primary',
+                      wordBreak: 'break-word',
                     }}
                   >
                     {asset.name}
                   </Typography>
                   {asset.isArchived && (
-                    <Tooltip title="This asset has been archived">
-                      <Chip
-                        icon={<ArchiveIcon sx={{ fontSize: 12 }} />}
-                        label="Archived"
-                        size="small"
-                        sx={{
-                          height: 18,
-                          fontSize: '0.65rem',
-                          backgroundColor: alpha('#ff9800', 0.15),
+                    <Chip
+                      icon={<ArchiveIcon sx={{ fontSize: 12 }} />}
+                      label="Archived"
+                      size="small"
+                      sx={{
+                        height: 18,
+                        fontSize: '0.65rem',
+                        backgroundColor: alpha('#ff9800', 0.15),
+                        color: '#ff9800',
+                        flexShrink: 0,
+                        '& .MuiChip-icon': {
+                          marginLeft: '4px',
                           color: '#ff9800',
-                          '& .MuiChip-icon': {
-                            marginLeft: '4px',
-                            color: '#ff9800',
-                          }
-                        }}
-                      />
-                    </Tooltip>
+                        }
+                      }}
+                    />
                   )}
                 </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography 
-                    variant="caption" 
-                    sx={{ 
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 0.25 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
                       color: 'text.secondary',
                       fontFamily: typography.fontFamily.monospace,
                       fontSize: typography.fontSize.xs,
+                      wordBreak: 'break-all',
                     }}
-                    noWrap
                   >
                     {asset.id}
                   </Typography>
@@ -165,6 +164,7 @@ export function AssetRelationshipSection({
                         borderRadius: `${borderRadius.sm}px`,
                         px: 0.5,
                         py: 0.25,
+                        flexShrink: 0,
                       }}
                     >
                       <Typography
@@ -194,7 +194,7 @@ export function AssetRelationshipSection({
                   )}
                 </Box>
               </Box>
-              <OpenInNewIcon sx={{ fontSize: 14, color: 'text.secondary', ml: 1, flexShrink: 0 }} />
+              <OpenInNewIcon sx={{ fontSize: 14, color: 'text.secondary', flexShrink: 0, mt: 0.5 }} />
             </Box>
           ))}
         </Box>

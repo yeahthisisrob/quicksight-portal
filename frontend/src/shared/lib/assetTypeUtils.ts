@@ -2,6 +2,8 @@
  * Utility functions for handling asset type mappings between frontend and backend
  */
 
+import { config } from '@/shared/config/config';
+
 // List of known datasource subtypes that should be mapped to 'datasource'
 const DATASOURCE_SUBTYPES = [
   'athena',
@@ -100,4 +102,35 @@ export function getQuickSightTagResourceType(assetType: string): 'dashboard' | '
       // Fallback to datasource for unknown types (likely datasource subtypes)
       return 'datasource';
   }
+}
+
+/**
+ * QuickSight console URL path patterns by asset type.
+ * These map to the actual AWS QuickSight console routes.
+ */
+const QUICKSIGHT_CONSOLE_PATHS: Record<string, (id: string) => string> = {
+  dashboard: (id) => `sn/dashboards/${id}`,
+  analysis: (id) => `sn/analyses/${id}`,
+  dataset: (id) => `sn/data-sets/${id}/view`,
+  datasource: (id) => `sn/data/data-source/Connection%3A${id}`,
+};
+
+/**
+ * Builds the QuickSight console URL for an asset.
+ * Opens the asset directly in the AWS QuickSight console.
+ *
+ * @param assetType - The type of asset (dashboard, analysis, dataset, datasource)
+ * @param assetId - The unique identifier of the asset
+ * @returns The full QuickSight console URL, or null if the asset type doesn't support console URLs
+ */
+export function getQuickSightConsoleUrl(assetType: string, assetId: string): string | null {
+  const type = getQuickSightResourceType(assetType);
+  const pathBuilder = QUICKSIGHT_CONSOLE_PATHS[type];
+
+  if (!pathBuilder) {
+    return null;
+  }
+
+  const region = config.AWS_REGION;
+  return `https://${region}.quicksight.aws.amazon.com/${pathBuilder(assetId)}`;
 }
