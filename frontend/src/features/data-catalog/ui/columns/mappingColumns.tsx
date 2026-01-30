@@ -1,26 +1,15 @@
-import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  TrendingUp as ConfidenceIcon,
-} from '@mui/icons-material';
-import {
-  Box,
-  Chip,
-  IconButton,
-  LinearProgress,
-  Typography,
-} from '@mui/material';
+import { TrendingUp as ConfidenceIcon } from '@mui/icons-material';
+import { Box, Chip, LinearProgress, Typography } from '@mui/material';
 import { GridColDef } from '@mui/x-data-grid';
 
-interface CreateMappingColumnsProps {
-  onEditMapping: (mapping: any) => void;
-  onDeleteMapping: (mapping: any) => void;
-}
+import { ActionButtonsCell, CountCell } from '@/shared/ui/DataGrid/cells';
+
+import type { MappingRow, MappingColumnsCallbacks } from '../../types';
 
 export function createMappingColumns({
   onEditMapping,
   onDeleteMapping,
-}: CreateMappingColumnsProps): GridColDef[] {
+}: MappingColumnsCallbacks): GridColDef<MappingRow>[] {
   return [
     {
       field: 'fieldName',
@@ -43,20 +32,31 @@ export function createMappingColumns({
       field: 'confidence',
       headerName: 'Confidence',
       width: 150,
-      renderCell: (params) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-          <ConfidenceIcon fontSize="small" color="primary" />
-          <LinearProgress
-            variant="determinate"
-            value={params.value}
-            sx={{ flexGrow: 1, height: 6, borderRadius: 3 }}
-            color={params.value >= 80 ? 'success' : params.value >= 50 ? 'warning' : 'error'}
-          />
-          <Typography variant="caption" sx={{ minWidth: 35 }}>
-            {params.value}%
-          </Typography>
-        </Box>
-      ),
+      renderCell: (params) => {
+        const value = params.value || 0;
+        const getColor = (): 'success' | 'warning' | 'error' => {
+          if (value >= 80) return 'success';
+          if (value >= 50) return 'warning';
+          return 'error';
+        };
+
+        return (
+          <Box
+            sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}
+          >
+            <ConfidenceIcon fontSize="small" color="primary" />
+            <LinearProgress
+              variant="determinate"
+              value={value}
+              sx={{ flexGrow: 1, height: 6, borderRadius: 3 }}
+              color={getColor()}
+            />
+            <Typography variant="caption" sx={{ minWidth: 35 }}>
+              {value}%
+            </Typography>
+          </Box>
+        );
+      },
     },
     {
       field: 'method',
@@ -89,17 +89,7 @@ export function createMappingColumns({
       width: 100,
       align: 'center',
       headerAlign: 'center',
-      renderCell: (params) => {
-        const count = params.value || 0;
-        return (
-          <Typography 
-            variant="body2" 
-            color={count > 0 ? 'text.primary' : 'text.disabled'}
-          >
-            {count}
-          </Typography>
-        );
-      },
+      renderCell: (params) => <CountCell value={params.value || 0} />,
     },
     {
       field: 'analysesCount',
@@ -107,17 +97,7 @@ export function createMappingColumns({
       width: 100,
       align: 'center',
       headerAlign: 'center',
-      renderCell: (params) => {
-        const count = params.value || 0;
-        return (
-          <Typography 
-            variant="body2" 
-            color={count > 0 ? 'text.primary' : 'text.disabled'}
-          >
-            {count}
-          </Typography>
-        );
-      },
+      renderCell: (params) => <CountCell value={params.value || 0} />,
     },
     {
       field: 'actions',
@@ -125,21 +105,19 @@ export function createMappingColumns({
       width: 100,
       sortable: false,
       renderCell: (params) => (
-        <Box>
-          <IconButton
-            size="small"
-            onClick={() => onEditMapping(params.row)}
-          >
-            <EditIcon fontSize="small" />
-          </IconButton>
-          <IconButton
-            size="small"
-            onClick={() => onDeleteMapping(params.row)}
-            color="error"
-          >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
-        </Box>
+        <ActionButtonsCell
+          actions={[
+            {
+              icon: 'edit',
+              onClick: () => onEditMapping(params.row),
+            },
+            {
+              icon: 'delete',
+              onClick: () => onDeleteMapping(params.row),
+              color: 'error',
+            },
+          ]}
+        />
       ),
     },
   ];

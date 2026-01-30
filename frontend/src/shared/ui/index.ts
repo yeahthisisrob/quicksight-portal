@@ -7,3 +7,6 @@ export { ErrorBoundary } from './ErrorBoundary';
 export { JsonViewerIconButton } from './IconButtons';
 export { default as TypedChip } from './TypedChip';
 export * from './icons';
+
+// DataGrid cell components
+export * from './DataGrid';

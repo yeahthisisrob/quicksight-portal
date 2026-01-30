@@ -1,25 +1,23 @@
-import {
-  Info as InfoIcon,
-  Calculate as CalculateIcon,
-} from '@mui/icons-material';
-import {
-  Box,
-  Chip,
-  Typography,
-  IconButton,
-  Tooltip,
-} from '@mui/material';
+import { Box, Chip, Typography } from '@mui/material';
 import { GridColDef } from '@mui/x-data-grid';
 
 import { FieldUsageBadges } from '@/entities/field';
 
+import {
+  ActionButtonsCell,
+  CountCell,
+  FieldNameCell,
+} from '@/shared/ui/DataGrid/cells';
+
+import type { VisualFieldRow, VisualFieldColumnsCallbacks } from '../../types';
+
 interface CreateVisualFieldColumnsProps {
-  onShowDetails: (field: any) => void;
+  onShowDetails: VisualFieldColumnsCallbacks['onShowDetails'];
 }
 
 export function createVisualFieldColumns({
   onShowDetails,
-}: CreateVisualFieldColumnsProps): GridColDef[] {
+}: CreateVisualFieldColumnsProps): GridColDef<VisualFieldRow>[] {
   return [
     {
       field: 'fieldName',
@@ -27,23 +25,12 @@ export function createVisualFieldColumns({
       flex: 1,
       minWidth: 250,
       renderCell: (params) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {params.row.fieldType === 'CALCULATED_FIELD' && (
-            <Tooltip title="Calculated field">
-              <CalculateIcon fontSize="small" color="primary" />
-            </Tooltip>
-          )}
-          <Typography 
-            variant="body2" 
-            sx={{ 
-              cursor: 'pointer',
-              '&:hover': { textDecoration: 'underline' }
-            }}
-            onClick={() => onShowDetails(params.row)}
-          >
-            {params.value}
-          </Typography>
-        </Box>
+        <FieldNameCell
+          name={params.value}
+          isCalculated={params.row.fieldType === 'CALCULATED_FIELD'}
+          calculatedTooltip="Calculated field"
+          onClick={() => onShowDetails(params.row)}
+        />
       ),
     },
     {
@@ -63,18 +50,7 @@ export function createVisualFieldColumns({
       width: 100,
       align: 'center',
       headerAlign: 'center',
-      renderCell: (params) => {
-        const count = params.value || 0;
-        return (
-          <Typography 
-            variant="body2" 
-            fontWeight={count > 0 ? 'medium' : 'normal'}
-            color={count > 0 ? 'text.primary' : 'text.disabled'}
-          >
-            {count}
-          </Typography>
-        );
-      },
+      renderCell: (params) => <CountCell value={params.value || 0} />,
     },
     {
       field: 'visualTypes',
@@ -82,8 +58,14 @@ export function createVisualFieldColumns({
       width: 200,
       renderCell: (params) => {
         const types = params.row.visualTypes || [];
-        if (types.length === 0) return <Typography variant="body2" color="text.disabled">-</Typography>;
-        
+        if (types.length === 0) {
+          return (
+            <Typography variant="body2" color="text.disabled">
+              -
+            </Typography>
+          );
+        }
+
         return (
           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
             {types.slice(0, 3).map((type: string, index: number) => (
@@ -121,17 +103,7 @@ export function createVisualFieldColumns({
       width: 110,
       align: 'center',
       headerAlign: 'center',
-      renderCell: (params) => {
-        const count = params.value || 0;
-        return (
-          <Typography 
-            variant="body2" 
-            color={count > 0 ? 'text.primary' : 'text.disabled'}
-          >
-            {count}
-          </Typography>
-        );
-      },
+      renderCell: (params) => <CountCell value={params.value || 0} />,
     },
     {
       field: 'analysesCount',
@@ -139,29 +111,21 @@ export function createVisualFieldColumns({
       width: 100,
       align: 'center',
       headerAlign: 'center',
-      renderCell: (params) => {
-        const count = params.value || 0;
-        return (
-          <Typography 
-            variant="body2" 
-            color={count > 0 ? 'text.primary' : 'text.disabled'}
-          >
-            {count}
-          </Typography>
-        );
-      },
+      renderCell: (params) => <CountCell value={params.value || 0} />,
     },
     {
       field: 'actions',
       headerName: '',
       width: 80,
       renderCell: (params) => (
-        <IconButton
-          size="small"
-          onClick={() => onShowDetails(params.row)}
-        >
-          <InfoIcon fontSize="small" />
-        </IconButton>
+        <ActionButtonsCell
+          actions={[
+            {
+              icon: 'info',
+              onClick: () => onShowDetails(params.row),
+            },
+          ]}
+        />
       ),
     },
   ];
