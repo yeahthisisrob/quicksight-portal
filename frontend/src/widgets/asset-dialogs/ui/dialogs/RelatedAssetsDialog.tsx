@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 import {
   Close as CloseIcon,
@@ -41,68 +41,81 @@ export default function RelatedAssetsDialog({
 }: RelatedAssetsDialogProps) {
   const [showArchived, setShowArchived] = useState(false);
 
-  // Handle both flat array and object formats
-  let usesArray: RelatedAsset[] = [];
-  let usedByArray: RelatedAsset[] = [];
+  // Parse relationships into arrays
+  const { allUsesArray, allUsedByArray } = useMemo(() => {
+    const uses: RelatedAsset[] = [];
+    const usedBy: RelatedAsset[] = [];
 
-  if (Array.isArray(relatedAssets)) {
-    // New format: array of relationships with relationshipType field
-    relatedAssets.forEach((rel: any) => {
-      // Create RelatedAsset from the relationship data
-      const asset: RelatedAsset = {
-        id: rel.targetAssetId,
-        name: rel.targetAssetName,
-        type: rel.targetAssetType,
-        isArchived: rel.targetIsArchived,
-        relationshipType: rel.relationshipType,
-        // Include activity data for dashboards and analyses
-        activity: rel.activity,
-      };
+    if (Array.isArray(relatedAssets)) {
+      relatedAssets.forEach((rel: any) => {
+        const asset: RelatedAsset = {
+          id: rel.targetAssetId,
+          name: rel.targetAssetName,
+          type: rel.targetAssetType,
+          isArchived: rel.targetIsArchived,
+          relationshipType: rel.relationshipType,
+          activity: rel.activity,
+        };
 
-      if (rel.relationshipType === 'used_by') {
-        usedByArray.push(asset);
-      } else if (rel.relationshipType === 'uses') {
-        usesArray.push(asset);
-      }
-    });
-  } else if (relatedAssets && typeof relatedAssets === 'object') {
-    // Old object format with usedBy and uses arrays
-    usesArray = relatedAssets.uses || [];
-    usedByArray = relatedAssets.usedBy || [];
-  }
+        if (rel.relationshipType === 'used_by') {
+          usedBy.push(asset);
+        } else if (rel.relationshipType === 'uses') {
+          uses.push(asset);
+        }
+      });
+    } else if (relatedAssets && typeof relatedAssets === 'object') {
+      uses.push(...(relatedAssets.uses || []));
+      usedBy.push(...(relatedAssets.usedBy || []));
+    }
 
-  // Count archived assets before filtering
-  const archivedCount = usesArray.filter(a => a.isArchived).length +
-                        usedByArray.filter(a => a.isArchived).length;
+    return { allUsesArray: uses, allUsedByArray: usedBy };
+  }, [relatedAssets]);
 
-  // Filter out archived assets if toggle is off
-  if (!showArchived) {
-    usesArray = usesArray.filter(a => !a.isArchived);
-    usedByArray = usedByArray.filter(a => !a.isArchived);
-  }
+  // Count archived assets
+  const archivedCount = useMemo(() =>
+    allUsesArray.filter(a => a.isArchived).length +
+    allUsedByArray.filter(a => a.isArchived).length,
+  [allUsesArray, allUsedByArray]);
 
-  // Sort by views descending for dashboards and analyses
-  const sortByViews = (a: RelatedAsset, b: RelatedAsset) =>
-    (b.activity?.totalViews || 0) - (a.activity?.totalViews || 0);
+  // Filter and group assets
+  const { usesArray, usedByArray, usesAssets, usedByAssets } = useMemo(() => {
+    const sortByViews = (a: RelatedAsset, b: RelatedAsset) =>
+      (b.activity?.totalViews || 0) - (a.activity?.totalViews || 0);
 
-  // Group each relationship type by asset type
-  const usesAssets = usesArray.reduce((acc, asset) => {
-    if (!acc[asset.type]) acc[asset.type] = [];
-    acc[asset.type].push(asset);
-    return acc;
-  }, {} as Record<string, RelatedAsset[]>);
+    // Filter based on toggle
+    const filteredUses = showArchived
+      ? allUsesArray
+      : allUsesArray.filter(a => !a.isArchived);
+    const filteredUsedBy = showArchived
+      ? allUsedByArray
+      : allUsedByArray.filter(a => !a.isArchived);
 
-  const usedByAssets = usedByArray.reduce((acc, asset) => {
-    if (!acc[asset.type]) acc[asset.type] = [];
-    acc[asset.type].push(asset);
-    return acc;
-  }, {} as Record<string, RelatedAsset[]>);
+    // Group by asset type
+    const usesGrouped = filteredUses.reduce((acc, asset) => {
+      if (!acc[asset.type]) acc[asset.type] = [];
+      acc[asset.type].push(asset);
+      return acc;
+    }, {} as Record<string, RelatedAsset[]>);
 
-  // Sort dashboards and analyses by views
-  if (usesAssets.dashboard) usesAssets.dashboard.sort(sortByViews);
-  if (usesAssets.analysis) usesAssets.analysis.sort(sortByViews);
-  if (usedByAssets.dashboard) usedByAssets.dashboard.sort(sortByViews);
-  if (usedByAssets.analysis) usedByAssets.analysis.sort(sortByViews);
+    const usedByGrouped = filteredUsedBy.reduce((acc, asset) => {
+      if (!acc[asset.type]) acc[asset.type] = [];
+      acc[asset.type].push(asset);
+      return acc;
+    }, {} as Record<string, RelatedAsset[]>);
+
+    // Sort dashboards and analyses by views
+    if (usesGrouped.dashboard) usesGrouped.dashboard.sort(sortByViews);
+    if (usesGrouped.analysis) usesGrouped.analysis.sort(sortByViews);
+    if (usedByGrouped.dashboard) usedByGrouped.dashboard.sort(sortByViews);
+    if (usedByGrouped.analysis) usedByGrouped.analysis.sort(sortByViews);
+
+    return {
+      usesArray: filteredUses,
+      usedByArray: filteredUsedBy,
+      usesAssets: usesGrouped,
+      usedByAssets: usedByGrouped,
+    };
+  }, [allUsesArray, allUsedByArray, showArchived]);
 
   const handleAssetClick = (asset: { id: string; name: string; type: string }) => {
     const url = getQuickSightConsoleUrl(asset.type, asset.id);
