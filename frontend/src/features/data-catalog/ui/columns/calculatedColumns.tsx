@@ -175,35 +175,68 @@ export function createCalculatedColumns({
       width: 200,
       renderCell: (params) => {
         const sources = params.value || [];
-        const datasets = sources.filter((s: any) => s.assetType === 'dataset').length;
-        const analyses = sources.filter((s: any) => s.assetType === 'analysis').length;
-        const dashboards = sources.filter((s: any) => s.assetType === 'dashboard').length;
-        
+        const datasetSources = sources.filter((s: any) => s.assetType === 'dataset');
+        const analysisSources = sources.filter((s: any) => s.assetType === 'analysis');
+        const dashboardSources = sources.filter((s: any) => s.assetType === 'dashboard');
+
+        const getTooltipContent = (items: any[], type: string) => {
+          if (items.length === 0) return '';
+          const names = items.map((s: any) => s.assetName || s.assetId).join('\n');
+          return `${type}:\n${names}`;
+        };
+
         return (
-          <Stack direction="row" spacing={0.5}>
-            {datasets > 0 && (
-              <Chip
-                label={`${datasets} dataset${datasets > 1 ? 's' : ''}`}
-                size="small"
-                variant="outlined"
-                color="success"
-              />
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            {datasetSources.length > 0 && (
+              <Tooltip
+                title={
+                  <Box sx={{ whiteSpace: 'pre-line' }}>
+                    {getTooltipContent(datasetSources, 'Datasets')}
+                  </Box>
+                }
+                arrow
+              >
+                <Chip
+                  label={`${datasetSources.length} dataset${datasetSources.length > 1 ? 's' : ''}`}
+                  size="small"
+                  variant="outlined"
+                  color="success"
+                />
+              </Tooltip>
             )}
-            {analyses > 0 && (
-              <Chip
-                label={`${analyses} analysis`}
-                size="small"
-                variant="outlined"
-                color="secondary"
-              />
+            {analysisSources.length > 0 && (
+              <Tooltip
+                title={
+                  <Box sx={{ whiteSpace: 'pre-line' }}>
+                    {getTooltipContent(analysisSources, 'Analyses')}
+                  </Box>
+                }
+                arrow
+              >
+                <Chip
+                  label={`${analysisSources.length} analysis`}
+                  size="small"
+                  variant="outlined"
+                  color="secondary"
+                />
+              </Tooltip>
             )}
-            {dashboards > 0 && (
-              <Chip
-                label={`${dashboards} dashboard${dashboards > 1 ? 's' : ''}`}
-                size="small"
-                variant="outlined"
-                color="error"
-              />
+            {dashboardSources.length > 0 && (
+              <Tooltip
+                title={
+                  <Box sx={{ whiteSpace: 'pre-line' }}>
+                    {getTooltipContent(dashboardSources, 'Dashboards')}
+                  </Box>
+                }
+                arrow
+              >
+                <Chip
+                  label={`${dashboardSources.length} dashboard${dashboardSources.length > 1 ? 's' : ''}`}
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                />
+              </Tooltip>
             )}
           </Stack>
         );
