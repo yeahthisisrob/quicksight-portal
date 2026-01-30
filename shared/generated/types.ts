@@ -1464,8 +1464,14 @@ export interface paths {
                     page?: number;
                     pageSize?: number;
                     viewMode?: "all" | "fields" | "calculated";
+                    /** @description Single tag key filter (deprecated, use includeTags/excludeTags) */
                     tagKey?: string;
+                    /** @description Single tag value filter (deprecated, use includeTags/excludeTags) */
                     tagValue?: string;
+                    /** @description JSON array of tags to include, e.g. [{"key":"env","value":"prod"}]. Assets must have at least one of these tags. */
+                    includeTags?: string;
+                    /** @description JSON array of tags to exclude, e.g. [{"key":"env","value":"dev"}]. Assets must not have any of these tags. */
+                    excludeTags?: string;
                 };
                 header?: never;
                 path?: never;

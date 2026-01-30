@@ -1094,10 +1094,27 @@ paths:
           in: query
           schema:
             type: string
+          description: Single tag key filter (deprecated, use includeTags/excludeTags)
         - name: tagValue
           in: query
           schema:
             type: string
+          description: Single tag value filter (deprecated, use includeTags/excludeTags)
+        - name: includeTags
+          in: query
+          schema:
+            type: string
+          description: JSON array of tags to include, e.g. [{"key":"env","value":"prod"}]. Assets must have at least one of these tags.
+        - name: excludeTags
+          in: query
+          schema:
+            type: string
+          description: JSON array of tags to exclude, e.g. [{"key":"env","value":"dev"}]. Assets must not have any of these tags.
+        - name: assetIds
+          in: query
+          schema:
+            type: string
+          description: JSON array of asset IDs to filter by, e.g. ["dash-123","ds-456"]. Only fields from these assets are returned.
       responses:
         '200':
           description: Data catalog with fields and summary
@@ -1131,6 +1148,27 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/TagWithCount'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/data-catalog/assets:
+    get:
+      summary: Get available assets for filtering
+      description: Returns all assets (dashboards, analyses, datasets) that have fields in the catalog
+      responses:
+        '200':
+          description: Available assets with field counts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CatalogAsset'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -2477,6 +2515,23 @@ components:
         count:
           type: integer
           description: Number of assets with this tag
+
+    CatalogAsset:
+      type: object
+      required: [id, name, type, fieldCount]
+      properties:
+        id:
+          type: string
+          description: Asset ID
+        name:
+          type: string
+          description: Asset name
+        type:
+          type: string
+          description: Asset type (dashboard, analysis, dataset)
+        fieldCount:
+          type: integer
+          description: Number of fields from this asset in the catalog
 
     CatalogField:
       type: object

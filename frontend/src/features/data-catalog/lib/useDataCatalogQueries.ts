@@ -4,6 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import { dataCatalogApi, semanticApi } from '@/shared/api';
 import { useDebounce } from '@/shared/lib';
 
+interface TagFilter {
+  key: string;
+  value: string;
+}
+
 interface UseDataCatalogQueriesProps {
   viewMode: 'physical' | 'semantic' | 'mapping' | 'visual-fields' | 'calculated';
   page: number;
@@ -13,6 +18,9 @@ interface UseDataCatalogQueriesProps {
   unmappedDialogOpen: boolean;
   tagKey?: string;
   tagValue?: string;
+  includeTags?: TagFilter[];
+  excludeTags?: TagFilter[];
+  assetIds?: string[];
 }
 
 export function useDataCatalogQueries({
@@ -24,8 +32,16 @@ export function useDataCatalogQueries({
   unmappedDialogOpen,
   tagKey,
   tagValue,
+  includeTags,
+  excludeTags,
+  assetIds,
 }: UseDataCatalogQueriesProps) {
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
+  // Serialize filters for query key stability
+  const includeTagsKey = includeTags && includeTags.length > 0 ? JSON.stringify(includeTags) : '';
+  const excludeTagsKey = excludeTags && excludeTags.length > 0 ? JSON.stringify(excludeTags) : '';
+  const assetIdsKey = assetIds && assetIds.length > 0 ? JSON.stringify(assetIds) : '';
 
   const catalogData = useQuery<{
     items: any[];
@@ -38,30 +54,30 @@ export function useDataCatalogQueries({
       hasMore: boolean;
     };
   }>({
-    queryKey: ['data-catalog-paginated', page + 1, pageSize, debouncedSearchTerm, viewMode, 
+    queryKey: ['data-catalog-paginated', page + 1, pageSize, debouncedSearchTerm, viewMode,
                viewMode !== 'semantic' && sortModel.length > 0 ? `${sortModel[0].field}-${sortModel[0].sort}` : 'no-sort',
-               tagKey, tagValue],
+               tagKey, tagValue, includeTagsKey, excludeTagsKey, assetIdsKey],
     queryFn: () => {
       const sortParams = viewMode !== 'semantic' && sortModel.length > 0 && sortModel[0].sort ? {
         sortBy: sortModel[0].field,
         sortOrder: sortModel[0].sort as 'asc' | 'desc',
       } : {};
-      
+
       if (viewMode === 'visual-fields') {
-        return { 
-          items: [], 
-          summary: {}, 
-          pagination: { 
-            page: 1, 
-            pageSize: 50, 
-            totalItems: 0, 
-            totalPages: 0, 
-            hasMore: false 
-          } 
+        return {
+          items: [],
+          summary: {},
+          pagination: {
+            page: 1,
+            pageSize: 50,
+            totalItems: 0,
+            totalPages: 0,
+            hasMore: false
+          }
         };
       }
-      
-      const apiParams = {
+
+      const apiParams: Record<string, any> = {
         page: page + 1,
         pageSize,
         search: debouncedSearchTerm,
@@ -69,7 +85,19 @@ export function useDataCatalogQueries({
         ...sortParams,
         ...(tagKey && tagValue ? { tagKey, tagValue } : {}),
       };
-      
+
+      // Add include/exclude tag filters as JSON strings
+      if (includeTags && includeTags.length > 0) {
+        apiParams.includeTags = JSON.stringify(includeTags);
+      }
+      if (excludeTags && excludeTags.length > 0) {
+        apiParams.excludeTags = JSON.stringify(excludeTags);
+      }
+      // Add asset IDs filter
+      if (assetIds && assetIds.length > 0) {
+        apiParams.assetIds = JSON.stringify(assetIds);
+      }
+
       return dataCatalogApi.getDataCatalog(apiParams);
     },
     placeholderData: undefined,

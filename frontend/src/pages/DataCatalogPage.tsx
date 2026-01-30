@@ -70,9 +70,23 @@ function getTotalRows(viewMode: string, terms: any[], visualFieldCatalog: any, c
   return catalogData?.total || 0;
 }
 
+interface TagFilter {
+  key: string;
+  value: string;
+}
+
+interface AssetFilter {
+  id: string;
+  name: string;
+  type: string;
+}
+
 function DataCatalogPageContent() {
   const state = useDataCatalogState();
   const [tagFilter, setTagFilter] = useState<{ key: string; value: string } | null>(null);
+  const [includeTags, setIncludeTags] = useState<TagFilter[]>([]);
+  const [excludeTags, setExcludeTags] = useState<TagFilter[]>([]);
+  const [selectedAssets, setSelectedAssets] = useState<AssetFilter[]>([]);
   
   // Fetch available tags
   const { data: availableTags = [], isLoading: tagsLoading } = useQuery({
@@ -81,9 +95,19 @@ function DataCatalogPageContent() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fetch available assets for filtering
+  const { data: availableAssets = [], isLoading: assetsLoading } = useQuery({
+    queryKey: ['available-assets'],
+    queryFn: () => dataCatalogApi.getAvailableAssets(),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const debouncedSearchTerm = useDebounce(state.searchTerm, 500);
   const debouncedTagFilter = useDebounce(tagFilter, 300);
-  
+  const debouncedIncludeTags = useDebounce(includeTags, 300);
+  const debouncedExcludeTags = useDebounce(excludeTags, 300);
+  const debouncedAssetIds = useDebounce(selectedAssets.map(a => a.id), 300);
+
   const queries = useDataCatalogQueries({
     viewMode: state.viewMode,
     page: state.page,
@@ -93,6 +117,9 @@ function DataCatalogPageContent() {
     unmappedDialogOpen: state.dialogState.unmappedDialogOpen,
     tagKey: debouncedTagFilter?.key,
     tagValue: debouncedTagFilter?.value,
+    includeTags: debouncedIncludeTags,
+    excludeTags: debouncedExcludeTags,
+    assetIds: debouncedAssetIds,
   });
 
   const handlers = useDataCatalogHandlers();
@@ -138,6 +165,10 @@ function DataCatalogPageContent() {
     tagsLoading,
     tagFilter,
     setTagFilter,
+    includeTags,
+    setIncludeTags,
+    excludeTags,
+    setExcludeTags,
     calculatedFields: queries.catalogData?.items?.filter((f: any) => f.isCalculated) || [],
   };
 
@@ -183,9 +214,19 @@ function DataCatalogPageContent() {
         </Box>
       </Box>
 
-      <DataCatalogHeader 
+      <DataCatalogHeader
         viewMode={state.viewMode}
         onViewModeChange={state.setViewMode}
+        availableTags={availableTags}
+        includeTags={includeTags}
+        excludeTags={excludeTags}
+        onIncludeTagsChange={setIncludeTags}
+        onExcludeTagsChange={setExcludeTags}
+        tagsLoading={tagsLoading}
+        availableAssets={availableAssets}
+        selectedAssets={selectedAssets}
+        onSelectedAssetsChange={setSelectedAssets}
+        assetsLoading={assetsLoading}
       />
       
       <DataCatalogStats

@@ -13,22 +13,47 @@ import { TagFilterBar } from './TagFilterBar';
 
 type ViewMode = 'physical' | 'semantic' | 'mapping' | 'visual-fields' | 'calculated';
 
+interface TagFilter {
+  key: string;
+  value: string;
+}
+
+interface AssetFilter {
+  id: string;
+  name: string;
+  type: string;
+}
+
 interface DataCatalogHeaderProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   onImport?: () => void;
   onExport?: () => void;
   availableTags?: { key: string; value: string; count: number }[];
-  onFilterChange?: (filter: { key: string; value: string } | null) => void;
+  includeTags?: TagFilter[];
+  excludeTags?: TagFilter[];
+  onIncludeTagsChange?: (tags: TagFilter[]) => void;
+  onExcludeTagsChange?: (tags: TagFilter[]) => void;
   tagsLoading?: boolean;
+  availableAssets?: { id: string; name: string; type: string; fieldCount: number }[];
+  selectedAssets?: AssetFilter[];
+  onSelectedAssetsChange?: (assets: AssetFilter[]) => void;
+  assetsLoading?: boolean;
 }
 
 export default function DataCatalogHeader({
   viewMode,
   onViewModeChange,
   availableTags = [],
-  onFilterChange,
+  includeTags = [],
+  excludeTags = [],
+  onIncludeTagsChange,
+  onExcludeTagsChange,
   tagsLoading = false,
+  availableAssets = [],
+  selectedAssets = [],
+  onSelectedAssetsChange,
+  assetsLoading = false,
 }: DataCatalogHeaderProps) {
 
   const PhysicalIcon = catalogIcons.physical;
@@ -40,12 +65,18 @@ export default function DataCatalogHeader({
   return (
     <>
       {/* Tag Filter Bar */}
-      {onFilterChange && (
+      {onIncludeTagsChange && onExcludeTagsChange && (
         <Box sx={{ mb: spacing.md / 8 }}>
           <TagFilterBar
             availableTags={availableTags}
-            onFilterChange={onFilterChange}
-            isLoading={tagsLoading}
+            includeTags={includeTags}
+            excludeTags={excludeTags}
+            onIncludeTagsChange={onIncludeTagsChange}
+            onExcludeTagsChange={onExcludeTagsChange}
+            isLoading={tagsLoading || assetsLoading}
+            availableAssets={availableAssets}
+            selectedAssets={selectedAssets}
+            onSelectedAssetsChange={onSelectedAssetsChange}
           />
         </Box>
       )}

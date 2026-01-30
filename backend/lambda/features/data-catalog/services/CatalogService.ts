@@ -133,6 +133,39 @@ export class CatalogService {
   }
 
   /**
+   * Get available assets for filtering (dashboards, analyses, datasets with field counts)
+   */
+  public async getAvailableAssets(): Promise<
+    Array<{ id: string; name: string; type: string; fieldCount: number }>
+  > {
+    const allAssets = await this.getAllAssets();
+    const fieldData = await cacheService.searchFields({});
+
+    // Count fields per asset
+    const fieldCounts = new Map<string, number>();
+    for (const field of fieldData) {
+      fieldCounts.set(field.sourceAssetId, (fieldCounts.get(field.sourceAssetId) || 0) + 1);
+    }
+
+    // Filter to assets that have fields and are relevant types
+    const relevantTypes = new Set([
+      ASSET_TYPES.dashboard,
+      ASSET_TYPES.analysis,
+      ASSET_TYPES.dataset,
+    ]);
+
+    return allAssets
+      .filter((asset) => relevantTypes.has(asset.assetType) && fieldCounts.has(asset.assetId))
+      .map((asset) => ({
+        id: asset.assetId,
+        name: asset.assetName,
+        type: asset.assetType,
+        fieldCount: fieldCounts.get(asset.assetId) || 0,
+      }))
+      .sort((a, b) => b.fieldCount - a.fieldCount);
+  }
+
+  /**
    * Get available tags from all assets with usage counts
    */
   public async getAvailableTags(): Promise<Array<{ key: string; value: string; count: number }>> {
@@ -207,10 +240,12 @@ export class CatalogService {
     };
   }
 
-  public async getDataCatalog(tagFilter?: {
-    key: string;
-    value: string;
-  }): Promise<DataCatalogResult> {
+  public async getDataCatalog(
+    tagFilter?: { key: string; value: string },
+    includeTags?: Array<{ key: string; value: string }>,
+    excludeTags?: Array<{ key: string; value: string }>,
+    assetIds?: string[]
+  ): Promise<DataCatalogResult> {
     const startTime = Date.now();
 
     try {
@@ -227,6 +262,7 @@ export class CatalogService {
         (asset: CacheEntry) => !excludedAssets.has(asset.assetId)
       );
 
+      // Legacy single tag filter (backwards compatible)
       if (tagFilter) {
         includedAssets = includedAssets.filter((asset: CacheEntry) => {
           const tags = asset.tags || [];
@@ -238,6 +274,47 @@ export class CatalogService {
         logger.info(
           `Applied tag filter ${tagFilter.key}=${tagFilter.value}: ${includedAssets.length} assets`
         );
+      }
+
+      // Include tags filter: asset must have at least one of these tags (OR logic)
+      if (includeTags && includeTags.length > 0) {
+        includedAssets = includedAssets.filter((asset: CacheEntry) => {
+          const assetTags = asset.tags || [];
+          return includeTags.some((includeTag) =>
+            assetTags.some(
+              (tag: { key: string; value: string }) =>
+                tag.key === includeTag.key && tag.value === includeTag.value
+            )
+          );
+        });
+        logger.info(
+          `Applied include tags filter (${includeTags.length} tags): ${includedAssets.length} assets`
+        );
+      }
+
+      // Exclude tags filter: asset must not have any of these tags (AND NOT logic)
+      if (excludeTags && excludeTags.length > 0) {
+        includedAssets = includedAssets.filter((asset: CacheEntry) => {
+          const assetTags = asset.tags || [];
+          return !excludeTags.some((excludeTag) =>
+            assetTags.some(
+              (tag: { key: string; value: string }) =>
+                tag.key === excludeTag.key && tag.value === excludeTag.value
+            )
+          );
+        });
+        logger.info(
+          `Applied exclude tags filter (${excludeTags.length} tags): ${includedAssets.length} assets`
+        );
+      }
+
+      // Asset IDs filter: only include fields from specific assets (OR logic)
+      if (assetIds && assetIds.length > 0) {
+        const assetIdSet = new Set(assetIds);
+        includedAssets = includedAssets.filter((asset: CacheEntry) =>
+          assetIdSet.has(asset.assetId)
+        );
+        logger.info(`Applied asset filter (${assetIds.length} assets): ${includedAssets.length} assets`);
       }
 
       if (includedAssets.length === 0) {

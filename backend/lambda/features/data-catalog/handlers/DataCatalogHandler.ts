@@ -61,6 +61,25 @@ export class DataCatalogHandler {
     }
   }
 
+  public async getAvailableAssets(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const assets = await this.catalogService.getAvailableAssets();
+
+      return successResponse(event, {
+        success: true,
+        data: assets,
+      });
+    } catch (error) {
+      logger.error('Failed to get available assets', { error });
+      return errorResponse(
+        event,
+        STATUS_CODES.INTERNAL_SERVER_ERROR,
+        'Failed to get available assets'
+      );
+    }
+  }
+
   public async getAvailableTags(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       await requireAuth(event); // Validate authentication
@@ -125,16 +144,25 @@ export class DataCatalogHandler {
       await requireAuth(event);
 
       const params = this.extractPaginationParams(event);
-      const { viewMode, forceRebuild, tagFilter } = this.extractFilterParams(event);
+      const { viewMode, forceRebuild, tagFilter, includeTags, excludeTags, assetIds } =
+        this.extractFilterParams(event);
 
       logger.info('Getting data catalog paginated', {
         ...params,
         viewMode,
         forceRebuild,
         tagFilter,
+        includeTags,
+        excludeTags,
+        assetIds,
       });
 
-      const catalog = await this.catalogService.getDataCatalog(tagFilter);
+      const catalog = await this.catalogService.getDataCatalog(
+        tagFilter,
+        includeTags,
+        excludeTags,
+        assetIds
+      );
       if (!catalog) {
         return this.createEmptyResponse(event, params);
       }
@@ -529,14 +557,38 @@ export class DataCatalogHandler {
     viewMode: string;
     forceRebuild: boolean;
     tagFilter?: { key: string; value: string };
+    includeTags?: Array<{ key: string; value: string }>;
+    excludeTags?: Array<{ key: string; value: string }>;
+    assetIds?: string[];
   } {
     const viewMode = event.queryStringParameters?.viewMode || 'all';
     const forceRebuild = event.queryStringParameters?.forceRebuild === 'true';
+
+    // Legacy single tag filter (backwards compatible)
     const tagKey = event.queryStringParameters?.tagKey;
     const tagValue = event.queryStringParameters?.tagValue;
     const tagFilter = tagKey && tagValue ? { key: tagKey, value: tagValue } : undefined;
 
-    return { viewMode, forceRebuild, tagFilter };
+    // New multi-tag include/exclude filters and asset filter
+    let includeTags: Array<{ key: string; value: string }> | undefined;
+    let excludeTags: Array<{ key: string; value: string }> | undefined;
+    let assetIds: string[] | undefined;
+
+    try {
+      if (event.queryStringParameters?.includeTags) {
+        includeTags = JSON.parse(event.queryStringParameters.includeTags);
+      }
+      if (event.queryStringParameters?.excludeTags) {
+        excludeTags = JSON.parse(event.queryStringParameters.excludeTags);
+      }
+      if (event.queryStringParameters?.assetIds) {
+        assetIds = JSON.parse(event.queryStringParameters.assetIds);
+      }
+    } catch (error) {
+      logger.warn('Failed to parse filter parameters', { error });
+    }
+
+    return { viewMode, forceRebuild, tagFilter, includeTags, excludeTags, assetIds };
   }
 
   /**

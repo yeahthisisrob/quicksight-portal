@@ -18,6 +18,13 @@ export const dataCatalogRoutes: RouteHandler[] = [
     handler: (event) => handler.getAvailableTags(event),
   },
 
+  // Get available assets for filtering
+  {
+    method: 'GET',
+    path: '/data-catalog/assets',
+    handler: (event) => handler.getAvailableAssets(event),
+  },
+
   // Catalog stats and summary
   {
     method: 'GET',

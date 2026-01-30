@@ -24,6 +24,9 @@ export const dataCatalogApi = {
     sortOrder?: 'asc' | 'desc';
     tagKey?: string;
     tagValue?: string;
+    includeTags?: string; // JSON stringified array of {key, value}
+    excludeTags?: string; // JSON stringified array of {key, value}
+    assetIds?: string; // JSON stringified array of asset IDs
   }): Promise<any> {
     try {
       const response = await apiClient.get<ApiResponse<any>>('/data-catalog', { 
@@ -48,6 +51,15 @@ export const dataCatalogApi = {
     const response = await apiClient.get<ApiResponse<{ key: string; value: string; count: number }[]>>('/data-catalog/tags');
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to fetch available tags');
+    }
+    return response.data.data || [];
+  },
+
+  // Get available assets for filtering
+  async getAvailableAssets(): Promise<{ id: string; name: string; type: string; fieldCount: number }[]> {
+    const response = await apiClient.get<ApiResponse<{ id: string; name: string; type: string; fieldCount: number }[]>>('/data-catalog/assets');
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to fetch available assets');
     }
     return response.data.data || [];
   },

@@ -458,6 +458,39 @@ export class AssetService {
   }
 
   /**
+   * Build a map of asset ID to tags for all related assets in the lineage
+   */
+  private buildTagsMapForRelatedAssets(
+    lineageMap: Map<string, LineageData>,
+    cache: CacheData
+  ): Map<string, Array<{ key: string; value: string }>> {
+    const tagsMap = new Map<string, Array<{ key: string; value: string }>>();
+
+    // Collect all target asset IDs from lineage
+    const assetIds = new Set<string>();
+    lineageMap.forEach((lineageData) => {
+      if (lineageData.relationships) {
+        lineageData.relationships.forEach((rel: any) => {
+          assetIds.add(rel.targetAssetId);
+        });
+      }
+    });
+
+    // Look up tags from cache for each asset type
+    const assetTypes = ['dashboard', 'analysis', 'dataset', 'datasource'] as const;
+    for (const type of assetTypes) {
+      const entries = cache.entries[type] || [];
+      for (const entry of entries) {
+        if (assetIds.has(entry.assetId) && entry.tags && entry.tags.length > 0) {
+          tagsMap.set(entry.assetId, entry.tags);
+        }
+      }
+    }
+
+    return tagsMap;
+  }
+
+  /**
    * Check if an asset is a member of any accessible folder
    */
   private checkFolderMembership(
@@ -1157,7 +1190,14 @@ export class AssetService {
     this.addFolderMembership(mappedAsset, cacheEntry.assetId, assetFolderMap);
 
     // Add lineage data with activity and tags
-    this.addLineageData(mappedAsset, assetType, cacheEntry.assetId, lineageMap, activityMap, tagsMap);
+    this.addLineageData(
+      mappedAsset,
+      assetType,
+      cacheEntry.assetId,
+      lineageMap,
+      activityMap,
+      tagsMap
+    );
 
     // Add activity data
     this.addActivityData(mappedAsset, assetType, cacheEntry.assetId, activityMap);
@@ -1352,38 +1392,5 @@ export class AssetService {
 
       return transformed;
     });
-  }
-
-  /**
-   * Build a map of asset ID to tags for all related assets in the lineage
-   */
-  private buildTagsMapForRelatedAssets(
-    lineageMap: Map<string, LineageData>,
-    cache: CacheData
-  ): Map<string, Array<{ key: string; value: string }>> {
-    const tagsMap = new Map<string, Array<{ key: string; value: string }>>();
-
-    // Collect all target asset IDs from lineage
-    const assetIds = new Set<string>();
-    lineageMap.forEach((lineageData) => {
-      if (lineageData.relationships) {
-        lineageData.relationships.forEach((rel: any) => {
-          assetIds.add(rel.targetAssetId);
-        });
-      }
-    });
-
-    // Look up tags from cache for each asset type
-    const assetTypes = ['dashboard', 'analysis', 'dataset', 'datasource'] as const;
-    for (const type of assetTypes) {
-      const entries = cache.entries[type] || [];
-      for (const entry of entries) {
-        if (assetIds.has(entry.assetId) && entry.tags && entry.tags.length > 0) {
-          tagsMap.set(entry.assetId, entry.tags);
-        }
-      }
-    }
-
-    return tagsMap;
   }
 }
