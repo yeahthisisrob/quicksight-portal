@@ -29,6 +29,18 @@ import {
   type MappedAsset,
 } from '../types';
 
+/**
+ * Context object for asset enrichment to reduce parameter count
+ */
+interface EnrichmentContext {
+  assetType: string;
+  cache: CacheData;
+  assetFolderMap: Map<string, Array<{ id: string; name: string; path: string }>>;
+  lineageMap: Map<string, LineageData>;
+  activityMap: Map<string, ActivityData>;
+  tagsMap: Map<string, Array<{ key: string; value: string }>>;
+}
+
 export class AssetService {
   private readonly activityService: ActivityService;
   private readonly groupService: GroupService;
@@ -204,18 +216,20 @@ export class AssetService {
       // Build folder membership mapping
       const assetFolderMap = this.buildAssetFolderMap(cache, assetType);
 
+      // Build enrichment context to pass to mapping function
+      const enrichmentContext: EnrichmentContext = {
+        assetType,
+        cache,
+        assetFolderMap,
+        lineageMap,
+        activityMap,
+        tagsMap,
+      };
+
       // Convert cached assets using the proper OpenAPI contract mappings
       const items: Asset[] = await Promise.all(
         cachedAssets.map((cacheEntry: CacheEntry) =>
-          this.mapCacheEntryToEnrichedAsset(
-            cacheEntry,
-            assetType,
-            cache,
-            assetFolderMap,
-            lineageMap,
-            activityMap,
-            tagsMap
-          )
+          this.mapCacheEntryToEnrichedAsset(cacheEntry, enrichmentContext)
         )
       );
 
@@ -1164,13 +1178,10 @@ export class AssetService {
    */
   private async mapCacheEntryToEnrichedAsset(
     cacheEntry: CacheEntry,
-    assetType: string,
-    cache: any,
-    assetFolderMap: Map<string, Array<{ id: string; name: string; path: string }>>,
-    lineageMap: Map<string, any>,
-    activityMap: Map<string, any>,
-    tagsMap: Map<string, Array<{ key: string; value: string }>>
+    context: EnrichmentContext
   ): Promise<any> {
+    const { assetType, cache, assetFolderMap, lineageMap, activityMap, tagsMap } = context;
+
     // For datasets, resolve sourceType before mapping
     let resolvedCacheEntry = cacheEntry;
     if (assetType === ASSET_TYPES.dataset) {

@@ -1472,6 +1472,8 @@ export interface paths {
                     includeTags?: string;
                     /** @description JSON array of tags to exclude, e.g. [{"key":"env","value":"dev"}]. Assets must not have any of these tags. */
                     excludeTags?: string;
+                    /** @description JSON array of asset IDs to filter by, e.g. ["dash-123","ds-456"]. Only fields from these assets are returned. */
+                    assetIds?: string;
                 };
                 header?: never;
                 path?: never;
@@ -1531,6 +1533,49 @@ export interface paths {
                         "application/json": {
                             success?: boolean;
                             data?: components["schemas"]["TagWithCount"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data-catalog/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get available assets for filtering
+         * @description Returns all assets (dashboards, analyses, datasets) that have fields in the catalog
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Available assets with field counts */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["CatalogAsset"][];
                         };
                     };
                 };
@@ -2459,6 +2504,16 @@ export interface components {
             value: string;
             /** @description Number of assets with this tag */
             count: number;
+        };
+        CatalogAsset: {
+            /** @description Asset ID */
+            id: string;
+            /** @description Asset name */
+            name: string;
+            /** @description Asset type (dashboard, analysis, dataset) */
+            type: string;
+            /** @description Number of fields from this asset in the catalog */
+            fieldCount: number;
         };
         CatalogField: {
             fieldId: string;

@@ -148,7 +148,7 @@ export class CatalogService {
     }
 
     // Filter to assets that have fields and are relevant types
-    const relevantTypes = new Set([
+    const relevantTypes = new Set<string>([
       ASSET_TYPES.dashboard,
       ASSET_TYPES.analysis,
       ASSET_TYPES.dataset,
@@ -314,7 +314,9 @@ export class CatalogService {
         includedAssets = includedAssets.filter((asset: CacheEntry) =>
           assetIdSet.has(asset.assetId)
         );
-        logger.info(`Applied asset filter (${assetIds.length} assets): ${includedAssets.length} assets`);
+        logger.info(
+          `Applied asset filter (${assetIds.length} assets): ${includedAssets.length} assets`
+        );
       }
 
       if (includedAssets.length === 0) {
