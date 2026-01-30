@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 
 import {
   Close as CloseIcon,
@@ -41,10 +41,17 @@ export default function RelatedAssetsDialog({
 }: RelatedAssetsDialogProps) {
   const [showArchived, setShowArchived] = useState(false);
 
-  // Parse relationships into arrays
+  // Reset state when dialog opens
+  useEffect(() => {
+    if (open) {
+      setShowArchived(false);
+    }
+  }, [open]);
+
+  // Parse relationships into arrays (with deduplication by id)
   const { allUsesArray, allUsedByArray } = useMemo(() => {
-    const uses: RelatedAsset[] = [];
-    const usedBy: RelatedAsset[] = [];
+    const usesMap = new Map<string, RelatedAsset>();
+    const usedByMap = new Map<string, RelatedAsset>();
 
     if (Array.isArray(relatedAssets)) {
       relatedAssets.forEach((rel: any) => {
@@ -58,17 +65,20 @@ export default function RelatedAssetsDialog({
         };
 
         if (rel.relationshipType === 'used_by') {
-          usedBy.push(asset);
+          usedByMap.set(asset.id, asset);
         } else if (rel.relationshipType === 'uses') {
-          uses.push(asset);
+          usesMap.set(asset.id, asset);
         }
       });
     } else if (relatedAssets && typeof relatedAssets === 'object') {
-      uses.push(...(relatedAssets.uses || []));
-      usedBy.push(...(relatedAssets.usedBy || []));
+      (relatedAssets.uses || []).forEach((a: RelatedAsset) => usesMap.set(a.id, a));
+      (relatedAssets.usedBy || []).forEach((a: RelatedAsset) => usedByMap.set(a.id, a));
     }
 
-    return { allUsesArray: uses, allUsedByArray: usedBy };
+    return {
+      allUsesArray: Array.from(usesMap.values()),
+      allUsedByArray: Array.from(usedByMap.values()),
+    };
   }, [relatedAssets]);
 
   // Count archived assets
@@ -82,12 +92,12 @@ export default function RelatedAssetsDialog({
     const sortByViews = (a: RelatedAsset, b: RelatedAsset) =>
       (b.activity?.totalViews || 0) - (a.activity?.totalViews || 0);
 
-    // Filter based on toggle
+    // Filter based on toggle (always create new arrays to avoid mutation)
     const filteredUses = showArchived
-      ? allUsesArray
+      ? [...allUsesArray]
       : allUsesArray.filter(a => !a.isArchived);
     const filteredUsedBy = showArchived
-      ? allUsedByArray
+      ? [...allUsedByArray]
       : allUsedByArray.filter(a => !a.isArchived);
 
     // Group by asset type
