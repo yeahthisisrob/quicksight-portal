@@ -126,10 +126,11 @@ export class CatalogService {
   }
 
   public async getAllAssets(): Promise<CacheEntry[]> {
-    const { assets } = await cacheService.getAssets({
+    // Use getCacheEntries for unpaginated access to all assets
+    // (getAssets/searchAssets applies DEFAULT_MAX_RESULTS=100 limit)
+    return await cacheService.getCacheEntries({
       statusFilter: AssetStatusFilter.ALL,
     });
-    return assets;
   }
 
   /**

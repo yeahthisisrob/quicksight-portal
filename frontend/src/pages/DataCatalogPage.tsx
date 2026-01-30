@@ -63,11 +63,15 @@ function getLoadingState(viewMode: string, termsLoading: boolean, visualFieldsLo
 
 /**
  * Get total rows based on view mode
+ * Uses pagination.totalItems from API response per OpenAPI contract
+ * Visual fields uses summary.totalMappings (legacy pattern)
  */
 function getTotalRows(viewMode: string, terms: any[], visualFieldCatalog: any, catalogData: any) {
   if (viewMode === 'semantic') return terms?.length || 0;
-  if (viewMode === 'visual-fields') return visualFieldCatalog?.total || 0;
-  return catalogData?.total || 0;
+  if (viewMode === 'visual-fields') {
+    return visualFieldCatalog?.pagination?.totalItems || visualFieldCatalog?.summary?.totalMappings || 0;
+  }
+  return catalogData?.pagination?.totalItems || 0;
 }
 
 interface TagFilter {
