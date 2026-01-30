@@ -1,11 +1,13 @@
 import {
   Calculate as CalculateIcon,
   Warning as WarningIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { Box, Chip, Button, Tooltip, Typography } from '@mui/material';
+import { Box, Chip, Button, IconButton, Tooltip, Typography } from '@mui/material';
 import { GridColDef } from '@mui/x-data-grid';
 
-import { ActionButtonsCell, CountCell } from '@/shared/ui/DataGrid/cells';
+import { CountCell } from '@/shared/ui/DataGrid/cells';
 
 import type { SemanticTermRow, SemanticColumnsCallbacks } from '../../types';
 
@@ -185,19 +187,22 @@ export function createSemanticColumns({
       width: 100,
       sortable: false,
       renderCell: (params) => (
-        <ActionButtonsCell
-          actions={[
-            {
-              icon: 'edit',
-              onClick: () => onEditTerm(params.row),
-            },
-            {
-              icon: 'delete',
-              onClick: () => onDeleteTerm(params.row),
-              color: 'error',
-            },
-          ]}
-        />
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <Tooltip title="Edit">
+            <IconButton size="small" onClick={() => onEditTerm(params.row)}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete">
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => onDeleteTerm(params.row)}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
       ),
     },
   ];

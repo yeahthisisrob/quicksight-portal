@@ -1,5 +1,3 @@
-import type { AssetSource } from '@/shared/ui/DataGrid/cells';
-
 /**
  * Asset reference for FieldUsageBadges (requires assetName)
  */
@@ -48,7 +46,7 @@ export interface CalculatedFieldRow extends BaseFieldRow {
   expression: string;
   expressionLength?: number;
   hasComments?: boolean;
-  sources?: AssetSource[];
+  sources?: AssetReference[];
   fieldReferences?: string[];
   expressions?: string[];
 }
@@ -113,7 +111,7 @@ export interface PhysicalColumnsCallbacks {
   onShowAssets?: (
     field: PhysicalFieldRow,
     assetType: string,
-    assets: AssetSource[]
+    assets: AssetReference[]
   ) => void;
 }
 

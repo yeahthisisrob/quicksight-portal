@@ -3,15 +3,15 @@ import {
   Warning as WarningIcon,
   AccountTree as DependencyIcon,
   Comment as CommentIcon,
+  Code as CodeIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
-import { Box, Chip, Button, Tooltip, Typography } from '@mui/material';
+import { Box, Chip, Button, Tooltip, Typography, IconButton } from '@mui/material';
 import { GridColDef } from '@mui/x-data-grid';
 
-import {
-  ActionButtonsCell,
-  AssetSourcesCell,
-  CountCell,
-} from '@/shared/ui/DataGrid/cells';
+import { FieldUsageBadges } from '@/entities/field';
+
+import { CountCell } from '@/shared/ui/DataGrid/cells';
 
 import type {
   CalculatedFieldRow,
@@ -161,7 +161,7 @@ export function createCalculatedColumns({
       headerName: 'Sources',
       width: 200,
       renderCell: (params) => (
-        <AssetSourcesCell sources={params.value || []} />
+        <FieldUsageBadges sources={params.value || []} />
       ),
     },
     {
@@ -200,21 +200,20 @@ export function createCalculatedColumns({
       field: 'actions',
       headerName: '',
       width: 100,
+      sortable: false,
       renderCell: (params) => (
-        <ActionButtonsCell
-          actions={[
-            {
-              icon: 'code',
-              onClick: () => onShowExpression(params.row),
-              tooltip: 'View Expression',
-            },
-            {
-              icon: 'info',
-              onClick: () => onShowDetails(params.row),
-              tooltip: 'View Details',
-            },
-          ]}
-        />
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <Tooltip title="View Expression">
+            <IconButton size="small" onClick={() => onShowExpression(params.row)}>
+              <CodeIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="View Details">
+            <IconButton size="small" onClick={() => onShowDetails(params.row)}>
+              <InfoIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
       ),
     },
   ];

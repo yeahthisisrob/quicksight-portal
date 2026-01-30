@@ -1,8 +1,12 @@
-import { TrendingUp as ConfidenceIcon } from '@mui/icons-material';
-import { Box, Chip, LinearProgress, Typography } from '@mui/material';
+import {
+  TrendingUp as ConfidenceIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+} from '@mui/icons-material';
+import { Box, Chip, IconButton, LinearProgress, Tooltip, Typography } from '@mui/material';
 import { GridColDef } from '@mui/x-data-grid';
 
-import { ActionButtonsCell, CountCell } from '@/shared/ui/DataGrid/cells';
+import { CountCell } from '@/shared/ui/DataGrid/cells';
 
 import type { MappingRow, MappingColumnsCallbacks } from '../../types';
 
@@ -105,19 +109,22 @@ export function createMappingColumns({
       width: 100,
       sortable: false,
       renderCell: (params) => (
-        <ActionButtonsCell
-          actions={[
-            {
-              icon: 'edit',
-              onClick: () => onEditMapping(params.row),
-            },
-            {
-              icon: 'delete',
-              onClick: () => onDeleteMapping(params.row),
-              color: 'error',
-            },
-          ]}
-        />
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <Tooltip title="Edit">
+            <IconButton size="small" onClick={() => onEditMapping(params.row)}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete">
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => onDeleteMapping(params.row)}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
       ),
     },
   ];

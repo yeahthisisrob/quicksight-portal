@@ -1,13 +1,10 @@
-import { Box, Chip, Typography } from '@mui/material';
+import { Info as InfoIcon } from '@mui/icons-material';
+import { Box, Chip, IconButton, Tooltip, Typography } from '@mui/material';
 import { GridColDef } from '@mui/x-data-grid';
 
 import { FieldUsageBadges } from '@/entities/field';
 
-import {
-  ActionButtonsCell,
-  CountCell,
-  FieldNameCell,
-} from '@/shared/ui/DataGrid/cells';
+import { CountCell, FieldNameCell } from '@/shared/ui/DataGrid/cells';
 
 import type { VisualFieldRow, VisualFieldColumnsCallbacks } from '../../types';
 
@@ -117,15 +114,13 @@ export function createVisualFieldColumns({
       field: 'actions',
       headerName: '',
       width: 80,
+      sortable: false,
       renderCell: (params) => (
-        <ActionButtonsCell
-          actions={[
-            {
-              icon: 'info',
-              onClick: () => onShowDetails(params.row),
-            },
-          ]}
-        />
+        <Tooltip title="View Details">
+          <IconButton size="small" onClick={() => onShowDetails(params.row)}>
+            <InfoIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       ),
     },
   ];
