@@ -352,7 +352,8 @@ export class AssetService {
     mappedAsset: any,
     assetType: string,
     assetId: string,
-    lineageMap: Map<string, LineageData>
+    lineageMap: Map<string, LineageData>,
+    activityMap: Map<string, ActivityData>
   ): void {
     const lineageKey = `${assetType}:${assetId}`;
     const assetLineage = lineageMap.get(lineageKey);
@@ -365,7 +366,10 @@ export class AssetService {
     }
 
     if (assetLineage?.relationships) {
-      const allRelationships = this.transformLineageRelationships(assetLineage.relationships);
+      const allRelationships = this.transformLineageRelationships(
+        assetLineage.relationships,
+        activityMap
+      );
       mappedAsset.relatedAssets = this.filterRelationshipsByAssetType(assetType, allRelationships);
     } else {
       mappedAsset.relatedAssets = [];
@@ -1145,8 +1149,8 @@ export class AssetService {
     // Add folder membership data
     this.addFolderMembership(mappedAsset, cacheEntry.assetId, assetFolderMap);
 
-    // Add lineage data
-    this.addLineageData(mappedAsset, assetType, cacheEntry.assetId, lineageMap);
+    // Add lineage data with activity
+    this.addLineageData(mappedAsset, assetType, cacheEntry.assetId, lineageMap, activityMap);
 
     // Add activity data
     this.addActivityData(mappedAsset, assetType, cacheEntry.assetId, activityMap);
@@ -1301,19 +1305,38 @@ export class AssetService {
   }
 
   /**
-   * Transform lineage relationships to standard format
+   * Transform lineage relationships to standard format with activity data
    */
-  private transformLineageRelationships(relationships: any[]): any[] {
-    return relationships.map((rel: any) => ({
-      sourceAssetId: rel.sourceAssetId,
-      sourceAssetType: rel.sourceAssetType,
-      sourceAssetName: rel.sourceAssetName,
-      sourceIsArchived: rel.sourceIsArchived || false,
-      targetAssetId: rel.targetAssetId,
-      targetAssetType: rel.targetAssetType,
-      targetAssetName: rel.targetAssetName,
-      targetIsArchived: rel.targetIsArchived || false,
-      relationshipType: rel.relationshipType,
-    }));
+  private transformLineageRelationships(
+    relationships: any[],
+    activityMap: Map<string, ActivityData>
+  ): any[] {
+    return relationships.map((rel: any) => {
+      const transformed: any = {
+        sourceAssetId: rel.sourceAssetId,
+        sourceAssetType: rel.sourceAssetType,
+        sourceAssetName: rel.sourceAssetName,
+        sourceIsArchived: rel.sourceIsArchived || false,
+        targetAssetId: rel.targetAssetId,
+        targetAssetType: rel.targetAssetType,
+        targetAssetName: rel.targetAssetName,
+        targetIsArchived: rel.targetIsArchived || false,
+        relationshipType: rel.relationshipType,
+      };
+
+      // Add activity data for dashboard and analysis targets
+      if (rel.targetAssetType === 'dashboard' || rel.targetAssetType === 'analysis') {
+        const activityData = activityMap.get(rel.targetAssetId);
+        if (activityData) {
+          transformed.activity = {
+            totalViews: activityData.totalViews || 0,
+            uniqueViewers: activityData.uniqueViewers || 0,
+            lastViewed: activityData.lastViewed || null,
+          };
+        }
+      }
+
+      return transformed;
+    });
   }
 }

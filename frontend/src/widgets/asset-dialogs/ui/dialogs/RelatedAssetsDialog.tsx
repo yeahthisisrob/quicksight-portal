@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   Close as CloseIcon,
   Link as LinkIcon,
@@ -12,6 +14,8 @@ import {
   Typography,
   IconButton,
   Chip,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 
@@ -51,6 +55,7 @@ export default function RelatedAssetsDialog({
   relatedAssets = [],
 }: RelatedAssetsDialogProps) {
   const navigate = useNavigate();
+  const [showArchived, setShowArchived] = useState(false);
 
   // Handle both flat array and object formats
   let usesArray: RelatedAsset[] = [];
@@ -65,9 +70,11 @@ export default function RelatedAssetsDialog({
         name: rel.targetAssetName,
         type: rel.targetAssetType,
         isArchived: rel.targetIsArchived,
-        relationshipType: rel.relationshipType
+        relationshipType: rel.relationshipType,
+        // Include activity data for dashboards and analyses
+        activity: rel.activity,
       };
-      
+
       if (rel.relationshipType === 'used_by') {
         usedByArray.push(asset);
       } else if (rel.relationshipType === 'uses') {
@@ -78,6 +85,16 @@ export default function RelatedAssetsDialog({
     // Old object format with usedBy and uses arrays
     usesArray = relatedAssets.uses || [];
     usedByArray = relatedAssets.usedBy || [];
+  }
+
+  // Count archived assets before filtering
+  const archivedCount = usesArray.filter(a => a.isArchived).length +
+                        usedByArray.filter(a => a.isArchived).length;
+
+  // Filter out archived assets if toggle is off
+  if (!showArchived) {
+    usesArray = usesArray.filter(a => !a.isArchived);
+    usedByArray = usedByArray.filter(a => !a.isArchived);
   }
 
   // Group each relationship type by asset type
@@ -135,9 +152,28 @@ export default function RelatedAssetsDialog({
               </Typography>
             </Box>
           </Box>
-          <IconButton onClick={onClose} sx={{ color: 'text.secondary' }}>
-            <CloseIcon />
-          </IconButton>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {archivedCount > 0 && (
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={showArchived}
+                    onChange={(e) => setShowArchived(e.target.checked)}
+                  />
+                }
+                label={
+                  <Typography variant="body2" color="text.secondary">
+                    Show archived ({archivedCount})
+                  </Typography>
+                }
+                sx={{ mr: 1 }}
+              />
+            )}
+            <IconButton onClick={onClose} sx={{ color: 'text.secondary' }}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
         </Box>
       </DialogTitle>
       

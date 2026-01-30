@@ -1776,6 +1776,21 @@ components:
         relationshipType:
           type: string
           enum: [uses, used_by]
+        activity:
+          type: object
+          description: Activity data for dashboard and analysis relationships
+          properties:
+            totalViews:
+              type: integer
+              description: Total number of views
+            uniqueViewers:
+              type: integer
+              description: Number of unique viewers
+            lastViewed:
+              type: string
+              format: date-time
+              nullable: true
+              description: Last time the asset was viewed
 
     # Field catalog types
     FieldInfo:

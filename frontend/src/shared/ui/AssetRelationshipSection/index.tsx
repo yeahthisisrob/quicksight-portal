@@ -154,49 +154,43 @@ export function AssetRelationshipSection({
                   </Typography>
                   {/* Activity indicator for dashboards and analyses */}
                   {(asset.type === 'dashboard' || asset.type === 'analysis') && asset.activity && asset.activity.totalViews !== undefined && (
-                    <Tooltip 
-                      title={`${asset.activity.totalViews} views by ${asset.activity.uniqueViewers || 0} users`}
-                      placement="top"
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        backgroundColor: asset.activity.totalViews === 0
+                          ? alpha('#000', 0.05)
+                          : alpha(colorConfig.main, 0.1),
+                        borderRadius: `${borderRadius.sm}px`,
+                        px: 0.5,
+                        py: 0.25,
+                      }}
                     >
-                      <Box
+                      <Typography
+                        variant="caption"
                         sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 0.5,
-                          backgroundColor: asset.activity.totalViews === 0 
-                            ? alpha('#000', 0.05) 
-                            : alpha(colorConfig.main, 0.1),
-                          borderRadius: `${borderRadius.sm}px`,
-                          px: 0.5,
-                          py: 0.25,
-                          cursor: 'help',
+                          fontSize: '0.65rem',
+                          fontWeight: typography.fontWeight.medium,
+                          color: asset.activity.totalViews === 0
+                            ? 'text.secondary'
+                            : colorConfig.main,
                         }}
                       >
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontSize: '0.65rem',
-                            fontWeight: typography.fontWeight.medium,
-                            color: asset.activity.totalViews === 0 
-                              ? 'text.secondary' 
-                              : colorConfig.main,
-                          }}
-                        >
-                          {asset.activity.totalViews >= 1000 
-                            ? `${(asset.activity.totalViews / 1000).toFixed(1)}k`
-                            : asset.activity.totalViews}
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontSize: '0.65rem',
-                            color: 'text.secondary',
-                          }}
-                        >
-                          views
-                        </Typography>
-                      </Box>
-                    </Tooltip>
+                        {asset.activity.totalViews >= 1000
+                          ? `${(asset.activity.totalViews / 1000).toFixed(1)}k`
+                          : asset.activity.totalViews}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: '0.65rem',
+                          color: 'text.secondary',
+                        }}
+                      >
+                        views
+                      </Typography>
+                    </Box>
                   )}
                 </Box>
               </Box>

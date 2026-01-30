@@ -1,11 +1,11 @@
 // Asset entity types
-import type { 
+import type {
   AssetType as GeneratedAssetType,
   AssetListItem,
   DashboardListItem,
   DatasetListItem,
   Tag
-} from '@shared/generated/api-client';
+} from '@shared/generated';
 
 // Extend asset type to include frontend-specific types
 export type AssetType = GeneratedAssetType | 'folder' | 'user' | 'group';

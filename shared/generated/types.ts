@@ -2024,6 +2024,18 @@ export interface components {
             targetIsArchived?: boolean;
             /** @enum {string} */
             relationshipType: "uses" | "used_by";
+            /** @description Activity data for dashboard and analysis relationships */
+            activity?: {
+                /** @description Total number of views */
+                totalViews?: number;
+                /** @description Number of unique viewers */
+                uniqueViewers?: number;
+                /**
+                 * Format: date-time
+                 * @description Last time the asset was viewed
+                 */
+                lastViewed?: string | null;
+            };
         };
         FieldInfo: {
             fieldId: string;
