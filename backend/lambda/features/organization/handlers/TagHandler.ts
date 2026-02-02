@@ -4,7 +4,7 @@ import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
 import { cacheService, CacheService } from '../../../shared/services/cache/CacheService';
-import { type AssetType, ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
+import { type AssetType, getSingularForm } from '../../../shared/types/assetTypes';
 import { createResponse, successResponse, errorResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { TagService } from '../services/TagService';
@@ -198,12 +198,8 @@ export class TagHandler {
       let successful = 0;
       let failed = 0;
 
-      // Convert plural to singular if needed (e.g., "dashboards" to "dashboard")
-      let singularType = assetType;
-      const entry = Object.entries(ASSET_TYPES_PLURAL).find(([_, p]) => p === assetType);
-      if (entry) {
-        singularType = entry[0];
-      }
+      // Normalize to singular form (e.g., "dashboards" to "dashboard")
+      const singularType = getSingularForm(assetType) || assetType;
 
       // Process each asset
       for (const assetId of assetIds) {

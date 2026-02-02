@@ -1,7 +1,14 @@
 /**
  * Route utilities for parameter extraction and route matching
  * Following VSA pattern - utilities only, no business logic or route definitions
+ *
+ * Asset Type Normalization:
+ * - API routes may use plural forms (e.g., /dashboards/paginated) for REST conventions
+ * - Internally, all asset types are normalized to singular form (e.g., "dashboard")
+ * - This is the single point of normalization - handlers receive consistent singular forms
  */
+
+import { getSingularForm } from '../../shared/types/assetTypes';
 
 /**
  * Extracts path parameters from a regex match based on the route pattern
@@ -71,7 +78,7 @@ const ROUTE_PATTERNS: readonly RoutePattern[] = [
     prefix: '/assets/',
     excludes: [],
     params: ['assetType', 'assetId'],
-    minMatchLength: 3,
+    // Note: No minMatchLength - routes may have 1 param (paginated) or 2 params (cached)
   },
   {
     prefix: '/jobs/',
@@ -87,7 +94,7 @@ const ROUTE_PATTERNS: readonly RoutePattern[] = [
     prefix: '/activity/',
     excludes: [],
     params: ['assetType', 'assetId'],
-    minMatchLength: 3,
+    // Note: No minMatchLength - different routes may have different param counts
   },
   {
     prefix: '/data-catalog/field/',
@@ -125,6 +132,7 @@ function findMatchingRoutePattern(path: string, match: RegExpMatchArray): RouteP
 
 /**
  * Map regex match results to parameter names
+ * Normalizes assetType parameters to singular form for consistency
  */
 function mapMatchToParams(
   match: RegExpMatchArray,
@@ -135,7 +143,14 @@ function mapMatchToParams(
   paramNames.forEach((name, index) => {
     const value = match[index + 1];
     if (value !== undefined) {
-      params[name] = value;
+      // Normalize assetType to singular form (e.g., "dashboards" -> "dashboard")
+      // This ensures handlers always receive consistent singular asset types
+      if (name === 'assetType') {
+        const singular = getSingularForm(value);
+        params[name] = singular || value;
+      } else {
+        params[name] = value;
+      }
     }
   });
 

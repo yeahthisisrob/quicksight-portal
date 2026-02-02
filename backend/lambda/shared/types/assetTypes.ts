@@ -168,6 +168,23 @@ export function getPluralForm(assetType: AssetType): AssetTypePlural {
 }
 
 /**
+ * Get the singular form from either singular or plural asset type
+ * Handles both "dashboard" and "dashboards" -> "dashboard"
+ */
+export function getSingularForm(assetTypeOrPlural: string): AssetType | undefined {
+  // Check if it's already a singular form
+  if (isAssetType(assetTypeOrPlural)) {
+    return assetTypeOrPlural;
+  }
+
+  // Try to find it in the plural mapping
+  const entry = Object.entries(ASSET_TYPES_PLURAL).find(
+    ([_, plural]) => plural === assetTypeOrPlural
+  );
+  return entry ? (entry[0] as AssetType) : undefined;
+}
+
+/**
  * Folder information for assets
  */
 export interface FolderInfo {

@@ -224,10 +224,19 @@ export class AssetHandler {
   public async getExportedAsset(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       await requireAuth(event);
-      const { assetType, assetId } = this.extractPathParams(event);
+      const { assetType, assetId } = event.pathParameters || {};
 
       if (!assetType || !assetId) {
         return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Asset type and ID are required');
+      }
+
+      // Validate asset type using centralized constants
+      if (!Object.values(ASSET_TYPES).includes(assetType as any)) {
+        return errorResponse(
+          event,
+          STATUS_CODES.BAD_REQUEST,
+          `Invalid asset type: ${assetType}. Must be one of: ${Object.values(ASSET_TYPES).join(', ')}`
+        );
       }
 
       const assetData = await this.retrieveExportedAssetData(assetType, assetId);
@@ -319,12 +328,22 @@ export class AssetHandler {
   public async list(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       await requireAuth(event); // Validate authentication
-      const { assetType } = this.extractPathParams(event);
+      // Router normalizes assetType to singular form (e.g., "dashboards" -> "dashboard")
+      const { assetType } = event.pathParameters || {};
 
       logger.debug('AssetHandler.list', { assetType });
 
       if (!assetType) {
         return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Asset type is required');
+      }
+
+      // Validate asset type using centralized constants
+      if (!Object.values(ASSET_TYPES).includes(assetType as any)) {
+        return errorResponse(
+          event,
+          STATUS_CODES.BAD_REQUEST,
+          `Invalid asset type: ${assetType}. Must be one of: ${Object.values(ASSET_TYPES).join(', ')}`
+        );
       }
 
       const page = parseInt(event.queryStringParameters?.page || '1');
@@ -537,33 +556,6 @@ export class AssetHandler {
         error.message || 'Internal server error'
       );
     }
-  }
-
-  private extractPathParams(event: APIGatewayProxyEvent): { assetType?: string; assetId?: string } {
-    const path = event.path.replace('/api', '');
-
-    // Try different patterns
-    let match = path.match(
-      /^\/assets\/(dashboards?|datasets?|analyses?|datasources?|folders?|users?|groups?)\/paginated$/
-    );
-    if (match) {
-      // Convert plural to singular by finding matching entry
-      const plural = match[1];
-      const entry = Object.entries(ASSET_TYPES_PLURAL).find(([_, p]) => p === plural);
-      return { assetType: entry ? entry[0] : match[1] };
-    }
-
-    match = path.match(
-      /^\/assets\/(dashboards?|datasets?|analyses?|datasources?|folders?|users?|groups?)\/([^/]+)(?:\/.*)?$/
-    );
-    if (match) {
-      // Convert plural to singular by finding matching entry
-      const plural = match[1];
-      const entry = Object.entries(ASSET_TYPES_PLURAL).find(([_, p]) => p === plural);
-      return { assetType: entry ? entry[0] : match[1], assetId: match[2] };
-    }
-
-    return {};
   }
 
   /**

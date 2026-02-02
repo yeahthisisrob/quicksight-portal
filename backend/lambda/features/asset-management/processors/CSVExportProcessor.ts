@@ -6,6 +6,7 @@
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { type JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
+import { getSingularForm } from '../../../shared/types/assetTypes';
 import { generateCSV } from '../../../shared/utils/csvExport';
 import { logger } from '../../../shared/utils/logger';
 import { AssetService } from '../services/AssetService';
@@ -88,17 +89,8 @@ export class CSVExportProcessor {
         `Generating CSV for ${assets.length} ${assetType}(s)`
       );
 
-      // Convert plural to singular for CSV column config lookup
-      const singularMap: Record<string, string> = {
-        dashboards: 'dashboard',
-        analyses: 'analysis',
-        datasets: 'dataset',
-        datasources: 'datasource',
-        folders: 'folder',
-        users: 'user',
-        groups: 'group',
-      };
-      const singularType = singularMap[assetType] || assetType;
+      // Normalize to singular form for CSV column config lookup
+      const singularType = getSingularForm(assetType) || assetType;
 
       // Generate CSV from assets using singular type for column config
       const csv = generateCSV(assets, singularType);
@@ -144,17 +136,8 @@ export class CSVExportProcessor {
    * Get assets for export with filtering and sorting
    */
   private async getAssetsForExport(assetType: string, options: CSVExportOptions): Promise<any[]> {
-    // Convert plural to singular for AssetService.list
-    const singularMap: Record<string, string> = {
-      dashboards: 'dashboard',
-      analyses: 'analysis',
-      datasets: 'dataset',
-      datasources: 'datasource',
-      folders: 'folder',
-      users: 'user',
-      groups: 'group',
-    };
-    const singularType = singularMap[assetType] || assetType;
+    // Normalize to singular form for AssetService.list
+    const singularType = getSingularForm(assetType) || assetType;
 
     // Use AssetService.list to get properly mapped and enriched assets
     // Pass a very large pageSize to get all items

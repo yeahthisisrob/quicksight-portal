@@ -11,6 +11,7 @@ import {
 import { type AssetType } from '../../../../shared/models/asset.model';
 import { type S3Service } from '../../../../shared/services/aws/S3Service';
 import { type CacheService } from '../../../../shared/services/cache/CacheService';
+import { getPluralForm } from '../../../../shared/types/assetTypes';
 import { logger } from '../../../../shared/utils/logger';
 
 // Deployment-specific constants
@@ -330,22 +331,6 @@ export class DeployService {
   }
 
   /**
-   * Get plural form of asset type
-   */
-  private getAssetPluralType(assetType: AssetType): string {
-    const plurals: Record<AssetType, string> = {
-      dashboard: 'dashboards',
-      analysis: 'analyses',
-      dataset: 'datasets',
-      datasource: 'datasources',
-      folder: 'folders',
-      user: 'users',
-      group: 'groups',
-    };
-    return plurals[assetType] || `${assetType}s`;
-  }
-
-  /**
    * Get deployment strategy
    */
   private getStrategy(deploymentType: DeploymentType): IDeploymentStrategy {
@@ -413,7 +398,7 @@ export class DeployService {
    * Load asset from active storage
    */
   private async loadFromActive(assetType: AssetType, assetId: string): Promise<any> {
-    const activePath = `assets/${this.getAssetPluralType(assetType)}/${assetId}.json`;
+    const activePath = `assets/${getPluralForm(assetType)}/${assetId}.json`;
     try {
       return await this.s3Service.getObject(this.bucketName, activePath);
     } catch (error) {
@@ -426,7 +411,7 @@ export class DeployService {
    * Load asset from archive
    */
   private async loadFromArchive(assetType: AssetType, assetId: string): Promise<any> {
-    const archivePath = `archived/${this.getAssetPluralType(assetType)}/${assetId}.json`;
+    const archivePath = `archived/${getPluralForm(assetType)}/${assetId}.json`;
     try {
       return await this.s3Service.getObject(this.bucketName, archivePath);
     } catch (error) {
