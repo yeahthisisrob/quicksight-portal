@@ -371,9 +371,10 @@ export default function DataExportView() {
         {/* Stats Grid */}
         <Fade in={!cacheSummaryLoading}>
           <Grid container spacing={2}>
-            <ExportStats 
+            <ExportStats
               totalAssets={cacheSummary?.totalAssets || 0}
-              exportedAssets={cacheSummary?.exportedAssets || 0}
+              archivedAssets={cacheSummary?.archivedAssetCounts?.total || 0}
+              lastUpdated={cacheSummary?.lastExportDate}
               fieldStats={cacheSummary?.fieldStatistics ? {
                 total: cacheSummary.fieldStatistics.totalFields || 0,
                 calculated: cacheSummary.fieldStatistics.totalCalculatedFields || 0,

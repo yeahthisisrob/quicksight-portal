@@ -213,6 +213,16 @@ export const exportApi = {
         users?: number;
         groups?: number;
       };
+      archivedAssetCounts?: {
+        dashboards: number;
+        datasets: number;
+        analyses: number;
+        datasources: number;
+        folders: number;
+        users: number;
+        groups: number;
+        total: number;
+      };
       fieldStatistics: {
         totalFields: number;
         totalCalculatedFields: number;

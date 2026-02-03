@@ -1,4 +1,4 @@
-import { Storage, Functions, TrendingUp, Speed, Archive } from '@mui/icons-material';
+import { Storage, Functions, TrendingUp, Schedule, Archive } from '@mui/icons-material';
 import { Box, Card, Grid, Typography, Stack, alpha, Skeleton } from '@mui/material';
 
 import { colors, spacing } from '@/shared/design-system/theme';
@@ -81,8 +81,8 @@ function StatCard({ title, value, subtitle, icon: Icon, color, trend, loading }:
 
 interface ExportStatsProps {
   totalAssets: number;
-  exportedAssets: number;
   archivedAssets?: number;
+  lastUpdated?: string | null;
   fieldStats: {
     total: number;
     calculated: number;
@@ -92,15 +92,53 @@ interface ExportStatsProps {
   loading?: boolean;
 }
 
-export default function ExportStats({ 
-  totalAssets, 
-  exportedAssets, 
+/**
+ * Format a date string for display
+ */
+function formatLastUpdated(dateString: string | null | undefined): { value: string; subtitle: string } {
+  if (!dateString) {
+    return { value: 'Never', subtitle: 'Run initial export' };
+  }
+
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  let value: string;
+  let subtitle: string;
+
+  if (diffMins < 1) {
+    value = 'Just now';
+    subtitle = 'Cache is current';
+  } else if (diffMins < 60) {
+    value = `${diffMins}m ago`;
+    subtitle = 'Cache is current';
+  } else if (diffHours < 24) {
+    value = `${diffHours}h ago`;
+    subtitle = diffHours < 6 ? 'Cache is current' : 'Consider refreshing';
+  } else if (diffDays < 7) {
+    value = `${diffDays}d ago`;
+    subtitle = 'May need refresh';
+  } else {
+    value = date.toLocaleDateString();
+    subtitle = 'Cache is stale';
+  }
+
+  return { value, subtitle };
+}
+
+export default function ExportStats({
+  totalAssets,
   archivedAssets = 0,
+  lastUpdated,
   fieldStats,
-  loading = false 
+  loading = false
 }: ExportStatsProps) {
-  
-  const syncPercentage = totalAssets > 0 ? Math.round((exportedAssets / totalAssets) * 100) : 0;
+
+  const lastUpdatedInfo = formatLastUpdated(lastUpdated);
 
   return (
     <Grid container spacing={3}>
@@ -108,7 +146,7 @@ export default function ExportStats({
         <StatCard
           title="Total Assets"
           value={totalAssets}
-          subtitle={`${exportedAssets} synchronized`}
+          subtitle="Cached in portal"
           icon={Storage}
           color={colors.primary.main}
           loading={loading}
@@ -117,11 +155,11 @@ export default function ExportStats({
       
       <Grid item xs={12} sm={6} md={3}>
         <StatCard
-          title="Sync Status"
-          value={totalAssets === 0 ? 'No Data' : `${syncPercentage}%`}
-          subtitle={totalAssets === 0 ? 'Run initial export' : syncPercentage === 100 ? 'Fully synchronized' : 'Partial sync'}
-          icon={Speed}
-          color={totalAssets === 0 ? colors.neutral[500] : syncPercentage === 100 ? colors.status.success : colors.status.warning}
+          title="Last Updated"
+          value={lastUpdatedInfo.value}
+          subtitle={lastUpdatedInfo.subtitle}
+          icon={Schedule}
+          color={lastUpdatedInfo.value === 'Never' ? colors.neutral[500] : lastUpdatedInfo.subtitle === 'Cache is current' ? colors.status.success : colors.status.warning}
           loading={loading}
         />
       </Grid>

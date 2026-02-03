@@ -16,7 +16,8 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   args: {
     totalAssets: 1250,
-    exportedAssets: 1250,
+    archivedAssets: 45,
+    lastUpdated: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 minutes ago
     fieldStats: {
       total: 3456,
       calculated: 789,
@@ -27,16 +28,62 @@ export const Default: Story = {
   },
 };
 
-export const PartialSync: Story = {
+export const RecentlyUpdated: Story = {
   args: {
     totalAssets: 1250,
-    exportedAssets: 850,
+    archivedAssets: 12,
+    lastUpdated: new Date(Date.now() - 5 * 60 * 1000).toISOString(), // 5 minutes ago
     fieldStats: {
       total: 3456,
       calculated: 789,
       physical: 2667,
     },
-    cacheSize: 85000000,
+    cacheSize: 125000000,
+    loading: false,
+  },
+};
+
+export const StaleCache: Story = {
+  args: {
+    totalAssets: 1250,
+    archivedAssets: 78,
+    lastUpdated: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+    fieldStats: {
+      total: 3456,
+      calculated: 789,
+      physical: 2667,
+    },
+    cacheSize: 125000000,
+    loading: false,
+  },
+};
+
+export const VeryStaleCache: Story = {
+  args: {
+    totalAssets: 1250,
+    archivedAssets: 156,
+    lastUpdated: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days ago
+    fieldStats: {
+      total: 3456,
+      calculated: 789,
+      physical: 2667,
+    },
+    cacheSize: 125000000,
+    loading: false,
+  },
+};
+
+export const NoArchivedAssets: Story = {
+  args: {
+    totalAssets: 500,
+    archivedAssets: 0,
+    lastUpdated: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+    fieldStats: {
+      total: 1234,
+      calculated: 234,
+      physical: 1000,
+    },
+    cacheSize: 50000000,
     loading: false,
   },
 };
@@ -44,7 +91,8 @@ export const PartialSync: Story = {
 export const NoFieldStats: Story = {
   args: {
     totalAssets: 1250,
-    exportedAssets: 1250,
+    archivedAssets: 25,
+    lastUpdated: new Date(Date.now() - 60 * 60 * 1000).toISOString(), // 1 hour ago
     fieldStats: null,
     cacheSize: 125000000,
     loading: false,
@@ -54,7 +102,8 @@ export const NoFieldStats: Story = {
 export const Loading: Story = {
   args: {
     totalAssets: 0,
-    exportedAssets: 0,
+    archivedAssets: 0,
+    lastUpdated: null,
     fieldStats: null,
     cacheSize: undefined,
     loading: true,
@@ -64,7 +113,8 @@ export const Loading: Story = {
 export const Empty: Story = {
   args: {
     totalAssets: 0,
-    exportedAssets: 0,
+    archivedAssets: 0,
+    lastUpdated: null,
     fieldStats: null,
     cacheSize: undefined,
     loading: false,
@@ -74,7 +124,8 @@ export const Empty: Story = {
 export const LargeNumbers: Story = {
   args: {
     totalAssets: 125000,
-    exportedAssets: 123456,
+    archivedAssets: 3456,
+    lastUpdated: new Date(Date.now() - 15 * 60 * 1000).toISOString(), // 15 minutes ago
     fieldStats: {
       total: 345678,
       calculated: 78901,
