@@ -11,6 +11,7 @@ import {
   generateDashboardAnalysisColumns,
   generateUsedByColumn,
   generateUsesColumn,
+  generateSearchMatchReasonsColumn,
 } from './columnGenerators';
 
 import type { ColumnConfig } from '@/features/asset-management';
@@ -18,6 +19,7 @@ import type { components } from '@shared/generated/types';
 
 // Import the actual generated types
 type AssetListItem = components['schemas']['AssetListItem'];
+type SearchMatchReason = components['schemas']['SearchMatchReason'];
 
 // Create a practical type that includes all possible properties
 // This is a pragmatic approach that maintains type safety for known properties
@@ -88,7 +90,10 @@ interface AssetRow extends Omit<AssetListItem, 'enrichmentStatus'> {
   
   // Enrichment properties (override to make optional)
   enrichmentStatus?: components['schemas']['EnrichmentStatus'];
-  
+
+  // Search match reasons - populated when search is active
+  searchMatchReasons?: SearchMatchReason[];
+
   // Properties from the backend that might be in either format
   [key: string]: any;
 }
@@ -209,17 +214,32 @@ export const createAssetColumns = (
     onGroupUpdate?: (group: any) => void;
     onRefreshScheduleClick?: (dataset: any) => void;
     onDefinitionErrorsClick?: (asset: any) => void;
+  },
+  options?: {
+    /** Whether search is currently active - shows match reasons column when true */
+    hasSearch?: boolean;
   }
 ): ColumnConfig[] => {
   // Get base columns
   const baseColumns = generateBaseColumns(assetType, { ...handlers, navigate });
-  
+
+  // Add search match reasons column if search is active
+  if (options?.hasSearch) {
+    // Insert after name column
+    const nameIndex = baseColumns.findIndex(col => col.id === 'name');
+    if (nameIndex !== -1) {
+      baseColumns.splice(nameIndex + 1, 0, generateSearchMatchReasonsColumn());
+    } else {
+      baseColumns.push(generateSearchMatchReasonsColumn());
+    }
+  }
+
   // Get specific columns based on asset type
   const specificColumns = getSpecificColumnsForAssetType(assetType, handlers);
-  
+
   // Add relationship columns if needed
   const relationshipColumns = getRelationshipColumns(assetType, handlers);
-  
+
   // Merge columns with proper ordering
   return mergeColumns(baseColumns, specificColumns, relationshipColumns, assetType);
 };

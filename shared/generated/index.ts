@@ -4,11 +4,12 @@
  */
 
 // Export the full types structure for advanced usage
-export type { paths, components, operations } from './api-client';
+// Using types.ts which has the latest OpenAPI generated types
+export type { paths, components, operations } from './types';
 
 // Re-export commonly used types for convenience
 // These are extracted from components["schemas"]
-import type { components } from './api-client';
+import type { components } from './types';
 
 export type AssetListItem = components['schemas']['AssetListItem'];
 export type FolderListItem = components['schemas']['FolderListItem'];
@@ -24,3 +25,4 @@ export type Tag = components['schemas']['Tag'];
 export type AssetType = components['schemas']['AssetType'];
 export type AssetStatus = components['schemas']['AssetStatus'];
 export type EnrichmentStatus = components['schemas']['EnrichmentStatus'];
+export type SearchMatchReason = components['schemas']['SearchMatchReason'];

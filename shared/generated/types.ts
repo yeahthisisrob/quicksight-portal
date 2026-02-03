@@ -1767,6 +1767,13 @@ export interface components {
         AssetStatus: "active" | "archived" | "deleted";
         /** @enum {string} */
         EnrichmentStatus: "skeleton" | "enriched" | "partial" | "metadata-update";
+        /**
+         * @description Indicates why an asset was included in search results.
+         *     Multiple reasons can apply to a single asset.
+         *
+         * @enum {string}
+         */
+        SearchMatchReason: "name" | "id" | "description" | "arn" | "tag_key" | "tag_value" | "permission" | "dependency_dataset" | "dependency_datasource" | "dependency_analysis";
         PaginatedAssetResponse: {
             success: boolean;
             data: {
@@ -1883,6 +1890,11 @@ export interface components {
              * @default []
              */
             permissions: components["schemas"]["Permission"][];
+            /** @description Why this asset matched the search query. Only present when a search
+             *     query was provided. Multiple reasons can apply (e.g., matched on name
+             *     AND is a dependency of another matched asset).
+             *      */
+            searchMatchReasons?: components["schemas"]["SearchMatchReason"][];
         };
         ArchivedAssetItem: components["schemas"]["AssetListItem"] & {
             /**

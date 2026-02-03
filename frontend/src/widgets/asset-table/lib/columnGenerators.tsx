@@ -8,6 +8,7 @@ import { DatasourceTypeBadge } from '@/entities/field';
 
 import { colors } from '@/shared/design-system/theme';
 import { TypedChip } from '@/shared/ui';
+import { SearchMatchChipGroup } from '@/shared/ui/SearchMatchChip';
 
 import { formatBytes, formatRelativeDate, type AssetRow } from './createAssetColumns';
 
@@ -832,6 +833,40 @@ export function generateUsesColumn(handlers: Handlers): ColumnConfig {
         return relatedAssets.filter(r => r.relationshipType === 'uses').length;
       }
       return params.row.relatedAssets?.uses?.length || 0;
+    },
+  };
+}
+
+/**
+ * Generate search match reasons column
+ * Shows why assets matched a search query (name, tags, dependencies, etc.)
+ */
+export function generateSearchMatchReasonsColumn(): ColumnConfig {
+  return {
+    id: 'searchMatchReasons',
+    label: 'Match',
+    width: 120,
+    visible: true,
+    sortable: false,
+    hideable: true,
+    renderCell: (params: { row: AssetRow; value: any }) => {
+      const reasons = params.row.searchMatchReasons;
+
+      if (!reasons || reasons.length === 0) {
+        return null;
+      }
+
+      return (
+        <SearchMatchChipGroup
+          reasons={reasons}
+          maxVisible={2}
+          compact
+        />
+      );
+    },
+    valueGetter: (params: { row: AssetRow }) => {
+      const reasons = params.row.searchMatchReasons;
+      return reasons ? reasons.join(', ') : '';
     },
   };
 }

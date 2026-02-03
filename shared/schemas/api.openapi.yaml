@@ -1312,6 +1312,24 @@ components:
       type: string
       enum: [skeleton, enriched, partial, metadata-update]
 
+    # Search match reasons - indicates why an asset matched a search query
+    SearchMatchReason:
+      type: string
+      enum:
+        - name           # Matched on asset name
+        - id             # Matched on asset ID
+        - description    # Matched on description
+        - arn            # Matched on ARN
+        - tag_key        # Matched on tag key
+        - tag_value      # Matched on tag value
+        - permission     # Matched on permission principal (user/group name)
+        - dependency_dataset     # Asset depends on a dataset matching the query
+        - dependency_datasource  # Asset depends on a datasource matching the query
+        - dependency_analysis    # Asset depends on an analysis matching the query
+      description: |
+        Indicates why an asset was included in search results.
+        Multiple reasons can apply to a single asset.
+
     # Paginated response
     PaginatedAssetResponse:
       type: object
@@ -1491,6 +1509,14 @@ components:
             $ref: '#/components/schemas/Permission'
           default: []
           description: Asset permissions
+        searchMatchReasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchMatchReason'
+          description: |
+            Why this asset matched the search query. Only present when a search
+            query was provided. Multiple reasons can apply (e.g., matched on name
+            AND is a dependency of another matched asset).
 
     # Archived asset response (extends AssetListItem)
     ArchivedAssetItem:

@@ -20,6 +20,133 @@ import {
 } from '../../types/filterTypes';
 import { logger } from '../../utils/logger';
 
+/**
+ * Search match reason types - must match OpenAPI SearchMatchReason enum
+ */
+type SearchMatchReason =
+  | 'name'
+  | 'id'
+  | 'description'
+  | 'arn'
+  | 'tag_key'
+  | 'tag_value'
+  | 'permission'
+  | 'dependency_dataset'
+  | 'dependency_datasource'
+  | 'dependency_analysis';
+
+/**
+ * Cache entry with optional search match reasons (populated during search)
+ */
+export type CacheEntryWithSearchReasons = CacheEntry & {
+  searchMatchReasons?: SearchMatchReason[];
+};
+
+/**
+ * Get all match reasons for an asset against a search query
+ * Returns empty array if no match, or array of reasons if matched
+ */
+function getMatchReasons(asset: CacheEntry, query: string): SearchMatchReason[] {
+  const reasons: SearchMatchReason[] = [];
+
+  // Check basic fields
+  if (asset.assetName.toLowerCase().includes(query)) {
+    reasons.push('name');
+  }
+  if (asset.assetId.toLowerCase().includes(query)) {
+    reasons.push('id');
+  }
+  if (asset.metadata?.description?.toLowerCase().includes(query)) {
+    reasons.push('description');
+  }
+  if (asset.arn?.toLowerCase().includes(query)) {
+    reasons.push('arn');
+  }
+
+  // Check tags
+  if (asset.tags?.some((tag) => tag.key.toLowerCase().includes(query))) {
+    reasons.push('tag_key');
+  }
+  if (asset.tags?.some((tag) => tag.value.toLowerCase().includes(query))) {
+    reasons.push('tag_value');
+  }
+
+  // Check permissions (user/group names)
+  if (asset.permissions?.some((perm) => perm.principal.toLowerCase().includes(query))) {
+    reasons.push('permission');
+  }
+
+  // Check lineage data (direct ID matches)
+  const lineage = asset.metadata?.lineageData;
+  if (lineage) {
+    if (lineage.datasetIds?.some((id) => id.toLowerCase().includes(query))) {
+      reasons.push('dependency_dataset');
+    }
+    if (lineage.datasourceIds?.some((id) => id.toLowerCase().includes(query))) {
+      reasons.push('dependency_datasource');
+    }
+    if (lineage.sourceAnalysisArn?.toLowerCase().includes(query)) {
+      reasons.push('dependency_analysis');
+    }
+  }
+
+  return reasons;
+}
+
+/**
+ * Apply lineage-aware search filter to assets
+ * Returns assets with match reasons attached
+ */
+function applySearchFilter(
+  assets: CacheEntry[],
+  query: string,
+  allAssets: CacheEntry[]
+): CacheEntryWithSearchReasons[] {
+  // Phase 1: Find directly matching assets for relationship lookup
+  const directMatches = new Map<string, CacheEntry>();
+  for (const asset of allAssets) {
+    const reasons = getMatchReasons(asset, query);
+    if (reasons.length > 0) {
+      directMatches.set(asset.assetId, asset);
+    }
+  }
+
+  // Phase 2: Filter and annotate assets with match reasons
+  const matchedAssets: CacheEntryWithSearchReasons[] = [];
+
+  for (const asset of assets) {
+    const reasons: SearchMatchReason[] = [];
+
+    // Get direct match reasons (name, id, description, arn, tags, permissions)
+    reasons.push(...getMatchReasons(asset, query));
+
+    // Check if this asset depends on a directly matched asset (relationship match)
+    const lineage = asset.metadata?.lineageData;
+    if (lineage) {
+      if (lineage.datasetIds?.some((id) => directMatches.has(id))) {
+        reasons.push('dependency_dataset');
+      }
+      if (lineage.datasourceIds?.some((id) => directMatches.has(id))) {
+        reasons.push('dependency_datasource');
+      }
+      if (lineage.sourceAnalysisArn) {
+        const analysisId = lineage.sourceAnalysisArn.split('/').pop();
+        if (analysisId && directMatches.has(analysisId)) {
+          reasons.push('dependency_analysis');
+        }
+      }
+    }
+
+    // Dedupe reasons and add to results if matched
+    const uniqueReasons = [...new Set(reasons)];
+    if (uniqueReasons.length > 0) {
+      matchedAssets.push({ ...asset, searchMatchReasons: uniqueReasons });
+    }
+  }
+
+  return matchedAssets;
+}
+
 export class CacheReader {
   constructor(
     private readonly s3Adapter: S3CacheAdapter,
@@ -42,7 +169,7 @@ export class CacheReader {
       statusFilter?: AssetStatusFilter;
     }
   ): Promise<{
-    assets: CacheEntry[];
+    assets: CacheEntryWithSearchReasons[];
     pagination: {
       page: number;
       pageSize: number;
@@ -60,18 +187,12 @@ export class CacheReader {
     const cache = await this.getMasterCache({ statusFilter });
 
     // Get assets of the specified type - already filtered by status
-    let typeAssets = cache.entries[assetType] || [];
+    let typeAssets: CacheEntryWithSearchReasons[] = cache.entries[assetType] || [];
 
-    // Apply search filter if provided
+    // Apply search filter if provided (includes lineage-aware search with match reasons)
     if (options?.search) {
-      const query = options.search.toLowerCase();
-      typeAssets = typeAssets.filter(
-        (asset) =>
-          asset.assetName.toLowerCase().includes(query) ||
-          asset.assetId.toLowerCase().includes(query) ||
-          asset.metadata?.description?.toLowerCase().includes(query) ||
-          asset.arn?.toLowerCase().includes(query)
-      );
+      const allCacheAssets = await this.getCacheEntries({ statusFilter });
+      typeAssets = applySearchFilter(typeAssets, options.search.toLowerCase(), allCacheAssets);
     }
 
     // Apply sorting
@@ -343,7 +464,7 @@ export class CacheReader {
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
   }): Promise<{
-    assets: CacheEntry[];
+    assets: CacheEntryWithSearchReasons[];
     pagination: {
       page: number;
       pageSize: number;
@@ -359,7 +480,7 @@ export class CacheReader {
 
     // Get assets from cache with status filtering
     const masterCache = await this.getMasterCache({ statusFilter });
-    let allAssets: CacheEntry[] = [];
+    let allAssets: CacheEntryWithSearchReasons[] = [];
 
     // Collect assets from specified types or all types
     const types = options.types || Object.values(ASSET_TYPES);
@@ -408,16 +529,9 @@ export class CacheReader {
       });
     }
 
-    // Apply text search filter
+    // Apply text search filter (includes lineage-aware search with match reasons)
     if (options.search) {
-      const query = options.search.toLowerCase();
-      allAssets = allAssets.filter(
-        (asset) =>
-          asset.assetName.toLowerCase().includes(query) ||
-          asset.assetId.toLowerCase().includes(query) ||
-          asset.metadata?.description?.toLowerCase().includes(query) ||
-          asset.arn?.toLowerCase().includes(query)
-      );
+      allAssets = applySearchFilter(allAssets, options.search.toLowerCase(), allAssets);
     }
 
     // Apply sorting
