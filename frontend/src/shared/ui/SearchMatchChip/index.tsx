@@ -39,70 +39,70 @@ const MATCH_REASON_CONFIG: Record<
 > = {
   name: {
     label: 'Name',
-    tooltip: 'Matched in asset name',
+    tooltip: 'Name',
     icon: NameIcon,
     color: colors.assetTypes.dashboard.dark,
     bgColor: colors.assetTypes.dashboard.light,
   },
   id: {
     label: 'ID',
-    tooltip: 'Matched in asset ID',
+    tooltip: 'ID',
     icon: IdIcon,
     color: colors.neutral[700],
     bgColor: colors.neutral[100],
   },
   description: {
     label: 'Desc',
-    tooltip: 'Matched in description',
+    tooltip: 'Description',
     icon: DescriptionIcon,
     color: colors.assetTypes.analysis.dark,
     bgColor: colors.assetTypes.analysis.light,
   },
   arn: {
     label: 'ARN',
-    tooltip: 'Matched in Amazon Resource Name',
+    tooltip: 'ARN',
     icon: ArnIcon,
     color: colors.assetTypes.datasource.dark,
     bgColor: colors.assetTypes.datasource.light,
   },
   tag_key: {
     label: 'Tag Key',
-    tooltip: 'Matched in tag key',
+    tooltip: 'Tag key',
     icon: TagIcon,
     color: colors.status.info,
     bgColor: colors.status.infoLight,
   },
   tag_value: {
     label: 'Tag Value',
-    tooltip: 'Matched in tag value',
+    tooltip: 'Tag value',
     icon: TagIcon,
     color: colors.status.success,
     bgColor: colors.status.successLight,
   },
   permission: {
     label: 'Perm',
-    tooltip: 'Matched in permissions (user/group)',
+    tooltip: 'Permission',
     icon: PermissionIcon,
     color: colors.assetTypes.user.dark,
     bgColor: colors.assetTypes.user.light,
   },
   dependency_dataset: {
     label: 'Dataset',
-    tooltip: 'Uses a dataset matching your search',
+    tooltip: 'Related dataset',
     icon: DatasetIcon,
     color: colors.assetTypes.dataset.dark,
     bgColor: colors.assetTypes.dataset.light,
   },
   dependency_datasource: {
     label: 'Source',
-    tooltip: 'Uses a data source matching your search',
+    tooltip: 'Related datasource',
     icon: DatasourceIcon,
     color: colors.assetTypes.datasource.dark,
     bgColor: colors.assetTypes.datasource.light,
   },
   dependency_analysis: {
     label: 'Analysis',
-    tooltip: 'Based on an analysis matching your search',
+    tooltip: 'Related analysis',
     icon: AnalysisIcon,
     color: colors.assetTypes.analysis.dark,
     bgColor: colors.assetTypes.analysis.light,
@@ -116,6 +116,8 @@ export interface SearchMatchChipProps extends Omit<ChipProps, 'label' | 'icon' |
   showIcon?: boolean;
   /** Whether to show as compact (icon only) */
   compact?: boolean;
+  /** Optional custom label (e.g., count) - if provided, shows this instead of the reason label */
+  label?: string | number;
 }
 
 /**
@@ -125,7 +127,7 @@ export interface SearchMatchChipProps extends Omit<ChipProps, 'label' | 'icon' |
  * Used in search results to provide transparency about match reasons.
  */
 export const SearchMatchChip = React.forwardRef<HTMLDivElement, SearchMatchChipProps>(
-  ({ reason, showIcon = true, compact = false, size = 'small', ...chipProps }, ref) => {
+  ({ reason, showIcon = true, compact = false, size = 'small', label: customLabel, ...chipProps }, ref) => {
     const config = MATCH_REASON_CONFIG[reason];
 
     if (!config) {
@@ -133,10 +135,15 @@ export const SearchMatchChip = React.forwardRef<HTMLDivElement, SearchMatchChipP
     }
 
     const Icon = config.icon;
-    const label = compact ? undefined : config.label;
+    // Use custom label if provided (e.g., count), otherwise use the config label
+    const label = compact ? undefined : (customLabel !== undefined ? customLabel : config.label);
+    // When custom label is used, enhance the tooltip to include the reason label
+    const tooltipText = customLabel !== undefined
+      ? `${config.label}: ${config.tooltip}`
+      : config.tooltip;
 
     return (
-      <Tooltip title={config.tooltip} arrow placement="top">
+      <Tooltip title={tooltipText} arrow placement="top">
         <Chip
           ref={ref}
           size={size}

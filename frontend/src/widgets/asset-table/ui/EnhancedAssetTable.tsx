@@ -14,8 +14,10 @@ import { BulkActionsToolbar } from '@/widgets';
 import { spacing } from '@/shared/design-system/theme';
 import { useDebounce, usePagination } from '@/shared/lib';
 
-import { TableHeader, SearchBar, TableToolbar } from './components';
+import { TableHeader, SearchBar, TableToolbar, type MatchReasonSummary } from './components';
 import { tableStyles, DATE_RANGES } from '../lib/tableStyles';
+
+import type { SearchMatchReason } from '@shared/generated';
 
 export interface ColumnConfig {
   id: string;
@@ -296,6 +298,27 @@ export default function EnhancedAssetTable({
     }
   }, [currentPage, pageSize, goToPage, setPageSize]);
 
+  // Compute match reasons summary from assets that have searchMatchReasons
+  const matchReasonSummary = useMemo((): MatchReasonSummary[] => {
+    if (!debouncedSearchTerm) return [];
+
+    const reasonCounts = new Map<SearchMatchReason, number>();
+
+    for (const asset of assets) {
+      const reasons = asset.searchMatchReasons as SearchMatchReason[] | undefined;
+      if (reasons && Array.isArray(reasons)) {
+        for (const reason of reasons) {
+          reasonCounts.set(reason, (reasonCounts.get(reason) || 0) + 1);
+        }
+      }
+    }
+
+    // Convert to array and sort by count descending
+    return Array.from(reasonCounts.entries())
+      .map(([reason, count]) => ({ reason, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [assets, debouncedSearchTerm]);
+
   // Fetch assets when pagination, search, date filter, or sort changes
   useEffect(() => {
     const sortField = sortModel.length > 0 ? sortModel[0].field : undefined;
@@ -377,6 +400,7 @@ export default function EnhancedAssetTable({
           dateFilter={dateFilter.range}
           onDateFilterChange={handleDateRangeChange}
           dateRanges={DATE_RANGES}
+          matchReasonSummary={matchReasonSummary}
         />
 
         <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>

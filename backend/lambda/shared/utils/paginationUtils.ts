@@ -1,6 +1,17 @@
 /**
- * Shared pagination and sorting utilities for server-side operations
+ * Shared pagination, search, and sorting utilities for server-side operations
+ *
+ * This module provides the core algorithms for filtering, sorting, and paginating data.
+ * Each vertical slice (asset-management, data-catalog, etc.) defines its own field
+ * configurations using the shared types exported here.
  */
+
+import type { components } from '@shared/generated/types';
+
+/**
+ * SearchMatchReason - imported from OpenAPI generated types (single source of truth)
+ */
+export type SearchMatchReason = components['schemas']['SearchMatchReason'];
 
 export interface PaginationParams {
   page: number;
@@ -24,32 +35,59 @@ export interface PaginationResult<T> {
 export interface SortConfig<T> {
   field: keyof T | string;
   getValue: (item: T) => any;
-  preCompute?: boolean; // Flag to pre-compute expensive values
+  preCompute?: boolean;
 }
 
 /**
- * Apply search filter to items
+ * Search field configuration
+ * - getValue: Extracts the searchable text from an item
+ * - reason: If provided, tracks why the item matched (for UI display)
  */
-export function applySearch<T>(
+export interface SearchFieldConfig<T> {
+  getValue: (item: T) => string;
+  reason?: SearchMatchReason;
+}
+
+/**
+ * Apply search filter to items with optional match reason tracking
+ */
+export function applySearch<T extends Record<string, any>>(
   items: T[],
   search: string,
-  searchFields: ((item: T) => string)[]
-): T[] {
+  searchFields: SearchFieldConfig<T>[]
+): (T & { searchMatchReasons?: SearchMatchReason[] })[] {
   if (!search) {
     return items;
   }
 
   const searchLower = search.toLowerCase();
+  const results: (T & { searchMatchReasons?: SearchMatchReason[] })[] = [];
 
-  const filtered = items.filter((item) => {
-    return searchFields.some((getField) => {
-      const fieldValue = getField(item) || '';
-      const fieldLower = fieldValue.toLowerCase();
-      return fieldLower.includes(searchLower);
-    });
-  });
+  for (const item of items) {
+    const matchReasons: SearchMatchReason[] = [];
+    let matched = false;
 
-  return filtered;
+    for (const config of searchFields) {
+      const fieldValue = config.getValue(item) || '';
+      if (fieldValue.toLowerCase().includes(searchLower)) {
+        matched = true;
+        if (config.reason) {
+          matchReasons.push(config.reason);
+        }
+      }
+    }
+
+    if (matched) {
+      if (matchReasons.length > 0) {
+        const uniqueReasons = [...new Set(matchReasons)];
+        results.push({ ...item, searchMatchReasons: uniqueReasons });
+      } else {
+        results.push(item);
+      }
+    }
+  }
+
+  return results;
 }
 
 /**
@@ -66,7 +104,6 @@ export function applySort<T>(
     return items;
   }
 
-  // Pre-compute expensive values if needed
   let sortKeysMap: Map<T, any> | undefined;
   if (config.preCompute) {
     sortKeysMap = new Map();
@@ -75,18 +112,15 @@ export function applySort<T>(
     }
   }
 
-  // Sort items
   const sortedItems = [...items];
   sortedItems.sort((a, b) => {
     const aValue = sortKeysMap ? sortKeysMap.get(a) : config.getValue(a);
     const bValue = sortKeysMap ? sortKeysMap.get(b) : config.getValue(b);
 
-    // Handle string vs number comparison
     if (typeof aValue === 'string' && typeof bValue === 'string') {
       return sortOrder === 'desc' ? bValue.localeCompare(aValue) : aValue.localeCompare(bValue);
-    } else {
-      return sortOrder === 'desc' ? (bValue || 0) - (aValue || 0) : (aValue || 0) - (bValue || 0);
     }
+    return sortOrder === 'desc' ? (bValue || 0) - (aValue || 0) : (aValue || 0) - (bValue || 0);
   });
 
   return sortedItems;
@@ -116,22 +150,17 @@ export function paginate<T>(items: T[], page: number, pageSize: number): Paginat
 /**
  * Combined helper for search, sort, and pagination
  */
-export function processPaginatedData<T>(
+export function processPaginatedData<T extends Record<string, any>>(
   items: T[],
   params: PaginationParams,
-  searchFields: ((item: T) => string)[],
+  searchFields: SearchFieldConfig<T>[],
   sortConfigs: Record<string, SortConfig<T>>
-): PaginationResult<T> {
-  // Apply search
+): PaginationResult<T & { searchMatchReasons?: SearchMatchReason[] }> {
   let processedItems = applySearch(items, params.search || '', searchFields);
 
-  // Apply sort
   if (params.sortBy && params.sortOrder) {
     processedItems = applySort(processedItems, params.sortBy, params.sortOrder, sortConfigs);
   }
 
-  // Apply pagination
-  const result = paginate(processedItems, params.page, params.pageSize);
-
-  return result;
+  return paginate(processedItems, params.page, params.pageSize);
 }

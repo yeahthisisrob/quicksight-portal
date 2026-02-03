@@ -1,3 +1,3 @@
 export { TableHeader } from './TableHeader';
-export { SearchBar } from './SearchBar';
+export { SearchBar, type MatchReasonSummary } from './SearchBar';
 export { TableToolbar } from './TableToolbar';

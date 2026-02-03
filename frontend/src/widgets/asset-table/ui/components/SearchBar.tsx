@@ -6,14 +6,26 @@ import {
   Select,
   MenuItem,
   SelectChangeEvent,
+  Typography,
   alpha,
 } from '@mui/material';
 
 import { colors, spacing } from '@/shared/design-system/theme';
 import { actionIcons } from '@/shared/ui/icons';
+import { SearchMatchChip } from '@/shared/ui/SearchMatchChip';
+
+import type { SearchMatchReason } from '@shared/generated';
 
 const SearchIcon = actionIcons.search;
 const FilterIcon = actionIcons.filter;
+
+/**
+ * Summary of match reasons found in search results
+ */
+export interface MatchReasonSummary {
+  reason: SearchMatchReason;
+  count: number;
+}
 
 interface SearchBarProps {
   searchTerm: string;
@@ -21,6 +33,8 @@ interface SearchBarProps {
   dateFilter: string;
   onDateFilterChange: (event: SelectChangeEvent<string>) => void;
   dateRanges: Array<{ value: string; label: string }>;
+  /** Summary of match reasons found in current search results */
+  matchReasonSummary?: MatchReasonSummary[];
 }
 
 export function SearchBar({
@@ -29,19 +43,24 @@ export function SearchBar({
   dateFilter,
   onDateFilterChange,
   dateRanges,
+  matchReasonSummary,
 }: SearchBarProps) {
+  const hasMatchReasons = searchTerm && matchReasonSummary && matchReasonSummary.length > 0;
+
   return (
     <Box
       sx={{
         display: 'flex',
-        gap: spacing.md / 8,
+        flexDirection: 'column',
+        gap: hasMatchReasons ? spacing.sm / 8 : 0,
         p: spacing.md / 8,
         borderBottom: `1px solid ${colors.neutral[200]}`,
         bgcolor: alpha(colors.neutral[50], 0.5),
         backdropFilter: 'blur(10px)',
       }}
     >
-      <TextField
+      <Box sx={{ display: 'flex', gap: spacing.md / 8 }}>
+        <TextField
         size="small"
         placeholder="Search assets..."
         value={searchTerm}
@@ -77,9 +96,9 @@ export function SearchBar({
             </InputAdornment>
           ),
         }}
-      />
-      
-      <FormControl size="small" sx={{ minWidth: 180 }}>
+        />
+
+        <FormControl size="small" sx={{ minWidth: 180 }}>
         <Select
           value={dateFilter}
           onChange={onDateFilterChange}
@@ -130,8 +149,34 @@ export function SearchBar({
               {range.label}
             </MenuItem>
           ))}
-        </Select>
-      </FormControl>
+          </Select>
+        </FormControl>
+      </Box>
+
+      {/* Match reasons summary - shown when search is active */}
+      {hasMatchReasons && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.75,
+            flexWrap: 'wrap',
+            px: 0.5,
+          }}
+        >
+          <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+            Matched by:
+          </Typography>
+          {matchReasonSummary.map(({ reason, count }) => (
+            <SearchMatchChip
+              key={reason}
+              reason={reason}
+              size="small"
+              label={`${count}`}
+            />
+          ))}
+        </Box>
+      )}
     </Box>
   );
 }

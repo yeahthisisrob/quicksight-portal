@@ -7,6 +7,7 @@ import { successResponse, errorResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import {
   type PaginationParams,
+  type SearchFieldConfig,
   processPaginatedData,
   type SortConfig,
 } from '../../../shared/utils/paginationUtils';
@@ -619,13 +620,13 @@ export class DataCatalogHandler {
   }
 
   /**
-   * Get search field extractors for catalog fields
+   * Get search field configs for catalog fields
    */
-  private getSearchFields(): Array<(field: CatalogField) => string> {
+  private getSearchFields(): SearchFieldConfig<CatalogField>[] {
     return [
-      (field) => field.fieldName || '',
-      (field) => field.description || '',
-      (field) => field.expression || '',
+      { getValue: (field) => field.fieldName || '' },
+      { getValue: (field) => field.description || '' },
+      { getValue: (field) => field.expression || '' },
     ];
   }
 

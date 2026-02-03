@@ -15,7 +15,11 @@ import { type LineageData } from '../../../shared/types/lineage.types';
 import { mapCacheEntryToAsset } from '../../../shared/utils/assetMapping';
 import { findMatchingFlatFileDatasource } from '../../../shared/utils/flatFileDatasetMatcher';
 import { logger } from '../../../shared/utils/logger';
-import { processPaginatedData, type SortConfig } from '../../../shared/utils/paginationUtils';
+import {
+  processPaginatedData,
+  type SearchFieldConfig,
+  type SortConfig,
+} from '../../../shared/utils/paginationUtils';
 import { principalMatchesGroup } from '../../../shared/utils/quicksightUtils';
 import { ActivityService } from '../../activity/services/ActivityService';
 import { GroupService } from '../../organization/services/GroupService';
@@ -111,11 +115,11 @@ export class AssetService {
     }
 
     // Define search fields
-    const searchFields = [
-      (item: any) => item.name,
-      (item: any) => item.id,
-      (item: any) => item.archiveReason,
-      (item: any) => item.type,
+    const searchFields: SearchFieldConfig<any>[] = [
+      { getValue: (item: any) => item.name || '', reason: 'name' },
+      { getValue: (item: any) => item.id || '', reason: 'id' },
+      { getValue: (item: any) => item.archiveReason || '' },
+      { getValue: (item: any) => item.type || '' },
     ];
 
     // Define sort configurations
@@ -247,7 +251,6 @@ export class AssetService {
       const filteredItems = this.applyRequestFilters(items, request.filters);
 
       // Use the pagination utilities for search, sort, and pagination
-
       const result = processPaginatedData(
         filteredItems,
         {
@@ -809,25 +812,98 @@ export class AssetService {
   /**
    * Get search fields for specific asset type
    */
-  private getSearchFieldsForAssetType(assetType: string): Array<(item: any) => string> {
-    const baseFields = [
-      (item: any) => item.name,
-      (item: any) => item.id,
-      (item: any) => item.type,
-      (item: any) => item.tags?.map((t: any) => t.key).join(' ') || '',
-      (item: any) => item.tags?.map((t: any) => t.value).join(' ') || '',
+  private getSearchFieldsForAssetType(assetType: string): SearchFieldConfig<any>[] {
+    const baseFields: SearchFieldConfig<any>[] = [
+      { getValue: (item: any) => item.name || '', reason: 'name' },
+      { getValue: (item: any) => item.id || '', reason: 'id' },
+      { getValue: (item: any) => item.description || '', reason: 'description' },
+      { getValue: (item: any) => item.arn || '', reason: 'arn' },
+      {
+        getValue: (item: any) => item.tags?.map((t: any) => t.key).join(' ') || '',
+        reason: 'tag_key',
+      },
+      {
+        getValue: (item: any) => item.tags?.map((t: any) => t.value).join(' ') || '',
+        reason: 'tag_value',
+      },
+      {
+        getValue: (item: any) => item.permissions?.map((p: any) => p.principal).join(' ') || '',
+        reason: 'permission',
+      },
+      // Search dependency names - datasets this asset uses (downstream)
+      {
+        getValue: (item: any) => {
+          const related = item.relatedAssets;
+          if (!related || !Array.isArray(related)) {
+            return '';
+          }
+          return related
+            .filter((r: any) => r.relationshipType === 'uses' && r.targetAssetType === 'dataset')
+            .map((r: any) => r.targetAssetName || '')
+            .join(' ');
+        },
+        reason: 'dependency_dataset',
+      },
+      // Search dependency names - datasources this asset uses (downstream)
+      {
+        getValue: (item: any) => {
+          const related = item.relatedAssets;
+          if (!related || !Array.isArray(related)) {
+            return '';
+          }
+          return related
+            .filter((r: any) => r.relationshipType === 'uses' && r.targetAssetType === 'datasource')
+            .map((r: any) => r.targetAssetName || '')
+            .join(' ');
+        },
+        reason: 'dependency_datasource',
+      },
+      // Search dependency names - source analysis (for dashboards)
+      {
+        getValue: (item: any) => {
+          const related = item.relatedAssets;
+          if (!related || !Array.isArray(related)) {
+            return '';
+          }
+          return related
+            .filter((r: any) => r.relationshipType === 'uses' && r.targetAssetType === 'analysis')
+            .map((r: any) => r.targetAssetName || '')
+            .join(' ');
+        },
+        reason: 'dependency_analysis',
+      },
+      // Search usedBy names - dashboards/analyses that use this asset (upstream)
+      {
+        getValue: (item: any) => {
+          const related = item.relatedAssets;
+          if (!related || !Array.isArray(related)) {
+            return '';
+          }
+          return related
+            .filter((r: any) => r.relationshipType === 'used_by')
+            .map((r: any) => r.sourceAssetName || '')
+            .join(' ');
+        },
+        reason: 'dependency_dataset', // Reuse reason - asset is used by something matching search
+      },
     ];
 
-    const typeSpecificFields = [];
+    const typeSpecificFields: SearchFieldConfig<any>[] = [];
     if (assetType === ASSET_TYPES.dataset) {
       typeSpecificFields.push(
-        (item: any) => item.sourceType || '',
-        (item: any) => item.importMode || ''
+        { getValue: (item: any) => item.sourceType || '', reason: 'name' },
+        { getValue: (item: any) => item.importMode || '', reason: 'name' }
       );
     } else if (assetType === ASSET_TYPES.dashboard || assetType === ASSET_TYPES.analysis) {
-      typeSpecificFields.push((item: any) => item.dashboardStatus || item.status || '');
+      typeSpecificFields.push({
+        getValue: (item: any) => item.dashboardStatus || item.status || '',
+        reason: 'name',
+      });
     } else if (assetType === ASSET_TYPES.datasource) {
-      typeSpecificFields.push((item: any) => item.datasourceType || item.sourceType || '');
+      typeSpecificFields.push({
+        getValue: (item: any) => item.datasourceType || item.sourceType || '',
+        reason: 'name',
+      });
     }
 
     return [...baseFields, ...typeSpecificFields];
@@ -1102,13 +1178,16 @@ export class AssetService {
       }
 
       // Define search fields for collection types
-      const searchFields = [
-        (item: any) => item.name || item.userName || item.groupName || '',
-        (item: any) => item.id || item.userName || item.groupName || '',
-        (item: any) => item.email || '',
-        (item: any) => item.type || assetType,
+      const searchFields: SearchFieldConfig<any>[] = [
+        {
+          getValue: (item: any) => item.name || item.userName || item.groupName || '',
+          reason: 'name',
+        },
+        { getValue: (item: any) => item.id || item.userName || item.groupName || '', reason: 'id' },
+        { getValue: (item: any) => item.email || '' },
+        { getValue: (item: any) => item.type || assetType },
         // For users, also search in their role
-        (item: any) => (assetType === 'user' ? item.role || '' : ''),
+        { getValue: (item: any) => (assetType === 'user' ? item.role || '' : '') },
       ];
 
       // Define sort configurations for collection types

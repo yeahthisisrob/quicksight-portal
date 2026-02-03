@@ -11,7 +11,6 @@ import {
   generateDashboardAnalysisColumns,
   generateUsedByColumn,
   generateUsesColumn,
-  generateSearchMatchReasonsColumn,
 } from './columnGenerators';
 
 import type { ColumnConfig } from '@/features/asset-management';
@@ -214,25 +213,10 @@ export const createAssetColumns = (
     onGroupUpdate?: (group: any) => void;
     onRefreshScheduleClick?: (dataset: any) => void;
     onDefinitionErrorsClick?: (asset: any) => void;
-  },
-  options?: {
-    /** Whether search is currently active - shows match reasons column when true */
-    hasSearch?: boolean;
   }
 ): ColumnConfig[] => {
   // Get base columns
   const baseColumns = generateBaseColumns(assetType, { ...handlers, navigate });
-
-  // Add search match reasons column if search is active
-  if (options?.hasSearch) {
-    // Insert after name column
-    const nameIndex = baseColumns.findIndex(col => col.id === 'name');
-    if (nameIndex !== -1) {
-      baseColumns.splice(nameIndex + 1, 0, generateSearchMatchReasonsColumn());
-    } else {
-      baseColumns.push(generateSearchMatchReasonsColumn());
-    }
-  }
 
   // Get specific columns based on asset type
   const specificColumns = getSpecificColumnsForAssetType(assetType, handlers);

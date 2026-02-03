@@ -152,10 +152,10 @@ export class IngestionHandler {
 
       // Define search fields
       const searchFields = [
-        (item: any) => item.datasetName || '',
-        (item: any) => item.id || '',
-        (item: any) => item.status || '',
-        (item: any) => item.errorMessage || '',
+        { getValue: (item: any) => item.datasetName || '' },
+        { getValue: (item: any) => item.id || '' },
+        { getValue: (item: any) => item.status || '' },
+        { getValue: (item: any) => item.errorMessage || '' },
       ];
 
       // Define sort configurations
