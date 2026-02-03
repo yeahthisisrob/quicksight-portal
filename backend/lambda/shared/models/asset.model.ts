@@ -204,6 +204,9 @@ export interface CacheEntry {
       datasetIds?: string[];
       // For datasets: datasource IDs from PhysicalTableMap
       datasourceIds?: string[];
+      // Enriched with names for searchability (populated during cache rebuild)
+      datasets?: Array<{ id: string; name: string }>;
+      datasources?: Array<{ id: string; name: string }>;
     };
 
     // Common

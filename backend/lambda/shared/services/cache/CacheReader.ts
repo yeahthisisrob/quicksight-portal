@@ -43,6 +43,42 @@ export type CacheEntryWithSearchReasons = CacheEntry & {
 };
 
 /**
+ * Check lineage data for matches and return applicable reasons
+ */
+function getLineageMatchReasons(
+  lineage: CacheEntry['metadata']['lineageData'],
+  query: string
+): SearchMatchReason[] {
+  if (!lineage) {
+    return [];
+  }
+
+  const reasons: SearchMatchReason[] = [];
+
+  // Check dataset IDs and enriched dataset names
+  const datasetIdMatch = lineage.datasetIds?.some((id) => id.toLowerCase().includes(query));
+  const datasetNameMatch = lineage.datasets?.some((ds) => ds.name.toLowerCase().includes(query));
+  if (datasetIdMatch || datasetNameMatch) {
+    reasons.push('dependency_dataset');
+  }
+
+  // Check datasource IDs and enriched datasource names
+  const datasourceIdMatch = lineage.datasourceIds?.some((id) => id.toLowerCase().includes(query));
+  const datasourceNameMatch = lineage.datasources?.some((ds) =>
+    ds.name.toLowerCase().includes(query)
+  );
+  if (datasourceIdMatch || datasourceNameMatch) {
+    reasons.push('dependency_datasource');
+  }
+
+  if (lineage.sourceAnalysisArn?.toLowerCase().includes(query)) {
+    reasons.push('dependency_analysis');
+  }
+
+  return reasons;
+}
+
+/**
  * Get all match reasons for an asset against a search query
  * Returns empty array if no match, or array of reasons if matched
  */
@@ -76,19 +112,8 @@ function getMatchReasons(asset: CacheEntry, query: string): SearchMatchReason[] 
     reasons.push('permission');
   }
 
-  // Check lineage data (direct ID matches)
-  const lineage = asset.metadata?.lineageData;
-  if (lineage) {
-    if (lineage.datasetIds?.some((id) => id.toLowerCase().includes(query))) {
-      reasons.push('dependency_dataset');
-    }
-    if (lineage.datasourceIds?.some((id) => id.toLowerCase().includes(query))) {
-      reasons.push('dependency_datasource');
-    }
-    if (lineage.sourceAnalysisArn?.toLowerCase().includes(query)) {
-      reasons.push('dependency_analysis');
-    }
-  }
+  // Check lineage data (ID matches and enriched name matches)
+  reasons.push(...getLineageMatchReasons(asset.metadata?.lineageData, query));
 
   return reasons;
 }

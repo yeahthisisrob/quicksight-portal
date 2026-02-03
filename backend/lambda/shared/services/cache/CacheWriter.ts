@@ -169,6 +169,9 @@ export class CacheWriter {
       // Resolve folder paths after all folders are loaded
       await this.resolveFolderPaths(newCache);
 
+      // Resolve lineage names (dataset/datasource names) for searchability
+      await this.resolveLineageNames(newCache);
+
       // Save the rebuilt cache
       await this.saveMasterCache(newCache);
 
@@ -251,6 +254,16 @@ export class CacheWriter {
       // Resolve folder paths if we're rebuilding folders
       if (assetType === ASSET_TYPES.folder && newEntries.length > 0) {
         await this.resolveFolderPathsForEntries(newEntries);
+      }
+
+      // Resolve lineage names for dashboard, analysis, or dataset types
+      if (
+        (assetType === ASSET_TYPES.dashboard ||
+          assetType === ASSET_TYPES.analysis ||
+          assetType === ASSET_TYPES.dataset) &&
+        newEntries.length > 0
+      ) {
+        await this.resolveLineageNamesForEntries(newEntries, assetType);
       }
 
       // Save the type cache
@@ -1707,6 +1720,147 @@ export class CacheWriter {
     });
 
     logger.info('Folder path resolution completed');
+  }
+
+  /**
+   * Resolve lineage names by looking up dataset and datasource names
+   * This enriches lineageData with human-readable names for searchability
+   * Must be called after all datasets and datasources are loaded in the cache
+   */
+  private async resolveLineageNames(cache: MasterCache): Promise<void> {
+    const datasetEntries = cache.entries.dataset || [];
+    const datasourceEntries = cache.entries.datasource || [];
+    const dashboardEntries = cache.entries.dashboard || [];
+    const analysisEntries = cache.entries.analysis || [];
+
+    if (datasetEntries.length === 0 && datasourceEntries.length === 0) {
+      return await Promise.resolve();
+    }
+
+    logger.info('Resolving lineage names for searchability', {
+      datasets: datasetEntries.length,
+      datasources: datasourceEntries.length,
+      dashboards: dashboardEntries.length,
+      analyses: analysisEntries.length,
+    });
+
+    // Build lookup maps: id → name
+    const datasetNameMap = new Map<string, string>();
+    datasetEntries.forEach((entry) => {
+      datasetNameMap.set(entry.assetId, entry.assetName);
+    });
+
+    const datasourceNameMap = new Map<string, string>();
+    datasourceEntries.forEach((entry) => {
+      datasourceNameMap.set(entry.assetId, entry.assetName);
+    });
+
+    // Enrich dashboards and analyses with dataset names
+    const enrichDashboardOrAnalysis = (entry: CacheEntry): void => {
+      const lineage = entry.metadata?.lineageData;
+      if (!lineage) {
+        return;
+      }
+
+      // Enrich dataset names
+      if (lineage.datasetIds && lineage.datasetIds.length > 0) {
+        lineage.datasets = lineage.datasetIds.map((id) => ({
+          id,
+          name: datasetNameMap.get(id) || id, // Fallback to ID if name not found
+        }));
+      }
+    };
+
+    dashboardEntries.forEach(enrichDashboardOrAnalysis);
+    analysisEntries.forEach(enrichDashboardOrAnalysis);
+
+    // Enrich datasets with datasource names
+    datasetEntries.forEach((entry) => {
+      const lineage = entry.metadata?.lineageData;
+      if (!lineage) {
+        return;
+      }
+
+      // Enrich datasource names
+      if (lineage.datasourceIds && lineage.datasourceIds.length > 0) {
+        lineage.datasources = lineage.datasourceIds.map((id) => ({
+          id,
+          name: datasourceNameMap.get(id) || id, // Fallback to ID if name not found
+        }));
+      }
+    });
+
+    logger.info('Lineage name resolution completed');
+  }
+
+  /**
+   * Resolve lineage names for a specific set of entries
+   * Used when rebuilding cache for a single asset type
+   */
+  private async resolveLineageNamesForEntries(
+    entries: CacheEntry[],
+    assetType: AssetType
+  ): Promise<void> {
+    // Only relevant for dashboard, analysis, and dataset types
+    if (
+      assetType !== ASSET_TYPES.dashboard &&
+      assetType !== ASSET_TYPES.analysis &&
+      assetType !== ASSET_TYPES.dataset
+    ) {
+      return;
+    }
+
+    logger.info(`Resolving lineage names for ${entries.length} ${assetType} entries`);
+
+    // Get all datasets and datasources from cache for lookup
+    const allDatasets = await this.cacheReader.getCacheEntries({
+      assetType: ASSET_TYPES.dataset,
+      statusFilter: AssetStatusFilter.ALL,
+    });
+
+    const allDatasources = await this.cacheReader.getCacheEntries({
+      assetType: ASSET_TYPES.datasource,
+      statusFilter: AssetStatusFilter.ALL,
+    });
+
+    // Build lookup maps
+    const datasetNameMap = new Map<string, string>();
+    allDatasets.forEach((entry) => {
+      datasetNameMap.set(entry.assetId, entry.assetName);
+    });
+
+    const datasourceNameMap = new Map<string, string>();
+    allDatasources.forEach((entry) => {
+      datasourceNameMap.set(entry.assetId, entry.assetName);
+    });
+
+    // Enrich entries based on asset type
+    entries.forEach((entry) => {
+      const lineage = entry.metadata?.lineageData;
+      if (!lineage) {
+        return;
+      }
+
+      if (assetType === ASSET_TYPES.dashboard || assetType === ASSET_TYPES.analysis) {
+        // Enrich with dataset names
+        if (lineage.datasetIds && lineage.datasetIds.length > 0) {
+          lineage.datasets = lineage.datasetIds.map((id) => ({
+            id,
+            name: datasetNameMap.get(id) || id,
+          }));
+        }
+      } else if (assetType === ASSET_TYPES.dataset) {
+        // Enrich with datasource names
+        if (lineage.datasourceIds && lineage.datasourceIds.length > 0) {
+          lineage.datasources = lineage.datasourceIds.map((id) => ({
+            id,
+            name: datasourceNameMap.get(id) || id,
+          }));
+        }
+      }
+    });
+
+    logger.info(`Lineage name resolution completed for ${assetType}`);
   }
 
   private async saveMasterCache(cache: MasterCache): Promise<void> {
