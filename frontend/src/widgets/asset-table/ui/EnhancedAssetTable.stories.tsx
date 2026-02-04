@@ -84,34 +84,34 @@ const InteractiveWrapper = ({
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
   const isInitialMount = useRef(true);
 
-  const handleFetchAssets = useCallback(async (
-    page: number,
-    pageSize: number,
-    search?: string,
-    _dateRange?: string,
-    sortBy?: string,
-    sortOrder?: string
-  ) => {
+  const handleFetchAssets = useCallback(async (options: {
+    page: number;
+    pageSize: number;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: string;
+  }) => {
+    const { page, pageSize, search, sortBy, sortOrder } = options;
     // Skip the first call on mount to prevent flashing
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
-    
+
     setLoading(true);
-    
+
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 300));
-    
+
     let filtered = [...initialAssets];
-    
+
     if (search) {
-      filtered = filtered.filter(a => 
+      filtered = filtered.filter(a =>
         a.name.toLowerCase().includes(search.toLowerCase()) ||
         a.owner.toLowerCase().includes(search.toLowerCase())
       );
     }
-    
+
     if (sortBy) {
       filtered.sort((a, b) => {
         const aVal = a[sortBy as keyof typeof a];
@@ -120,18 +120,18 @@ const InteractiveWrapper = ({
         return sortOrder === 'desc' ? -comparison : comparison;
       });
     }
-    
+
     // Paginate
     const start = (page - 1) * pageSize;
     const paginated = filtered.slice(start, start + pageSize);
-    
+
     setAssets(paginated);
     setLoading(false);
   }, [initialAssets]);
 
   const handleRefreshAssets = useCallback(async () => {
     isInitialMount.current = false;
-    await handleFetchAssets(1, 50);
+    await handleFetchAssets({ page: 1, pageSize: 50 });
   }, [handleFetchAssets]);
 
   const handleRefreshTags = useCallback(async () => {
@@ -194,7 +194,7 @@ export const Loading: Story = {
     loading: true,
     totalRows: 0,
     columns: columns,
-    onFetchAssets: async () => {},
+    onFetchAssets: async (_options) => {},
     onRefreshAssets: async () => {},
   },
 };
@@ -207,7 +207,7 @@ export const Empty: Story = {
     loading: false,
     totalRows: 0,
     columns: columns,
-    onFetchAssets: async () => {},
+    onFetchAssets: async (_options) => {},
     onRefreshAssets: async () => {},
   },
 };
@@ -216,11 +216,11 @@ export const WithSelection = {
   render: () => {
     const Component = () => {
       const [selectedRows, setSelectedRows] = useState<any[]>(['asset-1', 'asset-3', 'asset-5']);
-      const [assets] = useState(mockAssets); 
+      const [assets] = useState(mockAssets);
       const [loading, setLoading] = useState(false);
       const isInitialMount = useRef(true);
 
-      const handleFetchAssets = useCallback(async () => {
+      const handleFetchAssets = useCallback(async (_options: { page: number; pageSize: number }) => {
         if (isInitialMount.current) {
           isInitialMount.current = false;
           return;
@@ -241,13 +241,13 @@ export const WithSelection = {
           onSelectionChange={setSelectedRows}
           enableBulkActions={true}
           onFetchAssets={handleFetchAssets}
-          onRefreshAssets={handleFetchAssets}
+          onRefreshAssets={async () => handleFetchAssets({ page: 1, pageSize: 50 })}
           onAddToFolder={() => {}}
           onBulkTag={() => {}}
         />
       );
     };
-    
+
     return <Component />;
   },
 };

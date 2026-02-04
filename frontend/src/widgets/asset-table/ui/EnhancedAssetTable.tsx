@@ -1,4 +1,4 @@
-import { Box, Paper, SelectChangeEvent } from '@mui/material';
+import { Box, Paper } from '@mui/material';
 import {
   DataGrid,
   GridColDef,
@@ -11,11 +11,26 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 
 import { BulkActionsToolbar } from '@/widgets';
 
+import {
+  FilterBar,
+  type DateFilterState,
+  type TagFilter,
+  type TagOption,
+  type FolderFilter,
+  type FolderOption,
+  type ErrorFilterState,
+  type ActivityFilterState,
+  type MatchReasonSummary,
+  DEFAULT_DATE_FILTER,
+  DEFAULT_ERROR_FILTER,
+  DEFAULT_ACTIVITY_FILTER,
+} from '@/widgets/filter-bar';
+
 import { spacing } from '@/shared/design-system/theme';
 import { useDebounce, usePagination } from '@/shared/lib';
 
-import { TableHeader, SearchBar, TableToolbar, type MatchReasonSummary } from './components';
-import { tableStyles, DATE_RANGES } from '../lib/tableStyles';
+import { TableHeader, TableToolbar } from './components';
+import { tableStyles } from '../lib/tableStyles';
 
 import type { SearchMatchReason } from '@shared/generated';
 
@@ -33,10 +48,21 @@ export interface ColumnConfig {
   valueGetter?: (params: any) => any;
 }
 
-export interface DateFilter {
-  range: 'all' | '24h' | '7d' | '30d' | '90d' | 'custom';
-  startDate?: Date;
-  endDate?: Date;
+export interface FetchAssetsOptions {
+  page: number;
+  pageSize: number;
+  search?: string;
+  dateRange?: string;
+  sortBy?: string;
+  sortOrder?: string;
+  filters?: Record<string, any>;
+  dateField?: string;
+  includeTags?: string;
+  excludeTags?: string;
+  errorFilter?: ErrorFilterState;
+  activityFilter?: ActivityFilterState;
+  includeFolders?: string;
+  excludeFolders?: string;
 }
 
 interface EnhancedAssetTableProps {
@@ -46,7 +72,7 @@ interface EnhancedAssetTableProps {
   loading: boolean;
   totalRows: number;
   columns: ColumnConfig[];
-  onFetchAssets: (page: number, pageSize: number, search?: string, dateRange?: string, sortBy?: string, sortOrder?: string, filters?: Record<string, any>) => Promise<void>;
+  onFetchAssets: (options: FetchAssetsOptions) => Promise<void>;
   onRefreshAssets: () => Promise<void>;
   onRefreshTags?: () => Promise<void>;
   selectedRows?: GridRowSelectionModel;
@@ -68,6 +94,26 @@ interface EnhancedAssetTableProps {
   onExportCSV?: () => Promise<void>;
   exportLabel?: string;
   folderActionLabel?: string;
+  /** Show the "Last Activity" option in date field dropdown */
+  showActivityOption?: boolean;
+  /** Enable tag filtering UI */
+  enableTagFiltering?: boolean;
+  /** Available tags for filtering */
+  availableTags?: TagOption[];
+  /** Loading state for tag options */
+  isLoadingTags?: boolean;
+  /** Enable error filtering UI */
+  enableErrorFiltering?: boolean;
+  /** Count of assets with errors (for display) */
+  errorCount?: number;
+  /** Enable activity filtering UI */
+  enableActivityFiltering?: boolean;
+  /** Enable folder filtering UI */
+  enableFolderFiltering?: boolean;
+  /** Available folders for filtering */
+  availableFolders?: FolderOption[];
+  /** Loading state for folder options */
+  isLoadingFolders?: boolean;
 }
 
 export default function EnhancedAssetTable({
@@ -99,17 +145,31 @@ export default function EnhancedAssetTable({
   onExportCSV,
   exportLabel = 'Export',
   folderActionLabel = 'Add to Folder',
+  showActivityOption = false,
+  enableTagFiltering = false,
+  availableTags = [],
+  isLoadingTags = false,
+  enableErrorFiltering = false,
+  errorCount,
+  enableActivityFiltering = false,
+  enableFolderFiltering = false,
+  availableFolders = [],
+  isLoadingFolders = false,
 }: EnhancedAssetTableProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshingTags, setRefreshingTags] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortModel, setSortModel] = useState<GridSortModel>(defaultSortModel);
   const [exporting, setExporting] = useState(false);
-  const [dateFilter, setDateFilter] = useState<DateFilter>({
-    range: 'all',
-  });
+  const [dateFilter, setDateFilter] = useState<DateFilterState>(DEFAULT_DATE_FILTER);
   const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [] });
-  
+  const [includeTags, setIncludeTags] = useState<TagFilter[]>([]);
+  const [excludeTags, setExcludeTags] = useState<TagFilter[]>([]);
+  const [errorFilter, setErrorFilter] = useState<ErrorFilterState>(DEFAULT_ERROR_FILTER);
+  const [activityFilter, setActivityFilter] = useState<ActivityFilterState>(DEFAULT_ACTIVITY_FILTER);
+  const [includeFolders, setIncludeFolders] = useState<FolderFilter[]>([]);
+  const [excludeFolders, setExcludeFolders] = useState<FolderFilter[]>([]);
+
   // Dynamic height calculation
   const [availableHeight, setAvailableHeight] = useState<string>('auto');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -138,13 +198,7 @@ export default function EnhancedAssetTable({
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
   // Use the pagination hook
-  const {
-    currentPage,
-    pageSize,
-    goToPage,
-    setPageSize,
-    updateTotalItems,
-  } = usePagination({
+  const { currentPage, pageSize, goToPage, setPageSize, updateTotalItems } = usePagination({
     initialPage: 1,
     initialPageSize: defaultPageSize,
   });
@@ -157,24 +211,27 @@ export default function EnhancedAssetTable({
   // Build columns
   const visibleColumnsConfig = useMemo(() => {
     return initialColumns
-      .filter(col => col.id && col.label)
-      .map(col => ({
-        field: col.id,
-        headerName: col.label,
-        width: col.width,
-        flex: col.flex,
-        minWidth: col.minWidth,
-        sortable: col.sortable !== false,
-        hideable: col.hideable !== false, // Default to true unless explicitly false
-        renderCell: col.renderCell,
-        valueGetter: col.valueGetter,
-      } as GridColDef));
+      .filter((col) => col.id && col.label)
+      .map(
+        (col) =>
+          ({
+            field: col.id,
+            headerName: col.label,
+            width: col.width,
+            flex: col.flex,
+            minWidth: col.minWidth,
+            sortable: col.sortable !== false,
+            hideable: col.hideable !== false,
+            renderCell: col.renderCell,
+            valueGetter: col.valueGetter,
+          }) as GridColDef
+      );
   }, [initialColumns]);
 
   // Build initial column visibility model
   const initialColumnVisibilityModel = useMemo(() => {
     const model: Record<string, boolean> = {};
-    initialColumns.forEach(col => {
+    initialColumns.forEach((col) => {
       if (col.visible === false && !col.required) {
         model[col.id] = false;
       }
@@ -183,82 +240,101 @@ export default function EnhancedAssetTable({
   }, [initialColumns]);
 
   // Convert DataGrid filter model to backend format
-  const convertFiltersToBackend = useCallback((filterModel: GridFilterModel): Record<string, any> => {
-    const filters: Record<string, any> = {};
-    
-    filterModel.items.forEach(item => {
-      if (item.value !== undefined && item.value !== '') {
-        const field = item.field;
-        const operator = item.operator;
-        const value = item.value;
-        
-        // Convert operators to backend format
-        switch (operator) {
-          case 'contains':
-          case 'equals':
-            filters[field] = value;
-            break;
-          case 'startsWith':
-            filters[field] = { startsWith: value };
-            break;
-          case 'endsWith':
-            filters[field] = { endsWith: value };
-            break;
-          case '>':
-            filters[field] = { min: value };
-            break;
-          case '>=':
-            filters[field] = { min: value };
-            break;
-          case '<':
-            filters[field] = { max: value };
-            break;
-          case '<=':
-            filters[field] = { max: value };
-            break;
-          case 'isAnyOf':
-            filters[field] = value;
-            break;
+  const convertFiltersToBackend = useCallback(
+    (filterModel: GridFilterModel): Record<string, any> => {
+      const filters: Record<string, any> = {};
+
+      filterModel.items.forEach((item) => {
+        if (item.value !== undefined && item.value !== '') {
+          const field = item.field;
+          const operator = item.operator;
+          const value = item.value;
+
+          switch (operator) {
+            case 'contains':
+            case 'equals':
+              filters[field] = value;
+              break;
+            case 'startsWith':
+              filters[field] = { startsWith: value };
+              break;
+            case 'endsWith':
+              filters[field] = { endsWith: value };
+              break;
+            case '>':
+            case '>=':
+              filters[field] = { min: value };
+              break;
+            case '<':
+            case '<=':
+              filters[field] = { max: value };
+              break;
+            case 'isAnyOf':
+              filters[field] = value;
+              break;
+          }
         }
-      }
-    });
-    
-    return filters;
+      });
+
+      return filters;
+    },
+    []
+  );
+
+  // Map frontend sort field to backend field
+  const mapSortField = useCallback((sortField: string | undefined) => {
+    if (!sortField) return undefined;
+    if (sortField === 'viewStats') return 'viewCount';
+    return sortField;
   }, []);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await onRefreshAssets();
-      
+
       const sortField = sortModel.length > 0 ? sortModel[0].field : undefined;
       const sortOrder = sortModel.length > 0 && sortModel[0].sort ? sortModel[0].sort : undefined;
-      let backendSortField = sortField;
-      if (sortField === 'viewStats') {
-        backendSortField = 'viewCount';
-      } else if (sortField === 'activity') {
-        // Keep 'activity' as is - the backend handles it based on asset type
-        backendSortField = 'activity';
-      } else if (sortField === 'groups') {
-        // Keep 'groups' as is - the backend handles it
-        backendSortField = 'groups';
-      }
-      
+      const backendSortField = mapSortField(sortField);
       const filters = convertFiltersToBackend(filterModel);
-      
-      await onFetchAssets(
-        currentPage,
+
+      await onFetchAssets({
+        page: currentPage,
         pageSize,
-        debouncedSearchTerm,
-        dateFilter.range,
-        backendSortField,
+        search: debouncedSearchTerm,
+        dateRange: dateFilter.range,
+        sortBy: backendSortField,
         sortOrder,
-        filters
-      );
+        filters,
+        dateField: dateFilter.field !== 'lastUpdatedTime' ? dateFilter.field : undefined,
+        includeTags: includeTags.length > 0 ? JSON.stringify(includeTags) : undefined,
+        excludeTags: excludeTags.length > 0 ? JSON.stringify(excludeTags) : undefined,
+        errorFilter: errorFilter !== 'all' ? errorFilter : undefined,
+        activityFilter: activityFilter !== 'all' ? activityFilter : undefined,
+        includeFolders: includeFolders.length > 0 ? JSON.stringify(includeFolders) : undefined,
+        excludeFolders: excludeFolders.length > 0 ? JSON.stringify(excludeFolders) : undefined,
+      });
     } finally {
       setRefreshing(false);
     }
-  }, [onRefreshAssets, onFetchAssets, sortModel, currentPage, pageSize, debouncedSearchTerm, dateFilter.range, filterModel, convertFiltersToBackend]);
+  }, [
+    onRefreshAssets,
+    onFetchAssets,
+    sortModel,
+    currentPage,
+    pageSize,
+    debouncedSearchTerm,
+    dateFilter,
+    filterModel,
+    convertFiltersToBackend,
+    mapSortField,
+    includeTags,
+    excludeTags,
+    errorFilter,
+    activityFilter,
+    includeFolders,
+    excludeFolders,
+  ]);
 
   const handleRefreshTags = useCallback(async () => {
     if (!onRefreshTags) return;
@@ -272,7 +348,7 @@ export default function EnhancedAssetTable({
 
   const handleExportCSV = useCallback(async () => {
     if (!onExportCSV) return;
-    
+
     setExporting(true);
     try {
       await onExportCSV();
@@ -281,22 +357,22 @@ export default function EnhancedAssetTable({
     }
   }, [onExportCSV]);
 
-  const handleDateRangeChange = useCallback((event: SelectChangeEvent<string>) => {
-    setDateFilter(prev => ({
-      ...prev,
-      range: event.target.value as DateFilter['range'],
-    }));
+  const handleDateFilterChange = useCallback((filter: DateFilterState) => {
+    setDateFilter(filter);
   }, []);
 
   // Handle pagination model changes from DataGrid
-  const handlePaginationModelChange = useCallback((model: GridPaginationModel) => {
-    if (model.page + 1 !== currentPage) {
-      goToPage(model.page + 1);
-    }
-    if (model.pageSize !== pageSize) {
-      setPageSize(model.pageSize);
-    }
-  }, [currentPage, pageSize, goToPage, setPageSize]);
+  const handlePaginationModelChange = useCallback(
+    (model: GridPaginationModel) => {
+      if (model.page + 1 !== currentPage) {
+        goToPage(model.page + 1);
+      }
+      if (model.pageSize !== pageSize) {
+        setPageSize(model.pageSize);
+      }
+    },
+    [currentPage, pageSize, goToPage, setPageSize]
+  );
 
   // Compute match reasons summary from assets that have searchMatchReasons
   const matchReasonSummary = useMemo((): MatchReasonSummary[] => {
@@ -313,41 +389,51 @@ export default function EnhancedAssetTable({
       }
     }
 
-    // Convert to array and sort by count descending
     return Array.from(reasonCounts.entries())
       .map(([reason, count]) => ({ reason, count }))
       .sort((a, b) => b.count - a.count);
   }, [assets, debouncedSearchTerm]);
 
-  // Fetch assets when pagination, search, date filter, or sort changes
+  // Fetch assets when pagination, search, date filter, tags, or sort changes
   useEffect(() => {
     const sortField = sortModel.length > 0 ? sortModel[0].field : undefined;
     const sortOrder = sortModel.length > 0 && sortModel[0].sort ? sortModel[0].sort : undefined;
-    
-    // Map frontend field names to backend field names
-    let backendSortField = sortField;
-    if (sortField === 'viewStats') {
-      backendSortField = 'viewCount';
-    } else if (sortField === 'activity') {
-      // Keep 'activity' as is - the backend handles it based on asset type
-      backendSortField = 'activity';
-    } else if (sortField === 'groups') {
-      // Keep 'groups' as is - the backend handles it
-      backendSortField = 'groups';
-    }
-    
+    const backendSortField = mapSortField(sortField);
     const filters = convertFiltersToBackend(filterModel);
-    
-    onFetchAssets(
-      currentPage,
+
+    onFetchAssets({
+      page: currentPage,
       pageSize,
-      debouncedSearchTerm,
-      dateFilter.range,
-      backendSortField,
+      search: debouncedSearchTerm,
+      dateRange: dateFilter.range,
+      sortBy: backendSortField,
       sortOrder,
-      filters
-    );
-  }, [currentPage, pageSize, debouncedSearchTerm, dateFilter.range, sortModel, onFetchAssets, filterModel, convertFiltersToBackend]);
+      filters,
+      dateField: dateFilter.field !== 'lastUpdatedTime' ? dateFilter.field : undefined,
+      includeTags: includeTags.length > 0 ? JSON.stringify(includeTags) : undefined,
+      excludeTags: excludeTags.length > 0 ? JSON.stringify(excludeTags) : undefined,
+      errorFilter: errorFilter !== 'all' ? errorFilter : undefined,
+      activityFilter: activityFilter !== 'all' ? activityFilter : undefined,
+      includeFolders: includeFolders.length > 0 ? JSON.stringify(includeFolders) : undefined,
+      excludeFolders: excludeFolders.length > 0 ? JSON.stringify(excludeFolders) : undefined,
+    });
+  }, [
+    currentPage,
+    pageSize,
+    debouncedSearchTerm,
+    dateFilter,
+    sortModel,
+    onFetchAssets,
+    filterModel,
+    convertFiltersToBackend,
+    mapSortField,
+    includeTags,
+    excludeTags,
+    errorFilter,
+    activityFilter,
+    includeFolders,
+    excludeFolders,
+  ]);
 
   return (
     <Box>
@@ -370,7 +456,7 @@ export default function EnhancedAssetTable({
               if (onBulkTag) {
                 onBulkTag();
               } else {
-                const action = bulkActions?.find(a => a.label === 'Manage Tags');
+                const action = bulkActions?.find((a) => a.label === 'Manage Tags');
                 if (action) {
                   action.onClick();
                 }
@@ -379,33 +465,58 @@ export default function EnhancedAssetTable({
             onBulkDelete={onBulkDelete}
             showDeleteAction={showDeleteAction}
             onClearSelection={() => onSelectionChange?.([])}
-            customActions={bulkActions?.filter(a => !['Add to Folder', 'Manage Tags'].includes(a.label))}
+            customActions={bulkActions?.filter(
+              (a) => !['Add to Folder', 'Manage Tags'].includes(a.label)
+            )}
             folderActionLabel={folderActionLabel}
           />
         </Box>
       )}
 
-      <Paper 
+      <Paper
         ref={containerRef}
-        sx={{ 
-          ...tableStyles.container, 
+        sx={{
+          ...tableStyles.container,
           height: availableHeight,
           maxHeight: availableHeight,
-          display: 'flex', 
-          flexDirection: 'column' 
-        }}>
-        <SearchBar
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <FilterBar
+          showSearch
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
-          dateFilter={dateFilter.range}
-          onDateFilterChange={handleDateRangeChange}
-          dateRanges={DATE_RANGES}
+          dateFilter={dateFilter}
+          onDateFilterChange={handleDateFilterChange}
+          showActivityOption={showActivityOption}
           matchReasonSummary={matchReasonSummary}
+          enableTagFiltering={enableTagFiltering}
+          availableTags={availableTags}
+          includeTags={includeTags}
+          excludeTags={excludeTags}
+          onIncludeTagsChange={setIncludeTags}
+          onExcludeTagsChange={setExcludeTags}
+          isLoadingTags={isLoadingTags}
+          enableErrorFiltering={enableErrorFiltering}
+          errorFilter={errorFilter}
+          onErrorFilterChange={setErrorFilter}
+          errorCount={errorCount}
+          enableActivityFiltering={enableActivityFiltering}
+          activityFilter={activityFilter}
+          onActivityFilterChange={setActivityFilter}
+          enableFolderFiltering={enableFolderFiltering}
+          availableFolders={availableFolders}
+          includeFolders={includeFolders}
+          excludeFolders={excludeFolders}
+          onIncludeFoldersChange={setIncludeFolders}
+          onExcludeFoldersChange={setExcludeFolders}
+          isLoadingFolders={isLoadingFolders}
         />
 
         <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
           <DataGrid
-            rows={assets.filter(asset => asset && (asset.id || (getRowId && getRowId(asset))))}
+            rows={assets.filter((asset) => asset && (asset.id || (getRowId && getRowId(asset))))}
             columns={visibleColumnsConfig}
             loading={loading}
             paginationModel={{

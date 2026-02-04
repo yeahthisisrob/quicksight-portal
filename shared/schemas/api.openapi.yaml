@@ -319,6 +319,30 @@ paths:
           schema:
             type: string
             description: JSON stringified filters object
+        - name: dateField
+          in: query
+          schema:
+            type: string
+            enum: [lastUpdatedTime, createdTime, lastActivity]
+            default: lastUpdatedTime
+          description: Which date field to filter on
+        - name: dateRange
+          in: query
+          schema:
+            type: string
+            enum: [all, 24h, 7d, 30d, 90d]
+            default: all
+          description: Date range filter value
+        - name: includeTags
+          in: query
+          schema:
+            type: string
+          description: JSON-encoded array of {key, value} tag filters to include
+        - name: excludeTags
+          in: query
+          schema:
+            type: string
+          description: JSON-encoded array of {key, value} tag filters to exclude
       responses:
         '200':
           description: Paginated asset list

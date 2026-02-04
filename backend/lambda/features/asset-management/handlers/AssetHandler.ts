@@ -1,7 +1,7 @@
 import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../../../shared/auth';
-import { STATUS_CODES, ACTIVITY_LIMITS } from '../../../shared/constants';
+import { STATUS_CODES, ACTIVITY_LIMITS, PAGINATION } from '../../../shared/constants';
 import { S3Service } from '../../../shared/services/aws/S3Service';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
 import { CacheService } from '../../../shared/services/cache/CacheService';
@@ -11,6 +11,8 @@ import { successResponse, errorResponse, createResponse } from '../../../shared/
 import { logger } from '../../../shared/utils/logger';
 import { GroupService } from '../../organization/services/GroupService';
 import { AssetService } from '../services/AssetService';
+import { type AssetListRequest } from '../types';
+
 export class AssetHandler {
   private readonly accountId: string;
   private readonly assetService: AssetService;
@@ -327,8 +329,7 @@ export class AssetHandler {
 
   public async list(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
-      await requireAuth(event); // Validate authentication
-      // Router normalizes assetType to singular form (e.g., "dashboards" -> "dashboard")
+      await requireAuth(event);
       const { assetType } = event.pathParameters || {};
 
       logger.debug('AssetHandler.list', { assetType });
@@ -337,7 +338,6 @@ export class AssetHandler {
         return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Asset type is required');
       }
 
-      // Validate asset type using centralized constants
       if (!Object.values(ASSET_TYPES).includes(assetType as any)) {
         return errorResponse(
           event,
@@ -346,29 +346,17 @@ export class AssetHandler {
         );
       }
 
-      const page = parseInt(event.queryStringParameters?.page || '1');
-      const pageSize = parseInt(event.queryStringParameters?.pageSize || '50');
-
-      const result = await this.assetService.list(assetType, {
-        maxResults: pageSize,
-        nextToken: event.queryStringParameters?.nextToken,
-        sortBy: event.queryStringParameters?.sortBy,
-        sortOrder: event.queryStringParameters?.sortOrder?.toUpperCase() as 'ASC' | 'DESC',
-        startIndex: (page - 1) * pageSize,
-        search: event.queryStringParameters?.search,
-        filters: event.queryStringParameters?.filters
-          ? JSON.parse(event.queryStringParameters.filters)
-          : undefined,
-      });
-
+      const listParams = this.parseListQueryParams(event.queryStringParameters);
+      const result = await this.assetService.list(assetType, listParams);
       const assetTypeKey = ASSET_TYPES_PLURAL[assetType as keyof typeof ASSET_TYPES_PLURAL];
 
+      const pageSize = listParams.maxResults || PAGINATION.DEFAULT_PAGE_SIZE;
       return successResponse(event, {
         success: true,
         data: {
           [assetTypeKey]: result.items,
           pagination: {
-            page,
+            page: listParams.page,
             pageSize,
             totalItems: result.totalCount || result.items.length,
             totalPages: Math.ceil((result.totalCount || result.items.length) / pageSize),
@@ -567,6 +555,46 @@ export class AssetHandler {
       throw new Error(`Invalid asset type: ${assetType}`);
     }
     return pluralType;
+  }
+
+  /**
+   * Parse query parameters for list endpoint
+   */
+  private parseListQueryParams(
+    params: Record<string, string | undefined> | null
+  ): AssetListRequest & { page: number } {
+    const queryParams = params || {};
+    const page = parseInt(queryParams.page || '1');
+    const pageSize = parseInt(queryParams.pageSize || String(PAGINATION.DEFAULT_PAGE_SIZE));
+
+    return {
+      page,
+      maxResults: pageSize,
+      nextToken: queryParams.nextToken,
+      sortBy: queryParams.sortBy,
+      sortOrder: queryParams.sortOrder?.toUpperCase() as 'ASC' | 'DESC' | undefined,
+      startIndex: (page - 1) * pageSize,
+      search: queryParams.search,
+      filters: queryParams.filters ? JSON.parse(queryParams.filters) : undefined,
+      dateField: (queryParams.dateField || 'lastUpdatedTime') as
+        | 'lastUpdatedTime'
+        | 'createdTime'
+        | 'lastActivity',
+      dateRange: (queryParams.dateRange || 'all') as 'all' | '24h' | '7d' | '30d' | '90d',
+      includeTags: queryParams.includeTags ? JSON.parse(queryParams.includeTags) : undefined,
+      excludeTags: queryParams.excludeTags ? JSON.parse(queryParams.excludeTags) : undefined,
+      errorFilter: (queryParams.errorFilter || 'all') as 'all' | 'with_errors' | 'without_errors',
+      activityFilter: (queryParams.activityFilter || 'all') as
+        | 'all'
+        | 'with_activity'
+        | 'without_activity',
+      includeFolders: queryParams.includeFolders
+        ? JSON.parse(queryParams.includeFolders)
+        : undefined,
+      excludeFolders: queryParams.excludeFolders
+        ? JSON.parse(queryParams.excludeFolders)
+        : undefined,
+    };
   }
 
   /**

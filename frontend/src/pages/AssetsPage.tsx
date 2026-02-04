@@ -1,5 +1,6 @@
 import { Add as AddIcon } from '@mui/icons-material';
 import { Button } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams, Navigate } from 'react-router-dom';
 
@@ -8,6 +9,8 @@ import { ActivityStatsDialog, UserActivityDialog } from '@/widgets/activity-stat
 import { CreateGroupDialog } from '@/features/organization';
 
 import { useAssets } from '@/entities/asset';
+
+import { dataCatalogApi, assetsApi } from '@/shared/api';
 
 import GenericAssetPage from './GenericAssetPage';
 
@@ -74,6 +77,27 @@ export default function AssetsPage() {
   // Group creation state
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
 
+  // Fetch available tags for filtering
+  const { data: availableTags = [], isLoading: tagsLoading } = useQuery({
+    queryKey: ['available-tags'],
+    queryFn: () => dataCatalogApi.getAvailableTags(),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Fetch available folders for filtering
+  const { data: availableFolders = [], isLoading: filterFoldersLoading } = useQuery({
+    queryKey: ['available-folders-filter'],
+    queryFn: async () => {
+      const response = await assetsApi.getFoldersPaginated({ page: 1, pageSize: 500 });
+      return (response.folders || []).map((folder: any) => ({
+        id: folder.id,
+        name: folder.name,
+        assetCount: folder.memberCount || 0,
+      }));
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
   const config = type ? assetConfigs[type as keyof typeof assetConfigs] : null;
   
   if (!config) {
@@ -116,13 +140,21 @@ export default function AssetsPage() {
         fetchAssets={fetch}
         refreshAssetType={refreshAssetType}
         updateAssetTags={updateAssetTags}
-        onActivityClick={(config.assetType === 'dashboard' || config.assetType === 'analysis' || config.assetType === 'user') ? 
-          (asset) => setActivityDialog({ 
-            open: true, 
+        onActivityClick={(config.assetType === 'dashboard' || config.assetType === 'analysis' || config.assetType === 'user') ?
+          (asset) => setActivityDialog({
+            open: true,
             asset
           }) : undefined
         }
         extraToolbarActions={extraToolbarActions}
+        enableTagFiltering={['dashboard', 'analysis', 'dataset', 'datasource', 'folder'].includes(config.assetType)}
+        availableTags={availableTags}
+        isLoadingTags={tagsLoading}
+        enableErrorFiltering={['dashboard', 'analysis', 'dataset', 'datasource'].includes(config.assetType)}
+        enableActivityFiltering={['dashboard', 'analysis'].includes(config.assetType)}
+        enableFolderFiltering={['dashboard', 'analysis', 'dataset', 'datasource'].includes(config.assetType)}
+        availableFolders={availableFolders}
+        isLoadingFolders={filterFoldersLoading}
       />
       
       {/* Activity dialog for dashboards and analyses */}

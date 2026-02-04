@@ -1,5 +1,5 @@
 import { DEBUG_CONFIG, QUICKSIGHT_LIMITS } from '../../../shared/constants';
-import { RETENTION_PERIODS } from '../../../shared/constants/timeConstants';
+import { DATE_RANGE_DURATIONS, RETENTION_PERIODS } from '../../../shared/constants/timeConstants';
 import { type CacheEntry } from '../../../shared/models/asset.model';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { LineageService } from '../../../shared/services/lineage';
@@ -11,6 +11,11 @@ import {
   type AssetType,
   type CacheData,
 } from '../../../shared/types/assetTypes';
+import {
+  type TagFilter,
+  matchesIncludeTags,
+  matchesExcludeTags,
+} from '../../../shared/types/filterTypes';
 import { type LineageData } from '../../../shared/types/lineage.types';
 import { mapCacheEntryToAsset } from '../../../shared/utils/assetMapping';
 import { findMatchingFlatFileDatasource } from '../../../shared/utils/flatFileDatasetMatcher';
@@ -171,7 +176,6 @@ export class AssetService {
 
   public async list(assetType: string, request: AssetListRequest): Promise<AssetListResponse> {
     try {
-      // Use cached data - get only active assets by default (most common use case)
       const cache = await cacheService.getMasterCache({ statusFilter: AssetStatusFilter.ACTIVE });
 
       if (!cache || !cache.entries) {
@@ -179,96 +183,22 @@ export class AssetService {
         return { items: [], nextToken: undefined };
       }
 
-      // Check if this is a collection type (user, group, folder) - they need special handling
       if (COLLECTION_ASSET_TYPES.includes(assetType as AssetType)) {
         return this.listCollectionType(assetType as AssetType, request);
       }
 
-      // Validate asset type for regular assets
-      const validAssetTypes = [
-        ASSET_TYPES.dashboard,
-        ASSET_TYPES.dataset,
-        ASSET_TYPES.analysis,
-        ASSET_TYPES.datasource,
-      ];
-      if (!validAssetTypes.includes(assetType as any)) {
-        throw new Error(`Unsupported asset type: ${assetType}`);
-      }
+      this.validateRegularAssetType(assetType);
 
-      // Since assetType is always singular, we can directly access the cache
       const cachedAssets = cache.entries[assetType as keyof typeof cache.entries] || [];
-
       if (!Array.isArray(cachedAssets)) {
         logger.warn(`No cached data found for asset type: ${assetType}`);
         return { items: [], nextToken: undefined };
       }
 
-      // No need to filter - cache already returns only active assets
+      const items = await this.enrichCachedAssets(assetType, cachedAssets, cache);
+      const filteredItems = this.applyAllFilters(items, request);
 
-      // Get lineage data for active assets
-      const lineageMap = await this.lineageService.getLineageMapForAssets(
-        assetType as Asset['type'],
-        cachedAssets.map((a) => a.assetId)
-      );
-
-      // Fetch activity data for assets and related entities
-      const activityMap = await this.collectActivityData(assetType, cachedAssets, lineageMap);
-
-      // Build tags map for related assets
-      const tagsMap = this.buildTagsMapForRelatedAssets(lineageMap, cache);
-
-      // Build folder membership mapping
-      const assetFolderMap = this.buildAssetFolderMap(cache, assetType);
-
-      // Build enrichment context to pass to mapping function
-      const enrichmentContext: EnrichmentContext = {
-        assetType,
-        cache,
-        assetFolderMap,
-        lineageMap,
-        activityMap,
-        tagsMap,
-      };
-
-      // Convert cached assets using the proper OpenAPI contract mappings
-      const items: Asset[] = await Promise.all(
-        cachedAssets.map((cacheEntry: CacheEntry) =>
-          this.mapCacheEntryToEnrichedAsset(cacheEntry, enrichmentContext)
-        )
-      );
-
-      // Get search fields and sort configurations for this asset type
-      const searchFields = this.getSearchFieldsForAssetType(assetType);
-
-      const sortConfigs = this.getSortConfigsForAssets();
-
-      // Convert startIndex/maxResults to page/pageSize for pagination utils
-      const startIndex = request.startIndex || 0;
-      const maxResults = request.maxResults || QUICKSIGHT_LIMITS.DEFAULT_MAX_RESULTS;
-      const page = Math.floor(startIndex / maxResults) + 1;
-
-      // Apply request filters to items
-      const filteredItems = this.applyRequestFilters(items, request.filters);
-
-      // Use the pagination utilities for search, sort, and pagination
-      const result = processPaginatedData(
-        filteredItems,
-        {
-          page,
-          pageSize: maxResults,
-          search: request.search,
-          sortBy: request.sortBy,
-          sortOrder: request.sortOrder?.toLowerCase() as 'asc' | 'desc',
-        },
-        searchFields,
-        sortConfigs
-      );
-
-      return {
-        items: result.items,
-        nextToken: result.pagination.hasMore ? String(startIndex + maxResults) : undefined,
-        totalCount: result.pagination.totalItems,
-      };
+      return this.paginateAndReturnResults(filteredItems, request, assetType);
     } catch (error) {
       logger.error('Failed to list assets', { assetType, error });
       throw error;
@@ -420,6 +350,134 @@ export class AssetService {
   }
 
   /**
+   * Apply activity filter to items
+   */
+  private applyActivityFilter(
+    items: Asset[],
+    activityFilter: 'with_activity' | 'without_activity'
+  ): Asset[] {
+    return items.filter((item) => {
+      const activity = (item as any).activity;
+      const hasActivity = activity && (activity.totalViews > 0 || activity.totalActivities > 0);
+      return activityFilter === 'with_activity' ? hasActivity : !hasActivity;
+    });
+  }
+
+  /**
+   * Apply all filters (request filters, date filter, tag filters) to items
+   */
+  private applyAllFilters(items: Asset[], request: AssetListRequest): Asset[] {
+    let filteredItems = this.applyRequestFilters(items, request.filters);
+
+    if (request.dateField || request.dateRange) {
+      filteredItems = this.applyDateFilter(filteredItems, request.dateField, request.dateRange);
+    }
+
+    if (request.includeTags || request.excludeTags) {
+      filteredItems = this.applyTagFilters(filteredItems, request.includeTags, request.excludeTags);
+    }
+
+    if (request.errorFilter && request.errorFilter !== 'all') {
+      filteredItems = this.applyErrorFilter(filteredItems, request.errorFilter);
+    }
+
+    if (request.activityFilter && request.activityFilter !== 'all') {
+      filteredItems = this.applyActivityFilter(filteredItems, request.activityFilter);
+    }
+
+    if (request.includeFolders || request.excludeFolders) {
+      filteredItems = this.applyFolderFilters(
+        filteredItems,
+        request.includeFolders,
+        request.excludeFolders
+      );
+    }
+
+    return filteredItems;
+  }
+
+  /**
+   * Apply date filter to items based on the specified date field and range
+   */
+  private applyDateFilter(
+    items: Asset[],
+    dateField: 'lastUpdatedTime' | 'createdTime' | 'lastActivity' = 'lastUpdatedTime',
+    dateRange: 'all' | '24h' | '7d' | '30d' | '90d' = 'all'
+  ): Asset[] {
+    if (dateRange === 'all') {
+      return items;
+    }
+
+    const duration = DATE_RANGE_DURATIONS[dateRange as keyof typeof DATE_RANGE_DURATIONS];
+    if (!duration) {
+      return items;
+    }
+
+    const cutoffDate = new Date(Date.now() - duration);
+
+    return items.filter((item) => {
+      const dateValue = this.getDateFieldValue(item, dateField);
+      if (!dateValue) {
+        return false;
+      }
+      const itemDate = dateValue instanceof Date ? dateValue : new Date(dateValue);
+      return itemDate >= cutoffDate;
+    });
+  }
+
+  /**
+   * Apply error filter to items
+   */
+  private applyErrorFilter(items: Asset[], errorFilter: 'with_errors' | 'without_errors'): Asset[] {
+    return items.filter((item) => {
+      const hasErrors = (item as any).definitionErrors && (item as any).definitionErrors.length > 0;
+      return errorFilter === 'with_errors' ? hasErrors : !hasErrors;
+    });
+  }
+
+  /**
+   * Apply folder filters to items
+   */
+  private applyFolderFilters(
+    items: Asset[],
+    includeFolders?: Array<{ id: string; name: string }>,
+    excludeFolders?: Array<{ id: string; name: string }>
+  ): Asset[] {
+    const hasInclude = includeFolders && includeFolders.length > 0;
+    const hasExclude = excludeFolders && excludeFolders.length > 0;
+
+    if (!hasInclude && !hasExclude) {
+      return items;
+    }
+
+    return items.filter((item) => {
+      const assetFolderIds = ((item as any).folders || []).map((f: { id: string }) => f.id);
+
+      // Check include folders (OR logic - asset must be in at least one)
+      if (hasInclude && includeFolders) {
+        const isInIncludedFolder = includeFolders.some((folder) =>
+          assetFolderIds.includes(folder.id)
+        );
+        if (!isInIncludedFolder) {
+          return false;
+        }
+      }
+
+      // Check exclude folders (AND NOT logic - asset must not be in any)
+      if (hasExclude && excludeFolders) {
+        const isInExcludedFolder = excludeFolders.some((folder) =>
+          assetFolderIds.includes(folder.id)
+        );
+        if (isInExcludedFolder) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }
+
+  /**
    * Apply request filters to items
    */
   private applyRequestFilters(items: Asset[], filters?: Record<string, any>): Asset[] {
@@ -434,6 +492,39 @@ export class AssetService {
     });
 
     return filteredItems;
+  }
+
+  /**
+   * Apply tag filters (include/exclude) to items
+   */
+  private applyTagFilters(
+    items: Asset[],
+    includeTags?: TagFilter[],
+    excludeTags?: TagFilter[]
+  ): Asset[] {
+    const hasInclude = includeTags && includeTags.length > 0;
+    const hasExclude = excludeTags && excludeTags.length > 0;
+
+    if (!hasInclude && !hasExclude) {
+      return items;
+    }
+
+    return items.filter((item) => {
+      // Normalize asset tags to TagFilter format (handles both Key/Value and key/value)
+      const assetTags: TagFilter[] = (item.tags || []).map((tag: any) => ({
+        key: tag.Key || tag.key,
+        value: tag.Value || tag.value,
+      }));
+
+      // Use shared filter utilities
+      if (!matchesIncludeTags(assetTags, includeTags || [])) {
+        return false;
+      }
+      if (!matchesExcludeTags(assetTags, excludeTags || [])) {
+        return false;
+      }
+      return true;
+    });
   }
 
   /**
@@ -646,6 +737,39 @@ export class AssetService {
   }
 
   /**
+   * Enrich cached assets with lineage, activity, tags, and folder data
+   */
+  private async enrichCachedAssets(
+    assetType: string,
+    cachedAssets: CacheEntry[],
+    cache: CacheData
+  ): Promise<Asset[]> {
+    const lineageMap = await this.lineageService.getLineageMapForAssets(
+      assetType as Asset['type'],
+      cachedAssets.map((a) => a.assetId)
+    );
+
+    const activityMap = await this.collectActivityData(assetType, cachedAssets, lineageMap);
+    const tagsMap = this.buildTagsMapForRelatedAssets(lineageMap, cache);
+    const assetFolderMap = this.buildAssetFolderMap(cache, assetType);
+
+    const enrichmentContext: EnrichmentContext = {
+      assetType,
+      cache,
+      assetFolderMap,
+      lineageMap,
+      activityMap,
+      tagsMap,
+    };
+
+    return Promise.all(
+      cachedAssets.map((cacheEntry: CacheEntry) =>
+        this.mapCacheEntryToEnrichedAsset(cacheEntry, enrichmentContext)
+      )
+    );
+  }
+
+  /**
    * Fetch analysis activity data
    */
   private async fetchAnalysisActivity(
@@ -764,6 +888,20 @@ export class AssetService {
       default:
         return 0;
     }
+  }
+
+  /**
+   * Get the date field value from an item based on the field name
+   */
+  private getDateFieldValue(
+    item: Asset,
+    dateField: 'lastUpdatedTime' | 'createdTime' | 'lastActivity'
+  ): Date | string | null | undefined {
+    if (dateField === 'lastActivity') {
+      const activity = (item as any).activity;
+      return activity?.lastViewed;
+    }
+    return item[dateField as keyof Asset] as Date | string | undefined;
   }
 
   /**
@@ -1299,6 +1437,41 @@ export class AssetService {
   }
 
   /**
+   * Apply pagination and return results
+   */
+  private paginateAndReturnResults(
+    items: Asset[],
+    request: AssetListRequest,
+    assetType: string
+  ): AssetListResponse {
+    const searchFields = this.getSearchFieldsForAssetType(assetType);
+    const sortConfigs = this.getSortConfigsForAssets();
+
+    const startIndex = request.startIndex || 0;
+    const maxResults = request.maxResults || QUICKSIGHT_LIMITS.DEFAULT_MAX_RESULTS;
+    const page = Math.floor(startIndex / maxResults) + 1;
+
+    const result = processPaginatedData(
+      items,
+      {
+        page,
+        pageSize: maxResults,
+        search: request.search,
+        sortBy: request.sortBy,
+        sortOrder: request.sortOrder?.toLowerCase() as 'asc' | 'desc',
+      },
+      searchFields,
+      sortConfigs
+    );
+
+    return {
+      items: result.items,
+      nextToken: result.pagination.hasMore ? String(startIndex + maxResults) : undefined,
+      totalCount: result.pagination.totalItems,
+    };
+  }
+
+  /**
    * Resolve dataset source type from datasource ARNs
    */
   private resolveDatasetSourceType(cacheEntry: CacheEntry, cache: CacheData): CacheEntry {
@@ -1482,5 +1655,20 @@ export class AssetService {
 
       return transformed;
     });
+  }
+
+  /**
+   * Validate that the asset type is a regular (non-collection) asset type
+   */
+  private validateRegularAssetType(assetType: string): void {
+    const validAssetTypes = [
+      ASSET_TYPES.dashboard,
+      ASSET_TYPES.dataset,
+      ASSET_TYPES.analysis,
+      ASSET_TYPES.datasource,
+    ];
+    if (!validAssetTypes.includes(assetType as any)) {
+      throw new Error(`Unsupported asset type: ${assetType}`);
+    }
   }
 }

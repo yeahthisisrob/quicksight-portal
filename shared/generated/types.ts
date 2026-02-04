@@ -406,6 +406,14 @@ export interface paths {
                     sortBy?: string;
                     sortOrder?: "asc" | "desc" | "ASC" | "DESC";
                     filters?: string;
+                    /** @description Which date field to filter on */
+                    dateField?: "lastUpdatedTime" | "createdTime" | "lastActivity";
+                    /** @description Date range filter value */
+                    dateRange?: "all" | "24h" | "7d" | "30d" | "90d";
+                    /** @description JSON-encoded array of {key, value} tag filters to include */
+                    includeTags?: string;
+                    /** @description JSON-encoded array of {key, value} tag filters to exclude */
+                    excludeTags?: string;
                 };
                 header?: never;
                 path: {

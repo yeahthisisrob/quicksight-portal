@@ -22,6 +22,14 @@ export const RETENTION_PERIODS = {
   THREE_MONTHS: TIME_UNITS.QUARTER_90_DAYS,
 } as const;
 
+// Date range filter durations (used for asset filtering)
+export const DATE_RANGE_DURATIONS = {
+  '24h': TIME_UNITS.DAY,
+  '7d': TIME_UNITS.WEEK,
+  '30d': TIME_UNITS.MONTH_30_DAYS,
+  '90d': TIME_UNITS.QUARTER_90_DAYS,
+} as const;
+
 // Cache expiration times
 export const CACHE_TTL = {
   SHORT: 5 * TIME_UNITS.MINUTE, // 5 minutes

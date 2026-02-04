@@ -48,14 +48,15 @@ export const ArchivedAssetsPage: React.FC = () => {
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [assetToRestore, setAssetToRestore] = useState<LocalArchivedAssetItem | null>(null);
 
-  const fetchAssets = useCallback(async (
-    page: number,
-    pageSize: number,
-    search?: string,
-    dateRange?: string,
-    sortBy?: string,
-    sortOrder?: string
-  ) => {
+  const fetchAssets = useCallback(async (options: {
+    page: number;
+    pageSize: number;
+    search?: string;
+    dateRange?: string;
+    sortBy?: string;
+    sortOrder?: string;
+  }) => {
+    const { page, pageSize, search, dateRange, sortBy, sortOrder } = options;
     setLoading(true);
     try {
       const response = await assetsApi.getArchivedAssetsPaginated({
@@ -78,7 +79,7 @@ export const ArchivedAssetsPage: React.FC = () => {
 
   const handleRefreshAssets = async () => {
     // Archived assets don't need refresh - they're already cached
-    await fetchAssets(1, 50);
+    await fetchAssets({ page: 1, pageSize: 50 });
   };
 
   const handleViewJson = (asset: ArchivedAssetItem) => {
@@ -107,7 +108,7 @@ export const ArchivedAssetsPage: React.FC = () => {
 
   const handleRestoreSuccess = () => {
     // Refresh the archived assets list
-    fetchAssets(1, 50);
+    fetchAssets({ page: 1, pageSize: 50 });
   };
 
   const columns = [

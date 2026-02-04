@@ -23,7 +23,7 @@ interface PaginationInfo {
   hasMore?: boolean;  // Made optional to match backend
 }
 
-type FetchParams = {
+export type FetchParams = {
   page: number;
   pageSize: number;
   search?: string;
@@ -31,17 +31,12 @@ type FetchParams = {
   sortBy?: string;
   sortOrder?: string;
   filters?: Record<string, any>;
+  dateField?: string;
+  includeTags?: string;
+  excludeTags?: string;
 };
 
-type AssetFetchFn = (
-  page: number,
-  pageSize: number,
-  search?: string,
-  dateRange?: string,
-  sortBy?: string,
-  sortOrder?: string,
-  filters?: Record<string, any>
-) => Promise<void>;
+export type AssetFetchFn = (options: FetchParams) => Promise<void>;
 
 interface AssetsContextType {
   // Cached data
@@ -233,16 +228,9 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
   }), [dashboardsPagination, datasetsPagination, analysesPagination, datasourcesPagination, foldersPagination, usersPagination, groupsPagination]);
 
   // Create a key for deduplication
-  const createRequestKey = useCallback((
-    type: string,
-    page: number,
-    pageSize: number,
-    search?: string,
-    dateRange?: string,
-    sortBy?: string,
-    sortOrder?: string
-  ) => {
-    return `${type}-${page}-${pageSize}-${search || ''}-${dateRange || ''}-${sortBy || ''}-${sortOrder || ''}`;
+  const createRequestKey = useCallback((type: string, options: FetchParams) => {
+    const { page, pageSize, search, dateRange, sortBy, sortOrder, dateField, includeTags, excludeTags } = options;
+    return `${type}-${page}-${pageSize}-${search || ''}-${dateRange || ''}-${sortBy || ''}-${sortOrder || ''}-${dateField || ''}-${includeTags || ''}-${excludeTags || ''}`;
   }, []);
 
   // Factory function to create fetch methods - eliminates 7 duplicate implementations
@@ -250,21 +238,14 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
     const config = ASSET_CONFIGS[assetType];
     const setters = stateSetters[assetType];
 
-    return async (
-      page: number,
-      pageSize: number,
-      search?: string,
-      dateRange?: string,
-      sortBy?: string,
-      sortOrder?: string,
-      filters?: Record<string, any>
-    ) => {
-      const requestKey = createRequestKey(config.key, page, pageSize, search, dateRange, sortBy, sortOrder);
+    return async (options: FetchParams) => {
+      const { page, pageSize } = options;
+      const requestKey = createRequestKey(config.key, options);
       setters.setLoading(true);
 
       try {
         const data = await requestManager.execute(requestKey, () =>
-          config.apiMethod({ page, pageSize, search, dateRange, sortBy, sortOrder, filters })
+          config.apiMethod(options)
         );
 
         const items = data[config.dataKey] || [];
@@ -321,7 +302,7 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
     await queryClient.invalidateQueries({ queryKey: [config.queryKey] });
 
     if (pagination) {
-      await fetchFn(pagination.page, pagination.pageSize);
+      await fetchFn({ page: pagination.page, pageSize: pagination.pageSize });
     }
   }, [queryClient, paginationGetters, fetchFunctions]);
 

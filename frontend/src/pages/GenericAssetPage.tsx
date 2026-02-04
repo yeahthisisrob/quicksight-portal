@@ -11,13 +11,14 @@ import {
   DialogManager, 
   useDialogStates 
 } from '@/widgets/asset-page-dialogs';
-import { createAssetColumns } from '@/widgets/asset-table';
+import { createAssetColumns ,type  FetchAssetsOptions } from '@/widgets/asset-table';
 
 import { useAssetPage } from '@/features/asset-management';
 
 import { useAssetPageState, useExportCSV } from '@/shared/lib';
 
 import type { AssetType } from '@/shared/types/asset';
+import type { TagOption, FolderOption } from '@/widgets/filter-bar';
 
 interface GenericAssetPageProps {
   assetType: AssetType;
@@ -26,11 +27,29 @@ interface GenericAssetPageProps {
   assets: any[];
   loading: boolean;
   pagination: { totalItems: number } | null;
-  fetchAssets: (page: number, pageSize: number, search?: string, dateRange?: string, sortBy?: string, sortOrder?: string) => Promise<void>;
+  fetchAssets: (options: FetchAssetsOptions) => Promise<void>;
   refreshAssetType: (type: AssetType) => Promise<void>;
   updateAssetTags: (type: string, id: string, tags: any[]) => void;
   extraToolbarActions?: ReactNode;
   onActivityClick?: (asset: any) => void;
+  /** Enable tag filtering UI */
+  enableTagFiltering?: boolean;
+  /** Available tags for filtering */
+  availableTags?: TagOption[];
+  /** Loading state for tag options */
+  isLoadingTags?: boolean;
+  /** Enable error filtering UI */
+  enableErrorFiltering?: boolean;
+  /** Count of assets with errors */
+  errorCount?: number;
+  /** Enable activity filtering UI */
+  enableActivityFiltering?: boolean;
+  /** Enable folder filtering UI */
+  enableFolderFiltering?: boolean;
+  /** Available folders for filtering */
+  availableFolders?: FolderOption[];
+  /** Loading state for folder options */
+  isLoadingFolders?: boolean;
 }
 
 /**
@@ -59,6 +78,15 @@ export default function GenericAssetPage({
   updateAssetTags,
   extraToolbarActions,
   onActivityClick,
+  enableTagFiltering = false,
+  availableTags = [],
+  isLoadingTags = false,
+  enableErrorFiltering = false,
+  errorCount,
+  enableActivityFiltering = false,
+  enableFolderFiltering = false,
+  availableFolders = [],
+  isLoadingFolders = false,
 }: GenericAssetPageProps) {
   const navigate = useNavigate();
   const pageState = useAssetPageState();
@@ -160,6 +188,16 @@ export default function GenericAssetPage({
       showDeleteAction={canDelete}
       extraToolbarActions={extraToolbarActions}
       folderActionLabel={folderActionLabel}
+      enableTagFiltering={enableTagFiltering}
+      availableTags={availableTags}
+      isLoadingTags={isLoadingTags}
+      enableErrorFiltering={enableErrorFiltering}
+      errorCount={errorCount}
+      enableActivityFiltering={enableActivityFiltering}
+      showActivityOption={['dashboard', 'analysis'].includes(assetType)}
+      enableFolderFiltering={enableFolderFiltering}
+      availableFolders={availableFolders}
+      isLoadingFolders={isLoadingFolders}
     >
       <DialogManager
         // Core dialog states

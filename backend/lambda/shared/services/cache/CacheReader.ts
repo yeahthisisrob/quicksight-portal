@@ -5,6 +5,7 @@ import { type MemoryCacheAdapter } from './adapters/MemoryCacheAdapter';
 import { type S3CacheAdapter } from './adapters/S3CacheAdapter';
 import { type CacheSearchOptions, type FieldInfo } from './types';
 import { QUICKSIGHT_LIMITS } from '../../constants';
+import { DATE_RANGE_DURATIONS } from '../../constants/timeConstants';
 import { type CacheEntry, type MasterCache, type AssetType } from '../../models/asset.model';
 import {
   AssetStatusFilter,
@@ -488,6 +489,18 @@ export class CacheReader {
     pageSize?: number;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
+    /** Which date field to filter on (lastUpdatedTime or createdTime) */
+    dateField?: 'lastUpdatedTime' | 'createdTime';
+    /** Date range filter */
+    dateRange?: 'all' | '24h' | '7d' | '30d' | '90d';
+    /** Filter by error status */
+    errorFilter?: 'all' | 'with_errors' | 'without_errors';
+    /** Filter by activity status */
+    activityFilter?: 'all' | 'with_activity' | 'without_activity';
+    /** Folders to include (OR logic) */
+    includeFolders?: Array<{ id: string; name: string }>;
+    /** Folders to exclude (AND NOT logic) */
+    excludeFolders?: Array<{ id: string; name: string }>;
   }): Promise<{
     assets: CacheEntryWithSearchReasons[];
     pagination: {
@@ -553,6 +566,18 @@ export class CacheReader {
         remainingAssets: allAssets.length,
       });
     }
+
+    // Apply error filter
+    allAssets = this.applyErrorFilter(allAssets, options.errorFilter);
+
+    // Apply activity filter
+    allAssets = this.applyActivityFilter(allAssets, options.activityFilter);
+
+    // Apply folder filter
+    allAssets = this.applyFolderFilter(allAssets, options.includeFolders, options.excludeFolders);
+
+    // Apply date filter at cache level
+    allAssets = this.applyDateFilter(allAssets, options.dateRange, options.dateField);
 
     // Apply text search filter (includes lineage-aware search with match reasons)
     if (options.search) {
@@ -710,6 +735,129 @@ export class CacheReader {
         hasMore: offset + pageSize < totalItems,
       },
     };
+  }
+
+  /**
+   * Apply activity filter to assets
+   */
+  private applyActivityFilter(
+    assets: CacheEntryWithSearchReasons[],
+    activityFilter?: 'all' | 'with_activity' | 'without_activity'
+  ): CacheEntryWithSearchReasons[] {
+    if (!activityFilter || activityFilter === 'all') {
+      return assets;
+    }
+
+    const filtered = assets.filter((asset) => {
+      // Check viewStats for dashboards/analyses, or activity for users
+      const viewStats = asset.metadata?.viewStats;
+      const userActivity = asset.metadata?.activity;
+      const hasActivity =
+        (viewStats?.totalViews && viewStats.totalViews > 0) ||
+        (userActivity?.totalActivities && userActivity.totalActivities > 0);
+      return activityFilter === 'with_activity' ? hasActivity : !hasActivity;
+    });
+
+    logger.debug('Activity filtering applied', {
+      activityFilter,
+      beforeCount: assets.length,
+      afterCount: filtered.length,
+    });
+
+    return filtered;
+  }
+
+  /**
+   * Apply date range filter to assets
+   */
+  private applyDateFilter(
+    assets: CacheEntryWithSearchReasons[],
+    dateRange?: 'all' | '24h' | '7d' | '30d' | '90d',
+    dateField?: 'lastUpdatedTime' | 'createdTime'
+  ): CacheEntryWithSearchReasons[] {
+    if (!dateRange || dateRange === 'all') {
+      return assets;
+    }
+
+    const duration = DATE_RANGE_DURATIONS[dateRange];
+    if (!duration) {
+      return assets;
+    }
+
+    const cutoffDate = new Date(Date.now() - duration);
+    const field = dateField || 'lastUpdatedTime';
+
+    const filtered = assets.filter((asset) => {
+      const dateValue = asset[field];
+      if (!dateValue) {
+        return false;
+      }
+      const itemDate = dateValue instanceof Date ? dateValue : new Date(dateValue);
+      return itemDate >= cutoffDate;
+    });
+
+    logger.debug('Date filtering applied', {
+      dateField: field,
+      dateRange,
+      cutoffDate: cutoffDate.toISOString(),
+      remainingAssets: filtered.length,
+    });
+
+    return filtered;
+  }
+
+  /**
+   * Apply error filter to assets
+   */
+  private applyErrorFilter(
+    assets: CacheEntryWithSearchReasons[],
+    errorFilter?: 'all' | 'with_errors' | 'without_errors'
+  ): CacheEntryWithSearchReasons[] {
+    if (!errorFilter || errorFilter === 'all') {
+      return assets;
+    }
+
+    const filtered = assets.filter((asset) => {
+      const hasErrors =
+        asset.metadata?.definitionErrors && asset.metadata.definitionErrors.length > 0;
+      return errorFilter === 'with_errors' ? hasErrors : !hasErrors;
+    });
+
+    logger.debug('Error filtering applied', {
+      errorFilter,
+      beforeCount: assets.length,
+      afterCount: filtered.length,
+    });
+
+    return filtered;
+  }
+
+  /**
+   * Apply folder filter to assets
+   * Note: Folder membership is determined by the folder's members list,
+   * so we need the folder cache to build a reverse lookup.
+   */
+  private applyFolderFilter(
+    assets: CacheEntryWithSearchReasons[],
+    includeFolders?: Array<{ id: string; name: string }>,
+    excludeFolders?: Array<{ id: string; name: string }>
+  ): CacheEntryWithSearchReasons[] {
+    const hasInclude = includeFolders && includeFolders.length > 0;
+    const hasExclude = excludeFolders && excludeFolders.length > 0;
+
+    if (!hasInclude && !hasExclude) {
+      return assets;
+    }
+
+    // For now, folder filtering is handled at the service layer where we have
+    // access to the full folder->member mapping. This is a placeholder that
+    // passes through all assets. The AssetService.applyFolderFilters handles this.
+    logger.debug('Folder filter requested - delegating to service layer', {
+      includeFolders: includeFolders?.length || 0,
+      excludeFolders: excludeFolders?.length || 0,
+    });
+
+    return assets;
   }
 
   private getAssetSortValue(asset: CacheEntry, sortBy: string): any {

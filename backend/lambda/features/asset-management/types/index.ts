@@ -1,6 +1,10 @@
 import { type ActivityData } from '../../../shared/types/activityTypes';
 import { type AssetType, type FolderInfo } from '../../../shared/types/assetTypes';
+import { type TagFilter } from '../../../shared/types/filterTypes';
 import { type LineageData } from '../../../shared/types/lineage.types';
+
+// Re-export shared TagFilter for convenience
+export type { TagFilter };
 
 export interface Asset {
   id: string;
@@ -30,6 +34,11 @@ export interface Asset {
   metadata?: Record<string, any>;
 }
 
+export interface FolderFilter {
+  id: string;
+  name: string;
+}
+
 export interface AssetListRequest {
   maxResults?: number;
   nextToken?: string;
@@ -38,6 +47,22 @@ export interface AssetListRequest {
   sortOrder?: 'ASC' | 'DESC';
   filters?: Record<string, any>;
   search?: string;
+  /** Which date field to filter on: lastUpdatedTime, createdTime, or lastActivity */
+  dateField?: 'lastUpdatedTime' | 'createdTime' | 'lastActivity';
+  /** Date range filter: all, 24h, 7d, 30d, 90d */
+  dateRange?: 'all' | '24h' | '7d' | '30d' | '90d';
+  /** Tags to include (OR logic) */
+  includeTags?: TagFilter[];
+  /** Tags to exclude (AND NOT logic) */
+  excludeTags?: TagFilter[];
+  /** Filter by error status: all, with_errors, without_errors */
+  errorFilter?: 'all' | 'with_errors' | 'without_errors';
+  /** Filter by activity status: all, with_activity, without_activity */
+  activityFilter?: 'all' | 'with_activity' | 'without_activity';
+  /** Folders to include (OR logic) - show assets in these folders */
+  includeFolders?: FolderFilter[];
+  /** Folders to exclude (AND NOT logic) - hide assets in these folders */
+  excludeFolders?: FolderFilter[];
 }
 
 export interface AssetListResponse {
