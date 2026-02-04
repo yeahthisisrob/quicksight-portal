@@ -7,6 +7,9 @@ export type { FilterControlsProps } from './FilterControls';
 export { ActiveFiltersDisplay } from './ActiveFiltersDisplay';
 export type { ActiveFiltersDisplayProps } from './ActiveFiltersDisplay';
 
+export { SearchBar } from './SearchBar';
+export { FilterStats } from './FilterStats';
+
 // Re-export constants and utilities
 export {
   ASSET_KEY,

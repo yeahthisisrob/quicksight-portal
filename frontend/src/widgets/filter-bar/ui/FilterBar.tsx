@@ -1,14 +1,4 @@
-import { Search as SearchIcon } from '@mui/icons-material';
-import {
-  Box,
-  TextField,
-  Chip,
-  Stack,
-  Typography,
-  Collapse,
-  Paper,
-  InputAdornment,
-} from '@mui/material';
+import { Box, Collapse, Paper } from '@mui/material';
 import React from 'react';
 
 import { colors, spacing } from '@/shared/design-system/theme';
@@ -17,7 +7,10 @@ import {
   FilterHeader,
   FilterControls,
   ActiveFiltersDisplay,
+  SearchBar,
+  FilterStats,
 } from './components';
+import { applyFilterBarDefaults } from '../lib/applyDefaults';
 import { useFilterBarState } from '../lib/useFilterBarState';
 
 import type { FilterBarProps } from '../lib/types';
@@ -27,188 +20,116 @@ import type { FilterBarProps } from '../lib/types';
 // ============================================================================
 
 export const FilterBar: React.FC<FilterBarProps> = (props) => {
-  const {
-    // Date filtering
-    dateFilter,
-    onDateFilterChange,
-    showActivityOption = false,
-
-    // Tag filtering
-    enableTagFiltering = false,
-    availableTags = [],
-    includeTags = [],
-    excludeTags = [],
-    onIncludeTagsChange,
-    onExcludeTagsChange,
-    isLoadingTags = false,
-
-    // Error filtering
-    enableErrorFiltering = false,
-    errorFilter,
-    onErrorFilterChange,
-    errorCount,
-
-    // Activity filtering
-    enableActivityFiltering = false,
-    activityFilter,
-    onActivityFilterChange,
-
-    // Folder filtering
-    enableFolderFiltering = false,
-    availableFolders = [],
-    includeFolders = [],
-    excludeFolders = [],
-    onIncludeFoldersChange,
-    onExcludeFoldersChange,
-    isLoadingFolders = false,
-
-    // Asset selection
-    enableAssetSelection = false,
-    availableAssets = [],
-    selectedAssets = [],
-    onSelectedAssetsChange,
-
-    // Search
-    searchTerm,
-    onSearchChange,
-    showSearch = false,
-    matchReasonSummary,
-  } = props;
+  const p = applyFilterBarDefaults(props);
 
   const state = useFilterBarState({
-    dateFilter,
-    onDateFilterChange,
-    availableTags,
-    includeTags,
-    excludeTags,
-    onIncludeTagsChange,
-    onExcludeTagsChange,
-    errorFilter,
-    onErrorFilterChange,
-    activityFilter,
-    onActivityFilterChange,
-    includeFolders,
-    excludeFolders,
-    onIncludeFoldersChange,
-    onExcludeFoldersChange,
-    enableAssetSelection,
-    availableAssets,
-    selectedAssets,
-    onSelectedAssetsChange,
+    dateFilter: p.dateFilter,
+    onDateFilterChange: p.onDateFilterChange,
+    availableTags: p.availableTags,
+    includeTags: p.includeTags,
+    excludeTags: p.excludeTags,
+    onIncludeTagsChange: p.onIncludeTagsChange,
+    onExcludeTagsChange: p.onExcludeTagsChange,
+    errorFilter: p.errorFilter,
+    onErrorFilterChange: p.onErrorFilterChange,
+    activityFilter: p.activityFilter,
+    onActivityFilterChange: p.onActivityFilterChange,
+    includeFolders: p.includeFolders,
+    excludeFolders: p.excludeFolders,
+    onIncludeFoldersChange: p.onIncludeFoldersChange,
+    onExcludeFoldersChange: p.onExcludeFoldersChange,
+    enableAssetSelection: p.enableAssetSelection,
+    availableAssets: p.availableAssets,
+    selectedAssets: p.selectedAssets,
+    onSelectedAssetsChange: p.onSelectedAssetsChange,
   });
+
+  const showSearchBar = p.showSearch && p.onSearchChange;
+  const showStats = !p.isLoadingTags && (p.availableTags.length > 0 || p.availableAssets.length > 0 || p.availableFolders.length > 0);
 
   return (
     <Paper
       elevation={0}
       sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', mb: 2, overflow: 'hidden' }}
     >
-      {/* Optional Search Bar */}
-      {showSearch && onSearchChange && (
-        <Box sx={{ px: 2, pt: 2 }}>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Search assets..."
-            value={searchTerm || ''}
-            onChange={(e) => onSearchChange(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: colors.neutral[400] }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-          {/* Match Reason Summary */}
-          {matchReasonSummary && matchReasonSummary.length > 0 && (
-            <Stack direction="row" spacing={0.5} sx={{ mt: 1, flexWrap: 'wrap' }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
-                Matched by:
-              </Typography>
-              {matchReasonSummary.map((reason, idx) => (
-                <Chip
-                  key={idx}
-                  label={`${reason.reason} (${reason.count})`}
-                  size="small"
-                  variant="outlined"
-                  sx={{ height: 20, fontSize: '0.7rem' }}
-                />
-              ))}
-            </Stack>
-          )}
-        </Box>
+      {showSearchBar && (
+        <SearchBar
+          searchTerm={p.searchTerm}
+          onSearchChange={p.onSearchChange!}
+          matchReasonSummary={p.matchReasonSummary}
+        />
       )}
 
       <FilterHeader
         totalFilters={state.totalFilters}
-        dateFilter={dateFilter}
-        errorFilter={errorFilter}
-        activityFilter={activityFilter}
-        selectedAssets={selectedAssets}
-        includeTags={includeTags}
-        excludeTags={excludeTags}
-        includeFolders={includeFolders}
-        excludeFolders={excludeFolders}
+        dateFilter={p.dateFilter}
+        errorFilter={p.errorFilter}
+        activityFilter={p.activityFilter}
+        selectedAssets={p.selectedAssets}
+        includeTags={p.includeTags}
+        excludeTags={p.excludeTags}
+        includeFolders={p.includeFolders}
+        excludeFolders={p.excludeFolders}
         isExpanded={state.isExpanded}
         onToggleExpand={state.toggleExpanded}
         onClearAll={state.handleClearAll}
-        onClearDateFilter={dateFilter ? state.handleClearDateFilter : undefined}
-        onClearErrorFilter={errorFilter !== undefined ? state.handleClearErrorFilter : undefined}
-        onClearActivityFilter={activityFilter !== undefined ? state.handleClearActivityFilter : undefined}
+        onClearDateFilter={p.dateFilter ? state.handleClearDateFilter : undefined}
+        onClearErrorFilter={p.errorFilter !== undefined ? state.handleClearErrorFilter : undefined}
+        onClearActivityFilter={p.activityFilter !== undefined ? state.handleClearActivityFilter : undefined}
         onRemoveAsset={state.handleRemoveAsset}
         onRemoveIncludeTag={state.handleRemoveIncludeTag}
         onRemoveExcludeTag={state.handleRemoveExcludeTag}
         onRemoveIncludeFolder={state.handleRemoveIncludeFolder}
         onRemoveExcludeFolder={state.handleRemoveExcludeFolder}
-        errorCount={errorCount}
+        errorCount={p.errorCount}
       />
 
       <Collapse in={state.isExpanded}>
         <Box sx={{ p: spacing.md / 8, bgcolor: colors.neutral[50] }}>
           <FilterControls
-            dateFilter={dateFilter}
-            onDateFilterChange={onDateFilterChange}
-            showActivityOption={showActivityOption}
-            enableTagFiltering={enableTagFiltering}
+            dateFilter={p.dateFilter}
+            onDateFilterChange={p.onDateFilterChange}
+            showActivityOption={p.showActivityOption}
+            enableTagFiltering={p.enableTagFiltering}
             filterMode={state.filterMode}
             onFilterModeChange={state.setFilterMode}
             selectedKey={state.selectedKey}
             onSelectedKeyChange={state.setSelectedKey}
             allKeys={state.allKeys}
             groupedTags={state.groupedTags}
-            includeTags={includeTags}
-            excludeTags={excludeTags}
-            isLoading={isLoadingTags}
+            includeTags={p.includeTags}
+            excludeTags={p.excludeTags}
+            isLoading={p.isLoadingTags}
             onAddTag={state.handleAddTag}
-            enableErrorFiltering={enableErrorFiltering}
-            errorFilter={errorFilter}
-            onErrorFilterChange={onErrorFilterChange}
-            errorCount={errorCount}
-            enableActivityFiltering={enableActivityFiltering}
-            activityFilter={activityFilter}
-            onActivityFilterChange={onActivityFilterChange}
-            enableFolderFiltering={enableFolderFiltering}
+            enableErrorFiltering={p.enableErrorFiltering}
+            errorFilter={p.errorFilter}
+            onErrorFilterChange={p.onErrorFilterChange}
+            errorCount={p.errorCount}
+            enableActivityFiltering={p.enableActivityFiltering}
+            activityFilter={p.activityFilter}
+            onActivityFilterChange={p.onActivityFilterChange}
+            enableFolderFiltering={p.enableFolderFiltering}
             folderFilterMode={state.folderFilterMode}
             onFolderFilterModeChange={state.setFolderFilterMode}
-            availableFolders={availableFolders}
-            includeFolders={includeFolders}
-            excludeFolders={excludeFolders}
-            isLoadingFolders={isLoadingFolders}
+            availableFolders={p.availableFolders}
+            includeFolders={p.includeFolders}
+            excludeFolders={p.excludeFolders}
+            isLoadingFolders={p.isLoadingFolders}
             onAddFolder={state.handleAddFolder}
-            enableAssetSelection={enableAssetSelection}
-            availableAssets={availableAssets}
-            selectedAssets={selectedAssets}
+            enableAssetSelection={p.enableAssetSelection}
+            availableAssets={p.availableAssets}
+            selectedAssets={p.selectedAssets}
             onAddAsset={state.handleAddAsset}
             onClearAll={state.handleClearAll}
             totalFilters={state.totalFilters}
           />
 
           <ActiveFiltersDisplay
-            selectedAssets={selectedAssets}
-            includeTags={includeTags}
-            excludeTags={excludeTags}
-            includeFolders={includeFolders}
-            excludeFolders={excludeFolders}
+            selectedAssets={p.selectedAssets}
+            includeTags={p.includeTags}
+            excludeTags={p.excludeTags}
+            includeFolders={p.includeFolders}
+            excludeFolders={p.excludeFolders}
             onRemoveAsset={state.handleRemoveAsset}
             onRemoveIncludeTag={state.handleRemoveIncludeTag}
             onRemoveExcludeTag={state.handleRemoveExcludeTag}
@@ -216,16 +137,13 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
             onRemoveExcludeFolder={state.handleRemoveExcludeFolder}
           />
 
-          {!isLoadingTags && (availableTags.length > 0 || availableAssets.length > 0 || availableFolders.length > 0) && (
-            <Typography
-              variant="caption"
-              sx={{ mt: spacing.sm / 8, display: 'block', color: colors.neutral[600] }}
-            >
-              {Object.keys(state.groupedTags).length > 0 &&
-                `${Object.keys(state.groupedTags).length} tag keys | ${availableTags.length} tag values`}
-              {availableFolders.length > 0 && ` | ${availableFolders.length} folders`}
-              {availableAssets.length > 0 && ` | ${availableAssets.length} assets`}
-            </Typography>
+          {showStats && (
+            <FilterStats
+              tagKeyCount={Object.keys(state.groupedTags).length}
+              tagValueCount={p.availableTags.length}
+              folderCount={p.availableFolders.length}
+              assetCount={p.availableAssets.length}
+            />
           )}
         </Box>
       </Collapse>
