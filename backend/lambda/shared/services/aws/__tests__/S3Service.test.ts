@@ -21,6 +21,8 @@ const TEST_CONSTANTS = {
   TEST_TIMEOUT_MS: 10000, // Timeout for flaky async tests
 } as const;
 
+const TIMING_TOLERANCE_MS = 5;
+
 // Helper to create a delay promise
 const delay = (ms: number): Promise<void> => {
   return new Promise((resolve) => {
@@ -161,8 +163,8 @@ describe('S3Service - Basic Operations', () => {
         await s3Service.putObject(bucket, key, body);
         const elapsed = Date.now() - startTime;
 
-        // Should take at least 100ms (S3 delay only - no extra delay anymore)
-        expect(elapsed).toBeGreaterThanOrEqual(TEST_CONSTANTS.S3_DELAY_MS);
+        // Should take at least ~100ms (allow 5ms tolerance for timer imprecision on CI)
+        expect(elapsed).toBeGreaterThanOrEqual(TEST_CONSTANTS.S3_DELAY_MS - TIMING_TOLERANCE_MS);
         expect(elapsed).toBeLessThan(TEST_CONSTANTS.HTTP_OK); // But not too long
       },
       TEST_CONSTANTS.TEST_TIMEOUT_MS
