@@ -3,14 +3,15 @@ import {
   Email as EmailIcon,
   ExpandLess,
   ExpandMore,
-  PersonAdd as PersonAddIcon,
+  Group as GroupIcon,
+  Person as PersonIcon,
   Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import {
   Alert,
-  Avatar,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   Collapse,
@@ -20,11 +21,11 @@ import {
   DialogTitle,
   Divider,
   IconButton,
-  ListItemAvatar,
+  List,
   ListItemButton,
+  ListItemIcon,
   ListItemText,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material';
 
@@ -40,21 +41,6 @@ interface InactivityMailtoDialogProps {
     lastViewed?: string | null;
     activityCount?: number;
   };
-}
-
-function stringToColor(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const hue = Math.abs(hash) % 360;
-  return `hsl(${hue}, 55%, 45%)`;
-}
-
-function initials(name: string): string {
-  const parts = name.replace(/[._@]/g, ' ').split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
 }
 
 export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailtoDialogProps) {
@@ -159,60 +145,11 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
           </Box>
         )}
 
-        {/* Selected Recipients as Chips */}
-        {selectedCount > 0 && recipients && (
-          <Box>
-            <Typography variant="subtitle2" sx={{ mb: 0.75 }}>
-              To ({selectedCount})
-            </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-              {/* Show selected user chips */}
-              {recipients.users
-                .filter((u) => selectedEmails.has(u.email))
-                .map((u) => (
-                  <Chip
-                    key={u.email}
-                    avatar={
-                      <Avatar sx={{ bgcolor: stringToColor(u.userName), width: 24, height: 24, fontSize: 11 }}>
-                        {initials(u.userName)}
-                      </Avatar>
-                    }
-                    label={u.userName}
-                    size="small"
-                    onDelete={() => toggleEmail(u.email)}
-                    sx={{ maxWidth: 200 }}
-                  />
-                ))}
-              {/* Show selected group member chips */}
-              {recipients.groups.flatMap((g) =>
-                g.members
-                  .filter((m) => selectedEmails.has(m.email))
-                  // Don't duplicate if already shown as a direct user
-                  .filter((m) => !recipients.users.some((u) => u.email === m.email && selectedEmails.has(u.email)))
-                  .map((m) => (
-                    <Chip
-                      key={`${g.groupName}-${m.email}`}
-                      avatar={
-                        <Avatar sx={{ bgcolor: stringToColor(m.userName), width: 24, height: 24, fontSize: 11 }}>
-                          {initials(m.userName)}
-                        </Avatar>
-                      }
-                      label={m.userName}
-                      size="small"
-                      onDelete={() => toggleEmail(m.email)}
-                      sx={{ maxWidth: 200 }}
-                    />
-                  ))
-              )}
-            </Box>
-          </Box>
-        )}
-
-        {/* Recipient Picker */}
+        {/* Recipients */}
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
             <Typography variant="subtitle2">
-              Add Recipients
+              Recipients {selectedCount > 0 && `(${selectedCount})`}
             </Typography>
             {!loading && allCount > 0 && (
               <Button
@@ -220,7 +157,7 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
                 onClick={allSelected ? deselectAll : selectAll}
                 sx={{ textTransform: 'none', minWidth: 0 }}
               >
-                {allSelected ? 'Remove All' : 'Add All'}
+                {allSelected ? 'Deselect All' : 'Select All'}
               </Button>
             )}
           </Box>
@@ -232,13 +169,15 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
           ) : !recipients || allCount === 0 ? (
             <Alert severity="info" variant="outlined" sx={{ py: 0.5 }}>
               <Typography variant="body2">
-                {error || 'No recipients resolved. You can still compose and send the email manually.'}
+                {error || 'No recipients resolved. You can still send the email manually.'}
               </Typography>
             </Alert>
           ) : (
-            <Box
+            <List
+              dense
+              disablePadding
               sx={{
-                maxHeight: 260,
+                maxHeight: 280,
                 overflow: 'auto',
                 border: 1,
                 borderColor: 'divider',
@@ -252,46 +191,25 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
                   <ListItemButton
                     key={user.email}
                     onClick={() => toggleEmail(user.email)}
-                    selected={selected}
                     dense
-                    sx={{
-                      py: 0.5,
-                      '&.Mui-selected': {
-                        bgcolor: 'action.selected',
-                      },
-                    }}
+                    sx={{ py: 0.25 }}
                   >
-                    <ListItemAvatar sx={{ minWidth: 36 }}>
-                      <Avatar
-                        sx={{
-                          width: 28,
-                          height: 28,
-                          fontSize: 12,
-                          bgcolor: stringToColor(user.userName),
-                        }}
-                      >
-                        {initials(user.userName)}
-                      </Avatar>
-                    </ListItemAvatar>
+                    <ListItemIcon sx={{ minWidth: 32 }}>
+                      <Checkbox edge="start" checked={selected} size="small" tabIndex={-1} disableRipple />
+                    </ListItemIcon>
+                    <PersonIcon sx={{ fontSize: 16, color: 'action.active', mr: 1 }} />
                     <ListItemText
                       primary={user.userName}
                       secondary={user.email}
                       primaryTypographyProps={{ variant: 'body2' }}
                       secondaryTypographyProps={{ variant: 'caption' }}
                     />
-                    <Tooltip title={selected ? 'Remove' : 'Add to recipients'}>
-                      <IconButton size="small" edge="end" sx={{ opacity: selected ? 1 : 0.4 }}>
-                        <PersonAddIcon fontSize="small" color={selected ? 'primary' : 'action'} />
-                      </IconButton>
-                    </Tooltip>
                   </ListItemButton>
                 );
               })}
 
               {/* Groups */}
-              {recipients.groups.length > 0 && recipients.users.length > 0 && (
-                <Divider />
-              )}
+              {recipients.groups.length > 0 && recipients.users.length > 0 && <Divider />}
               {recipients.groups.map((group) => {
                 const groupEmails = group.members.map((m) => m.email);
                 const allGroupSelected = groupEmails.length > 0 && groupEmails.every((e) => selectedEmails.has(e));
@@ -304,20 +222,23 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
                     <ListItemButton
                       onClick={() => toggleExpandGroup(group.groupName)}
                       dense
-                      sx={{ py: 0.5 }}
+                      sx={{ py: 0.25 }}
                     >
-                      <ListItemAvatar sx={{ minWidth: 36 }}>
-                        <Avatar
-                          sx={{
-                            width: 28,
-                            height: 28,
-                            fontSize: 11,
-                            bgcolor: stringToColor(group.groupName),
+                      <ListItemIcon sx={{ minWidth: 32 }}>
+                        <Checkbox
+                          edge="start"
+                          checked={allGroupSelected}
+                          indeterminate={someGroupSelected && !allGroupSelected}
+                          size="small"
+                          tabIndex={-1}
+                          disableRipple
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleGroup(group.groupName);
                           }}
-                        >
-                          {initials(group.groupName)}
-                        </Avatar>
-                      </ListItemAvatar>
+                        />
+                      </ListItemIcon>
+                      <GroupIcon sx={{ fontSize: 16, color: 'action.active', mr: 1 }} />
                       <ListItemText
                         primary={
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
@@ -329,24 +250,14 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
                                   : group.members.length
                               }
                               size="small"
-                              color={allGroupSelected ? 'primary' : someGroupSelected ? 'default' : 'default'}
                               variant={someGroupSelected ? 'filled' : 'outlined'}
-                              sx={{ height: 20, fontSize: 11 }}
+                              color={someGroupSelected ? 'primary' : 'default'}
+                              sx={{ height: 18, fontSize: 11 }}
                             />
                           </Box>
                         }
                         primaryTypographyProps={{ variant: 'body2' }}
                       />
-                      <Button
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleGroup(group.groupName);
-                        }}
-                        sx={{ textTransform: 'none', minWidth: 0, mr: 0.5 }}
-                      >
-                        {allGroupSelected ? 'Remove' : 'Add All'}
-                      </Button>
                       {isExpanded ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
                     </ListItemButton>
 
@@ -357,42 +268,18 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
                           <ListItemButton
                             key={member.email}
                             onClick={() => toggleEmail(member.email)}
-                            selected={selected}
                             dense
-                            sx={{
-                              pl: 6,
-                              py: 0.25,
-                              '&.Mui-selected': {
-                                bgcolor: 'action.selected',
-                              },
-                            }}
+                            sx={{ pl: 7, py: 0.125 }}
                           >
-                            <ListItemAvatar sx={{ minWidth: 32 }}>
-                              <Avatar
-                                sx={{
-                                  width: 24,
-                                  height: 24,
-                                  fontSize: 11,
-                                  bgcolor: stringToColor(member.userName),
-                                }}
-                              >
-                                {initials(member.userName)}
-                              </Avatar>
-                            </ListItemAvatar>
+                            <ListItemIcon sx={{ minWidth: 32 }}>
+                              <Checkbox edge="start" checked={selected} size="small" tabIndex={-1} disableRipple />
+                            </ListItemIcon>
                             <ListItemText
                               primary={member.userName}
                               secondary={member.email}
                               primaryTypographyProps={{ variant: 'body2', fontSize: 13 }}
                               secondaryTypographyProps={{ variant: 'caption', fontSize: 11 }}
                             />
-                            <Tooltip title={selected ? 'Remove' : 'Add to recipients'}>
-                              <IconButton size="small" edge="end" sx={{ opacity: selected ? 1 : 0.3 }}>
-                                <PersonAddIcon
-                                  sx={{ fontSize: 16 }}
-                                  color={selected ? 'primary' : 'action'}
-                                />
-                              </IconButton>
-                            </Tooltip>
                           </ListItemButton>
                         );
                       })}
@@ -400,13 +287,13 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
                   </Box>
                 );
               })}
-            </Box>
+            </List>
           )}
         </Box>
 
         <Divider />
 
-        {/* Message Composer */}
+        {/* Message */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           <Typography variant="subtitle2">Message</Typography>
           <TextField

@@ -187,9 +187,90 @@ export async function getActivitySummary(
   }
 }
 
+type ResolvedUser = { userName: string; email: string };
+
+const SAMPLE_LOG_LIMIT = 3;
+
+/** Build a lookup map for users keyed by assetId, assetName, and name */
+function buildUserLookup(allUsers: any[]): Map<string, ResolvedUser> {
+  const map = new Map<string, ResolvedUser>();
+  for (const u of allUsers) {
+    const email = u.metadata?.email || '';
+    if (!email) {
+      continue;
+    }
+    const entry: ResolvedUser = { userName: u.assetName || u.assetId, email };
+    map.set(u.assetId, entry);
+    if (u.assetName) {
+      map.set(u.assetName, entry);
+    }
+    if (u.name) {
+      map.set(u.name, entry);
+    }
+  }
+  return map;
+}
+
+/** Build a lookup map for groups keyed by assetId, assetName, and name */
+function buildGroupLookup(allGroups: any[]): Map<string, any> {
+  const map = new Map<string, any>();
+  for (const g of allGroups) {
+    map.set(g.assetId, g);
+    if (g.assetName) {
+      map.set(g.assetName, g);
+    }
+    if (g.name) {
+      map.set(g.name, g);
+    }
+  }
+  return map;
+}
+
+/** Resolve permissions into users and groups using lookup maps */
+function resolvePermissions(
+  permissions: Array<{ principal: string; principalType: string }>,
+  userByKey: Map<string, ResolvedUser>,
+  groupByKey: Map<string, any>
+): { users: ResolvedUser[]; groups: Array<{ groupName: string; members: ResolvedUser[] }> } {
+  const users: ResolvedUser[] = [];
+  const groups: Array<{ groupName: string; members: ResolvedUser[] }> = [];
+
+  for (const permission of permissions) {
+    const name = permission.principal.split('/').pop();
+    if (!name) {
+      continue;
+    }
+
+    if (permission.principalType === 'USER') {
+      const resolved = userByKey.get(name);
+      if (resolved) {
+        users.push(resolved);
+      } else {
+        logger.warn(`Could not resolve user "${name}" from cache`);
+      }
+    } else if (permission.principalType === 'GROUP') {
+      const groupAsset = groupByKey.get(name);
+      const memberList: Array<any> = groupAsset?.metadata?.members || [];
+      const members: ResolvedUser[] = [];
+      for (const member of memberList) {
+        const memberName = member.MemberName || member.memberName;
+        if (!memberName) {
+          continue;
+        }
+        const resolved = userByKey.get(memberName);
+        if (resolved) {
+          members.push(resolved);
+        }
+      }
+      groups.push({ groupName: name, members });
+    }
+  }
+
+  return { users, groups };
+}
+
 /**
  * Resolve asset permissions into recipient emails for mailto composition.
- * Reads permissions from cache, resolves users/groups to emails from cached data.
  * POST /api/activity/recipients
  */
 export async function resolveRecipients(
@@ -211,8 +292,12 @@ export async function resolveRecipients(
 
     const cacheService = CacheService.getInstance();
 
-    // Get asset from cache (includes permissions)
-    const asset = await cacheService.getAsset(assetType, assetId);
+    const [asset, allUsers, allGroups] = await Promise.all([
+      cacheService.getAsset(assetType, assetId),
+      cacheService.getAssetsByType('user').then((r) => r.assets || []),
+      cacheService.getAssetsByType('group').then((r) => r.assets || []),
+    ]);
+
     if (!asset) {
       return errorResponse(event, STATUS_CODES.NOT_FOUND, 'Asset not found in cache');
     }
@@ -220,70 +305,31 @@ export async function resolveRecipients(
     const permissions: Array<{ principal: string; principalType: string }> =
       asset.permissions || [];
 
+    logger.info('Resolving recipients', {
+      assetType,
+      assetId,
+      permissionCount: permissions.length,
+      userCacheCount: allUsers.length,
+      groupCacheCount: allGroups.length,
+      samplePermissions: permissions.slice(0, SAMPLE_LOG_LIMIT).map((p: any) => ({
+        principal: p.principal,
+        type: p.principalType,
+      })),
+    });
+
     if (permissions.length === 0) {
       return successResponse(event, { success: true, data: { users: [], groups: [] } });
     }
 
-    const users: Array<{ userName: string; email: string }> = [];
-    const groups: Array<{
-      groupName: string;
-      members: Array<{ userName: string; email: string }>;
-    }> = [];
+    const userByKey = buildUserLookup(allUsers);
+    const groupByKey = buildGroupLookup(allGroups);
+    const { users, groups } = resolvePermissions(permissions, userByKey, groupByKey);
 
-    // Resolve a username to email from cached user data
-    const resolveUserEmail = async (
-      userName: string
-    ): Promise<{ userName: string; email: string } | null> => {
-      try {
-        const userAsset = await cacheService.getAsset('user', userName);
-        if (userAsset?.metadata?.email) {
-          return { userName: userAsset.name || userName, email: userAsset.metadata.email };
-        }
-        return null;
-      } catch {
-        return null;
-      }
-    };
-
-    await Promise.all(
-      permissions.map(async (permission) => {
-        const name = permission.principal.split('/').pop();
-        if (!name) {
-          return;
-        }
-
-        if (permission.principalType === 'USER') {
-          const resolved = await resolveUserEmail(name);
-          if (resolved) {
-            users.push(resolved);
-          }
-        } else if (permission.principalType === 'GROUP') {
-          try {
-            // Get group from cache — members are in metadata.members
-            const groupAsset = await cacheService.getAsset('group', name);
-            const memberList: Array<{ MemberName?: string; memberName?: string }> =
-              groupAsset?.metadata?.members || [];
-
-            const members: Array<{ userName: string; email: string }> = [];
-            await Promise.all(
-              memberList.map(async (member) => {
-                const memberName = member.MemberName || member.memberName;
-                if (!memberName) {
-                  return;
-                }
-                const resolved = await resolveUserEmail(memberName);
-                if (resolved) {
-                  members.push(resolved);
-                }
-              })
-            );
-            groups.push({ groupName: name, members });
-          } catch (error) {
-            logger.warn(`Failed to resolve group ${name}`, { error });
-          }
-        }
-      })
-    );
+    logger.info('Recipients resolved', {
+      userCount: users.length,
+      groupCount: groups.length,
+      groupMembers: groups.map((g) => ({ name: g.groupName, members: g.members.length })),
+    });
 
     return successResponse(event, { success: true, data: { users, groups } });
   } catch (error: any) {

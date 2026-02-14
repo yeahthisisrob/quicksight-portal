@@ -162,10 +162,10 @@ export function useInactivityMailto({ open, asset }: UseInactivityMailtoProps) {
       setRecipients(recipientsData);
       setActivityData(activity);
 
-      const allEmails = new Set<string>();
-      recipientsData.users.forEach((u) => allEmails.add(u.email));
-      recipientsData.groups.forEach((g) => g.members.forEach((m) => allEmails.add(m.email)));
-      setSelectedEmails(allEmails);
+      // Auto-select direct users only — group members must be toggled in manually
+      const directEmails = new Set<string>();
+      recipientsData.users.forEach((u) => directEmails.add(u.email));
+      setSelectedEmails(directEmails);
 
       if (recipientsData.users.length === 0 && recipientsData.groups.length === 0) {
         setError('Could not resolve recipients from asset permissions. You can still compose and send the email manually.');
