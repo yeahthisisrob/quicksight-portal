@@ -190,6 +190,8 @@ export async function getActivitySummary(
 type ResolvedUser = { userName: string; email: string };
 
 const SAMPLE_LOG_LIMIT = 3;
+const PRINCIPAL_MIN_PARTS = 3;
+const PRINCIPAL_NAME_START = 2;
 
 /** Build a lookup map for users keyed by assetId, assetName, and name */
 function buildUserLookup(allUsers: any[]): Map<string, ResolvedUser> {
@@ -226,6 +228,22 @@ function buildGroupLookup(allGroups: any[]): Map<string, any> {
   return map;
 }
 
+/**
+ * Extract the name from a QuickSight principal ARN.
+ * ARN format: arn:aws:quicksight:region:account:user/namespace/username
+ * Username can contain slashes (e.g. "Quicksight-admin/email@gmail.com")
+ * so we take everything after the namespace segment.
+ */
+function extractPrincipalName(principal: string): string | null {
+  // Split on / — first segment contains the ARN prefix, second is namespace, rest is the name
+  const parts = principal.split('/');
+  if (parts.length < PRINCIPAL_MIN_PARTS) {
+    return null;
+  }
+  // Skip ARN prefix (index 0) and namespace (index 1), rejoin the rest
+  return parts.slice(PRINCIPAL_NAME_START).join('/');
+}
+
 /** Resolve permissions into users and groups using lookup maps */
 function resolvePermissions(
   permissions: Array<{ principal: string; principalType: string }>,
@@ -236,20 +254,23 @@ function resolvePermissions(
   const groups: Array<{ groupName: string; members: ResolvedUser[] }> = [];
 
   for (const permission of permissions) {
-    const name = permission.principal.split('/').pop();
+    const name = extractPrincipalName(permission.principal);
     if (!name) {
       continue;
     }
 
     if (permission.principalType === 'USER') {
-      const resolved = userByKey.get(name);
+      // Try full name first, then just the last segment as fallback
+      const lastSegment = name.split('/').pop() || '';
+      const resolved = userByKey.get(name) || userByKey.get(lastSegment);
       if (resolved) {
         users.push(resolved);
       } else {
         logger.warn(`Could not resolve user "${name}" from cache`);
       }
     } else if (permission.principalType === 'GROUP') {
-      const groupAsset = groupByKey.get(name);
+      const groupLastSegment = name.split('/').pop() || '';
+      const groupAsset = groupByKey.get(name) || groupByKey.get(groupLastSegment);
       const memberList: Array<any> = groupAsset?.metadata?.members || [];
       const members: ResolvedUser[] = [];
       for (const member of memberList) {
@@ -257,7 +278,8 @@ function resolvePermissions(
         if (!memberName) {
           continue;
         }
-        const resolved = userByKey.get(memberName);
+        const memberLastSegment = memberName.split('/').pop() || '';
+        const resolved = userByKey.get(memberName) || userByKey.get(memberLastSegment);
         if (resolved) {
           members.push(resolved);
         }
