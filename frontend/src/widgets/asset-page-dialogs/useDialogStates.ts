@@ -68,6 +68,11 @@ interface DeleteGroupDialogState {
   group: GroupItem | null;
 }
 
+interface NotifyInactiveDialogState {
+  open: boolean;
+  asset: DashboardItem | AnalysisItem | null;
+}
+
 export function useDialogStates(
   refreshAssetType: (type: AssetType) => Promise<void>
 ) {
@@ -85,6 +90,7 @@ export function useDialogStates(
   const [assetFoldersDialog, setAssetFoldersDialog] = useState<AssetFoldersDialogState>({ open: false, asset: null });
   const [updateGroupDialog, setUpdateGroupDialog] = useState<UpdateGroupDialogState>({ open: false, group: null });
   const [deleteGroupDialog, setDeleteGroupDialog] = useState<DeleteGroupDialogState>({ open: false, group: null });
+  const [notifyInactiveDialog, setNotifyInactiveDialog] = useState<NotifyInactiveDialogState>({ open: false, asset: null });
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
   
   const handleGroupDelete = async () => {
@@ -130,7 +136,9 @@ export function useDialogStates(
     setUpdateGroupDialog,
     deleteGroupDialog,
     setDeleteGroupDialog,
-    
+    notifyInactiveDialog,
+    setNotifyInactiveDialog,
+
     // Actions
     handleGroupDelete,
     isDeletingGroup,

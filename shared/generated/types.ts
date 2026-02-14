@@ -1765,6 +1765,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/activity/recipients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve asset permissions to recipient emails
+         * @description Given an asset, resolves its permission principals (users/groups) into email addresses for mailto composition
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        assetType: "dashboard" | "analysis";
+                        assetId: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Resolved recipients */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                users: components["schemas"]["ResolvedRecipient"][];
+                                groups: {
+                                    groupName: string;
+                                    members: components["schemas"]["ResolvedRecipient"][];
+                                }[];
+                            };
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2661,6 +2719,10 @@ export interface components {
                 lastUpdated?: string;
                 processingTimeMs?: number;
             };
+        };
+        ResolvedRecipient: {
+            userName: string;
+            email: string;
         };
         Error: {
             /** @description Error message */

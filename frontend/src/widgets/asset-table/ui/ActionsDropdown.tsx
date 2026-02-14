@@ -10,6 +10,7 @@ interface ActionsDropdownProps {
     onJsonViewerClick?: (asset: any, assetType: string) => void;
     onGroupUpdate?: (group: any) => void;
     onGroupDelete?: (group: any) => void;
+    onNotifyInactive?: (asset: any) => void;
   };
 }
 
@@ -57,6 +58,11 @@ export const ActionsDropdown = ({ asset, assetType, handlers }: ActionsDropdownP
         <MenuItem onClick={() => handleAction(() => handlers.onJsonViewerClick?.(asset, assetType))}>
           View JSON
         </MenuItem>
+        {(assetType === 'dashboard' || assetType === 'analysis') && (
+          <MenuItem onClick={() => handleAction(() => handlers.onNotifyInactive?.(asset))}>
+            Notify Inactive
+          </MenuItem>
+        )}
         {assetType === 'group' && (
           <>
             <MenuItem onClick={() => handleAction(() => handlers.onGroupUpdate?.(asset))}>

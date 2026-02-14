@@ -5,6 +5,12 @@ import { ApiResponse } from '../types';
 
 type ActivityData = components['schemas']['ActivityData'];
 type UserActivity = components['schemas']['UserActivity'];
+type ResolvedRecipient = components['schemas']['ResolvedRecipient'];
+
+export interface RecipientsData {
+  users: ResolvedRecipient[];
+  groups: Array<{ groupName: string; members: ResolvedRecipient[] }>;
+}
 
 export const activityApi = {
   /**
@@ -109,5 +115,22 @@ export const activityApi = {
    */
   async getUserActivity(userName: string): Promise<UserActivity> {
     return this.getActivityData('user', userName) as Promise<UserActivity>;
-  }
+  },
+
+  /**
+   * Resolve asset permissions to recipient emails for mailto composition
+   */
+  async resolveRecipients(
+    assetType: 'dashboard' | 'analysis',
+    assetId: string
+  ): Promise<RecipientsData> {
+    const response = await api.post<ApiResponse<RecipientsData>>(
+      '/activity/recipients',
+      { assetType, assetId }
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to resolve recipients');
+    }
+    return response.data.data;
+  },
 };

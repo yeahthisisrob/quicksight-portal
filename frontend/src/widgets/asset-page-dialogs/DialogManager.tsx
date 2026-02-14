@@ -11,6 +11,7 @@ import {
   TagsDialog 
 } from '@/widgets/asset-dialogs';
 
+import { InactivityMailtoDialog } from '@/features/activity';
 import { 
   AddToGroupDialog, 
   FolderMembersDialog, 
@@ -241,7 +242,9 @@ interface DialogManagerProps {
   setUpdateGroupDialog: (state: any) => void;
   deleteGroupDialog: any;
   setDeleteGroupDialog: (state: any) => void;
-  
+  notifyInactiveDialog: any;
+  setNotifyInactiveDialog: (state: any) => void;
+
   // Other props
   assetType: AssetType;
   selectedAssets: any[];
@@ -287,6 +290,8 @@ export function DialogManager({
   setUpdateGroupDialog,
   deleteGroupDialog,
   setDeleteGroupDialog,
+  notifyInactiveDialog,
+  setNotifyInactiveDialog,
   assetType,
   selectedAssets,
   handleRefreshTags,
@@ -376,6 +381,21 @@ export function DialogManager({
         />
       )}
       
+      {/* Inactivity mailto dialog */}
+      {notifyInactiveDialog.asset && (
+        <InactivityMailtoDialog
+          open={notifyInactiveDialog.open}
+          onClose={() => setNotifyInactiveDialog({ open: false, asset: null })}
+          asset={{
+            id: notifyInactiveDialog.asset.id,
+            name: notifyInactiveDialog.asset.name,
+            type: assetType as 'dashboard' | 'analysis',
+            lastViewed: notifyInactiveDialog.asset.activity?.lastViewed ?? null,
+            activityCount: notifyInactiveDialog.asset.activity?.totalViews ?? 0,
+          }}
+        />
+      )}
+
       {/* Delete group confirmation */}
       <Dialog
         open={deleteGroupDialog.open}

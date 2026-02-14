@@ -1314,6 +1314,59 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/activity/recipients:
+    post:
+      summary: Resolve asset permissions to recipient emails
+      description: Given an asset, resolves its permission principals (users/groups) into email addresses for mailto composition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assetType, assetId]
+              properties:
+                assetType:
+                  type: string
+                  enum: [dashboard, analysis]
+                assetId:
+                  type: string
+      responses:
+        '200':
+          description: Resolved recipients
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [users, groups]
+                    properties:
+                      users:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ResolvedRecipient'
+                      groups:
+                        type: array
+                        items:
+                          type: object
+                          required: [groupName, members]
+                          properties:
+                            groupName:
+                              type: string
+                            members:
+                              type: array
+                              items:
+                                $ref: '#/components/schemas/ResolvedRecipient'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -2823,6 +2876,15 @@ components:
               format: date-time
             processingTimeMs:
               type: integer
+
+    ResolvedRecipient:
+      type: object
+      required: [userName, email]
+      properties:
+        userName:
+          type: string
+        email:
+          type: string
 
     # Error responses
     Error:

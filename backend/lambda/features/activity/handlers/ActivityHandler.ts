@@ -186,3 +186,112 @@ export async function getActivitySummary(
     );
   }
 }
+
+/**
+ * Resolve asset permissions into recipient emails for mailto composition.
+ * Reads permissions from cache, resolves users/groups to emails from cached data.
+ * POST /api/activity/recipients
+ */
+export async function resolveRecipients(
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> {
+  try {
+    await requireAuth(event);
+
+    const body = JSON.parse(event.body || '{}');
+    const { assetType, assetId } = body;
+
+    if (!assetType || !assetId || !['dashboard', 'analysis'].includes(assetType)) {
+      return errorResponse(
+        event,
+        STATUS_CODES.BAD_REQUEST,
+        'Invalid request: assetType (dashboard|analysis) and assetId are required'
+      );
+    }
+
+    const cacheService = CacheService.getInstance();
+
+    // Get asset from cache (includes permissions)
+    const asset = await cacheService.getAsset(assetType, assetId);
+    if (!asset) {
+      return errorResponse(event, STATUS_CODES.NOT_FOUND, 'Asset not found in cache');
+    }
+
+    const permissions: Array<{ principal: string; principalType: string }> =
+      asset.permissions || [];
+
+    if (permissions.length === 0) {
+      return successResponse(event, { success: true, data: { users: [], groups: [] } });
+    }
+
+    const users: Array<{ userName: string; email: string }> = [];
+    const groups: Array<{
+      groupName: string;
+      members: Array<{ userName: string; email: string }>;
+    }> = [];
+
+    // Resolve a username to email from cached user data
+    const resolveUserEmail = async (
+      userName: string
+    ): Promise<{ userName: string; email: string } | null> => {
+      try {
+        const userAsset = await cacheService.getAsset('user', userName);
+        if (userAsset?.metadata?.email) {
+          return { userName: userAsset.name || userName, email: userAsset.metadata.email };
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    };
+
+    await Promise.all(
+      permissions.map(async (permission) => {
+        const name = permission.principal.split('/').pop();
+        if (!name) {
+          return;
+        }
+
+        if (permission.principalType === 'USER') {
+          const resolved = await resolveUserEmail(name);
+          if (resolved) {
+            users.push(resolved);
+          }
+        } else if (permission.principalType === 'GROUP') {
+          try {
+            // Get group from cache — members are in metadata.members
+            const groupAsset = await cacheService.getAsset('group', name);
+            const memberList: Array<{ MemberName?: string; memberName?: string }> =
+              groupAsset?.metadata?.members || [];
+
+            const members: Array<{ userName: string; email: string }> = [];
+            await Promise.all(
+              memberList.map(async (member) => {
+                const memberName = member.MemberName || member.memberName;
+                if (!memberName) {
+                  return;
+                }
+                const resolved = await resolveUserEmail(memberName);
+                if (resolved) {
+                  members.push(resolved);
+                }
+              })
+            );
+            groups.push({ groupName: name, members });
+          } catch (error) {
+            logger.warn(`Failed to resolve group ${name}`, { error });
+          }
+        }
+      })
+    );
+
+    return successResponse(event, { success: true, data: { users, groups } });
+  } catch (error: any) {
+    logger.error('Failed to resolve recipients', { error });
+    return errorResponse(
+      event,
+      STATUS_CODES.INTERNAL_SERVER_ERROR,
+      error.message || 'Internal server error'
+    );
+  }
+}
