@@ -5,6 +5,7 @@ export { useActivityData, useDashboardActivity, useAnalysisActivity, useUserActi
 // UI Components
 export { ActivityRefreshButton } from './ui/ActivityRefreshButton';
 export { InactivityMailtoDialog } from './ui/InactivityMailtoDialog';
+export { UserInactiveMailtoDialog } from './ui/UserInactiveMailtoDialog';
 
 // Types
 export type { ActivityData, UserActivity, ActivityState, ActivityRefreshOptions } from './model/types';

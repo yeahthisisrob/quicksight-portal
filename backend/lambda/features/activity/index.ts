@@ -3,6 +3,7 @@ import {
   getActivityData,
   getActivitySummary,
   resolveRecipients,
+  getUserInactiveAnalyses,
 } from './handlers/ActivityHandler';
 import { type RouteHandler } from '../../api/types';
 
@@ -27,10 +28,21 @@ export const activityRoutes: RouteHandler[] = [
     method: 'POST',
     handler: resolveRecipients,
   },
+  {
+    path: '/activity/user-inactive-analyses',
+    method: 'POST',
+    handler: getUserInactiveAnalyses,
+  },
 ];
 
 // Export handlers
-export { refreshActivity, getActivityData, getActivitySummary, resolveRecipients };
+export {
+  refreshActivity,
+  getActivityData,
+  getActivitySummary,
+  resolveRecipients,
+  getUserInactiveAnalyses,
+};
 
 // Export types
 export type * from './types';

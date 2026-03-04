@@ -11,7 +11,7 @@ import {
   TagsDialog 
 } from '@/widgets/asset-dialogs';
 
-import { InactivityMailtoDialog } from '@/features/activity';
+import { InactivityMailtoDialog, UserInactiveMailtoDialog } from '@/features/activity';
 import { 
   AddToGroupDialog, 
   FolderMembersDialog, 
@@ -244,6 +244,8 @@ interface DialogManagerProps {
   setDeleteGroupDialog: (state: any) => void;
   notifyInactiveDialog: any;
   setNotifyInactiveDialog: (state: any) => void;
+  notifyInactiveAnalysesDialog: any;
+  setNotifyInactiveAnalysesDialog: (state: any) => void;
 
   // Other props
   assetType: AssetType;
@@ -292,6 +294,8 @@ export function DialogManager({
   setDeleteGroupDialog,
   notifyInactiveDialog,
   setNotifyInactiveDialog,
+  notifyInactiveAnalysesDialog,
+  setNotifyInactiveAnalysesDialog,
   assetType,
   selectedAssets,
   handleRefreshTags,
@@ -392,6 +396,18 @@ export function DialogManager({
             type: assetType as 'dashboard' | 'analysis',
             lastViewed: notifyInactiveDialog.asset.activity?.lastViewed ?? null,
             activityCount: notifyInactiveDialog.asset.activity?.totalViews ?? 0,
+          }}
+        />
+      )}
+
+      {/* User inactive analyses mailto dialog */}
+      {notifyInactiveAnalysesDialog.user && (
+        <UserInactiveMailtoDialog
+          open={notifyInactiveAnalysesDialog.open}
+          onClose={() => setNotifyInactiveAnalysesDialog({ open: false, user: null })}
+          user={{
+            name: notifyInactiveAnalysesDialog.user.name,
+            email: notifyInactiveAnalysesDialog.user.email,
           }}
         />
       )}

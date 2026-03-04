@@ -6,6 +6,7 @@ import { ApiResponse } from '../types';
 type ActivityData = components['schemas']['ActivityData'];
 type UserActivity = components['schemas']['UserActivity'];
 type ResolvedRecipient = components['schemas']['ResolvedRecipient'];
+type UserInactiveAnalysis = components['schemas']['UserInactiveAnalysis'];
 
 export interface RecipientsData {
   users: ResolvedRecipient[];
@@ -132,5 +133,19 @@ export const activityApi = {
       throw new Error(response.data.error || 'Failed to resolve recipients');
     }
     return response.data.data;
+  },
+
+  /**
+   * Get inactive analyses owned by a specific user
+   */
+  async getUserInactiveAnalyses(userName: string): Promise<UserInactiveAnalysis[]> {
+    const response = await api.post<ApiResponse<{ analyses: UserInactiveAnalysis[] }>>(
+      '/activity/user-inactive-analyses',
+      { userName }
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch user inactive analyses');
+    }
+    return response.data.data.analyses;
   },
 };

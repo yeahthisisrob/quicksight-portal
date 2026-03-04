@@ -15,6 +15,7 @@ interface DialogSetters {
   setRefreshScheduleDialog: (state: any) => void;
   setDefinitionErrorsDialog: (state: any) => void;
   setNotifyInactiveDialog: (state: any) => void;
+  setNotifyInactiveAnalysesDialog: (state: any) => void;
 }
 
 interface PageStateActions {
@@ -46,6 +47,7 @@ export function createColumnHandlers(
     setRefreshScheduleDialog,
     setDefinitionErrorsDialog,
     setNotifyInactiveDialog,
+    setNotifyInactiveAnalysesDialog,
   } = dialogSetters;
   
   const {
@@ -102,6 +104,9 @@ export function createColumnHandlers(
     },
     onNotifyInactive: (asset: any) => {
       setNotifyInactiveDialog({ open: true, asset });
+    },
+    onNotifyInactiveAnalyses: (user: any) => {
+      setNotifyInactiveAnalysesDialog({ open: true, user });
     },
   };
 }

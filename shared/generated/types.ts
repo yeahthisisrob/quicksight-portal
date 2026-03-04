@@ -1765,6 +1765,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/activity/user-inactive-analyses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get inactive analyses owned by a specific user
+         * @description Returns analyses where the user has owner-level permissions and activity is below threshold
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description The username to find inactive analyses for */
+                        userName: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description List of inactive analyses */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                analyses: components["schemas"]["UserInactiveAnalysis"][];
+                            };
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                500: components["responses"]["InternalServerError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/activity/recipients": {
         parameters: {
             query?: never;
@@ -2719,6 +2773,18 @@ export interface components {
                 lastUpdated?: string;
                 processingTimeMs?: number;
             };
+        };
+        UserInactiveAnalysis: {
+            analysisId: string;
+            analysisName: string;
+            /** Format: date-time */
+            createdTime?: string | null;
+            /** Format: date-time */
+            lastUpdatedTime?: string | null;
+            totalViews: number;
+            uniqueViewers: number;
+            /** Format: date-time */
+            lastViewed?: string | null;
         };
         ResolvedRecipient: {
             userName: string;

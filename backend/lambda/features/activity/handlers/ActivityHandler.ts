@@ -363,3 +363,107 @@ export async function resolveRecipients(
     );
   }
 }
+
+const OWNER_ACTIONS = ['quicksight:UpdateAnalysis', 'quicksight:DeleteAnalysis'];
+const INACTIVE_VIEW_THRESHOLD = 10;
+
+/**
+ * Get inactive analyses owned by a specific user.
+ * POST /api/activity/user-inactive-analyses
+ */
+export async function getUserInactiveAnalyses(
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> {
+  try {
+    await requireAuth(event);
+
+    const body = JSON.parse(event.body || '{}');
+    const { userName } = body;
+
+    if (!userName || typeof userName !== 'string') {
+      return errorResponse(
+        event,
+        STATUS_CODES.BAD_REQUEST,
+        'Invalid request: userName is required'
+      );
+    }
+
+    const cacheService = CacheService.getInstance();
+
+    // Load all cached analyses and users for name resolution
+    const [analysesResult, usersResult] = await Promise.all([
+      cacheService.getAssetsByType('analysis'),
+      cacheService.getAssetsByType('user'),
+    ]);
+
+    const allAnalyses = analysesResult.assets || [];
+    const userByKey = buildUserLookup(usersResult.assets || []);
+
+    // Filter to analyses where this user has owner-level permissions
+    const ownedAnalyses = allAnalyses.filter((analysis) => {
+      const permissions: Array<{ principal: string; principalType: string; actions: string[] }> =
+        analysis.permissions || [];
+      return permissions.some((p) => {
+        if (p.principalType !== 'USER') {
+          return false;
+        }
+        const name = extractPrincipalName(p.principal);
+        if (!name) {
+          return false;
+        }
+        // Match against userName directly or via user lookup
+        const lastSegment = name.split('/').pop() || '';
+        const resolved = userByKey.get(name) || userByKey.get(lastSegment);
+        const matchesUser =
+          name === userName || lastSegment === userName || resolved?.userName === userName;
+        if (!matchesUser) {
+          return false;
+        }
+        return OWNER_ACTIONS.some((action) => p.actions.includes(action));
+      });
+    });
+
+    if (ownedAnalyses.length === 0) {
+      return successResponse(event, { success: true, data: { analyses: [] } });
+    }
+
+    // Get activity counts for owned analyses
+    const service = getActivityService();
+    const analysisIds = ownedAnalyses.map((a) => a.assetId);
+    const activityCounts = await service.getAssetActivityCounts('analysis', analysisIds);
+
+    // Filter to inactive analyses (< threshold views)
+    const inactiveAnalyses = ownedAnalyses
+      .filter((a) => {
+        const counts = activityCounts.get(a.assetId);
+        return !counts || counts.totalViews < INACTIVE_VIEW_THRESHOLD;
+      })
+      .map((a) => {
+        const counts = activityCounts.get(a.assetId);
+        return {
+          analysisId: a.assetId,
+          analysisName: a.assetName || a.assetId,
+          createdTime: a.createdTime || null,
+          lastUpdatedTime: a.lastUpdatedTime || null,
+          totalViews: counts?.totalViews ?? 0,
+          uniqueViewers: counts?.uniqueViewers ?? 0,
+          lastViewed: counts?.lastViewed || null,
+        };
+      });
+
+    logger.info('User inactive analyses', {
+      userName,
+      ownedCount: ownedAnalyses.length,
+      inactiveCount: inactiveAnalyses.length,
+    });
+
+    return successResponse(event, { success: true, data: { analyses: inactiveAnalyses } });
+  } catch (error: any) {
+    logger.error('Failed to get user inactive analyses', { error });
+    return errorResponse(
+      event,
+      STATUS_CODES.INTERNAL_SERVER_ERROR,
+      error.message || 'Internal server error'
+    );
+  }
+}

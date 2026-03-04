@@ -11,6 +11,7 @@ interface ActionsDropdownProps {
     onGroupUpdate?: (group: any) => void;
     onGroupDelete?: (group: any) => void;
     onNotifyInactive?: (asset: any) => void;
+    onNotifyInactiveAnalyses?: (asset: any) => void;
   };
 }
 
@@ -61,6 +62,11 @@ export const ActionsDropdown = ({ asset, assetType, handlers }: ActionsDropdownP
         {(assetType === 'dashboard' || assetType === 'analysis') && (
           <MenuItem onClick={() => handleAction(() => handlers.onNotifyInactive?.(asset))}>
             Notify Inactive
+          </MenuItem>
+        )}
+        {assetType === 'user' && (
+          <MenuItem onClick={() => handleAction(() => handlers.onNotifyInactiveAnalyses?.(asset))}>
+            Notify Inactive Analyses
           </MenuItem>
         )}
         {assetType === 'group' && (

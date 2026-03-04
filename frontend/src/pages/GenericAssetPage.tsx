@@ -140,6 +140,7 @@ export default function GenericAssetPage({
       setRefreshScheduleDialog: dialogStates.setRefreshScheduleDialog,
       setDefinitionErrorsDialog: dialogStates.setDefinitionErrorsDialog,
       setNotifyInactiveDialog: dialogStates.setNotifyInactiveDialog,
+      setNotifyInactiveAnalysesDialog: dialogStates.setNotifyInactiveAnalysesDialog,
     },
     {
       openPermissionsDialog,

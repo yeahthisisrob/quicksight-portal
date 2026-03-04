@@ -1314,6 +1314,47 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/activity/user-inactive-analyses:
+    post:
+      summary: Get inactive analyses owned by a specific user
+      description: Returns analyses where the user has owner-level permissions and activity is below threshold
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userName]
+              properties:
+                userName:
+                  type: string
+                  description: The username to find inactive analyses for
+      responses:
+        '200':
+          description: List of inactive analyses
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [analyses]
+                    properties:
+                      analyses:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/UserInactiveAnalysis'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /api/activity/recipients:
     post:
       summary: Resolve asset permissions to recipient emails
@@ -2876,6 +2917,33 @@ components:
               format: date-time
             processingTimeMs:
               type: integer
+
+    UserInactiveAnalysis:
+      type: object
+      required: [analysisId, analysisName, totalViews, uniqueViewers]
+      properties:
+        analysisId:
+          type: string
+        analysisName:
+          type: string
+        createdTime:
+          type: string
+          format: date-time
+          nullable: true
+        lastUpdatedTime:
+          type: string
+          format: date-time
+          nullable: true
+        totalViews:
+          type: integer
+          minimum: 0
+        uniqueViewers:
+          type: integer
+          minimum: 0
+        lastViewed:
+          type: string
+          format: date-time
+          nullable: true
 
     ResolvedRecipient:
       type: object
