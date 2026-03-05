@@ -50,6 +50,12 @@ export const assetManagementRoutes: RouteHandler[] = [
 
   {
     method: 'GET',
+    path: /^\/assets\/(dashboard|analysis|dataset|datasource|folder)\/([^/]+)\/permission-sources$/,
+    handler: (event) => handler.getPermissionSources(event),
+  },
+
+  {
+    method: 'GET',
     path: /^\/assets\/(dashboard|analysis|dataset)\/([^/]+)\/views$/,
     handler: (event) => handler.getViews(event),
   },

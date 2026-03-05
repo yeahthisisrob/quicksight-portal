@@ -49,6 +49,7 @@ const CoreAssetDialogs = memo(({
       <PermissionsDialog
         open={permissionsDialog.open}
         onClose={() => setPermissionsDialog({ open: false })}
+        assetId={permissionsDialog.asset.id}
         assetName={permissionsDialog.asset.name}
         assetType={typeCapitalized}
         permissions={normalizePermissions(permissionsDialog.asset?.permissions || [])}

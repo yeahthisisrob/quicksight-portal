@@ -270,6 +270,23 @@ export const assetsApi = {
     return response.data.data!;
   },
 
+  // Get permission sources for an asset (how each user has access)
+  async getPermissionSources(assetType: string, assetId: string): Promise<{
+    permissions: components['schemas']['Permission'][];
+    userAccessSources: components['schemas']['UserAccessInfo'][];
+    groupAccessSources: components['schemas']['GroupAccessInfo'][];
+  }> {
+    const response = await apiClient.get<ApiResponse<{
+      permissions: components['schemas']['Permission'][];
+      userAccessSources: components['schemas']['UserAccessInfo'][];
+      groupAccessSources: components['schemas']['GroupAccessInfo'][];
+    }>>(`/assets/${assetType}/${assetId}/permission-sources`);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to fetch permission sources');
+    }
+    return response.data.data!;
+  },
+
   // Get specific asset
   async getAsset(assetType: string, assetId: string): Promise<any> {
     const response = await apiClient.get<ApiResponse<any>>(`/assets/${assetType}/${assetId}`);

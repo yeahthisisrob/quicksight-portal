@@ -1,6 +1,7 @@
 export interface PermissionsDialogProps {
   open: boolean;
   onClose: () => void;
+  assetId: string;
   assetName: string;
   assetType: string;
   permissions: any[];

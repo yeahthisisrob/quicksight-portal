@@ -63,6 +63,7 @@ export const AssetDialogs = ({
         <PermissionsDialog
           open={dialogStates.permissionsDialog.open}
           onClose={onClosePermissions}
+          assetId={permissionsAsset.id}
           assetName={permissionsAsset.name}
           assetType={assetType}
           permissions={permissionsAsset.permissions || []}

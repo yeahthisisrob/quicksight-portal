@@ -1234,7 +1234,58 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  # Group management endpoints  
+  # Permission sources endpoint
+  /api/assets/{assetType}/{assetId}/permission-sources:
+    get:
+      summary: Get permission sources for an asset
+      description: Returns how each user has access to an asset - direct, via group, or via shared folder
+      parameters:
+        - name: assetType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [dashboard, analysis, dataset, datasource, folder]
+          description: The type of asset
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The asset identifier
+      responses:
+        '200':
+          description: Permission sources for the asset
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [permissions, userAccessSources, groupAccessSources]
+                    properties:
+                      permissions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Permission'
+                      userAccessSources:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/UserAccessInfo'
+                      groupAccessSources:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/GroupAccessInfo'
+        '404':
+          description: Asset not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Group management endpoints
   /api/groups/{groupName}/assets:
     get:
       summary: Get assets accessible by a group
@@ -2126,6 +2177,61 @@ components:
           items:
             type: string
           description: List of allowed actions
+
+    AccessSource:
+      type: object
+      required: [type, actions]
+      properties:
+        type:
+          type: string
+          enum: [direct, group, folder]
+          description: How the user has access
+        actions:
+          type: array
+          items:
+            type: string
+          description: Permission actions from this source
+        groupName:
+          type: string
+          description: Group name if access is via group
+        folderName:
+          type: string
+          description: Folder name if access is via folder
+        folderPath:
+          type: string
+          description: Folder path if access is via folder
+
+    UserAccessInfo:
+      type: object
+      required: [userName, userArn, sources]
+      properties:
+        userName:
+          type: string
+          description: The user's name
+        userArn:
+          type: string
+          description: The user's ARN
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessSource'
+          description: All ways this user has access to the asset
+
+    GroupAccessInfo:
+      type: object
+      required: [groupName, groupArn, sources]
+      properties:
+        groupName:
+          type: string
+          description: The group's name
+        groupArn:
+          type: string
+          description: The group's ARN
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessSource'
+          description: All ways this group has access to the asset
 
     # Activity types
     ActivityData:

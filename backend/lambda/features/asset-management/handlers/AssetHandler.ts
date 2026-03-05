@@ -10,6 +10,7 @@ import { ASSET_TYPES, ASSET_TYPES_PLURAL } from '../../../shared/types/assetType
 import { successResponse, errorResponse, createResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { GroupService } from '../../organization/services/GroupService';
+import { PermissionsService } from '../../organization/services/PermissionsService';
 import { AssetService } from '../services/AssetService';
 import { type AssetListRequest } from '../types';
 
@@ -252,6 +253,38 @@ export class AssetHandler {
       return errorResponse(
         event,
         STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error.message || 'Internal server error'
+      );
+    }
+  }
+
+  public async getPermissionSources(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+
+      const pathMatch = event.path.match(
+        /\/assets\/(dashboard|analysis|dataset|datasource|folder)\/([^/]+)\/permission-sources/
+      );
+      const assetType = pathMatch?.[1];
+      const assetId = pathMatch?.[2];
+
+      if (!assetType || !assetId) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Asset type and ID are required');
+      }
+
+      if (!Object.values(ASSET_TYPES).includes(assetType as any)) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, `Invalid asset type: ${assetType}`);
+      }
+
+      const permissionsService = new PermissionsService(this.accountId);
+      const result = await permissionsService.getPermissionSources(assetType as any, assetId);
+
+      return successResponse(event, { success: true, data: result });
+    } catch (error: any) {
+      logger.error('Failed to get permission sources', { error: error.message });
+      return errorResponse(
+        event,
+        error.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
         error.message || 'Internal server error'
       );
     }

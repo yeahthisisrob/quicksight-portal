@@ -1684,6 +1684,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assets/{assetType}/{assetId}/permission-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get permission sources for an asset
+         * @description Returns how each user has access to an asset - direct, via group, or via shared folder
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description The type of asset */
+                    assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder";
+                    /** @description The asset identifier */
+                    assetId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Permission sources for the asset */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                permissions: components["schemas"]["Permission"][];
+                                userAccessSources: components["schemas"]["UserAccessInfo"][];
+                                groupAccessSources: components["schemas"]["GroupAccessInfo"][];
+                            };
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description Asset not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/groups/{groupName}/assets": {
         parameters: {
             query?: never;
@@ -2307,6 +2366,37 @@ export interface components {
             principalType: "USER" | "GROUP" | "NAMESPACE" | "PUBLIC";
             /** @description List of allowed actions */
             actions: string[];
+        };
+        AccessSource: {
+            /**
+             * @description How the user has access
+             * @enum {string}
+             */
+            type: "direct" | "group" | "folder";
+            /** @description Permission actions from this source */
+            actions: string[];
+            /** @description Group name if access is via group */
+            groupName?: string;
+            /** @description Folder name if access is via folder */
+            folderName?: string;
+            /** @description Folder path if access is via folder */
+            folderPath?: string;
+        };
+        UserAccessInfo: {
+            /** @description The user's name */
+            userName: string;
+            /** @description The user's ARN */
+            userArn: string;
+            /** @description All ways this user has access to the asset */
+            sources: components["schemas"]["AccessSource"][];
+        };
+        GroupAccessInfo: {
+            /** @description The group's name */
+            groupName: string;
+            /** @description The group's ARN */
+            groupArn: string;
+            /** @description All ways this group has access to the asset */
+            sources: components["schemas"]["AccessSource"][];
         };
         ActivityData: {
             /** @description Asset identifier */
