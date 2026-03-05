@@ -133,7 +133,6 @@ const AccessSourceChip = ({ source }: { source: AccessSource }) => {
 const PermissionEntryRow = ({ entry }: { entry: PermissionEntry }) => {
   const config = PRINCIPAL_CONFIG[entry.principalType];
   const Icon = config.icon;
-  const hasIndirectAccess = entry.accessSources.some(s => s.type !== 'direct');
 
   return (
     <Box
@@ -198,10 +197,10 @@ const PermissionEntryRow = ({ entry }: { entry: PermissionEntry }) => {
           {entry.actions.length} permission{entry.actions.length !== 1 ? 's' : ''}
         </Typography>
 
-        {/* Access sources - shown when there's indirect access */}
-        {hasIndirectAccess && (
+        {/* Access source chips - always shown */}
+        {entry.accessSources.length > 0 && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-            {entry.accessSources.filter(s => s.type !== 'direct').map((source, idx) => (
+            {entry.accessSources.map((source, idx) => (
               <AccessSourceChip key={idx} source={source} />
             ))}
           </Box>
@@ -270,23 +269,6 @@ export default function PermissionsDialog({
     }
   }, [open, assetId, fetchPermissionSources]);
 
-  // Build lookups for access sources
-  const accessSourcesByUser = useMemo(() => {
-    const map = new Map<string, AccessSource[]>();
-    for (const user of userAccessSources) {
-      map.set(user.userName, user.sources);
-    }
-    return map;
-  }, [userAccessSources]);
-
-  const accessSourcesByGroup = useMemo(() => {
-    const map = new Map<string, AccessSource[]>();
-    for (const group of groupAccessSources) {
-      map.set(group.groupName, group.sources);
-    }
-    return map;
-  }, [groupAccessSources]);
-
   // Build unified entries
   const allEntries = useMemo((): PermissionEntry[] => {
     const entries: PermissionEntry[] = [];
@@ -300,15 +282,30 @@ export default function PermissionsDialog({
     for (const type of typeOrder) {
       const typePerms = permissions.filter(p => p.principalType === type);
       for (const perm of typePerms) {
-        const principalName = perm.principal?.split('/').pop() || perm.principal || 'Unknown';
+        const fallbackName = perm.principal?.split('/').pop() || perm.principal || 'Unknown';
         const actions = parseActions(perm);
 
         let sources: AccessSource[] = [];
+        let principalName = fallbackName;
+
         if (type === 'USER') {
-          sources = accessSourcesByUser.get(principalName) || [];
+          // Find canonical name from access sources (resolves QuickSight-reader/email correctly)
+          const userInfo = userAccessSources.find(u =>
+            u.userArn === perm.principal || u.userName === fallbackName
+          );
+          if (userInfo) {
+            principalName = userInfo.userName;
+            sources = userInfo.sources;
+          }
           seenUserNames.add(principalName);
         } else if (type === 'GROUP') {
-          sources = accessSourcesByGroup.get(principalName) || [];
+          const groupInfo = groupAccessSources.find(g =>
+            g.groupArn === perm.principal || g.groupName === fallbackName
+          );
+          if (groupInfo) {
+            principalName = groupInfo.groupName;
+            sources = groupInfo.sources;
+          }
           seenGroupNames.add(principalName);
         }
 
@@ -353,7 +350,7 @@ export default function PermissionsDialog({
     }
 
     return entries;
-  }, [permissions, accessSourcesByUser, accessSourcesByGroup, userAccessSources, groupAccessSources]);
+  }, [permissions, userAccessSources, groupAccessSources]);
 
   // Counts per type
   const counts = useMemo(() => {

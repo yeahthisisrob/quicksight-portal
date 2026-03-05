@@ -172,7 +172,7 @@ export class PermissionsService {
     const users = cache.entries.user || [];
     const folders = cache.entries.folder || [];
 
-    this.resolveDirectAccess(permissions, userAccessMap);
+    this.resolveDirectAccess(permissions, users, userAccessMap);
     this.resolveDirectGroupAccess(permissions, groupAccessMap);
     this.resolveGroupAccess(permissions, groups, users, userAccessMap);
     this.resolveFolderAccess(folders, assetId, asset.arn, groups, users, userAccessMap);
@@ -219,11 +219,14 @@ export class PermissionsService {
   /**
    * Resolve direct user permissions on the asset
    */
-  private resolveDirectAccess(permissions: any[], map: UserAccessMap): void {
+  private resolveDirectAccess(permissions: any[], users: CacheEntry[], map: UserAccessMap): void {
     for (const perm of permissions) {
       if (perm.principalType === 'USER') {
-        const userName = perm.principal.split('/').pop() || perm.principal;
-        const info = this.ensureUser(map, userName, perm.principal);
+        const userEntry = users.find((u: CacheEntry) =>
+          principalMatchesUser(perm.principal, u.arn, u.assetName)
+        );
+        const userName = userEntry?.assetName || perm.principal.split('/').pop() || perm.principal;
+        const info = this.ensureUser(map, userName, userEntry?.arn || perm.principal);
         info.sources.push({ type: 'direct', actions: perm.actions || [] });
       }
     }
@@ -345,10 +348,10 @@ export class PermissionsService {
     map: UserAccessMap
   ): void {
     if (fp.principalType === 'USER') {
-      const userName = fp.principal.split('/').pop() || fp.principal;
       const userEntry = users.find((u: CacheEntry) =>
         principalMatchesUser(fp.principal, u.arn, u.assetName)
       );
+      const userName = userEntry?.assetName || fp.principal.split('/').pop() || fp.principal;
       const info = this.ensureUser(map, userName, userEntry?.arn || fp.principal);
       info.sources.push({
         type: 'folder',
