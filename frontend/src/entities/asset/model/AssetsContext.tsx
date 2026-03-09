@@ -72,6 +72,9 @@ interface AssetsContextType {
   groupsLoading: boolean;
   groupsPagination: PaginationInfo | null;
 
+  // Refresh trigger - incremented when data should be re-fetched
+  refreshKey: number;
+
   // Methods
   fetchDashboards: AssetFetchFn;
   fetchDatasets: AssetFetchFn;
@@ -197,6 +200,9 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [groupsPagination, setGroupsPagination] = useState<PaginationInfo | null>(null);
 
+  // Refresh trigger - incremented to signal tables to re-fetch with current params
+  const [refreshKey, setRefreshKey] = useState(0);
+
   // Export summary query with proper caching
   const { data: exportSummary, isLoading: exportSummaryLoading, refetch: refetchSummary } = useQuery({
     queryKey: ['export-summary'],
@@ -215,17 +221,6 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
     users: { setData: setUsers, setLoading: setUsersLoading, setPagination: setUsersPagination },
     groups: { setData: setGroups, setLoading: setGroupsLoading, setPagination: setGroupsPagination },
   }), []);
-
-  // Pagination getters for refresh
-  const paginationGetters = useMemo(() => ({
-    dashboards: dashboardsPagination,
-    datasets: datasetsPagination,
-    analyses: analysesPagination,
-    datasources: datasourcesPagination,
-    folders: foldersPagination,
-    users: usersPagination,
-    groups: groupsPagination,
-  }), [dashboardsPagination, datasetsPagination, analysesPagination, datasourcesPagination, foldersPagination, usersPagination, groupsPagination]);
 
   // Create a key for deduplication
   const createRequestKey = useCallback((type: string, options: FetchParams) => {
@@ -276,35 +271,21 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
   const fetchUsers = useMemo(() => createAssetFetcher('users'), [createAssetFetcher]);
   const fetchGroups = useMemo(() => createAssetFetcher('groups'), [createAssetFetcher]);
 
-  // Map of fetch functions for refreshAssetType
-  const fetchFunctions = useMemo(() => ({
-    dashboards: fetchDashboards,
-    datasets: fetchDatasets,
-    analyses: fetchAnalyses,
-    datasources: fetchDatasources,
-    folders: fetchFolders,
-    users: fetchUsers,
-    groups: fetchGroups,
-  }), [fetchDashboards, fetchDatasets, fetchAnalyses, fetchDatasources, fetchFolders, fetchUsers, fetchGroups]);
-
   // Refresh export summary
   const refreshExportSummary = useCallback(async () => {
     await refetchSummary();
   }, [refetchSummary]);
 
-  // Refresh specific asset type - simplified with config-driven approach
+  // Refresh specific asset type - invalidates cache and signals tables to re-fetch with current params
   const refreshAssetType = useCallback(async (assetType: 'dashboard' | 'dataset' | 'analysis' | 'datasource' | 'folder' | 'user' | 'group') => {
     const pluralType = ASSET_TYPE_MAP[assetType] as keyof typeof ASSET_CONFIGS;
     const config = ASSET_CONFIGS[pluralType];
-    const pagination = paginationGetters[pluralType];
-    const fetchFn = fetchFunctions[pluralType];
 
     await queryClient.invalidateQueries({ queryKey: [config.queryKey] });
 
-    if (pagination) {
-      await fetchFn({ page: pagination.page, pageSize: pagination.pageSize });
-    }
-  }, [queryClient, paginationGetters, fetchFunctions]);
+    // Increment refreshKey to trigger tables to re-fetch with their current sort/filter/search params
+    setRefreshKey(prev => prev + 1);
+  }, [queryClient]);
 
   // Update tags for a specific asset (optimistic update) - simplified with map
   const updateAssetTags = useCallback((assetType: string, assetId: string, tags: any[]) => {
@@ -320,6 +301,7 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
   }, [stateSetters]);
 
   const value: AssetsContextType = {
+    refreshKey,
     exportSummary,
     exportSummaryLoading,
     dashboards,

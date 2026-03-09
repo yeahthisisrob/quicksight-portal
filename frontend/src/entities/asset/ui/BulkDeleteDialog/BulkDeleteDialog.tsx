@@ -16,7 +16,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 
 import { assetsApi } from '@/shared/api';
 import { spacing } from '@/shared/design-system/theme';
@@ -66,6 +66,15 @@ export function BulkDeleteDialog({
   const [reason, setReason] = useState('');
   const [confirmText, setConfirmText] = useState('');
   const [processing, setProcessing] = useState(false);
+
+  // Reset dialog state when opened
+  useEffect(() => {
+    if (open) {
+      setReason('');
+      setConfirmText('');
+      setProcessing(false);
+    }
+  }, [open]);
 
   // Computed values
   const assetsByType = useMemo(() => groupAssetsByType(assets), [assets]);

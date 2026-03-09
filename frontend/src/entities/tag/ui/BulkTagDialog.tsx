@@ -140,15 +140,23 @@ export default function BulkTagDialog({
     }
 
     setTimeout(() => {
+      resetState();
       onClose();
       onComplete?.();
     }, 1500);
   };
 
+  const resetState = () => {
+    setTags([{ key: '', value: '' }]);
+    setErrors([]);
+    setProcessing(false);
+    setProgress(0);
+    setProcessedCount(0);
+  };
+
   const handleClose = () => {
     if (!processing) {
-      setTags([{ key: '', value: '' }]);
-      setErrors([]);
+      resetState();
       onClose();
     }
   };

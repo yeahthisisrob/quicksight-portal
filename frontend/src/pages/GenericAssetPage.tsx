@@ -50,6 +50,8 @@ interface GenericAssetPageProps {
   availableFolders?: FolderOption[];
   /** Loading state for folder options */
   isLoadingFolders?: boolean;
+  /** Refresh trigger from context */
+  refreshKey?: number;
 }
 
 /**
@@ -87,6 +89,7 @@ export default function GenericAssetPage({
   enableFolderFiltering = false,
   availableFolders = [],
   isLoadingFolders = false,
+  refreshKey = 0,
 }: GenericAssetPageProps) {
   const navigate = useNavigate();
   const pageState = useAssetPageState();
@@ -200,6 +203,7 @@ export default function GenericAssetPage({
       enableFolderFiltering={enableFolderFiltering}
       availableFolders={availableFolders}
       isLoadingFolders={isLoadingFolders}
+      refreshKey={refreshKey}
     >
       <DialogManager
         // Core dialog states
@@ -224,9 +228,9 @@ export default function GenericAssetPage({
         // Other props
         assetType={assetType}
         selectedAssets={selectedAssets}
-        handleRefreshTags={handleRefreshTags}
         handleBulkComplete={handleBulkComplete}
         refreshAssetType={refreshAssetType}
+        updateAssetTags={updateAssetTags}
       />
     </EnhancedAssetTable>
   );

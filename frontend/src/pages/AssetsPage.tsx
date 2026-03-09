@@ -64,7 +64,8 @@ export default function AssetsPage() {
     users, usersLoading, usersPagination, fetchUsers,
     groups, groupsLoading, groupsPagination, fetchGroups,
     refreshAssetType,
-    updateAssetTags
+    updateAssetTags,
+    refreshKey,
   } = useAssets();
 
   // Activity state
@@ -155,6 +156,7 @@ export default function AssetsPage() {
         enableFolderFiltering={['dashboard', 'analysis', 'dataset', 'datasource'].includes(config.assetType)}
         availableFolders={availableFolders}
         isLoadingFolders={filterFoldersLoading}
+        refreshKey={refreshKey}
       />
       
       {/* Activity dialog for dashboards and analyses */}

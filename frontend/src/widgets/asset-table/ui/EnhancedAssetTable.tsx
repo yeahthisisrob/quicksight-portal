@@ -114,6 +114,8 @@ interface EnhancedAssetTableProps {
   availableFolders?: FolderOption[];
   /** Loading state for folder options */
   isLoadingFolders?: boolean;
+  /** Refresh trigger - when incremented, re-fetches data with current params */
+  refreshKey?: number;
 }
 
 export default function EnhancedAssetTable({
@@ -155,6 +157,7 @@ export default function EnhancedAssetTable({
   enableFolderFiltering = false,
   availableFolders = [],
   isLoadingFolders = false,
+  refreshKey = 0,
 }: EnhancedAssetTableProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshingTags, setRefreshingTags] = useState(false);
@@ -433,6 +436,7 @@ export default function EnhancedAssetTable({
     activityFilter,
     includeFolders,
     excludeFolders,
+    refreshKey,
   ]);
 
   return (

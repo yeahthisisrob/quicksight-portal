@@ -33,8 +33,8 @@ import { JsonViewerModal } from '@/shared/ui';
 import type { AssetType } from '@/shared/types/asset';
 
 // Sub-component for Core Asset Dialogs
-const CoreAssetDialogs = memo(({ 
-  permissionsDialog, 
+const CoreAssetDialogs = memo(({
+  permissionsDialog,
   setPermissionsDialog,
   relatedAssetsDialog,
   setRelatedAssetsDialog,
@@ -42,7 +42,7 @@ const CoreAssetDialogs = memo(({
   setTagsDialog,
   typeCapitalized,
   assetType,
-  handleRefreshTags
+  updateAssetTags
 }: any) => (
   <>
     {permissionsDialog.asset && (
@@ -55,7 +55,7 @@ const CoreAssetDialogs = memo(({
         permissions={normalizePermissions(permissionsDialog.asset?.permissions || [])}
       />
     )}
-    
+
     {relatedAssetsDialog.asset && (
       <RelatedAssetsDialog
         open={relatedAssetsDialog.open}
@@ -65,7 +65,7 @@ const CoreAssetDialogs = memo(({
         relatedAssets={relatedAssetsDialog.relatedAssets || []}
       />
     )}
-    
+
     {tagsDialog.asset && (
       <TagsDialog
         open={tagsDialog.open}
@@ -75,7 +75,7 @@ const CoreAssetDialogs = memo(({
         assetType={typeCapitalized}
         resourceType={assetType}
         initialTags={tagsDialog.asset?.tags || []}
-        onTagsUpdate={handleRefreshTags}
+        onTagsUpdate={(tags: any[]) => updateAssetTags(assetType, tagsDialog.asset.id, tags)}
       />
     )}
   </>
@@ -251,9 +251,9 @@ interface DialogManagerProps {
   // Other props
   assetType: AssetType;
   selectedAssets: any[];
-  handleRefreshTags: () => void;
   handleBulkComplete: () => void;
   refreshAssetType: (type: AssetType) => Promise<void>;
+  updateAssetTags: (assetType: string, assetId: string, tags: any[]) => void;
   handleGroupDelete: () => Promise<void>;
   isDeletingGroup: boolean;
 }
@@ -299,9 +299,9 @@ export function DialogManager({
   setNotifyInactiveAnalysesDialog,
   assetType,
   selectedAssets,
-  handleRefreshTags,
   handleBulkComplete,
   refreshAssetType,
+  updateAssetTags,
   handleGroupDelete,
   isDeletingGroup,
 }: DialogManagerProps) {
@@ -319,7 +319,7 @@ export function DialogManager({
         setTagsDialog={setTagsDialog}
         typeCapitalized={typeCapitalized}
         assetType={assetType}
-        handleRefreshTags={handleRefreshTags}
+        updateAssetTags={updateAssetTags}
       />
       
       {/* Bulk action dialogs */}
