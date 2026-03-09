@@ -23,7 +23,7 @@ export const Default: Story = {
       calculated: 789,
       physical: 2667,
     },
-    cacheSize: 125000000,
+
     loading: false,
   },
 };
@@ -38,7 +38,7 @@ export const RecentlyUpdated: Story = {
       calculated: 789,
       physical: 2667,
     },
-    cacheSize: 125000000,
+
     loading: false,
   },
 };
@@ -53,7 +53,7 @@ export const StaleCache: Story = {
       calculated: 789,
       physical: 2667,
     },
-    cacheSize: 125000000,
+
     loading: false,
   },
 };
@@ -68,7 +68,7 @@ export const VeryStaleCache: Story = {
       calculated: 789,
       physical: 2667,
     },
-    cacheSize: 125000000,
+
     loading: false,
   },
 };
@@ -83,7 +83,7 @@ export const NoArchivedAssets: Story = {
       calculated: 234,
       physical: 1000,
     },
-    cacheSize: 50000000,
+
     loading: false,
   },
 };
@@ -94,7 +94,7 @@ export const NoFieldStats: Story = {
     archivedAssets: 25,
     lastUpdated: new Date(Date.now() - 60 * 60 * 1000).toISOString(), // 1 hour ago
     fieldStats: null,
-    cacheSize: 125000000,
+
     loading: false,
   },
 };
@@ -105,7 +105,7 @@ export const Loading: Story = {
     archivedAssets: 0,
     lastUpdated: null,
     fieldStats: null,
-    cacheSize: undefined,
+
     loading: true,
   },
 };
@@ -116,7 +116,7 @@ export const Empty: Story = {
     archivedAssets: 0,
     lastUpdated: null,
     fieldStats: null,
-    cacheSize: undefined,
+
     loading: false,
   },
 };
@@ -131,7 +131,7 @@ export const LargeNumbers: Story = {
       calculated: 78901,
       physical: 266777,
     },
-    cacheSize: 12500000000,
+
     loading: false,
   },
 };

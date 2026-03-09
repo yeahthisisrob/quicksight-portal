@@ -1,139 +1,276 @@
-import { Box, Alert } from '@mui/material';
+import {
+  Cancel,
+  CheckCircle,
+  CloudQueue,
+  Error as ErrorIcon,
+  HourglassEmpty,
+  MoreVert as MoreVertIcon,
+  Refresh,
+} from '@mui/icons-material';
+import { Alert, Box, Chip, IconButton, Menu, MenuItem, Tooltip, Typography, alpha } from '@mui/material';
+import { format } from 'date-fns';
 import { useSnackbar } from 'notistack';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+
+import { EnhancedAssetTable } from '@/widgets/asset-table';
+
+import { DatasourceTypeBadge } from '@/entities/field';
 
 import { ingestionsApi } from '@/shared/api';
-import { PageHeader } from '@/shared/ui';
+import { colors } from '@/shared/design-system/theme';
+import { PageLayout } from '@/shared/ui';
 
-import { IngestionsTable } from './IngestionsTable';
-
+import type { ColumnConfig, FetchAssetsOptions } from '@/widgets/asset-table';
 import type { components } from '@shared/generated/types';
 
-type IngestionListData = components['schemas']['IngestionListResponse']['data'];
+type Ingestion = components['schemas']['Ingestion'];
+type IngestionMetadata = components['schemas']['IngestionListResponse']['data']['metadata'];
+
+const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+  RUNNING: { label: 'Running', color: colors.status.info, icon: HourglassEmpty },
+  COMPLETED: { label: 'Completed', color: colors.status.success, icon: CheckCircle },
+  FAILED: { label: 'Failed', color: colors.status.error, icon: ErrorIcon },
+  CANCELLED: { label: 'Cancelled', color: colors.neutral[500], icon: Cancel },
+  INITIALIZED: { label: 'Initialized', color: colors.neutral[400], icon: CloudQueue },
+  QUEUED: { label: 'Queued', color: colors.status.warning, icon: CloudQueue },
+};
+
+function formatDuration(seconds: number | undefined): string {
+  if (!seconds) return '-';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function IngestionActionsMenu({ ingestion, onViewDetails, onCancel }: {
+  ingestion: Ingestion;
+  onViewDetails: (i: Ingestion) => void;
+  onCancel: (i: Ingestion) => void;
+}) {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+  const canCancel = ['RUNNING', 'QUEUED', 'INITIALIZED'].includes(ingestion.status);
+
+  return (
+    <>
+      <IconButton
+        size="small"
+        onClick={(e) => { e.stopPropagation(); setAnchorEl(e.currentTarget); }}
+        sx={{ color: 'text.secondary', padding: '4px' }}
+      >
+        <MoreVertIcon fontSize="small" />
+      </IconButton>
+      <Menu
+        anchorEl={anchorEl}
+        open={open}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem onClick={() => { onViewDetails(ingestion); setAnchorEl(null); }}>
+          View Details
+        </MenuItem>
+        {canCancel && (
+          <MenuItem onClick={() => { onCancel(ingestion); setAnchorEl(null); }}>
+            Cancel Ingestion
+          </MenuItem>
+        )}
+      </Menu>
+    </>
+  );
+}
 
 export default function IngestionsView() {
   const { enqueueSnackbar } = useSnackbar();
-  const [data, setData] = useState<IngestionListData | null>(null);
+  const [ingestions, setIngestions] = useState<Ingestion[]>([]);
+  const [totalRows, setTotalRows] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
-  const [sortBy, setSortBy] = useState('createdTime');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [search, setSearch] = useState('');
+  const [metadata, setMetadata] = useState<IngestionMetadata | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const loadIngestions = useCallback(async () => {
+  const fetchIngestions = useCallback(async (options: FetchAssetsOptions) => {
     try {
       setLoading(true);
       const result = await ingestionsApi.list({
-        page,
-        pageSize,
-        search,
-        sortBy,
-        sortOrder,
+        page: options.page,
+        pageSize: options.pageSize,
+        search: options.search,
+        sortBy: options.sortBy,
+        sortOrder: options.sortOrder as 'asc' | 'desc' | undefined,
       });
-      setData(result);
+      setIngestions(result.ingestions || []);
+      setTotalRows(result.pagination?.totalItems || 0);
+      setMetadata(result.metadata || null);
     } catch (error) {
       enqueueSnackbar('Failed to load ingestions', { variant: 'error' });
       console.error('Failed to load ingestions:', error);
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, sortBy, sortOrder, enqueueSnackbar]);
+  }, [enqueueSnackbar]);
 
-  useEffect(() => {
-    loadIngestions();
-  }, [loadIngestions, refreshKey]);
-
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handlePageSizeChange = (newPageSize: number) => {
-    setPageSize(newPageSize);
-    setPage(1); // Reset to first page when changing page size
-  };
-
-  const handleSortChange = (newSortBy: string, newSortOrder: 'asc' | 'desc') => {
-    setSortBy(newSortBy);
-    setSortOrder(newSortOrder);
-    setPage(1); // Reset to first page when sorting changes
-  };
-
-  const handleSearchChange = (newSearch: string) => {
-    setSearch(newSearch);
-    setPage(1); // Reset to first page when searching
-  };
-
-  const handleRefresh = () => {
-    setRefreshKey(prev => prev + 1);
-  };
-
-  const handleCancelIngestion = async (datasetId: string, ingestionId: string) => {
+  const handleCancelIngestion = async (ingestion: Ingestion) => {
     try {
-      await ingestionsApi.cancel(datasetId, ingestionId);
+      await ingestionsApi.cancel(ingestion.datasetId, ingestion.id);
       enqueueSnackbar('Ingestion cancelled successfully', { variant: 'success' });
-      handleRefresh(); // Refresh the list
+      setRefreshKey(prev => prev + 1);
     } catch (error) {
       enqueueSnackbar('Failed to cancel ingestion', { variant: 'error' });
-      console.error('Failed to cancel ingestion:', error);
     }
   };
 
-  const handleViewDetails = async (datasetId: string, ingestionId: string) => {
+  const handleViewDetails = async (ingestion: Ingestion) => {
     try {
-      const details = await ingestionsApi.getDetails(datasetId, ingestionId);
-      // For now, just show the status in a snackbar
-      // In a real implementation, you might open a modal or navigate to a details page
+      const details = await ingestionsApi.getDetails(ingestion.datasetId, ingestion.id);
       enqueueSnackbar(
-        `Ingestion ${ingestionId}: ${details.status}${details.errorMessage ? ` - ${details.errorMessage}` : ''}`,
+        `Ingestion ${ingestion.id}: ${details.status}${details.errorMessage ? ` - ${details.errorMessage}` : ''}`,
         { variant: 'info' }
       );
     } catch (error) {
       enqueueSnackbar('Failed to load ingestion details', { variant: 'error' });
-      console.error('Failed to load ingestion details:', error);
     }
   };
 
-  return (
-    <Box>
-      <PageHeader title="Ingestions" />
+  const columns: ColumnConfig[] = [
+    {
+      id: 'actions',
+      label: ' ',
+      width: 50,
+      sortable: false,
+      required: true,
+      renderCell: (params: any) => {
+        const ingestion = params.row as Ingestion;
+        return <IngestionActionsMenu ingestion={ingestion} onViewDetails={handleViewDetails} onCancel={handleCancelIngestion} />;
+      },
+    },
+    {
+      id: 'datasetName',
+      label: 'Dataset',
+      width: 250,
+      required: true,
+      renderCell: (params: any) => (
+        <Tooltip title={params.row.datasetName || params.row.datasetId}>
+          <Typography
+            variant="body2"
+            sx={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {params.row.datasetName || params.row.datasetId}
+          </Typography>
+        </Tooltip>
+      ),
+    },
+    {
+      id: 'status',
+      label: 'Status',
+      width: 140,
+      required: true,
+      renderCell: (params: any) => {
+        const config = statusConfig[params.row.status];
+        if (!config) return params.row.status;
+        const StatusIcon = config.icon;
+        return (
+          <Chip
+            icon={<StatusIcon sx={{ fontSize: 16 }} />}
+            label={config.label}
+            size="small"
+            sx={{
+              backgroundColor: alpha(config.color, 0.1),
+              color: config.color,
+              '& .MuiChip-icon': { color: config.color },
+            }}
+          />
+        );
+      },
+    },
+    {
+      id: 'createdTime',
+      label: 'Started',
+      width: 180,
+      valueGetter: (params: any) =>
+        params.row.createdTime ? format(new Date(params.row.createdTime), 'MMM d, yyyy HH:mm') : '-',
+    },
+    {
+      id: 'ingestionTimeInSeconds',
+      label: 'Duration',
+      width: 120,
+      valueGetter: (params: any) => formatDuration(params.row.ingestionTimeInSeconds),
+    },
+    {
+      id: 'rowsIngested',
+      label: 'Rows',
+      width: 120,
+      valueGetter: (params: any) =>
+        params.row.rowsIngested != null ? params.row.rowsIngested.toLocaleString() : '-',
+    },
+    {
+      id: 'datasourceType',
+      label: 'Datasource Type',
+      width: 160,
+      renderCell: (params: any) =>
+        params.row.datasourceType ? (
+          <DatasourceTypeBadge datasourceType={params.row.datasourceType} importMode="SPICE" compact />
+        ) : '-',
+    },
+  ];
 
-      {/* Show a message if no data is cached yet */}
-      {!loading && data?.ingestions?.length === 0 && (
-        <Alert severity="info" sx={{ mb: 3 }}>
+  const extraToolbarActions = (
+    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+      {metadata && (
+        <>
+          {metadata.runningIngestions > 0 && (
+            <Chip
+              icon={<HourglassEmpty />}
+              label={`Running: ${metadata.runningIngestions}`}
+              size="small"
+              sx={{ backgroundColor: alpha(colors.status.info, 0.1) }}
+            />
+          )}
+          {metadata.failedIngestions > 0 && (
+            <Chip
+              icon={<ErrorIcon />}
+              label={`Failed: ${metadata.failedIngestions}`}
+              size="small"
+              sx={{ backgroundColor: alpha(colors.status.error, 0.1) }}
+            />
+          )}
+        </>
+      )}
+      <Tooltip title="Refresh">
+        <IconButton size="small" onClick={() => setRefreshKey(prev => prev + 1)} disabled={loading}>
+          <Refresh fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    </Box>
+  );
+
+  return (
+    <PageLayout title="Ingestions" totalRows={totalRows}>
+      {!loading && ingestions.length === 0 && totalRows === 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>
           No ingestions found. Run an ingestion export from the Export page to populate this data.
         </Alert>
       )}
 
-      {/* Ingestions Table */}
-      <IngestionsTable
-        ingestions={data?.ingestions || []}
-        metadata={data?.metadata || {
-          totalIngestions: 0,
-          runningIngestions: 0,
-          failedIngestions: 0,
-          lastUpdated: new Date().toISOString()
-        }}
-        pagination={data?.pagination || {
-          page: 1,
-          pageSize: 50,
-          totalItems: 0,
-          totalPages: 0,
-          hasMore: false
-        } as { page: number; pageSize: number; totalItems: number; totalPages: number; hasMore: boolean }}
+      <EnhancedAssetTable
+        assets={ingestions}
         loading={loading}
-        onPageChange={handlePageChange}
-        onPageSizeChange={handlePageSizeChange}
-        onSortChange={handleSortChange}
-        onSearchChange={handleSearchChange}
-        onRefresh={handleRefresh}
-        onCancelIngestion={handleCancelIngestion}
-        onViewDetails={handleViewDetails}
-        sortBy={sortBy}
-        sortOrder={sortOrder}
-        searchValue={search}
+        totalRows={totalRows}
+        columns={columns}
+        onFetchAssets={fetchIngestions}
+        enableBulkActions={false}
+        defaultPageSize={50}
+        defaultSortModel={[{ field: 'createdTime', sort: 'desc' }]}
+        extraToolbarActions={extraToolbarActions}
+        getRowId={(row) => `${row.datasetId}-${row.id}`}
+        refreshKey={refreshKey}
       />
-    </Box>
+    </PageLayout>
   );
 }

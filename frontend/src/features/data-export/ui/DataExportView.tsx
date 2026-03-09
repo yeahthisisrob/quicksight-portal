@@ -1,12 +1,11 @@
 /**
- * Refactored DataExportView with reduced complexity
+ * DataExportView — Export Assets page
  */
-import { History as HistoryIcon } from '@mui/icons-material';
-import { Alert, Box, Button, Fade, Grid, IconButton, Stack, Tooltip, Typography, alpha } from '@mui/material';
+import { Alert, Box, Button, Stack, Typography } from '@mui/material';
 import { useState } from 'react';
 
 import { colors, spacing } from '@/shared/design-system/theme';
-import { PageHeader } from '@/shared/ui';
+import { PageLayout } from '@/shared/ui';
 
 import {
   AssetTypeSelector,
@@ -21,243 +20,13 @@ import { useExportOperations } from '../lib/useExportOperations';
 
 import type { AssetType, ExportMode } from '../model/types';
 
-/**
- * Initial export prompt component
- */
-function InitialExportPrompt({ 
-  show, 
-  onStart 
-}: { 
-  show: boolean; 
-  onStart: () => void;
-}) {
-  if (!show) return null;
-  
-  return (
-    <Alert 
-      severity="info" 
-      action={
-        <Button color="inherit" size="small" onClick={onStart}>
-          Start Initial Export
-        </Button>
-      }
-      sx={{ mb: 2 }}
-    >
-      <Typography variant="body2">
-        No cached data found. Run an initial export to populate the cache.
-      </Typography>
-    </Alert>
-  );
-}
-
-/**
- * Export configuration section component
- */
-function ExportConfigurationSection({
-  selectedAssetTypes,
-  setSelectedAssetTypes,
-  exportMode,
-  setExportMode,
-  isRunning,
-  isRefreshing,
-  onStartExport,
-  onStopExport,
-  onRefreshStatus,
-  onRefreshActivity,
-  onExportIngestions,
-  onClearMemoryCache,
-  onClearStuckJobs,
-  canRefreshActivity,
-  refreshingActivity,
-  exportingIngestions,
-  clearingCache,
-  clearingStuckJobs,
-}: {
-  selectedAssetTypes: AssetType[];
-  setSelectedAssetTypes: React.Dispatch<React.SetStateAction<AssetType[]>>;
-  exportMode: ExportMode;
-  setExportMode: (mode: ExportMode) => void;
-  isRunning: boolean;
-  isRefreshing: boolean;
-  onStartExport: () => void;
-  onStopExport: () => void;
-  onRefreshStatus: () => void;
-  onRefreshActivity: () => void;
-  onExportIngestions: () => void;
-  onClearMemoryCache: () => void;
-  onClearStuckJobs: () => void;
-  canRefreshActivity: boolean;
-  refreshingActivity: boolean;
-  exportingIngestions: boolean;
-  clearingCache: boolean;
-  clearingStuckJobs: boolean;
-}) {
-  return (
-    <Grid container spacing={3}>
-      {/* Left Column: Export Controls */}
-      <Grid item xs={12} md={5}>
-        <ExportControls
-          exportMode={exportMode}
-          onModeChange={setExportMode}
-          isRunning={isRunning}
-          isRefreshing={isRefreshing}
-          onStartExport={onStartExport}
-          onStopExport={onStopExport}
-          onRefreshStatus={onRefreshStatus}
-          onRefreshActivity={onRefreshActivity}
-          onExportIngestions={onExportIngestions}
-          onClearMemoryCache={onClearMemoryCache}
-          onClearStuckJobs={onClearStuckJobs}
-          canRefreshActivity={canRefreshActivity}
-          refreshingActivity={refreshingActivity}
-          exportingIngestions={exportingIngestions}
-          clearingCache={clearingCache}
-          clearingStuckJobs={clearingStuckJobs}
-          selectedTypesCount={selectedAssetTypes.length}
-        />
-      </Grid>
-
-      {/* Right Column: Asset Type Selection */}
-      <Grid item xs={12} md={7}>
-        <AssetTypeSelector
-          selectedTypes={selectedAssetTypes}
-          onToggle={(assetType) => {
-            setSelectedAssetTypes((prev: AssetType[]) => 
-              prev.includes(assetType) 
-                ? prev.filter(t => t !== assetType)
-                : [...prev, assetType]
-            );
-          }}
-          disabled={isRunning || exportMode === 'rebuild'}
-        />
-        {exportMode === 'rebuild' && (
-          <Alert severity="info" sx={{ mt: 2 }}>
-            Rebuild cache mode will process all asset types from existing S3 files.
-          </Alert>
-        )}
-      </Grid>
-    </Grid>
-  );
-}
-
-/**
- * Export progress and activity section component
- */
-function ExportProgressSection({
-  showHistory,
-  setShowHistory,
-  currentJobId,
-  exportLogs,
-  isRunning,
-  onSelectHistoryJob,
-}: {
-  showHistory: boolean;
-  setShowHistory: (show: boolean) => void;
-  currentJobId: string | null;
-  exportLogs: any[];
-  isRunning: boolean;
-  onSelectHistoryJob: (jobId: string) => void;
-}) {
-  return (
-    <Box
-      sx={{
-        background: alpha(colors.primary.light, 0.02),
-        border: `1px solid ${alpha(colors.primary.main, 0.1)}`,
-        borderRadius: `${spacing.sm / 8}px`,
-        overflow: 'hidden',
-      }}
-    >
-      {/* Header with tabs */}
-      <Box
-        sx={{
-          px: 3,
-          py: 2,
-          borderBottom: `1px solid ${alpha(colors.primary.main, 0.08)}`,
-          background: alpha(colors.primary.light, 0.03),
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Typography variant="subtitle1" fontWeight={600}>
-          Export Progress & Activity
-        </Typography>
-        
-        {/* Toggle buttons */}
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant={!showHistory ? 'contained' : 'outlined'}
-            size="small"
-            onClick={() => setShowHistory(false)}
-            sx={{
-              backgroundColor: !showHistory ? colors.primary.main : 'transparent',
-              color: !showHistory ? 'white' : colors.primary.main,
-              borderColor: colors.primary.main,
-              '&:hover': {
-                backgroundColor: !showHistory ? colors.primary.dark : alpha(colors.primary.main, 0.08),
-              },
-            }}
-          >
-            Current Export
-          </Button>
-          <Button
-            variant={showHistory ? 'contained' : 'outlined'}
-            size="small"
-            onClick={() => setShowHistory(true)}
-            sx={{
-              backgroundColor: showHistory ? colors.primary.main : 'transparent',
-              color: showHistory ? 'white' : colors.primary.main,
-              borderColor: colors.primary.main,
-              '&:hover': {
-                backgroundColor: showHistory ? colors.primary.dark : alpha(colors.primary.main, 0.08),
-              },
-            }}
-          >
-            Export History
-          </Button>
-        </Box>
-      </Box>
-
-      {/* Content */}
-      <Box sx={{ p: 0 }}>
-        {showHistory ? (
-          <JobHistory
-            onSelectJob={onSelectHistoryJob}
-            currentJobId={currentJobId}
-          />
-        ) : (
-          <Box sx={{ p: 3 }}>
-            {(exportLogs.length > 0 || isRunning) && (
-              <ExportLogs 
-                logs={exportLogs.filter(log => log.level !== 'debug').map(log => ({
-                  ts: new Date(log.timestamp).getTime(),
-                  msg: log.message,
-                  level: log.level as 'info' | 'warn' | 'error',
-                  assetType: log.details?.assetType,
-                  assetId: log.details?.assetId,
-                  apiCalls: log.details?.apiCalls
-                }))}
-                maxHeight={300}
-                showTimestamps={true}
-                defaultExpanded={isRunning}
-              />
-            )}
-          </Box>
-        )}
-      </Box>
-    </Box>
-  );
-}
-
 export default function DataExportView() {
-  // State for export configuration
   const [selectedAssetTypes, setSelectedAssetTypes] = useState<AssetType[]>([
     'dashboards', 'datasets', 'analyses', 'datasources', 'groups', 'folders', 'users'
   ]);
   const [exportMode, setExportMode] = useState<ExportMode>('smart');
   const [showHistory, setShowHistory] = useState(false);
-  
-  // Cache summary hook
+
   const {
     cacheSummary,
     cacheSummaryLoading,
@@ -265,8 +34,7 @@ export default function DataExportView() {
     setShowInitialExportPrompt,
     loadCacheSummary,
   } = useCacheSummary();
-  
-  // Export job hook
+
   const {
     currentJobId,
     jobStatus,
@@ -278,8 +46,7 @@ export default function DataExportView() {
     refreshStatus,
     loadHistoricalJob,
   } = useExportJob(loadCacheSummary);
-  
-  // Other operations hook
+
   const {
     refreshingActivity,
     exportingIngestions,
@@ -290,96 +57,96 @@ export default function DataExportView() {
     clearCache,
     clearStuckJobs,
   } = useExportOperations(loadCacheSummary);
-  
-  // Handle export start
+
   const handleStartExport = async () => {
     await startExport(selectedAssetTypes, exportMode);
     setShowInitialExportPrompt(false);
   };
 
-  // Handle job history selection
   const handleSelectHistoryJob = async (jobId: string) => {
-    // Switch back to current export view
     setShowHistory(false);
-    
-    // Load the historical job details
     await loadHistoricalJob(jobId);
   };
-  
-  return (
-    <Box>
-      <PageHeader
-        title="Export Assets"
-        extraActions={
-          <Tooltip title="View Export History">
-            <IconButton
-              onClick={() => setShowHistory(!showHistory)}
-              sx={{
-                color: showHistory ? colors.primary.main : 'text.secondary',
-                '&:hover': {
-                  backgroundColor: alpha(colors.primary.main, 0.08),
-                },
-              }}
-            >
-              <HistoryIcon />
-            </IconButton>
-          </Tooltip>
-        }
-      />
 
-      <Stack spacing={3} sx={{ px: 3, pb: 3 }}>
-        
-        {/* Initial Export Prompt */}
-        <InitialExportPrompt 
-          show={showInitialExportPrompt} 
-          onStart={handleStartExport}
+  return (
+    <PageLayout title="Export Assets">
+
+      {/* Initial Export Prompt */}
+      {showInitialExportPrompt && (
+        <Alert
+          severity="info"
+          action={
+            <Button color="inherit" size="small" onClick={handleStartExport}>
+              Start Initial Export
+            </Button>
+          }
+          sx={{ mb: 2 }}
+        >
+          No cached data found. Run an initial export to populate the cache.
+        </Alert>
+      )}
+
+      <Stack spacing={2}>
+        {/* Stats — compact row */}
+        <ExportStats
+          totalAssets={cacheSummary?.totalAssets || 0}
+          archivedAssets={cacheSummary?.archivedAssetCounts?.total || 0}
+          lastUpdated={cacheSummary?.lastExportDate}
+          fieldStats={cacheSummary?.fieldStatistics ? {
+            total: cacheSummary.fieldStatistics.totalFields || 0,
+            calculated: cacheSummary.fieldStatistics.totalCalculatedFields || 0,
+            physical: (cacheSummary.fieldStatistics.totalFields || 0) - (cacheSummary.fieldStatistics.totalCalculatedFields || 0)
+          } : null}
+          loading={cacheSummaryLoading}
         />
-        
-        {/* Stats Grid */}
-        <Fade in={!cacheSummaryLoading}>
-          <Grid container spacing={2}>
-            <ExportStats
-              totalAssets={cacheSummary?.totalAssets || 0}
-              archivedAssets={cacheSummary?.archivedAssetCounts?.total || 0}
-              lastUpdated={cacheSummary?.lastExportDate}
-              fieldStats={cacheSummary?.fieldStatistics ? {
-                total: cacheSummary.fieldStatistics.totalFields || 0,
-                calculated: cacheSummary.fieldStatistics.totalCalculatedFields || 0,
-                physical: (cacheSummary.fieldStatistics.totalFields || 0) - (cacheSummary.fieldStatistics.totalCalculatedFields || 0)
-              } : null}
-              cacheSize={cacheSummary?.totalSize}
-              loading={cacheSummaryLoading}
+
+        {/* Export Controls + Asset Types — side by side with flexbox (no Grid negative margins) */}
+        <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', md: 'row' } }}>
+          <Box sx={{ flex: '0 0 auto', width: { xs: '100%', md: '40%' } }}>
+            <ExportControls
+              exportMode={exportMode}
+              onModeChange={setExportMode}
+              isRunning={isRunning}
+              isRefreshing={isRefreshing}
+              onStartExport={handleStartExport}
+              onStopExport={stopExport}
+              onRefreshStatus={refreshStatus}
+              onRefreshActivity={refreshActivity}
+              onExportIngestions={exportIngestions}
+              onClearMemoryCache={clearCache}
+              onClearStuckJobs={clearStuckJobs}
+              canRefreshActivity={!refreshingActivity}
+              refreshingActivity={refreshingActivity}
+              exportingIngestions={exportingIngestions}
+              clearingCache={clearingCache}
+              clearingStuckJobs={clearingStuckJobs}
+              selectedTypesCount={selectedAssetTypes.length}
             />
-          </Grid>
-        </Fade>
-        
-        {/* Export Configuration */}
-        <ExportConfigurationSection
-          selectedAssetTypes={selectedAssetTypes}
-          setSelectedAssetTypes={setSelectedAssetTypes}
-          exportMode={exportMode}
-          setExportMode={setExportMode}
-          isRunning={isRunning}
-          isRefreshing={isRefreshing}
-          onStartExport={handleStartExport}
-          onStopExport={stopExport}
-          onRefreshStatus={refreshStatus}
-          onRefreshActivity={refreshActivity}
-          onExportIngestions={exportIngestions}
-          onClearMemoryCache={clearCache}
-          onClearStuckJobs={clearStuckJobs}
-          canRefreshActivity={!refreshingActivity}
-          refreshingActivity={refreshingActivity}
-          exportingIngestions={exportingIngestions}
-          clearingCache={clearingCache}
-          clearingStuckJobs={clearingStuckJobs}
-        />
-        
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <AssetTypeSelector
+              selectedTypes={selectedAssetTypes}
+              onToggle={(assetType) => {
+                setSelectedAssetTypes((prev: AssetType[]) =>
+                  prev.includes(assetType)
+                    ? prev.filter(t => t !== assetType)
+                    : [...prev, assetType]
+                );
+              }}
+              disabled={isRunning || exportMode === 'rebuild'}
+            />
+            {exportMode === 'rebuild' && (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                Rebuild cache mode will process all asset types from existing S3 files.
+              </Alert>
+            )}
+          </Box>
+        </Box>
+
         {/* Current Job Status */}
         {jobStatus && (
-          <Alert 
+          <Alert
             severity={jobStatus.status === 'failed' ? 'error' : jobStatus.status === 'completed' ? 'success' : 'info'}
-            sx={{ mb: 2 }}
           >
             <Typography variant="body2">
               <strong>Current Job:</strong> {jobStatus.status}
@@ -389,15 +156,75 @@ export default function DataExportView() {
         )}
 
         {/* Export Progress & Activity */}
-        <ExportProgressSection
-          showHistory={showHistory}
-          setShowHistory={setShowHistory}
-          currentJobId={currentJobId}
-          exportLogs={exportLogs}
-          isRunning={isRunning}
-          onSelectHistoryJob={handleSelectHistoryJob}
-        />
+        <Box
+          sx={{
+            border: `1px solid ${colors.neutral[200]}`,
+            borderRadius: `${spacing.sm / 8}px`,
+            overflow: 'hidden',
+          }}
+        >
+          <Box
+            sx={{
+              px: 2,
+              py: 1.5,
+              borderBottom: `1px solid ${colors.neutral[200]}`,
+              bgcolor: colors.neutral[50],
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <Typography variant="subtitle2" fontWeight={600}>
+              Export Progress
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                variant={!showHistory ? 'contained' : 'outlined'}
+                size="small"
+                onClick={() => setShowHistory(false)}
+              >
+                Current
+              </Button>
+              <Button
+                variant={showHistory ? 'contained' : 'outlined'}
+                size="small"
+                onClick={() => setShowHistory(true)}
+              >
+                History
+              </Button>
+            </Box>
+          </Box>
+
+          {showHistory ? (
+            <JobHistory
+              onSelectJob={handleSelectHistoryJob}
+              currentJobId={currentJobId}
+            />
+          ) : (
+            <Box sx={{ p: 2 }}>
+              {(exportLogs.length > 0 || isRunning) ? (
+                <ExportLogs
+                  logs={exportLogs.filter(log => log.level !== 'debug').map(log => ({
+                    ts: new Date(log.timestamp).getTime(),
+                    msg: log.message,
+                    level: log.level as 'info' | 'warn' | 'error',
+                    assetType: (log.details as any)?.assetType,
+                    assetId: (log.details as any)?.assetId,
+                    apiCalls: (log.details as any)?.apiCalls
+                  }))}
+                  maxHeight={300}
+                  showTimestamps={true}
+                  defaultExpanded={isRunning}
+                />
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                  No export activity. Start an export to see progress here.
+                </Typography>
+              )}
+            </Box>
+          )}
+        </Box>
       </Stack>
-    </Box>
+    </PageLayout>
   );
 }

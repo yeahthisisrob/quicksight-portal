@@ -1,5 +1,5 @@
-import { Code, Dashboard, Analytics, Dataset, Storage, Folder, Person, Group, RestoreFromTrash } from '@mui/icons-material';
-import { Box, Typography, Chip, Tooltip, IconButton, MenuItem, Select, FormControl, InputLabel, SelectChangeEvent } from '@mui/material';
+import { ContentCopy as CopyIcon, Dashboard, Analytics, Dataset, Storage, Folder, Person, Group, MoreVert as MoreVertIcon } from '@mui/icons-material';
+import { Box, Typography, Chip, Tooltip, IconButton, Menu, MenuItem, Select, FormControl, InputLabel, SelectChangeEvent } from '@mui/material';
 import { GridRowSelectionModel } from '@mui/x-data-grid';
 import { format } from 'date-fns';
 import React, { useState, useCallback } from 'react';
@@ -8,7 +8,10 @@ import { EnhancedAssetTable } from '@/widgets/asset-table';
 
 import { RestoreAssetDialog } from '@/features/asset-management/ui/RestoreAssetDialog';
 
+import { copyToClipboard } from '@/widgets/asset-table';
+
 import { assetsApi } from '@/shared/api';
+import { PageLayout } from '@/shared/ui';
 import { JsonViewerModal } from '@/shared/ui/JsonViewer';
 
 import type { ArchivedAssetItem as LocalArchivedAssetItem } from '@/features/asset-management';
@@ -36,6 +39,41 @@ const ASSET_TYPE_COLORS: Record<AssetType, string> = {
   user: '#0288d1',
   group: '#7b1fa2',
 };
+
+function ArchivedActionsMenu({ asset, onRestore, onViewJson }: {
+  asset: ArchivedAssetItem;
+  onRestore: (a: ArchivedAssetItem) => void;
+  onViewJson: (a: ArchivedAssetItem) => void;
+}) {
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+
+  return (
+    <>
+      <IconButton
+        size="small"
+        onClick={(e) => { e.stopPropagation(); setAnchorEl(e.currentTarget); }}
+        sx={{ color: 'text.secondary', padding: '4px' }}
+      >
+        <MoreVertIcon fontSize="small" />
+      </IconButton>
+      <Menu
+        anchorEl={anchorEl}
+        open={open}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem onClick={() => { onRestore(asset); setAnchorEl(null); }}>
+          Restore Asset
+        </MenuItem>
+        <MenuItem onClick={() => { onViewJson(asset); setAnchorEl(null); }}>
+          View JSON
+        </MenuItem>
+      </Menu>
+    </>
+  );
+}
 
 export const ArchivedAssetsPage: React.FC = () => {
   const [assets, setAssets] = useState<ArchivedAssetItem[]>([]);
@@ -109,23 +147,12 @@ export const ArchivedAssetsPage: React.FC = () => {
   const columns = [
     {
       id: 'actions',
-      label: 'Actions',
-      width: 100,
+      label: ' ',
+      width: 50,
       sortable: false,
       required: true,
       renderCell: (params: any) => (
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <Tooltip title="Restore Asset">
-            <IconButton size="small" onClick={() => handleRestore(params.row)} color="primary">
-              <RestoreFromTrash fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="View JSON">
-            <IconButton size="small" onClick={() => handleViewJson(params.row)}>
-              <Code fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
+        <ArchivedActionsMenu asset={params.row} onRestore={handleRestore} onViewJson={handleViewJson} />
       ),
     },
     {
@@ -138,12 +165,35 @@ export const ArchivedAssetsPage: React.FC = () => {
     {
       id: 'id',
       label: 'Asset ID',
-      width: 300,
-      renderCell: (params: any) => (
-        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
-          {params.value}
-        </Typography>
-      ),
+      flex: 1,
+      minWidth: 200,
+      renderCell: (params: any) => {
+        const fullId = params.value || '';
+        const shortId = fullId.length > 15
+          ? `${fullId.slice(0, 8)}...${fullId.slice(-4)}`
+          : fullId;
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Tooltip title={fullId}>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontFamily: 'monospace',
+                  fontSize: '0.875rem',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {shortId}
+              </Typography>
+            </Tooltip>
+            <IconButton size="small" onClick={() => copyToClipboard(fullId)} sx={{ padding: '2px' }}>
+              <CopyIcon sx={{ fontSize: '16px' }} />
+            </IconButton>
+          </Box>
+        );
+      },
     },
     {
       id: 'type',
@@ -252,45 +302,44 @@ export const ArchivedAssetsPage: React.FC = () => {
   );
 
   return (
-    <Box sx={{ p: 3 }}>
+    <PageLayout title="Archived Assets" totalRows={totalRows}>
       <EnhancedAssetTable
-          title="Archived Assets"
-          assets={assets}
-          loading={loading}
-          totalRows={totalRows}
-          columns={columns}
-          onFetchAssets={fetchAssets}
-          selectedRows={selectedRows}
-          onSelectionChange={setSelectedRows}
-          enableBulkActions={false}
-          defaultPageSize={50}
-          defaultSortModel={[{ field: 'archivedDate', sort: 'desc' }]}
-          extraToolbarActions={extraToolbarActions}
-          getRowId={(row) => `${row.type}-${row.id}`}
-        />
+        assets={assets}
+        loading={loading}
+        totalRows={totalRows}
+        columns={columns}
+        onFetchAssets={fetchAssets}
+        selectedRows={selectedRows}
+        onSelectionChange={setSelectedRows}
+        enableBulkActions={false}
+        defaultPageSize={50}
+        defaultSortModel={[{ field: 'archivedDate', sort: 'desc' }]}
+        extraToolbarActions={extraToolbarActions}
+        getRowId={(row) => `${row.type}-${row.id}`}
+      />
 
-        {selectedAsset && (
-          <JsonViewerModal
-            open={jsonViewerOpen}
-            onClose={() => {
-              setJsonViewerOpen(false);
-              setSelectedAsset(null);
-            }}
-            assetType={selectedAsset.type}
-            assetId={selectedAsset.id}
-            assetName={selectedAsset.name}
-          />
-        )}
-
-        <RestoreAssetDialog
-          open={restoreDialogOpen}
+      {selectedAsset && (
+        <JsonViewerModal
+          open={jsonViewerOpen}
           onClose={() => {
-            setRestoreDialogOpen(false);
-            setAssetToRestore(null);
+            setJsonViewerOpen(false);
+            setSelectedAsset(null);
           }}
-          onSuccess={handleRestoreSuccess}
-          asset={assetToRestore}
+          assetType={selectedAsset.type}
+          assetId={selectedAsset.id}
+          assetName={selectedAsset.name}
         />
-    </Box>
+      )}
+
+      <RestoreAssetDialog
+        open={restoreDialogOpen}
+        onClose={() => {
+          setRestoreDialogOpen(false);
+          setAssetToRestore(null);
+        }}
+        onSuccess={handleRestoreSuccess}
+        asset={assetToRestore}
+      />
+    </PageLayout>
   );
 };

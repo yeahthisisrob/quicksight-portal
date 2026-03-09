@@ -1,17 +1,11 @@
 import { alpha } from '@mui/material';
 
-import { colors, spacing } from '@/shared/design-system/theme';
+import { colors, components, spacing } from '@/shared/design-system/theme';
 
 export const ACTIONS_WIDTH = 50; // Width for the actions column
 
 export const tableStyles = {
-  container: {
-    borderRadius: `${spacing.md / 8}px`,
-    overflow: 'hidden',
-    boxShadow: `0 1px 3px ${alpha(colors.neutral[900], 0.05)}, 0 1px 2px ${alpha(colors.neutral[900], 0.1)}`,
-    border: `1px solid ${colors.neutral[200]}`,
-    bgcolor: 'white',
-  },
+  container: components.container,
   
   dataGrid: {
     border: 'none',

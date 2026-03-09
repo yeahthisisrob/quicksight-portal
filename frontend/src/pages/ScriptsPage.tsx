@@ -37,7 +37,7 @@ import { useSnackbar } from 'notistack';
 import React, { useState } from 'react';
 
 import { scriptsApi } from '@/shared/api';
-import { PageHeader } from '@/shared/ui';
+import { PageLayout } from '@/shared/ui';
 
 
 export const ScriptsPage: React.FC = () => {
@@ -86,10 +86,8 @@ export const ScriptsPage: React.FC = () => {
     previewData.analyses.length : 0;
 
   return (
-    <Box sx={{ p: 3 }}>
-      <PageHeader title="Scripts" />
-
-      <Accordion 
+    <PageLayout title="Scripts">
+      <Accordion
         expanded={expandedPanel === 'demo-cleanup'} 
         onChange={handleAccordionChange('demo-cleanup')}
         sx={{ mb: 2 }}
@@ -347,6 +345,6 @@ export const ScriptsPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </PageLayout>
   );
 };

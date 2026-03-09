@@ -21,7 +21,7 @@ import {
 
 import { dataCatalogApi } from '@/shared/api/modules/data-catalog';
 import { useDebounce, useFilters } from '@/shared/lib';
-import { PageHeader } from '@/shared/ui';
+import { PageLayout } from '@/shared/ui';
 
 const { ContentView, SearchBar } = PageComponents;
 const {
@@ -167,9 +167,7 @@ function DataCatalogPageContent() {
   };
 
   return (
-    <Box>
-      <PageHeader title="Data Catalog" />
-
+    <PageLayout title="Data Catalog">
       <DataCatalogHeader
         viewMode={state.viewMode}
         onViewModeChange={state.setViewMode}
@@ -213,7 +211,7 @@ function DataCatalogPageContent() {
         dialogHandlers={dialogHandlers}
         additionalData={additionalData}
       />
-        
+
       <DialogsContainer
         dialogState={state.dialogState}
         closeDialog={(name) => state.closeDialog(name as keyof typeof state.dialogState)}
@@ -227,7 +225,7 @@ function DataCatalogPageContent() {
         invalidateCatalogQueries={handlers.invalidateCatalogQueries}
         invalidateSemanticQueries={handlers.invalidateSemanticQueries}
       />
-    </Box>
+    </PageLayout>
   );
 }
 

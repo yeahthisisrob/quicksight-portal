@@ -2,6 +2,7 @@
  * Design System Theme Configuration
  * This file contains all the design tokens used across the application
  */
+import { alpha } from '@mui/material';
 
 export const colors = {
   // Primary Colors
@@ -177,5 +178,14 @@ export const components = {
       transform: 'translateX(4px)',
       transition: `all ${transitions.normal} ${transitions.easing.easeInOut}`,
     },
+  },
+
+  /** Shared bordered container style used by page containers and asset tables */
+  container: {
+    borderRadius: `${spacing.md / 8}px`,
+    overflow: 'hidden' as const,
+    boxShadow: `0 1px 3px ${alpha(colors.neutral[900], 0.05)}, 0 1px 2px ${alpha(colors.neutral[900], 0.1)}`,
+    border: `1px solid ${colors.neutral[200]}`,
+    bgcolor: 'white',
   },
 };

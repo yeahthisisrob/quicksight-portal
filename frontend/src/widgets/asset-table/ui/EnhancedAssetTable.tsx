@@ -66,7 +66,7 @@ export interface FetchAssetsOptions {
 }
 
 interface EnhancedAssetTableProps {
-  title: string;
+  title?: string;
   assets: any[];
   loading: boolean;
   totalRows: number;
@@ -375,11 +375,13 @@ export default function EnhancedAssetTable({
 
   return (
     <Box>
-      <TableHeader
-        title={title}
-        totalRows={totalRows}
-        extraActions={extraToolbarActions}
-      />
+      {title && (
+        <TableHeader
+          title={title}
+          totalRows={totalRows}
+          extraActions={extraToolbarActions}
+        />
+      )}
 
       {enableBulkActions && selectedRows.length > 0 && (
         <Box sx={{ mb: spacing.md / 8 }}>
