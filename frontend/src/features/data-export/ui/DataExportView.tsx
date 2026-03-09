@@ -2,10 +2,11 @@
  * Refactored DataExportView with reduced complexity
  */
 import { History as HistoryIcon } from '@mui/icons-material';
-import { Alert, Box, Button, Fade, Grid, Stack, Typography, alpha, IconButton, Tooltip } from '@mui/material';
+import { Alert, Box, Button, Fade, Grid, IconButton, Stack, Tooltip, Typography, alpha } from '@mui/material';
 import { useState } from 'react';
 
 import { colors, spacing } from '@/shared/design-system/theme';
+import { PageHeader } from '@/shared/ui';
 
 import {
   AssetTypeSelector,
@@ -307,58 +308,24 @@ export default function DataExportView() {
   
   return (
     <Box>
-      {/* Header matching TableHeader pattern */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          mb: spacing.lg / 8,
-          p: spacing.lg / 8,
-          borderRadius: `${spacing.sm / 8}px`,
-          background: `linear-gradient(135deg, ${alpha(colors.primary.light, 0.05)} 0%, ${alpha(colors.primary.main, 0.05)} 100%)`,
-          backdropFilter: 'blur(10px)',
-          border: `1px solid ${alpha(colors.primary.main, 0.1)}`,
-        }}
-      >
-        <Box>
-          <Typography 
-            variant="h4" 
-            sx={{ 
-              fontWeight: 700,
-              background: `linear-gradient(135deg, ${colors.primary.main} 0%, ${colors.primary.dark} 100%)`,
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              mb: 0.5,
-            }}
-          >
-            Data Export
-          </Typography>
-          <Typography 
-            variant="body1" 
-            sx={{ 
-              color: colors.neutral[600],
-              fontWeight: 400,
-            }}
-          >
-            Synchronize and export your QuickSight assets with advanced controls
-          </Typography>
-        </Box>
-        <Tooltip title="View Export History">
-          <IconButton
-            onClick={() => setShowHistory(!showHistory)}
-            sx={{
-              color: showHistory ? colors.primary.main : 'text.secondary',
-              '&:hover': {
-                backgroundColor: alpha(colors.primary.main, 0.08),
-              },
-            }}
-          >
-            <HistoryIcon />
-          </IconButton>
-        </Tooltip>
-      </Box>
+      <PageHeader
+        title="Export Assets"
+        extraActions={
+          <Tooltip title="View Export History">
+            <IconButton
+              onClick={() => setShowHistory(!showHistory)}
+              sx={{
+                color: showHistory ? colors.primary.main : 'text.secondary',
+                '&:hover': {
+                  backgroundColor: alpha(colors.primary.main, 0.08),
+                },
+              }}
+            >
+              <HistoryIcon />
+            </IconButton>
+          </Tooltip>
+        }
+      />
 
       <Stack spacing={3} sx={{ px: 3, pb: 3 }}>
         

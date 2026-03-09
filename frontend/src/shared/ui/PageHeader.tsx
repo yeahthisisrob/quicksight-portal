@@ -1,20 +1,45 @@
-import { Box, Typography } from '@mui/material';
+import { Box, Chip, Typography } from '@mui/material';
+
+import { spacing } from '@/shared/design-system/theme';
 
 interface PageHeaderProps {
   title: string;
-  subtitle?: string;
+  totalRows?: number;
+  extraActions?: React.ReactNode;
 }
 
-export function PageHeader({ title, subtitle }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  totalRows,
+  extraActions,
+}: PageHeaderProps) {
   return (
-    <Box sx={{ mb: 3 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        {title}
-      </Typography>
-      {subtitle && (
-        <Typography variant="body1" color="text.secondary">
-          {subtitle}
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        mb: spacing.sm / 8,
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+          {title}
         </Typography>
+        {totalRows !== undefined && (
+          <Chip
+            label={totalRows.toLocaleString()}
+            size="small"
+            variant="outlined"
+            sx={{ fontWeight: 500, fontSize: '0.75rem' }}
+          />
+        )}
+      </Box>
+
+      {extraActions && (
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {extraActions}
+        </Box>
       )}
     </Box>
   );

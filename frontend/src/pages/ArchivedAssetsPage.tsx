@@ -1,4 +1,4 @@
-import { Archive, Code, Dashboard, Analytics, Dataset, Storage, Folder, Person, Group, RestoreFromTrash } from '@mui/icons-material';
+import { Code, Dashboard, Analytics, Dataset, Storage, Folder, Person, Group, RestoreFromTrash } from '@mui/icons-material';
 import { Box, Typography, Chip, Tooltip, IconButton, MenuItem, Select, FormControl, InputLabel, SelectChangeEvent } from '@mui/material';
 import { GridRowSelectionModel } from '@mui/x-data-grid';
 import { format } from 'date-fns';
@@ -253,20 +253,8 @@ export const ArchivedAssetsPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Archive sx={{ fontSize: 32, color: 'text.secondary' }} />
-        <Box>
-          <Typography variant="h4" component="h1">
-            Archived Assets
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            View and manage assets that have been deleted from QuickSight and moved to the archive.
-          </Typography>
-        </Box>
-      </Box>
-
       <EnhancedAssetTable
-          title=""
+          title="Archived Assets"
           assets={assets}
           loading={loading}
           totalRows={totalRows}

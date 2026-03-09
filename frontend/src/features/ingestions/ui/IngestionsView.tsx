@@ -1,9 +1,9 @@
-import { Box, Typography, Alert, alpha } from '@mui/material';
+import { Box, Alert } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { useState, useEffect, useCallback } from 'react';
 
 import { ingestionsApi } from '@/shared/api';
-import { colors, spacing } from '@/shared/design-system/theme';
+import { PageHeader } from '@/shared/ui';
 
 import { IngestionsTable } from './IngestionsTable';
 
@@ -97,45 +97,7 @@ export default function IngestionsView() {
 
   return (
     <Box>
-      {/* Header matching TableHeader pattern */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          mb: spacing.lg / 8,
-          p: spacing.lg / 8,
-          borderRadius: `${spacing.sm / 8}px`,
-          background: `linear-gradient(135deg, ${alpha(colors.primary.light, 0.05)} 0%, ${alpha(colors.primary.main, 0.05)} 100%)`,
-          backdropFilter: 'blur(10px)',
-          border: `1px solid ${alpha(colors.primary.main, 0.1)}`,
-        }}
-      >
-        <Box>
-          <Typography 
-            variant="h4" 
-            sx={{ 
-              fontWeight: 700,
-              background: `linear-gradient(135deg, ${colors.primary.main} 0%, ${colors.primary.dark} 100%)`,
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              mb: 0.5,
-            }}
-          >
-            Ingestions
-          </Typography>
-          <Typography 
-            variant="body1" 
-            sx={{ 
-              color: colors.neutral[600],
-              fontWeight: 400,
-            }}
-          >
-            Monitor and manage SPICE dataset ingestions
-          </Typography>
-        </Box>
-      </Box>
+      <PageHeader title="Ingestions" />
 
       {/* Show a message if no data is cached yet */}
       {!loading && data?.ingestions?.length === 0 && (

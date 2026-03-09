@@ -37,6 +37,8 @@ import { useSnackbar } from 'notistack';
 import React, { useState } from 'react';
 
 import { scriptsApi } from '@/shared/api';
+import { PageHeader } from '@/shared/ui';
+
 
 export const ScriptsPage: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
@@ -85,14 +87,7 @@ export const ScriptsPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Scripts & Automation
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Automated tasks and maintenance scripts for QuickSight assets
-        </Typography>
-      </Box>
+      <PageHeader title="Scripts" />
 
       <Accordion 
         expanded={expandedPanel === 'demo-cleanup'} 

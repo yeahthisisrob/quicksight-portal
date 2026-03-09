@@ -378,7 +378,7 @@ export default function EnhancedAssetTable({
       <TableHeader
         title={title}
         totalRows={totalRows}
-        extraToolbarActions={extraToolbarActions}
+        extraActions={extraToolbarActions}
       />
 
       {enableBulkActions && selectedRows.length > 0 && (
