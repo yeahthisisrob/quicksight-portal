@@ -7,6 +7,7 @@ type ActivityData = components['schemas']['ActivityData'];
 type UserActivity = components['schemas']['UserActivity'];
 type ResolvedRecipient = components['schemas']['ResolvedRecipient'];
 type UserInactiveAnalysis = components['schemas']['UserInactiveAnalysis'];
+type UserUnusedDataset = components['schemas']['UserUnusedDataset'];
 
 export interface RecipientsData {
   users: ResolvedRecipient[];
@@ -147,5 +148,19 @@ export const activityApi = {
       throw new Error(response.data.error || 'Failed to fetch user inactive analyses');
     }
     return response.data.data.analyses;
+  },
+
+  /**
+   * Get unused datasets owned by a specific user
+   */
+  async getUserUnusedDatasets(userName: string): Promise<UserUnusedDataset[]> {
+    const response = await api.post<ApiResponse<{ datasets: UserUnusedDataset[] }>>(
+      '/activity/user-unused-datasets',
+      { userName }
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch user unused datasets');
+    }
+    return response.data.data.datasets;
   },
 };

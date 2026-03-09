@@ -142,6 +142,7 @@ export default function GenericAssetPage({
       setUserAssetAccessDialog: dialogStates.setUserAssetAccessDialog,
       setNotifyInactiveDialog: dialogStates.setNotifyInactiveDialog,
       setNotifyInactiveAnalysesDialog: dialogStates.setNotifyInactiveAnalysesDialog,
+      setNotifyUnusedDatasetsDialog: dialogStates.setNotifyUnusedDatasetsDialog,
     },
     {
       openPermissionsDialog,

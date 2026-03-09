@@ -11,7 +11,7 @@ import {
   TagsDialog 
 } from '@/widgets/asset-dialogs';
 
-import { InactivityMailtoDialog, UserInactiveMailtoDialog } from '@/features/activity';
+import { InactivityMailtoDialog, UserInactiveMailtoDialog, UserUnusedDatasetsDialog } from '@/features/activity';
 import {
   AddToGroupDialog,
   FolderMembersDialog,
@@ -260,6 +260,8 @@ interface DialogManagerProps {
   setNotifyInactiveDialog: (state: any) => void;
   notifyInactiveAnalysesDialog: any;
   setNotifyInactiveAnalysesDialog: (state: any) => void;
+  notifyUnusedDatasetsDialog: any;
+  setNotifyUnusedDatasetsDialog: (state: any) => void;
 
   // Other props
   assetType: AssetType;
@@ -312,6 +314,8 @@ export function DialogManager({
   setNotifyInactiveDialog,
   notifyInactiveAnalysesDialog,
   setNotifyInactiveAnalysesDialog,
+  notifyUnusedDatasetsDialog,
+  setNotifyUnusedDatasetsDialog,
   assetType,
   selectedAssets,
   handleBulkComplete,
@@ -426,6 +430,18 @@ export function DialogManager({
           user={{
             name: notifyInactiveAnalysesDialog.user.name,
             email: notifyInactiveAnalysesDialog.user.email,
+          }}
+        />
+      )}
+
+      {/* User unused datasets mailto dialog */}
+      {notifyUnusedDatasetsDialog.user && (
+        <UserUnusedDatasetsDialog
+          open={notifyUnusedDatasetsDialog.open}
+          onClose={() => setNotifyUnusedDatasetsDialog({ open: false, user: null })}
+          user={{
+            name: notifyUnusedDatasetsDialog.user.name,
+            email: notifyUnusedDatasetsDialog.user.email,
           }}
         />
       )}

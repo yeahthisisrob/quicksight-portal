@@ -10,6 +10,7 @@ import {
   jobFactory,
   type ActivityRefreshJobConfig,
 } from '../../../shared/services/jobs/JobFactory';
+import { LineageService } from '../../../shared/services/lineage';
 import { createResponse, successResponse, errorResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { GroupService } from '../../organization/services/GroupService';
@@ -365,6 +366,7 @@ export async function resolveRecipients(
 }
 
 const OWNER_ACTIONS = ['quicksight:UpdateAnalysis', 'quicksight:DeleteAnalysis'];
+const DATASET_OWNER_ACTIONS = ['quicksight:UpdateDataSet', 'quicksight:DeleteDataSet'];
 const INACTIVE_VIEW_THRESHOLD = 10;
 
 /**
@@ -460,6 +462,129 @@ export async function getUserInactiveAnalyses(
     return successResponse(event, { success: true, data: { analyses: inactiveAnalyses } });
   } catch (error: any) {
     logger.error('Failed to get user inactive analyses', { error });
+    return errorResponse(
+      event,
+      STATUS_CODES.INTERNAL_SERVER_ERROR,
+      error.message || 'Internal server error'
+    );
+  }
+}
+
+const KILO = 1024;
+const BYTES_PER_MB = KILO * KILO;
+const BYTES_PER_GB = KILO * KILO * KILO;
+
+function formatSize(bytes: number): string {
+  if (bytes >= BYTES_PER_GB) {
+    return `${(bytes / BYTES_PER_GB).toFixed(1)} GB`;
+  }
+  return `${(bytes / BYTES_PER_MB).toFixed(1)} MB`;
+}
+
+/**
+ * Get unused datasets owned by a specific user.
+ * A dataset is "unused" if no dashboards or analyses reference it (via lineage).
+ * POST /api/activity/user-unused-datasets
+ */
+export async function getUserUnusedDatasets(
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> {
+  try {
+    await requireAuth(event);
+
+    const body = JSON.parse(event.body || '{}');
+    const { userName } = body;
+
+    if (!userName || typeof userName !== 'string') {
+      return errorResponse(
+        event,
+        STATUS_CODES.BAD_REQUEST,
+        'Invalid request: userName is required'
+      );
+    }
+
+    const cacheService = CacheService.getInstance();
+
+    // Load cached datasets and users
+    const [datasetsResult, usersResult] = await Promise.all([
+      cacheService.getAssetsByType('dataset'),
+      cacheService.getAssetsByType('user'),
+    ]);
+
+    const allDatasets = datasetsResult.assets || [];
+    const userByKey = buildUserLookup(usersResult.assets || []);
+
+    // Filter to datasets where this user has owner-level permissions
+    const ownedDatasets = allDatasets.filter((dataset) => {
+      const permissions: Array<{ principal: string; principalType: string; actions: string[] }> =
+        dataset.permissions || [];
+      return permissions.some((p) => {
+        if (p.principalType !== 'USER') {
+          return false;
+        }
+        const name = extractPrincipalName(p.principal);
+        if (!name) {
+          return false;
+        }
+        const lastSegment = name.split('/').pop() || '';
+        const resolved = userByKey.get(name) || userByKey.get(lastSegment);
+        const matchesUser =
+          name === userName || lastSegment === userName || resolved?.userName === userName;
+        if (!matchesUser) {
+          return false;
+        }
+        return DATASET_OWNER_ACTIONS.some((action) => p.actions.includes(action));
+      });
+    });
+
+    if (ownedDatasets.length === 0) {
+      return successResponse(event, { success: true, data: { datasets: [] } });
+    }
+
+    // Get lineage to find unused datasets
+    const lineageService = new LineageService();
+    const datasetIds = ownedDatasets.map((d) => d.assetId);
+    const lineageMap = await lineageService.getLineageMapForAssets('dataset', datasetIds);
+
+    // Filter to datasets with no used_by relationships to dashboards/analyses
+    const unusedDatasets = ownedDatasets
+      .filter((d) => {
+        const key = `dataset:${d.assetId}`;
+        const lineage = lineageMap.get(key);
+        if (!lineage) {
+          return true;
+        } // No lineage = unused
+        const usedByCount = lineage.relationships.filter(
+          (rel) =>
+            rel.relationshipType === 'used_by' &&
+            (rel.targetAssetType === 'dashboard' || rel.targetAssetType === 'analysis')
+        ).length;
+        return usedByCount === 0;
+      })
+      .map((d) => {
+        const importMode = d.metadata?.importMode || 'SPICE';
+        const sizeInBytes =
+          d.metadata?.consumedSpiceCapacityInBytes || d.metadata?.sizeInBytes || 0;
+        return {
+          datasetId: d.assetId,
+          datasetName: d.assetName || d.assetId,
+          createdTime: d.createdTime || null,
+          lastUpdatedTime: d.lastUpdatedTime || null,
+          importMode,
+          sizeInBytes: importMode === 'SPICE' ? sizeInBytes : 0,
+          sizeFormatted: importMode === 'SPICE' && sizeInBytes > 0 ? formatSize(sizeInBytes) : null,
+        };
+      });
+
+    logger.info('User unused datasets', {
+      userName,
+      ownedCount: ownedDatasets.length,
+      unusedCount: unusedDatasets.length,
+    });
+
+    return successResponse(event, { success: true, data: { datasets: unusedDatasets } });
+  } catch (error: any) {
+    logger.error('Failed to get user unused datasets', { error });
     return errorResponse(
       event,
       STATUS_CODES.INTERNAL_SERVER_ERROR,

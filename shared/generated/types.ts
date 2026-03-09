@@ -1934,6 +1934,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/activity/user-unused-datasets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get unused datasets owned by a specific user
+         * @description Returns datasets where the user has owner-level permissions and no dashboards or analyses reference them
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description The username to find unused datasets for */
+                        userName: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description List of unused datasets */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                datasets: components["schemas"]["UserUnusedDataset"][];
+                            };
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                500: components["responses"]["InternalServerError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/activity/recipients": {
         parameters: {
             query?: never;
@@ -2953,6 +3007,19 @@ export interface components {
             uniqueViewers: number;
             /** Format: date-time */
             lastViewed?: string | null;
+        };
+        UserUnusedDataset: {
+            datasetId: string;
+            datasetName: string;
+            /** Format: date-time */
+            createdTime?: string | null;
+            /** Format: date-time */
+            lastUpdatedTime?: string | null;
+            /** @enum {string} */
+            importMode: "SPICE" | "DIRECT_QUERY";
+            sizeInBytes: number;
+            /** @description Human-readable size (e.g. "12.5 MB", "1.2 GB") for SPICE datasets */
+            sizeFormatted?: string | null;
         };
         ResolvedRecipient: {
             userName: string;

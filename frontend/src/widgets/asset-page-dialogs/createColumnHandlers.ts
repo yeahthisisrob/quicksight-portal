@@ -17,6 +17,7 @@ interface DialogSetters {
   setUserAssetAccessDialog: (state: any) => void;
   setNotifyInactiveDialog: (state: any) => void;
   setNotifyInactiveAnalysesDialog: (state: any) => void;
+  setNotifyUnusedDatasetsDialog: (state: any) => void;
 }
 
 interface PageStateActions {
@@ -50,6 +51,7 @@ export function createColumnHandlers(
     setUserAssetAccessDialog,
     setNotifyInactiveDialog,
     setNotifyInactiveAnalysesDialog,
+    setNotifyUnusedDatasetsDialog,
   } = dialogSetters;
   
   const {
@@ -112,6 +114,9 @@ export function createColumnHandlers(
     },
     onNotifyInactiveAnalyses: (user: any) => {
       setNotifyInactiveAnalysesDialog({ open: true, user });
+    },
+    onNotifyUnusedDatasets: (user: any) => {
+      setNotifyUnusedDatasetsDialog({ open: true, user });
     },
   };
 }

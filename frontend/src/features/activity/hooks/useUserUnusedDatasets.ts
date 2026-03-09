@@ -4,17 +4,17 @@ import { activityApi } from '@/shared/api/modules/activity';
 
 import type { components } from '@shared/generated/types';
 
-type UserInactiveAnalysis = components['schemas']['UserInactiveAnalysis'];
+type UserUnusedDataset = components['schemas']['UserUnusedDataset'];
 
-interface UseUserInactiveMailtoProps {
+interface UseUserUnusedDatasetsProps {
   open: boolean;
   user: { name: string; email: string };
 }
 
-export function useUserInactiveMailto({ open, user }: UseUserInactiveMailtoProps) {
+export function useUserUnusedDatasets({ open, user }: UseUserUnusedDatasetsProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [analyses, setAnalyses] = useState<UserInactiveAnalysis[]>([]);
+  const [datasets, setDatasets] = useState<UserUnusedDataset[]>([]);
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [ccEmails, setCcEmails] = useState<string[]>([]);
   const [subject, setSubject] = useState('');
@@ -24,59 +24,61 @@ export function useUserInactiveMailto({ open, user }: UseUserInactiveMailtoProps
     lines.push('Hi,');
     lines.push('');
     lines.push(
-      `The following analyses owned by ${user.name} have low activity (fewer than 10 views). Please review whether they are still needed or can be deleted.`
+      `The following datasets owned by ${user.name} are not used by any dashboards or analyses. Please review whether they are still needed or can be deleted.`
     );
     lines.push('');
 
-    if (analyses.length > 0) {
-      lines.push(`Inactive Analyses (${analyses.length}):`);
+    if (datasets.length > 0) {
+      lines.push(`Unused Datasets (${datasets.length}):`);
       lines.push('');
 
-      for (const analysis of analyses) {
-        const created = analysis.createdTime
-          ? new Date(analysis.createdTime).toLocaleDateString('en-US', {
+      for (const dataset of datasets) {
+        const created = dataset.createdTime
+          ? new Date(dataset.createdTime).toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
               year: 'numeric',
             })
           : 'Unknown';
-        const modified = analysis.lastUpdatedTime
-          ? new Date(analysis.lastUpdatedTime).toLocaleDateString('en-US', {
+        const modified = dataset.lastUpdatedTime
+          ? new Date(dataset.lastUpdatedTime).toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
               year: 'numeric',
             })
           : 'Unknown';
-        const lastViewed = analysis.lastViewed
-          ? new Date(analysis.lastViewed).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            })
-          : 'Never';
 
-        lines.push(`  - ${analysis.analysisName}`);
+        const mode = dataset.importMode === 'SPICE' ? 'SPICE' : 'Direct Query';
+        const sizeInfo = dataset.importMode === 'SPICE' && dataset.sizeFormatted
+          ? ` (${dataset.sizeFormatted})`
+          : dataset.importMode === 'SPICE'
+            ? ' (size unknown)'
+            : '';
+
+        lines.push(`  - ${dataset.datasetName}`);
         lines.push(`    Created: ${created} | Modified: ${modified}`);
-        lines.push(
-          `    Views: ${analysis.totalViews} (${analysis.uniqueViewers} users) | Last viewed: ${lastViewed}`
-        );
+        lines.push(`    Mode: ${mode}${sizeInfo}`);
         lines.push('');
       }
     }
 
+    lines.push('Please review and delete any datasets that are no longer needed.');
+    if (datasets.some((d) => d.importMode === 'SPICE' && d.sizeInBytes > 0)) {
+      lines.push('Deleting unused SPICE datasets will free up SPICE capacity.');
+    }
     lines.push('');
-    lines.push('Please review and delete any analyses that are no longer needed.');
+    lines.push('Note: Due to QuickSight limitations, dataset usage may not be fully accurate. Please double-check with the Usage tab in the QuickSight console before deleting.');
     lines.push('');
     lines.push('Thank you');
 
     return lines.join('\n');
-  }, [user.name, analyses]);
+  }, [user.name, datasets]);
 
-  // Fetch inactive analyses when dialog opens
+  // Fetch unused datasets when dialog opens
   useEffect(() => {
     if (!open) return;
 
-    setSubject(`Inactive Analyses Review: ${user.name}`);
+    setSubject(`Unused Datasets Review: ${user.name}`);
     setSelectedEmails(new Set([user.email]));
 
     let cancelled = false;
@@ -84,19 +86,19 @@ export function useUserInactiveMailto({ open, user }: UseUserInactiveMailtoProps
     setError(null);
 
     activityApi
-      .getUserInactiveAnalyses(user.name)
+      .getUserUnusedDatasets(user.name)
       .then((data) => {
         if (cancelled) return;
-        setAnalyses(data);
+        setDatasets(data);
         if (data.length === 0) {
-          setError('No inactive analyses found for this user.');
+          setError('No unused datasets found for this user.');
         }
         setLoading(false);
       })
       .catch((err) => {
         if (cancelled) return;
-        console.error('[UserInactiveMailto] Failed to fetch inactive analyses:', err);
-        setError('Failed to fetch inactive analyses.');
+        console.error('[UserUnusedDatasets] Failed to fetch unused datasets:', err);
+        setError('Failed to fetch unused datasets.');
         setLoading(false);
       });
 
@@ -108,7 +110,7 @@ export function useUserInactiveMailto({ open, user }: UseUserInactiveMailtoProps
   // Reset on close
   useEffect(() => {
     if (!open) {
-      setAnalyses([]);
+      setDatasets([]);
       setSelectedEmails(new Set());
       setCcEmails([]);
       setError(null);
@@ -147,7 +149,7 @@ export function useUserInactiveMailto({ open, user }: UseUserInactiveMailtoProps
   return {
     loading,
     error,
-    analyses,
+    datasets,
     selectedEmails,
     ccEmails,
     subject,

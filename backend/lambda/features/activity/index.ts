@@ -4,6 +4,7 @@ import {
   getActivitySummary,
   resolveRecipients,
   getUserInactiveAnalyses,
+  getUserUnusedDatasets,
 } from './handlers/ActivityHandler';
 import { type RouteHandler } from '../../api/types';
 
@@ -33,6 +34,11 @@ export const activityRoutes: RouteHandler[] = [
     method: 'POST',
     handler: getUserInactiveAnalyses,
   },
+  {
+    path: '/activity/user-unused-datasets',
+    method: 'POST',
+    handler: getUserUnusedDatasets,
+  },
 ];
 
 // Export handlers
@@ -42,6 +48,7 @@ export {
   getActivitySummary,
   resolveRecipients,
   getUserInactiveAnalyses,
+  getUserUnusedDatasets,
 };
 
 // Export types

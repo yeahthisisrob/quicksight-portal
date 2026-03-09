@@ -83,6 +83,11 @@ interface NotifyInactiveAnalysesDialogState {
   user: UserItem | null;
 }
 
+interface NotifyUnusedDatasetsDialogState {
+  open: boolean;
+  user: UserItem | null;
+}
+
 export function useDialogStates(
   refreshAssetType: (type: AssetType) => Promise<void>
 ) {
@@ -103,6 +108,7 @@ export function useDialogStates(
   const [notifyInactiveDialog, setNotifyInactiveDialog] = useState<NotifyInactiveDialogState>({ open: false, asset: null });
   const [userAssetAccessDialog, setUserAssetAccessDialog] = useState<UserAssetAccessDialogState>({ open: false, user: null });
   const [notifyInactiveAnalysesDialog, setNotifyInactiveAnalysesDialog] = useState<NotifyInactiveAnalysesDialogState>({ open: false, user: null });
+  const [notifyUnusedDatasetsDialog, setNotifyUnusedDatasetsDialog] = useState<NotifyUnusedDatasetsDialogState>({ open: false, user: null });
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
   
   const handleGroupDelete = async () => {
@@ -154,6 +160,8 @@ export function useDialogStates(
     setUserAssetAccessDialog,
     notifyInactiveAnalysesDialog,
     setNotifyInactiveAnalysesDialog,
+    notifyUnusedDatasetsDialog,
+    setNotifyUnusedDatasetsDialog,
 
     // Actions
     handleGroupDelete,
