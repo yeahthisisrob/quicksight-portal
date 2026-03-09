@@ -20,6 +20,7 @@ type Handlers = {
   onActivityClick?: (asset: any) => void;
   onFolderMembersClick?: (folder: any) => void;
   onUserGroupsClick?: (user: any) => void;
+  onUserAssetAccessClick?: (user: any) => void;
   onGroupMembersClick?: (group: any) => void;
   onGroupAssetsClick?: (group: any) => void;
   onRelatedAssetsClick?: (asset: any, relatedAssets: any[]) => void;
@@ -377,9 +378,9 @@ export function generateUserColumns(handlers: Handlers): ColumnConfig[] {
       minWidth: 200,
       visible: true,
       renderCell: (params) => (
-        <Typography 
-          variant="body2" 
-          sx={{ 
+        <Typography
+          variant="body2"
+          sx={{
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -388,22 +389,6 @@ export function generateUserColumns(handlers: Handlers): ColumnConfig[] {
           {params.row.email || params.row.Email || '-'}
         </Typography>
       ),
-    },
-    {
-      id: 'role',
-      label: 'Role',
-      width: 120,
-      visible: true,
-      renderCell: (params) => {
-        const role = params.row.role || params.row.Role || 'READER';
-        return (
-          <Chip 
-            label={role} 
-            size="small" 
-            color={role === 'ADMIN' ? 'error' : role === 'AUTHOR' ? 'warning' : 'default'}
-          />
-        );
-      },
     },
     {
       id: 'activity',
@@ -416,15 +401,15 @@ export function generateUserColumns(handlers: Handlers): ColumnConfig[] {
           return <Typography variant="body2" color="text.secondary">-</Typography>;
         }
         const activity = params.row.activity;
-        
+
         if (!activity || activity.totalActivities === 0) {
           return <Typography variant="body2" color="text.secondary">-</Typography>;
         }
-        
+
         return (
           <Box
-            sx={{ 
-              display: 'flex', 
+            sx={{
+              display: 'flex',
               flexDirection: 'column',
               cursor: handlers.onActivityClick ? 'pointer' : 'default',
               '&:hover': handlers.onActivityClick ? {
@@ -445,6 +430,33 @@ export function generateUserColumns(handlers: Handlers): ColumnConfig[] {
       valueGetter: (params) => isUser(params.row) ? (params.row.activity?.totalActivities || 0) : 0,
     },
     {
+      id: 'permissions',
+      label: 'Permissions',
+      width: 140,
+      visible: true,
+      sortable: true,
+      renderCell: (params: { row: AssetRow; value: any }) => {
+        const count = isUser(params.row) ? (params.row as any).assetAccessCount || 0 : 0;
+        if (count === 0) return <Typography variant="body2" color="text.secondary">-</Typography>;
+        return (
+          <Chip
+            label={count.toString()}
+            size="small"
+            color="default"
+            sx={{
+              cursor: 'pointer',
+              '&:hover': {
+                backgroundColor: 'primary.main',
+                color: 'primary.contrastText',
+              }
+            }}
+            onClick={() => handlers.onUserAssetAccessClick?.(params.row)}
+          />
+        );
+      },
+      valueGetter: (params) => isUser(params.row) ? ((params.row as any).assetAccessCount || 0) : 0,
+    },
+    {
       id: 'groups',
       label: 'Groups',
       width: 150,
@@ -453,13 +465,13 @@ export function generateUserColumns(handlers: Handlers): ColumnConfig[] {
         const groupCount = isUser(params.row) ? (params.row.groupCount || 0) : 0;
         if (groupCount === 0) return '-';
         return (
-          <Chip 
-            label={groupCount.toString()} 
-            size="small" 
+          <Chip
+            label={groupCount.toString()}
+            size="small"
             color="default"
-            sx={{ 
+            sx={{
               cursor: 'pointer',
-              '&:hover': { 
+              '&:hover': {
                 backgroundColor: 'primary.main',
                 color: 'primary.contrastText',
               }
@@ -469,6 +481,22 @@ export function generateUserColumns(handlers: Handlers): ColumnConfig[] {
         );
       },
       valueGetter: (params) => isUser(params.row) ? (params.row.groupCount || 0) : 0,
+    },
+    {
+      id: 'role',
+      label: 'Role',
+      width: 120,
+      visible: true,
+      renderCell: (params) => {
+        const role = params.row.role || params.row.Role || 'READER';
+        return (
+          <Chip
+            label={role}
+            size="small"
+            color={role === 'ADMIN' ? 'error' : role === 'AUTHOR' ? 'warning' : 'default'}
+          />
+        );
+      },
     }
   ];
 }

@@ -7,15 +7,18 @@ import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperati
 import { successResponse, errorResponse, createResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { IdentityService } from '../services/IdentityService';
+import { PermissionsService } from '../services/PermissionsService';
 
 export class IdentityHandler {
   private readonly bulkOperationsService: BulkOperationsService;
   private readonly identityService: IdentityService;
+  private readonly permissionsService: PermissionsService;
 
   constructor() {
     const accountId = process.env.AWS_ACCOUNT_ID || '';
     this.identityService = new IdentityService(accountId);
     this.bulkOperationsService = new BulkOperationsService(accountId);
+    this.permissionsService = new PermissionsService(accountId);
   }
 
   public async addUsersToGroup(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -191,6 +194,36 @@ export class IdentityHandler {
       }
 
       return errorResponse(event, STATUS_CODES.INTERNAL_SERVER_ERROR, 'Failed to get user');
+    }
+  }
+
+  public async getUserAssetAccess(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const pathMatch = event.path.match(/\/users\/(.+)\/asset-access/);
+      const userName = pathMatch?.[1];
+
+      if (!userName) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'User name is required');
+      }
+
+      const assetType = event.queryStringParameters?.assetType;
+
+      logger.info(`Getting asset access for user ${userName}`, { userName, assetType });
+
+      const result = await this.permissionsService.getUserAssetAccess(
+        decodeURIComponent(userName),
+        assetType
+      );
+
+      return successResponse(event, { success: true, data: result });
+    } catch (error: any) {
+      logger.error('Failed to get user asset access', { error: error.message });
+      return errorResponse(
+        event,
+        error.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error.message || 'Failed to get user asset access'
+      );
     }
   }
 

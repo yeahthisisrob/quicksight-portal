@@ -230,11 +230,11 @@ describe('organizationRoutes - organization', () => {
       expect(groupRoutes.length).toBeGreaterThan(0);
       expect(tagRoutes.length).toBeGreaterThan(0);
 
-      // We have 19 total routes:
+      // We have 20 total routes:
       // - 6 folder routes
       // - 6 group/identity routes
       // - 7 tag routes
-      const TOTAL_ROUTES = 19;
+      const TOTAL_ROUTES = 20;
       expect(organizationRoutes.length).toBe(TOTAL_ROUTES);
     });
 
@@ -261,8 +261,8 @@ describe('organizationRoutes - organization', () => {
       expect(getRoutes.length).toBeGreaterThan(0);
       getRoutes.forEach((route) => {
         const pathStr = route.path instanceof RegExp ? route.path.source : route.path;
-        // GET should be for fetching data - folders, members, assets, or tags
-        expect(pathStr).toMatch(/(folders|members|assets|tags|groups)/i);
+        // GET should be for fetching data - folders, members, assets, tags, or asset-access
+        expect(pathStr).toMatch(/(folders|members|assets|tags|groups|asset-access)/i);
       });
 
       // POST for creating

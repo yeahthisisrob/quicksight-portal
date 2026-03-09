@@ -287,6 +287,19 @@ export const assetsApi = {
     return response.data.data!;
   },
 
+  // Get all assets a user has access to
+  async getUserAssetAccess(userName: string, assetType?: string): Promise<components['schemas']['UserAssetAccessResponse']> {
+    const params = assetType ? { assetType } : {};
+    const response = await apiClient.get<ApiResponse<components['schemas']['UserAssetAccessResponse']>>(
+      `/users/${encodeURIComponent(userName)}/asset-access`,
+      { params }
+    );
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to fetch user asset access');
+    }
+    return response.data.data!;
+  },
+
   // Get specific asset
   async getAsset(assetType: string, assetId: string): Promise<any> {
     const response = await apiClient.get<ApiResponse<any>>(`/assets/${assetType}/${assetId}`);

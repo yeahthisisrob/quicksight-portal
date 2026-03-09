@@ -73,6 +73,11 @@ interface NotifyInactiveDialogState {
   asset: DashboardItem | AnalysisItem | null;
 }
 
+interface UserAssetAccessDialogState {
+  open: boolean;
+  user: UserItem | null;
+}
+
 interface NotifyInactiveAnalysesDialogState {
   open: boolean;
   user: UserItem | null;
@@ -96,6 +101,7 @@ export function useDialogStates(
   const [updateGroupDialog, setUpdateGroupDialog] = useState<UpdateGroupDialogState>({ open: false, group: null });
   const [deleteGroupDialog, setDeleteGroupDialog] = useState<DeleteGroupDialogState>({ open: false, group: null });
   const [notifyInactiveDialog, setNotifyInactiveDialog] = useState<NotifyInactiveDialogState>({ open: false, asset: null });
+  const [userAssetAccessDialog, setUserAssetAccessDialog] = useState<UserAssetAccessDialogState>({ open: false, user: null });
   const [notifyInactiveAnalysesDialog, setNotifyInactiveAnalysesDialog] = useState<NotifyInactiveAnalysesDialogState>({ open: false, user: null });
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
   
@@ -144,6 +150,8 @@ export function useDialogStates(
     setDeleteGroupDialog,
     notifyInactiveDialog,
     setNotifyInactiveDialog,
+    userAssetAccessDialog,
+    setUserAssetAccessDialog,
     notifyInactiveAnalysesDialog,
     setNotifyInactiveAnalysesDialog,
 

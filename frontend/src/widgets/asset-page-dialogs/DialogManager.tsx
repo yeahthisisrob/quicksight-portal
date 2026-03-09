@@ -12,13 +12,14 @@ import {
 } from '@/widgets/asset-dialogs';
 
 import { InactivityMailtoDialog, UserInactiveMailtoDialog } from '@/features/activity';
-import { 
-  AddToGroupDialog, 
-  FolderMembersDialog, 
-  GroupAssetsDialog, 
-  GroupMembersDialog, 
-  UpdateGroupDialog, 
-  UserGroupsDialog 
+import {
+  AddToGroupDialog,
+  FolderMembersDialog,
+  GroupAssetsDialog,
+  GroupMembersDialog,
+  UpdateGroupDialog,
+  UserAssetAccessDialog,
+  UserGroupsDialog
 } from '@/features/organization';
 
 import { BulkDeleteDialog, DefinitionErrorsDialog } from '@/entities/asset';
@@ -133,6 +134,8 @@ const OrganizationDialogs = memo(({
   setAssetFoldersDialog,
   userGroupsDialog,
   setUserGroupsDialog,
+  userAssetAccessDialog,
+  setUserAssetAccessDialog,
   groupMembersDialog,
   setGroupMembersDialog,
   groupAssetsDialog,
@@ -172,6 +175,14 @@ const OrganizationDialogs = memo(({
       />
     )}
     
+    {userAssetAccessDialog.user && (
+      <UserAssetAccessDialog
+        open={userAssetAccessDialog.open}
+        onClose={() => setUserAssetAccessDialog({ open: false, user: null })}
+        user={userAssetAccessDialog.user}
+      />
+    )}
+
     {groupMembersDialog.group && (
       <GroupMembersDialog
         open={groupMembersDialog.open}
@@ -229,6 +240,8 @@ interface DialogManagerProps {
   setFolderMembersDialog: (state: any) => void;
   userGroupsDialog: any;
   setUserGroupsDialog: (state: any) => void;
+  userAssetAccessDialog: any;
+  setUserAssetAccessDialog: (state: any) => void;
   groupMembersDialog: any;
   setGroupMembersDialog: (state: any) => void;
   groupAssetsDialog: any;
@@ -279,6 +292,8 @@ export function DialogManager({
   setFolderMembersDialog,
   userGroupsDialog,
   setUserGroupsDialog,
+  userAssetAccessDialog,
+  setUserAssetAccessDialog,
   groupMembersDialog,
   setGroupMembersDialog,
   groupAssetsDialog,
@@ -344,6 +359,8 @@ export function DialogManager({
         setAssetFoldersDialog={setAssetFoldersDialog}
         userGroupsDialog={userGroupsDialog}
         setUserGroupsDialog={setUserGroupsDialog}
+        userAssetAccessDialog={userAssetAccessDialog}
+        setUserAssetAccessDialog={setUserAssetAccessDialog}
         groupMembersDialog={groupMembersDialog}
         setGroupMembersDialog={setGroupMembersDialog}
         groupAssetsDialog={groupAssetsDialog}

@@ -6,3 +6,4 @@ export { default as GroupMembersDialog } from './GroupMembersDialog';
 export { CreateGroupDialog } from './CreateGroupDialog';
 export { UpdateGroupDialog } from './UpdateGroupDialog';
 export { GroupAssetsDialog } from './GroupAssetsDialog';
+export { UserAssetAccessDialog } from './UserAssetAccessDialog';

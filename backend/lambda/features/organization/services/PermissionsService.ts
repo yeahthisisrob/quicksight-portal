@@ -95,6 +95,65 @@ export class PermissionsService {
   }
 
   /**
+   * Get asset access counts for all users in a single cache scan.
+   * Much more efficient than calling getUserAssetAccess per user.
+   */
+  public async getBulkUserAssetCounts(userNames: string[]): Promise<Map<string, number>> {
+    const cache = await cacheService.getMasterCache();
+    const users = cache.entries.user || [];
+    const groups = cache.entries.group || [];
+    const folders = cache.entries.folder || [];
+
+    // Pre-compute each user's context
+    const userContexts = new Map<
+      string,
+      { userArn: string; userName: string; userGroups: CacheEntry[]; folders: CacheEntry[] }
+    >();
+    for (const name of userNames) {
+      const userEntry = users.find((u: CacheEntry) => u.assetName === name);
+      if (userEntry) {
+        userContexts.set(name, {
+          userArn: userEntry.arn,
+          userName: name,
+          userGroups: this.findUserGroups(name, groups),
+          folders,
+        });
+      }
+    }
+
+    const counts = new Map<string, number>();
+    const assetTypesToCheck: AssetType[] = [
+      'dashboard',
+      'analysis',
+      'dataset',
+      'datasource',
+      'folder',
+    ];
+
+    // Single scan: for each asset, check which users have access
+    for (const type of assetTypesToCheck) {
+      const entries = cache.entries[type] || [];
+      for (const entry of entries) {
+        for (const [name, ctx] of userContexts) {
+          const sources = this.collectUserAccessSources(entry, ctx);
+          if (sources.length > 0) {
+            counts.set(name, (counts.get(name) || 0) + 1);
+          }
+        }
+      }
+    }
+
+    // Ensure all requested users have an entry
+    for (const name of userNames) {
+      if (!counts.has(name)) {
+        counts.set(name, 0);
+      }
+    }
+
+    return counts;
+  }
+
+  /**
    * Get permissions for a dashboard
    */
   public async getDashboardPermissions(dashboardId: string): Promise<AssetPermission[]> {
@@ -186,6 +245,158 @@ export class PermissionsService {
   }
 
   /**
+   * Get all assets a user has access to (inverse of getPermissionSources).
+   * Scans cached assets and resolves how the user has access: direct, via group, or via folder.
+   */
+  public async getUserAssetAccess(
+    userName: string,
+    filterAssetType?: string
+  ): Promise<{
+    userName: string;
+    totalAssets: number;
+    assetsByType: Record<string, number>;
+    assets: Array<{
+      assetId: string;
+      assetType: string;
+      assetName: string;
+      arn: string;
+      sources: AccessSource[];
+    }>;
+  }> {
+    const cache = await cacheService.getMasterCache();
+    const users = cache.entries.user || [];
+    const groups = cache.entries.group || [];
+    const folders = cache.entries.folder || [];
+
+    const userEntry = users.find((u: CacheEntry) => u.assetName === userName);
+    if (!userEntry) {
+      throw new Error(`User ${userName} not found`);
+    }
+
+    const userGroups = this.findUserGroups(userName, groups);
+    const assetTypesToCheck = filterAssetType
+      ? [filterAssetType]
+      : ['dashboard', 'analysis', 'dataset', 'datasource', 'folder'];
+
+    const ctx = { userArn: userEntry.arn, userName, userGroups, folders };
+    const assetsByType: Record<string, number> = {};
+    const assets: Array<{
+      assetId: string;
+      assetType: string;
+      assetName: string;
+      arn: string;
+      sources: AccessSource[];
+    }> = [];
+
+    for (const type of assetTypesToCheck) {
+      const entries = cache.entries[type as AssetType] || [];
+      for (const entry of entries) {
+        const sources = this.collectUserAccessSources(entry, ctx);
+        if (sources.length > 0) {
+          assets.push({
+            assetId: entry.assetId,
+            assetType: type,
+            assetName: entry.assetName,
+            arn: entry.arn,
+            sources,
+          });
+          const pluralType = type === 'analysis' ? 'analyses' : `${type}s`;
+          assetsByType[pluralType] = (assetsByType[pluralType] || 0) + 1;
+        }
+      }
+    }
+
+    return { userName, totalAssets: assets.length, assetsByType, assets };
+  }
+
+  /**
+   * Collect all access sources for a single asset entry for a given user
+   */
+  private collectUserAccessSources(
+    entry: CacheEntry,
+    ctx: { userArn: string; userName: string; userGroups: CacheEntry[]; folders: CacheEntry[] }
+  ): AccessSource[] {
+    const sources: AccessSource[] = [];
+    const permissions = entry.permissions || [];
+
+    // Direct user access
+    for (const perm of permissions) {
+      if (
+        perm.principalType === 'USER' &&
+        principalMatchesUser(perm.principal, ctx.userArn, ctx.userName)
+      ) {
+        sources.push({ type: 'direct', actions: perm.actions || [] });
+      }
+    }
+
+    // Group access
+    for (const group of ctx.userGroups) {
+      for (const perm of permissions) {
+        if (
+          perm.principalType === 'GROUP' &&
+          principalMatchesGroup(perm.principal, group.arn, group.assetName)
+        ) {
+          sources.push({ type: 'group', actions: perm.actions || [], groupName: group.assetName });
+        }
+      }
+    }
+
+    // Folder access
+    this.collectUserFolderAccess(entry, ctx, sources);
+
+    return sources;
+  }
+
+  /**
+   * Collect folder-based access sources for a user on a specific asset
+   */
+  private collectUserFolderAccess(
+    entry: CacheEntry,
+    ctx: { userArn: string; userName: string; userGroups: CacheEntry[]; folders: CacheEntry[] },
+    sources: AccessSource[]
+  ): void {
+    for (const folder of ctx.folders) {
+      const isMember = folder.metadata?.members?.some(
+        (m: any) => m.MemberId === entry.assetId || m.MemberArn === entry.arn
+      );
+      if (!isMember) {
+        continue;
+      }
+
+      const folderPerms = folder.permissions || [];
+      const folderName = (folder.metadata?.fullPath as string) || folder.assetName;
+
+      for (const fp of folderPerms) {
+        if (
+          fp.principalType === 'USER' &&
+          principalMatchesUser(fp.principal, ctx.userArn, ctx.userName)
+        ) {
+          sources.push({
+            type: 'folder',
+            actions: fp.actions || [],
+            folderName,
+            folderPath: folderName,
+          });
+        }
+        if (fp.principalType === 'GROUP') {
+          const matchingGroup = ctx.userGroups.find((g: CacheEntry) =>
+            principalMatchesGroup(fp.principal, g.arn, g.assetName)
+          );
+          if (matchingGroup) {
+            sources.push({
+              type: 'folder',
+              actions: fp.actions || [],
+              folderName,
+              folderPath: folderName,
+              groupName: matchingGroup.assetName,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  /**
    * Determine if a principal is a user or group
    */
   private determinePrincipalType(principal: string): 'USER' | 'GROUP' {
@@ -214,6 +425,16 @@ export class PermissionsService {
   private findUserArn(users: CacheEntry[], name: string): string {
     const entry = users.find((u: CacheEntry) => u.assetName === name);
     return entry?.arn || name;
+  }
+
+  /**
+   * Find all groups a user belongs to
+   */
+  private findUserGroups(userName: string, groups: CacheEntry[]): CacheEntry[] {
+    return groups.filter((g: CacheEntry) => {
+      const members = (g.metadata?.members as any[]) || [];
+      return members.some((m: any) => m.memberName === userName || m.userName === userName);
+    });
   }
 
   /**

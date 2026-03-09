@@ -61,16 +61,13 @@ export function generateBaseColumns(
     visible: true,
     renderCell: (params) => (
       <Tooltip title={params.value || 'Unnamed'}>
-        <Typography 
-          variant="body2" 
-          sx={{ 
+        <Typography
+          variant="body2"
+          sx={{
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
-            cursor: 'pointer',
-            '&:hover': { textDecoration: 'underline' }
           }}
-          onClick={() => handlers.navigate(`/assets/${assetType}s/${params.row.id}`)}
         >
           {params.value || 'Unnamed'}
         </Typography>
@@ -171,8 +168,8 @@ export function generateBaseColumns(
     });
   }
 
-  // Permissions column (not for groups)
-  if (assetType !== 'group') {
+  // Permissions column (not for groups or users)
+  if (assetType !== 'group' && assetType !== 'user') {
     columns.push({
       id: 'permissions',
       label: 'Permissions',

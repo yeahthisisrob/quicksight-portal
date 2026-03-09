@@ -142,6 +142,7 @@ export function mapUserFromCache(entry: CacheEntry): UserListItem & { arn: strin
     role: entry.metadata.role || 'READER',
     active: entry.metadata.active !== false,
     groupCount: 0,
+    assetAccessCount: 0,
     groups: [],
   };
 }

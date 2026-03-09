@@ -1824,6 +1824,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/users/{userName}/asset-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get assets accessible by a user
+         * @description Returns all assets that a user has access to through direct permissions, group membership, or folder membership
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Filter by asset type (optional) */
+                    assetType?: components["schemas"]["AssetType"];
+                };
+                header?: never;
+                path: {
+                    /** @description The name of the user */
+                    userName: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of accessible assets with access sources */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["UserAssetAccessResponse"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description User not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/activity/user-inactive-analyses": {
         parameters: {
             query?: never;
@@ -2257,6 +2313,8 @@ export interface components {
             active: boolean;
             /** @description Number of groups user belongs to */
             groupCount: number;
+            /** @description Number of assets the user has access to */
+            assetAccessCount?: number;
             /**
              * @description List of group names user belongs to
              * @default []
@@ -2396,6 +2454,26 @@ export interface components {
             /** @description The group's ARN */
             groupArn: string;
             /** @description All ways this group has access to the asset */
+            sources: components["schemas"]["AccessSource"][];
+        };
+        UserAssetAccessResponse: {
+            userName: string;
+            totalAssets: number;
+            assetsByType?: {
+                dashboards?: number;
+                datasets?: number;
+                analyses?: number;
+                datasources?: number;
+                folders?: number;
+            };
+            assets: components["schemas"]["UserAssetAccessItem"][];
+        };
+        UserAssetAccessItem: {
+            assetId: string;
+            assetType: components["schemas"]["AssetType"];
+            assetName: string;
+            arn?: string;
+            /** @description All ways the user has access to this asset */
             sources: components["schemas"]["AccessSource"][];
         };
         ActivityData: {

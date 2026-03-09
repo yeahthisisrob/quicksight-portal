@@ -28,6 +28,7 @@ import {
 import { principalMatchesGroup } from '../../../shared/utils/quicksightUtils';
 import { ActivityService } from '../../activity/services/ActivityService';
 import { GroupService } from '../../organization/services/GroupService';
+import { PermissionsService } from '../../organization/services/PermissionsService';
 import { TagService } from '../../organization/services/TagService';
 import {
   type Asset,
@@ -54,12 +55,14 @@ export class AssetService {
   private readonly activityService: ActivityService;
   private readonly groupService: GroupService;
   private readonly lineageService: LineageService;
+  private readonly permissionsService: PermissionsService;
   private readonly tagService: TagService;
 
   constructor(accountId: string) {
     this.tagService = new TagService(accountId);
     this.lineageService = new LineageService();
     this.groupService = new GroupService();
+    this.permissionsService = new PermissionsService(accountId);
     this.activityService = new ActivityService(cacheService, null as any, this.groupService); // CloudTrail adapter not needed for reading
   }
 
@@ -770,6 +773,62 @@ export class AssetService {
   }
 
   /**
+   * Enrich user items with activity data, groups, and asset access counts
+   */
+  private async enrichUserItems(mappedItems: any[]): Promise<any[]> {
+    try {
+      const userNames = mappedItems.map((item: any) => item.name || item.userName || item.id);
+      if (userNames.length === 0) {
+        return mappedItems;
+      }
+
+      const userActivity = await this.activityService.getUserActivityCounts(userNames);
+
+      logger.debug('User activity results for collection:', {
+        activityMapSize: userActivity.size,
+        sampleEntries: Array.from(userActivity.entries()).slice(
+          0,
+          DEBUG_CONFIG.SAMPLE_ENTRIES_TO_LOG
+        ),
+      });
+
+      let assetAccessCounts = new Map<string, number>();
+      try {
+        assetAccessCounts = await this.permissionsService.getBulkUserAssetCounts(userNames);
+      } catch (accessErr) {
+        logger.warn('Failed to fetch asset access counts:', accessErr);
+      }
+
+      return await Promise.all(
+        mappedItems.map(async (item: any) => {
+          const lookupKey = item.name || item.userName || item.id;
+          const activityData = userActivity.get(lookupKey);
+          const userGroups = await this.groupService.getUserGroups(lookupKey);
+          const groupNames = userGroups.map((g) => g.groupName);
+
+          return {
+            ...item,
+            groups: groupNames,
+            groupCount: groupNames.length,
+            assetAccessCount: assetAccessCounts.get(lookupKey) || 0,
+            activity: activityData
+              ? {
+                  totalActivities: activityData.totalActivities || 0,
+                  lastActive: activityData.lastActive || null,
+                  dashboardCount: activityData.dashboardCount || 0,
+                  analysisCount: activityData.analysisCount || 0,
+                }
+              : item.activity,
+          };
+        })
+      );
+    } catch (error) {
+      logger.warn('Failed to enrich user items:', error);
+      return mappedItems;
+    }
+  }
+
+  /**
    * Fetch analysis activity data
    */
   private async fetchAnalysisActivity(
@@ -1266,53 +1325,9 @@ export class AssetService {
         });
       }
 
-      // Fetch user activity data and groups if we're listing users
+      // Fetch user activity data, groups, and asset access counts
       if (assetType === ASSET_TYPES.user) {
-        try {
-          // For users, the userName is the identifier, not the id
-          const userNames = mappedItems.map((item: any) => item.name || item.userName || item.id);
-
-          if (userNames.length > 0) {
-            const userActivity = await this.activityService.getUserActivityCounts(userNames);
-
-            logger.debug('User activity results for collection:', {
-              activityMapSize: userActivity.size,
-              sampleEntries: Array.from(userActivity.entries()).slice(
-                0,
-                DEBUG_CONFIG.SAMPLE_ENTRIES_TO_LOG
-              ),
-            });
-
-            // Add activity data and groups to mapped items
-            mappedItems = await Promise.all(
-              mappedItems.map(async (item: any) => {
-                // Look up by name/userName first, then fall back to id
-                const lookupKey = item.name || item.userName || item.id;
-                const activityData = userActivity.get(lookupKey);
-
-                // Get user groups
-                const userGroups = await this.groupService.getUserGroups(lookupKey);
-                const groupNames = userGroups.map((g) => g.groupName);
-
-                return {
-                  ...item,
-                  groups: groupNames,
-                  groupCount: groupNames.length,
-                  activity: activityData
-                    ? {
-                        totalActivities: activityData.totalActivities || 0,
-                        lastActive: activityData.lastActive || null,
-                        dashboardCount: activityData.dashboardCount || 0,
-                        analysisCount: activityData.analysisCount || 0,
-                      }
-                    : item.activity,
-                };
-              })
-            );
-          }
-        } catch (error) {
-          logger.warn('Failed to fetch user activity data for collection:', error);
-        }
+        mappedItems = await this.enrichUserItems(mappedItems);
       }
 
       // Define search fields for collection types

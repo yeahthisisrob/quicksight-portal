@@ -1365,6 +1365,40 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/users/{userName}/asset-access:
+    get:
+      summary: Get assets accessible by a user
+      description: Returns all assets that a user has access to through direct permissions, group membership, or folder membership
+      parameters:
+        - name: userName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The name of the user
+        - name: assetType
+          in: query
+          schema:
+            $ref: '#/components/schemas/AssetType'
+          description: Filter by asset type (optional)
+      responses:
+        '200':
+          description: List of accessible assets with access sources
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/UserAssetAccessResponse'
+        '404':
+          description: User not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/activity/user-inactive-analyses:
     post:
       summary: Get inactive analyses owned by a specific user
@@ -1984,6 +2018,10 @@ components:
               type: integer
               description: Number of groups user belongs to
               minimum: 0
+            assetAccessCount:
+              type: integer
+              description: Number of assets the user has access to
+              minimum: 0
             groups:
               type: array
               items:
@@ -2232,6 +2270,50 @@ components:
           items:
             $ref: '#/components/schemas/AccessSource'
           description: All ways this group has access to the asset
+
+    UserAssetAccessResponse:
+      type: object
+      required: [userName, totalAssets, assets]
+      properties:
+        userName:
+          type: string
+        totalAssets:
+          type: integer
+        assetsByType:
+          type: object
+          properties:
+            dashboards:
+              type: integer
+            datasets:
+              type: integer
+            analyses:
+              type: integer
+            datasources:
+              type: integer
+            folders:
+              type: integer
+        assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserAssetAccessItem'
+
+    UserAssetAccessItem:
+      type: object
+      required: [assetId, assetType, assetName, sources]
+      properties:
+        assetId:
+          type: string
+        assetType:
+          $ref: '#/components/schemas/AssetType'
+        assetName:
+          type: string
+        arn:
+          type: string
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessSource'
+          description: All ways the user has access to this asset
 
     # Activity types
     ActivityData:

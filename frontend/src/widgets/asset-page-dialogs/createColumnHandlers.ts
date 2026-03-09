@@ -14,6 +14,7 @@ interface DialogSetters {
   setDeleteGroupDialog: (state: any) => void;
   setRefreshScheduleDialog: (state: any) => void;
   setDefinitionErrorsDialog: (state: any) => void;
+  setUserAssetAccessDialog: (state: any) => void;
   setNotifyInactiveDialog: (state: any) => void;
   setNotifyInactiveAnalysesDialog: (state: any) => void;
 }
@@ -46,6 +47,7 @@ export function createColumnHandlers(
     setDeleteGroupDialog,
     setRefreshScheduleDialog,
     setDefinitionErrorsDialog,
+    setUserAssetAccessDialog,
     setNotifyInactiveDialog,
     setNotifyInactiveAnalysesDialog,
   } = dialogSetters;
@@ -83,6 +85,9 @@ export function createColumnHandlers(
     onActivityClick,
     onUserGroupsClick: (user: any) => {
       setUserGroupsDialog({ open: true, user });
+    },
+    onUserAssetAccessClick: (user: any) => {
+      setUserAssetAccessDialog({ open: true, user });
     },
     onGroupMembersClick: (group: any) => {
       setGroupMembersDialog({ open: true, group });

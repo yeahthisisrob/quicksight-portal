@@ -1,6 +1,8 @@
-import { MoreVert as MoreVertIcon } from '@mui/icons-material';
+import { MoreVert as MoreVertIcon, OpenInNew as OpenInNewIcon } from '@mui/icons-material';
 import { IconButton, Menu, MenuItem } from '@mui/material';
 import { useState } from 'react';
+
+import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 
 interface ActionsDropdownProps {
   asset: any;
@@ -56,6 +58,15 @@ export const ActionsDropdown = ({ asset, assetType, handlers }: ActionsDropdownP
         <MenuItem onClick={() => handleAction(() => handlers.navigate(`/assets/${assetType}s/${asset.id}`))}>
           View Details
         </MenuItem>
+        {!['user', 'group'].includes(assetType) && (
+          <MenuItem onClick={() => handleAction(() => {
+            const url = getQuickSightConsoleUrl(assetType, asset.id);
+            if (url) window.open(url, '_blank');
+          })}>
+            <OpenInNewIcon fontSize="small" sx={{ mr: 1 }} />
+            Open in QuickSight
+          </MenuItem>
+        )}
         <MenuItem onClick={() => handleAction(() => handlers.onJsonViewerClick?.(asset, assetType))}>
           View JSON
         </MenuItem>

@@ -63,6 +63,12 @@ export const organizationRoutes: RouteHandler[] = [
   },
 
   {
+    method: 'GET',
+    path: /^\/users\/(.+)\/asset-access$/,
+    handler: (event) => identityHandler.getUserAssetAccess(event),
+  },
+
+  {
     method: 'POST',
     path: /^\/groups\/([^/]+)\/members$/,
     handler: (event) => identityHandler.addUsersToGroup(event),

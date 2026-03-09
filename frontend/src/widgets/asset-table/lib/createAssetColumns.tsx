@@ -308,15 +308,29 @@ function mergeColumns(
     }
   }
 
+  // For users, move tags to end (after role)
+  if (assetType === 'user') {
+    const tagsIndex = baseColumns.findIndex(col => col.id === 'tags');
+    const tagsColumn = tagsIndex !== -1 ? baseColumns.splice(tagsIndex, 1)[0] : null;
+
+    baseColumns.push(...relationshipColumns, ...specificColumns);
+
+    if (tagsColumn) {
+      baseColumns.push(tagsColumn);
+    }
+
+    return baseColumns;
+  }
+
   // Find the position to insert specific columns
   let insertIndex = -1;
-  
+
   // Find the position after 'tags' column
   const tagsIndex = baseColumns.findIndex(col => col.id === 'tags');
   if (tagsIndex !== -1) {
     insertIndex = tagsIndex + 1;
   }
-  
+
   // First add relationship columns
   if (insertIndex !== -1 && relationshipColumns.length > 0) {
     baseColumns.splice(insertIndex, 0, ...relationshipColumns);
@@ -324,7 +338,7 @@ function mergeColumns(
   } else if (relationshipColumns.length > 0) {
     baseColumns.push(...relationshipColumns);
   }
-  
+
   // Then add specific columns
   if (insertIndex !== -1 && specificColumns.length > 0) {
     baseColumns.splice(insertIndex, 0, ...specificColumns);
