@@ -1,59 +1,43 @@
-import { Box, Typography, alpha } from '@mui/material';
+import { Box, Chip, Typography } from '@mui/material';
 
-import { colors, spacing } from '@/shared/design-system/theme';
+import { spacing } from '@/shared/design-system/theme';
 
 interface TableHeaderProps {
   title: string;
-  subtitle: string;
+  totalRows?: number;
   extraToolbarActions?: React.ReactNode;
 }
 
 export function TableHeader({
   title,
-  subtitle,
+  totalRows,
   extraToolbarActions,
 }: TableHeaderProps) {
   return (
     <Box
       sx={{
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'space-between',
-        mb: spacing.lg / 8,
-        p: spacing.lg / 8,
-        borderRadius: `${spacing.sm / 8}px`,
-        background: `linear-gradient(135deg, ${alpha(colors.primary.light, 0.05)} 0%, ${alpha(colors.primary.main, 0.05)} 100%)`,
-        backdropFilter: 'blur(10px)',
-        border: `1px solid ${alpha(colors.primary.main, 0.1)}`,
+        mb: spacing.sm / 8,
       }}
     >
-      <Box>
-        <Typography
-          variant="h4"
-          sx={{
-            fontWeight: 700,
-            background: `linear-gradient(135deg, ${colors.primary.main} 0%, ${colors.primary.dark} 100%)`,
-            backgroundClip: 'text',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            mb: 0.5,
-          }}
-        >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Typography variant="h5" sx={{ fontWeight: 600 }}>
           {title}
         </Typography>
-        <Typography
-          variant="body1"
-          sx={{
-            color: colors.neutral[600],
-            fontWeight: 400,
-          }}
-        >
-          {subtitle}
-        </Typography>
+        {totalRows !== undefined && (
+          <Chip
+            label={totalRows.toLocaleString()}
+            size="small"
+            variant="outlined"
+            sx={{ fontWeight: 500, fontSize: '0.75rem' }}
+          />
+        )}
       </Box>
 
       {extraToolbarActions && (
-        <Box sx={{ display: 'flex', gap: spacing.sm / 8, alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           {extraToolbarActions}
         </Box>
       )}

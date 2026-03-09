@@ -67,7 +67,6 @@ export interface FetchAssetsOptions {
 
 interface EnhancedAssetTableProps {
   title: string;
-  subtitle: string;
   assets: any[];
   loading: boolean;
   totalRows: number;
@@ -118,7 +117,6 @@ interface EnhancedAssetTableProps {
 
 export default function EnhancedAssetTable({
   title,
-  subtitle,
   assets,
   loading,
   totalRows,
@@ -379,7 +377,7 @@ export default function EnhancedAssetTable({
     <Box>
       <TableHeader
         title={title}
-        subtitle={subtitle}
+        totalRows={totalRows}
         extraToolbarActions={extraToolbarActions}
       />
 

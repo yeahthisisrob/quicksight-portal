@@ -15,41 +15,13 @@ import { dataCatalogApi, assetsApi } from '@/shared/api';
 import GenericAssetPage from './GenericAssetPage';
 
 const assetConfigs = {
-  dashboards: {
-    title: 'Dashboards',
-    subtitle: 'Manage and explore your QuickSight dashboards',
-    assetType: 'dashboard' as const,
-  },
-  analyses: {
-    title: 'Analyses',
-    subtitle: 'Manage and explore your QuickSight analyses',
-    assetType: 'analysis' as const,
-  },
-  datasets: {
-    title: 'Datasets',
-    subtitle: 'Manage and explore your QuickSight datasets',
-    assetType: 'dataset' as const,
-  },
-  datasources: {
-    title: 'Data Sources',
-    subtitle: 'Manage and explore your QuickSight data sources',
-    assetType: 'datasource' as const,
-  },
-  folders: {
-    title: 'Folders',
-    subtitle: 'Manage and organize your QuickSight folders',
-    assetType: 'folder' as const,
-  },
-  users: {
-    title: 'Users',
-    subtitle: 'Manage QuickSight users and their permissions',
-    assetType: 'user' as const,
-  },
-  groups: {
-    title: 'Groups',
-    subtitle: 'Manage QuickSight user groups',
-    assetType: 'group' as const,
-  },
+  dashboards: { title: 'Dashboards', assetType: 'dashboard' as const },
+  analyses: { title: 'Analyses', assetType: 'analysis' as const },
+  datasets: { title: 'Datasets', assetType: 'dataset' as const },
+  datasources: { title: 'Data Sources', assetType: 'datasource' as const },
+  folders: { title: 'Folders', assetType: 'folder' as const },
+  users: { title: 'Users', assetType: 'user' as const },
+  groups: { title: 'Groups', assetType: 'group' as const },
 };
 
 export default function AssetsPage() {
@@ -134,7 +106,6 @@ export default function AssetsPage() {
       <GenericAssetPage
         assetType={config.assetType}
         title={config.title}
-        subtitle={config.subtitle}
         assets={assets}
         loading={loading}
         pagination={pagination}

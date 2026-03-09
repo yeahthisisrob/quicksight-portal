@@ -72,7 +72,6 @@ const columns: ColumnConfig[] = [
 const InteractiveWrapper = ({ 
   initialAssets = mockAssets,
   title = 'Assets',
-  subtitle = 'Manage your QuickSight assets',
   enableBulkActions = true,
   onAddToFolder,
   onBulkTag,
@@ -142,7 +141,6 @@ const InteractiveWrapper = ({
   return (
     <EnhancedAssetTable
       title={title}
-      subtitle={subtitle}
       assets={assets}
       loading={loading}
       totalRows={initialAssets.length}
@@ -170,7 +168,6 @@ export const Default = {
 export const WithoutBulkActions = {
   render: () => <InteractiveWrapper 
     title="Read-Only Assets"
-    subtitle="View your QuickSight assets"
     enableBulkActions={false}
   />,
 };
@@ -178,7 +175,6 @@ export const WithoutBulkActions = {
 export const Loading: Story = {
   args: {
     title: 'Assets',
-    subtitle: 'Loading your assets...',
     assets: [],
     loading: true,
     totalRows: 0,
@@ -190,7 +186,6 @@ export const Loading: Story = {
 export const Empty: Story = {
   args: {
     title: 'Assets',
-    subtitle: 'No assets found',
     assets: [],
     loading: false,
     totalRows: 0,
@@ -219,7 +214,6 @@ export const WithSelection = {
       return (
         <EnhancedAssetTable
           title="Assets"
-          subtitle="Select multiple assets for bulk actions"
           assets={assets}
           loading={loading}
           totalRows={assets.length}
@@ -241,7 +235,6 @@ export const WithSelection = {
 export const CustomExportLabel = {
   render: () => <InteractiveWrapper 
     title="User Assets"
-    subtitle="Export user data"
     exportLabel="Export Users"
     folderActionLabel="Add to Group"
     onAddToFolder={() => {}}

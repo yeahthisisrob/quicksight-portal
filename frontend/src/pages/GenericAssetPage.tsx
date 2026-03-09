@@ -23,7 +23,6 @@ import type { TagOption, FolderOption } from '@/widgets/filter-bar';
 interface GenericAssetPageProps {
   assetType: AssetType;
   title: string;
-  subtitle: string;
   assets: any[];
   loading: boolean;
   pagination: { totalItems: number } | null;
@@ -71,7 +70,6 @@ function getFolderActionLabel(assetType: AssetType): string {
 export default function GenericAssetPage({
   assetType,
   title,
-  subtitle,
   assets,
   loading,
   pagination,
@@ -172,7 +170,6 @@ export default function GenericAssetPage({
   return (
     <EnhancedAssetTable
       title={title}
-      subtitle={subtitle}
       assets={assets}
       loading={loading}
       totalRows={pagination?.totalItems || 0}

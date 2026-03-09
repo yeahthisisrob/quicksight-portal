@@ -267,7 +267,6 @@ export const ArchivedAssetsPage: React.FC = () => {
 
       <EnhancedAssetTable
           title=""
-          subtitle=""
           assets={assets}
           loading={loading}
           totalRows={totalRows}
