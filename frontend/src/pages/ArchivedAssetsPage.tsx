@@ -4,11 +4,10 @@ import { GridRowSelectionModel } from '@mui/x-data-grid';
 import { format } from 'date-fns';
 import React, { useState, useCallback } from 'react';
 
-import { EnhancedAssetTable } from '@/widgets/asset-table';
+import { EnhancedAssetTable , copyToClipboard } from '@/widgets/asset-table';
 
 import { RestoreAssetDialog } from '@/features/asset-management/ui/RestoreAssetDialog';
 
-import { copyToClipboard } from '@/widgets/asset-table';
 
 import { assetsApi } from '@/shared/api';
 import { PageLayout } from '@/shared/ui';
