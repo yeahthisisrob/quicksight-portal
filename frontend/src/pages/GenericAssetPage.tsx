@@ -111,7 +111,6 @@ export default function GenericAssetPage({
     setBulkTagOpen,
     bulkDeleteOpen,
     setBulkDeleteOpen,
-    handleRefreshTags,
     handleBulkComplete,
     selectedAssets,
     defaultSortModel,
@@ -179,8 +178,6 @@ export default function GenericAssetPage({
       totalRows={pagination?.totalItems || 0}
       columns={columns}
       onFetchAssets={fetchAssets}
-      onRefreshAssets={() => refreshAssetType(assetType)}
-      onRefreshTags={handleRefreshTags}
       selectedRows={selectedRows}
       onSelectionChange={setSelectedRows}
       enableBulkActions={true}

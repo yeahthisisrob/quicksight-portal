@@ -1,8 +1,5 @@
 import { GridRowSelectionModel, GridSortModel } from '@mui/x-data-grid';
-import { useSnackbar } from 'notistack';
 import { useState, useEffect } from 'react';
-
-import { assetsApi } from '@/shared/api';
 
 interface UseAssetPageOptions {
   assetType: 'dashboard' | 'dataset' | 'analysis' | 'datasource' | 'folder' | 'user' | 'group';
@@ -17,8 +14,6 @@ export function useAssetPage({
   refreshAssetType,
   updateAssetTags,
 }: UseAssetPageOptions) {
-  const { enqueueSnackbar } = useSnackbar();
-
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [permissionsDialog, setPermissionsDialog] = useState<{ open: boolean; asset?: any }>({ open: false });
   const [relatedAssetsDialog, setRelatedAssetsDialog] = useState<{ open: boolean; asset?: any; relatedAssets?: any[] }>({ open: false });
@@ -33,34 +28,6 @@ export function useAssetPage({
   const openRelatedAssetsDialog = (asset: any, relatedAssets: any[]) => 
     setRelatedAssetsDialog({ open: true, asset, relatedAssets });
   const openViewStatsDialog = (asset: any) => setViewStatsDialog({ open: true, asset });
-
-  const handleRefreshTags = async () => {
-    try {
-      const assetIds = assets.map((asset: any) => asset.id);
-      
-      if (assetIds.length === 0) {
-        enqueueSnackbar(`No ${assetType}s to refresh`, { variant: 'info' });
-        return;
-      }
-      
-      const result = await assetsApi.refreshAssetTags(assetType, assetIds);
-      
-      if (result.successful > 0) {
-        enqueueSnackbar(`Successfully refreshed tags for ${result.successful} ${assetType}s`, { 
-          variant: 'success' 
-        });
-        await refreshAssetType(assetType);
-      }
-      
-      if (result.failed > 0) {
-        enqueueSnackbar(`Failed to refresh tags for ${result.failed} ${assetType}s`, { 
-          variant: 'error' 
-        });
-      }
-    } catch (_error) {
-      enqueueSnackbar('Failed to refresh tags', { variant: 'error' });
-    }
-  };
 
   const handleBulkComplete = () => {
     setSelectedRows([]);
@@ -105,7 +72,6 @@ export function useAssetPage({
     setBulkTagOpen,
     bulkDeleteOpen,
     setBulkDeleteOpen,
-    handleRefreshTags,
     handleBulkComplete,
     selectedAssets,
     defaultSortModel,

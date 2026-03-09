@@ -129,15 +129,6 @@ const InteractiveWrapper = ({
     setLoading(false);
   }, [initialAssets]);
 
-  const handleRefreshAssets = useCallback(async () => {
-    isInitialMount.current = false;
-    await handleFetchAssets({ page: 1, pageSize: 50 });
-  }, [handleFetchAssets]);
-
-  const handleRefreshTags = useCallback(async () => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }, []);
-
   const handleExportCSV = useCallback(async () => {
     await new Promise(resolve => setTimeout(resolve, 1500));
   }, []);
@@ -160,8 +151,6 @@ const InteractiveWrapper = ({
       onSelectionChange={setSelectedRows}
       enableBulkActions={enableBulkActions}
       onFetchAssets={handleFetchAssets}
-      onRefreshAssets={handleRefreshAssets}
-      onRefreshTags={handleRefreshTags}
       onExportCSV={handleExportCSV}
       onAddToFolder={memoizedCallbacks.onAddToFolder}
       onBulkTag={memoizedCallbacks.onBulkTag}
@@ -195,7 +184,6 @@ export const Loading: Story = {
     totalRows: 0,
     columns: columns,
     onFetchAssets: async (_options) => {},
-    onRefreshAssets: async () => {},
   },
 };
 
@@ -208,7 +196,6 @@ export const Empty: Story = {
     totalRows: 0,
     columns: columns,
     onFetchAssets: async (_options) => {},
-    onRefreshAssets: async () => {},
   },
 };
 
@@ -241,7 +228,6 @@ export const WithSelection = {
           onSelectionChange={setSelectedRows}
           enableBulkActions={true}
           onFetchAssets={handleFetchAssets}
-          onRefreshAssets={async () => handleFetchAssets({ page: 1, pageSize: 50 })}
           onAddToFolder={() => {}}
           onBulkTag={() => {}}
         />

@@ -73,8 +73,6 @@ interface EnhancedAssetTableProps {
   totalRows: number;
   columns: ColumnConfig[];
   onFetchAssets: (options: FetchAssetsOptions) => Promise<void>;
-  onRefreshAssets: () => Promise<void>;
-  onRefreshTags?: () => Promise<void>;
   selectedRows?: GridRowSelectionModel;
   onSelectionChange?: (selection: GridRowSelectionModel) => void;
   enableBulkActions?: boolean;
@@ -126,8 +124,6 @@ export default function EnhancedAssetTable({
   totalRows,
   columns: initialColumns,
   onFetchAssets,
-  onRefreshAssets,
-  onRefreshTags,
   selectedRows = [],
   onSelectionChange,
   enableBulkActions = true,
@@ -159,8 +155,6 @@ export default function EnhancedAssetTable({
   isLoadingFolders = false,
   refreshKey = 0,
 }: EnhancedAssetTableProps) {
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshingTags, setRefreshingTags] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortModel, setSortModel] = useState<GridSortModel>(defaultSortModel);
   const [exporting, setExporting] = useState(false);
@@ -291,64 +285,6 @@ export default function EnhancedAssetTable({
     return sortField;
   }, []);
 
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await onRefreshAssets();
-
-      const sortField = sortModel.length > 0 ? sortModel[0].field : undefined;
-      const sortOrder = sortModel.length > 0 && sortModel[0].sort ? sortModel[0].sort : undefined;
-      const backendSortField = mapSortField(sortField);
-      const filters = convertFiltersToBackend(filterModel);
-
-      await onFetchAssets({
-        page: currentPage,
-        pageSize,
-        search: debouncedSearchTerm,
-        dateRange: dateFilter.range,
-        sortBy: backendSortField,
-        sortOrder,
-        filters,
-        dateField: dateFilter.field !== 'lastUpdatedTime' ? dateFilter.field : undefined,
-        includeTags: includeTags.length > 0 ? JSON.stringify(includeTags) : undefined,
-        excludeTags: excludeTags.length > 0 ? JSON.stringify(excludeTags) : undefined,
-        errorFilter: errorFilter !== 'all' ? errorFilter : undefined,
-        activityFilter: activityFilter !== 'all' ? activityFilter : undefined,
-        includeFolders: includeFolders.length > 0 ? JSON.stringify(includeFolders) : undefined,
-        excludeFolders: excludeFolders.length > 0 ? JSON.stringify(excludeFolders) : undefined,
-      });
-    } finally {
-      setRefreshing(false);
-    }
-  }, [
-    onRefreshAssets,
-    onFetchAssets,
-    sortModel,
-    currentPage,
-    pageSize,
-    debouncedSearchTerm,
-    dateFilter,
-    filterModel,
-    convertFiltersToBackend,
-    mapSortField,
-    includeTags,
-    excludeTags,
-    errorFilter,
-    activityFilter,
-    includeFolders,
-    excludeFolders,
-  ]);
-
-  const handleRefreshTags = useCallback(async () => {
-    if (!onRefreshTags) return;
-    setRefreshingTags(true);
-    try {
-      await onRefreshTags();
-    } finally {
-      setRefreshingTags(false);
-    }
-  }, [onRefreshTags]);
-
   const handleExportCSV = useCallback(async () => {
     if (!onExportCSV) return;
 
@@ -444,10 +380,6 @@ export default function EnhancedAssetTable({
       <TableHeader
         title={title}
         subtitle={subtitle}
-        onRefreshAssets={handleRefresh}
-        onRefreshTags={onRefreshTags ? handleRefreshTags : undefined}
-        refreshing={refreshing}
-        refreshingTags={refreshingTags}
         extraToolbarActions={extraToolbarActions}
       />
 

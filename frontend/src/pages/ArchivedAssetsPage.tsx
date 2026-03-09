@@ -77,11 +77,6 @@ export const ArchivedAssetsPage: React.FC = () => {
     }
   }, [selectedType]);
 
-  const handleRefreshAssets = async () => {
-    // Archived assets don't need refresh - they're already cached
-    await fetchAssets({ page: 1, pageSize: 50 });
-  };
-
   const handleViewJson = (asset: ArchivedAssetItem) => {
     setSelectedAsset(asset);
     setJsonViewerOpen(true);
@@ -278,7 +273,6 @@ export const ArchivedAssetsPage: React.FC = () => {
           totalRows={totalRows}
           columns={columns}
           onFetchAssets={fetchAssets}
-          onRefreshAssets={handleRefreshAssets}
           selectedRows={selectedRows}
           onSelectionChange={setSelectedRows}
           enableBulkActions={false}
