@@ -1,4 +1,4 @@
-export type DateFieldOption = 'lastUpdatedTime' | 'createdTime' | 'lastActivity';
+export type DateFieldOption = string;
 export type DateRangeOption = 'all' | '24h' | '7d' | '30d' | '90d';
 
 export interface DateFilterState {
@@ -54,6 +54,9 @@ export interface FilterBarProps {
   // Date filtering
   dateFilter?: DateFilterState;
   onDateFilterChange?: (filter: DateFilterState) => void;
+  /** Custom date field options derived from table columns. Overrides showActivityOption when provided. */
+  dateFieldOptions?: Array<{ value: string; label: string }>;
+  /** @deprecated Use dateFieldOptions instead. Show the "Last Activity" option in date field dropdown */
   showActivityOption?: boolean;
 
   // Tag filtering

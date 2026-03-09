@@ -53,6 +53,7 @@ export interface FilterControlsProps {
   // Date controls
   dateFilter?: DateFilterState;
   onDateFilterChange?: (filter: DateFilterState) => void;
+  dateFieldOptions?: Array<{ value: string; label: string }>;
   showActivityOption?: boolean;
 
   // Tag controls
@@ -106,17 +107,22 @@ export interface FilterControlsProps {
 interface DateFilterRowProps {
   dateFilter: DateFilterState;
   onDateFilterChange: (filter: DateFilterState) => void;
+  dateFieldOptions?: Array<{ value: string; label: string }>;
   showActivityOption?: boolean;
 }
 
 const DateFilterRow: React.FC<DateFilterRowProps> = ({
   dateFilter,
   onDateFilterChange,
+  dateFieldOptions,
   showActivityOption,
 }) => {
-  const fieldOptions = showActivityOption
-    ? DATE_FIELD_OPTIONS
-    : DATE_FIELD_OPTIONS.filter((opt) => opt.value !== 'lastActivity');
+  // Use custom options if provided, otherwise fall back to legacy behavior
+  const fieldOptions = dateFieldOptions
+    ? dateFieldOptions
+    : showActivityOption
+      ? DATE_FIELD_OPTIONS
+      : DATE_FIELD_OPTIONS.filter((opt) => opt.value !== 'lastActivity');
 
   return (
     <Stack direction="row" spacing={2} alignItems="center">
@@ -490,6 +496,7 @@ const TagValueAutocomplete: React.FC<TagValueAutocompleteProps> = ({
 export const FilterControls: React.FC<FilterControlsProps> = ({
   dateFilter,
   onDateFilterChange,
+  dateFieldOptions,
   showActivityOption,
   enableTagFiltering,
   filterMode,
@@ -533,6 +540,7 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
         <DateFilterRow
           dateFilter={dateFilter}
           onDateFilterChange={onDateFilterChange}
+          dateFieldOptions={dateFieldOptions}
           showActivityOption={showActivityOption}
         />
       )}

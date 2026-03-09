@@ -89,6 +89,7 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
           <FilterControls
             dateFilter={p.dateFilter}
             onDateFilterChange={p.onDateFilterChange}
+            dateFieldOptions={p.dateFieldOptions}
             showActivityOption={p.showActivityOption}
             enableTagFiltering={p.enableTagFiltering}
             filterMode={state.filterMode}

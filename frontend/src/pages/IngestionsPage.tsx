@@ -191,6 +191,7 @@ export default function IngestionsPage() {
       id: 'createdTime',
       label: 'Started',
       width: 180,
+      dateFilterField: 'createdTime',
       valueGetter: (params: any) =>
         params.row.createdTime ? format(new Date(params.row.createdTime), 'MMM d, yyyy HH:mm') : '-',
     },

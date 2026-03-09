@@ -19,6 +19,8 @@ export interface ColumnConfig {
   renderCell?: (params: any) => React.ReactNode;
   renderHeader?: (params: any) => React.ReactNode;
   getActions?: (params: any) => any[];
+  /** When set, this column appears as an option in the date filter dropdown. Value is the backend field name. */
+  dateFilterField?: string;
 }
 
 export interface AssetListPageProps {

@@ -46,6 +46,8 @@ export interface ColumnConfig {
   hideable?: boolean;
   renderCell?: (params: any) => React.ReactNode;
   valueGetter?: (params: any) => any;
+  /** When set, this column appears as an option in the date filter dropdown. Value is the backend field name. */
+  dateFilterField?: string;
 }
 
 export interface FetchAssetsOptions {
@@ -156,7 +158,13 @@ export default function EnhancedAssetTable({
   const [searchTerm, setSearchTerm] = useState('');
   const [sortModel, setSortModel] = useState<GridSortModel>(defaultSortModel);
   const [exporting, setExporting] = useState(false);
-  const [dateFilter, setDateFilter] = useState<DateFilterState>(DEFAULT_DATE_FILTER);
+  const [dateFilter, setDateFilter] = useState<DateFilterState>(() => {
+    const firstDateCol = initialColumns.find((col) => col.dateFilterField);
+    if (firstDateCol) {
+      return { field: firstDateCol.dateFilterField!, range: 'all' as const };
+    }
+    return DEFAULT_DATE_FILTER;
+  });
   const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [] });
   const [includeTags, setIncludeTags] = useState<TagFilter[]>([]);
   const [excludeTags, setExcludeTags] = useState<TagFilter[]>([]);
@@ -202,6 +210,14 @@ export default function EnhancedAssetTable({
   useEffect(() => {
     updateTotalItems(totalRows);
   }, [totalRows, updateTotalItems]);
+
+  // Derive date field options from columns that have dateFilterField set
+  const dateFieldOptions = useMemo(() => {
+    const options = initialColumns
+      .filter((col) => col.dateFilterField)
+      .map((col) => ({ value: col.dateFilterField!, label: col.label }));
+    return options.length > 0 ? options : undefined;
+  }, [initialColumns]);
 
   // Build columns
   const visibleColumnsConfig = useMemo(() => {
@@ -346,7 +362,7 @@ export default function EnhancedAssetTable({
       sortBy: backendSortField,
       sortOrder,
       filters,
-      dateField: dateFilter.field !== 'lastUpdatedTime' ? dateFilter.field : undefined,
+      dateField: dateFilter.field,
       includeTags: includeTags.length > 0 ? JSON.stringify(includeTags) : undefined,
       excludeTags: excludeTags.length > 0 ? JSON.stringify(excludeTags) : undefined,
       errorFilter: errorFilter !== 'all' ? errorFilter : undefined,
@@ -425,6 +441,7 @@ export default function EnhancedAssetTable({
           onSearchChange={setSearchTerm}
           dateFilter={dateFilter}
           onDateFilterChange={handleDateFilterChange}
+          dateFieldOptions={dateFieldOptions}
           showActivityOption={showActivityOption}
           matchReasonSummary={matchReasonSummary}
           enableTagFiltering={enableTagFiltering}

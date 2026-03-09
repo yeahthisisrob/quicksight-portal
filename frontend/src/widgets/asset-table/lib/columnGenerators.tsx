@@ -396,6 +396,7 @@ export function generateUserColumns(handlers: Handlers): ColumnConfig[] {
       width: 150,
       visible: true,
       sortable: true,
+      dateFilterField: 'lastActivity',
       renderCell: (params: { row: AssetRow; value: any }) => {
         if (!isUser(params.row)) {
           return <Typography variant="body2" color="text.secondary">-</Typography>;
@@ -670,6 +671,7 @@ export function generateDashboardAnalysisColumns(handlers: Handlers): ColumnConf
       width: 150,
       visible: true,
       sortable: true,
+      dateFilterField: 'lastActivity',
       renderCell: (params: { row: AssetRow; value: any }) => {
         if (!isDashboard(params.row) && !isAnalysis(params.row)) {
           return <Typography variant="body2" color="text.secondary">-</Typography>;

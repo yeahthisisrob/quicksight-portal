@@ -1140,6 +1140,7 @@ export class AssetService {
       refreshAlerts: sortConfig('refreshAlerts'),
       activity: sortConfig('activity'),
       groups: sortConfig('groups'),
+      permissions: sortConfig('permissions'),
       tags: sortConfig('tags'),
       folders: sortConfig('folders'),
       folderCount: sortConfig('folderCount'),
@@ -1175,6 +1176,14 @@ export class AssetService {
     }
     if (sortField === 'uses') {
       return this.getRelationshipCount(asset.relatedAssets, 'uses');
+    }
+
+    // Permissions field - users have assetAccessCount, other assets have permissions array
+    if (sortField === 'permissions') {
+      if (asset.assetType === 'user') {
+        return asset.assetAccessCount || 0;
+      }
+      return asset.permissions?.length || 0;
     }
 
     // Array count fields

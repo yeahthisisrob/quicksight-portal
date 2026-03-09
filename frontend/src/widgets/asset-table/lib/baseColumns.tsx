@@ -146,6 +146,7 @@ export function generateBaseColumns(
       width: 140,
       visible: true,
       sortable: true,
+      dateFilterField: 'lastUpdatedTime',
       renderCell: (params: { row: AssetRow; value: any }) => {
         return renderDateCell(params.row.lastUpdatedTime);
       },
@@ -161,6 +162,7 @@ export function generateBaseColumns(
       width: 140,
       visible: true,
       sortable: true,
+      dateFilterField: 'createdTime',
       renderCell: (params) => renderDateCell(params.row.createdTime),
       valueGetter: (params: { row: AssetRow }) => {
         return params.row.createdTime ? new Date(params.row.createdTime).getTime() : 0;
