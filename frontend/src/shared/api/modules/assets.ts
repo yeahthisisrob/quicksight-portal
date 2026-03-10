@@ -294,19 +294,15 @@ export const assetsApi = {
     message: string;
     estimatedOperations: number;
   }> {
-    const response = await apiClient.post<ApiResponse<{
-      jobId: string;
-      status: string;
-      message: string;
-      estimatedOperations: number;
-    }>>(
+    const response = await apiClient.post<ApiResponse<any>>(
       `/assets/${assetType}/${assetId}/revoke-permissions`,
       { revocations }
     );
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to revoke permissions');
     }
-    return response.data.data!;
+    // jobId/status/message are at top level of response (not under data)
+    return response.data as any;
   },
 
   // Get all assets a user has access to
