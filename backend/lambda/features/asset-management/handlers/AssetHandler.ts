@@ -2,11 +2,12 @@ import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambd
 
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES, ACTIVITY_LIMITS, PAGINATION } from '../../../shared/constants';
+import { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { S3Service } from '../../../shared/services/aws/S3Service';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
 import { CacheService } from '../../../shared/services/cache/CacheService';
 import { jobFactory } from '../../../shared/services/jobs/JobFactory';
-import { ASSET_TYPES, ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
+import { type AssetType, ASSET_TYPES, ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
 import { successResponse, errorResponse, createResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { GroupService } from '../../organization/services/GroupService';
@@ -529,6 +530,86 @@ export class AssetHandler {
         event,
         STATUS_CODES.INTERNAL_SERVER_ERROR,
         error.message || 'Failed to refresh view statistics'
+      );
+    }
+  }
+
+  /**
+   * Revoke a direct permission from an asset.
+   * DELETE /api/assets/{assetType}/{assetId}/permissions
+   */
+  public async revokePermission(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+
+      const pathMatch = event.path.match(
+        /\/assets\/(dashboard|analysis|dataset|datasource|folder)\/([^/]+)\/permissions/
+      );
+      const assetType = pathMatch?.[1] as AssetType | undefined;
+      const assetId = pathMatch?.[2];
+
+      if (!assetType || !assetId) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Asset type and ID are required');
+      }
+
+      const body = JSON.parse(event.body || '{}');
+      const { principal, actions } = body;
+
+      if (!principal || !actions || !Array.isArray(actions) || actions.length === 0) {
+        return errorResponse(
+          event,
+          STATUS_CODES.BAD_REQUEST,
+          'principal and actions array are required'
+        );
+      }
+
+      const quickSightService = new QuickSightService(this.accountId);
+      const revocation = { Principal: principal, Actions: actions };
+
+      // Call the appropriate QuickSight update method with revocations
+      const updateMethodMap: Record<
+        string,
+        (id: string, perms: any[], revocations: any[]) => Promise<any>
+      > = {
+        [ASSET_TYPES.dashboard]: (id, p, r) =>
+          quickSightService.updateDashboardPermissions(id, p, r),
+        [ASSET_TYPES.analysis]: (id, p, r) => quickSightService.updateAnalysisPermissions(id, p, r),
+        [ASSET_TYPES.dataset]: (id, p, r) => quickSightService.updateDataSetPermissions(id, p, r),
+        [ASSET_TYPES.datasource]: (id, p, r) =>
+          quickSightService.updateDataSourcePermissions(id, p, r),
+        [ASSET_TYPES.folder]: (id, p, r) => quickSightService.updateFolderPermissions(id, p, r),
+      };
+
+      const updateFn = updateMethodMap[assetType];
+      if (!updateFn) {
+        return errorResponse(
+          event,
+          STATUS_CODES.BAD_REQUEST,
+          `Cannot revoke permissions on ${assetType}`
+        );
+      }
+
+      await updateFn(assetId, [], [revocation]);
+
+      // Update cache — remove the revoked principal from cached permissions
+      const cacheService = CacheService.getInstance();
+      const cachedAsset = await cacheService.getAsset(assetType, assetId);
+      if (cachedAsset?.permissions) {
+        const updatedPermissions = cachedAsset.permissions.filter(
+          (p: any) => p.principal !== principal
+        );
+        await cacheService.updateAssetPermissions(assetType, assetId, updatedPermissions);
+      }
+
+      logger.info('Permission revoked', { assetType, assetId, principal });
+
+      return successResponse(event, { success: true });
+    } catch (error: any) {
+      logger.error('Failed to revoke permission', { error: error.message });
+      return errorResponse(
+        event,
+        error.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error.message || 'Failed to revoke permission'
       );
     }
   }

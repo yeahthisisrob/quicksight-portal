@@ -5,6 +5,7 @@ export interface PermissionsDialogProps {
   assetName: string;
   assetType: string;
   permissions: any[];
+  onPermissionRevoked?: (principal: string) => void;
 }
 
 export interface RelatedAssetsDialogProps {

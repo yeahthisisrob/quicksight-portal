@@ -287,6 +287,17 @@ export const assetsApi = {
     return response.data.data!;
   },
 
+  // Revoke a direct permission from an asset
+  async revokePermission(assetType: string, assetId: string, principal: string, actions: string[]): Promise<void> {
+    const response = await apiClient.delete<ApiResponse<void>>(
+      `/assets/${assetType}/${assetId}/permissions`,
+      { data: { principal, actions } }
+    );
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to revoke permission');
+    }
+  },
+
   // Get all assets a user has access to
   async getUserAssetAccess(userName: string, assetType?: string): Promise<components['schemas']['UserAssetAccessResponse']> {
     const params = assetType ? { assetType } : {};

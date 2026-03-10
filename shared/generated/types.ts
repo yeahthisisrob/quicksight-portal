@@ -1745,6 +1745,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assets/{assetType}/{assetId}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a direct permission from an asset
+         * @description Removes a direct permission for a principal (user/group) from the specified asset. Does not affect inherited permissions from folders or groups.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder";
+                    assetId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description The ARN of the principal to revoke */
+                        principal: string;
+                        /** @description The actions to revoke */
+                        actions: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Permission revoked successfully */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                500: components["responses"]["InternalServerError"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/groups/{groupName}/assets": {
         parameters: {
             query?: never;

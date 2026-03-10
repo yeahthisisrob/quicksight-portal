@@ -1300,6 +1300,56 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/assets/{assetType}/{assetId}/permissions:
+    delete:
+      summary: Revoke a direct permission from an asset
+      description: Removes a direct permission for a principal (user/group) from the specified asset. Does not affect inherited permissions from folders or groups.
+      parameters:
+        - name: assetType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [dashboard, analysis, dataset, datasource, folder]
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [principal, actions]
+              properties:
+                principal:
+                  type: string
+                  description: The ARN of the principal to revoke
+                actions:
+                  type: array
+                  items:
+                    type: string
+                  description: The actions to revoke
+      responses:
+        '200':
+          description: Permission revoked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   # Group management endpoints
   /api/groups/{groupName}/assets:
     get:

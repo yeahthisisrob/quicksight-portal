@@ -43,7 +43,8 @@ const CoreAssetDialogs = memo(({
   setTagsDialog,
   typeCapitalized,
   assetType,
-  updateAssetTags
+  updateAssetTags,
+  refreshAssetType
 }: any) => (
   <>
     {permissionsDialog.asset && (
@@ -54,6 +55,7 @@ const CoreAssetDialogs = memo(({
         assetName={permissionsDialog.asset.name}
         assetType={typeCapitalized}
         permissions={normalizePermissions(permissionsDialog.asset?.permissions || [])}
+        onPermissionRevoked={() => refreshAssetType(assetType)}
       />
     )}
 
@@ -339,6 +341,7 @@ export function DialogManager({
         typeCapitalized={typeCapitalized}
         assetType={assetType}
         updateAssetTags={updateAssetTags}
+        refreshAssetType={refreshAssetType}
       />
       
       {/* Bulk action dialogs */}

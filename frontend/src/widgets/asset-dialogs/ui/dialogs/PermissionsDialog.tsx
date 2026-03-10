@@ -1,5 +1,6 @@
 import {
   Close as CloseIcon,
+  Delete as DeleteIcon,
   Security as SecurityIcon,
   Person as PersonIcon,
   People as PeopleIcon,
@@ -22,6 +23,7 @@ import {
   Tooltip,
   alpha,
 } from '@mui/material';
+import { useSnackbar } from 'notistack';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 
 import { Permission } from '@/entities/asset';
@@ -130,9 +132,15 @@ const AccessSourceChip = ({ source }: { source: AccessSource }) => {
   );
 };
 
-const PermissionEntryRow = ({ entry }: { entry: PermissionEntry }) => {
+const PermissionEntryRow = ({ entry, onRevoke, revoking }: {
+  entry: PermissionEntry;
+  onRevoke?: (entry: PermissionEntry) => void;
+  revoking?: boolean;
+}) => {
   const config = PRINCIPAL_CONFIG[entry.principalType];
   const Icon = config.icon;
+  const hasDirectAccess = entry.accessSources.some(s => s.type === 'direct') || (entry.actions.length > 0 && entry.accessSources.length === 0);
+  const hasOnlyDirectAccess = hasDirectAccess && !entry.accessSources.some(s => s.type !== 'direct');
 
   return (
     <Box
@@ -206,6 +214,24 @@ const PermissionEntryRow = ({ entry }: { entry: PermissionEntry }) => {
           </Box>
         )}
       </Box>
+
+      {/* Remove direct permission button */}
+      {hasDirectAccess && onRevoke && (
+        <Tooltip title={hasOnlyDirectAccess ? 'Remove direct permission' : 'Remove direct permission (inherited access will remain)'}>
+          <IconButton
+            size="small"
+            onClick={(e) => { e.stopPropagation(); onRevoke(entry); }}
+            disabled={revoking}
+            sx={{
+              mt: 0.25,
+              color: 'text.disabled',
+              '&:hover': { color: 'error.main', backgroundColor: alpha(colors.status.error, 0.08) },
+            }}
+          >
+            {revoking ? <CircularProgress size={14} /> : <DeleteIcon sx={{ fontSize: 16 }} />}
+          </IconButton>
+        </Tooltip>
+      )}
     </Box>
   );
 };
@@ -232,10 +258,13 @@ export default function PermissionsDialog({
   assetName,
   assetType,
   permissions = [],
+  onPermissionRevoked,
 }: PermissionsDialogProps) {
+  const { enqueueSnackbar } = useSnackbar();
   const [userAccessSources, setUserAccessSources] = useState<UserAccessInfo[]>([]);
   const [groupAccessSources, setGroupAccessSources] = useState<GroupAccessInfo[]>([]);
   const [loading, setLoading] = useState(false);
+  const [revokingPrincipal, setRevokingPrincipal] = useState<string | null>(null);
   const [filterText, setFilterText] = useState('');
   const [activeFilter, setActiveFilter] = useState<PrincipalFilter>('ALL');
   const [accessFilter, setAccessFilter] = useState<AccessFilter>('ALL');
@@ -256,6 +285,23 @@ export default function PermissionsDialog({
       setLoading(false);
     }
   }, [assetId, assetType]);
+
+  const handleRevoke = useCallback(async (entry: PermissionEntry) => {
+    if (!assetId || !assetType) return;
+    setRevokingPrincipal(entry.principal);
+    try {
+      await assetsApi.revokePermission(assetType.toLowerCase(), assetId, entry.principal, entry.actions);
+      enqueueSnackbar(`Removed direct permission for ${entry.principalName}`, { variant: 'success' });
+      onPermissionRevoked?.(entry.principal);
+      // Refresh permission sources
+      await fetchPermissionSources();
+    } catch (err: any) {
+      console.error('Failed to revoke permission:', err);
+      enqueueSnackbar(err.message || 'Failed to revoke permission', { variant: 'error' });
+    } finally {
+      setRevokingPrincipal(null);
+    }
+  }, [assetId, assetType, enqueueSnackbar, onPermissionRevoked, fetchPermissionSources]);
 
   useEffect(() => {
     if (open && assetId) {
@@ -651,7 +697,12 @@ export default function PermissionsDialog({
                 </Box>
               ) : (
                 filteredEntries.map((entry, idx) => (
-                  <PermissionEntryRow key={`${entry.principalType}-${entry.principalName}-${idx}`} entry={entry} />
+                  <PermissionEntryRow
+                    key={`${entry.principalType}-${entry.principalName}-${idx}`}
+                    entry={entry}
+                    onRevoke={handleRevoke}
+                    revoking={revokingPrincipal === entry.principal}
+                  />
                 ))
               )}
             </Box>
