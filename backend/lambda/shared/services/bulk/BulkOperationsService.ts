@@ -13,6 +13,7 @@ import {
   type BulkGroupAddConfig,
   type BulkGroupRemoveConfig,
   type BulkTagUpdateConfig,
+  type BulkPermissionRevokeConfig,
   type BulkAssetReference,
 } from '../../types/bulkOperationTypes';
 import { logger } from '../../utils/logger';
@@ -154,6 +155,30 @@ export class BulkOperationsService {
     return await this.createBulkOperationJob(config, totalOperations);
   }
 
+  /**
+   * Revoke permissions for multiple principals on a single asset
+   */
+  public async bulkRevokePermissions(
+    assetType: string,
+    assetId: string,
+    revocations: Array<{ principal: string; actions: string[] }>,
+    requestedBy: string
+  ): Promise<BulkOperationJobResponse> {
+    if (!revocations || revocations.length === 0) {
+      throw new Error('Revocations array is required and must not be empty');
+    }
+
+    const config: BulkPermissionRevokeConfig = {
+      operationType: 'permission-revoke',
+      assetType: assetType as any,
+      assetId,
+      revocations,
+      requestedBy,
+    };
+
+    return await this.createBulkOperationJob(config, revocations.length);
+  }
+
   public async bulkUpdateTags(
     assets: BulkAssetReference[],
     tags: Array<{ Key: string; Value: string }>,
@@ -174,9 +199,6 @@ export class BulkOperationsService {
     return await this.createBulkOperationJob(config, assets.length);
   }
 
-  /**
-   * Update tags for multiple assets
-   */
   /**
    * Validate if assets can be deleted
    * Check for dependencies, permissions, etc.

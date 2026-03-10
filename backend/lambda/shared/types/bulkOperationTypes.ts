@@ -12,7 +12,8 @@ export type BulkOperationType =
   | 'folder-remove'
   | 'group-add'
   | 'group-remove'
-  | 'tag-update';
+  | 'tag-update'
+  | 'permission-revoke';
 
 // Asset reference for bulk operations
 export interface BulkAssetReference {
@@ -65,6 +66,13 @@ export interface BulkTagUpdateConfig extends BaseBulkOperationConfig {
   action: 'add' | 'replace' | 'remove';
 }
 
+export interface BulkPermissionRevokeConfig extends BaseBulkOperationConfig {
+  operationType: 'permission-revoke';
+  assetType: AssetType;
+  assetId: string;
+  revocations: Array<{ principal: string; actions: string[] }>;
+}
+
 // Union type for all bulk operation configurations
 export type BulkOperationConfig =
   | BulkDeleteConfig
@@ -72,7 +80,8 @@ export type BulkOperationConfig =
   | BulkFolderRemoveConfig
   | BulkGroupAddConfig
   | BulkGroupRemoveConfig
-  | BulkTagUpdateConfig;
+  | BulkTagUpdateConfig
+  | BulkPermissionRevokeConfig;
 
 // Result types for bulk operations
 export interface BulkOperationItemResult {

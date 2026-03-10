@@ -1745,7 +1745,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/assets/{assetType}/{assetId}/permissions": {
+    "/api/assets/{assetType}/{assetId}/revoke-permissions": {
         parameters: {
             query?: never;
             header?: never;
@@ -1754,12 +1754,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post?: never;
         /**
-         * Revoke a direct permission from an asset
-         * @description Removes a direct permission for a principal (user/group) from the specified asset. Does not affect inherited permissions from folders or groups.
+         * Bulk revoke direct permissions from an asset
+         * @description Queues a bulk operation to remove direct permissions for multiple principals from the specified asset. Does not affect inherited permissions from folders or groups. Returns a job ID for tracking progress.
          */
-        delete: {
+        post: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -1772,22 +1771,28 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        /** @description The ARN of the principal to revoke */
-                        principal: string;
-                        /** @description The actions to revoke */
-                        actions: string[];
+                        revocations: {
+                            /** @description The ARN of the principal to revoke */
+                            principal: string;
+                            /** @description The actions to revoke */
+                            actions: string[];
+                        }[];
                     };
                 };
             };
             responses: {
-                /** @description Permission revoked successfully */
-                200: {
+                /** @description Permission revoke job queued */
+                202: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
                         "application/json": {
                             success: boolean;
+                            jobId: string;
+                            status: string;
+                            message: string;
+                            estimatedOperations?: number;
                         };
                     };
                 };
@@ -1796,6 +1801,7 @@ export interface paths {
                 500: components["responses"]["InternalServerError"];
             };
         };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;

@@ -1,6 +1,5 @@
 import {
   Close as CloseIcon,
-  Delete as DeleteIcon,
   Security as SecurityIcon,
   Person as PersonIcon,
   People as PeopleIcon,
@@ -8,16 +7,22 @@ import {
   Language as NamespaceIcon,
   Folder as FolderIcon,
   Search as SearchIcon,
+  CheckBox as CheckBoxIcon,
+  CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon,
 } from '@mui/icons-material';
 import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogActions,
   Box,
   Typography,
   IconButton,
   Chip,
+  Checkbox,
+  Button,
   CircularProgress,
+  LinearProgress,
   TextField,
   InputAdornment,
   Tooltip,
@@ -30,6 +35,7 @@ import { Permission } from '@/entities/asset';
 
 import { assetsApi } from '@/shared/api';
 import { borderRadius, typography, colors, spacing } from '@/shared/design-system/theme';
+import { useJobPolling } from '@/shared/hooks/useJobPolling';
 
 import { PermissionsDialogProps } from '../../model';
 
@@ -132,10 +138,10 @@ const AccessSourceChip = ({ source }: { source: AccessSource }) => {
   );
 };
 
-const PermissionEntryRow = ({ entry, onRevoke, revoking }: {
+const PermissionEntryRow = ({ entry, selected, onToggle }: {
   entry: PermissionEntry;
-  onRevoke?: (entry: PermissionEntry) => void;
-  revoking?: boolean;
+  selected?: boolean;
+  onToggle?: (entry: PermissionEntry) => void;
 }) => {
   const config = PRINCIPAL_CONFIG[entry.principalType];
   const Icon = config.icon;
@@ -144,6 +150,7 @@ const PermissionEntryRow = ({ entry, onRevoke, revoking }: {
 
   return (
     <Box
+      onClick={() => hasDirectAccess && onToggle?.(entry)}
       sx={{
         display: 'flex',
         alignItems: 'flex-start',
@@ -151,11 +158,34 @@ const PermissionEntryRow = ({ entry, onRevoke, revoking }: {
         p: 1.25,
         borderRadius: `${borderRadius.sm}px`,
         transition: 'background-color 0.15s',
+        cursor: hasDirectAccess && onToggle ? 'pointer' : 'default',
         '&:hover': {
           backgroundColor: alpha(config.color, 0.04),
         },
       }}
     >
+      {/* Checkbox for entries with direct access */}
+      {onToggle && (
+        <Box sx={{ flexShrink: 0, mt: 0.125 }}>
+          {hasDirectAccess ? (
+            <Tooltip title={hasOnlyDirectAccess ? 'Select to remove direct permission' : 'Select to remove direct permission (inherited access will remain)'}>
+              <Checkbox
+                edge="start"
+                checked={!!selected}
+                tabIndex={-1}
+                disableRipple
+                size="small"
+                icon={<CheckBoxOutlineBlankIcon />}
+                checkedIcon={<CheckBoxIcon />}
+                sx={{ p: 0 }}
+              />
+            </Tooltip>
+          ) : (
+            <Box sx={{ width: 24 }} />
+          )}
+        </Box>
+      )}
+
       {/* Icon */}
       <Box
         sx={{
@@ -214,24 +244,6 @@ const PermissionEntryRow = ({ entry, onRevoke, revoking }: {
           </Box>
         )}
       </Box>
-
-      {/* Remove direct permission button */}
-      {hasDirectAccess && onRevoke && (
-        <Tooltip title={hasOnlyDirectAccess ? 'Remove direct permission' : 'Remove direct permission (inherited access will remain)'}>
-          <IconButton
-            size="small"
-            onClick={(e) => { e.stopPropagation(); onRevoke(entry); }}
-            disabled={revoking}
-            sx={{
-              mt: 0.25,
-              color: 'text.disabled',
-              '&:hover': { color: 'error.main', backgroundColor: alpha(colors.status.error, 0.08) },
-            }}
-          >
-            {revoking ? <CircularProgress size={14} /> : <DeleteIcon sx={{ fontSize: 16 }} />}
-          </IconButton>
-        </Tooltip>
-      )}
     </Box>
   );
 };
@@ -264,10 +276,42 @@ export default function PermissionsDialog({
   const [userAccessSources, setUserAccessSources] = useState<UserAccessInfo[]>([]);
   const [groupAccessSources, setGroupAccessSources] = useState<GroupAccessInfo[]>([]);
   const [loading, setLoading] = useState(false);
-  const [revokingPrincipal, setRevokingPrincipal] = useState<string | null>(null);
+  const [selectedPrincipals, setSelectedPrincipals] = useState<Set<string>>(new Set());
+  const [processing, setProcessing] = useState(false);
   const [filterText, setFilterText] = useState('');
   const [activeFilter, setActiveFilter] = useState<PrincipalFilter>('ALL');
   const [accessFilter, setAccessFilter] = useState<AccessFilter>('ALL');
+
+  // Job polling for bulk revoke
+  const handleJobComplete = useCallback(async () => {
+    enqueueSnackbar('Permissions revoked successfully', { variant: 'success' });
+    setSelectedPrincipals(new Set());
+    setProcessing(false);
+    onPermissionRevoked?.('');
+    // Refresh permission sources after job completes
+    if (assetId && assetType) {
+      const supportedTypes = ['dashboard', 'analysis', 'dataset', 'datasource', 'folder'];
+      if (supportedTypes.includes(assetType.toLowerCase())) {
+        try {
+          const result = await assetsApi.getPermissionSources(assetType.toLowerCase(), assetId);
+          setUserAccessSources(result.userAccessSources || []);
+          setGroupAccessSources(result.groupAccessSources || []);
+        } catch (err) {
+          console.error('Failed to refresh permission sources:', err);
+        }
+      }
+    }
+  }, [enqueueSnackbar, onPermissionRevoked, assetId, assetType]);
+
+  const handleJobFailed = useCallback((job: any) => {
+    enqueueSnackbar(job.error || 'Failed to revoke permissions', { variant: 'error' });
+    setProcessing(false);
+  }, [enqueueSnackbar]);
+
+  const { jobStatus, startPolling, reset: resetJob } = useJobPolling({
+    onComplete: handleJobComplete,
+    onFailed: handleJobFailed,
+  });
 
   const fetchPermissionSources = useCallback(async () => {
     if (!assetId || !assetType) return;
@@ -286,22 +330,17 @@ export default function PermissionsDialog({
     }
   }, [assetId, assetType]);
 
-  const handleRevoke = useCallback(async (entry: PermissionEntry) => {
-    if (!assetId || !assetType) return;
-    setRevokingPrincipal(entry.principal);
-    try {
-      await assetsApi.revokePermission(assetType.toLowerCase(), assetId, entry.principal, entry.actions);
-      enqueueSnackbar(`Removed direct permission for ${entry.principalName}`, { variant: 'success' });
-      onPermissionRevoked?.(entry.principal);
-      // Refresh permission sources
-      await fetchPermissionSources();
-    } catch (err: any) {
-      console.error('Failed to revoke permission:', err);
-      enqueueSnackbar(err.message || 'Failed to revoke permission', { variant: 'error' });
-    } finally {
-      setRevokingPrincipal(null);
-    }
-  }, [assetId, assetType, enqueueSnackbar, onPermissionRevoked, fetchPermissionSources]);
+  const togglePrincipalSelection = useCallback((entry: PermissionEntry) => {
+    setSelectedPrincipals(prev => {
+      const next = new Set(prev);
+      if (next.has(entry.principal)) {
+        next.delete(entry.principal);
+      } else {
+        next.add(entry.principal);
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (open && assetId) {
@@ -309,11 +348,14 @@ export default function PermissionsDialog({
     } else if (!open) {
       setUserAccessSources([]);
       setGroupAccessSources([]);
+      setSelectedPrincipals(new Set());
+      setProcessing(false);
       setFilterText('');
       setActiveFilter('ALL');
       setAccessFilter('ALL');
+      resetJob();
     }
-  }, [open, assetId, fetchPermissionSources]);
+  }, [open, assetId, fetchPermissionSources, resetJob]);
 
   // Build unified entries
   const allEntries = useMemo((): PermissionEntry[] => {
@@ -677,38 +719,107 @@ export default function PermissionsDialog({
               </Box>
             )}
 
+            {/* Processing state */}
+            {processing && (
+              <Box sx={{ px: 2.5, py: 2 }}>
+                {jobStatus ? (
+                  <>
+                    <Typography variant="body2" gutterBottom>
+                      {jobStatus.message || 'Processing...'}
+                    </Typography>
+                    {jobStatus.progress !== undefined && (
+                      <Box sx={{ mt: 1 }}>
+                        <LinearProgress variant="determinate" value={jobStatus.progress || 0} />
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                          Progress: {jobStatus.progress}%
+                        </Typography>
+                      </Box>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Typography variant="body2" gutterBottom>
+                      Starting permission revoke...
+                    </Typography>
+                    <LinearProgress />
+                  </>
+                )}
+              </Box>
+            )}
+
             {/* Entries list */}
-            <Box sx={{
-              px: 1.5,
-              pb: 2,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 0.25,
-              maxHeight: 450,
-              overflowY: 'auto',
-            }}>
-              {filteredEntries.length === 0 ? (
-                <Box sx={{ py: 4, textAlign: 'center' }}>
-                  <Typography variant="body2" color="text.secondary">
-                    {filterText
-                      ? `No principals match "${filterText}"`
-                      : 'No permissions in this category'}
-                  </Typography>
-                </Box>
-              ) : (
-                filteredEntries.map((entry, idx) => (
-                  <PermissionEntryRow
-                    key={`${entry.principalType}-${entry.principalName}-${idx}`}
-                    entry={entry}
-                    onRevoke={handleRevoke}
-                    revoking={revokingPrincipal === entry.principal}
-                  />
-                ))
-              )}
-            </Box>
+            {!processing && (
+              <Box sx={{
+                px: 1.5,
+                pb: 2,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 0.25,
+                maxHeight: 450,
+                overflowY: 'auto',
+              }}>
+                {filteredEntries.length === 0 ? (
+                  <Box sx={{ py: 4, textAlign: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      {filterText
+                        ? `No principals match "${filterText}"`
+                        : 'No permissions in this category'}
+                    </Typography>
+                  </Box>
+                ) : (
+                  filteredEntries.map((entry, idx) => (
+                    <PermissionEntryRow
+                      key={`${entry.principalType}-${entry.principalName}-${idx}`}
+                      entry={entry}
+                      selected={selectedPrincipals.has(entry.principal)}
+                      onToggle={togglePrincipalSelection}
+                    />
+                  ))
+                )}
+              </Box>
+            )}
           </>
         )}
       </DialogContent>
+
+      {/* Remove Selected button */}
+      {selectedPrincipals.size > 0 && !processing && (
+        <DialogActions sx={{ borderTop: `1px solid ${alpha(colors.neutral[200], 0.5)}`, px: 2.5 }}>
+          <Button onClick={() => setSelectedPrincipals(new Set())} disabled={processing}>
+            Cancel
+          </Button>
+          <Button
+            onClick={async () => {
+              if (!assetId || !assetType) return;
+              setProcessing(true);
+              try {
+                const revocations = allEntries
+                  .filter(e => selectedPrincipals.has(e.principal))
+                  .map(e => ({ principal: e.principal, actions: e.actions }));
+
+                const result = await assetsApi.bulkRevokePermissions(
+                  assetType.toLowerCase(),
+                  assetId,
+                  revocations
+                );
+
+                if (result.jobId) {
+                  enqueueSnackbar(`Permission revoke job started`, { variant: 'info' });
+                  startPolling(result.jobId);
+                }
+              } catch (err: any) {
+                enqueueSnackbar(err.message || 'Failed to revoke permissions', { variant: 'error' });
+                setProcessing(false);
+              }
+            }}
+            variant="contained"
+            color="error"
+            disabled={processing}
+          >
+            Remove {selectedPrincipals.size} Permission{selectedPrincipals.size !== 1 ? 's' : ''}
+          </Button>
+        </DialogActions>
+      )}
     </Dialog>
   );
 }

@@ -1300,10 +1300,10 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/assets/{assetType}/{assetId}/permissions:
-    delete:
-      summary: Revoke a direct permission from an asset
-      description: Removes a direct permission for a principal (user/group) from the specified asset. Does not affect inherited permissions from folders or groups.
+  /api/assets/{assetType}/{assetId}/revoke-permissions:
+    post:
+      summary: Bulk revoke direct permissions from an asset
+      description: Queues a bulk operation to remove direct permissions for multiple principals from the specified asset. Does not affect inherited permissions from folders or groups. Returns a job ID for tracking progress.
       parameters:
         - name: assetType
           in: path
@@ -1322,27 +1322,41 @@ paths:
           application/json:
             schema:
               type: object
-              required: [principal, actions]
+              required: [revocations]
               properties:
-                principal:
-                  type: string
-                  description: The ARN of the principal to revoke
-                actions:
+                revocations:
                   type: array
                   items:
-                    type: string
-                  description: The actions to revoke
+                    type: object
+                    required: [principal, actions]
+                    properties:
+                      principal:
+                        type: string
+                        description: The ARN of the principal to revoke
+                      actions:
+                        type: array
+                        items:
+                          type: string
+                        description: The actions to revoke
       responses:
-        '200':
-          description: Permission revoked successfully
+        '202':
+          description: Permission revoke job queued
           content:
             application/json:
               schema:
                 type: object
-                required: [success]
+                required: [success, jobId, status, message]
                 properties:
                   success:
                     type: boolean
+                  jobId:
+                    type: string
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  estimatedOperations:
+                    type: integer
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':

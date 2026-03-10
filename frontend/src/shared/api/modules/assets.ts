@@ -287,15 +287,26 @@ export const assetsApi = {
     return response.data.data!;
   },
 
-  // Revoke a direct permission from an asset
-  async revokePermission(assetType: string, assetId: string, principal: string, actions: string[]): Promise<void> {
-    const response = await apiClient.delete<ApiResponse<void>>(
-      `/assets/${assetType}/${assetId}/permissions`,
-      { data: { principal, actions } }
+  // Bulk revoke direct permissions from an asset (queues a job)
+  async bulkRevokePermissions(assetType: string, assetId: string, revocations: Array<{ principal: string; actions: string[] }>): Promise<{
+    jobId: string;
+    status: string;
+    message: string;
+    estimatedOperations: number;
+  }> {
+    const response = await apiClient.post<ApiResponse<{
+      jobId: string;
+      status: string;
+      message: string;
+      estimatedOperations: number;
+    }>>(
+      `/assets/${assetType}/${assetId}/revoke-permissions`,
+      { revocations }
     );
     if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to revoke permission');
+      throw new Error(response.data.error || 'Failed to revoke permissions');
     }
+    return response.data.data!;
   },
 
   // Get all assets a user has access to

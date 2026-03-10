@@ -22,6 +22,7 @@ import {
 } from '../../types/bulkOperationTypes';
 import { logger } from '../../utils/logger';
 import { ClientFactory } from '../aws/ClientFactory';
+import { QuickSightService } from '../aws/QuickSightService';
 import { cacheService } from '../cache/CacheService';
 import { type JobStateService } from '../jobs/JobStateService';
 
@@ -95,6 +96,9 @@ export class BulkOperationsProcessor {
           break;
         case 'tag-update':
           result = await this.processBulkTagUpdate(config, batchSize, maxConcurrency);
+          break;
+        case 'permission-revoke':
+          result = await this.processBulkPermissionRevoke(config, batchSize, maxConcurrency);
           break;
         default:
           throw new Error(`Unsupported operation type: ${(config as any).operationType}`);
@@ -408,6 +412,84 @@ export class BulkOperationsProcessor {
       batchSize,
       maxConcurrency
     );
+  }
+
+  /**
+   * Process bulk permission revoke operations
+   */
+  private async processBulkPermissionRevoke(
+    config: BulkOperationConfig & {
+      assetType: string;
+      assetId: string;
+      revocations: Array<{ principal: string; actions: string[] }>;
+    },
+    batchSize: number,
+    maxConcurrency: number
+  ): Promise<BulkOperationResult> {
+    const quickSightService = new QuickSightService(process.env.AWS_ACCOUNT_ID || '');
+
+    const updateMethodMap: Record<
+      string,
+      (id: string, perms: any[], revocations: any[]) => Promise<any>
+    > = {
+      dashboard: (id, p, r) => quickSightService.updateDashboardPermissions(id, p, r),
+      analysis: (id, p, r) => quickSightService.updateAnalysisPermissions(id, p, r),
+      dataset: (id, p, r) => quickSightService.updateDataSetPermissions(id, p, r),
+      datasource: (id, p, r) => quickSightService.updateDataSourcePermissions(id, p, r),
+      folder: (id, p, r) => quickSightService.updateFolderPermissions(id, p, r),
+    };
+
+    const updateFn = updateMethodMap[config.assetType];
+    if (!updateFn) {
+      throw new Error(`Unsupported asset type for permission revoke: ${config.assetType}`);
+    }
+
+    const operations = config.revocations.map((rev) => ({
+      principal: rev.principal,
+      actions: rev.actions,
+      assetType: config.assetType,
+      assetId: config.assetId,
+    }));
+
+    const result = await this.processBatchedOperations(
+      'permission-revoke',
+      operations,
+      async (op) => {
+        const revocation = { Principal: op.principal, Actions: op.actions };
+        await updateFn(op.assetId, [], [revocation]);
+        return `Revoked permissions for ${op.principal.split('/').pop()}`;
+      },
+      batchSize,
+      maxConcurrency
+    );
+
+    // Update cache — remove all revoked principals from cached permissions
+    try {
+      const revokedPrincipals = new Set(
+        result.results
+          .filter((r) => r.success)
+          .map((_, i) => config.revocations[i]?.principal)
+          .filter(Boolean)
+      );
+
+      if (revokedPrincipals.size > 0) {
+        const cachedAsset = await cacheService.getAsset(config.assetType as any, config.assetId);
+        if (cachedAsset?.permissions) {
+          const updatedPermissions = cachedAsset.permissions.filter(
+            (p: any) => !revokedPrincipals.has(p.principal)
+          );
+          await cacheService.updateAssetPermissions(
+            config.assetType as any,
+            config.assetId,
+            updatedPermissions
+          );
+        }
+      }
+    } catch (cacheError) {
+      logger.warn('Failed to update cache after permission revoke', { cacheError });
+    }
+
+    return result;
   }
 
   /**

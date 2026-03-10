@@ -55,9 +55,9 @@ export const assetManagementRoutes: RouteHandler[] = [
   },
 
   {
-    method: 'DELETE',
-    path: /^\/assets\/(dashboard|analysis|dataset|datasource|folder)\/([^/]+)\/permissions$/,
-    handler: (event) => handler.revokePermission(event),
+    method: 'POST',
+    path: /^\/assets\/(dashboard|analysis|dataset|datasource|folder)\/([^/]+)\/revoke-permissions$/,
+    handler: (event) => handler.bulkRevokePermissions(event),
   },
 
   {
