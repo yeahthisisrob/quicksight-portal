@@ -99,6 +99,8 @@ export default function IngestionsPage() {
         search: options.search,
         sortBy: options.sortBy,
         sortOrder: options.sortOrder as 'asc' | 'desc' | undefined,
+        dateRange: options.dateRange,
+        dateField: options.dateField,
       });
       setIngestions(result.ingestions || []);
       setTotalRows(result.pagination?.totalItems || 0);

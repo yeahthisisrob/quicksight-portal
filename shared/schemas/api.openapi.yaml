@@ -777,6 +777,21 @@ paths:
             maximum: 100
             default: 50
             description: Number of items per page
+        - name: dateRange
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [all, 24h, 7d, 30d, 90d]
+            default: all
+            description: Date range filter
+        - name: dateField
+          in: query
+          required: false
+          schema:
+            type: string
+            default: createdTime
+            description: Date field to filter on
       responses:
         '200':
           description: List of ingestions with metadata

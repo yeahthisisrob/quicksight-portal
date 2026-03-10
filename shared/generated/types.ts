@@ -1066,6 +1066,8 @@ export interface paths {
                     sortOrder?: "asc" | "desc";
                     page?: number;
                     pageSize?: number;
+                    dateRange?: "all" | "24h" | "7d" | "30d" | "90d";
+                    dateField?: string;
                 };
                 header?: never;
                 path?: never;

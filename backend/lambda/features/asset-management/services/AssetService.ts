@@ -1,5 +1,4 @@
 import { DEBUG_CONFIG, QUICKSIGHT_LIMITS } from '../../../shared/constants';
-import { DATE_RANGE_DURATIONS, RETENTION_PERIODS } from '../../../shared/constants/timeConstants';
 import { type CacheEntry } from '../../../shared/models/asset.model';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { LineageService } from '../../../shared/services/lineage';
@@ -21,7 +20,9 @@ import { mapCacheEntryToAsset } from '../../../shared/utils/assetMapping';
 import { findMatchingFlatFileDatasource } from '../../../shared/utils/flatFileDatasetMatcher';
 import { logger } from '../../../shared/utils/logger';
 import {
+  applyDateFilter,
   processPaginatedData,
+  type DateRange,
   type SearchFieldConfig,
   type SortConfig,
 } from '../../../shared/utils/paginationUtils';
@@ -97,28 +98,10 @@ export class AssetService {
 
     // Apply date range filter before pagination
     if (dateRange && dateRange !== 'all') {
-      const now = new Date();
-      let startDate: Date;
-
-      switch (dateRange) {
-        case '24h':
-          startDate = new Date(now.getTime() - RETENTION_PERIODS.ONE_DAY);
-          break;
-        case '7d':
-          startDate = new Date(now.getTime() - RETENTION_PERIODS.ONE_WEEK);
-          break;
-        case '30d':
-          startDate = new Date(now.getTime() - RETENTION_PERIODS.ONE_MONTH);
-          break;
-        case '90d':
-          startDate = new Date(now.getTime() - RETENTION_PERIODS.THREE_MONTHS);
-          break;
-        default:
-          startDate = new Date(0);
-      }
-
-      transformedAssets = transformedAssets.filter(
-        (asset) => new Date(asset.archivedDate || 0) >= startDate
+      transformedAssets = applyDateFilter(
+        transformedAssets,
+        'archivedDate',
+        dateRange as DateRange
       );
     }
 
@@ -373,7 +356,17 @@ export class AssetService {
     let filteredItems = this.applyRequestFilters(items, request.filters);
 
     if (request.dateField || request.dateRange) {
-      filteredItems = this.applyDateFilter(filteredItems, request.dateField, request.dateRange);
+      filteredItems = applyDateFilter(
+        filteredItems,
+        request.dateField || 'lastUpdatedTime',
+        (request.dateRange || 'all') as DateRange,
+        (item, field) => {
+          if (field === 'lastActivity') {
+            return (item as any).activity?.lastViewed;
+          }
+          return item[field as keyof Asset] as Date | string | undefined;
+        }
+      );
     }
 
     if (request.includeTags || request.excludeTags) {
@@ -397,35 +390,6 @@ export class AssetService {
     }
 
     return filteredItems;
-  }
-
-  /**
-   * Apply date filter to items based on the specified date field and range
-   */
-  private applyDateFilter(
-    items: Asset[],
-    dateField: 'lastUpdatedTime' | 'createdTime' | 'lastActivity' = 'lastUpdatedTime',
-    dateRange: 'all' | '24h' | '7d' | '30d' | '90d' = 'all'
-  ): Asset[] {
-    if (dateRange === 'all') {
-      return items;
-    }
-
-    const duration = DATE_RANGE_DURATIONS[dateRange as keyof typeof DATE_RANGE_DURATIONS];
-    if (!duration) {
-      return items;
-    }
-
-    const cutoffDate = new Date(Date.now() - duration);
-
-    return items.filter((item) => {
-      const dateValue = this.getDateFieldValue(item, dateField);
-      if (!dateValue) {
-        return false;
-      }
-      const itemDate = dateValue instanceof Date ? dateValue : new Date(dateValue);
-      return itemDate >= cutoffDate;
-    });
   }
 
   /**
@@ -947,20 +911,6 @@ export class AssetService {
       default:
         return 0;
     }
-  }
-
-  /**
-   * Get the date field value from an item based on the field name
-   */
-  private getDateFieldValue(
-    item: Asset,
-    dateField: 'lastUpdatedTime' | 'createdTime' | 'lastActivity'
-  ): Date | string | null | undefined {
-    if (dateField === 'lastActivity') {
-      const activity = (item as any).activity;
-      return activity?.lastViewed;
-    }
-    return item[dateField as keyof Asset] as Date | string | undefined;
   }
 
   /**

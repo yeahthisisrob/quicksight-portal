@@ -8,6 +8,8 @@
 
 import type { components } from '@shared/generated/types';
 
+import { DATE_RANGE_DURATIONS } from '../constants/timeConstants';
+
 /**
  * SearchMatchReason - imported from OpenAPI generated types (single source of truth)
  */
@@ -145,6 +147,44 @@ export function paginate<T>(items: T[], page: number, pageSize: number): Paginat
       hasMore: endIndex < totalItems,
     },
   };
+}
+
+export type DateRange = 'all' | '24h' | '7d' | '30d' | '90d';
+
+/**
+ * Generic date filter that works on any item with date fields.
+ * Filters items where the specified field value is within the given range.
+ *
+ * @param items - Array of items to filter
+ * @param dateField - Field name to read the date from (uses direct property access by default)
+ * @param dateRange - Range to filter by ('all' returns items unchanged)
+ * @param getDateValue - Optional custom getter for the date value (for nested fields like activity.lastViewed)
+ */
+export function applyDateFilter<T extends Record<string, any>>(
+  items: T[],
+  dateField: string,
+  dateRange: DateRange = 'all',
+  getDateValue?: (item: T, field: string) => Date | string | null | undefined
+): T[] {
+  if (dateRange === 'all') {
+    return items;
+  }
+
+  const duration = DATE_RANGE_DURATIONS[dateRange as keyof typeof DATE_RANGE_DURATIONS];
+  if (!duration) {
+    return items;
+  }
+
+  const cutoffDate = new Date(Date.now() - duration);
+
+  return items.filter((item) => {
+    const dateValue = getDateValue ? getDateValue(item, dateField) : item[dateField];
+    if (!dateValue) {
+      return false;
+    }
+    const itemDate = dateValue instanceof Date ? dateValue : new Date(dateValue);
+    return itemDate >= cutoffDate;
+  });
 }
 
 /**

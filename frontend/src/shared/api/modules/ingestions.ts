@@ -12,6 +12,8 @@ export const ingestionsApi = {
     search?: string;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
+    dateRange?: string;
+    dateField?: string;
   }): Promise<components['schemas']['IngestionListResponse']['data']> => {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', params.page.toString());
@@ -19,6 +21,8 @@ export const ingestionsApi = {
     if (params?.search) queryParams.append('search', params.search);
     if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
     if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+    if (params?.dateRange && params.dateRange !== 'all') queryParams.append('dateRange', params.dateRange);
+    if (params?.dateField) queryParams.append('dateField', params.dateField);
 
     const query = queryParams.toString();
     const url = `/ingestions${query ? `?${query}` : ''}`;

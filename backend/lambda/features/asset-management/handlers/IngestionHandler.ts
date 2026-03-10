@@ -6,7 +6,11 @@ import { QuickSightService } from '../../../shared/services/aws/QuickSightServic
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { successResponse, errorResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
-import { processPaginatedData } from '../../../shared/utils/paginationUtils';
+import {
+  applyDateFilter,
+  processPaginatedData,
+  type DateRange,
+} from '../../../shared/utils/paginationUtils';
 import { IngestionProcessor } from '../../data-export/processors/IngestionProcessor';
 
 export class IngestionHandler {
@@ -124,6 +128,8 @@ export class IngestionHandler {
       const sortOrder = (queryParams.sortOrder || 'desc') as 'asc' | 'desc';
       const page = parseInt(queryParams.page || '1', 10);
       const pageSize = parseInt(queryParams.pageSize || '50', 10);
+      const dateRange = (queryParams.dateRange || 'all') as DateRange;
+      const dateField = queryParams.dateField || 'createdTime';
 
       // Get cached ingestions
       const cachedData = await cacheService.getIngestions();
@@ -149,6 +155,9 @@ export class IngestionHandler {
           },
         });
       }
+
+      // Apply date filter
+      const filteredIngestions = applyDateFilter(cachedData.ingestions, dateField, dateRange);
 
       // Define search fields
       const searchFields = [
@@ -184,7 +193,7 @@ export class IngestionHandler {
 
       // Process data with pagination
       const result = processPaginatedData(
-        cachedData.ingestions,
+        filteredIngestions,
         { page, pageSize, search, sortBy, sortOrder },
         searchFields,
         sortConfigs
