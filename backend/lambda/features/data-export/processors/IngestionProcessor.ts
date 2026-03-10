@@ -89,7 +89,8 @@ export class IngestionProcessor {
           try {
             const ingestions = await this.fetchDatasetIngestions(
               dataset.assetId,
-              dataset.assetName
+              dataset.assetName,
+              dataset.metadata
             );
             return ingestions;
           } catch (error) {
@@ -149,7 +150,8 @@ export class IngestionProcessor {
    */
   private async fetchDatasetIngestions(
     datasetId: string,
-    datasetName?: string
+    datasetName?: string,
+    datasetMetadata?: any
   ): Promise<Ingestion[]> {
     try {
       const response = await this.quickSightService.listIngestions(datasetId);
@@ -158,6 +160,9 @@ export class IngestionProcessor {
         id: ingestion.IngestionId,
         datasetId,
         datasetName,
+        datasourceType: datasetMetadata?.sourceType,
+        importMode: datasetMetadata?.importMode,
+        sizeInBytes: datasetMetadata?.consumedSpiceCapacityInBytes || datasetMetadata?.sizeInBytes,
         datasetArn: ingestion.Arn,
         ingestionArn: ingestion.IngestionArn,
         status: ingestion.IngestionStatus,

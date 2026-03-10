@@ -199,17 +199,24 @@ export class IngestionHandler {
         sortConfigs
       );
 
-      // Enrich ingestions with dataset metadata from cache
+      // Enrich ingestions with dataset metadata from cache (fallback for data not stored at export time)
       const enrichedIngestions = await Promise.all(
         result.items.map(async (ingestion) => {
+          if (ingestion.datasourceType && ingestion.importMode) {
+            return ingestion;
+          }
           try {
             const dataset = await cacheService.getAsset('dataset', ingestion.datasetId);
             return {
               ...ingestion,
-              datasourceType: dataset?.metadata?.sourceType,
+              datasourceType: ingestion.datasourceType || dataset?.metadata?.sourceType,
+              importMode: ingestion.importMode || dataset?.metadata?.importMode,
+              sizeInBytes:
+                ingestion.sizeInBytes ||
+                dataset?.metadata?.consumedSpiceCapacityInBytes ||
+                dataset?.metadata?.sizeInBytes,
             };
           } catch (_error) {
-            // If dataset not found in cache, return ingestion without enrichment
             return ingestion;
           }
         })

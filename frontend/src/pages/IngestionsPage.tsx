@@ -5,6 +5,7 @@ import {
   Error as ErrorIcon,
   HourglassEmpty,
   MoreVert as MoreVertIcon,
+  OpenInNew,
   Refresh,
 } from '@mui/icons-material';
 import { Alert, Box, Chip, IconButton, Menu, MenuItem, Tooltip, Typography, alpha } from '@mui/material';
@@ -12,12 +13,13 @@ import { format } from 'date-fns';
 import { useSnackbar } from 'notistack';
 import React, { useState, useCallback } from 'react';
 
-import { EnhancedAssetTable ,type  ColumnConfig,type  FetchAssetsOptions } from '@/widgets/asset-table';
+import { EnhancedAssetTable, formatBytes, type  ColumnConfig,type  FetchAssetsOptions } from '@/widgets/asset-table';
 
 import { DatasourceTypeBadge } from '@/entities/field';
 
 import { ingestionsApi } from '@/shared/api';
 import { colors } from '@/shared/design-system/theme';
+import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 import { PageLayout } from '@/shared/ui';
 
 import type { components } from '@shared/generated/types';
@@ -71,6 +73,14 @@ function IngestionActionsMenu({ ingestion, onViewDetails, onCancel }: {
       >
         <MenuItem onClick={() => { onViewDetails(ingestion); setAnchorEl(null); }}>
           View Details
+        </MenuItem>
+        <MenuItem onClick={() => {
+          const url = getQuickSightConsoleUrl('dataset', ingestion.datasetId);
+          if (url) window.open(url, '_blank');
+          setAnchorEl(null);
+        }}>
+          <OpenInNew sx={{ fontSize: 16, mr: 1 }} />
+          Open in QuickSight
         </MenuItem>
         {canCancel && (
           <MenuItem onClick={() => { onCancel(ingestion); setAnchorEl(null); }}>
@@ -212,12 +222,31 @@ export default function IngestionsPage() {
     },
     {
       id: 'datasourceType',
-      label: 'Datasource Type',
-      width: 160,
+      label: 'Source Type',
+      width: 200,
       renderCell: (params: any) =>
         params.row.datasourceType ? (
-          <DatasourceTypeBadge datasourceType={params.row.datasourceType} importMode="SPICE" compact />
+          <DatasourceTypeBadge
+            datasourceType={params.row.datasourceType}
+            importMode={params.row.importMode as 'SPICE' | 'DIRECT_QUERY' | undefined}
+          />
         ) : '-',
+    },
+    {
+      id: 'sizeInBytes',
+      label: 'SPICE Size',
+      width: 100,
+      renderCell: (params: any) => {
+        const size = params.row.sizeInBytes;
+        if (!size || params.row.importMode !== 'SPICE') {
+          return <Typography variant="body2" color="text.secondary">-</Typography>;
+        }
+        return (
+          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+            {formatBytes(size)}
+          </Typography>
+        );
+      },
     },
   ];
 

@@ -2889,6 +2889,13 @@ export interface components {
             datasetArn?: string;
             /** @description Type of datasource (S3, REDSHIFT, etc.) */
             datasourceType?: string;
+            /**
+             * @description Import mode of the dataset (SPICE or DIRECT_QUERY)
+             * @enum {string}
+             */
+            importMode?: "SPICE" | "DIRECT_QUERY";
+            /** @description Size of the dataset in bytes (SPICE capacity) */
+            sizeInBytes?: number;
             /** @description Ingestion ARN */
             ingestionArn?: string;
             /**

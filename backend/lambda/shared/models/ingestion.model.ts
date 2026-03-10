@@ -4,6 +4,8 @@ export interface Ingestion {
   datasetName?: string;
   datasetArn?: string;
   datasourceType?: string;
+  importMode?: 'SPICE' | 'DIRECT_QUERY';
+  sizeInBytes?: number;
   ingestionArn?: string;
   status: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'INITIALIZED' | 'QUEUED';
   createdTime: string;

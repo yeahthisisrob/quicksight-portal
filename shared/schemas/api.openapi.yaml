@@ -2918,6 +2918,13 @@ components:
         datasourceType:
           type: string
           description: Type of datasource (S3, REDSHIFT, etc.)
+        importMode:
+          type: string
+          enum: [SPICE, DIRECT_QUERY]
+          description: Import mode of the dataset (SPICE or DIRECT_QUERY)
+        sizeInBytes:
+          type: integer
+          description: Size of the dataset in bytes (SPICE capacity)
         ingestionArn:
           type: string
           description: Ingestion ARN
