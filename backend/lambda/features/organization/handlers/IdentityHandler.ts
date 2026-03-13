@@ -93,6 +93,37 @@ export class IdentityHandler {
     }
   }
 
+  public async deleteUser(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const auth = await requireAuth(event);
+      const pathMatch = event.path.match(/\/users\/([^/]+)$/);
+      const userName = pathMatch?.[1];
+
+      if (!userName) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'User name is required');
+      }
+
+      logger.info(`Deleting user ${userName}`, {
+        userName: decodeURIComponent(userName),
+        deletedBy: auth.userId,
+      });
+
+      const result = await this.identityService.deleteUser(
+        decodeURIComponent(userName),
+        auth.userId
+      );
+
+      return successResponse(event, result);
+    } catch (error: any) {
+      logger.error('Failed to delete user', { error: error.message });
+      return errorResponse(
+        event,
+        error.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error.message || 'Failed to delete user'
+      );
+    }
+  }
+
   public async getGroup(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       await requireAuth(event); // Validate authentication

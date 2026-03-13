@@ -63,6 +63,11 @@ export const organizationRoutes: RouteHandler[] = [
   },
 
   {
+    method: 'DELETE',
+    path: /^\/users\/([^/]+)$/,
+    handler: (event) => identityHandler.deleteUser(event),
+  },
+  {
     method: 'GET',
     path: /^\/users\/(.+)\/asset-access$/,
     handler: (event) => identityHandler.getUserAssetAccess(event),

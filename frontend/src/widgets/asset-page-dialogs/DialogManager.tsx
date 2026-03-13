@@ -258,6 +258,8 @@ interface DialogManagerProps {
   setUpdateGroupDialog: (state: any) => void;
   deleteGroupDialog: any;
   setDeleteGroupDialog: (state: any) => void;
+  deleteUserDialog: any;
+  setDeleteUserDialog: (state: any) => void;
   notifyInactiveDialog: any;
   setNotifyInactiveDialog: (state: any) => void;
   notifyInactiveAnalysesDialog: any;
@@ -273,6 +275,8 @@ interface DialogManagerProps {
   updateAssetTags: (assetType: string, assetId: string, tags: any[]) => void;
   handleGroupDelete: () => Promise<void>;
   isDeletingGroup: boolean;
+  handleUserDelete: () => Promise<void>;
+  isDeletingUser: boolean;
 }
 
 export function DialogManager({
@@ -312,6 +316,8 @@ export function DialogManager({
   setUpdateGroupDialog,
   deleteGroupDialog,
   setDeleteGroupDialog,
+  deleteUserDialog,
+  setDeleteUserDialog,
   notifyInactiveDialog,
   setNotifyInactiveDialog,
   notifyInactiveAnalysesDialog,
@@ -325,6 +331,8 @@ export function DialogManager({
   updateAssetTags,
   handleGroupDelete,
   isDeletingGroup,
+  handleUserDelete,
+  isDeletingUser,
 }: DialogManagerProps) {
   const typeCapitalized = assetType.charAt(0).toUpperCase() + assetType.slice(1);
   
@@ -474,6 +482,35 @@ export function DialogManager({
             disabled={isDeletingGroup}
           >
             {isDeletingGroup ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete user confirmation */}
+      <Dialog
+        open={deleteUserDialog.open}
+        onClose={() => setDeleteUserDialog({ open: false, user: null })}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete User</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete the user "{deleteUserDialog.user?.name}"?
+            This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteUserDialog({ open: false, user: null })}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleUserDelete}
+            color="error"
+            variant="contained"
+            disabled={isDeletingUser}
+          >
+            {isDeletingUser ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>

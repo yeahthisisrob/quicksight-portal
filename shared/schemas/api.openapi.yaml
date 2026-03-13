@@ -423,6 +423,39 @@ paths:
                 items:
                   $ref: '#/components/schemas/UserListItem'
 
+  /api/users/{userName}:
+    delete:
+      summary: Delete a QuickSight user
+      description: Deletes a user from QuickSight. Only READER and READER_PRO users can be deleted.
+      parameters:
+        - name: userName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The name of the user to delete
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message]
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '403':
+          description: User role not allowed for deletion
+        '404':
+          description: User not found
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   # Lineage endpoints
   /api/lineage/{assetType}/{assetId}:
     get:

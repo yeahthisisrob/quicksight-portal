@@ -2,6 +2,7 @@ import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import { type QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
+import { ASSET_TYPES } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
 import {
   type User,
@@ -52,6 +53,50 @@ export class IdentityService {
       await this.quickSightService.createGroupMembership(groupName, userName);
     } catch (error) {
       logger.error('Failed to add user to group', { userName, groupName, error });
+      throw error;
+    }
+  }
+
+  public async deleteUser(
+    userName: string,
+    deletedBy?: string
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      // Get user details before deleting for validation and logging
+      const user = await this.getUser(userName);
+
+      // Only allow deletion of READER and READER_PRO roles
+      const allowedRoles = ['READER', 'READER_PRO'];
+      if (!allowedRoles.includes(user.role)) {
+        const error: any = new Error(
+          `Cannot delete user with role "${user.role}". Only READER and READER_PRO users can be deleted.`
+        );
+        error.statusCode = 403;
+        throw error;
+      }
+
+      // Delete user from QuickSight
+      await this.quickSightService.deleteUser(userName);
+
+      logger.info(`Deleted user ${userName} from QuickSight`, {
+        userName,
+        role: user.role,
+        deletedBy,
+      });
+
+      // Update cache - mark as archived
+      await cacheService.updateAsset(ASSET_TYPES.user, userName, {
+        status: 'archived',
+        lastUpdatedTime: new Date(),
+      });
+      await cacheService.clearMemoryCache();
+
+      return {
+        success: true,
+        message: `User "${userName}" deleted successfully`,
+      };
+    } catch (error: any) {
+      logger.error(`Failed to delete user ${userName}:`, error);
       throw error;
     }
   }

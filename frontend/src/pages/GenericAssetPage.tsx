@@ -137,6 +137,7 @@ export default function GenericAssetPage({
       setGroupAssetsDialog: dialogStates.setGroupAssetsDialog,
       setUpdateGroupDialog: dialogStates.setUpdateGroupDialog,
       setDeleteGroupDialog: dialogStates.setDeleteGroupDialog,
+      setDeleteUserDialog: dialogStates.setDeleteUserDialog,
       setRefreshScheduleDialog: dialogStates.setRefreshScheduleDialog,
       setDefinitionErrorsDialog: dialogStates.setDefinitionErrorsDialog,
       setUserAssetAccessDialog: dialogStates.setUserAssetAccessDialog,

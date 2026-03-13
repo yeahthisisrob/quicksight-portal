@@ -68,6 +68,11 @@ interface DeleteGroupDialogState {
   group: GroupItem | null;
 }
 
+interface DeleteUserDialogState {
+  open: boolean;
+  user: UserItem | null;
+}
+
 interface NotifyInactiveDialogState {
   open: boolean;
   asset: DashboardItem | AnalysisItem | null;
@@ -109,8 +114,29 @@ export function useDialogStates(
   const [userAssetAccessDialog, setUserAssetAccessDialog] = useState<UserAssetAccessDialogState>({ open: false, user: null });
   const [notifyInactiveAnalysesDialog, setNotifyInactiveAnalysesDialog] = useState<NotifyInactiveAnalysesDialogState>({ open: false, user: null });
   const [notifyUnusedDatasetsDialog, setNotifyUnusedDatasetsDialog] = useState<NotifyUnusedDatasetsDialogState>({ open: false, user: null });
+  const [deleteUserDialog, setDeleteUserDialog] = useState<DeleteUserDialogState>({ open: false, user: null });
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
-  
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+
+  const handleUserDelete = async () => {
+    if (!deleteUserDialog.user) return;
+
+    try {
+      setIsDeletingUser(true);
+      const { usersApi } = await import('@/shared/api');
+      await usersApi.deleteUser(deleteUserDialog.user.name);
+
+      enqueueSnackbar(`User "${deleteUserDialog.user.name}" deleted successfully`, { variant: 'success' });
+      setDeleteUserDialog({ open: false, user: null });
+      refreshAssetType('user');
+    } catch (error: any) {
+      console.error('Failed to delete user:', error);
+      enqueueSnackbar(error.message || 'Failed to delete user', { variant: 'error' });
+    } finally {
+      setIsDeletingUser(false);
+    }
+  };
+
   const handleGroupDelete = async () => {
     if (!deleteGroupDialog.group) return;
     
@@ -163,8 +189,13 @@ export function useDialogStates(
     notifyUnusedDatasetsDialog,
     setNotifyUnusedDatasetsDialog,
 
+    deleteUserDialog,
+    setDeleteUserDialog,
+
     // Actions
     handleGroupDelete,
     isDeletingGroup,
+    handleUserDelete,
+    isDeletingUser,
   };
 }

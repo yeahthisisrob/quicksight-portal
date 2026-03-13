@@ -12,6 +12,7 @@ interface DialogSetters {
   setGroupAssetsDialog: (state: any) => void;
   setUpdateGroupDialog: (state: any) => void;
   setDeleteGroupDialog: (state: any) => void;
+  setDeleteUserDialog: (state: any) => void;
   setRefreshScheduleDialog: (state: any) => void;
   setDefinitionErrorsDialog: (state: any) => void;
   setUserAssetAccessDialog: (state: any) => void;
@@ -46,6 +47,7 @@ export function createColumnHandlers(
     setGroupAssetsDialog,
     setUpdateGroupDialog,
     setDeleteGroupDialog,
+    setDeleteUserDialog,
     setRefreshScheduleDialog,
     setDefinitionErrorsDialog,
     setUserAssetAccessDialog,
@@ -102,6 +104,9 @@ export function createColumnHandlers(
     },
     onGroupDelete: (group: any) => {
       setDeleteGroupDialog({ open: true, group });
+    },
+    onUserDelete: (user: any) => {
+      setDeleteUserDialog({ open: true, user });
     },
     onRefreshScheduleClick: (dataset: any) => {
       setRefreshScheduleDialog({ open: true, dataset });

@@ -31,6 +31,17 @@ export const usersApi = {
     return response.data.data;
   },
 
+  // Delete a user (READER/READER_PRO only)
+  async deleteUser(userName: string): Promise<any> {
+    const response = await apiClient.delete<ApiResponse<any>>(
+      `/users/${encodeURIComponent(userName)}`
+    );
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to delete user');
+    }
+    return response.data;
+  },
+
   // Refresh user activity data
   async refreshUserActivity(): Promise<any> {
     const response = await apiClient.post<ApiResponse<any>>(

@@ -230,11 +230,11 @@ describe('organizationRoutes - organization', () => {
       expect(groupRoutes.length).toBeGreaterThan(0);
       expect(tagRoutes.length).toBeGreaterThan(0);
 
-      // We have 20 total routes:
+      // We have 21 total routes:
       // - 6 folder routes
-      // - 6 group/identity routes
+      // - 7 group/identity routes (including DELETE /users/:userName)
       // - 7 tag routes
-      const TOTAL_ROUTES = 20;
+      const TOTAL_ROUTES = 21;
       expect(organizationRoutes.length).toBe(TOTAL_ROUTES);
     });
 
@@ -280,7 +280,7 @@ describe('organizationRoutes - organization', () => {
       deleteRoutes.forEach((route) => {
         const pathStr = route.path instanceof RegExp ? route.path.source : route.path;
         // DELETE should be for removing
-        expect(pathStr).toMatch(/(members|tags|groups|folders|assets)/i);
+        expect(pathStr).toMatch(/(members|tags|groups|folders|assets|users)/i);
       });
     });
   });

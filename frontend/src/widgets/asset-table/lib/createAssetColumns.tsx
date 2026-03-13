@@ -210,6 +210,7 @@ export const createAssetColumns = (
     onGroupMembersClick?: (group: any) => void;
     onGroupAssetsClick?: (group: any) => void;
     onGroupDelete?: (group: any) => void;
+    onUserDelete?: (user: any) => void;
     onGroupUpdate?: (group: any) => void;
     onRefreshScheduleClick?: (dataset: any) => void;
     onDefinitionErrorsClick?: (asset: any) => void;

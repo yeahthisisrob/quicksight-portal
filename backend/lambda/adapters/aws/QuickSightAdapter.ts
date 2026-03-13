@@ -58,6 +58,7 @@ import {
   CreateFolderCommand,
   CreateGroupCommand,
   DeleteGroupCommand,
+  DeleteUserCommand,
   RegisterUserCommand,
   UpdateDashboardCommand,
   UpdateAnalysisCommand,
@@ -475,6 +476,26 @@ export class QuickSightAdapter {
     });
 
     await this.sendWithRateLimit(command);
+  }
+
+  public async deleteUser(
+    userName: string,
+    namespace: string = 'default'
+  ): Promise<{ requestId: string; status: number }> {
+    const command = new DeleteUserCommand({
+      AwsAccountId: this.awsAccountId,
+      Namespace: namespace,
+      UserName: userName,
+    });
+
+    const response = await this.client.send(command);
+    if (!response.RequestId || !response.Status) {
+      throw new Error('DeleteUser response missing required fields');
+    }
+    return {
+      requestId: response.RequestId,
+      status: response.Status,
+    };
   }
 
   /**

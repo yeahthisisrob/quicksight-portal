@@ -12,6 +12,7 @@ interface ActionsDropdownProps {
     onJsonViewerClick?: (asset: any, assetType: string) => void;
     onGroupUpdate?: (group: any) => void;
     onGroupDelete?: (group: any) => void;
+    onUserDelete?: (user: any) => void;
     onNotifyInactive?: (asset: any) => void;
     onNotifyInactiveAnalyses?: (asset: any) => void;
     onNotifyUnusedDatasets?: (asset: any) => void;
@@ -84,6 +85,14 @@ export const ActionsDropdown = ({ asset, assetType, handlers }: ActionsDropdownP
         {assetType === 'user' && (
           <MenuItem onClick={() => handleAction(() => handlers.onNotifyUnusedDatasets?.(asset))}>
             Notify Unused Datasets
+          </MenuItem>
+        )}
+        {assetType === 'user' && ['READER', 'READER_PRO'].includes(asset.role) && (
+          <MenuItem
+            onClick={() => handleAction(() => handlers.onUserDelete?.(asset))}
+            sx={{ color: 'error.main' }}
+          >
+            Delete User
           </MenuItem>
         )}
         {assetType === 'group' && (

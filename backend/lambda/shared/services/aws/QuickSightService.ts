@@ -376,6 +376,14 @@ export class QuickSightService {
     );
   }
 
+  public async deleteUser(userName: string, namespace: string = 'default'): Promise<any> {
+    return await this.executeWithTracking(
+      () => this.adapter.deleteUser(userName, namespace),
+      { operation: 'DeleteUser', assetType: ASSET_TYPES.user, assetId: userName },
+      'other'
+    );
+  }
+
   // =============================================================================
   // DESCRIBE OPERATIONS
   // =============================================================================
