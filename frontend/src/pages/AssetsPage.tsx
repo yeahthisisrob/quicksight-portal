@@ -128,6 +128,7 @@ export default function AssetsPage() {
         enableActivityFiltering={['dashboard', 'analysis', 'user'].includes(config.assetType)}
         enableRoleFiltering={config.assetType === 'user'}
         availableRoles={config.assetType === 'user' ? availableRoles : undefined}
+        enablePermissionsFiltering={config.assetType === 'user'}
         enableGroupFiltering={config.assetType === 'user'}
         availableGroups={config.assetType === 'user' ? availableGroups : undefined}
         enableFolderFiltering={['dashboard', 'analysis', 'dataset', 'datasource'].includes(config.assetType)}

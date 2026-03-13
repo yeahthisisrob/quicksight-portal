@@ -13,6 +13,7 @@ export type {
   RoleOption,
   GroupOption,
   GroupMembershipFilterState,
+  PermissionsFilterState,
   DateFieldOption,
   DateRangeOption,
   MatchReasonSummary,

@@ -123,7 +123,7 @@ export class QuicksightPortalStack extends Stack {
         'quicksight:UpdateDashboard', 'quicksight:UpdateAnalysis',
         'quicksight:UpdateDataSet', 'quicksight:UpdateDataSource',
         'quicksight:UpdateFolder', 'quicksight:UpdateGroup',
-        'quicksight:DeleteGroup', 'quicksight:DeleteGroupMembership',
+        'quicksight:DeleteGroup', 'quicksight:DeleteGroupMembership', 'quicksight:DeleteUser',
         'quicksight:UpdateUser', 'quicksight:UpdateDashboardPermissions',
         'quicksight:UpdateAnalysisPermissions', 'quicksight:UpdateDataSetPermissions',
         'quicksight:UpdateDataSourcePermissions', 'quicksight:UpdateFolderPermissions',

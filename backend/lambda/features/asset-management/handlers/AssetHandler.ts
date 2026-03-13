@@ -687,6 +687,10 @@ export class AssetHandler {
         | 'with_activity'
         | 'without_activity',
       roleFilter: queryParams.roleFilter ? JSON.parse(queryParams.roleFilter) : undefined,
+      permissionsFilter: (queryParams.permissionsFilter || 'all') as
+        | 'all'
+        | 'with_permissions'
+        | 'without_permissions',
       groupMembershipFilter: (queryParams.groupMembershipFilter || 'all') as
         | 'all'
         | 'in_groups'

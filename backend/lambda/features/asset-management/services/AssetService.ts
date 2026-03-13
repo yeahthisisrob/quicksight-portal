@@ -389,6 +389,13 @@ export class AssetService {
       });
     }
 
+    if (request.permissionsFilter && request.permissionsFilter !== 'all') {
+      filteredItems = filteredItems.filter((item) => {
+        const count = (item as any).assetAccessCount || 0;
+        return request.permissionsFilter === 'with_permissions' ? count > 0 : count === 0;
+      });
+    }
+
     if (request.groupMembershipFilter && request.groupMembershipFilter !== 'all') {
       filteredItems = filteredItems.filter((item) => {
         const groups = (item as any).groups as string[] | undefined;

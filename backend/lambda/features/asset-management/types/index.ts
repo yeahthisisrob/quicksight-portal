@@ -61,6 +61,8 @@ export interface AssetListRequest {
   activityFilter?: 'all' | 'with_activity' | 'without_activity';
   /** Filter by user role (array of role values) */
   roleFilter?: string[];
+  /** Filter by permissions: all, with_permissions, without_permissions */
+  permissionsFilter?: 'all' | 'with_permissions' | 'without_permissions';
   /** Filter by group membership: all, in_groups, not_in_groups */
   groupMembershipFilter?: 'all' | 'in_groups' | 'not_in_groups';
   /** Filter by specific group names */

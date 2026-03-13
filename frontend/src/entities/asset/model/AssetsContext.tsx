@@ -34,6 +34,14 @@ export type FetchParams = {
   dateField?: string;
   includeTags?: string;
   excludeTags?: string;
+  errorFilter?: string;
+  activityFilter?: string;
+  roleFilter?: string;
+  groupMembershipFilter?: string;
+  groupFilter?: string;
+  permissionsFilter?: string;
+  includeFolders?: string;
+  excludeFolders?: string;
 };
 
 export type AssetFetchFn = (options: FetchParams) => Promise<void>;
@@ -229,10 +237,19 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
     groups: { setData: setGroups, setLoading: setGroupsLoading, setPagination: setGroupsPagination },
   }), []);
 
-  // Create a key for deduplication
+  // Create a key for deduplication - must include ALL filter params
   const createRequestKey = useCallback((type: string, options: FetchParams) => {
-    const { page, pageSize, search, dateRange, sortBy, sortOrder, dateField, includeTags, excludeTags } = options;
-    return `${type}-${page}-${pageSize}-${search || ''}-${dateRange || ''}-${sortBy || ''}-${sortOrder || ''}-${dateField || ''}-${includeTags || ''}-${excludeTags || ''}`;
+    const parts = [
+      type, options.page, options.pageSize,
+      options.search || '', options.dateRange || '', options.sortBy || '',
+      options.sortOrder || '', options.dateField || '',
+      options.includeTags || '', options.excludeTags || '',
+      options.errorFilter || '', options.activityFilter || '',
+      options.roleFilter || '', options.groupMembershipFilter || '',
+      options.groupFilter || '', options.permissionsFilter || '',
+      options.includeFolders || '', options.excludeFolders || '',
+    ];
+    return parts.join('-');
   }, []);
 
   // Factory function to create fetch methods - eliminates 7 duplicate implementations

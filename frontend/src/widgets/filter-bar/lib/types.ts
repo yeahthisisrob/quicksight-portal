@@ -23,6 +23,8 @@ export type ActivityFilterState = 'all' | 'with_activity' | 'without_activity';
 
 export type GroupMembershipFilterState = 'all' | 'in_groups' | 'not_in_groups';
 
+export type PermissionsFilterState = 'all' | 'with_permissions' | 'without_permissions';
+
 export interface GroupOption {
   value: string;
   count: number;
@@ -105,6 +107,11 @@ export interface FilterBarProps {
   availableRoles?: RoleOption[];
   selectedRoles?: string[];
   onSelectedRolesChange?: (roles: string[]) => void;
+
+  // Permissions filtering
+  enablePermissionsFiltering?: boolean;
+  permissionsFilter?: PermissionsFilterState;
+  onPermissionsFilterChange?: (filter: PermissionsFilterState) => void;
 
   // Group filtering
   enableGroupFiltering?: boolean;

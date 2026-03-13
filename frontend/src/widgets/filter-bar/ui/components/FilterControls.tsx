@@ -13,6 +13,7 @@ import {
   Block as NoActivityIcon,
   Person as PersonIcon,
   Group as GroupIcon,
+  Security as SecurityIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -40,6 +41,7 @@ import type {
   ErrorFilterState,
   ActivityFilterState,
   GroupMembershipFilterState,
+  PermissionsFilterState,
   GroupOption,
   RoleOption,
   TagOption,
@@ -90,6 +92,11 @@ export interface FilterControlsProps {
   availableRoles: RoleOption[];
   selectedRoles: string[];
   onSelectedRolesChange?: (roles: string[]) => void;
+
+  // Permissions controls
+  enablePermissionsFiltering: boolean;
+  permissionsFilter: PermissionsFilterState;
+  onPermissionsFilterChange?: (filter: PermissionsFilterState) => void;
 
   // Group controls
   enableGroupFiltering: boolean;
@@ -539,6 +546,9 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
   availableRoles,
   selectedRoles,
   onSelectedRolesChange,
+  enablePermissionsFiltering,
+  permissionsFilter,
+  onPermissionsFilterChange,
   enableGroupFiltering,
   availableGroups,
   groupMembershipFilter,
@@ -654,6 +664,29 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
             }}
           />
         </Stack>
+      )}
+
+      {/* Permissions Filter Row */}
+      {enablePermissionsFiltering && onPermissionsFilterChange && (
+        <ToggleFilterRow
+          icon={<SecurityIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />}
+          label="Permissions"
+          value={permissionsFilter}
+          onChange={(v) => onPermissionsFilterChange(v as PermissionsFilterState)}
+          options={[
+            { value: 'all', label: 'All' },
+            {
+              value: 'with_permissions',
+              label: 'With Permissions',
+              icon: <SecurityIcon sx={{ fontSize: 16, mr: 0.5, color: 'info.main' }} />,
+            },
+            {
+              value: 'without_permissions',
+              label: 'No Permissions',
+              icon: <PersonIcon sx={{ fontSize: 16, mr: 0.5, color: 'warning.main' }} />,
+            },
+          ]}
+        />
       )}
 
       {/* Group Membership Toggle Row */}

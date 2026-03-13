@@ -53,6 +53,8 @@ interface GenericAssetPageProps {
   enableRoleFiltering?: boolean;
   /** Available roles for filtering */
   availableRoles?: RoleOption[];
+  /** Enable permissions filtering UI */
+  enablePermissionsFiltering?: boolean;
   /** Enable group filtering UI */
   enableGroupFiltering?: boolean;
   /** Available groups for filtering */
@@ -94,6 +96,7 @@ export default function GenericAssetPage({
   enableActivityFiltering = false,
   enableRoleFiltering = false,
   availableRoles = [],
+  enablePermissionsFiltering = false,
   enableGroupFiltering = false,
   availableGroups = [],
   enableFolderFiltering = false,
@@ -211,6 +214,7 @@ export default function GenericAssetPage({
       showActivityOption={['dashboard', 'analysis', 'user'].includes(assetType)}
       enableRoleFiltering={enableRoleFiltering}
       availableRoles={availableRoles}
+      enablePermissionsFiltering={enablePermissionsFiltering}
       enableGroupFiltering={enableGroupFiltering}
       availableGroups={availableGroups}
       enableFolderFiltering={enableFolderFiltering}
