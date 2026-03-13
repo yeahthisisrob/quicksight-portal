@@ -516,6 +516,153 @@ const TagValueAutocomplete: React.FC<TagValueAutocompleteProps> = ({
 );
 
 // ============================================================================
+// User Filters Section (role, permissions, group membership, group selection)
+// ============================================================================
+
+interface UserFiltersSectionProps {
+  enableRoleFiltering: boolean;
+  availableRoles: RoleOption[];
+  selectedRoles: string[];
+  onSelectedRolesChange?: (roles: string[]) => void;
+  enablePermissionsFiltering: boolean;
+  permissionsFilter: PermissionsFilterState;
+  onPermissionsFilterChange?: (filter: PermissionsFilterState) => void;
+  enableGroupFiltering: boolean;
+  availableGroups: GroupOption[];
+  groupMembershipFilter: GroupMembershipFilterState;
+  onGroupMembershipFilterChange?: (filter: GroupMembershipFilterState) => void;
+  selectedGroups: string[];
+  onSelectedGroupsChange?: (groups: string[]) => void;
+}
+
+const UserFiltersSection: React.FC<UserFiltersSectionProps> = ({
+  enableRoleFiltering, availableRoles, selectedRoles, onSelectedRolesChange,
+  enablePermissionsFiltering, permissionsFilter, onPermissionsFilterChange,
+  enableGroupFiltering, availableGroups, groupMembershipFilter,
+  onGroupMembershipFilterChange, selectedGroups, onSelectedGroupsChange,
+}) => (
+  <>
+    {/* Role Filter Row */}
+    {enableRoleFiltering && availableRoles.length > 0 && onSelectedRolesChange && (
+      <Stack direction="row" spacing={2} alignItems="center">
+        <PersonIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />
+        <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
+          Role:
+        </Typography>
+        <Autocomplete
+          multiple
+          sx={{ minWidth: 300 }}
+          size="small"
+          value={availableRoles.filter((r) => selectedRoles.includes(r.value))}
+          onChange={(_, newValue) => onSelectedRolesChange(newValue.map((v) => v.value))}
+          options={availableRoles}
+          getOptionLabel={(option) => option.value}
+          disableCloseOnSelect
+          renderInput={(params) => (
+            <TextField {...params} label="Filter by Role" placeholder="Select roles..." variant="outlined" />
+          )}
+          renderOption={(props, option) => {
+            const { key, ...otherProps } = props as any;
+            return (
+              <Box component="li" key={key} {...otherProps}>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+                  <Typography variant="body2" sx={{ flex: 1 }}>
+                    {option.value}
+                  </Typography>
+                  <CountChip count={option.count} label="users" />
+                </Stack>
+              </Box>
+            );
+          }}
+        />
+      </Stack>
+    )}
+
+    {/* Permissions Filter Row */}
+    {enablePermissionsFiltering && onPermissionsFilterChange && (
+      <ToggleFilterRow
+        icon={<SecurityIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />}
+        label="Permissions"
+        value={permissionsFilter}
+        onChange={(v) => onPermissionsFilterChange(v as PermissionsFilterState)}
+        options={[
+          { value: 'all', label: 'All' },
+          {
+            value: 'with_permissions',
+            label: 'With Permissions',
+            icon: <SecurityIcon sx={{ fontSize: 16, mr: 0.5, color: 'info.main' }} />,
+          },
+          {
+            value: 'without_permissions',
+            label: 'No Permissions',
+            icon: <PersonIcon sx={{ fontSize: 16, mr: 0.5, color: 'warning.main' }} />,
+          },
+        ]}
+      />
+    )}
+
+    {/* Group Membership Toggle Row */}
+    {enableGroupFiltering && onGroupMembershipFilterChange && (
+      <ToggleFilterRow
+        icon={<GroupIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />}
+        label="Groups"
+        value={groupMembershipFilter}
+        onChange={(v) => onGroupMembershipFilterChange(v as GroupMembershipFilterState)}
+        options={[
+          { value: 'all', label: 'All' },
+          {
+            value: 'in_groups',
+            label: 'In Groups',
+            icon: <GroupIcon sx={{ fontSize: 16, mr: 0.5, color: 'info.main' }} />,
+          },
+          {
+            value: 'not_in_groups',
+            label: 'No Groups',
+            icon: <PersonIcon sx={{ fontSize: 16, mr: 0.5, color: 'warning.main' }} />,
+          },
+        ]}
+      />
+    )}
+
+    {/* Group Filter Dropdown Row */}
+    {enableGroupFiltering && availableGroups.length > 0 && onSelectedGroupsChange && (
+      <Stack direction="row" spacing={2} alignItems="center">
+        <GroupIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />
+        <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
+          Group:
+        </Typography>
+        <Autocomplete
+          multiple
+          sx={{ minWidth: 300 }}
+          size="small"
+          value={availableGroups.filter((g) => selectedGroups.includes(g.value))}
+          onChange={(_, newValue) => onSelectedGroupsChange(newValue.map((v) => v.value))}
+          options={availableGroups}
+          getOptionLabel={(option) => option.value}
+          disableCloseOnSelect
+          renderInput={(params) => (
+            <TextField {...params} label="Filter by Group" placeholder="Select groups..." variant="outlined" />
+          )}
+          renderOption={(props, option) => {
+            const { key, ...otherProps } = props as any;
+            return (
+              <Box component="li" key={key} {...otherProps}>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+                  <Typography variant="body2" sx={{ flex: 1 }}>
+                    {option.value}
+                  </Typography>
+                  <CountChip count={option.count} label="users" />
+                </Stack>
+              </Box>
+            );
+          }}
+        />
+      </Stack>
+    )}
+  </>
+);
+
+// ============================================================================
 // Main Component
 // ============================================================================
 
@@ -630,123 +777,22 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
         />
       )}
 
-      {/* Role Filter Row */}
-      {enableRoleFiltering && availableRoles.length > 0 && onSelectedRolesChange && (
-        <Stack direction="row" spacing={2} alignItems="center">
-          <PersonIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />
-          <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
-            Role:
-          </Typography>
-          <Autocomplete
-            multiple
-            sx={{ minWidth: 300 }}
-            size="small"
-            value={availableRoles.filter((r) => selectedRoles.includes(r.value))}
-            onChange={(_, newValue) => onSelectedRolesChange(newValue.map((v) => v.value))}
-            options={availableRoles}
-            getOptionLabel={(option) => option.value}
-            disableCloseOnSelect
-            renderInput={(params) => (
-              <TextField {...params} label="Filter by Role" placeholder="Select roles..." variant="outlined" />
-            )}
-            renderOption={(props, option) => {
-              const { key, ...otherProps } = props as any;
-              return (
-                <Box component="li" key={key} {...otherProps}>
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
-                    <Typography variant="body2" sx={{ flex: 1 }}>
-                      {option.value}
-                    </Typography>
-                    <CountChip count={option.count} label="users" />
-                  </Stack>
-                </Box>
-              );
-            }}
-          />
-        </Stack>
-      )}
-
-      {/* Permissions Filter Row */}
-      {enablePermissionsFiltering && onPermissionsFilterChange && (
-        <ToggleFilterRow
-          icon={<SecurityIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />}
-          label="Permissions"
-          value={permissionsFilter}
-          onChange={(v) => onPermissionsFilterChange(v as PermissionsFilterState)}
-          options={[
-            { value: 'all', label: 'All' },
-            {
-              value: 'with_permissions',
-              label: 'With Permissions',
-              icon: <SecurityIcon sx={{ fontSize: 16, mr: 0.5, color: 'info.main' }} />,
-            },
-            {
-              value: 'without_permissions',
-              label: 'No Permissions',
-              icon: <PersonIcon sx={{ fontSize: 16, mr: 0.5, color: 'warning.main' }} />,
-            },
-          ]}
-        />
-      )}
-
-      {/* Group Membership Toggle Row */}
-      {enableGroupFiltering && onGroupMembershipFilterChange && (
-        <ToggleFilterRow
-          icon={<GroupIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />}
-          label="Groups"
-          value={groupMembershipFilter}
-          onChange={(v) => onGroupMembershipFilterChange(v as GroupMembershipFilterState)}
-          options={[
-            { value: 'all', label: 'All' },
-            {
-              value: 'in_groups',
-              label: 'In Groups',
-              icon: <GroupIcon sx={{ fontSize: 16, mr: 0.5, color: 'info.main' }} />,
-            },
-            {
-              value: 'not_in_groups',
-              label: 'No Groups',
-              icon: <PersonIcon sx={{ fontSize: 16, mr: 0.5, color: 'warning.main' }} />,
-            },
-          ]}
-        />
-      )}
-
-      {/* Group Filter Dropdown Row */}
-      {enableGroupFiltering && availableGroups.length > 0 && onSelectedGroupsChange && (
-        <Stack direction="row" spacing={2} alignItems="center">
-          <GroupIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />
-          <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
-            Group:
-          </Typography>
-          <Autocomplete
-            multiple
-            sx={{ minWidth: 300 }}
-            size="small"
-            value={availableGroups.filter((g) => selectedGroups.includes(g.value))}
-            onChange={(_, newValue) => onSelectedGroupsChange(newValue.map((v) => v.value))}
-            options={availableGroups}
-            getOptionLabel={(option) => option.value}
-            disableCloseOnSelect
-            renderInput={(params) => (
-              <TextField {...params} label="Filter by Group" placeholder="Select groups..." variant="outlined" />
-            )}
-            renderOption={(props, option) => {
-              const { key, ...otherProps } = props as any;
-              return (
-                <Box component="li" key={key} {...otherProps}>
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
-                    <Typography variant="body2" sx={{ flex: 1 }}>
-                      {option.value}
-                    </Typography>
-                    <CountChip count={option.count} label="users" />
-                  </Stack>
-                </Box>
-              );
-            }}
-          />
-        </Stack>
-      )}
+      {/* User-specific Filters (Role, Permissions, Groups) */}
+      <UserFiltersSection
+        enableRoleFiltering={enableRoleFiltering}
+        availableRoles={availableRoles}
+        selectedRoles={selectedRoles}
+        onSelectedRolesChange={onSelectedRolesChange}
+        enablePermissionsFiltering={enablePermissionsFiltering}
+        permissionsFilter={permissionsFilter}
+        onPermissionsFilterChange={onPermissionsFilterChange}
+        enableGroupFiltering={enableGroupFiltering}
+        availableGroups={availableGroups}
+        groupMembershipFilter={groupMembershipFilter}
+        onGroupMembershipFilterChange={onGroupMembershipFilterChange}
+        selectedGroups={selectedGroups}
+        onSelectedGroupsChange={onSelectedGroupsChange}
+      />
 
       {/* Folder Filter Section */}
       {enableFolderFiltering && availableFolders.length > 0 && (

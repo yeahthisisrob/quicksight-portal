@@ -135,6 +135,159 @@ interface EnhancedAssetTableProps {
   refreshKey?: number;
 }
 
+// Convert DataGrid filter model to backend format (extracted to reduce component complexity)
+function convertGridFiltersToBackend(model: GridFilterModel): Record<string, any> {
+  const filters: Record<string, any> = {};
+  model.items.forEach((item) => {
+    if (item.value !== undefined && item.value !== '') {
+      const { field, operator, value } = item;
+      switch (operator) {
+        case 'contains':
+        case 'equals':
+          filters[field] = value;
+          break;
+        case 'startsWith':
+          filters[field] = { startsWith: value };
+          break;
+        case 'endsWith':
+          filters[field] = { endsWith: value };
+          break;
+        case '>':
+        case '>=':
+          filters[field] = { min: value };
+          break;
+        case '<':
+        case '<=':
+          filters[field] = { max: value };
+          break;
+        case 'isAnyOf':
+          filters[field] = value;
+          break;
+      }
+    }
+  });
+  return filters;
+}
+
+// Build fetch options from filter state (extracted to reduce component complexity)
+function buildFetchOptionsFromState(state: {
+  currentPage: number; pageSize: number; debouncedSearchTerm: string;
+  dateFilter: DateFilterState; sortModel: GridSortModel; filterModel: GridFilterModel;
+  mapSortField: (f: string | undefined) => string | undefined;
+  includeTags: TagFilter[]; excludeTags: TagFilter[];
+  errorFilter: ErrorFilterState; activityFilter: ActivityFilterState;
+  selectedRoles: string[]; permissionsFilter: PermissionsFilterState;
+  groupMembershipFilter: GroupMembershipFilterState; selectedGroups: string[];
+  includeFolders: FolderFilter[]; excludeFolders: FolderFilter[];
+}): FetchAssetsOptions {
+  const { sortModel, currentPage, pageSize, debouncedSearchTerm, dateFilter, filterModel } = state;
+  const sortField = sortModel.length > 0 ? sortModel[0].field : undefined;
+  const sortOrder = sortModel.length > 0 && sortModel[0].sort ? sortModel[0].sort : undefined;
+  return {
+    page: currentPage, pageSize,
+    search: debouncedSearchTerm,
+    dateRange: dateFilter.range,
+    sortBy: state.mapSortField(sortField),
+    sortOrder,
+    filters: convertGridFiltersToBackend(filterModel),
+    dateField: dateFilter.field,
+    includeTags: state.includeTags.length > 0 ? JSON.stringify(state.includeTags) : undefined,
+    excludeTags: state.excludeTags.length > 0 ? JSON.stringify(state.excludeTags) : undefined,
+    errorFilter: state.errorFilter !== 'all' ? state.errorFilter : undefined,
+    activityFilter: state.activityFilter !== 'all' ? state.activityFilter : undefined,
+    roleFilter: state.selectedRoles.length > 0 ? JSON.stringify(state.selectedRoles) : undefined,
+    permissionsFilter: state.permissionsFilter !== 'all' ? state.permissionsFilter : undefined,
+    groupMembershipFilter: state.groupMembershipFilter !== 'all' ? state.groupMembershipFilter : undefined,
+    groupFilter: state.selectedGroups.length > 0 ? JSON.stringify(state.selectedGroups) : undefined,
+    includeFolders: state.includeFolders.length > 0 ? JSON.stringify(state.includeFolders) : undefined,
+    excludeFolders: state.excludeFolders.length > 0 ? JSON.stringify(state.excludeFolders) : undefined,
+  };
+}
+
+// Compute match reason summary from search results (extracted to reduce component complexity)
+function computeMatchReasonSummary(
+  assets: any[],
+  hasSearch: boolean
+): MatchReasonSummary[] {
+  if (!hasSearch) return [];
+  const reasonCounts = new Map<SearchMatchReason, number>();
+  for (const asset of assets) {
+    const reasons = asset.searchMatchReasons as SearchMatchReason[] | undefined;
+    if (reasons && Array.isArray(reasons)) {
+      for (const reason of reasons) {
+        reasonCounts.set(reason, (reasonCounts.get(reason) || 0) + 1);
+      }
+    }
+  }
+  return Array.from(reasonCounts.entries())
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+// Filter valid rows for DataGrid (extracted to reduce component complexity)
+function filterValidRows(assets: any[], getRowId?: (row: any) => string): any[] {
+  return assets.filter((asset) => asset && (asset.id || (getRowId && getRowId(asset))));
+}
+
+// Map frontend sort field to backend field name
+function mapFrontendSortField(sortField: string | undefined): string | undefined {
+  if (!sortField) return undefined;
+  if (sortField === 'viewStats') return 'viewCount';
+  return sortField;
+}
+
+// Custom hook for dynamic height calculation (extracted to reduce component complexity)
+function useAutoHeight() {
+  const [availableHeight, setAvailableHeight] = useState<string>('auto');
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const calculateHeight = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const height = window.innerHeight - rect.top - 20;
+        setAvailableHeight(`${height}px`);
+      }
+    };
+    calculateHeight();
+    window.addEventListener('resize', calculateHeight);
+    const timer = setTimeout(calculateHeight, 100);
+    return () => {
+      window.removeEventListener('resize', calculateHeight);
+      clearTimeout(timer);
+    };
+  }, []);
+
+  return { availableHeight, containerRef };
+}
+
+// Build column configs from ColumnConfig[] (extracted to reduce component complexity)
+function buildColumnsConfig(columns: ColumnConfig[]): { visible: GridColDef[]; visibilityModel: Record<string, boolean> } {
+  const visible = columns
+    .filter((col) => col.id && col.label)
+    .map((col) => ({
+      field: col.id,
+      headerName: col.label,
+      width: col.width,
+      flex: col.flex,
+      minWidth: col.minWidth,
+      sortable: col.sortable !== false,
+      hideable: col.hideable !== false,
+      renderCell: col.renderCell,
+      valueGetter: col.valueGetter,
+    }) as GridColDef);
+
+  const visibilityModel: Record<string, boolean> = {};
+  columns.forEach((col) => {
+    if (col.visible === false && !col.required) {
+      visibilityModel[col.id] = false;
+    }
+  });
+
+  return { visible, visibilityModel };
+}
+
+// eslint-disable-next-line complexity
 export default function EnhancedAssetTable({
   title,
   assets,
@@ -181,13 +334,14 @@ export default function EnhancedAssetTable({
   const [searchTerm, setSearchTerm] = useState('');
   const [sortModel, setSortModel] = useState<GridSortModel>(defaultSortModel);
   const [exporting, setExporting] = useState(false);
-  const [dateFilter, setDateFilter] = useState<DateFilterState>(() => {
-    const firstDateCol = initialColumns.find((col) => col.dateFilterField);
-    if (firstDateCol) {
-      return { field: firstDateCol.dateFilterField!, range: 'all' as const };
+  const [dateFilter, setDateFilter] = useState<DateFilterState>(
+    () => {
+      const firstDateCol = initialColumns.find((col) => col.dateFilterField);
+      return firstDateCol
+        ? { field: firstDateCol.dateFilterField!, range: 'all' as const }
+        : DEFAULT_DATE_FILTER;
     }
-    return DEFAULT_DATE_FILTER;
-  });
+  );
   const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [] });
   const [includeTags, setIncludeTags] = useState<TagFilter[]>([]);
   const [excludeTags, setExcludeTags] = useState<TagFilter[]>([]);
@@ -200,30 +354,7 @@ export default function EnhancedAssetTable({
   const [includeFolders, setIncludeFolders] = useState<FolderFilter[]>([]);
   const [excludeFolders, setExcludeFolders] = useState<FolderFilter[]>([]);
 
-  // Dynamic height calculation
-  const [availableHeight, setAvailableHeight] = useState<string>('auto');
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const calculateHeight = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const topOffset = rect.top;
-        const bottomPadding = 20;
-        const height = window.innerHeight - topOffset - bottomPadding;
-        setAvailableHeight(`${height}px`);
-      }
-    };
-
-    calculateHeight();
-    window.addEventListener('resize', calculateHeight);
-    const timer = setTimeout(calculateHeight, 100);
-
-    return () => {
-      window.removeEventListener('resize', calculateHeight);
-      clearTimeout(timer);
-    };
-  }, []);
+  const { availableHeight, containerRef } = useAutoHeight();
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
@@ -238,93 +369,19 @@ export default function EnhancedAssetTable({
     updateTotalItems(totalRows);
   }, [totalRows, updateTotalItems]);
 
-  // Derive date field options from columns that have dateFilterField set
   const dateFieldOptions = useMemo(() => {
-    const options = initialColumns
+    const opts = initialColumns
       .filter((col) => col.dateFilterField)
       .map((col) => ({ value: col.dateFilterField!, label: col.label }));
-    return options.length > 0 ? options : undefined;
+    return opts.length > 0 ? opts : undefined;
   }, [initialColumns]);
 
-  // Build columns
-  const visibleColumnsConfig = useMemo(() => {
-    return initialColumns
-      .filter((col) => col.id && col.label)
-      .map(
-        (col) =>
-          ({
-            field: col.id,
-            headerName: col.label,
-            width: col.width,
-            flex: col.flex,
-            minWidth: col.minWidth,
-            sortable: col.sortable !== false,
-            hideable: col.hideable !== false,
-            renderCell: col.renderCell,
-            valueGetter: col.valueGetter,
-          }) as GridColDef
-      );
-  }, [initialColumns]);
-
-  // Build initial column visibility model
-  const initialColumnVisibilityModel = useMemo(() => {
-    const model: Record<string, boolean> = {};
-    initialColumns.forEach((col) => {
-      if (col.visible === false && !col.required) {
-        model[col.id] = false;
-      }
-    });
-    return model;
-  }, [initialColumns]);
-
-  // Convert DataGrid filter model to backend format
-  const convertFiltersToBackend = useCallback(
-    (filterModel: GridFilterModel): Record<string, any> => {
-      const filters: Record<string, any> = {};
-
-      filterModel.items.forEach((item) => {
-        if (item.value !== undefined && item.value !== '') {
-          const field = item.field;
-          const operator = item.operator;
-          const value = item.value;
-
-          switch (operator) {
-            case 'contains':
-            case 'equals':
-              filters[field] = value;
-              break;
-            case 'startsWith':
-              filters[field] = { startsWith: value };
-              break;
-            case 'endsWith':
-              filters[field] = { endsWith: value };
-              break;
-            case '>':
-            case '>=':
-              filters[field] = { min: value };
-              break;
-            case '<':
-            case '<=':
-              filters[field] = { max: value };
-              break;
-            case 'isAnyOf':
-              filters[field] = value;
-              break;
-          }
-        }
-      });
-
-      return filters;
-    },
-    []
+  const { visible: visibleColumnsConfig, visibilityModel: initialColumnVisibilityModel } = useMemo(
+    () => buildColumnsConfig(initialColumns),
+    [initialColumns]
   );
 
-  // Map frontend sort field to backend field
-  const mapSortField = useCallback((sortField: string | undefined) => {
-    if (!sortField) return undefined;
-    if (sortField === 'viewStats') return 'viewCount';
-    return sortField;
-  }, []);
+  const mapSortField = mapFrontendSortField;
 
   const handleExportCSV = useCallback(async () => {
     if (!onExportCSV) return;
@@ -354,75 +411,39 @@ export default function EnhancedAssetTable({
     [currentPage, pageSize, goToPage, setPageSize]
   );
 
-  // Compute match reasons summary from assets that have searchMatchReasons
-  const matchReasonSummary = useMemo((): MatchReasonSummary[] => {
-    if (!debouncedSearchTerm) return [];
+  const matchReasonSummary = useMemo(
+    () => computeMatchReasonSummary(assets, !!debouncedSearchTerm),
+    [assets, debouncedSearchTerm]
+  );
 
-    const reasonCounts = new Map<SearchMatchReason, number>();
+  // Build fetch options from current filter state
+  const buildFetchOptions = useCallback(
+    () => buildFetchOptionsFromState({
+      currentPage, pageSize, debouncedSearchTerm, dateFilter, sortModel, filterModel,
+      mapSortField, includeTags, excludeTags, errorFilter, activityFilter,
+      selectedRoles, permissionsFilter, groupMembershipFilter, selectedGroups,
+      includeFolders, excludeFolders,
+    }),
+    [currentPage, pageSize, debouncedSearchTerm, dateFilter, sortModel, filterModel,
+      mapSortField, includeTags, excludeTags, errorFilter, activityFilter,
+      selectedRoles, permissionsFilter, groupMembershipFilter, selectedGroups,
+      includeFolders, excludeFolders]
+  );
 
-    for (const asset of assets) {
-      const reasons = asset.searchMatchReasons as SearchMatchReason[] | undefined;
-      if (reasons && Array.isArray(reasons)) {
-        for (const reason of reasons) {
-          reasonCounts.set(reason, (reasonCounts.get(reason) || 0) + 1);
-        }
-      }
+  // Handle bulk tag action - prefer direct handler, fall back to custom action
+  const handleBulkTag = useCallback(() => {
+    if (onBulkTag) {
+      onBulkTag();
+    } else {
+      const action = bulkActions?.find((a) => a.label === 'Manage Tags');
+      if (action) action.onClick();
     }
-
-    return Array.from(reasonCounts.entries())
-      .map(([reason, count]) => ({ reason, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [assets, debouncedSearchTerm]);
+  }, [onBulkTag, bulkActions]);
 
   // Fetch assets when pagination, search, date filter, tags, or sort changes
   useEffect(() => {
-    const sortField = sortModel.length > 0 ? sortModel[0].field : undefined;
-    const sortOrder = sortModel.length > 0 && sortModel[0].sort ? sortModel[0].sort : undefined;
-    const backendSortField = mapSortField(sortField);
-    const filters = convertFiltersToBackend(filterModel);
-
-    onFetchAssets({
-      page: currentPage,
-      pageSize,
-      search: debouncedSearchTerm,
-      dateRange: dateFilter.range,
-      sortBy: backendSortField,
-      sortOrder,
-      filters,
-      dateField: dateFilter.field,
-      includeTags: includeTags.length > 0 ? JSON.stringify(includeTags) : undefined,
-      excludeTags: excludeTags.length > 0 ? JSON.stringify(excludeTags) : undefined,
-      errorFilter: errorFilter !== 'all' ? errorFilter : undefined,
-      activityFilter: activityFilter !== 'all' ? activityFilter : undefined,
-      roleFilter: selectedRoles.length > 0 ? JSON.stringify(selectedRoles) : undefined,
-      permissionsFilter: permissionsFilter !== 'all' ? permissionsFilter : undefined,
-      groupMembershipFilter: groupMembershipFilter !== 'all' ? groupMembershipFilter : undefined,
-      groupFilter: selectedGroups.length > 0 ? JSON.stringify(selectedGroups) : undefined,
-      includeFolders: includeFolders.length > 0 ? JSON.stringify(includeFolders) : undefined,
-      excludeFolders: excludeFolders.length > 0 ? JSON.stringify(excludeFolders) : undefined,
-    });
-  }, [
-    currentPage,
-    pageSize,
-    debouncedSearchTerm,
-    dateFilter,
-    sortModel,
-    onFetchAssets,
-    filterModel,
-    convertFiltersToBackend,
-    mapSortField,
-    includeTags,
-    excludeTags,
-    errorFilter,
-    activityFilter,
-    selectedRoles,
-    permissionsFilter,
-    groupMembershipFilter,
-    selectedGroups,
-    includeFolders,
-    excludeFolders,
-    refreshKey,
-  ]);
+    onFetchAssets(buildFetchOptions());
+  }, [onFetchAssets, buildFetchOptions, refreshKey]);
 
   return (
     <Box>
@@ -439,16 +460,7 @@ export default function EnhancedAssetTable({
           <BulkActionsToolbar
             selectedCount={selectedRows.length}
             onAddToFolder={onAddToFolder}
-            onBulkTag={() => {
-              if (onBulkTag) {
-                onBulkTag();
-              } else {
-                const action = bulkActions?.find((a) => a.label === 'Manage Tags');
-                if (action) {
-                  action.onClick();
-                }
-              }
-            }}
+            onBulkTag={handleBulkTag}
             onBulkDelete={onBulkDelete}
             showDeleteAction={showDeleteAction}
             onClearSelection={() => onSelectionChange?.([])}
@@ -517,7 +529,7 @@ export default function EnhancedAssetTable({
 
         <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
           <DataGrid
-            rows={assets.filter((asset) => asset && (asset.id || (getRowId && getRowId(asset))))}
+            rows={filterValidRows(assets, getRowId)}
             columns={visibleColumnsConfig}
             loading={loading}
             paginationModel={{
