@@ -11,6 +11,8 @@ export type {
   AssetOption,
   AssetFilter,
   RoleOption,
+  GroupOption,
+  GroupMembershipFilterState,
   DateFieldOption,
   DateRangeOption,
   MatchReasonSummary,

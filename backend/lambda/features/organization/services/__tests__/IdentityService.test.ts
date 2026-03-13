@@ -187,15 +187,13 @@ describe('IdentityService - User Operations', () => {
   describe('getUser', () => {
     it('should get user details successfully', async () => {
       mockQuickSightService.describeUser.mockResolvedValue({
-        User: {
-          UserId: 'user-id',
-          UserName: 'testuser',
-          Email: 'test@example.com',
-          Role: 'AUTHOR',
-          Active: true,
-          PrincipalId: 'principal-123',
-          Arn: 'arn:aws:quicksight:us-east-1:123456789012:user/default/testuser',
-        },
+        UserId: 'user-id',
+        UserName: 'testuser',
+        Email: 'test@example.com',
+        Role: 'AUTHOR',
+        Active: true,
+        PrincipalId: 'principal-123',
+        Arn: 'arn:aws:quicksight:us-east-1:123456789012:user/default/testuser',
       });
 
       const user = await identityService.getUser('testuser');
@@ -213,9 +211,7 @@ describe('IdentityService - User Operations', () => {
 
     it('should handle missing fields in user response', async () => {
       mockQuickSightService.describeUser.mockResolvedValue({
-        User: {
-          UserName: 'testuser',
-        },
+        UserName: 'testuser',
       });
 
       const user = await identityService.getUser('testuser');

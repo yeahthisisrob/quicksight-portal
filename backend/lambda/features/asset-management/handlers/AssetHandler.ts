@@ -455,6 +455,9 @@ export class AssetHandler {
       if (result.availableRoles) {
         responseData.availableRoles = result.availableRoles;
       }
+      if (result.availableGroups) {
+        responseData.availableGroups = result.availableGroups;
+      }
 
       return successResponse(event, {
         success: true,
@@ -684,6 +687,11 @@ export class AssetHandler {
         | 'with_activity'
         | 'without_activity',
       roleFilter: queryParams.roleFilter ? JSON.parse(queryParams.roleFilter) : undefined,
+      groupMembershipFilter: (queryParams.groupMembershipFilter || 'all') as
+        | 'all'
+        | 'in_groups'
+        | 'not_in_groups',
+      groupFilter: queryParams.groupFilter ? JSON.parse(queryParams.groupFilter) : undefined,
       includeFolders: queryParams.includeFolders
         ? JSON.parse(queryParams.includeFolders)
         : undefined,

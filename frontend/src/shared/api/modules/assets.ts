@@ -254,6 +254,7 @@ export const assetsApi = {
     pagination: components['schemas']['PaginationInfo'];
     fromCache?: boolean;
     availableRoles?: Array<{ value: string; count: number }>;
+    availableGroups?: Array<{ value: string; count: number }>;
   }> {
     const queryParams: any = { ...params };
     if (params?.filters) {

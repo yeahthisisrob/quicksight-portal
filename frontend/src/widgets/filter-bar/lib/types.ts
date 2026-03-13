@@ -21,6 +21,13 @@ export type ErrorFilterState = 'all' | 'with_errors' | 'without_errors';
 
 export type ActivityFilterState = 'all' | 'with_activity' | 'without_activity';
 
+export type GroupMembershipFilterState = 'all' | 'in_groups' | 'not_in_groups';
+
+export interface GroupOption {
+  value: string;
+  count: number;
+}
+
 export interface RoleOption {
   value: string;
   count: number;
@@ -98,6 +105,14 @@ export interface FilterBarProps {
   availableRoles?: RoleOption[];
   selectedRoles?: string[];
   onSelectedRolesChange?: (roles: string[]) => void;
+
+  // Group filtering
+  enableGroupFiltering?: boolean;
+  availableGroups?: GroupOption[];
+  groupMembershipFilter?: GroupMembershipFilterState;
+  onGroupMembershipFilterChange?: (filter: GroupMembershipFilterState) => void;
+  selectedGroups?: string[];
+  onSelectedGroupsChange?: (groups: string[]) => void;
 
   // Asset selection (for data catalog)
   enableAssetSelection?: boolean;

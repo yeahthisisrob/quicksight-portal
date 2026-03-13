@@ -12,6 +12,7 @@ import {
   Timeline as ActivityIcon,
   Block as NoActivityIcon,
   Person as PersonIcon,
+  Group as GroupIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -38,6 +39,8 @@ import type {
   DateRangeOption,
   ErrorFilterState,
   ActivityFilterState,
+  GroupMembershipFilterState,
+  GroupOption,
   RoleOption,
   TagOption,
   TagFilter,
@@ -87,6 +90,14 @@ export interface FilterControlsProps {
   availableRoles: RoleOption[];
   selectedRoles: string[];
   onSelectedRolesChange?: (roles: string[]) => void;
+
+  // Group controls
+  enableGroupFiltering: boolean;
+  availableGroups: GroupOption[];
+  groupMembershipFilter: GroupMembershipFilterState;
+  onGroupMembershipFilterChange?: (filter: GroupMembershipFilterState) => void;
+  selectedGroups: string[];
+  onSelectedGroupsChange?: (groups: string[]) => void;
 
   // Folder controls
   enableFolderFiltering: boolean;
@@ -528,6 +539,12 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
   availableRoles,
   selectedRoles,
   onSelectedRolesChange,
+  enableGroupFiltering,
+  availableGroups,
+  groupMembershipFilter,
+  onGroupMembershipFilterChange,
+  selectedGroups,
+  onSelectedGroupsChange,
   enableFolderFiltering,
   folderFilterMode,
   onFolderFilterModeChange,
@@ -621,6 +638,65 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
             disableCloseOnSelect
             renderInput={(params) => (
               <TextField {...params} label="Filter by Role" placeholder="Select roles..." variant="outlined" />
+            )}
+            renderOption={(props, option) => {
+              const { key, ...otherProps } = props as any;
+              return (
+                <Box component="li" key={key} {...otherProps}>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+                    <Typography variant="body2" sx={{ flex: 1 }}>
+                      {option.value}
+                    </Typography>
+                    <CountChip count={option.count} label="users" />
+                  </Stack>
+                </Box>
+              );
+            }}
+          />
+        </Stack>
+      )}
+
+      {/* Group Membership Toggle Row */}
+      {enableGroupFiltering && onGroupMembershipFilterChange && (
+        <ToggleFilterRow
+          icon={<GroupIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />}
+          label="Groups"
+          value={groupMembershipFilter}
+          onChange={(v) => onGroupMembershipFilterChange(v as GroupMembershipFilterState)}
+          options={[
+            { value: 'all', label: 'All' },
+            {
+              value: 'in_groups',
+              label: 'In Groups',
+              icon: <GroupIcon sx={{ fontSize: 16, mr: 0.5, color: 'info.main' }} />,
+            },
+            {
+              value: 'not_in_groups',
+              label: 'No Groups',
+              icon: <PersonIcon sx={{ fontSize: 16, mr: 0.5, color: 'warning.main' }} />,
+            },
+          ]}
+        />
+      )}
+
+      {/* Group Filter Dropdown Row */}
+      {enableGroupFiltering && availableGroups.length > 0 && onSelectedGroupsChange && (
+        <Stack direction="row" spacing={2} alignItems="center">
+          <GroupIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />
+          <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
+            Group:
+          </Typography>
+          <Autocomplete
+            multiple
+            sx={{ minWidth: 300 }}
+            size="small"
+            value={availableGroups.filter((g) => selectedGroups.includes(g.value))}
+            onChange={(_, newValue) => onSelectedGroupsChange(newValue.map((v) => v.value))}
+            options={availableGroups}
+            getOptionLabel={(option) => option.value}
+            disableCloseOnSelect
+            renderInput={(params) => (
+              <TextField {...params} label="Filter by Group" placeholder="Select groups..." variant="outlined" />
             )}
             renderOption={(props, option) => {
               const { key, ...otherProps } = props as any;

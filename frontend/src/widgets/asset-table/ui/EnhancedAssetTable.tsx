@@ -21,6 +21,8 @@ import {
   type ErrorFilterState,
   type ActivityFilterState,
   type RoleOption,
+  type GroupOption,
+  type GroupMembershipFilterState,
   type MatchReasonSummary,
   DEFAULT_DATE_FILTER,
   DEFAULT_ERROR_FILTER,
@@ -65,6 +67,8 @@ export interface FetchAssetsOptions {
   errorFilter?: ErrorFilterState;
   activityFilter?: ActivityFilterState;
   roleFilter?: string;
+  groupMembershipFilter?: GroupMembershipFilterState;
+  groupFilter?: string;
   includeFolders?: string;
   excludeFolders?: string;
 }
@@ -113,6 +117,10 @@ interface EnhancedAssetTableProps {
   enableRoleFiltering?: boolean;
   /** Available roles for filtering */
   availableRoles?: RoleOption[];
+  /** Enable group filtering UI */
+  enableGroupFiltering?: boolean;
+  /** Available groups for filtering */
+  availableGroups?: GroupOption[];
   /** Enable folder filtering UI */
   enableFolderFiltering?: boolean;
   /** Available folders for filtering */
@@ -158,6 +166,8 @@ export default function EnhancedAssetTable({
   enableActivityFiltering = false,
   enableRoleFiltering = false,
   availableRoles = [],
+  enableGroupFiltering = false,
+  availableGroups = [],
   enableFolderFiltering = false,
   availableFolders = [],
   isLoadingFolders = false,
@@ -179,6 +189,8 @@ export default function EnhancedAssetTable({
   const [errorFilter, setErrorFilter] = useState<ErrorFilterState>(DEFAULT_ERROR_FILTER);
   const [activityFilter, setActivityFilter] = useState<ActivityFilterState>(DEFAULT_ACTIVITY_FILTER);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [groupMembershipFilter, setGroupMembershipFilter] = useState<GroupMembershipFilterState>('all');
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [includeFolders, setIncludeFolders] = useState<FolderFilter[]>([]);
   const [excludeFolders, setExcludeFolders] = useState<FolderFilter[]>([]);
 
@@ -377,6 +389,8 @@ export default function EnhancedAssetTable({
       errorFilter: errorFilter !== 'all' ? errorFilter : undefined,
       activityFilter: activityFilter !== 'all' ? activityFilter : undefined,
       roleFilter: selectedRoles.length > 0 ? JSON.stringify(selectedRoles) : undefined,
+      groupMembershipFilter: groupMembershipFilter !== 'all' ? groupMembershipFilter : undefined,
+      groupFilter: selectedGroups.length > 0 ? JSON.stringify(selectedGroups) : undefined,
       includeFolders: includeFolders.length > 0 ? JSON.stringify(includeFolders) : undefined,
       excludeFolders: excludeFolders.length > 0 ? JSON.stringify(excludeFolders) : undefined,
     });
@@ -395,6 +409,8 @@ export default function EnhancedAssetTable({
     errorFilter,
     activityFilter,
     selectedRoles,
+    groupMembershipFilter,
+    selectedGroups,
     includeFolders,
     excludeFolders,
     refreshKey,
@@ -473,6 +489,12 @@ export default function EnhancedAssetTable({
           availableRoles={availableRoles}
           selectedRoles={selectedRoles}
           onSelectedRolesChange={setSelectedRoles}
+          enableGroupFiltering={enableGroupFiltering}
+          availableGroups={availableGroups}
+          groupMembershipFilter={groupMembershipFilter}
+          onGroupMembershipFilterChange={setGroupMembershipFilter}
+          selectedGroups={selectedGroups}
+          onSelectedGroupsChange={setSelectedGroups}
           enableFolderFiltering={enableFolderFiltering}
           availableFolders={availableFolders}
           includeFolders={includeFolders}

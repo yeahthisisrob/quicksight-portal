@@ -389,6 +389,22 @@ export class AssetService {
       });
     }
 
+    if (request.groupMembershipFilter && request.groupMembershipFilter !== 'all') {
+      filteredItems = filteredItems.filter((item) => {
+        const groups = (item as any).groups as string[] | undefined;
+        const hasGroups = groups && groups.length > 0;
+        return request.groupMembershipFilter === 'in_groups' ? hasGroups : !hasGroups;
+      });
+    }
+
+    if (request.groupFilter && request.groupFilter.length > 0) {
+      const groupFilter = request.groupFilter;
+      filteredItems = filteredItems.filter((item) => {
+        const groups = (item as any).groups as string[] | undefined;
+        return groups && groups.some((g) => groupFilter.includes(g));
+      });
+    }
+
     if (request.includeFolders || request.excludeFolders) {
       filteredItems = this.applyFolderFilters(
         filteredItems,
@@ -649,6 +665,22 @@ export class AssetService {
     });
 
     return { dashboardIds, analysisIds };
+  }
+
+  // Compute available groups from user items for group filter options
+  private computeAvailableGroups(items: any[]): Array<{ value: string; count: number }> {
+    const groupCounts = new Map<string, number>();
+    for (const item of items) {
+      const groups = item.groups as string[] | undefined;
+      if (groups) {
+        for (const group of groups) {
+          groupCounts.set(group, (groupCounts.get(group) || 0) + 1);
+        }
+      }
+    }
+    return Array.from(groupCounts.entries())
+      .map(([value, count]) => ({ value, count }))
+      .sort((a, b) => a.value.localeCompare(b.value));
   }
 
   // Compute available roles from user items for role filter options
@@ -1311,9 +1343,11 @@ export class AssetService {
         mappedItems = await this.enrichUserItems(mappedItems);
       }
 
-      // Compute available roles from all users before filtering
+      // Compute available roles and groups from all users before filtering
       const availableRoles =
         assetType === ASSET_TYPES.user ? this.computeAvailableRoles(mappedItems) : undefined;
+      const availableGroups =
+        assetType === ASSET_TYPES.user ? this.computeAvailableGroups(mappedItems) : undefined;
 
       // Apply filters (date, activity, role) to collection items
       mappedItems = this.applyAllFilters(mappedItems as any, request) as any;
@@ -1387,6 +1421,7 @@ export class AssetService {
         nextToken: result.pagination.hasMore ? String(result.pagination.page + 1) : undefined,
         totalCount: result.pagination.totalItems,
         availableRoles,
+        availableGroups,
       };
     } catch (error) {
       logger.error(`Failed to list ${assetType}:`, error);

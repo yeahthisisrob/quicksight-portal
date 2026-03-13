@@ -61,6 +61,10 @@ export interface AssetListRequest {
   activityFilter?: 'all' | 'with_activity' | 'without_activity';
   /** Filter by user role (array of role values) */
   roleFilter?: string[];
+  /** Filter by group membership: all, in_groups, not_in_groups */
+  groupMembershipFilter?: 'all' | 'in_groups' | 'not_in_groups';
+  /** Filter by specific group names */
+  groupFilter?: string[];
   /** Folders to include (OR logic) - show assets in these folders */
   includeFolders?: FolderFilter[];
   /** Folders to exclude (AND NOT logic) - hide assets in these folders */
@@ -73,6 +77,8 @@ export interface AssetListResponse {
   totalCount?: number;
   /** Available role values with counts (for user type only) */
   availableRoles?: Array<{ value: string; count: number }>;
+  /** Available group names with user counts (for user type only) */
+  availableGroups?: Array<{ value: string; count: number }>;
 }
 
 export interface ArchivedAssetItem {
