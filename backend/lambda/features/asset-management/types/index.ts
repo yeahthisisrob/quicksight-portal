@@ -59,6 +59,8 @@ export interface AssetListRequest {
   errorFilter?: 'all' | 'with_errors' | 'without_errors';
   /** Filter by activity status: all, with_activity, without_activity */
   activityFilter?: 'all' | 'with_activity' | 'without_activity';
+  /** Filter by user role (array of role values) */
+  roleFilter?: string[];
   /** Folders to include (OR logic) - show assets in these folders */
   includeFolders?: FolderFilter[];
   /** Folders to exclude (AND NOT logic) - hide assets in these folders */
@@ -69,6 +71,8 @@ export interface AssetListResponse {
   items: Asset[];
   nextToken?: string;
   totalCount?: number;
+  /** Available role values with counts (for user type only) */
+  availableRoles?: Array<{ value: string; count: number }>;
 }
 
 export interface ArchivedAssetItem {

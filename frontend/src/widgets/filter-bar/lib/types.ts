@@ -21,6 +21,11 @@ export type ErrorFilterState = 'all' | 'with_errors' | 'without_errors';
 
 export type ActivityFilterState = 'all' | 'with_activity' | 'without_activity';
 
+export interface RoleOption {
+  value: string;
+  count: number;
+}
+
 export interface FolderOption {
   id: string;
   name: string;
@@ -87,6 +92,12 @@ export interface FilterBarProps {
   onIncludeFoldersChange?: (folders: FolderFilter[]) => void;
   onExcludeFoldersChange?: (folders: FolderFilter[]) => void;
   isLoadingFolders?: boolean;
+
+  // Role filtering
+  enableRoleFiltering?: boolean;
+  availableRoles?: RoleOption[];
+  selectedRoles?: string[];
+  onSelectedRolesChange?: (roles: string[]) => void;
 
   // Asset selection (for data catalog)
   enableAssetSelection?: boolean;

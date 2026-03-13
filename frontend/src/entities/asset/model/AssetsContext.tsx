@@ -72,6 +72,9 @@ interface AssetsContextType {
   groupsLoading: boolean;
   groupsPagination: PaginationInfo | null;
 
+  // Available user roles (from cache)
+  availableRoles: Array<{ value: string; count: number }>;
+
   // Refresh trigger - incremented when data should be re-fetched
   refreshKey: number;
 
@@ -200,6 +203,8 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [groupsPagination, setGroupsPagination] = useState<PaginationInfo | null>(null);
 
+  const [availableRoles, setAvailableRoles] = useState<Array<{ value: string; count: number }>>([]);
+
   // Refresh trigger - incremented to signal tables to re-fetch with current params
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -245,6 +250,11 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
 
         const items = data[config.dataKey] || [];
         setters.setData(items);
+
+        // Capture available roles from user responses
+        if (assetType === 'users' && data.availableRoles) {
+          setAvailableRoles(data.availableRoles);
+        }
 
         // Handle pagination with fallback for backwards compatibility
         setters.setPagination(data.pagination || {
@@ -332,6 +342,7 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
     fetchFolders,
     fetchUsers,
     fetchGroups,
+    availableRoles,
     refreshExportSummary,
     refreshAssetType,
     updateAssetTags,

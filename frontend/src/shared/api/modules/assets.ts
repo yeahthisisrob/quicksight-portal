@@ -249,10 +249,11 @@ export const assetsApi = {
     sortBy?: string;
     sortOrder?: string;
     filters?: Record<string, any>;
-  }): Promise<{ 
+  }): Promise<{
     users: components['schemas']['UserListItem'][];
     pagination: components['schemas']['PaginationInfo'];
     fromCache?: boolean;
+    availableRoles?: Array<{ value: string; count: number }>;
   }> {
     const queryParams: any = { ...params };
     if (params?.filters) {

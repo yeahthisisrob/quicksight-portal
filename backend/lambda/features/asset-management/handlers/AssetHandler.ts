@@ -440,19 +440,25 @@ export class AssetHandler {
       const assetTypeKey = ASSET_TYPES_PLURAL[assetType as keyof typeof ASSET_TYPES_PLURAL];
 
       const pageSize = listParams.maxResults || PAGINATION.DEFAULT_PAGE_SIZE;
+      const responseData: any = {
+        [assetTypeKey]: result.items,
+        pagination: {
+          page: listParams.page,
+          pageSize,
+          totalItems: result.totalCount || result.items.length,
+          totalPages: Math.ceil((result.totalCount || result.items.length) / pageSize),
+          hasMore: !!result.nextToken,
+        },
+        fromCache: true,
+      };
+
+      if (result.availableRoles) {
+        responseData.availableRoles = result.availableRoles;
+      }
+
       return successResponse(event, {
         success: true,
-        data: {
-          [assetTypeKey]: result.items,
-          pagination: {
-            page: listParams.page,
-            pageSize,
-            totalItems: result.totalCount || result.items.length,
-            totalPages: Math.ceil((result.totalCount || result.items.length) / pageSize),
-            hasMore: !!result.nextToken,
-          },
-          fromCache: true,
-        },
+        data: responseData,
       });
     } catch (error: any) {
       logger.error('List assets failed', { error });
@@ -677,6 +683,7 @@ export class AssetHandler {
         | 'all'
         | 'with_activity'
         | 'without_activity',
+      roleFilter: queryParams.roleFilter ? JSON.parse(queryParams.roleFilter) : undefined,
       includeFolders: queryParams.includeFolders
         ? JSON.parse(queryParams.includeFolders)
         : undefined,

@@ -11,6 +11,7 @@ import {
   Folder as FolderIcon,
   Timeline as ActivityIcon,
   Block as NoActivityIcon,
+  Person as PersonIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -37,6 +38,7 @@ import type {
   DateRangeOption,
   ErrorFilterState,
   ActivityFilterState,
+  RoleOption,
   TagOption,
   TagFilter,
   FolderOption,
@@ -79,6 +81,12 @@ export interface FilterControlsProps {
   enableActivityFiltering: boolean;
   activityFilter?: ActivityFilterState;
   onActivityFilterChange?: (filter: ActivityFilterState) => void;
+
+  // Role controls
+  enableRoleFiltering: boolean;
+  availableRoles: RoleOption[];
+  selectedRoles: string[];
+  onSelectedRolesChange?: (roles: string[]) => void;
 
   // Folder controls
   enableFolderFiltering: boolean;
@@ -516,6 +524,10 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
   enableActivityFiltering,
   activityFilter,
   onActivityFilterChange,
+  enableRoleFiltering,
+  availableRoles,
+  selectedRoles,
+  onSelectedRolesChange,
   enableFolderFiltering,
   folderFilterMode,
   onFolderFilterModeChange,
@@ -589,6 +601,42 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
             },
           ]}
         />
+      )}
+
+      {/* Role Filter Row */}
+      {enableRoleFiltering && availableRoles.length > 0 && onSelectedRolesChange && (
+        <Stack direction="row" spacing={2} alignItems="center">
+          <PersonIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />
+          <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
+            Role:
+          </Typography>
+          <Autocomplete
+            multiple
+            sx={{ minWidth: 300 }}
+            size="small"
+            value={availableRoles.filter((r) => selectedRoles.includes(r.value))}
+            onChange={(_, newValue) => onSelectedRolesChange(newValue.map((v) => v.value))}
+            options={availableRoles}
+            getOptionLabel={(option) => option.value}
+            disableCloseOnSelect
+            renderInput={(params) => (
+              <TextField {...params} label="Filter by Role" placeholder="Select roles..." variant="outlined" />
+            )}
+            renderOption={(props, option) => {
+              const { key, ...otherProps } = props as any;
+              return (
+                <Box component="li" key={key} {...otherProps}>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+                    <Typography variant="body2" sx={{ flex: 1 }}>
+                      {option.value}
+                    </Typography>
+                    <CountChip count={option.count} label="users" />
+                  </Stack>
+                </Box>
+              );
+            }}
+          />
+        </Stack>
       )}
 
       {/* Folder Filter Section */}

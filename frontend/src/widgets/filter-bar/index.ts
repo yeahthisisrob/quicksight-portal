@@ -10,6 +10,7 @@ export type {
   FolderFilter,
   AssetOption,
   AssetFilter,
+  RoleOption,
   DateFieldOption,
   DateRangeOption,
   MatchReasonSummary,

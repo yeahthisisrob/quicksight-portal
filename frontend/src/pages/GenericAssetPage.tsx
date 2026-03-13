@@ -18,7 +18,7 @@ import { useAssetPage } from '@/features/asset-management';
 import { useAssetPageState, useExportCSV } from '@/shared/lib';
 
 import type { AssetType } from '@/shared/types/asset';
-import type { TagOption, FolderOption } from '@/widgets/filter-bar';
+import type { TagOption, FolderOption, RoleOption } from '@/widgets/filter-bar';
 
 interface GenericAssetPageProps {
   assetType: AssetType;
@@ -49,6 +49,10 @@ interface GenericAssetPageProps {
   availableFolders?: FolderOption[];
   /** Loading state for folder options */
   isLoadingFolders?: boolean;
+  /** Enable role filtering UI */
+  enableRoleFiltering?: boolean;
+  /** Available roles for filtering */
+  availableRoles?: RoleOption[];
   /** Refresh trigger from context */
   refreshKey?: number;
 }
@@ -84,6 +88,8 @@ export default function GenericAssetPage({
   enableErrorFiltering = false,
   errorCount,
   enableActivityFiltering = false,
+  enableRoleFiltering = false,
+  availableRoles = [],
   enableFolderFiltering = false,
   availableFolders = [],
   isLoadingFolders = false,
@@ -196,7 +202,9 @@ export default function GenericAssetPage({
       enableErrorFiltering={enableErrorFiltering}
       errorCount={errorCount}
       enableActivityFiltering={enableActivityFiltering}
-      showActivityOption={['dashboard', 'analysis'].includes(assetType)}
+      showActivityOption={['dashboard', 'analysis', 'user'].includes(assetType)}
+      enableRoleFiltering={enableRoleFiltering}
+      availableRoles={availableRoles}
       enableFolderFiltering={enableFolderFiltering}
       availableFolders={availableFolders}
       isLoadingFolders={isLoadingFolders}

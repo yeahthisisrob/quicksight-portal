@@ -109,6 +109,10 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
             enableActivityFiltering={p.enableActivityFiltering}
             activityFilter={p.activityFilter}
             onActivityFilterChange={p.onActivityFilterChange}
+            enableRoleFiltering={p.enableRoleFiltering ?? false}
+            availableRoles={p.availableRoles ?? []}
+            selectedRoles={p.selectedRoles ?? []}
+            onSelectedRolesChange={p.onSelectedRolesChange}
             enableFolderFiltering={p.enableFolderFiltering}
             folderFilterMode={state.folderFilterMode}
             onFolderFilterModeChange={state.setFolderFilterMode}

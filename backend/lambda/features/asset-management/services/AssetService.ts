@@ -362,7 +362,7 @@ export class AssetService {
         (request.dateRange || 'all') as DateRange,
         (item, field) => {
           if (field === 'lastActivity') {
-            return (item as any).activity?.lastViewed;
+            return (item as any).activity?.lastViewed || (item as any).activity?.lastActive;
           }
           return item[field as keyof Asset] as Date | string | undefined;
         }
@@ -379,6 +379,14 @@ export class AssetService {
 
     if (request.activityFilter && request.activityFilter !== 'all') {
       filteredItems = this.applyActivityFilter(filteredItems, request.activityFilter);
+    }
+
+    if (request.roleFilter && request.roleFilter.length > 0) {
+      const roleFilter = request.roleFilter;
+      filteredItems = filteredItems.filter((item) => {
+        const role = (item as any).role;
+        return role && roleFilter.includes(role);
+      });
     }
 
     if (request.includeFolders || request.excludeFolders) {
@@ -641,6 +649,20 @@ export class AssetService {
     });
 
     return { dashboardIds, analysisIds };
+  }
+
+  // Compute available roles from user items for role filter options
+  private computeAvailableRoles(items: any[]): Array<{ value: string; count: number }> {
+    const roleCounts = new Map<string, number>();
+    for (const item of items) {
+      const role = item.role;
+      if (role) {
+        roleCounts.set(role, (roleCounts.get(role) || 0) + 1);
+      }
+    }
+    return Array.from(roleCounts.entries())
+      .map(([value, count]) => ({ value, count }))
+      .sort((a, b) => a.value.localeCompare(b.value));
   }
 
   /**
@@ -1289,6 +1311,13 @@ export class AssetService {
         mappedItems = await this.enrichUserItems(mappedItems);
       }
 
+      // Compute available roles from all users before filtering
+      const availableRoles =
+        assetType === ASSET_TYPES.user ? this.computeAvailableRoles(mappedItems) : undefined;
+
+      // Apply filters (date, activity, role) to collection items
+      mappedItems = this.applyAllFilters(mappedItems as any, request) as any;
+
       // Define search fields for collection types
       const searchFields: SearchFieldConfig<any>[] = [
         {
@@ -1357,6 +1386,7 @@ export class AssetService {
         items: result.items as any[], // Already mapped to API contract
         nextToken: result.pagination.hasMore ? String(result.pagination.page + 1) : undefined,
         totalCount: result.pagination.totalItems,
+        availableRoles,
       };
     } catch (error) {
       logger.error(`Failed to list ${assetType}:`, error);

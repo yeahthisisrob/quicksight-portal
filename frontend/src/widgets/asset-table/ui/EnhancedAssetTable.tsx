@@ -20,6 +20,7 @@ import {
   type FolderOption,
   type ErrorFilterState,
   type ActivityFilterState,
+  type RoleOption,
   type MatchReasonSummary,
   DEFAULT_DATE_FILTER,
   DEFAULT_ERROR_FILTER,
@@ -63,6 +64,7 @@ export interface FetchAssetsOptions {
   excludeTags?: string;
   errorFilter?: ErrorFilterState;
   activityFilter?: ActivityFilterState;
+  roleFilter?: string;
   includeFolders?: string;
   excludeFolders?: string;
 }
@@ -107,6 +109,10 @@ interface EnhancedAssetTableProps {
   errorCount?: number;
   /** Enable activity filtering UI */
   enableActivityFiltering?: boolean;
+  /** Enable role filtering UI */
+  enableRoleFiltering?: boolean;
+  /** Available roles for filtering */
+  availableRoles?: RoleOption[];
   /** Enable folder filtering UI */
   enableFolderFiltering?: boolean;
   /** Available folders for filtering */
@@ -150,6 +156,8 @@ export default function EnhancedAssetTable({
   enableErrorFiltering = false,
   errorCount,
   enableActivityFiltering = false,
+  enableRoleFiltering = false,
+  availableRoles = [],
   enableFolderFiltering = false,
   availableFolders = [],
   isLoadingFolders = false,
@@ -170,6 +178,7 @@ export default function EnhancedAssetTable({
   const [excludeTags, setExcludeTags] = useState<TagFilter[]>([]);
   const [errorFilter, setErrorFilter] = useState<ErrorFilterState>(DEFAULT_ERROR_FILTER);
   const [activityFilter, setActivityFilter] = useState<ActivityFilterState>(DEFAULT_ACTIVITY_FILTER);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [includeFolders, setIncludeFolders] = useState<FolderFilter[]>([]);
   const [excludeFolders, setExcludeFolders] = useState<FolderFilter[]>([]);
 
@@ -367,6 +376,7 @@ export default function EnhancedAssetTable({
       excludeTags: excludeTags.length > 0 ? JSON.stringify(excludeTags) : undefined,
       errorFilter: errorFilter !== 'all' ? errorFilter : undefined,
       activityFilter: activityFilter !== 'all' ? activityFilter : undefined,
+      roleFilter: selectedRoles.length > 0 ? JSON.stringify(selectedRoles) : undefined,
       includeFolders: includeFolders.length > 0 ? JSON.stringify(includeFolders) : undefined,
       excludeFolders: excludeFolders.length > 0 ? JSON.stringify(excludeFolders) : undefined,
     });
@@ -384,6 +394,7 @@ export default function EnhancedAssetTable({
     excludeTags,
     errorFilter,
     activityFilter,
+    selectedRoles,
     includeFolders,
     excludeFolders,
     refreshKey,
@@ -458,6 +469,10 @@ export default function EnhancedAssetTable({
           enableActivityFiltering={enableActivityFiltering}
           activityFilter={activityFilter}
           onActivityFilterChange={setActivityFilter}
+          enableRoleFiltering={enableRoleFiltering}
+          availableRoles={availableRoles}
+          selectedRoles={selectedRoles}
+          onSelectedRolesChange={setSelectedRoles}
           enableFolderFiltering={enableFolderFiltering}
           availableFolders={availableFolders}
           includeFolders={includeFolders}

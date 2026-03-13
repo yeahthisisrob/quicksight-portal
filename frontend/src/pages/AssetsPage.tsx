@@ -37,6 +37,7 @@ export default function AssetsPage() {
     groups, groupsLoading, groupsPagination, fetchGroups,
     refreshAssetType,
     updateAssetTags,
+    availableRoles,
     refreshKey,
   } = useAssets();
 
@@ -123,7 +124,9 @@ export default function AssetsPage() {
         availableTags={availableTags}
         isLoadingTags={tagsLoading}
         enableErrorFiltering={['dashboard', 'analysis', 'dataset', 'datasource'].includes(config.assetType)}
-        enableActivityFiltering={['dashboard', 'analysis'].includes(config.assetType)}
+        enableActivityFiltering={['dashboard', 'analysis', 'user'].includes(config.assetType)}
+        enableRoleFiltering={config.assetType === 'user'}
+        availableRoles={config.assetType === 'user' ? availableRoles : undefined}
         enableFolderFiltering={['dashboard', 'analysis', 'dataset', 'datasource'].includes(config.assetType)}
         availableFolders={availableFolders}
         isLoadingFolders={filterFoldersLoading}
