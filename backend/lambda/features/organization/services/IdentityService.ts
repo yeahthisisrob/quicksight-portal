@@ -155,14 +155,17 @@ export class IdentityService {
   public async getUser(userName: string): Promise<User> {
     try {
       const user = await this.quickSightService.describeUser(userName);
+      if (!user) {
+        throw new Error(`User "${userName}" not found`);
+      }
       return {
-        userId: user.User.UserId || userName,
-        userName: user.User.UserName || userName,
-        email: user.User.Email,
-        role: user.User.Role,
-        active: user.User.Active || false,
-        principalId: user.User.PrincipalId,
-        arn: user.User.Arn || '',
+        userId: user.UserId || userName,
+        userName: user.UserName || userName,
+        email: user.Email,
+        role: user.Role,
+        active: user.Active || false,
+        principalId: user.PrincipalId,
+        arn: user.Arn || '',
       };
     } catch (error) {
       logger.error('Failed to get user', { userName, error });
