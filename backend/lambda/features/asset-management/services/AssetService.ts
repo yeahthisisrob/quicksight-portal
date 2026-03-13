@@ -17,6 +17,7 @@ import {
 } from '../../../shared/types/filterTypes';
 import { type LineageData } from '../../../shared/types/lineage.types';
 import { mapCacheEntryToAsset } from '../../../shared/utils/assetMapping';
+import { countByField, type FilterOption } from '../../../shared/utils/filterUtils';
 import { findMatchingFlatFileDatasource } from '../../../shared/utils/flatFileDatasetMatcher';
 import { logger } from '../../../shared/utils/logger';
 import {
@@ -182,9 +183,17 @@ export class AssetService {
       }
 
       const items = await this.enrichCachedAssets(assetType, cachedAssets, cache);
-      const filteredItems = this.applyAllFilters(items, request);
 
-      return this.paginateAndReturnResults(filteredItems, request, assetType);
+      // Compute available source types before filtering (so dropdown shows all options)
+      const availableSourceTypes =
+        assetType === ASSET_TYPES.dataset || assetType === ASSET_TYPES.datasource
+          ? this.computeAvailableSourceTypes(items)
+          : undefined;
+
+      const filteredItems = this.applyAllFilters(items, request);
+      const result = this.paginateAndReturnResults(filteredItems, request, assetType);
+
+      return { ...result, availableSourceTypes };
     } catch (error) {
       logger.error('Failed to list assets', { assetType, error });
       throw error;
@@ -418,6 +427,15 @@ export class AssetService {
         request.includeFolders,
         request.excludeFolders
       );
+    }
+
+    if (request.sourceTypeFilter && request.sourceTypeFilter.length > 0) {
+      const sourceTypeFilter = request.sourceTypeFilter;
+      filteredItems = filteredItems.filter((item) => {
+        const st =
+          (item as any).sourceType || (item as any).datasourceType || (item as any).connectionType;
+        return st && sourceTypeFilter.includes(st);
+      });
     }
 
     return filteredItems;
@@ -674,34 +692,20 @@ export class AssetService {
     return { dashboardIds, analysisIds };
   }
 
-  // Compute available groups from user items for group filter options
-  private computeAvailableGroups(items: any[]): Array<{ value: string; count: number }> {
-    const groupCounts = new Map<string, number>();
-    for (const item of items) {
-      const groups = item.groups as string[] | undefined;
-      if (groups) {
-        for (const group of groups) {
-          groupCounts.set(group, (groupCounts.get(group) || 0) + 1);
-        }
-      }
-    }
-    return Array.from(groupCounts.entries())
-      .map(([value, count]) => ({ value, count }))
-      .sort((a, b) => a.value.localeCompare(b.value));
+  // Compute available filter options using shared countByField utility
+  private computeAvailableGroups(items: any[]): FilterOption[] {
+    return countByField(items, (item) => item.groups as string[] | undefined, 'alpha');
   }
 
-  // Compute available roles from user items for role filter options
-  private computeAvailableRoles(items: any[]): Array<{ value: string; count: number }> {
-    const roleCounts = new Map<string, number>();
-    for (const item of items) {
-      const role = item.role;
-      if (role) {
-        roleCounts.set(role, (roleCounts.get(role) || 0) + 1);
-      }
-    }
-    return Array.from(roleCounts.entries())
-      .map(([value, count]) => ({ value, count }))
-      .sort((a, b) => a.value.localeCompare(b.value));
+  private computeAvailableRoles(items: any[]): FilterOption[] {
+    return countByField(items, (item) => item.role, 'alpha');
+  }
+
+  private computeAvailableSourceTypes(items: any[]): FilterOption[] {
+    return countByField(
+      items,
+      (item) => item.sourceType || item.datasourceType || item.connectionType
+    );
   }
 
   /**
@@ -1350,11 +1354,15 @@ export class AssetService {
         mappedItems = await this.enrichUserItems(mappedItems);
       }
 
-      // Compute available roles and groups from all users before filtering
+      // Compute available filter options from all items before filtering
       const availableRoles =
         assetType === ASSET_TYPES.user ? this.computeAvailableRoles(mappedItems) : undefined;
       const availableGroups =
         assetType === ASSET_TYPES.user ? this.computeAvailableGroups(mappedItems) : undefined;
+      const availableSourceTypes =
+        assetType === ASSET_TYPES.dataset || assetType === ASSET_TYPES.datasource
+          ? this.computeAvailableSourceTypes(mappedItems)
+          : undefined;
 
       // Apply filters (date, activity, role) to collection items
       mappedItems = this.applyAllFilters(mappedItems as any, request) as any;
@@ -1429,6 +1437,7 @@ export class AssetService {
         totalCount: result.pagination.totalItems,
         availableRoles,
         availableGroups,
+        availableSourceTypes,
       };
     } catch (error) {
       logger.error(`Failed to list ${assetType}:`, error);

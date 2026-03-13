@@ -46,6 +46,10 @@ interface UseFilterBarStateOptions {
   onIncludeFoldersChange?: (folders: FolderFilter[]) => void;
   onExcludeFoldersChange?: (folders: FolderFilter[]) => void;
 
+  // Source types
+  selectedSourceTypes?: string[];
+  onSelectedSourceTypesChange?: (types: string[]) => void;
+
   // Assets
   enableAssetSelection?: boolean;
   availableAssets?: AssetOption[];
@@ -70,6 +74,8 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     excludeFolders = [],
     onIncludeFoldersChange,
     onExcludeFoldersChange,
+    selectedSourceTypes = [],
+    onSelectedSourceTypesChange,
     enableAssetSelection = false,
     availableAssets = [],
     selectedAssets = [],
@@ -112,9 +118,10 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     count += excludeTags.length;
     count += includeFolders.length;
     count += excludeFolders.length;
+    count += selectedSourceTypes.length;
     count += selectedAssets.length;
     return count;
-  }, [dateFilter, errorFilter, activityFilter, includeTags, excludeTags, includeFolders, excludeFolders, selectedAssets]);
+  }, [dateFilter, errorFilter, activityFilter, includeTags, excludeTags, includeFolders, excludeFolders, selectedSourceTypes, selectedAssets]);
 
   // Tag handlers
   const handleAddTag = useCallback(
@@ -205,6 +212,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     onExcludeTagsChange?.([]);
     onIncludeFoldersChange?.([]);
     onExcludeFoldersChange?.([]);
+    onSelectedSourceTypesChange?.([]);
     onSelectedAssetsChange?.([]);
   }, [
     onDateFilterChange,
@@ -214,6 +222,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     onExcludeTagsChange,
     onIncludeFoldersChange,
     onExcludeFoldersChange,
+    onSelectedSourceTypesChange,
     onSelectedAssetsChange,
   ]);
 

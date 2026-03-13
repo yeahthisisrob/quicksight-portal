@@ -4,6 +4,7 @@ import { EXPORT_CONFIG } from '../../../shared/config/exportConfig';
 import { type Ingestion, type IngestionMetadata } from '../../../shared/models/ingestion.model';
 import { type QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { type CacheService } from '../../../shared/services/cache/CacheService';
+import { resolveSourceTypeFromArns } from '../../../shared/utils/filterUtils';
 import { logger } from '../../../shared/utils/logger';
 
 export interface IngestionProcessingResult {
@@ -77,8 +78,10 @@ export class IngestionProcessor {
     try {
       logger.info('Starting ingestion processing');
 
-      // Get all datasets from cache
+      // Get all datasets and datasources from cache
       const datasets = await this.cacheService.getAllDatasets();
+      const datasourceResult = await this.cacheService.getAssetsByType('datasource');
+      const datasourceEntries = datasourceResult.assets || [];
       const spiceDatasets = datasets.filter((ds) => ds.metadata?.importMode === 'SPICE');
 
       logger.info(`Found ${spiceDatasets.length} SPICE datasets to process`);
@@ -87,10 +90,14 @@ export class IngestionProcessor {
       const ingestionPromises = spiceDatasets.map((dataset) =>
         this.concurrencyLimit(async () => {
           try {
+            // Resolve sourceType from datasource ARNs since it's not stored in dataset metadata
+            const datasourceArns: string[] = dataset.metadata?.datasourceArns || [];
+            const resolvedSourceType = resolveSourceTypeFromArns(datasourceArns, datasourceEntries);
+
             const ingestions = await this.fetchDatasetIngestions(
               dataset.assetId,
               dataset.assetName,
-              dataset.metadata
+              { ...dataset.metadata, sourceType: resolvedSourceType }
             );
             return ingestions;
           } catch (error) {

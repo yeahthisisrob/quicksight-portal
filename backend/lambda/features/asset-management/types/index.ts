@@ -71,6 +71,8 @@ export interface AssetListRequest {
   includeFolders?: FolderFilter[];
   /** Folders to exclude (AND NOT logic) - hide assets in these folders */
   excludeFolders?: FolderFilter[];
+  /** Filter by source/datasource type (array of type strings like S3, ATHENA, REDSHIFT) */
+  sourceTypeFilter?: string[];
 }
 
 export interface AssetListResponse {
@@ -81,6 +83,8 @@ export interface AssetListResponse {
   availableRoles?: Array<{ value: string; count: number }>;
   /** Available group names with user counts (for user type only) */
   availableGroups?: Array<{ value: string; count: number }>;
+  /** Available source types with counts (for dataset/datasource types) */
+  availableSourceTypes?: Array<{ value: string; count: number }>;
 }
 
 export interface ArchivedAssetItem {

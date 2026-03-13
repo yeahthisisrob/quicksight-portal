@@ -24,6 +24,7 @@ import {
   type GroupOption,
   type GroupMembershipFilterState,
   type PermissionsFilterState,
+  type SourceTypeOption,
   type MatchReasonSummary,
   DEFAULT_DATE_FILTER,
   DEFAULT_ERROR_FILTER,
@@ -73,6 +74,7 @@ export interface FetchAssetsOptions {
   groupFilter?: string;
   includeFolders?: string;
   excludeFolders?: string;
+  sourceTypeFilter?: string;
 }
 
 interface EnhancedAssetTableProps {
@@ -125,6 +127,10 @@ interface EnhancedAssetTableProps {
   enableGroupFiltering?: boolean;
   /** Available groups for filtering */
   availableGroups?: GroupOption[];
+  /** Enable source type filtering UI */
+  enableSourceTypeFiltering?: boolean;
+  /** Available source types for filtering */
+  availableSourceTypes?: SourceTypeOption[];
   /** Enable folder filtering UI */
   enableFolderFiltering?: boolean;
   /** Available folders for filtering */
@@ -178,6 +184,7 @@ function buildFetchOptionsFromState(state: {
   errorFilter: ErrorFilterState; activityFilter: ActivityFilterState;
   selectedRoles: string[]; permissionsFilter: PermissionsFilterState;
   groupMembershipFilter: GroupMembershipFilterState; selectedGroups: string[];
+  selectedSourceTypes: string[];
   includeFolders: FolderFilter[]; excludeFolders: FolderFilter[];
 }): FetchAssetsOptions {
   const { sortModel, currentPage, pageSize, debouncedSearchTerm, dateFilter, filterModel } = state;
@@ -199,6 +206,7 @@ function buildFetchOptionsFromState(state: {
     permissionsFilter: state.permissionsFilter !== 'all' ? state.permissionsFilter : undefined,
     groupMembershipFilter: state.groupMembershipFilter !== 'all' ? state.groupMembershipFilter : undefined,
     groupFilter: state.selectedGroups.length > 0 ? JSON.stringify(state.selectedGroups) : undefined,
+    sourceTypeFilter: state.selectedSourceTypes.length > 0 ? JSON.stringify(state.selectedSourceTypes) : undefined,
     includeFolders: state.includeFolders.length > 0 ? JSON.stringify(state.includeFolders) : undefined,
     excludeFolders: state.excludeFolders.length > 0 ? JSON.stringify(state.excludeFolders) : undefined,
   };
@@ -326,6 +334,8 @@ export default function EnhancedAssetTable({
   enablePermissionsFiltering = false,
   enableGroupFiltering = false,
   availableGroups = [],
+  enableSourceTypeFiltering = false,
+  availableSourceTypes = [],
   enableFolderFiltering = false,
   availableFolders = [],
   isLoadingFolders = false,
@@ -351,6 +361,7 @@ export default function EnhancedAssetTable({
   const [permissionsFilter, setPermissionsFilter] = useState<PermissionsFilterState>('all');
   const [groupMembershipFilter, setGroupMembershipFilter] = useState<GroupMembershipFilterState>('all');
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [selectedSourceTypes, setSelectedSourceTypes] = useState<string[]>([]);
   const [includeFolders, setIncludeFolders] = useState<FolderFilter[]>([]);
   const [excludeFolders, setExcludeFolders] = useState<FolderFilter[]>([]);
 
@@ -422,12 +433,12 @@ export default function EnhancedAssetTable({
       currentPage, pageSize, debouncedSearchTerm, dateFilter, sortModel, filterModel,
       mapSortField, includeTags, excludeTags, errorFilter, activityFilter,
       selectedRoles, permissionsFilter, groupMembershipFilter, selectedGroups,
-      includeFolders, excludeFolders,
+      selectedSourceTypes, includeFolders, excludeFolders,
     }),
     [currentPage, pageSize, debouncedSearchTerm, dateFilter, sortModel, filterModel,
       mapSortField, includeTags, excludeTags, errorFilter, activityFilter,
       selectedRoles, permissionsFilter, groupMembershipFilter, selectedGroups,
-      includeFolders, excludeFolders]
+      selectedSourceTypes, includeFolders, excludeFolders]
   );
 
   // Handle bulk tag action - prefer direct handler, fall back to custom action
@@ -518,6 +529,10 @@ export default function EnhancedAssetTable({
           onGroupMembershipFilterChange={setGroupMembershipFilter}
           selectedGroups={selectedGroups}
           onSelectedGroupsChange={setSelectedGroups}
+          enableSourceTypeFiltering={enableSourceTypeFiltering}
+          availableSourceTypes={availableSourceTypes}
+          selectedSourceTypes={selectedSourceTypes}
+          onSelectedSourceTypesChange={setSelectedSourceTypes}
           enableFolderFiltering={enableFolderFiltering}
           availableFolders={availableFolders}
           includeFolders={includeFolders}

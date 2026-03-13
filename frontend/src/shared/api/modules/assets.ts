@@ -76,10 +76,11 @@ export const assetsApi = {
     sortBy?: string;
     sortOrder?: string;
     filters?: Record<string, any>;
-  }): Promise<{ 
+  }): Promise<{
     datasets: components['schemas']['DatasetListItem'][];
     pagination: components['schemas']['PaginationInfo'];
     fromCache?: boolean;
+    availableSourceTypes?: Array<{ value: string; count: number }>;
   }> {
     const queryParams: any = { ...params };
     if (params?.filters) {
@@ -163,10 +164,11 @@ export const assetsApi = {
     sortBy?: string;
     sortOrder?: string;
     filters?: Record<string, any>;
-  }): Promise<{ 
+  }): Promise<{
     datasources: components['schemas']['DatasourceListItem'][];
     pagination: components['schemas']['PaginationInfo'];
     fromCache?: boolean;
+    availableSourceTypes?: Array<{ value: string; count: number }>;
   }> {
     const queryParams: any = { ...params };
     if (params?.filters) {

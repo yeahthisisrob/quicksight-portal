@@ -40,6 +40,7 @@ export type FetchParams = {
   groupMembershipFilter?: string;
   groupFilter?: string;
   permissionsFilter?: string;
+  sourceTypeFilter?: string;
   includeFolders?: string;
   excludeFolders?: string;
 };
@@ -80,9 +81,10 @@ interface AssetsContextType {
   groupsLoading: boolean;
   groupsPagination: PaginationInfo | null;
 
-  // Available user roles and groups (from cache)
+  // Available filter options (from cache)
   availableRoles: Array<{ value: string; count: number }>;
   availableGroups: Array<{ value: string; count: number }>;
+  availableSourceTypes: Array<{ value: string; count: number }>;
 
   // Refresh trigger - incremented when data should be re-fetched
   refreshKey: number;
@@ -214,6 +216,7 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
 
   const [availableRoles, setAvailableRoles] = useState<Array<{ value: string; count: number }>>([]);
   const [availableGroups, setAvailableGroups] = useState<Array<{ value: string; count: number }>>([]);
+  const [availableSourceTypes, setAvailableSourceTypes] = useState<Array<{ value: string; count: number }>>([]);
 
   // Refresh trigger - incremented to signal tables to re-fetch with current params
   const [refreshKey, setRefreshKey] = useState(0);
@@ -247,6 +250,7 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
       options.errorFilter || '', options.activityFilter || '',
       options.roleFilter || '', options.groupMembershipFilter || '',
       options.groupFilter || '', options.permissionsFilter || '',
+      options.sourceTypeFilter || '',
       options.includeFolders || '', options.excludeFolders || '',
     ];
     return parts.join('-');
@@ -270,10 +274,13 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
         const items = data[config.dataKey] || [];
         setters.setData(items);
 
-        // Capture available roles and groups from user responses
+        // Capture available filter options from responses
         if (assetType === 'users') {
           if (data.availableRoles) setAvailableRoles(data.availableRoles);
           if (data.availableGroups) setAvailableGroups(data.availableGroups);
+        }
+        if (assetType === 'datasets' || assetType === 'datasources') {
+          if (data.availableSourceTypes) setAvailableSourceTypes(data.availableSourceTypes);
         }
 
         // Handle pagination with fallback for backwards compatibility
@@ -364,6 +371,7 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
     fetchGroups,
     availableRoles,
     availableGroups,
+    availableSourceTypes,
     refreshExportSummary,
     refreshAssetType,
     updateAssetTags,

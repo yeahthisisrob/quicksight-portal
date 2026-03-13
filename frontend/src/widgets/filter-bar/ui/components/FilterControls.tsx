@@ -14,6 +14,7 @@ import {
   Person as PersonIcon,
   Group as GroupIcon,
   Security as SecurityIcon,
+  Storage as StorageIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -44,6 +45,7 @@ import type {
   PermissionsFilterState,
   GroupOption,
   RoleOption,
+  SourceTypeOption,
   TagOption,
   TagFilter,
   FolderOption,
@@ -105,6 +107,12 @@ export interface FilterControlsProps {
   onGroupMembershipFilterChange?: (filter: GroupMembershipFilterState) => void;
   selectedGroups: string[];
   onSelectedGroupsChange?: (groups: string[]) => void;
+
+  // Source type controls
+  enableSourceTypeFiltering: boolean;
+  availableSourceTypes: SourceTypeOption[];
+  selectedSourceTypes: string[];
+  onSelectedSourceTypesChange?: (types: string[]) => void;
 
   // Folder controls
   enableFolderFiltering: boolean;
@@ -702,6 +710,10 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
   onGroupMembershipFilterChange,
   selectedGroups,
   onSelectedGroupsChange,
+  enableSourceTypeFiltering,
+  availableSourceTypes,
+  selectedSourceTypes,
+  onSelectedSourceTypesChange,
   enableFolderFiltering,
   folderFilterMode,
   onFolderFilterModeChange,
@@ -775,6 +787,42 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
             },
           ]}
         />
+      )}
+
+      {/* Source Type Filter Row */}
+      {enableSourceTypeFiltering && availableSourceTypes.length > 0 && onSelectedSourceTypesChange && (
+        <Stack direction="row" spacing={2} alignItems="center">
+          <StorageIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />
+          <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
+            Source Type:
+          </Typography>
+          <Autocomplete
+            multiple
+            sx={{ minWidth: 300 }}
+            size="small"
+            value={availableSourceTypes.filter((t) => selectedSourceTypes.includes(t.value))}
+            onChange={(_, newValue) => onSelectedSourceTypesChange(newValue.map((v) => v.value))}
+            options={availableSourceTypes}
+            getOptionLabel={(option) => option.value}
+            disableCloseOnSelect
+            renderInput={(params) => (
+              <TextField {...params} label="Filter by Source Type" placeholder="Select types..." variant="outlined" />
+            )}
+            renderOption={(props, option) => {
+              const { key, ...otherProps } = props as any;
+              return (
+                <Box component="li" key={key} {...otherProps}>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+                    <Typography variant="body2" sx={{ flex: 1 }}>
+                      {option.value}
+                    </Typography>
+                    <CountChip count={option.count} label="assets" />
+                  </Stack>
+                </Box>
+              );
+            }}
+          />
+        </Stack>
       )}
 
       {/* User-specific Filters (Role, Permissions, Groups) */}

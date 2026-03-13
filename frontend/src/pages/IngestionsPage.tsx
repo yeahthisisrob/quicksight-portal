@@ -99,6 +99,7 @@ export default function IngestionsPage() {
   const [loading, setLoading] = useState(false);
   const [metadata, setMetadata] = useState<IngestionMetadata | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [availableSourceTypes, setAvailableSourceTypes] = useState<Array<{ value: string; count: number }>>([]);
 
   const fetchIngestions = useCallback(async (options: FetchAssetsOptions) => {
     try {
@@ -111,10 +112,12 @@ export default function IngestionsPage() {
         sortOrder: options.sortOrder as 'asc' | 'desc' | undefined,
         dateRange: options.dateRange,
         dateField: options.dateField,
+        sourceTypeFilter: options.sourceTypeFilter,
       });
       setIngestions(result.ingestions || []);
       setTotalRows(result.pagination?.totalItems || 0);
       setMetadata(result.metadata || null);
+      if (result.availableSourceTypes) setAvailableSourceTypes(result.availableSourceTypes);
     } catch (_error) {
       enqueueSnackbar('Failed to load ingestions', { variant: 'error' });
     } finally {
@@ -295,6 +298,8 @@ export default function IngestionsPage() {
         columns={columns}
         onFetchAssets={fetchIngestions}
         enableBulkActions={false}
+        enableSourceTypeFiltering={true}
+        availableSourceTypes={availableSourceTypes}
         defaultPageSize={50}
         defaultSortModel={[{ field: 'createdTime', sort: 'desc' }]}
         extraToolbarActions={extraToolbarActions}

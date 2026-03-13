@@ -14,6 +14,7 @@ export type {
   GroupOption,
   GroupMembershipFilterState,
   PermissionsFilterState,
+  SourceTypeOption,
   DateFieldOption,
   DateRangeOption,
   MatchReasonSummary,

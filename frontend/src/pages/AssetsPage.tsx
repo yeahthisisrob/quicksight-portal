@@ -39,6 +39,7 @@ export default function AssetsPage() {
     updateAssetTags,
     availableRoles,
     availableGroups,
+    availableSourceTypes,
     refreshKey,
   } = useAssets();
 
@@ -131,6 +132,8 @@ export default function AssetsPage() {
         enablePermissionsFiltering={config.assetType === 'user'}
         enableGroupFiltering={config.assetType === 'user'}
         availableGroups={config.assetType === 'user' ? availableGroups : undefined}
+        enableSourceTypeFiltering={['dataset', 'datasource'].includes(config.assetType)}
+        availableSourceTypes={['dataset', 'datasource'].includes(config.assetType) ? availableSourceTypes : undefined}
         enableFolderFiltering={['dashboard', 'analysis', 'dataset', 'datasource'].includes(config.assetType)}
         availableFolders={availableFolders}
         isLoadingFolders={filterFoldersLoading}

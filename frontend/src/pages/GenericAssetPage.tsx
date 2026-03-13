@@ -18,7 +18,7 @@ import { useAssetPage } from '@/features/asset-management';
 import { useAssetPageState, useExportCSV } from '@/shared/lib';
 
 import type { AssetType } from '@/shared/types/asset';
-import type { TagOption, FolderOption, RoleOption, GroupOption } from '@/widgets/filter-bar';
+import type { TagOption, FolderOption, RoleOption, GroupOption, SourceTypeOption } from '@/widgets/filter-bar';
 
 interface GenericAssetPageProps {
   assetType: AssetType;
@@ -59,6 +59,10 @@ interface GenericAssetPageProps {
   enableGroupFiltering?: boolean;
   /** Available groups for filtering */
   availableGroups?: GroupOption[];
+  /** Enable source type filtering UI */
+  enableSourceTypeFiltering?: boolean;
+  /** Available source types for filtering */
+  availableSourceTypes?: SourceTypeOption[];
   /** Refresh trigger from context */
   refreshKey?: number;
 }
@@ -99,6 +103,8 @@ export default function GenericAssetPage({
   enablePermissionsFiltering = false,
   enableGroupFiltering = false,
   availableGroups = [],
+  enableSourceTypeFiltering = false,
+  availableSourceTypes = [],
   enableFolderFiltering = false,
   availableFolders = [],
   isLoadingFolders = false,
@@ -217,6 +223,8 @@ export default function GenericAssetPage({
       enablePermissionsFiltering={enablePermissionsFiltering}
       enableGroupFiltering={enableGroupFiltering}
       availableGroups={availableGroups}
+      enableSourceTypeFiltering={enableSourceTypeFiltering}
+      availableSourceTypes={availableSourceTypes}
       enableFolderFiltering={enableFolderFiltering}
       availableFolders={availableFolders}
       isLoadingFolders={isLoadingFolders}

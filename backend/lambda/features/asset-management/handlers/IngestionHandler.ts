@@ -5,6 +5,7 @@ import { STATUS_CODES } from '../../../shared/constants';
 import { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { successResponse, errorResponse } from '../../../shared/utils/cors';
+import { countByField, resolveSourceTypeFromArns } from '../../../shared/utils/filterUtils';
 import { logger } from '../../../shared/utils/logger';
 import {
   applyDateFilter,
@@ -130,6 +131,9 @@ export class IngestionHandler {
       const pageSize = parseInt(queryParams.pageSize || '50', 10);
       const dateRange = (queryParams.dateRange || 'all') as DateRange;
       const dateField = queryParams.dateField || 'createdTime';
+      const sourceTypeFilter: string[] | undefined = queryParams.sourceTypeFilter
+        ? JSON.parse(queryParams.sourceTypeFilter)
+        : undefined;
 
       // Get cached ingestions
       const cachedData = await cacheService.getIngestions();
@@ -139,6 +143,7 @@ export class IngestionHandler {
           success: true,
           data: {
             ingestions: [],
+            availableSourceTypes: [],
             metadata: {
               totalIngestions: 0,
               runningIngestions: 0,
@@ -157,7 +162,54 @@ export class IngestionHandler {
       }
 
       // Apply date filter
-      const filteredIngestions = applyDateFilter(cachedData.ingestions, dateField, dateRange);
+      const dateFiltered = applyDateFilter(cachedData.ingestions, dateField, dateRange);
+
+      // Enrich ALL ingestions with dataset metadata before filtering/pagination
+      // sourceType is resolved at runtime from datasource ARNs, not stored in dataset metadata
+      const datasourceResult = await cacheService.getAssetsByType('datasource');
+      const datasourceEntries = datasourceResult.assets || [];
+      const enrichedIngestions = await Promise.all(
+        dateFiltered.map(async (ingestion) => {
+          if (ingestion.datasourceType && ingestion.importMode && ingestion.sizeInBytes) {
+            return ingestion;
+          }
+          try {
+            const dataset = await cacheService.getAsset('dataset', ingestion.datasetId);
+            if (!dataset) {
+              return ingestion;
+            }
+
+            let datasourceType = ingestion.datasourceType;
+            if (!datasourceType) {
+              const datasourceArns: string[] = dataset.metadata?.datasourceArns || [];
+              datasourceType = resolveSourceTypeFromArns(datasourceArns, datasourceEntries);
+            }
+
+            return {
+              ...ingestion,
+              datasourceType,
+              importMode: ingestion.importMode || dataset.metadata?.importMode,
+              sizeInBytes:
+                ingestion.sizeInBytes ||
+                dataset.metadata?.consumedSpiceCapacityInBytes ||
+                dataset.metadata?.sizeInBytes,
+            };
+          } catch (_error) {
+            return ingestion;
+          }
+        })
+      );
+
+      // Compute available source types from enriched data (before sourceType filter)
+      const availableSourceTypes = countByField(enrichedIngestions, (i) => i.datasourceType);
+
+      // Apply source type filter
+      const filteredIngestions =
+        sourceTypeFilter && sourceTypeFilter.length > 0
+          ? enrichedIngestions.filter(
+              (i) => i.datasourceType && sourceTypeFilter.includes(i.datasourceType)
+            )
+          : enrichedIngestions;
 
       // Define search fields
       const searchFields = [
@@ -199,33 +251,11 @@ export class IngestionHandler {
         sortConfigs
       );
 
-      // Enrich ingestions with dataset metadata from cache (fallback for data not stored at export time)
-      const enrichedIngestions = await Promise.all(
-        result.items.map(async (ingestion) => {
-          if (ingestion.datasourceType && ingestion.importMode) {
-            return ingestion;
-          }
-          try {
-            const dataset = await cacheService.getAsset('dataset', ingestion.datasetId);
-            return {
-              ...ingestion,
-              datasourceType: ingestion.datasourceType || dataset?.metadata?.sourceType,
-              importMode: ingestion.importMode || dataset?.metadata?.importMode,
-              sizeInBytes:
-                ingestion.sizeInBytes ||
-                dataset?.metadata?.consumedSpiceCapacityInBytes ||
-                dataset?.metadata?.sizeInBytes,
-            };
-          } catch (_error) {
-            return ingestion;
-          }
-        })
-      );
-
       return successResponse(event, {
         success: true,
         data: {
-          ingestions: enrichedIngestions,
+          ingestions: result.items,
+          availableSourceTypes,
           metadata: cachedData.metadata,
           pagination: result.pagination,
         },

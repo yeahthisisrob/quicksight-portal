@@ -25,15 +25,15 @@ export type GroupMembershipFilterState = 'all' | 'in_groups' | 'not_in_groups';
 
 export type PermissionsFilterState = 'all' | 'with_permissions' | 'without_permissions';
 
-export interface GroupOption {
+/** Shared shape for filter dropdown options with a value and count */
+export interface FilterOption {
   value: string;
   count: number;
 }
 
-export interface RoleOption {
-  value: string;
-  count: number;
-}
+export type GroupOption = FilterOption;
+export type RoleOption = FilterOption;
+export type SourceTypeOption = FilterOption;
 
 export interface FolderOption {
   id: string;
@@ -120,6 +120,12 @@ export interface FilterBarProps {
   onGroupMembershipFilterChange?: (filter: GroupMembershipFilterState) => void;
   selectedGroups?: string[];
   onSelectedGroupsChange?: (groups: string[]) => void;
+
+  // Source type filtering
+  enableSourceTypeFiltering?: boolean;
+  availableSourceTypes?: SourceTypeOption[];
+  selectedSourceTypes?: string[];
+  onSelectedSourceTypesChange?: (types: string[]) => void;
 
   // Asset selection (for data catalog)
   enableAssetSelection?: boolean;

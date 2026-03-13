@@ -122,6 +122,10 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
             onGroupMembershipFilterChange={p.onGroupMembershipFilterChange}
             selectedGroups={p.selectedGroups ?? []}
             onSelectedGroupsChange={p.onSelectedGroupsChange}
+            enableSourceTypeFiltering={p.enableSourceTypeFiltering ?? false}
+            availableSourceTypes={p.availableSourceTypes ?? []}
+            selectedSourceTypes={p.selectedSourceTypes ?? []}
+            onSelectedSourceTypesChange={p.onSelectedSourceTypesChange}
             enableFolderFiltering={p.enableFolderFiltering}
             folderFilterMode={state.folderFilterMode}
             onFolderFilterModeChange={state.setFolderFilterMode}

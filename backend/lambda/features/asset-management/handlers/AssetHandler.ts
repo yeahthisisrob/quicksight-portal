@@ -458,6 +458,9 @@ export class AssetHandler {
       if (result.availableGroups) {
         responseData.availableGroups = result.availableGroups;
       }
+      if (result.availableSourceTypes) {
+        responseData.availableSourceTypes = result.availableSourceTypes;
+      }
 
       return successResponse(event, {
         success: true,
@@ -701,6 +704,9 @@ export class AssetHandler {
         : undefined,
       excludeFolders: queryParams.excludeFolders
         ? JSON.parse(queryParams.excludeFolders)
+        : undefined,
+      sourceTypeFilter: queryParams.sourceTypeFilter
+        ? JSON.parse(queryParams.sourceTypeFilter)
         : undefined,
     };
   }
