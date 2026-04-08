@@ -148,7 +148,7 @@ export class QuicksightPortalStack extends Stack {
     }));
 
     const apiLambda = new LambdaFunction(this, 'ApiLambda', {
-      runtime: Runtime.NODEJS_18_X,
+      runtime: Runtime.NODEJS_22_X,
       handler: 'index.handler',
       code: Code.fromAsset(path.join(__dirname, '../../../backend/lambda/dist')),
       role: lambdaRole,
@@ -173,7 +173,7 @@ export class QuicksightPortalStack extends Stack {
 
     /* 5 ────────── Worker Lambda for export processing */
     const workerLambda = new LambdaFunction(this, 'WorkerLambda', {
-      runtime: Runtime.NODEJS_18_X,
+      runtime: Runtime.NODEJS_22_X,
       handler: 'worker.handler',
       code: Code.fromAsset(path.join(__dirname, '../../../backend/lambda/dist')),
       role: lambdaRole, // Reuse the same role with QuickSight permissions
