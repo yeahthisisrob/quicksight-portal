@@ -1,12 +1,8 @@
+import { CognitoJwtVerifier } from 'aws-jwt-verify';
+import type { CognitoJwtVerifierSingleUserPool } from 'aws-jwt-verify/cognito-verifier';
 import { type APIGatewayProxyEvent } from 'aws-lambda';
 
-import { TIME_UNITS } from '../../constants';
 import { logger } from '../../utils/logger';
-
-// JWT token format constants
-const JWT_CONSTANTS = {
-  TOKEN_PARTS: 3, // Header, payload, signature
-} as const;
 
 export interface AuthResult {
   authenticated: boolean;
@@ -19,51 +15,87 @@ export interface AuthResult {
   error?: string;
 }
 
+/**
+ * Lazily-built verifier. aws-jwt-verify caches the JWKS internally, so we
+ * build this once per Lambda container and reuse it across invocations.
+ *
+ * Returns null if env vars are missing (e.g. misconfigured local SAM) — the
+ * caller will treat that as an auth failure rather than crashing the Lambda.
+ */
+type Verifier = CognitoJwtVerifierSingleUserPool<{
+  userPoolId: string;
+  tokenUse: 'id';
+  clientId: string;
+}>;
+let cachedVerifier: Verifier | null | undefined;
+
+function getVerifier(): Verifier | null {
+  if (cachedVerifier !== undefined) {
+    return cachedVerifier;
+  }
+
+  const userPoolId = process.env.COGNITO_USER_POOL_ID;
+  const clientId = process.env.COGNITO_USER_POOL_CLIENT_ID;
+
+  if (!userPoolId || !clientId) {
+    logger.warn(
+      'JWTAuth not configured — missing COGNITO_USER_POOL_ID or COGNITO_USER_POOL_CLIENT_ID',
+      {
+        hasUserPoolId: Boolean(userPoolId),
+        hasClientId: Boolean(clientId),
+      }
+    );
+    cachedVerifier = null;
+    return null;
+  }
+
+  cachedVerifier = CognitoJwtVerifier.create({
+    userPoolId,
+    tokenUse: 'id',
+    clientId,
+  });
+  return cachedVerifier;
+}
+
 export class JWTAuth {
-  public static authenticate(event: APIGatewayProxyEvent): AuthResult {
+  /**
+   * Verify the Bearer token on the request against the Cognito JWKS.
+   * Checks signature, expiry, issuer, audience (client_id), and tokenUse=id.
+   */
+  public static async authenticate(event: APIGatewayProxyEvent): Promise<AuthResult> {
     const authHeader = event.headers.Authorization || event.headers.authorization;
 
     if (!authHeader?.startsWith('Bearer ')) {
       return { authenticated: false, error: 'Missing authorization header' };
     }
 
-    const idToken = authHeader.replace('Bearer ', '');
-    const tokenParts = idToken.split('.');
+    const idToken = authHeader.slice('Bearer '.length);
 
-    if (tokenParts.length !== JWT_CONSTANTS.TOKEN_PARTS) {
-      return { authenticated: false, error: 'Invalid token format' };
+    const verifier = getVerifier();
+    if (!verifier) {
+      return { authenticated: false, error: 'Auth not configured' };
     }
 
     try {
-      if (!tokenParts[1]) {
-        return { authenticated: false, error: 'Invalid token format' };
-      }
-      const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-
-      // Check token expiration
-      if (payload.exp && payload.exp < Date.now() / TIME_UNITS.SECOND) {
-        return { authenticated: false, error: 'Token expired' };
-      }
-
-      // Validate issuer if in production
-      if (process.env.NODE_ENV === 'production' && process.env.COGNITO_ISSUER) {
-        if (payload.iss !== process.env.COGNITO_ISSUER) {
-          return { authenticated: false, error: 'Invalid token issuer' };
-        }
-      }
+      const payload = await verifier.verify(idToken);
 
       return {
         authenticated: true,
         user: {
           id: payload.sub,
-          email: payload.email,
-          name: payload.name,
-          groups: payload['cognito:groups'] || [],
+          email: typeof payload.email === 'string' ? payload.email : undefined,
+          name: typeof payload.name === 'string' ? payload.name : undefined,
+          groups: Array.isArray(payload['cognito:groups']) ? payload['cognito:groups'] : [],
         },
       };
     } catch (error) {
-      logger.error('JWT validation error', { error });
-      return { authenticated: false, error: 'Invalid token' };
+      logger.warn('JWT verification failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return {
+        authenticated: false,
+        error: error instanceof Error ? error.message : 'Invalid token',
+      };
     }
   }
 }

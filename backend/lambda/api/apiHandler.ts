@@ -4,7 +4,7 @@
 import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
 
 import { findRoute } from './router';
-import { getAuthContext } from '../shared/auth';
+import { getAuthContext, UnauthorizedError } from '../shared/auth';
 import { STATUS_CODES } from '../shared/constants/httpStatusCodes';
 import { createResponse, successResponse, errorResponse } from '../shared/utils/cors';
 import { logger } from '../shared/utils/logger';
@@ -16,7 +16,7 @@ export const apiHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewa
   }
 
   try {
-    const authContext = getAuthContext(event);
+    const authContext = await getAuthContext(event);
     if (!authContext) {
       return errorResponse(event, STATUS_CODES.UNAUTHORIZED, 'Authentication required');
     }
@@ -88,7 +88,16 @@ export const apiHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewa
     // Not found
     return errorResponse(event, STATUS_CODES.NOT_FOUND, `Route not found: ${method} ${path}`);
   } catch (error) {
-    logger.error('API handler error:', error);
+    // Auth failures thrown by handlers should surface as 401, not 500.
+    if (error instanceof UnauthorizedError) {
+      return errorResponse(event, STATUS_CODES.UNAUTHORIZED, 'Authentication required');
+    }
+    logger.error('API handler unhandled error', {
+      path: event.path,
+      method: event.httpMethod,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return errorResponse(event, STATUS_CODES.INTERNAL_SERVER_ERROR, 'Internal server error');
   }
 };

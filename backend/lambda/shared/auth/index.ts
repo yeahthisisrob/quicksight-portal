@@ -9,11 +9,22 @@ export interface AuthContext {
   groups?: string[];
 }
 
+/**
+ * Thrown by requireAuth when no valid auth context is present.
+ * Top-level handlers catch this and return 401 (not 500).
+ */
+export class UnauthorizedError extends Error {
+  constructor(message = 'Unauthorized') {
+    super(message);
+    this.name = 'UnauthorizedError';
+  }
+}
+
 export async function getAuthContext(event: APIGatewayProxyEvent): Promise<AuthContext | null> {
   try {
     // First try to get from JWT Auth (both local SAM and production)
     const JWTAuthModule = await import('../services/auth/JWTAuth');
-    const authResult = JWTAuthModule.JWTAuth.authenticate(event);
+    const authResult = await JWTAuthModule.JWTAuth.authenticate(event);
 
     if (authResult.authenticated && authResult.user) {
       return {
@@ -52,7 +63,7 @@ export async function requireAuth(event: APIGatewayProxyEvent): Promise<AuthCont
   const authContext = await getAuthContext(event);
 
   if (!authContext) {
-    throw new Error('Unauthorized');
+    throw new UnauthorizedError();
   }
 
   return authContext;

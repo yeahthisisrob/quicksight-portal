@@ -10,11 +10,17 @@ import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
 import {
   Distribution, ViewerProtocolPolicy, CachePolicy, AllowedMethods,
   ResponseHeadersPolicy, OriginAccessIdentity, CfnDistribution,
+  HeadersFrameOption, HeadersReferrerPolicy, SecurityPolicyProtocol,
+  OriginRequestPolicy, CacheHeaderBehavior, CacheQueryStringBehavior,
+  CacheCookieBehavior, OriginProtocolPolicy,
 } from 'aws-cdk-lib/aws-cloudfront';
-import { S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
+import { S3BucketOrigin, HttpOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import {
-  RestApi, LambdaIntegration, AuthorizationType, GatewayResponse, ResponseType,
+  RestApi, LambdaIntegration, AuthorizationType, MethodLoggingLevel,
+  LogGroupLogDestination, AccessLogFormat,
 } from 'aws-cdk-lib/aws-apigateway';
+import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { CfnWebACL } from 'aws-cdk-lib/aws-wafv2';
 import {
   Function as LambdaFunction, Runtime, Code,
 } from 'aws-cdk-lib/aws-lambda';
@@ -30,6 +36,12 @@ import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 export class QuicksightPortalStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
+
+    // WAF is on by default (~$5/mo base + $1/M requests). Opt out with:
+    //   cdk deploy -c enableWaf=false
+    // or set "enableWaf": false in cdk.context.json.
+    const wafCtx = this.node.tryGetContext('enableWaf');
+    const enableWaf = wafCtx !== false && wafCtx !== 'false';
 
     /* 1 ────────── SPA bucket + CloudFront */
     const websiteBucket = new Bucket(this, 'WebsiteBucket', {
@@ -196,16 +208,163 @@ export class QuicksightPortalStack extends Stack {
       maxBatchingWindow: Duration.seconds(0), // Process immediately
     }));
 
-    /* 6 ────────── CloudFront for SPA only */
+    /* 6 ────────── API Gateway (same-origin via CloudFront — no CORS needed) */
+    // Access logs — structured JSON so CloudWatch Logs Insights can parse.
+    const apiAccessLogs = new LogGroup(this, 'ApiAccessLogs', {
+      retention: RetentionDays.ONE_MONTH,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    const api = new RestApi(this, 'Api', {
+      restApiName: 'QuicksightPortalApi',
+      deployOptions: {
+        stageName: 'prod',
+        metricsEnabled: true,
+        // Throttling: 25 r/s sustained, 50 burst — blocks abuse before it hits Lambda.
+        throttlingRateLimit: 25,
+        throttlingBurstLimit: 50,
+        // Never log request bodies (may contain tokens / PII).
+        dataTraceEnabled: false,
+        loggingLevel: MethodLoggingLevel.ERROR,
+        accessLogDestination: new LogGroupLogDestination(apiAccessLogs),
+        accessLogFormat: AccessLogFormat.jsonWithStandardFields({
+          caller: false,
+          httpMethod: true,
+          ip: true,
+          protocol: true,
+          requestTime: true,
+          resourcePath: true,
+          responseLength: true,
+          status: true,
+          user: false,
+        }),
+      },
+      // No defaultCorsPreflightOptions — API is same-origin via CloudFront.
+      // Lambda cors.ts still sets Access-Control-* for dev (localhost) as defense in depth.
+    });
+    const integration = new LambdaIntegration(apiLambda);
+
+    // Health endpoint
+    const health = api.root.addResource('health');
+    health.addMethod('GET', integration, { authorizationType: AuthorizationType.NONE });
+
+    // API endpoints — auth handled in Lambda
+    const apiRoot = api.root.addResource('api');
+    const apiProxy = apiRoot.addResource('{proxy+}');
+
+    ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].forEach(method => {
+      apiRoot.addMethod(method, integration, { authorizationType: AuthorizationType.NONE });
+      apiProxy.addMethod(method, integration, { authorizationType: AuthorizationType.NONE });
+    });
+
+    /* 7 ────────── Security headers policy (custom — stricter than managed SECURITY_HEADERS) */
+    const securityHeaders = new ResponseHeadersPolicy(this, 'SecurityHeaders', {
+      responseHeadersPolicyName: 'QuickSightPortalSecHeaders',
+      securityHeadersBehavior: {
+        strictTransportSecurity: {
+          accessControlMaxAge: Duration.days(365),
+          includeSubdomains: true,
+          override: true,
+        },
+        contentTypeOptions: { override: true },
+        frameOptions: { frameOption: HeadersFrameOption.DENY, override: true },
+        xssProtection: { protection: true, modeBlock: true, override: true },
+        referrerPolicy: {
+          referrerPolicy: HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+          override: true,
+        },
+      },
+    });
+
+    /* 8 ────────── WAF (CloudFront scope) — bot + injection + rate limit at edge */
+    // Default on (~$5/mo base + $1/M requests). Opt out: `enableWaf: false` in
+    // cdk.context.json or `-c enableWaf=false` on the CLI.
+    const waf = enableWaf ? new CfnWebACL(this, 'SiteWAF', {
+      scope: 'CLOUDFRONT',
+      defaultAction: { allow: {} },
+      visibilityConfig: {
+        cloudWatchMetricsEnabled: true,
+        metricName: 'QuickSightPortalWAF',
+        sampledRequestsEnabled: true,
+      },
+      rules: [
+        {
+          name: 'AWSManagedRulesCommonRuleSet',
+          priority: 1,
+          overrideAction: { none: {} },
+          statement: {
+            managedRuleGroupStatement: { vendorName: 'AWS', name: 'AWSManagedRulesCommonRuleSet' },
+          },
+          visibilityConfig: { cloudWatchMetricsEnabled: true, metricName: 'CommonRuleSet', sampledRequestsEnabled: true },
+        },
+        {
+          name: 'AWSManagedRulesKnownBadInputsRuleSet',
+          priority: 2,
+          overrideAction: { none: {} },
+          statement: {
+            managedRuleGroupStatement: { vendorName: 'AWS', name: 'AWSManagedRulesKnownBadInputsRuleSet' },
+          },
+          visibilityConfig: { cloudWatchMetricsEnabled: true, metricName: 'KnownBadInputs', sampledRequestsEnabled: true },
+        },
+        {
+          name: 'RateLimitPerIP',
+          priority: 3,
+          action: { block: {} },
+          statement: { rateBasedStatement: { limit: 1000, aggregateKeyType: 'IP' } },
+          visibilityConfig: { cloudWatchMetricsEnabled: true, metricName: 'RateLimitPerIP', sampledRequestsEnabled: true },
+        },
+        {
+          name: 'AWSManagedRulesAmazonIpReputationList',
+          priority: 4,
+          overrideAction: { none: {} },
+          statement: {
+            managedRuleGroupStatement: { vendorName: 'AWS', name: 'AWSManagedRulesAmazonIpReputationList' },
+          },
+          visibilityConfig: { cloudWatchMetricsEnabled: true, metricName: 'IPReputation', sampledRequestsEnabled: true },
+        },
+      ],
+    }) : undefined;
+
+    /* 9 ────────── CloudFront — SPA (default) + API at /api/* (same-origin) */
+    // API Gateway origin — strip /prod stage at origin path
+    const apiDomainName = `${api.restApiId}.execute-api.${this.region}.amazonaws.com`;
+    const apiOrigin = new HttpOrigin(apiDomainName, {
+      originPath: '/prod',
+      protocolPolicy: OriginProtocolPolicy.HTTPS_ONLY,
+    });
+
+    // Custom cache policy for /api/*: no caching, but MUST allow-list Authorization header.
+    // Managed-CachingDisabled strips all headers which would break JWT auth.
+    const apiCachePolicy = new CachePolicy(this, 'ApiNoCachePolicy', {
+      cachePolicyName: 'QuickSightPortalApiPassthrough',
+      defaultTtl: Duration.seconds(0),
+      maxTtl: Duration.seconds(1),
+      minTtl: Duration.seconds(0),
+      headerBehavior: CacheHeaderBehavior.allowList('Authorization'),
+      queryStringBehavior: CacheQueryStringBehavior.all(),
+      cookieBehavior: CacheCookieBehavior.none(),
+    });
+
     const distribution = new Distribution(this, 'Distribution', {
       defaultBehavior: {
         origin: S3BucketOrigin.withOriginAccessIdentity(websiteBucket, { originAccessIdentity: oai }),
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         allowedMethods: AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         cachePolicy: CachePolicy.CACHING_OPTIMIZED,
-        responseHeadersPolicy: ResponseHeadersPolicy.SECURITY_HEADERS,
+        responseHeadersPolicy: securityHeaders,
+      },
+      additionalBehaviors: {
+        '/api/*': {
+          origin: apiOrigin,
+          viewerProtocolPolicy: ViewerProtocolPolicy.HTTPS_ONLY,
+          allowedMethods: AllowedMethods.ALLOW_ALL,
+          cachePolicy: apiCachePolicy,
+          originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+        },
       },
       defaultRootObject: 'index.html',
+      minimumProtocolVersion: SecurityPolicyProtocol.TLS_V1_2_2021,
+      webAclId: waf?.attrArn,
       errorResponses: [{
         httpStatus: 404,
         responseHttpStatus: 200,
@@ -216,61 +375,6 @@ export class QuicksightPortalStack extends Stack {
 
     const cdnDomain =
       (distribution.node.defaultChild as CfnDistribution).attrDomainName;
-
-    /* 7 ────────── API Gateway with CORS */
-    const api = new RestApi(this, 'Api', {
-      restApiName: 'QuicksightPortalApi',
-      deployOptions: { stageName: 'prod', metricsEnabled: true },
-      defaultCorsPreflightOptions: {
-        allowOrigins: [
-          `https://${distribution.distributionDomainName}`,
-          'http://localhost:5173',
-          'http://localhost:5174',
-        ],
-        allowHeaders: [
-          'Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key',
-          'X-Amz-Security-Token', 'X-Amz-User-Agent', 'X-Amz-Content-Sha256',
-        ],
-        allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      },
-    });
-    const integration = new LambdaIntegration(apiLambda);
-
-    // Health endpoint
-    const health = api.root.addResource('health');
-    health.addMethod('GET', integration, { authorizationType: AuthorizationType.NONE });
-
-    // API endpoints - auth handled in Lambda
-    const apiRoot = api.root.addResource('api');
-    const apiProxy = apiRoot.addResource('{proxy+}');
-    
-    ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].forEach(method => {
-      apiRoot.addMethod(method, integration, { authorizationType: AuthorizationType.NONE });
-      apiProxy.addMethod(method, integration, { authorizationType: AuthorizationType.NONE });
-    });
-
-    // Add gateway responses for proper CORS on errors
-    new GatewayResponse(this, 'Default4xxResponse', {
-      restApi: api,
-      type: ResponseType.DEFAULT_4XX,
-      responseHeaders: {
-        'Access-Control-Allow-Origin': `'https://${distribution.distributionDomainName}'`,
-        'Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent,X-Amz-Content-Sha256'",
-        'Access-Control-Allow-Methods': "'GET,POST,PUT,DELETE,PATCH,OPTIONS'",
-        'Access-Control-Allow-Credentials': "'true'",
-      },
-    });
-
-    new GatewayResponse(this, 'Default5xxResponse', {
-      restApi: api,
-      type: ResponseType.DEFAULT_5XX,
-      responseHeaders: {
-        'Access-Control-Allow-Origin': `'https://${distribution.distributionDomainName}'`,
-        'Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent,X-Amz-Content-Sha256'",
-        'Access-Control-Allow-Methods': "'GET,POST,PUT,DELETE,PATCH,OPTIONS'",
-        'Access-Control-Allow-Credentials': "'true'",
-      },
-    });
 
     /* 8 ────────── User-pool client (needs CloudFront domain) */
     const userPoolClient = new CfnUserPoolClient(this, 'QuickSightPortalUserPoolClient', {
@@ -294,9 +398,13 @@ export class QuicksightPortalStack extends Stack {
       ],
     });
 
-    /* 9 ────────── Deploy SPA + runtime config */
+    // Needed by Lambda for aws-jwt-verify audience check.
+    apiLambda.addEnvironment('COGNITO_USER_POOL_CLIENT_ID', userPoolClient.ref);
+
+    /* 10 ────────── Deploy SPA + runtime config */
+    // API_URL is same-origin via CloudFront /api/* — no CORS, WAF inspects API too.
     const runtimeConfig = `window.APP_CONFIG = {
-  API_URL: '${api.url}api',
+  API_URL: '/api',
   AWS_REGION: '${this.region}',
   USER_POOL_ID: '${userPool.userPoolId}',
   USER_POOL_CLIENT_ID: '${userPoolClient.ref}',
