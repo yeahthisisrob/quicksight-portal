@@ -4,6 +4,8 @@
 import { Alert, Box, Button, Stack, Typography } from '@mui/material';
 import { useState } from 'react';
 
+import { TimelineFeed } from '@/features/activity';
+
 import { colors, spacing } from '@/shared/design-system/theme';
 import { PageLayout } from '@/shared/ui';
 
@@ -25,7 +27,7 @@ export default function DataExportView() {
     'dashboards', 'datasets', 'analyses', 'datasources', 'groups', 'folders', 'users'
   ]);
   const [exportMode, setExportMode] = useState<ExportMode>('smart');
-  const [showHistory, setShowHistory] = useState(false);
+  const [activeTab, setActiveTab] = useState<'current' | 'history' | 'timeline'>('current');
 
   const {
     cacheSummary,
@@ -64,7 +66,7 @@ export default function DataExportView() {
   };
 
   const handleSelectHistoryJob = async (jobId: string) => {
-    setShowHistory(false);
+    setActiveTab('current');
     await loadHistoricalJob(jobId);
   };
 
@@ -175,32 +177,40 @@ export default function DataExportView() {
             }}
           >
             <Typography variant="subtitle2" fontWeight={600}>
-              Export Progress
+              {activeTab === 'timeline' ? 'Activity Timeline' : 'Export Progress'}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Button
-                variant={!showHistory ? 'contained' : 'outlined'}
+                variant={activeTab === 'current' ? 'contained' : 'outlined'}
                 size="small"
-                onClick={() => setShowHistory(false)}
+                onClick={() => setActiveTab('current')}
               >
                 Current
               </Button>
               <Button
-                variant={showHistory ? 'contained' : 'outlined'}
+                variant={activeTab === 'history' ? 'contained' : 'outlined'}
                 size="small"
-                onClick={() => setShowHistory(true)}
+                onClick={() => setActiveTab('history')}
               >
                 History
+              </Button>
+              <Button
+                variant={activeTab === 'timeline' ? 'contained' : 'outlined'}
+                size="small"
+                onClick={() => setActiveTab('timeline')}
+              >
+                Timeline
               </Button>
             </Box>
           </Box>
 
-          {showHistory ? (
+          {activeTab === 'history' && (
             <JobHistory
               onSelectJob={handleSelectHistoryJob}
               currentJobId={currentJobId}
             />
-          ) : (
+          )}
+          {activeTab === 'current' && (
             <Box sx={{ p: 2 }}>
               {(exportLogs.length > 0 || isRunning) ? (
                 <ExportLogs
@@ -221,6 +231,11 @@ export default function DataExportView() {
                   No export activity. Start an export to see progress here.
                 </Typography>
               )}
+            </Box>
+          )}
+          {activeTab === 'timeline' && (
+            <Box sx={{ maxHeight: 600, display: 'flex', flexDirection: 'column' }}>
+              <TimelineFeed />
             </Box>
           )}
         </Box>

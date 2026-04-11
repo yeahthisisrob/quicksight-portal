@@ -8,6 +8,37 @@ type UserActivity = components['schemas']['UserActivity'];
 type ResolvedRecipient = components['schemas']['ResolvedRecipient'];
 type UserInactiveAnalysis = components['schemas']['UserInactiveAnalysis'];
 type UserUnusedDataset = components['schemas']['UserUnusedDataset'];
+export type TimelineEvent = components['schemas']['TimelineEvent'];
+export type TimelinePage = components['schemas']['TimelinePage'];
+
+/** Query params for the activity timeline endpoints. */
+export interface TimelineQueryParams {
+  cursor?: string;
+  limit?: number;
+  resourceTypes?: string[];
+  users?: string[];
+  eventNames?: string[];
+  actions?: string[];
+  startDate?: string;
+  endDate?: string;
+}
+
+/**
+ * The backend accepts comma-separated arrays as query params.
+ * Strip empty arrays so they don't become `?users=&` on the wire.
+ */
+function buildTimelineQueryString(params: TimelineQueryParams): Record<string, string | undefined> {
+  return {
+    cursor: params.cursor,
+    limit: params.limit?.toString(),
+    resourceTypes: params.resourceTypes?.length ? params.resourceTypes.join(',') : undefined,
+    users: params.users?.length ? params.users.join(',') : undefined,
+    eventNames: params.eventNames?.length ? params.eventNames.join(',') : undefined,
+    actions: params.actions?.length ? params.actions.join(',') : undefined,
+    startDate: params.startDate,
+    endDate: params.endDate,
+  };
+}
 
 export interface RecipientsData {
   users: ResolvedRecipient[];
@@ -162,5 +193,38 @@ export const activityApi = {
       throw new Error(response.data.error || 'Failed to fetch user unused datasets');
     }
     return response.data.data.datasets;
+  },
+
+  /**
+   * Get a page of activity timeline events (global feed of QuickSight mutations).
+   * Cursor-based pagination: pass the `nextCursor` from the previous response.
+   */
+  async getTimeline(params: TimelineQueryParams = {}): Promise<TimelinePage> {
+    const response = await api.get<ApiResponse<TimelinePage>>('/activity/timeline', {
+      params: buildTimelineQueryString(params),
+    });
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch activity timeline');
+    }
+    return response.data.data;
+  },
+
+  /**
+   * Get a page of activity timeline events pre-filtered to one catalog asset.
+   * Used by the per-asset drill-down from the asset table's actions menu.
+   */
+  async getAssetTimeline(
+    assetType: 'dashboard' | 'analysis' | 'dataset' | 'datasource' | 'folder' | 'group' | 'user',
+    assetId: string,
+    params: TimelineQueryParams = {}
+  ): Promise<TimelinePage> {
+    const response = await api.get<ApiResponse<TimelinePage>>(
+      `/activity/timeline/${assetType}/${encodeURIComponent(assetId)}`,
+      { params: buildTimelineQueryString(params) }
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch asset activity timeline');
+    }
+    return response.data.data;
   },
 };

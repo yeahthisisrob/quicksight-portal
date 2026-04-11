@@ -981,6 +981,156 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/activity/timeline:
+    get:
+      summary: Get a page of activity timeline events (global feed)
+      description: >
+        Returns a chronological feed of QuickSight mutation events (Create /
+        Update / Delete / Publish / permission / membership / tagging / job
+        events across all asset types and account settings). Cursor-based:
+        pass the `nextCursor` returned in a previous response to fetch the
+        next page. Reads (Get / Describe / List / Search) are NOT returned —
+        the timeline only records events that touch assets or settings.
+      parameters:
+        - name: cursor
+          in: query
+          description: ISO timestamp. Returns events strictly older than this.
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          description: Page size. Default 50, max 200.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: resourceTypes
+          in: query
+          description: >
+            Comma-separated list of resource types to include. Catalog types
+            (dashboard, analysis, dataset, datasource, folder, group, user)
+            show hydrated asset names; `other` covers templates, themes,
+            brands, topics, account settings, etc.
+          schema:
+            type: string
+        - name: users
+          in: query
+          description: Comma-separated list of user names to include.
+          schema:
+            type: string
+        - name: eventNames
+          in: query
+          description: Comma-separated list of CloudTrail event names to include.
+          schema:
+            type: string
+        - name: actions
+          in: query
+          description: Comma-separated list of action categories to include.
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          description: ISO timestamp. Returns events at or after this time.
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          description: ISO timestamp. Returns events at or before this time.
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: A page of timeline events.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/TimelinePage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/activity/timeline/{assetType}/{assetId}:
+    get:
+      summary: Get a page of activity timeline events for one catalog asset
+      description: >
+        Same as /api/activity/timeline but pre-filtered to a specific catalog
+        asset. All other query params (cursor, limit, users, eventNames,
+        actions, date range) still apply and further narrow the results.
+      parameters:
+        - name: assetType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [dashboard, analysis, dataset, datasource, folder, group, user]
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: users
+          in: query
+          schema:
+            type: string
+        - name: eventNames
+          in: query
+          schema:
+            type: string
+        - name: actions
+          in: query
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: A page of timeline events for the specified asset.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/TimelinePage'
+        '400':
+          description: Invalid assetType or assetId.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /api/scripts/demo-cleanup/preview:
     get:
       summary: Preview demo assets that would be deleted
@@ -2519,6 +2669,71 @@ components:
                 items:
                   type: string
                 description: Groups the user belongs to
+
+    TimelineEvent:
+      type: object
+      required: [id, timestamp, eventName, kind, user]
+      properties:
+        id:
+          type: string
+          description: Stable identifier hash for the event (timestamp + name + resource + user).
+        timestamp:
+          type: string
+          format: date-time
+          description: When the event occurred (ISO).
+        eventName:
+          type: string
+          description: CloudTrail event name (e.g. CreateDashboard, UpdateDataSetPermissions, TagResource).
+        kind:
+          type: string
+          enum: [view, mutation]
+          description: Whether this event is a read/view or a mutation. The timeline returns mutations only by default.
+        action:
+          type: string
+          enum: [create, update, delete, publish, grant, revoke, member, tag, job, batch]
+          description: Coarse action category derived from the event name.
+        user:
+          type: string
+          description: User name or ARN that performed the action.
+        resourceType:
+          type: string
+          enum: [dashboard, analysis, dataset, datasource, folder, group, user, other]
+          description: >
+            Resource type the event targets. Catalog types (dashboard / analysis / dataset /
+            datasource / folder / group / user) are hydrated with asset names; `other` covers
+            templates, themes, brands, topics, action connectors, VPC connections, namespaces,
+            and account-level settings.
+        assetType:
+          type: string
+          enum: [dashboard, analysis, dataset, datasource, folder, group, user]
+          description: Catalog asset type (only set when resourceType is a catalog asset).
+        assetId:
+          type: string
+          description: Resource identifier (dashboardId, analysisId, ...). Absent for some account-level settings events.
+        assetName:
+          type: string
+          description: Asset name from the portal catalog. Absent if the catalog does not know this asset.
+        arn:
+          type: string
+          description: Full resource ARN, when present on the CloudTrail event.
+
+    TimelinePage:
+      type: object
+      required: [items, nextCursor, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimelineEvent'
+          description: Timeline events for this page, sorted newest-first.
+        nextCursor:
+          type: string
+          nullable: true
+          format: date-time
+          description: ISO timestamp of the last item in `items`. Pass back as `cursor` to fetch the next page. `null` when there are no more events.
+        hasMore:
+          type: boolean
+          description: True if more events exist beyond this page.
 
     UserActivity:
       type: object

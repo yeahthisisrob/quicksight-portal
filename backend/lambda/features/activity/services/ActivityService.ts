@@ -7,6 +7,7 @@ import { ASSET_TYPES, type AssetType } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
 import { type GroupService } from '../../organization/services/GroupService';
 import {
+  type ActionCategory,
   type ActivityRefreshRequest,
   type ActivityRefreshResponse,
   type ActivitySummaryResponse,
@@ -14,6 +15,9 @@ import {
   type MinimalEvent,
   type AssetActivityData,
   type UserActivityData,
+  type TimelineEvent,
+  type TimelinePage,
+  type TimelineQuery,
 } from '../types';
 
 /**
@@ -67,6 +71,421 @@ const ASSET_EVENT_CONFIG = {
     },
   },
 } as const;
+
+/**
+ * Shared extractor: walk a CloudTrail event JSON for a requestParameters field
+ * under several common shapes (camelCase, PascalCase, nested serviceEventDetails).
+ * Returns the last URI segment (e.g. 'abc-123' from 'arn:.../dashboard/abc-123').
+ */
+const extractParam = (event: any, ...keys: string[]): string | null => {
+  for (const key of keys) {
+    const v =
+      event.requestParameters?.[key] ||
+      event.serviceEventDetails?.eventRequestDetails?.[key] ||
+      event.serviceEventDetails?.[key];
+    if (v) {
+      const tail = String(v).split('/').pop();
+      if (tail) {
+        return tail;
+      }
+    }
+  }
+  // Fall back to the first QuickSight ARN in Resources[]
+  const arn: string | undefined = event.resources?.[0]?.ARN ?? event.Resources?.[0]?.ARN;
+  if (arn) {
+    const match = arn.match(/\/([^/]+)$/);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+  return null;
+};
+
+/**
+ * Mutation event configuration — one entry per QuickSight catalog asset type
+ * (the 7 types the portal tracks in its catalog: dashboard, analysis, dataset,
+ * datasource, folder, group, user) with the event names to track and a
+ * per-asset-type id extractor. Used by the activity timeline to ingest
+ * CloudTrail mutation events into the shared ActivityCache.
+ *
+ * Events for QuickSight resources NOT in the catalog (templates, themes,
+ * brands, topics, action connectors, VPC connections, namespaces) and
+ * account-level settings mutations are captured separately via
+ * OTHER_MUTATION_EVENTS below.
+ */
+const ASSET_MUTATION_CONFIG: Record<
+  Exclude<AssetType, never>,
+  { events: readonly string[]; extractId: (event: any) => string | null }
+> = {
+  dashboard: {
+    events: [
+      'CreateDashboard',
+      'UpdateDashboard',
+      'UpdateDashboardLinks',
+      'UpdateDashboardPermissions',
+      'UpdateDashboardPublishedVersion',
+      'DeleteDashboard',
+    ],
+    extractId: (event) => extractParam(event, 'dashboardId', 'DashboardId'),
+  },
+  analysis: {
+    events: [
+      'CreateAnalysis',
+      'UpdateAnalysis',
+      'UpdateAnalysisPermissions',
+      'DeleteAnalysis',
+      'RestoreAnalysis',
+    ],
+    extractId: (event) => extractParam(event, 'analysisId', 'AnalysisId'),
+  },
+  dataset: {
+    events: [
+      'CreateDataSet',
+      'UpdateDataSet',
+      'UpdateDataSetPermissions',
+      'DeleteDataSet',
+      'PutDataSetRefreshProperties',
+      'DeleteDataSetRefreshProperties',
+      'CreateRefreshSchedule',
+      'UpdateRefreshSchedule',
+      'DeleteRefreshSchedule',
+      'CreateIngestion',
+      'CancelIngestion',
+    ],
+    extractId: (event) => extractParam(event, 'dataSetId', 'DataSetId'),
+  },
+  datasource: {
+    events: [
+      'CreateDataSource',
+      'UpdateDataSource',
+      'UpdateDataSourcePermissions',
+      'DeleteDataSource',
+    ],
+    extractId: (event) => extractParam(event, 'dataSourceId', 'DataSourceId'),
+  },
+  folder: {
+    events: [
+      'CreateFolder',
+      'UpdateFolder',
+      'UpdateFolderPermissions',
+      'DeleteFolder',
+      'CreateFolderMembership',
+      'DeleteFolderMembership',
+    ],
+    extractId: (event) => extractParam(event, 'folderId', 'FolderId'),
+  },
+  group: {
+    events: [
+      'CreateGroup',
+      'UpdateGroup',
+      'DeleteGroup',
+      'CreateGroupMembership',
+      'DeleteGroupMembership',
+    ],
+    extractId: (event) => extractParam(event, 'groupName', 'GroupName'),
+  },
+  user: {
+    events: [
+      'RegisterUser',
+      'UpdateUser',
+      'DeleteUser',
+      'DeleteUserByPrincipalId',
+      'UpdateUserCustomPermission',
+      'DeleteUserCustomPermission',
+    ],
+    extractId: (event) => extractParam(event, 'userName', 'UserName'),
+  },
+} as const;
+
+/**
+ * Mutation events on QuickSight resources the portal's catalog doesn't track
+ * (templates, themes, brands, topics, action connectors, VPC connections,
+ * namespaces) plus account-level / global settings mutations. These land in
+ * the timeline with `at: 'other'` and don't attempt asset-id extraction —
+ * the UI shows the raw event name and user.
+ *
+ * Reads (Describe/List/Search/Get) and embed-URL generators are intentionally
+ * excluded — the timeline only records "touching" events.
+ */
+const OTHER_MUTATION_EVENTS: readonly string[] = [
+  // Templates
+  'CreateTemplate',
+  'UpdateTemplate',
+  'DeleteTemplate',
+  'CreateTemplateAlias',
+  'UpdateTemplateAlias',
+  'DeleteTemplateAlias',
+  'UpdateTemplatePermissions',
+
+  // Themes
+  'CreateTheme',
+  'UpdateTheme',
+  'DeleteTheme',
+  'CreateThemeAlias',
+  'DeleteThemeAlias',
+  'UpdateThemePermissions',
+
+  // Brands
+  'CreateBrand',
+  'UpdateBrand',
+  'UpdateBrandPublishedVersion',
+  'DeleteBrand',
+  'UpdateBrandAssignment',
+  'DeleteBrandAssignment',
+
+  // Topics (QuickSight Q)
+  'CreateTopic',
+  'UpdateTopic',
+  'UpdateTopicPermissions',
+  'DeleteTopic',
+  'CreateTopicRefreshSchedule',
+  'UpdateTopicRefreshSchedule',
+  'DeleteTopicRefreshSchedule',
+  'BatchCreateTopicReviewedAnswer',
+  'BatchDeleteTopicReviewedAnswer',
+
+  // Action Connectors
+  'CreateActionConnector',
+  'UpdateActionConnector',
+  'UpdateActionConnectorPermissions',
+  'DeleteActionConnector',
+
+  // VPC Connections
+  'CreateVPCConnection',
+  'UpdateVPCConnection',
+  'DeleteVPCConnection',
+
+  // Namespaces
+  'CreateNamespace',
+  'DeleteNamespace',
+
+  // Account / global settings
+  'CreateAccountCustomization',
+  'UpdateAccountCustomization',
+  'DeleteAccountCustomization',
+  'CreateAccountSubscription',
+  'DeleteAccountSubscription',
+  'UpdateAccountSettings',
+  'UpdateAccountCustomPermission',
+  'DeleteAccountCustomPermission',
+  'CreateCustomPermissions',
+  'UpdateCustomPermissions',
+  'DeleteCustomPermissions',
+  'UpdateRoleCustomPermission',
+  'DeleteRoleCustomPermission',
+  'CreateRoleMembership',
+  'DeleteRoleMembership',
+  'CreateIAMPolicyAssignment',
+  'UpdateIAMPolicyAssignment',
+  'DeleteIAMPolicyAssignment',
+  'UpdateIpRestriction',
+  'UpdateKeyRegistration',
+  'UpdatePublicSharingSettings',
+  'UpdateIdentityPropagationConfig',
+  'DeleteIdentityPropagationConfig',
+  'UpdateDefaultQBusinessApplication',
+  'DeleteDefaultQBusinessApplication',
+  'UpdateQPersonalizationConfiguration',
+  'UpdateQuickSightQSearchConfiguration',
+  'UpdateSelfUpgrade',
+  'UpdateSelfUpgradeConfiguration',
+  'UpdateSPICECapacityConfiguration',
+  'UpdateDashboardsQAConfiguration',
+
+  // Tagging (operates on any taggable resource — resource ARN is in the event)
+  'TagResource',
+  'UntagResource',
+
+  // Long-running jobs (user-initiated)
+  'StartAssetBundleExportJob',
+  'StartAssetBundleImportJob',
+  'StartAutomationJob',
+  'StartDashboardSnapshotJob',
+  'StartDashboardSnapshotJobSchedule',
+] as const;
+
+/** Flat list of every mutation event name we care about, across all resource types. */
+const ALL_MUTATION_EVENT_NAMES: readonly string[] = [
+  ...Object.values(ASSET_MUTATION_CONFIG).flatMap((cfg) => cfg.events),
+  ...OTHER_MUTATION_EVENTS,
+];
+
+/** Reverse map: event name → catalog asset type. Events not in the map are 'other'. */
+const MUTATION_EVENT_TO_ASSET_TYPE: Readonly<Record<string, AssetType>> = Object.freeze(
+  Object.entries(ASSET_MUTATION_CONFIG).reduce<Record<string, AssetType>>(
+    (acc, [assetType, cfg]) => {
+      for (const eventName of cfg.events) {
+        acc[eventName] = assetType as AssetType;
+      }
+      return acc;
+    },
+    {}
+  )
+);
+
+/**
+ * Hard-coded per-event overrides for cases where the prefix rule would give
+ * the wrong answer. Checked first inside classifyAction().
+ */
+const ACTION_OVERRIDES: Readonly<Record<string, ActionCategory>> = Object.freeze({
+  UpdateDashboardPublishedVersion: 'publish',
+  UpdateBrandPublishedVersion: 'publish',
+  TagResource: 'tag',
+  UntagResource: 'tag',
+  RestoreAnalysis: 'update',
+  RegisterUser: 'create',
+  CreateIngestion: 'create',
+  CancelIngestion: 'delete',
+});
+
+/**
+ * Classify a CloudTrail event name into a coarse action category for timeline
+ * filtering. Returns undefined for view events (Get, Describe, List, Search) —
+ * callers should only pass mutation event names.
+ *
+ * Lookup order: explicit overrides → suffix rules (Permissions, Membership) →
+ * prefix rules (Batch, Start, Create/Update/Put/Delete). The specific-first
+ * order ensures UpdateDashboardPermissions matches 'grant' not 'update'.
+ */
+export function classifyAction(eventName: string): ActionCategory | undefined {
+  const override = ACTION_OVERRIDES[eventName];
+  if (override) {
+    return override;
+  }
+  if (eventName.endsWith('Permissions')) {
+    return eventName.startsWith('Delete') ? 'revoke' : 'grant';
+  }
+  if (eventName.endsWith('Membership')) {
+    return 'member';
+  }
+  if (eventName.startsWith('Batch')) {
+    return 'batch';
+  }
+  if (eventName.startsWith('Start')) {
+    return 'job';
+  }
+  if (eventName.startsWith('Create')) {
+    return 'create';
+  }
+  if (eventName.startsWith('Update') || eventName.startsWith('Put')) {
+    return 'update';
+  }
+  if (eventName.startsWith('Delete')) {
+    return 'delete';
+  }
+  return undefined;
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/*  Timeline helpers — extracted from ActivityService.getTimelinePage so that  */
+/*  the public method stays under the lint complexity/statement limits.       */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+const TIMELINE_CONSTANTS = {
+  DEFAULT_LIMIT: 50,
+  MAX_LIMIT: 200,
+} as const;
+
+interface TimelinePredicate {
+  cursorMs: number | null;
+  startMs: number | null;
+  endMs: number | null;
+  resourceTypes: Set<string> | null;
+  eventNames: Set<string> | null;
+  actions: Set<string> | null;
+  users: Set<string> | null;
+  pinnedAssetType: string | undefined;
+  pinnedAssetId: string | undefined;
+}
+
+/** Build an immutable predicate bundle from a TimelineQuery. */
+function buildTimelinePredicate(query: TimelineQuery): TimelinePredicate {
+  return {
+    cursorMs: query.cursor ? Date.parse(query.cursor) : null,
+    startMs: query.startDate ? Date.parse(query.startDate) : null,
+    endMs: query.endDate ? Date.parse(query.endDate) : null,
+    resourceTypes: query.resourceTypes ? new Set(query.resourceTypes) : null,
+    eventNames: query.eventNames ? new Set(query.eventNames) : null,
+    actions: query.actions ? new Set(query.actions) : null,
+    users: query.users ? new Set(query.users.map((u) => u.toLowerCase())) : null,
+    pinnedAssetType: query.assetType,
+    pinnedAssetId: query.assetId,
+  };
+}
+
+/** Flatten the date-grouped activity cache into a single list of mutation
+ *  events, sorted newest-first. Views (k !== 'm') are excluded — the timeline
+ *  is mutations only. */
+function flattenMutations(cache: ActivityCache): MinimalEvent[] {
+  const out: MinimalEvent[] = [];
+  for (const dayEvents of Object.values(cache.events) as MinimalEvent[][]) {
+    for (const evt of dayEvents) {
+      if (evt.k === 'm') {
+        out.push(evt);
+      }
+    }
+  }
+  out.sort((a, b) => (a.t < b.t ? 1 : a.t > b.t ? -1 : 0));
+  return out;
+}
+
+/** Check a single event against the predicate. Returns true to keep. */
+function eventMatchesPredicate(evt: MinimalEvent, p: TimelinePredicate): boolean {
+  const evtMs = Date.parse(evt.t);
+  if (p.cursorMs !== null && evtMs >= p.cursorMs) {
+    return false;
+  }
+  if (p.startMs !== null && evtMs < p.startMs) {
+    return false;
+  }
+  if (p.endMs !== null && evtMs > p.endMs) {
+    return false;
+  }
+  if (p.resourceTypes && (!evt.at || !p.resourceTypes.has(evt.at))) {
+    return false;
+  }
+  if (p.eventNames && !p.eventNames.has(evt.e)) {
+    return false;
+  }
+  if (p.actions && (!evt.a || !p.actions.has(evt.a))) {
+    return false;
+  }
+  if (p.users && !p.users.has(evt.u.toLowerCase())) {
+    return false;
+  }
+  if (p.pinnedAssetType && evt.at !== p.pinnedAssetType) {
+    return false;
+  }
+  if (p.pinnedAssetId && evt.r !== p.pinnedAssetId) {
+    return false;
+  }
+  return true;
+}
+
+/** Apply the predicate to a sorted stream, stopping once `limit + 1` matches
+ *  are collected (the +1 lets the caller detect hasMore without a second
+ *  query). Returns exactly `limit` events plus a hasMore flag. */
+function applyTimelinePredicate(
+  sorted: MinimalEvent[],
+  predicate: TimelinePredicate,
+  limit: number
+): { filtered: MinimalEvent[]; hasMore: boolean } {
+  const matches: MinimalEvent[] = [];
+  for (const evt of sorted) {
+    if (!eventMatchesPredicate(evt, predicate)) {
+      continue;
+    }
+    matches.push(evt);
+    if (matches.length > limit) {
+      break;
+    }
+  }
+  const hasMore = matches.length > limit;
+  const filtered = hasMore ? matches.slice(0, limit) : matches;
+  return { filtered, hasMore };
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
 
 export class ActivityService {
   private static readonly ANALYSIS_EVENTS = [...ASSET_EVENT_CONFIG.analysis.events];
@@ -168,6 +587,51 @@ export class ActivityService {
     this.addPersistedDatesForAssets(persistence, assetType, assetIds, results);
 
     return results;
+  }
+
+  /**
+   * Get a page of timeline events with filters and cursor-based pagination.
+   *
+   * Flattens the date-grouped ActivityCache into a single chronological stream
+   * (newest first), applies all filters in memory (n ≤ 90 days of events, so
+   * no index needed), paginates via `cursor` (an ISO timestamp — events
+   * strictly older than the cursor are returned), and hydrates asset names
+   * from the catalog.
+   *
+   * By default returns mutation events only. Pass `includeViews: true` in the
+   * query (not yet exposed on the API, reserved for future use) to get views
+   * mixed in.
+   */
+  public async getTimelinePage(query: TimelineQuery): Promise<TimelinePage> {
+    const cache = await this.cacheService.getActivityCache();
+    if (!cache) {
+      return { items: [], nextCursor: null, hasMore: false };
+    }
+
+    const limit = Math.min(
+      Math.max(query.limit ?? TIMELINE_CONSTANTS.DEFAULT_LIMIT, 1),
+      TIMELINE_CONSTANTS.MAX_LIMIT
+    );
+    const predicate = buildTimelinePredicate(query);
+
+    const sorted = flattenMutations(cache);
+    const { filtered, hasMore } = applyTimelinePredicate(sorted, predicate, limit);
+
+    // Build catalog-name lookup once per request. Only query catalog for the
+    // asset types that actually appear in this page.
+    const assetTypesInPage = new Set<AssetType>();
+    for (const evt of filtered) {
+      if (evt.at && evt.at !== 'other') {
+        assetTypesInPage.add(evt.at as AssetType);
+      }
+    }
+    const nameMap = await this.buildAssetNameMap(assetTypesInPage);
+
+    const items: TimelineEvent[] = filtered.map((evt) => this.toTimelineEvent(evt, nameMap));
+    const lastEvent = filtered[filtered.length - 1];
+    const nextCursor = hasMore && lastEvent ? lastEvent.t : null;
+
+    return { items, nextCursor, hasMore };
   }
 
   /**
@@ -460,6 +924,51 @@ export class ActivityService {
   }
 
   /**
+   * Build a (assetType, assetId) -> assetName lookup for the requested types,
+   * reading from the main asset cache. Returns an empty map on failure —
+   * asset names are a hydration nicety, not required for correctness.
+   */
+  private async buildAssetNameMap(assetTypes: Set<AssetType>): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    if (assetTypes.size === 0) {
+      return map;
+    }
+    try {
+      const entriesPerType = await Promise.all(
+        Array.from(assetTypes).map((assetType) =>
+          this.cacheService
+            .getCacheEntries({ assetType, statusFilter: AssetStatusFilter.ALL })
+            .then((entries) => ({ assetType, entries }))
+            .catch(() => ({ assetType, entries: [] as any[] }))
+        )
+      );
+      for (const { assetType, entries } of entriesPerType) {
+        for (const entry of entries) {
+          if (entry?.assetId && entry?.assetName) {
+            map.set(`${assetType}:${entry.assetId}`, entry.assetName);
+          }
+        }
+      }
+    } catch (error) {
+      logger.debug('Failed to build asset name map for timeline', { error });
+    }
+    return map;
+  }
+
+  /** Build the shared MinimalEvent fields (t, e, u). Returns null if timestamp is missing. */
+  private buildBaseMinimalEvent(event: any, rawEvent: any, eventType: string): MinimalEvent | null {
+    const timestamp = event.eventTime || rawEvent.EventTime;
+    if (!timestamp) {
+      return null;
+    }
+    return {
+      t: timestamp,
+      e: eventType,
+      u: this.extractUserName(event) || ACTIVITY_CONSTANTS.UNKNOWN_USER,
+    };
+  }
+
+  /**
    * Build user activity response
    */
   private buildUserActivityResponse(
@@ -561,46 +1070,49 @@ export class ActivityService {
   }
 
   /**
-   * Convert raw CloudTrail events to minimal format
+   * Convert raw CloudTrail events to minimal format.
+   *
+   * Handles three classes of events:
+   *   1. Views (GetDashboard, GetAnalysis, GetDashboardEmbedUrl) — kept for
+   *      backward-compat with view stats. `k` stays undefined (implicit view).
+   *   2. Catalog-asset mutations (dashboard / analysis / dataset / datasource /
+   *      folder / group / user Create/Update/Delete/...). Sets `k:'m'`,
+   *      `a:classify`, `at:<assetType>`, and extracts `r` via ASSET_MUTATION_CONFIG.
+   *   3. Other mutations (templates, themes, brands, topics, action connectors,
+   *      VPC connections, namespaces, account/global settings, tagging, jobs).
+   *      Sets `k:'m'`, `a:classify`, `at:'other'`. `r` is left undefined —
+   *      these events render with just the event name + user.
+   *
+   * Views require a resource id to be kept (old behavior). Mutations are kept
+   * even without an id (e.g. UpdateAccountSettings, TagResource) because the
+   * timeline cares about "what changed" more than "which specific row."
    */
   private convertToMinimalEvents(rawEvents: any[], eventType: string): MinimalEvent[] {
     const minimalEvents: MinimalEvent[] = [];
+    const isView =
+      ActivityService.isDashboardEvent(eventType) || ActivityService.isAnalysisEvent(eventType);
+    const catalogAssetType = MUTATION_EVENT_TO_ASSET_TYPE[eventType];
 
     for (const rawEvent of rawEvents) {
       try {
-        // Parse nested JSON if needed
-        let event = rawEvent;
-        if (rawEvent.CloudTrailEvent && typeof rawEvent.CloudTrailEvent === 'string') {
-          event = JSON.parse(rawEvent.CloudTrailEvent);
-        }
-
-        // Skip non-QuickSight events
-        if (event.eventSource !== ACTIVITY_CONSTANTS.QUICKSIGHT_EVENT_SOURCE) {
+        const event = this.parseCloudTrailEvent(rawEvent);
+        if (!event) {
           continue;
         }
 
-        // Extract minimal data
-        const minimalEvent: MinimalEvent = {
-          t: event.eventTime || rawEvent.EventTime,
-          e: eventType,
-          u: this.extractUserName(event) || ACTIVITY_CONSTANTS.UNKNOWN_USER,
-        };
-
-        // Extract resource ID based on event type
-        if (ActivityService.isDashboardEvent(eventType)) {
-          const dashboardId = ASSET_EVENT_CONFIG.dashboard.extractId(event);
-          if (dashboardId) {
-            minimalEvent.r = dashboardId;
-          }
-        } else if (ActivityService.isAnalysisEvent(eventType)) {
-          const analysisId = ASSET_EVENT_CONFIG.analysis.extractId(event);
-          if (analysisId) {
-            minimalEvent.r = analysisId;
-          }
+        const base = this.buildBaseMinimalEvent(event, rawEvent, eventType);
+        if (!base) {
+          continue;
         }
 
-        if (minimalEvent.t && minimalEvent.r) {
-          minimalEvents.push(minimalEvent);
+        const converted = isView
+          ? this.enrichAsView(base, eventType, event)
+          : catalogAssetType
+            ? this.enrichAsCatalogMutation(base, catalogAssetType, eventType, event)
+            : this.enrichAsOtherMutation(base, eventType, event);
+
+        if (converted) {
+          minimalEvents.push(converted);
         }
       } catch (error) {
         logger.debug('Failed to process event', { error });
@@ -691,6 +1203,57 @@ export class ActivityService {
     return results;
   }
 
+  /** Catalog-asset mutation enrichment — sets k/a/at and attempts id extraction. */
+  private enrichAsCatalogMutation(
+    base: MinimalEvent,
+    assetType: AssetType,
+    eventType: string,
+    event: any
+  ): MinimalEvent {
+    base.k = 'm';
+    base.at = assetType;
+    const action = classifyAction(eventType);
+    if (action) {
+      base.a = action;
+    }
+    const id = ASSET_MUTATION_CONFIG[assetType].extractId(event);
+    if (id) {
+      base.r = id;
+    }
+    return base;
+  }
+
+  /** Other-mutation enrichment (templates, themes, settings, tagging, jobs). */
+  private enrichAsOtherMutation(base: MinimalEvent, eventType: string, event: any): MinimalEvent {
+    base.k = 'm';
+    base.at = 'other';
+    const action = classifyAction(eventType);
+    if (action) {
+      base.a = action;
+    }
+    const fallbackId = extractParam(event);
+    if (fallbackId) {
+      base.r = fallbackId;
+    }
+    return base;
+  }
+
+  /** View-event enrichment — requires a resource id or the event is dropped. */
+  private enrichAsView(base: MinimalEvent, eventType: string, event: any): MinimalEvent | null {
+    if (ActivityService.isDashboardEvent(eventType)) {
+      const id = ASSET_EVENT_CONFIG.dashboard.extractId(event);
+      if (id) {
+        base.r = id;
+      }
+    } else if (ActivityService.isAnalysisEvent(eventType)) {
+      const id = ASSET_EVENT_CONFIG.analysis.extractId(event);
+      if (id) {
+        base.r = id;
+      }
+    }
+    return base.r ? base : null;
+  }
+
   /**
    * Extract user name from event
    */
@@ -723,7 +1286,9 @@ export class ActivityService {
   }
 
   /**
-   * Fetch events from CloudTrail based on requested asset types
+   * Fetch events from CloudTrail: view events (filtered by requested asset
+   * types for backward compat) + the full mutation event list (always, since
+   * the timeline is global and a partial cache would be confusing).
    */
   private async fetchEventsFromCloudTrail(
     startTime: Date,
@@ -733,7 +1298,7 @@ export class ActivityService {
     const allEvents: MinimalEvent[] = [];
     const eventTypesToFetch = new Set<string>();
 
-    // Determine which event types to fetch
+    // View events — filtered by requested asset types (existing behavior).
     for (const assetType of assetTypes) {
       if (assetType === 'all' || assetType === ASSET_TYPES.dashboard) {
         ActivityService.DASHBOARD_EVENTS.forEach((e) => eventTypesToFetch.add(e));
@@ -741,17 +1306,29 @@ export class ActivityService {
       if (assetType === 'all' || assetType === ASSET_TYPES.analysis) {
         ActivityService.ANALYSIS_EVENTS.forEach((e) => eventTypesToFetch.add(e));
       }
-      // User activity comes from all event types
+      // User activity derives from view events
       if (assetType === 'all' || assetType === ASSET_TYPES.user) {
         ActivityService.DASHBOARD_EVENTS.forEach((e) => eventTypesToFetch.add(e));
         ActivityService.ANALYSIS_EVENTS.forEach((e) => eventTypesToFetch.add(e));
       }
     }
 
-    // Fetch events
+    // Mutation events — always pull the full set.
+    for (const eventName of ALL_MUTATION_EVENT_NAMES) {
+      eventTypesToFetch.add(eventName);
+    }
+
+    logger.info('Fetching CloudTrail events', {
+      totalEventTypes: eventTypesToFetch.size,
+      viewTypes: ActivityService.DASHBOARD_EVENTS.length + ActivityService.ANALYSIS_EVENTS.length,
+      mutationTypes: ALL_MUTATION_EVENT_NAMES.length,
+    });
+
     for (const eventType of Array.from(eventTypesToFetch)) {
       const rawEvents = await this.cloudTrailAdapter.getEventsByName(eventType, startTime, endTime);
-
+      if (!rawEvents || rawEvents.length === 0) {
+        continue;
+      }
       const minimalEvents = this.convertToMinimalEvents(rawEvents, eventType);
       allEvents.push(...minimalEvents);
     }
@@ -955,6 +1532,18 @@ export class ActivityService {
       : false;
   }
 
+  /** Parse the nested CloudTrailEvent JSON and drop non-QuickSight events. */
+  private parseCloudTrailEvent(rawEvent: any): any | null {
+    let event = rawEvent;
+    if (rawEvent.CloudTrailEvent && typeof rawEvent.CloudTrailEvent === 'string') {
+      event = JSON.parse(rawEvent.CloudTrailEvent);
+    }
+    if (event.eventSource !== ACTIVITY_CONSTANTS.QUICKSIGHT_EVENT_SOURCE) {
+      return null;
+    }
+    return event;
+  }
+
   /**
    * Process activity events for a specific asset
    */
@@ -1086,6 +1675,26 @@ export class ActivityService {
     }
 
     return { dashboards, analyses, activitiesByDate, totalActivities, lastActive };
+  }
+
+  /** Convert a cached MinimalEvent to the wire-format TimelineEvent. */
+  private toTimelineEvent(evt: MinimalEvent, nameMap: Map<string, string>): TimelineEvent {
+    const isCatalogAsset = evt.at && evt.at !== 'other';
+    const assetType = isCatalogAsset ? (evt.at as AssetType) : undefined;
+    const assetName = assetType && evt.r ? nameMap.get(`${assetType}:${evt.r}`) : undefined;
+
+    return {
+      id: `${evt.t}_${evt.e}_${evt.r ?? ''}_${evt.u}`,
+      timestamp: evt.t,
+      eventName: evt.e,
+      kind: evt.k === 'm' ? 'mutation' : 'view',
+      action: evt.a,
+      user: evt.u,
+      resourceType: evt.at,
+      assetType,
+      assetId: evt.r,
+      assetName,
+    };
   }
 
   /**

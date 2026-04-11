@@ -6,7 +6,7 @@ import { type CacheService } from '../../../../shared/services/cache/CacheServic
 import { logger } from '../../../../shared/utils/logger';
 import { type GroupService } from '../../../organization/services/GroupService';
 import { type ActivityCache, type ActivityRefreshRequest, type MinimalEvent } from '../../types';
-import { ActivityService } from '../ActivityService';
+import { ActivityService, classifyAction } from '../ActivityService';
 
 // Mock dependencies
 vi.mock('../../../../adapters/aws/CloudTrailAdapter');
@@ -574,7 +574,13 @@ describe('ActivityService - Edge cases', () => {
       expect(events[0]?.u).toBe('AWSReservedSSO_test/user@example.com');
     });
 
-    it('should handle events with missing resource IDs', async () => {
+    it('should drop VIEW events that are missing their resource ID', async () => {
+      // A view event with no requestParameters — should be filtered out of the
+      // cache because views require a resource id to be meaningful. Mutation
+      // events (now also fetched by the same refresh pipeline) are allowed
+      // to land without a resource id, so we mock getEventsByName to return
+      // the event only when called for the view event names and empty
+      // otherwise.
       const eventWithoutResource: any = {
         eventTime: TEST_DATE,
         eventSource: 'quicksight.amazonaws.com',
@@ -585,7 +591,10 @@ describe('ActivityService - Edge cases', () => {
         // Missing requestParameters
       };
 
-      mockCloudTrailAdapter.getEventsByName.mockResolvedValue([eventWithoutResource]);
+      const VIEW_EVENT_NAMES = new Set(['GetDashboard', 'GetDashboardEmbedUrl', 'GetAnalysis']);
+      mockCloudTrailAdapter.getEventsByName.mockImplementation(async (eventName: string) =>
+        VIEW_EVENT_NAMES.has(eventName) ? [eventWithoutResource] : []
+      );
       mockCacheService.getActivityPersistence.mockResolvedValue(null);
 
       const request: ActivityRefreshRequest = {
@@ -832,5 +841,432 @@ describe('ActivityService - Performance', () => {
       const userActivity = await activityService.getUserActivity(TEST_USER_NAME);
       expect(userActivity).toBeNull();
     });
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/*  Activity Timeline — classifyAction + getTimelinePage                      */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+describe('classifyAction', () => {
+  it('maps create prefix', () => {
+    expect(classifyAction('CreateDashboard')).toBe('create');
+    expect(classifyAction('CreateDataSet')).toBe('create');
+    expect(classifyAction('CreateFolderMembership')).toBe('member');
+    expect(classifyAction('RegisterUser')).toBe('create');
+    expect(classifyAction('CreateIngestion')).toBe('create');
+  });
+
+  it('maps update prefix', () => {
+    expect(classifyAction('UpdateDashboard')).toBe('update');
+    expect(classifyAction('UpdateDataSet')).toBe('update');
+    expect(classifyAction('RestoreAnalysis')).toBe('update');
+    expect(classifyAction('PutDataSetRefreshProperties')).toBe('update');
+  });
+
+  it('maps delete prefix', () => {
+    expect(classifyAction('DeleteDashboard')).toBe('delete');
+    expect(classifyAction('DeleteFolderMembership')).toBe('member');
+    expect(classifyAction('CancelIngestion')).toBe('delete');
+  });
+
+  it('maps permissions events to grant / revoke', () => {
+    expect(classifyAction('UpdateDashboardPermissions')).toBe('grant');
+    expect(classifyAction('UpdateAnalysisPermissions')).toBe('grant');
+    // Delete*Permissions would be revoke, but QS doesn't have that shape —
+    // still the classifier should handle it.
+    expect(classifyAction('DeleteDashboardPermissions')).toBe('revoke');
+  });
+
+  it('maps publish events', () => {
+    expect(classifyAction('UpdateDashboardPublishedVersion')).toBe('publish');
+    expect(classifyAction('UpdateBrandPublishedVersion')).toBe('publish');
+  });
+
+  it('maps membership events', () => {
+    expect(classifyAction('CreateGroupMembership')).toBe('member');
+    expect(classifyAction('DeleteGroupMembership')).toBe('member');
+    expect(classifyAction('CreateFolderMembership')).toBe('member');
+    expect(classifyAction('CreateRoleMembership')).toBe('member');
+  });
+
+  it('maps tagging, batch, and job events', () => {
+    expect(classifyAction('TagResource')).toBe('tag');
+    expect(classifyAction('UntagResource')).toBe('tag');
+    expect(classifyAction('BatchCreateTopicReviewedAnswer')).toBe('batch');
+    expect(classifyAction('BatchDeleteTopicReviewedAnswer')).toBe('batch');
+    expect(classifyAction('StartAssetBundleExportJob')).toBe('job');
+    expect(classifyAction('StartDashboardSnapshotJob')).toBe('job');
+  });
+
+  it('returns undefined for view events', () => {
+    expect(classifyAction('GetDashboard')).toBeUndefined();
+    expect(classifyAction('DescribeAnalysis')).toBeUndefined();
+    expect(classifyAction('ListDashboards')).toBeUndefined();
+    expect(classifyAction('SearchDataSets')).toBeUndefined();
+  });
+});
+
+/* ───── Shared helpers for the timeline describes ─────────────────────── */
+
+const EXPECTED_THREE_EVENTS = 3;
+
+const timelineMutationEvent = (
+  eventName: string,
+  resource: string,
+  user: string,
+  at: MinimalEvent['at'],
+  action: MinimalEvent['a'],
+  when: string
+): MinimalEvent => ({ t: when, e: eventName, u: user, r: resource, k: 'm', at, a: action });
+
+const TIMELINE_CATALOG_ASSETS = [
+  { assetId: 'dash-1', assetName: 'Sales Q3', assetType: 'dashboard' },
+  { assetId: 'dash-2', assetName: 'Marketing', assetType: 'dashboard' },
+  { assetId: 'anal-1', assetName: 'Cohort Analysis', assetType: 'analysis' },
+  { assetId: 'ds-1', assetName: 'Customer Data', assetType: 'dataset' },
+];
+
+function makeTimelineServiceAndMocks() {
+  const mockCacheService = {
+    getActivityCache: vi.fn(),
+    getActivityPersistence: vi.fn(),
+    getCacheEntries: vi
+      .fn()
+      .mockImplementation(async ({ assetType }: { assetType: string }) =>
+        TIMELINE_CATALOG_ASSETS.filter((a) => a.assetType === assetType)
+      ),
+  } as unknown as Mocked<CacheService>;
+  const activityService = new ActivityService(mockCacheService, {} as any);
+  return { mockCacheService, activityService };
+}
+
+describe('ActivityService.getTimelinePage — basic', () => {
+  let activityService: ActivityService;
+  let mockCacheService: Mocked<CacheService>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ({ activityService, mockCacheService } = makeTimelineServiceAndMocks());
+  });
+
+  it('returns an empty page when the cache is missing', async () => {
+    mockCacheService.getActivityCache.mockResolvedValue(null);
+    const page = await activityService.getTimelinePage({ limit: 10 });
+    expect(page.items).toEqual([]);
+    expect(page.nextCursor).toBeNull();
+    expect(page.hasMore).toBe(false);
+  });
+
+  it('returns mutation events sorted newest-first with hydrated asset names', async () => {
+    const events: MinimalEvent[] = [
+      timelineMutationEvent(
+        'CreateDashboard',
+        'dash-1',
+        'alice',
+        'dashboard',
+        'create',
+        '2024-06-01T12:00:00.000Z'
+      ),
+      timelineMutationEvent(
+        'UpdateDashboard',
+        'dash-2',
+        'bob',
+        'dashboard',
+        'update',
+        '2024-06-02T12:00:00.000Z'
+      ),
+      timelineMutationEvent(
+        'DeleteAnalysis',
+        'anal-1',
+        'carol',
+        'analysis',
+        'delete',
+        '2024-06-03T12:00:00.000Z'
+      ),
+    ];
+    mockCacheService.getActivityCache.mockResolvedValue(createMockCache(events));
+
+    const page = await activityService.getTimelinePage({ limit: 10 });
+    expect(page.items).toHaveLength(EXPECTED_THREE_EVENTS);
+    // Newest first
+    expect(page.items[0]?.eventName).toBe('DeleteAnalysis');
+    expect(page.items[1]?.eventName).toBe('UpdateDashboard');
+    expect(page.items[2]?.eventName).toBe('CreateDashboard');
+    // Names hydrated
+    expect(page.items[0]?.assetName).toBe('Cohort Analysis');
+    expect(page.items[1]?.assetName).toBe('Marketing');
+    expect(page.items[2]?.assetName).toBe('Sales Q3');
+    expect(page.hasMore).toBe(false);
+  });
+
+  it('excludes view events even when present in the cache (mutations only)', async () => {
+    const events: MinimalEvent[] = [
+      // Legacy view (no k field) — should be dropped from timeline
+      { t: '2024-06-02T12:00:00.000Z', e: 'GetDashboard', u: 'bob', r: 'dash-1' },
+      timelineMutationEvent(
+        'CreateDashboard',
+        'dash-2',
+        'alice',
+        'dashboard',
+        'create',
+        '2024-06-01T12:00:00.000Z'
+      ),
+    ];
+    mockCacheService.getActivityCache.mockResolvedValue(createMockCache(events));
+
+    const page = await activityService.getTimelinePage({ limit: 10 });
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]?.eventName).toBe('CreateDashboard');
+  });
+});
+
+describe('ActivityService.getTimelinePage — pagination', () => {
+  let activityService: ActivityService;
+  let mockCacheService: Mocked<CacheService>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ({ activityService, mockCacheService } = makeTimelineServiceAndMocks());
+  });
+
+  it('paginates via cursor (nextCursor returns older events only)', async () => {
+    const events: MinimalEvent[] = Array.from({ length: 5 }, (_, i) =>
+      timelineMutationEvent(
+        'UpdateDashboard',
+        `dash-${i}`,
+        'alice',
+        'dashboard',
+        'update',
+        `2024-06-0${i + 1}T12:00:00.000Z`
+      )
+    );
+    mockCacheService.getActivityCache.mockResolvedValue(createMockCache(events));
+
+    // First page: 2 newest
+    const page1 = await activityService.getTimelinePage({ limit: 2 });
+    expect(page1.items).toHaveLength(2);
+    expect(page1.items[0]?.timestamp).toBe('2024-06-05T12:00:00.000Z');
+    expect(page1.items[1]?.timestamp).toBe('2024-06-04T12:00:00.000Z');
+    expect(page1.hasMore).toBe(true);
+    expect(page1.nextCursor).toBe('2024-06-04T12:00:00.000Z');
+
+    // Second page: strictly older than cursor
+    const page2 = await activityService.getTimelinePage({ limit: 2, cursor: page1.nextCursor! });
+    expect(page2.items).toHaveLength(2);
+    expect(page2.items[0]?.timestamp).toBe('2024-06-03T12:00:00.000Z');
+    expect(page2.items[1]?.timestamp).toBe('2024-06-02T12:00:00.000Z');
+
+    // Third page: one remaining
+    const page3 = await activityService.getTimelinePage({ limit: 2, cursor: page2.nextCursor! });
+    expect(page3.items).toHaveLength(1);
+    expect(page3.hasMore).toBe(false);
+    expect(page3.nextCursor).toBeNull();
+  });
+});
+
+describe('ActivityService.getTimelinePage — filters', () => {
+  let activityService: ActivityService;
+  let mockCacheService: Mocked<CacheService>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ({ activityService, mockCacheService } = makeTimelineServiceAndMocks());
+  });
+
+  it('filters by resourceTypes', async () => {
+    const events: MinimalEvent[] = [
+      timelineMutationEvent(
+        'CreateDashboard',
+        'dash-1',
+        'alice',
+        'dashboard',
+        'create',
+        '2024-06-01T12:00:00.000Z'
+      ),
+      timelineMutationEvent(
+        'CreateAnalysis',
+        'anal-1',
+        'bob',
+        'analysis',
+        'create',
+        '2024-06-02T12:00:00.000Z'
+      ),
+      timelineMutationEvent(
+        'UpdateAccountSettings',
+        '',
+        'carol',
+        'other',
+        'update',
+        '2024-06-03T12:00:00.000Z'
+      ),
+    ];
+    mockCacheService.getActivityCache.mockResolvedValue(createMockCache(events));
+
+    const page = await activityService.getTimelinePage({
+      limit: 10,
+      resourceTypes: ['dashboard', 'analysis'],
+    });
+    expect(page.items).toHaveLength(2);
+    expect(
+      page.items.every((e) => e.resourceType === 'dashboard' || e.resourceType === 'analysis')
+    ).toBe(true);
+  });
+
+  it('filters by action', async () => {
+    const events: MinimalEvent[] = [
+      timelineMutationEvent(
+        'CreateDashboard',
+        'dash-1',
+        'alice',
+        'dashboard',
+        'create',
+        '2024-06-01T12:00:00.000Z'
+      ),
+      timelineMutationEvent(
+        'UpdateDashboard',
+        'dash-2',
+        'bob',
+        'dashboard',
+        'update',
+        '2024-06-02T12:00:00.000Z'
+      ),
+      timelineMutationEvent(
+        'DeleteDashboard',
+        'dash-3',
+        'carol',
+        'dashboard',
+        'delete',
+        '2024-06-03T12:00:00.000Z'
+      ),
+    ];
+    mockCacheService.getActivityCache.mockResolvedValue(createMockCache(events));
+
+    const page = await activityService.getTimelinePage({ limit: 10, actions: ['delete'] });
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]?.eventName).toBe('DeleteDashboard');
+  });
+
+  it('filters by user (case-insensitive)', async () => {
+    const events: MinimalEvent[] = [
+      timelineMutationEvent(
+        'CreateDashboard',
+        'dash-1',
+        'Alice',
+        'dashboard',
+        'create',
+        '2024-06-01T12:00:00.000Z'
+      ),
+      timelineMutationEvent(
+        'UpdateDashboard',
+        'dash-2',
+        'bob',
+        'dashboard',
+        'update',
+        '2024-06-02T12:00:00.000Z'
+      ),
+    ];
+    mockCacheService.getActivityCache.mockResolvedValue(createMockCache(events));
+
+    const page = await activityService.getTimelinePage({ limit: 10, users: ['alice'] });
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]?.user).toBe('Alice');
+  });
+});
+
+describe('ActivityService.getTimelinePage — pinning and hydration', () => {
+  let activityService: ActivityService;
+  let mockCacheService: Mocked<CacheService>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ({ activityService, mockCacheService } = makeTimelineServiceAndMocks());
+  });
+
+  it('pre-filters per-asset for the /timeline/{assetType}/{assetId} route', async () => {
+    const events: MinimalEvent[] = [
+      timelineMutationEvent(
+        'UpdateDashboard',
+        'dash-1',
+        'alice',
+        'dashboard',
+        'update',
+        '2024-06-01T12:00:00.000Z'
+      ),
+      timelineMutationEvent(
+        'UpdateDashboard',
+        'dash-2',
+        'bob',
+        'dashboard',
+        'update',
+        '2024-06-02T12:00:00.000Z'
+      ),
+      timelineMutationEvent(
+        'UpdateAnalysis',
+        'anal-1',
+        'carol',
+        'analysis',
+        'update',
+        '2024-06-03T12:00:00.000Z'
+      ),
+    ];
+    mockCacheService.getActivityCache.mockResolvedValue(createMockCache(events));
+
+    const page = await activityService.getTimelinePage({
+      limit: 10,
+      assetType: 'dashboard',
+      assetId: 'dash-1',
+    });
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]?.assetId).toBe('dash-1');
+  });
+
+  it('leaves assetName undefined when catalog does not know the asset', async () => {
+    const events: MinimalEvent[] = [
+      timelineMutationEvent(
+        'CreateDashboard',
+        'unknown-id',
+        'alice',
+        'dashboard',
+        'create',
+        '2024-06-01T12:00:00.000Z'
+      ),
+    ];
+    mockCacheService.getActivityCache.mockResolvedValue(createMockCache(events));
+
+    const page = await activityService.getTimelinePage({ limit: 10 });
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]?.assetId).toBe('unknown-id');
+    expect(page.items[0]?.assetName).toBeUndefined();
+  });
+
+  it('tags catalog-asset events with resourceType + assetType for navigation', async () => {
+    const events: MinimalEvent[] = [
+      timelineMutationEvent(
+        'CreateDashboard',
+        'dash-1',
+        'alice',
+        'dashboard',
+        'create',
+        '2024-06-01T12:00:00.000Z'
+      ),
+      timelineMutationEvent(
+        'UpdateAccountSettings',
+        '',
+        'bob',
+        'other',
+        'update',
+        '2024-06-02T12:00:00.000Z'
+      ),
+    ];
+    mockCacheService.getActivityCache.mockResolvedValue(createMockCache(events));
+
+    const page = await activityService.getTimelinePage({ limit: 10 });
+    const catalogItem = page.items.find((e) => e.eventName === 'CreateDashboard');
+    const otherItem = page.items.find((e) => e.eventName === 'UpdateAccountSettings');
+    expect(catalogItem?.resourceType).toBe('dashboard');
+    expect(catalogItem?.assetType).toBe('dashboard');
+    expect(otherItem?.resourceType).toBe('other');
+    expect(otherItem?.assetType).toBeUndefined();
   });
 });

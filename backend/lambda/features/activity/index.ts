@@ -5,10 +5,24 @@ import {
   resolveRecipients,
   getUserInactiveAnalyses,
   getUserUnusedDatasets,
+  getTimeline,
+  getAssetTimeline,
 } from './handlers/ActivityHandler';
 import { type RouteHandler } from '../../api/types';
 
 export const activityRoutes: RouteHandler[] = [
+  // Timeline routes — registered BEFORE the /activity/{assetType}/{assetId}
+  // catch-all regex so they take precedence during route matching.
+  {
+    path: '/activity/timeline',
+    method: 'GET',
+    handler: getTimeline,
+  },
+  {
+    path: /^\/activity\/timeline\/(dashboard|analysis|dataset|datasource|folder|group|user)\/(.+)$/,
+    method: 'GET',
+    handler: getAssetTimeline,
+  },
   {
     path: '/activity/refresh',
     method: 'POST',
@@ -49,6 +63,8 @@ export {
   resolveRecipients,
   getUserInactiveAnalyses,
   getUserUnusedDatasets,
+  getTimeline,
+  getAssetTimeline,
 };
 
 // Export types

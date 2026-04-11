@@ -11,11 +11,17 @@ import {
   type ActivityRefreshJobConfig,
 } from '../../../shared/services/jobs/JobFactory';
 import { LineageService } from '../../../shared/services/lineage';
+import { type AssetType } from '../../../shared/types/assetTypes';
 import { createResponse, successResponse, errorResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { GroupService } from '../../organization/services/GroupService';
 import { ActivityService } from '../services/ActivityService';
-import { type ActivityRefreshRequest } from '../types';
+import {
+  type ActionCategory,
+  type ActivityRefreshRequest,
+  type TimelineQuery,
+  type TimelineResourceType,
+} from '../types';
 
 // Initialize services
 let activityService: ActivityService;
@@ -97,6 +103,183 @@ export async function refreshActivity(event: APIGatewayProxyEvent): Promise<APIG
     );
   }
 }
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/*  Activity timeline — global + per-asset                                    */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+const TIMELINE_RESOURCE_TYPES: readonly TimelineResourceType[] = [
+  'dashboard',
+  'analysis',
+  'dataset',
+  'datasource',
+  'folder',
+  'group',
+  'user',
+  'other',
+] as const;
+
+const TIMELINE_CATALOG_TYPES: readonly AssetType[] = [
+  'dashboard',
+  'analysis',
+  'dataset',
+  'datasource',
+  'folder',
+  'group',
+  'user',
+] as const;
+
+const TIMELINE_ACTIONS: readonly ActionCategory[] = [
+  'create',
+  'update',
+  'delete',
+  'publish',
+  'grant',
+  'revoke',
+  'member',
+  'tag',
+  'job',
+  'batch',
+] as const;
+
+/** Split "a,b,c" into a deduped, trimmed string[]. Returns undefined for empty. */
+function splitCsv(raw: string | undefined): string[] | undefined {
+  if (!raw) {
+    return undefined;
+  }
+  const parts = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? Array.from(new Set(parts)) : undefined;
+}
+
+/**
+ * Parse the ?resourceTypes=dashboard,analysis query param, dropping anything
+ * that isn't a valid TimelineResourceType.
+ */
+function parseResourceTypes(raw: string | undefined): TimelineResourceType[] | undefined {
+  const split = splitCsv(raw);
+  if (!split) {
+    return undefined;
+  }
+  const valid = split.filter((s): s is TimelineResourceType =>
+    (TIMELINE_RESOURCE_TYPES as readonly string[]).includes(s)
+  );
+  return valid.length > 0 ? valid : undefined;
+}
+
+/** Parse ?actions=create,update,delete — validates against TIMELINE_ACTIONS. */
+function parseActions(raw: string | undefined): ActionCategory[] | undefined {
+  const split = splitCsv(raw);
+  if (!split) {
+    return undefined;
+  }
+  const valid = split.filter((s): s is ActionCategory =>
+    (TIMELINE_ACTIONS as readonly string[]).includes(s)
+  );
+  return valid.length > 0 ? valid : undefined;
+}
+
+/** Build a TimelineQuery from the request's query-string parameters. */
+function buildTimelineQuery(event: APIGatewayProxyEvent): TimelineQuery {
+  const qs = event.queryStringParameters || {};
+  const rawLimit = qs.limit ? parseInt(qs.limit, 10) : NaN;
+  return {
+    cursor: qs.cursor || undefined,
+    limit: Number.isFinite(rawLimit) ? rawLimit : undefined,
+    resourceTypes: parseResourceTypes(qs.resourceTypes),
+    users: splitCsv(qs.users),
+    eventNames: splitCsv(qs.eventNames),
+    actions: parseActions(qs.actions),
+    startDate: qs.startDate || undefined,
+    endDate: qs.endDate || undefined,
+  };
+}
+
+/**
+ * Get a page of timeline events (global feed).
+ * GET /api/activity/timeline
+ */
+export async function getTimeline(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  try {
+    await requireAuth(event);
+    const query = buildTimelineQuery(event);
+
+    logger.debug('Fetching activity timeline', {
+      cursor: query.cursor,
+      limit: query.limit,
+      resourceTypes: query.resourceTypes,
+      actions: query.actions,
+    });
+
+    const service = getActivityService();
+    const page = await service.getTimelinePage(query);
+    return successResponse(event, { success: true, data: page });
+  } catch (error: any) {
+    logger.error('Failed to get activity timeline', { error });
+    return errorResponse(
+      event,
+      STATUS_CODES.INTERNAL_SERVER_ERROR,
+      error.message || 'Internal server error'
+    );
+  }
+}
+
+/**
+ * Get a page of timeline events for a specific catalog asset.
+ * GET /api/activity/timeline/{assetType}/{assetId}
+ */
+export async function getAssetTimeline(
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> {
+  try {
+    await requireAuth(event);
+
+    const assetType = event.pathParameters?.assetType as AssetType | undefined;
+    const assetId = event.pathParameters?.assetId;
+
+    if (!assetType || !assetId) {
+      return errorResponse(
+        event,
+        STATUS_CODES.BAD_REQUEST,
+        'Invalid request: assetType and assetId are required'
+      );
+    }
+    if (!(TIMELINE_CATALOG_TYPES as readonly string[]).includes(assetType)) {
+      return errorResponse(
+        event,
+        STATUS_CODES.BAD_REQUEST,
+        `Invalid assetType. Must be one of: ${TIMELINE_CATALOG_TYPES.join(', ')}`
+      );
+    }
+
+    const query: TimelineQuery = {
+      ...buildTimelineQuery(event),
+      assetType,
+      assetId,
+    };
+
+    logger.debug('Fetching asset-pinned activity timeline', {
+      assetType,
+      assetId,
+      cursor: query.cursor,
+    });
+
+    const service = getActivityService();
+    const page = await service.getTimelinePage(query);
+    return successResponse(event, { success: true, data: page });
+  } catch (error: any) {
+    logger.error('Failed to get asset activity timeline', { error });
+    return errorResponse(
+      event,
+      STATUS_CODES.INTERNAL_SERVER_ERROR,
+      error.message || 'Internal server error'
+    );
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
 
 /**
  * Get activity data for a specific asset

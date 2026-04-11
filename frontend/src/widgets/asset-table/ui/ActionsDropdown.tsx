@@ -1,4 +1,8 @@
-import { MoreVert as MoreVertIcon, OpenInNew as OpenInNewIcon } from '@mui/icons-material';
+import {
+  MoreVert as MoreVertIcon,
+  OpenInNew as OpenInNewIcon,
+  Timeline as TimelineIcon,
+} from '@mui/icons-material';
 import { IconButton, Menu, MenuItem } from '@mui/material';
 import { useState } from 'react';
 
@@ -69,6 +73,12 @@ export const ActionsDropdown = ({ asset, assetType, handlers }: ActionsDropdownP
             Open in QuickSight
           </MenuItem>
         )}
+        <MenuItem
+          onClick={() => handleAction(() => handlers.navigate(`/assets/${assetType}s/${asset.id}/timeline`))}
+        >
+          <TimelineIcon fontSize="small" sx={{ mr: 1 }} />
+          View Timeline
+        </MenuItem>
         <MenuItem onClick={() => handleAction(() => handlers.onJsonViewerClick?.(asset, assetType))}>
           View JSON
         </MenuItem>

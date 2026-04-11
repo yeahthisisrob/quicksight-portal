@@ -1342,6 +1342,132 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/activity/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a page of activity timeline events (global feed)
+         * @description Returns a chronological feed of QuickSight mutation events (Create / Update / Delete / Publish / permission / membership / tagging / job events across all asset types and account settings). Cursor-based: pass the `nextCursor` returned in a previous response to fetch the next page. Reads (Get / Describe / List / Search) are NOT returned — the timeline only records events that touch assets or settings.
+         *
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description ISO timestamp. Returns events strictly older than this. */
+                    cursor?: string;
+                    /** @description Page size. Default 50, max 200. */
+                    limit?: number;
+                    /** @description Comma-separated list of resource types to include. Catalog types (dashboard, analysis, dataset, datasource, folder, group, user) show hydrated asset names; `other` covers templates, themes, brands, topics, account settings, etc.
+                     *      */
+                    resourceTypes?: string;
+                    /** @description Comma-separated list of user names to include. */
+                    users?: string;
+                    /** @description Comma-separated list of CloudTrail event names to include. */
+                    eventNames?: string;
+                    /** @description Comma-separated list of action categories to include. */
+                    actions?: string;
+                    /** @description ISO timestamp. Returns events at or after this time. */
+                    startDate?: string;
+                    /** @description ISO timestamp. Returns events at or before this time. */
+                    endDate?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description A page of timeline events. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["TimelinePage"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                500: components["responses"]["InternalServerError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/activity/timeline/{assetType}/{assetId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a page of activity timeline events for one catalog asset
+         * @description Same as /api/activity/timeline but pre-filtered to a specific catalog asset. All other query params (cursor, limit, users, eventNames, actions, date range) still apply and further narrow the results.
+         *
+         */
+        get: {
+            parameters: {
+                query?: {
+                    cursor?: string;
+                    limit?: number;
+                    users?: string;
+                    eventNames?: string;
+                    actions?: string;
+                    startDate?: string;
+                    endDate?: string;
+                };
+                header?: never;
+                path: {
+                    assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "group" | "user";
+                    assetId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description A page of timeline events for the specified asset. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success?: boolean;
+                            data?: components["schemas"]["TimelinePage"];
+                        };
+                    };
+                };
+                /** @description Invalid assetType or assetId. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                401: components["responses"]["Unauthorized"];
+                500: components["responses"]["InternalServerError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scripts/demo-cleanup/preview": {
         parameters: {
             query?: never;
@@ -2689,6 +2815,57 @@ export interface components {
                 /** @description Groups the user belongs to */
                 groups?: string[];
             }[];
+        };
+        TimelineEvent: {
+            /** @description Stable identifier hash for the event (timestamp + name + resource + user). */
+            id: string;
+            /**
+             * Format: date-time
+             * @description When the event occurred (ISO).
+             */
+            timestamp: string;
+            /** @description CloudTrail event name (e.g. CreateDashboard, UpdateDataSetPermissions, TagResource). */
+            eventName: string;
+            /**
+             * @description Whether this event is a read/view or a mutation. The timeline returns mutations only by default.
+             * @enum {string}
+             */
+            kind: "view" | "mutation";
+            /**
+             * @description Coarse action category derived from the event name.
+             * @enum {string}
+             */
+            action?: "create" | "update" | "delete" | "publish" | "grant" | "revoke" | "member" | "tag" | "job" | "batch";
+            /** @description User name or ARN that performed the action. */
+            user: string;
+            /**
+             * @description Resource type the event targets. Catalog types (dashboard / analysis / dataset / datasource / folder / group / user) are hydrated with asset names; `other` covers templates, themes, brands, topics, action connectors, VPC connections, namespaces, and account-level settings.
+             *
+             * @enum {string}
+             */
+            resourceType?: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "group" | "user" | "other";
+            /**
+             * @description Catalog asset type (only set when resourceType is a catalog asset).
+             * @enum {string}
+             */
+            assetType?: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "group" | "user";
+            /** @description Resource identifier (dashboardId, analysisId, ...). Absent for some account-level settings events. */
+            assetId?: string;
+            /** @description Asset name from the portal catalog. Absent if the catalog does not know this asset. */
+            assetName?: string;
+            /** @description Full resource ARN, when present on the CloudTrail event. */
+            arn?: string;
+        };
+        TimelinePage: {
+            /** @description Timeline events for this page, sorted newest-first. */
+            items: components["schemas"]["TimelineEvent"][];
+            /**
+             * Format: date-time
+             * @description ISO timestamp of the last item in `items`. Pass back as `cursor` to fetch the next page. `null` when there are no more events.
+             */
+            nextCursor: string | null;
+            /** @description True if more events exist beyond this page. */
+            hasMore: boolean;
         };
         UserActivity: {
             /** @description User name or ARN */

@@ -8,6 +8,7 @@ import {
   LoginPage,
   AuthCallbackPage,
   AssetsPage,
+  AssetTimelinePage,
   DataCatalogPage,
   ExportPage,
   ArchivedAssetsPage,
@@ -46,15 +47,26 @@ function App() {
                 <Route index element={<Navigate to="/assets/dashboards" replace />} />
                 
                 {/* Asset routes with type parameter */}
-                <Route 
-                  path="assets/:type" 
+                <Route
+                  path="assets/:type"
                   element={
                     <ErrorBoundary>
                       <Suspense fallback={<PageLoader />}>
                         <AssetsPage />
                       </Suspense>
                     </ErrorBoundary>
-                  } 
+                  }
+                />
+                {/* Per-asset activity timeline drill-down */}
+                <Route
+                  path="assets/:type/:id/timeline"
+                  element={
+                    <ErrorBoundary>
+                      <Suspense fallback={<PageLoader />}>
+                        <AssetTimelinePage />
+                      </Suspense>
+                    </ErrorBoundary>
+                  }
                 />
                 <Route 
                   path="data-catalog" 

@@ -38,26 +38,169 @@ const CLOUDTRAIL_CONSTANTS = {
 } as const;
 
 /**
- * QuickSight event names to track for user activity
+ * QuickSight CloudTrail mutation event names — used by `getUserActivityEvents`
+ * for the activity timeline feature. Reads (Get / Describe / List / Search)
+ * and embed-URL generators are intentionally excluded: the timeline only
+ * records events that "touch" assets or settings.
+ *
+ * This list is the authoritative source for what the activity timeline
+ * ingests. It must stay in sync with ActivityService.ALL_MUTATION_EVENT_NAMES.
+ *
+ * View tracking (GetDashboard etc.) lives under a separate constant —
+ * QUICKSIGHT_USER_ACTIVITY_EVENTS in shared/utils/constants.ts.
  */
 const QUICKSIGHT_EVENT_NAMES = [
-  'GetDashboard',
-  'DescribeDashboard',
-  'ListDashboards',
-  'GetAnalysis',
-  'DescribeAnalysis',
-  'ListAnalyses',
-  'DescribeDataSet',
-  'ListDataSets',
+  // Dashboard
   'CreateDashboard',
   'UpdateDashboard',
+  'UpdateDashboardLinks',
+  'UpdateDashboardPermissions',
+  'UpdateDashboardPublishedVersion',
   'DeleteDashboard',
+
+  // Analysis
   'CreateAnalysis',
   'UpdateAnalysis',
+  'UpdateAnalysisPermissions',
   'DeleteAnalysis',
+  'RestoreAnalysis',
+
+  // Dataset
   'CreateDataSet',
   'UpdateDataSet',
+  'UpdateDataSetPermissions',
   'DeleteDataSet',
+  'PutDataSetRefreshProperties',
+  'DeleteDataSetRefreshProperties',
+  'CreateRefreshSchedule',
+  'UpdateRefreshSchedule',
+  'DeleteRefreshSchedule',
+  'CreateIngestion',
+  'CancelIngestion',
+
+  // Data source
+  'CreateDataSource',
+  'UpdateDataSource',
+  'UpdateDataSourcePermissions',
+  'DeleteDataSource',
+
+  // Folder
+  'CreateFolder',
+  'UpdateFolder',
+  'UpdateFolderPermissions',
+  'DeleteFolder',
+  'CreateFolderMembership',
+  'DeleteFolderMembership',
+
+  // Group
+  'CreateGroup',
+  'UpdateGroup',
+  'DeleteGroup',
+  'CreateGroupMembership',
+  'DeleteGroupMembership',
+
+  // User
+  'RegisterUser',
+  'UpdateUser',
+  'DeleteUser',
+  'DeleteUserByPrincipalId',
+  'UpdateUserCustomPermission',
+  'DeleteUserCustomPermission',
+
+  // Templates
+  'CreateTemplate',
+  'UpdateTemplate',
+  'DeleteTemplate',
+  'CreateTemplateAlias',
+  'UpdateTemplateAlias',
+  'DeleteTemplateAlias',
+  'UpdateTemplatePermissions',
+
+  // Themes
+  'CreateTheme',
+  'UpdateTheme',
+  'DeleteTheme',
+  'CreateThemeAlias',
+  'DeleteThemeAlias',
+  'UpdateThemePermissions',
+
+  // Brands
+  'CreateBrand',
+  'UpdateBrand',
+  'UpdateBrandPublishedVersion',
+  'DeleteBrand',
+  'UpdateBrandAssignment',
+  'DeleteBrandAssignment',
+
+  // Topics (QuickSight Q)
+  'CreateTopic',
+  'UpdateTopic',
+  'UpdateTopicPermissions',
+  'DeleteTopic',
+  'CreateTopicRefreshSchedule',
+  'UpdateTopicRefreshSchedule',
+  'DeleteTopicRefreshSchedule',
+  'BatchCreateTopicReviewedAnswer',
+  'BatchDeleteTopicReviewedAnswer',
+
+  // Action Connectors
+  'CreateActionConnector',
+  'UpdateActionConnector',
+  'UpdateActionConnectorPermissions',
+  'DeleteActionConnector',
+
+  // VPC Connections
+  'CreateVPCConnection',
+  'UpdateVPCConnection',
+  'DeleteVPCConnection',
+
+  // Namespaces
+  'CreateNamespace',
+  'DeleteNamespace',
+
+  // Account / global settings
+  'CreateAccountCustomization',
+  'UpdateAccountCustomization',
+  'DeleteAccountCustomization',
+  'CreateAccountSubscription',
+  'DeleteAccountSubscription',
+  'UpdateAccountSettings',
+  'UpdateAccountCustomPermission',
+  'DeleteAccountCustomPermission',
+  'CreateCustomPermissions',
+  'UpdateCustomPermissions',
+  'DeleteCustomPermissions',
+  'UpdateRoleCustomPermission',
+  'DeleteRoleCustomPermission',
+  'CreateRoleMembership',
+  'DeleteRoleMembership',
+  'CreateIAMPolicyAssignment',
+  'UpdateIAMPolicyAssignment',
+  'DeleteIAMPolicyAssignment',
+  'UpdateIpRestriction',
+  'UpdateKeyRegistration',
+  'UpdatePublicSharingSettings',
+  'UpdateIdentityPropagationConfig',
+  'DeleteIdentityPropagationConfig',
+  'UpdateDefaultQBusinessApplication',
+  'DeleteDefaultQBusinessApplication',
+  'UpdateQPersonalizationConfiguration',
+  'UpdateQuickSightQSearchConfiguration',
+  'UpdateSelfUpgrade',
+  'UpdateSelfUpgradeConfiguration',
+  'UpdateSPICECapacityConfiguration',
+  'UpdateDashboardsQAConfiguration',
+
+  // Tagging
+  'TagResource',
+  'UntagResource',
+
+  // Long-running jobs
+  'StartAssetBundleExportJob',
+  'StartAssetBundleImportJob',
+  'StartAutomationJob',
+  'StartDashboardSnapshotJob',
+  'StartDashboardSnapshotJobSchedule',
 ] as const;
 
 /**
