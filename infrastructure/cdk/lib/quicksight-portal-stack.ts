@@ -15,10 +15,8 @@ import {
   CacheCookieBehavior, OriginProtocolPolicy,
 } from 'aws-cdk-lib/aws-cloudfront';
 import { S3BucketOrigin, HttpOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
-import {
-  RestApi, LambdaIntegration, AuthorizationType, MethodLoggingLevel,
-  LogGroupLogDestination, AccessLogFormat,
-} from 'aws-cdk-lib/aws-apigateway';
+import { HttpApi, CfnStage, PayloadFormatVersion } from 'aws-cdk-lib/aws-apigatewayv2';
+import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { CfnWebACL } from 'aws-cdk-lib/aws-wafv2';
 import {
@@ -208,54 +206,50 @@ export class QuicksightPortalStack extends Stack {
       maxBatchingWindow: Duration.seconds(0), // Process immediately
     }));
 
-    /* 6 ────────── API Gateway (same-origin via CloudFront — no CORS needed) */
+    /* 6 ────────── API Gateway HTTP API v2 (same-origin via CloudFront) */
+    // HTTP API v2: lower cost + lower latency than REST v1, and no
+    // account-level CloudWatch role dance needed for logging.
     // Access logs — structured JSON so CloudWatch Logs Insights can parse.
     const apiAccessLogs = new LogGroup(this, 'ApiAccessLogs', {
       retention: RetentionDays.ONE_MONTH,
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    const api = new RestApi(this, 'Api', {
-      restApiName: 'QuicksightPortalApi',
-      deployOptions: {
-        stageName: 'prod',
-        metricsEnabled: true,
-        // Throttling: 25 r/s sustained, 50 burst — blocks abuse before it hits Lambda.
-        throttlingRateLimit: 25,
-        throttlingBurstLimit: 50,
-        // Never log request bodies (may contain tokens / PII).
-        dataTraceEnabled: false,
-        loggingLevel: MethodLoggingLevel.ERROR,
-        accessLogDestination: new LogGroupLogDestination(apiAccessLogs),
-        accessLogFormat: AccessLogFormat.jsonWithStandardFields({
-          caller: false,
-          httpMethod: true,
-          ip: true,
-          protocol: true,
-          requestTime: true,
-          resourcePath: true,
-          responseLength: true,
-          status: true,
-          user: false,
-        }),
-      },
-      // No defaultCorsPreflightOptions — API is same-origin via CloudFront.
-      // Lambda cors.ts still sets Access-Control-* for dev (localhost) as defense in depth.
+    // Keep the v1 payload shape so existing Lambda handlers (event.path,
+    // event.httpMethod, event.headers) work unchanged.
+    const lambdaIntegration = new HttpLambdaIntegration('LambdaIntegration', apiLambda, {
+      payloadFormatVersion: PayloadFormatVersion.VERSION_1_0,
     });
-    const integration = new LambdaIntegration(apiLambda);
 
-    // Health endpoint
-    const health = api.root.addResource('health');
-    health.addMethod('GET', integration, { authorizationType: AuthorizationType.NONE });
-
-    // API endpoints — auth handled in Lambda
-    const apiRoot = api.root.addResource('api');
-    const apiProxy = apiRoot.addResource('{proxy+}');
-
-    ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].forEach(method => {
-      apiRoot.addMethod(method, integration, { authorizationType: AuthorizationType.NONE });
-      apiProxy.addMethod(method, integration, { authorizationType: AuthorizationType.NONE });
+    const api = new HttpApi(this, 'HttpApi', {
+      apiName: 'QuicksightPortalApi',
+      // Catch-all — CloudFront only forwards /api/* to this origin anyway,
+      // and the Lambda router handles path dispatch. Auth is enforced in Lambda.
+      defaultIntegration: lambdaIntegration,
     });
+
+    // Configure the $default stage: access logs, throttling, no request body trace.
+    const defaultStage = api.defaultStage!.node.defaultChild as CfnStage;
+    defaultStage.accessLogSettings = {
+      destinationArn: apiAccessLogs.logGroupArn,
+      format: JSON.stringify({
+        requestId: '$context.requestId',
+        ip: '$context.identity.sourceIp',
+        requestTime: '$context.requestTime',
+        httpMethod: '$context.httpMethod',
+        path: '$context.path',
+        status: '$context.status',
+        responseLength: '$context.responseLength',
+        integrationLatency: '$context.integrationLatency',
+      }),
+    };
+    // Throttling: 25 r/s sustained, 50 burst — blocks abuse before it hits Lambda.
+    defaultStage.defaultRouteSettings = {
+      throttlingBurstLimit: 50,
+      throttlingRateLimit: 25,
+    };
+    // Grant API Gateway write access to the access-log group.
+    apiAccessLogs.grantWrite(new ServicePrincipal('apigateway.amazonaws.com'));
 
     /* 7 ────────── Security headers policy (custom — stricter than managed SECURITY_HEADERS) */
     const securityHeaders = new ResponseHeadersPolicy(this, 'SecurityHeaders', {
@@ -326,10 +320,9 @@ export class QuicksightPortalStack extends Stack {
     }) : undefined;
 
     /* 9 ────────── CloudFront — SPA (default) + API at /api/* (same-origin) */
-    // API Gateway origin — strip /prod stage at origin path
-    const apiDomainName = `${api.restApiId}.execute-api.${this.region}.amazonaws.com`;
+    // HTTP API v2 has no stage prefix in the URL (uses $default stage).
+    const apiDomainName = `${api.apiId}.execute-api.${this.region}.amazonaws.com`;
     const apiOrigin = new HttpOrigin(apiDomainName, {
-      originPath: '/prod',
       protocolPolicy: OriginProtocolPolicy.HTTPS_ONLY,
     });
 
@@ -426,7 +419,7 @@ export class QuicksightPortalStack extends Stack {
     new CfnOutput(this, 'SiteURL', {
       value: `https://${distribution.distributionDomainName}`,
     });
-    new CfnOutput(this, 'ApiURL', { value: api.url });
+    new CfnOutput(this, 'ApiURL', { value: api.apiEndpoint });
     new CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId });
     new CfnOutput(this, 'UserPoolClientId', { value: userPoolClient.ref });
     new CfnOutput(this, 'ExportQueueUrl', { value: exportQueue.queueUrl });
