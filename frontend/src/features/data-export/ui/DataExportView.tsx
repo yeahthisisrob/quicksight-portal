@@ -22,12 +22,75 @@ import { useExportOperations } from '../lib/useExportOperations';
 
 import type { AssetType, ExportMode } from '../model/types';
 
+type ExportTab = 'current' | 'history' | 'timeline';
+
+/**
+ * Renders the content for the current export-progress tab. Extracted from
+ * DataExportView so the parent stays under the cyclomatic-complexity limit.
+ */
+interface ExportProgressTabBodyProps {
+  activeTab: ExportTab;
+  exportLogs: ReturnType<typeof useExportJob>['exportLogs'];
+  isRunning: boolean;
+  currentJobId: string | null;
+  onSelectHistoryJob: (jobId: string) => void;
+}
+
+function ExportProgressTabBody({
+  activeTab,
+  exportLogs,
+  isRunning,
+  currentJobId,
+  onSelectHistoryJob,
+}: ExportProgressTabBodyProps) {
+  if (activeTab === 'history') {
+    return <JobHistory onSelectJob={onSelectHistoryJob} currentJobId={currentJobId} />;
+  }
+
+  if (activeTab === 'timeline') {
+    return (
+      <Box sx={{ maxHeight: 600, display: 'flex', flexDirection: 'column' }}>
+        <TimelineFeed />
+      </Box>
+    );
+  }
+
+  // activeTab === 'current'
+  if (exportLogs.length === 0 && !isRunning) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+          No export activity. Start an export to see progress here.
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ p: 2 }}>
+      <ExportLogs
+        logs={exportLogs.filter(log => log.level !== 'debug').map(log => ({
+          ts: new Date(log.timestamp).getTime(),
+          msg: log.message,
+          level: log.level as 'info' | 'warn' | 'error',
+          assetType: (log.details as any)?.assetType,
+          assetId: (log.details as any)?.assetId,
+          apiCalls: (log.details as any)?.apiCalls,
+        }))}
+        maxHeight={300}
+        showTimestamps={true}
+        defaultExpanded={isRunning}
+      />
+    </Box>
+  );
+}
+
 export default function DataExportView() {
   const [selectedAssetTypes, setSelectedAssetTypes] = useState<AssetType[]>([
     'dashboards', 'datasets', 'analyses', 'datasources', 'groups', 'folders', 'users'
   ]);
   const [exportMode, setExportMode] = useState<ExportMode>('smart');
-  const [activeTab, setActiveTab] = useState<'current' | 'history' | 'timeline'>('current');
+  const [activeTab, setActiveTab] = useState<ExportTab>('current');
 
   const {
     cacheSummary,
@@ -204,40 +267,13 @@ export default function DataExportView() {
             </Box>
           </Box>
 
-          {activeTab === 'history' && (
-            <JobHistory
-              onSelectJob={handleSelectHistoryJob}
-              currentJobId={currentJobId}
-            />
-          )}
-          {activeTab === 'current' && (
-            <Box sx={{ p: 2 }}>
-              {(exportLogs.length > 0 || isRunning) ? (
-                <ExportLogs
-                  logs={exportLogs.filter(log => log.level !== 'debug').map(log => ({
-                    ts: new Date(log.timestamp).getTime(),
-                    msg: log.message,
-                    level: log.level as 'info' | 'warn' | 'error',
-                    assetType: (log.details as any)?.assetType,
-                    assetId: (log.details as any)?.assetId,
-                    apiCalls: (log.details as any)?.apiCalls
-                  }))}
-                  maxHeight={300}
-                  showTimestamps={true}
-                  defaultExpanded={isRunning}
-                />
-              ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                  No export activity. Start an export to see progress here.
-                </Typography>
-              )}
-            </Box>
-          )}
-          {activeTab === 'timeline' && (
-            <Box sx={{ maxHeight: 600, display: 'flex', flexDirection: 'column' }}>
-              <TimelineFeed />
-            </Box>
-          )}
+          <ExportProgressTabBody
+            activeTab={activeTab}
+            exportLogs={exportLogs}
+            isRunning={isRunning}
+            currentJobId={currentJobId}
+            onSelectHistoryJob={handleSelectHistoryJob}
+          />
         </Box>
       </Stack>
     </PageLayout>
