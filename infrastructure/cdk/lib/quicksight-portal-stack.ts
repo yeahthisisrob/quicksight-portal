@@ -18,7 +18,7 @@ import { S3BucketOrigin, HttpOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { HttpApi, CfnStage, PayloadFormatVersion } from 'aws-cdk-lib/aws-apigatewayv2';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
-import { CfnWebACL } from 'aws-cdk-lib/aws-wafv2';
+import { CfnWebACL, CfnIPSet } from 'aws-cdk-lib/aws-wafv2';
 import {
   Function as LambdaFunction, Runtime, Code,
 } from 'aws-cdk-lib/aws-lambda';
@@ -39,7 +39,21 @@ export class QuicksightPortalStack extends Stack {
     //   cdk deploy -c enableWaf=false
     // or set "enableWaf": false in cdk.context.json.
     const wafCtx = this.node.tryGetContext('enableWaf');
-    const enableWaf = wafCtx !== false && wafCtx !== 'false';
+    const wafOptedOut = wafCtx === false || wafCtx === 'false';
+
+    // Optional IP allowlist — when set, only requests from these CIDRs are
+    // allowed through CloudFront (everything else is blocked at the edge).
+    // Setting this forces WAF on (overriding `enableWaf: false`) since the
+    // allowlist is enforced via a WAF rule.
+    const rawIpRanges = this.node.tryGetContext('allowedIpRanges');
+    const allowedIpRanges: string[] = Array.isArray(rawIpRanges)
+      ? rawIpRanges.filter((c): c is string => typeof c === 'string' && c.length > 0)
+      : [];
+    const hasIpAllowlist = allowedIpRanges.length > 0;
+    const allowedIpv4 = allowedIpRanges.filter(cidr => !cidr.includes(':'));
+    const allowedIpv6 = allowedIpRanges.filter(cidr => cidr.includes(':'));
+
+    const enableWaf = hasIpAllowlist || !wafOptedOut;
 
     /* 1 ────────── SPA bucket + CloudFront */
     const websiteBucket = new Bucket(this, 'WebsiteBucket', {
@@ -273,6 +287,38 @@ export class QuicksightPortalStack extends Stack {
     /* 8 ────────── WAF (CloudFront scope) — bot + injection + rate limit at edge */
     // Default on (~$5/mo base + $1/M requests). Opt out: `enableWaf: false` in
     // cdk.context.json or `-c enableWaf=false` on the CLI.
+    // Force-enabled if `allowedIpRanges` is set.
+    const ipv4Set = enableWaf && allowedIpv4.length > 0 ? new CfnIPSet(this, 'AllowedIpv4Set', {
+      scope: 'CLOUDFRONT',
+      ipAddressVersion: 'IPV4',
+      addresses: allowedIpv4,
+    }) : undefined;
+    const ipv6Set = enableWaf && allowedIpv6.length > 0 ? new CfnIPSet(this, 'AllowedIpv6Set', {
+      scope: 'CLOUDFRONT',
+      ipAddressVersion: 'IPV6',
+      addresses: allowedIpv6,
+    }) : undefined;
+
+    // Build the "allowed IP" match statement — OR of v4 and v6 sets if both
+    // are present, else a single IP set reference.
+    const ipSetRefs: Array<{ ipSetReferenceStatement: { arn: string } }> = [];
+    if (ipv4Set) ipSetRefs.push({ ipSetReferenceStatement: { arn: ipv4Set.attrArn } });
+    if (ipv6Set) ipSetRefs.push({ ipSetReferenceStatement: { arn: ipv6Set.attrArn } });
+    const allowedIpStatement = ipSetRefs.length === 1
+      ? ipSetRefs[0]
+      : ipSetRefs.length > 1
+        ? { orStatement: { statements: ipSetRefs } }
+        : undefined;
+
+    const allowlistRule = allowedIpStatement ? {
+      name: 'IpAllowlist',
+      priority: 0,
+      action: { block: {} },
+      // Block anything NOT in the allowlist.
+      statement: { notStatement: { statement: allowedIpStatement } },
+      visibilityConfig: { cloudWatchMetricsEnabled: true, metricName: 'IpAllowlist', sampledRequestsEnabled: true },
+    } : undefined;
+
     const waf = enableWaf ? new CfnWebACL(this, 'SiteWAF', {
       scope: 'CLOUDFRONT',
       defaultAction: { allow: {} },
@@ -282,6 +328,7 @@ export class QuicksightPortalStack extends Stack {
         sampledRequestsEnabled: true,
       },
       rules: [
+        ...(allowlistRule ? [allowlistRule] : []),
         {
           name: 'AWSManagedRulesCommonRuleSet',
           priority: 1,

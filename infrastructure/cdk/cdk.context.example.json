@@ -1,10 +1,8 @@
 {
   "existingSamlRoleArn": "arn:aws:iam::your-account-id:role/YourExistingSAMLRole",
   "existingSamlProviderArn": "arn:aws:iam::your-account-id:saml-provider/YourExistingSAMLProvider",
-  "allowedIpRanges": [
-    "10.0.0.0/8",
-    "172.16.0.0/12"
-  ],
+  "_allowedIpRanges_note": "Optional CloudFront IP allowlist (IPv4 and/or IPv6 CIDRs). When set, everything NOT in this list is blocked at the edge via WAF. Setting this forces WAF on, overriding enableWaf: false. Leave as an empty array [] or remove the key to disable.",
+  "allowedIpRanges": [],
   "environmentName": "production",
   "enableWaf": true
 }
