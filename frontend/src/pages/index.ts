@@ -11,6 +11,7 @@ export const AuthCallbackPage = lazy(() => import('./AuthCallbackPage').then(m =
 // Main application pages (with layout)
 export const AssetsPage = lazy(() => import('./AssetsPage'));
 export const AssetTimelinePage = lazy(() => import('./AssetTimelinePage'));
+export const ActivityTimelinePage = lazy(() => import('./ActivityTimelinePage'));
 export const DataCatalogPage = lazy(() => import('./DataCatalogPage'));
 export const ExportPage = lazy(() => import('./ExportPage'));
 export const ArchivedAssetsPage = lazy(() => import('./ArchivedAssetsPage').then(m => ({ default: m.ArchivedAssetsPage })));

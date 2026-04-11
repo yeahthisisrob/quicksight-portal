@@ -81,14 +81,19 @@ export const navigationConfig: NavigationSection[] = [
         icon: 'dataCatalog', 
         path: '/data-catalog'
       },
-      { 
-        text: 'Export Assets', 
-        icon: 'exportManagement', 
+      {
+        text: 'Export Assets',
+        icon: 'exportManagement',
         path: '/export'
       },
-      { 
-        text: 'Archived Assets', 
-        icon: 'archive', 
+      {
+        text: 'Activity Timeline',
+        icon: 'timeline',
+        path: '/activity'
+      },
+      {
+        text: 'Archived Assets',
+        icon: 'archive',
         path: '/archived-assets'
       },
       { 

@@ -9,6 +9,7 @@ import {
   AuthCallbackPage,
   AssetsPage,
   AssetTimelinePage,
+  ActivityTimelinePage,
   DataCatalogPage,
   ExportPage,
   ArchivedAssetsPage,
@@ -78,15 +79,25 @@ function App() {
                     </ErrorBoundary>
                   } 
                 />
-                <Route 
-                  path="export" 
+                <Route
+                  path="export"
                   element={
                     <ErrorBoundary>
                       <Suspense fallback={<PageLoader />}>
                         <ExportPage />
                       </Suspense>
                     </ErrorBoundary>
-                  } 
+                  }
+                />
+                <Route
+                  path="activity"
+                  element={
+                    <ErrorBoundary>
+                      <Suspense fallback={<PageLoader />}>
+                        <ActivityTimelinePage />
+                      </Suspense>
+                    </ErrorBoundary>
+                  }
                 />
                 <Route 
                   path="archived-assets" 

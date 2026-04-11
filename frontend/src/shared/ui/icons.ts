@@ -48,6 +48,7 @@ import {
   Logout as LogoutIcon,
   Archive as ArchiveIcon,
   Code as CodeIcon,
+  Timeline as TimelineNavIcon,
   
   // Status
   CheckCircle as SuccessIcon,
@@ -150,6 +151,7 @@ export const navigationIcons = {
   code: CodeIcon,
   logout: LogoutIcon,
   storage: StorageIcon,
+  timeline: TimelineNavIcon,
 } as const;
 
 // Status icons
