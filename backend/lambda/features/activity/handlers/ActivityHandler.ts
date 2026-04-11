@@ -191,6 +191,7 @@ function buildTimelineQuery(event: APIGatewayProxyEvent): TimelineQuery {
     resourceTypes: parseResourceTypes(qs.resourceTypes),
     users: splitCsv(qs.users),
     eventNames: splitCsv(qs.eventNames),
+    excludeEventNames: splitCsv(qs.excludeEventNames),
     actions: parseActions(qs.actions),
     startDate: qs.startDate || undefined,
     endDate: qs.endDate || undefined,

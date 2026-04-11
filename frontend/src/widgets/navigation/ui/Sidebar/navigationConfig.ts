@@ -15,11 +15,21 @@ export interface NavigationSection {
 
 export const navigationConfig: NavigationSection[] = [
   {
-    title: 'Assets',
     items: [
-      { 
-        text: 'Dashboards', 
-        icon: 'dashboard', 
+      {
+        text: 'Activity Timeline',
+        icon: 'timeline',
+        path: '/activity',
+      },
+    ],
+  },
+  {
+    title: 'Assets',
+    divider: true,
+    items: [
+      {
+        text: 'Dashboards',
+        icon: 'dashboard',
         path: '/assets/dashboards',
         colorKey: 'dashboard'
       },
@@ -85,11 +95,6 @@ export const navigationConfig: NavigationSection[] = [
         text: 'Export Assets',
         icon: 'exportManagement',
         path: '/export'
-      },
-      {
-        text: 'Activity Timeline',
-        icon: 'timeline',
-        path: '/activity'
       },
       {
         text: 'Archived Assets',

@@ -192,7 +192,8 @@ export interface TimelineQuery {
   limit?: number; // default 50, max 200
   resourceTypes?: TimelineResourceType[]; // filter by catalog asset type or 'other'
   users?: string[];
-  eventNames?: string[];
+  eventNames?: string[]; // include — when set, only these events match
+  excludeEventNames?: string[]; // exclude — events in this list are dropped
   actions?: ActionCategory[];
   startDate?: string; // ISO
   endDate?: string; // ISO
@@ -209,4 +210,10 @@ export interface TimelinePage {
   items: TimelineEvent[];
   nextCursor: string | null;
   hasMore: boolean;
+  /**
+   * ISO timestamp of when the activity cache was last refreshed via the
+   * /activity/refresh job. Populated on every request so the UI can show a
+   * "last refreshed X ago" hint without a second round-trip.
+   */
+  cacheLastUpdated?: string;
 }

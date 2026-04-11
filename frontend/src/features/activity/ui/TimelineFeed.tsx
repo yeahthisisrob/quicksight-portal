@@ -13,9 +13,22 @@ import {
 const PAGE_SIZE = 50;
 const SENTINEL_ROOT_MARGIN = '400px'; // pre-fetch the next page 400px before it comes into view
 
+/**
+ * Noisy events hidden by default. Ingestions fire on every scheduled refresh
+ * which can easily drown out the events users actually care about. Toggled
+ * via the "Show ingestions" switch in the filter bar.
+ */
+const DEFAULT_EXCLUDED_EVENTS = ['CreateIngestion', 'CancelIngestion'];
+
 export interface TimelineFeedProps {
   /** Pin the feed to a single catalog asset. When omitted, shows the global feed. */
   assetPin?: TimelineAssetPin;
+  /**
+   * Optional header rendered above the filter bar. Gets the cache-last-updated
+   * timestamp from the first loaded page so callers can render a "last
+   * refreshed X ago" hint without a second request.
+   */
+  renderHeader?: (ctx: { cacheLastUpdated: string | undefined }) => React.ReactNode;
 }
 
 /**
@@ -23,19 +36,21 @@ export interface TimelineFeedProps {
  * and an intersection-observed sentinel at the bottom that drives infinite
  * scroll via fetchNextPage().
  */
-export function TimelineFeed({ assetPin }: TimelineFeedProps) {
-  const [filters, setFilters] = useState<TimelineFilters>({});
+export function TimelineFeed({ assetPin, renderHeader }: TimelineFeedProps) {
+  const [filters, setFilters] = useState<TimelineFilters>({
+    startDate: dateRangeToStartDate('30d'),
+    excludeEventNames: DEFAULT_EXCLUDED_EVENTS,
+  });
   const [dateRange, setDateRange] = useState<TimelineDateRange>('30d');
+  const [showIngestions, setShowIngestions] = useState(false);
 
-  // Initialize startDate from the default date range on first mount so the
-  // initial query matches what the filter bar shows.
+  // Keep filters.excludeEventNames in sync with the toggle.
   useEffect(() => {
     setFilters((prev) => ({
       ...prev,
-      startDate: dateRangeToStartDate('30d'),
+      excludeEventNames: showIngestions ? undefined : DEFAULT_EXCLUDED_EVENTS,
     }));
-     
-  }, []);
+  }, [showIngestions]);
 
   const query = useActivityTimeline({ filters, assetPin, pageSize: PAGE_SIZE });
 
@@ -43,6 +58,10 @@ export function TimelineFeed({ assetPin }: TimelineFeedProps) {
     () => query.data?.pages.flatMap((page) => page.items) ?? [],
     [query.data]
   );
+
+  // The first page carries the cache's lastUpdated; all pages return the
+  // same value so we can read it off pages[0] safely.
+  const cacheLastUpdated = query.data?.pages[0]?.cacheLastUpdated;
 
   // Intersection observer on the bottom sentinel — fetch next page when visible.
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -65,12 +84,15 @@ export function TimelineFeed({ assetPin }: TimelineFeedProps) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      {renderHeader?.({ cacheLastUpdated })}
       <TimelineFilterBar
         filters={filters}
         onChange={setFilters}
         hideResourceTypes={Boolean(assetPin)}
         dateRange={dateRange}
         onDateRangeChange={setDateRange}
+        showIngestions={showIngestions}
+        onShowIngestionsChange={setShowIngestions}
       />
 
       {query.isError && (

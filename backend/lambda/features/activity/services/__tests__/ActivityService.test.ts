@@ -1174,6 +1174,70 @@ describe('ActivityService.getTimelinePage — filters', () => {
   });
 });
 
+describe('ActivityService.getTimelinePage — exclusions and metadata', () => {
+  let activityService: ActivityService;
+  let mockCacheService: Mocked<CacheService>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ({ activityService, mockCacheService } = makeTimelineServiceAndMocks());
+  });
+
+  it('excludes events listed in excludeEventNames', async () => {
+    const events: MinimalEvent[] = [
+      timelineMutationEvent(
+        'CreateIngestion',
+        'ds-1',
+        'sched',
+        'dataset',
+        'create',
+        '2024-06-01T12:00:00.000Z'
+      ),
+      timelineMutationEvent(
+        'UpdateDashboard',
+        'dash-1',
+        'alice',
+        'dashboard',
+        'update',
+        '2024-06-02T12:00:00.000Z'
+      ),
+      timelineMutationEvent(
+        'CreateIngestion',
+        'ds-2',
+        'sched',
+        'dataset',
+        'create',
+        '2024-06-03T12:00:00.000Z'
+      ),
+    ];
+    mockCacheService.getActivityCache.mockResolvedValue(createMockCache(events));
+
+    const page = await activityService.getTimelinePage({
+      limit: 10,
+      excludeEventNames: ['CreateIngestion', 'CancelIngestion'],
+    });
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]?.eventName).toBe('UpdateDashboard');
+  });
+
+  it('returns cacheLastUpdated on every page response', async () => {
+    const events: MinimalEvent[] = [
+      timelineMutationEvent(
+        'CreateDashboard',
+        'dash-1',
+        'alice',
+        'dashboard',
+        'create',
+        '2024-06-01T12:00:00.000Z'
+      ),
+    ];
+    const cache = createMockCache(events);
+    mockCacheService.getActivityCache.mockResolvedValue(cache);
+    const page = await activityService.getTimelinePage({ limit: 10 });
+    expect(page.cacheLastUpdated).toBe(cache.lastUpdated);
+  });
+});
+
 describe('ActivityService.getTimelinePage — pinning and hydration', () => {
   let activityService: ActivityService;
   let mockCacheService: Mocked<CacheService>;

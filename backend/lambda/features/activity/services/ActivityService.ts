@@ -392,6 +392,7 @@ interface TimelinePredicate {
   endMs: number | null;
   resourceTypes: Set<string> | null;
   eventNames: Set<string> | null;
+  excludeEventNames: Set<string> | null;
   actions: Set<string> | null;
   users: Set<string> | null;
   pinnedAssetType: string | undefined;
@@ -406,6 +407,7 @@ function buildTimelinePredicate(query: TimelineQuery): TimelinePredicate {
     endMs: query.endDate ? Date.parse(query.endDate) : null,
     resourceTypes: query.resourceTypes ? new Set(query.resourceTypes) : null,
     eventNames: query.eventNames ? new Set(query.eventNames) : null,
+    excludeEventNames: query.excludeEventNames ? new Set(query.excludeEventNames) : null,
     actions: query.actions ? new Set(query.actions) : null,
     users: query.users ? new Set(query.users.map((u) => u.toLowerCase())) : null,
     pinnedAssetType: query.assetType,
@@ -445,6 +447,9 @@ function eventMatchesPredicate(evt: MinimalEvent, p: TimelinePredicate): boolean
     return false;
   }
   if (p.eventNames && !p.eventNames.has(evt.e)) {
+    return false;
+  }
+  if (p.excludeEventNames && p.excludeEventNames.has(evt.e)) {
     return false;
   }
   if (p.actions && (!evt.a || !p.actions.has(evt.a))) {
@@ -631,7 +636,7 @@ export class ActivityService {
     const lastEvent = filtered[filtered.length - 1];
     const nextCursor = hasMore && lastEvent ? lastEvent.t : null;
 
-    return { items, nextCursor, hasMore };
+    return { items, nextCursor, hasMore, cacheLastUpdated: cache.lastUpdated };
   }
 
   /**

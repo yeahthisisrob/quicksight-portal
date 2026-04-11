@@ -18,6 +18,7 @@ export interface TimelineQueryParams {
   resourceTypes?: string[];
   users?: string[];
   eventNames?: string[];
+  excludeEventNames?: string[];
   actions?: string[];
   startDate?: string;
   endDate?: string;
@@ -34,6 +35,9 @@ function buildTimelineQueryString(params: TimelineQueryParams): Record<string, s
     resourceTypes: params.resourceTypes?.length ? params.resourceTypes.join(',') : undefined,
     users: params.users?.length ? params.users.join(',') : undefined,
     eventNames: params.eventNames?.length ? params.eventNames.join(',') : undefined,
+    excludeEventNames: params.excludeEventNames?.length
+      ? params.excludeEventNames.join(',')
+      : undefined,
     actions: params.actions?.length ? params.actions.join(',') : undefined,
     startDate: params.startDate,
     endDate: params.endDate,

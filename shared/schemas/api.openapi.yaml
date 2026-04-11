@@ -1025,6 +1025,11 @@ paths:
           description: Comma-separated list of CloudTrail event names to include.
           schema:
             type: string
+        - name: excludeEventNames
+          in: query
+          description: Comma-separated list of CloudTrail event names to exclude. Used by default to hide noisy ingestion events.
+          schema:
+            type: string
         - name: actions
           in: query
           description: Comma-separated list of action categories to include.
@@ -2734,6 +2739,10 @@ components:
         hasMore:
           type: boolean
           description: True if more events exist beyond this page.
+        cacheLastUpdated:
+          type: string
+          format: date-time
+          description: ISO timestamp of when the activity cache was last refreshed (from the most recent /activity/refresh job). Shown in the UI as "last refreshed X ago".
 
     UserActivity:
       type: object

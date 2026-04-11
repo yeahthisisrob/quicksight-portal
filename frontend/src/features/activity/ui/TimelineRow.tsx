@@ -10,12 +10,14 @@ import {
   PlayArrow as JobIcon,
   DynamicFeed as BatchIcon,
   HelpOutline as OtherIcon,
+  OpenInNew as OpenInNewIcon,
   type SvgIconComponent,
 } from '@mui/icons-material';
-import { Avatar, Box, Stack, Tooltip, Typography } from '@mui/material';
+import { Avatar, Box, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import { formatDistanceToNow, format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
+import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 import TypedChip, { type ChipType } from '@/shared/ui/TypedChip';
 
 import type { TimelineEvent } from '@/shared/api/modules/activity';
@@ -116,10 +118,19 @@ export function TimelineRow({ event }: TimelineRowProps) {
   const exactTime = format(timestamp, 'PPpp'); // e.g. "Apr 10, 2026 at 3:45:22 PM"
 
   const displayLabel = event.assetName || event.assetId || formatEventName(event.eventName);
+  const quicksightUrl =
+    event.assetType && event.assetId ? getQuickSightConsoleUrl(event.assetType, event.assetId) : null;
 
   const handleAssetClick = () => {
     if (event.assetType && event.assetId) {
       navigate(`/assets/${event.assetType}s/${encodeURIComponent(event.assetId)}`);
+    }
+  };
+
+  const handleQuickSightClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (quicksightUrl) {
+      window.open(quicksightUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -171,6 +182,17 @@ export function TimelineRow({ event }: TimelineRowProps) {
           <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
             {displayLabel}
           </Typography>
+        )}
+        {quicksightUrl && (
+          <Tooltip title="Open in QuickSight">
+            <IconButton
+              size="small"
+              onClick={handleQuickSightClick}
+              sx={{ padding: '2px', color: 'text.secondary' }}
+            >
+              <OpenInNewIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Tooltip>
         )}
       </Box>
 

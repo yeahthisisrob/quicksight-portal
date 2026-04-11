@@ -21,6 +21,7 @@ export interface TimelineFilters {
   resourceTypes?: string[];
   users?: string[];
   eventNames?: string[];
+  excludeEventNames?: string[];
   actions?: string[];
   startDate?: string;
   endDate?: string;

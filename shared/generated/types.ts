@@ -1368,6 +1368,8 @@ export interface paths {
                     users?: string;
                     /** @description Comma-separated list of CloudTrail event names to include. */
                     eventNames?: string;
+                    /** @description Comma-separated list of CloudTrail event names to exclude. Used by default to hide noisy ingestion events. */
+                    excludeEventNames?: string;
                     /** @description Comma-separated list of action categories to include. */
                     actions?: string;
                     /** @description ISO timestamp. Returns events at or after this time. */
@@ -2866,6 +2868,11 @@ export interface components {
             nextCursor: string | null;
             /** @description True if more events exist beyond this page. */
             hasMore: boolean;
+            /**
+             * Format: date-time
+             * @description ISO timestamp of when the activity cache was last refreshed (from the most recent /activity/refresh job). Shown in the UI as "last refreshed X ago".
+             */
+            cacheLastUpdated?: string;
         };
         UserActivity: {
             /** @description User name or ARN */

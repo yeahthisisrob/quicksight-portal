@@ -45,7 +45,7 @@ function App() {
                   </AuthGuard>
                 }
               >
-                <Route index element={<Navigate to="/assets/dashboards" replace />} />
+                <Route index element={<Navigate to="/activity" replace />} />
                 
                 {/* Asset routes with type parameter */}
                 <Route

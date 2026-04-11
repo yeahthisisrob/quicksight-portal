@@ -2,10 +2,12 @@ import {
   Box,
   Chip,
   FormControl,
+  FormControlLabel,
   InputLabel,
   MenuItem,
   Select,
   Stack,
+  Switch,
   type SelectChangeEvent,
 } from '@mui/material';
 import { subDays } from 'date-fns';
@@ -80,6 +82,9 @@ export interface TimelineFilterBarProps {
   /** Current date range selection (stored outside filters to keep filters serializable). */
   dateRange: TimelineDateRange;
   onDateRangeChange: (next: TimelineDateRange) => void;
+  /** Whether to show ingestion events (CreateIngestion / CancelIngestion). Default false. */
+  showIngestions?: boolean;
+  onShowIngestionsChange?: (next: boolean) => void;
 }
 
 /**
@@ -93,6 +98,8 @@ export function TimelineFilterBar({
   hideResourceTypes = false,
   dateRange,
   onDateRangeChange,
+  showIngestions = false,
+  onShowIngestionsChange,
 }: TimelineFilterBarProps) {
   const handleResourceTypes = (e: SelectChangeEvent<string[]>) => {
     const value = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value;
@@ -185,6 +192,20 @@ export function TimelineFilterBar({
           ))}
         </Select>
       </FormControl>
+
+      {onShowIngestionsChange && (
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={showIngestions}
+              onChange={(e) => onShowIngestionsChange(e.target.checked)}
+            />
+          }
+          label="Show ingestions"
+          sx={{ ml: 1 }}
+        />
+      )}
     </Stack>
   );
 }
