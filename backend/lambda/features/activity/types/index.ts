@@ -96,6 +96,7 @@ export interface MinimalEvent {
   e: string; // event name (GetDashboard, GetAnalysis, etc)
   u: string; // user (userName or ARN)
   r?: string; // resource id (dashboardId, analysisId, etc)
+  n?: string; // asset name captured from the CloudTrail event itself (request/response)
   k?: EventKind; // kind — missing = 'v' (backward-compat)
   a?: ActionCategory; // derived action category (mutations only)
   at?: TimelineResourceType; // resource type this event targets — catalog asset type or 'other'

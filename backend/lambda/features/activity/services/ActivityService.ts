@@ -77,6 +77,50 @@ const ASSET_EVENT_CONFIG = {
  * under several common shapes (camelCase, PascalCase, nested serviceEventDetails).
  * Returns the last URI segment (e.g. 'abc-123' from 'arn:.../dashboard/abc-123').
  */
+/** Return `candidate` if it's a non-empty string, else undefined. */
+function nonEmptyString(candidate: unknown): string | undefined {
+  return typeof candidate === 'string' && candidate.length > 0 ? candidate : undefined;
+}
+
+/**
+ * CloudTrail embeds view-event asset names inside
+ * `serviceEventDetails.eventResponseDetails.<type>Details.<type>Name`.
+ */
+function extractViewEventName(event: any): string | undefined {
+  const details = event.serviceEventDetails?.eventResponseDetails;
+  if (!details) {
+    return undefined;
+  }
+  return (
+    nonEmptyString(details.dashboardDetails?.dashboardName) ||
+    nonEmptyString(details.analysisDetails?.analysisName) ||
+    nonEmptyString(details.dataSetDetails?.dataSetName) ||
+    nonEmptyString(details.dataSourceDetails?.dataSourceName) ||
+    nonEmptyString(details.folderDetails?.folderName)
+  );
+}
+
+/**
+ * Best-effort asset-name extraction from a CloudTrail event. CloudTrail embeds
+ * names in several places depending on whether the event is a view or mutation:
+ *
+ *   Views (Get/Describe): serviceEventDetails.eventResponseDetails.<type>Details.<type>Name
+ *   Create/Update mutations: requestParameters.name (when the name was set/changed)
+ *   Any mutation: responseElements.name (fallback)
+ *
+ * Returns undefined when none of these are present (e.g. Delete/permission
+ * events) — callers then fall back to catalog hydration.
+ */
+function extractEventName(event: any): string | undefined {
+  return (
+    extractViewEventName(event) ||
+    nonEmptyString(event.requestParameters?.name) ||
+    nonEmptyString(event.requestParameters?.Name) ||
+    nonEmptyString(event.responseElements?.name) ||
+    nonEmptyString(event.responseElements?.Name)
+  );
+}
+
 const extractParam = (event: any, ...keys: string[]): string | null => {
   for (const key of keys) {
     const v =
@@ -947,13 +991,20 @@ export class ActivityService {
             .catch(() => ({ assetType, entries: [] as any[] }))
         )
       );
+      const countsByType: Record<string, number> = {};
       for (const { assetType, entries } of entriesPerType) {
+        countsByType[assetType] = entries.length;
         for (const entry of entries) {
           if (entry?.assetId && entry?.assetName) {
             map.set(`${assetType}:${entry.assetId}`, entry.assetName);
           }
         }
       }
+      logger.debug('Timeline asset-name map built', {
+        requested: Array.from(assetTypes),
+        catalogCounts: countsByType,
+        mapSize: map.size,
+      });
     } catch (error) {
       logger.debug('Failed to build asset name map for timeline', { error });
     }
@@ -1225,6 +1276,10 @@ export class ActivityService {
     if (id) {
       base.r = id;
     }
+    const name = extractEventName(event);
+    if (name) {
+      base.n = name;
+    }
     return base;
   }
 
@@ -1239,6 +1294,10 @@ export class ActivityService {
     const fallbackId = extractParam(event);
     if (fallbackId) {
       base.r = fallbackId;
+    }
+    const name = extractEventName(event);
+    if (name) {
+      base.n = name;
     }
     return base;
   }
@@ -1255,6 +1314,10 @@ export class ActivityService {
       if (id) {
         base.r = id;
       }
+    }
+    const name = extractEventName(event);
+    if (name) {
+      base.n = name;
     }
     return base.r ? base : null;
   }
@@ -1686,7 +1749,21 @@ export class ActivityService {
   private toTimelineEvent(evt: MinimalEvent, nameMap: Map<string, string>): TimelineEvent {
     const isCatalogAsset = evt.at && evt.at !== 'other';
     const assetType = isCatalogAsset ? (evt.at as AssetType) : undefined;
-    const assetName = assetType && evt.r ? nameMap.get(`${assetType}:${evt.r}`) : undefined;
+
+    // Prefer the name captured from the CloudTrail event itself (n). Fall back
+    // to the catalog lookup, then undefined.
+    const catalogName = assetType && evt.r ? nameMap.get(`${assetType}:${evt.r}`) : undefined;
+    const assetName = evt.n || catalogName;
+
+    if (isCatalogAsset && evt.r && !assetName) {
+      logger.debug('Timeline asset-name miss', {
+        eventName: evt.e,
+        assetType: evt.at,
+        assetId: evt.r,
+        hasEventName: Boolean(evt.n),
+        lookupKey: `${assetType}:${evt.r}`,
+      });
+    }
 
     return {
       id: `${evt.t}_${evt.e}_${evt.r ?? ''}_${evt.u}`,

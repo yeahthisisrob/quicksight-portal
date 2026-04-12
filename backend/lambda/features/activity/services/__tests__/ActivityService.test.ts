@@ -1,7 +1,7 @@
 import { subDays } from 'date-fns';
 import { vi, type Mocked } from 'vitest';
 
-import { type CloudTrailAdapter } from '../../../../adapters/aws/CloudTrailAdapter';
+import type { CloudTrailAdapter } from '../../../../adapters/aws/CloudTrailAdapter';
 import { type CacheService } from '../../../../shared/services/cache/CacheService';
 import { logger } from '../../../../shared/utils/logger';
 import { type GroupService } from '../../../organization/services/GroupService';
@@ -1332,5 +1332,103 @@ describe('ActivityService.getTimelinePage — pinning and hydration', () => {
     expect(catalogItem?.assetType).toBe('dashboard');
     expect(otherItem?.resourceType).toBe('other');
     expect(otherItem?.assetType).toBeUndefined();
+  });
+});
+
+describe('ActivityService — name extraction from CloudTrail events', () => {
+  let activityService: ActivityService;
+  let mockCloudTrailAdapter: { getEventsByName: ReturnType<typeof vi.fn> };
+  let mockCacheService: Mocked<CacheService>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCacheService = {
+      getActivityCache: vi.fn(),
+      getActivityPersistence: vi.fn().mockResolvedValue(null),
+      getCacheEntries: vi.fn().mockResolvedValue([]),
+      putActivityCache: vi.fn(),
+      putActivityPersistence: vi.fn(),
+    } as any;
+    mockCloudTrailAdapter = { getEventsByName: vi.fn() };
+    activityService = new ActivityService(
+      mockCacheService,
+      mockCloudTrailAdapter as unknown as CloudTrailAdapter
+    );
+  });
+
+  it('captures the asset name from requestParameters.name for UpdateAnalysis', async () => {
+    // UpdateAnalysis includes Name in the request body when renaming.
+    const event = {
+      eventTime: '2024-06-01T12:00:00.000Z',
+      eventSource: 'quicksight.amazonaws.com',
+      eventName: 'UpdateAnalysis',
+      userIdentity: { userName: 'alice' },
+      requestParameters: {
+        analysisId: 'abc-123',
+        name: 'Renamed Analysis',
+      },
+    };
+    mockCloudTrailAdapter.getEventsByName.mockImplementation(async (n: string) =>
+      n === 'UpdateAnalysis' ? [event] : []
+    );
+    await activityService.refreshActivity({ assetTypes: ['analysis'], days: 1 });
+
+    const cached = mockCacheService.putActivityCache.mock.calls[0]?.[0] as ActivityCache;
+    const stored = Object.values(cached.events)
+      .flat()
+      .find((e) => e.e === 'UpdateAnalysis');
+    expect(stored?.r).toBe('abc-123');
+    expect(stored?.n).toBe('Renamed Analysis');
+  });
+
+  it('captures the asset name from serviceEventDetails.eventResponseDetails for GetAnalysis', async () => {
+    const event = {
+      eventTime: '2024-06-01T12:00:00.000Z',
+      eventSource: 'quicksight.amazonaws.com',
+      eventName: 'GetAnalysis',
+      userIdentity: { userName: 'alice' },
+      serviceEventDetails: {
+        eventRequestDetails: { analysisId: 'account/region/abc-123' },
+        eventResponseDetails: {
+          analysisDetails: { analysisName: 'Cohort Analysis' },
+        },
+      },
+    };
+    mockCloudTrailAdapter.getEventsByName.mockImplementation(async (n: string) =>
+      n === 'GetAnalysis' ? [event] : []
+    );
+    await activityService.refreshActivity({ assetTypes: ['analysis'], days: 1 });
+
+    const cached = mockCacheService.putActivityCache.mock.calls[0]?.[0] as ActivityCache;
+    const stored = Object.values(cached.events)
+      .flat()
+      .find((e) => e.e === 'GetAnalysis');
+    expect(stored?.r).toBe('abc-123');
+    expect(stored?.n).toBe('Cohort Analysis');
+  });
+
+  it('prefers event name over catalog name during hydration', async () => {
+    const cache = createMockCache([
+      {
+        t: '2024-06-02T12:00:00.000Z',
+        e: 'UpdateAnalysis',
+        u: 'alice',
+        r: 'abc-123',
+        n: 'Name From Event',
+        k: 'm',
+        a: 'update',
+        at: 'analysis',
+      } as MinimalEvent,
+    ]);
+    mockCacheService.getActivityCache.mockResolvedValue(cache);
+    // Catalog has a DIFFERENT name — confirm we still use the event name.
+    mockCacheService.getCacheEntries = vi
+      .fn()
+      .mockResolvedValue([
+        { assetId: 'abc-123', assetName: 'Catalog Name', assetType: 'analysis' },
+      ]) as any;
+
+    const page = await activityService.getTimelinePage({ limit: 10 });
+    expect(page.items[0]?.assetName).toBe('Name From Event');
   });
 });
