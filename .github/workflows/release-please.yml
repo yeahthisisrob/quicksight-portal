@@ -1,0 +1,21 @@
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # Uses release-please-config.json + .release-please-manifest.json
+          # at the repo root. release-please scans conventional-commit
+          # messages on main, opens a Release PR with CHANGELOG bumps,
+          # and on merge tags the commit + creates a GitHub Release.
+          token: ${{ secrets.GITHUB_TOKEN }}
