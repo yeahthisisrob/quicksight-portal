@@ -11,6 +11,7 @@ export type {
 
 // UI Components
 export { ActivityRefreshButton } from './ui/ActivityRefreshButton';
+export { ActivityRefreshProgress } from './ui/ActivityRefreshProgress';
 export { InactivityMailtoDialog } from './ui/InactivityMailtoDialog';
 export { UserInactiveMailtoDialog } from './ui/UserInactiveMailtoDialog';
 export { UserUnusedDatasetsDialog } from './ui/UserUnusedDatasetsDialog';

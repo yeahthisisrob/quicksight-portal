@@ -1,13 +1,20 @@
-import { subDays } from 'date-fns';
+import { subDays, subMinutes } from 'date-fns';
 
-import { type CloudTrailAdapter } from '../../../adapters/aws/CloudTrailAdapter';
+import {
+  type CloudTrailAdapter,
+  type CloudTrailFetchStats,
+  JobAbortedError,
+} from '../../../adapters/aws/CloudTrailAdapter';
+import { ACTIVITY_LIMITS } from '../../../shared/constants';
 import { type CacheService } from '../../../shared/services/cache/CacheService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES, type AssetType } from '../../../shared/types/assetTypes';
+import { pLimit } from '../../../shared/utils/concurrency';
 import { logger } from '../../../shared/utils/logger';
 import { type GroupService } from '../../organization/services/GroupService';
 import {
   type ActionCategory,
+  ACTIVITY_CACHE_SCHEMA_VERSION,
   type ActivityRefreshRequest,
   type ActivityRefreshResponse,
   type ActivitySummaryResponse,
@@ -19,6 +26,32 @@ import {
   type TimelinePage,
   type TimelineQuery,
 } from '../types';
+
+/**
+ * Per-event-name progress emitted as fetches complete.
+ * Used by ActivityRefreshProcessor to update phase counts in real time.
+ */
+export interface EventNameProgress {
+  eventName: string;
+  success: boolean;
+  durationMs: number;
+  events: number;
+  truncated: boolean;
+  error?: string;
+}
+
+/**
+ * Optional knobs for refreshActivity — kept off the public request shape so
+ * the wire API stays simple. The processor passes these in.
+ */
+export interface ActivityRefreshOptions {
+  signal?: AbortSignal;
+  onEventNameProgress?: (progress: EventNameProgress) => void;
+  onPhase?: (
+    phase: 'fetch-views' | 'fetch-mutations' | 'merge-and-persist',
+    meta?: { total?: number }
+  ) => void;
+}
 
 /**
  * Activity service constants
@@ -539,6 +572,13 @@ function applyTimelinePredicate(
 export class ActivityService {
   private static readonly ANALYSIS_EVENTS = [...ASSET_EVENT_CONFIG.analysis.events];
   private static readonly DASHBOARD_EVENTS = [...ASSET_EVENT_CONFIG.dashboard.events];
+  /**
+   * Refresh is treated as successful if fewer than this fraction of event-names
+   * fail. Above this, the refresh is reported as `success: false` so the FE
+   * surfaces a warning. Tuned conservatively: a single transient throttle on
+   * 200 names should not flip success to false.
+   */
+  private static readonly MAX_ACCEPTABLE_FAIL_RATIO = 0.1;
 
   /**
    * Check if event is analysis-related
@@ -738,51 +778,85 @@ export class ActivityService {
   }
 
   /**
-   * Refresh activity data for specified asset types
+   * Refresh activity data.
+   *
+   * Strategy:
+   * - Read existing cache. If schema is current and per-event-name watermarks
+   *   are present, run an incremental fetch starting at `watermark - 30min`
+   *   per name (covers CloudTrail's up-to-15-minute propagation delay).
+   * - If schema mismatches or cache is missing, do a full `days`-day rescan.
+   * - Fetch event names in parallel via pLimit (cloudTrailRateLimiter still
+   *   gates total throughput at 2/s — parallelism just hides per-call RTT).
+   * - Per-name failures don't fail the whole refresh; their watermarks aren't
+   *   advanced so the next refresh retries them.
+   * - Merge new events into existing cache, deduping on EventId.
+   *
+   * options.signal — abort the in-flight fetch (worker observes `stopRequested`).
+   * options.onEventNameProgress / onPhase — drive UI phase counts.
    */
-  public async refreshActivity(request: ActivityRefreshRequest): Promise<ActivityRefreshResponse> {
+  public async refreshActivity(
+    request: ActivityRefreshRequest,
+    options: ActivityRefreshOptions = {}
+  ): Promise<ActivityRefreshResponse> {
+    const days = Math.min(
+      request.days || ACTIVITY_CONSTANTS.MAX_LOOKBACK_DAYS,
+      ACTIVITY_CONSTANTS.MAX_LOOKBACK_DAYS
+    );
+    const endTime = new Date();
+    const fullWindowStart = subDays(endTime, days);
+
     try {
-      const days = Math.min(
-        request.days || ACTIVITY_CONSTANTS.MAX_LOOKBACK_DAYS,
-        ACTIVITY_CONSTANTS.MAX_LOOKBACK_DAYS
-      );
+      const existingCache = await this.cacheService.getActivityCache();
+      const isSchemaCurrent = existingCache?.schemaVersion === ACTIVITY_CACHE_SCHEMA_VERSION;
+      const watermarks: { [eventName: string]: string } =
+        (isSchemaCurrent && existingCache?.perEventNameWatermark) || {};
+      const isIncremental = isSchemaCurrent && Object.keys(watermarks).length > 0;
 
       logger.info('Starting activity refresh', {
         assetTypes: request.assetTypes,
         days,
+        mode: isIncremental ? 'incremental' : 'full',
+        watermarkCount: Object.keys(watermarks).length,
       });
 
-      // Step 1: Fetch new events from CloudTrail
-      const endTime = new Date();
-      const startTime = subDays(endTime, days);
-      const newEvents = await this.fetchEventsFromCloudTrail(
-        startTime,
+      const eventTypesToFetch = this.collectEventTypesToFetch(request.assetTypes);
+      const fetchResult = await this.fetchEventsFromCloudTrail({
         endTime,
-        request.assetTypes
-      );
+        fullWindowStart,
+        eventTypesToFetch,
+        watermarks: isIncremental ? watermarks : undefined,
+        signal: options.signal,
+        onEventNameProgress: options.onEventNameProgress,
+        onPhase: options.onPhase,
+      });
 
       logger.info('Fetched events from CloudTrail', {
-        eventCount: newEvents.length,
-        dateRange: { start: startTime, end: endTime },
+        eventCount: fetchResult.events.length,
+        successfulNames: fetchResult.eventTypesToFetch.length - fetchResult.failedEventNames.length,
+        failedNames: fetchResult.failedEventNames.length,
+        truncatedNames: fetchResult.truncatedEventNames.length,
       });
 
-      // Step 2: Build new cache with events
-      const updatedCache = this.buildActivityCache(newEvents, startTime, endTime);
+      options.onPhase?.('merge-and-persist');
 
-      // Step 3: Update persistence with latest activity dates
-      await this.updatePersistence(updatedCache);
+      const mergedCache = this.mergeEventsIntoCache({
+        existing: existingCache,
+        freshEvents: fetchResult.events,
+        updatedWatermarks: fetchResult.updatedWatermarks,
+        windowStart: fullWindowStart,
+        windowEnd: endTime,
+        isFullScan: !isIncremental,
+      });
 
-      // Step 4: Save cache
-      await this.cacheService.putActivityCache(updatedCache);
+      await this.updatePersistence(mergedCache);
+      await this.cacheService.putActivityCache(mergedCache);
 
-      // Step 5: Count affected items
-      const counts = this.countAffectedItems(updatedCache, request.assetTypes);
-
-      return {
-        success: true,
-        message: `Successfully refreshed activity data for ${counts.total} items`,
-        refreshed: counts.refreshed,
-      };
+      const counts = this.countAffectedItems(mergedCache, request.assetTypes);
+      return this.summarizeRefresh({
+        counts,
+        fetchResult,
+        aborted: options.signal?.aborted ?? false,
+      });
     } catch (error) {
       logger.error('Error refreshing activity', {
         error:
@@ -866,38 +940,6 @@ export class ActivityService {
     if (assets) {
       assets.add(assetId);
     }
-  }
-
-  /**
-   * Build activity cache from events
-   */
-  private buildActivityCache(
-    events: MinimalEvent[],
-    startTime: Date,
-    endTime: Date
-  ): ActivityCache {
-    // Group events by date
-    const eventsByDate: { [date: string]: MinimalEvent[] } = {};
-
-    for (const event of events) {
-      const datePart = event.t.split(ACTIVITY_CONSTANTS.DATE_SEPARATOR)[0];
-      if (datePart) {
-        if (!eventsByDate[datePart]) {
-          eventsByDate[datePart] = [];
-        }
-        eventsByDate[datePart].push(event);
-      }
-    }
-
-    return {
-      version: ACTIVITY_CONSTANTS.CACHE_VERSION,
-      lastUpdated: new Date().toISOString(),
-      dateRange: {
-        start: startTime.toISOString(),
-        end: endTime.toISOString(),
-      },
-      events: eventsByDate,
-    };
   }
 
   /**
@@ -1017,10 +1059,14 @@ export class ActivityService {
     if (!timestamp) {
       return null;
     }
+    // EventId is a stable UUID assigned by CloudTrail. Used for incremental
+    // dedup-on-merge so re-fetching the overlap window doesn't double-count.
+    const id = rawEvent?.EventId || event?.eventID;
     return {
-      t: timestamp,
+      t: typeof timestamp === 'string' ? timestamp : new Date(timestamp).toISOString(),
       e: eventType,
       u: this.extractUserName(event) || ACTIVITY_CONSTANTS.UNKNOWN_USER,
+      ...(typeof id === 'string' && id.length > 0 ? { id } : {}),
     };
   }
 
@@ -1061,6 +1107,31 @@ export class ActivityService {
       dashboards: dashboardsArray,
       analyses: analysesArray,
     };
+  }
+
+  /**
+   * Resolve the set of CloudTrail event names to fetch, given the requested
+   * assetTypes filter for views. Mutation events are always pulled in full
+   * since the timeline is a global feed.
+   */
+  private collectEventTypesToFetch(assetTypes: string[]): string[] {
+    const eventTypes = new Set<string>();
+    for (const assetType of assetTypes) {
+      if (assetType === 'all' || assetType === ASSET_TYPES.dashboard) {
+        ActivityService.DASHBOARD_EVENTS.forEach((e) => eventTypes.add(e));
+      }
+      if (assetType === 'all' || assetType === ASSET_TYPES.analysis) {
+        ActivityService.ANALYSIS_EVENTS.forEach((e) => eventTypes.add(e));
+      }
+      if (assetType === 'all' || assetType === ASSET_TYPES.user) {
+        ActivityService.DASHBOARD_EVENTS.forEach((e) => eventTypes.add(e));
+        ActivityService.ANALYSIS_EVENTS.forEach((e) => eventTypes.add(e));
+      }
+    }
+    for (const eventName of ALL_MUTATION_EVENT_NAMES) {
+      eventTypes.add(eventName);
+    }
+    return Array.from(eventTypes);
   }
 
   /**
@@ -1105,6 +1176,23 @@ export class ActivityService {
       dashboardViews,
       analysisViews,
     };
+  }
+
+  /**
+   * Per-event-name incremental window: max(watermark - 30min overlap, fullWindowStart).
+   * Cold cache (no watermark for this name) → full window.
+   */
+  private computeFetchWindowStart(
+    eventName: string,
+    fullWindowStart: Date,
+    watermarks?: { [eventName: string]: string }
+  ): Date {
+    const watermark = watermarks?.[eventName];
+    if (!watermark) {
+      return fullWindowStart;
+    }
+    const overlapped = subMinutes(new Date(watermark), ACTIVITY_LIMITS.INCREMENTAL_OVERLAP_MIN);
+    return overlapped > fullWindowStart ? overlapped : fullWindowStart;
   }
 
   /**
@@ -1354,54 +1442,151 @@ export class ActivityService {
   }
 
   /**
-   * Fetch events from CloudTrail: view events (filtered by requested asset
-   * types for backward compat) + the full mutation event list (always, since
-   * the timeline is global and a partial cache would be confusing).
+   * Fetch events from CloudTrail with bounded concurrency and per-event-name
+   * incremental windows.
+   *
+   * Concurrency=3 was validated: at the 2 req/s CloudTrail rate limit, more
+   * than 3-4 in flight just queues inside the token bucket. The win is from
+   * overlapping each call's RTT (~150–300ms) with the next token's refill.
+   *
+   * Per-name failures are caught; the result reports them so the caller can
+   * decide whether to mark the job successful, partial, or failed. The
+   * failed names' watermarks are NOT advanced — they retry on next refresh.
    */
-  private async fetchEventsFromCloudTrail(
-    startTime: Date,
-    endTime: Date,
-    assetTypes: string[]
-  ): Promise<MinimalEvent[]> {
-    const allEvents: MinimalEvent[] = [];
-    const eventTypesToFetch = new Set<string>();
+  private async fetchEventsFromCloudTrail(args: {
+    endTime: Date;
+    fullWindowStart: Date;
+    eventTypesToFetch: string[];
+    watermarks?: { [eventName: string]: string };
+    signal?: AbortSignal;
+    onEventNameProgress?: (progress: EventNameProgress) => void;
+    onPhase?: ActivityRefreshOptions['onPhase'];
+  }): Promise<{
+    events: MinimalEvent[];
+    eventTypesToFetch: string[];
+    failedEventNames: string[];
+    truncatedEventNames: string[];
+    updatedWatermarks: { [eventName: string]: string };
+  }> {
+    const {
+      endTime,
+      fullWindowStart,
+      eventTypesToFetch,
+      watermarks,
+      signal,
+      onEventNameProgress,
+      onPhase,
+    } = args;
 
-    // View events — filtered by requested asset types (existing behavior).
-    for (const assetType of assetTypes) {
-      if (assetType === 'all' || assetType === ASSET_TYPES.dashboard) {
-        ActivityService.DASHBOARD_EVENTS.forEach((e) => eventTypesToFetch.add(e));
-      }
-      if (assetType === 'all' || assetType === ASSET_TYPES.analysis) {
-        ActivityService.ANALYSIS_EVENTS.forEach((e) => eventTypesToFetch.add(e));
-      }
-      // User activity derives from view events
-      if (assetType === 'all' || assetType === ASSET_TYPES.user) {
-        ActivityService.DASHBOARD_EVENTS.forEach((e) => eventTypesToFetch.add(e));
-        ActivityService.ANALYSIS_EVENTS.forEach((e) => eventTypesToFetch.add(e));
-      }
-    }
-
-    // Mutation events — always pull the full set.
-    for (const eventName of ALL_MUTATION_EVENT_NAMES) {
-      eventTypesToFetch.add(eventName);
-    }
+    const viewEventNames = new Set<string>([
+      ...ActivityService.DASHBOARD_EVENTS,
+      ...ActivityService.ANALYSIS_EVENTS,
+    ]);
+    const viewNames = eventTypesToFetch.filter((n) => viewEventNames.has(n));
+    const mutationNames = eventTypesToFetch.filter((n) => !viewEventNames.has(n));
 
     logger.info('Fetching CloudTrail events', {
-      totalEventTypes: eventTypesToFetch.size,
-      viewTypes: ActivityService.DASHBOARD_EVENTS.length + ActivityService.ANALYSIS_EVENTS.length,
-      mutationTypes: ALL_MUTATION_EVENT_NAMES.length,
+      totalEventTypes: eventTypesToFetch.length,
+      viewTypes: viewNames.length,
+      mutationTypes: mutationNames.length,
+      mode: watermarks ? 'incremental' : 'full',
     });
 
-    for (const eventType of Array.from(eventTypesToFetch)) {
-      const rawEvents = await this.cloudTrailAdapter.getEventsByName(eventType, startTime, endTime);
-      if (!rawEvents || rawEvents.length === 0) {
-        continue;
+    const allEvents: MinimalEvent[] = [];
+    const failedEventNames: string[] = [];
+    const truncatedEventNames: string[] = [];
+    const updatedWatermarks: { [eventName: string]: string } = {};
+    const limit = pLimit(ACTIVITY_LIMITS.REFRESH_CONCURRENCY);
+
+    const fetchOne = async (eventName: string): Promise<void> => {
+      if (signal?.aborted) {
+        return;
       }
-      const minimalEvents = this.convertToMinimalEvents(rawEvents, eventType);
-      allEvents.push(...minimalEvents);
+      const startTime = this.computeFetchWindowStart(eventName, fullWindowStart, watermarks);
+      let lastStats: CloudTrailFetchStats | undefined;
+      try {
+        const rawEvents = await this.cloudTrailAdapter.getEventsByName(
+          eventName,
+          startTime,
+          endTime,
+          {
+            signal,
+            onStats: (s) => {
+              lastStats = s;
+            },
+          }
+        );
+        const minimal = this.convertToMinimalEvents(rawEvents || [], eventName);
+        allEvents.push(...minimal);
+
+        // Advance watermark to the latest EventTime we successfully ingested.
+        const latest = minimal.reduce<string | undefined>(
+          (max, e) => (max === undefined || e.t > max ? e.t : max),
+          watermarks?.[eventName]
+        );
+        if (latest) {
+          updatedWatermarks[eventName] = latest;
+        } else {
+          // No new events — bump watermark to endTime so we don't re-scan
+          // the same empty window forever. Capped at endTime, not future.
+          updatedWatermarks[eventName] = endTime.toISOString();
+        }
+
+        if (lastStats?.truncated) {
+          truncatedEventNames.push(eventName);
+        }
+
+        onEventNameProgress?.({
+          eventName,
+          success: true,
+          durationMs: lastStats?.durationMs ?? 0,
+          events: minimal.length,
+          truncated: !!lastStats?.truncated,
+        });
+      } catch (error) {
+        if (error instanceof JobAbortedError) {
+          // Don't count aborts as failures — caller decides outcome.
+          return;
+        }
+        failedEventNames.push(eventName);
+        const message = error instanceof Error ? error.message : String(error);
+        logger.warn(`CloudTrail fetch failed for ${eventName}; continuing`, { error: message });
+        onEventNameProgress?.({
+          eventName,
+          success: false,
+          durationMs: lastStats?.durationMs ?? 0,
+          events: 0,
+          truncated: false,
+          error: message,
+        });
+      }
+    };
+
+    if (viewNames.length > 0) {
+      onPhase?.('fetch-views', { total: viewNames.length });
+      await Promise.all(viewNames.map((name) => limit(() => fetchOne(name))));
+    }
+    if (signal?.aborted) {
+      return {
+        events: allEvents,
+        eventTypesToFetch,
+        failedEventNames,
+        truncatedEventNames,
+        updatedWatermarks,
+      };
+    }
+    if (mutationNames.length > 0) {
+      onPhase?.('fetch-mutations', { total: mutationNames.length });
+      await Promise.all(mutationNames.map((name) => limit(() => fetchOne(name))));
     }
 
-    return allEvents;
+    return {
+      events: allEvents,
+      eventTypesToFetch,
+      failedEventNames,
+      truncatedEventNames,
+      updatedWatermarks,
+    };
   }
 
   /**
@@ -1600,6 +1785,82 @@ export class ActivityService {
       : false;
   }
 
+  /**
+   * Merge a fresh batch of MinimalEvents into the existing date-bucketed cache,
+   * deduping by EventId within each date. Watermarks are merged additively
+   * (per-name, max of old and new). Existing legacy entries with no `id`
+   * survive untouched and are kept alongside new entries.
+   *
+   * On a full scan the existing event buckets are wiped before merge — there's
+   * no incremental anchor to preserve from. Watermarks are still copied forward
+   * since the fresh fetch produces fresh ones.
+   */
+  private mergeEventsIntoCache(args: {
+    existing: ActivityCache | null | undefined;
+    freshEvents: MinimalEvent[];
+    updatedWatermarks: { [eventName: string]: string };
+    windowStart: Date;
+    windowEnd: Date;
+    isFullScan: boolean;
+  }): ActivityCache {
+    const { existing, freshEvents, updatedWatermarks, windowStart, windowEnd, isFullScan } = args;
+
+    const seenIdsByDate = new Map<string, Set<string>>();
+    const eventsByDate: { [date: string]: MinimalEvent[] } =
+      isFullScan || !existing ? {} : { ...existing.events };
+
+    if (!isFullScan && existing) {
+      for (const [date, evts] of Object.entries(existing.events)) {
+        const ids = new Set<string>();
+        for (const e of evts) {
+          if (e.id) {
+            ids.add(e.id);
+          }
+        }
+        seenIdsByDate.set(date, ids);
+      }
+    }
+
+    for (const event of freshEvents) {
+      const datePart = event.t.split(ACTIVITY_CONSTANTS.DATE_SEPARATOR)[0];
+      if (!datePart) {
+        continue;
+      }
+      if (event.id) {
+        const seen = seenIdsByDate.get(datePart) || new Set<string>();
+        if (seen.has(event.id)) {
+          continue;
+        }
+        seen.add(event.id);
+        seenIdsByDate.set(datePart, seen);
+      }
+      if (!eventsByDate[datePart]) {
+        eventsByDate[datePart] = [];
+      }
+      eventsByDate[datePart].push(event);
+    }
+
+    const mergedWatermarks: { [eventName: string]: string } = isFullScan
+      ? {}
+      : { ...(existing?.perEventNameWatermark || {}) };
+    for (const [name, ts] of Object.entries(updatedWatermarks)) {
+      const prev = mergedWatermarks[name];
+      mergedWatermarks[name] = prev && prev > ts ? prev : ts;
+    }
+
+    return {
+      version: ACTIVITY_CONSTANTS.CACHE_VERSION,
+      schemaVersion: ACTIVITY_CACHE_SCHEMA_VERSION,
+      lastUpdated: new Date().toISOString(),
+      dateRange: {
+        start: existing && !isFullScan ? existing.dateRange.start : windowStart.toISOString(),
+        end: windowEnd.toISOString(),
+      },
+      events: eventsByDate,
+      perEventNameWatermark: mergedWatermarks,
+    };
+  }
+
   /** Parse the nested CloudTrailEvent JSON and drop non-QuickSight events. */
   private parseCloudTrailEvent(rawEvent: any): any | null {
     let event = rawEvent;
@@ -1743,6 +2004,43 @@ export class ActivityService {
     }
 
     return { dashboards, analyses, activitiesByDate, totalActivities, lastActive };
+  }
+
+  /**
+   * Compute the success/message/refreshed shape returned to the caller.
+   * Extracted so refreshActivity stays under the max-statements lint cap.
+   */
+  private summarizeRefresh(args: {
+    counts: { total: number; refreshed: ActivityRefreshResponse['refreshed'] };
+    fetchResult: {
+      eventTypesToFetch: string[];
+      failedEventNames: string[];
+      truncatedEventNames: string[];
+    };
+    aborted: boolean;
+  }): ActivityRefreshResponse {
+    const { counts, fetchResult, aborted } = args;
+    const failedRatio =
+      fetchResult.failedEventNames.length / Math.max(1, fetchResult.eventTypesToFetch.length);
+    const success = !aborted && failedRatio < ActivityService.MAX_ACCEPTABLE_FAIL_RATIO;
+
+    let messageBase: string;
+    if (aborted) {
+      messageBase = 'Activity refresh aborted; partial results saved';
+    } else if (!success) {
+      messageBase = `Error refreshing activity: ${fetchResult.failedEventNames.length} of ${fetchResult.eventTypesToFetch.length} event types failed`;
+    } else {
+      messageBase = `Successfully refreshed activity data for ${counts.total} items`;
+    }
+    const warnings: string[] = [];
+    if (fetchResult.truncatedEventNames.length > 0) {
+      warnings.push(`${fetchResult.truncatedEventNames.length} event types hit pagination cap`);
+    }
+    if (success && fetchResult.failedEventNames.length > 0) {
+      warnings.push(`${fetchResult.failedEventNames.length} event types failed`);
+    }
+    const message = warnings.length > 0 ? `${messageBase} (${warnings.join('; ')})` : messageBase;
+    return { success, message, refreshed: counts.refreshed };
   }
 
   /** Convert a cached MinimalEvent to the wire-format TimelineEvent. */

@@ -101,11 +101,26 @@ export interface MinimalEvent {
   a?: ActionCategory; // derived action category (mutations only)
   at?: TimelineResourceType; // resource type this event targets — catalog asset type or 'other'
   m?: any; // metadata (optional, for future event types)
+  // Stable CloudTrail EventId (UUID). Optional for backward compat with
+  // pre-v2 cache entries that have no id; used for dedup on incremental merge.
+  id?: string;
 }
+
+/**
+ * Bumped when ActivityCache shape changes in a way that requires re-fetch.
+ * Schema v2 introduced perEventNameWatermark / id-based dedup. A cache read
+ * with a missing or older schemaVersion forces a full 90-day rescan.
+ */
+export const ACTIVITY_CACHE_SCHEMA_VERSION = 2;
 
 // Activity cache - stores raw events grouped by date
 export interface ActivityCache {
   version: string;
+  /**
+   * Cache schema version. Missing = pre-v2 (legacy) — read paths still work,
+   * but the next refresh runs a full scan and rewrites at the current version.
+   */
+  schemaVersion?: number;
   lastUpdated: string;
   dateRange: {
     start: string;
@@ -115,6 +130,13 @@ export interface ActivityCache {
   events: {
     [date: string]: MinimalEvent[]; // "2025-07-21": [...]
   };
+  /**
+   * Latest CloudTrail EventTime (ISO) successfully ingested per event-name.
+   * Drives incremental refresh: next fetch starts at watermark - overlap.
+   * Per-name (not global) so a transient failure on one event-name doesn't
+   * rewind everyone else.
+   */
+  perEventNameWatermark?: { [eventName: string]: string };
 }
 
 // Persistence cache - stores only last activity dates that persist forever

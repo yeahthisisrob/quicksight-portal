@@ -5,11 +5,13 @@ import { CloudTrailAdapter } from '../../../adapters/aws/CloudTrailAdapter';
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants/httpStatusCodes';
 import { ACTIVITY_LIMITS } from '../../../shared/constants/limits';
+import { S3Service } from '../../../shared/services/aws/S3Service';
 import { CacheService } from '../../../shared/services/cache/CacheService';
 import {
   jobFactory,
   type ActivityRefreshJobConfig,
 } from '../../../shared/services/jobs/JobFactory';
+import { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { LineageService } from '../../../shared/services/lineage';
 import { type AssetType } from '../../../shared/types/assetTypes';
 import { createResponse, successResponse, errorResponse } from '../../../shared/utils/cors';
@@ -69,6 +71,30 @@ export async function refreshActivity(event: APIGatewayProxyEvent): Promise<APIG
 
     const accountId = process.env.AWS_ACCOUNT_ID || '';
     const bucketName = process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`;
+
+    // Single-flight: if an activity-refresh job is already queued or in flight,
+    // return its jobId rather than enqueuing a duplicate. The FE polls by
+    // jobId, so "click refresh again" naturally follows the existing job.
+    const jobStateService = new JobStateService(
+      new S3Service(accountId),
+      bucketName,
+      'activity-refresh'
+    );
+    const [existing] = await jobStateService.getActiveJobs();
+    if (existing) {
+      logger.info('Active activity-refresh job exists; returning its id instead of enqueuing', {
+        existingJobId: existing.jobId,
+      });
+      return createResponse(event, STATUS_CODES.OK, {
+        success: true,
+        data: {
+          jobId: existing.jobId,
+          status: existing.status,
+          message:
+            'An activity refresh is already running; returning the existing job. Poll status endpoint for updates.',
+        },
+      });
+    }
 
     // Create job configuration
     const jobConfig: ActivityRefreshJobConfig = {

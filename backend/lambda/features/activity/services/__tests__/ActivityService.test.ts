@@ -470,9 +470,13 @@ describe('ActivityService - refreshActivity', () => {
 
       const result = await activityService.refreshActivity(request);
 
+      // Per-event-name failures don't abort the whole refresh — they're
+      // collected and reported. With every fetch rejecting, fail-ratio
+      // crosses MAX_ACCEPTABLE_FAIL_RATIO so success flips to false and
+      // the message names the failure. logger.warn fires per name.
       expect(result.success).toBe(false);
       expect(result.message).toContain('Error refreshing activity');
-      expect(logger.error).toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalled();
     });
 
     it('should fetch events for all asset types when requested', async () => {
@@ -486,21 +490,25 @@ describe('ActivityService - refreshActivity', () => {
 
       await activityService.refreshActivity(request);
 
-      // Should fetch both dashboard and analysis events
+      // Should fetch both dashboard and analysis events. The 4th argument is
+      // the options object (signal/onStats) added in the parallel-fetch refactor.
       expect(mockCloudTrailAdapter.getEventsByName).toHaveBeenCalledWith(
         'GetDashboard',
         expect.any(Date),
-        expect.any(Date)
+        expect.any(Date),
+        expect.any(Object)
       );
       expect(mockCloudTrailAdapter.getEventsByName).toHaveBeenCalledWith(
         'GetDashboardEmbedUrl',
         expect.any(Date),
-        expect.any(Date)
+        expect.any(Date),
+        expect.any(Object)
       );
       expect(mockCloudTrailAdapter.getEventsByName).toHaveBeenCalledWith(
         'GetAnalysis',
         expect.any(Date),
-        expect.any(Date)
+        expect.any(Date),
+        expect.any(Object)
       );
     });
   });

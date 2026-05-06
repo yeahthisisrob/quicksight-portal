@@ -1,8 +1,8 @@
 import { Refresh as RefreshIcon } from '@mui/icons-material';
-import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
 import { formatDistanceToNow } from 'date-fns';
 
-import { TimelineFeed, useActivityRefresh } from '@/features/activity';
+import { ActivityRefreshProgress, TimelineFeed, useActivityRefresh } from '@/features/activity';
 
 import { PageLayout } from '@/shared/ui';
 
@@ -12,11 +12,13 @@ import { PageLayout } from '@/shared/ui';
  * the activity cache was last refreshed plus a button to trigger a new refresh.
  */
 export default function ActivityTimelinePage() {
-  const { refreshing, refreshActivity } = useActivityRefresh();
+  const { refreshing, refreshActivity, jobStatus } = useActivityRefresh();
 
   const handleRefresh = () => {
     refreshActivity({ assetTypes: ['all'], days: 90 });
   };
+
+  const showProgress = refreshing || jobStatus?.status === 'completed' || jobStatus?.status === 'failed' || jobStatus?.status === 'stopped';
 
   return (
     <PageLayout title="Activity Timeline">
@@ -75,11 +77,10 @@ export default function ActivityTimelinePage() {
           )}
         />
       </Box>
-      {refreshing && (
-        <Alert severity="info" sx={{ mt: 2 }}>
-          Activity refresh queued. The timeline will update automatically when the job completes
-          (CloudTrail sweep typically takes 2–10 minutes depending on account activity).
-        </Alert>
+      {showProgress && (
+        <Box sx={{ mt: 2 }}>
+          <ActivityRefreshProgress jobStatus={jobStatus} />
+        </Box>
       )}
     </PageLayout>
   );

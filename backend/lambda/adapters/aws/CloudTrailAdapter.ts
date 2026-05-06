@@ -6,10 +6,32 @@ import {
 } from '@aws-sdk/client-cloudtrail';
 import { subDays } from 'date-fns';
 
+import { ACTIVITY_LIMITS } from '../../shared/constants';
 import { withRetry } from '../../shared/utils/awsRetry';
 import { QUICKSIGHT_USER_ACTIVITY_EVENTS } from '../../shared/utils/constants';
 import { logger } from '../../shared/utils/logger';
 import { cloudTrailRateLimiter } from '../../shared/utils/rateLimiter';
+
+export class JobAbortedError extends Error {
+  public readonly aborted = true;
+  constructor(message = 'CloudTrail fetch aborted') {
+    super(message);
+    this.name = 'JobAbortedError';
+  }
+}
+
+/**
+ * Per-event-name fetch metrics. Logged at info level after each call so
+ * CloudWatch Insights can answer "which event-names dominate refresh time?"
+ * without a separate metric pipeline.
+ */
+export interface CloudTrailFetchStats {
+  eventName: string;
+  durationMs: number;
+  events: number;
+  pages: number;
+  truncated: boolean;
+}
 
 /**
  * CloudTrail adapter constants
@@ -496,22 +518,33 @@ export class CloudTrailAdapter {
    * @param eventName The CloudTrail event name to search for
    * @param startTime Start of the time range
    * @param endTime End of the time range
+   * @param options.signal Abort signal — checked between pages; throws JobAbortedError when set
+   * @param options.onStats Optional callback invoked once after the fetch completes (or aborts)
    * @returns Array of CloudTrail events
    */
   public async getEventsByName(
     eventName: string,
     startTime: Date,
-    endTime: Date
+    endTime: Date,
+    options: { signal?: AbortSignal; onStats?: (stats: CloudTrailFetchStats) => void } = {}
   ): Promise<CloudTrailEvent[]> {
+    const { signal, onStats } = options;
     const events: CloudTrailEvent[] = [];
+    const fetchStart = Date.now();
+    let nextToken: string | undefined;
+    let pageCount = 0;
+    let truncated = false;
+    const maxPages =
+      CLOUDTRAIL_CONSTANTS.MAX_PAGES_PER_QUERY * CLOUDTRAIL_CONSTANTS.PAGE_MULTIPLIER;
 
     try {
-      let nextToken: string | undefined;
-      let pageCount = 0;
-      const maxPages =
-        CLOUDTRAIL_CONSTANTS.MAX_PAGES_PER_QUERY * CLOUDTRAIL_CONSTANTS.PAGE_MULTIPLIER; // CloudTrail allows up to 50 results per page, no documented max pages
-
       do {
+        if (signal?.aborted) {
+          throw new JobAbortedError(
+            `Aborted before fetching page ${pageCount + 1} of ${eventName}`
+          );
+        }
+
         const params: LookupEventsCommandInput = {
           StartTime: startTime,
           EndTime: endTime,
@@ -534,7 +567,8 @@ export class CloudTrailAdapter {
 
         const response = await withRetry(
           () => this.client.send(new LookupEventsCommand(params)),
-          'CloudTrail.LookupEvents'
+          'CloudTrail.LookupEvents',
+          { maxRetries: ACTIVITY_LIMITS.CLOUDTRAIL_MAX_RETRIES }
         );
 
         if (response.Events) {
@@ -545,10 +579,21 @@ export class CloudTrailAdapter {
         pageCount++;
       } while (nextToken && pageCount < maxPages);
 
+      truncated = !!nextToken && pageCount >= maxPages;
       logger.info(`Found total of ${events.length} ${eventName} events across ${pageCount} pages`);
     } catch (error) {
-      logger.error(`Error fetching ${eventName} events:`, error);
+      if (!(error instanceof JobAbortedError)) {
+        logger.error(`Error fetching ${eventName} events:`, error);
+      }
       throw error;
+    } finally {
+      onStats?.({
+        eventName,
+        durationMs: Date.now() - fetchStart,
+        events: events.length,
+        pages: pageCount,
+        truncated,
+      });
     }
 
     return events;
