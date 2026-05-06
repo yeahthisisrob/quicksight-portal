@@ -38,6 +38,14 @@ check-frontend:
     just check-storybook
     @echo "✅ Frontend checks passed!"
 
+# Launch Storybook dev server (port 6006)
+storybook:
+    cd frontend && npm run storybook
+
+# Build the static Storybook bundle
+storybook-build:
+    cd frontend && npm run build-storybook
+
 # Storybook checks - smoke test all stories
 check-storybook:
     @echo "📚 Checking Storybook stories..."

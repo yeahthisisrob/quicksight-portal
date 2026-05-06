@@ -8,9 +8,12 @@ import {
   type JobType,
   type JobMetadata,
   type JobLog as RepoJobLog,
+  type JobPhase,
 } from './JobRepository';
 import { type S3Service } from '../../../shared/services/aws/S3Service';
 import { QUICKSIGHT_LIMITS, MATH_CONSTANTS } from '../../constants';
+
+export type { JobPhase, JobPhaseStatus } from './JobRepository';
 
 export interface JobStatus {
   jobId: string;
@@ -26,6 +29,7 @@ export interface JobStatus {
     failedAssets?: number;
     operations?: Record<string, number>; // Generic operation counter
   };
+  phases?: JobPhase[];
   error?: string;
   stopRequested?: boolean;
 }
@@ -67,6 +71,23 @@ export class JobStateService {
    */
   public async cleanupStuckJobs(timeoutMinutes: number = 30): Promise<number> {
     return await this.repository.cleanupStuckJobs(timeoutMinutes);
+  }
+
+  /**
+   * Mark a phase complete/failed/skipped, stamping finishedAt.
+   */
+  public async completePhase(
+    jobId: string,
+    key: string,
+    status: 'completed' | 'failed' | 'skipped' = 'completed',
+    message?: string
+  ): Promise<void> {
+    await this.mutatePhase(jobId, key, (phase) => ({
+      ...phase,
+      status,
+      finishedAt: new Date().toISOString(),
+      message: message ?? phase.message,
+    }));
   }
 
   /**
@@ -142,6 +163,7 @@ export class JobStateService {
       endTime: metadata.endTime,
       duration: metadata.duration,
       stats: metadata.stats,
+      phases: metadata.phases,
       error: metadata.error,
       stopRequested: metadata.stopRequested,
     };
@@ -169,6 +191,19 @@ export class JobStateService {
         operations,
       },
     });
+  }
+
+  /**
+   * Initialize phase tracking for a job. Idempotent — if phases already
+   * exist on the job they're left alone (e.g. resume after worker crash).
+   */
+  public async initPhases(jobId: string, phaseKeys: string[]): Promise<void> {
+    const job = await this.getJobStatus(jobId);
+    if (!job || (job.phases && job.phases.length > 0)) {
+      return;
+    }
+    const phases: JobPhase[] = phaseKeys.map((key) => ({ key, status: 'pending' }));
+    await this.updateJobStatus(jobId, { phases });
   }
 
   /**
@@ -231,6 +266,24 @@ export class JobStateService {
   }
 
   /**
+   * Mark a phase in_progress, stamping startedAt. Other phases are left untouched.
+   * If the phase is already in a terminal state, this is a no-op.
+   */
+  public async startPhase(jobId: string, key: string, message?: string): Promise<void> {
+    await this.mutatePhase(jobId, key, (phase) => {
+      if (phase.status === 'completed' || phase.status === 'failed' || phase.status === 'skipped') {
+        return phase;
+      }
+      return {
+        ...phase,
+        status: 'in_progress',
+        startedAt: phase.startedAt || new Date().toISOString(),
+        message: message ?? phase.message,
+      };
+    });
+  }
+
+  /**
    * Update asset progress
    */
   public async updateAssetProgress(
@@ -255,5 +308,36 @@ export class JobStateService {
    */
   public async updateJobStatus(jobId: string, updates: Partial<JobStatus>): Promise<void> {
     await this.repository.updateJob(jobId, updates as Partial<JobMetadata>);
+  }
+
+  /**
+   * Merge counts into a phase. Pass partial counts — existing fields are preserved.
+   */
+  public async updatePhaseCounts(
+    jobId: string,
+    key: string,
+    counts: NonNullable<JobPhase['counts']>
+  ): Promise<void> {
+    await this.mutatePhase(jobId, key, (phase) => ({
+      ...phase,
+      counts: { ...(phase.counts || {}), ...counts },
+    }));
+  }
+
+  /**
+   * Read-modify-write a single phase by key. No-op if phases are not initialized
+   * or the key is missing. Single read-write keeps S3 round-trips minimal.
+   */
+  private async mutatePhase(
+    jobId: string,
+    key: string,
+    transform: (phase: JobPhase) => JobPhase
+  ): Promise<void> {
+    const job = await this.getJobStatus(jobId);
+    if (!job?.phases) {
+      return;
+    }
+    const phases = job.phases.map((p) => (p.key === key ? transform(p) : p));
+    await this.updateJobStatus(jobId, { phases });
   }
 }

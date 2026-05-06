@@ -3,6 +3,22 @@ import { ApiResponse } from '../types';
 
 export type JobType = 'export' | 'deploy' | 'ingestion' | 'rebuild' | 'activity-refresh';
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';
+export type JobPhaseStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';
+
+export interface JobPhase {
+  key: string;
+  status: JobPhaseStatus;
+  startedAt?: string;
+  finishedAt?: string;
+  message?: string;
+  counts?: {
+    processed?: number;
+    total?: number;
+    newEvents?: number;
+    truncated?: number;
+    errors?: number;
+  };
+}
 
 export interface JobMetadata {
   jobId: string;
@@ -15,13 +31,13 @@ export interface JobMetadata {
   duration?: number;
   userId?: string;
   accountId?: string;
-  
+
   // Type-specific metadata
   assetType?: string;
   assetId?: string;
   deploymentType?: string;
   exportOptions?: any;
-  
+
   // Stats
   stats?: {
     totalAssets?: number;
@@ -29,11 +45,14 @@ export interface JobMetadata {
     failedAssets?: number;
     operations?: Record<string, number>; // Generic operation tracking
   };
-  
+
+  // Optional step-based progress for multi-phase jobs (e.g. activity-refresh).
+  phases?: JobPhase[];
+
   // Error info
   error?: string;
   errorStack?: string;
-  
+
   // Control flags
   stopRequested?: boolean;
 }

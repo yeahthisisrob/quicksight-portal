@@ -52,6 +52,12 @@ export const ACTIVITY_LIMITS = {
   MAX_ACTIVITY_DAYS: 90,
   MAX_HISTORY_ENTRIES: 500,
   ACTIVITY_BATCH_SIZE: 50,
+  REFRESH_CONCURRENCY: 3,
+  // Lookback applied to per-event-name watermark to cover CloudTrail's
+  // up-to-15-minute propagation delay plus refresh-clock skew.
+  INCREMENTAL_OVERLAP_MIN: 30,
+  CLOUDTRAIL_MAX_RETRIES: 5,
+  ABORT_POLL_INTERVAL_MS: 2000,
 } as const;
 
 // Rate limiter configuration

@@ -10,7 +10,15 @@ import importPlugin from 'eslint-plugin-import';
 import boundaries from 'eslint-plugin-boundaries';
 
 export default [{
-  ignores: ['dist/**', 'node_modules/**', '*.js', '*.d.ts', '*.cjs', 'vite.config.ts'],
+  ignores: [
+    'dist/**',
+    'node_modules/**',
+    'storybook-static/**',
+    '*.js',
+    '*.d.ts',
+    '*.cjs',
+    'vite.config.ts',
+  ],
 }, {
   files: ['**/*.{ts,tsx}'],
   languageOptions: {

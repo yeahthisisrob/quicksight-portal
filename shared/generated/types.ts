@@ -3079,6 +3079,28 @@ export interface components {
          * @enum {string}
          */
         JobStatus: "queued" | "processing" | "completed" | "failed" | "stopping" | "stopped";
+        /** @description One step of a multi-phase job. Optional. Jobs that report phases
+         *     emit a fixed-length array; status transitions monotonically
+         *     (pending → in_progress → completed/failed/skipped).
+         *      */
+        JobPhase: {
+            /** @description Stable phase identifier (e.g. fetch-views, fetch-mutations) */
+            key: string;
+            /** @enum {string} */
+            status: "pending" | "in_progress" | "completed" | "failed" | "skipped";
+            /** Format: date-time */
+            startedAt?: string | null;
+            /** Format: date-time */
+            finishedAt?: string | null;
+            message?: string | null;
+            counts?: {
+                processed?: number;
+                total?: number;
+                newEvents?: number;
+                truncated?: number;
+                errors?: number;
+            } | null;
+        };
         ExportJobStatus: {
             success: boolean;
             data: {
@@ -3100,6 +3122,10 @@ export interface components {
                     failedAssets?: number;
                     apiCalls?: number;
                 };
+                /** @description Optional step-based progress. Present for jobs that emit phases
+                 *     (e.g. activity-refresh). Older job types omit this field.
+                 *      */
+                phases?: components["schemas"]["JobPhase"][];
             };
         };
         ExportJobList: {

@@ -18,6 +18,28 @@ export type JobType =
   | 'csv-export';
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';
 
+export type JobPhaseStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';
+
+/**
+ * Optional step-based progress reported alongside the global percent.
+ * Job types opt in by emitting a fixed-length array of phases — others
+ * leave it undefined and consumers fall back to the linear progress bar.
+ */
+export interface JobPhase {
+  key: string;
+  status: JobPhaseStatus;
+  startedAt?: string;
+  finishedAt?: string;
+  message?: string;
+  counts?: {
+    processed?: number;
+    total?: number;
+    newEvents?: number;
+    truncated?: number;
+    errors?: number;
+  };
+}
+
 export interface JobMetadata {
   jobId: string;
   jobType: JobType;
@@ -43,6 +65,9 @@ export interface JobMetadata {
     failedAssets?: number;
     operations?: Record<string, number>; // Generic operation tracking
   };
+
+  // Optional step-based progress for multi-phase jobs (e.g. activity-refresh).
+  phases?: JobPhase[];
 
   // Error info
   error?: string;
