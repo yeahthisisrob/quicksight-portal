@@ -1673,6 +1673,8 @@ export interface paths {
                     excludeTags?: string;
                     /** @description JSON array of asset IDs to filter by, e.g. ["dash-123","ds-456"]. Only fields from these assets are returned. */
                     assetIds?: string;
+                    /** @description Catalog source scope. By default the catalog reflects the business-facing layer (datasets + dashboards). Set true to also include analyses (the authoring layer); datasets are always included. */
+                    includeAnalyses?: boolean;
                 };
                 header?: never;
                 path?: never;
@@ -3273,12 +3275,34 @@ export interface components {
             }[];
             dependencies?: string[];
             lastUpdated?: string;
-            sources?: Record<string, never>[];
-            variants?: Record<string, never>[];
+            sources?: components["schemas"]["CatalogFieldSource"][];
+            variants?: components["schemas"]["CatalogFieldSource"][];
             hasVariants?: boolean;
             usageCount?: number;
             analysisCount?: number;
             dashboardCount?: number;
+            datasetCount?: number;
+            /** @description Trimmed character length of the representative expression. */
+            expressionLength?: number;
+            /** @description Whether any in-scope variant of this calculated field contains author comments. */
+            hasComments?: boolean;
+            /** @description Field names referenced by this calculated field's expression(s). */
+            fieldReferences?: string[];
+            /** @description True when the same field name resolves to more than one distinct expression across assets. */
+            hasExpressionConflict?: boolean;
+            /** @description Number of distinct expressions found for this field name. */
+            conflictCount?: number;
+            /** @description Names of calculated fields that reference this field (reverse lineage). */
+            usedBy?: string[];
+        };
+        CatalogFieldSource: {
+            assetType?: string;
+            assetId?: string;
+            assetName?: string;
+            datasetId?: string;
+            datasetName?: string;
+            dataType?: string;
+            lastUpdated?: string;
         };
         DataCatalogResponse: {
             items?: components["schemas"]["CatalogField"][];
@@ -3299,6 +3323,9 @@ export interface components {
                 fieldsByDataType?: {
                     [key: string]: number;
                 };
+                fieldsWithComments?: number;
+                fieldsWithConflicts?: number;
+                avgExpressionLength?: number;
                 /** Format: date-time */
                 lastUpdated?: string;
                 processingTimeMs?: number;

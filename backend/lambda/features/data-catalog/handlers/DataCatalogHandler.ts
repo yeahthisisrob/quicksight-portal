@@ -145,8 +145,15 @@ export class DataCatalogHandler {
       await requireAuth(event);
 
       const params = this.extractPaginationParams(event);
-      const { viewMode, forceRebuild, tagFilter, includeTags, excludeTags, assetIds } =
-        this.extractFilterParams(event);
+      const {
+        viewMode,
+        forceRebuild,
+        tagFilter,
+        includeTags,
+        excludeTags,
+        assetIds,
+        includeAnalyses,
+      } = this.extractFilterParams(event);
 
       logger.info('Getting data catalog paginated', {
         ...params,
@@ -156,13 +163,15 @@ export class DataCatalogHandler {
         includeTags,
         excludeTags,
         assetIds,
+        includeAnalyses,
       });
 
       const catalog = await this.catalogService.getDataCatalog(
         tagFilter,
         includeTags,
         excludeTags,
-        assetIds
+        assetIds,
+        { includeAnalyses }
       );
       if (!catalog) {
         return this.createEmptyResponse(event, params);
@@ -561,9 +570,13 @@ export class DataCatalogHandler {
     includeTags?: Array<{ key: string; value: string }>;
     excludeTags?: Array<{ key: string; value: string }>;
     assetIds?: string[];
+    includeAnalyses: boolean;
   } {
     const viewMode = event.queryStringParameters?.viewMode || 'all';
     const forceRebuild = event.queryStringParameters?.forceRebuild === 'true';
+    // Default catalog scope is the business-facing layer (datasets + dashboards).
+    // Analyses (the authoring layer) are opt-in via includeAnalyses=true.
+    const includeAnalyses = event.queryStringParameters?.includeAnalyses === 'true';
 
     // Legacy single tag filter (backwards compatible)
     const tagKey = event.queryStringParameters?.tagKey;
@@ -589,7 +602,15 @@ export class DataCatalogHandler {
       logger.warn('Failed to parse filter parameters', { error });
     }
 
-    return { viewMode, forceRebuild, tagFilter, includeTags, excludeTags, assetIds };
+    return {
+      viewMode,
+      forceRebuild,
+      tagFilter,
+      includeTags,
+      excludeTags,
+      assetIds,
+      includeAnalyses,
+    };
   }
 
   /**

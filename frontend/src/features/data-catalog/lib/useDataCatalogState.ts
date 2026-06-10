@@ -32,6 +32,8 @@ export function useDataCatalogState() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
+  // Source scope: false = datasets + dashboards (business-facing default), true = also analyses.
+  const [includeAnalyses, setIncludeAnalyses] = useState(false);
   
   const [dialogState, setDialogState] = useState<DialogState>({
     selectedTerm: null,
@@ -61,6 +63,11 @@ export function useDataCatalogState() {
     setPage(0);
     setSortModel([]);
   }, [viewMode]);
+
+  // Reset to first page when the source scope changes (result set size changes).
+  useEffect(() => {
+    setPage(0);
+  }, [includeAnalyses]);
 
   const updateDialogState = (updates: Partial<DialogState>) => {
     setDialogState(prev => ({ ...prev, ...updates }));
@@ -143,6 +150,8 @@ export function useDataCatalogState() {
     setPageSize,
     sortModel,
     setSortModel,
+    includeAnalyses,
+    setIncludeAnalyses,
     dialogState,
     openDialog,
     closeDialog,

@@ -116,6 +116,7 @@ function DataCatalogPageContent() {
     includeTags: debouncedIncludeTags,
     excludeTags: debouncedExcludeTags,
     assetIds: debouncedAssetIds,
+    includeAnalyses: state.includeAnalyses,
   });
 
   const handlers = useDataCatalogHandlers();
@@ -181,6 +182,8 @@ function DataCatalogPageContent() {
         selectedAssets={selectedAssets}
         onSelectedAssetsChange={setSelectedAssets}
         assetsLoading={assetsLoading}
+        includeAnalyses={state.includeAnalyses}
+        onIncludeAnalysesChange={state.setIncludeAnalyses}
       />
       
       <DataCatalogStats

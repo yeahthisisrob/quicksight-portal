@@ -27,6 +27,7 @@ export const dataCatalogApi = {
     includeTags?: string; // JSON stringified array of {key, value}
     excludeTags?: string; // JSON stringified array of {key, value}
     assetIds?: string; // JSON stringified array of asset IDs
+    includeAnalyses?: boolean; // Source scope: include the authoring (analyses) layer
   }): Promise<any> {
     try {
       const response = await apiClient.get<ApiResponse<any>>('/data-catalog', { 

@@ -30,6 +30,9 @@ const mockData: CalculatedFieldRow[] = [
     dataType: 'DECIMAL',
     isCalculated: true,
     hasVariants: true,
+    hasExpressionConflict: true,
+    conflictCount: 3,
+    usedBy: ['weighted_margin', 'margin_alert'],
     expression: '({revenue} - {cost}) / {revenue} * 100',
     expressionLength: 42,
     hasComments: true,
@@ -221,15 +224,16 @@ export const ExpressionLengthVariants: Story = {
   },
 };
 
-export const FieldsWithVariants: Story = {
+export const FieldsWithConflicts: Story = {
   render: () => {
     const columns = createCalculatedColumns(defaultCallbacks);
-    const filteredData = mockData.filter((d) => d.hasVariants);
+    const filteredData = mockData.filter((d) => d.hasExpressionConflict);
     return (
-      <StorySection title="Fields with Expression Variants">
+      <StorySection title="Fields with Expression Conflicts">
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Fields with different expressions across assets show a warning icon
-          and variants button
+          When the same field name resolves to more than one distinct expression
+          across assets, the field name shows a red conflict icon and the
+          expression cell shows a "N conflicting expressions" button.
         </Typography>
         <Box sx={{ height: 300, width: '100%' }}>
           <DataGrid

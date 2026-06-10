@@ -68,7 +68,72 @@ export interface CatalogField {
   usageCount?: number;
   analysisCount?: number;
   dashboardCount?: number;
+  datasetCount?: number;
   lastModified?: string;
+  // Calculated-field analysis (computed at index build time)
+  expressionLength?: number;
+  hasComments?: boolean;
+  fieldReferences?: string[];
+  hasExpressionConflict?: boolean;
+  conflictCount?: number;
+  /** Names of calculated fields that reference this field (reverse lineage). */
+  usedBy?: string[];
+}
+
+/**
+ * Which source asset types contribute to the catalog view.
+ * Datasets are always present (they are the field-definition layer); dashboards
+ * are the business-facing layer (default); analyses are the authoring layer (opt-in).
+ */
+export interface CatalogSourceScope {
+  includeAnalyses: boolean;
+}
+
+/**
+ * A single occurrence of a field within one source asset, captured at index
+ * build time. The serve layer filters these by scope and re-aggregates.
+ */
+export interface IndexedFieldSource {
+  assetType: string;
+  assetId: string;
+  assetName: string;
+  datasetId?: string;
+  datasetName?: string;
+  dataType: string;
+  lastUpdated: string;
+  isCalculated: boolean;
+  expression?: string;
+  // Baked per-source expression analysis (calculated sources only)
+  expressionLength?: number;
+  hasComments?: boolean;
+  fieldReferences?: string[];
+}
+
+/**
+ * One distinct field name with all its per-source occurrences and asset tags.
+ */
+export interface IndexedCatalogField {
+  fieldName: string;
+  description?: string;
+  tags?: Array<{ key: string; value: string }>;
+  perSource: IndexedFieldSource[];
+}
+
+/**
+ * Pre-computed, indexed catalog artifact persisted to S3 (catalog/catalog-index.json).
+ * Heavy work (grouping, expression parsing, reverse lineage) is baked in here so
+ * serving a page is a cheap scope-filter + re-aggregation.
+ */
+export interface CatalogIndex {
+  version: string;
+  builtAt: string;
+  fields: IndexedCatalogField[];
+  /** fieldName -> calculated field names that reference it. */
+  lineage: Record<string, string[]>;
+  summary: {
+    totalDistinctFields: number;
+    builtFromFieldCount: number;
+  };
 }
 
 export interface VisualFieldName {
@@ -96,6 +161,9 @@ export interface DataCatalogResult {
     calculatedAnalysisFields: number;
     visualFields: number;
     fieldsByDataType?: Record<string, number>;
+    fieldsWithComments?: number;
+    fieldsWithConflicts?: number;
+    avgExpressionLength?: number;
     lastUpdated: Date;
     processingTimeMs: number;
   };
