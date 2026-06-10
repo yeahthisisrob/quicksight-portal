@@ -110,7 +110,11 @@ export default function UnifiedFieldDetailsDialog({
   const currentExpression = hasVariants && field.expressions
     ? field.expressions[selectedVariant]?.expression 
     : field.expression;
-  const fieldReferences = currentExpression ? extractFieldReferences(currentExpression) : [];
+  // Prefer per-variant client extraction for the currently-displayed expression;
+  // fall back to the server-computed references when no expression string is shown.
+  const fieldReferences = currentExpression
+    ? extractFieldReferences(currentExpression)
+    : (field.fieldReferences || []);
   const groupedSources = groupSourcesByType(field.sources);
 
   const handleCopyExpression = () => {

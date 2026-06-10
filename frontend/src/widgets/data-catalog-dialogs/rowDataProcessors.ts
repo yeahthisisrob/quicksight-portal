@@ -33,6 +33,13 @@ export function processPhysicalViewRows(
       variants: field.variants || [],
       expression: field.expression,
       expressions: field.expressions || [],
+      // Server-computed calculated-field analysis (used by detail dialogs/columns).
+      expressionLength: field.expressionLength,
+      hasComments: field.hasComments,
+      fieldReferences: field.fieldReferences || [],
+      hasExpressionConflict: field.hasExpressionConflict || false,
+      conflictCount: field.conflictCount,
+      usedBy: field.usedBy || [],
       semanticFieldId: fieldId,
     };
   });

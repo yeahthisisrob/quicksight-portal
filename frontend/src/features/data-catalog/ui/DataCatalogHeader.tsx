@@ -39,6 +39,9 @@ interface DataCatalogHeaderProps {
   selectedAssets?: AssetFilter[];
   onSelectedAssetsChange?: (assets: AssetFilter[]) => void;
   assetsLoading?: boolean;
+  /** Catalog source scope: false = datasets + dashboards (default), true = also include analyses. */
+  includeAnalyses?: boolean;
+  onIncludeAnalysesChange?: (includeAnalyses: boolean) => void;
 }
 
 export default function DataCatalogHeader({
@@ -54,6 +57,8 @@ export default function DataCatalogHeader({
   selectedAssets = [],
   onSelectedAssetsChange,
   assetsLoading = false,
+  includeAnalyses = false,
+  onIncludeAnalysesChange,
 }: DataCatalogHeaderProps) {
 
   const PhysicalIcon = catalogIcons.physical;
@@ -179,6 +184,27 @@ export default function DataCatalogHeader({
             </span>
           </Tooltip>
         </ButtonGroup>
+
+        {/* Source scope toggle. Datasets are always included; dashboards are the
+            published business-facing layer, analyses are the authoring layer. */}
+        {onIncludeAnalysesChange && (
+          <Tooltip title="Catalog scope. Datasets are always included. By default only published dashboards are considered (the business-facing layer). Include analyses to also catalog the authoring layer.">
+            <ButtonGroup variant="outlined" size="small" aria-label="catalog source scope">
+              <Button
+                variant={!includeAnalyses ? 'contained' : 'outlined'}
+                onClick={() => onIncludeAnalysesChange(false)}
+              >
+                Dashboards
+              </Button>
+              <Button
+                variant={includeAnalyses ? 'contained' : 'outlined'}
+                onClick={() => onIncludeAnalysesChange(true)}
+              >
+                + Analyses
+              </Button>
+            </ButtonGroup>
+          </Tooltip>
+        )}
       </Box>
     </>
   );

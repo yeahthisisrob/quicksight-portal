@@ -1055,7 +1055,8 @@ export class ExportOrchestrator {
         }
 
         const catalogService = new CatalogService();
-        await catalogService.getDataCatalog();
+        // Build the pre-computed catalog index from the freshly rebuilt field cache.
+        await catalogService.rebuildCatalogIndex();
         await catalogService.buildVisualFieldCatalog();
         logger.info('Data catalog rebuilt successfully');
 

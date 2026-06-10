@@ -1342,6 +1342,15 @@ paths:
           schema:
             type: string
           description: JSON array of asset IDs to filter by, e.g. ["dash-123","ds-456"]. Only fields from these assets are returned.
+        - name: includeAnalyses
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: >-
+            Catalog source scope. By default the catalog reflects the business-facing
+            layer (datasets + dashboards). Set true to also include analyses (the
+            authoring layer); datasets are always included.
       responses:
         '200':
           description: Data catalog with fields and summary
@@ -3414,11 +3423,11 @@ components:
         sources:
           type: array
           items:
-            type: object
+            $ref: '#/components/schemas/CatalogFieldSource'
         variants:
           type: array
           items:
-            type: object
+            $ref: '#/components/schemas/CatalogFieldSource'
         hasVariants:
           type: boolean
         usageCount:
@@ -3427,6 +3436,48 @@ components:
           type: integer
         dashboardCount:
           type: integer
+        datasetCount:
+          type: integer
+        expressionLength:
+          type: integer
+          description: Trimmed character length of the representative expression.
+        hasComments:
+          type: boolean
+          description: Whether any in-scope variant of this calculated field contains author comments.
+        fieldReferences:
+          type: array
+          description: Field names referenced by this calculated field's expression(s).
+          items:
+            type: string
+        hasExpressionConflict:
+          type: boolean
+          description: True when the same field name resolves to more than one distinct expression across assets.
+        conflictCount:
+          type: integer
+          description: Number of distinct expressions found for this field name.
+        usedBy:
+          type: array
+          description: Names of calculated fields that reference this field (reverse lineage).
+          items:
+            type: string
+
+    CatalogFieldSource:
+      type: object
+      properties:
+        assetType:
+          type: string
+        assetId:
+          type: string
+        assetName:
+          type: string
+        datasetId:
+          type: string
+        datasetName:
+          type: string
+        dataType:
+          type: string
+        lastUpdated:
+          type: string
 
     DataCatalogResponse:
       type: object
@@ -3467,6 +3518,12 @@ components:
               type: object
               additionalProperties:
                 type: integer
+            fieldsWithComments:
+              type: integer
+            fieldsWithConflicts:
+              type: integer
+            avgExpressionLength:
+              type: integer
             lastUpdated:
               type: string
               format: date-time

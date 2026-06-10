@@ -7,10 +7,20 @@ import { type TagFilter } from '../../../shared/types/filterTypes';
 import { PORTAL_EXCLUDE_TAGS } from '../../../shared/utils/constants';
 import { logger } from '../../../shared/utils/logger';
 import { FolderService } from '../../organization/services/FolderService';
-import { type CatalogField, type DataCatalogResult } from '../types';
+import { detectConflict } from '../lib/expressionAnalysis';
+import {
+  type CatalogField,
+  type CatalogIndex,
+  type CatalogSourceScope,
+  type DataCatalogResult,
+  type IndexedCatalogField,
+} from '../types';
+import { catalogIndexBuilder } from './CatalogIndexBuilder';
 
 export class CatalogService {
   private readonly folderService: FolderService;
+  /** Per-instance cache of the loaded/built index for this Lambda invocation. */
+  private indexCache: CatalogIndex | null = null;
 
   constructor() {
     const accountId = process.env.AWS_ACCOUNT_ID || '';
@@ -246,68 +256,38 @@ export class CatalogService {
     tagFilter?: { key: string; value: string },
     includeTags?: TagFilter[],
     excludeTags?: TagFilter[],
-    assetIds?: string[]
+    assetIds?: string[],
+    scope?: CatalogSourceScope
   ): Promise<DataCatalogResult> {
     const startTime = Date.now();
 
     try {
-      const allFieldData = await cacheService.searchFields({});
+      const index = await this.getIndex();
+      const scopeTypes = this.resolveScopeTypes(scope);
 
-      // Build combined tag filters for cache-level filtering
-      // Legacy single tag filter is converted to includeTags format
-      const effectiveIncludeTags: TagFilter[] = [...(includeTags || [])];
-      if (tagFilter) {
-        effectiveIncludeTags.push({ key: tagFilter.key, value: tagFilter.value });
-      }
-
-      // Get excluded assets from portal tag
-      const excludedAssets = await this.folderService.getExcludedAssets(
-        PORTAL_EXCLUDE_TAGS.EXCLUDE_FROM_PORTAL
+      // Resolve the asset-level tag / asset-id filters to the set of allowed
+      // asset ids (null = no filtering, all active non-excluded assets allowed).
+      const allowedAssetIds = await this.resolveAllowedAssetIds(
+        tagFilter,
+        includeTags,
+        excludeTags,
+        assetIds
       );
 
-      // Use cache-level filtering for tag and asset ID filters
-      // This is more efficient than loading all assets and filtering in JavaScript
-      const hasFilters =
-        effectiveIncludeTags.length > 0 ||
-        (excludeTags && excludeTags.length > 0) ||
-        (assetIds && assetIds.length > 0);
-
-      let includedAssets: CacheEntry[];
-
-      if (hasFilters) {
-        // Use efficient cache-level filtering
-        const { assets } = await cacheService.searchAssetsWithFilters({
-          includeTags: effectiveIncludeTags.length > 0 ? effectiveIncludeTags : undefined,
-          excludeTags: excludeTags && excludeTags.length > 0 ? excludeTags : undefined,
-          assetIds: assetIds && assetIds.length > 0 ? assetIds : undefined,
-          statusFilter: AssetStatusFilter.ACTIVE,
-        });
-
-        // Filter out portal-excluded assets
-        includedAssets = assets.filter((asset: CacheEntry) => !excludedAssets.has(asset.assetId));
-
-        logger.info('Applied cache-level tag filtering', {
-          includeTags: effectiveIncludeTags.length,
-          excludeTags: excludeTags?.length || 0,
-          assetIds: assetIds?.length || 0,
-          resultCount: includedAssets.length,
-        });
-      } else {
-        // No tag/asset filters - get all active assets
-        const { assets: allCachedAssets } = await cacheService.getAssets({
-          statusFilter: AssetStatusFilter.ACTIVE,
-        });
-
-        includedAssets = allCachedAssets.filter(
-          (asset: CacheEntry) => !excludedAssets.has(asset.assetId)
+      // Cheap per-field re-aggregation over the pre-grouped index.
+      const fieldMap = new Map<string, CatalogField>();
+      for (const indexed of index.fields) {
+        const catalogField = this.aggregateField(
+          indexed,
+          scopeTypes,
+          allowedAssetIds,
+          index.lineage
         );
+        if (catalogField) {
+          fieldMap.set(catalogField.fieldName, catalogField);
+        }
       }
 
-      if (includedAssets.length === 0) {
-        return this.buildEmptyCatalog(startTime);
-      }
-
-      const fieldMap = this.transformFieldsToCatalog(allFieldData, includedAssets);
       return this.buildCatalogResult(fieldMap, startTime);
     } catch (error) {
       logger.error('Error getting data catalog:', error);
@@ -388,6 +368,21 @@ export class CatalogService {
   }
 
   /**
+   * Rebuild the pre-computed catalog index from the current field cache and
+   * persist it. Called after exports/cache rebuilds so the index stays fresh.
+   */
+  public async rebuildCatalogIndex(): Promise<CatalogIndex> {
+    const fieldData = await cacheService.searchFields({});
+    const index = catalogIndexBuilder.build(fieldData);
+    await catalogIndexBuilder.persist(index);
+    this.indexCache = index;
+    logger.info('Catalog index rebuilt', {
+      distinctFields: index.summary.totalDistinctFields,
+    });
+    return index;
+  }
+
+  /**
    * Add field to catalog, handling variants and deduplication
    */
   private addFieldToCatalog(
@@ -461,6 +456,120 @@ export class CatalogService {
     catalogField.hasVariants = catalogField.variants.length > 1;
   }
 
+  /**
+   * Re-aggregate one indexed field into a CatalogField for the given scope and
+   * allowed-asset set. Returns null when the field has no in-scope sources.
+   */
+  private aggregateField(
+    indexed: IndexedCatalogField,
+    scopeTypes: Set<string>,
+    allowedAssetIds: Set<string>,
+    lineage: Record<string, string[]>
+  ): CatalogField | null {
+    const inScope = indexed.perSource.filter(
+      (source) => scopeTypes.has(source.assetType) && allowedAssetIds.has(source.assetId)
+    );
+
+    const first = inScope[0];
+    if (!first) {
+      return null;
+    }
+
+    const sources = inScope.map((source) => ({
+      assetType: source.assetType,
+      assetId: source.assetId,
+      assetName: source.assetName,
+      datasetId: source.datasetId,
+      datasetName: source.datasetName,
+      dataType: source.dataType,
+      lastUpdated: source.lastUpdated,
+    }));
+
+    let analysisCount = 0;
+    let dashboardCount = 0;
+    let datasetCount = 0;
+    for (const source of inScope) {
+      if (source.assetType === ASSET_TYPES.analysis) {
+        analysisCount++;
+      } else if (source.assetType === ASSET_TYPES.dashboard) {
+        dashboardCount++;
+      } else if (source.assetType === ASSET_TYPES.dataset) {
+        datasetCount++;
+      }
+    }
+
+    // Group calculated occurrences by expression to surface variants/conflicts.
+    const calcSources = inScope.filter((source) => source.isCalculated && source.expression);
+    type ExpressionSource = {
+      assetType: string;
+      assetId: string;
+      assetName: string;
+      dataType?: string;
+      lastUpdated?: string;
+    };
+    const expressionMap = new Map<string, { expression: string; sources: ExpressionSource[] }>();
+    for (const source of calcSources) {
+      const expression = source.expression as string;
+      let entry = expressionMap.get(expression);
+      if (!entry) {
+        entry = { expression, sources: [] };
+        expressionMap.set(expression, entry);
+      }
+      entry.sources.push({
+        assetType: source.assetType,
+        assetId: source.assetId,
+        assetName: source.assetName,
+        dataType: source.dataType,
+        lastUpdated: source.lastUpdated,
+      });
+    }
+
+    const expressions = Array.from(expressionMap.values());
+    const conflict = detectConflict(calcSources.map((source) => source.expression));
+
+    // Representative expression = the variant used by the most assets.
+    const representative = expressions.reduce<{ expression: string; sources: unknown[] } | null>(
+      (best, current) => (!best || current.sources.length > best.sources.length ? current : best),
+      null
+    );
+    const representativeExpression = representative?.expression ?? null;
+
+    const fieldReferences = Array.from(
+      new Set(calcSources.flatMap((source) => source.fieldReferences || []))
+    );
+
+    return {
+      fieldId: indexed.fieldName,
+      fieldName: indexed.fieldName,
+      dataType: first.dataType,
+      description: indexed.description || '',
+      isCalculated: inScope.some((source) => source.isCalculated),
+      sourceAssetType: first.assetType,
+      sourceAssetId: first.assetId,
+      sourceAssetName: first.assetName,
+      datasetId: first.datasetId,
+      datasetName: first.datasetName,
+      columnName: null,
+      expression: representativeExpression,
+      expressions,
+      dependencies: fieldReferences,
+      lastUpdated: first.lastUpdated,
+      sources,
+      variants: sources,
+      hasVariants: sources.length > 1,
+      usageCount: inScope.length,
+      analysisCount,
+      dashboardCount,
+      datasetCount,
+      expressionLength: representativeExpression ? representativeExpression.trim().length : 0,
+      hasComments: calcSources.some((source) => source.hasComments),
+      fieldReferences,
+      hasExpressionConflict: conflict.hasExpressionConflict,
+      conflictCount: conflict.conflictCount,
+      usedBy: lineage[indexed.fieldName] || [],
+    };
+  }
+
   private buildCatalogResult(
     fieldMap: Map<string, CatalogField>,
     startTime: number
@@ -474,6 +583,11 @@ export class CatalogService {
     for (const field of fields) {
       fieldsByDataType[field.dataType] = (fieldsByDataType[field.dataType] || 0) + 1;
     }
+
+    const totalExpressionLength = calculatedFields.reduce(
+      (sum, f) => sum + (f.expressionLength || 0),
+      0
+    );
 
     return {
       fields: regularFields,
@@ -490,6 +604,11 @@ export class CatalogService {
         ).length,
         visualFields: fields.filter((f) => f.dashboardCount && f.dashboardCount > 0).length,
         fieldsByDataType,
+        fieldsWithComments: calculatedFields.filter((f) => f.hasComments).length,
+        fieldsWithConflicts: calculatedFields.filter((f) => f.hasExpressionConflict).length,
+        avgExpressionLength: calculatedFields.length
+          ? Math.round(totalExpressionLength / calculatedFields.length)
+          : 0,
         lastUpdated: new Date(),
         processingTimeMs: Date.now() - startTime,
       },
@@ -563,27 +682,88 @@ export class CatalogService {
     };
   }
 
-  private transformFieldsToCatalog(
-    fieldData: FieldInfo[],
-    includedAssets: CacheEntry[]
-  ): Map<string, CatalogField> {
-    const fieldMap = new Map<string, CatalogField>();
-    const includedAssetIds = new Set(includedAssets.map((a) => a.assetId));
-    const assetLookup = new Map(includedAssets.map((asset) => [asset.assetId, asset]));
+  /**
+   * Load the pre-computed index, building it on demand (and persisting) if it is
+   * missing — e.g. on first deploy before any rebuild has run.
+   */
+  private async getIndex(): Promise<CatalogIndex> {
+    if (this.indexCache) {
+      return this.indexCache;
+    }
+    const loaded = await catalogIndexBuilder.load();
+    if (loaded) {
+      this.indexCache = loaded;
+      return loaded;
+    }
+    logger.info('Catalog index missing - building on demand from field cache');
+    return this.rebuildCatalogIndex();
+  }
 
-    for (const field of fieldData) {
-      if (includedAssetIds.has(field.sourceAssetId)) {
-        const asset = assetLookup.get(field.sourceAssetId);
-        if (asset) {
-          this.addFieldToCatalog(field, asset, fieldMap);
-        }
-      }
+  /**
+   * Resolve the asset-level include/exclude tag and asset-id filters into the
+   * set of allowed asset ids. Returns null when no such filters are applied
+   * (meaning: all active, non-portal-excluded assets are allowed).
+   */
+  private async resolveAllowedAssetIds(
+    tagFilter?: { key: string; value: string },
+    includeTags?: TagFilter[],
+    excludeTags?: TagFilter[],
+    assetIds?: string[]
+  ): Promise<Set<string>> {
+    const effectiveIncludeTags: TagFilter[] = [...(includeTags || [])];
+    if (tagFilter) {
+      effectiveIncludeTags.push({ key: tagFilter.key, value: tagFilter.value });
     }
 
-    logger.info(
-      `Transformed ${fieldMap.size} unique fields from ${fieldData.length} cached field entries`
+    const excludedAssets = await this.folderService.getExcludedAssets(
+      PORTAL_EXCLUDE_TAGS.EXCLUDE_FROM_PORTAL
     );
-    return fieldMap;
+
+    const hasFilters =
+      effectiveIncludeTags.length > 0 ||
+      (excludeTags && excludeTags.length > 0) ||
+      (assetIds && assetIds.length > 0);
+
+    if (hasFilters) {
+      const { assets } = await cacheService.searchAssetsWithFilters({
+        includeTags: effectiveIncludeTags.length > 0 ? effectiveIncludeTags : undefined,
+        excludeTags: excludeTags && excludeTags.length > 0 ? excludeTags : undefined,
+        assetIds: assetIds && assetIds.length > 0 ? assetIds : undefined,
+        statusFilter: AssetStatusFilter.ACTIVE,
+      });
+      logger.info('Applied cache-level tag filtering', {
+        includeTags: effectiveIncludeTags.length,
+        excludeTags: excludeTags?.length || 0,
+        assetIds: assetIds?.length || 0,
+        resultCount: assets.length,
+      });
+      return new Set(
+        assets
+          .filter((asset: CacheEntry) => !excludedAssets.has(asset.assetId))
+          .map((asset: CacheEntry) => asset.assetId)
+      );
+    }
+
+    const { assets: allCachedAssets } = await cacheService.getAssets({
+      statusFilter: AssetStatusFilter.ACTIVE,
+    });
+    return new Set(
+      allCachedAssets
+        .filter((asset: CacheEntry) => !excludedAssets.has(asset.assetId))
+        .map((asset: CacheEntry) => asset.assetId)
+    );
+  }
+
+  /**
+   * Resolve which source asset types are in scope. Datasets and dashboards are
+   * always included (definition + business-facing layers); analyses are opt-in.
+   */
+  private resolveScopeTypes(scope?: CatalogSourceScope): Set<string> {
+    const types = new Set<string>([ASSET_TYPES.dataset, ASSET_TYPES.dashboard]);
+    if (scope?.includeAnalyses) {
+      types.add(ASSET_TYPES.analysis);
+    }
+    return types;
   }
 }
 

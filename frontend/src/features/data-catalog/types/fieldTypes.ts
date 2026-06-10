@@ -49,6 +49,12 @@ export interface CalculatedFieldRow extends BaseFieldRow {
   sources?: AssetReference[];
   fieldReferences?: string[];
   expressions?: string[];
+  /** True when the same field name resolves to more than one distinct expression. */
+  hasExpressionConflict?: boolean;
+  /** Number of distinct expressions found for this field name. */
+  conflictCount?: number;
+  /** Names of calculated fields that reference this field (reverse lineage). */
+  usedBy?: string[];
 }
 
 /**

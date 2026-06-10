@@ -42,9 +42,11 @@ export function createCalculatedColumns({
           >
             {params.value}
           </Typography>
-          {params.row.hasVariants && (
-            <Tooltip title="This field has different expressions across assets">
-              <WarningIcon fontSize="small" color="warning" />
+          {params.row.hasExpressionConflict && (
+            <Tooltip
+              title={`Conflict: this field resolves to ${params.row.conflictCount ?? 2} different expressions across assets`}
+            >
+              <WarningIcon fontSize="small" color="error" />
             </Tooltip>
           )}
         </Box>
@@ -57,8 +59,8 @@ export function createCalculatedColumns({
       minWidth: 300,
       renderCell: (params) => {
         const expression = params.value || '';
-        const expressionCount = params.row.expressions?.length ?? 0;
-        const hasVariants = params.row.hasVariants && expressionCount > 1;
+        const conflictCount = params.row.conflictCount ?? params.row.expressions?.length ?? 0;
+        const hasConflict = !!params.row.hasExpressionConflict && conflictCount > 1;
 
         return (
           <Box sx={{ width: '100%' }}>
@@ -87,14 +89,15 @@ export function createCalculatedColumns({
             >
               {expression}
             </Typography>
-            {hasVariants && (
+            {hasConflict && (
               <Button
                 size="small"
+                color="error"
                 startIcon={<WarningIcon fontSize="small" />}
                 onClick={() => onShowVariants(params.row)}
                 sx={{ mt: 0.5, fontSize: '0.75rem' }}
               >
-                {expressionCount} variants
+                {conflictCount} conflicting expressions
               </Button>
             )}
           </Box>
@@ -107,7 +110,7 @@ export function createCalculatedColumns({
       width: 140,
       align: 'center',
       headerAlign: 'center',
-      valueGetter: (params) => params.row.expression?.length || 0,
+      valueGetter: (params) => params.row.expressionLength ?? params.row.expression?.length ?? 0,
       renderCell: (params) => {
         const length = params.value || 0;
         const getColor = (): 'success' | 'warning' | 'error' => {

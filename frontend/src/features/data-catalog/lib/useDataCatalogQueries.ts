@@ -14,6 +14,7 @@ interface UseDataCatalogQueriesProps {
   includeTags?: TagFilter[];
   excludeTags?: TagFilter[];
   assetIds?: string[];
+  includeAnalyses?: boolean;
 }
 
 export function useDataCatalogQueries({
@@ -26,6 +27,7 @@ export function useDataCatalogQueries({
   includeTags,
   excludeTags,
   assetIds,
+  includeAnalyses = false,
 }: UseDataCatalogQueriesProps) {
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
@@ -47,7 +49,7 @@ export function useDataCatalogQueries({
   }>({
     queryKey: ['data-catalog-paginated', page + 1, pageSize, debouncedSearchTerm, viewMode,
                viewMode !== 'semantic' && sortModel.length > 0 ? `${sortModel[0].field}-${sortModel[0].sort}` : 'no-sort',
-               includeTagsKey, excludeTagsKey, assetIdsKey],
+               includeTagsKey, excludeTagsKey, assetIdsKey, includeAnalyses],
     queryFn: () => {
       const sortParams = viewMode !== 'semantic' && sortModel.length > 0 && sortModel[0].sort ? {
         sortBy: sortModel[0].field,
@@ -73,6 +75,8 @@ export function useDataCatalogQueries({
         pageSize,
         search: debouncedSearchTerm,
         viewMode: (viewMode === 'physical' ? 'all' : viewMode === 'calculated' ? 'calculated' : viewMode === 'semantic' ? 'all' : 'all') as 'all' | 'calculated' | 'fields',
+        // Source scope: analyses are opt-in; datasets + dashboards are always included.
+        includeAnalyses,
         ...sortParams,
       };
 
