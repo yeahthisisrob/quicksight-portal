@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.2.0...v1.2.1) (2026-06-11)
+
+
+### Bug Fixes
+
+* correct data catalog scope bands, All Fields tab, and physical table columns ([#7](https://github.com/yeahthisisrob/quicksight-portal/issues/7)) ([ce67ad0](https://github.com/yeahthisisrob/quicksight-portal/commit/ce67ad0e0cbcbe109ce2f70f46885c2ad1898c97))
+
 ## [1.2.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.1.0...v1.2.0) (2026-06-10)
 
 
