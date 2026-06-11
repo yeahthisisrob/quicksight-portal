@@ -131,13 +131,13 @@ export default function DataCatalogHeader({
             },
           }}
         >
-          <Tooltip title="Physical fields from datasets and analyses">
+          <Tooltip title="All catalog fields (physical + calculated) in the selected scope">
             <Button
               startIcon={<PhysicalIcon />}
               variant={viewMode === 'physical' ? 'contained' : 'outlined'}
               onClick={() => onViewModeChange('physical')}
             >
-              Physical Fields
+              All Fields
             </Button>
           </Tooltip>
           <Tooltip title="Visual field usage across dashboards">

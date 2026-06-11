@@ -44,6 +44,7 @@ const physicalSummary: DataCatalogSummary = {
   calculatedAnalysisFields: 89,
   fieldsWithVariants: 45,
   fieldsWithComments: 89,
+  fieldsWithConflicts: 17,
   avgExpressionLength: 127,
   fieldsByDataType: {
     STRING: 412,
@@ -88,6 +89,7 @@ const calculatedSummary: DataCatalogSummary = {
   calculatedAnalysisFields: 89,
   fieldsWithVariants: 45,
   fieldsWithComments: 89,
+  fieldsWithConflicts: 17,
   avgExpressionLength: 127,
   fieldsByDataType: {},
 };

@@ -4,7 +4,7 @@
 import { Grid, Card, CardContent, Typography, Box, alpha } from '@mui/material';
 
 import { colors, spacing } from '@/shared/design-system/theme';
-import { catalogIcons, assetIcons, specialIcons } from '@/shared/ui/icons';
+import { catalogIcons, assetIcons, specialIcons, statusIcons } from '@/shared/ui/icons';
 
 import { DataTypeBar } from '../components/DataTypeBar';
 import { StatCard } from '../components/StatCard';
@@ -31,11 +31,13 @@ export function PhysicalStatsView({ catalogSummary }: PhysicalStatsViewProps) {
   const DatasetIcon = assetIcons.DATASET;
   const AnalysisIcon = assetIcons.ANALYSIS;
   const DataTypeIcon = specialIcons.storage;
+  const WarningIcon = statusIcons.warning;
 
   const totalFields = catalogSummary.totalFields || 0;
   const distinctFields = catalogSummary.distinctFields || 0;
   const fieldsByDataType = catalogSummary.fieldsByDataType || {};
 
+  // One row per distinct field name in scope, so "Total Fields" matches the table.
   const statCards = [
     {
       title: "Total Fields",
@@ -44,23 +46,10 @@ export function PhysicalStatsView({ catalogSummary }: PhysicalStatsViewProps) {
       color: colors.primary.main,
     },
     {
-      title: "Distinct Fields",
-      value: distinctFields,
-      icon: <FieldIcon sx={{ color: colors.primary.dark, fontSize: 28 }} />,
-      color: colors.primary.dark,
-      subtitle: totalFields > 0 ? `${((distinctFields / totalFields) * 100).toFixed(0)}% unique` : '',
-    },
-    {
-      title: "Visual Fields",
-      value: catalogSummary.visualFields || 0,
-      icon: <TableChartIcon sx={{ color: colors.assetTypes.dashboard.main, fontSize: 28 }} />,
-      color: colors.assetTypes.dashboard.main,
-    },
-    {
-      title: "Total Calculated",
+      title: "Calculated",
       value: catalogSummary.totalCalculatedFields || 0,
-      icon: <CalculatedIcon sx={{ color: colors.assetTypes.datasource.main, fontSize: 28 }} />,
-      color: colors.assetTypes.datasource.main,
+      icon: <CalculatedIcon sx={{ color: colors.primary.dark, fontSize: 28 }} />,
+      color: colors.primary.dark,
     },
     {
       title: "Dataset Calculated",
@@ -73,6 +62,19 @@ export function PhysicalStatsView({ catalogSummary }: PhysicalStatsViewProps) {
       value: catalogSummary.calculatedAnalysisFields || 0,
       icon: <AnalysisIcon sx={{ color: colors.assetTypes.analysis.main, fontSize: 28 }} />,
       color: colors.assetTypes.analysis.main,
+      subtitle: 'scope: + Analyses',
+    },
+    {
+      title: "With Conflicts",
+      value: catalogSummary.fieldsWithConflicts || 0,
+      icon: <WarningIcon sx={{ color: colors.status.error, fontSize: 28 }} />,
+      color: colors.status.error,
+    },
+    {
+      title: "Visual Fields",
+      value: catalogSummary.visualFields || 0,
+      icon: <TableChartIcon sx={{ color: colors.assetTypes.dashboard.main, fontSize: 28 }} />,
+      color: colors.assetTypes.dashboard.main,
     },
   ];
 

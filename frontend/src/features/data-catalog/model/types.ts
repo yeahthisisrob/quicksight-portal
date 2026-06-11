@@ -13,6 +13,7 @@ export interface DataCatalogSummary {
   calculatedAnalysisFields: number;
   fieldsWithVariants: number;
   fieldsWithComments: number;
+  fieldsWithConflicts?: number;
   avgExpressionLength: number;
   fieldsByDataType: Record<string, number>;
 }

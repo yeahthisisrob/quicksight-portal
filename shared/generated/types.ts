@@ -3323,6 +3323,7 @@ export interface components {
                 fieldsByDataType?: {
                     [key: string]: number;
                 };
+                fieldsWithVariants?: number;
                 fieldsWithComments?: number;
                 fieldsWithConflicts?: number;
                 avgExpressionLength?: number;
