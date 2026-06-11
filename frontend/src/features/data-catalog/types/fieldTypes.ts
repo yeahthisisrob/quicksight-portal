@@ -32,11 +32,20 @@ export interface DataTypeVariant {
 }
 
 /**
- * Physical field row for the physical columns view
+ * Physical field row for the physical / all-fields columns view
  */
 export interface PhysicalFieldRow extends BaseFieldRow {
   variants?: DataTypeVariant[];
   expressions?: string[];
+  expression?: string;
+  description?: string;
+  sources?: AssetReference[];
+  datasetsCount?: number;
+  analysesCount?: number;
+  dashboardsCount?: number;
+  hasExpressionConflict?: boolean;
+  conflictCount?: number;
+  usedBy?: string[];
 }
 
 /**

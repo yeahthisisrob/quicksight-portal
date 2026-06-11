@@ -3518,6 +3518,8 @@ components:
               type: object
               additionalProperties:
                 type: integer
+            fieldsWithVariants:
+              type: integer
             fieldsWithComments:
               type: integer
             fieldsWithConflicts:

@@ -161,6 +161,7 @@ export interface DataCatalogResult {
     calculatedAnalysisFields: number;
     visualFields: number;
     fieldsByDataType?: Record<string, number>;
+    fieldsWithVariants?: number;
     fieldsWithComments?: number;
     fieldsWithConflicts?: number;
     avgExpressionLength?: number;

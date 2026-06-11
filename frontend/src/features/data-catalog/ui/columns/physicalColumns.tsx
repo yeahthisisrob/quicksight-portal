@@ -1,6 +1,12 @@
-import { Warning as WarningIcon, Info as InfoIcon } from '@mui/icons-material';
+import {
+  Functions as CalculatedIcon,
+  Warning as WarningIcon,
+  Info as InfoIcon,
+} from '@mui/icons-material';
 import { Box, Button, Chip, IconButton, Tooltip, Typography } from '@mui/material';
 import { GridColDef } from '@mui/x-data-grid';
+
+import { FieldUsageBadges } from '@/entities/field';
 
 import { CountCell, FieldNameCell } from '@/shared/ui/DataGrid/cells';
 
@@ -16,6 +22,14 @@ interface CreatePhysicalColumnsProps extends Partial<PhysicalColumnsCallbacks> {
   onShowVariants: PhysicalColumnsCallbacks['onShowVariants'];
 }
 
+function uniqueDataTypes(row: PhysicalFieldRow): string[] {
+  return row.variants
+    ? [...new Set(row.variants.map((v: DataTypeVariant) => v.dataType))].filter(
+        (dt) => dt && dt !== 'Unknown'
+      )
+    : [];
+}
+
 export function createPhysicalColumns({
   onShowDetails,
   onShowVariants,
@@ -24,15 +38,11 @@ export function createPhysicalColumns({
     {
       field: 'fieldName',
       headerName: 'Field Name',
-      width: 250,
+      flex: 1,
+      minWidth: 220,
       renderCell: (params) => {
         const row = params.row;
-        const uniqueDataTypes = row.variants
-          ? [
-              ...new Set(row.variants.map((v: DataTypeVariant) => v.dataType)),
-            ].filter((dt) => dt && dt !== 'Unknown')
-          : [];
-        const hasDataTypeVariants = uniqueDataTypes.length > 1;
+        const hasDataTypeVariants = uniqueDataTypes(row).length > 1;
 
         return (
           <FieldNameCell
@@ -40,8 +50,8 @@ export function createPhysicalColumns({
             isCalculated={row.isCalculated}
             hasVariants={hasDataTypeVariants}
             calculatedTooltip={
-              row.hasVariants
-                ? 'Calculated field with different expressions'
+              row.hasExpressionConflict
+                ? `Calculated field with ${row.conflictCount ?? 2} conflicting expressions`
                 : 'Calculated field'
             }
             variantsTooltip="This field has different data types across assets"
@@ -51,22 +61,49 @@ export function createPhysicalColumns({
       },
     },
     {
+      field: 'kind',
+      headerName: 'Kind',
+      width: 140,
+      sortable: false,
+      renderCell: (params) => {
+        const row = params.row;
+        if (!row.isCalculated) {
+          return <Chip label="Physical" size="small" variant="outlined" />;
+        }
+        if (row.hasExpressionConflict) {
+          return (
+            <Tooltip title={`${row.conflictCount ?? 2} conflicting expressions across assets`}>
+              <Chip
+                label="Calculated"
+                size="small"
+                color="error"
+                variant="outlined"
+                icon={<WarningIcon sx={{ fontSize: 14 }} />}
+                onClick={() => onShowVariants(row)}
+              />
+            </Tooltip>
+          );
+        }
+        return (
+          <Chip
+            label="Calculated"
+            size="small"
+            color="primary"
+            variant="outlined"
+            icon={<CalculatedIcon sx={{ fontSize: 14 }} />}
+          />
+        );
+      },
+    },
+    {
       field: 'dataType',
       headerName: 'Data Type',
-      width: 120,
+      width: 150,
       renderCell: (params) => {
         const row = params.row;
         const variants = row.variants;
+        const hasRealVariants = uniqueDataTypes(row).length > 1;
 
-        // Get unique data types, excluding Unknown
-        const uniqueDataTypes = variants
-          ? [...new Set(variants.map((v: DataTypeVariant) => v.dataType))].filter(
-              (dt) => dt && dt !== 'Unknown'
-            )
-          : [];
-        const hasRealVariants = uniqueDataTypes.length > 1;
-
-        // Show variant button when multiple data types exist
         if (hasRealVariants && variants) {
           return (
             <Tooltip
@@ -92,51 +129,47 @@ export function createPhysicalColumns({
                 variant="outlined"
                 color="warning"
                 onClick={() => onShowVariants(row)}
-                sx={{
-                  minWidth: 0,
-                  textTransform: 'none',
-                  fontSize: '0.75rem',
-                  py: 0.25,
-                  px: 1,
-                }}
+                sx={{ minWidth: 0, textTransform: 'none', fontSize: '0.75rem', py: 0.25, px: 1 }}
               >
                 <WarningIcon sx={{ fontSize: 14, mr: 0.5 }} />
-                {variants.length} types
+                {uniqueDataTypes(row).length} types
               </Button>
             </Tooltip>
           );
         }
 
-        // Show calculated field chip with expression variants
-        if (row.isCalculated && row.hasVariants && row.expressions && row.expressions.length > 1) {
-          return (
-            <Tooltip
-              title={`Calculated field with ${row.expressions.length} different expressions`}
-            >
-              <Chip
-                label="Calculated"
-                size="small"
-                variant="outlined"
-                color="primary"
-                icon={<WarningIcon sx={{ fontSize: 14 }} />}
-              />
-            </Tooltip>
-          );
-        }
-
-        // Show simple data type chip
         const dataType = params.value;
         if (!dataType || dataType === 'Unknown') {
-          return null;
+          return (
+            <Typography variant="body2" color="text.disabled">
+              —
+            </Typography>
+          );
         }
-
-        return <Chip label={dataType} size="small" variant="outlined" color="primary" />;
+        return <Chip label={dataType} size="small" variant="outlined" color="default" />;
+      },
+    },
+    {
+      field: 'sources',
+      headerName: 'Used In',
+      width: 240,
+      sortable: false,
+      renderCell: (params) => {
+        const sources = params.row.sources || [];
+        if (sources.length === 0) {
+          return (
+            <Typography variant="body2" color="text.disabled">
+              Unused
+            </Typography>
+          );
+        }
+        return <FieldUsageBadges sources={sources} />;
       },
     },
     {
       field: 'usageCount',
-      headerName: 'Total Usage',
-      width: 120,
+      headerName: 'Usage',
+      width: 110,
       align: 'center',
       headerAlign: 'center',
       valueGetter: (params) => params.row.usageCount || 0,
@@ -146,16 +179,11 @@ export function createPhysicalColumns({
           tooltipContent={
             <Box>
               <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-                Total Usage: {params.value || 0}
+                Total usage: {params.value || 0}
               </Typography>
               <Typography variant="caption" display="block">
-                Count of actual usage in:
-              </Typography>
-              <Typography variant="caption" display="block">
-                Visuals (charts, tables, etc.)
-              </Typography>
-              <Typography variant="caption" display="block">
-                Calculated field expressions
+                Occurrences across datasets, dashboards{' '}
+                {(params.row.analysesCount || 0) > 0 ? 'and analyses' : ''}
               </Typography>
             </Box>
           }
@@ -165,8 +193,10 @@ export function createPhysicalColumns({
     {
       field: 'actions',
       headerName: '',
-      width: 80,
+      width: 70,
       sortable: false,
+      align: 'center',
+      headerAlign: 'center',
       renderCell: (params) => (
         <Tooltip title="View Details">
           <IconButton size="small" onClick={() => onShowDetails(params.row)}>

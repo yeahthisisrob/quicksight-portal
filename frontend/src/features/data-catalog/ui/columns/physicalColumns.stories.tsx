@@ -14,6 +14,12 @@ const mockData: PhysicalFieldRow[] = [
     isCalculated: false,
     hasVariants: false,
     usageCount: 42,
+    datasetsCount: 3,
+    dashboardsCount: 5,
+    sources: [
+      { assetType: 'dataset', assetId: 'ds-1', assetName: 'Customers' },
+      { assetType: 'dashboard', assetId: 'db-1', assetName: 'Sales Overview' },
+    ],
   },
   {
     id: '2',
@@ -22,6 +28,12 @@ const mockData: PhysicalFieldRow[] = [
     isCalculated: false,
     hasVariants: false,
     usageCount: 15,
+    datasetsCount: 2,
+    dashboardsCount: 2,
+    sources: [
+      { assetType: 'dataset', assetId: 'ds-2', assetName: 'Orders' },
+      { assetType: 'dashboard', assetId: 'db-1', assetName: 'Sales Overview' },
+    ],
   },
   {
     id: '3',
@@ -29,16 +41,32 @@ const mockData: PhysicalFieldRow[] = [
     dataType: 'DECIMAL',
     isCalculated: true,
     hasVariants: true,
+    hasExpressionConflict: true,
+    conflictCount: 2,
     usageCount: 8,
-    expressions: ['[Revenue] - [Cost]', '[Revenue] * 0.1'],
+    datasetsCount: 1,
+    dashboardsCount: 2,
+    expression: '({revenue} - {cost}) / {revenue} * 100',
+    expressions: ['({revenue} - {cost}) / {revenue} * 100', '{revenue} * 0.1'],
+    sources: [
+      { assetType: 'dataset', assetId: 'ds-3', assetName: 'Finance' },
+      { assetType: 'dashboard', assetId: 'db-2', assetName: 'Exec KPIs' },
+    ],
   },
   {
     id: '4',
-    fieldName: 'order_date',
-    dataType: 'DATETIME',
-    isCalculated: false,
+    fieldName: 'net_revenue',
+    dataType: 'DECIMAL',
+    isCalculated: true,
     hasVariants: false,
-    usageCount: 25,
+    usageCount: 30,
+    datasetsCount: 2,
+    dashboardsCount: 3,
+    expression: 'sum({amount})',
+    sources: [
+      { assetType: 'dataset', assetId: 'ds-3', assetName: 'Finance' },
+      { assetType: 'dashboard', assetId: 'db-2', assetName: 'Exec KPIs' },
+    ],
   },
   {
     id: '5',
@@ -47,10 +75,15 @@ const mockData: PhysicalFieldRow[] = [
     isCalculated: false,
     hasVariants: true,
     usageCount: 10,
+    datasetsCount: 3,
     variants: [
       { dataType: 'STRING', count: 3 },
       { dataType: 'DECIMAL', count: 2 },
       { dataType: 'INTEGER', count: 1 },
+    ],
+    sources: [
+      { assetType: 'dataset', assetId: 'ds-4', assetName: 'Products' },
+      { assetType: 'dataset', assetId: 'ds-5', assetName: 'Pricing' },
     ],
   },
   {
@@ -60,6 +93,7 @@ const mockData: PhysicalFieldRow[] = [
     isCalculated: false,
     hasVariants: false,
     usageCount: 0,
+    sources: [],
   },
 ];
 
@@ -77,7 +111,7 @@ const meta: Meta = {
     docs: {
       description: {
         component:
-          'Column definitions for the physical fields view in the data catalog. Shows field names, data types, usage counts, and action buttons.',
+          'Column definitions for the All Fields view in the data catalog. Shows field name, kind (physical vs calculated, with conflict flag), data type (with variant breakdown), where the field is used, and total usage.',
       },
     },
   },
@@ -106,7 +140,7 @@ export const AllColumns: Story = {
   render: () => {
     const columns = createPhysicalColumns(defaultCallbacks);
     return (
-      <StorySection title="Physical Columns View">
+      <StorySection title="All Fields View">
         <Box sx={{ height: 400, width: '100%' }}>
           <DataGrid
             rows={mockData}

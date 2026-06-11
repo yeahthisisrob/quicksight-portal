@@ -18,9 +18,12 @@ import {
 import { catalogIndexBuilder } from './CatalogIndexBuilder';
 
 export class CatalogService {
+  private static readonly INDEX_CACHE_TTL_MS = 60_000;
   private readonly folderService: FolderService;
-  /** Per-instance cache of the loaded/built index for this Lambda invocation. */
+  /** In-memory cache of the loaded/built index, refreshed after a short TTL so
+   *  warm Lambda containers pick up rebuilds triggered by exports. */
   private indexCache: CatalogIndex | null = null;
+  private indexCacheAt = 0;
 
   constructor() {
     const accountId = process.env.AWS_ACCOUNT_ID || '';
@@ -376,6 +379,7 @@ export class CatalogService {
     const index = catalogIndexBuilder.build(fieldData);
     await catalogIndexBuilder.persist(index);
     this.indexCache = index;
+    this.indexCacheAt = Date.now();
     logger.info('Catalog index rebuilt', {
       distinctFields: index.summary.totalDistinctFields,
     });
@@ -596,14 +600,11 @@ export class CatalogService {
         totalFields: fields.length,
         distinctFields: fieldMap.size,
         totalCalculatedFields: calculatedFields.length,
-        calculatedDatasetFields: calculatedFields.filter(
-          (f) => f.sourceAssetType === ASSET_TYPES.dataset
-        ).length,
-        calculatedAnalysisFields: calculatedFields.filter(
-          (f) => f.sourceAssetType === ASSET_TYPES.analysis
-        ).length,
+        calculatedDatasetFields: calculatedFields.filter((f) => (f.datasetCount || 0) > 0).length,
+        calculatedAnalysisFields: calculatedFields.filter((f) => (f.analysisCount || 0) > 0).length,
         visualFields: fields.filter((f) => f.dashboardCount && f.dashboardCount > 0).length,
         fieldsByDataType,
+        fieldsWithVariants: fields.filter((f) => f.hasVariants).length,
         fieldsWithComments: calculatedFields.filter((f) => f.hasComments).length,
         fieldsWithConflicts: calculatedFields.filter((f) => f.hasExpressionConflict).length,
         avgExpressionLength: calculatedFields.length
@@ -687,12 +688,14 @@ export class CatalogService {
    * missing — e.g. on first deploy before any rebuild has run.
    */
   private async getIndex(): Promise<CatalogIndex> {
-    if (this.indexCache) {
+    const fresh = Date.now() - this.indexCacheAt < CatalogService.INDEX_CACHE_TTL_MS;
+    if (this.indexCache && fresh) {
       return this.indexCache;
     }
     const loaded = await catalogIndexBuilder.load();
     if (loaded) {
       this.indexCache = loaded;
+      this.indexCacheAt = Date.now();
       return loaded;
     }
     logger.info('Catalog index missing - building on demand from field cache');
