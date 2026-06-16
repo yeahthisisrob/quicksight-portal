@@ -136,6 +136,38 @@ export class JobHandler {
         return errorResponse(event, STATUS_CODES.NOT_FOUND, 'Job not found');
       }
 
+      // Side-effect: if this is a completed *mutating* job (delete, bulk tag/folder/permission etc.),
+      // clear memory cache in *this* API Lambda instance. This makes the container that just
+      // told the caller "your bulk delete succeeded" serve fresh asset lists on the immediate
+      // follow-up refetch. Combined with frontend invalidation + the cache reader's metadata
+      // freshness checks, this greatly reduces the window of staleness.
+      try {
+        const isMutatingCompleted =
+          job.status === 'completed' &&
+          (job.jobType === 'bulk-operation' ||
+            (job as any).operationType === 'delete' ||
+            (job as any).operationType === 'tag-update' ||
+            (job as any).operationType === 'folder-add' ||
+            (job as any).operationType === 'folder-remove' ||
+            (job as any).operationType === 'permission-revoke');
+
+        if (isMutatingCompleted) {
+          // Lazy import to avoid circulars at module load and only pay when needed
+          const { cacheService } = await import('../services/cache/CacheService');
+          await cacheService.clearMemoryCache();
+          logger.info(
+            'Cleared memory cache as side-effect of completed mutating job status request',
+            {
+              jobId,
+              jobType: job.jobType || (job as any).operationType,
+            }
+          );
+        }
+      } catch (clearErr) {
+        // Never let cache clearing affect the job status response
+        logger.debug('Non-fatal: memory clear after job status failed', { jobId, error: clearErr });
+      }
+
       return successResponse(event, {
         success: true,
         data: job,

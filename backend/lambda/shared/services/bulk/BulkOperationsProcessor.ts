@@ -116,6 +116,19 @@ export class BulkOperationsProcessor {
         PAGINATION.MAX_PAGE_SIZE
       );
 
+      // DRY post-mutation cache maintenance for all bulk ops.
+      // Ensures that even if a specific processor didn't call a typed cache updater,
+      // the in-memory views in *this* worker are cleared so any subsequent work sees truth.
+      // (Cross-Lambda visibility is handled by S3 persistence + reader freshness checks + frontend-triggered clears.)
+      try {
+        const involved = this.getInvolvedAssetTypes(config);
+        if (involved.length > 0) {
+          await cacheService.invalidateMemoryForTypes(involved);
+        }
+      } catch (e) {
+        logger.debug('Non-fatal: failed to invalidate memory after bulk op', { error: e });
+      }
+
       return result;
     } catch (error) {
       logger.error('Bulk operation failed', {
@@ -174,6 +187,30 @@ export class BulkOperationsProcessor {
       }
     }
     return operations;
+  }
+
+  /**
+   * Extract asset types involved in a bulk operation config for cache invalidation.
+   * Used as a DRY safety net after any bulk live update.
+   */
+  private getInvolvedAssetTypes(config: BulkOperationConfig): AssetType[] {
+    const types = new Set<AssetType>();
+    if ('assets' in config && Array.isArray((config as any).assets)) {
+      for (const a of (config as any).assets) {
+        if (a?.type) {
+          types.add(a.type);
+        }
+      }
+    }
+    if ((config as any).assetType) {
+      types.add((config as any).assetType);
+    }
+    if ((config as any).assetTypes) {
+      for (const t of (config as any).assetTypes) {
+        types.add(t);
+      }
+    }
+    return Array.from(types);
   }
 
   /**
@@ -253,12 +290,44 @@ export class BulkOperationsProcessor {
     _batchSize: number,
     _maxConcurrency: number
   ): Promise<BulkOperationResult> {
-    // Use existing BulkDeleteService which handles archiving
+    // Use existing BulkDeleteService which handles QS delete + moving definitions to archived/
     const deleteResult = await this.bulkDeleteService.deleteAssets({
       assets: config.assets.map((a) => ({ type: a.type, id: a.id })),
       reason: config.reason,
       deletedBy: config.requestedBy,
     });
+
+    // CRITICAL: After the archive file moves succeed, use the shared DRY cache mutation
+    // path so that the active index is updated (status=archived), per-type S3 caches are
+    // persisted, memory is evicted in this process, and readers (AssetService.list etc.)
+    // will reflect the deletion promptly.
+    const successfullyDeleted = config.assets.filter((a) => {
+      // Only notify cache for ones that didn't error in the deleteResult
+      return !deleteResult.errors.some((e) => e.assetType === a.type && e.assetId === a.id);
+    });
+
+    if (successfullyDeleted.length > 0) {
+      try {
+        await cacheService.archiveAssetsInCache(
+          successfullyDeleted.map((a) => ({
+            assetType: a.type,
+            assetId: a.id,
+            archiveReason: config.reason || 'Bulk delete via portal',
+            archivedBy: config.requestedBy,
+          }))
+        );
+        // Also explicitly invalidate memory for the affected types (belt + suspenders)
+        const affectedTypes = Array.from(new Set(successfullyDeleted.map((a) => a.type)));
+        await cacheService.invalidateMemoryForTypes(affectedTypes);
+      } catch (cacheErr) {
+        logger.warn(
+          'Bulk delete completed in QS + archive, but cache index update had issues (non-fatal)',
+          {
+            error: cacheErr,
+          }
+        );
+      }
+    }
 
     // Convert to our result format
     const results: BulkOperationItemResult[] = [];

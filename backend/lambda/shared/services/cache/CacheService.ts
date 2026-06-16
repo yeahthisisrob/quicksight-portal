@@ -73,6 +73,28 @@ export class CacheService extends EventEmitter {
     this.cacheWriter = null;
   }
 
+  /**
+   * High-level entry point for archiving assets in the index after a successful
+   * delete from QuickSight + move of definition to archived/.
+   *
+   * This is the shared, DRY method that all "live delete" paths should use
+   * (BulkDelete, future single deletes, demo cleanup, etc.).
+   * It ensures the cache entry is updated with archived status (so ACTIVE lists
+   * hide it while ARCHIVED lists + restore still see it) and that S3 type caches
+   * + memory are kept consistent.
+   */
+  public async archiveAssetsInCache(
+    assets: Array<{
+      assetType: AssetType;
+      assetId: string;
+      archiveReason?: string;
+      archivedBy?: string;
+    }>
+  ): Promise<void> {
+    const writer = await this.getCacheWriter();
+    return writer.archiveAssetsInCache(assets);
+  }
+
   public async bulkUpdateAssetTags(
     assetType: AssetType,
     assetIds: string[],
@@ -237,6 +259,9 @@ export class CacheService extends EventEmitter {
     return assetsWithPendingSync;
   }
 
+  // Lineage operations are handled during cache rebuild by CacheWriter
+  // Deleted asset detection is handled during export by ExportOrchestrator
+
   /**
    * Get cache entries with unified filtering - can get single asset type or all types
    * @param options.assetType - Get specific asset type, or omit for all types
@@ -248,9 +273,6 @@ export class CacheService extends EventEmitter {
   }): Promise<CacheEntry[]> {
     return await this.cacheReader.getCacheEntries(options);
   }
-
-  // Lineage operations are handled during cache rebuild by CacheWriter
-  // Deleted asset detection is handled during export by ExportOrchestrator
 
   public getCacheReader(): any {
     return this.cacheReader;
@@ -435,6 +457,15 @@ export class CacheService extends EventEmitter {
 
   public async getTypeCache(assetType: AssetType): Promise<CacheEntry[]> {
     return await this.getCacheEntries({ assetType });
+  }
+
+  /**
+   * Evict memory cache for specific asset types (and the master view).
+   * Used by live mutation paths and by the clear-memory API endpoint.
+   */
+  public async invalidateMemoryForTypes(types: AssetType[]): Promise<void> {
+    const writer = await this.getCacheWriter();
+    return writer.invalidateMemoryForTypes(types);
   }
 
   /**

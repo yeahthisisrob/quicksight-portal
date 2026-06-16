@@ -105,7 +105,23 @@ export const JOB_CONFIG = {
 
 // Cache configuration
 export const CACHE_CONFIG = {
-  MEMORY_TTL_MS: 600000, // 10 minutes
+  /**
+   * In-memory TTL for cached asset lists, master cache, etc.
+   * Lowered from 10min to 2min as part of improved live mutation support.
+   *
+   * The powerful S3-backed cache + index enables fast, rich queries (search, filters,
+   * lineage, catalog, activity) without repeated expensive QuickSight calls.
+   * However, for portal-initiated mutations (delete, tag, folder, permission changes, etc.)
+   * we must make the in-memory view reflect reality quickly.
+   *
+   * Strategy:
+   * - Writer paths for live updates always persist to per-type S3 files + metadata.
+   * - Explicit memory key eviction happens in mutation code paths.
+   * - Metadata lastUpdated + freshness checks in readers help cross-Lambda visibility.
+   * - Frontend triggers backend memory clear after job completion for the hitting container.
+   * - Shorter TTL means worst-case staleness is bounded even without explicit clears.
+   */
+  MEMORY_TTL_MS: 120000, // 2 minutes (was 10min). Balance of perf vs freshness for live updates.
   DEFAULT_LAMBDA_MEMORY_MB: 512,
   LARGE_LAMBDA_MEMORY_MB: 3008,
   MEDIUM_LAMBDA_MEMORY_MB: 1024,
