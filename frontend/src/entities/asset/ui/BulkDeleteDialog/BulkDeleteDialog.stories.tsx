@@ -2,6 +2,7 @@
  * Storybook stories for BulkDeleteDialog component
  */
 import { Button } from '@mui/material';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { BulkDeleteDialog } from './BulkDeleteDialog';
@@ -68,23 +69,31 @@ const sampleAssets: Asset[] = [
   },
 ];
 
-// Wrapper component to handle dialog state
+// Wrapper component to handle dialog state + required providers (QueryClient for post-complete cache invalidation)
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: false },
+  },
+});
+
 function DialogWrapper({ assets, ...props }: any) {
   const [open, setOpen] = useState(false);
 
   return (
-    <>
-      <Button variant="contained" color="error" onClick={() => setOpen(true)}>
-        Open Bulk Delete Dialog
-      </Button>
-      <BulkDeleteDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        assets={assets}
-        onComplete={() => console.log('Delete completed')}
-        {...props}
-      />
-    </>
+    <QueryClientProvider client={queryClient}>
+      <>
+        <Button variant="contained" color="error" onClick={() => setOpen(true)}>
+          Open Bulk Delete Dialog
+        </Button>
+        <BulkDeleteDialog
+          open={open}
+          onClose={() => setOpen(false)}
+          assets={assets}
+          onComplete={() => console.log('Delete completed')}
+          {...props}
+        />
+      </>
+    </QueryClientProvider>
   );
 }
 

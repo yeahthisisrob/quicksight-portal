@@ -628,7 +628,19 @@ export class ArchiveService {
   }
 
   /**
-   * Update cache metadata after successful archive operation
+   * Update cache index after successful archive operation.
+   *
+   * Delegates to the shared CacheService.archiveAssetsInCache() so that
+   * all live mutation paths (bulk delete, archive during export detection,
+   * demo cleanup, etc.) use the exact same DRY logic for:
+   *   - status flip to 'archived' (ACTIVE lists hide it)
+   *   - correct exportFilePath + archive metadata
+   *   - persisting the per-type S3 cache files (readers' source of truth)
+   *   - evicting memory keys + freshness for the current process
+   *
+   * The file move (assets/ → archived/) is already performed by the caller.
+   * Keeping the CacheEntry (with archived status) allows archived listings,
+   * restore previews, and stats to continue working from the unified cache.
    */
   private async updateCacheAfterArchive(
     assetType: AssetType,
@@ -641,33 +653,21 @@ export class ArchiveService {
     }
 
     try {
-      const isCollection = isCollectionType(assetType);
-      const archivedPath = isCollection
-        ? `archived/organization/${ASSET_TYPES_PLURAL[assetType]}.json`
-        : `archived/${ASSET_TYPES_PLURAL[assetType]}/${assetId}.json`;
-
-      // Update the asset metadata in cache to reflect archive status
-      const updateData = {
-        status: 'archived' as any,
-        lastUpdatedTime: new Date(),
-        exportFilePath: archivedPath,
-        metadata: {
-          description: `Archived: ${archiveReason || 'No reason'}`,
-          archived: {
-            archivedAt: new Date().toISOString(),
-            archiveReason,
-            archivedBy,
-          },
+      await this.cacheService.archiveAssetsInCache([
+        {
+          assetType,
+          assetId,
+          archiveReason,
+          archivedBy,
         },
-      };
+      ]);
 
-      // Use the cache service to update the asset
-      await this.cacheService.updateAsset(assetType, assetId, updateData);
-
-      logger.info(`Updated cache metadata for archived asset ${assetType}/${assetId}`);
+      logger.info(
+        `Updated cache index for archived asset ${assetType}/${assetId} (via shared archiveAssetsInCache)`
+      );
     } catch (error) {
       logger.error(`Failed to update cache after archiving ${assetType}/${assetId}`, { error });
-      // Don't throw - archive operation succeeded, cache update is secondary
+      // Don't throw - the file was successfully moved to archived/; cache index update is best-effort
     }
   }
 }

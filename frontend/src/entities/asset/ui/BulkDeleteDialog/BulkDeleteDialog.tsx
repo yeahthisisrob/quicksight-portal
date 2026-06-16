@@ -15,6 +15,7 @@ import {
   CircularProgress,
   useTheme,
 } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { useState, useCallback, useMemo, useEffect } from 'react';
 
@@ -61,6 +62,7 @@ export function BulkDeleteDialog({
 }: BulkDeleteDialogProps) {
   const theme = useTheme();
   const { enqueueSnackbar } = useSnackbar();
+  const queryClient = useQueryClient();
   
   // State
   const [reason, setReason] = useState('');
@@ -85,11 +87,44 @@ export function BulkDeleteDialog({
   // Job polling callbacks
   const handleJobComplete = useCallback(async () => {
     enqueueSnackbar('Assets successfully deleted and archived', { variant: 'success' });
+
+    // After a successful mutating bulk op (delete in this case), perform shared
+    // "live update" maintenance:
+    // 1. Ask the backend to clear its memory cache for this container (the one
+    //    that served the "job complete" status will now serve fresh lists).
+    // 2. Invalidate all the common asset list / paginated / summary query keys
+    //    so React Query refetches and the UI reflects the deletion immediately.
+    //
+    // This, together with the server-side changes (shared archiveAssetsInCache,
+    // reader freshness against metadata, auto-clear in JobHandler, shorter TTL),
+    // makes the powerful cache system stay in sync with portal actions.
+    try {
+      await assetsApi.clearMemoryCache().catch(() => {
+        /* best effort */
+      });
+
+      // Broad but targeted invalidations (covers most asset pages + widgets + catalog that may embed counts)
+      await Promise.allSettled([
+        queryClient.invalidateQueries({ queryKey: ['assets'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboards-paginated'] }),
+        queryClient.invalidateQueries({ queryKey: ['analyses-paginated'] }),
+        queryClient.invalidateQueries({ queryKey: ['datasets-paginated'] }),
+        queryClient.invalidateQueries({ queryKey: ['datasources-paginated'] }),
+        queryClient.invalidateQueries({ queryKey: ['folders'] }),
+        queryClient.invalidateQueries({ queryKey: ['export-summary'] }),
+        queryClient.invalidateQueries({ queryKey: ['master-index'] }),
+        queryClient.invalidateQueries({ queryKey: ['data-catalog'] }),
+        queryClient.refetchQueries({ queryKey: ['assets'], type: 'active' }),
+      ]);
+    } catch {
+      // Invalidation failure should not block the UX close
+    }
+
     setTimeout(() => {
       onClose();
       onComplete?.();
-    }, 2000);
-  }, [enqueueSnackbar, onClose, onComplete]);
+    }, 1500);
+  }, [enqueueSnackbar, onClose, onComplete, queryClient]);
 
   const handleJobFailed = useCallback((job: any) => {
     enqueueSnackbar(job.error || 'Failed to delete assets', { variant: 'error' });

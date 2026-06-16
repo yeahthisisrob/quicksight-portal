@@ -880,17 +880,34 @@ export class CacheReader {
    */
   private async getTypeEntries(assetType: AssetType): Promise<CacheEntry[]> {
     try {
-      // Try memory cache first
       const memoryKey = `cache-${assetType}`;
-      const cached = this.memoryAdapter.get<CacheEntry[]>(memoryKey);
-      if (cached) {
-        return cached;
+
+      // Try memory first, but validate freshness against the authoritative metadata.
+      // This is a key part of making the powerful S3 cache responsive to live
+      // mutations performed by worker Lambdas (deletes, bulk tag/folder/permission, etc.).
+      const cachedWrapped = this.memoryAdapter.get<{ entries: CacheEntry[]; loadedAt: number }>(
+        memoryKey
+      );
+      if (cachedWrapped?.entries) {
+        try {
+          const meta = await this.s3Adapter.getCacheMetadata();
+          const metaUpdated = meta?.lastUpdated ? new Date(meta.lastUpdated).getTime() : 0;
+          if (metaUpdated === 0 || cachedWrapped.loadedAt >= metaUpdated) {
+            return cachedWrapped.entries;
+          }
+          // Metadata is newer → our memory copy is stale. Evict and fall through to S3.
+          this.memoryAdapter.delete(memoryKey);
+        } catch {
+          // If we can't read metadata, fall back to using the (possibly slightly stale) memory copy.
+          return cachedWrapped.entries;
+        }
       }
 
-      // Try S3
+      // Load from S3 (the source of truth for lists after live updates)
       const entries = await this.s3Adapter.getTypeCache(assetType);
       if (entries) {
-        this.memoryAdapter.set(memoryKey, entries); // Cache for 5 minutes
+        // Store wrapped with load time so future freshness checks can compare against metadata.lastUpdated
+        this.memoryAdapter.set(memoryKey, { entries, loadedAt: Date.now() });
         return entries;
       }
 

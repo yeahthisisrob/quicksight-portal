@@ -36,6 +36,10 @@ beforeEach(() => {
   mockCacheService = {
     getCacheEntries: vi.fn(),
     updateAsset: vi.fn(),
+    // New shared DRY method for archive/delete cache maintenance (all live mutations should use this)
+    archiveAssetsInCache: vi.fn(),
+    invalidateMemoryForTypes: vi.fn(),
+    clearMemoryCache: vi.fn(),
   } as any;
 
   // Mock S3Service constructor to return our mock
@@ -103,7 +107,8 @@ describe('ArchiveService - archiveAsset individual', () => {
       })
     );
     expect(mockS3Service.deleteObject).toHaveBeenCalledWith(TEST_BUCKET, originalPath);
-    expect(mockCacheService.updateAsset).toHaveBeenCalled();
+    // Now delegates to the shared DRY method for all live archive/delete cache maintenance
+    expect(mockCacheService.archiveAssetsInCache).toHaveBeenCalled();
   });
 
   it('should skip archiving if asset is already archived', async () => {

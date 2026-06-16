@@ -37,6 +37,66 @@ export class CacheWriter {
     this.cacheReader = new CacheReader(this.s3Adapter, this.memoryAdapter);
   }
 
+  /**
+   * Archive one or more assets in the cache index.
+   *
+   * This is the canonical, DRY path for "live delete" cache maintenance:
+   * - QS asset was deleted.
+   * - The detailed definition has been moved to archived/ by ArchiveService.
+   * - We keep the CacheEntry (for archived listings, stats, restore previews) but flip
+   *   status + exportFilePath + archive metadata so ACTIVE filters exclude it.
+   *
+   * Always persists the per-type S3 cache file (the source for getTypeEntries / list views)
+   * and clears relevant memory keys so this process sees the change immediately.
+   *
+   * All portal-initiated destructive updates should go through here (or similar typed
+   * notify methods) instead of ad-hoc updateAsset calls. This keeps the powerful
+   * S3+index cache consistent with mutations.
+   */
+  public async archiveAssetsInCache(
+    assets: Array<{
+      assetType: AssetType;
+      assetId: string;
+      archiveReason?: string;
+      archivedBy?: string;
+    }>
+  ): Promise<void> {
+    if (!assets || assets.length === 0) {
+      return;
+    }
+
+    const affectedTypes = new Set<AssetType>();
+
+    try {
+      // Group by type for efficient per-type list updates
+      const byType: Record<string, typeof assets> = {};
+      for (const a of assets) {
+        (byType[a.assetType] ||= []).push(a);
+        affectedTypes.add(a.assetType);
+      }
+
+      const now = new Date();
+
+      for (const [typeStr, items] of Object.entries(byType)) {
+        const assetType = typeStr as AssetType;
+        const changed = await this.processArchiveUpdatesForType(assetType, items, now);
+        if (changed) {
+          this.evictMemoryForType(assetType);
+        }
+      }
+
+      // Always evict the master view
+      this.memoryAdapter.delete('master-cache');
+
+      logger.info(`Archived ${assets.length} asset(s) in cache index`, {
+        types: Array.from(affectedTypes),
+      });
+    } catch (error) {
+      logger.error('Failed to archive assets in cache index', { error, count: assets.length });
+      throw error;
+    }
+  }
+
   public async bulkUpdateAssetTags(
     assetType: AssetType,
     assetIds: string[],
@@ -102,6 +162,21 @@ export class CacheWriter {
       logger.error(`Failed to clear pending sync for asset ${assetType}/${assetId}`, { error });
       throw error;
     }
+  }
+
+  /**
+   * Invalidate (evict) memory cache entries for the given types (and master).
+   * Call this from any live mutation path after S3 writes so the current Lambda
+   * sees fresh data on next request.
+   */
+  public async invalidateMemoryForTypes(types: AssetType[]): Promise<void> {
+    // Keep async for API consistency with other cache mutation methods
+    await Promise.resolve();
+    for (const t of types) {
+      this.evictMemoryForType(t);
+    }
+    this.memoryAdapter.delete('master-cache');
+    logger.debug('Invalidated memory caches for types', { types });
   }
 
   public async markForSync(
@@ -316,6 +391,10 @@ export class CacheWriter {
         metadata.lastUpdated = new Date();
         await this.s3Adapter.saveCacheMetadata(metadata);
 
+        // Evict memory so subsequent reads in this process see the removal
+        this.evictMemoryForType(assetType);
+        this.memoryAdapter.delete('master-cache');
+
         logger.debug(`Removed ${assetType} ${assetId} from cache`);
         return true;
       }
@@ -403,6 +482,11 @@ export class CacheWriter {
 
       // Save to adapters
       await this.saveMasterCache(masterCache);
+
+      // Evict memory for the affected type + master so this process sees the mutation
+      // (e.g. permission revokes, tag updates, etc. that still flow through updateAsset).
+      this.evictMemoryForType(assetType);
+      this.memoryAdapter.delete('master-cache');
     } catch (error) {
       logger.error(`Failed to update asset ${assetType}/${assetId}`, { error });
       throw error;
@@ -1037,6 +1121,12 @@ export class CacheWriter {
     return 'USER';
   }
 
+  private evictMemoryForType(assetType: AssetType): void {
+    this.memoryAdapter.delete(`cache-${assetType}`);
+    // Also clear any related derived caches that may embed the data
+    this.memoryAdapter.delete('field-cache'); // conservative; field cache often rebuilt on demand
+  }
+
   private extractAssetMetadata(
     assetType: AssetType,
     assetData: any
@@ -1465,6 +1555,90 @@ export class CacheWriter {
     } catch {
       logger.debug(`No archived collection file for ${assetType}`);
     }
+  }
+
+  /**
+   * Process archive status updates for a single asset type.
+   * Extracted to keep archiveAssetsInCache under statement limit.
+   * Returns true if any entries were modified.
+   */
+  private async processArchiveUpdatesForType(
+    assetType: AssetType,
+    items: Array<{ assetId: string; archiveReason?: string; archivedBy?: string }>,
+    now: Date
+  ): Promise<boolean> {
+    // Load the current authoritative list for this type (bypassing ACTIVE filter)
+    const currentEntries = await this.cacheReader.getCacheEntries({
+      assetType,
+      statusFilter: AssetStatusFilter.ALL,
+    });
+
+    let changed = false;
+
+    for (const item of items) {
+      const idx = currentEntries.findIndex((e: CacheEntry) => e.assetId === item.assetId);
+      const archiveInfo = {
+        archivedAt: now.toISOString(),
+        archiveReason: item.archiveReason || 'Deleted via portal',
+        archivedBy: item.archivedBy || 'system',
+      };
+
+      const archivedExportPath = isCollectionType(assetType)
+        ? `archived/organization/${ASSET_TYPES_PLURAL[assetType]}.json`
+        : `archived/${ASSET_TYPES_PLURAL[assetType]}/${item.assetId}.json`;
+
+      if (idx >= 0) {
+        const existing = currentEntries[idx] as CacheEntry;
+        currentEntries[idx] = {
+          ...existing,
+          status: 'archived' as any,
+          lastUpdatedTime: now,
+          exportFilePath: archivedExportPath,
+          metadata: {
+            ...((existing as any)?.metadata || {}),
+            archived: archiveInfo,
+          } as any,
+        } as CacheEntry;
+        changed = true;
+      } else {
+        // Asset wasn't in cache yet (rare for a just-deleted one); create a skeleton so archived view works
+        currentEntries.push({
+          assetId: item.assetId,
+          assetType,
+          assetName: item.assetId,
+          arn: '',
+          status: 'archived' as any,
+          enrichmentStatus: 'skeleton' as any,
+          createdTime: now,
+          lastUpdatedTime: now,
+          exportedAt: now,
+          exportFilePath: archivedExportPath,
+          storageType: 'individual' as any,
+          tags: [],
+          permissions: [],
+          metadata: { archived: archiveInfo } as any,
+        } as CacheEntry);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      await this.s3Adapter.saveTypeCache(assetType, currentEntries);
+
+      // Update counts in metadata
+      const metadata = (await this.s3Adapter.getCacheMetadata()) || {
+        version: '2.0',
+        lastUpdated: now,
+        assetCounts: {},
+        assetTimestamps: {},
+      };
+      metadata.assetCounts[assetType] = currentEntries.length;
+      metadata.lastUpdated = now;
+      (metadata.assetTimestamps as any)[assetType] = now;
+      await this.s3Adapter.saveCacheMetadata(metadata);
+    }
+
+    return changed;
   }
 
   /**
