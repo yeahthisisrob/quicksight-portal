@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.2.1...v1.2.2) (2026-06-16)
+
+
+### Bug Fixes
+
+* **cache:** properly bust/update S3 index + memory on deletes & bulk mutations ([f5067a8](https://github.com/yeahthisisrob/quicksight-portal/commit/f5067a808a15d76e99bb73370a6ece2e0a2b9d7e))
+
 ## [1.2.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.2.0...v1.2.1) (2026-06-11)
 
 
