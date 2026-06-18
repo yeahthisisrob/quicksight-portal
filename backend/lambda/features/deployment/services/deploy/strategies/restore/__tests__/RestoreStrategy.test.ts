@@ -731,6 +731,7 @@ describe('RestoreStrategy - cache update', () => {
           permissions: [
             {
               principal: 'arn:aws:quicksight:us-east-1:123456789012:user/default/user1',
+              principalType: 'USER',
               actions: ['quicksight:DescribeDashboard', 'quicksight:UpdateDashboard'],
             },
           ],

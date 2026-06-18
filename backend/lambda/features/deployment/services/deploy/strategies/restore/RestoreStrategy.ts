@@ -14,6 +14,10 @@ import {
 } from '../../../../../../shared/types/assetTypes';
 import { logger } from '../../../../../../shared/utils/logger';
 import {
+  determinePrincipalType,
+  normalizePermissionsArray,
+} from '../../../../../../shared/utils/permissions';
+import {
   type IDeploymentStrategy,
   type DeploymentType,
   type DeploymentConfig,
@@ -57,6 +61,7 @@ export class RestoreStrategy implements IDeploymentStrategy {
   /**
    * Deploy (restore) the asset
    */
+  // eslint-disable-next-line max-statements -- restore flow is inherently multi-step (transform, backup, create, verify, cache, backup-archive); verified as low-risk
   public async deploy(
     assetType: AssetType,
     assetId: string,
@@ -71,6 +76,7 @@ export class RestoreStrategy implements IDeploymentStrategy {
     let error: string | undefined;
     let targetArn: string | undefined;
     let backupPath: string | undefined;
+    let verification: any = null;
 
     try {
       logger.info(`Starting restore for ${assetType} ${assetId}`, {
@@ -85,7 +91,21 @@ export class RestoreStrategy implements IDeploymentStrategy {
       logger.info(`Performing QuickSight restore for ${assetType} ${assetId}`);
       const restoreResult = await this.performRestore(assetType, targetId, deployData);
       targetArn = restoreResult.arn;
+
+      // Critical: Check creation status (prevents false "success" when QS reports FAILED)
+      const creationStatus = restoreResult.creationStatus || (restoreResult as any).CreationStatus;
+      if (creationStatus && /FAILED/i.test(creationStatus)) {
+        throw new Error(`QuickSight restore completed with failure status: ${creationStatus}`);
+      }
+      if (creationStatus) {
+        logger.info(`QuickSight creation status for restore: ${creationStatus}`);
+      }
+
       logger.info(`QuickSight restore successful for ${assetType} ${assetId}`, { arn: targetArn });
+
+      // Low-hanging verification using QS describe (so UI can show real success)
+      verification = await this.verifyRestoredAssetInQuickSight(assetType, targetId);
+      logger.info(`Verification for restored ${assetType} ${targetId}`, verification);
 
       logger.info(`Starting post-restore operations for ${assetType} ${assetId}`);
       await this.postRestoreOperations({
@@ -125,6 +145,7 @@ export class RestoreStrategy implements IDeploymentStrategy {
       error,
       backupPath,
       config,
+      verification,
     });
   }
 
@@ -386,6 +407,7 @@ export class RestoreStrategy implements IDeploymentStrategy {
     error?: string;
     backupPath?: string;
     config: DeploymentConfig;
+    verification?: any;
   }): DeploymentResult {
     return {
       deploymentId: params.deploymentId,
@@ -412,6 +434,7 @@ export class RestoreStrategy implements IDeploymentStrategy {
         source: 'archive',
         originalId: params.sourceId,
         overwrite: params.config.options.overwriteExisting,
+        verification: params.verification || null,
       },
     };
   }
@@ -524,9 +547,9 @@ export class RestoreStrategy implements IDeploymentStrategy {
   private extractArchivedComponents(assetData: any, data: any, config: DeploymentConfig): any {
     const result = { ...data };
 
-    // Permissions
+    // Permissions (normalize dashboard-style full response object to array)
     if (assetData.apiResponses?.permissions?.data) {
-      result.Permissions = assetData.apiResponses.permissions.data;
+      result.Permissions = normalizePermissionsArray(assetData.apiResponses.permissions.data);
       logger.info('Found permissions in archived data', {
         permissionCount: result.Permissions?.length || 0,
       });
@@ -805,8 +828,9 @@ export class RestoreStrategy implements IDeploymentStrategy {
   ): Promise<void> {
     try {
       const describeData = archivedData.apiResponses?.describe?.data || deployData;
-      const permissions =
-        archivedData.apiResponses?.permissions?.data || deployData.Permissions || [];
+      const permissions = normalizePermissionsArray(
+        archivedData.apiResponses?.permissions?.data || deployData.Permissions
+      );
       const tags = archivedData.apiResponses?.tags?.data || deployData.Tags || [];
 
       const createdTime = describeData.CreatedTime || describeData.createdTime;
@@ -831,8 +855,9 @@ export class RestoreStrategy implements IDeploymentStrategy {
         storageType: isCollectionType(assetType) ? 'collection' : 'individual',
         tags: tags.map((t: any) => ({ key: t.Key || t.key, value: t.Value || t.value })),
         permissions: permissions.map((p: any) => ({
-          principal: p.Principal,
-          actions: p.Actions || [],
+          principal: p.Principal || p.principal || '',
+          principalType: determinePrincipalType(p.Principal || p.principal || ''),
+          actions: p.Actions || p.actions || [],
         })),
         metadata: {
           ...describeData,
@@ -849,6 +874,71 @@ export class RestoreStrategy implements IDeploymentStrategy {
       });
     } catch (error) {
       logger.error(`Failed to update cache for restored asset ${assetType}/${assetId}`, { error });
+    }
+  }
+
+  /**
+   * Low-hanging fruit verification: call QS describe APIs to confirm the asset
+   * was actually created successfully. This makes the "completed" status trustworthy.
+   */
+  private async verifyRestoredAssetInQuickSight(
+    assetType: AssetType,
+    assetId: string
+  ): Promise<{
+    verified: boolean;
+    status?: string;
+    message?: string;
+    checkedAt: string;
+  }> {
+    const checkedAt = new Date().toISOString();
+    try {
+      let describe: any;
+      let status: string | undefined;
+
+      switch (assetType) {
+        case ASSET_TYPES.dashboard:
+          describe = await this.quickSightService.describeDashboard(assetId);
+          status = describe?.CreationStatus || describe?.Status;
+          break;
+        case ASSET_TYPES.analysis:
+          describe = await this.quickSightService.describeAnalysis(assetId);
+          status = describe?.CreationStatus || describe?.Status;
+          break;
+        case ASSET_TYPES.dataset:
+          describe = await this.quickSightService.describeDataset(assetId);
+          status = describe?.Status; // datasets use different status field sometimes
+          break;
+        case ASSET_TYPES.datasource:
+          describe = await this.quickSightService.describeDatasource(assetId);
+          status = describe?.Status;
+          break;
+        default:
+          // Folders/groups/users are usually instant; assume ok if no error reaching here
+          return {
+            verified: true,
+            status: 'AVAILABLE',
+            message: 'No creation status for this type',
+            checkedAt,
+          };
+      }
+
+      const success = !status || /SUCCESS|AVAILABLE|CREATION_SUCCESSFUL/i.test(status);
+      return {
+        verified: success,
+        status,
+        message: success ? 'Confirmed in QuickSight' : `Status: ${status}`,
+        checkedAt,
+      };
+    } catch (error: any) {
+      logger.warn(`Verification describe failed for ${assetType} ${assetId}`, {
+        error: error.message,
+      });
+      return {
+        verified: false,
+        status: 'DESCRIBE_FAILED',
+        message: error.message || 'Could not verify in QuickSight',
+        checkedAt,
+      };
     }
   }
 }

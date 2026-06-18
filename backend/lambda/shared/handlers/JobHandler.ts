@@ -145,6 +145,7 @@ export class JobHandler {
         const isMutatingCompleted =
           job.status === 'completed' &&
           (job.jobType === 'bulk-operation' ||
+            job.jobType === 'deploy' ||
             (job as any).operationType === 'delete' ||
             (job as any).operationType === 'tag-update' ||
             (job as any).operationType === 'folder-add' ||

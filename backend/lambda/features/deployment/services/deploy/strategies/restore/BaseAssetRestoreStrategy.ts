@@ -3,6 +3,7 @@ import { type QuickSightService } from '../../../../../../shared/services/aws/Qu
 import { type S3Service } from '../../../../../../shared/services/aws/S3Service';
 import { ASSET_TYPES_PLURAL, isCollectionType } from '../../../../../../shared/types/assetTypes';
 import { logger } from '../../../../../../shared/utils/logger';
+import { normalizePermissionsArray } from '../../../../../../shared/utils/permissions';
 import type { AssetType } from '../../../../../data-export/types';
 import type { DeploymentConfig, ValidationResult } from '../../types';
 
@@ -73,7 +74,12 @@ export abstract class BaseAssetRestoreStrategy {
     // Support both the original apiResponses structure and transformed data
     // Transformed data has Tags/Permissions directly on the object
     const tags = apiResponses.tags?.data || (assetData as any).Tags || [];
-    const permissions = apiResponses.permissions?.data || (assetData as any).Permissions || [];
+
+    // Dashboard permissions may be stored as the full response object
+    // {Permissions: [...], LinkSharingConfiguration: ...}; normalize to the array.
+    const permissions = normalizePermissionsArray(
+      apiResponses.permissions?.data || (assetData as any).Permissions
+    );
 
     return {
       name: this.extractName(apiResponses),

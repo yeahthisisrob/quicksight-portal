@@ -216,6 +216,12 @@ async function processDeploymentJob(message: DeployMessage, record: any): Promis
       return;
     }
 
+    await jobStateService.updateJobStatus(jobId, {
+      status: 'processing',
+      message: `Executing ${message.deploymentConfig.deploymentType} for ${message.assetType} ${message.assetId}...`,
+      progress: 30,
+    });
+
     await executeDeploymentJob(jobStateService, jobId, message);
   } catch (error) {
     await handleDeploymentError(jobStateService, jobId, error);
@@ -682,27 +688,49 @@ async function executeDeploymentJob(
   // Execute the deployment
   const result = await deployService.deployAsset(assetType, assetId, deploymentConfig);
 
-  // Save the deployment result if successful
-  if (result.success) {
-    const { JobRepository } = await import('./shared/services/jobs/JobRepository');
-    const jobRepository = new JobRepository(s3Service, bucketName);
-    await jobRepository.saveJobResult(jobId, result);
+  // Always save the result for inspection
+  const { JobRepository } = await import('./shared/services/jobs/JobRepository');
+  const jobRepository = new JobRepository(s3Service, bucketName);
+  await jobRepository.saveJobResult(jobId, result);
+
+  const verification = result.metadata?.verification;
+  const finalStatus = result.success ? 'completed' : 'failed';
+
+  let finalMessage: string;
+  if (!result.success) {
+    finalMessage = result.error || `${deploymentConfig.deploymentType} failed`;
+  } else if (verification) {
+    finalMessage = verification.verified
+      ? `${deploymentConfig.deploymentType} completed and verified in QuickSight (${verification.status || 'SUCCESS'})`
+      : `${deploymentConfig.deploymentType} completed (verification: ${verification.message || verification.status || 'unknown'})`;
+  } else {
+    finalMessage = `${deploymentConfig.deploymentType} completed successfully`;
   }
 
-  // Mark job as completed or failed based on result
+  // Mark job based on actual result + include verification info when available
   await jobStateService.updateJobStatus(jobId, {
-    status: 'completed',
+    status: finalStatus,
     progress: 100,
     endTime: new Date().toISOString(),
-    message: `${deploymentConfig.deploymentType} completed successfully`,
+    message: finalMessage,
+    ...(result.success ? {} : { error: result.error }),
   });
 
-  logger.info('Deployment job completed successfully', {
-    jobId,
-    assetType,
-    assetId,
-    deploymentType: deploymentConfig.deploymentType,
-  });
+  if (result.success) {
+    logger.info('Deployment job completed successfully', {
+      jobId,
+      assetType,
+      assetId,
+      deploymentType: deploymentConfig.deploymentType,
+    });
+  } else {
+    logger.warn('Deployment job completed with failure', {
+      jobId,
+      assetType,
+      assetId,
+      error: result.error,
+    });
+  }
 }
 
 /**

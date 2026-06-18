@@ -139,7 +139,8 @@ export const ArchivedAssetsPage: React.FC = () => {
   };
 
   const handleRestoreSuccess = () => {
-    // Refresh the archived assets list
+    // Refresh the archived assets list (restore preserves the archive copy).
+    // The restore dialog also invalidates the active asset lists on success.
     fetchAssets({ page: 1, pageSize: 50 });
   };
 
