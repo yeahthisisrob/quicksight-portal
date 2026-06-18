@@ -1,6 +1,8 @@
 /**
  * Utility functions for extracting metadata from archived asset data
  */
+import { normalizePermissionsArray } from './permissions';
+
 import type { AssetMetadata } from '../ui/RestoreAssetDialog/types';
 
 /**
@@ -8,7 +10,7 @@ import type { AssetMetadata } from '../ui/RestoreAssetDialog/types';
  */
 export function extractBaseMetadata(apiResponses: any): Partial<AssetMetadata> {
   return {
-    permissions: apiResponses?.permissions?.data || [],
+    permissions: normalizePermissionsArray(apiResponses?.permissions?.data),
     tags: apiResponses?.tags?.data || [],
     refreshSchedules: apiResponses?.refreshSchedules?.data || [],
     refreshProperties: apiResponses?.dataSetRefreshProperties?.data || null,

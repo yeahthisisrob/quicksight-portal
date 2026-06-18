@@ -25,45 +25,53 @@ export function useDeploymentJob(options: UseDeploymentJobOptions = {}) {
   useEffect(() => {
     return () => {
       if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
+        clearTimeout(pollIntervalRef.current);
       }
     };
   }, []);
 
-  // Poll for job status
+  // Poll for job status - improved with adaptive backoff for clarity
   const pollJobStatus = useCallback(async (jobId: string) => {
     try {
       const status = await jobsApi.getJob(jobId);
       if (!status) return;
-      
+
       setJobStatus(status);
-      
+
       // Check if job is complete
       if (status.status === 'completed' || status.status === 'failed' || status.status === 'stopped') {
         setIsPolling(false);
-        
-        // Stop polling
+
         if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
+          clearTimeout(pollIntervalRef.current);
           pollIntervalRef.current = null;
         }
-        
-        // Load final logs
+
         try {
           const logs = await jobsApi.getJobLogs(jobId);
           setJobLogs(logs);
         } catch (error) {
           console.error('Failed to load job logs:', error);
         }
-        
-        // Load deployment result if successful
+
         if (status.status === 'completed') {
           try {
             const result = await jobsApi.getJobResult<DeploymentResult>(jobId);
             if (result) {
               setDeploymentResult(result);
+
+              // Show clearer message based on verification if present (from backend QS describe)
+              const verification = (result as any).metadata?.verification;
+              if (verification) {
+                const msg = verification.verified
+                  ? `Deployment completed and verified in QuickSight (${verification.status || 'SUCCESS'})`
+                  : `Deployment completed but verification issue: ${verification.message || verification.status}`;
+                enqueueSnackbar(msg, { variant: verification.verified ? 'success' : 'warning' });
+              } else {
+                enqueueSnackbar('Deployment completed successfully', { variant: 'success' });
+              }
+
               onSuccess?.(result);
-              enqueueSnackbar('Deployment completed successfully', { variant: 'success' });
             }
           } catch (error) {
             console.error('Failed to load deployment result:', error);
@@ -74,8 +82,7 @@ export function useDeploymentJob(options: UseDeploymentJobOptions = {}) {
         } else if (status.status === 'stopped') {
           enqueueSnackbar('Deployment was stopped', { variant: 'warning' });
         }
-        
-        // Save job ID to localStorage for history
+
         const recentJobs = JSON.parse(localStorage.getItem('recentDeploymentJobs') || '[]');
         if (!recentJobs.includes(jobId)) {
           recentJobs.unshift(jobId);
@@ -112,11 +119,14 @@ export function useDeploymentJob(options: UseDeploymentJobOptions = {}) {
         // Store in localStorage
         localStorage.setItem('lastDeploymentJobId', jobId);
         
-        // Start polling
-        pollJobStatus(jobId); // Initial poll
-        pollIntervalRef.current = setInterval(() => {
+        // Start polling with simple backoff for less spam on long restores
+        const doPoll = () => {
           pollJobStatus(jobId);
-        }, pollInterval);
+          // ramp the delay a bit, hard cap
+          const nextDelay = pollIntervalRef.current ? Math.min(10000, pollInterval * 1.5) : pollInterval;
+          pollIntervalRef.current = setTimeout(doPoll, nextDelay);
+        };
+        doPoll();
         
         enqueueSnackbar('Deployment job queued. Monitoring progress...', { variant: 'info' });
       } else {

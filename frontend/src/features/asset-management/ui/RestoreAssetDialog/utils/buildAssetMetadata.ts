@@ -1,6 +1,8 @@
 /**
  * Utility function to build asset metadata from archived data
  */
+import { normalizePermissionsArray } from '../../../utils/permissions';
+
 import type { ArchivedAssetItem } from '../../../model/types';
 import type { AssetMetadata } from '../types';
 
@@ -9,7 +11,7 @@ export function buildAssetMetadata(
   asset: ArchivedAssetItem
 ): AssetMetadata {
   const metadata: AssetMetadata = {
-    permissions: archivedData.apiResponses?.permissions?.data || [],
+    permissions: normalizePermissionsArray(archivedData.apiResponses?.permissions?.data),
     tags: archivedData.apiResponses?.tags?.data || [],
     refreshSchedules: archivedData.apiResponses?.refreshSchedules?.data || [],
     refreshProperties: archivedData.apiResponses?.dataSetRefreshProperties?.data || null,

@@ -24,9 +24,12 @@ import {
   Tab,
   CircularProgress,
 } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import React, { useCallback } from 'react';
 
 import { useDeploymentJob } from '@/features/deployment';
+
+import { assetsApi } from '@/shared/api';
 
 import { BasicInfoTab } from './components/BasicInfoTab';
 import { ComponentsTab } from './components/ComponentsTab';
@@ -52,6 +55,8 @@ export const RestoreAssetDialog: React.FC<RestoreAssetDialogProps> = ({
   onSuccess,
   asset,
 }) => {
+  const queryClient = useQueryClient();
+
   const {
     activeTab,
     setActiveTab,
@@ -78,7 +83,32 @@ export const RestoreAssetDialog: React.FC<RestoreAssetDialogProps> = ({
     startDeployment,
     stopDeployment,
   } = useDeploymentJob({
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Mirror the post-mutation cache maintenance done for bulk delete.
+      // Restore is a live op that adds an asset to the active index.
+      try {
+        await assetsApi.clearMemoryCache().catch(() => {
+          /* best effort */
+        });
+
+        await Promise.allSettled([
+          queryClient.invalidateQueries({ queryKey: ['assets'] }),
+          queryClient.invalidateQueries({ queryKey: ['dashboards-paginated'] }),
+          queryClient.invalidateQueries({ queryKey: ['analyses-paginated'] }),
+          queryClient.invalidateQueries({ queryKey: ['datasets-paginated'] }),
+          queryClient.invalidateQueries({ queryKey: ['datasources-paginated'] }),
+          queryClient.invalidateQueries({ queryKey: ['folders'] }),
+          queryClient.invalidateQueries({ queryKey: ['export-summary'] }),
+          queryClient.invalidateQueries({ queryKey: ['master-index'] }),
+          queryClient.invalidateQueries({ queryKey: ['data-catalog'] }),
+          queryClient.refetchQueries({ queryKey: ['assets'], type: 'active' }),
+          // Also refresh archived list (the dialog's onSuccess will do a basic refetch too)
+          queryClient.invalidateQueries({ queryKey: ['archived-assets'] }),
+        ]);
+      } catch {
+        // Non-fatal
+      }
+
       onSuccess();
       onClose();
     },

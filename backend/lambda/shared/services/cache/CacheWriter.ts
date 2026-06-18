@@ -21,6 +21,7 @@ import {
 } from '../../types/assetTypes';
 import { pascalToCamel } from '../../utils/caseConverter';
 import { logger } from '../../utils/logger';
+import { determinePrincipalType } from '../../utils/permissions';
 import { AssetParserService } from '../parsing/AssetParserService';
 
 export class CacheWriter {
@@ -1098,29 +1099,6 @@ export class CacheWriter {
     }
   }
 
-  private determinePrincipalType(principal: string): 'USER' | 'GROUP' | 'NAMESPACE' | 'PUBLIC' {
-    if (!principal) {
-      return 'USER';
-    }
-
-    // Check for public permissions (wildcard from LinkSharingConfiguration)
-    if (principal === '*') {
-      return 'PUBLIC';
-    }
-    // Check for namespace permissions (from LinkSharingConfiguration)
-    if (principal.includes(':namespace/')) {
-      return 'NAMESPACE';
-    }
-
-    // Check for group permissions
-    if (principal.includes(':group/')) {
-      return 'GROUP';
-    }
-
-    // Default to user
-    return 'USER';
-  }
-
   private evictMemoryForType(assetType: AssetType): void {
     this.memoryAdapter.delete(`cache-${assetType}`);
     // Also clear any related derived caches that may embed the data
@@ -2104,7 +2082,7 @@ export class CacheWriter {
       // Transform the combined permissions array (already in camelCase)
       const transformed = allPermissions.map((permission) => ({
         principal: permission.principal || '',
-        principalType: this.determinePrincipalType(permission.principal || ''),
+        principalType: determinePrincipalType(permission.principal || ''),
         actions: permission.actions || [],
       }));
       return transformed;
@@ -2121,7 +2099,7 @@ export class CacheWriter {
 
     return permissions.map((permission) => ({
       principal: permission.principal || '',
-      principalType: this.determinePrincipalType(permission.principal || ''),
+      principalType: determinePrincipalType(permission.principal || ''),
       actions: permission.actions || [],
     }));
   }
