@@ -1,5 +1,6 @@
 import { BaseAssetRestoreStrategy } from './BaseAssetRestoreStrategy';
 import type { AssetExportData } from '../../../../../../shared/models/asset-export.model';
+import { reviveQuickSightTimestamps } from '../../../../../../shared/utils/quicksightTimestamps';
 import type { ValidationResult } from '../../types';
 
 /**
@@ -32,15 +33,13 @@ export class DashboardRestoreStrategy extends BaseAssetRestoreStrategy {
       tagCount: dashboardData.tags.length,
     });
 
-    // TODO: AWS SDK issue #6176 - The SDK incorrectly expects Date objects for
-    // TimeRangeFilterValue.StaticValue fields even though QuickSight API returns ISO date strings.
-    // Dashboards with time range filters may fail to restore until the SDK is fixed.
+    // Revive ISO timestamp strings (time-range filters, DateTime parameter
+    // defaults) back to Date objects so the AWS SDK can marshal them.
     // See: https://github.com/aws/aws-sdk-js-v3/issues/6176
-
     return await this.quickSightService.createDashboard({
       dashboardId: assetId,
       name: dashboardData.name,
-      definition: dashboardData.definition,
+      definition: reviveQuickSightTimestamps(dashboardData.definition),
       dashboardPublishOptions: dashboardData.publishOptions,
       permissions: dashboardData.permissions,
       ...this.getTagsForApi(dashboardData.tags),

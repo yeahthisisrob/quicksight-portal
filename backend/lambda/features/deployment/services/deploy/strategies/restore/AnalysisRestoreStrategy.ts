@@ -1,5 +1,6 @@
 import { BaseAssetRestoreStrategy } from './BaseAssetRestoreStrategy';
 import type { AssetExportData } from '../../../../../../shared/models/asset-export.model';
+import { reviveQuickSightTimestamps } from '../../../../../../shared/utils/quicksightTimestamps';
 import type { ValidationResult } from '../../types';
 
 /**
@@ -31,16 +32,13 @@ export class AnalysisRestoreStrategy extends BaseAssetRestoreStrategy {
       tagCount: analysisData.tags.length,
     });
 
-    // TODO: Add date cleaning workaround for AWS SDK issue #6176
-    // The SDK incorrectly expects Date objects for TimeRangeFilterValue.StaticValue
-    // fields even though QuickSight API returns ISO date strings.
+    // Revive ISO timestamp strings (time-range filters, DateTime parameter
+    // defaults) back to Date objects so the AWS SDK can marshal them.
     // See: https://github.com/aws/aws-sdk-js-v3/issues/6176
-    // For now, analyses with time range filters may fail to restore.
-
     return await this.quickSightService.createAnalysis({
       analysisId: assetId,
       name: analysisData.name,
-      definition: analysisData.definition,
+      definition: reviveQuickSightTimestamps(analysisData.definition),
       permissions: analysisData.permissions,
       ...this.getTagsForApi(analysisData.tags),
       sourceEntity: undefined,
