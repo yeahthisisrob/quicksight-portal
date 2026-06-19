@@ -280,12 +280,18 @@ describe('AnalysisRestoreStrategy - date handling', () => {
 
       await strategy.restore('test-analysis', dataWithTimeRange);
 
-      // The analysis should be restored with the date strings as-is
-      // The TODO comment in the code warns about potential AWS SDK issue
+      // Time-range filter StaticValue ISO strings are revived to Date objects so
+      // the AWS SDK can marshal them (AWS SDK issue #6176).
       const callArgs = mockQuickSightService.createAnalysis.mock.calls[0]![0];
       const timeFilter = callArgs.definition?.FilterGroups?.[0]?.Filters?.[0]?.TimeRangeFilter;
-      expect(timeFilter?.RangeMinimumValue?.StaticValue).toBe('2025-01-01T00:00:00.000Z');
-      expect(timeFilter?.RangeMaximumValue?.StaticValue).toBe('2025-01-31T23:59:59.999Z');
+      expect(timeFilter?.RangeMinimumValue?.StaticValue).toBeInstanceOf(Date);
+      expect(timeFilter?.RangeMaximumValue?.StaticValue).toBeInstanceOf(Date);
+      expect((timeFilter?.RangeMinimumValue?.StaticValue as Date).toISOString()).toBe(
+        '2025-01-01T00:00:00.000Z'
+      );
+      expect((timeFilter?.RangeMaximumValue?.StaticValue as Date).toISOString()).toBe(
+        '2025-01-31T23:59:59.999Z'
+      );
     });
   });
 });

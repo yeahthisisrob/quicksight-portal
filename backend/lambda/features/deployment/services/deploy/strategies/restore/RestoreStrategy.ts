@@ -17,6 +17,7 @@ import {
   determinePrincipalType,
   normalizePermissionsArray,
 } from '../../../../../../shared/utils/permissions';
+import { reviveQuickSightTimestamps } from '../../../../../../shared/utils/quicksightTimestamps';
 import {
   type IDeploymentStrategy,
   type DeploymentType,
@@ -755,7 +756,12 @@ export class RestoreStrategy implements IDeploymentStrategy {
 
         for (const schedule of deployData.RefreshSchedules) {
           try {
-            await this.quickSightService.createRefreshSchedule(assetId, schedule);
+            // StartAfterDateTime is stored as an ISO string; revive to a Date
+            // so the SDK can marshal it (AWS SDK issue #6176).
+            await this.quickSightService.createRefreshSchedule(
+              assetId,
+              reviveQuickSightTimestamps(schedule)
+            );
             logger.info(`Created refresh schedule ${schedule.ScheduleId} for dataset ${assetId}`);
           } catch (error) {
             logger.warn(`Failed to create refresh schedule for dataset ${assetId}:`, error);
