@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.5](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.2.4...v1.2.5) (2026-06-19)
+
+
+### Bug Fixes
+
+* confirm QuickSight creation before reporting restore success ([#15](https://github.com/yeahthisisrob/quicksight-portal/issues/15)) ([ca50034](https://github.com/yeahthisisrob/quicksight-portal/commit/ca500344c797ff591d2250c380ba4008aa14901a))
+
 ## [1.2.4](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.2.3...v1.2.4) (2026-06-19)
 
 
