@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.4](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.2.3...v1.2.4) (2026-06-19)
+
+
+### Bug Fixes
+
+* revive ISO timestamps when restoring assets (AWS SDK epoch error) ([#13](https://github.com/yeahthisisrob/quicksight-portal/issues/13)) ([a836cfd](https://github.com/yeahthisisrob/quicksight-portal/commit/a836cfdc2aaafce5aca255e30f5d47c8d7aca964))
+
 ## [1.2.3](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.2.2...v1.2.3) (2026-06-18)
 
 
