@@ -104,9 +104,17 @@ export class RestoreStrategy implements IDeploymentStrategy {
 
       logger.info(`QuickSight restore successful for ${assetType} ${assetId}`, { arn: targetArn });
 
-      // Low-hanging verification using QS describe (so UI can show real success)
-      verification = await this.verifyRestoredAssetInQuickSight(assetType, targetId);
+      // Poll QuickSight until creation is confirmed; fail the restore (rather
+      // than falsely reporting success) if QuickSight reports CREATION_FAILED or
+      // the asset never materializes. This also prevents the cache from being
+      // updated for an asset that does not actually exist.
+      verification = await this.confirmRestoredAssetInQuickSight(assetType, targetId);
       logger.info(`Verification for restored ${assetType} ${targetId}`, verification);
+      if (!verification.verified) {
+        throw new Error(
+          `Restore not confirmed in QuickSight for ${assetType} ${targetId}: ${verification.message || verification.status}`
+        );
+      }
 
       logger.info(`Starting post-restore operations for ${assetType} ${assetId}`);
       await this.postRestoreOperations({
@@ -440,6 +448,100 @@ export class RestoreStrategy implements IDeploymentStrategy {
     };
   }
 
+  /**
+   * Confirm the restored asset actually materialized in QuickSight.
+   *
+   * QuickSight creates dashboards/analyses/datasources ASYNCHRONOUSLY: the
+   * Create* call returns immediately with CREATION_IN_PROGRESS and the asset can
+   * still end up CREATION_FAILED (e.g. a missing dataset dependency or an invalid
+   * definition). We therefore poll the Describe* APIs until the creation status
+   * is terminal, returning verified=false (with QuickSight's own error messages)
+   * on failure so the restore is never falsely reported as a success.
+   */
+  private async confirmRestoredAssetInQuickSight(
+    assetType: AssetType,
+    assetId: string
+  ): Promise<{
+    verified: boolean;
+    status?: string;
+    message?: string;
+    errors?: any[];
+    checkedAt: string;
+  }> {
+    const maxAttempts = 15;
+    const delayMs = 3000;
+    const notFoundRetries = 3;
+    const msPerSecond = 1000;
+    const okPattern = /SUCCESSFUL|AVAILABLE/i;
+    const failPattern = /FAILED/i;
+
+    let lastStatus: string | undefined;
+    let lastErrors: any[] | undefined;
+    let notFoundCount = 0;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const { status, errors } = await this.describeRestoredStatus(assetType, assetId);
+        lastStatus = status;
+        lastErrors = errors;
+
+        // Types without an async creation status (datasets, folders, users,
+        // groups): a successful describe means the asset exists.
+        if (!status) {
+          return {
+            verified: true,
+            status: 'AVAILABLE',
+            message: 'Confirmed in QuickSight',
+            checkedAt: new Date().toISOString(),
+          };
+        }
+        if (failPattern.test(status)) {
+          return {
+            verified: false,
+            status,
+            errors,
+            message: this.formatQuickSightErrors(status, errors),
+            checkedAt: new Date().toISOString(),
+          };
+        }
+        if (okPattern.test(status)) {
+          return {
+            verified: true,
+            status,
+            message: 'Confirmed in QuickSight',
+            checkedAt: new Date().toISOString(),
+          };
+        }
+        // Otherwise creation is still in progress: wait and re-check.
+      } catch (error: any) {
+        // Immediately after create the asset can briefly be un-describable.
+        notFoundCount++;
+        lastStatus = 'NOT_FOUND';
+        lastErrors = undefined;
+        if (notFoundCount >= notFoundRetries && attempt >= notFoundRetries) {
+          return {
+            verified: false,
+            status: 'NOT_FOUND',
+            message: error.message || 'Asset not found in QuickSight after restore',
+            checkedAt: new Date().toISOString(),
+          };
+        }
+      }
+
+      await new Promise<void>((resolve) => {
+        globalThis.setTimeout(resolve, delayMs);
+      });
+    }
+
+    return {
+      verified: false,
+      status: lastStatus || 'IN_PROGRESS',
+      errors: lastErrors,
+      message: `Creation not confirmed within ${(maxAttempts * delayMs) / msPerSecond}s (last status: ${lastStatus || 'unknown'})`,
+      checkedAt: new Date().toISOString(),
+    };
+  }
+
   private convertSDKToDomainSummary(assetType: AssetType, sdkData: any): any {
     switch (assetType) {
       case ASSET_TYPES.dashboard:
@@ -543,6 +645,36 @@ export class RestoreStrategy implements IDeploymentStrategy {
   }
 
   /**
+   * Read the QuickSight creation status (and any errors) for a restored asset.
+   * Returns an empty status for types that are created synchronously.
+   */
+  private async describeRestoredStatus(
+    assetType: AssetType,
+    assetId: string
+  ): Promise<{ status?: string; errors?: any[] }> {
+    switch (assetType) {
+      case ASSET_TYPES.dashboard: {
+        const d = await this.quickSightService.describeDashboard(assetId);
+        return { status: d?.Version?.Status, errors: d?.Version?.Errors };
+      }
+      case ASSET_TYPES.analysis: {
+        const a = await this.quickSightService.describeAnalysis(assetId);
+        return { status: a?.Status, errors: a?.Errors };
+      }
+      case ASSET_TYPES.datasource: {
+        const ds = await this.quickSightService.describeDatasource(assetId);
+        return { status: ds?.Status, errors: ds?.ErrorInfo ? [ds.ErrorInfo] : undefined };
+      }
+      case ASSET_TYPES.dataset:
+        // Datasets are created synchronously; a successful describe = exists.
+        await this.quickSightService.describeDataset(assetId);
+        return {};
+      default:
+        return {};
+    }
+  }
+
+  /**
    * Extract archived components from asset data
    */
   private extractArchivedComponents(assetData: any, data: any, config: DeploymentConfig): any {
@@ -606,6 +738,16 @@ export class RestoreStrategy implements IDeploymentStrategy {
         logger.info(`Found ${key} in archived data`);
       }
     }
+  }
+
+  private formatQuickSightErrors(status: string, errors?: any[]): string {
+    if (errors && errors.length > 0) {
+      const detail = errors
+        .map((e) => e?.Message || e?.message || e?.Type || JSON.stringify(e))
+        .join('; ');
+      return `QuickSight reported ${status}: ${detail}`;
+    }
+    return `QuickSight reported ${status}`;
   }
 
   /**
@@ -880,71 +1022,6 @@ export class RestoreStrategy implements IDeploymentStrategy {
       });
     } catch (error) {
       logger.error(`Failed to update cache for restored asset ${assetType}/${assetId}`, { error });
-    }
-  }
-
-  /**
-   * Low-hanging fruit verification: call QS describe APIs to confirm the asset
-   * was actually created successfully. This makes the "completed" status trustworthy.
-   */
-  private async verifyRestoredAssetInQuickSight(
-    assetType: AssetType,
-    assetId: string
-  ): Promise<{
-    verified: boolean;
-    status?: string;
-    message?: string;
-    checkedAt: string;
-  }> {
-    const checkedAt = new Date().toISOString();
-    try {
-      let describe: any;
-      let status: string | undefined;
-
-      switch (assetType) {
-        case ASSET_TYPES.dashboard:
-          describe = await this.quickSightService.describeDashboard(assetId);
-          status = describe?.CreationStatus || describe?.Status;
-          break;
-        case ASSET_TYPES.analysis:
-          describe = await this.quickSightService.describeAnalysis(assetId);
-          status = describe?.CreationStatus || describe?.Status;
-          break;
-        case ASSET_TYPES.dataset:
-          describe = await this.quickSightService.describeDataset(assetId);
-          status = describe?.Status; // datasets use different status field sometimes
-          break;
-        case ASSET_TYPES.datasource:
-          describe = await this.quickSightService.describeDatasource(assetId);
-          status = describe?.Status;
-          break;
-        default:
-          // Folders/groups/users are usually instant; assume ok if no error reaching here
-          return {
-            verified: true,
-            status: 'AVAILABLE',
-            message: 'No creation status for this type',
-            checkedAt,
-          };
-      }
-
-      const success = !status || /SUCCESS|AVAILABLE|CREATION_SUCCESSFUL/i.test(status);
-      return {
-        verified: success,
-        status,
-        message: success ? 'Confirmed in QuickSight' : `Status: ${status}`,
-        checkedAt,
-      };
-    } catch (error: any) {
-      logger.warn(`Verification describe failed for ${assetType} ${assetId}`, {
-        error: error.message,
-      });
-      return {
-        verified: false,
-        status: 'DESCRIBE_FAILED',
-        message: error.message || 'Could not verify in QuickSight',
-        checkedAt,
-      };
     }
   }
 }

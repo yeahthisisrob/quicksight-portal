@@ -788,3 +788,69 @@ describe('RestoreStrategy - cache update', () => {
     });
   });
 });
+
+describe('RestoreStrategy - QuickSight creation confirmation', () => {
+  beforeEach(() => {
+    setupTestEnvironment();
+  });
+
+  const mockConfig: DeploymentConfig = {
+    deploymentType: 'restore',
+    source: 'archive',
+    target: { accountId: mockAwsAccountId, region: mockAwsRegion },
+    options: { overwriteExisting: false },
+  };
+
+  function mockDashboardStrategy() {
+    const strategy = restoreStrategy as any;
+    strategy.restoreStrategyFactory = {
+      getStrategy: vi.fn().mockReturnValue({
+        restore: vi.fn().mockResolvedValue({ arn: 'arn:test' }),
+        deleteExisting: vi.fn(),
+        validate: vi.fn().mockResolvedValue([]),
+      }),
+    };
+    mockS3Service.objectExists.mockResolvedValue(false);
+    return strategy;
+  }
+
+  it('fails the restore when QuickSight reports CREATION_FAILED', async () => {
+    const strategy = mockDashboardStrategy();
+    strategy.quickSightService.describeDashboard = vi.fn().mockResolvedValue({
+      Version: {
+        Status: 'CREATION_FAILED',
+        Errors: [{ Type: 'DATA_SET_NOT_FOUND', Message: 'Dataset abc not found' }],
+      },
+    });
+
+    const result = await restoreStrategy.deploy(
+      'dashboard',
+      'test-dashboard',
+      { apiResponses: { describe: { data: { Name: 'Test' } } } },
+      mockConfig
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('CREATION_FAILED');
+    expect(result.error).toContain('Dataset abc not found');
+    // Cache must NOT be updated for an asset that failed to create
+    expect(mockCacheService.rebuildCacheForAssetType).not.toHaveBeenCalled();
+  });
+
+  it('succeeds when QuickSight reports CREATION_SUCCESSFUL', async () => {
+    const strategy = mockDashboardStrategy();
+    strategy.quickSightService.describeDashboard = vi.fn().mockResolvedValue({
+      Version: { Status: 'CREATION_SUCCESSFUL' },
+    });
+
+    const result = await restoreStrategy.deploy(
+      'dashboard',
+      'test-dashboard',
+      { apiResponses: { describe: { data: { Name: 'Test' } } } },
+      mockConfig
+    );
+
+    expect(result.success).toBe(true);
+    expect((result.metadata as any)?.verification?.verified).toBe(true);
+  });
+});
