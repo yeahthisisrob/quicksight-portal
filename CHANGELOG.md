@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.3](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.2.2...v1.2.3) (2026-06-18)
+
+
+### Bug Fixes
+
+* make asset restore trustworthy and normalize dashboard permissions ([#11](https://github.com/yeahthisisrob/quicksight-portal/issues/11)) ([e0bb2f2](https://github.com/yeahthisisrob/quicksight-portal/commit/e0bb2f24c239ff15cfee15a61250f422fb87d768))
+
 ## [1.2.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.2.1...v1.2.2) (2026-06-16)
 
 
