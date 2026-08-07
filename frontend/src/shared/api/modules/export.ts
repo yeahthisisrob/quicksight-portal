@@ -339,18 +339,5 @@ export const exportApi = {
     } catch {
       return false;
     }
-  },
-
-  // Clear Lambda memory cache
-  async clearMemoryCache() {
-    const response = await apiClient.post<ApiResponse<{
-      message: string;
-    }>>('/assets/clear-memory-cache');
-    
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to clear memory cache');
-    }
-    
-    return response.data.data;
   }
 };

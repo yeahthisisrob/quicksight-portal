@@ -624,9 +624,6 @@ export class GroupService {
         });
       }
 
-      // Clear memory cache to force refresh
-      await cacheService.clearMemoryCache();
-
       logger.info(`Updated group ${params.groupName} in cache`);
     } catch (error) {
       logger.error(`Failed to update group in cache:`, error);

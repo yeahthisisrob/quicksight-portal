@@ -4,7 +4,7 @@
 import { type MemoryCacheAdapter } from './adapters/MemoryCacheAdapter';
 import { type S3CacheAdapter } from './adapters/S3CacheAdapter';
 import { type CacheSearchOptions, type FieldInfo } from './types';
-import { QUICKSIGHT_LIMITS } from '../../constants';
+import { CACHE_CONFIG, QUICKSIGHT_LIMITS } from '../../constants';
 import { DATE_RANGE_DURATIONS } from '../../constants/timeConstants';
 import { type CacheEntry, type MasterCache, type AssetType } from '../../models/asset.model';
 import {
@@ -287,17 +287,21 @@ export class CacheReader {
    */
   public async getCacheMetadata(): Promise<any> {
     try {
-      // Try memory cache first
-      const cached = this.memoryAdapter.get<any>('cache-metadata');
-      if (cached) {
-        return cached;
+      // Memory-first within the revalidation window; metadata.json is small,
+      // so past the window we just re-GET it (a HEAD would save almost nothing).
+      const cached = this.memoryAdapter.getValidatedEntry<any>('cache-metadata');
+      if (cached && Date.now() - cached.validatedAt < CACHE_CONFIG.REVALIDATE_WINDOW_MS) {
+        return cached.value;
       }
 
-      // Try S3
-      const metadata = await this.s3Adapter.getCacheMetadata();
-      if (metadata) {
-        this.memoryAdapter.set('cache-metadata', metadata); // Cache for 1 minute
-        return metadata;
+      const result = await this.s3Adapter.getCacheMetadataWithETag();
+      if (result?.metadata) {
+        this.memoryAdapter.setValidated('cache-metadata', result.metadata, result.etag);
+        return result.metadata;
+      }
+      if (cached) {
+        // Transient S3 failure — serve the previous copy rather than defaults.
+        return cached.value;
       }
 
       // Return default metadata
@@ -882,33 +886,30 @@ export class CacheReader {
     try {
       const memoryKey = `cache-${assetType}`;
 
-      // Try memory first, but validate freshness against the authoritative metadata.
-      // This is a key part of making the powerful S3 cache responsive to live
-      // mutations performed by worker Lambdas (deletes, bulk tag/folder/permission, etc.).
-      const cachedWrapped = this.memoryAdapter.get<{ entries: CacheEntry[]; loadedAt: number }>(
-        memoryKey
-      );
-      if (cachedWrapped?.entries) {
-        try {
-          const meta = await this.s3Adapter.getCacheMetadata();
-          const metaUpdated = meta?.lastUpdated ? new Date(meta.lastUpdated).getTime() : 0;
-          if (metaUpdated === 0 || cachedWrapped.loadedAt >= metaUpdated) {
-            return cachedWrapped.entries;
-          }
-          // Metadata is newer → our memory copy is stale. Evict and fall through to S3.
-          this.memoryAdapter.delete(memoryKey);
-        } catch {
-          // If we can't read metadata, fall back to using the (possibly slightly stale) memory copy.
-          return cachedWrapped.entries;
+      // Memory-first with ETag revalidation: the memory copy carries the S3
+      // ETag it was loaded with. Within the revalidation window we serve it
+      // directly; after that a cheap HEAD confirms it still matches S3. This
+      // makes cross-Lambda mutations (deletes, bulk tag/folder/permission,
+      // rebuilds) visible on the next read with no manual invalidation.
+      const cached = this.memoryAdapter.getValidatedEntry<CacheEntry[]>(memoryKey);
+      if (cached) {
+        if (Date.now() - cached.validatedAt < CACHE_CONFIG.REVALIDATE_WINDOW_MS) {
+          return cached.value;
         }
+        const currentEtag = await this.s3Adapter.getTypeCacheEtag(assetType);
+        if (currentEtag && cached.etag && currentEtag === cached.etag) {
+          this.memoryAdapter.markValidated(memoryKey);
+          return cached.value;
+        }
+        // Stale, missing, or unconfirmable → fall through to a fresh GET.
+        this.memoryAdapter.delete(memoryKey);
       }
 
-      // Load from S3 (the source of truth for lists after live updates)
-      const entries = await this.s3Adapter.getTypeCache(assetType);
-      if (entries) {
-        // Store wrapped with load time so future freshness checks can compare against metadata.lastUpdated
-        this.memoryAdapter.set(memoryKey, { entries, loadedAt: Date.now() });
-        return entries;
+      // Load from S3 (the source of truth)
+      const result = await this.s3Adapter.getTypeCacheWithETag(assetType);
+      if (result) {
+        this.memoryAdapter.setValidated(memoryKey, result.entries, result.etag);
+        return result.entries;
       }
 
       return [];

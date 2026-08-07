@@ -47,6 +47,12 @@ export interface JobMetadata {
   progress?: number;
   message?: string;
   startTime: string;
+  /**
+   * Heartbeat: stamped on every job write (status/progress updates). Dead-job
+   * detection uses this rather than startTime, so long-running jobs that keep
+   * reporting progress are never falsely killed.
+   */
+  lastUpdatedTime?: string;
   endTime?: string;
   duration?: number;
   userId?: string;
@@ -157,80 +163,29 @@ export class JobRepository {
   }
 
   /**
-   * Mark stuck jobs as failed
-   * Lambda max timeout is 15 minutes, so anything in 'queued' or 'processing'
-   * for more than 30 minutes is definitely stuck
+   * Mark dead jobs as failed.
+   *
+   * A job is dead when it is in a non-terminal status (queued / processing /
+   * stopping) and its heartbeat (`lastUpdatedTime`, falling back to
+   * `startTime`) is older than the timeout. Worker Lambdas cap out at 15
+   * minutes and stamp the heartbeat on every progress write, so a silent
+   * 30-minute gap proves the run died (crash / timeout / OOM).
+   *
+   * This runs automatically inside listJobs()/getJob() (self-healing on read),
+   * so no manual "clear stuck jobs" action is ever needed. Kept public for the
+   * worker's pre-run sweep.
    */
   public async cleanupStuckJobs(
     timeoutMinutes: number = JOB_CONFIG.STUCK_JOB_TIMEOUT_MINUTES
   ): Promise<number> {
-    const cutoffTime = new Date();
-    cutoffTime.setMinutes(cutoffTime.getMinutes() - timeoutMinutes);
-
-    // Get all jobs that might be stuck
-    const allJobs = await this.listJobs({ limit: 1000 });
-
-    const stuckJobs = allJobs.filter((job) => {
-      const jobStartTime = new Date(job.startTime);
-      const isStuckStatus = job.status === 'queued' || job.status === 'processing';
-      const isOldEnough = jobStartTime < cutoffTime;
-
-      return isStuckStatus && isOldEnough;
-    });
-
-    let cleanedCount = 0;
-
-    // Update all stuck jobs in the cache index
-    if (stuckJobs.length > 0) {
-      try {
-        // Get all jobs from cache
-        const jobsFromCache = await this.cacheService.getJobIndex();
-
-        // Update stuck jobs in the index
-        for (const stuckJob of stuckJobs) {
-          const jobIndex = jobsFromCache.findIndex((j: any) => j.jobId === stuckJob.jobId);
-          if (jobIndex >= 0) {
-            jobsFromCache[jobIndex] = {
-              ...stuckJob,
-              status: 'failed',
-              endTime: new Date().toISOString(),
-              message: `Job marked as failed - stuck in ${stuckJob.status} status for over ${timeoutMinutes} minutes`,
-              error: `Lambda timeout - job was in ${stuckJob.status} status for over ${timeoutMinutes} minutes`,
-              duration: new Date().getTime() - new Date(stuckJob.startTime).getTime(),
-            };
-
-            logger.warn(`Marked stuck job as failed`, {
-              jobId: stuckJob.jobId,
-              jobType: stuckJob.jobType,
-              originalStatus: stuckJob.status,
-              stuckDuration:
-                Math.round(
-                  (Date.now() - new Date(stuckJob.startTime).getTime()) / TIME_UNITS.MINUTE
-                ) + ' minutes',
-            });
-
-            cleanedCount++;
-          }
-        }
-
-        // Update the cache index once with all changes (memory only - instant!)
-        await this.cacheService.updateJobIndex(jobsFromCache);
-
-        // Persist to S3 since we marked jobs as failed
-        await this.cacheService.persistJobIndex();
-      } catch (error) {
-        logger.error('Failed to cleanup stuck jobs', {
-          error: error instanceof Error ? error.message : String(error),
-          stuckJobCount: stuckJobs.length,
-        });
-      }
+    const allJobs = await this.cacheService.getJobIndex();
+    const transitioned = this.markDeadJobs(allJobs, timeoutMinutes);
+    if (transitioned > 0) {
+      await this.cacheService.updateJobIndex(allJobs);
+      await this.cacheService.persistJobIndex();
+      logger.info(`Marked ${transitioned} dead jobs as failed`);
     }
-
-    if (cleanedCount > 0) {
-      logger.info(`Marked ${cleanedCount} stuck jobs as failed`);
-    }
-
-    return cleanedCount;
+    return transitioned;
   }
 
   /**
@@ -293,6 +248,11 @@ export class JobRepository {
       // For individual job queries, force refresh from S3 to get latest status
       // This ensures API Lambda gets updates made by Worker Lambda
       const allJobs = await this.cacheService.getJobIndex(true); // Force S3 fetch
+
+      // Self-healing: a poller watching a job whose worker died sees it flip
+      // to 'failed' instead of spinning forever.
+      await this.repairDeadJobs(allJobs);
+
       const job = allJobs.find((j: any) => j.jobId === jobId);
       return job || null;
     } catch (error: any) {
@@ -352,8 +312,10 @@ export class JobRepository {
       // Get all jobs from cache service
       const allJobs = await this.cacheService.getJobIndex();
 
-      // If no jobs in cache, just return empty
-      // Jobs will be added to cache as they are created
+      // Self-healing: repair dead jobs before answering. This also unblocks
+      // single-flight guards (e.g. activity refresh) that treat a stuck
+      // 'processing' job as still active.
+      await this.repairDeadJobs(allJobs);
 
       // Filter jobs
       let filtered = allJobs;
@@ -456,6 +418,53 @@ export class JobRepository {
   }
 
   /**
+   * In-place dead-job marking on a loaded index. Returns how many jobs
+   * transitioned. Callers persist iff the count is > 0.
+   */
+  private markDeadJobs(
+    allJobs: JobMetadata[],
+    timeoutMinutes: number = JOB_CONFIG.STUCK_JOB_TIMEOUT_MINUTES
+  ): number {
+    const cutoff = Date.now() - timeoutMinutes * TIME_UNITS.MINUTE;
+    let transitioned = 0;
+
+    for (let i = 0; i < allJobs.length; i++) {
+      const job = allJobs[i];
+      if (!job) {
+        continue;
+      }
+      const isActive =
+        job.status === 'queued' || job.status === 'processing' || job.status === 'stopping';
+      if (!isActive) {
+        continue;
+      }
+      const lastHeartbeat = new Date(job.lastUpdatedTime || job.startTime).getTime();
+      if (lastHeartbeat >= cutoff) {
+        continue;
+      }
+
+      allJobs[i] = {
+        ...job,
+        status: 'failed',
+        endTime: new Date().toISOString(),
+        message: `Job auto-failed: no heartbeat for over ${timeoutMinutes} minutes (worker died or timed out)`,
+        error: `No heartbeat since ${job.lastUpdatedTime || job.startTime} while in '${job.status}' status`,
+        duration: Date.now() - new Date(job.startTime).getTime(),
+      };
+      transitioned++;
+
+      logger.warn('Auto-failed dead job', {
+        jobId: job.jobId,
+        jobType: job.jobType,
+        originalStatus: job.status,
+        lastHeartbeat: job.lastUpdatedTime || job.startTime,
+      });
+    }
+
+    return transitioned;
+  }
+
+  /**
    * Remove job from cache index
    */
   private async removeFromIndex(jobId: string): Promise<void> {
@@ -470,18 +479,40 @@ export class JobRepository {
   }
 
   /**
+   * Repair pass shared by the read paths: mark dead jobs and, when anything
+   * changed, write the repaired index back (memory + S3). Persistence errors
+   * are non-fatal — reads must not fail because a repair couldn't be saved.
+   */
+  private async repairDeadJobs(allJobs: JobMetadata[]): Promise<void> {
+    const transitioned = this.markDeadJobs(allJobs);
+    if (transitioned === 0) {
+      return;
+    }
+    try {
+      await this.cacheService.updateJobIndex(allJobs);
+      await this.cacheService.persistJobIndex();
+      logger.info(`Auto-failed ${transitioned} dead jobs during read`);
+    } catch (error) {
+      logger.warn('Failed to persist dead-job repair (will retry on next read)', { error });
+    }
+  }
+
+  /**
    * Update job in cache index
    */
   private async updateJobInIndex(job: JobMetadata): Promise<void> {
     // Get current index from memory cache (instant!)
     let allJobs = await this.cacheService.getJobIndex();
 
+    // Stamp the heartbeat — every write proves the owning worker is alive.
+    const stamped: JobMetadata = { ...job, lastUpdatedTime: new Date().toISOString() };
+
     // Update or add job in index
-    const existingIndex = allJobs.findIndex((j: any) => j.jobId === job.jobId);
+    const existingIndex = allJobs.findIndex((j: any) => j.jobId === stamped.jobId);
     if (existingIndex >= 0) {
-      allJobs[existingIndex] = job;
+      allJobs[existingIndex] = stamped;
     } else {
-      allJobs.push(job);
+      allJobs.push(stamped);
     }
 
     // Keep only last jobs total, sorted by start time

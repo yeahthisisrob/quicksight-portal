@@ -149,25 +149,9 @@ export const jobsApi = {
    */
   async deleteJob(jobId: string): Promise<void> {
     const response = await apiClient.delete<ApiResponse<any>>(`/jobs/${jobId}`);
-    
+
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to delete job');
     }
-  },
-
-  /**
-   * Clean up old jobs
-   */
-  async cleanupJobs(options: { daysToKeep?: number; stuckTimeoutMinutes?: number } = {}): Promise<{ deletedCount: number; failedStuckCount: number; message: string }> {
-    const response = await apiClient.post<ApiResponse<{ deletedCount: number; failedStuckCount: number; message: string }>>('/jobs/cleanup', {
-      daysToKeep: options.daysToKeep || 30,
-      stuckTimeoutMinutes: options.stuckTimeoutMinutes || 30
-    });
-    
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to cleanup jobs');
-    }
-    
-    return response.data.data!;
   },
 };

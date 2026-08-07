@@ -3,7 +3,7 @@ import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambd
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
-import { cacheService, CacheService } from '../../../shared/services/cache/CacheService';
+import { cacheService } from '../../../shared/services/cache/CacheService';
 import { type AssetType, getSingularForm } from '../../../shared/types/assetTypes';
 import { createResponse, successResponse, errorResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
@@ -214,14 +214,6 @@ export class TagHandler {
       }
 
       // Update cache if successful
-      if (successful > 0) {
-        try {
-          const cacheServiceInstance = CacheService.getInstance();
-          await cacheServiceInstance.clearMemoryCache();
-        } catch (error) {
-          logger.warn('Failed to update cache after tag refresh:', error);
-        }
-      }
 
       return successResponse(event, {
         success: true,

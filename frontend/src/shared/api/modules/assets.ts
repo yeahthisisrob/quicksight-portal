@@ -34,15 +34,6 @@ export const assetsApi = {
     return response.data.data;
   },
 
-  // Clear memory cache
-  async clearMemoryCache(): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>('/assets/clear-memory-cache');
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to clear memory cache');
-    }
-    return response.data.data;
-  },
-
   async updateAssetTags(assetType: string, assetId: string, tags: Array<{ Key: string; Value: string }>): Promise<any> {
     const response = await apiClient.put<ApiResponse<any>>(`/tags/${assetType.toLowerCase()}/${assetId}`, { tags });
     if (!response.data.success) {

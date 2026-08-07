@@ -584,7 +584,11 @@ async function handleCSVExportError(
 }
 
 /**
- * Clean up stuck jobs before processing
+ * Self-healing job hygiene, run before processing each job:
+ * - mark dead jobs (no heartbeat) as failed
+ * - prune jobs past the retention window
+ * Both also happen lazily on API reads; doing them here keeps the index tidy
+ * even if nobody is looking at the jobs page. Never fatal.
  */
 async function cleanupStuckJobs(jobStateService: JobStateService, jobType: string): Promise<void> {
   try {
@@ -592,10 +596,14 @@ async function cleanupStuckJobs(jobStateService: JobStateService, jobType: strin
       WORKER_CONFIG.STUCK_JOB_TIMEOUT_MINUTES
     );
     if (cleanedCount > 0) {
-      logger.info(`Cleaned up ${cleanedCount} stuck ${jobType} jobs before processing`);
+      logger.info(`Cleaned up ${cleanedCount} dead ${jobType} jobs before processing`);
+    }
+    const prunedCount = await jobStateService.cleanupOldJobs();
+    if (prunedCount > 0) {
+      logger.info(`Pruned ${prunedCount} jobs past retention before processing`);
     }
   } catch (cleanupError) {
-    logger.warn(`Failed to cleanup stuck ${jobType} jobs`, { error: cleanupError });
+    logger.warn(`Failed job hygiene sweep before ${jobType} processing`, { error: cleanupError });
   }
 }
 

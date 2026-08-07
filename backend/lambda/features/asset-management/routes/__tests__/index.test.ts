@@ -96,7 +96,6 @@ describe('assetManagementRoutes', () => {
         { method: 'GET', path: '/assets/archived' },
         { method: 'GET', testPath: '/assets/archive/dashboards/test-id/metadata' },
         { method: 'POST', path: '/assets/rebuild-index' },
-        { method: 'POST', path: '/assets/clear-memory-cache' },
         { method: 'GET', testPath: '/assets/dashboard/test-id/cached' },
         { method: 'GET', testPath: '/assets/dashboard/test-id/views' },
         { method: 'POST', path: '/assets/refresh-views' },

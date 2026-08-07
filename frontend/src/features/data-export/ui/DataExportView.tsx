@@ -115,13 +115,9 @@ export default function DataExportView() {
   const {
     refreshingActivity,
     exportingIngestions,
-    clearingCache,
-    clearingStuckJobs,
     refreshActivity,
     exportIngestions,
-    clearCache,
-    clearStuckJobs,
-  } = useExportOperations(loadCacheSummary);
+  } = useExportOperations();
 
   const handleStartExport = async () => {
     await startExport(selectedAssetTypes, exportMode);
@@ -178,13 +174,9 @@ export default function DataExportView() {
               onRefreshStatus={refreshStatus}
               onRefreshActivity={refreshActivity}
               onExportIngestions={exportIngestions}
-              onClearMemoryCache={clearCache}
-              onClearStuckJobs={clearStuckJobs}
               canRefreshActivity={!refreshingActivity}
               refreshingActivity={refreshingActivity}
               exportingIngestions={exportingIngestions}
-              clearingCache={clearingCache}
-              clearingStuckJobs={clearingStuckJobs}
               selectedTypesCount={selectedAssetTypes.length}
             />
           </Box>

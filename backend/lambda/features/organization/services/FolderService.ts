@@ -315,9 +315,6 @@ export class FolderService {
       // Update the cache to reflect the removal
       await this.updateFolderMembershipInCache(folderId, assetId, memberType, 'remove');
 
-      // Clear memory cache to force refresh on frontend
-      await cacheService.clearMemoryCache();
-
       logger.info(`Removed asset ${assetId} (${memberType}) from folder ${folderId}`);
     } catch (error) {
       logger.error('Failed to remove asset from folder', { folderId, assetId, memberType, error });

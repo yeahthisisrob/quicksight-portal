@@ -135,9 +135,6 @@ describe('FolderService', () => {
           }),
         })
       );
-
-      // Verify memory cache was cleared
-      expect(mockCacheService.clearMemoryCache).toHaveBeenCalled();
     });
 
     it('should throw error when QuickSight API fails', async () => {

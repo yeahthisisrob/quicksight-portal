@@ -22,6 +22,9 @@ const createMockJob = (overrides = {}): JobMetadata => ({
   jobId: 'export-123',
   jobType: 'export',
   status: 'completed',
+  // Fresh heartbeat: keeps active-status fixtures from being auto-failed by
+  // the dead-job sweep that now runs inside listJobs()/getJob().
+  lastUpdatedTime: new Date().toISOString(),
   progress: 100,
   message: 'Export completed successfully',
   startTime: '2025-01-01T00:00:00.000Z',
@@ -279,7 +282,10 @@ describe('JobRepository - createJob', () => {
 
       // Assert
       expect(mockS3Service.putObject).not.toHaveBeenCalled();
-      expect(mockCacheService.updateJobIndex).toHaveBeenCalledWith([jobMetadata]);
+      // The write stamps a lastUpdatedTime heartbeat on top of the metadata
+      expect(mockCacheService.updateJobIndex).toHaveBeenCalledWith([
+        expect.objectContaining(jobMetadata),
+      ]);
     });
   });
 });
@@ -327,10 +333,13 @@ describe('JobRepository - updateJob', () => {
 
       // Assert
       expect(mockS3Service.putObject).not.toHaveBeenCalled();
+      // Subset match: the write also re-stamps the lastUpdatedTime heartbeat
       expect(mockCacheService.updateJobIndex).toHaveBeenCalledWith([
         expect.objectContaining({
-          ...existingJob,
-          ...updates,
+          jobId: 'export-123',
+          status: 'completed',
+          progress: 100,
+          endTime: '2025-01-01T00:01:00.000Z',
           duration: 60000, // Should calculate duration
         }),
       ]);
@@ -376,6 +385,7 @@ describe('JobRepository - Memory-first pattern', () => {
         jobType: 'export',
         status: 'processing',
         startTime: '2025-01-01T00:00:00.000Z',
+        lastUpdatedTime: new Date().toISOString(),
       };
       mockCacheService.getJobIndex.mockResolvedValue([existingJob]);
 
@@ -395,6 +405,7 @@ describe('JobRepository - Memory-first pattern', () => {
         jobType: 'export',
         status: 'processing',
         startTime: '2025-01-01T00:00:00.000Z',
+        lastUpdatedTime: new Date().toISOString(),
       };
       mockCacheService.getJobIndex.mockResolvedValue([existingJob]);
 
@@ -415,18 +426,21 @@ describe('JobRepository - Memory-first pattern', () => {
           jobType: 'export',
           status: 'processing',
           startTime: '2025-01-01T00:00:00.000Z',
+          lastUpdatedTime: new Date().toISOString(),
         },
         {
           jobId: 'job-2',
           jobType: 'export',
           status: 'processing',
           startTime: '2025-01-01T00:00:00.000Z',
+          lastUpdatedTime: new Date().toISOString(),
         },
         {
           jobId: 'job-3',
           jobType: 'export',
           status: 'processing',
           startTime: '2025-01-01T00:00:00.000Z',
+          lastUpdatedTime: new Date().toISOString(),
         },
       ];
 
@@ -452,6 +466,7 @@ describe('JobRepository - Memory-first pattern', () => {
         jobType: 'export',
         status: 'processing',
         startTime: '2025-01-01T00:00:00.000Z',
+        lastUpdatedTime: new Date().toISOString(),
       };
       mockCacheService.getJobIndex.mockResolvedValue([existingJob]);
 
@@ -491,6 +506,7 @@ describe('JobRepository - Memory-first pattern', () => {
         jobType: 'export',
         status: 'processing',
         startTime: '2025-01-01T00:00:00.000Z',
+        lastUpdatedTime: new Date().toISOString(),
       };
       mockCacheService.getJobIndex.mockResolvedValue([existingJob]);
 
@@ -548,6 +564,7 @@ describe('JobRepository - Memory updates', () => {
           jobType: 'export',
           status: 'processing',
           startTime: '2025-01-01T00:00:00.000Z',
+          lastUpdatedTime: new Date().toISOString(),
         },
       ];
       mockCacheService.getJobIndex.mockResolvedValue(initialJobs);
@@ -581,6 +598,7 @@ describe('JobRepository - Memory updates', () => {
           jobType: 'export',
           status: 'processing',
           startTime: '2025-01-01T00:00:00.000Z',
+          lastUpdatedTime: new Date().toISOString(),
         });
       }
       mockCacheService.getJobIndex.mockResolvedValue(jobs);
@@ -605,5 +623,92 @@ describe('JobRepository - Memory updates', () => {
       // Memory updates should have been called
       expect(mockCacheService.updateJobIndex).toHaveBeenCalled();
     });
+  });
+});
+
+describe('JobRepository - self-healing dead jobs', () => {
+  let repository: JobRepository;
+  let mockS3Service: Mocked<S3Service>;
+  let mockCacheService: Mocked<CacheService>;
+
+  const HOUR_MS = 3600000;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockS3Service = new S3Service('test-account') as Mocked<S3Service>;
+    mockCacheService = {
+      getJobIndex: vi.fn(),
+      updateJobIndex: vi.fn(),
+      setBucketName: vi.fn(),
+      persistJobIndex: vi.fn(),
+    } as any;
+    (CacheService.getInstance as any) = vi.fn().mockReturnValue(mockCacheService);
+    repository = new JobRepository(mockS3Service, 'test-bucket');
+  });
+
+  const deadJob = (overrides = {}): JobMetadata =>
+    ({
+      jobId: 'dead-1',
+      jobType: 'export',
+      status: 'processing',
+      startTime: new Date(Date.now() - 2 * HOUR_MS).toISOString(),
+      lastUpdatedTime: new Date(Date.now() - HOUR_MS).toISOString(),
+      ...overrides,
+    }) as JobMetadata;
+
+  it('listJobs auto-fails a job whose heartbeat stopped past the timeout', async () => {
+    mockCacheService.getJobIndex.mockResolvedValue([deadJob()]);
+
+    const jobs = await repository.listJobs();
+
+    expect(jobs[0]?.status).toBe('failed');
+    expect(jobs[0]?.error).toContain('No heartbeat');
+    // Repaired index is written back and persisted
+    expect(mockCacheService.updateJobIndex).toHaveBeenCalled();
+    expect(mockCacheService.persistJobIndex).toHaveBeenCalled();
+  });
+
+  it('getJob flips a dead job to failed so pollers stop waiting', async () => {
+    mockCacheService.getJobIndex.mockResolvedValue([deadJob({ jobId: 'dead-2' })]);
+
+    const job = await repository.getJob('dead-2');
+
+    expect(job?.status).toBe('failed');
+  });
+
+  it('does not touch active jobs with a recent heartbeat, even if started long ago', async () => {
+    const longRunner = deadJob({
+      jobId: 'alive-1',
+      lastUpdatedTime: new Date().toISOString(), // fresh heartbeat
+    });
+    mockCacheService.getJobIndex.mockResolvedValue([longRunner]);
+
+    const jobs = await repository.listJobs();
+
+    expect(jobs[0]?.status).toBe('processing');
+    expect(mockCacheService.persistJobIndex).not.toHaveBeenCalled();
+  });
+
+  it('falls back to startTime when a job has no heartbeat (queued but never picked up)', async () => {
+    const orphanQueued = deadJob({
+      jobId: 'orphan-1',
+      status: 'queued',
+      lastUpdatedTime: undefined,
+    });
+    mockCacheService.getJobIndex.mockResolvedValue([orphanQueued]);
+
+    const jobs = await repository.listJobs();
+
+    expect(jobs[0]?.status).toBe('failed');
+  });
+
+  it('leaves terminal jobs alone regardless of age', async () => {
+    const oldCompleted = deadJob({ jobId: 'done-1', status: 'completed' });
+    mockCacheService.getJobIndex.mockResolvedValue([oldCompleted]);
+
+    const jobs = await repository.listJobs();
+
+    expect(jobs[0]?.status).toBe('completed');
+    expect(mockCacheService.persistJobIndex).not.toHaveBeenCalled();
   });
 });

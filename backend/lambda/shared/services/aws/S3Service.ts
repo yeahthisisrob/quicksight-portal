@@ -156,6 +156,26 @@ export class S3Service {
   }
 
   public async getObject<T = any>(bucket: string, key: string): Promise<T> {
+    const { data } = await this.getObjectWithETag<T>(bucket, key);
+    return data;
+  }
+
+  /**
+   * Get object size without downloading the content
+   */
+  public async getObjectSize(bucket: string, key: string): Promise<number> {
+    const metadata = await this.headObject(bucket, key);
+    return metadata.contentLength || 0;
+  }
+
+  /**
+   * Get object plus its S3 ETag. The ETag is the authoritative version stamp
+   * used by the memory-cache revalidation layer (see CacheService).
+   */
+  public async getObjectWithETag<T = any>(
+    bucket: string,
+    key: string
+  ): Promise<{ data: T; etag?: string }> {
     return await this.executeWithTracking(
       async () => {
         const response = await this.s3Adapter.getObject(bucket, key);
@@ -177,19 +197,11 @@ export class S3Service {
         }
 
         const bodyString = Buffer.concat(chunks).toString('utf-8');
-        return JSON.parse(bodyString) as T;
+        return { data: JSON.parse(bodyString) as T, etag: (response as any)?.ETag };
       },
       { operation: 'GetObject', bucket, key },
       'get'
     );
-  }
-
-  /**
-   * Get object size without downloading the content
-   */
-  public async getObjectSize(bucket: string, key: string): Promise<number> {
-    const metadata = await this.headObject(bucket, key);
-    return metadata.contentLength || 0;
   }
 
   /**
@@ -327,13 +339,17 @@ export class S3Service {
     }
   }
 
+  /**
+   * Put an object. Returns the new object's ETag so writers can seed the
+   * memory-cache revalidation layer without a follow-up HEAD.
+   */
   public async putObject(
     bucket: string,
     key: string,
     body: any,
     contentType = 'application/json'
-  ): Promise<void> {
-    await this.executeWithTracking(
+  ): Promise<string | undefined> {
+    const response = await this.executeWithTracking(
       async () =>
         await this.s3Adapter.putObject(
           bucket,
@@ -344,6 +360,7 @@ export class S3Service {
       { operation: 'PutObject', bucket, key },
       'put'
     );
+    return (response as any)?.ETag;
   }
 
   /**

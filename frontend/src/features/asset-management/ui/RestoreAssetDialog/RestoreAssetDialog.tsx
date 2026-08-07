@@ -29,7 +29,6 @@ import React, { useCallback } from 'react';
 
 import { useDeploymentJob } from '@/features/deployment';
 
-import { assetsApi } from '@/shared/api';
 
 import { BasicInfoTab } from './components/BasicInfoTab';
 import { ComponentsTab } from './components/ComponentsTab';
@@ -84,13 +83,10 @@ export const RestoreAssetDialog: React.FC<RestoreAssetDialogProps> = ({
     stopDeployment,
   } = useDeploymentJob({
     onSuccess: async () => {
-      // Mirror the post-mutation cache maintenance done for bulk delete.
-      // Restore is a live op that adds an asset to the active index.
+      // Mirror the post-mutation query invalidation done for bulk delete.
+      // Restore is a live op that adds an asset to the active index; backend
+      // freshness is automatic via ETag-revalidated cache reads.
       try {
-        await assetsApi.clearMemoryCache().catch(() => {
-          /* best effort */
-        });
-
         await Promise.allSettled([
           queryClient.invalidateQueries({ queryKey: ['assets'] }),
           queryClient.invalidateQueries({ queryKey: ['dashboards-paginated'] }),

@@ -110,6 +110,22 @@ export class S3CacheAdapter {
   }
 
   /**
+   * Get cache metadata together with its S3 ETag (for memory revalidation).
+   */
+  public async getCacheMetadataWithETag(): Promise<{ metadata: any; etag?: string } | null> {
+    try {
+      const bucketName = await this.getBucket();
+      const { data, etag } = await this.s3Service.getObjectWithETag(
+        bucketName,
+        `${this.CACHE_BASE_PATH}/metadata.json`
+      );
+      return { metadata: data, etag };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Get cache statistics
    */
   public async getCacheStatistics(): Promise<{
@@ -179,6 +195,57 @@ export class S3CacheAdapter {
           lastUpdatedTime: new Date(entry.lastUpdatedTime),
           exportedAt: new Date(entry.exportedAt),
         }));
+      }
+
+      return null;
+    } catch {
+      // Cache doesn't exist yet - this is normal
+      return null;
+    }
+  }
+
+  /**
+   * HEAD a per-type cache file and return its current ETag.
+   * Returns null when the object is missing or the HEAD fails — callers
+   * treat null as "cannot confirm freshness" and fall back to a full GET.
+   */
+  public async getTypeCacheEtag(assetType: AssetType): Promise<string | null> {
+    try {
+      const bucketName = await this.getBucket();
+      const head = await this.s3Service.headObject(
+        bucketName,
+        `${this.CACHE_BASE_PATH}/${assetType}.json`
+      );
+      return head.etag ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get a per-type cache file together with its S3 ETag (for memory revalidation).
+   */
+  public async getTypeCacheWithETag(
+    assetType: AssetType
+  ): Promise<{ entries: CacheEntry[]; etag?: string } | null> {
+    try {
+      const bucketName = await this.getBucket();
+      const cacheKey = `${this.CACHE_BASE_PATH}/${assetType}.json`;
+      const { data: entries, etag } = await this.s3Service.getObjectWithETag<CacheEntry[]>(
+        bucketName,
+        cacheKey
+      );
+
+      if (entries && Array.isArray(entries)) {
+        return {
+          entries: entries.map((entry: any) => ({
+            ...entry,
+            createdTime: new Date(entry.createdTime),
+            lastUpdatedTime: new Date(entry.lastUpdatedTime),
+            exportedAt: new Date(entry.exportedAt),
+          })),
+          etag,
+        };
       }
 
       return null;

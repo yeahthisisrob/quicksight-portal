@@ -11,13 +11,6 @@ export const jobRoutes: RouteHandler[] = [
     handler: (event) => jobHandler.listJobs(event),
   },
 
-  // Clean up old jobs
-  {
-    method: 'POST',
-    path: '/jobs/cleanup',
-    handler: (event) => jobHandler.cleanupJobs(event),
-  },
-
   // Get job details
   {
     method: 'GET',
