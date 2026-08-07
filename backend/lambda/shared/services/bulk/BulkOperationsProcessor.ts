@@ -117,17 +117,8 @@ export class BulkOperationsProcessor {
       );
 
       // DRY post-mutation cache maintenance for all bulk ops.
-      // Ensures that even if a specific processor didn't call a typed cache updater,
-      // the in-memory views in *this* worker are cleared so any subsequent work sees truth.
-      // (Cross-Lambda visibility is handled by S3 persistence + reader freshness checks + frontend-triggered clears.)
-      try {
-        const involved = this.getInvolvedAssetTypes(config);
-        if (involved.length > 0) {
-          await cacheService.invalidateMemoryForTypes(involved);
-        }
-      } catch (e) {
-        logger.debug('Non-fatal: failed to invalidate memory after bulk op', { error: e });
-      }
+      // No explicit memory invalidation needed: cache reads are ETag-revalidated
+      // against S3, so this worker's writes are visible everywhere on next read.
 
       return result;
     } catch (error) {
@@ -187,30 +178,6 @@ export class BulkOperationsProcessor {
       }
     }
     return operations;
-  }
-
-  /**
-   * Extract asset types involved in a bulk operation config for cache invalidation.
-   * Used as a DRY safety net after any bulk live update.
-   */
-  private getInvolvedAssetTypes(config: BulkOperationConfig): AssetType[] {
-    const types = new Set<AssetType>();
-    if ('assets' in config && Array.isArray((config as any).assets)) {
-      for (const a of (config as any).assets) {
-        if (a?.type) {
-          types.add(a.type);
-        }
-      }
-    }
-    if ((config as any).assetType) {
-      types.add((config as any).assetType);
-    }
-    if ((config as any).assetTypes) {
-      for (const t of (config as any).assetTypes) {
-        types.add(t);
-      }
-    }
-    return Array.from(types);
   }
 
   /**
@@ -316,9 +283,6 @@ export class BulkOperationsProcessor {
             archivedBy: config.requestedBy,
           }))
         );
-        // Also explicitly invalidate memory for the affected types (belt + suspenders)
-        const affectedTypes = Array.from(new Set(successfullyDeleted.map((a) => a.type)));
-        await cacheService.invalidateMemoryForTypes(affectedTypes);
       } catch (cacheErr) {
         logger.warn(
           'Bulk delete completed in QS + archive, but cache index update had issues (non-fatal)',

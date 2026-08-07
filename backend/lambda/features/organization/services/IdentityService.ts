@@ -89,7 +89,6 @@ export class IdentityService {
         status: 'archived',
         lastUpdatedTime: new Date(),
       });
-      await cacheService.clearMemoryCache();
 
       return {
         success: true,

@@ -165,7 +165,10 @@ describe('CacheService - Job Index Operations', () => {
 
     it('should not block on S3 throttling since it only updates memory', async () => {
       // Even if S3 would throttle, updateJobIndex doesn't touch S3
-      mockS3Service.putObject.mockImplementation(() => delay(TEST_CONSTANTS.MAX_OPERATION_TIME_MS));
+      mockS3Service.putObject.mockImplementation(async () => {
+        await delay(TEST_CONSTANTS.MAX_OPERATION_TIME_MS);
+        return undefined;
+      });
 
       const startTime = Date.now();
       await cacheService.updateJobIndex(testJobs);
@@ -733,5 +736,106 @@ describe('CacheService - Data Consistency', () => {
         expect(user.groups).toEqual(['Group1', 'Group2', 'DeletedGroup']);
       });
     });
+  });
+});
+
+describe('CacheService - ETag revalidation', () => {
+  let cacheService: CacheService;
+  let mockS3Service: Mocked<S3Service>;
+
+  const KEY = 'cache/activity-cache.json';
+  const VALUE_V1 = { version: 1 };
+  const VALUE_V2 = { version: 2 };
+  const REVALIDATE_WINDOW_MS = 3000;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+
+    (CacheService as any).instance = null;
+    (CacheService as any).s3Service = null;
+
+    mockS3Service = {
+      getObject: vi.fn(),
+      getObjectWithETag: vi.fn(),
+      headObject: vi.fn(),
+      putObject: vi.fn(),
+      listObjects: vi.fn(),
+    } as any;
+
+    const S3ServiceMock = S3Service as unknown as MockedClass<typeof S3Service>;
+    S3ServiceMock.mockImplementation(() => mockS3Service);
+
+    cacheService = CacheService.getInstance();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('serves the memory copy without any S3 call within the revalidation window', async () => {
+    mockS3Service.getObjectWithETag.mockResolvedValue({ data: VALUE_V1, etag: '"etag-1"' });
+
+    expect(await cacheService.get(KEY)).toEqual(VALUE_V1); // cold: S3 GET
+    expect(await cacheService.get(KEY)).toEqual(VALUE_V1); // warm: memory
+
+    expect(mockS3Service.getObjectWithETag).toHaveBeenCalledTimes(1);
+    expect(mockS3Service.headObject).not.toHaveBeenCalled();
+  });
+
+  it('revalidates via HEAD after the window and serves memory when the ETag matches', async () => {
+    mockS3Service.getObjectWithETag.mockResolvedValue({ data: VALUE_V1, etag: '"etag-1"' });
+    mockS3Service.headObject.mockResolvedValue({ etag: '"etag-1"' });
+
+    await cacheService.get(KEY);
+    vi.advanceTimersByTime(REVALIDATE_WINDOW_MS + 1);
+
+    expect(await cacheService.get(KEY)).toEqual(VALUE_V1);
+    expect(mockS3Service.headObject).toHaveBeenCalledTimes(1);
+    expect(mockS3Service.getObjectWithETag).toHaveBeenCalledTimes(1); // no second GET
+  });
+
+  it('re-fetches when the S3 ETag has changed (cross-instance write becomes visible)', async () => {
+    mockS3Service.getObjectWithETag
+      .mockResolvedValueOnce({ data: VALUE_V1, etag: '"etag-1"' })
+      .mockResolvedValueOnce({ data: VALUE_V2, etag: '"etag-2"' });
+    mockS3Service.headObject.mockResolvedValue({ etag: '"etag-2"' });
+
+    await cacheService.get(KEY);
+    vi.advanceTimersByTime(REVALIDATE_WINDOW_MS + 1);
+
+    expect(await cacheService.get(KEY)).toEqual(VALUE_V2);
+    expect(mockS3Service.getObjectWithETag).toHaveBeenCalledTimes(2);
+  });
+
+  it('drops the memory copy when the object no longer exists in S3', async () => {
+    mockS3Service.getObjectWithETag.mockResolvedValue({ data: VALUE_V1, etag: '"etag-1"' });
+    const notFound = Object.assign(new Error('NotFound'), { name: 'NotFound' });
+    mockS3Service.headObject.mockRejectedValue(notFound);
+
+    await cacheService.get(KEY);
+    vi.advanceTimersByTime(REVALIDATE_WINDOW_MS + 1);
+
+    expect(await cacheService.get(KEY)).toBeNull();
+  });
+
+  it('serves the memory copy when the HEAD fails transiently', async () => {
+    mockS3Service.getObjectWithETag.mockResolvedValue({ data: VALUE_V1, etag: '"etag-1"' });
+    mockS3Service.headObject.mockRejectedValue(new Error('Timeout'));
+
+    await cacheService.get(KEY);
+    vi.advanceTimersByTime(REVALIDATE_WINDOW_MS + 1);
+
+    expect(await cacheService.get(KEY)).toEqual(VALUE_V1);
+    expect(mockS3Service.getObjectWithETag).toHaveBeenCalledTimes(1);
+  });
+
+  it('put() seeds memory with the new ETag so the writing instance reads its own write', async () => {
+    mockS3Service.putObject.mockResolvedValue('"etag-new"');
+
+    await cacheService.put(KEY, VALUE_V2);
+
+    expect(await cacheService.get(KEY)).toEqual(VALUE_V2);
+    expect(mockS3Service.getObjectWithETag).not.toHaveBeenCalled();
   });
 });

@@ -139,28 +139,6 @@ export class AssetHandler {
     }
   }
 
-  public async clearMemoryCache(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-    try {
-      const user = await requireAuth(event);
-      logger.info('Clearing memory cache', { user: user.email });
-
-      const { cacheService } = await import('../../../shared/services/cache/CacheService');
-      await cacheService.clearMemoryCache();
-
-      return successResponse(event, {
-        success: true,
-        message: 'Memory cache cleared successfully',
-      });
-    } catch (error) {
-      logger.error('Failed to clear memory cache', { error });
-      return errorResponse(
-        event,
-        STATUS_CODES.INTERNAL_SERVER_ERROR,
-        'Failed to clear memory cache'
-      );
-    }
-  }
-
   /**
    * Export assets to CSV (queues a job)
    */

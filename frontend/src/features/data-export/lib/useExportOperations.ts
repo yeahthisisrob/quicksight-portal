@@ -4,15 +4,13 @@
 import { useSnackbar } from 'notistack';
 import { useCallback, useState } from 'react';
 
-import { activityApi, exportApi, jobsApi } from '@/shared/api';
+import { activityApi, exportApi } from '@/shared/api';
 
-export function useExportOperations(onCacheSummaryUpdate: () => void) {
+export function useExportOperations() {
   const { enqueueSnackbar } = useSnackbar();
   
   const [refreshingActivity, setRefreshingActivity] = useState(false);
   const [exportingIngestions, setExportingIngestions] = useState(false);
-  const [clearingCache, setClearingCache] = useState(false);
-  const [clearingStuckJobs, setClearingStuckJobs] = useState(false);
   
   const refreshActivity = useCallback(async () => {
     if (refreshingActivity) return;
@@ -52,56 +50,10 @@ export function useExportOperations(onCacheSummaryUpdate: () => void) {
     }
   }, [exportingIngestions, enqueueSnackbar]);
   
-  const clearCache = useCallback(async () => {
-    if (clearingCache) return;
-    
-    if (!window.confirm('Are you sure you want to clear the cache? This will delete all cached data.')) {
-      return;
-    }
-    
-    try {
-      setClearingCache(true);
-      enqueueSnackbar('Clearing cache...', { variant: 'info' });
-      await exportApi.clearMemoryCache();
-      enqueueSnackbar('Cache cleared successfully', { variant: 'success' });
-      onCacheSummaryUpdate();
-    } catch (error: any) {
-      console.error('Failed to clear cache:', error);
-      enqueueSnackbar(error.message || 'Failed to clear cache', { variant: 'error' });
-    } finally {
-      setClearingCache(false);
-    }
-  }, [clearingCache, enqueueSnackbar, onCacheSummaryUpdate]);
-  
-  const clearStuckJobs = useCallback(async () => {
-    if (clearingStuckJobs) return;
-    
-    try {
-      setClearingStuckJobs(true);
-      enqueueSnackbar('Clearing stuck jobs...', { variant: 'info' });
-      const result = await jobsApi.cleanupJobs();
-      
-      if (result?.failedStuckCount > 0) {
-        enqueueSnackbar(`Cleared ${result.failedStuckCount} stuck job(s)`, { variant: 'success' });
-      } else {
-        enqueueSnackbar('No stuck jobs found', { variant: 'info' });
-      }
-    } catch (error: any) {
-      console.error('Failed to clear stuck jobs:', error);
-      enqueueSnackbar(error.message || 'Failed to clear stuck jobs', { variant: 'error' });
-    } finally {
-      setClearingStuckJobs(false);
-    }
-  }, [clearingStuckJobs, enqueueSnackbar]);
-  
   return {
     refreshingActivity,
     exportingIngestions,
-    clearingCache,
-    clearingStuckJobs,
     refreshActivity,
     exportIngestions,
-    clearCache,
-    clearStuckJobs,
   };
 }

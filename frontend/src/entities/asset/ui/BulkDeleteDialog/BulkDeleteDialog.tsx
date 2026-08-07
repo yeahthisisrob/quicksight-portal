@@ -88,21 +88,10 @@ export function BulkDeleteDialog({
   const handleJobComplete = useCallback(async () => {
     enqueueSnackbar('Assets successfully deleted and archived', { variant: 'success' });
 
-    // After a successful mutating bulk op (delete in this case), perform shared
-    // "live update" maintenance:
-    // 1. Ask the backend to clear its memory cache for this container (the one
-    //    that served the "job complete" status will now serve fresh lists).
-    // 2. Invalidate all the common asset list / paginated / summary query keys
-    //    so React Query refetches and the UI reflects the deletion immediately.
-    //
-    // This, together with the server-side changes (shared archiveAssetsInCache,
-    // reader freshness against metadata, auto-clear in JobHandler, shorter TTL),
-    // makes the powerful cache system stay in sync with portal actions.
+    // Invalidate the common asset list / paginated / summary query keys so
+    // React Query refetches. Backend freshness is automatic: cache reads are
+    // ETag-revalidated against S3, so any instance serves the post-delete state.
     try {
-      await assetsApi.clearMemoryCache().catch(() => {
-        /* best effort */
-      });
-
       // Broad but targeted invalidations (covers most asset pages + widgets + catalog that may embed counts)
       await Promise.allSettled([
         queryClient.invalidateQueries({ queryKey: ['assets'] }),

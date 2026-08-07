@@ -11,7 +11,7 @@ import {
   type JobPhase,
 } from './JobRepository';
 import { type S3Service } from '../../../shared/services/aws/S3Service';
-import { QUICKSIGHT_LIMITS, MATH_CONSTANTS } from '../../constants';
+import { JOB_CONFIG, QUICKSIGHT_LIMITS, MATH_CONSTANTS } from '../../constants';
 
 export type { JobPhase, JobPhaseStatus } from './JobRepository';
 
@@ -60,16 +60,20 @@ export class JobStateService {
   }
 
   /**
-   * Clean up old jobs
+   * Prune jobs past the retention window
    */
-  public async cleanupOldJobs(daysToKeep: number = 7): Promise<number> {
+  public async cleanupOldJobs(
+    daysToKeep: number = JOB_CONFIG.DEFAULT_RETENTION_DAYS
+  ): Promise<number> {
     return await this.repository.cleanupOldJobs(daysToKeep);
   }
 
   /**
-   * Mark stuck jobs as failed (jobs stuck in queued/processing for > 30 minutes)
+   * Mark dead jobs (no heartbeat past the timeout) as failed
    */
-  public async cleanupStuckJobs(timeoutMinutes: number = 30): Promise<number> {
+  public async cleanupStuckJobs(
+    timeoutMinutes: number = JOB_CONFIG.STUCK_JOB_TIMEOUT_MINUTES
+  ): Promise<number> {
     return await this.repository.cleanupStuckJobs(timeoutMinutes);
   }
 

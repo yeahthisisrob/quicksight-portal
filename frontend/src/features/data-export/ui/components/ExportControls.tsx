@@ -7,8 +7,7 @@ import {
   Cached,
   BuildCircle,
   Analytics,
-  Storage,
-  Memory
+  Storage
 } from '@mui/icons-material';
 import { Box, Button, Card, Stack, Typography, ToggleButton, ToggleButtonGroup, Alert, alpha, Tooltip } from '@mui/material';
 
@@ -23,16 +22,12 @@ interface ExportControlsProps {
   onStopExport: () => void;
   onRefreshActivity: () => void;
   onExportIngestions: () => void;
-  onClearMemoryCache: () => void;
-  onClearStuckJobs: () => void;
   onRefreshStatus: () => void;
   isRunning: boolean;
   isRefreshing: boolean;
   canRefreshActivity: boolean;
   refreshingActivity: boolean;
   exportingIngestions: boolean;
-  clearingCache: boolean;
-  clearingStuckJobs: boolean;
   selectedTypesCount: number;
 }
 
@@ -43,16 +38,12 @@ export default function ExportControls({
   onStopExport,
   onRefreshActivity,
   onExportIngestions,
-  onClearMemoryCache,
-  onClearStuckJobs,
   onRefreshStatus: _onRefreshStatus,
   isRunning,
   isRefreshing: _isRefreshing,
   canRefreshActivity,
   refreshingActivity,
   exportingIngestions,
-  clearingCache,
-  clearingStuckJobs,
   selectedTypesCount,
 }: ExportControlsProps) {
 
@@ -246,48 +237,6 @@ export default function ExportControls({
                     }}
                   >
                     {exportingIngestions ? 'Exporting Ingestions...' : 'Export Ingestions'}
-                  </Button>
-                </Tooltip>
-
-                <Tooltip title="Clear Lambda in-memory cache to force fresh data from S3">
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    size="medium"
-                    startIcon={<Memory />}
-                    onClick={onClearMemoryCache}
-                    disabled={clearingCache || isRunning}
-                    sx={{
-                      borderColor: alpha(colors.status.warning, 0.5),
-                      color: colors.status.warning,
-                      '&:hover': {
-                        borderColor: colors.status.warning,
-                        background: alpha(colors.status.warning, 0.05),
-                      },
-                    }}
-                  >
-                    {clearingCache ? 'Clearing Cache...' : 'Clear Memory Cache'}
-                  </Button>
-                </Tooltip>
-
-                <Tooltip title="Clear all stuck jobs (queued/processing for more than 1 minute)">
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    size="medium"
-                    startIcon={<BuildCircle />}
-                    onClick={onClearStuckJobs}
-                    disabled={clearingStuckJobs}
-                    sx={{
-                      borderColor: alpha(colors.status.error, 0.5),
-                      color: colors.status.error,
-                      '&:hover': {
-                        borderColor: colors.status.error,
-                        background: alpha(colors.status.error, 0.05),
-                      },
-                    }}
-                  >
-                    {clearingStuckJobs ? 'Clearing Jobs...' : 'Clear Stuck Jobs'}
                   </Button>
                 </Tooltip>
               </>

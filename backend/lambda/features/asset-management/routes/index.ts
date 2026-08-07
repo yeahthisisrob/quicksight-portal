@@ -37,12 +37,6 @@ export const assetManagementRoutes: RouteHandler[] = [
   },
 
   {
-    method: 'POST',
-    path: '/assets/clear-memory-cache',
-    handler: (event) => handler.clearMemoryCache(event),
-  },
-
-  {
     method: 'GET',
     path: /^\/assets\/(dashboard|analysis|dataset|datasource|folder|user|group)\/([^/]+)\/cached$/,
     handler: (event) => handler.getExportedAsset(event),

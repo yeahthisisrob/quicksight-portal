@@ -129,29 +129,47 @@ export class CacheService extends EventEmitter {
   }
 
   /**
-   * Get any object from cache by key
+   * Get any object from cache by key.
+   *
+   * Memory-first with ETag revalidation: a memory hit is served directly only
+   * within a short validation window; after that, a cheap S3 HEAD compares
+   * ETags — matching serves memory, mismatching re-fetches. This keeps every
+   * Lambda instance exactly as fresh as S3 with no manual invalidation
+   * (no clear-memory endpoint, no per-mutation cache clearing).
    */
   public async get<T = any>(key: string): Promise<T | null> {
     try {
-      // Check memory cache first
-      const memoryResult = this.memoryAdapter.get(key);
-      if (memoryResult) {
-        return memoryResult as T;
+      const cached = this.memoryAdapter.getValidatedEntry<T>(key);
+      if (cached) {
+        if (Date.now() - cached.validatedAt < CACHE_CONFIG.REVALIDATE_WINDOW_MS) {
+          return cached.value;
+        }
+        const verdict = await this.revalidateAgainstS3(key, cached.etag);
+        if (verdict === 'fresh') {
+          this.memoryAdapter.markValidated(key);
+          return cached.value;
+        }
+        if (verdict === 'missing') {
+          this.memoryAdapter.delete(key);
+          return null;
+        }
+        if (verdict === 'unknown') {
+          // Transient HEAD failure — serve the (possibly slightly stale) copy
+          // rather than failing the read.
+          return cached.value;
+        }
+        // 'stale' → fall through to a fresh GET
       }
 
-      // Fall back to S3
-      const data = await this.s3Service.getObject(this.bucketName, key).catch(() => null);
-      if (data && typeof data === 'string') {
-        return JSON.parse(data) as T;
+      const result = await this.s3Service
+        .getObjectWithETag<T>(this.bucketName, key)
+        .catch(() => null);
+      if (!result || result.data === null || result.data === undefined) {
+        return null;
       }
-
-      if (data) {
-        // Cache in memory for future access
-        this.memoryAdapter.set(key, data);
-        return data as T;
-      }
-
-      return null;
+      const data = typeof result.data === 'string' ? (JSON.parse(result.data) as T) : result.data;
+      this.memoryAdapter.setValidated(key, data, result.etag);
+      return data;
     } catch (error) {
       logger.error('Failed to get cache item', { key, error });
       return null;
@@ -259,9 +277,6 @@ export class CacheService extends EventEmitter {
     return assetsWithPendingSync;
   }
 
-  // Lineage operations are handled during cache rebuild by CacheWriter
-  // Deleted asset detection is handled during export by ExportOrchestrator
-
   /**
    * Get cache entries with unified filtering - can get single asset type or all types
    * @param options.assetType - Get specific asset type, or omit for all types
@@ -273,6 +288,9 @@ export class CacheService extends EventEmitter {
   }): Promise<CacheEntry[]> {
     return await this.cacheReader.getCacheEntries(options);
   }
+
+  // Lineage operations are handled during cache rebuild by CacheWriter
+  // Deleted asset detection is handled during export by ExportOrchestrator
 
   public getCacheReader(): any {
     return this.cacheReader;
@@ -384,21 +402,8 @@ export class CacheService extends EventEmitter {
    */
   public async getIngestions(): Promise<{ ingestions: any[]; metadata: any } | null> {
     try {
-      // Try memory cache first
-      const cached = this.memoryAdapter.get<any>('cache-ingestions');
-      if (cached) {
-        return cached;
-      }
-
-      // Try S3
-      const data = await this.get('cache/ingestions.json');
-      if (data) {
-        // Cache in memory temporarily
-        this.memoryAdapter.set('cache-ingestions', data);
-        return data;
-      }
-
-      return null;
+      // get() is memory-first with ETag revalidation — no extra layer needed.
+      return await this.get('cache/ingestions.json');
     } catch (error) {
       logger.error('Failed to get ingestions from cache', { error });
       return null;
@@ -460,15 +465,6 @@ export class CacheService extends EventEmitter {
   }
 
   /**
-   * Evict memory cache for specific asset types (and the master view).
-   * Used by live mutation paths and by the clear-memory API endpoint.
-   */
-  public async invalidateMemoryForTypes(types: AssetType[]): Promise<void> {
-    const writer = await this.getCacheWriter();
-    return writer.invalidateMemoryForTypes(types);
-  }
-
-  /**
    * List all keys matching a prefix
    */
   public async list(prefix: string): Promise<string[]> {
@@ -500,17 +496,16 @@ export class CacheService extends EventEmitter {
   /**
    * Put any object to cache by key
    */
-  public async put<T = any>(key: string, data: T, options?: { expiresIn?: number }): Promise<void> {
+  public async put<T = any>(key: string, data: T): Promise<void> {
     try {
-      // Store in S3 with pretty formatting
-      await this.s3Service.putObject(this.bucketName, key, JSON.stringify(data, null, 2));
-
-      // Also store in memory cache
-      if (options?.expiresIn) {
-        this.memoryAdapter.set(key, data);
-      } else {
-        this.memoryAdapter.set(key, data);
-      }
+      // Store in S3 with pretty formatting; capture the new ETag so this
+      // instance's memory copy is immediately marked fresh.
+      const etag = await this.s3Service.putObject(
+        this.bucketName,
+        key,
+        JSON.stringify(data, null, 2)
+      );
+      this.memoryAdapter.setValidated(key, data, etag);
     } catch (error) {
       logger.error('Failed to put cache item', { key, error });
       throw error;
@@ -569,15 +564,11 @@ export class CacheService extends EventEmitter {
    * Save ingestions to cache
    */
   public async saveIngestions(ingestions: any[], metadata: any): Promise<void> {
-    // Save to S3 cache
     await this.put('cache/ingestions.json', {
       ingestions,
       metadata,
       lastUpdated: new Date().toISOString(),
     });
-
-    // Clear memory cache to force refresh
-    this.memoryAdapter.delete('cache-ingestions');
   }
 
   /**
@@ -729,6 +720,30 @@ export class CacheService extends EventEmitter {
       return CACHE_CONFIG.MEDIUM_LAMBDA_CACHE_SIZE;
     } else {
       return CACHE_CONFIG.SMALL_LAMBDA_CACHE_SIZE;
+    }
+  }
+
+  /**
+   * Compare the memory copy's ETag against S3's current ETag via HEAD.
+   */
+  private async revalidateAgainstS3(
+    key: string,
+    memoryEtag: string | undefined
+  ): Promise<'fresh' | 'stale' | 'missing' | 'unknown'> {
+    try {
+      const head = await this.s3Service.headObject(this.bucketName, key);
+      if (head.etag && memoryEtag && head.etag === memoryEtag) {
+        return 'fresh';
+      }
+      return 'stale';
+    } catch (error: any) {
+      if (
+        error?.name === 'NotFound' ||
+        error?.$metadata?.httpStatusCode === STATUS_CODES.NOT_FOUND
+      ) {
+        return 'missing';
+      }
+      return 'unknown';
     }
   }
 }

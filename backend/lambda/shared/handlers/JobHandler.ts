@@ -12,12 +12,6 @@ import { JobRepository, type JobType, type JobListOptions } from '../services/jo
 import { successResponse, errorResponse } from '../utils/cors';
 import { logger } from '../utils/logger';
 
-// Handler-specific constants
-const JOB_HANDLER_CONSTANTS = {
-  DEFAULT_RETENTION_DAYS: 30,
-  DEFAULT_STUCK_TIMEOUT_MINUTES: 30,
-} as const;
-
 export class JobHandler {
   private readonly repository: JobRepository;
 
@@ -28,65 +22,6 @@ export class JobHandler {
     const s3Service = new S3Service(accountId);
 
     this.repository = new JobRepository(s3Service, bucketName);
-  }
-
-  /**
-   * Clean up old jobs
-   * POST /api/jobs/cleanup
-   */
-  public async cleanupJobs(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-    try {
-      await requireAuth(event);
-
-      const body = JSON.parse(event.body || '{}');
-      const daysToKeep = body.daysToKeep || JOB_HANDLER_CONSTANTS.DEFAULT_RETENTION_DAYS;
-      const stuckTimeoutMinutes =
-        body.stuckTimeoutMinutes || JOB_HANDLER_CONSTANTS.DEFAULT_STUCK_TIMEOUT_MINUTES;
-
-      let deletedCount = 0;
-      let failedCount = 0;
-      const errors: string[] = [];
-
-      // Clean up old jobs (by date) - wrapped to not fail entire operation
-      try {
-        deletedCount = await this.repository.cleanupOldJobs(daysToKeep);
-      } catch (error: any) {
-        logger.error('Failed to cleanup old jobs', { error });
-        errors.push(`Old jobs cleanup failed: ${error.message}`);
-      }
-
-      // Clean up stuck jobs (queued/processing too long) - wrapped to not fail entire operation
-      try {
-        failedCount = await this.repository.cleanupStuckJobs(stuckTimeoutMinutes);
-      } catch (error: any) {
-        logger.error('Failed to cleanup stuck jobs', { error });
-        errors.push(`Stuck jobs cleanup failed: ${error.message}`);
-      }
-
-      // Return success even if some operations failed
-      // This prevents 502 errors when S3 is slow
-      const message =
-        errors.length > 0
-          ? `Partial cleanup: Deleted ${deletedCount} old jobs, marked ${failedCount} stuck jobs as failed. Errors: ${errors.join('; ')}`
-          : `Deleted ${deletedCount} old jobs (>${daysToKeep} days) and marked ${failedCount} stuck jobs as failed (>${stuckTimeoutMinutes} min)`;
-
-      return successResponse(event, {
-        success: errors.length === 0,
-        data: {
-          deletedCount,
-          failedStuckCount: failedCount,
-          message,
-          errors: errors.length > 0 ? errors : undefined,
-        },
-      });
-    } catch (error: any) {
-      logger.error('Failed to cleanup jobs', { error });
-      return errorResponse(
-        event,
-        STATUS_CODES.INTERNAL_SERVER_ERROR,
-        error.message || 'Failed to cleanup jobs'
-      );
-    }
   }
 
   /**
@@ -136,38 +71,9 @@ export class JobHandler {
         return errorResponse(event, STATUS_CODES.NOT_FOUND, 'Job not found');
       }
 
-      // Side-effect: if this is a completed *mutating* job (delete, bulk tag/folder/permission etc.),
-      // clear memory cache in *this* API Lambda instance. This makes the container that just
-      // told the caller "your bulk delete succeeded" serve fresh asset lists on the immediate
-      // follow-up refetch. Combined with frontend invalidation + the cache reader's metadata
-      // freshness checks, this greatly reduces the window of staleness.
-      try {
-        const isMutatingCompleted =
-          job.status === 'completed' &&
-          (job.jobType === 'bulk-operation' ||
-            job.jobType === 'deploy' ||
-            (job as any).operationType === 'delete' ||
-            (job as any).operationType === 'tag-update' ||
-            (job as any).operationType === 'folder-add' ||
-            (job as any).operationType === 'folder-remove' ||
-            (job as any).operationType === 'permission-revoke');
-
-        if (isMutatingCompleted) {
-          // Lazy import to avoid circulars at module load and only pay when needed
-          const { cacheService } = await import('../services/cache/CacheService');
-          await cacheService.clearMemoryCache();
-          logger.info(
-            'Cleared memory cache as side-effect of completed mutating job status request',
-            {
-              jobId,
-              jobType: job.jobType || (job as any).operationType,
-            }
-          );
-        }
-      } catch (clearErr) {
-        // Never let cache clearing affect the job status response
-        logger.debug('Non-fatal: memory clear after job status failed', { jobId, error: clearErr });
-      }
+      // No cache-clearing side effect needed here: cache reads are ETag-
+      // revalidated against S3, so completed jobs' writes are visible on the
+      // next read regardless of which Lambda instance serves it.
 
       return successResponse(event, {
         success: true,
