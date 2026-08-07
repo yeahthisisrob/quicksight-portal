@@ -75,6 +75,36 @@ const createMockCache = (events: MinimalEvent[] = []): ActivityCache => {
   };
 };
 
+/**
+ * Console edits are logged as non-API AwsServiceEvents: requestParameters is
+ * null and serviceEventDetails.eventRequestDetails is an ARRAY of {key, value}
+ * pairs (unlike API events, where it's a flat object).
+ */
+const CONSOLE_UPDATE_ANALYSIS_EVENT: any = {
+  eventTime: TEST_DATE,
+  eventSource: 'quicksight.amazonaws.com',
+  eventName: 'UpdateAnalysis',
+  eventType: 'AwsServiceEvent',
+  userIdentity: { userName: TEST_USER_NAME },
+  requestParameters: null,
+  responseElements: null,
+  serviceEventDetails: {
+    eventRequestDetails: [
+      {
+        key: 'addSheet',
+        value: {
+          sheetId: 'arn:aws:quicksight:us-east-1:123:sheet/sheet-1',
+          sheetName: 'Sheet 2',
+        },
+      },
+      {
+        key: 'analysisId',
+        value: `arn:aws:quicksight:us-east-1:123:analysis/${TEST_ANALYSIS_ID}`,
+      },
+    ],
+  },
+};
+
 describe('ActivityService - Summary', () => {
   let activityService: ActivityService;
   let mockCacheService: Mocked<CacheService>;
@@ -689,6 +719,23 @@ describe('ActivityService - Edge cases', () => {
 
         vi.clearAllMocks();
       }
+    });
+
+    it('should extract analysis id from console UpdateAnalysis service events (array-shaped eventRequestDetails)', async () => {
+      mockCloudTrailAdapter.getEventsByName.mockImplementation(async (eventName: string) =>
+        eventName === 'UpdateAnalysis' ? [CONSOLE_UPDATE_ANALYSIS_EVENT] : []
+      );
+      mockCacheService.getActivityPersistence.mockResolvedValue(null);
+
+      await activityService.refreshActivity({ assetTypes: ['analysis'], days: 1 });
+
+      const cache = mockCacheService.putActivityCache.mock.calls[0]?.[0] as ActivityCache;
+      const cachedEvents = Object.values(cache.events).flat() as MinimalEvent[];
+      const updateEvent = cachedEvents.find((e) => e.e === 'UpdateAnalysis');
+
+      expect(updateEvent?.r).toBe(TEST_ANALYSIS_ID);
+      // sheetName must NOT be mistaken for the analysis name
+      expect(updateEvent?.n).toBeUndefined();
     });
   });
 });

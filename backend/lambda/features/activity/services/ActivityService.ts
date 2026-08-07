@@ -150,8 +150,64 @@ function extractEventName(event: any): string | undefined {
     nonEmptyString(event.requestParameters?.name) ||
     nonEmptyString(event.requestParameters?.Name) ||
     nonEmptyString(event.responseElements?.name) ||
-    nonEmptyString(event.responseElements?.Name)
+    nonEmptyString(event.responseElements?.Name) ||
+    extractDetailsArrayName(event)
   );
+}
+
+/**
+ * Console mutation events carry sub-action entries in the eventRequestDetails
+ * ARRAY shape (e.g. renameAnalysis). Scan entry values for an asset-level name;
+ * deliberately ignores nested names like sheetName/visualName.
+ * Payload shape documented on fromEventDetailsArray below.
+ */
+function extractDetailsArrayName(event: any): string | undefined {
+  const details = event.serviceEventDetails?.eventRequestDetails;
+  if (!Array.isArray(details)) {
+    return undefined;
+  }
+  for (const entry of details) {
+    const value = entry?.value;
+    if (value && typeof value === 'object') {
+      const name =
+        nonEmptyString(value.analysisName) ||
+        nonEmptyString(value.dashboardName) ||
+        nonEmptyString(value.name);
+      if (name) {
+        return name;
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Console-originated mutation events (eventType AwsServiceEvent, e.g.
+ * UpdateAnalysis) record `serviceEventDetails.eventRequestDetails` as an
+ * ARRAY of {key, value} pairs instead of a flat object — API-originated
+ * events use the flat-object shape. Returns the value for `key` when the
+ * array shape is present, else undefined.
+ *
+ * Example (captured from a real console UpdateAnalysis event):
+ *   "requestParameters": null,
+ *   "serviceEventDetails": {
+ *     "eventRequestDetails": [
+ *       { "key": "addSheet",   "value": { "sheetId": "arn:...:sheet/x", "sheetName": "Sheet 2" } },
+ *       { "key": "analysisId", "value": "arn:aws:quicksight:...:analysis/<id>" }
+ *     ]
+ *   }
+ *
+ * Non-API event list (UpdateAnalysis & sub-actions are console service events):
+ *   https://docs.aws.amazon.com/quicksuite/latest/userguide/incident-response-logging-and-monitoring-qs.html#logging-non-api
+ * Real payload example:
+ *   https://github.com/aws-samples/siem-on-amazon-opensearch-service/issues/33
+ */
+function fromEventDetailsArray(event: any, key: string): unknown {
+  const details = event.serviceEventDetails?.eventRequestDetails;
+  if (!Array.isArray(details)) {
+    return undefined;
+  }
+  return details.find((entry: any) => entry?.key === key)?.value;
 }
 
 const extractParam = (event: any, ...keys: string[]): string | null => {
@@ -159,7 +215,8 @@ const extractParam = (event: any, ...keys: string[]): string | null => {
     const v =
       event.requestParameters?.[key] ||
       event.serviceEventDetails?.eventRequestDetails?.[key] ||
-      event.serviceEventDetails?.[key];
+      event.serviceEventDetails?.[key] ||
+      nonEmptyString(fromEventDetailsArray(event, key));
     if (v) {
       const tail = String(v).split('/').pop();
       if (tail) {
