@@ -51,7 +51,50 @@ interface Job {
     failedAssets?: number;
     operations?: Record<string, number>;
   };
+  exportOptions?: { exportIngestions?: boolean };
   error?: string;
+}
+
+/** Friendly labels for the job types the portal runs. */
+const JOB_TYPE_LABELS: Record<string, string> = {
+  export: 'Export',
+  'activity-refresh': 'Activity Refresh',
+  'bulk-operation': 'Bulk Operation',
+  'csv-export': 'CSV Export',
+  deploy: 'Deploy',
+  ingestion: 'Ingestion',
+  rebuild: 'Rebuild',
+};
+
+/** Type-filter options shown in the dropdown (only types users start from the portal). */
+const JOB_TYPE_FILTERS = [
+  { value: 'all', label: 'All types' },
+  { value: 'export', label: 'Export' },
+  { value: 'activity-refresh', label: 'Activity Refresh' },
+  { value: 'bulk-operation', label: 'Bulk Operation' },
+  { value: 'csv-export', label: 'CSV Export' },
+  { value: 'deploy', label: 'Deploy' },
+];
+
+/** Ingestion exports run as jobType 'export' — distinguish them by their options. */
+function jobTypeLabel(job: Job): string {
+  if (job.jobType === 'export' && job.exportOptions?.exportIngestions) {
+    return 'Export (ingestions)';
+  }
+  return JOB_TYPE_LABELS[job.jobType ?? ''] ?? job.jobType ?? 'Unknown';
+}
+
+/**
+ * Sum QuickSight API calls from the tracked per-operation counts. Operations
+ * are namespaced ('api.dashboard.describe', 's3.get', ...) — only api.* rows
+ * are API calls. Returns null when the job tracked none (e.g. bulk ops).
+ */
+function sumApiCalls(job: Job): number | null {
+  const ops = job.stats?.operations;
+  if (!ops) return null;
+  const apiEntries = Object.entries(ops).filter(([key]) => key.startsWith('api.'));
+  if (apiEntries.length === 0) return null;
+  return apiEntries.reduce((sum, [, value]) => sum + value, 0);
 }
 
 interface JobHistoryProps {
@@ -65,13 +108,15 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
 
   const loadJobs = async () => {
     try {
       setLoading(true);
       const result = await exportApi.listJobs({
         limit: 50,
-        status: statusFilter === 'all' ? undefined : statusFilter as any
+        status: statusFilter === 'all' ? undefined : statusFilter as any,
+        type: typeFilter === 'all' ? undefined : typeFilter,
       });
       setJobs(result?.jobs || []);
     } catch (error) {
@@ -90,7 +135,7 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
   useEffect(() => {
     loadJobs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [statusFilter, typeFilter]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -166,7 +211,7 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
         <Box display="flex" alignItems="center" gap={1}>
           <HistoryIcon sx={{ fontSize: 20, color: colors.primary.main }} />
           <Typography variant="subtitle1" fontWeight={600}>
-            Export History
+            Job History
           </Typography>
           <Chip
             label={`${jobs.length} jobs`}
@@ -181,6 +226,22 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
         </Box>
         
         <Stack direction="row" spacing={2} alignItems="center">
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Type</InputLabel>
+            <Select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              label="Type"
+              sx={{ height: 36 }}
+            >
+              {JOB_TYPE_FILTERS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
           <FormControl size="small" sx={{ minWidth: 120 }}>
             <InputLabel>Status</InputLabel>
             <Select
@@ -231,6 +292,9 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
                 Status
               </TableCell>
               <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>
+                Type
+              </TableCell>
+              <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>
                 Started
               </TableCell>
               <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>
@@ -260,7 +324,7 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
               <TableRow>
                 <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                   <Typography variant="body2" color="text.secondary">
-                    No export jobs found
+                    No jobs found
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -292,6 +356,14 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
                     </Box>
                   </TableCell>
                   <TableCell>
+                    <Chip
+                      label={jobTypeLabel(job)}
+                      size="small"
+                      variant="outlined"
+                      sx={{ height: 22, fontSize: '0.7rem' }}
+                    />
+                  </TableCell>
+                  <TableCell>
                     <Tooltip title={format(new Date(job.startTime), 'PPpp')}>
                       <Typography variant="caption">
                         {formatDistanceToNow(new Date(job.startTime), { addSuffix: true })}
@@ -305,18 +377,14 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
                   </TableCell>
                   <TableCell>
                     <Typography variant="caption">
-                      {job.stats?.processedAssets || 0} / {job.stats?.totalAssets || 0}
+                      {job.stats?.totalAssets !== undefined || job.stats?.processedAssets !== undefined
+                        ? `${job.stats?.processedAssets || 0} / ${job.stats?.totalAssets || 0}`
+                        : '—'}
                     </Typography>
                   </TableCell>
                   <TableCell>
                     <Typography variant="caption">
-                      {(() => {
-                        const ops = job.stats?.operations || {};
-                        // Sum up all API operations (list, describe, definition, permissions, tags)
-                        const apiCalls = Object.entries(ops)
-                          .reduce((sum, [, value]) => sum + value, 0);
-                        return apiCalls || 0;
-                      })()}
+                      {sumApiCalls(job)?.toLocaleString() ?? '—'}
                     </Typography>
                   </TableCell>
                   <TableCell>

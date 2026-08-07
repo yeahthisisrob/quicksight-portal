@@ -99,13 +99,15 @@ export const exportApi = {
     return this.startExportJob(options);
   },
 
-  // List recent export jobs (using new unified job API)
+  // List recent jobs of any type (unified job API). Pass `type` to filter
+  // to one job type (e.g. 'export', 'activity-refresh'); omit for all types.
   async listJobs(options: {
     limit?: number;
     status?: 'queued' | 'processing' | 'completed' | 'failed' | 'stopped';
+    type?: string;
   } = {}) {
     const params = new URLSearchParams();
-    params.append('type', 'export'); // Filter for export jobs only
+    if (options.type) params.append('type', options.type);
     if (options.limit) params.append('limit', options.limit.toString());
     if (options.status) params.append('status', options.status);
     
@@ -122,8 +124,9 @@ export const exportApi = {
         totalAssets?: number;
         processedAssets?: number;
         failedAssets?: number;
-        apiCalls?: number;
+        operations?: Record<string, number>;
       };
+      exportOptions?: { exportIngestions?: boolean };
       error?: string;
       stopRequested?: boolean;
     }>>>(`/jobs?${params.toString()}`);

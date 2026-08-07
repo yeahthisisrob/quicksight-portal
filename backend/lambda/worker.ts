@@ -800,7 +800,9 @@ async function executeExportJob(
   // Execute the export with progress tracking
   const result = await exportOrchestrator.exportAssets(exportOptions);
 
-  // Mark job as completed with stats
+  // Mark job as completed with stats. Include the per-operation counts the
+  // orchestrator tracked (api.* / s3.* namespaces) — the job history's
+  // "API Calls" column sums the api.* entries.
   await jobStateService.updateJobStatus(jobId, {
     status: 'completed',
     progress: 100,
@@ -810,6 +812,7 @@ async function executeExportJob(
       totalAssets: result.totals.listed,
       processedAssets: result.totals.processed,
       failedAssets: result.totals.failed,
+      operations: exportOrchestrator.getOperationStats(),
     },
   });
 
