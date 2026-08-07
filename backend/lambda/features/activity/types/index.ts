@@ -108,10 +108,17 @@ export interface MinimalEvent {
 
 /**
  * Bumped when ActivityCache shape changes in a way that requires re-fetch.
- * Schema v2 introduced perEventNameWatermark / id-based dedup. A cache read
- * with a missing or older schemaVersion forces a full 90-day rescan.
+ * A cache read with a missing or older schemaVersion forces a full 90-day
+ * rescan on the next refresh (watermarks are discarded and event buckets are
+ * wiped before merge).
+ *
+ * v2: introduced perEventNameWatermark / id-based dedup.
+ * v3: console-originated mutation events (array-shaped eventRequestDetails,
+ *     e.g. UpdateAnalysis) now extract the asset id — cached events ingested
+ *     before that fix lack `r`, so catalog name hydration can't key them.
+ *     Full rescan re-extracts ids for the whole window.
  */
-export const ACTIVITY_CACHE_SCHEMA_VERSION = 2;
+export const ACTIVITY_CACHE_SCHEMA_VERSION = 3;
 
 // Activity cache - stores raw events grouped by date
 export interface ActivityCache {
