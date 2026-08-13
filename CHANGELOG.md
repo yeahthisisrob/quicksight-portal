@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.3.0...v1.4.0) (2026-08-13)
+
+
+### Features
+
+* http caching with etags, group list memoization, persisted snapshots, react-query list cache ([#23](https://github.com/yeahthisisrob/quicksight-portal/issues/23)) ([fbae78b](https://github.com/yeahthisisrob/quicksight-portal/commit/fbae78b9d8c98e93b2890560d9cee6608bb50b96))
+
 ## [1.3.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.2.5...v1.3.0) (2026-08-13)
 
 
