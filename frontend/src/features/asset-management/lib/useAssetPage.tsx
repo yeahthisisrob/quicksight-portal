@@ -1,5 +1,8 @@
 import { GridRowSelectionModel, GridSortModel } from '@mui/x-data-grid';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+
+// Module-level constant so the grid receives a stable sort-model identity
+const DEFAULT_SORT_MODEL: GridSortModel = [{ field: 'lastModified', sort: 'desc' }];
 
 interface UseAssetPageOptions {
   assetType: 'dashboard' | 'dataset' | 'analysis' | 'datasource' | 'folder' | 'user' | 'group';
@@ -23,11 +26,19 @@ export function useAssetPage({
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [viewStatsDialog, setViewStatsDialog] = useState<{ open: boolean; asset?: any }>({ open: false });
 
-  const openPermissionsDialog = (asset: any) => setPermissionsDialog({ open: true, asset });
-  const openTagsDialog = (asset: any) => setTagsDialog({ open: true, asset });
-  const openRelatedAssetsDialog = (asset: any, relatedAssets: any[]) => 
-    setRelatedAssetsDialog({ open: true, asset, relatedAssets });
-  const openViewStatsDialog = (asset: any) => setViewStatsDialog({ open: true, asset });
+  const openPermissionsDialog = useCallback(
+    (asset: any) => setPermissionsDialog({ open: true, asset }),
+    []
+  );
+  const openTagsDialog = useCallback((asset: any) => setTagsDialog({ open: true, asset }), []);
+  const openRelatedAssetsDialog = useCallback(
+    (asset: any, relatedAssets: any[]) => setRelatedAssetsDialog({ open: true, asset, relatedAssets }),
+    []
+  );
+  const openViewStatsDialog = useCallback(
+    (asset: any) => setViewStatsDialog({ open: true, asset }),
+    []
+  );
 
   const handleBulkComplete = () => {
     setSelectedRows([]);
@@ -36,9 +47,7 @@ export function useAssetPage({
 
   const selectedAssets = assets.filter((asset: any) => selectedRows.includes(asset.id));
 
-  const defaultSortModel: GridSortModel = [
-    { field: 'lastModified', sort: 'desc' }
-  ];
+  const defaultSortModel = DEFAULT_SORT_MODEL;
 
   // Listen for bulk action events
   useEffect(() => {

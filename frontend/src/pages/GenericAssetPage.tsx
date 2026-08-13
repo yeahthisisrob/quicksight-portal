@@ -1,7 +1,7 @@
 /**
  * Refactored GenericAssetPage with reduced complexity
  */
-import { ReactNode } from 'react';
+import { ReactNode, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { EnhancedAssetTable } from '@/widgets';
@@ -145,51 +145,113 @@ export default function GenericAssetPage({
   
   // Dialog states hook
   const dialogStates = useDialogStates(refreshAssetType);
-  
-  // Create column handlers
-  const columnHandlers = createColumnHandlers(
-    assetType,
-    {
-      setJsonViewerDialog: dialogStates.setJsonViewerDialog,
-      setFolderMembersDialog: dialogStates.setFolderMembersDialog,
-      setAssetFoldersDialog: dialogStates.setAssetFoldersDialog,
-      setUserGroupsDialog: dialogStates.setUserGroupsDialog,
-      setGroupMembersDialog: dialogStates.setGroupMembersDialog,
-      setGroupAssetsDialog: dialogStates.setGroupAssetsDialog,
-      setUpdateGroupDialog: dialogStates.setUpdateGroupDialog,
-      setDeleteGroupDialog: dialogStates.setDeleteGroupDialog,
-      setDeleteUserDialog: dialogStates.setDeleteUserDialog,
-      setRefreshScheduleDialog: dialogStates.setRefreshScheduleDialog,
-      setDefinitionErrorsDialog: dialogStates.setDefinitionErrorsDialog,
-      setUserAssetAccessDialog: dialogStates.setUserAssetAccessDialog,
-      setNotifyInactiveDialog: dialogStates.setNotifyInactiveDialog,
-      setNotifyInactiveAnalysesDialog: dialogStates.setNotifyInactiveAnalysesDialog,
-      setNotifyUnusedDatasetsDialog: dialogStates.setNotifyUnusedDatasetsDialog,
-    },
-    {
+
+  // All of these are stable across renders (useState setters / useCallbacks),
+  // so the memoized column handlers below only rebuild when assetType changes
+  const {
+    setJsonViewerDialog,
+    setFolderMembersDialog,
+    setAssetFoldersDialog,
+    setUserGroupsDialog,
+    setGroupMembersDialog,
+    setGroupAssetsDialog,
+    setUpdateGroupDialog,
+    setDeleteGroupDialog,
+    setDeleteUserDialog,
+    setRefreshScheduleDialog,
+    setDefinitionErrorsDialog,
+    setUserAssetAccessDialog,
+    setNotifyInactiveDialog,
+    setNotifyInactiveAnalysesDialog,
+    setNotifyUnusedDatasetsDialog,
+    setAddToGroupOpen,
+  } = dialogStates;
+  const {
+    openPermissionsDialog: pageOpenPermissionsDialog,
+    openTagsDialog: pageOpenTagsDialog,
+    openRelatedAssetsDialog: pageOpenRelatedAssetsDialog,
+  } = pageState;
+
+  // Create column handlers (memoized so the DataGrid keeps a stable column
+  // identity instead of re-initializing all columns/cells on every render)
+  const columnHandlers = useMemo(
+    () =>
+      createColumnHandlers(
+        assetType,
+        {
+          setJsonViewerDialog,
+          setFolderMembersDialog,
+          setAssetFoldersDialog,
+          setUserGroupsDialog,
+          setGroupMembersDialog,
+          setGroupAssetsDialog,
+          setUpdateGroupDialog,
+          setDeleteGroupDialog,
+          setDeleteUserDialog,
+          setRefreshScheduleDialog,
+          setDefinitionErrorsDialog,
+          setUserAssetAccessDialog,
+          setNotifyInactiveDialog,
+          setNotifyInactiveAnalysesDialog,
+          setNotifyUnusedDatasetsDialog,
+        },
+        {
+          openPermissionsDialog,
+          openTagsDialog,
+          openRelatedAssetsDialog,
+          pageState: {
+            openPermissionsDialog: pageOpenPermissionsDialog,
+            openTagsDialog: pageOpenTagsDialog,
+            openRelatedAssetsDialog: pageOpenRelatedAssetsDialog,
+          },
+        },
+        onActivityClick
+      ),
+    [
+      assetType,
+      onActivityClick,
       openPermissionsDialog,
       openTagsDialog,
       openRelatedAssetsDialog,
-      pageState,
-    },
-    onActivityClick
+      pageOpenPermissionsDialog,
+      pageOpenTagsDialog,
+      pageOpenRelatedAssetsDialog,
+      setJsonViewerDialog,
+      setFolderMembersDialog,
+      setAssetFoldersDialog,
+      setUserGroupsDialog,
+      setGroupMembersDialog,
+      setGroupAssetsDialog,
+      setUpdateGroupDialog,
+      setDeleteGroupDialog,
+      setDeleteUserDialog,
+      setRefreshScheduleDialog,
+      setDefinitionErrorsDialog,
+      setUserAssetAccessDialog,
+      setNotifyInactiveDialog,
+      setNotifyInactiveAnalysesDialog,
+      setNotifyUnusedDatasetsDialog,
+    ]
   );
-  
-  // Create columns with handlers
-  const columns = createAssetColumns(assetType, navigate, columnHandlers);
-  
+
+  // Create columns with handlers (stable while assetType/handlers are stable)
+  const columns = useMemo(
+    () => createAssetColumns(assetType, navigate, columnHandlers),
+    [assetType, navigate, columnHandlers]
+  );
+
   // Determine capabilities
   const canDelete = canDeleteAssetType(assetType);
   const folderActionLabel = getFolderActionLabel(assetType);
-  
+
   // Determine folder action handler
-  const handleFolderAction = () => {
+  const handleFolderAction = useCallback(() => {
     if (assetType === 'user') {
-      dialogStates.setAddToGroupOpen(true);
+      setAddToGroupOpen(true);
     } else if (assetType !== 'group') {
       setAddToFolderOpen(true);
     }
-  };
+  }, [assetType, setAddToGroupOpen, setAddToFolderOpen]);
   
   return (
     <EnhancedAssetTable

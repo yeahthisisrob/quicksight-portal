@@ -4,7 +4,7 @@ import {
   Timeline as TimelineIcon,
 } from '@mui/icons-material';
 import { IconButton, Menu, MenuItem } from '@mui/material';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 
 import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 
@@ -23,7 +23,9 @@ interface ActionsDropdownProps {
   };
 }
 
-export const ActionsDropdown = ({ asset, assetType, handlers }: ActionsDropdownProps) => {
+// Memoized: rendered once per row, so stable props skip re-rendering all rows'
+// menus when the grid re-renders
+export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDropdownProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
@@ -118,4 +120,6 @@ export const ActionsDropdown = ({ asset, assetType, handlers }: ActionsDropdownP
       </Menu>
     </>
   );
-};
+});
+
+ActionsDropdown.displayName = 'ActionsDropdown';

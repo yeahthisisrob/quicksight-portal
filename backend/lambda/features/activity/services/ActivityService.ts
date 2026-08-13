@@ -1647,34 +1647,11 @@ export class ActivityService {
   }
 
   /**
-   * Find matching user from userNames list
-   */
-  private findMatchingUser(eventUser: string, userNames: string[]): string | null {
-    for (const userName of userNames) {
-      if (this.userMatches(eventUser, userName)) {
-        return userName;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Find persisted date for user
+   * Find persisted date for user. Persisted users are keyed by exact user name,
+   * so a direct lookup fully covers the match.
    */
   private findPersistedUserDate(persistence: any, userName: string): string | null {
-    // Check direct match first
-    if (persistence.users[userName]) {
-      return persistence.users[userName];
-    }
-
-    // Check all persisted users for matches
-    for (const [persistedUser, persistedDate] of Object.entries(persistence.users)) {
-      if (this.userMatches(persistedUser, userName)) {
-        return persistedDate as string;
-      }
-    }
-
-    return null;
+    return persistence.users[userName] ?? null;
   }
 
   /**
@@ -1798,10 +1775,11 @@ export class ActivityService {
       return userGroupsMap;
     }
 
-    // Get groups for each user using GroupService
+    // Resolve all users' groups in one pass over the group cache
+    const cache = await this.cacheService.getMasterCache();
+    const bulkGroups = this.groupService.getUserGroupsBulk(userNames, cache);
     for (const userName of userNames) {
-      const userGroups = await this.groupService.getUserGroups(userName);
-      const groupNames = userGroups.map((g) => g.groupName);
+      const groupNames = (bulkGroups.get(userName) || []).map((g) => g.groupName);
       userGroupsMap.set(userName, groupNames);
     }
 
@@ -2006,10 +1984,13 @@ export class ActivityService {
   ): { userDashboards: Map<string, Set<string>>; userAnalyses: Map<string, Set<string>> } {
     const userDashboards = new Map<string, Set<string>>();
     const userAnalyses = new Map<string, Set<string>>();
+    // userMatches is a plain === compare, so a Set lookup is exactly equivalent
+    // to scanning userNames per event and turns the join into O(events)
+    const userNameSet = new Set(userNames);
 
     for (const [, events] of Object.entries(cache.events)) {
       for (const event of events as MinimalEvent[]) {
-        const matchedUserName = this.findMatchingUser(event.u, userNames);
+        const matchedUserName = userNameSet.has(event.u) ? event.u : null;
 
         if (matchedUserName) {
           this.updateUserActivity(results, matchedUserName, event);

@@ -370,3 +370,74 @@ describe('GroupService - getGroupAssets - mixed and special cases', () => {
     expect(datasetAssets.assets[0]?.assetType).toBe('dataset');
   });
 });
+
+describe('GroupService - getUserGroupsBulk', () => {
+  beforeEach(setupTest);
+
+  const createGroupWithMembers = (name: string, members: any[]) => ({
+    ...createMockGroup(name),
+    metadata: { members },
+  });
+
+  it('matches members via memberName, userName, and principalId keys', () => {
+    mockCache.entries.group = [
+      createGroupWithMembers('ByMemberName', [{ memberName: 'alice' }]),
+      createGroupWithMembers('ByUserName', [{ userName: 'bob' }]),
+      createGroupWithMembers('ByPrincipalId', [{ principalId: 'carol' }]),
+    ];
+
+    const result = groupService.getUserGroupsBulk(['alice', 'bob', 'carol'], mockCache);
+
+    expect(result.get('alice')?.map((g) => g.groupName)).toEqual(['ByMemberName']);
+    expect(result.get('bob')?.map((g) => g.groupName)).toEqual(['ByUserName']);
+    expect(result.get('carol')?.map((g) => g.groupName)).toEqual(['ByPrincipalId']);
+  });
+
+  it('returns all groups for a user in multiple groups', () => {
+    mockCache.entries.group = [
+      createGroupWithMembers('Admins', [{ memberName: 'alice' }]),
+      createGroupWithMembers('Analysts', [{ memberName: 'alice' }, { memberName: 'bob' }]),
+    ];
+
+    const result = groupService.getUserGroupsBulk(['alice', 'bob'], mockCache);
+
+    expect(result.get('alice')?.map((g) => g.groupName)).toEqual(['Admins', 'Analysts']);
+    expect(result.get('bob')?.map((g) => g.groupName)).toEqual(['Analysts']);
+  });
+
+  it('dedupes a group matched under multiple member keys for the same user', () => {
+    mockCache.entries.group = [
+      createGroupWithMembers('Admins', [
+        { memberName: 'alice', userName: 'alice', principalId: 'alice' },
+      ]),
+    ];
+
+    const result = groupService.getUserGroupsBulk(['alice'], mockCache);
+
+    expect(result.get('alice')).toHaveLength(1);
+  });
+
+  it('returns an empty array for users in no groups', () => {
+    mockCache.entries.group = [createGroupWithMembers('Admins', [{ memberName: 'alice' }])];
+
+    const result = groupService.getUserGroupsBulk(['nobody'], mockCache);
+
+    expect(result.get('nobody')).toEqual([]);
+  });
+
+  it('agrees with the per-user getUserGroups results', async () => {
+    mockCache.entries.group = [
+      createGroupWithMembers('A', [{ memberName: 'u1' }]),
+      createGroupWithMembers('B', [{ userName: 'u1' }, { principalId: 'u2' }]),
+      createGroupWithMembers('C', [{ memberName: 'other' }]),
+    ];
+    (cacheService.getMasterCache as Mock).mockResolvedValue(mockCache);
+
+    const bulk = groupService.getUserGroupsBulk(['u1', 'u2'], mockCache);
+    const perUser1 = await groupService.getUserGroups('u1');
+    const perUser2 = await groupService.getUserGroups('u2');
+
+    expect(bulk.get('u1')).toEqual(perUser1);
+    expect(bulk.get('u2')).toEqual(perUser2);
+  });
+});

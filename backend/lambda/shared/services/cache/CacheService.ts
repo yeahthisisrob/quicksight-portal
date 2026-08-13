@@ -22,6 +22,7 @@ import {
   type FieldStatistics,
 } from '../../types/exportSummaryTypes';
 import { logger } from '../../utils/logger';
+import { SingleFlight } from '../../utils/singleFlight';
 
 /**
  * Main CacheService - coordinates all caching operations
@@ -29,16 +30,18 @@ import { logger } from '../../utils/logger';
 export class CacheService extends EventEmitter {
   private static instance: CacheService;
   private static s3Service: S3Service | null = null;
-
   public static getInstance(): CacheService {
     if (!CacheService.instance) {
       CacheService.instance = new CacheService();
     }
     return CacheService.instance;
   }
+
   private bucketName: string;
   private readonly cacheReader: CacheReader;
   private cacheWriter: any = null; // Type any to avoid circular import
+  // Coalesces concurrent get() calls for the same key (one S3 HEAD/GET per burst)
+  private readonly getSingleFlight = new SingleFlight();
   private readonly memoryAdapter: MemoryCacheAdapter;
   private readonly s3Adapter: S3CacheAdapter;
 
@@ -138,42 +141,7 @@ export class CacheService extends EventEmitter {
    * (no clear-memory endpoint, no per-mutation cache clearing).
    */
   public async get<T = any>(key: string): Promise<T | null> {
-    try {
-      const cached = this.memoryAdapter.getValidatedEntry<T>(key);
-      if (cached) {
-        if (Date.now() - cached.validatedAt < CACHE_CONFIG.REVALIDATE_WINDOW_MS) {
-          return cached.value;
-        }
-        const verdict = await this.revalidateAgainstS3(key, cached.etag);
-        if (verdict === 'fresh') {
-          this.memoryAdapter.markValidated(key);
-          return cached.value;
-        }
-        if (verdict === 'missing') {
-          this.memoryAdapter.delete(key);
-          return null;
-        }
-        if (verdict === 'unknown') {
-          // Transient HEAD failure — serve the (possibly slightly stale) copy
-          // rather than failing the read.
-          return cached.value;
-        }
-        // 'stale' → fall through to a fresh GET
-      }
-
-      const result = await this.s3Service
-        .getObjectWithETag<T>(this.bucketName, key)
-        .catch(() => null);
-      if (!result || result.data === null || result.data === undefined) {
-        return null;
-      }
-      const data = typeof result.data === 'string' ? (JSON.parse(result.data) as T) : result.data;
-      this.memoryAdapter.setValidated(key, data, result.etag);
-      return data;
-    } catch (error) {
-      logger.error('Failed to get cache item', { key, error });
-      return null;
-    }
+    return (await this.getWithEtag<T>(key)).value;
   }
 
   /**
@@ -184,10 +152,24 @@ export class CacheService extends EventEmitter {
   }
 
   /**
+   * Get activity cache with its S3 ETag (version identifier)
+   */
+  public async getActivityCacheWithEtag(): Promise<{ value: any | null; etag?: string }> {
+    return await this.getWithEtag('cache/activity-cache.json');
+  }
+
+  /**
    * Get activity persistence (historical dates)
    */
   public async getActivityPersistence(): Promise<any | null> {
     return await this.get('cache/activity-persistence.json');
+  }
+
+  /**
+   * Get activity persistence with its S3 ETag (version identifier)
+   */
+  public async getActivityPersistenceWithEtag(): Promise<{ value: any | null; etag?: string }> {
+    return await this.getWithEtag('cache/activity-persistence.json');
   }
 
   /**
@@ -289,12 +271,12 @@ export class CacheService extends EventEmitter {
     return await this.cacheReader.getCacheEntries(options);
   }
 
-  // Lineage operations are handled during cache rebuild by CacheWriter
-  // Deleted asset detection is handled during export by ExportOrchestrator
-
   public getCacheReader(): any {
     return this.cacheReader;
   }
+
+  // Lineage operations are handled during cache rebuild by CacheWriter
+  // Deleted asset detection is handled during export by ExportOrchestrator
 
   public async getCacheStats(): Promise<any> {
     try {
@@ -460,8 +442,66 @@ export class CacheService extends EventEmitter {
     return await this.cacheReader.getMasterCache({ statusFilter });
   }
 
+  /**
+   * Master cache plus a version string derived from the per-type S3 ETags —
+   * changes iff any underlying type cache changed. Safe memoization key for
+   * data derived from the master cache.
+   */
+  public async getMasterCacheWithVersion(options?: {
+    statusFilter?: AssetStatusFilter;
+  }): Promise<{ cache: MasterCache; version: string }> {
+    const statusFilter = options?.statusFilter || DEFAULT_STATUS_FILTER;
+    return await this.cacheReader.getMasterCacheWithVersion({ statusFilter });
+  }
+
   public async getTypeCache(assetType: AssetType): Promise<CacheEntry[]> {
     return await this.getCacheEntries({ assetType });
+  }
+
+  /**
+   * Like get(), but also returns the S3 ETag the value was validated against.
+   * The ETag serves as a cheap version identifier for derived-data memoization.
+   */
+  public getWithEtag<T = any>(key: string): Promise<{ value: T | null; etag?: string }> {
+    // Coalesced: concurrent callers for the same key share one flight
+    return this.getSingleFlight.run(key, async () => {
+      try {
+        const cached = this.memoryAdapter.getValidatedEntry<T>(key);
+        if (cached) {
+          if (Date.now() - cached.validatedAt < CACHE_CONFIG.REVALIDATE_WINDOW_MS) {
+            return { value: cached.value, etag: cached.etag };
+          }
+          const verdict = await this.revalidateAgainstS3(key, cached.etag);
+          if (verdict === 'fresh') {
+            this.memoryAdapter.markValidated(key);
+            return { value: cached.value, etag: cached.etag };
+          }
+          if (verdict === 'missing') {
+            this.memoryAdapter.delete(key);
+            return { value: null };
+          }
+          if (verdict === 'unknown') {
+            // Transient HEAD failure — serve the (possibly slightly stale) copy
+            // rather than failing the read.
+            return { value: cached.value, etag: cached.etag };
+          }
+          // 'stale' → fall through to a fresh GET
+        }
+
+        const result = await this.s3Service
+          .getObjectWithETag<T>(this.bucketName, key)
+          .catch(() => null);
+        if (!result || result.data === null || result.data === undefined) {
+          return { value: null };
+        }
+        const data = typeof result.data === 'string' ? (JSON.parse(result.data) as T) : result.data;
+        this.memoryAdapter.setValidated(key, data, result.etag);
+        return { value: data, etag: result.etag };
+      } catch (error) {
+        logger.error('Failed to get cache item', { key, error });
+        return { value: null };
+      }
+    });
   }
 
   /**

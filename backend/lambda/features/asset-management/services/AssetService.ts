@@ -1,5 +1,6 @@
+import { userListEnrichmentCache } from './UserListEnrichmentCache';
 import { DEBUG_CONFIG, QUICKSIGHT_LIMITS } from '../../../shared/constants';
-import { type CacheEntry } from '../../../shared/models/asset.model';
+import { type CacheEntry, type MasterCache } from '../../../shared/models/asset.model';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { LineageService } from '../../../shared/services/lineage';
 import { type ActivityData } from '../../../shared/types/activityTypes';
@@ -163,7 +164,9 @@ export class AssetService {
 
   public async list(assetType: string, request: AssetListRequest): Promise<AssetListResponse> {
     try {
-      const cache = await cacheService.getMasterCache({ statusFilter: AssetStatusFilter.ACTIVE });
+      const { cache, version: cacheVersion } = await cacheService.getMasterCacheWithVersion({
+        statusFilter: AssetStatusFilter.ACTIVE,
+      });
 
       if (!cache || !cache.entries) {
         logger.warn('No cached data found, returning empty results');
@@ -171,7 +174,7 @@ export class AssetService {
       }
 
       if (COLLECTION_ASSET_TYPES.includes(assetType as AssetType)) {
-        return this.listCollectionType(assetType as AssetType, request);
+        return this.listCollectionType(assetType as AssetType, request, cache, cacheVersion);
       }
 
       this.validateRegularAssetType(assetType);
@@ -804,7 +807,7 @@ export class AssetService {
   /**
    * Enrich user items with activity data, groups, and asset access counts
    */
-  private async enrichUserItems(mappedItems: any[]): Promise<any[]> {
+  private async enrichUserItems(mappedItems: any[], cache: MasterCache): Promise<any[]> {
     try {
       const userNames = mappedItems.map((item: any) => item.name || item.userName || item.id);
       if (userNames.length === 0) {
@@ -815,42 +818,38 @@ export class AssetService {
 
       logger.debug('User activity results for collection:', {
         activityMapSize: userActivity.size,
-        sampleEntries: Array.from(userActivity.entries()).slice(
-          0,
-          DEBUG_CONFIG.SAMPLE_ENTRIES_TO_LOG
-        ),
       });
 
       let assetAccessCounts = new Map<string, number>();
       try {
-        assetAccessCounts = await this.permissionsService.getBulkUserAssetCounts(userNames);
+        assetAccessCounts = await this.permissionsService.getBulkUserAssetCounts(userNames, cache);
       } catch (accessErr) {
         logger.warn('Failed to fetch asset access counts:', accessErr);
       }
 
-      return await Promise.all(
-        mappedItems.map(async (item: any) => {
-          const lookupKey = item.name || item.userName || item.id;
-          const activityData = userActivity.get(lookupKey);
-          const userGroups = await this.groupService.getUserGroups(lookupKey);
-          const groupNames = userGroups.map((g) => g.groupName);
+      // One pass over the group cache for all users instead of a lookup per user
+      const groupsByUser = this.groupService.getUserGroupsBulk(userNames, cache);
 
-          return {
-            ...item,
-            groups: groupNames,
-            groupCount: groupNames.length,
-            assetAccessCount: assetAccessCounts.get(lookupKey) || 0,
-            activity: activityData
-              ? {
-                  totalActivities: activityData.totalActivities || 0,
-                  lastActive: activityData.lastActive || null,
-                  dashboardCount: activityData.dashboardCount || 0,
-                  analysisCount: activityData.analysisCount || 0,
-                }
-              : item.activity,
-          };
-        })
-      );
+      return mappedItems.map((item: any) => {
+        const lookupKey = item.name || item.userName || item.id;
+        const activityData = userActivity.get(lookupKey);
+        const groupNames = (groupsByUser.get(lookupKey) || []).map((g) => g.groupName);
+
+        return {
+          ...item,
+          groups: groupNames,
+          groupCount: groupNames.length,
+          assetAccessCount: assetAccessCounts.get(lookupKey) || 0,
+          activity: activityData
+            ? {
+                totalActivities: activityData.totalActivities || 0,
+                lastActive: activityData.lastActive || null,
+                dashboardCount: activityData.dashboardCount || 0,
+                analysisCount: activityData.analysisCount || 0,
+              }
+            : item.activity,
+        };
+      });
     } catch (error) {
       logger.warn('Failed to enrich user items:', error);
       return mappedItems;
@@ -1316,17 +1315,11 @@ export class AssetService {
   // Handle collection types (users, groups, folders) which are stored differently
   private async listCollectionType(
     assetType: AssetType,
-    request: AssetListRequest
+    request: AssetListRequest,
+    cache: MasterCache,
+    cacheVersion: string
   ): Promise<AssetListResponse> {
     try {
-      // Use CacheService with new filtering system instead of direct S3 access
-      const cache = await cacheService.getMasterCache({ statusFilter: AssetStatusFilter.ACTIVE });
-
-      if (!cache || !cache.entries) {
-        logger.warn('No cached data found for collection types');
-        return { items: [], nextToken: undefined };
-      }
-
       // Get collection assets from cache - already filtered to active only
       const items = cache.entries[assetType] || [];
 
@@ -1335,30 +1328,53 @@ export class AssetService {
         return { items: [], nextToken: undefined };
       }
 
-      // Map items using the proper OpenAPI contract mappers
-      let mappedItems = items.map((item) => mapCacheEntryToAsset(item));
+      let mappedItems: any[];
+      let availableRoles: FilterOption[] | undefined;
+      let availableGroups: FilterOption[] | undefined;
 
-      // Add group-specific data (assets count) if we're listing groups
-      if (assetType === ASSET_TYPES.group) {
-        mappedItems = mappedItems.map((item: any, index: number) => {
-          const cacheEntry = items[index];
-          if (cacheEntry) {
-            this.addGroupAssetsCount(item, assetType, cacheEntry, cache);
-          }
-          return item;
-        });
-      }
-
-      // Fetch user activity data, groups, and asset access counts
       if (assetType === ASSET_TYPES.user) {
-        mappedItems = await this.enrichUserItems(mappedItems);
+        // User enrichment (activity join, asset-access counts, group
+        // membership) runs over the full population and is expensive, so the
+        // result is memoized across requests keyed by the ETags of everything
+        // it reads. Page changes, sorts, and searches reuse the snapshot; it
+        // recomputes only when a cache actually changed.
+        const [activity, persistence] = await Promise.all([
+          cacheService.getActivityCacheWithEtag(),
+          cacheService.getActivityPersistenceWithEtag(),
+        ]);
+        const version = `${cacheVersion}|act:${activity.etag ?? 'none'}|pers:${persistence.etag ?? 'none'}`;
+
+        const snapshot = await userListEnrichmentCache.getOrCompute(version, async () => {
+          const mapped = items.map((item) => mapCacheEntryToAsset(item));
+          const enriched = await this.enrichUserItems(mapped, cache);
+          return {
+            items: enriched,
+            availableRoles: this.computeAvailableRoles(enriched),
+            availableGroups: this.computeAvailableGroups(enriched),
+          };
+        });
+
+        // Snapshot items are shared across requests — downstream processing
+        // (filter/search/sort/paginate) is non-mutating; keep it that way.
+        mappedItems = snapshot.items;
+        availableRoles = snapshot.availableRoles;
+        availableGroups = snapshot.availableGroups;
+      } else {
+        // Map items using the proper OpenAPI contract mappers
+        mappedItems = items.map((item) => mapCacheEntryToAsset(item));
+
+        // Add group-specific data (assets count) if we're listing groups
+        if (assetType === ASSET_TYPES.group) {
+          mappedItems = mappedItems.map((item: any, index: number) => {
+            const cacheEntry = items[index];
+            if (cacheEntry) {
+              this.addGroupAssetsCount(item, assetType, cacheEntry, cache);
+            }
+            return item;
+          });
+        }
       }
 
-      // Compute available filter options from all items before filtering
-      const availableRoles =
-        assetType === ASSET_TYPES.user ? this.computeAvailableRoles(mappedItems) : undefined;
-      const availableGroups =
-        assetType === ASSET_TYPES.user ? this.computeAvailableGroups(mappedItems) : undefined;
       const availableSourceTypes =
         assetType === ASSET_TYPES.dataset || assetType === ASSET_TYPES.datasource
           ? this.computeAvailableSourceTypes(mappedItems)

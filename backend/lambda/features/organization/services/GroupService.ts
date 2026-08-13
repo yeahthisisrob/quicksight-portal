@@ -5,7 +5,7 @@ import {
   type GroupDescribeData,
   type GroupListData,
 } from '../../../shared/models/asset-export.model';
-import { type CacheEntry } from '../../../shared/models/asset.model';
+import { type CacheEntry, type MasterCache } from '../../../shared/models/asset.model';
 import { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { S3Service } from '../../../shared/services/aws/S3Service';
 import { cacheService } from '../../../shared/services/cache/CacheService';
@@ -223,6 +223,54 @@ export class GroupService {
       logger.error(`Failed to get groups for user ${userId}:`, error);
       return [];
     }
+  }
+
+  /**
+   * Get group memberships for many users in one pass over the group cache.
+   * Builds an inverted member→groups index instead of scanning all groups per user.
+   * Synchronous: caller provides an already-fetched master cache.
+   */
+  public getUserGroupsBulk(
+    userIds: string[],
+    masterCache: MasterCache
+  ): Map<string, Array<{ groupName: string; arn: string }>> {
+    const groups = masterCache.entries.group || [];
+
+    // memberKey (memberName | userName | principalId) → groups
+    const groupsByMember = new Map<string, CacheEntry[]>();
+    for (const group of groups) {
+      const members = group.metadata?.members || [];
+      for (const member of members as any[]) {
+        for (const key of [member.memberName, member.userName, member.principalId]) {
+          if (!key) {
+            continue;
+          }
+          const existing = groupsByMember.get(key);
+          if (existing) {
+            existing.push(group);
+          } else {
+            groupsByMember.set(key, [group]);
+          }
+        }
+      }
+    }
+
+    const result = new Map<string, Array<{ groupName: string; arn: string }>>();
+    for (const userId of userIds) {
+      const matched = groupsByMember.get(userId) || [];
+      // A member row can match the same user under multiple keys — dedupe by arn
+      const seen = new Set<string>();
+      const userGroups: Array<{ groupName: string; arn: string }> = [];
+      for (const group of matched) {
+        if (!seen.has(group.arn)) {
+          seen.add(group.arn);
+          userGroups.push({ groupName: group.assetName, arn: group.arn });
+        }
+      }
+      result.set(userId, userGroups);
+    }
+
+    return result;
   }
 
   public async updateGroup(
