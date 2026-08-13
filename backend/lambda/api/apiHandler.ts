@@ -4,12 +4,18 @@
 import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
 
 import { findRoute } from './router';
+import { applyHttpCaching } from './utils/httpCaching';
 import { getAuthContext, UnauthorizedError } from '../shared/auth';
 import { STATUS_CODES } from '../shared/constants/httpStatusCodes';
 import { createResponse, successResponse, errorResponse } from '../shared/utils/cors';
 import { logger } from '../shared/utils/logger';
 
 export const apiHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  // ETag/304 decoration for successful GETs; everything else passes through
+  return applyHttpCaching(event, await handleRequest(event));
+};
+
+const handleRequest = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   // Handle CORS preflight
   if (event.httpMethod === 'OPTIONS') {
     return createResponse(event, STATUS_CODES.OK, '');

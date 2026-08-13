@@ -25,6 +25,10 @@ const ACCOUNT = '123456789012';
 const ARN_PREFIX = `arn:aws:quicksight:us-east-1:${ACCOUNT}`;
 // alice/bob/carol each have access to exactly 4 assets in the fixture
 const EXPECTED_ASSETS_PER_USER = 4;
+// TeamA: f-a, f-shared, dash-direct-a, dash-in-folder, dash-shared, analysis-both
+const TEAM_A_EXPECTED_ASSETS = 6;
+// TeamB: f-shared, ds-b, dash-shared
+const TEAM_B_EXPECTED_ASSETS = 3;
 
 function entry(
   assetType: string,
@@ -291,5 +295,162 @@ describe('PermissionsService.getBulkUserAssetCounts', () => {
   it('handles empty caches', async () => {
     const result = await service.getBulkUserAssetCounts(['alice'], masterCache({}));
     expect(result.get('alice')).toBe(0);
+  });
+});
+
+/**
+ * Reference implementation: the pre-refactor per-group loop, copied verbatim
+ * from the removed AssetService methods (addGroupAssetsCount /
+ * findAccessibleFolders / countDirectGroupAssets / checkFolderMembership).
+ * The rewritten single-scan version must produce identical output.
+ */
+function referenceOldGroupAlgorithm(cache: MasterCache): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const group of cache.entries.group || []) {
+    const groupArn = group.arn;
+    const groupName = group.assetName;
+    const countedAssets = new Set<string>();
+
+    // findAccessibleFolders
+    const accessibleFolders: CacheEntry[] = [];
+    for (const folder of cache.entries.folder || []) {
+      const hasAccess = ((folder.permissions as any[]) || []).some((p: any) =>
+        principalMatchesGroup(p.principal, groupArn, groupName)
+      );
+      if (hasAccess) {
+        accessibleFolders.push(folder);
+        countedAssets.add(folder.assetId);
+      }
+    }
+
+    // countDirectGroupAssets
+    for (const type of ['dashboard', 'dataset', 'analysis', 'datasource']) {
+      for (const assetEntry of cache.entries[type as keyof typeof cache.entries] || []) {
+        if (assetEntry.status !== 'active' || countedAssets.has(assetEntry.assetId)) {
+          continue;
+        }
+        const hasDirectAccess = ((assetEntry.permissions as any[]) || []).some((p: any) =>
+          principalMatchesGroup(p.principal, groupArn, groupName)
+        );
+        if (hasDirectAccess) {
+          countedAssets.add(assetEntry.assetId);
+          continue;
+        }
+        // checkFolderMembership
+        for (const folder of accessibleFolders) {
+          const isMember = ((folder.metadata as any)?.members as any[])?.some(
+            (m: any) => m.MemberId === assetEntry.assetId || m.MemberArn === assetEntry.arn
+          );
+          if (isMember) {
+            countedAssets.add(assetEntry.assetId);
+            break;
+          }
+        }
+      }
+    }
+
+    counts.set(groupName, countedAssets.size);
+  }
+  return counts;
+}
+
+function buildGroupFixture(): MasterCache {
+  const teamA = entry('group', 'g-teamA', 'TeamA');
+  const teamB = entry('group', 'g-teamB', 'TeamB');
+  const teamEmpty = entry('group', 'g-empty', 'TeamEmpty');
+
+  // Direct permission via ARN-suffix principal; principalType deliberately
+  // USER — the legacy algorithm matches WITHOUT filtering principalType
+  const dashDirectA = entry('dashboard', 'dash-direct-a', 'Dash Direct A', {
+    permissions: [
+      {
+        principal: `${ARN_PREFIX}:group/default/TeamA`,
+        principalType: 'USER',
+        actions: ['quicksight:DescribeDashboard'],
+      },
+    ] as any,
+  });
+  // Direct via bare group name
+  const dsB = entry('dataset', 'ds-b', 'Dataset B', {
+    permissions: [{ principal: 'TeamB', actions: ['quicksight:DescribeDataSet'] }] as any,
+  });
+  // Inactive asset with TeamA access — must NOT count
+  const dashInactive = entry('dashboard', 'dash-inactive', 'Dash Inactive', {
+    status: 'archived' as any,
+    permissions: [{ principal: teamA.arn, actions: ['quicksight:DescribeDashboard'] }] as any,
+  });
+  // Reachable only through folders
+  const dashInFolder = entry('dashboard', 'dash-in-folder', 'Dash In Folder');
+  const dashShared = entry('dashboard', 'dash-shared', 'Dash Shared');
+  // Both direct AND folder-member for TeamA — dedupe to one count
+  const analysisBoth = entry('analysis', 'analysis-both', 'Analysis Both', {
+    permissions: [{ principal: teamA.arn, actions: ['quicksight:DescribeAnalysis'] }] as any,
+  });
+
+  // Folder accessible to TeamA (exact ARN), members by MemberId
+  const folderA = entry('folder', 'f-a', 'Folder A', {
+    permissions: [{ principal: teamA.arn, actions: ['quicksight:DescribeFolder'] }] as any,
+    metadata: {
+      members: [{ MemberId: 'dash-in-folder' }, { MemberId: 'analysis-both' }],
+    } as any,
+  });
+  // Folder shared by both teams (bare name + suffix), member by MemberArn
+  const folderShared = entry('folder', 'f-shared', 'Folder Shared', {
+    permissions: [
+      { principal: 'TeamA', actions: ['quicksight:DescribeFolder'] },
+      { principal: `${ARN_PREFIX}:group/default/TeamB`, actions: ['quicksight:DescribeFolder'] },
+    ] as any,
+    metadata: { members: [{ MemberArn: dashShared.arn }] } as any,
+  });
+
+  return masterCache({
+    group: [teamA, teamB, teamEmpty],
+    dashboard: [dashDirectA, dashInactive, dashInFolder, dashShared],
+    dataset: [dsB],
+    analysis: [analysisBoth],
+    folder: [folderA, folderShared],
+  });
+}
+
+describe('PermissionsService.getBulkGroupAssetCounts', () => {
+  let service: PermissionsService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    service = new PermissionsService(ACCOUNT);
+  });
+
+  it('produces output identical to the pre-refactor per-group algorithm', async () => {
+    const cache = buildGroupFixture();
+
+    const result = await service.getBulkGroupAssetCounts(undefined, cache);
+    const reference = referenceOldGroupAlgorithm(cache);
+
+    expect(Object.fromEntries(result)).toEqual(Object.fromEntries(reference));
+  });
+
+  it('counts folders, direct, and folder-inherited assets exactly once each', async () => {
+    const result = await service.getBulkGroupAssetCounts(undefined, buildGroupFixture());
+
+    // analysis-both is direct + folder member → counted once; inactive skipped
+    expect(result.get('TeamA')).toBe(TEAM_A_EXPECTED_ASSETS);
+    expect(result.get('TeamB')).toBe(TEAM_B_EXPECTED_ASSETS);
+    expect(result.get('TeamEmpty')).toBe(0);
+  });
+
+  it('restricts to the requested groups and defaults missing ones to 0', async () => {
+    const result = await service.getBulkGroupAssetCounts(
+      ['TeamA', 'not-a-group'],
+      buildGroupFixture()
+    );
+
+    expect(result.get('TeamA')).toBe(TEAM_A_EXPECTED_ASSETS);
+    expect(result.get('not-a-group')).toBe(0);
+    expect(result.has('TeamB')).toBe(false);
+  });
+
+  it('handles empty caches', async () => {
+    const result = await service.getBulkGroupAssetCounts(['TeamA'], masterCache({}));
+    expect(result.get('TeamA')).toBe(0);
   });
 });

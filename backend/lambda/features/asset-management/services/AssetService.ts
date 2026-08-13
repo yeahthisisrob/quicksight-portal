@@ -1,4 +1,4 @@
-import { userListEnrichmentCache } from './UserListEnrichmentCache';
+import { collectionListSnapshotCache } from './CollectionListSnapshotCache';
 import { DEBUG_CONFIG, QUICKSIGHT_LIMITS } from '../../../shared/constants';
 import { type CacheEntry, type MasterCache } from '../../../shared/models/asset.model';
 import { cacheService } from '../../../shared/services/cache/CacheService';
@@ -28,7 +28,6 @@ import {
   type SearchFieldConfig,
   type SortConfig,
 } from '../../../shared/utils/paginationUtils';
-import { principalMatchesGroup } from '../../../shared/utils/quicksightUtils';
 import { ActivityService } from '../../activity/services/ActivityService';
 import { GroupService } from '../../organization/services/GroupService';
 import { PermissionsService } from '../../organization/services/PermissionsService';
@@ -204,6 +203,26 @@ export class AssetService {
   }
 
   /**
+   * Precompute and persist the user and group snapshots for the current cache
+   * versions. Called by the worker Lambda after cache rebuilds so the first
+   * API request after a rebuild adopts a persisted snapshot instead of paying
+   * the enrichment cost (see collectionSnapshotWarmer).
+   */
+  public async warmCollectionSnapshots(): Promise<void> {
+    const { cache, version: cacheVersion } = await cacheService.getMasterCacheWithVersion({
+      statusFilter: AssetStatusFilter.ACTIVE,
+    });
+
+    const userVersion = await this.buildUserSnapshotVersion(cacheVersion);
+    await collectionListSnapshotCache.getOrCompute('user', userVersion, () =>
+      this.computeUserSnapshotBody(cache.entries.user || [], cache)
+    );
+    await collectionListSnapshotCache.getOrCompute('group', cacheVersion, () =>
+      this.computeGroupSnapshotBody(cache.entries.group || [], cache)
+    );
+  }
+
+  /**
    * Add activity data to asset based on type
    */
   private addActivityData(
@@ -272,26 +291,6 @@ export class AssetService {
     const folders = assetFolderMap.get(assetId) || [];
     mappedAsset.folders = folders;
     mappedAsset.folderCount = folders.length;
-  }
-
-  /**
-   * Add group assets count for group assets
-   */
-  private addGroupAssetsCount(
-    mappedAsset: any,
-    assetType: string,
-    cacheEntry: CacheEntry,
-    cache: CacheData
-  ): void {
-    if (assetType !== ASSET_TYPES.group) {
-      return;
-    }
-
-    const countedAssets = new Set<string>();
-    const accessibleFolders = this.findAccessibleFolders(cacheEntry, cache, countedAssets);
-    this.countDirectGroupAssets(cacheEntry, cache, accessibleFolders, countedAssets);
-
-    mappedAsset.assetsCount = countedAssets.size;
   }
 
   /**
@@ -618,23 +617,15 @@ export class AssetService {
   }
 
   /**
-   * Check if an asset is a member of any accessible folder
+   * Version key for the user snapshot: master cache version plus the activity
+   * cache ETags the enrichment also reads.
    */
-  private checkFolderMembership(
-    entry: CacheEntry,
-    accessibleFolders: CacheEntry[],
-    countedAssets: Set<string>
-  ): void {
-    for (const folder of accessibleFolders) {
-      const isMember = folder.metadata?.members?.some(
-        (member: any) => member.MemberId === entry.assetId || member.MemberArn === entry.arn
-      );
-
-      if (isMember) {
-        countedAssets.add(entry.assetId);
-        break;
-      }
-    }
+  private async buildUserSnapshotVersion(cacheVersion: string): Promise<string> {
+    const [activity, persistence] = await Promise.all([
+      cacheService.getActivityCacheWithEtag(),
+      cacheService.getActivityPersistenceWithEtag(),
+    ]);
+    return `${cacheVersion}|act:${activity.etag ?? 'none'}|pers:${persistence.etag ?? 'none'}`;
   }
 
   /**
@@ -712,40 +703,42 @@ export class AssetService {
   }
 
   /**
-   * Count assets directly accessible to a group
+   * Snapshot body for the groups list: bulk asset-access counts computed in a
+   * single scan, then mapped into fresh objects (non-mutating).
    */
-  private countDirectGroupAssets(
-    cacheEntry: CacheEntry,
-    cache: CacheData,
-    accessibleFolders: CacheEntry[],
-    countedAssets: Set<string>
-  ): void {
-    const groupArn = cacheEntry.arn;
-    const groupName = cacheEntry.assetName;
-    const assetTypesToCheck = ['dashboard', 'dataset', 'analysis', 'datasource'];
-
-    for (const type of assetTypesToCheck) {
-      const entries = cache.entries[type as keyof typeof cache.entries] || [];
-
-      for (const entry of entries) {
-        if (entry.status !== 'active' || countedAssets.has(entry.assetId)) {
-          continue;
-        }
-
-        // Check direct permissions
-        const hasDirectAccess = entry.permissions?.some((p: any) =>
-          principalMatchesGroup(p.principal, groupArn, groupName)
-        );
-
-        if (hasDirectAccess) {
-          countedAssets.add(entry.assetId);
-          continue;
-        }
-
-        // Check folder membership
-        this.checkFolderMembership(entry, accessibleFolders, countedAssets);
-      }
+  private async computeGroupSnapshotBody(
+    items: CacheEntry[],
+    cache: MasterCache
+  ): Promise<{ items: any[] }> {
+    let counts = new Map<string, number>();
+    try {
+      counts = await this.permissionsService.getBulkGroupAssetCounts(undefined, cache);
+    } catch (error) {
+      logger.warn('Failed to compute group asset counts:', error);
     }
+    return {
+      items: items.map((entry) => ({
+        ...mapCacheEntryToAsset(entry),
+        assetsCount: counts.get(entry.assetName) ?? 0,
+      })),
+    };
+  }
+
+  /**
+   * Snapshot body for the users list: mapped + fully enriched items plus the
+   * role/group filter options computed from them.
+   */
+  private async computeUserSnapshotBody(
+    items: CacheEntry[],
+    cache: MasterCache
+  ): Promise<{ items: any[]; availableRoles: FilterOption[]; availableGroups: FilterOption[] }> {
+    const mapped = items.map((item) => mapCacheEntryToAsset(item));
+    const enriched = await this.enrichUserItems(mapped, cache);
+    return {
+      items: enriched,
+      availableRoles: this.computeAvailableRoles(enriched),
+      availableGroups: this.computeAvailableGroups(enriched),
+    };
   }
 
   /**
@@ -921,33 +914,6 @@ export class AssetService {
       return relationships.filter((r) => r.relationshipType === 'uses');
     }
     return relationships;
-  }
-
-  /**
-   * Find folders accessible to a group
-   */
-  private findAccessibleFolders(
-    cacheEntry: CacheEntry,
-    cache: CacheData,
-    countedAssets: Set<string>
-  ): any[] {
-    const groupArn = cacheEntry.arn;
-    const groupName = cacheEntry.assetName;
-    const accessibleFolders: any[] = [];
-    const folders = cache.entries.folder || [];
-
-    for (const folder of folders) {
-      const hasAccess = folder.permissions?.some((p: any) =>
-        principalMatchesGroup(p.principal, groupArn, groupName)
-      );
-
-      if (hasAccess) {
-        accessibleFolders.push(folder);
-        countedAssets.add(folder.assetId);
-      }
-    }
-
-    return accessibleFolders;
   }
 
   /**
@@ -1332,53 +1298,29 @@ export class AssetService {
       let availableRoles: FilterOption[] | undefined;
       let availableGroups: FilterOption[] | undefined;
 
+      // User and group enrichment runs over the full population and is
+      // expensive, so results are memoized across requests keyed by the ETags
+      // of everything they read (see CollectionListSnapshotCache). Snapshot
+      // items are shared across requests — downstream processing
+      // (filter/search/sort/paginate) is non-mutating; keep it that way.
       if (assetType === ASSET_TYPES.user) {
-        // User enrichment (activity join, asset-access counts, group
-        // membership) runs over the full population and is expensive, so the
-        // result is memoized across requests keyed by the ETags of everything
-        // it reads. Page changes, sorts, and searches reuse the snapshot; it
-        // recomputes only when a cache actually changed.
-        const [activity, persistence] = await Promise.all([
-          cacheService.getActivityCacheWithEtag(),
-          cacheService.getActivityPersistenceWithEtag(),
-        ]);
-        const version = `${cacheVersion}|act:${activity.etag ?? 'none'}|pers:${persistence.etag ?? 'none'}`;
-
-        const snapshot = await userListEnrichmentCache.getOrCompute(version, async () => {
-          const mapped = items.map((item) => mapCacheEntryToAsset(item));
-          const enriched = await this.enrichUserItems(mapped, cache);
-          return {
-            items: enriched,
-            availableRoles: this.computeAvailableRoles(enriched),
-            availableGroups: this.computeAvailableGroups(enriched),
-          };
-        });
-
-        // Snapshot items are shared across requests — downstream processing
-        // (filter/search/sort/paginate) is non-mutating; keep it that way.
+        const version = await this.buildUserSnapshotVersion(cacheVersion);
+        const snapshot = await collectionListSnapshotCache.getOrCompute('user', version, () =>
+          this.computeUserSnapshotBody(items, cache)
+        );
         mappedItems = snapshot.items;
         availableRoles = snapshot.availableRoles;
         availableGroups = snapshot.availableGroups;
+      } else if (assetType === ASSET_TYPES.group) {
+        // Group enrichment reads only the master cache — no activity ETags
+        const snapshot = await collectionListSnapshotCache.getOrCompute('group', cacheVersion, () =>
+          this.computeGroupSnapshotBody(items, cache)
+        );
+        mappedItems = snapshot.items;
       } else {
-        // Map items using the proper OpenAPI contract mappers
+        // Folders: plain mapping is cheap, no memoization needed
         mappedItems = items.map((item) => mapCacheEntryToAsset(item));
-
-        // Add group-specific data (assets count) if we're listing groups
-        if (assetType === ASSET_TYPES.group) {
-          mappedItems = mappedItems.map((item: any, index: number) => {
-            const cacheEntry = items[index];
-            if (cacheEntry) {
-              this.addGroupAssetsCount(item, assetType, cacheEntry, cache);
-            }
-            return item;
-          });
-        }
       }
-
-      const availableSourceTypes =
-        assetType === ASSET_TYPES.dataset || assetType === ASSET_TYPES.datasource
-          ? this.computeAvailableSourceTypes(mappedItems)
-          : undefined;
 
       // Apply filters (date, activity, role) to collection items
       mappedItems = this.applyAllFilters(mappedItems as any, request) as any;
@@ -1453,7 +1395,6 @@ export class AssetService {
         totalCount: result.pagination.totalItems,
         availableRoles,
         availableGroups,
-        availableSourceTypes,
       };
     } catch (error) {
       logger.error(`Failed to list ${assetType}:`, error);
@@ -1481,9 +1422,6 @@ export class AssetService {
 
     // Add folder-specific data
     this.addFolderMemberCount(mappedAsset, assetType, cacheEntry, cache);
-
-    // Add group-specific data (assets count)
-    this.addGroupAssetsCount(mappedAsset, assetType, cacheEntry, cache);
 
     // Add folder membership data
     this.addFolderMembership(mappedAsset, cacheEntry.assetId, assetFolderMap);

@@ -1,12 +1,13 @@
 /* eslint-disable react-refresh/only-export-components */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { ReactNode } from 'react';
 
 import { AuthProvider } from '@/app/providers';
 
 import { FoldersProvider } from '@/entities/folder';
 
-// Create a query client
+// The app's single query client (main.tsx must not create another)
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -32,6 +33,7 @@ export function AppProviders({ children }: AppProvidersProps) {
         <FoldersProvider>
           {children}
         </FoldersProvider>
+        <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
     </AuthProvider>
   );

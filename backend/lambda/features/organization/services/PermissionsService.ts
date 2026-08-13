@@ -104,6 +104,60 @@ export class PermissionsService {
   }
 
   /**
+   * Get asset access counts for groups in a single cache scan.
+   *
+   * Semantics (must match the legacy per-group loop exactly): a group's count
+   * is the number of DISTINCT assetIds among (a) every folder whose
+   * permissions match the group principal — no status check on folders —
+   * and (b) every ACTIVE dashboard/dataset/analysis/datasource matched by a
+   * direct permission or contained in an accessible folder. Note the legacy
+   * code matches principals WITHOUT filtering principalType; preserved here.
+   *
+   * @param groupNames restrict to these groups (default: all groups in cache)
+   */
+  public async getBulkGroupAssetCounts(
+    groupNames?: string[],
+    prefetchedCache?: MasterCache
+  ): Promise<Map<string, number>> {
+    const cache = prefetchedCache ?? (await cacheService.getMasterCache());
+    const allGroups = cache.entries.group || [];
+    const folders = cache.entries.folder || [];
+
+    const requestedNames = groupNames ? new Set(groupNames) : undefined;
+    const requestedGroups = requestedNames
+      ? allGroups.filter((g) => requestedNames.has(g.assetName))
+      : allGroups;
+
+    const resolveGroupPrincipal = this.buildGroupPrincipalResolver(requestedGroups);
+
+    // groupName → distinct assetIds with access
+    const countedByGroup = new Map<string, Set<string>>();
+    for (const group of requestedGroups) {
+      countedByGroup.set(group.assetName, new Set<string>());
+    }
+
+    // Accessible folders: counted themselves, and grant access to their members
+    const groupsByFolderArn = this.collectFolderAccessForGroups(
+      folders,
+      resolveGroupPrincipal,
+      countedByGroup
+    );
+
+    this.scanAssetsForGroupCounts(cache, resolveGroupPrincipal, groupsByFolderArn, countedByGroup);
+
+    const counts = new Map<string, number>();
+    for (const [name, assetIds] of countedByGroup) {
+      counts.set(name, assetIds.size);
+    }
+    for (const name of groupNames || []) {
+      if (!counts.has(name)) {
+        counts.set(name, 0);
+      }
+    }
+    return counts;
+  }
+
+  /**
    * Get asset access counts for all users in a single cache scan.
    * Much more efficient than calling getUserAssetAccess per user.
    */
@@ -415,6 +469,33 @@ export class PermissionsService {
   }
 
   /**
+   * Memoized fuzzy principal → matching group names (exact ARN, exact name,
+   * or "/name" suffix). Linear scan per DISTINCT principal string only.
+   */
+  private buildGroupPrincipalResolver(
+    requestedGroups: CacheEntry[]
+  ): (principal: string | undefined) => Set<string> {
+    const memo = new Map<string, Set<string>>();
+    const empty = new Set<string>();
+    return (principal: string | undefined): Set<string> => {
+      if (!principal) {
+        return empty;
+      }
+      let matched = memo.get(principal);
+      if (!matched) {
+        matched = new Set<string>();
+        for (const group of requestedGroups) {
+          if (principalMatchesGroup(principal, group.arn, group.assetName)) {
+            matched.add(group.assetName);
+          }
+        }
+        memo.set(principal, matched);
+      }
+      return matched;
+    };
+  }
+
+  /**
    * Map group arn → requested member names (same member keys findUserGroups matches on)
    */
   private buildRequestedMembersByGroupArn(
@@ -459,6 +540,34 @@ export class PermissionsService {
       }
     }
     return requestedUsers;
+  }
+
+  /**
+   * Resolve which groups each folder grants access to. Accessible folders are
+   * themselves counted for those groups (legacy semantics: no folder status
+   * check). Returns folder.arn → group names for the member scan.
+   */
+  private collectFolderAccessForGroups(
+    folders: CacheEntry[],
+    resolveGroupPrincipal: (principal: string | undefined) => Set<string>,
+    countedByGroup: Map<string, Set<string>>
+  ): Map<string, Set<string>> {
+    const groupsByFolderArn = new Map<string, Set<string>>();
+    for (const folder of folders) {
+      const matched = new Set<string>();
+      for (const perm of (folder.permissions as any[]) || []) {
+        for (const name of resolveGroupPrincipal(perm.principal)) {
+          matched.add(name);
+        }
+      }
+      if (matched.size > 0) {
+        groupsByFolderArn.set(folder.arn, matched);
+        for (const name of matched) {
+          countedByGroup.get(name)?.add(folder.assetId);
+        }
+      }
+    }
+    return groupsByFolderArn;
   }
 
   /**
@@ -826,6 +935,45 @@ export class PermissionsService {
         folderPath: folderName,
         groupName: folderGroup.assetName,
       });
+    }
+  }
+
+  /**
+   * One pass over active dashboards/datasets/analyses/datasources: attribute
+   * each asset to groups with direct permission or folder-inherited access.
+   */
+  private scanAssetsForGroupCounts(
+    cache: MasterCache,
+    resolveGroupPrincipal: (principal: string | undefined) => Set<string>,
+    groupsByFolderArn: Map<string, Set<string>>,
+    countedByGroup: Map<string, Set<string>>
+  ): void {
+    const foldersByMemberKey = this.buildFoldersByMemberKey(cache.entries.folder || []);
+    const assetTypesToCheck: AssetType[] = ['dashboard', 'dataset', 'analysis', 'datasource'];
+
+    for (const type of assetTypesToCheck) {
+      for (const entry of cache.entries[type] || []) {
+        if (entry.status !== 'active') {
+          continue;
+        }
+        // Direct permissions (legacy: no principalType filter)
+        for (const perm of (entry.permissions as any[]) || []) {
+          for (const name of resolveGroupPrincipal(perm.principal)) {
+            countedByGroup.get(name)?.add(entry.assetId);
+          }
+        }
+        // Folder-inherited access via containing folders
+        const containingFolders = new Set<CacheEntry>([
+          ...(foldersByMemberKey.get(entry.assetId) || []),
+          ...(foldersByMemberKey.get(entry.arn) || []),
+        ]);
+        for (const folder of containingFolders) {
+          const groupNames = groupsByFolderArn.get(folder.arn);
+          for (const name of groupNames || []) {
+            countedByGroup.get(name)?.add(entry.assetId);
+          }
+        }
+      }
     }
   }
 

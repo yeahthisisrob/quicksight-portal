@@ -9,6 +9,7 @@ export const HTTP_STATUS = {
   CREATED: 201,
   ACCEPTED: 202,
   NO_CONTENT: 204,
+  NOT_MODIFIED: 304,
 } as const;
 
 // Client error codes

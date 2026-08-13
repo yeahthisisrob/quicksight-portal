@@ -17,4 +17,3 @@ export { jobsApi } from './modules/jobs';
 export * from './client';
 export * from './cognito';
 export * from './types';
-export { requestManager } from './requestManager';

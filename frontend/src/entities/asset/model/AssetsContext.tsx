@@ -2,7 +2,29 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 
-import { assetsApi, requestManager } from '@/shared/api';
+import { assetsApi } from '@/shared/api';
+
+// Cross-tab caching for asset lists: within the stale window a tab switch is
+// served instantly from the query cache; explicit refreshes invalidate first,
+// which forces a refetch regardless of staleness.
+const LIST_STALE_TIME_MS = 2 * 60 * 1000;
+const LIST_GC_TIME_MS = 30 * 60 * 1000;
+
+/**
+ * Apply a tag update to the matching item, immutably. Shared by the
+ * optimistic local-state update and the query-cache write-through so the two
+ * can never disagree.
+ */
+export function applyTagsToItems(
+  items: AssetData[] | undefined,
+  assetId: string,
+  tags: any[]
+): AssetData[] | undefined {
+  if (!items) {
+    return items;
+  }
+  return items.map((item) => (item.id === assetId ? { ...item, tags } : item));
+}
 
 interface AssetData {
   id: string;
@@ -221,10 +243,11 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
   // Refresh trigger - incremented to signal tables to re-fetch with current params
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Export summary query with proper caching
+  // Export summary query with proper caching (react-query dedupes in-flight
+  // requests itself — no extra wrapper needed)
   const { data: exportSummary, isLoading: exportSummaryLoading, refetch: refetchSummary } = useQuery({
     queryKey: ['export-summary'],
-    queryFn: () => requestManager.execute('export-summary', () => assetsApi.getExportSummary()),
+    queryFn: () => assetsApi.getExportSummary(),
     staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
     gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
   });
@@ -240,22 +263,6 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
     groups: { setData: setGroups, setLoading: setGroupsLoading, setPagination: setGroupsPagination },
   }), []);
 
-  // Create a key for deduplication - must include ALL filter params
-  const createRequestKey = useCallback((type: string, options: FetchParams) => {
-    const parts = [
-      type, options.page, options.pageSize,
-      options.search || '', options.dateRange || '', options.sortBy || '',
-      options.sortOrder || '', options.dateField || '',
-      options.includeTags || '', options.excludeTags || '',
-      options.errorFilter || '', options.activityFilter || '',
-      options.roleFilter || '', options.groupMembershipFilter || '',
-      options.groupFilter || '', options.permissionsFilter || '',
-      options.sourceTypeFilter || '',
-      options.includeFolders || '', options.excludeFolders || '',
-    ];
-    return parts.join('-');
-  }, []);
-
   // Factory function to create fetch methods - eliminates 7 duplicate implementations
   const createAssetFetcher = useCallback((assetType: keyof typeof ASSET_CONFIGS): AssetFetchFn => {
     const config = ASSET_CONFIGS[assetType];
@@ -263,13 +270,19 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
 
     return async (options: FetchParams) => {
       const { page, pageSize } = options;
-      const requestKey = createRequestKey(config.key, options);
       setters.setLoading(true);
 
       try {
-        const data = await requestManager.execute(requestKey, () =>
-          config.apiMethod(options)
-        );
+        // The full options object is the query key (react-query hashes it
+        // structurally), so every filter — including the DataGrid filter
+        // model — participates in caching and in-flight dedupe. Cached pages
+        // serve tab switches instantly; invalidation forces refetches.
+        const data = await queryClient.fetchQuery({
+          queryKey: [config.queryKey, options],
+          queryFn: () => config.apiMethod(options),
+          staleTime: LIST_STALE_TIME_MS,
+          gcTime: LIST_GC_TIME_MS,
+        });
 
         const items = data[config.dataKey] || [];
         setters.setData(items);
@@ -297,7 +310,7 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
         setters.setLoading(false);
       }
     };
-  }, [createRequestKey, stateSetters]);
+  }, [queryClient, stateSetters]);
 
   // Create all fetch methods using the factory
   const fetchDashboards = useMemo(() => createAssetFetcher('dashboards'), [createAssetFetcher]);
@@ -331,11 +344,20 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
 
     const setters = stateSetters[pluralType];
     if (setters) {
-      setters.setData((prev: AssetData[]) => prev.map(item =>
-        item.id === assetId ? { ...item, tags } : item
-      ));
+      setters.setData((prev: AssetData[]) => applyTagsToItems(prev, assetId, tags) || prev);
     }
-  }, [stateSetters]);
+
+    // Write through to the query cache too — otherwise a later cache hit for
+    // the same key would silently revert the optimistic edit
+    const config = ASSET_CONFIGS[pluralType];
+    if (config) {
+      queryClient.setQueriesData({ queryKey: [config.queryKey] }, (old: any) =>
+        old
+          ? { ...old, [config.dataKey]: applyTagsToItems(old[config.dataKey], assetId, tags) }
+          : old
+      );
+    }
+  }, [stateSetters, queryClient]);
 
   // Memoized so consumers only re-render when state actually changes,
   // not on every provider render
