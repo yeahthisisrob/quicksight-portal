@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.3.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.2.5...v1.3.0) (2026-08-13)
+
+
+### Features
+
+* unified job history with type filter, fix API calls column ([#21](https://github.com/yeahthisisrob/quicksight-portal/issues/21)) ([852f241](https://github.com/yeahthisisrob/quicksight-portal/commit/852f241dbd0be589ffe9246b85aeffb50ef7a564))
+
+
+### Bug Fixes
+
+* extract analysis id/name from console UpdateAnalysis service events ([#17](https://github.com/yeahthisisrob/quicksight-portal/issues/17)) ([e459a11](https://github.com/yeahthisisrob/quicksight-portal/commit/e459a1176d681f52a5d5950de30af0c11fdf3aa1))
+* force full activity rescan so pre-fix analysis events get ids and names ([#20](https://github.com/yeahthisisrob/quicksight-portal/issues/20)) ([29b9163](https://github.com/yeahthisisrob/quicksight-portal/commit/29b9163ef7099eb3eb336d3e040a3bc5b1075e9a))
+* self-healing cache freshness and job recovery, remove manual clear buttons ([#19](https://github.com/yeahthisisrob/quicksight-portal/issues/19)) ([490d188](https://github.com/yeahthisisrob/quicksight-portal/commit/490d1883e2847d47d64dd89cb3d858ae329ea176))
+* users tab performance - memoized enrichment, indexed access counts, single-flight cache reads ([#22](https://github.com/yeahthisisrob/quicksight-portal/issues/22)) ([0964a85](https://github.com/yeahthisisrob/quicksight-portal/commit/0964a8567f6e3804de0e78757e40c439621c49f3))
+
 ## [1.2.5](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.2.4...v1.2.5) (2026-06-19)
 
 
