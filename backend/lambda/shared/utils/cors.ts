@@ -5,6 +5,17 @@ import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambd
 
 import { STATUS_CODES } from '../constants';
 
+// Shared across all CORS branches. If-None-Match and Expose-Headers: ETag
+// support conditional GETs from cross-origin local dev (deployed topology is
+// same-origin behind CloudFront, where CORS does not apply).
+const SHARED_CORS_HEADERS = {
+  'Access-Control-Allow-Credentials': 'true',
+  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+  'Access-Control-Allow-Headers':
+    'Content-Type,Authorization,If-None-Match,X-Amz-Date,X-Amz-Security-Token,X-Amz-Content-Sha256',
+  'Access-Control-Expose-Headers': 'ETag',
+} as const;
+
 const corsHeaders = (event: APIGatewayProxyEvent): Record<string, string> => {
   const headers = event.headers || {};
   const origin = headers.origin || headers.Origin || '';
@@ -18,10 +29,7 @@ const corsHeaders = (event: APIGatewayProxyEvent): Record<string, string> => {
   ) {
     return {
       'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-      'Access-Control-Allow-Headers':
-        'Content-Type,Authorization,X-Amz-Date,X-Amz-Security-Token,X-Amz-Content-Sha256',
+      ...SHARED_CORS_HEADERS,
     };
   }
 
@@ -29,20 +37,14 @@ const corsHeaders = (event: APIGatewayProxyEvent): Record<string, string> => {
   if (frontendUrl === '' && origin.includes('.cloudfront.net')) {
     return {
       'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-      'Access-Control-Allow-Headers':
-        'Content-Type,Authorization,X-Amz-Date,X-Amz-Security-Token,X-Amz-Content-Sha256',
+      ...SHARED_CORS_HEADERS,
     };
   }
 
   // Default CORS headers with AWS SigV4 headers for production
   return {
     'Access-Control-Allow-Origin': frontendUrl || '*',
-    'Access-Control-Allow-Credentials': 'true',
-    'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers':
-      'Content-Type,Authorization,X-Amz-Date,X-Amz-Security-Token,X-Amz-Content-Sha256',
+    ...SHARED_CORS_HEADERS,
   };
 };
 

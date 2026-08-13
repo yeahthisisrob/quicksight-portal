@@ -383,6 +383,9 @@ export class QuicksightPortalStack extends Stack {
       headerBehavior: CacheHeaderBehavior.allowList('Authorization'),
       queryStringBehavior: CacheQueryStringBehavior.all(),
       cookieBehavior: CacheCookieBehavior.none(),
+      // Required for `compress: true` on the /api/* behavior to engage
+      enableAcceptEncodingGzip: true,
+      enableAcceptEncodingBrotli: true,
     });
 
     const distribution = new Distribution(this, 'Distribution', {
@@ -392,6 +395,7 @@ export class QuicksightPortalStack extends Stack {
         allowedMethods: AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         cachePolicy: CachePolicy.CACHING_OPTIMIZED,
         responseHeadersPolicy: securityHeaders,
+        compress: true,
       },
       additionalBehaviors: {
         '/api/*': {
@@ -400,6 +404,8 @@ export class QuicksightPortalStack extends Stack {
           allowedMethods: AllowedMethods.ALLOW_ALL,
           cachePolicy: apiCachePolicy,
           originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+          // Compress JSON list payloads at the edge (no backend changes)
+          compress: true,
         },
       },
       defaultRootObject: 'index.html',

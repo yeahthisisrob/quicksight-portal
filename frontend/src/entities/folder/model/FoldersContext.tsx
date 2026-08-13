@@ -68,25 +68,31 @@ export const FoldersProvider: React.FC<FoldersProviderProps> = ({ children }) =>
     await queryClient.invalidateQueries({ queryKey: ['assets'] });
     await queryClient.invalidateQueries({ queryKey: ['export-summary'] });
     
-    // Invalidate paginated asset queries
+    // Invalidate paginated asset queries (prefix-matches every cached
+    // page/filter combination; invalidated entries refetch on next use)
     await queryClient.invalidateQueries({ queryKey: ['dashboards-paginated'] });
     await queryClient.invalidateQueries({ queryKey: ['datasets-paginated'] });
     await queryClient.invalidateQueries({ queryKey: ['analyses-paginated'] });
     await queryClient.invalidateQueries({ queryKey: ['datasources-paginated'] });
-    
+    await queryClient.invalidateQueries({ queryKey: ['folders-list'] });
+    await queryClient.invalidateQueries({ queryKey: ['users-list'] });
+    await queryClient.invalidateQueries({ queryKey: ['groups'] });
+
     // Also invalidate the live asset tags since folder membership affects visibility
     await queryClient.invalidateQueries({ queryKey: ['live-tags'] });
-    
+
     // Invalidate master index which is used by asset lists
     await queryClient.invalidateQueries({ queryKey: ['master-index'] });
-    
+
     // Invalidate data catalog queries since folder exclusions affect field visibility
     await queryClient.invalidateQueries({ queryKey: ['data-catalog'] });
     await queryClient.invalidateQueries({ queryKey: ['visual-field-catalog'] });
     await queryClient.invalidateQueries({ queryKey: ['catalog-stats'] });
-    
-    // Force a complete refresh of all queries
-    await queryClient.refetchQueries();
+
+    // NOTE: no blanket refetchQueries() here — with asset lists now living in
+    // the query cache it would refetch every cached page/filter combination
+    // at once. Invalidation above is enough: active queries refetch
+    // immediately, cached ones refetch on next use.
   }, [queryClient, invalidateAllFolderData]);
   
   const value: FoldersContextType = {

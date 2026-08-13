@@ -18,6 +18,7 @@ import { OperationTrackingService } from '../../../shared/services/operations/Op
 import { AssetParserService } from '../../../shared/services/parsing/AssetParserService';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
+import { warmCollectionSnapshots } from '../../asset-management/services/collectionSnapshotWarmer';
 import { CatalogService } from '../../data-catalog/services/CatalogService';
 import { TagService } from '../../organization/services/TagService';
 import { AnalysisProcessor } from '../processors/AnalysisProcessor';
@@ -1068,6 +1069,11 @@ export class ExportOrchestrator {
           await lineageService.rebuildLineage();
           logger.info('Lineage rebuilt successfully');
         }
+
+        // Precompute user/group list snapshots so the API Lambda's first
+        // request after this rebuild adopts them instead of re-enriching.
+        // Own try/catch inside — never fails the export.
+        await warmCollectionSnapshots();
       } catch (error) {
         logger.error('Failed to rebuild catalogs after export:', error);
         if (this.jobStateService) {

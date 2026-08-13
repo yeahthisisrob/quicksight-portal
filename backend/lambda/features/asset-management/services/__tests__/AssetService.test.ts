@@ -230,6 +230,39 @@ describe('AssetService', () => {
     });
   });
 
+  describe('Error handling', () => {
+    it('should handle cache errors gracefully', async () => {
+      const mockCacheService = cacheService as Mocked<typeof cacheService>;
+      mockCacheService.getMasterCacheWithVersion.mockRejectedValue(new Error('Cache error'));
+
+      await expect(service.list('dashboard', { maxResults: 10 })).rejects.toThrow('Cache error');
+    });
+
+    it('should handle empty cache gracefully', async () => {
+      const mockCacheService = cacheService as Mocked<typeof cacheService>;
+      mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
+        cache: { entries: {} } as any,
+        version: 'v-empty',
+      });
+
+      const result = await service.list('dashboard', { maxResults: 10 });
+
+      expect(result).toEqual({ items: [], nextToken: undefined, totalCount: 0 });
+    });
+  });
+});
+
+describe('AssetService collection snapshot memoization', () => {
+  let service: AssetService;
+  const mockAccountId = '123456789012';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.BUCKET_NAME = 'test-bucket';
+    process.env.AWS_REGION = 'us-east-1';
+    service = new AssetService(mockAccountId);
+  });
+
   describe('user list enrichment memoization', () => {
     const buildUserCache = () => {
       const cache = createMockMasterCache();
@@ -286,24 +319,48 @@ describe('AssetService', () => {
     });
   });
 
-  describe('Error handling', () => {
-    it('should handle cache errors gracefully', async () => {
-      const mockCacheService = cacheService as Mocked<typeof cacheService>;
-      mockCacheService.getMasterCacheWithVersion.mockRejectedValue(new Error('Cache error'));
+  describe('group list snapshot memoization', () => {
+    const buildGroupCache = () => {
+      const cache = createMockMasterCache();
+      (cache.entries as any).group = [createMockCacheEntry('group', 'g-team-a', 'TeamA')];
+      return cache;
+    };
 
-      await expect(service.list('dashboard', { maxResults: 10 })).rejects.toThrow('Cache error');
-    });
-
-    it('should handle empty cache gracefully', async () => {
+    it('attaches assetsCount and reuses the snapshot while the version is unchanged', async () => {
       const mockCacheService = cacheService as Mocked<typeof cacheService>;
       mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
-        cache: { entries: {} } as any,
-        version: 'v-empty',
+        cache: buildGroupCache(),
+        version: 'group-memo-stable',
       });
+      const bulkSpy = vi.spyOn((service as any).permissionsService, 'getBulkGroupAssetCounts');
 
-      const result = await service.list('dashboard', { maxResults: 10 });
+      const first = await service.list('group', { maxResults: 10 });
+      const second = await service.list('group', { maxResults: 10 });
 
-      expect(result).toEqual({ items: [], nextToken: undefined, totalCount: 0 });
+      expect(first.items).toHaveLength(1);
+      expect((first.items[0] as any).assetsCount).toBe(0);
+      expect(second.items).toHaveLength(1);
+      // Bulk counting ran once; the second request served the memoized snapshot
+      expect(bulkSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('recomputes when the cache version changes', async () => {
+      const mockCacheService = cacheService as Mocked<typeof cacheService>;
+      const bulkSpy = vi.spyOn((service as any).permissionsService, 'getBulkGroupAssetCounts');
+
+      mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
+        cache: buildGroupCache(),
+        version: 'group-memo-v1',
+      });
+      await service.list('group', { maxResults: 10 });
+
+      mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
+        cache: buildGroupCache(),
+        version: 'group-memo-v2',
+      });
+      await service.list('group', { maxResults: 10 });
+
+      expect(bulkSpy).toHaveBeenCalledTimes(2);
     });
   });
 });
