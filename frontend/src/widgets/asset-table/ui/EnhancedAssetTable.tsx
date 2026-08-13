@@ -427,6 +427,19 @@ export default function EnhancedAssetTable({
     [assets, debouncedSearchTerm]
   );
 
+  // Stable grid inputs: fresh identities here force the DataGrid to reprocess
+  // rows/remount slots on every render
+  const rows = useMemo(() => filterValidRows(assets, getRowId), [assets, getRowId]);
+  const paginationModel = useMemo(
+    () => ({ page: currentPage - 1, pageSize }),
+    [currentPage, pageSize]
+  );
+  const resolvedGetRowId = useMemo(() => getRowId || ((row: any) => row.id), [getRowId]);
+  const toolbarSlotProps = useMemo(
+    () => ({ onExportCSV: handleExportCSV, exportLabel, exporting }),
+    [handleExportCSV, exportLabel, exporting]
+  );
+
   // Build fetch options from current filter state
   const buildFetchOptions = useCallback(
     () => buildFetchOptionsFromState({
@@ -544,13 +557,10 @@ export default function EnhancedAssetTable({
 
         <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
           <DataGrid
-            rows={filterValidRows(assets, getRowId)}
+            rows={rows}
             columns={visibleColumnsConfig}
             loading={loading}
-            paginationModel={{
-              page: currentPage - 1,
-              pageSize: pageSize,
-            }}
+            paginationModel={paginationModel}
             onPaginationModelChange={handlePaginationModelChange}
             pageSizeOptions={[10, 25, 50, 100]}
             rowCount={totalRows}
@@ -565,16 +575,9 @@ export default function EnhancedAssetTable({
             rowSelectionModel={selectedRows}
             onRowSelectionModelChange={onSelectionChange}
             disableRowSelectionOnClick
-            getRowId={getRowId || ((row) => row.id)}
-            slots={{
-              toolbar: () => (
-                <TableToolbar
-                  onExportCSV={handleExportCSV}
-                  exportLabel={exportLabel}
-                  exporting={exporting}
-                />
-              ),
-            }}
+            getRowId={resolvedGetRowId}
+            slots={{ toolbar: TableToolbar as any }}
+            slotProps={{ toolbar: toolbarSlotProps as any }}
             initialState={{
               columns: {
                 columnVisibilityModel: initialColumnVisibilityModel,

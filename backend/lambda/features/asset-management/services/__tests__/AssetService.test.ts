@@ -73,6 +73,12 @@ vi.mock('../../../../shared/services/cache/CacheService', () => ({
     getMasterCache: vi.fn().mockResolvedValue({
       entries: new Map(),
     }),
+    getMasterCacheWithVersion: vi.fn().mockResolvedValue({
+      cache: { entries: new Map() },
+      version: 'test-version',
+    }),
+    getActivityCacheWithEtag: vi.fn().mockResolvedValue({ value: null }),
+    getActivityPersistenceWithEtag: vi.fn().mockResolvedValue({ value: null }),
   },
 }));
 vi.mock('../../../../shared/services/lineage', () => ({
@@ -84,6 +90,7 @@ vi.mock('../../../../shared/services/lineage', () => ({
 vi.mock('../../../activity/services/ActivityService', () => ({
   ActivityService: vi.fn().mockImplementation(() => ({
     getActivity: vi.fn(),
+    getUserActivityCounts: vi.fn().mockResolvedValue(new Map()),
   })),
 }));
 vi.mock('../../../organization/services/TagService', () => ({
@@ -166,16 +173,17 @@ describe('AssetService', () => {
     it('should use cached data instead of S3Client directly', async () => {
       // Mock the cache service to return sample data
       const mockCacheService = cacheService as Mocked<typeof cacheService>;
-      mockCacheService.getMasterCache.mockResolvedValue(
-        createMockMasterCache(
+      mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
+        cache: createMockMasterCache(
           [
             createMockCacheEntry('dashboard', 'dash-1', 'Dashboard 1'),
             createMockCacheEntry('dashboard', 'dash-2', 'Dashboard 2'),
           ],
           [],
           []
-        )
-      );
+        ),
+        version: 'v1',
+      });
 
       // Call the list method with a valid asset type
       const result = await service.list('dashboard', {
@@ -185,7 +193,7 @@ describe('AssetService', () => {
 
       // Verify it returned cached data
       expect(result.items).toHaveLength(2);
-      expect(mockCacheService.getMasterCache).toHaveBeenCalled();
+      expect(mockCacheService.getMasterCacheWithVersion).toHaveBeenCalled();
 
       // Service should use cache instead of direct S3 access
       expect((service as any).tagService).toBeDefined();
@@ -195,13 +203,14 @@ describe('AssetService', () => {
     it('should handle multiple concurrent calls efficiently', async () => {
       // Mock the cache service
       const mockCacheService = cacheService as Mocked<typeof cacheService>;
-      mockCacheService.getMasterCache.mockResolvedValue(
-        createMockMasterCache(
+      mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
+        cache: createMockMasterCache(
           [createMockCacheEntry('dashboard', 'dash-1', 'Dashboard 1')],
           [createMockCacheEntry('dataset', 'data-1', 'Dataset 1')],
           [createMockCacheEntry('analysis', 'anal-1', 'Analysis 1')]
-        )
-      );
+        ),
+        version: 'v1',
+      });
 
       // Make multiple concurrent calls with valid asset types
       const promises = [
@@ -217,21 +226,80 @@ describe('AssetService', () => {
       // Should complete quickly (uses cached data)
       expect(duration).toBeLessThan(TEST_CONSTANTS.MAX_OPERATION_TIME_MS);
       expect(results).toHaveLength(TEST_CONSTANTS.RETRY_COUNT);
-      expect(mockCacheService.getMasterCache).toHaveBeenCalled();
+      expect(mockCacheService.getMasterCacheWithVersion).toHaveBeenCalled();
+    });
+  });
+
+  describe('user list enrichment memoization', () => {
+    const buildUserCache = () => {
+      const cache = createMockMasterCache();
+      (cache.entries as any).user = [createMockCacheEntry('user', 'u-alice', 'alice')];
+      return cache;
+    };
+
+    it('reuses the enrichment snapshot while the cache version is unchanged', async () => {
+      const mockCacheService = cacheService as Mocked<typeof cacheService>;
+      mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
+        cache: buildUserCache(),
+        version: 'memo-stable',
+      });
+      mockCacheService.getActivityCacheWithEtag.mockResolvedValue({ value: null, etag: 'act-1' });
+      mockCacheService.getActivityPersistenceWithEtag.mockResolvedValue({
+        value: null,
+        etag: 'pers-1',
+      });
+
+      const activitySpy = (service as any).activityService.getUserActivityCounts;
+
+      const first = await service.list('user', { maxResults: 10 });
+      const second = await service.list('user', { maxResults: 10 });
+
+      expect(first.items).toHaveLength(1);
+      expect(second.items).toHaveLength(1);
+      // Enrichment ran once; the second request served the memoized snapshot
+      expect(activitySpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('recomputes enrichment when the cache version changes', async () => {
+      const mockCacheService = cacheService as Mocked<typeof cacheService>;
+      mockCacheService.getActivityCacheWithEtag.mockResolvedValue({ value: null, etag: 'act-1' });
+      mockCacheService.getActivityPersistenceWithEtag.mockResolvedValue({
+        value: null,
+        etag: 'pers-1',
+      });
+
+      const activitySpy = (service as any).activityService.getUserActivityCounts;
+
+      mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
+        cache: buildUserCache(),
+        version: 'memo-v1',
+      });
+      await service.list('user', { maxResults: 10 });
+
+      mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
+        cache: buildUserCache(),
+        version: 'memo-v2',
+      });
+      await service.list('user', { maxResults: 10 });
+
+      expect(activitySpy).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('Error handling', () => {
     it('should handle cache errors gracefully', async () => {
       const mockCacheService = cacheService as Mocked<typeof cacheService>;
-      mockCacheService.getMasterCache.mockRejectedValue(new Error('Cache error'));
+      mockCacheService.getMasterCacheWithVersion.mockRejectedValue(new Error('Cache error'));
 
       await expect(service.list('dashboard', { maxResults: 10 })).rejects.toThrow('Cache error');
     });
 
     it('should handle empty cache gracefully', async () => {
       const mockCacheService = cacheService as Mocked<typeof cacheService>;
-      mockCacheService.getMasterCache.mockResolvedValue({ entries: {} } as any);
+      mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
+        cache: { entries: {} } as any,
+        version: 'v-empty',
+      });
 
       const result = await service.list('dashboard', { maxResults: 10 });
 

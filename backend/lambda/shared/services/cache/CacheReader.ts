@@ -20,6 +20,7 @@ import {
   matchesAssetIds,
 } from '../../types/filterTypes';
 import { logger } from '../../utils/logger';
+import { SingleFlight } from '../../utils/singleFlight';
 
 /**
  * Search match reason types - must match OpenAPI SearchMatchReason enum
@@ -174,6 +175,10 @@ function applySearchFilter(
 }
 
 export class CacheReader {
+  // Coalesces concurrent reads/revalidations of the same cache object so a
+  // burst of parallel callers produces one S3 HEAD/GET instead of N
+  private readonly singleFlight = new SingleFlight();
+
   constructor(
     private readonly s3Adapter: S3CacheAdapter,
     private readonly memoryAdapter: MemoryCacheAdapter
@@ -285,49 +290,9 @@ export class CacheReader {
   /**
    * Get cache metadata (counts and timestamps)
    */
-  public async getCacheMetadata(): Promise<any> {
-    try {
-      // Memory-first within the revalidation window; metadata.json is small,
-      // so past the window we just re-GET it (a HEAD would save almost nothing).
-      const cached = this.memoryAdapter.getValidatedEntry<any>('cache-metadata');
-      if (cached && Date.now() - cached.validatedAt < CACHE_CONFIG.REVALIDATE_WINDOW_MS) {
-        return cached.value;
-      }
-
-      const result = await this.s3Adapter.getCacheMetadataWithETag();
-      if (result?.metadata) {
-        this.memoryAdapter.setValidated('cache-metadata', result.metadata, result.etag);
-        return result.metadata;
-      }
-      if (cached) {
-        // Transient S3 failure — serve the previous copy rather than defaults.
-        return cached.value;
-      }
-
-      // Return default metadata
-      return {
-        version: '2.0',
-        lastUpdated: new Date(),
-        assetCounts: {
-          dashboard: 0,
-          analysis: 0,
-          dataset: 0,
-          datasource: 0,
-          folder: 0,
-          user: 0,
-          group: 0,
-        },
-        assetTimestamps: {},
-      };
-    } catch (error) {
-      logger.error('Failed to get cache metadata', { error });
-      return {
-        version: '2.0',
-        lastUpdated: new Date(),
-        assetCounts: {},
-        assetTimestamps: {},
-      };
-    }
+  public getCacheMetadata(): Promise<any> {
+    // Coalesced: a burst of concurrent callers past the window shares one GET
+    return this.singleFlight.run('cache-metadata', () => this.getCacheMetadataUncoalesced());
   }
 
   public getEmptyMasterCache(): MasterCache {
@@ -355,8 +320,21 @@ export class CacheReader {
   public async getMasterCache(options?: {
     statusFilter?: AssetStatusFilter;
   }): Promise<MasterCache> {
+    const { cache } = await this.getMasterCacheWithVersion(options);
+    return cache;
+  }
+
+  /**
+   * Master cache plus a version string composed of the per-type S3 ETags.
+   * The version changes iff any underlying type cache changed, making it a
+   * safe key for memoizing data derived from the master cache.
+   */
+  public async getMasterCacheWithVersion(options?: {
+    statusFilter?: AssetStatusFilter;
+  }): Promise<{ cache: MasterCache; version: string }> {
     const metadata = await this.getCacheMetadata();
     const entries: any = {};
+    const etagByType: Record<string, string | undefined> = {};
 
     // Determine status filter
     const statusFilter = options?.statusFilter || DEFAULT_STATUS_FILTER;
@@ -364,22 +342,74 @@ export class CacheReader {
     // Load each asset type in parallel with consistent filtering
     const assetTypes = Object.values(ASSET_TYPES);
     const promises = assetTypes.map(async (assetType) => {
-      let typeEntries = await this.getTypeEntries(assetType);
+      const { entries: typeEntries, etag } = await this.getTypeEntriesWithEtag(assetType);
 
       // Apply status filter consistently using shared logic
-      typeEntries = typeEntries.filter((entry) => matchesStatusFilter(entry.status, statusFilter));
-
-      entries[assetType] = typeEntries;
+      entries[assetType] = typeEntries.filter((entry) =>
+        matchesStatusFilter(entry.status, statusFilter)
+      );
+      etagByType[assetType] = etag;
     });
 
     await Promise.all(promises);
 
+    const version = assetTypes.map((t) => `${t}:${etagByType[t] ?? 'none'}`).join('|');
+
     return {
-      version: metadata.version || '2.0',
-      lastUpdated: metadata.lastUpdated ? new Date(metadata.lastUpdated) : new Date(),
-      assetCounts: metadata.assetCounts || {},
-      entries,
+      cache: {
+        version: metadata.version || '2.0',
+        lastUpdated: metadata.lastUpdated ? new Date(metadata.lastUpdated) : new Date(),
+        assetCounts: metadata.assetCounts || {},
+        entries,
+      },
+      version,
     };
+  }
+
+  /**
+   * Raw type entries plus the S3 ETag they were validated against. The ETag
+   * doubles as a cheap version identifier for derived-data memoization.
+   */
+  public getTypeEntriesWithEtag(
+    assetType: AssetType
+  ): Promise<{ entries: CacheEntry[]; etag?: string }> {
+    // Coalesced: concurrent callers for the same type share one flight
+    return this.singleFlight.run(`type-entries:${assetType}`, async () => {
+      try {
+        const memoryKey = `cache-${assetType}`;
+
+        // Memory-first with ETag revalidation: the memory copy carries the S3
+        // ETag it was loaded with. Within the revalidation window we serve it
+        // directly; after that a cheap HEAD confirms it still matches S3. This
+        // makes cross-Lambda mutations (deletes, bulk tag/folder/permission,
+        // rebuilds) visible on the next read with no manual invalidation.
+        const cached = this.memoryAdapter.getValidatedEntry<CacheEntry[]>(memoryKey);
+        if (cached) {
+          if (Date.now() - cached.validatedAt < CACHE_CONFIG.REVALIDATE_WINDOW_MS) {
+            return { entries: cached.value, etag: cached.etag };
+          }
+          const currentEtag = await this.s3Adapter.getTypeCacheEtag(assetType);
+          if (currentEtag && cached.etag && currentEtag === cached.etag) {
+            this.memoryAdapter.markValidated(memoryKey);
+            return { entries: cached.value, etag: cached.etag };
+          }
+          // Stale, missing, or unconfirmable → fall through to a fresh GET.
+          this.memoryAdapter.delete(memoryKey);
+        }
+
+        // Load from S3 (the source of truth)
+        const result = await this.s3Adapter.getTypeCacheWithETag(assetType);
+        if (result) {
+          this.memoryAdapter.setValidated(memoryKey, result.entries, result.etag);
+          return { entries: result.entries, etag: result.etag };
+        }
+
+        return { entries: [] };
+      } catch (error) {
+        logger.error(`Failed to get entries for ${assetType}`, { error });
+        return { entries: [] };
+      }
+    });
   }
 
   public async searchAssets(options: CacheSearchOptions = {}): Promise<{
@@ -879,43 +909,55 @@ export class CacheReader {
     }
   }
 
+  private async getCacheMetadataUncoalesced(): Promise<any> {
+    try {
+      // Memory-first within the revalidation window; metadata.json is small,
+      // so past the window we just re-GET it (a HEAD would save almost nothing).
+      const cached = this.memoryAdapter.getValidatedEntry<any>('cache-metadata');
+      if (cached && Date.now() - cached.validatedAt < CACHE_CONFIG.REVALIDATE_WINDOW_MS) {
+        return cached.value;
+      }
+
+      const result = await this.s3Adapter.getCacheMetadataWithETag();
+      if (result?.metadata) {
+        this.memoryAdapter.setValidated('cache-metadata', result.metadata, result.etag);
+        return result.metadata;
+      }
+      if (cached) {
+        // Transient S3 failure — serve the previous copy rather than defaults.
+        return cached.value;
+      }
+
+      // Return default metadata
+      return {
+        version: '2.0',
+        lastUpdated: new Date(),
+        assetCounts: {
+          dashboard: 0,
+          analysis: 0,
+          dataset: 0,
+          datasource: 0,
+          folder: 0,
+          user: 0,
+          group: 0,
+        },
+        assetTimestamps: {},
+      };
+    } catch (error) {
+      logger.error('Failed to get cache metadata', { error });
+      return {
+        version: '2.0',
+        lastUpdated: new Date(),
+        assetCounts: {},
+        assetTimestamps: {},
+      };
+    }
+  }
+
   /**
    * Internal method to get raw type entries without status filtering
    */
   private async getTypeEntries(assetType: AssetType): Promise<CacheEntry[]> {
-    try {
-      const memoryKey = `cache-${assetType}`;
-
-      // Memory-first with ETag revalidation: the memory copy carries the S3
-      // ETag it was loaded with. Within the revalidation window we serve it
-      // directly; after that a cheap HEAD confirms it still matches S3. This
-      // makes cross-Lambda mutations (deletes, bulk tag/folder/permission,
-      // rebuilds) visible on the next read with no manual invalidation.
-      const cached = this.memoryAdapter.getValidatedEntry<CacheEntry[]>(memoryKey);
-      if (cached) {
-        if (Date.now() - cached.validatedAt < CACHE_CONFIG.REVALIDATE_WINDOW_MS) {
-          return cached.value;
-        }
-        const currentEtag = await this.s3Adapter.getTypeCacheEtag(assetType);
-        if (currentEtag && cached.etag && currentEtag === cached.etag) {
-          this.memoryAdapter.markValidated(memoryKey);
-          return cached.value;
-        }
-        // Stale, missing, or unconfirmable → fall through to a fresh GET.
-        this.memoryAdapter.delete(memoryKey);
-      }
-
-      // Load from S3 (the source of truth)
-      const result = await this.s3Adapter.getTypeCacheWithETag(assetType);
-      if (result) {
-        this.memoryAdapter.setValidated(memoryKey, result.entries, result.etag);
-        return result.entries;
-      }
-
-      return [];
-    } catch (error) {
-      logger.error(`Failed to get entries for ${assetType}`, { error });
-      return [];
-    }
+    return (await this.getTypeEntriesWithEtag(assetType)).entries;
   }
 }

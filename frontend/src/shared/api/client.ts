@@ -89,8 +89,15 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
     
-    // Handle network errors with retry
-    if (!error.response && retryCount < MAX_RETRIES && !originalRequest._retry) {
+    // Handle network errors with retry.
+    // Client-side timeouts (ECONNABORTED) are excluded: the server is still
+    // processing the slow request, and retrying just multiplies its load.
+    if (
+      !error.response &&
+      error.code !== 'ECONNABORTED' &&
+      retryCount < MAX_RETRIES &&
+      !originalRequest._retry
+    ) {
       originalRequest._retry = true;
       retryCount++;
       

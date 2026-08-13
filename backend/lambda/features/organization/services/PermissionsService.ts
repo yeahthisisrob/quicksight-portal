@@ -1,4 +1,4 @@
-import { type CacheEntry } from '../../../shared/models/asset.model';
+import { type CacheEntry, type MasterCache } from '../../../shared/models/asset.model';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import { type QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { cacheService } from '../../../shared/services/cache/CacheService';
@@ -45,6 +45,15 @@ type UserAccessMap = Map<string, UserAccessInfo>;
  * Tracks group access info during resolution
  */
 type GroupAccessMap = Map<string, GroupAccessInfo>;
+
+/**
+ * Per-call lookup structures for the bulk user asset-count scan
+ */
+interface BulkAccessResolvers {
+  collectPermissionUsers: (permissions: any[], into: Set<string>) => void;
+  foldersByMemberKey: Map<string, CacheEntry[]>;
+  resolveFolderUsers: (folder: CacheEntry) => Set<string>;
+}
 
 export class PermissionsService {
   private readonly quickSightService: QuickSightService;
@@ -98,28 +107,12 @@ export class PermissionsService {
    * Get asset access counts for all users in a single cache scan.
    * Much more efficient than calling getUserAssetAccess per user.
    */
-  public async getBulkUserAssetCounts(userNames: string[]): Promise<Map<string, number>> {
-    const cache = await cacheService.getMasterCache();
-    const users = cache.entries.user || [];
-    const groups = cache.entries.group || [];
-    const folders = cache.entries.folder || [];
-
-    // Pre-compute each user's context
-    const userContexts = new Map<
-      string,
-      { userArn: string; userName: string; userGroups: CacheEntry[]; folders: CacheEntry[] }
-    >();
-    for (const name of userNames) {
-      const userEntry = users.find((u: CacheEntry) => u.assetName === name);
-      if (userEntry) {
-        userContexts.set(name, {
-          userArn: userEntry.arn,
-          userName: name,
-          userGroups: this.findUserGroups(name, groups),
-          folders,
-        });
-      }
-    }
+  public async getBulkUserAssetCounts(
+    userNames: string[],
+    prefetchedCache?: MasterCache
+  ): Promise<Map<string, number>> {
+    const cache = prefetchedCache ?? (await cacheService.getMasterCache());
+    const resolvers = this.buildBulkAccessResolvers(cache, userNames);
 
     const counts = new Map<string, number>();
     const assetTypesToCheck: AssetType[] = [
@@ -130,15 +123,11 @@ export class PermissionsService {
       'folder',
     ];
 
-    // Single scan: for each asset, check which users have access
+    // Single scan: for each asset, resolve the set of users with any access
     for (const type of assetTypesToCheck) {
-      const entries = cache.entries[type] || [];
-      for (const entry of entries) {
-        for (const [name, ctx] of userContexts) {
-          const sources = this.collectUserAccessSources(entry, ctx);
-          if (sources.length > 0) {
-            counts.set(name, (counts.get(name) || 0) + 1);
-          }
+      for (const entry of cache.entries[type] || []) {
+        for (const name of this.resolveEntryAccessUsers(entry, resolvers)) {
+          counts.set(name, (counts.get(name) || 0) + 1);
         }
       }
     }
@@ -310,6 +299,169 @@ export class PermissionsService {
   }
 
   /**
+   * Build the per-call lookup structures for the bulk asset-count scan.
+   *
+   * Principal matching is fuzzy (exact ARN, exact name, or "/name" suffix) and
+   * one principal string can match several users, so resolution stays a linear
+   * scan — but memoized per distinct principal instead of run per (asset × user).
+   */
+  private buildBulkAccessResolvers(cache: MasterCache, userNames: string[]): BulkAccessResolvers {
+    const groups = cache.entries.group || [];
+    const requestedUsers = this.buildRequestedUsers(userNames, cache.entries.user || []);
+    const requestedMembersByGroupArn = this.buildRequestedMembersByGroupArn(
+      groups,
+      new Set(requestedUsers.map((u) => u.userName))
+    );
+
+    const userPrincipalMemo = new Map<string, Set<string>>();
+    const resolveUserPrincipal = (principal: string | undefined): Set<string> | undefined => {
+      if (!principal) {
+        return undefined;
+      }
+      let matched = userPrincipalMemo.get(principal);
+      if (!matched) {
+        matched = new Set<string>();
+        for (const u of requestedUsers) {
+          if (principalMatchesUser(principal, u.userArn, u.userName)) {
+            matched.add(u.userName);
+          }
+        }
+        userPrincipalMemo.set(principal, matched);
+      }
+      return matched;
+    };
+
+    const groupPrincipalMemo = new Map<string, Set<string>>();
+    const resolveGroupPrincipalMembers = (
+      principal: string | undefined
+    ): Set<string> | undefined => {
+      if (!principal) {
+        return undefined;
+      }
+      let matched = groupPrincipalMemo.get(principal);
+      if (!matched) {
+        matched = new Set<string>();
+        for (const group of groups) {
+          const memberSet = requestedMembersByGroupArn.get(group.arn);
+          if (memberSet && principalMatchesGroup(principal, group.arn, group.assetName)) {
+            for (const name of memberSet) {
+              matched.add(name);
+            }
+          }
+        }
+        groupPrincipalMemo.set(principal, matched);
+      }
+      return matched;
+    };
+
+    // Users with access through an asset's own permission list
+    const collectPermissionUsers = (permissions: any[], into: Set<string>): void => {
+      for (const perm of permissions) {
+        let matched: Set<string> | undefined;
+        if (perm.principalType === 'USER') {
+          matched = resolveUserPrincipal(perm.principal);
+        } else if (perm.principalType === 'GROUP') {
+          matched = resolveGroupPrincipalMembers(perm.principal);
+        }
+        if (matched) {
+          for (const name of matched) {
+            into.add(name);
+          }
+        }
+      }
+    };
+
+    // Folder permissions are asset-independent: resolve each folder's users once
+    const folderUsersMemo = new Map<string, Set<string>>();
+    const resolveFolderUsers = (folder: CacheEntry): Set<string> => {
+      let matched = folderUsersMemo.get(folder.arn);
+      if (!matched) {
+        matched = new Set<string>();
+        collectPermissionUsers(folder.permissions || [], matched);
+        folderUsersMemo.set(folder.arn, matched);
+      }
+      return matched;
+    };
+
+    return {
+      collectPermissionUsers,
+      foldersByMemberKey: this.buildFoldersByMemberKey(cache.entries.folder || []),
+      resolveFolderUsers,
+    };
+  }
+
+  /**
+   * Index folders by member id/arn so the asset scan avoids rescanning all folders
+   */
+  private buildFoldersByMemberKey(folders: CacheEntry[]): Map<string, CacheEntry[]> {
+    const foldersByMemberKey = new Map<string, CacheEntry[]>();
+    for (const folder of folders) {
+      const members = (folder.metadata?.members as any[]) || [];
+      for (const m of members) {
+        for (const key of [m.MemberId, m.MemberArn]) {
+          if (!key) {
+            continue;
+          }
+          const existing = foldersByMemberKey.get(key);
+          if (existing) {
+            existing.push(folder);
+          } else {
+            foldersByMemberKey.set(key, [folder]);
+          }
+        }
+      }
+    }
+    return foldersByMemberKey;
+  }
+
+  /**
+   * Map group arn → requested member names (same member keys findUserGroups matches on)
+   */
+  private buildRequestedMembersByGroupArn(
+    groups: CacheEntry[],
+    requestedNames: Set<string>
+  ): Map<string, Set<string>> {
+    const requestedMembersByGroupArn = new Map<string, Set<string>>();
+    for (const group of groups) {
+      const members = (group.metadata?.members as any[]) || [];
+      let memberSet: Set<string> | undefined;
+      for (const m of members) {
+        for (const key of [m.memberName, m.userName]) {
+          if (key && requestedNames.has(key)) {
+            memberSet ??= new Set<string>();
+            memberSet.add(key);
+          }
+        }
+      }
+      if (memberSet) {
+        requestedMembersByGroupArn.set(group.arn, memberSet);
+      }
+    }
+    return requestedMembersByGroupArn;
+  }
+
+  /**
+   * Requested users that exist in the user cache, with their ARNs
+   */
+  private buildRequestedUsers(
+    userNames: string[],
+    users: CacheEntry[]
+  ): Array<{ userName: string; userArn: string }> {
+    const userByName = new Map<string, CacheEntry>();
+    for (const u of users) {
+      userByName.set(u.assetName, u);
+    }
+    const requestedUsers: Array<{ userName: string; userArn: string }> = [];
+    for (const name of new Set(userNames)) {
+      const entry = userByName.get(name);
+      if (entry) {
+        requestedUsers.push({ userName: name, userArn: entry.arn });
+      }
+    }
+    return requestedUsers;
+  }
+
+  /**
    * Collect all access sources for a single asset entry for a given user
    */
   private collectUserAccessSources(
@@ -473,6 +625,27 @@ export class PermissionsService {
         });
       }
     }
+  }
+
+  /**
+   * All requested users with access to one asset entry: its own permissions
+   * plus permissions inherited from every folder containing it
+   */
+  private resolveEntryAccessUsers(entry: CacheEntry, resolvers: BulkAccessResolvers): Set<string> {
+    const usersWithAccess = new Set<string>();
+    resolvers.collectPermissionUsers(entry.permissions || [], usersWithAccess);
+
+    // Folder-inherited access (dedupe: a folder can index an asset by both id and arn)
+    const containingFolders = new Set<CacheEntry>([
+      ...(resolvers.foldersByMemberKey.get(entry.assetId) || []),
+      ...(resolvers.foldersByMemberKey.get(entry.arn) || []),
+    ]);
+    for (const folder of containingFolders) {
+      for (const name of resolvers.resolveFolderUsers(folder)) {
+        usersWithAccess.add(name);
+      }
+    }
+    return usersWithAccess;
   }
 
   /**

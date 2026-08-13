@@ -170,10 +170,12 @@ describe('ActivityService - Asset Activity', () => {
       getActivityCache: vi.fn(),
       getActivityPersistence: vi.fn(),
       getCacheEntries: vi.fn(),
+      getMasterCache: vi.fn().mockResolvedValue({ entries: { group: [] } }),
     } as any;
 
     mockGroupService = {
       getUserGroups: vi.fn(),
+      getUserGroupsBulk: vi.fn().mockReturnValue(new Map()),
     } as any;
 
     activityService = new ActivityService(mockCacheService, {} as any, mockGroupService);
@@ -242,16 +244,23 @@ describe('ActivityService - Asset Activity', () => {
       mockCacheService.getActivityCache.mockResolvedValue(createMockCache(events));
       mockCacheService.getActivityPersistence.mockResolvedValue(null);
       mockCacheService.getCacheEntries.mockResolvedValue([]);
-      mockGroupService.getUserGroups.mockResolvedValue([
-        {
-          groupName: 'Admins',
-          arn: 'arn:aws:quicksight:us-east-1:123456789012:group/default/Admins',
-        },
-        {
-          groupName: 'Analysts',
-          arn: 'arn:aws:quicksight:us-east-1:123456789012:group/default/Analysts',
-        },
-      ]);
+      mockGroupService.getUserGroupsBulk.mockReturnValue(
+        new Map([
+          [
+            'user1',
+            [
+              {
+                groupName: 'Admins',
+                arn: 'arn:aws:quicksight:us-east-1:123456789012:group/default/Admins',
+              },
+              {
+                groupName: 'Analysts',
+                arn: 'arn:aws:quicksight:us-east-1:123456789012:group/default/Analysts',
+              },
+            ],
+          ],
+        ])
+      );
 
       const result = await activityService.getAssetActivity('dashboard', TEST_DASHBOARD_ID);
 
@@ -401,6 +410,30 @@ describe('ActivityService - User Activity', () => {
       expect(result.get('user2')?.totalActivities).toBe(SINGLE_ACTIVITY);
       expect(result.get('user2')?.dashboardCount).toBe(SINGLE_ACTIVITY);
       expect(result.get('user3')?.totalActivities).toBe(ZERO_ACTIVITIES);
+    });
+
+    it('should use persisted dates for users with no recent activity', async () => {
+      const events = [createMockEvent('GetDashboard', TEST_DASHBOARD_ID, 'active-user')];
+
+      mockCacheService.getActivityCache.mockResolvedValue(createMockCache(events));
+      mockCacheService.getActivityPersistence.mockResolvedValue({
+        version: '1.0',
+        lastUpdated: TEST_DATE,
+        dashboards: {},
+        analyses: {},
+        users: {
+          'quiet-user': '2023-11-20T08:00:00.000Z',
+          'active-user': '2023-01-01T00:00:00.000Z',
+        },
+      });
+
+      const result = await activityService.getUserActivityCounts(['active-user', 'quiet-user']);
+
+      // Recent activity wins over the persisted date
+      expect(result.get('active-user')?.lastActive).toBe(TEST_DATE);
+      // No recent activity → exact-key persisted date is used
+      expect(result.get('quiet-user')?.lastActive).toBe('2023-11-20T08:00:00.000Z');
+      expect(result.get('quiet-user')?.totalActivities).toBe(ZERO_ACTIVITIES);
     });
   });
 });
