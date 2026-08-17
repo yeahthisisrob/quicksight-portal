@@ -162,6 +162,13 @@ export class QuicksightPortalStack extends Stack {
       actions: ['cloudtrail:LookupEvents'],
       resources: ['*'],
     }));
+    // SMUS (SageMaker Unified Studio) catalog lookups — the only DataZone
+    // call the portal makes. Harmless when SMUS_DOMAIN_ID is not configured.
+    lambdaRole.addToPolicy(new PolicyStatement({
+      effect: Effect.ALLOW,
+      actions: ['datazone:SearchListings'],
+      resources: ['*'],
+    }));
     lambdaRole.addToPolicy(new PolicyStatement({
       effect: Effect.ALLOW,
       actions: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject', 's3:ListBucket'],
@@ -170,6 +177,15 @@ export class QuicksightPortalStack extends Stack {
         `arn:aws:s3:::quicksight-metadata-bucket-${this.account}/*`,
       ],
     }));
+
+    // SMUS (SageMaker Unified Studio) integration — optional. Provide the
+    // DataZone domain id at synth time via CDK context or environment:
+    //   cdk deploy -c smusDomainId=dzd_xxxx
+    //   (or SMUS_DOMAIN_ID=dzd_xxxx cdk deploy)
+    // smusPortalUrl / SMUS_PORTAL_URL optionally overrides the derived portal
+    // URL for custom SMUS domains. Unset = SMUS UI hidden in the portal.
+    const smusDomainId = this.node.tryGetContext('smusDomainId') || process.env.SMUS_DOMAIN_ID || '';
+    const smusPortalUrl = this.node.tryGetContext('smusPortalUrl') || process.env.SMUS_PORTAL_URL || '';
 
     const apiLambda = new LambdaFunction(this, 'ApiLambda', {
       runtime: Runtime.NODEJS_22_X,
@@ -189,6 +205,8 @@ export class QuicksightPortalStack extends Stack {
         COGNITO_ISSUER: `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}`,
         BUCKET_NAME: `quicksight-metadata-bucket-${this.account}`,
         EXPORT_QUEUE_URL: exportQueue.queueUrl,
+        ...(smusDomainId ? { SMUS_DOMAIN_ID: smusDomainId } : {}),
+        ...(smusPortalUrl ? { SMUS_PORTAL_URL: smusPortalUrl } : {}),
       },
     });
 
