@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.5.0...v1.6.0) (2026-08-17)
+
+
+### Features
+
+* redesign export assets page layout ([#27](https://github.com/yeahthisisrob/quicksight-portal/issues/27)) ([c6ba324](https://github.com/yeahthisisrob/quicksight-portal/commit/c6ba324d12e7aab2fc167651ddd4c4fa54aa5da1))
+
 ## [1.5.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.4.0...v1.5.0) (2026-08-17)
 
 
