@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.4.0...v1.5.0) (2026-08-17)
+
+
+### Features
+
+* dataset activity - ingestion refresh history plus usage via dashboards/analyses ([#25](https://github.com/yeahthisisrob/quicksight-portal/issues/25)) ([4a0fd65](https://github.com/yeahthisisrob/quicksight-portal/commit/4a0fd65ecd5d577bc67bf831076352fbe7a8feae))
+
 ## [1.4.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.3.0...v1.4.0) (2026-08-13)
 
 
