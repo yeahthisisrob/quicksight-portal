@@ -14,7 +14,7 @@ import { getSmusConfig, type SmusConfig } from '../../../shared/config/smusConfi
 import { CACHE_TTL } from '../../../shared/constants/timeConstants';
 import { type CacheService } from '../../../shared/services/cache/CacheService';
 import { logger } from '../../../shared/utils/logger';
-import { type SmusDatasetLink, type SmusStatus } from '../types';
+import { type SmusDatasetLink, type SmusMatchType, type SmusStatus } from '../types';
 
 /** Link map freshness window — catalog membership changes slowly. */
 const LINK_MAP_TTL_MS = CACHE_TTL.SHORT;
@@ -157,45 +157,69 @@ export class SmusService {
     return `${this.config.portalUrl}/catalog/assets/${listing.listingId}`;
   }
 
-  /** Candidate names from lineage physical tables: bare and schema-qualified. */
-  private collectSourceTableNames(dataset: any): string[] {
-    const names: string[] = [];
+  /**
+   * Match candidates for one dataset, in confidence order. Governed SMUS
+   * catalog entries are fundamentally tables, so physical identity outranks
+   * display-name coincidence:
+   *
+   * 1. Relational source tables — `schema.table` (Schema is the database for
+   *    Athena sources), then bare table names.
+   * 2. `db.table` references parsed out of custom SQL queries, then their
+   *    bare table names.
+   * 3. The dataset name — a `db.table` embedded in the name first (datasets
+   *    are often named after their source table), then the full name.
+   *
+   * Within each priority, qualified forms come before bare ones.
+   */
+  private collectMatchCandidates(dataset: any): Array<{ key: string; matchType: SmusMatchType }> {
+    const candidates: Array<{ key: string; matchType: SmusMatchType }> = [];
     const physicalTables: any[] = dataset.metadata?.lineageData?.physicalTables || [];
-    for (const table of physicalTables) {
-      if (table?.name) {
-        names.push(table.name);
-        if (table.schema) {
-          names.push(`${table.schema}.${table.name}`);
-        }
+
+    // Priority 1: relational tables
+    const relational = physicalTables.filter((t) => t?.name && t?.type === 'RELATIONAL');
+    for (const table of relational) {
+      if (table.schema) {
+        candidates.push({ key: `${table.schema}.${table.name}`, matchType: 'source-table' });
       }
     }
-    return names;
+    for (const table of relational) {
+      candidates.push({ key: table.name, matchType: 'source-table' });
+    }
+
+    // Priority 2: custom SQL table references
+    const sqlRefs: string[] = physicalTables.flatMap((t) => t?.sqlTables || []);
+    for (const ref of sqlRefs) {
+      candidates.push({ key: ref, matchType: 'custom-sql' });
+    }
+    for (const ref of sqlRefs) {
+      candidates.push({ key: ref.split('.').pop() as string, matchType: 'custom-sql' });
+    }
+
+    // Priority 3: the dataset name (parsed, then verbatim)
+    const name: string = dataset.assetName || '';
+    if (name) {
+      const dotted = name.match(/\b[\w-]+\.[\w-]+\b/);
+      if (dotted) {
+        candidates.push({ key: dotted[0], matchType: 'name' });
+        candidates.push({ key: dotted[0].split('.').pop() as string, matchType: 'name' });
+      }
+      candidates.push({ key: name, matchType: 'name' });
+    }
+
+    return candidates;
   }
 
-  /**
-   * Match one dataset against the catalog: dataset name first, then the
-   * source table names captured in lineage (schema-qualified and bare).
-   */
+  /** Match one dataset against the catalog using the prioritized candidates. */
   private resolveDatasetLink(
     dataset: any,
     listingsByName: Map<string, CatalogListing>
   ): SmusDatasetLink {
-    const datasetId = dataset.assetId;
-
-    const nameMatch = dataset.assetName
-      ? listingsByName.get(normalizeForMatch(dataset.assetName))
-      : undefined;
-    if (nameMatch) {
-      return this.buildLink(datasetId, nameMatch, 'name');
-    }
-
-    for (const tableName of this.collectSourceTableNames(dataset)) {
-      const tableMatch = listingsByName.get(normalizeForMatch(tableName));
-      if (tableMatch) {
-        return this.buildLink(datasetId, tableMatch, 'source-table');
+    for (const candidate of this.collectMatchCandidates(dataset)) {
+      const listing = listingsByName.get(normalizeForMatch(candidate.key));
+      if (listing) {
+        return this.buildLink(dataset.assetId, listing, candidate.matchType);
       }
     }
-
-    return { datasetId, linked: false };
+    return { datasetId: dataset.assetId, linked: false };
   }
 }

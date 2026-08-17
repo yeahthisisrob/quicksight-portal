@@ -23,7 +23,12 @@ interface SmusLinkBadgeProps {
 export function SmusLinkBadge({ link, size = 16 }: SmusLinkBadgeProps) {
   if (!link.linked) return null;
 
-  const matchLabel = link.matchType === 'source-table' ? 'matched by source table' : 'matched by name';
+  const matchLabel =
+    link.matchType === 'source-table'
+      ? 'matched by source table'
+      : link.matchType === 'custom-sql'
+        ? 'matched by SQL table reference'
+        : 'matched by name';
 
   return (
     <Tooltip

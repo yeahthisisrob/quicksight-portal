@@ -3471,8 +3471,11 @@ components:
           description: Whether a matching SMUS catalog listing was found
         matchType:
           type: string
-          enum: [name, source-table]
-          description: How the dataset was matched — by name or by a lineage source table
+          enum: [source-table, custom-sql, name]
+          description: >
+            How the dataset was matched, in descending confidence — by a
+            relational source table (schema.table), by a db.table reference
+            parsed from custom SQL, or by the dataset's display name
         listingId:
           type: string
           description: SMUS catalog listing identifier
