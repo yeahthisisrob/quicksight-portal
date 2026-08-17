@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.7.0...v1.8.0) (2026-08-17)
+
+
+### Features
+
+* upgrade MUI X DataGrid to v7 - free column resizing ([#34](https://github.com/yeahthisisrob/quicksight-portal/issues/34)) ([f73b868](https://github.com/yeahthisisrob/quicksight-portal/commit/f73b868c99d5bdf5535bd924debc357656e16fbe))
+
 ## [1.7.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.6.0...v1.7.0) (2026-08-17)
 
 
