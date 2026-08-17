@@ -12,6 +12,7 @@ export { scriptsApi } from './modules/scripts';
 export { ingestionsApi } from './modules/ingestions';
 export { deployApi } from './modules/deploy';
 export { jobsApi } from './modules/jobs';
+export { smusApi } from './modules/smus';
 
 // Export shared utilities
 export * from './client';

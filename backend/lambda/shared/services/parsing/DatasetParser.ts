@@ -343,7 +343,7 @@ export class DatasetParser extends BaseAssetParser {
    * Build physical table object
    */
   private buildPhysicalTable(tableId: string, tableData: any): any {
-    return {
+    const table: any = {
       tableId,
       type: tableData.S3Source
         ? 'S3'
@@ -353,6 +353,18 @@ export class DatasetParser extends BaseAssetParser {
             ? 'CUSTOM_SQL'
             : 'UNKNOWN',
     };
+
+    // Capture source table identity for cross-catalog matching (e.g. SMUS):
+    // relational tables carry name/schema/catalog, custom SQL carries a name.
+    if (tableData.RelationalTable) {
+      table.name = tableData.RelationalTable.Name;
+      table.schema = tableData.RelationalTable.Schema;
+      table.catalog = tableData.RelationalTable.Catalog;
+    } else if (tableData.CustomSql?.Name) {
+      table.name = tableData.CustomSql.Name;
+    }
+
+    return table;
   }
 
   /**

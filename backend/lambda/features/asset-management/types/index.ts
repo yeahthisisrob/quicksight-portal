@@ -73,6 +73,8 @@ export interface AssetListRequest {
   excludeFolders?: FolderFilter[];
   /** Filter by source/datasource type (array of type strings like S3, ATHENA, REDSHIFT) */
   sourceTypeFilter?: string[];
+  /** Filter datasets by SMUS catalog link: all, smus_linked, not_smus_linked */
+  smusFilter?: 'all' | 'smus_linked' | 'not_smus_linked';
 }
 
 export interface AssetListResponse {

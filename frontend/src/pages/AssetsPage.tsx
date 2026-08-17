@@ -1,12 +1,13 @@
 import { Add as AddIcon } from '@mui/icons-material';
 import { Button } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, Navigate } from 'react-router-dom';
 
 import { ActivityStatsDialog, DatasetActivityDialog, UserActivityDialog } from '@/widgets/activity-stats';
 
 import { CreateGroupDialog } from '@/features/organization';
+import { useSmusDatasetLinks, useSmusStatus } from '@/features/smus';
 
 import { useAssets } from '@/entities/asset';
 
@@ -75,7 +76,26 @@ export default function AssetsPage() {
   });
 
   const config = type ? assetConfigs[type as keyof typeof assetConfigs] : null;
-  
+
+  // SMUS catalog links: resolved live for the current page of datasets and
+  // merged onto rows (name-column indicator + "View in SMUS" action). All
+  // SMUS UI is hidden when no SMUS domain is configured.
+  const isDatasetPage = config?.assetType === 'dataset';
+  const { data: smusStatus } = useSmusStatus();
+  const smusConfigured = Boolean(smusStatus?.configured);
+  const datasetIds = useMemo(
+    () => (isDatasetPage && smusConfigured ? datasets.map((d: any) => d.id) : []),
+    [isDatasetPage, smusConfigured, datasets]
+  );
+  const { data: smusLinks } = useSmusDatasetLinks(datasetIds, isDatasetPage && smusConfigured);
+  const datasetsWithSmus = useMemo(() => {
+    if (!smusLinks) return datasets;
+    return datasets.map((dataset: any) => {
+      const link = smusLinks.get(dataset.id);
+      return link?.linked ? { ...dataset, smusLink: link } : dataset;
+    });
+  }, [datasets, smusLinks]);
+
   if (!config) {
     return <Navigate to="/assets/dashboards" replace />;
   }
@@ -84,7 +104,7 @@ export default function AssetsPage() {
   const assetData = {
     dashboard: { assets: dashboards, loading: dashboardsLoading, pagination: dashboardsPagination, fetch: fetchDashboards },
     analysis: { assets: analyses, loading: analysesLoading, pagination: analysesPagination, fetch: fetchAnalyses },
-    dataset: { assets: datasets, loading: datasetsLoading, pagination: datasetsPagination, fetch: fetchDatasets },
+    dataset: { assets: datasetsWithSmus, loading: datasetsLoading, pagination: datasetsPagination, fetch: fetchDatasets },
     datasource: { assets: datasources, loading: datasourcesLoading, pagination: datasourcesPagination, fetch: fetchDatasources },
     folder: { assets: folders, loading: foldersLoading, pagination: foldersPagination, fetch: fetchFolders },
     user: { assets: users, loading: usersLoading, pagination: usersPagination, fetch: fetchUsers },
@@ -132,6 +152,7 @@ export default function AssetsPage() {
         enablePermissionsFiltering={config.assetType === 'user'}
         enableGroupFiltering={config.assetType === 'user'}
         availableGroups={config.assetType === 'user' ? availableGroups : undefined}
+        enableSmusFiltering={config.assetType === 'dataset' && smusConfigured}
         enableSourceTypeFiltering={['dataset', 'datasource'].includes(config.assetType)}
         availableSourceTypes={['dataset', 'datasource'].includes(config.assetType) ? availableSourceTypes : undefined}
         enableFolderFiltering={['dashboard', 'analysis', 'dataset', 'datasource'].includes(config.assetType)}

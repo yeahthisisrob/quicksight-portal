@@ -1,4 +1,6 @@
 import { collectionListSnapshotCache } from './CollectionListSnapshotCache';
+import { DataZoneAdapter } from '../../../adapters/aws/DataZoneAdapter';
+import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { DEBUG_CONFIG, QUICKSIGHT_LIMITS } from '../../../shared/constants';
 import { type CacheEntry, type MasterCache } from '../../../shared/models/asset.model';
 import { cacheService } from '../../../shared/services/cache/CacheService';
@@ -32,6 +34,7 @@ import { ActivityService } from '../../activity/services/ActivityService';
 import { GroupService } from '../../organization/services/GroupService';
 import { PermissionsService } from '../../organization/services/PermissionsService';
 import { TagService } from '../../organization/services/TagService';
+import { SmusService } from '../../smus/services/SmusService';
 import {
   type Asset,
   type AssetListRequest,
@@ -192,7 +195,10 @@ export class AssetService {
           ? this.computeAvailableSourceTypes(items)
           : undefined;
 
-      const filteredItems = this.applyAllFilters(items, request);
+      let filteredItems = this.applyAllFilters(items, request);
+      if (assetType === ASSET_TYPES.dataset && request.smusFilter && request.smusFilter !== 'all') {
+        filteredItems = await this.applySmusFilter(filteredItems, request.smusFilter);
+      }
       const result = this.paginateAndReturnResults(filteredItems, request, assetType);
 
       return { ...result, availableSourceTypes };
@@ -524,6 +530,32 @@ export class AssetService {
     });
 
     return filteredItems;
+  }
+
+  /**
+   * Filter datasets by SMUS catalog link status. Link resolution is live
+   * (TTL-cached in SmusService); a resolution failure or unconfigured SMUS
+   * leaves the list unfiltered rather than erroring the whole request.
+   */
+  private async applySmusFilter(
+    items: Asset[],
+    smusFilter: 'smus_linked' | 'not_smus_linked'
+  ): Promise<Asset[]> {
+    const config = getSmusConfig();
+    if (!config.enabled) {
+      return items;
+    }
+    try {
+      const smusService = new SmusService(cacheService, new DataZoneAdapter(config.region), config);
+      const linkMap = await smusService.getLinkMap();
+      return items.filter((item) => {
+        const linked = linkMap.get((item as any).id)?.linked ?? false;
+        return smusFilter === 'smus_linked' ? linked : !linked;
+      });
+    } catch (error) {
+      logger.warn('SMUS filter skipped (link resolution failed):', error);
+      return items;
+    }
   }
 
   /**

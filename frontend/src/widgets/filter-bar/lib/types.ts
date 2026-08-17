@@ -21,6 +21,8 @@ export type ErrorFilterState = 'all' | 'with_errors' | 'without_errors';
 
 export type ActivityFilterState = 'all' | 'with_activity' | 'without_activity';
 
+export type SmusFilterState = 'all' | 'smus_linked' | 'not_smus_linked';
+
 export type GroupMembershipFilterState = 'all' | 'in_groups' | 'not_in_groups';
 
 export type PermissionsFilterState = 'all' | 'with_permissions' | 'without_permissions';
@@ -92,6 +94,11 @@ export interface FilterBarProps {
   enableActivityFiltering?: boolean;
   activityFilter?: ActivityFilterState;
   onActivityFilterChange?: (filter: ActivityFilterState) => void;
+
+  // SMUS catalog link filtering (datasets)
+  enableSmusFiltering?: boolean;
+  smusFilter?: SmusFilterState;
+  onSmusFilterChange?: (filter: SmusFilterState) => void;
 
   // Folder filtering
   enableFolderFiltering?: boolean;

@@ -34,6 +34,8 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
     onErrorFilterChange: p.onErrorFilterChange,
     activityFilter: p.activityFilter,
     onActivityFilterChange: p.onActivityFilterChange,
+    smusFilter: p.smusFilter,
+    onSmusFilterChange: p.onSmusFilterChange,
     includeFolders: p.includeFolders,
     excludeFolders: p.excludeFolders,
     onIncludeFoldersChange: p.onIncludeFoldersChange,
@@ -65,6 +67,7 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
         dateFilter={p.dateFilter}
         errorFilter={p.errorFilter}
         activityFilter={p.activityFilter}
+        smusFilter={p.smusFilter}
         selectedAssets={p.selectedAssets}
         includeTags={p.includeTags}
         excludeTags={p.excludeTags}
@@ -76,6 +79,7 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
         onClearDateFilter={p.dateFilter ? state.handleClearDateFilter : undefined}
         onClearErrorFilter={p.errorFilter !== undefined ? state.handleClearErrorFilter : undefined}
         onClearActivityFilter={p.activityFilter !== undefined ? state.handleClearActivityFilter : undefined}
+        onClearSmusFilter={p.smusFilter !== undefined ? state.handleClearSmusFilter : undefined}
         onRemoveAsset={state.handleRemoveAsset}
         onRemoveIncludeTag={state.handleRemoveIncludeTag}
         onRemoveExcludeTag={state.handleRemoveExcludeTag}
@@ -109,6 +113,9 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
             enableActivityFiltering={p.enableActivityFiltering}
             activityFilter={p.activityFilter}
             onActivityFilterChange={p.onActivityFilterChange}
+            enableSmusFiltering={p.enableSmusFiltering}
+            smusFilter={p.smusFilter}
+            onSmusFilterChange={p.onSmusFilterChange}
             enableRoleFiltering={p.enableRoleFiltering ?? false}
             availableRoles={p.availableRoles ?? []}
             selectedRoles={p.selectedRoles ?? []}
