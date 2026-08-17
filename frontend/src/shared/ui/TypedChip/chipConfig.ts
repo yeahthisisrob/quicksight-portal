@@ -1,8 +1,14 @@
 import { chipIcons } from '@/shared/ui/icons';
 
-export type ChipType = 'DASHBOARD' | 'ANALYSIS' | 'DATASET' | 'DATASOURCE' | 'FOLDER' | 'USER' | 'GROUP' | 'NAMESPACE' | 'PUBLIC' | 'FIELDS' | 'CALCULATED_FIELDS' | 'VISUALS' | 'SHEETS' | 'FILTERS' | 'EXPRESSIONS' | 'UNKNOWN' | 'TAG' | 'CATALOG_HIDDEN' | 'PORTAL_HIDDEN' | 'RELATIONSHIP';
+export type ChipType = 'VIEWS' | 'DASHBOARD' | 'ANALYSIS' | 'DATASET' | 'DATASOURCE' | 'FOLDER' | 'USER' | 'GROUP' | 'NAMESPACE' | 'PUBLIC' | 'FIELDS' | 'CALCULATED_FIELDS' | 'VISUALS' | 'SHEETS' | 'FILTERS' | 'EXPRESSIONS' | 'UNKNOWN' | 'TAG' | 'CATALOG_HIDDEN' | 'PORTAL_HIDDEN' | 'RELATIONSHIP';
 
 export const chipConfig = {
+  // Activity
+  VIEWS: {
+    icon: chipIcons.VIEWS,
+    colorKey: 'dashboard' as const,
+    label: 'Views',
+  },
   // Asset types
   DASHBOARD: { 
     icon: chipIcons.DASHBOARD, 

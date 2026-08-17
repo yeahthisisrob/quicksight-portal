@@ -11,14 +11,18 @@ import {
   DynamicFeed as BatchIcon,
   HelpOutline as OtherIcon,
   OpenInNew as OpenInNewIcon,
+  DataObject as JsonIcon,
   type SvgIconComponent,
 } from '@mui/icons-material';
 import { Avatar, Box, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import { formatDistanceToNow, format } from 'date-fns';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 import TypedChip, { type ChipType } from '@/shared/ui/TypedChip';
+
+import { TimelineEventJsonDialog } from './TimelineEventJsonDialog';
 
 import type { TimelineEvent } from '@/shared/api/modules/activity';
 
@@ -104,6 +108,7 @@ export interface TimelineRowProps {
 
 export function TimelineRow({ event }: TimelineRowProps) {
   const navigate = useNavigate();
+  const [jsonOpen, setJsonOpen] = useState(false);
 
   const action = event.action ?? '';
   const Icon = ACTION_ICONS[action] ?? OtherIcon;
@@ -194,6 +199,18 @@ export function TimelineRow({ event }: TimelineRowProps) {
             </IconButton>
           </Tooltip>
         )}
+        <Tooltip title="View stored event JSON">
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              setJsonOpen(true);
+            }}
+            sx={{ padding: '2px', color: 'text.secondary' }}
+          >
+            <JsonIcon sx={{ fontSize: 14 }} />
+          </IconButton>
+        </Tooltip>
       </Box>
 
       {/* Relative time (tooltip = exact) */}
@@ -206,6 +223,8 @@ export function TimelineRow({ event }: TimelineRowProps) {
           {relative}
         </Typography>
       </Tooltip>
+
+      <TimelineEventJsonDialog open={jsonOpen} onClose={() => setJsonOpen(false)} event={event} />
     </Stack>
   );
 }

@@ -3018,6 +3018,9 @@ export interface components {
             assetName?: string;
             /** @description Full resource ARN, when present on the CloudTrail event. */
             arn?: string;
+            /** @description The stored activity record, verbatim (compact keys: t=time, e=event name, u=user, r=resource id, n=captured name, k=kind, a=action, at=resource type, d=allowlisted CloudTrail payload slice for mutations, id=CloudTrail EventId). Powers the per-event JSON debugging view.
+             *      */
+            raw?: Record<string, never>;
         };
         TimelinePage: {
             /** @description Timeline events for this page, sorted newest-first. */

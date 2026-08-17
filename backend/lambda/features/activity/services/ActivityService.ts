@@ -175,6 +175,73 @@ function extractViewEventName(event: any): string | undefined {
  * Returns undefined when none of these are present (e.g. Delete/permission
  * events) — callers then fall back to catalog hydration.
  */
+/**
+ * Keys worth keeping from mutation payloads: identifiers, names, ARNs, and
+ * error/status fields. Everything else (definitions, sheets, TLS/user-agent
+ * noise) is dropped — views stay minimal for volume, mutations keep just
+ * enough to debug and to hydrate names without a catalog lookup.
+ */
+const MUTATION_DETAIL_KEY_PATTERN = /(id|name|arn|alias|status|version|error)/i;
+const MUTATION_DETAIL_MAX_CHARS = 4096;
+
+/** Shallow-filter an object to allowlisted scalar entries. */
+function allowlistScalars(obj: any): Record<string, unknown> | undefined {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+    return undefined;
+  }
+  const kept: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const isScalar =
+      typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+    if (isScalar && MUTATION_DETAIL_KEY_PATTERN.test(key)) {
+      kept[key] = value;
+    }
+  }
+  return Object.keys(kept).length > 0 ? kept : undefined;
+}
+
+/**
+ * Capture an allowlisted slice of a mutation event's CloudTrail payload for
+ * storage on MinimalEvent.d — request/response identifiers and names, the
+ * console eventRequestDetails array, and error fields. Size-capped; drops the
+ * bulkiest sections first when over the cap.
+ */
+function captureMutationDetails(event: any): Record<string, unknown> | undefined {
+  const details: Record<string, unknown> = {};
+
+  const request = allowlistScalars(event.requestParameters);
+  if (request) {
+    details.requestParameters = request;
+  }
+  const response = allowlistScalars(event.responseElements);
+  if (response) {
+    details.responseElements = response;
+  }
+  const eventRequestDetails = event.serviceEventDetails?.eventRequestDetails;
+  if (eventRequestDetails !== undefined && eventRequestDetails !== null) {
+    details.eventRequestDetails = eventRequestDetails;
+  }
+  if (event.errorCode) {
+    details.errorCode = event.errorCode;
+  }
+  if (event.errorMessage) {
+    details.errorMessage = event.errorMessage;
+  }
+
+  if (Object.keys(details).length === 0) {
+    return undefined;
+  }
+
+  // Cap stored size — drop the console details array (the only unbounded
+  // section) if the capture is oversized, and mark the truncation.
+  if (JSON.stringify(details).length > MUTATION_DETAIL_MAX_CHARS) {
+    delete details.eventRequestDetails;
+    details.truncated = true;
+  }
+
+  return details;
+}
+
 function extractEventName(event: any): string | undefined {
   return (
     extractViewEventName(event) ||
@@ -1676,6 +1743,10 @@ export class ActivityService {
     if (name) {
       base.n = name;
     }
+    const details = captureMutationDetails(event);
+    if (details) {
+      base.d = details;
+    }
     return base;
   }
 
@@ -1694,6 +1765,10 @@ export class ActivityService {
     const name = extractEventName(event);
     if (name) {
       base.n = name;
+    }
+    const details = captureMutationDetails(event);
+    if (details) {
+      base.d = details;
     }
     return base;
   }
@@ -2387,6 +2462,9 @@ export class ActivityService {
       assetType,
       assetId: evt.r,
       assetName,
+      // The stored record, verbatim — powers the per-event "View JSON"
+      // debugging view in the timeline UI.
+      raw: evt,
     };
   }
 

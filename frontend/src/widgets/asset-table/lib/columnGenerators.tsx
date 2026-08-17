@@ -178,6 +178,39 @@ export function generateDatasetColumns(handlers: Handlers): ColumnConfig[] {
 }
 
 /**
+ * Single-line activity cell following the permissions-cell pattern:
+ * TypedChip count pairs (views + unique viewers) with the detail in the
+ * tooltip. Click opens the activity dialog.
+ */
+function renderActivityChips(options: {
+  views: number;
+  viewers?: number;
+  tooltip: string;
+  onClick?: () => void;
+}) {
+  const { views, viewers, tooltip, onClick } = options;
+  return (
+    <Tooltip title={tooltip} enterDelay={300}>
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 0.5,
+          alignItems: 'center',
+          cursor: onClick ? 'pointer' : 'default',
+          '&:hover': onClick ? { opacity: 0.8 } : {},
+        }}
+        onClick={onClick}
+      >
+        <TypedChip type="VIEWS" customLabel={views.toLocaleString()} size="small" variant="outlined" />
+        {viewers !== undefined && viewers > 0 && (
+          <TypedChip type="USER" customLabel={viewers.toLocaleString()} size="small" variant="outlined" />
+        )}
+      </Box>
+    </Tooltip>
+  );
+}
+
+/**
  * Render the dataset activity cell: views via dependent dashboards/analyses
  * plus the last refresh (ingestion). Click opens the dataset activity dialog.
  */
@@ -195,26 +228,20 @@ function renderDatasetActivityCell(
     return null;
   }
 
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        cursor: onActivityClick ? 'pointer' : 'default',
-        '&:hover': onActivityClick ? { textDecoration: 'underline' } : {},
-      }}
-      onClick={() => onActivityClick?.(params.row)}
-    >
-      <Typography variant="body2" fontWeight="medium">
-        {(activity.totalViews || 0).toLocaleString()} view{activity.totalViews !== 1 ? 's' : ''}
-      </Typography>
-      <Typography variant="caption" color="text.secondary">
-        {hasRefresh
-          ? `refreshed ${formatRelativeDate(activity.lastRefreshTime as string)}`
-          : `${activity.uniqueViewers || 0} viewer${activity.uniqueViewers !== 1 ? 's' : ''}`}
-      </Typography>
-    </Box>
-  );
+  const tooltipParts = [
+    `${(activity.totalViews || 0).toLocaleString()} views`,
+    `${activity.uniqueViewers || 0} viewers`,
+  ];
+  if (hasRefresh) {
+    tooltipParts.push(`refreshed ${formatRelativeDate(activity.lastRefreshTime as string)}`);
+  }
+
+  return renderActivityChips({
+    views: activity.totalViews || 0,
+    viewers: activity.uniqueViewers,
+    tooltip: tooltipParts.join(' \u00B7 '),
+    onClick: onActivityClick ? () => onActivityClick(params.row) : undefined,
+  });
 }
 
 /**
@@ -504,26 +531,18 @@ export function generateUserColumns(handlers: Handlers): ColumnConfig[] {
           return null;
         }
 
-        return (
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              cursor: handlers.onActivityClick ? 'pointer' : 'default',
-              '&:hover': handlers.onActivityClick ? {
-                textDecoration: 'underline'
-              } : {}
-            }}
-            onClick={() => handlers.onActivityClick?.(params.row)}
-          >
-            <Typography variant="body2" fontWeight="medium">
-              {activity.totalActivities?.toLocaleString() || '0'}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {activity.lastActive ? formatRelativeDate(activity.lastActive) : 'No activity'}
-            </Typography>
-          </Box>
-        );
+        const tooltipParts = [`${activity.totalActivities?.toLocaleString() || '0'} activities`];
+        if (activity.lastActive) {
+          tooltipParts.push(`last active ${formatRelativeDate(activity.lastActive)}`);
+        }
+
+        return renderActivityChips({
+          views: activity.totalActivities || 0,
+          tooltip: tooltipParts.join(' \u00B7 '),
+          onClick: handlers.onActivityClick
+            ? () => handlers.onActivityClick?.(params.row)
+            : undefined,
+        });
       },
       valueGetter: (params) => isUser(params.row) ? (params.row.activity?.totalActivities || 0) : 0,
     },
@@ -772,27 +791,24 @@ export function generateDashboardAnalysisColumns(handlers: Handlers): ColumnConf
         if (!activity || activity.totalViews === 0) {
           return null;
         }
-        
-        return (
-          <Box
-            sx={{ 
-              display: 'flex', 
-              flexDirection: 'column',
-              cursor: handlers.onActivityClick ? 'pointer' : 'default',
-              '&:hover': handlers.onActivityClick ? {
-                textDecoration: 'underline'
-              } : {}
-            }}
-            onClick={() => handlers.onActivityClick?.(params.row)}
-          >
-            <Typography variant="body2" fontWeight="medium">
-              {activity.totalViews?.toLocaleString() || '0'}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {activity.uniqueViewers} viewer{activity.uniqueViewers !== 1 ? 's' : ''}
-            </Typography>
-          </Box>
-        );
+
+        const tooltipParts = [
+          `${activity.totalViews?.toLocaleString() || '0'} views`,
+          `${activity.uniqueViewers || 0} viewers`,
+        ];
+        const lastViewed = (activity as any).lastViewed;
+        if (lastViewed) {
+          tooltipParts.push(`last viewed ${formatRelativeDate(lastViewed)}`);
+        }
+
+        return renderActivityChips({
+          views: activity.totalViews || 0,
+          viewers: activity.uniqueViewers,
+          tooltip: tooltipParts.join(' \u00B7 '),
+          onClick: handlers.onActivityClick
+            ? () => handlers.onActivityClick?.(params.row)
+            : undefined,
+        });
       },
       valueGetter: (params) => (isDashboard(params.row) || isAnalysis(params.row)) ? (params.row.activity?.totalViews || 0) : 0,
     }
