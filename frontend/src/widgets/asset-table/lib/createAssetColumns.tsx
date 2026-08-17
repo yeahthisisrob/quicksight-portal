@@ -332,7 +332,20 @@ function mergeColumns(
     insertIndex = tagsIndex + 1;
   }
 
-  // First add relationship columns
+  // Activity leads the post-tags block: tags, activity, used by/uses, then
+  // the remaining type-specific columns.
+  const activityIndex = specificColumns.findIndex(col => col.id === 'activity');
+  const activityColumn = activityIndex !== -1 ? specificColumns.splice(activityIndex, 1)[0] : null;
+  if (activityColumn) {
+    if (insertIndex !== -1) {
+      baseColumns.splice(insertIndex, 0, activityColumn);
+      insertIndex += 1;
+    } else {
+      baseColumns.push(activityColumn);
+    }
+  }
+
+  // Then relationship columns
   if (insertIndex !== -1 && relationshipColumns.length > 0) {
     baseColumns.splice(insertIndex, 0, ...relationshipColumns);
     insertIndex += relationshipColumns.length;

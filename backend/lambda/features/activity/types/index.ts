@@ -89,6 +89,13 @@ export interface MinimalEvent {
   a?: ActionCategory; // derived action category (mutations only)
   at?: TimelineResourceType; // resource type this event targets — catalog asset type or 'other'
   m?: any; // metadata (optional, for future event types)
+  /**
+   * Allowlisted slice of the CloudTrail payload — mutations only. Holds
+   * request/response identifiers, names, ARNs, the console
+   * eventRequestDetails array, and error fields (size-capped). Views stay
+   * minimal for volume; mutations keep enough to debug and hydrate names.
+   */
+  d?: Record<string, unknown>;
   // Stable CloudTrail EventId (UUID). Optional for backward compat with
   // pre-v2 cache entries that have no id; used for dedup on incremental merge.
   id?: string;
@@ -105,8 +112,11 @@ export interface MinimalEvent {
  *     e.g. UpdateAnalysis) now extract the asset id — cached events ingested
  *     before that fix lack `r`, so catalog name hydration can't key them.
  *     Full rescan re-extracts ids for the whole window.
+ * v4: mutation events capture an allowlisted CloudTrail payload slice (`d`)
+ *     for debugging and name hydration. Full rescan populates it for the
+ *     whole 90-day window.
  */
-export const ACTIVITY_CACHE_SCHEMA_VERSION = 3;
+export const ACTIVITY_CACHE_SCHEMA_VERSION = 4;
 
 // Activity cache - stores raw events grouped by date
 export interface ActivityCache {
@@ -238,6 +248,8 @@ export interface TimelineEvent {
   assetId?: string;
   assetName?: string; // hydrated from catalog; undefined if catalog doesn't know the asset
   arn?: string;
+  /** The stored MinimalEvent, verbatim — powers the per-event JSON view. */
+  raw?: MinimalEvent;
 }
 
 /**

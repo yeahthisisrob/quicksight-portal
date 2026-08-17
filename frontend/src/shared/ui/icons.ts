@@ -3,6 +3,7 @@
  * This file maps all icon usage across the application for consistency
  */
 import { 
+  Visibility as ViewsIcon,
   // Asset types
   Dashboard as DashboardIcon,
   Analytics as AnalysisIcon,
@@ -187,6 +188,7 @@ export const catalogIcons = {
 export const chipIcons = {
   ...assetIcons,
   ...highlightIcons,
+  VIEWS: ViewsIcon,
   UNKNOWN: UnknownIcon,
   TAG: TagIcon,
   CATALOG_HIDDEN: StorageIcon,
