@@ -26,20 +26,28 @@ export function TableToolbar({ onExportCSV, exportLabel, exporting }: TableToolb
       }}
     >
       <GridToolbarColumnsButton
-        sx={{
-          color: colors.neutral[700],
-          '&:hover': {
-            bgcolor: alpha(colors.primary.main, 0.08),
-            color: colors.primary.main,
+        slotProps={{
+          button: {
+            sx: {
+              color: colors.neutral[700],
+              '&:hover': {
+                bgcolor: alpha(colors.primary.main, 0.08),
+                color: colors.primary.main,
+              },
+            },
           },
         }}
       />
       <GridToolbarDensitySelector
-        sx={{
-          color: colors.neutral[700],
-          '&:hover': {
-            bgcolor: alpha(colors.primary.main, 0.08),
-            color: colors.primary.main,
+        slotProps={{
+          button: {
+            sx: {
+              color: colors.neutral[700],
+              '&:hover': {
+                bgcolor: alpha(colors.primary.main, 0.08),
+                color: colors.primary.main,
+              },
+            },
           },
         }}
       />

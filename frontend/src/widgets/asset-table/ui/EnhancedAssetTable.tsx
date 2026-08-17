@@ -295,7 +295,11 @@ function buildColumnsConfig(columns: ColumnConfig[]): { visible: GridColDef[]; v
       sortable: col.sortable !== false,
       hideable: col.hideable !== false,
       renderCell: col.renderCell,
-      valueGetter: col.valueGetter,
+      // ColumnConfig valueGetters use the v6 `(params)` shape; adapt to the
+      // v7 `(value, row)` signature in this single mapping point.
+      valueGetter: col.valueGetter
+        ? (value: unknown, row: unknown) => col.valueGetter!({ value, row })
+        : undefined,
     }) as GridColDef);
 
   const visibilityModel: Record<string, boolean> = {};

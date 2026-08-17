@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useRef } from 'react';
 
 import EnhancedAssetTable, { ColumnConfig } from './EnhancedAssetTable';
 
+import type { GridRowSelectionModel } from '@mui/x-data-grid';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta = {
@@ -80,7 +81,7 @@ const InteractiveWrapper = ({
 }: any) => {
   const [assets, setAssets] = useState(initialAssets.slice(0, 50));
   const [loading, setLoading] = useState(false);
-  const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const isInitialMount = useRef(true);
 
   const handleFetchAssets = useCallback(async (options: {
@@ -197,7 +198,7 @@ export const Empty: Story = {
 export const WithSelection = {
   render: () => {
     const Component = () => {
-      const [selectedRows, setSelectedRows] = useState<any[]>(['asset-1', 'asset-3', 'asset-5']);
+      const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>(['asset-1', 'asset-3', 'asset-5']);
       const [assets] = useState(mockAssets);
       const [loading, setLoading] = useState(false);
       const isInitialMount = useRef(true);

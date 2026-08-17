@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import PhysicalView from './PhysicalView';
 
+import type { GridSortModel } from '@mui/x-data-grid';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta = {
@@ -63,7 +64,7 @@ const sampleTerms = [
 const InteractiveWrapper = () => {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
-  const [sortModel, setSortModel] = useState<any[]>([]);
+  const [sortModel, setSortModel] = useState<GridSortModel>([]);
 
   return (
     <PhysicalView

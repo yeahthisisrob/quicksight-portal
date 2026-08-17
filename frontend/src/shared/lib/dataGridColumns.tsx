@@ -124,14 +124,14 @@ export const createRelatedAssetsColumn = (
       />
     );
   },
-  valueGetter: (params) => {
+  valueGetter: (_value: any, row: any) => {
     let relatedAssets: any[] = [];
     
-    if (Array.isArray(params.row.relatedAssets)) {
-      relatedAssets = params.row.relatedAssets;
-    } else if (params.row.relatedAssets) {
-      const usedByAssets = params.row.relatedAssets.usedBy || [];
-      const usesAssets = params.row.relatedAssets.uses || [];
+    if (Array.isArray(row.relatedAssets)) {
+      relatedAssets = row.relatedAssets;
+    } else if (row.relatedAssets) {
+      const usedByAssets = row.relatedAssets.usedBy || [];
+      const usesAssets = row.relatedAssets.uses || [];
       relatedAssets = [...usedByAssets, ...usesAssets];
     }
     

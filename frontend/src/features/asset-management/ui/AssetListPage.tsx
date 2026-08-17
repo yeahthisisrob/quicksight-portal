@@ -18,6 +18,7 @@ import {
   DataGrid,
   GridColDef,
   GridRowSelectionModel,
+  type GridSortModel,
 } from '@mui/x-data-grid';
 import { useSnackbar } from 'notistack';
 import { useState, useEffect, ReactNode } from 'react';
@@ -72,7 +73,7 @@ export default function AssetListPage({
   const [bulkTagOpen, setBulkTagOpen] = useState(false);
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: defaultPageSize });
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortModel, setSortModel] = useState<any[]>(defaultSortModel);
+  const [sortModel, setSortModel] = useState<GridSortModel>(defaultSortModel);
   
   // Debounce search term
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
