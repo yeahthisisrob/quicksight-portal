@@ -32,6 +32,35 @@ export interface DatasetMetadata {
   };
 }
 
+/** Bound on parsed refs per custom-SQL table — a runaway backstop, not a real limit. */
+const MAX_SQL_TABLE_REFS = 20;
+
+/**
+ * Extract `db.table` (or `catalog.db.table`) references from a custom SQL
+ * query's FROM/JOIN clauses. Quoted identifiers ("db"."table", `db`.`table`)
+ * are unwrapped; subqueries `FROM (` and unqualified single-word targets are
+ * skipped (an unqualified table can't be matched to a governed catalog entry
+ * with confidence). Best-effort by design — a miss just means SMUS matching
+ * falls back to the next priority.
+ */
+export function extractSqlTableRefs(sqlQuery: unknown): string[] {
+  if (typeof sqlQuery !== 'string' || sqlQuery.length === 0) {
+    return [];
+  }
+
+  const refs = new Set<string>();
+  const pattern = /\b(?:from|join)\s+((?:[`"]?[\w-]+[`"]?\.){1,2}[`"]?[\w-]+[`"]?)/gi;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(sqlQuery)) !== null && refs.size < MAX_SQL_TABLE_REFS) {
+    const captured = match[1];
+    if (captured) {
+      refs.add(captured.replace(/[`"]/g, '').toLowerCase());
+    }
+  }
+
+  return Array.from(refs);
+}
+
 /**
  * Dataset-specific parser implementation
  */
@@ -355,13 +384,19 @@ export class DatasetParser extends BaseAssetParser {
     };
 
     // Capture source table identity for cross-catalog matching (e.g. SMUS):
-    // relational tables carry name/schema/catalog, custom SQL carries a name.
+    // relational tables carry name/schema/catalog (Schema is the database for
+    // Athena sources); custom SQL carries a display name plus the db.table
+    // references parsed out of its query.
     if (tableData.RelationalTable) {
       table.name = tableData.RelationalTable.Name;
       table.schema = tableData.RelationalTable.Schema;
       table.catalog = tableData.RelationalTable.Catalog;
-    } else if (tableData.CustomSql?.Name) {
+    } else if (tableData.CustomSql) {
       table.name = tableData.CustomSql.Name;
+      const sqlTables = extractSqlTableRefs(tableData.CustomSql.SqlQuery);
+      if (sqlTables.length > 0) {
+        table.sqlTables = sqlTables;
+      }
     }
 
     return table;

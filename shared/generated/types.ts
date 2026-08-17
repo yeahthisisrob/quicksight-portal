@@ -3369,10 +3369,11 @@ export interface components {
             /** @description Whether a matching SMUS catalog listing was found */
             linked: boolean;
             /**
-             * @description How the dataset was matched — by name or by a lineage source table
+             * @description How the dataset was matched, in descending confidence — by a relational source table (schema.table), by a db.table reference parsed from custom SQL, or by the dataset's display name
+             *
              * @enum {string}
              */
-            matchType?: "name" | "source-table";
+            matchType?: "source-table" | "custom-sql" | "name";
             /** @description SMUS catalog listing identifier */
             listingId?: string;
             /** @description Underlying DataZone asset identifier */
