@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.7.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.6.0...v1.7.0) (2026-08-17)
+
+
+### Features
+
+* prioritize physical table identity in SMUS matching ([#32](https://github.com/yeahthisisrob/quicksight-portal/issues/32)) ([b664cc8](https://github.com/yeahthisisrob/quicksight-portal/commit/b664cc8426ff69da6850530bc4619a4fe7cb5f44))
+* SMUS catalog links for datasets - indicator, view action, and filter ([#29](https://github.com/yeahthisisrob/quicksight-portal/issues/29)) ([82c174d](https://github.com/yeahthisisrob/quicksight-portal/commit/82c174dc5bac39880fc020d4dc8604442a9a2889))
+* SMUS deploy config via cdk.context and datazone IAM permission ([#30](https://github.com/yeahthisisrob/quicksight-portal/issues/30)) ([c02e90e](https://github.com/yeahthisisrob/quicksight-portal/commit/c02e90e76d282cbe83a8bc574a5450b193b7cab8))
+* split dataset source type into data source type + import mode, add schema column and import mode filter ([#33](https://github.com/yeahthisisrob/quicksight-portal/issues/33)) ([2552ccd](https://github.com/yeahthisisrob/quicksight-portal/commit/2552ccd638331a2369b5ffa44923b417a2f785ec))
+
 ## [1.6.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.5.0...v1.6.0) (2026-08-17)
 
 
