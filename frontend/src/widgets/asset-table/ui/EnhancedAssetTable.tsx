@@ -294,6 +294,10 @@ function buildColumnsConfig(columns: ColumnConfig[]): { visible: GridColDef[]; v
       minWidth: col.minWidth,
       sortable: col.sortable !== false,
       hideable: col.hideable !== false,
+      // v7 cells are block-level by default (fast text path). Columns with
+      // custom renderers opt into the flex cell display so chips and
+      // stacked content center vertically in every density.
+      display: col.renderCell ? ('flex' as const) : undefined,
       renderCell: col.renderCell,
       // ColumnConfig valueGetters use the v6 `(params)` shape; adapt to the
       // v7 `(value, row)` signature in this single mapping point.
@@ -609,6 +613,9 @@ export default function EnhancedAssetTable({
               columns: {
                 columnVisibilityModel: initialColumnVisibilityModel,
               },
+              // Dense-by-default: data tables start compact; the toolbar
+              // density selector still lets users switch.
+              density: 'compact',
             }}
             sx={{ ...tableStyles.dataGrid, height: '100%' }}
           />

@@ -12,7 +12,7 @@ import { useState, useCallback } from 'react';
 
 import { EnhancedAssetTable, formatBytes, type  ColumnConfig,type  FetchAssetsOptions } from '@/widgets/asset-table';
 
-import { DatasourceTypeBadge } from '@/entities/field';
+import { formatDatasourceType } from '@/entities/field';
 import { formatDuration, INGESTION_ACTIVE_STATUSES, IngestionStatusChip } from '@/entities/ingestion';
 
 import { ingestionsApi } from '@/shared/api';
@@ -192,11 +192,8 @@ export default function IngestionsPage() {
       width: 200,
       renderCell: (params: any) =>
         params.row.datasourceType ? (
-          <DatasourceTypeBadge
-            datasourceType={params.row.datasourceType}
-            importMode={params.row.importMode as 'SPICE' | 'DIRECT_QUERY' | undefined}
-          />
-        ) : '-',
+          <Typography variant="body2">{formatDatasourceType(params.row.datasourceType)}</Typography>
+        ) : null,
     },
     {
       id: 'sizeInBytes',
@@ -208,7 +205,7 @@ export default function IngestionsPage() {
           return <Typography variant="body2" color="text.secondary">-</Typography>;
         }
         return (
-          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+          <Typography variant="body2">
             {formatBytes(size)}
           </Typography>
         );

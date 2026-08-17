@@ -6,7 +6,7 @@ import {
   GridPaginationModel,
   GridToolbar,
 } from '@mui/x-data-grid';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
 import { colors, spacing } from '@/shared/design-system/theme';
 
@@ -54,6 +54,17 @@ export default function CatalogDataGrid({
     pageSize,
   });
 
+  // v7 cells are block-level by default (fast text path). Columns with
+  // custom renderers opt into the flex cell display so chips and custom
+  // content center vertically in every density.
+  const displayColumns = useMemo(
+    () =>
+      columns.map((col) =>
+        col.renderCell && !col.display ? { ...col, display: 'flex' as const } : col
+      ),
+    [columns]
+  );
+
   // Sync pagination model with props
   useEffect(() => {
     setPaginationModel({ page, pageSize });
@@ -82,7 +93,7 @@ export default function CatalogDataGrid({
     >
       <DataGrid
         rows={data || []}
-        columns={columns}
+        columns={displayColumns}
         loading={loading}
         rowCount={totalRows}
         paginationMode="server"
@@ -92,6 +103,7 @@ export default function CatalogDataGrid({
         sortModel={sortModel}
         onSortModelChange={onSortModelChange}
         pageSizeOptions={pageSizeOptions}
+        initialState={{ density: 'compact' }}
         disableRowSelectionOnClick
         getRowId={getRowId}
         autoHeight={false}
@@ -113,9 +125,9 @@ export default function CatalogDataGrid({
           '& .MuiDataGrid-main': {
             borderRadius: 0,
           },
+          // Density owns cell padding/row height — no overrides.
           '& .MuiDataGrid-cell': {
             borderBottom: `1px solid ${colors.neutral[100]}`,
-            py: spacing.md / 8,
           },
           '& .MuiDataGrid-columnHeaders': {
             backgroundColor: colors.neutral[50],

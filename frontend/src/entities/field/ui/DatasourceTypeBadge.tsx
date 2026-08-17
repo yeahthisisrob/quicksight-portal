@@ -1,6 +1,8 @@
 import { Chip, Tooltip, Box, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
+import { formatDatasourceType } from '../lib/formatDatasourceType';
+
 interface DatasourceTypeBadgeProps {
   datasourceType?: string;
   importMode?: 'SPICE' | 'DIRECT_QUERY';
@@ -59,38 +61,8 @@ export default function DatasourceTypeBadge({ datasourceType, importMode, compac
     return null;
   }
 
-  const formatDatasourceType = (type: string) => {
-    // Map QuickSight datasource types to friendly names
-    const typeMap: Record<string, string> = {
-      'AMAZONELASTICSEARCH': 'Elasticsearch',
-      'ATHENA': 'Athena',
-      'AURORA': 'Aurora',
-      'AURORA_POSTGRESQL': 'Aurora PG',
-      'MARIADB': 'MariaDB',
-      'MYSQL': 'MySQL',
-      'POSTGRESQL': 'PostgreSQL',
-      'PRESTO': 'Presto',
-      'REDSHIFT': 'Redshift',
-      'S3': 'S3',
-      'SNOWFLAKE': 'Snowflake',
-      'SPARK': 'Spark',
-      'SQLSERVER': 'SQL Server',
-      'TERADATA': 'Teradata',
-      'TIMESTREAM': 'Timestream',
-      'TWITTER': 'Twitter',
-      'BIGQUERY': 'BigQuery',
-      'DATABRICKS': 'Databricks',
-      'FILE': 'File',
-      'COMPOSITE': 'Composite',
-      'Custom SQL': 'SQL',
-      'Uploaded File': 'File',
-      'Database': 'Database',
-      'Unknown': 'Unknown'
-    };
-    
-    const mapped = typeMap[type] || type;
-    
-    // Apply compact formatting if needed
+  const formatType = (type: string) => {
+    const mapped = formatDatasourceType(type);
     if (mapped.length > 10 && compact) {
       return mapped.substring(0, 8) + '...';
     }
@@ -101,7 +73,7 @@ export default function DatasourceTypeBadge({ datasourceType, importMode, compac
     <Box sx={{ display: 'flex', alignItems: 'center' }}>
       {datasourceType && (
         <StyledChip
-          label={formatDatasourceType(datasourceType)}
+          label={formatType(datasourceType)}
           variant="outlined"
           size="small"
           datasourceType={datasourceType}

@@ -1,0 +1,1 @@
+export { formatDatasourceType } from './formatDatasourceType';
