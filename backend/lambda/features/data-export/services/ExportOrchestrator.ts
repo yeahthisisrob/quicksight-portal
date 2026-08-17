@@ -29,7 +29,6 @@ import {
 import { DashboardProcessor } from '../processors/DashboardProcessor';
 import { DatasetProcessor } from '../processors/DatasetProcessor';
 import { DatasourceProcessor } from '../processors/DatasourceProcessor';
-import { IngestionProcessor } from '../processors/IngestionProcessor';
 import { FolderProcessor } from '../processors/organizational/FolderProcessor';
 import { GroupProcessor } from '../processors/organizational/GroupProcessor';
 import { UserProcessor } from '../processors/organizational/UserProcessor';
@@ -46,7 +45,6 @@ export class ExportOrchestrator {
   private readonly awsAccountId: string;
   private readonly batchProcessingService: BatchProcessingService;
   private bucketName: string | null = null;
-  private ingestionProcessor: IngestionProcessor | null = null;
   private jobId: string = '';
   private jobStateService: JobStateService | null = null;
   private readonly operationTracker: OperationTrackingService;
@@ -91,11 +89,6 @@ export class ExportOrchestrator {
 
     // Handle cache clearing based on options
     await this.handleCacheClearing(exportOptions);
-
-    // Process ingestions if requested
-    if (exportOptions.exportIngestions) {
-      await this.processIngestions();
-    }
 
     // Process each asset type
     let assetTypeSummaries: AssetTypeSummary[] = [];
@@ -616,19 +609,15 @@ export class ExportOrchestrator {
    * Initialize export and validate job state
    */
   private async initializeExport(options: ExportOptions): Promise<ExportOptions> {
-    // Check if this is an ingestion-only or cache-rebuild-only operation
-    const isIngestionOnly = options.exportIngestions && !options.assetTypes;
+    // Check if this is a cache-rebuild-only operation
     const isCacheRebuildOnly = options.rebuildIndex && !options.forceRefresh && !options.assetTypes;
 
     // Merge options with defaults
     const exportOptions: ExportOptions = {
       forceRefresh: false,
       refreshOptions: { definitions: true, permissions: true, tags: true },
-      // Only set default assetTypes if not ingestion-only or cache-rebuild-only
-      assetTypes:
-        isIngestionOnly || isCacheRebuildOnly
-          ? undefined
-          : options.assetTypes || Object.values(ASSET_TYPES),
+      // Only set default assetTypes if not cache-rebuild-only
+      assetTypes: isCacheRebuildOnly ? undefined : options.assetTypes || Object.values(ASSET_TYPES),
       batchSize: EXPORT_CONFIG.batch.assetBatchSize,
       maxConcurrency: EXPORT_CONFIG.concurrency.perProcessor,
       ...options,
@@ -953,52 +942,6 @@ export class ExportOrchestrator {
     }
 
     return assetTypeSummaries;
-  }
-
-  /**
-   * Process and cache ingestions
-   */
-  private async processIngestions(): Promise<void> {
-    try {
-      logger.info('Processing ingestions...');
-      if (this.jobStateService) {
-        await this.jobStateService.logInfo(this.jobId, 'Processing ingestions');
-      }
-
-      // Initialize ingestion processor if not already done
-      if (!this.ingestionProcessor) {
-        this.ingestionProcessor = new IngestionProcessor(this.quickSightService, cacheService);
-      }
-
-      // Process ingestions
-      const result = await this.ingestionProcessor.processIngestions();
-
-      // Save to cache
-      await cacheService.saveIngestions(result.ingestions, result.metadata);
-
-      logger.info('Ingestions processed and cached successfully', {
-        totalIngestions: result.metadata.totalIngestions,
-        runningIngestions: result.metadata.runningIngestions,
-        failedIngestions: result.metadata.failedIngestions,
-        processingTimeMs: result.processingTimeMs,
-      });
-
-      if (this.jobStateService) {
-        await this.jobStateService.logInfo(
-          this.jobId,
-          `Processed ${result.metadata.totalIngestions} ingestions (${result.metadata.runningIngestions} running, ${result.metadata.failedIngestions} failed)`
-        );
-      }
-    } catch (error) {
-      logger.error('Failed to process ingestions:', error);
-      if (this.jobStateService) {
-        await this.jobStateService.logError(
-          this.jobId,
-          `Failed to process ingestions: ${error instanceof Error ? error.message : String(error)}`
-        );
-      }
-      // Don't fail the entire export if ingestion processing fails
-    }
   }
 
   /**

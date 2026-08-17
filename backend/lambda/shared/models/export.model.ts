@@ -56,7 +56,6 @@ export interface ExportState {
 export interface ExportOptions {
   forceRefresh?: boolean;
   rebuildIndex?: boolean; // Rebuild index from existing S3 files
-  exportIngestions?: boolean; // Export dataset ingestion status
   refreshOptions?: {
     definitions?: boolean;
     permissions?: boolean;

@@ -13,6 +13,9 @@ export interface ActivityData {
   lastActive?: string | null;
   dashboardCount?: number;
   analysisCount?: number;
+  // Dataset aggregates: last refresh (ingestion) info
+  lastRefreshTime?: string | null;
+  lastRefreshStatus?: string | null;
 }
 
 /**

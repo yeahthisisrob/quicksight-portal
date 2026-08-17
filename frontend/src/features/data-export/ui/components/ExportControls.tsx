@@ -6,8 +6,7 @@ import {
   Label,
   Cached,
   BuildCircle,
-  Analytics,
-  Storage
+  Analytics
 } from '@mui/icons-material';
 import { Box, Button, Card, Stack, Typography, ToggleButton, ToggleButtonGroup, Alert, alpha, Tooltip } from '@mui/material';
 
@@ -21,13 +20,11 @@ interface ExportControlsProps {
   onStartExport: () => void;
   onStopExport: () => void;
   onRefreshActivity: () => void;
-  onExportIngestions: () => void;
   onRefreshStatus: () => void;
   isRunning: boolean;
   isRefreshing: boolean;
   canRefreshActivity: boolean;
   refreshingActivity: boolean;
-  exportingIngestions: boolean;
   selectedTypesCount: number;
 }
 
@@ -37,13 +34,11 @@ export default function ExportControls({
   onStartExport,
   onStopExport,
   onRefreshActivity,
-  onExportIngestions,
   onRefreshStatus: _onRefreshStatus,
   isRunning,
   isRefreshing: _isRefreshing,
   canRefreshActivity,
   refreshingActivity,
-  exportingIngestions,
   selectedTypesCount,
 }: ExportControlsProps) {
 
@@ -199,46 +194,27 @@ export default function ExportControls({
                 </Button>
 
                 {canRefreshActivity && (
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    size="medium"
-                    startIcon={<Analytics />}
-                    onClick={onRefreshActivity}
-                    disabled={refreshingActivity}
-                    sx={{
-                      borderColor: alpha(colors.primary.main, 0.5),
-                      color: colors.primary.main,
-                      '&:hover': {
-                        borderColor: colors.primary.main,
-                        background: alpha(colors.primary.main, 0.05),
-                      },
-                    }}
-                  >
-                    {refreshingActivity ? 'Refreshing Activity...' : 'Refresh Activity'}
-                  </Button>
+                  <Tooltip title="Fetch CloudTrail activity and dataset ingestion (refresh) history">
+                    <Button
+                      variant="outlined"
+                      fullWidth
+                      size="medium"
+                      startIcon={<Analytics />}
+                      onClick={onRefreshActivity}
+                      disabled={refreshingActivity}
+                      sx={{
+                        borderColor: alpha(colors.primary.main, 0.5),
+                        color: colors.primary.main,
+                        '&:hover': {
+                          borderColor: colors.primary.main,
+                          background: alpha(colors.primary.main, 0.05),
+                        },
+                      }}
+                    >
+                      {refreshingActivity ? 'Refreshing Activity...' : 'Refresh Activity'}
+                    </Button>
+                  </Tooltip>
                 )}
-
-                <Tooltip title="Refresh and export all SPICE dataset ingestions to view current ingestion status">
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    size="medium"
-                    startIcon={<Storage />}
-                    onClick={onExportIngestions}
-                    disabled={exportingIngestions || isRunning}
-                    sx={{
-                      borderColor: alpha(colors.status.info, 0.5),
-                      color: colors.status.info,
-                      '&:hover': {
-                        borderColor: colors.status.info,
-                        background: alpha(colors.status.info, 0.05),
-                      },
-                    }}
-                  >
-                    {exportingIngestions ? 'Exporting Ingestions...' : 'Export Ingestions'}
-                  </Button>
-                </Tooltip>
               </>
             )}
           </Stack>

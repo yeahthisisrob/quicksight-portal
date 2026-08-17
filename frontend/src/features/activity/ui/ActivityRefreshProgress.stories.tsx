@@ -66,6 +66,7 @@ export const Queued: Story = {
         phase('fetch-views', 'pending'),
         phase('fetch-mutations', 'pending'),
         phase('merge-and-persist', 'pending'),
+        phase('refresh-ingestions', 'pending'),
       ],
     }),
   },
@@ -83,6 +84,7 @@ export const Initializing: Story = {
         phase('fetch-views', 'pending'),
         phase('fetch-mutations', 'pending'),
         phase('merge-and-persist', 'pending'),
+        phase('refresh-ingestions', 'pending'),
       ],
     }),
   },
@@ -106,6 +108,7 @@ export const FetchingViews: Story = {
         ),
         phase('fetch-mutations', 'pending'),
         phase('merge-and-persist', 'pending'),
+        phase('refresh-ingestions', 'pending'),
       ],
     }),
   },
@@ -135,6 +138,7 @@ export const FetchingMutations: Story = {
           27
         ),
         phase('merge-and-persist', 'pending'),
+        phase('refresh-ingestions', 'pending'),
       ],
     }),
   },
@@ -165,6 +169,7 @@ export const Persisting: Story = {
           5
         ),
         phase('merge-and-persist', 'in_progress', undefined, 5),
+        phase('refresh-ingestions', 'pending'),
       ],
     }),
   },
@@ -197,6 +202,7 @@ export const CompletedClean: Story = {
           5
         ),
         phase('merge-and-persist', 'completed', undefined, 5, 0),
+        phase('refresh-ingestions', 'completed'),
       ],
       stats: { operations: {} } as JobMetadata['stats'],
     }),
@@ -231,6 +237,7 @@ export const CompletedWithTruncation: Story = {
           5
         ),
         phase('merge-and-persist', 'completed', undefined, 5, 0),
+        phase('refresh-ingestions', 'completed'),
       ],
     }),
   },
@@ -263,6 +270,7 @@ export const CompletedWithErrors: Story = {
           5
         ),
         phase('merge-and-persist', 'completed', undefined, 5, 0),
+        phase('refresh-ingestions', 'completed'),
       ],
     }),
   },
@@ -296,6 +304,7 @@ export const Failed: Story = {
           0
         ),
         phase('merge-and-persist', 'pending'),
+        phase('refresh-ingestions', 'pending'),
       ],
     }),
   },
@@ -327,6 +336,7 @@ export const Stopped: Story = {
           20
         ),
         phase('merge-and-persist', 'pending'),
+        phase('refresh-ingestions', 'pending'),
       ],
     }),
   },

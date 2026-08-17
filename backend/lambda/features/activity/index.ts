@@ -29,7 +29,7 @@ export const activityRoutes: RouteHandler[] = [
     handler: refreshActivity,
   },
   {
-    path: /^\/activity\/(dashboard|analysis|user)\/(.+)$/,
+    path: /^\/activity\/(dashboard|analysis|dataset|user)\/(.+)$/,
     method: 'GET',
     handler: getActivityData,
   },

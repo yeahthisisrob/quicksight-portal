@@ -1,4 +1,5 @@
 import {
+  Autorenew,
   CheckCircle,
   CloudDownload,
   Edit,
@@ -19,7 +20,12 @@ import { colors, spacing } from '@/shared/design-system/theme';
 
 import type { JobMetadata, JobPhase } from '@/shared/api/modules/jobs';
 
-type ActivityPhaseKey = 'initialize' | 'fetch-views' | 'fetch-mutations' | 'merge-and-persist';
+type ActivityPhaseKey =
+  | 'initialize'
+  | 'fetch-views'
+  | 'fetch-mutations'
+  | 'merge-and-persist'
+  | 'refresh-ingestions';
 
 const STEPS: JobProgressStep[] = [
   {
@@ -45,6 +51,12 @@ const STEPS: JobProgressStep[] = [
     label: 'Persist',
     description: 'Merging & saving',
     icon: PlaylistAddCheck,
+  },
+  {
+    key: 'refresh-ingestions',
+    label: 'Ingestions',
+    description: 'Fetching dataset refresh runs',
+    icon: Autorenew,
   },
 ];
 

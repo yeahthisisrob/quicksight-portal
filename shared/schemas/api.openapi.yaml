@@ -963,7 +963,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [dashboard, analysis, user]
+            enum: [dashboard, analysis, dataset, user]
         - name: assetId
           in: path
           required: true
@@ -975,7 +975,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ActivityData'
+                oneOf:
+                  - $ref: '#/components/schemas/ActivityData'
+                  - $ref: '#/components/schemas/UserActivity'
+                  - $ref: '#/components/schemas/DatasetActivityData'
         '404':
           description: Asset not found
         '401':
@@ -2232,6 +2235,29 @@ components:
             dataSetRefreshProperties:
               type: object
               description: Refresh configuration properties for the dataset
+            activity:
+              type: object
+              description: >
+                Aggregated activity for the dataset — views across the
+                dashboards/analyses that use it, plus last refresh (ingestion).
+              properties:
+                totalViews:
+                  type: integer
+                  minimum: 0
+                uniqueViewers:
+                  type: integer
+                  minimum: 0
+                lastViewed:
+                  type: string
+                  format: date-time
+                  nullable: true
+                lastRefreshTime:
+                  type: string
+                  format: date-time
+                  nullable: true
+                lastRefreshStatus:
+                  type: string
+                  nullable: true
 
     RefreshSchedule:
       type: object
@@ -2684,6 +2710,96 @@ components:
                   type: string
                 description: Groups the user belongs to
 
+    DatasetActivityData:
+      type: object
+      description: >
+        Activity for a dataset — refresh (ingestion) history plus aggregated
+        view/update activity of the dashboards and analyses that use it.
+      required: [datasetId, totalViews, uniqueViewers, viewsByDate, usedBy, ingestions, refreshSummary]
+      properties:
+        datasetId:
+          type: string
+          description: Dataset identifier
+        datasetName:
+          type: string
+          description: Dataset name from cache
+        totalViews:
+          type: integer
+          minimum: 0
+          description: Total views across all dashboards/analyses that use this dataset
+        uniqueViewers:
+          type: integer
+          minimum: 0
+          description: Unique viewers across all dependent assets (true union, not a sum)
+        lastViewed:
+          type: string
+          format: date-time
+          nullable: true
+          description: Most recent view of any dependent asset
+        viewsByDate:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Aggregated dependent-asset view counts by date (YYYY-MM-DD)
+        usedBy:
+          type: array
+          description: Per-dependent activity for dashboards/analyses that use this dataset
+          items:
+            $ref: '#/components/schemas/DatasetDependentActivity'
+        refreshSummary:
+          type: object
+          description: Summary of the dataset's ingestion (refresh) activity
+          required: [totalIngestions, failedIngestions]
+          properties:
+            totalIngestions:
+              type: integer
+              minimum: 0
+            failedIngestions:
+              type: integer
+              minimum: 0
+            lastIngestionTime:
+              type: string
+              format: date-time
+              nullable: true
+            lastIngestionStatus:
+              type: string
+              nullable: true
+        ingestions:
+          type: array
+          description: Recent ingestion runs for this dataset, newest first
+          items:
+            $ref: '#/components/schemas/Ingestion'
+
+    DatasetDependentActivity:
+      type: object
+      required: [assetId, assetType, totalViews, uniqueViewers]
+      properties:
+        assetId:
+          type: string
+          description: Dependent asset identifier
+        assetName:
+          type: string
+          description: Dependent asset name
+        assetType:
+          type: string
+          enum: [dashboard, analysis]
+        totalViews:
+          type: integer
+          minimum: 0
+        uniqueViewers:
+          type: integer
+          minimum: 0
+        lastViewed:
+          type: string
+          format: date-time
+          nullable: true
+          description: Most recent view of this dependent asset
+        lastUpdated:
+          type: string
+          format: date-time
+          nullable: true
+          description: Most recent mutation (update/publish) of this dependent asset
+
     TimelineEvent:
       type: object
       required: [id, timestamp, eventName, kind, user]
@@ -3024,10 +3140,6 @@ components:
           type: boolean
           default: false
           description: Rebuild all indexes from scratch
-        exportIngestions:
-          type: boolean
-          default: false
-          description: Export ingestion data for SPICE datasets
         assetTypes:
           type: array
           items:

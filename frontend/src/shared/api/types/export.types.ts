@@ -28,7 +28,6 @@ export interface RefreshOptions {
 export interface ExportJobOptions {
   forceRefresh?: boolean;
   rebuildIndex?: boolean;
-  exportIngestions?: boolean;
   exportOrganizational?: boolean;
   assetTypes?: string[];
   refreshOptions?: RefreshOptions;

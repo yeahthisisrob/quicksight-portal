@@ -5,6 +5,8 @@ import { ApiResponse } from '../types';
 
 type ActivityData = components['schemas']['ActivityData'];
 type UserActivity = components['schemas']['UserActivity'];
+export type DatasetActivityData = components['schemas']['DatasetActivityData'];
+export type DatasetDependentActivity = components['schemas']['DatasetDependentActivity'];
 type ResolvedRecipient = components['schemas']['ResolvedRecipient'];
 type UserInactiveAnalysis = components['schemas']['UserInactiveAnalysis'];
 type UserUnusedDataset = components['schemas']['UserUnusedDataset'];
@@ -114,44 +116,17 @@ export const activityApi = {
   },
 
   /**
-   * Refresh dashboard view statistics (legacy compatibility)
+   * Get activity for a dataset: refresh (ingestion) history plus aggregated
+   * view/update activity of the dashboards and analyses that use it.
    */
-  async refreshDashboardViews(dashboardIds?: string[], days: number = 90): Promise<any> {
-    return this.refreshActivity({ 
-      assetTypes: dashboardIds ? ['dashboard'] : ['all'], 
-      days 
-    });
-  },
-
-  /**
-   * Refresh analysis view statistics
-   */
-  async refreshAnalysisViews(analysisIds?: string[], days: number = 90): Promise<any> {
-    return this.refreshActivity({ 
-      assetTypes: analysisIds ? ['analysis'] : ['all'], 
-      days 
-    });
-  },
-
-  /**
-   * Get dashboard view statistics
-   */
-  async getDashboardViewStats(dashboardId: string): Promise<ActivityData> {
-    return this.getActivityData('dashboard', dashboardId) as Promise<ActivityData>;
-  },
-
-  /**
-   * Get analysis view statistics
-   */
-  async getAnalysisViewStats(analysisId: string): Promise<ActivityData> {
-    return this.getActivityData('analysis', analysisId) as Promise<ActivityData>;
-  },
-
-  /**
-   * Get user activity
-   */
-  async getUserActivity(userName: string): Promise<UserActivity> {
-    return this.getActivityData('user', userName) as Promise<UserActivity>;
+  async getDatasetActivity(datasetId: string): Promise<DatasetActivityData> {
+    const response = await api.get<ApiResponse<DatasetActivityData>>(
+      `/activity/dataset/${encodeURIComponent(datasetId)}`
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch dataset activity');
+    }
+    return response.data.data;
   },
 
   /**

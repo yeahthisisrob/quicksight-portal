@@ -145,11 +145,62 @@ export function generateDatasetColumns(handlers: Handlers): ColumnConfig[] {
       label: 'Refresh Schedule',
       width: 200,
       visible: true,
-      renderCell: (params: { row: AssetRow; value: any }) => 
+      renderCell: (params: { row: AssetRow; value: any }) =>
         renderRefreshScheduleCell(params, handlers.onRefreshScheduleClick),
       valueGetter: (params) => getRefreshScheduleValue(params),
+    },
+    {
+      id: 'activity',
+      label: 'Activity',
+      width: 160,
+      visible: true,
+      sortable: true,
+      dateFilterField: 'lastActivity',
+      renderCell: (params: { row: AssetRow; value: any }) =>
+        renderDatasetActivityCell(params, handlers.onActivityClick),
+      valueGetter: (params) => ((params.row as any).activity?.totalViews as number) || 0,
     }
   ];
+}
+
+/**
+ * Render the dataset activity cell: views via dependent dashboards/analyses
+ * plus the last refresh (ingestion). Click opens the dataset activity dialog.
+ */
+function renderDatasetActivityCell(
+  params: { row: AssetRow; value: any },
+  onActivityClick?: (asset: any) => void
+) {
+  const activity = (params.row as any).activity as
+    | { totalViews?: number; uniqueViewers?: number; lastRefreshTime?: string | null }
+    | undefined;
+  const hasViews = (activity?.totalViews || 0) > 0;
+  const hasRefresh = Boolean(activity?.lastRefreshTime);
+
+  if (!activity || (!hasViews && !hasRefresh)) {
+    return <Typography variant="body2" color="text.secondary">-</Typography>;
+  }
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        cursor: onActivityClick ? 'pointer' : 'default',
+        '&:hover': onActivityClick ? { textDecoration: 'underline' } : {},
+      }}
+      onClick={() => onActivityClick?.(params.row)}
+    >
+      <Typography variant="body2" fontWeight="medium">
+        {(activity.totalViews || 0).toLocaleString()} view{activity.totalViews !== 1 ? 's' : ''}
+      </Typography>
+      <Typography variant="caption" color="text.secondary">
+        {hasRefresh
+          ? `refreshed ${formatRelativeDate(activity.lastRefreshTime as string)}`
+          : `${activity.uniqueViewers || 0} viewer${activity.uniqueViewers !== 1 ? 's' : ''}`}
+      </Typography>
+    </Box>
+  );
 }
 
 /**

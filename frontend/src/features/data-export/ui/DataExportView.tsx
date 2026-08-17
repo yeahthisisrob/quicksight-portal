@@ -114,9 +114,7 @@ export default function DataExportView() {
 
   const {
     refreshingActivity,
-    exportingIngestions,
     refreshActivity,
-    exportIngestions,
   } = useExportOperations();
 
   const handleStartExport = async () => {
@@ -173,10 +171,8 @@ export default function DataExportView() {
               onStopExport={stopExport}
               onRefreshStatus={refreshStatus}
               onRefreshActivity={refreshActivity}
-              onExportIngestions={exportIngestions}
               canRefreshActivity={!refreshingActivity}
               refreshingActivity={refreshingActivity}
-              exportingIngestions={exportingIngestions}
               selectedTypesCount={selectedAssetTypes.length}
             />
           </Box>

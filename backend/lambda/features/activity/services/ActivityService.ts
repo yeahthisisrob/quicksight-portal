@@ -21,6 +21,8 @@ import {
   type ActivityCache,
   type MinimalEvent,
   type AssetActivityData,
+  type DatasetActivityData,
+  type DatasetDependentRef,
   type UserActivityData,
   type TimelineEvent,
   type TimelinePage,
@@ -74,6 +76,35 @@ const ACTIVITY_CONSTANTS = {
   COLON_SEPARATOR: ':',
   UNKNOWN_USER: 'Unknown',
 } as const;
+
+/** Aggregated dataset activity block returned to asset listing APIs. */
+export interface DatasetActivityCounts {
+  totalViews: number;
+  uniqueViewers: number;
+  lastViewed: string | null;
+  lastRefreshTime: string | null;
+  lastRefreshStatus: string | null;
+}
+
+/** Per-dependent-asset stats accumulated in a single event-cache scan. */
+interface DependentActivityStats {
+  totalViews: number;
+  viewers: Set<string>;
+  lastViewed: string | null;
+  lastUpdated: string | null;
+  viewsByDate: Map<string, number>;
+}
+
+/** Later of two ISO dates, null-safe. ISO strings compare lexicographically. */
+function maxDate(a: string | null, b: string | null): string | null {
+  if (!a) {
+    return b;
+  }
+  if (!b) {
+    return a;
+  }
+  return a > b ? a : b;
+}
 
 /**
  * Asset type configurations for event processing
@@ -637,6 +668,9 @@ export class ActivityService {
    */
   private static readonly MAX_ACCEPTABLE_FAIL_RATIO = 0.1;
 
+  /** How many recent ingestion runs to include in dataset activity responses. */
+  private static readonly RECENT_INGESTIONS_LIMIT = 25;
+
   /**
    * Check if event is analysis-related
    */
@@ -731,6 +765,133 @@ export class ActivityService {
 
     this.updateUniqueViewerCounts(results, assetViewers);
     this.addPersistedDatesForAssets(persistence, assetType, assetIds, results);
+
+    return results;
+  }
+
+  /**
+   * Get detailed activity for a dataset: refresh (ingestion) history plus
+   * per-dependent view/update activity. Dependents come from lineage,
+   * resolved by the caller.
+   */
+  public async getDatasetActivity(
+    datasetId: string,
+    dependents: DatasetDependentRef[]
+  ): Promise<DatasetActivityData> {
+    const [cache, persistence, ingestionData, datasetName] = await Promise.all([
+      this.cacheService.getActivityCache(),
+      this.cacheService.getActivityPersistence(),
+      this.cacheService.getIngestions().catch(() => null),
+      this.getAssetNameFromCache(ASSET_TYPES.dataset, datasetId),
+    ]);
+
+    // Ingestions cache is sorted newest-first account-wide; filter preserves order.
+    const datasetIngestions = (ingestionData?.ingestions || []).filter(
+      (ingestion: any) => ingestion.datasetId === datasetId
+    );
+    const lastIngestion = datasetIngestions[0];
+
+    const dashboardIds = new Set<string>();
+    const analysisIds = new Set<string>();
+    for (const dep of dependents) {
+      (dep.assetType === 'dashboard' ? dashboardIds : analysisIds).add(dep.assetId);
+    }
+
+    const stats = cache
+      ? this.computeDependentActivityStats(cache, dashboardIds, analysisIds)
+      : new Map<string, DependentActivityStats>();
+
+    const allViewers = new Set<string>();
+    const viewsByDate: { [date: string]: number } = {};
+    let totalViews = 0;
+    let lastViewed: string | null = null;
+
+    const usedBy = dependents.map((dep) => {
+      const depStats = stats.get(`${dep.assetType}:${dep.assetId}`);
+      const persistedDate = this.getPersistedDate(persistence, dep.assetType, dep.assetId);
+      const depLastViewed = maxDate(depStats?.lastViewed || null, persistedDate || null);
+
+      if (depStats) {
+        totalViews += depStats.totalViews;
+        depStats.viewers.forEach((viewer) => allViewers.add(viewer));
+        for (const [date, count] of Array.from(depStats.viewsByDate.entries())) {
+          viewsByDate[date] = (viewsByDate[date] || 0) + count;
+        }
+      }
+      lastViewed = maxDate(lastViewed, depLastViewed);
+
+      return {
+        assetId: dep.assetId,
+        assetName: dep.assetName,
+        assetType: dep.assetType,
+        totalViews: depStats?.totalViews || 0,
+        uniqueViewers: depStats?.viewers.size || 0,
+        lastViewed: depLastViewed,
+        lastUpdated: depStats?.lastUpdated || null,
+      };
+    });
+
+    usedBy.sort((a, b) => b.totalViews - a.totalViews);
+
+    return {
+      datasetId,
+      datasetName,
+      totalViews,
+      uniqueViewers: allViewers.size,
+      lastViewed,
+      viewsByDate,
+      usedBy,
+      refreshSummary: {
+        totalIngestions: datasetIngestions.length,
+        failedIngestions: datasetIngestions.filter((i: any) => i.status === 'FAILED').length,
+        lastIngestionTime: lastIngestion?.createdTime || null,
+        lastIngestionStatus: lastIngestion?.status || null,
+      },
+      ingestions: datasetIngestions.slice(0, ActivityService.RECENT_INGESTIONS_LIMIT),
+    };
+  }
+
+  /**
+   * Aggregate activity counts for datasets (for asset listing APIs).
+   *
+   * A dataset has no view events of its own — its activity is the view
+   * activity of the dashboards/analyses that use it (resolved from lineage by
+   * the caller; lineage stays outside this slice) plus its refresh history
+   * from the ingestions cache. Unique viewers are a true union across
+   * dependents, not a sum.
+   */
+  public async getDatasetActivityCounts(
+    dependentsByDataset: Map<string, { dashboardIds: string[]; analysisIds: string[] }>
+  ): Promise<Map<string, DatasetActivityCounts>> {
+    const results = new Map<string, DatasetActivityCounts>();
+    const [cache, persistence, latestIngestions] = await Promise.all([
+      this.cacheService.getActivityCache(),
+      this.cacheService.getActivityPersistence(),
+      this.getLatestIngestionByDataset(),
+    ]);
+
+    const dashboardIds = new Set<string>();
+    const analysisIds = new Set<string>();
+    for (const deps of Array.from(dependentsByDataset.values())) {
+      deps.dashboardIds.forEach((id) => dashboardIds.add(id));
+      deps.analysisIds.forEach((id) => analysisIds.add(id));
+    }
+
+    const stats = cache
+      ? this.computeDependentActivityStats(cache, dashboardIds, analysisIds)
+      : new Map<string, DependentActivityStats>();
+
+    for (const [datasetId, deps] of Array.from(dependentsByDataset.entries())) {
+      const aggregate = this.aggregateDependentStats(deps, stats, persistence);
+      const lastIngestion = latestIngestions.get(datasetId);
+      results.set(datasetId, {
+        totalViews: aggregate.totalViews,
+        uniqueViewers: aggregate.viewers.size,
+        lastViewed: aggregate.lastViewed,
+        lastRefreshTime: lastIngestion?.createdTime || null,
+        lastRefreshStatus: lastIngestion?.status || null,
+      });
+    }
 
     return results;
   }
@@ -1000,6 +1161,38 @@ export class ActivityService {
   }
 
   /**
+   * Sum views, union viewers, and max last-viewed across one dataset's
+   * dependent dashboards/analyses (with persistence fallback for dates).
+   */
+  private aggregateDependentStats(
+    deps: { dashboardIds: string[]; analysisIds: string[] },
+    stats: Map<string, DependentActivityStats>,
+    persistence: any
+  ): { totalViews: number; viewers: Set<string>; lastViewed: string | null } {
+    const viewers = new Set<string>();
+    let totalViews = 0;
+    let lastViewed: string | null = null;
+
+    const visit = (assetType: 'dashboard' | 'analysis', assetId: string): void => {
+      const assetStats = stats.get(`${assetType}:${assetId}`);
+      if (assetStats) {
+        totalViews += assetStats.totalViews;
+        assetStats.viewers.forEach((viewer) => viewers.add(viewer));
+        lastViewed = maxDate(lastViewed, assetStats.lastViewed);
+      }
+      lastViewed = maxDate(
+        lastViewed,
+        this.getPersistedDate(persistence, assetType, assetId) || null
+      );
+    };
+
+    deps.dashboardIds.forEach((id) => visit('dashboard', id));
+    deps.analysisIds.forEach((id) => visit('analysis', id));
+
+    return { totalViews, viewers, lastViewed };
+  }
+
+  /**
    * Build activity summary response from computed statistics
    */
   private buildActivitySummaryResponse(stats: {
@@ -1233,6 +1426,64 @@ export class ActivityService {
       dashboardViews,
       analysisViews,
     };
+  }
+
+  /**
+   * Single pass over the event cache computing per-dependent view stats
+   * (views, viewer sets, by-date counts) and last mutation dates for the
+   * given dashboard/analysis ids. Keyed `${assetType}:${assetId}`.
+   */
+  private computeDependentActivityStats(
+    cache: ActivityCache,
+    dashboardIds: Set<string>,
+    analysisIds: Set<string>
+  ): Map<string, DependentActivityStats> {
+    const stats = new Map<string, DependentActivityStats>();
+    const getStats = (key: string): DependentActivityStats => {
+      let entry = stats.get(key);
+      if (!entry) {
+        entry = {
+          totalViews: 0,
+          viewers: new Set(),
+          lastViewed: null,
+          lastUpdated: null,
+          viewsByDate: new Map(),
+        };
+        stats.set(key, entry);
+      }
+      return entry;
+    };
+
+    for (const [date, events] of Object.entries(cache.events)) {
+      for (const event of events as MinimalEvent[]) {
+        if (!event.r) {
+          continue;
+        }
+        const isDashboardView =
+          ActivityService.isDashboardEvent(event.e) && dashboardIds.has(event.r);
+        const isAnalysisView = ActivityService.isAnalysisEvent(event.e) && analysisIds.has(event.r);
+
+        if (isDashboardView || isAnalysisView) {
+          const entry = getStats(`${isDashboardView ? 'dashboard' : 'analysis'}:${event.r}`);
+          entry.totalViews++;
+          entry.viewers.add(event.u);
+          entry.lastViewed = maxDate(entry.lastViewed, event.t);
+          entry.viewsByDate.set(date, (entry.viewsByDate.get(date) || 0) + 1);
+          continue;
+        }
+
+        const isDependentMutation =
+          event.k === 'm' &&
+          ((event.at === ASSET_TYPES.dashboard && dashboardIds.has(event.r)) ||
+            (event.at === ASSET_TYPES.analysis && analysisIds.has(event.r)));
+        if (isDependentMutation) {
+          const entry = getStats(`${event.at}:${event.r}`);
+          entry.lastUpdated = maxDate(entry.lastUpdated, event.t);
+        }
+      }
+    }
+
+    return stats;
   }
 
   /**
@@ -1669,7 +1920,7 @@ export class ActivityService {
    * Get asset name from master cache
    */
   private async getAssetNameFromCache(
-    assetType: Extract<AssetType, 'dashboard' | 'analysis'>,
+    assetType: AssetType,
     assetId: string
   ): Promise<string | undefined> {
     try {
@@ -1730,6 +1981,30 @@ export class ActivityService {
       analyses: { totalViews: 0, uniqueViewers: 0, activeAssets: 0 },
       users: { activeUsers: 0, totalActivities: 0 },
     };
+  }
+
+  /**
+   * Latest ingestion per dataset from the ingestions cache. The cache is
+   * stored newest-first, so the first hit per dataset wins.
+   */
+  private async getLatestIngestionByDataset(): Promise<
+    Map<string, { createdTime: string; status: string }>
+  > {
+    const latest = new Map<string, { createdTime: string; status: string }>();
+    try {
+      const data = await this.cacheService.getIngestions();
+      for (const ingestion of data?.ingestions || []) {
+        if (ingestion.datasetId && !latest.has(ingestion.datasetId)) {
+          latest.set(ingestion.datasetId, {
+            createdTime: ingestion.createdTime,
+            status: ingestion.status,
+          });
+        }
+      }
+    } catch (error) {
+      logger.debug('Failed to read ingestions cache for dataset activity', { error });
+    }
+    return latest;
   }
 
   /**

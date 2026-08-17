@@ -62,7 +62,6 @@ export const exportApi = {
   async startExportJob(options: {
     forceRefresh?: boolean;
     rebuildIndex?: boolean;
-    exportIngestions?: boolean;
     exportOrganizational?: boolean;
     assetTypes?: string[];
     refreshOptions?: {

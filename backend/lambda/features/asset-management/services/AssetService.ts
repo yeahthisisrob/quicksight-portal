@@ -238,6 +238,17 @@ export class AssetService {
         uniqueViewers: activityData?.uniqueViewers || 0,
         lastViewed: activityData?.lastViewed || null,
       };
+    } else if (assetType === ASSET_TYPES.dataset) {
+      const activityData = activityMap.get(`dataset:${assetId}`);
+      if (activityData) {
+        mappedAsset.activity = {
+          totalViews: activityData.totalViews || 0,
+          uniqueViewers: activityData.uniqueViewers || 0,
+          lastViewed: activityData.lastViewed || null,
+          lastRefreshTime: activityData.lastRefreshTime || null,
+          lastRefreshStatus: activityData.lastRefreshStatus || null,
+        };
+      }
     } else if (assetType === ASSET_TYPES.user) {
       const activityData = activityMap.get(assetId);
       if (activityData) {
@@ -355,7 +366,10 @@ export class AssetService {
   ): Asset[] {
     return items.filter((item) => {
       const activity = (item as any).activity;
-      const hasActivity = activity && (activity.totalViews > 0 || activity.totalActivities > 0);
+      // Datasets also count as active when they have refresh (ingestion) activity
+      const hasActivity =
+        activity &&
+        (activity.totalViews > 0 || activity.totalActivities > 0 || activity.lastRefreshTime);
       return activityFilter === 'with_activity' ? hasActivity : !hasActivity;
     });
   }
@@ -644,6 +658,7 @@ export class AssetService {
         this.fetchDashboardActivity(dashboardIds, activityMap),
         this.fetchAnalysisActivity(analysisIds, activityMap),
         this.fetchUserActivity(assetType, cachedAssets, activityMap),
+        this.fetchDatasetActivity(assetType, cachedAssets, lineageMap, activityMap),
       ]);
     } catch (error) {
       logger.warn('Failed to fetch activity data:', error);
@@ -879,6 +894,47 @@ export class AssetService {
       );
       dashboardActivity.forEach((value, key) => activityMap.set(key, value));
     }
+  }
+
+  /**
+   * Fetch aggregated dataset activity (dependent dashboard/analysis views +
+   * last refresh) if applicable. Stored under a `dataset:` prefixed key so
+   * dataset aggregates can't collide with dependent asset ids in the same map.
+   */
+  private async fetchDatasetActivity(
+    assetType: string,
+    cachedAssets: CacheEntry[],
+    lineageMap: Map<string, any>,
+    activityMap: Map<string, any>
+  ): Promise<void> {
+    if (assetType !== ASSET_TYPES.dataset || cachedAssets.length === 0) {
+      return;
+    }
+
+    const dependentsByDataset = new Map<
+      string,
+      { dashboardIds: string[]; analysisIds: string[] }
+    >();
+    for (const asset of cachedAssets) {
+      const dashboardIds: string[] = [];
+      const analysisIds: string[] = [];
+      const relationships = lineageMap.get(`dataset:${asset.assetId}`)?.relationships || [];
+      for (const rel of relationships) {
+        if (rel.relationshipType !== 'used_by') {
+          continue;
+        }
+        if (rel.targetAssetType === 'dashboard') {
+          dashboardIds.push(rel.targetAssetId);
+        } else if (rel.targetAssetType === 'analysis') {
+          analysisIds.push(rel.targetAssetId);
+        }
+      }
+      dependentsByDataset.set(asset.assetId, { dashboardIds, analysisIds });
+    }
+
+    const datasetActivity =
+      await this.activityService.getDatasetActivityCounts(dependentsByDataset);
+    datasetActivity.forEach((value, datasetId) => activityMap.set(`dataset:${datasetId}`, value));
   }
 
   /**

@@ -1,7 +1,4 @@
 import {
-  Cancel,
-  CheckCircle,
-  CloudQueue,
   Error as ErrorIcon,
   HourglassEmpty,
   MoreVert as MoreVertIcon,
@@ -11,11 +8,12 @@ import {
 import { Alert, Box, Chip, IconButton, Menu, MenuItem, Tooltip, Typography, alpha } from '@mui/material';
 import { format } from 'date-fns';
 import { useSnackbar } from 'notistack';
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 
 import { EnhancedAssetTable, formatBytes, type  ColumnConfig,type  FetchAssetsOptions } from '@/widgets/asset-table';
 
 import { DatasourceTypeBadge } from '@/entities/field';
+import { formatDuration, INGESTION_ACTIVE_STATUSES, IngestionStatusChip } from '@/entities/ingestion';
 
 import { ingestionsApi } from '@/shared/api';
 import { colors } from '@/shared/design-system/theme';
@@ -27,25 +25,6 @@ import type { components } from '@shared/generated/types';
 type Ingestion = components['schemas']['Ingestion'];
 type IngestionMetadata = components['schemas']['IngestionListResponse']['data']['metadata'];
 
-const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  RUNNING: { label: 'Running', color: colors.status.info, icon: HourglassEmpty },
-  COMPLETED: { label: 'Completed', color: colors.status.success, icon: CheckCircle },
-  FAILED: { label: 'Failed', color: colors.status.error, icon: ErrorIcon },
-  CANCELLED: { label: 'Cancelled', color: colors.neutral[500], icon: Cancel },
-  INITIALIZED: { label: 'Initialized', color: colors.neutral[400], icon: CloudQueue },
-  QUEUED: { label: 'Queued', color: colors.status.warning, icon: CloudQueue },
-};
-
-function formatDuration(seconds: number | undefined): string {
-  if (!seconds) return '-';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  if (h > 0) return `${h}h ${m}m ${s}s`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
-}
-
 function IngestionActionsMenu({ ingestion, onViewDetails, onCancel }: {
   ingestion: Ingestion;
   onViewDetails: (i: Ingestion) => void;
@@ -53,7 +32,7 @@ function IngestionActionsMenu({ ingestion, onViewDetails, onCancel }: {
 }) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
-  const canCancel = ['RUNNING', 'QUEUED', 'INITIALIZED'].includes(ingestion.status);
+  const canCancel = (INGESTION_ACTIVE_STATUSES as readonly string[]).includes(ingestion.status);
 
   return (
     <>
@@ -184,23 +163,7 @@ export default function IngestionsPage() {
       label: 'Status',
       width: 140,
       required: true,
-      renderCell: (params: any) => {
-        const config = statusConfig[params.row.status];
-        if (!config) return params.row.status;
-        const StatusIcon = config.icon;
-        return (
-          <Chip
-            icon={<StatusIcon sx={{ fontSize: 16 }} />}
-            label={config.label}
-            size="small"
-            sx={{
-              backgroundColor: alpha(config.color, 0.1),
-              color: config.color,
-              '& .MuiChip-icon': { color: config.color },
-            }}
-          />
-        );
-      },
+      renderCell: (params: any) => <IngestionStatusChip status={params.row.status} />,
     },
     {
       id: 'createdTime',
@@ -287,7 +250,7 @@ export default function IngestionsPage() {
     <PageLayout title="Ingestions" totalRows={totalRows}>
       {!loading && ingestions.length === 0 && totalRows === 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          No ingestions found. Run an ingestion export from the Export page to populate this data.
+          No ingestions found. Run an activity refresh (Activity page) to populate this data.
         </Alert>
       )}
 
