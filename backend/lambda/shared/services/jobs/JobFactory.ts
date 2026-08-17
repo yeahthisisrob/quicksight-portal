@@ -28,7 +28,6 @@ export interface ExportJobConfig extends BaseJobConfig {
   options: {
     forceRefresh?: boolean;
     rebuildIndex?: boolean;
-    exportIngestions?: boolean;
     assetTypes?: string[];
     refreshOptions?: {
       definitions?: boolean;
@@ -209,9 +208,7 @@ export class JobFactory {
 
   private getInitialJobMessage(config: JobConfig): string {
     if (config.jobType === 'export') {
-      if (config.options.exportIngestions) {
-        return 'Ingestion export job queued';
-      } else if (config.options.rebuildIndex) {
+      if (config.options.rebuildIndex) {
         return 'Cache rebuild job queued';
       }
       return 'Export job queued';

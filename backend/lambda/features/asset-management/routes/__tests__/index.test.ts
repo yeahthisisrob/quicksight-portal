@@ -10,8 +10,6 @@ vi.mock('../../handlers/AssetHandler', () => ({
     rebuildIndex: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
     clearMemoryCache: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
     getExportedAsset: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
-    getViews: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
-    refreshViewStats: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
     bulkDelete: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
     validateBulkDelete: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
   })),
@@ -81,13 +79,13 @@ describe('assetManagementRoutes', () => {
       expect(route).toBeDefined();
     });
 
-    it('should have refresh views route', () => {
-      const refreshViewsRoute = assetManagementRoutes.find(
-        (r) => r.method === 'POST' && r.path === '/assets/refresh-views'
+    it('should not have legacy views routes (superseded by /activity endpoints)', () => {
+      const legacyViewsRoute = assetManagementRoutes.find(
+        (r) =>
+          r.path === '/assets/refresh-views' ||
+          (r.path instanceof RegExp && r.path.source.includes('views'))
       );
-      expect(refreshViewsRoute).toBeDefined();
-      expect(refreshViewsRoute?.method).toBe('POST');
-      expect(refreshViewsRoute?.path).toBe('/assets/refresh-views');
+      expect(legacyViewsRoute).toBeUndefined();
     });
 
     it('should have all expected routes', () => {
@@ -97,8 +95,6 @@ describe('assetManagementRoutes', () => {
         { method: 'GET', testPath: '/assets/archive/dashboards/test-id/metadata' },
         { method: 'POST', path: '/assets/rebuild-index' },
         { method: 'GET', testPath: '/assets/dashboard/test-id/cached' },
-        { method: 'GET', testPath: '/assets/dashboard/test-id/views' },
-        { method: 'POST', path: '/assets/refresh-views' },
         { method: 'POST', path: '/assets/bulk-delete' },
         { method: 'POST', path: '/assets/bulk-delete/validate' },
         { method: 'GET', path: '/ingestions' },
@@ -184,38 +180,6 @@ describe('assetManagementRoutes - pattern matching', () => {
       validPaths.forEach((testPath) => {
         const matches = cachedRoute?.path instanceof RegExp && cachedRoute.path.test(testPath);
         expect(matches).toBe(true);
-      });
-    });
-
-    it('should match views routes only for visual assets', () => {
-      const viewsRoute = assetManagementRoutes.find(
-        (r) => r.method === 'GET' && r.path instanceof RegExp && r.path.source.includes('views')
-      );
-
-      expect(viewsRoute).toBeDefined();
-
-      // Should match visual assets
-      const validPaths = [
-        '/assets/dashboard/test-id/views',
-        '/assets/analysis/my-analysis/views',
-        '/assets/dataset/data-123/views',
-      ];
-
-      validPaths.forEach((testPath) => {
-        const matches = viewsRoute?.path instanceof RegExp && viewsRoute.path.test(testPath);
-        expect(matches).toBe(true);
-      });
-
-      // Should NOT match non-visual assets
-      const invalidPaths = [
-        '/assets/user/user-456/views',
-        '/assets/group/group-789/views',
-        '/assets/folder/folder-123/views',
-      ];
-
-      invalidPaths.forEach((testPath) => {
-        const matches = viewsRoute?.path instanceof RegExp && viewsRoute.path.test(testPath);
-        expect(matches).toBe(false);
       });
     });
   });

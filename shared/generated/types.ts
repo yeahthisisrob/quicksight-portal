@@ -1308,7 +1308,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    assetType: "dashboard" | "analysis" | "user";
+                    assetType: "dashboard" | "analysis" | "dataset" | "user";
                     assetId: string;
                 };
                 cookie?: never;
@@ -1321,7 +1321,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ActivityData"];
+                        "application/json": components["schemas"]["ActivityData"] | components["schemas"]["UserActivity"] | components["schemas"]["DatasetActivityData"];
                     };
                 };
                 401: components["responses"]["Unauthorized"];
@@ -2551,6 +2551,17 @@ export interface components {
             refreshSchedules?: components["schemas"]["RefreshSchedule"][];
             /** @description Refresh configuration properties for the dataset */
             dataSetRefreshProperties?: Record<string, never>;
+            /** @description Aggregated activity for the dataset — views across the dashboards/analyses that use it, plus last refresh (ingestion).
+             *      */
+            activity?: {
+                totalViews?: number;
+                uniqueViewers?: number;
+                /** Format: date-time */
+                lastViewed?: string | null;
+                /** Format: date-time */
+                lastRefreshTime?: string | null;
+                lastRefreshStatus?: string | null;
+            };
         };
         RefreshSchedule: {
             /** @description Unique identifier for the refresh schedule */
@@ -2820,6 +2831,59 @@ export interface components {
                 groups?: string[];
             }[];
         };
+        /** @description Activity for a dataset — refresh (ingestion) history plus aggregated view/update activity of the dashboards and analyses that use it.
+         *      */
+        DatasetActivityData: {
+            /** @description Dataset identifier */
+            datasetId: string;
+            /** @description Dataset name from cache */
+            datasetName?: string;
+            /** @description Total views across all dashboards/analyses that use this dataset */
+            totalViews: number;
+            /** @description Unique viewers across all dependent assets (true union, not a sum) */
+            uniqueViewers: number;
+            /**
+             * Format: date-time
+             * @description Most recent view of any dependent asset
+             */
+            lastViewed?: string | null;
+            /** @description Aggregated dependent-asset view counts by date (YYYY-MM-DD) */
+            viewsByDate: {
+                [key: string]: number;
+            };
+            /** @description Per-dependent activity for dashboards/analyses that use this dataset */
+            usedBy: components["schemas"]["DatasetDependentActivity"][];
+            /** @description Summary of the dataset's ingestion (refresh) activity */
+            refreshSummary: {
+                totalIngestions: number;
+                failedIngestions: number;
+                /** Format: date-time */
+                lastIngestionTime?: string | null;
+                lastIngestionStatus?: string | null;
+            };
+            /** @description Recent ingestion runs for this dataset, newest first */
+            ingestions: components["schemas"]["Ingestion"][];
+        };
+        DatasetDependentActivity: {
+            /** @description Dependent asset identifier */
+            assetId: string;
+            /** @description Dependent asset name */
+            assetName?: string;
+            /** @enum {string} */
+            assetType: "dashboard" | "analysis";
+            totalViews: number;
+            uniqueViewers: number;
+            /**
+             * Format: date-time
+             * @description Most recent view of this dependent asset
+             */
+            lastViewed?: string | null;
+            /**
+             * Format: date-time
+             * @description Most recent mutation (update/publish) of this dependent asset
+             */
+            lastUpdated?: string | null;
+        };
         TimelineEvent: {
             /** @description Stable identifier hash for the event (timestamp + name + resource + user). */
             id: string;
@@ -3045,11 +3109,6 @@ export interface components {
              * @default false
              */
             rebuildIndex: boolean;
-            /**
-             * @description Export ingestion data for SPICE datasets
-             * @default false
-             */
-            exportIngestions: boolean;
             /** @description Specific asset types to export (all if not specified) */
             assetTypes?: components["schemas"]["AssetType"][];
             /**

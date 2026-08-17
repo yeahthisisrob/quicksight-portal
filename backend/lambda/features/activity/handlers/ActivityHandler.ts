@@ -21,6 +21,7 @@ import { ActivityService } from '../services/ActivityService';
 import {
   type ActionCategory,
   type ActivityRefreshRequest,
+  type DatasetDependentRef,
   type TimelineQuery,
   type TimelineResourceType,
 } from '../types';
@@ -309,6 +310,28 @@ export async function getAssetTimeline(
 /* ────────────────────────────────────────────────────────────────────────── */
 
 /**
+ * Resolve the dashboards/analyses that use a dataset via lineage.
+ * Activity itself stays lineage-agnostic — the service only gets refs.
+ */
+async function getDatasetDependents(datasetId: string): Promise<DatasetDependentRef[]> {
+  const lineageService = new LineageService();
+  const lineageMap = await lineageService.getLineageMapForAssets('dataset', [datasetId]);
+  const lineage = lineageMap.get(`dataset:${datasetId}`);
+
+  return (lineage?.relationships || [])
+    .filter(
+      (rel) =>
+        rel.relationshipType === 'used_by' &&
+        (rel.targetAssetType === 'dashboard' || rel.targetAssetType === 'analysis')
+    )
+    .map((rel) => ({
+      assetId: rel.targetAssetId,
+      assetName: rel.targetAssetName,
+      assetType: rel.targetAssetType as 'dashboard' | 'analysis',
+    }));
+}
+
+/**
  * Get activity data for a specific asset
  * GET /api/activity/{assetType}/{assetId}
  */
@@ -318,7 +341,11 @@ export async function getActivityData(event: APIGatewayProxyEvent): Promise<APIG
     const authUser = requireAuth(event);
 
     // Extract path parameters
-    const assetType = event.pathParameters?.assetType as 'dashboard' | 'analysis' | 'user';
+    const assetType = event.pathParameters?.assetType as
+      | 'dashboard'
+      | 'analysis'
+      | 'dataset'
+      | 'user';
     const assetId = event.pathParameters?.assetId;
 
     if (!assetType || !assetId) {
@@ -329,21 +356,25 @@ export async function getActivityData(event: APIGatewayProxyEvent): Promise<APIG
       );
     }
 
-    if (!['dashboard', 'analysis', 'user'].includes(assetType)) {
+    if (!['dashboard', 'analysis', 'dataset', 'user'].includes(assetType)) {
       return errorResponse(
         event,
         STATUS_CODES.BAD_REQUEST,
-        'Invalid assetType. Must be dashboard, analysis, or user'
+        'Invalid assetType. Must be dashboard, analysis, dataset, or user'
       );
     }
 
     logger.info('Getting activity data', { assetType, assetId, user: authUser });
 
     const service = getActivityService();
-    const data =
-      assetType === 'user'
-        ? await service.getUserActivity(assetId)
-        : await service.getAssetActivity(assetType as 'dashboard' | 'analysis', assetId);
+    let data;
+    if (assetType === 'user') {
+      data = await service.getUserActivity(assetId);
+    } else if (assetType === 'dataset') {
+      data = await service.getDatasetActivity(assetId, await getDatasetDependents(assetId));
+    } else {
+      data = await service.getAssetActivity(assetType, assetId);
+    }
 
     if (!data) {
       return errorResponse(event, STATUS_CODES.NOT_FOUND, 'Activity data not found');

@@ -36,18 +36,6 @@ export interface ActivitySummaryResponse {
   };
 }
 
-export interface ActivityCacheEntry {
-  assetId: string;
-  assetType: 'dashboard' | 'analysis' | 'user';
-  data: ActivityData | UserActivity;
-  lastRefreshed: string;
-  refreshedDays: number;
-  // Preserved fields - these persist across refreshes
-  preserved: {
-    lastActivityDate?: string; // Last time this asset had any activity (persists forever)
-  };
-}
-
 /**
  * Coarse action category for a mutation event — derived from event name by classifyAction().
  * Stored on the MinimalEvent so filters don't have to re-parse the event name on every read.
@@ -173,6 +161,46 @@ export interface AssetActivityData {
     lastViewed: string;
     groups: string[];
   }>;
+}
+
+/**
+ * A dashboard/analysis that uses a dataset — resolved from lineage by the
+ * caller (lineage stays outside the activity slice; only ids/names come in).
+ */
+export interface DatasetDependentRef {
+  assetId: string;
+  assetName?: string;
+  assetType: 'dashboard' | 'analysis';
+}
+
+/** Per-dependent activity block inside DatasetActivityData. */
+export interface DatasetDependentActivity extends DatasetDependentRef {
+  totalViews: number;
+  uniqueViewers: number;
+  lastViewed: string | null;
+  lastUpdated: string | null;
+}
+
+/**
+ * Activity for a dataset: refresh (ingestion) history from the ingestions
+ * cache plus aggregated view/update activity of the dashboards and analyses
+ * that use it. Computed on read, same as asset/user activity.
+ */
+export interface DatasetActivityData {
+  datasetId: string;
+  datasetName?: string;
+  totalViews: number;
+  uniqueViewers: number;
+  lastViewed: string | null;
+  viewsByDate: { [date: string]: number };
+  usedBy: DatasetDependentActivity[];
+  refreshSummary: {
+    totalIngestions: number;
+    failedIngestions: number;
+    lastIngestionTime: string | null;
+    lastIngestionStatus: string | null;
+  };
+  ingestions: any[];
 }
 
 export interface UserActivityData {

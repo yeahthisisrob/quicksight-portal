@@ -37,7 +37,6 @@ interface ExportMessage {
   options: {
     forceRefresh?: boolean;
     rebuildIndex?: boolean;
-    exportIngestions?: boolean;
     assetTypes?: string[];
     refreshOptions?: {
       definitions?: boolean;
@@ -788,11 +787,10 @@ async function executeExportJob(
   const exportOptions: any = {
     forceRefresh: options.forceRefresh,
     rebuildIndex: options.rebuildIndex,
-    exportIngestions: options.exportIngestions,
     refreshOptions: options.refreshOptions,
   };
 
-  // Only include assetTypes if provided (not for ingestion-only or cache-only exports)
+  // Only include assetTypes if provided (not for cache-only exports)
   if (options.assetTypes) {
     exportOptions.assetTypes = options.assetTypes as AssetType[];
   }

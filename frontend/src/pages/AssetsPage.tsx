@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams, Navigate } from 'react-router-dom';
 
-import { ActivityStatsDialog, UserActivityDialog } from '@/widgets/activity-stats';
+import { ActivityStatsDialog, DatasetActivityDialog, UserActivityDialog } from '@/widgets/activity-stats';
 
 import { CreateGroupDialog } from '@/features/organization';
 
@@ -115,7 +115,7 @@ export default function AssetsPage() {
         fetchAssets={fetch}
         refreshAssetType={refreshAssetType}
         updateAssetTags={updateAssetTags}
-        onActivityClick={(config.assetType === 'dashboard' || config.assetType === 'analysis' || config.assetType === 'user') ?
+        onActivityClick={['dashboard', 'analysis', 'dataset', 'user'].includes(config.assetType) ?
           (asset) => setActivityDialog({
             open: true,
             asset
@@ -126,7 +126,7 @@ export default function AssetsPage() {
         availableTags={availableTags}
         isLoadingTags={tagsLoading}
         enableErrorFiltering={['dashboard', 'analysis', 'dataset', 'datasource'].includes(config.assetType)}
-        enableActivityFiltering={['dashboard', 'analysis', 'user'].includes(config.assetType)}
+        enableActivityFiltering={['dashboard', 'analysis', 'dataset', 'user'].includes(config.assetType)}
         enableRoleFiltering={config.assetType === 'user'}
         availableRoles={config.assetType === 'user' ? availableRoles : undefined}
         enablePermissionsFiltering={config.assetType === 'user'}
@@ -151,6 +151,16 @@ export default function AssetsPage() {
         />
       )}
       
+      {/* Dataset activity dialog (refresh history + usage by dashboards/analyses) */}
+      {config.assetType === 'dataset' && activityDialog.asset && (
+        <DatasetActivityDialog
+          open={activityDialog.open}
+          onClose={() => setActivityDialog({ open: false })}
+          datasetName={activityDialog.asset.name}
+          datasetId={activityDialog.asset.id}
+        />
+      )}
+
       {/* User activity dialog */}
       {config.assetType === 'user' && activityDialog.asset && (
         <UserActivityDialog

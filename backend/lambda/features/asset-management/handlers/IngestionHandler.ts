@@ -4,6 +4,7 @@ import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { cacheService } from '../../../shared/services/cache/CacheService';
+import { IngestionRefreshService } from '../../../shared/services/ingestions/IngestionRefreshService';
 import { successResponse, errorResponse } from '../../../shared/utils/cors';
 import { countByField, resolveSourceTypeFromArns } from '../../../shared/utils/filterUtils';
 import { logger } from '../../../shared/utils/logger';
@@ -12,16 +13,15 @@ import {
   processPaginatedData,
   type DateRange,
 } from '../../../shared/utils/paginationUtils';
-import { IngestionProcessor } from '../../data-export/processors/IngestionProcessor';
 
 export class IngestionHandler {
-  private readonly ingestionProcessor: IngestionProcessor;
+  private readonly ingestionService: IngestionRefreshService;
   private readonly quickSightService: QuickSightService;
 
   constructor() {
     const accountId = process.env.AWS_ACCOUNT_ID || '';
     this.quickSightService = new QuickSightService(accountId);
-    this.ingestionProcessor = new IngestionProcessor(this.quickSightService, cacheService);
+    this.ingestionService = new IngestionRefreshService(this.quickSightService, cacheService);
   }
 
   /**
@@ -95,7 +95,7 @@ export class IngestionHandler {
       }
 
       // Get ingestion details from QuickSight
-      const ingestion = await this.ingestionProcessor.getIngestionDetails(datasetId, ingestionId);
+      const ingestion = await this.ingestionService.getIngestionDetails(datasetId, ingestionId);
 
       if (!ingestion) {
         return errorResponse(event, STATUS_CODES.NOT_FOUND, 'Ingestion not found');

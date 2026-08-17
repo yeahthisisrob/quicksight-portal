@@ -25,7 +25,6 @@ export class ExportHandler {
       const {
         forceRefresh = false,
         rebuildIndex = false,
-        exportIngestions = false,
         assetTypes,
         exportOrganizational = false,
         refreshOptions,
@@ -44,7 +43,6 @@ export class ExportHandler {
         options: {
           forceRefresh,
           rebuildIndex,
-          exportIngestions,
           assetTypes: finalAssetTypes,
           refreshOptions,
         },

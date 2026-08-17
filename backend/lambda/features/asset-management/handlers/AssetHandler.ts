@@ -1,15 +1,13 @@
 import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../../../shared/auth';
-import { STATUS_CODES, ACTIVITY_LIMITS, PAGINATION } from '../../../shared/constants';
+import { STATUS_CODES, PAGINATION } from '../../../shared/constants';
 import { S3Service } from '../../../shared/services/aws/S3Service';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
-import { CacheService } from '../../../shared/services/cache/CacheService';
 import { jobFactory } from '../../../shared/services/jobs/JobFactory';
 import { ASSET_TYPES, ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
 import { successResponse, errorResponse, createResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
-import { GroupService } from '../../organization/services/GroupService';
 import { PermissionsService } from '../../organization/services/PermissionsService';
 import { AssetService } from '../services/AssetService';
 import { type AssetListRequest } from '../types';
@@ -324,76 +322,6 @@ export class AssetHandler {
     }
   }
 
-  public async getViews(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-    try {
-      await requireAuth(event); // Validate authentication
-      const { type: assetType, id: assetId } = event.pathParameters || {};
-
-      if (!assetType || !assetId) {
-        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Asset type and ID are required');
-      }
-
-      // Only support dashboards and analyses now
-      if (
-        assetType !== ASSET_TYPES.dashboard &&
-        assetType !== ASSET_TYPES.analysis &&
-        assetType !== ASSET_TYPES_PLURAL.dashboard &&
-        assetType !== ASSET_TYPES_PLURAL.analysis
-      ) {
-        return errorResponse(
-          event,
-          STATUS_CODES.BAD_REQUEST,
-          'Views tracking only available for dashboards and analyses'
-        );
-      }
-
-      // Use the new activity service
-      const { ActivityService } = await import('../../activity/services/ActivityService');
-      const { CloudTrailAdapter } = await import('../../../adapters/aws/CloudTrailAdapter');
-      const { CloudTrailClient } = await import('@aws-sdk/client-cloudtrail');
-
-      const region = process.env.AWS_REGION || 'us-east-1';
-
-      const cacheService = CacheService.getInstance();
-      const cloudTrailClient = new CloudTrailClient({ region });
-      const cloudTrailAdapter = new CloudTrailAdapter(cloudTrailClient, region);
-      const groupService = new GroupService();
-
-      const activityService = new ActivityService(cacheService, cloudTrailAdapter, groupService);
-
-      // Map asset type to activity type
-      const activityType =
-        assetType === ASSET_TYPES.dashboard || assetType === ASSET_TYPES_PLURAL.dashboard
-          ? 'dashboard'
-          : 'analysis';
-
-      const activityData = await activityService.getAssetActivity(
-        activityType as 'dashboard' | 'analysis',
-        assetId
-      );
-
-      if (!activityData) {
-        return successResponse(event, {
-          assetId,
-          assetType: activityType,
-          totalViews: 0,
-          uniqueViewers: 0,
-          viewsByDate: {},
-          topViewers: [],
-        });
-      }
-
-      return successResponse(event, activityData);
-    } catch (error: any) {
-      logger.error('Get asset views failed', { error });
-      return errorResponse(
-        event,
-        STATUS_CODES.INTERNAL_SERVER_ERROR,
-        error.message || 'Internal server error'
-      );
-    }
-  }
-
   public async list(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       await requireAuth(event);
@@ -514,68 +442,6 @@ export class AssetHandler {
     } catch (error) {
       logger.error('Failed to rebuild index', { error });
       return errorResponse(event, STATUS_CODES.INTERNAL_SERVER_ERROR, 'Failed to rebuild index');
-    }
-  }
-
-  public async refreshViewStats(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-    try {
-      const user = await requireAuth(event);
-      const body = JSON.parse(event.body || '{}');
-
-      const days = body.days || ACTIVITY_LIMITS.MAX_ACTIVITY_DAYS;
-      const assetTypes = body.assetTypes || [ASSET_TYPES.dashboard, ASSET_TYPES.analysis];
-      const dashboardIds = body.dashboardIds;
-      const analysisIds = body.analysisIds;
-
-      logger.info('Refreshing view statistics', {
-        user: user.email,
-        days,
-        assetTypes,
-        dashboardIds: dashboardIds?.length,
-        analysisIds: analysisIds?.length,
-      });
-
-      // Use the new activity service
-      const { ActivityService } = await import('../../activity/services/ActivityService');
-      const { CloudTrailAdapter } = await import('../../../adapters/aws/CloudTrailAdapter');
-      const { CloudTrailClient } = await import('@aws-sdk/client-cloudtrail');
-
-      const region = process.env.AWS_REGION || 'us-east-1';
-
-      const cacheService = CacheService.getInstance();
-      const cloudTrailClient = new CloudTrailClient({ region });
-      const cloudTrailAdapter = new CloudTrailAdapter(cloudTrailClient, region);
-      const groupService = new GroupService();
-
-      const activityService = new ActivityService(cacheService, cloudTrailAdapter, groupService);
-
-      // Convert asset types to activity asset types
-      const activityAssetTypes: ('dashboard' | 'analysis' | 'user' | 'all')[] = [];
-      if (assetTypes.includes(ASSET_TYPES.dashboard)) {
-        activityAssetTypes.push('dashboard');
-      }
-      if (assetTypes.includes(ASSET_TYPES.analysis)) {
-        activityAssetTypes.push('analysis');
-      }
-
-      // Refresh activity data
-      const result = await activityService.refreshActivity({
-        assetTypes: activityAssetTypes,
-        days,
-      });
-
-      logger.info('View statistics refresh completed', {
-        result,
-      });
-
-      return successResponse(event, result);
-    } catch (error: any) {
-      logger.error('Failed to refresh view statistics', { error });
-      return errorResponse(
-        event,
-        STATUS_CODES.INTERNAL_SERVER_ERROR,
-        error.message || 'Failed to refresh view statistics'
-      );
     }
   }
 

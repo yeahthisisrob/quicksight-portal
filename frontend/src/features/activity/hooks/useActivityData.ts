@@ -1,8 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { activityApi } from '@/shared/api/modules/activity';
+import { activityApi, type DatasetActivityData } from '@/shared/api/modules/activity';
 
 import { ActivityData, UserActivity } from '../model/types';
+
+const ACTIVITY_QUERY_OPTIONS = {
+  staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
+  gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
+} as const;
 
 export function useActivityData(
   assetType: 'dashboard' | 'analysis' | 'user',
@@ -13,19 +18,19 @@ export function useActivityData(
     queryKey: ['activity', assetType, assetId],
     queryFn: () => activityApi.getActivityData(assetType, assetId),
     enabled: enabled && !!assetId,
-    staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
-    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
+    ...ACTIVITY_QUERY_OPTIONS,
   });
 }
 
-export function useDashboardActivity(dashboardId: string, enabled: boolean = true) {
-  return useActivityData('dashboard', dashboardId, enabled) as ReturnType<typeof useQuery<ActivityData>>;
-}
-
-export function useAnalysisActivity(analysisId: string, enabled: boolean = true) {
-  return useActivityData('analysis', analysisId, enabled) as ReturnType<typeof useQuery<ActivityData>>;
-}
-
-export function useUserActivity(userName: string, enabled: boolean = true) {
-  return useActivityData('user', userName, enabled) as ReturnType<typeof useQuery<UserActivity>>;
+/**
+ * Activity for a dataset: refresh (ingestion) history plus aggregated
+ * view/update activity of the dashboards and analyses that use it.
+ */
+export function useDatasetActivity(datasetId: string, enabled: boolean = true) {
+  return useQuery<DatasetActivityData>({
+    queryKey: ['activity', 'dataset', datasetId],
+    queryFn: () => activityApi.getDatasetActivity(datasetId),
+    enabled: enabled && !!datasetId,
+    ...ACTIVITY_QUERY_OPTIONS,
+  });
 }

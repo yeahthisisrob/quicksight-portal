@@ -1,6 +1,6 @@
 // Hooks
 export { useActivityRefresh } from './hooks/useActivityRefresh';
-export { useActivityData, useDashboardActivity, useAnalysisActivity, useUserActivity } from './hooks/useActivityData';
+export { useActivityData, useDatasetActivity } from './hooks/useActivityData';
 export { useActivityTimeline } from './hooks/useActivityTimeline';
 export type {
   TimelineAssetType,

@@ -55,18 +55,6 @@ export const assetManagementRoutes: RouteHandler[] = [
   },
 
   {
-    method: 'GET',
-    path: /^\/assets\/(dashboard|analysis|dataset)\/([^/]+)\/views$/,
-    handler: (event) => handler.getViews(event),
-  },
-
-  {
-    method: 'POST',
-    path: '/assets/refresh-views',
-    handler: (event) => handler.refreshViewStats(event),
-  },
-
-  {
     method: 'POST',
     path: '/assets/bulk-delete',
     handler: (event) => handler.bulkDelete(event),
