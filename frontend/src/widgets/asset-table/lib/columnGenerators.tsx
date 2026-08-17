@@ -4,7 +4,7 @@
 import { ErrorOutline as ErrorOutlineIcon } from '@mui/icons-material';
 import { alpha, Box, Chip, Tooltip, Typography } from '@mui/material';
 
-import { DatasourceTypeBadge } from '@/entities/field';
+import { formatDatasourceType } from '@/entities/field';
 
 import { colors } from '@/shared/design-system/theme';
 import { TypedChip } from '@/shared/ui';
@@ -62,8 +62,9 @@ export function generateDatasetColumns(handlers: Handlers): ColumnConfig[] {
       width: 140,
       visible: true,
       renderCell: (params: { row: AssetRow; value: any }) => {
-        const sourceType = isDataset(params.row) ? params.row.sourceType : 'UNKNOWN';
-        return <DatasourceTypeBadge datasourceType={sourceType || 'UNKNOWN'} />;
+        const sourceType = isDataset(params.row) ? params.row.sourceType : undefined;
+        if (!sourceType) return null;
+        return <Typography variant="body2">{formatDatasourceType(sourceType)}</Typography>;
       },
       valueGetter: (params) => isDataset(params.row) ? (params.row.sourceType || 'UNKNOWN') : 'UNKNOWN',
     },
@@ -75,9 +76,13 @@ export function generateDatasetColumns(handlers: Handlers): ColumnConfig[] {
       renderCell: (params: { row: AssetRow; value: any }) => {
         const importMode = isDataset(params.row) ? params.row.importMode : undefined;
         if (!importMode) {
-          return <Typography variant="body2" color="text.secondary">-</Typography>;
+          return null;
         }
-        return <DatasourceTypeBadge importMode={importMode as 'SPICE' | 'DIRECT_QUERY'} />;
+        return (
+          <Typography variant="body2">
+            {importMode === 'SPICE' ? 'SPICE' : 'Direct Query'}
+          </Typography>
+        );
       },
       valueGetter: (params) => isDataset(params.row) ? (params.row.importMode || '') : '',
     },
@@ -96,18 +101,18 @@ export function generateDatasetColumns(handlers: Handlers): ColumnConfig[] {
       visible: true,
       renderCell: (params: { row: AssetRow; value: any }) => {
         if (!isDataset(params.row)) {
-          return <Typography variant="body2" color="text.secondary">-</Typography>;
+          return null;
         }
         
         const capacity = params.row.sizeInBytes;
         const importMode = params.row.importMode;
         
         if (importMode !== 'SPICE' || !capacity) {
-          return <Typography variant="body2" color="text.secondary">-</Typography>;
+          return null;
         }
         
         return (
-          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+          <Typography variant="body2">
             {formatBytes(capacity)}
           </Typography>
         );
@@ -121,13 +126,13 @@ export function generateDatasetColumns(handlers: Handlers): ColumnConfig[] {
       visible: true,
       renderCell: (params: { row: AssetRow; value: any }) => {
         if (!isDataset(params.row)) {
-          return <Typography variant="body2" color="text.secondary">-</Typography>;
+          return null;
         }
 
         const refreshProps = params.row.dataSetRefreshProperties || (params.row as any)['DataSetRefreshProperties'];
         
         if (!refreshProps) {
-          return <Typography variant="body2" color="text.secondary">-</Typography>;
+          return null;
         }
 
         // Check for email alerts in failure configuration
@@ -136,15 +141,9 @@ export function generateDatasetColumns(handlers: Handlers): ColumnConfig[] {
         const alertStatus = emailAlert?.alertStatus || emailAlert?.['AlertStatus'];
         
         const hasAlerts = alertStatus === 'ENABLED';
-        
-        return (
-          <Chip 
-            label={hasAlerts ? 'Yes' : 'No'} 
-            size="small" 
-            color={hasAlerts ? 'success' : 'default'}
-            variant={hasAlerts ? 'filled' : 'outlined'}
-          />
-        );
+        if (!hasAlerts) return null;
+
+        return <Typography variant="body2">Yes</Typography>;
       },
       valueGetter: (params) => {
         if (!isDataset(params.row)) return '';
@@ -193,7 +192,7 @@ function renderDatasetActivityCell(
   const hasRefresh = Boolean(activity?.lastRefreshTime);
 
   if (!activity || (!hasViews && !hasRefresh)) {
-    return <Typography variant="body2" color="text.secondary">-</Typography>;
+    return null;
   }
 
   return (
@@ -226,7 +225,7 @@ function renderDatasetActivityCell(
 function renderSchemasCell(params: { row: AssetRow; value: any }) {
   const schemas: string[] = (params.row as any).schemas || [];
   if (schemas.length === 0) {
-    return <Typography variant="body2" color="text.secondary">-</Typography>;
+    return null;
   }
 
   return (
@@ -235,7 +234,6 @@ function renderSchemasCell(params: { row: AssetRow; value: any }) {
         <Typography
           variant="body2"
           sx={{
-            fontFamily: 'monospace',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -244,7 +242,7 @@ function renderSchemasCell(params: { row: AssetRow; value: any }) {
           {schemas[0]}
         </Typography>
         {schemas.length > 1 && (
-          <Chip label={`+${schemas.length - 1}`} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
+          <Chip label={`+${schemas.length - 1}`} size="small" />
         )}
       </Box>
     </Tooltip>
@@ -256,7 +254,7 @@ function renderSchemasCell(params: { row: AssetRow; value: any }) {
  */
 function renderRefreshScheduleCell(params: { row: AssetRow; value: any }, onRefreshScheduleClick?: (dataset: any) => void) {
   if (!isDataset(params.row)) {
-    return <Typography variant="body2" color="text.secondary">-</Typography>;
+    return null;
   }
 
   const { refreshSchedules } = params.row;
@@ -348,9 +346,9 @@ function renderRefreshScheduleCell(params: { row: AssetRow; value: any }, onRefr
             size="small" 
             variant="outlined" 
             color="primary"
-            sx={{ minWidth: 45, fontSize: '0.7rem' }}
+            sx={{ minWidth: 45 }}
           />
-          <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
+          <Typography variant="caption">
             {formatScheduleTime(fullRefreshSchedule)}
           </Typography>
         </Box>
@@ -362,20 +360,20 @@ function renderRefreshScheduleCell(params: { row: AssetRow; value: any }, onRefr
             size="small" 
             variant="outlined" 
             color="secondary"
-            sx={{ minWidth: 45, fontSize: '0.7rem' }}
+            sx={{ minWidth: 45 }}
           />
-          <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
+          <Typography variant="caption">
             {formatScheduleTime(incrementalSchedule)}
           </Typography>
         </Box>
       )}
       {validSchedules.length > 2 && (
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+        <Typography variant="caption" color="text.secondary">
           +{validSchedules.length - 2} more
         </Typography>
       )}
       {validSchedules.length > 1 && !(validSchedules.length > 2 && fullRefreshSchedule && incrementalSchedule) && (
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+        <Typography variant="caption" color="text.secondary">
           +{validSchedules.length - 1} more
         </Typography>
       )}
@@ -498,12 +496,12 @@ export function generateUserColumns(handlers: Handlers): ColumnConfig[] {
       dateFilterField: 'lastActivity',
       renderCell: (params: { row: AssetRow; value: any }) => {
         if (!isUser(params.row)) {
-          return <Typography variant="body2" color="text.secondary">-</Typography>;
+          return null;
         }
         const activity = params.row.activity;
 
         if (!activity || activity.totalActivities === 0) {
-          return <Typography variant="body2" color="text.secondary">-</Typography>;
+          return null;
         }
 
         return (
@@ -537,7 +535,7 @@ export function generateUserColumns(handlers: Handlers): ColumnConfig[] {
       sortable: true,
       renderCell: (params: { row: AssetRow; value: any }) => {
         const count = isUser(params.row) ? (params.row as any).assetAccessCount || 0 : 0;
-        if (count === 0) return <Typography variant="body2" color="text.secondary">-</Typography>;
+        if (count === 0) return null;
         return (
           <Chip
             label={count.toString()}
@@ -695,12 +693,7 @@ export function generateDatasourceColumns(): ColumnConfig[] {
       renderCell: (params: { row: AssetRow; value: any }) => {
         const type = isDatasource(params.row) ? (params.row.sourceType || 'UNKNOWN') : 'UNKNOWN';
         
-        return (
-          <DatasourceTypeBadge
-            datasourceType={type}
-            importMode={undefined}
-          />
-        );
+        return <Typography variant="body2">{formatDatasourceType(type)}</Typography>;
       },
       valueGetter: (params) => isDatasource(params.row) ? (params.row.sourceType || 'UNKNOWN') : 'UNKNOWN',
     }
@@ -773,11 +766,11 @@ export function generateDashboardAnalysisColumns(handlers: Handlers): ColumnConf
       dateFilterField: 'lastActivity',
       renderCell: (params: { row: AssetRow; value: any }) => {
         if (!isDashboard(params.row) && !isAnalysis(params.row)) {
-          return <Typography variant="body2" color="text.secondary">-</Typography>;
+          return null;
         }
         const activity = params.row.activity;
         if (!activity || activity.totalViews === 0) {
-          return <Typography variant="body2" color="text.secondary">-</Typography>;
+          return null;
         }
         
         return (

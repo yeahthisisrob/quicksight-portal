@@ -1,6 +1,6 @@
 import { alpha } from '@mui/material';
 
-import { colors, components, spacing } from '@/shared/design-system/theme';
+import { colors, components } from '@/shared/design-system/theme';
 
 export const ACTIONS_WIDTH = 50; // Width for the actions column
 
@@ -12,9 +12,10 @@ export const tableStyles = {
     '& .MuiDataGrid-main': {
       borderRadius: 0,
     },
+    // No padding overrides on cells — density (comfortable/standard/compact)
+    // owns row height and cell padding.
     '& .MuiDataGrid-cell': {
       borderBottom: `1px solid ${colors.neutral[100]}`,
-      py: spacing.md / 8,
     },
     '& .MuiDataGrid-columnHeaders': {
       backgroundColor: colors.neutral[50],
@@ -85,10 +86,6 @@ export const tableStyles = {
       '& .MuiDataGrid-columnHeaderTitleContainer': {
         justifyContent: 'center',
       },
-    },
-    // Enable flex for column headers to make order property work
-    '& .MuiDataGrid-columnHeaders .MuiDataGrid-columnHeadersInner > div': {
-      display: 'flex !important',
     },
     '& .MuiDataGrid-virtualScrollerContent': {
       minWidth: 'max-content',
