@@ -1,16 +1,18 @@
 import { createSemanticColumns } from '../columns/semanticColumns';
 import { CatalogDataGrid } from '../components';
 
+import type { GridSortModel } from '@mui/x-data-grid';
+
 interface SemanticViewProps {
   data: any[];
   visualFieldCatalog: any;
   loading: boolean;
   page: number;
   pageSize: number;
-  sortModel: any[];
+  sortModel: GridSortModel;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
-  onSortModelChange: (model: any[]) => void;
+  onSortModelChange: (model: GridSortModel) => void;
   onEditTerm: (term: any) => void;
   onDeleteTerm: (term: any) => void;
   onShowMappedFields: (term: any) => void;

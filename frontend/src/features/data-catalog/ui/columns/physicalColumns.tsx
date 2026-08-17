@@ -172,7 +172,7 @@ export function createPhysicalColumns({
       width: 110,
       align: 'center',
       headerAlign: 'center',
-      valueGetter: (params) => params.row.usageCount || 0,
+      valueGetter: (_value: any, row: any) => row.usageCount || 0,
       renderCell: (params) => (
         <CountCell
           value={params.value || 0}

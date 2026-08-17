@@ -1,6 +1,8 @@
 import { createPhysicalColumns } from '../columns/physicalColumns';
 import { CatalogDataGrid } from '../components';
 
+import type { GridSortModel } from '@mui/x-data-grid';
+
 interface PhysicalViewProps {
   data: any[];
   terms: any[];
@@ -9,10 +11,10 @@ interface PhysicalViewProps {
   totalItems: number;
   page: number;
   pageSize: number;
-  sortModel: any[];
+  sortModel: GridSortModel;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
-  onSortModelChange: (model: any[]) => void;
+  onSortModelChange: (model: GridSortModel) => void;
   onMapField: (field: any) => void;
   onShowDetails: (field: any) => void;
   onShowVariants: (field: any) => void;

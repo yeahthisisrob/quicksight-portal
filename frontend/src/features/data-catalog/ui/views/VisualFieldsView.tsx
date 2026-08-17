@@ -1,16 +1,18 @@
 import { createVisualFieldColumns } from '../columns/visualFieldColumns';
 import { CatalogDataGrid } from '../components';
 
+import type { GridSortModel } from '@mui/x-data-grid';
+
 interface VisualFieldsViewProps {
   data: any[];
   loading: boolean;
   totalItems: number;
   page: number;
   pageSize: number;
-  sortModel: any[];
+  sortModel: GridSortModel;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
-  onSortModelChange: (model: any[]) => void;
+  onSortModelChange: (model: GridSortModel) => void;
   onShowDetails: (field: any) => void;
 }
 

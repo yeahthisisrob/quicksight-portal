@@ -62,8 +62,8 @@ export const createArrayValueGetter = (
  * Handles various permission formats from different AWS services
  */
 export const createPermissionsValueGetter = () => {
-  return (params: any) => {
-    const permissions = params.row.permissions || [];
+  return (_value: any, row: any) => {
+    const permissions = row.permissions || [];
     return permissions.map((p: any) => {
       // Handle different permission structures
       const principal = p.principal || p.Principal || 'Unknown';
@@ -90,8 +90,8 @@ export const createPermissionsValueGetter = () => {
  * Handles various tag formats
  */
 export const createTagsValueGetter = () => {
-  return (params: any) => {
-    const tags = params.row.tags || [];
+  return (_value: any, row: any) => {
+    const tags = row.tags || [];
     return tags.map((tag: any) => {
       const key = tag.key || tag.Key || '';
       const value = tag.value || tag.Value || '';

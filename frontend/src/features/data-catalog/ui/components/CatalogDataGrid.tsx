@@ -95,6 +95,9 @@ export default function CatalogDataGrid({
         disableRowSelectionOnClick
         getRowId={getRowId}
         autoHeight={false}
+        disableColumnFilter={disableColumnFilter}
+        disableColumnSelector={disableColumnSelector}
+        disableDensitySelector={disableDensitySelector}
         slots={{
           toolbar: showToolbar ? GridToolbar : undefined,
         }}
@@ -103,13 +106,6 @@ export default function CatalogDataGrid({
             showQuickFilter: false,
             csvOptions: { disableToolbarButton: true },
             printOptions: { disableToolbarButton: true },
-          } : undefined,
-        }}
-        componentsProps={{
-          toolbar: showToolbar ? {
-            showColumnsButton: !disableColumnSelector,
-            showFilterButton: !disableColumnFilter,
-            showDensitySelector: !disableDensitySelector,
           } : undefined,
         }}
         sx={{

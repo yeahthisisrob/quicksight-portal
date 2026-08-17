@@ -110,7 +110,7 @@ export function createCalculatedColumns({
       width: 140,
       align: 'center',
       headerAlign: 'center',
-      valueGetter: (params) => params.row.expressionLength ?? params.row.expression?.length ?? 0,
+      valueGetter: (_value: any, row: any) => row.expressionLength ?? row.expression?.length ?? 0,
       renderCell: (params) => {
         const length = params.value || 0;
         const getColor = (): 'success' | 'warning' | 'error' => {
