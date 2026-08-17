@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.8.2...v1.9.0) (2026-08-17)
+
+
+### Features
+
+* timeline event JSON view, allowlisted CT capture for mutations, single-line activity chips ([#40](https://github.com/yeahthisisrob/quicksight-portal/issues/40)) ([2ce8aeb](https://github.com/yeahthisisrob/quicksight-portal/commit/2ce8aeb1233794747865b29471570bcfb5a1d74a))
+
 ## [1.8.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.8.1...v1.8.2) (2026-08-17)
 
 
