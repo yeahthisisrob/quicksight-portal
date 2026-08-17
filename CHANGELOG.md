@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.8.0...v1.8.1) (2026-08-17)
+
+
+### Bug Fixes
+
+* resolve npm audit vulnerabilities in root workspace ([#36](https://github.com/yeahthisisrob/quicksight-portal/issues/36)) ([acb3458](https://github.com/yeahthisisrob/quicksight-portal/commit/acb34583164f9755190b31185bea5caa631f436c))
+
 ## [1.8.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.7.0...v1.8.0) (2026-08-17)
 
 
