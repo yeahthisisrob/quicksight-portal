@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.8.1...v1.8.2) (2026-08-17)
+
+
+### Bug Fixes
+
+* v7 cell alignment via colDef display flex, table typography and chip cleanup, density-true compact ([#38](https://github.com/yeahthisisrob/quicksight-portal/issues/38)) ([aa02ea4](https://github.com/yeahthisisrob/quicksight-portal/commit/aa02ea4014bd70527618f69fb13594af7f87ccb2))
+
 ## [1.8.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.8.0...v1.8.1) (2026-08-17)
 
 
