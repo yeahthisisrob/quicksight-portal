@@ -1,21 +1,27 @@
 /**
- * DataExportView — Export Assets page
+ * DataExportView — Export Assets page.
+ *
+ * Layout is a single top-down flow: cache stats, one Export card
+ * (mode → asset types → run), a live job-status panel, and a tabbed
+ * activity card (current job logs / job history / activity timeline).
  */
-import { Alert, Box, Button, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, Divider, Stack, Tab, Tabs, Typography } from '@mui/material';
 import { useState } from 'react';
 
 import { TimelineFeed } from '@/features/activity';
 
-import { colors, spacing } from '@/shared/design-system/theme';
+import { spacing } from '@/shared/design-system/theme';
 import { PageLayout } from '@/shared/ui';
 
 import {
   AssetTypeSelector,
   ExportControls,
+  ExportJobStatus,
   ExportLogs,
   ExportStats,
   JobHistory,
 } from './components';
+import { assetTypeConfig } from './constants';
 import { useCacheSummary } from '../lib/useCacheSummary';
 import { useExportJob } from '../lib/useExportJob';
 import { useExportOperations } from '../lib/useExportOperations';
@@ -24,11 +30,15 @@ import type { AssetType, ExportMode } from '../model/types';
 
 type ExportTab = 'current' | 'history' | 'timeline';
 
+const ALL_SELECTABLE_TYPES = Object.entries(assetTypeConfig)
+  .filter(([, config]) => !(config as any).disabled)
+  .map(([assetType]) => assetType as AssetType);
+
 /**
- * Renders the content for the current export-progress tab. Extracted from
+ * Renders the content for the active tab of the activity card. Extracted from
  * DataExportView so the parent stays under the cyclomatic-complexity limit.
  */
-interface ExportProgressTabBodyProps {
+interface ExportTabBodyProps {
   activeTab: ExportTab;
   exportLogs: ReturnType<typeof useExportJob>['exportLogs'];
   isRunning: boolean;
@@ -36,13 +46,13 @@ interface ExportProgressTabBodyProps {
   onSelectHistoryJob: (jobId: string) => void;
 }
 
-function ExportProgressTabBody({
+function ExportTabBody({
   activeTab,
   exportLogs,
   isRunning,
   currentJobId,
   onSelectHistoryJob,
-}: ExportProgressTabBodyProps) {
+}: ExportTabBodyProps) {
   if (activeTab === 'history') {
     return <JobHistory onSelectJob={onSelectHistoryJob} currentJobId={currentJobId} />;
   }
@@ -86,9 +96,7 @@ function ExportProgressTabBody({
 }
 
 export default function DataExportView() {
-  const [selectedAssetTypes, setSelectedAssetTypes] = useState<AssetType[]>([
-    'dashboards', 'datasets', 'analyses', 'datasources', 'groups', 'folders', 'users'
-  ]);
+  const [selectedAssetTypes, setSelectedAssetTypes] = useState<AssetType[]>(ALL_SELECTABLE_TYPES);
   const [exportMode, setExportMode] = useState<ExportMode>('smart');
   const [activeTab, setActiveTab] = useState<ExportTab>('current');
 
@@ -146,7 +154,7 @@ export default function DataExportView() {
       )}
 
       <Stack spacing={2}>
-        {/* Stats — compact row */}
+        {/* Cache stats — compact row */}
         <ExportStats
           totalAssets={cacheSummary?.totalAssets || 0}
           archivedAssets={cacheSummary?.archivedAssetCounts?.total || 0}
@@ -159,110 +167,75 @@ export default function DataExportView() {
           loading={cacheSummaryLoading}
         />
 
-        {/* Export Controls + Asset Types — side by side with flexbox (no Grid negative margins) */}
-        <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', md: 'row' } }}>
-          <Box sx={{ flex: '0 0 auto', width: { xs: '100%', md: '40%' } }}>
-            <ExportControls
-              exportMode={exportMode}
-              onModeChange={setExportMode}
-              isRunning={isRunning}
-              isRefreshing={isRefreshing}
-              onStartExport={handleStartExport}
-              onStopExport={stopExport}
-              onRefreshStatus={refreshStatus}
-              onRefreshActivity={refreshActivity}
-              canRefreshActivity={!refreshingActivity}
-              refreshingActivity={refreshingActivity}
-              selectedTypesCount={selectedAssetTypes.length}
-            />
-          </Box>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <AssetTypeSelector
-              selectedTypes={selectedAssetTypes}
-              onToggle={(assetType) => {
-                setSelectedAssetTypes((prev: AssetType[]) =>
-                  prev.includes(assetType)
-                    ? prev.filter(t => t !== assetType)
-                    : [...prev, assetType]
-                );
-              }}
-              disabled={isRunning || exportMode === 'rebuild'}
-            />
-            {exportMode === 'rebuild' && (
-              <Alert severity="info" sx={{ mt: 2 }}>
-                Rebuild cache mode will process all asset types from existing S3 files.
-              </Alert>
-            )}
-          </Box>
-        </Box>
-
-        {/* Current Job Status */}
-        {jobStatus && (
-          <Alert
-            severity={jobStatus.status === 'failed' ? 'error' : jobStatus.status === 'completed' ? 'success' : 'info'}
-          >
-            <Typography variant="body2">
-              <strong>Current Job:</strong> {jobStatus.status}
-              {jobStatus.message && ` - ${jobStatus.message}`}
+        {/* Export configuration: mode → asset types → run */}
+        <Card>
+          <Box sx={{ p: spacing.md / 8 + 0.5 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: spacing.md / 8 }}>
+              Export
             </Typography>
-          </Alert>
+            <Stack spacing={spacing.md / 8}>
+              <AssetTypeSelector
+                selectedTypes={selectedAssetTypes}
+                onToggle={(assetType) => {
+                  setSelectedAssetTypes((prev: AssetType[]) =>
+                    prev.includes(assetType)
+                      ? prev.filter(t => t !== assetType)
+                      : [...prev, assetType]
+                  );
+                }}
+                onSelectAll={() => setSelectedAssetTypes(ALL_SELECTABLE_TYPES)}
+                onClearAll={() => setSelectedAssetTypes([])}
+                disabled={isRunning || exportMode === 'rebuild'}
+              />
+              <Divider />
+              <ExportControls
+                exportMode={exportMode}
+                onModeChange={setExportMode}
+                isRunning={isRunning}
+                isRefreshing={isRefreshing}
+                onStartExport={handleStartExport}
+                onStopExport={stopExport}
+                onRefreshStatus={refreshStatus}
+                onRefreshActivity={refreshActivity}
+                canRefreshActivity={!refreshingActivity}
+                refreshingActivity={refreshingActivity}
+                selectedTypesCount={selectedAssetTypes.length}
+              />
+            </Stack>
+          </Box>
+        </Card>
+
+        {/* Current job status: progress bar + stats */}
+        {jobStatus && (
+          <ExportJobStatus
+            status={jobStatus.status}
+            progress={jobStatus.progress}
+            message={jobStatus.message}
+            stats={jobStatus.stats}
+            jobId={currentJobId}
+          />
         )}
 
-        {/* Export Progress & Activity */}
-        <Box
-          sx={{
-            border: `1px solid ${colors.neutral[200]}`,
-            borderRadius: `${spacing.sm / 8}px`,
-            overflow: 'hidden',
-          }}
-        >
-          <Box
-            sx={{
-              px: 2,
-              py: 1.5,
-              borderBottom: `1px solid ${colors.neutral[200]}`,
-              bgcolor: colors.neutral[50],
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
+        {/* Export activity: current logs / history / timeline */}
+        <Card sx={{ overflow: 'hidden' }}>
+          <Tabs
+            value={activeTab}
+            onChange={(_, tab) => setActiveTab(tab)}
+            sx={{ px: 1, borderBottom: 1, borderColor: 'divider', minHeight: 44 }}
           >
-            <Typography variant="subtitle2" fontWeight={600}>
-              {activeTab === 'timeline' ? 'Activity Timeline' : 'Export Progress'}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button
-                variant={activeTab === 'current' ? 'contained' : 'outlined'}
-                size="small"
-                onClick={() => setActiveTab('current')}
-              >
-                Current
-              </Button>
-              <Button
-                variant={activeTab === 'history' ? 'contained' : 'outlined'}
-                size="small"
-                onClick={() => setActiveTab('history')}
-              >
-                History
-              </Button>
-              <Button
-                variant={activeTab === 'timeline' ? 'contained' : 'outlined'}
-                size="small"
-                onClick={() => setActiveTab('timeline')}
-              >
-                Timeline
-              </Button>
-            </Box>
-          </Box>
+            <Tab label="Current Job" value="current" sx={{ minHeight: 44, textTransform: 'none' }} />
+            <Tab label="History" value="history" sx={{ minHeight: 44, textTransform: 'none' }} />
+            <Tab label="Timeline" value="timeline" sx={{ minHeight: 44, textTransform: 'none' }} />
+          </Tabs>
 
-          <ExportProgressTabBody
+          <ExportTabBody
             activeTab={activeTab}
             exportLogs={exportLogs}
             isRunning={isRunning}
             currentJobId={currentJobId}
             onSelectHistoryJob={handleSelectHistoryJob}
           />
-        </Box>
+        </Card>
       </Stack>
     </PageLayout>
   );
