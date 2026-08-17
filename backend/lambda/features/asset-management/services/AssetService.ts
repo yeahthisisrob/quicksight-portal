@@ -451,6 +451,11 @@ export class AssetService {
       );
     }
 
+    if (request.importModeFilter && request.importModeFilter !== 'all') {
+      const importModeFilter = request.importModeFilter;
+      filteredItems = filteredItems.filter((item) => (item as any).importMode === importModeFilter);
+    }
+
     if (request.sourceTypeFilter && request.sourceTypeFilter.length > 0) {
       const sourceTypeFilter = request.sourceTypeFilter;
       filteredItems = filteredItems.filter((item) => {
@@ -1197,6 +1202,7 @@ export class AssetService {
       lastViewedTime: sortConfig('lastViewedTime'),
       importMode: sortConfig('importMode'),
       sourceType: sortConfig('sourceType'),
+      schemas: sortConfig('schemas'),
       consumedSpiceCapacityInBytes: sortConfig('consumedSpiceCapacityInBytes'),
       spiceCapacity: sortConfig('spiceCapacity'),
       usedBy: sortConfig('usedBy'),
@@ -1257,6 +1263,11 @@ export class AssetService {
     // Array count fields
     if (['groups', 'tags', 'folders', 'folderCount'].includes(sortField)) {
       return this.getArrayCountSortValue(asset, sortField);
+    }
+
+    // Source schemas sort alphabetically by first schema
+    if (sortField === 'schemas') {
+      return asset.schemas?.[0] || '';
     }
 
     // All other fields

@@ -16,6 +16,7 @@ import {
   Security as SecurityIcon,
   Storage as StorageIcon,
   Hub as HubIcon,
+  Bolt as BoltIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -43,6 +44,7 @@ import type {
   ErrorFilterState,
   ActivityFilterState,
   SmusFilterState,
+  ImportModeFilterState,
   GroupMembershipFilterState,
   PermissionsFilterState,
   GroupOption,
@@ -92,6 +94,9 @@ export interface FilterControlsProps {
   enableSmusFiltering?: boolean;
   smusFilter?: SmusFilterState;
   onSmusFilterChange?: (filter: SmusFilterState) => void;
+  enableImportModeFiltering?: boolean;
+  importModeFilter?: ImportModeFilterState;
+  onImportModeFilterChange?: (filter: ImportModeFilterState) => void;
   onActivityFilterChange?: (filter: ActivityFilterState) => void;
 
   // Role controls
@@ -675,6 +680,63 @@ const UserFiltersSection: React.FC<UserFiltersSectionProps> = ({
   </>
 );
 
+/** Dataset-only toggle rows: SMUS catalog link and import mode. */
+const DatasetLinkFilterRows: React.FC<{
+  enableSmusFiltering: boolean;
+  smusFilter?: SmusFilterState;
+  onSmusFilterChange?: (filter: SmusFilterState) => void;
+  enableImportModeFiltering: boolean;
+  importModeFilter?: ImportModeFilterState;
+  onImportModeFilterChange?: (filter: ImportModeFilterState) => void;
+}> = ({
+  enableSmusFiltering,
+  smusFilter,
+  onSmusFilterChange,
+  enableImportModeFiltering,
+  importModeFilter,
+  onImportModeFilterChange,
+}) => (
+  <>
+    {/* SMUS Catalog Link Filter Row */}
+    {enableSmusFiltering && smusFilter !== undefined && onSmusFilterChange && (
+      <ToggleFilterRow
+        icon={<HubIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />}
+        label="SMUS"
+        value={smusFilter}
+        onChange={(v) => onSmusFilterChange(v as SmusFilterState)}
+        options={[
+          { value: 'all', label: 'All' },
+          {
+            value: 'smus_linked',
+            label: 'SMUS Linked',
+            icon: <HubIcon sx={{ fontSize: 16, mr: 0.5, color: '#8C4FFF' }} />,
+          },
+          { value: 'not_smus_linked', label: 'Not Linked' },
+        ]}
+      />
+    )}
+
+    {/* Import Mode Filter Row (DataSet API ImportMode: SPICE vs DIRECT_QUERY) */}
+    {enableImportModeFiltering && importModeFilter !== undefined && onImportModeFilterChange && (
+      <ToggleFilterRow
+        icon={<BoltIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />}
+        label="Import Mode"
+        value={importModeFilter}
+        onChange={(v) => onImportModeFilterChange(v as ImportModeFilterState)}
+        options={[
+          { value: 'all', label: 'All' },
+          {
+            value: 'SPICE',
+            label: 'SPICE',
+            icon: <BoltIcon sx={{ fontSize: 16, mr: 0.5, color: 'success.main' }} />,
+          },
+          { value: 'DIRECT_QUERY', label: 'Direct Query' },
+        ]}
+      />
+    )}
+  </>
+);
+
 // ============================================================================
 // Main Component
 // ============================================================================
@@ -704,6 +766,9 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
   enableSmusFiltering = false,
   smusFilter,
   onSmusFilterChange,
+  enableImportModeFiltering = false,
+  importModeFilter,
+  onImportModeFilterChange,
   onActivityFilterChange,
   enableRoleFiltering,
   availableRoles,
@@ -797,31 +862,21 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
         />
       )}
 
-      {/* SMUS Catalog Link Filter Row */}
-      {enableSmusFiltering && smusFilter !== undefined && onSmusFilterChange && (
-        <ToggleFilterRow
-          icon={<HubIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />}
-          label="SMUS"
-          value={smusFilter}
-          onChange={(v) => onSmusFilterChange(v as SmusFilterState)}
-          options={[
-            { value: 'all', label: 'All' },
-            {
-              value: 'smus_linked',
-              label: 'SMUS Linked',
-              icon: <HubIcon sx={{ fontSize: 16, mr: 0.5, color: '#8C4FFF' }} />,
-            },
-            { value: 'not_smus_linked', label: 'Not Linked' },
-          ]}
-        />
-      )}
+      <DatasetLinkFilterRows
+        enableSmusFiltering={enableSmusFiltering}
+        smusFilter={smusFilter}
+        onSmusFilterChange={onSmusFilterChange}
+        enableImportModeFiltering={enableImportModeFiltering}
+        importModeFilter={importModeFilter}
+        onImportModeFilterChange={onImportModeFilterChange}
+      />
 
       {/* Source Type Filter Row */}
       {enableSourceTypeFiltering && availableSourceTypes.length > 0 && onSelectedSourceTypesChange && (
         <Stack direction="row" spacing={2} alignItems="center">
           <StorageIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />
           <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
-            Source Type:
+            Data Source Type:
           </Typography>
           <Autocomplete
             multiple

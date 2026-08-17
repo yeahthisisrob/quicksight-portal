@@ -2270,7 +2270,18 @@ components:
               description: Dataset size in bytes
             sourceType:
               type: string
-              description: Type of data source (S3, FILE, ATHENA, etc.)
+              description: >
+                Data source type resolved from the dataset's data sources
+                (the DataSource API's Type field — ATHENA, REDSHIFT, S3, etc.)
+            schemas:
+              type: array
+              items:
+                type: string
+              description: >
+                Distinct source schemas (databases) from the dataset's
+                relational physical tables — the RelationalTable Schema field,
+                which is the database for Athena sources and the schema for
+                Redshift and other relational engines. Populated at export time.
             hasRefreshProperties:
               type: boolean
               description: Whether dataset has refresh properties configured

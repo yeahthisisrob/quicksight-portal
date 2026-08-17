@@ -44,6 +44,7 @@ interface GenericAssetPageProps {
   /** Enable activity filtering UI */
   enableActivityFiltering?: boolean;
   enableSmusFiltering?: boolean;
+  enableImportModeFiltering?: boolean;
   /** Enable folder filtering UI */
   enableFolderFiltering?: boolean;
   /** Available folders for filtering */
@@ -100,6 +101,7 @@ export default function GenericAssetPage({
   errorCount,
   enableActivityFiltering = false,
   enableSmusFiltering = false,
+  enableImportModeFiltering = false,
   enableRoleFiltering = false,
   availableRoles = [],
   enablePermissionsFiltering = false,
@@ -282,6 +284,7 @@ export default function GenericAssetPage({
       errorCount={errorCount}
       enableActivityFiltering={enableActivityFiltering}
       enableSmusFiltering={enableSmusFiltering}
+      enableImportModeFiltering={enableImportModeFiltering}
       showActivityOption={['dashboard', 'analysis', 'user'].includes(assetType)}
       enableRoleFiltering={enableRoleFiltering}
       availableRoles={availableRoles}

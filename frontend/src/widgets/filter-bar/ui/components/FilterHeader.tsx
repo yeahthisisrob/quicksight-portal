@@ -11,6 +11,7 @@ import {
   Timeline as ActivityIcon,
   Block as NoActivityIcon,
   Hub as HubIcon,
+  Bolt as BoltIcon,
 } from '@mui/icons-material';
 import { Box, Chip, Stack, Typography, IconButton, alpha } from '@mui/material';
 import React from 'react';
@@ -25,6 +26,7 @@ import type {
   ErrorFilterState,
   ActivityFilterState,
   SmusFilterState,
+  ImportModeFilterState,
   TagFilter,
   FolderFilter,
   AssetFilter,
@@ -40,6 +42,7 @@ export interface FilterHeaderProps {
   errorFilter?: ErrorFilterState;
   activityFilter?: ActivityFilterState;
   smusFilter?: SmusFilterState;
+  importModeFilter?: ImportModeFilterState;
   selectedAssets: AssetFilter[];
   includeTags: TagFilter[];
   excludeTags: TagFilter[];
@@ -52,6 +55,7 @@ export interface FilterHeaderProps {
   onClearErrorFilter?: () => void;
   onClearActivityFilter?: () => void;
   onClearSmusFilter?: () => void;
+  onClearImportModeFilter?: () => void;
   onRemoveAsset: (index: number) => void;
   onRemoveIncludeTag: (index: number) => void;
   onRemoveExcludeTag: (index: number) => void;
@@ -149,6 +153,47 @@ const ActivityFilterChip: React.FC<{
   />
 );
 
+const ErrorFilterChip: React.FC<{
+  errorFilter: ErrorFilterState;
+  errorCount?: number;
+  onClear: () => void;
+}> = ({ errorFilter, errorCount, onClear }) => (
+  <FilterChip
+    icon={
+      errorFilter === 'with_errors' ? (
+        <ErrorIcon sx={{ fontSize: 14 }} />
+      ) : (
+        <CheckCircle sx={{ fontSize: 14 }} />
+      )
+    }
+    label={
+      errorFilter === 'with_errors'
+        ? `With errors${errorCount !== undefined ? ` (${errorCount})` : ''}`
+        : 'Without errors'
+    }
+    color={errorFilter === 'with_errors' ? 'error' : 'success'}
+    onDelete={(e) => {
+      e.stopPropagation();
+      onClear();
+    }}
+  />
+);
+
+const ImportModeFilterChip: React.FC<{
+  importModeFilter: ImportModeFilterState;
+  onClear: () => void;
+}> = ({ importModeFilter, onClear }) => (
+  <FilterChip
+    icon={<BoltIcon sx={{ fontSize: 14 }} />}
+    label={importModeFilter === 'SPICE' ? 'SPICE' : 'Direct Query'}
+    color={importModeFilter === 'SPICE' ? 'success' : 'info'}
+    onDelete={(e) => {
+      e.stopPropagation();
+      onClear();
+    }}
+  />
+);
+
 const SmusFilterChip: React.FC<{
   smusFilter: SmusFilterState;
   onClear: () => void;
@@ -174,6 +219,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
   errorFilter,
   activityFilter,
   smusFilter,
+  importModeFilter,
   selectedAssets,
   includeTags,
   excludeTags,
@@ -186,6 +232,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
   onClearErrorFilter,
   onClearActivityFilter,
   onClearSmusFilter,
+  onClearImportModeFilter,
   onRemoveAsset,
   onRemoveIncludeTag,
   onRemoveExcludeTag,
@@ -197,6 +244,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
   const hasErrorFilter = errorFilter && errorFilter !== 'all';
   const hasActivityFilter = activityFilter && activityFilter !== 'all';
   const hasSmusFilter = smusFilter && smusFilter !== 'all';
+  const hasImportModeFilter = importModeFilter && importModeFilter !== 'all';
 
   const headerSx = {
     display: 'flex',
@@ -247,25 +295,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
 
         {/* Error filter chip */}
         {hasErrorFilter && onClearErrorFilter && (
-          <FilterChip
-            icon={
-              errorFilter === 'with_errors' ? (
-                <ErrorIcon sx={{ fontSize: 14 }} />
-              ) : (
-                <CheckCircle sx={{ fontSize: 14 }} />
-              )
-            }
-            label={
-              errorFilter === 'with_errors'
-                ? `With errors${errorCount !== undefined ? ` (${errorCount})` : ''}`
-                : 'Without errors'
-            }
-            color={errorFilter === 'with_errors' ? 'error' : 'success'}
-            onDelete={(e) => {
-              e.stopPropagation();
-              onClearErrorFilter();
-            }}
-          />
+          <ErrorFilterChip errorFilter={errorFilter} errorCount={errorCount} onClear={onClearErrorFilter} />
         )}
 
         {/* Activity filter chip */}
@@ -276,6 +306,11 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
         {/* SMUS link filter chip */}
         {hasSmusFilter && onClearSmusFilter && (
           <SmusFilterChip smusFilter={smusFilter} onClear={onClearSmusFilter} />
+        )}
+
+        {/* Import mode filter chip */}
+        {hasImportModeFilter && onClearImportModeFilter && (
+          <ImportModeFilterChip importModeFilter={importModeFilter} onClear={onClearImportModeFilter} />
         )}
 
         {/* Asset chips */}

@@ -153,6 +153,7 @@ export default function AssetsPage() {
         enableGroupFiltering={config.assetType === 'user'}
         availableGroups={config.assetType === 'user' ? availableGroups : undefined}
         enableSmusFiltering={config.assetType === 'dataset' && smusConfigured}
+        enableImportModeFiltering={config.assetType === 'dataset'}
         enableSourceTypeFiltering={['dataset', 'datasource'].includes(config.assetType)}
         availableSourceTypes={['dataset', 'datasource'].includes(config.assetType) ? availableSourceTypes : undefined}
         enableFolderFiltering={['dashboard', 'analysis', 'dataset', 'datasource'].includes(config.assetType)}

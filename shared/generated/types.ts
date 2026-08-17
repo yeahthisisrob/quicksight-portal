@@ -2632,8 +2632,12 @@ export interface components {
             fieldCount: number;
             /** @description Dataset size in bytes */
             sizeInBytes?: number;
-            /** @description Type of data source (S3, FILE, ATHENA, etc.) */
+            /** @description Data source type resolved from the dataset's data sources (the DataSource API's Type field — ATHENA, REDSHIFT, S3, etc.)
+             *      */
             sourceType?: string;
+            /** @description Distinct source schemas (databases) from the dataset's relational physical tables — the RelationalTable Schema field, which is the database for Athena sources and the schema for Redshift and other relational engines. Populated at export time.
+             *      */
+            schemas?: string[];
             /** @description Whether dataset has refresh properties configured */
             hasRefreshProperties?: boolean;
             /** @description Number of refresh schedules configured */

@@ -23,6 +23,9 @@ export type ActivityFilterState = 'all' | 'with_activity' | 'without_activity';
 
 export type SmusFilterState = 'all' | 'smus_linked' | 'not_smus_linked';
 
+/** DataSet API ImportMode values, plus 'all'. */
+export type ImportModeFilterState = 'all' | 'SPICE' | 'DIRECT_QUERY';
+
 export type GroupMembershipFilterState = 'all' | 'in_groups' | 'not_in_groups';
 
 export type PermissionsFilterState = 'all' | 'with_permissions' | 'without_permissions';
@@ -99,6 +102,11 @@ export interface FilterBarProps {
   enableSmusFiltering?: boolean;
   smusFilter?: SmusFilterState;
   onSmusFilterChange?: (filter: SmusFilterState) => void;
+
+  // Import mode filtering (datasets: SPICE vs DIRECT_QUERY)
+  enableImportModeFiltering?: boolean;
+  importModeFilter?: ImportModeFilterState;
+  onImportModeFilterChange?: (filter: ImportModeFilterState) => void;
 
   // Folder filtering
   enableFolderFiltering?: boolean;
