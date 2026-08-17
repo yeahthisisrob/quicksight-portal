@@ -93,6 +93,22 @@ export function mapAnalysisFromCache(entry: CacheEntry): DashboardListItem & { a
 }
 
 /**
+ * Distinct source schemas (databases) for a dataset, from the RelationalTable
+ * entries captured in lineage at export time. Schema is the database for
+ * Athena sources and the schema for Redshift and other relational engines.
+ */
+function extractDatasetSchemas(metadata: any): string[] {
+  const physicalTables: any[] = metadata?.lineageData?.physicalTables || [];
+  const schemas = new Set<string>();
+  for (const table of physicalTables) {
+    if (table?.schema) {
+      schemas.add(table.schema);
+    }
+  }
+  return Array.from(schemas).sort();
+}
+
+/**
  * Map dataset cache entry to dataset list item
  */
 export function mapDatasetFromCache(entry: CacheEntry): DatasetListItem & { arn: string } {
@@ -107,6 +123,7 @@ export function mapDatasetFromCache(entry: CacheEntry): DatasetListItem & { arn:
     importMode: metadata.importMode || 'SPICE',
     fieldCount: metadata.fieldCount || 0,
     sourceType: metadata.sourceType || 'UNKNOWN',
+    schemas: extractDatasetSchemas(metadata),
     sizeInBytes: metadata.consumedSpiceCapacityInBytes || metadata.sizeInBytes || 0,
     hasRefreshProperties:
       refreshData.hasRefreshProperties || metadata.hasRefreshProperties || false,

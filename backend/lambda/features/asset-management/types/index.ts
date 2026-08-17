@@ -75,6 +75,8 @@ export interface AssetListRequest {
   sourceTypeFilter?: string[];
   /** Filter datasets by SMUS catalog link: all, smus_linked, not_smus_linked */
   smusFilter?: 'all' | 'smus_linked' | 'not_smus_linked';
+  /** Filter datasets by import mode (DataSet API ImportMode): all, SPICE, DIRECT_QUERY */
+  importModeFilter?: 'all' | 'SPICE' | 'DIRECT_QUERY';
 }
 
 export interface AssetListResponse {

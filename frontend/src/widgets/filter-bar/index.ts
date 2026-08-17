@@ -7,6 +7,7 @@ export type {
   ErrorFilterState,
   ActivityFilterState,
   SmusFilterState,
+  ImportModeFilterState,
   FolderOption,
   FolderFilter,
   AssetOption,
@@ -29,4 +30,5 @@ export {
   ACTIVITY_FILTER_OPTIONS,
   DEFAULT_ACTIVITY_FILTER,
   DEFAULT_SMUS_FILTER,
+  DEFAULT_IMPORT_MODE_FILTER,
 } from './lib/constants';

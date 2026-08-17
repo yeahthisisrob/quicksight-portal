@@ -66,6 +66,7 @@ export type FetchParams = {
   includeFolders?: string;
   excludeFolders?: string;
   smusFilter?: string;
+  importModeFilter?: string;
 };
 
 export type AssetFetchFn = (options: FetchParams) => Promise<void>;

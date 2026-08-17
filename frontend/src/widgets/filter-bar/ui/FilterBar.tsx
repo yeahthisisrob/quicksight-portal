@@ -36,6 +36,8 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
     onActivityFilterChange: p.onActivityFilterChange,
     smusFilter: p.smusFilter,
     onSmusFilterChange: p.onSmusFilterChange,
+    importModeFilter: p.importModeFilter,
+    onImportModeFilterChange: p.onImportModeFilterChange,
     includeFolders: p.includeFolders,
     excludeFolders: p.excludeFolders,
     onIncludeFoldersChange: p.onIncludeFoldersChange,
@@ -68,6 +70,7 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
         errorFilter={p.errorFilter}
         activityFilter={p.activityFilter}
         smusFilter={p.smusFilter}
+        importModeFilter={p.importModeFilter}
         selectedAssets={p.selectedAssets}
         includeTags={p.includeTags}
         excludeTags={p.excludeTags}
@@ -80,6 +83,7 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
         onClearErrorFilter={p.errorFilter !== undefined ? state.handleClearErrorFilter : undefined}
         onClearActivityFilter={p.activityFilter !== undefined ? state.handleClearActivityFilter : undefined}
         onClearSmusFilter={p.smusFilter !== undefined ? state.handleClearSmusFilter : undefined}
+        onClearImportModeFilter={p.importModeFilter !== undefined ? state.handleClearImportModeFilter : undefined}
         onRemoveAsset={state.handleRemoveAsset}
         onRemoveIncludeTag={state.handleRemoveIncludeTag}
         onRemoveExcludeTag={state.handleRemoveExcludeTag}
@@ -116,6 +120,9 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
             enableSmusFiltering={p.enableSmusFiltering}
             smusFilter={p.smusFilter}
             onSmusFilterChange={p.onSmusFilterChange}
+            enableImportModeFiltering={p.enableImportModeFiltering}
+            importModeFilter={p.importModeFilter}
+            onImportModeFilterChange={p.onImportModeFilterChange}
             enableRoleFiltering={p.enableRoleFiltering ?? false}
             availableRoles={p.availableRoles ?? []}
             selectedRoles={p.selectedRoles ?? []}

@@ -1,4 +1,4 @@
-import type { DateFieldOption, DateRangeOption, DateFilterState, ErrorFilterState, ActivityFilterState, SmusFilterState } from './types';
+import type { DateFieldOption, DateRangeOption, DateFilterState, ErrorFilterState, ActivityFilterState, SmusFilterState, ImportModeFilterState } from './types';
 
 export const DATE_FIELD_OPTIONS: Array<{ value: DateFieldOption; label: string }> = [
   { value: 'lastUpdatedTime', label: 'Last Modified' },
@@ -36,3 +36,5 @@ export const DEFAULT_ERROR_FILTER: ErrorFilterState = 'all';
 export const DEFAULT_ACTIVITY_FILTER: ActivityFilterState = 'all';
 
 export const DEFAULT_SMUS_FILTER: SmusFilterState = 'all';
+
+export const DEFAULT_IMPORT_MODE_FILTER: ImportModeFilterState = 'all';

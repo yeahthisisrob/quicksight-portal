@@ -3,7 +3,7 @@ import { useState, useMemo, useCallback } from 'react';
 import {
   DEFAULT_DATE_FILTER,
   DEFAULT_ERROR_FILTER,
-  DEFAULT_ACTIVITY_FILTER, DEFAULT_SMUS_FILTER,
+  DEFAULT_ACTIVITY_FILTER, DEFAULT_SMUS_FILTER, DEFAULT_IMPORT_MODE_FILTER,
 } from './constants';
 
 import type {
@@ -11,6 +11,7 @@ import type {
   ErrorFilterState,
   ActivityFilterState,
   SmusFilterState,
+  ImportModeFilterState,
   TagOption,
   TagFilter,
   FolderOption,
@@ -45,6 +46,10 @@ interface UseFilterBarStateOptions {
   smusFilter?: SmusFilterState;
   onSmusFilterChange?: (filter: SmusFilterState) => void;
 
+  // Import mode
+  importModeFilter?: ImportModeFilterState;
+  onImportModeFilterChange?: (filter: ImportModeFilterState) => void;
+
   // Folders
   includeFolders?: FolderFilter[];
   excludeFolders?: FolderFilter[];
@@ -77,6 +82,8 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     onActivityFilterChange,
     smusFilter,
     onSmusFilterChange,
+    importModeFilter,
+    onImportModeFilterChange,
     includeFolders = [],
     excludeFolders = [],
     onIncludeFoldersChange,
@@ -122,6 +129,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     if (errorFilter && errorFilter !== 'all') count++;
     if (activityFilter && activityFilter !== 'all') count++;
     if (smusFilter && smusFilter !== 'all') count++;
+    if (importModeFilter && importModeFilter !== 'all') count++;
     count += includeTags.length;
     count += excludeTags.length;
     count += includeFolders.length;
@@ -129,7 +137,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     count += selectedSourceTypes.length;
     count += selectedAssets.length;
     return count;
-  }, [dateFilter, errorFilter, activityFilter, smusFilter, includeTags, excludeTags, includeFolders, excludeFolders, selectedSourceTypes, selectedAssets]);
+  }, [dateFilter, errorFilter, activityFilter, smusFilter, importModeFilter, includeTags, excludeTags, includeFolders, excludeFolders, selectedSourceTypes, selectedAssets]);
 
   // Tag handlers
   const handleAddTag = useCallback(
@@ -217,11 +225,17 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     [onSmusFilterChange]
   );
 
+  const handleClearImportModeFilter = useCallback(
+    () => onImportModeFilterChange?.(DEFAULT_IMPORT_MODE_FILTER),
+    [onImportModeFilterChange]
+  );
+
   const handleClearAll = useCallback(() => {
     onDateFilterChange?.(DEFAULT_DATE_FILTER);
     onErrorFilterChange?.(DEFAULT_ERROR_FILTER);
     onActivityFilterChange?.(DEFAULT_ACTIVITY_FILTER);
     onSmusFilterChange?.(DEFAULT_SMUS_FILTER);
+    onImportModeFilterChange?.(DEFAULT_IMPORT_MODE_FILTER);
     onIncludeTagsChange?.([]);
     onExcludeTagsChange?.([]);
     onIncludeFoldersChange?.([]);
@@ -233,6 +247,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     onErrorFilterChange,
     onActivityFilterChange,
     onSmusFilterChange,
+    onImportModeFilterChange,
     onIncludeTagsChange,
     onExcludeTagsChange,
     onIncludeFoldersChange,
@@ -272,6 +287,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     handleClearErrorFilter,
     handleClearActivityFilter,
     handleClearSmusFilter,
+    handleClearImportModeFilter,
     handleClearAll,
   };
 }

@@ -58,21 +58,36 @@ export function generateDatasetColumns(handlers: Handlers): ColumnConfig[] {
   return [
     {
       id: 'sourceType',
-      label: 'Source Type',
-      width: 200,
+      label: 'Data Source Type',
+      width: 140,
       visible: true,
       renderCell: (params: { row: AssetRow; value: any }) => {
         const sourceType = isDataset(params.row) ? params.row.sourceType : 'UNKNOWN';
-        const importMode = isDataset(params.row) ? params.row.importMode : undefined;
-        
-        return (
-          <DatasourceTypeBadge
-            datasourceType={sourceType || 'UNKNOWN'}
-            importMode={importMode as "SPICE" | "DIRECT_QUERY" | undefined}
-          />
-        );
+        return <DatasourceTypeBadge datasourceType={sourceType || 'UNKNOWN'} />;
       },
       valueGetter: (params) => isDataset(params.row) ? (params.row.sourceType || 'UNKNOWN') : 'UNKNOWN',
+    },
+    {
+      id: 'importMode',
+      label: 'Import Mode',
+      width: 120,
+      visible: true,
+      renderCell: (params: { row: AssetRow; value: any }) => {
+        const importMode = isDataset(params.row) ? params.row.importMode : undefined;
+        if (!importMode) {
+          return <Typography variant="body2" color="text.secondary">-</Typography>;
+        }
+        return <DatasourceTypeBadge importMode={importMode as 'SPICE' | 'DIRECT_QUERY'} />;
+      },
+      valueGetter: (params) => isDataset(params.row) ? (params.row.importMode || '') : '',
+    },
+    {
+      id: 'schemas',
+      label: 'Schema',
+      width: 150,
+      visible: true,
+      renderCell: (params: { row: AssetRow; value: any }) => renderSchemasCell(params),
+      valueGetter: (params) => ((params.row as any).schemas?.[0] as string) || '',
     },
     {
       id: 'spiceCapacity',
@@ -200,6 +215,39 @@ function renderDatasetActivityCell(
           : `${activity.uniqueViewers || 0} viewer${activity.uniqueViewers !== 1 ? 's' : ''}`}
       </Typography>
     </Box>
+  );
+}
+
+/**
+ * Render the dataset schema cell: distinct source schemas (databases) from
+ * the dataset's relational physical tables. Usually one; extras collapse
+ * into a "+n" with the full list in the tooltip.
+ */
+function renderSchemasCell(params: { row: AssetRow; value: any }) {
+  const schemas: string[] = (params.row as any).schemas || [];
+  if (schemas.length === 0) {
+    return <Typography variant="body2" color="text.secondary">-</Typography>;
+  }
+
+  return (
+    <Tooltip title={schemas.join(', ')} enterDelay={300}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            fontFamily: 'monospace',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {schemas[0]}
+        </Typography>
+        {schemas.length > 1 && (
+          <Chip label={`+${schemas.length - 1}`} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
+        )}
+      </Box>
+    </Tooltip>
   );
 }
 
