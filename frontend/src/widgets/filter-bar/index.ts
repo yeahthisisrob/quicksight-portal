@@ -6,6 +6,7 @@ export type {
   DateFilterState,
   ErrorFilterState,
   ActivityFilterState,
+  SmusFilterState,
   FolderOption,
   FolderFilter,
   AssetOption,
@@ -27,4 +28,5 @@ export {
   DEFAULT_ERROR_FILTER,
   ACTIVITY_FILTER_OPTIONS,
   DEFAULT_ACTIVITY_FILTER,
+  DEFAULT_SMUS_FILTER,
 } from './lib/constants';

@@ -552,6 +552,7 @@ export class AssetHandler {
       sourceTypeFilter: queryParams.sourceTypeFilter
         ? JSON.parse(queryParams.sourceTypeFilter)
         : undefined,
+      smusFilter: (queryParams.smusFilter || 'all') as 'all' | 'smus_linked' | 'not_smus_linked',
     };
   }
 

@@ -10,6 +10,7 @@ import {
   Folder as FolderIcon,
   Timeline as ActivityIcon,
   Block as NoActivityIcon,
+  Hub as HubIcon,
 } from '@mui/icons-material';
 import { Box, Chip, Stack, Typography, IconButton, alpha } from '@mui/material';
 import React from 'react';
@@ -23,6 +24,7 @@ import type {
   DateFilterState,
   ErrorFilterState,
   ActivityFilterState,
+  SmusFilterState,
   TagFilter,
   FolderFilter,
   AssetFilter,
@@ -37,6 +39,7 @@ export interface FilterHeaderProps {
   dateFilter?: DateFilterState;
   errorFilter?: ErrorFilterState;
   activityFilter?: ActivityFilterState;
+  smusFilter?: SmusFilterState;
   selectedAssets: AssetFilter[];
   includeTags: TagFilter[];
   excludeTags: TagFilter[];
@@ -48,6 +51,7 @@ export interface FilterHeaderProps {
   onClearDateFilter?: () => void;
   onClearErrorFilter?: () => void;
   onClearActivityFilter?: () => void;
+  onClearSmusFilter?: () => void;
   onRemoveAsset: (index: number) => void;
   onRemoveIncludeTag: (index: number) => void;
   onRemoveExcludeTag: (index: number) => void;
@@ -124,6 +128,42 @@ const ChipGroup: React.FC<ChipGroupProps> = ({
   );
 };
 
+const ActivityFilterChip: React.FC<{
+  activityFilter: ActivityFilterState;
+  onClear: () => void;
+}> = ({ activityFilter, onClear }) => (
+  <FilterChip
+    icon={
+      activityFilter === 'with_activity' ? (
+        <ActivityIcon sx={{ fontSize: 14 }} />
+      ) : (
+        <NoActivityIcon sx={{ fontSize: 14 }} />
+      )
+    }
+    label={activityFilter === 'with_activity' ? 'With activity' : 'No activity'}
+    color={activityFilter === 'with_activity' ? 'info' : 'warning'}
+    onDelete={(e) => {
+      e.stopPropagation();
+      onClear();
+    }}
+  />
+);
+
+const SmusFilterChip: React.FC<{
+  smusFilter: SmusFilterState;
+  onClear: () => void;
+}> = ({ smusFilter, onClear }) => (
+  <FilterChip
+    icon={<HubIcon sx={{ fontSize: 14 }} />}
+    label={smusFilter === 'smus_linked' ? 'SMUS linked' : 'Not SMUS linked'}
+    color={smusFilter === 'smus_linked' ? 'info' : 'warning'}
+    onDelete={(e) => {
+      e.stopPropagation();
+      onClear();
+    }}
+  />
+);
+
 // ============================================================================
 // Main Component
 // ============================================================================
@@ -133,6 +173,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
   dateFilter,
   errorFilter,
   activityFilter,
+  smusFilter,
   selectedAssets,
   includeTags,
   excludeTags,
@@ -144,6 +185,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
   onClearDateFilter,
   onClearErrorFilter,
   onClearActivityFilter,
+  onClearSmusFilter,
   onRemoveAsset,
   onRemoveIncludeTag,
   onRemoveExcludeTag,
@@ -154,6 +196,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
   const hasDateFilter = dateFilter && dateFilter.range !== 'all';
   const hasErrorFilter = errorFilter && errorFilter !== 'all';
   const hasActivityFilter = activityFilter && activityFilter !== 'all';
+  const hasSmusFilter = smusFilter && smusFilter !== 'all';
 
   const headerSx = {
     display: 'flex',
@@ -227,21 +270,12 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
 
         {/* Activity filter chip */}
         {hasActivityFilter && onClearActivityFilter && (
-          <FilterChip
-            icon={
-              activityFilter === 'with_activity' ? (
-                <ActivityIcon sx={{ fontSize: 14 }} />
-              ) : (
-                <NoActivityIcon sx={{ fontSize: 14 }} />
-              )
-            }
-            label={activityFilter === 'with_activity' ? 'With activity' : 'No activity'}
-            color={activityFilter === 'with_activity' ? 'info' : 'warning'}
-            onDelete={(e) => {
-              e.stopPropagation();
-              onClearActivityFilter();
-            }}
-          />
+          <ActivityFilterChip activityFilter={activityFilter} onClear={onClearActivityFilter} />
+        )}
+
+        {/* SMUS link filter chip */}
+        {hasSmusFilter && onClearSmusFilter && (
+          <SmusFilterChip smusFilter={smusFilter} onClear={onClearSmusFilter} />
         )}
 
         {/* Asset chips */}

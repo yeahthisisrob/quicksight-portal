@@ -3,13 +3,14 @@ import { useState, useMemo, useCallback } from 'react';
 import {
   DEFAULT_DATE_FILTER,
   DEFAULT_ERROR_FILTER,
-  DEFAULT_ACTIVITY_FILTER,
+  DEFAULT_ACTIVITY_FILTER, DEFAULT_SMUS_FILTER,
 } from './constants';
 
 import type {
   DateFilterState,
   ErrorFilterState,
   ActivityFilterState,
+  SmusFilterState,
   TagOption,
   TagFilter,
   FolderOption,
@@ -39,6 +40,10 @@ interface UseFilterBarStateOptions {
   // Activity
   activityFilter?: ActivityFilterState;
   onActivityFilterChange?: (filter: ActivityFilterState) => void;
+
+  // SMUS catalog link
+  smusFilter?: SmusFilterState;
+  onSmusFilterChange?: (filter: SmusFilterState) => void;
 
   // Folders
   includeFolders?: FolderFilter[];
@@ -70,6 +75,8 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     onErrorFilterChange,
     activityFilter,
     onActivityFilterChange,
+    smusFilter,
+    onSmusFilterChange,
     includeFolders = [],
     excludeFolders = [],
     onIncludeFoldersChange,
@@ -114,6 +121,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     if (dateFilter && dateFilter.range !== 'all') count++;
     if (errorFilter && errorFilter !== 'all') count++;
     if (activityFilter && activityFilter !== 'all') count++;
+    if (smusFilter && smusFilter !== 'all') count++;
     count += includeTags.length;
     count += excludeTags.length;
     count += includeFolders.length;
@@ -121,7 +129,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     count += selectedSourceTypes.length;
     count += selectedAssets.length;
     return count;
-  }, [dateFilter, errorFilter, activityFilter, includeTags, excludeTags, includeFolders, excludeFolders, selectedSourceTypes, selectedAssets]);
+  }, [dateFilter, errorFilter, activityFilter, smusFilter, includeTags, excludeTags, includeFolders, excludeFolders, selectedSourceTypes, selectedAssets]);
 
   // Tag handlers
   const handleAddTag = useCallback(
@@ -204,10 +212,16 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     [onActivityFilterChange]
   );
 
+  const handleClearSmusFilter = useCallback(
+    () => onSmusFilterChange?.(DEFAULT_SMUS_FILTER),
+    [onSmusFilterChange]
+  );
+
   const handleClearAll = useCallback(() => {
     onDateFilterChange?.(DEFAULT_DATE_FILTER);
     onErrorFilterChange?.(DEFAULT_ERROR_FILTER);
     onActivityFilterChange?.(DEFAULT_ACTIVITY_FILTER);
+    onSmusFilterChange?.(DEFAULT_SMUS_FILTER);
     onIncludeTagsChange?.([]);
     onExcludeTagsChange?.([]);
     onIncludeFoldersChange?.([]);
@@ -218,6 +232,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     onDateFilterChange,
     onErrorFilterChange,
     onActivityFilterChange,
+    onSmusFilterChange,
     onIncludeTagsChange,
     onExcludeTagsChange,
     onIncludeFoldersChange,
@@ -256,6 +271,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     handleClearDateFilter,
     handleClearErrorFilter,
     handleClearActivityFilter,
+    handleClearSmusFilter,
     handleClearAll,
   };
 }

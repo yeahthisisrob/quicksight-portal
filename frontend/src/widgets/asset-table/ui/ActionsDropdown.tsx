@@ -1,10 +1,13 @@
 import {
+  Hub as HubIcon,
   MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
   Timeline as TimelineIcon,
 } from '@mui/icons-material';
 import { IconButton, Menu, MenuItem } from '@mui/material';
 import { memo, useState } from 'react';
+
+import { SMUS_ACCENT } from '@/features/smus';
 
 import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 
@@ -73,6 +76,12 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
           })}>
             <OpenInNewIcon fontSize="small" sx={{ mr: 1 }} />
             Open in QuickSight
+          </MenuItem>
+        )}
+        {assetType === 'dataset' && asset.smusLink?.linked && asset.smusLink?.url && (
+          <MenuItem onClick={() => handleAction(() => window.open(asset.smusLink.url, '_blank'))}>
+            <HubIcon fontSize="small" sx={{ mr: 1, color: SMUS_ACCENT }} />
+            View in SMUS
           </MenuItem>
         )}
         <MenuItem

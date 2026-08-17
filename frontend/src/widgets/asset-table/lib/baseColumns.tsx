@@ -4,6 +4,8 @@
 import { ContentCopy as CopyIcon } from '@mui/icons-material';
 import { Box, Chip, IconButton, Tooltip, Typography } from '@mui/material';
 
+import { SmusLinkBadge } from '@/features/smus';
+
 import { PermissionsCell } from '@/entities/asset';
 import { FoldersCell } from '@/entities/folder';
 import { TagsCell } from '@/entities/tag';
@@ -60,18 +62,24 @@ export function generateBaseColumns(
     required: true,
     visible: true,
     renderCell: (params) => (
-      <Tooltip title={params.value || 'Unnamed'}>
-        <Typography
-          variant="body2"
-          sx={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {params.value || 'Unnamed'}
-        </Typography>
-      </Tooltip>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+        <Tooltip title={params.value || 'Unnamed'}>
+          <Typography
+            variant="body2"
+            sx={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {params.value || 'Unnamed'}
+          </Typography>
+        </Tooltip>
+        {/* SMUS catalog link indicator — present only on linked rows */}
+        {(params.row as any).smusLink?.linked && (
+          <SmusLinkBadge link={(params.row as any).smusLink} />
+        )}
+      </Box>
     ),
   });
 

@@ -20,6 +20,7 @@ import {
   type FolderOption,
   type ErrorFilterState,
   type ActivityFilterState,
+  type SmusFilterState,
   type RoleOption,
   type GroupOption,
   type GroupMembershipFilterState,
@@ -29,6 +30,7 @@ import {
   DEFAULT_DATE_FILTER,
   DEFAULT_ERROR_FILTER,
   DEFAULT_ACTIVITY_FILTER,
+  DEFAULT_SMUS_FILTER,
 } from '@/widgets/filter-bar';
 
 import { spacing } from '@/shared/design-system/theme';
@@ -68,6 +70,7 @@ export interface FetchAssetsOptions {
   excludeTags?: string;
   errorFilter?: ErrorFilterState;
   activityFilter?: ActivityFilterState;
+  smusFilter?: SmusFilterState;
   roleFilter?: string;
   permissionsFilter?: PermissionsFilterState;
   groupMembershipFilter?: GroupMembershipFilterState;
@@ -117,6 +120,8 @@ interface EnhancedAssetTableProps {
   errorCount?: number;
   /** Enable activity filtering UI */
   enableActivityFiltering?: boolean;
+  /** Enable SMUS catalog link filtering UI (datasets) */
+  enableSmusFiltering?: boolean;
   /** Enable role filtering UI */
   enableRoleFiltering?: boolean;
   /** Available roles for filtering */
@@ -181,7 +186,7 @@ function buildFetchOptionsFromState(state: {
   dateFilter: DateFilterState; sortModel: GridSortModel; filterModel: GridFilterModel;
   mapSortField: (f: string | undefined) => string | undefined;
   includeTags: TagFilter[]; excludeTags: TagFilter[];
-  errorFilter: ErrorFilterState; activityFilter: ActivityFilterState;
+  errorFilter: ErrorFilterState; activityFilter: ActivityFilterState; smusFilter: SmusFilterState;
   selectedRoles: string[]; permissionsFilter: PermissionsFilterState;
   groupMembershipFilter: GroupMembershipFilterState; selectedGroups: string[];
   selectedSourceTypes: string[];
@@ -202,6 +207,7 @@ function buildFetchOptionsFromState(state: {
     excludeTags: state.excludeTags.length > 0 ? JSON.stringify(state.excludeTags) : undefined,
     errorFilter: state.errorFilter !== 'all' ? state.errorFilter : undefined,
     activityFilter: state.activityFilter !== 'all' ? state.activityFilter : undefined,
+    smusFilter: state.smusFilter !== 'all' ? state.smusFilter : undefined,
     roleFilter: state.selectedRoles.length > 0 ? JSON.stringify(state.selectedRoles) : undefined,
     permissionsFilter: state.permissionsFilter !== 'all' ? state.permissionsFilter : undefined,
     groupMembershipFilter: state.groupMembershipFilter !== 'all' ? state.groupMembershipFilter : undefined,
@@ -329,6 +335,7 @@ export default function EnhancedAssetTable({
   enableErrorFiltering = false,
   errorCount,
   enableActivityFiltering = false,
+  enableSmusFiltering = false,
   enableRoleFiltering = false,
   availableRoles = [],
   enablePermissionsFiltering = false,
@@ -357,6 +364,7 @@ export default function EnhancedAssetTable({
   const [excludeTags, setExcludeTags] = useState<TagFilter[]>([]);
   const [errorFilter, setErrorFilter] = useState<ErrorFilterState>(DEFAULT_ERROR_FILTER);
   const [activityFilter, setActivityFilter] = useState<ActivityFilterState>(DEFAULT_ACTIVITY_FILTER);
+  const [smusFilter, setSmusFilter] = useState<SmusFilterState>(DEFAULT_SMUS_FILTER);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [permissionsFilter, setPermissionsFilter] = useState<PermissionsFilterState>('all');
   const [groupMembershipFilter, setGroupMembershipFilter] = useState<GroupMembershipFilterState>('all');
@@ -444,12 +452,12 @@ export default function EnhancedAssetTable({
   const buildFetchOptions = useCallback(
     () => buildFetchOptionsFromState({
       currentPage, pageSize, debouncedSearchTerm, dateFilter, sortModel, filterModel,
-      mapSortField, includeTags, excludeTags, errorFilter, activityFilter,
+      mapSortField, includeTags, excludeTags, errorFilter, activityFilter, smusFilter,
       selectedRoles, permissionsFilter, groupMembershipFilter, selectedGroups,
       selectedSourceTypes, includeFolders, excludeFolders,
     }),
     [currentPage, pageSize, debouncedSearchTerm, dateFilter, sortModel, filterModel,
-      mapSortField, includeTags, excludeTags, errorFilter, activityFilter,
+      mapSortField, includeTags, excludeTags, errorFilter, activityFilter, smusFilter,
       selectedRoles, permissionsFilter, groupMembershipFilter, selectedGroups,
       selectedSourceTypes, includeFolders, excludeFolders]
   );
@@ -529,6 +537,9 @@ export default function EnhancedAssetTable({
           enableActivityFiltering={enableActivityFiltering}
           activityFilter={activityFilter}
           onActivityFilterChange={setActivityFilter}
+          enableSmusFiltering={enableSmusFiltering}
+          smusFilter={smusFilter}
+          onSmusFilterChange={setSmusFilter}
           enableRoleFiltering={enableRoleFiltering}
           availableRoles={availableRoles}
           selectedRoles={selectedRoles}

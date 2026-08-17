@@ -15,6 +15,7 @@ import {
   Group as GroupIcon,
   Security as SecurityIcon,
   Storage as StorageIcon,
+  Hub as HubIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -41,6 +42,7 @@ import type {
   DateRangeOption,
   ErrorFilterState,
   ActivityFilterState,
+  SmusFilterState,
   GroupMembershipFilterState,
   PermissionsFilterState,
   GroupOption,
@@ -87,6 +89,9 @@ export interface FilterControlsProps {
   // Activity controls
   enableActivityFiltering: boolean;
   activityFilter?: ActivityFilterState;
+  enableSmusFiltering?: boolean;
+  smusFilter?: SmusFilterState;
+  onSmusFilterChange?: (filter: SmusFilterState) => void;
   onActivityFilterChange?: (filter: ActivityFilterState) => void;
 
   // Role controls
@@ -696,6 +701,9 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
   errorCount,
   enableActivityFiltering,
   activityFilter,
+  enableSmusFiltering = false,
+  smusFilter,
+  onSmusFilterChange,
   onActivityFilterChange,
   enableRoleFiltering,
   availableRoles,
@@ -785,6 +793,25 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
               label: 'No Activity',
               icon: <NoActivityIcon sx={{ fontSize: 16, mr: 0.5, color: 'warning.main' }} />,
             },
+          ]}
+        />
+      )}
+
+      {/* SMUS Catalog Link Filter Row */}
+      {enableSmusFiltering && smusFilter !== undefined && onSmusFilterChange && (
+        <ToggleFilterRow
+          icon={<HubIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />}
+          label="SMUS"
+          value={smusFilter}
+          onChange={(v) => onSmusFilterChange(v as SmusFilterState)}
+          options={[
+            { value: 'all', label: 'All' },
+            {
+              value: 'smus_linked',
+              label: 'SMUS Linked',
+              icon: <HubIcon sx={{ fontSize: 16, mr: 0.5, color: '#8C4FFF' }} />,
+            },
+            { value: 'not_smus_linked', label: 'Not Linked' },
           ]}
         />
       )}

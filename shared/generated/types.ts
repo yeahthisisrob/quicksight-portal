@@ -1470,6 +1470,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/smus/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * SMUS (SageMaker Unified Studio) integration status
+         * @description Reports whether a SMUS domain is configured for this portal. When not configured, all SMUS UI (link indicators, actions, filters) is hidden.
+         *
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description SMUS integration status */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SmusStatus"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/smus/dataset-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve SMUS catalog links for QuickSight datasets
+         * @description Matches cached QuickSight dataset metadata (name and source table names from lineage) against the live SMUS domain catalog and returns per-dataset link resolutions. Catalog data is fetched live (short in-memory TTL) — it is never persisted to the portal cache.
+         *
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @description Dataset ids to resolve (all cached datasets when omitted) */
+                        datasetIds?: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Per-dataset SMUS link resolutions */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            links: components["schemas"]["SmusDatasetLink"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scripts/demo-cleanup/preview": {
         parameters: {
             query?: never;
@@ -3263,6 +3354,33 @@ export interface components {
                 /** @description ID of queued ingestion */
                 queuedIngestion?: string;
             };
+        };
+        SmusStatus: {
+            /** @description Whether a SMUS domain is configured for this portal */
+            configured: boolean;
+            /** @description DataZone domain identifier backing the SMUS domain */
+            domainId?: string;
+            /** @description Base URL of the SMUS portal used for deep links */
+            portalUrl?: string;
+        };
+        SmusDatasetLink: {
+            /** @description QuickSight dataset identifier */
+            datasetId: string;
+            /** @description Whether a matching SMUS catalog listing was found */
+            linked: boolean;
+            /**
+             * @description How the dataset was matched — by name or by a lineage source table
+             * @enum {string}
+             */
+            matchType?: "name" | "source-table";
+            /** @description SMUS catalog listing identifier */
+            listingId?: string;
+            /** @description Underlying DataZone asset identifier */
+            assetId?: string;
+            /** @description Name of the matched catalog listing */
+            listingName?: string;
+            /** @description Deep link to the listing in the SMUS portal */
+            url?: string;
         };
         IngestionMetadata: {
             /** @description Total number of ingestions */

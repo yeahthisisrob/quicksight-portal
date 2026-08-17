@@ -1139,6 +1139,57 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /api/smus/status:
+    get:
+      summary: SMUS (SageMaker Unified Studio) integration status
+      description: >
+        Reports whether a SMUS domain is configured for this portal. When not
+        configured, all SMUS UI (link indicators, actions, filters) is hidden.
+      responses:
+        '200':
+          description: SMUS integration status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmusStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/smus/dataset-links:
+    post:
+      summary: Resolve SMUS catalog links for QuickSight datasets
+      description: >
+        Matches cached QuickSight dataset metadata (name and source table
+        names from lineage) against the live SMUS domain catalog and returns
+        per-dataset link resolutions. Catalog data is fetched live (short
+        in-memory TTL) — it is never persisted to the portal cache.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                datasetIds:
+                  type: array
+                  items:
+                    type: string
+                  description: Dataset ids to resolve (all cached datasets when omitted)
+      responses:
+        '200':
+          description: Per-dataset SMUS link resolutions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [links]
+                properties:
+                  links:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SmusDatasetLink'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/scripts/demo-cleanup/preview:
     get:
       summary: Preview demo assets that would be deleted
@@ -3392,6 +3443,48 @@ components:
             queuedIngestion:
               type: string
               description: ID of queued ingestion
+
+    # SMUS (SageMaker Unified Studio) schemas
+    SmusStatus:
+      type: object
+      required: [configured]
+      properties:
+        configured:
+          type: boolean
+          description: Whether a SMUS domain is configured for this portal
+        domainId:
+          type: string
+          description: DataZone domain identifier backing the SMUS domain
+        portalUrl:
+          type: string
+          description: Base URL of the SMUS portal used for deep links
+
+    SmusDatasetLink:
+      type: object
+      required: [datasetId, linked]
+      properties:
+        datasetId:
+          type: string
+          description: QuickSight dataset identifier
+        linked:
+          type: boolean
+          description: Whether a matching SMUS catalog listing was found
+        matchType:
+          type: string
+          enum: [name, source-table]
+          description: How the dataset was matched — by name or by a lineage source table
+        listingId:
+          type: string
+          description: SMUS catalog listing identifier
+        assetId:
+          type: string
+          description: Underlying DataZone asset identifier
+        listingName:
+          type: string
+          description: Name of the matched catalog listing
+        url:
+          type: string
+          description: Deep link to the listing in the SMUS portal
 
     IngestionMetadata:
       type: object

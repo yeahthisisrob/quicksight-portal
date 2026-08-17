@@ -7,6 +7,7 @@ import { deploymentRoutes } from '../features/deployment';
 import { organizationRoutes } from '../features/organization';
 import { extractPathParams } from './utils/routeUtils';
 import { scriptsRoutes } from '../features/scripts/routes';
+import { smusRoutes } from '../features/smus';
 import { jobRoutes } from '../shared/routes/jobRoutes';
 
 export const featureRoutes: RouteHandler[] = [
@@ -17,6 +18,7 @@ export const featureRoutes: RouteHandler[] = [
   ...dataCatalogRoutes,
   ...activityRoutes,
   ...scriptsRoutes,
+  ...smusRoutes,
   ...jobRoutes, // Shared job management routes
 ];
 
