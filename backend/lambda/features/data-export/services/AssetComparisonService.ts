@@ -1,6 +1,7 @@
 import { AssetStatus, type CacheEntry } from '../../../shared/models/asset.model';
 import { CacheService } from '../../../shared/services/cache/CacheService';
 import { type JobStateService } from '../../../shared/services/jobs/JobStateService';
+import { PARSER_METADATA_VERSION } from '../../../shared/services/parsing/parserVersion';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { logger } from '../../../shared/utils/logger';
 import { type AssetType, type AssetSummary } from '../types';
@@ -141,6 +142,12 @@ export class AssetComparisonService {
         // Always refresh organizational assets since we can't reliably detect changes
         needsUpdate.add(asset.id);
         logger.debug(`${assetType} ${asset.id} - always refresh (organizational asset)`);
+      } else if ((cachedEntry.metadata?.parserVersion ?? 0) < PARSER_METADATA_VERSION) {
+        // Parsers now extract fields this entry predates (e.g. lineage table
+        // schemas, custom-SQL refs) - re-export even though the asset itself
+        // hasn't changed, or the new metadata would stay missing forever
+        needsUpdate.add(asset.id);
+        logger.debug(`Asset ${asset.id} has stale parser metadata - marking for export`);
       } else if (!cachedEntry.lastUpdatedTime && !asset.lastModified) {
         // Both have no lastUpdatedTime - consider unchanged for non-organizational assets
         unchanged.add(asset.id);
