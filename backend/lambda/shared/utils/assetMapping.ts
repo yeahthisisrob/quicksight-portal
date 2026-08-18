@@ -104,6 +104,15 @@ function extractDatasetSchemas(metadata: any): string[] {
     if (table?.schema) {
       schemas.add(table.schema);
     }
+    // Custom-SQL tables (common for Athena) carry no RelationalTable schema;
+    // derive it from the parsed db.table / catalog.db.table refs instead.
+    for (const ref of table?.sqlTables || []) {
+      const parts = String(ref).split('.');
+      const db = parts.length >= 2 ? parts[parts.length - 2] : undefined;
+      if (db) {
+        schemas.add(db);
+      }
+    }
   }
   return Array.from(schemas).sort();
 }

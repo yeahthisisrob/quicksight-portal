@@ -23,6 +23,7 @@ import { pascalToCamel } from '../../utils/caseConverter';
 import { logger } from '../../utils/logger';
 import { determinePrincipalType } from '../../utils/permissions';
 import { AssetParserService } from '../parsing/AssetParserService';
+import { PARSER_METADATA_VERSION } from '../parsing/parserVersion';
 
 export class CacheWriter {
   private readonly assetParser: AssetParserService;
@@ -745,6 +746,7 @@ export class CacheWriter {
   ): any {
     return {
       ...metadata,
+      parserVersion: PARSER_METADATA_VERSION,
       enrichmentStatus,
       exportTime: assetData.apiResponses?.list?.timestamp,
       ...(status === 'archived' && assetData.archivedMetadata

@@ -214,6 +214,8 @@ export interface CacheEntry {
     owner?: string;
     enrichmentStatus?: string;
     lastEnrichmentTime?: string;
+    /** Parser metadata version — see PARSER_METADATA_VERSION. Absent = legacy. */
+    parserVersion?: number;
     exportTime?: string;
     exportVersion?: string;
     publishedVersionNumber?: number;

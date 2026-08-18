@@ -1,6 +1,7 @@
 import { AssetStatus, type CacheEntry } from '../../../shared/models/asset.model';
 import { CacheService } from '../../../shared/services/cache/CacheService';
 import { type JobStateService } from '../../../shared/services/jobs/JobStateService';
+import { PARSER_METADATA_VERSION } from '../../../shared/services/parsing/parserVersion';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { logger } from '../../../shared/utils/logger';
 import { type AssetType, type AssetSummary } from '../types';
@@ -9,6 +10,16 @@ import { type AssetType, type AssetSummary } from '../types';
  * Service for comparing assets with cache and detecting changes/deletions
  * Optimized for Lambda with lazy initialization and dependency injection for testing
  */
+/**
+ * True when the cached entry was exported before parsers started extracting
+ * the fields the current version produces (e.g. lineage table schemas,
+ * custom-SQL refs) - such entries must be re-exported even though the asset
+ * itself hasn't changed, or the new metadata would stay missing forever.
+ */
+function hasStaleParserMetadata(cachedEntry: any): boolean {
+  return (cachedEntry.metadata?.parserVersion ?? 0) < PARSER_METADATA_VERSION;
+}
+
 export class AssetComparisonService {
   private readonly cacheService: CacheService;
   private jobId: string = '';
@@ -141,6 +152,8 @@ export class AssetComparisonService {
         // Always refresh organizational assets since we can't reliably detect changes
         needsUpdate.add(asset.id);
         logger.debug(`${assetType} ${asset.id} - always refresh (organizational asset)`);
+      } else if (hasStaleParserMetadata(cachedEntry)) {
+        needsUpdate.add(asset.id);
       } else if (!cachedEntry.lastUpdatedTime && !asset.lastModified) {
         // Both have no lastUpdatedTime - consider unchanged for non-organizational assets
         unchanged.add(asset.id);

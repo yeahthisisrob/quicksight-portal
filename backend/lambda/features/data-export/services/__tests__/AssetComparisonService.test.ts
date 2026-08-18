@@ -1,6 +1,7 @@
 import { vi, type Mocked } from 'vitest';
 
 import { type CacheService } from '../../../../shared/services/cache/CacheService';
+import { PARSER_METADATA_VERSION } from '../../../../shared/services/parsing/parserVersion';
 import { logger } from '../../../../shared/utils/logger';
 import { AssetComparisonService } from '../AssetComparisonService';
 
@@ -35,8 +36,18 @@ describe('AssetComparisonService', () => {
     ];
 
     const mockCachedEntries: any[] = [
-      { assetId: 'asset1', assetName: 'Asset 1', lastUpdatedTime: '2025-01-15T09:00:00Z' },
-      { assetId: 'asset2', assetName: 'Asset 2', lastUpdatedTime: '2025-01-15T11:00:00Z' },
+      {
+        assetId: 'asset1',
+        assetName: 'Asset 1',
+        lastUpdatedTime: '2025-01-15T09:00:00Z',
+        metadata: { parserVersion: PARSER_METADATA_VERSION },
+      },
+      {
+        assetId: 'asset2',
+        assetName: 'Asset 2',
+        lastUpdatedTime: '2025-01-15T11:00:00Z',
+        metadata: { parserVersion: PARSER_METADATA_VERSION },
+      },
     ];
 
     describe('with forceRefresh', () => {
@@ -118,9 +129,33 @@ describe('AssetComparisonService', () => {
         expect(result.needsUpdate.has('asset3')).toBe(true);
       });
 
+      it('re-exports unchanged assets whose cached metadata predates the parser version', async () => {
+        const staleCache: any[] = [
+          { assetId: 'asset1', assetName: 'Asset 1', lastUpdatedTime: '2025-01-15T10:00:00Z' },
+        ];
+        const currentAssets: any[] = [
+          { id: 'asset1', name: 'Asset 1', lastModified: '2025-01-15T10:00:00Z' },
+        ];
+        mockCacheService.getMasterCache.mockResolvedValue({
+          entries: { dashboard: staleCache },
+        } as any);
+        mockCacheService.getTypeCache.mockResolvedValue(staleCache);
+
+        const result = await service.compareAndDetectChanges('dashboard', currentAssets, [], false);
+
+        // unchanged timestamp, but no parserVersion stamp -> must re-export
+        expect(result.needsUpdate.has('asset1')).toBe(true);
+      });
+
       it('should handle assets without timestamps', async () => {
         const assetsNoTimestamp: any[] = [{ id: 'asset1', name: 'Asset 1' }];
-        const cacheNoTimestamp: any[] = [{ assetId: 'asset1', assetName: 'Asset 1' }];
+        const cacheNoTimestamp: any[] = [
+          {
+            assetId: 'asset1',
+            assetName: 'Asset 1',
+            metadata: { parserVersion: PARSER_METADATA_VERSION },
+          },
+        ];
 
         mockCacheService.getMasterCache.mockResolvedValue({
           entries: { dashboard: cacheNoTimestamp },
@@ -400,24 +435,28 @@ describe('AssetComparisonService', () => {
           assetId: 'unchanged1',
           assetName: 'Unchanged 1',
           lastUpdatedTime: '2025-01-01T10:00:00Z',
+          metadata: { parserVersion: PARSER_METADATA_VERSION },
           status: 'ACTIVE',
         },
         {
           assetId: 'updated1',
           assetName: 'Updated 1',
           lastUpdatedTime: '2025-01-01T10:00:00Z',
+          metadata: { parserVersion: PARSER_METADATA_VERSION },
           status: 'ACTIVE',
         },
         {
           assetId: 'deleted1',
           assetName: 'Deleted 1',
           lastUpdatedTime: '2025-01-01T10:00:00Z',
+          metadata: { parserVersion: PARSER_METADATA_VERSION },
           status: 'ACTIVE',
         },
         {
           assetId: 'deleted2',
           assetName: 'Deleted 2',
           lastUpdatedTime: '2025-01-01T10:00:00Z',
+          metadata: { parserVersion: PARSER_METADATA_VERSION },
           status: 'ACTIVE',
         },
       ];
