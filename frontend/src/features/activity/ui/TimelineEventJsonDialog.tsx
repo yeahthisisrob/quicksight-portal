@@ -49,9 +49,9 @@ export function TimelineEventJsonDialog({ open, onClose, event }: TimelineEventJ
       </DialogTitle>
       <DialogContent>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-          The portal stores a compact record per event, not the full CloudTrail log — for
-          mutations, <code>storedRecord.d</code> holds the allowlisted CloudTrail payload slice
-          (ids, names, ARNs, errors).
+          The portal stores a pruned record per event, not the full CloudTrail log — for
+          mutations, <code>storedRecord.details</code> holds the allowlisted CloudTrail payload
+          slice (ids, names, ARNs, errors).
         </Typography>
         <Box
           component="pre"
