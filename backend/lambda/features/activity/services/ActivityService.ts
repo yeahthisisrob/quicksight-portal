@@ -242,6 +242,42 @@ function captureMutationDetails(event: any): Record<string, unknown> | undefined
   return details;
 }
 
+/**
+ * CloudTrail sometimes delivers `serviceEventDetails.eventRequestDetails` as
+ * a JSON-encoded STRING instead of the object/array shapes — which silently
+ * defeats every keyed lookup. Parse it in place (idempotent, best-effort) so
+ * extraction and the details capture see structured data.
+ */
+function normalizeServiceEventDetails(event: any): void {
+  const details = event?.serviceEventDetails?.eventRequestDetails;
+  if (typeof details !== 'string') {
+    return;
+  }
+  try {
+    event.serviceEventDetails.eventRequestDetails = JSON.parse(details);
+  } catch {
+    // leave the string in place — the ARN scan below still works on it
+  }
+}
+
+/**
+ * Last-resort id extraction: scan the event payload for a QuickSight ARN of
+ * the expected asset type (`...:analysis/<id>`), regardless of how the
+ * payload is shaped or nested. Shape drift in console service events has
+ * repeatedly broken keyed extraction; ARNs survive every variant.
+ */
+function extractIdFromArnScan(event: any, assetType: string): string | null {
+  const haystack = JSON.stringify({
+    requestParameters: event?.requestParameters,
+    responseElements: event?.responseElements,
+    serviceEventDetails: event?.serviceEventDetails,
+    resources: event?.resources ?? event?.Resources,
+  });
+  const pattern = new RegExp(`arn:[^"]*quicksight[^"]*:${assetType}/([A-Za-z0-9-]+)`);
+  const match = haystack.match(pattern);
+  return match?.[1] ?? null;
+}
+
 function extractEventName(event: any): string | undefined {
   return (
     extractViewEventName(event) ||
@@ -648,24 +684,24 @@ function buildTimelinePredicate(query: TimelineQuery): TimelinePredicate {
 }
 
 /** Flatten the date-grouped activity cache into a single list of mutation
- *  events, sorted newest-first. Views (k !== 'm') are excluded — the timeline
+ *  events, sorted newest-first. Views (kind !== 'mutation') are excluded — the timeline
  *  is mutations only. */
 function flattenMutations(cache: ActivityCache): MinimalEvent[] {
   const out: MinimalEvent[] = [];
   for (const dayEvents of Object.values(cache.events) as MinimalEvent[][]) {
     for (const evt of dayEvents) {
-      if (evt.k === 'm') {
+      if (evt.kind === 'mutation') {
         out.push(evt);
       }
     }
   }
-  out.sort((a, b) => (a.t < b.t ? 1 : a.t > b.t ? -1 : 0));
+  out.sort((a, b) => (a.timestamp < b.timestamp ? 1 : a.timestamp > b.timestamp ? -1 : 0));
   return out;
 }
 
 /** Check a single event against the predicate. Returns true to keep. */
 function eventMatchesPredicate(evt: MinimalEvent, p: TimelinePredicate): boolean {
-  const evtMs = Date.parse(evt.t);
+  const evtMs = Date.parse(evt.timestamp);
   if (p.cursorMs !== null && evtMs >= p.cursorMs) {
     return false;
   }
@@ -675,25 +711,25 @@ function eventMatchesPredicate(evt: MinimalEvent, p: TimelinePredicate): boolean
   if (p.endMs !== null && evtMs > p.endMs) {
     return false;
   }
-  if (p.resourceTypes && (!evt.at || !p.resourceTypes.has(evt.at))) {
+  if (p.resourceTypes && (!evt.resourceType || !p.resourceTypes.has(evt.resourceType))) {
     return false;
   }
-  if (p.eventNames && !p.eventNames.has(evt.e)) {
+  if (p.eventNames && !p.eventNames.has(evt.eventName)) {
     return false;
   }
-  if (p.excludeEventNames && p.excludeEventNames.has(evt.e)) {
+  if (p.excludeEventNames && p.excludeEventNames.has(evt.eventName)) {
     return false;
   }
-  if (p.actions && (!evt.a || !p.actions.has(evt.a))) {
+  if (p.actions && (!evt.action || !p.actions.has(evt.action))) {
     return false;
   }
-  if (p.users && !p.users.has(evt.u.toLowerCase())) {
+  if (p.users && !p.users.has(evt.user.toLowerCase())) {
     return false;
   }
-  if (p.pinnedAssetType && evt.at !== p.pinnedAssetType) {
+  if (p.pinnedAssetType && evt.resourceType !== p.pinnedAssetType) {
     return false;
   }
-  if (p.pinnedAssetId && evt.r !== p.pinnedAssetId) {
+  if (p.pinnedAssetId && evt.resourceId !== p.pinnedAssetId) {
     return false;
   }
   return true;
@@ -995,15 +1031,15 @@ export class ActivityService {
     // asset types that actually appear in this page.
     const assetTypesInPage = new Set<AssetType>();
     for (const evt of filtered) {
-      if (evt.at && evt.at !== 'other') {
-        assetTypesInPage.add(evt.at as AssetType);
+      if (evt.resourceType && evt.resourceType !== 'other') {
+        assetTypesInPage.add(evt.resourceType as AssetType);
       }
     }
     const nameMap = await this.buildAssetNameMap(assetTypesInPage);
 
     const items: TimelineEvent[] = filtered.map((evt) => this.toTimelineEvent(evt, nameMap));
     const lastEvent = filtered[filtered.length - 1];
-    const nextCursor = hasMore && lastEvent ? lastEvent.t : null;
+    const nextCursor = hasMore && lastEvent ? lastEvent.timestamp : null;
 
     return { items, nextCursor, hasMore, cacheLastUpdated: cache.lastUpdated };
   }
@@ -1380,10 +1416,10 @@ export class ActivityService {
     // dedup-on-merge so re-fetching the overlap window doesn't double-count.
     const id = rawEvent?.EventId || event?.eventID;
     return {
-      t: typeof timestamp === 'string' ? timestamp : new Date(timestamp).toISOString(),
-      e: eventType,
-      u: this.extractUserName(event) || ACTIVITY_CONSTANTS.UNKNOWN_USER,
-      ...(typeof id === 'string' && id.length > 0 ? { id } : {}),
+      timestamp: typeof timestamp === 'string' ? timestamp : new Date(timestamp).toISOString(),
+      eventName: eventType,
+      user: this.extractUserName(event) || ACTIVITY_CONSTANTS.UNKNOWN_USER,
+      ...(typeof id === 'string' && id.length > 0 ? { eventId: id } : {}),
     };
   }
 
@@ -1470,18 +1506,18 @@ export class ActivityService {
     for (const events of Object.values(cache.events)) {
       for (const event of events as MinimalEvent[]) {
         // Track user activity
-        userStats.set(event.u, (userStats.get(event.u) || 0) + 1);
+        userStats.set(event.user, (userStats.get(event.user) || 0) + 1);
 
         // Track dashboard activity
-        if (ActivityService.isDashboardEvent(event.e) && event.r) {
+        if (ActivityService.isDashboardEvent(event.eventName) && event.resourceId) {
           dashboardViews++;
-          this.updateAssetStats(dashboardStats, event.r, event.u);
+          this.updateAssetStats(dashboardStats, event.resourceId, event.user);
         }
 
         // Track analysis activity
-        if (ActivityService.isAnalysisEvent(event.e) && event.r) {
+        if (ActivityService.isAnalysisEvent(event.eventName) && event.resourceId) {
           analysisViews++;
-          this.updateAssetStats(analysisStats, event.r, event.u);
+          this.updateAssetStats(analysisStats, event.resourceId, event.user);
         }
       }
     }
@@ -1523,29 +1559,32 @@ export class ActivityService {
 
     for (const [date, events] of Object.entries(cache.events)) {
       for (const event of events as MinimalEvent[]) {
-        if (!event.r) {
+        if (!event.resourceId) {
           continue;
         }
         const isDashboardView =
-          ActivityService.isDashboardEvent(event.e) && dashboardIds.has(event.r);
-        const isAnalysisView = ActivityService.isAnalysisEvent(event.e) && analysisIds.has(event.r);
+          ActivityService.isDashboardEvent(event.eventName) && dashboardIds.has(event.resourceId);
+        const isAnalysisView =
+          ActivityService.isAnalysisEvent(event.eventName) && analysisIds.has(event.resourceId);
 
         if (isDashboardView || isAnalysisView) {
-          const entry = getStats(`${isDashboardView ? 'dashboard' : 'analysis'}:${event.r}`);
+          const entry = getStats(
+            `${isDashboardView ? 'dashboard' : 'analysis'}:${event.resourceId}`
+          );
           entry.totalViews++;
-          entry.viewers.add(event.u);
-          entry.lastViewed = maxDate(entry.lastViewed, event.t);
+          entry.viewers.add(event.user);
+          entry.lastViewed = maxDate(entry.lastViewed, event.timestamp);
           entry.viewsByDate.set(date, (entry.viewsByDate.get(date) || 0) + 1);
           continue;
         }
 
         const isDependentMutation =
-          event.k === 'm' &&
-          ((event.at === ASSET_TYPES.dashboard && dashboardIds.has(event.r)) ||
-            (event.at === ASSET_TYPES.analysis && analysisIds.has(event.r)));
+          event.kind === 'mutation' &&
+          ((event.resourceType === ASSET_TYPES.dashboard && dashboardIds.has(event.resourceId)) ||
+            (event.resourceType === ASSET_TYPES.analysis && analysisIds.has(event.resourceId)));
         if (isDependentMutation) {
-          const entry = getStats(`${event.at}:${event.r}`);
-          entry.lastUpdated = maxDate(entry.lastUpdated, event.t);
+          const entry = getStats(`${event.resourceType}:${event.resourceId}`);
+          entry.lastUpdated = maxDate(entry.lastUpdated, event.timestamp);
         }
       }
     }
@@ -1654,14 +1693,14 @@ export class ActivityService {
 
     for (const events of Object.values(cache.events)) {
       for (const event of events as MinimalEvent[]) {
-        if (event.r) {
-          if (ActivityService.isDashboardEvent(event.e)) {
-            dashboards.add(event.r);
-          } else if (ActivityService.isAnalysisEvent(event.e)) {
-            analyses.add(event.r);
+        if (event.resourceId) {
+          if (ActivityService.isDashboardEvent(event.eventName)) {
+            dashboards.add(event.resourceId);
+          } else if (ActivityService.isAnalysisEvent(event.eventName)) {
+            analyses.add(event.resourceId);
           }
         }
-        users.add(event.u);
+        users.add(event.user);
       }
     }
 
@@ -1729,46 +1768,49 @@ export class ActivityService {
     eventType: string,
     event: any
   ): MinimalEvent {
-    base.k = 'm';
-    base.at = assetType;
+    base.kind = 'mutation';
+    base.resourceType = assetType;
     const action = classifyAction(eventType);
     if (action) {
-      base.a = action;
+      base.action = action;
     }
-    const id = ASSET_MUTATION_CONFIG[assetType].extractId(event);
+    normalizeServiceEventDetails(event);
+    const id =
+      ASSET_MUTATION_CONFIG[assetType].extractId(event) || extractIdFromArnScan(event, assetType);
     if (id) {
-      base.r = id;
+      base.resourceId = id;
     }
     const name = extractEventName(event);
     if (name) {
-      base.n = name;
+      base.name = name;
     }
     const details = captureMutationDetails(event);
     if (details) {
-      base.d = details;
+      base.details = details;
     }
     return base;
   }
 
   /** Other-mutation enrichment (templates, themes, settings, tagging, jobs). */
   private enrichAsOtherMutation(base: MinimalEvent, eventType: string, event: any): MinimalEvent {
-    base.k = 'm';
-    base.at = 'other';
+    base.kind = 'mutation';
+    base.resourceType = 'other';
     const action = classifyAction(eventType);
     if (action) {
-      base.a = action;
+      base.action = action;
     }
+    normalizeServiceEventDetails(event);
     const fallbackId = extractParam(event);
     if (fallbackId) {
-      base.r = fallbackId;
+      base.resourceId = fallbackId;
     }
     const name = extractEventName(event);
     if (name) {
-      base.n = name;
+      base.name = name;
     }
     const details = captureMutationDetails(event);
     if (details) {
-      base.d = details;
+      base.details = details;
     }
     return base;
   }
@@ -1778,19 +1820,19 @@ export class ActivityService {
     if (ActivityService.isDashboardEvent(eventType)) {
       const id = ASSET_EVENT_CONFIG.dashboard.extractId(event);
       if (id) {
-        base.r = id;
+        base.resourceId = id;
       }
     } else if (ActivityService.isAnalysisEvent(eventType)) {
       const id = ASSET_EVENT_CONFIG.analysis.extractId(event);
       if (id) {
-        base.r = id;
+        base.resourceId = id;
       }
     }
     const name = extractEventName(event);
     if (name) {
-      base.n = name;
+      base.name = name;
     }
-    return base.r ? base : null;
+    return base.resourceId ? base : null;
   }
 
   /**
@@ -1904,7 +1946,7 @@ export class ActivityService {
 
         // Advance watermark to the latest EventTime we successfully ingested.
         const latest = minimal.reduce<string | undefined>(
-          (max, e) => (max === undefined || e.t > max ? e.t : max),
+          (max, e) => (max === undefined || e.timestamp > max ? e.timestamp : max),
           watermarks?.[eventName]
         );
         if (latest) {
@@ -2165,8 +2207,8 @@ export class ActivityService {
     relevantEvents: string[],
     assetIds: string[]
   ): boolean {
-    return relevantEvents.includes(event.e) && Boolean(event.r) && event.r
-      ? assetIds.includes(event.r)
+    return relevantEvents.includes(event.eventName) && Boolean(event.resourceId) && event.resourceId
+      ? assetIds.includes(event.resourceId)
       : false;
   }
 
@@ -2198,8 +2240,8 @@ export class ActivityService {
       for (const [date, evts] of Object.entries(existing.events)) {
         const ids = new Set<string>();
         for (const e of evts) {
-          if (e.id) {
-            ids.add(e.id);
+          if (e.eventId) {
+            ids.add(e.eventId);
           }
         }
         seenIdsByDate.set(date, ids);
@@ -2207,16 +2249,16 @@ export class ActivityService {
     }
 
     for (const event of freshEvents) {
-      const datePart = event.t.split(ACTIVITY_CONSTANTS.DATE_SEPARATOR)[0];
+      const datePart = event.timestamp.split(ACTIVITY_CONSTANTS.DATE_SEPARATOR)[0];
       if (!datePart) {
         continue;
       }
-      if (event.id) {
+      if (event.eventId) {
         const seen = seenIdsByDate.get(datePart) || new Set<string>();
-        if (seen.has(event.id)) {
+        if (seen.has(event.eventId)) {
           continue;
         }
-        seen.add(event.id);
+        seen.add(event.eventId);
         seenIdsByDate.set(datePart, seen);
       }
       if (!eventsByDate[datePart]) {
@@ -2280,16 +2322,17 @@ export class ActivityService {
     for (const [date, events] of Object.entries(cache.events)) {
       for (const event of events as MinimalEvent[]) {
         const isRelevant =
-          (assetType === ASSET_TYPES.dashboard && ActivityService.isDashboardEvent(event.e)) ||
-          (assetType === ASSET_TYPES.analysis && ActivityService.isAnalysisEvent(event.e));
+          (assetType === ASSET_TYPES.dashboard &&
+            ActivityService.isDashboardEvent(event.eventName)) ||
+          (assetType === ASSET_TYPES.analysis && ActivityService.isAnalysisEvent(event.eventName));
 
-        if (isRelevant && event.r === assetId) {
+        if (isRelevant && event.resourceId === assetId) {
           totalViews++;
-          this.updateViewerInfo(viewers, event.u, event.t);
+          this.updateViewerInfo(viewers, event.user, event.timestamp);
           viewsByDate.set(date, (viewsByDate.get(date) || 0) + 1);
 
-          if (event.t > lastViewed) {
-            lastViewed = event.t;
+          if (event.timestamp > lastViewed) {
+            lastViewed = event.timestamp;
           }
         }
       }
@@ -2340,7 +2383,7 @@ export class ActivityService {
 
     for (const [, events] of Object.entries(cache.events)) {
       for (const event of events as MinimalEvent[]) {
-        const matchedUserName = userNameSet.has(event.u) ? event.u : null;
+        const matchedUserName = userNameSet.has(event.user) ? event.user : null;
 
         if (matchedUserName) {
           this.updateUserActivity(results, matchedUserName, event);
@@ -2373,13 +2416,15 @@ export class ActivityService {
 
     // Process events
     for (const [date, events] of Object.entries(cache.events)) {
-      const userEvents = (events as MinimalEvent[]).filter((e) => this.userMatches(e.u, userName));
+      const userEvents = (events as MinimalEvent[]).filter((e) =>
+        this.userMatches(e.user, userName)
+      );
 
       for (const event of userEvents) {
         totalActivities++;
 
-        if (event.t > lastActive) {
-          lastActive = event.t;
+        if (event.timestamp > lastActive) {
+          lastActive = event.timestamp;
         }
 
         this.trackUserAssetActivity(dashboards, analyses, event);
@@ -2433,34 +2478,35 @@ export class ActivityService {
 
   /** Convert a cached MinimalEvent to the wire-format TimelineEvent. */
   private toTimelineEvent(evt: MinimalEvent, nameMap: Map<string, string>): TimelineEvent {
-    const isCatalogAsset = evt.at && evt.at !== 'other';
-    const assetType = isCatalogAsset ? (evt.at as AssetType) : undefined;
+    const isCatalogAsset = evt.resourceType && evt.resourceType !== 'other';
+    const assetType = isCatalogAsset ? (evt.resourceType as AssetType) : undefined;
 
     // Prefer the name captured from the CloudTrail event itself (n). Fall back
     // to the catalog lookup, then undefined.
-    const catalogName = assetType && evt.r ? nameMap.get(`${assetType}:${evt.r}`) : undefined;
-    const assetName = evt.n || catalogName;
+    const catalogName =
+      assetType && evt.resourceId ? nameMap.get(`${assetType}:${evt.resourceId}`) : undefined;
+    const assetName = evt.name || catalogName;
 
-    if (isCatalogAsset && evt.r && !assetName) {
+    if (isCatalogAsset && evt.resourceId && !assetName) {
       logger.debug('Timeline asset-name miss', {
-        eventName: evt.e,
-        assetType: evt.at,
-        assetId: evt.r,
-        hasEventName: Boolean(evt.n),
-        lookupKey: `${assetType}:${evt.r}`,
+        eventName: evt.eventName,
+        assetType: evt.resourceType,
+        assetId: evt.resourceId,
+        hasEventName: Boolean(evt.name),
+        lookupKey: `${assetType}:${evt.resourceId}`,
       });
     }
 
     return {
-      id: `${evt.t}_${evt.e}_${evt.r ?? ''}_${evt.u}`,
-      timestamp: evt.t,
-      eventName: evt.e,
-      kind: evt.k === 'm' ? 'mutation' : 'view',
-      action: evt.a,
-      user: evt.u,
-      resourceType: evt.at,
+      id: `${evt.timestamp}_${evt.eventName}_${evt.resourceId ?? ''}_${evt.user}`,
+      timestamp: evt.timestamp,
+      eventName: evt.eventName,
+      kind: evt.kind === 'mutation' ? 'mutation' : 'view',
+      action: evt.action,
+      user: evt.user,
+      resourceType: evt.resourceType,
       assetType,
-      assetId: evt.r,
+      assetId: evt.resourceId,
       assetName,
       // The stored record, verbatim — powers the per-event "View JSON"
       // debugging view in the timeline UI.
@@ -2472,16 +2518,16 @@ export class ActivityService {
    * Track unique viewers for each asset
    */
   private trackAssetViewer(assetViewers: Map<string, Set<string>>, event: MinimalEvent): void {
-    if (!event.r) {
+    if (!event.resourceId) {
       return;
     }
 
-    if (!assetViewers.has(event.r)) {
-      assetViewers.set(event.r, new Set());
+    if (!assetViewers.has(event.resourceId)) {
+      assetViewers.set(event.resourceId, new Set());
     }
-    const viewers = assetViewers.get(event.r);
+    const viewers = assetViewers.get(event.resourceId);
     if (viewers) {
-      viewers.add(event.u);
+      viewers.add(event.user);
     }
   }
 
@@ -2494,13 +2540,13 @@ export class ActivityService {
     event: MinimalEvent
   ): void {
     // Track dashboards
-    if (ActivityService.isDashboardEvent(event.e) && event.r) {
-      this.updateAssetActivity(dashboards, event.r, event.t);
+    if (ActivityService.isDashboardEvent(event.eventName) && event.resourceId) {
+      this.updateAssetActivity(dashboards, event.resourceId, event.timestamp);
     }
 
     // Track analyses
-    if (ActivityService.isAnalysisEvent(event.e) && event.r) {
-      this.updateAssetActivity(analyses, event.r, event.t);
+    if (ActivityService.isAnalysisEvent(event.eventName) && event.resourceId) {
+      this.updateAssetActivity(analyses, event.resourceId, event.timestamp);
     }
   }
 
@@ -2513,12 +2559,12 @@ export class ActivityService {
     userName: string,
     event: MinimalEvent
   ): void {
-    if (ActivityService.isDashboardEvent(event.e) && event.r) {
-      this.addToUserAssetSet(userDashboards, userName, event.r);
+    if (ActivityService.isDashboardEvent(event.eventName) && event.resourceId) {
+      this.addToUserAssetSet(userDashboards, userName, event.resourceId);
     }
 
-    if (ActivityService.isAnalysisEvent(event.e) && event.r) {
-      this.addToUserAssetSet(userAnalyses, userName, event.r);
+    if (ActivityService.isAnalysisEvent(event.eventName) && event.resourceId) {
+      this.addToUserAssetSet(userAnalyses, userName, event.resourceId);
     }
   }
 
@@ -2566,15 +2612,15 @@ export class ActivityService {
     results: Map<string, { totalViews: number; uniqueViewers: number; lastViewed: string }>,
     event: MinimalEvent
   ): void {
-    if (!event.r) {
+    if (!event.resourceId) {
       return;
     }
 
-    const current = results.get(event.r);
+    const current = results.get(event.resourceId);
     if (current) {
       current.totalViews++;
-      if (event.t > current.lastViewed) {
-        current.lastViewed = event.t;
+      if (event.timestamp > current.lastViewed) {
+        current.lastViewed = event.timestamp;
       }
     }
   }
@@ -2595,22 +2641,28 @@ export class ActivityService {
     for (const events of Object.values(cache.events)) {
       for (const event of events as MinimalEvent[]) {
         // Update dashboard dates
-        if (ActivityService.isDashboardEvent(event.e) && event.r) {
-          if (!persistence.dashboards[event.r] || event.t > persistence.dashboards[event.r]) {
-            persistence.dashboards[event.r] = event.t;
+        if (ActivityService.isDashboardEvent(event.eventName) && event.resourceId) {
+          if (
+            !persistence.dashboards[event.resourceId] ||
+            event.timestamp > persistence.dashboards[event.resourceId]
+          ) {
+            persistence.dashboards[event.resourceId] = event.timestamp;
           }
         }
 
         // Update analysis dates
-        if (ActivityService.isAnalysisEvent(event.e) && event.r) {
-          if (!persistence.analyses[event.r] || event.t > persistence.analyses[event.r]) {
-            persistence.analyses[event.r] = event.t;
+        if (ActivityService.isAnalysisEvent(event.eventName) && event.resourceId) {
+          if (
+            !persistence.analyses[event.resourceId] ||
+            event.timestamp > persistence.analyses[event.resourceId]
+          ) {
+            persistence.analyses[event.resourceId] = event.timestamp;
           }
         }
 
         // Update user dates
-        if (!persistence.users[event.u] || event.t > persistence.users[event.u]) {
-          persistence.users[event.u] = event.t;
+        if (!persistence.users[event.user] || event.timestamp > persistence.users[event.user]) {
+          persistence.users[event.user] = event.timestamp;
         }
       }
     }
@@ -2669,8 +2721,8 @@ export class ActivityService {
     const current = results.get(userName);
     if (current) {
       current.totalActivities++;
-      if (event.t > current.lastActive) {
-        current.lastActive = event.t;
+      if (event.timestamp > current.lastActive) {
+        current.lastActive = event.timestamp;
       }
     }
   }

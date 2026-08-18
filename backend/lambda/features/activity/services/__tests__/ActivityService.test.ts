@@ -44,17 +44,17 @@ const createMockEvent = (
   userName = TEST_USER_NAME,
   eventTime = TEST_DATE
 ): MinimalEvent => ({
-  t: eventTime,
-  e: eventName,
-  u: userName,
-  ...(resourceId && { r: resourceId }),
+  timestamp: eventTime,
+  eventName: eventName,
+  user: userName,
+  ...(resourceId && { resourceId }),
 });
 
 const createMockCache = (events: MinimalEvent[] = []): ActivityCache => {
   const eventsByDate: { [date: string]: MinimalEvent[] } = {};
 
   events.forEach((event) => {
-    const date = event.t.split('T')[0];
+    const date = event.timestamp.split('T')[0];
     if (!date) {
       return;
     }
@@ -577,6 +577,28 @@ describe('ActivityService - refreshActivity', () => {
   });
 });
 
+/**
+ * Run an analysis refresh with a single mocked UpdateAnalysis CloudTrail
+ * event and return the stored record — shared by the payload-shape tests.
+ */
+async function refreshAndGetUpdateEvent(
+  activityService: ActivityService,
+  mockCacheService: Mocked<CacheService>,
+  mockCloudTrailAdapter: Mocked<CloudTrailAdapter>,
+  event: any
+): Promise<MinimalEvent | undefined> {
+  mockCloudTrailAdapter.getEventsByName.mockImplementation(async (eventName: string) =>
+    eventName === 'UpdateAnalysis' ? [event] : []
+  );
+  mockCacheService.getActivityPersistence.mockResolvedValue(null);
+
+  await activityService.refreshActivity({ assetTypes: ['analysis'], days: 1 });
+
+  const cache = mockCacheService.putActivityCache.mock.calls[0]?.[0] as ActivityCache;
+  const cachedEvents = Object.values(cache.events).flat() as MinimalEvent[];
+  return cachedEvents.find((e) => e.eventName === 'UpdateAnalysis');
+}
+
 describe('ActivityService - Edge cases', () => {
   let activityService: ActivityService;
   let mockCacheService: Mocked<CacheService>;
@@ -642,7 +664,7 @@ describe('ActivityService - Edge cases', () => {
       const cache = cacheCall?.[0] as ActivityCache;
       const events = Object.values(cache.events).flat() as MinimalEvent[];
 
-      expect(events[0]?.u).toBe('AWSReservedSSO_test/user@example.com');
+      expect(events[0]?.user).toBe('AWSReservedSSO_test/user@example.com');
     });
 
     it('should drop VIEW events that are missing their resource ID', async () => {
@@ -748,27 +770,23 @@ describe('ActivityService - Edge cases', () => {
         const cache = cacheCall?.[0] as ActivityCache;
         const cachedEvents = Object.values(cache.events).flat() as MinimalEvent[];
 
-        expect(cachedEvents[0]?.r).toBe(TEST_ANALYSIS_ID);
+        expect(cachedEvents[0]?.resourceId).toBe(TEST_ANALYSIS_ID);
 
         vi.clearAllMocks();
       }
     });
 
     it('should extract analysis id from console UpdateAnalysis service events (array-shaped eventRequestDetails)', async () => {
-      mockCloudTrailAdapter.getEventsByName.mockImplementation(async (eventName: string) =>
-        eventName === 'UpdateAnalysis' ? [CONSOLE_UPDATE_ANALYSIS_EVENT] : []
+      const updateEvent = await refreshAndGetUpdateEvent(
+        activityService,
+        mockCacheService,
+        mockCloudTrailAdapter,
+        CONSOLE_UPDATE_ANALYSIS_EVENT
       );
-      mockCacheService.getActivityPersistence.mockResolvedValue(null);
 
-      await activityService.refreshActivity({ assetTypes: ['analysis'], days: 1 });
-
-      const cache = mockCacheService.putActivityCache.mock.calls[0]?.[0] as ActivityCache;
-      const cachedEvents = Object.values(cache.events).flat() as MinimalEvent[];
-      const updateEvent = cachedEvents.find((e) => e.e === 'UpdateAnalysis');
-
-      expect(updateEvent?.r).toBe(TEST_ANALYSIS_ID);
+      expect(updateEvent?.resourceId).toBe(TEST_ANALYSIS_ID);
       // sheetName must NOT be mistaken for the analysis name
-      expect(updateEvent?.n).toBeUndefined();
+      expect(updateEvent?.name).toBeUndefined();
     });
   });
 });
@@ -806,18 +824,18 @@ describe('ActivityService - Persistence', () => {
 
       const createCloudTrailEvent = (e: MinimalEvent, eventName: string) =>
         ({
-          eventTime: e.t,
+          eventTime: e.timestamp,
           eventSource: 'quicksight.amazonaws.com',
           eventName,
-          userIdentity: { userName: e.u },
+          userIdentity: { userName: e.user },
           requestParameters: {
-            ...(eventName.includes('Dashboard') && { dashboardId: e.r }),
-            ...(eventName.includes('Analysis') && { analysisId: e.r }),
+            ...(eventName.includes('Dashboard') && { dashboardId: e.resourceId }),
+            ...(eventName.includes('Analysis') && { analysisId: e.resourceId }),
           },
         }) as any;
 
       mockCloudTrailAdapter.getEventsByName.mockImplementation((_eventName) => {
-        const filteredEvents = events.filter((e) => e.e === _eventName);
+        const filteredEvents = events.filter((e) => e.eventName === _eventName);
         const cloudTrailEvents = filteredEvents.map((e) => createCloudTrailEvent(e, _eventName));
         return Promise.resolve(cloudTrailEvents);
       });
@@ -1003,10 +1021,18 @@ const timelineMutationEvent = (
   eventName: string,
   resource: string,
   user: string,
-  at: MinimalEvent['at'],
-  action: MinimalEvent['a'],
+  resourceType: MinimalEvent['resourceType'],
+  action: MinimalEvent['action'],
   when: string
-): MinimalEvent => ({ t: when, e: eventName, u: user, r: resource, k: 'm', at, a: action });
+): MinimalEvent => ({
+  timestamp: when,
+  eventName,
+  user,
+  resourceId: resource,
+  kind: 'mutation',
+  resourceType,
+  action,
+});
 
 const TIMELINE_CATALOG_ASSETS = [
   { assetId: 'dash-1', assetName: 'Sales Q3', assetType: 'dashboard' },
@@ -1091,7 +1117,12 @@ describe('ActivityService.getTimelinePage — basic', () => {
   it('excludes view events even when present in the cache (mutations only)', async () => {
     const events: MinimalEvent[] = [
       // Legacy view (no k field) — should be dropped from timeline
-      { t: '2024-06-02T12:00:00.000Z', e: 'GetDashboard', u: 'bob', r: 'dash-1' },
+      {
+        timestamp: '2024-06-02T12:00:00.000Z',
+        eventName: 'GetDashboard',
+        user: 'bob',
+        resourceId: 'dash-1',
+      },
       timelineMutationEvent(
         'CreateDashboard',
         'dash-2',
@@ -1464,9 +1495,9 @@ describe('ActivityService — name extraction from CloudTrail events', () => {
     const cached = mockCacheService.putActivityCache.mock.calls[0]?.[0] as ActivityCache;
     const stored = Object.values(cached.events)
       .flat()
-      .find((e) => e.e === 'UpdateAnalysis');
-    expect(stored?.r).toBe('abc-123');
-    expect(stored?.n).toBe('Renamed Analysis');
+      .find((e) => e.eventName === 'UpdateAnalysis');
+    expect(stored?.resourceId).toBe('abc-123');
+    expect(stored?.name).toBe('Renamed Analysis');
   });
 
   it('captures the asset name from serviceEventDetails.eventResponseDetails for GetAnalysis', async () => {
@@ -1490,22 +1521,22 @@ describe('ActivityService — name extraction from CloudTrail events', () => {
     const cached = mockCacheService.putActivityCache.mock.calls[0]?.[0] as ActivityCache;
     const stored = Object.values(cached.events)
       .flat()
-      .find((e) => e.e === 'GetAnalysis');
-    expect(stored?.r).toBe('abc-123');
-    expect(stored?.n).toBe('Cohort Analysis');
+      .find((e) => e.eventName === 'GetAnalysis');
+    expect(stored?.resourceId).toBe('abc-123');
+    expect(stored?.name).toBe('Cohort Analysis');
   });
 
   it('prefers event name over catalog name during hydration', async () => {
     const cache = createMockCache([
       {
-        t: '2024-06-02T12:00:00.000Z',
-        e: 'UpdateAnalysis',
-        u: 'alice',
-        r: 'abc-123',
-        n: 'Name From Event',
-        k: 'm',
-        a: 'update',
-        at: 'analysis',
+        timestamp: '2024-06-02T12:00:00.000Z',
+        eventName: 'UpdateAnalysis',
+        user: 'alice',
+        resourceId: 'abc-123',
+        name: 'Name From Event',
+        kind: 'mutation',
+        action: 'update',
+        resourceType: 'analysis',
       } as MinimalEvent,
     ]);
     mockCacheService.getActivityCache.mockResolvedValue(cache);
@@ -1518,5 +1549,68 @@ describe('ActivityService — name extraction from CloudTrail events', () => {
 
     const page = await activityService.getTimelinePage({ limit: 10 });
     expect(page.items[0]?.assetName).toBe('Name From Event');
+  });
+});
+
+describe('ActivityService - Payload shape drift', () => {
+  let activityService: ActivityService;
+  let mockCacheService: Mocked<CacheService>;
+  let mockCloudTrailAdapter: Mocked<CloudTrailAdapter>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCacheService = {
+      getActivityCache: vi.fn(),
+      getActivityPersistence: vi.fn(),
+      putActivityCache: vi.fn(),
+      putActivityPersistence: vi.fn(),
+      getCacheEntries: vi.fn(),
+    } as any;
+    mockCloudTrailAdapter = { getEventsByName: vi.fn() } as any;
+    activityService = new ActivityService(mockCacheService, mockCloudTrailAdapter);
+  });
+
+  it('extracts the analysis id when eventRequestDetails is a JSON-encoded string', async () => {
+    const stringifiedEvent = {
+      ...CONSOLE_UPDATE_ANALYSIS_EVENT,
+      serviceEventDetails: {
+        eventRequestDetails: JSON.stringify(
+          CONSOLE_UPDATE_ANALYSIS_EVENT.serviceEventDetails.eventRequestDetails
+        ),
+      },
+    };
+
+    const updateEvent = await refreshAndGetUpdateEvent(
+      activityService,
+      mockCacheService,
+      mockCloudTrailAdapter,
+      stringifiedEvent
+    );
+
+    expect(updateEvent?.resourceId).toBe(TEST_ANALYSIS_ID);
+    // the details capture stores the parsed (structured) payload
+    expect(Array.isArray((updateEvent?.details as any)?.eventRequestDetails)).toBe(true);
+  });
+
+  it('falls back to an ARN scan when the payload shape is unrecognized', async () => {
+    const weirdShapeEvent = {
+      ...CONSOLE_UPDATE_ANALYSIS_EVENT,
+      serviceEventDetails: {
+        eventRequestDetails: [
+          // array of single-key objects — not the documented {key, value} shape
+          { addSheet: { sheetName: 'Sheet 2' } },
+          { analysisId: `arn:aws:quicksight:us-east-1:123:analysis/${TEST_ANALYSIS_ID}` },
+        ],
+      },
+    };
+
+    const updateEvent = await refreshAndGetUpdateEvent(
+      activityService,
+      mockCacheService,
+      mockCloudTrailAdapter,
+      weirdShapeEvent
+    );
+
+    expect(updateEvent?.resourceId).toBe(TEST_ANALYSIS_ID);
   });
 });

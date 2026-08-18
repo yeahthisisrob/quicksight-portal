@@ -64,10 +64,11 @@ export type ActionCategory =
   | 'batch';
 
 /**
- * Kind of a CloudTrail event: 'v' = view (Get/Describe), 'm' = mutation (Create/Update/Delete/...).
- * Missing field is treated as 'v' for backward compatibility with pre-timeline cache entries.
+ * Kind of a CloudTrail event: view (Get/Describe) or mutation
+ * (Create/Update/Delete/...). Missing field is treated as 'view' for
+ * backward compatibility with pre-timeline cache entries.
  */
-export type EventKind = 'v' | 'm';
+export type EventKind = 'view' | 'mutation';
 
 /**
  * Resource type for a timeline event. Extends the portal's AssetType (7 catalog types)
@@ -78,27 +79,42 @@ export type EventKind = 'v' | 'm';
  */
 export type TimelineResourceType = AssetType | 'other';
 
-// Minimal event structure for storage (extensible for any event type)
+/**
+ * Stored activity event. Pruned — the full CloudTrail log is never kept —
+ * but with readable field names: the single-char minification (t/e/u/r)
+ * saved ~30% blob size at too high a debuggability cost (schema v5).
+ */
 export interface MinimalEvent {
-  t: string; // time (ISO string)
-  e: string; // event name (GetDashboard, GetAnalysis, etc)
-  u: string; // user (userName or ARN)
-  r?: string; // resource id (dashboardId, analysisId, etc)
-  n?: string; // asset name captured from the CloudTrail event itself (request/response)
-  k?: EventKind; // kind — missing = 'v' (backward-compat)
-  a?: ActionCategory; // derived action category (mutations only)
-  at?: TimelineResourceType; // resource type this event targets — catalog asset type or 'other'
-  m?: any; // metadata (optional, for future event types)
+  /** Event time (ISO string). */
+  timestamp: string;
+  /** CloudTrail event name (GetDashboard, UpdateAnalysis, ...). */
+  eventName: string;
+  /** User name or ARN that performed the action. */
+  user: string;
+  /** Resource id (dashboardId, analysisId, ...). */
+  resourceId?: string;
+  /** Asset name captured from the CloudTrail payload itself. */
+  name?: string;
+  /** Kind — missing = 'view' (backward-compat). */
+  kind?: EventKind;
+  /** Derived action category (mutations only). */
+  action?: ActionCategory;
+  /** Resource type this event targets — catalog asset type or 'other'. */
+  resourceType?: TimelineResourceType;
+  /** Metadata (optional, for future event types). */
+  metadata?: any;
   /**
    * Allowlisted slice of the CloudTrail payload — mutations only. Holds
    * request/response identifiers, names, ARNs, the console
    * eventRequestDetails array, and error fields (size-capped). Views stay
    * minimal for volume; mutations keep enough to debug and hydrate names.
    */
-  d?: Record<string, unknown>;
-  // Stable CloudTrail EventId (UUID). Optional for backward compat with
-  // pre-v2 cache entries that have no id; used for dedup on incremental merge.
-  id?: string;
+  details?: Record<string, unknown>;
+  /**
+   * Stable CloudTrail EventId (UUID). Optional for backward compat with
+   * older cache entries; used for dedup on incremental merge.
+   */
+  eventId?: string;
 }
 
 /**
@@ -115,8 +131,11 @@ export interface MinimalEvent {
  * v4: mutation events capture an allowlisted CloudTrail payload slice (`d`)
  *     for debugging and name hydration. Full rescan populates it for the
  *     whole 90-day window.
+ * v5: stored events use readable field names (timestamp/eventName/user/...)
+ *     instead of single-char keys, and mutation id extraction gained an
+ *     ARN-scan fallback. Full rescan rewrites the window in the new shape.
  */
-export const ACTIVITY_CACHE_SCHEMA_VERSION = 4;
+export const ACTIVITY_CACHE_SCHEMA_VERSION = 5;
 
 // Activity cache - stores raw events grouped by date
 export interface ActivityCache {
