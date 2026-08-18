@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.9.0...v1.10.0) (2026-08-18)
+
+
+### Features
+
+* readable activity event fields, shape-proof id extraction ([#42](https://github.com/yeahthisisrob/quicksight-portal/issues/42)) ([ed0072f](https://github.com/yeahthisisrob/quicksight-portal/commit/ed0072fad00de913ee36a6bc487fd00c256c80b4))
+
 ## [1.9.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.8.2...v1.9.0) (2026-08-17)
 
 
