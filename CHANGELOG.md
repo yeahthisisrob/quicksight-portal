@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.3](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.10.2...v1.10.3) (2026-08-22)
+
+
+### Code Refactoring
+
+* consolidate CacheReader onto shared pagination utilities ([#49](https://github.com/yeahthisisrob/quicksight-portal/issues/49)) ([ca24437](https://github.com/yeahthisisrob/quicksight-portal/commit/ca244373b891c1f642b2d86a7aeaea5cf9d72ccc))
+
 ## [1.10.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.10.1...v1.10.2) (2026-08-22)
 
 
