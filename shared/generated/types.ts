@@ -2069,13 +2069,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            success: boolean;
-                            jobId: string;
-                            status: string;
-                            message: string;
-                            estimatedOperations?: number;
-                        };
+                        "application/json": components["schemas"]["BulkJobAccepted"];
                     };
                 };
                 400: components["responses"]["BadRequest"];
@@ -2084,6 +2078,30 @@ export interface paths {
             };
         };
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/groups/{groupName}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add users to a group
+         * @description Queues a bulk job that adds the given users to the group; poll the returned jobId for completion
+         */
+        post: operations["addUsersToGroup"];
+        /**
+         * Remove users from a group
+         * @description Queues a bulk job that removes the given users from the group; poll the returned jobId for completion
+         */
+        delete: operations["removeUsersFromGroup"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2575,6 +2593,31 @@ export interface components {
             /** @description Display name of the asset */
             MemberName: string;
         };
+        BulkJobAccepted: {
+            success: boolean;
+            /** @description Poll /jobs/{jobId} for completion */
+            jobId: string;
+            status: string;
+            message: string;
+            estimatedOperations?: number;
+        };
+        /** @description Activity summary (views) */
+        ViewActivitySummary: {
+            totalViews?: number;
+            uniqueViewers?: number;
+            /** Format: date-time */
+            lastViewed?: string | null;
+        };
+        DefinitionError: {
+            /** @description Error type (e.g., COLUMN_NOT_FOUND) */
+            type: string;
+            /** @description Error message */
+            message: string;
+            violatedEntities?: {
+                /** @description Path to the entity with the error */
+                path?: string;
+            }[];
+        };
         DashboardListItem: components["schemas"]["AssetListItem"] & {
             /**
              * @description Dashboard creation status
@@ -2589,24 +2632,9 @@ export interface components {
             datasetCount: number;
             /** @description Published version number (if any) */
             publishedVersionNumber?: number;
-            /** @description Dashboard activity summary */
-            activity?: {
-                totalViews?: number;
-                uniqueViewers?: number;
-                /** Format: date-time */
-                lastViewed?: string | null;
-            };
+            activity?: components["schemas"]["ViewActivitySummary"];
             /** @description Definition validation errors */
-            definitionErrors?: {
-                /** @description Error type (e.g., COLUMN_NOT_FOUND) */
-                type?: string;
-                /** @description Error message */
-                message?: string;
-                violatedEntities?: {
-                    /** @description Path to the entity with the error */
-                    path?: string;
-                }[];
-            }[];
+            definitionErrors?: components["schemas"]["DefinitionError"][];
         };
         AnalysisListItem: components["schemas"]["AssetListItem"] & {
             /** @description Number of sheets in the analysis */
@@ -2615,6 +2643,9 @@ export interface components {
             visualCount: number;
             /** @description Number of datasets used */
             datasetCount: number;
+            activity?: components["schemas"]["ViewActivitySummary"];
+            /** @description Definition validation errors */
+            definitionErrors?: components["schemas"]["DefinitionError"][];
             sourceEntity?: {
                 sourceTemplate?: {
                     dataSetReferences?: Record<string, never>[];
@@ -3633,4 +3664,69 @@ export interface components {
     pathItems: never;
 }
 export type $defs = Record<string, never>;
-export type operations = Record<string, never>;
+export interface operations {
+    addUsersToGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description QuickSight user names to add */
+                    userNames: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Membership job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkJobAccepted"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    removeUsersFromGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description QuickSight user names to remove */
+                    userNames: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Membership job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkJobAccepted"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+}

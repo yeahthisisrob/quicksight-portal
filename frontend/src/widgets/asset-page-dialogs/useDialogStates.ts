@@ -9,21 +9,11 @@ import { useAssetsOptional } from '@/entities/asset';
 import type { AssetType } from '@/shared/types/asset';
 import type { components } from '@shared/generated/types';
 
-// Type aliases for better readability. The intersections add enrichment
-// fields the backend attaches to list items but the OpenAPI schema does not
-// declare yet (activity, definitionErrors, refreshProperties) — tighten the
-// schema and drop these when it catches up.
-export type DashboardItem = components["schemas"]["DashboardListItem"] & {
-  activity?: { lastViewed?: string | null; totalViews?: number };
-  definitionErrors?: any[];
-};
-export type AnalysisItem = components["schemas"]["AnalysisListItem"] & {
-  activity?: { lastViewed?: string | null; totalViews?: number };
-  definitionErrors?: any[];
-};
-export type DatasetItem = components["schemas"]["DatasetListItem"] & {
-  refreshProperties?: any;
-};
+// Type aliases for better readability - all fields come from the generated
+// OpenAPI schema (activity/definitionErrors/dataSetRefreshProperties included)
+export type DashboardItem = components["schemas"]["DashboardListItem"];
+export type AnalysisItem = components["schemas"]["AnalysisListItem"];
+export type DatasetItem = components["schemas"]["DatasetListItem"];
 export type FolderItem = components["schemas"]["FolderListItem"];
 export type UserItem = components["schemas"]["UserListItem"];
 export type GroupItem = components["schemas"]["GroupListItem"];

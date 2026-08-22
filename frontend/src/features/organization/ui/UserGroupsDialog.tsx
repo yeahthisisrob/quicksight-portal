@@ -23,6 +23,7 @@ import { useState } from 'react';
 
 import { usersApi } from '@/shared/api';
 import { colors, spacing, borderRadius, typography } from '@/shared/design-system/theme';
+import { useJobPolling } from '@/shared/hooks/useJobPolling';
 
 import AddToGroupDialog from './AddToGroupDialog';
 
@@ -52,24 +53,32 @@ export default function UserGroupsDialog({
   const [removing, setRemoving] = useState<string | null>(null);
   const [addGroupOpen, setAddGroupOpen] = useState(false);
 
+  // Membership removal is a queued bulk job - poll to completion so the
+  // group list and parent refresh reflect the post-mutation state
+  const { startPolling: startRemovePolling } = useJobPolling({
+    onComplete: () => {
+      const groupName = removing;
+      enqueueSnackbar(`Removed ${userName} from ${groupName}`, { variant: 'success' });
+      if (groupName) {
+        setGroups(prev => prev.filter(g => g !== groupName));
+      }
+      setRemoving(null);
+      onGroupsChange();
+    },
+    onFailed: (job) => {
+      enqueueSnackbar(job.message || 'Failed to remove user from group', { variant: 'error' });
+      setRemoving(null);
+    },
+  });
+
   const handleRemoveFromGroup = async (groupName: string) => {
     setRemoving(groupName);
     try {
       const response = await usersApi.removeUsersFromGroup(groupName, [userName]);
-
-      const { successful = [] } = response;
-      
-      if (successful.length > 0) {
-        enqueueSnackbar(
-          `Removed ${userName} from ${groupName}`,
-          { variant: 'success' }
-        );
-        setGroups(groups.filter(g => g !== groupName));
-        onGroupsChange();
-      }
+      // Keep the row spinner until the job completes (handlers above)
+      startRemovePolling(response.jobId);
     } catch (_error) {
       enqueueSnackbar('Failed to remove user from group', { variant: 'error' });
-    } finally {
       setRemoving(null);
     }
   };

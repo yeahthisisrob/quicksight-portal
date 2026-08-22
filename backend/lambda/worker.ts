@@ -2,9 +2,9 @@
 import { type SQSEvent, type Context } from 'aws-lambda';
 
 import { ActivityRefreshProcessor } from './features/activity/processors/ActivityRefreshProcessor';
+import { warmCollectionSnapshots } from './features/asset-management/services/collectionSnapshotWarmer';
 import { ExportOrchestrator } from './features/data-export/services/ExportOrchestrator';
 import { type DeploymentConfig } from './features/deployment/services/deploy/types';
-import { warmCollectionSnapshots } from './features/asset-management/services/collectionSnapshotWarmer';
 import { STORAGE_LIMITS, WORKER_CONFIG } from './shared/constants';
 import { type AssetType } from './shared/models/asset.model';
 import { S3Service } from './shared/services/aws/S3Service';

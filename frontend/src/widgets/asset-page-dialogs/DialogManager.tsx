@@ -422,7 +422,7 @@ export function DialogManager({
           onClose={() => setRefreshScheduleDialog({ open: false, dataset: null })}
           datasetName={refreshScheduleDialog.dataset.name}
           refreshSchedules={refreshScheduleDialog.dataset.refreshSchedules}
-          dataSetRefreshProperties={refreshScheduleDialog.dataset.refreshProperties}
+          dataSetRefreshProperties={refreshScheduleDialog.dataset.dataSetRefreshProperties}
         />
       )}
       

@@ -1,20 +1,19 @@
 import { api as apiClient } from '../client';
 import { ApiResponse } from '../types';
 
+import type { components } from '@shared/generated';
+
 /**
  * Users API - handles group membership operations
  * Note: For listing users and groups, use assetsApi.getUsersPaginated() and assetsApi.getGroupsPaginated()
- *
- * TODO: the group-membership endpoints are not in api.openapi.yaml yet; the
- * result types below are hand-declared until the schema covers them.
  */
 
-/** Result of a bulk group-membership mutation. Large batches return a jobId instead of immediate results. */
-export interface GroupMembershipResult {
-  jobId?: string;
-  successful?: string[];
-  failed?: Array<{ userName: string; error?: string }>;
-}
+/**
+ * Membership mutations are ALWAYS queued bulk jobs: the endpoint responds
+ * 202 with { success, jobId, ... } at the TOP LEVEL (no data envelope).
+ * Callers must poll the jobId for completion.
+ */
+export type GroupMembershipJobResponse = components['schemas']['BulkJobAccepted'];
 
 export interface DeleteUserResult {
   success: boolean;
@@ -23,28 +22,34 @@ export interface DeleteUserResult {
 
 export const usersApi = {
 
-  // Add users to group
-  async addUsersToGroup(groupName: string, userNames: string[]): Promise<GroupMembershipResult> {
-    const response = await apiClient.post<ApiResponse<GroupMembershipResult>>(
+  // Add users to group (queued job - poll the returned jobId)
+  async addUsersToGroup(
+    groupName: string,
+    userNames: string[]
+  ): Promise<GroupMembershipJobResponse> {
+    const response = await apiClient.post<GroupMembershipJobResponse & { error?: string }>(
       `/groups/${encodeURIComponent(groupName)}/members`,
       { userNames }
     );
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to add users to group');
     }
-    return response.data.data!;
+    return response.data;
   },
 
-  // Remove users from group
-  async removeUsersFromGroup(groupName: string, userNames: string[]): Promise<GroupMembershipResult> {
-    const response = await apiClient.delete<ApiResponse<GroupMembershipResult>>(
+  // Remove users from group (queued job - poll the returned jobId)
+  async removeUsersFromGroup(
+    groupName: string,
+    userNames: string[]
+  ): Promise<GroupMembershipJobResponse> {
+    const response = await apiClient.delete<GroupMembershipJobResponse & { error?: string }>(
       `/groups/${encodeURIComponent(groupName)}/members`,
       { data: { userNames } }
     );
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to remove users from group');
     }
-    return response.data.data!;
+    return response.data;
   },
 
   // Delete a user (READER/READER_PRO only)
