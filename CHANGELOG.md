@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.5](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.10.4...v1.10.5) (2026-08-22)
+
+
+### Bug Fixes
+
+* adopt generated OpenAPI types over hand-rolled duplicates ([#53](https://github.com/yeahthisisrob/quicksight-portal/issues/53)) ([6443b62](https://github.com/yeahthisisrob/quicksight-portal/commit/6443b62a9c86bdd28b0bc4febdc73853efdd4346))
+
 ## [1.10.4](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.10.3...v1.10.4) (2026-08-22)
 
 
