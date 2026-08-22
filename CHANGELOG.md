@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.10.7](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.10.6...v1.10.7) (2026-08-22)
+
+
+### Bug Fixes
+
+* close OpenAPI schema gaps; group membership dialogs now actually track their jobs ([#59](https://github.com/yeahthisisrob/quicksight-portal/issues/59)) ([fda719a](https://github.com/yeahthisisrob/quicksight-portal/commit/fda719a95372f8d7699e7c49a719c475a70432d4))
+
+
+### Code Refactoring
+
+* break warmer import cycle via cache rebuild hooks, harden job-index writes ([#57](https://github.com/yeahthisisrob/quicksight-portal/issues/57)) ([345ef7b](https://github.com/yeahthisisrob/quicksight-portal/commit/345ef7bc10556b8a23dde778921258117723b004))
+* consolidate frontend duplications from the audit ([#60](https://github.com/yeahthisisrob/quicksight-portal/issues/60)) ([b263d1a](https://github.com/yeahthisisrob/quicksight-portal/commit/b263d1abea6cf399388d70f80c406ba40981ccb3))
+
 ## [1.10.6](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.10.5...v1.10.6) (2026-08-22)
 
 
