@@ -56,6 +56,10 @@ interface EnrichmentContext {
   tagsMap: Map<string, Array<{ key: string; value: string }>>;
 }
 
+// Weight that keeps the active-relationship count the primary sort key, with the
+// archived count only breaking ties (see getRelationshipSortValue)
+const ACTIVE_RELATIONSHIP_SORT_WEIGHT = 1_000_000;
+
 export class AssetService {
   private readonly activityService: ActivityService;
   private readonly groupService: GroupService;
@@ -1014,9 +1018,14 @@ export class AssetService {
    */
   private getActivitySortValue(asset: MappedAsset): number {
     if (asset.assetType === 'user') {
-      return asset.activity?.totalActivities || 0;
+      return asset.activity?.totalActivities ?? -1;
     }
-    return asset.viewStats?.totalViews || asset.activity?.totalViews || 0;
+    // -1 keeps "no activity data" below a true 0-view count in both sort
+    // directions; ?? stops a real 0 from falling through to a stale fallback
+    if (!asset.viewStats && !asset.activity) {
+      return -1;
+    }
+    return asset.viewStats?.totalViews ?? asset.activity?.totalViews ?? 0;
   }
 
   /**
@@ -1072,11 +1081,18 @@ export class AssetService {
   /**
    * Get relationship count for asset
    */
-  private getRelationshipCount(relatedAssets: any, relationshipType: string): number {
+  // Sort key weighting active relationships above archived ones: primary key is the
+  // active count, archived count only breaks ties (matches the active/archived chip split in the UI)
+  private getRelationshipSortValue(relatedAssets: any, relationshipType: string): number {
     if (Array.isArray(relatedAssets)) {
-      return relatedAssets.filter((r: any) => r.relationshipType === relationshipType).length;
+      const relationships = relatedAssets.filter(
+        (r: any) => r.relationshipType === relationshipType
+      );
+      const archivedCount = relationships.filter((r: any) => r.targetIsArchived).length;
+      const activeCount = relationships.length - archivedCount;
+      return activeCount * ACTIVE_RELATIONSHIP_SORT_WEIGHT + archivedCount;
     }
-    return relatedAssets?.[relationshipType]?.length || 0;
+    return (relatedAssets?.[relationshipType]?.length || 0) * ACTIVE_RELATIONSHIP_SORT_WEIGHT;
   }
 
   /**
@@ -1246,10 +1262,10 @@ export class AssetService {
 
     // Relationship fields
     if (sortField === 'usedBy') {
-      return this.getRelationshipCount(asset.relatedAssets, 'used_by');
+      return this.getRelationshipSortValue(asset.relatedAssets, 'used_by');
     }
     if (sortField === 'uses') {
-      return this.getRelationshipCount(asset.relatedAssets, 'uses');
+      return this.getRelationshipSortValue(asset.relatedAssets, 'uses');
     }
 
     // Permissions field - users have assetAccessCount, other assets have permissions array
@@ -1280,7 +1296,7 @@ export class AssetService {
   private getSpecialFieldSortValue(asset: any, sortField: string): any {
     const fieldMap: Record<string, any> = {
       name: asset.name,
-      uniqueViewers: asset.activity?.uniqueViewers || 0,
+      uniqueViewers: asset.activity?.uniqueViewers ?? -1,
       importMode: asset.importMode,
       sourceType: asset.sourceType,
       type: asset.type,
@@ -1304,10 +1320,13 @@ export class AssetService {
    * Get view count sort value with fallbacks
    */
   private getViewCountSortValue(asset: any): number {
+    if (!asset.activity && !asset.viewStats) {
+      return -1;
+    }
     return (
-      asset.activity?.totalViews ||
-      asset.viewStats?.last30Days?.totalViews ||
-      asset.viewStats?.totalViews ||
+      asset.activity?.totalViews ??
+      asset.viewStats?.last30Days?.totalViews ??
+      asset.viewStats?.totalViews ??
       0
     );
   }
@@ -1466,7 +1485,13 @@ export class AssetService {
           field: 'activity',
           getValue: (item: any) => item.activity?.totalActivities || 0,
         },
-        groups: { field: 'groups', getValue: (item: any) => item.groups?.length || 0 },
+        groups: {
+          field: 'groups',
+          getValue: (item: any) => item.groupCount ?? item.groups?.length ?? 0,
+        },
+        email: { field: 'email', getValue: (item: any) => item.email || '' },
+        permissions: { field: 'permissions', getValue: (item: any) => item.assetAccessCount || 0 },
+        assetsCount: { field: 'assetsCount', getValue: (item: any) => item.assetsCount || 0 },
       };
 
       // Convert startIndex/maxResults to page/pageSize

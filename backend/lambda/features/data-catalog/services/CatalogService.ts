@@ -3,7 +3,12 @@ import { cacheService } from '../../../shared/services/cache/CacheService';
 import { type FieldInfo } from '../../../shared/services/cache/types';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
-import { type TagFilter } from '../../../shared/types/filterTypes';
+import {
+  matchesAssetIds,
+  matchesExcludeTags,
+  matchesIncludeTags,
+  type TagFilter,
+} from '../../../shared/types/filterTypes';
 import { PORTAL_EXCLUDE_TAGS } from '../../../shared/utils/constants';
 import { logger } from '../../../shared/utils/logger';
 import { FolderService } from '../../organization/services/FolderService';
@@ -727,31 +732,34 @@ export class CatalogService {
       (excludeTags && excludeTags.length > 0) ||
       (assetIds && assetIds.length > 0);
 
+    // getCacheEntries gives unpaginated access to all assets
+    // (getAssets/searchAssetsWithFilters silently cap at DEFAULT_MAX_RESULTS=100)
+    let allowedAssets = await cacheService.getCacheEntries({
+      statusFilter: AssetStatusFilter.ACTIVE,
+    });
+
     if (hasFilters) {
-      const { assets } = await cacheService.searchAssetsWithFilters({
-        includeTags: effectiveIncludeTags.length > 0 ? effectiveIncludeTags : undefined,
-        excludeTags: excludeTags && excludeTags.length > 0 ? excludeTags : undefined,
-        assetIds: assetIds && assetIds.length > 0 ? assetIds : undefined,
-        statusFilter: AssetStatusFilter.ACTIVE,
+      allowedAssets = allowedAssets.filter((asset: CacheEntry) => {
+        const assetTags: TagFilter[] = (asset.tags || []).map((t) => ({
+          key: t.key,
+          value: t.value,
+        }));
+        return (
+          matchesAssetIds(asset.assetId, assetIds && assetIds.length > 0 ? assetIds : undefined) &&
+          matchesIncludeTags(assetTags, effectiveIncludeTags) &&
+          matchesExcludeTags(assetTags, excludeTags || [])
+        );
       });
       logger.info('Applied cache-level tag filtering', {
         includeTags: effectiveIncludeTags.length,
         excludeTags: excludeTags?.length || 0,
         assetIds: assetIds?.length || 0,
-        resultCount: assets.length,
+        resultCount: allowedAssets.length,
       });
-      return new Set(
-        assets
-          .filter((asset: CacheEntry) => !excludedAssets.has(asset.assetId))
-          .map((asset: CacheEntry) => asset.assetId)
-      );
     }
 
-    const { assets: allCachedAssets } = await cacheService.getAssets({
-      statusFilter: AssetStatusFilter.ACTIVE,
-    });
     return new Set(
-      allCachedAssets
+      allowedAssets
         .filter((asset: CacheEntry) => !excludedAssets.has(asset.assetId))
         .map((asset: CacheEntry) => asset.assetId)
     );
