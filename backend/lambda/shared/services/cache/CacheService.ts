@@ -38,6 +38,10 @@ export class CacheService extends EventEmitter {
   }
 
   private bucketName: string;
+  // Hooks run after a cache rebuild (export, activity refresh, bulk mutation)
+  // to recompute derived data. Registered by the composition root (worker.ts)
+  // so feature slices never import each other's services for this.
+  private readonly cacheRebuildHooks: Array<() => Promise<void>> = [];
   private readonly cacheReader: CacheReader;
   private cacheWriter: any = null; // Type any to avoid circular import
   // Coalesces concurrent get() calls for the same key (one S3 HEAD/GET per burst)
@@ -105,6 +109,31 @@ export class CacheService extends EventEmitter {
   ): Promise<any> {
     const writer = await this.getCacheWriter();
     return writer.bulkUpdateAssetTags(assetType, assetIds, tags);
+  }
+
+  /**
+   * Register a hook to run after cache rebuilds (see runCacheRebuildHooks).
+   * Idempotent per function reference.
+   */
+  public registerCacheRebuildHook(hook: () => Promise<void>): void {
+    if (!this.cacheRebuildHooks.includes(hook)) {
+      this.cacheRebuildHooks.push(hook);
+    }
+  }
+
+  /**
+   * Run all registered post-rebuild hooks, awaiting each so callers in the
+   * worker can guarantee completion before the Lambda ends. Hook failures are
+   * logged, never thrown — derived-data recomputation must not fail jobs.
+   */
+  public async runCacheRebuildHooks(): Promise<void> {
+    for (const hook of this.cacheRebuildHooks) {
+      try {
+        await hook();
+      } catch (error) {
+        logger.error('Cache rebuild hook failed (non-fatal)', { error });
+      }
+    }
   }
 
   public async clearAllCaches(): Promise<any> {
