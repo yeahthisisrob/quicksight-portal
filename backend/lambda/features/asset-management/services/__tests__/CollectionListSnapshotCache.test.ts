@@ -91,10 +91,14 @@ describe('CollectionListSnapshotCache', () => {
 
     expect(compute).toHaveBeenCalledTimes(1);
     expect(result.items).toEqual(GROUP_BODY.items);
-    expect(storage.put).toHaveBeenCalledWith('cache/derived/group-list-snapshot.json', {
-      version: 'v2',
-      items: GROUP_BODY.items,
-    });
+    expect(storage.put).toHaveBeenCalledWith(
+      'cache/derived/group-list-snapshot.json',
+      {
+        version: 'v2',
+        items: GROUP_BODY.items,
+      },
+      { compact: true }
+    );
   });
 
   it('still returns the computed snapshot when persisting fails', async () => {

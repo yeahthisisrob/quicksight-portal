@@ -26,13 +26,30 @@ export interface CollectionListSnapshot {
  */
 interface SnapshotStorage {
   getWithEtag<T>(key: string): Promise<{ value: T | null; etag?: string }>;
-  put<T>(key: string, data: T): Promise<void>;
+  put<T>(key: string, data: T, options?: { compact?: boolean }): Promise<void>;
 }
 
 const SNAPSHOT_S3_KEYS: Record<CollectionSnapshotType, string> = {
   user: 'cache/derived/user-list-snapshot.json',
   group: 'cache/derived/group-list-snapshot.json',
 };
+
+/**
+ * Snapshots are shared across every request a warm Lambda serves - an
+ * accidental in-place sort or field write would corrupt all of them. Freeze
+ * outside production so such a bug fails loudly in dev/test instead of
+ * shipping; production skips the freeze cost on multi-thousand-item lists.
+ */
+function freezeSnapshot(snapshot: CollectionListSnapshot): void {
+  if (process.env.NODE_ENV === 'production') {
+    return;
+  }
+  Object.freeze(snapshot.items);
+  for (const item of snapshot.items) {
+    Object.freeze(item);
+  }
+  Object.freeze(snapshot);
+}
 
 /**
  * Memoizes enriched collection lists (users, groups) across requests.
@@ -75,6 +92,7 @@ export class CollectionListSnapshotCache {
       // Adopt a persisted snapshot (e.g. precomputed by the worker) if fresh
       const persisted = await this.readPersisted(assetType, version);
       if (persisted) {
+        freezeSnapshot(persisted);
         this.snapshots.set(assetType, persisted);
         return persisted;
       }
@@ -82,13 +100,18 @@ export class CollectionListSnapshotCache {
       const started = Date.now();
       const computed = await compute();
       const snapshot: CollectionListSnapshot = { version, ...computed };
+      freezeSnapshot(snapshot);
       this.snapshots.set(assetType, snapshot);
       logger.info('Recomputed collection list snapshot', {
         assetType,
         items: snapshot.items.length,
         durationMs: Date.now() - started,
       });
-      await this.persist(assetType, snapshot);
+      // Fire-and-forget: persisting benefits the NEXT request/instance; the
+      // user-facing request should not pay for a multi-MB S3 PUT. (If Lambda
+      // freezes before the PUT completes, the worker's warmer still persists
+      // snapshots at cache-rebuild time.)
+      void this.persist(assetType, snapshot);
       return snapshot;
     });
   }
@@ -103,7 +126,8 @@ export class CollectionListSnapshotCache {
     snapshot: CollectionListSnapshot
   ): Promise<void> {
     try {
-      await this.getStorage().put(SNAPSHOT_S3_KEYS[assetType], snapshot);
+      // Compact JSON: derived multi-MB blob, never hand-inspected
+      await this.getStorage().put(SNAPSHOT_S3_KEYS[assetType], snapshot, { compact: true });
     } catch (error) {
       // Non-fatal: the in-memory snapshot still serves this instance
       logger.warn('Failed to persist collection snapshot', { assetType, error });

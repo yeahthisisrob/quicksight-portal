@@ -178,7 +178,10 @@ export class JobRepository {
   public async cleanupStuckJobs(
     timeoutMinutes: number = JOB_CONFIG.STUCK_JOB_TIMEOUT_MINUTES
   ): Promise<number> {
-    const allJobs = await this.cacheService.getJobIndex();
+    // Force a fresh S3 read: the memory copy can be up to MEMORY_TTL stale,
+    // which both undercounts heartbeats (marking live jobs dead early) and
+    // risks persisting a stale snapshot over a job's completion write.
+    const allJobs = await this.cacheService.getJobIndex(true);
     const transitioned = this.markDeadJobs(allJobs, timeoutMinutes);
     if (transitioned > 0) {
       await this.cacheService.updateJobIndex(allJobs);
@@ -388,6 +391,14 @@ export class JobRepository {
     };
 
     await this.updateJobInIndex(updated);
+
+    // Persist immediately: a later getJob() force-fetches S3 into memory,
+    // which would silently discard a memory-only result
+    try {
+      await this.cacheService.persistJobIndex();
+    } catch (error) {
+      logger.error('Failed to persist job index after saving result', { error, jobId });
+    }
   }
 
   /**
@@ -406,6 +417,12 @@ export class JobRepository {
         ? new Date(updates.endTime).getTime() - new Date(current.startTime).getTime()
         : current.duration,
     };
+
+    // A job completing successfully must not carry a stale auto-fail error
+    // (e.g. a "no heartbeat" stamp from the stuck-job sweep) forward
+    if (updates.status === 'completed' && updates.error === undefined) {
+      delete (updated as { error?: string }).error;
+    }
 
     await this.updateJobInIndex(updated);
 

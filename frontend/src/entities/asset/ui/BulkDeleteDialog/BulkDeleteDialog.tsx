@@ -25,6 +25,7 @@ import { useJobPolling } from '@/shared/hooks/useJobPolling';
 import { actionIcons } from '@/shared/ui/icons';
 
 // Import component parts
+import { useAssetsOptional } from '../../model';
 import { AssetsList } from './components/AssetsList';
 import { ConfirmationSection } from './components/ConfirmationSection';
 import { ProgressSection } from './components/ProgressSection';
@@ -63,6 +64,8 @@ export function BulkDeleteDialog({
   const theme = useTheme();
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
+  // Optional: absent in Storybook, present under the app's AssetsProvider
+  const assetsContext = useAssetsOptional();
   
   // State
   const [reason, setReason] = useState('');
@@ -88,22 +91,29 @@ export function BulkDeleteDialog({
   const handleJobComplete = useCallback(async () => {
     enqueueSnackbar('Assets successfully deleted and archived', { variant: 'success' });
 
-    // Invalidate the common asset list / paginated / summary query keys so
-    // React Query refetches. Backend freshness is automatic: cache reads are
-    // ETag-revalidated against S3, so any instance serves the post-delete state.
+    // Optimistically remove the deleted rows from the visible lists and the
+    // query cache — the backend list read can lag a few seconds behind the
+    // delete (per-container ETag revalidation window), and this makes the
+    // rows disappear immediately regardless. The onComplete refresh below
+    // reconciles with the server afterwards.
+    if (assetsContext) {
+      const idsByType = new Map<string, string[]>();
+      for (const asset of assets) {
+        const list = idsByType.get(asset.type) || [];
+        list.push(asset.id);
+        idsByType.set(asset.type, list);
+      }
+      for (const [type, ids] of idsByType) {
+        assetsContext.removeAssets(type, ids);
+      }
+    }
+
+    // Summary/catalog widgets observe these keys directly (the asset lists
+    // themselves are refetched via onComplete → refreshAssetType)
     try {
-      // Broad but targeted invalidations (covers most asset pages + widgets + catalog that may embed counts)
       await Promise.allSettled([
-        queryClient.invalidateQueries({ queryKey: ['assets'] }),
-        queryClient.invalidateQueries({ queryKey: ['dashboards-paginated'] }),
-        queryClient.invalidateQueries({ queryKey: ['analyses-paginated'] }),
-        queryClient.invalidateQueries({ queryKey: ['datasets-paginated'] }),
-        queryClient.invalidateQueries({ queryKey: ['datasources-paginated'] }),
-        queryClient.invalidateQueries({ queryKey: ['folders'] }),
         queryClient.invalidateQueries({ queryKey: ['export-summary'] }),
-        queryClient.invalidateQueries({ queryKey: ['master-index'] }),
         queryClient.invalidateQueries({ queryKey: ['data-catalog'] }),
-        queryClient.refetchQueries({ queryKey: ['assets'], type: 'active' }),
       ]);
     } catch {
       // Invalidation failure should not block the UX close
@@ -113,7 +123,7 @@ export function BulkDeleteDialog({
       onClose();
       onComplete?.();
     }, 1500);
-  }, [enqueueSnackbar, onClose, onComplete, queryClient]);
+  }, [enqueueSnackbar, onClose, onComplete, queryClient, assets, assetsContext]);
 
   const handleJobFailed = useCallback((job: any) => {
     enqueueSnackbar(job.error || 'Failed to delete assets', { variant: 'error' });

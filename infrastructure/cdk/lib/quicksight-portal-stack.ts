@@ -109,7 +109,11 @@ export class QuicksightPortalStack extends Stack {
     const exportQueue = new Queue(this, 'ExportQueue', {
       queueName: `quicksight-export-queue-${this.account}`,
       encryption: QueueEncryption.KMS_MANAGED,
-      visibilityTimeout: Duration.minutes(15), // Match Lambda timeout
+      // Well above the 15-min Lambda timeout (AWS guidance: >= 6x). Equal
+      // values let a message go visible again while the first invocation is
+      // still running, so two workers could process the same job concurrently
+      // and the second's stuck-job sweep could auto-fail the first's live job.
+      visibilityTimeout: Duration.minutes(90),
       retentionPeriod: Duration.days(14),
       deadLetterQueue: {
         maxReceiveCount: 3,
