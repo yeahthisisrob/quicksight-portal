@@ -28,6 +28,26 @@ export function applyTagsToItems(
   return items.map((item) => (item.id === assetId ? { ...item, tags } : item));
 }
 
+/**
+ * Remove deleted assets from a list, immutably. Shared by the optimistic
+ * local-state update and the query-cache write-through after deletes.
+ */
+export function removeAssetsFromItems(
+  items: AssetData[] | undefined,
+  assetIds: Set<string>
+): AssetData[] | undefined {
+  if (!items) {
+    return items;
+  }
+  return items.filter((item) => !assetIds.has(item.id));
+}
+
+// The backend serves list reads from a per-container memory copy for up to
+// this long before re-checking S3 (CACHE_CONFIG.REVALIDATE_WINDOW_MS = 3s).
+// A refetch fired immediately after a mutation can land inside that window
+// and read the pre-mutation list; a follow-up refresh just past it converges.
+const BACKEND_REVALIDATE_WINDOW_MS = 3500;
+
 // Grounded in the generated OpenAPI schema; the index signature admits the
 // per-type enrichment fields (email, memberCount, …) the backend adds
 type AssetData = AssetListItem & { [key: string]: any };
@@ -115,6 +135,7 @@ interface AssetsContextType {
 
   // Tag updates
   updateAssetTags: (assetType: string, assetId: string, tags: any[]) => void;
+  removeAssets: (assetType: string, assetIds: string[]) => void;
 }
 
 const AssetsContext = createContext<AssetsContextType | undefined>(undefined);
@@ -126,6 +147,13 @@ export const useAssets = () => {
   }
   return context;
 };
+
+/**
+ * Non-throwing variant for components that can render outside the provider
+ * (e.g. in Storybook) but want to participate in optimistic updates when
+ * the provider is present.
+ */
+export const useAssetsOptional = () => useContext(AssetsContext);
 
 interface AssetsProviderProps {
   children: ReactNode;
@@ -326,7 +354,42 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
 
     // Increment refreshKey to trigger tables to re-fetch with their current sort/filter/search params
     setRefreshKey(prev => prev + 1);
+
+    // The immediate refetch can land inside the backend's per-container
+    // revalidation window and read the pre-mutation list; refresh once more
+    // just past the window so the table always converges on server truth.
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: [config.queryKey] }).then(() => {
+        setRefreshKey(prev => prev + 1);
+      });
+    }, BACKEND_REVALIDATE_WINDOW_MS);
   }, [queryClient]);
+
+  // Optimistically remove deleted assets from the visible list and every
+  // cached page, so a delete disappears immediately regardless of backend
+  // cache timing. The refreshAssetType that follows reconciles with the
+  // server (including its delayed post-window pass).
+  const removeAssets = useCallback((assetType: string, assetIds: string[]) => {
+    const pluralType = ASSET_TYPE_MAP[assetType] as keyof typeof ASSET_CONFIGS | undefined;
+    if (!pluralType || assetIds.length === 0) return;
+
+    const ids = new Set(assetIds);
+    const setters = stateSetters[pluralType];
+    if (setters) {
+      setters.setData((prev: AssetData[]) => removeAssetsFromItems(prev, ids) || prev);
+    }
+
+    // Write through to the query cache too — otherwise a later cache hit for
+    // the same key would resurrect the deleted rows
+    const config = ASSET_CONFIGS[pluralType];
+    if (config) {
+      queryClient.setQueriesData({ queryKey: [config.queryKey] }, (old: any) =>
+        old
+          ? { ...old, [config.dataKey]: removeAssetsFromItems(old[config.dataKey], ids) }
+          : old
+      );
+    }
+  }, [stateSetters, queryClient]);
 
   // Update tags for a specific asset (optimistic update) - simplified with map
   const updateAssetTags = useCallback((assetType: string, assetId: string, tags: any[]) => {
@@ -391,6 +454,7 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
       refreshExportSummary,
       refreshAssetType,
       updateAssetTags,
+      removeAssets,
     }),
     [
       refreshKey,
@@ -430,6 +494,7 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
       refreshExportSummary,
       refreshAssetType,
       updateAssetTags,
+      removeAssets,
     ]
   );
 

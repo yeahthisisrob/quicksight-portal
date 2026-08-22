@@ -1,2 +1,2 @@
 export * from './types';
-export { AssetsProvider, useAssets } from './AssetsContext';
+export { AssetsProvider, useAssets, useAssetsOptional } from './AssetsContext';

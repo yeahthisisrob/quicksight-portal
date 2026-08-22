@@ -77,7 +77,9 @@ export const RATE_LIMITS = {
 export const WORKER_CONFIG = {
   HEARTBEAT_INTERVAL_MS: 5000,
   CLEANUP_DELAY_MS: 500,
-  STUCK_JOB_TIMEOUT_MINUTES: 5,
+  // NOTE: the stuck-job threshold lives in JOB_CONFIG.STUCK_JOB_TIMEOUT_MINUTES
+  // (30 min, matched to the 15-min Lambda ceiling). A previous 5-minute value
+  // here auto-failed live bulk jobs as "worker died or timed out".
 } as const;
 
 // Field metadata configuration

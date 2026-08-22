@@ -4,6 +4,8 @@
 import { useSnackbar } from 'notistack';
 import { useState } from 'react';
 
+import { useAssetsOptional } from '@/entities/asset';
+
 import type { AssetType } from '@/shared/types/asset';
 import type { components } from '@shared/generated/types';
 
@@ -108,6 +110,8 @@ export function useDialogStates(
   refreshAssetType: (type: AssetType) => Promise<void>
 ) {
   const { enqueueSnackbar } = useSnackbar();
+  // Optional: absent in Storybook, present under the app's AssetsProvider
+  const assetsContext = useAssetsOptional();
   
   // Core dialog states - now properly typed
   const [jsonViewerDialog, setJsonViewerDialog] = useState<JsonViewerDialogState>({ open: false });
@@ -138,6 +142,9 @@ export function useDialogStates(
       await usersApi.deleteUser(deleteUserDialog.user.name);
 
       enqueueSnackbar(`User "${deleteUserDialog.user.name}" deleted successfully`, { variant: 'success' });
+      // Optimistic removal: the immediate list refetch can race the backend's
+      // cache revalidation window; drop the row locally right away
+      assetsContext?.removeAssets('user', [deleteUserDialog.user.id]);
       setDeleteUserDialog({ open: false, user: null });
       refreshAssetType('user');
     } catch (error: any) {
@@ -157,6 +164,7 @@ export function useDialogStates(
       await groupsApi.deleteGroup(deleteGroupDialog.group.name);
       
       enqueueSnackbar(`Group "${deleteGroupDialog.group.name}" deleted successfully`, { variant: 'success' });
+      assetsContext?.removeAssets('group', [deleteGroupDialog.group.id]);
       setDeleteGroupDialog({ open: false, group: null });
       refreshAssetType('group');
     } catch (error: any) {

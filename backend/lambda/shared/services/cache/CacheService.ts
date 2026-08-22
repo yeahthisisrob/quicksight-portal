@@ -523,7 +523,14 @@ export class CacheService extends EventEmitter {
 
   public async persistJobIndex(): Promise<void> {
     const cacheKey = 'jobs';
-    const jobs = (this.memoryAdapter.get(cacheKey) as any[]) || [];
+    const jobs = this.memoryAdapter.get(cacheKey) as any[] | null;
+
+    // No memory copy (expired or never loaded): persisting would overwrite
+    // the S3 index with an empty array, wiping all job history. No-op instead.
+    if (!Array.isArray(jobs)) {
+      logger.warn('persistJobIndex skipped: no in-memory job index to persist');
+      return;
+    }
 
     await this.s3Service.putObject(this.bucketName, `cache/${cacheKey}.json`, jobs);
   }
@@ -531,14 +538,15 @@ export class CacheService extends EventEmitter {
   /**
    * Put any object to cache by key
    */
-  public async put<T = any>(key: string, data: T): Promise<void> {
+  public async put<T = any>(key: string, data: T, options?: { compact?: boolean }): Promise<void> {
     try {
-      // Store in S3 with pretty formatting; capture the new ETag so this
-      // instance's memory copy is immediately marked fresh.
+      // Store in S3 (pretty by default for hand-inspection; compact for large
+      // derived blobs); capture the new ETag so this instance's memory copy
+      // is immediately marked fresh.
       const etag = await this.s3Service.putObject(
         this.bucketName,
         key,
-        JSON.stringify(data, null, 2)
+        options?.compact ? JSON.stringify(data) : JSON.stringify(data, null, 2)
       );
       this.memoryAdapter.setValidated(key, data, etag);
     } catch (error) {

@@ -1,4 +1,4 @@
-/* global setTimeout */
+/* global setTimeout, setInterval, clearInterval */
 /**
  * BulkOperationsProcessor
  * Processes bulk operations in the background worker
@@ -33,6 +33,12 @@ const PROCESSING_CONSTANTS = {
   PROGRESS_UPDATE_INTERVAL: 1000, // Update progress every 1 second
   MAX_RETRIES: 2,
 } as const;
+
+// Keep-alive heartbeat while a long single-phase operation (bulk delete) runs
+// with no per-item progress writes - must be well under the stuck-job
+// threshold (30 min) so live jobs are never auto-failed
+const HEARTBEAT_INTERVAL_MS = 60_000;
+const HEARTBEAT_PROGRESS_PERCENT = 50;
 
 export class BulkOperationsProcessor {
   // Services
@@ -257,12 +263,30 @@ export class BulkOperationsProcessor {
     _batchSize: number,
     _maxConcurrency: number
   ): Promise<BulkOperationResult> {
-    // Use existing BulkDeleteService which handles QS delete + moving definitions to archived/
-    const deleteResult = await this.bulkDeleteService.deleteAssets({
-      assets: config.assets.map((a) => ({ type: a.type, id: a.id })),
-      reason: config.reason,
-      deletedBy: config.requestedBy,
-    });
+    // Heartbeat while the delete runs: deleteAssets + archive + cache update
+    // can take many minutes with no intermediate progress writes, and a job
+    // with no heartbeat past the stuck-job threshold gets auto-failed as
+    // "worker died or timed out" even though it finishes successfully.
+    const heartbeat = setInterval(() => {
+      this.updateProgress(
+        `Bulk delete in progress (${config.assets.length} assets)...`,
+        HEARTBEAT_PROGRESS_PERCENT
+      ).catch(() => {
+        // heartbeat failures are non-fatal
+      });
+    }, HEARTBEAT_INTERVAL_MS);
+
+    let deleteResult;
+    try {
+      // Use existing BulkDeleteService which handles QS delete + moving definitions to archived/
+      deleteResult = await this.bulkDeleteService.deleteAssets({
+        assets: config.assets.map((a) => ({ type: a.type, id: a.id })),
+        reason: config.reason,
+        deletedBy: config.requestedBy,
+      });
+    } finally {
+      clearInterval(heartbeat);
+    }
 
     // CRITICAL: After the archive file moves succeed, use the shared DRY cache mutation
     // path so that the active index is updated (status=archived), per-type S3 caches are
@@ -274,22 +298,33 @@ export class BulkOperationsProcessor {
     });
 
     if (successfullyDeleted.length > 0) {
+      const archiveUpdates = successfullyDeleted.map((a) => ({
+        assetType: a.type,
+        assetId: a.id,
+        archiveReason: config.reason || 'Bulk delete via portal',
+        archivedBy: config.requestedBy,
+      }));
       try {
-        await cacheService.archiveAssetsInCache(
-          successfullyDeleted.map((a) => ({
-            assetType: a.type,
-            assetId: a.id,
-            archiveReason: config.reason || 'Bulk delete via portal',
-            archivedBy: config.requestedBy,
-          }))
-        );
+        await cacheService.archiveAssetsInCache(archiveUpdates);
       } catch (cacheErr) {
-        logger.warn(
-          'Bulk delete completed in QS + archive, but cache index update had issues (non-fatal)',
-          {
-            error: cacheErr,
-          }
-        );
+        // A failed index update means deleted assets keep showing as active
+        // until the next full cache rebuild — retry once, then FAIL the job
+        // rather than reporting success with a stale index.
+        logger.warn('Cache index update failed after bulk delete - retrying once', {
+          error: cacheErr,
+        });
+        try {
+          await cacheService.archiveAssetsInCache(archiveUpdates);
+        } catch (retryErr) {
+          logger.error('Cache index update failed after bulk delete (retry exhausted)', {
+            error: retryErr,
+          });
+          throw new Error(
+            'Assets were deleted in QuickSight, but updating the cache index failed - ' +
+              'deleted assets may still appear until the next export. ' +
+              `Cause: ${retryErr instanceof Error ? retryErr.message : String(retryErr)}`
+          );
+        }
       }
     }
 

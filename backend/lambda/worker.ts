@@ -409,7 +409,19 @@ async function processBulkOperationJob(message: BulkOperationMessage, record: an
         },
       },
     });
+
+    // Bulk mutations (delete / membership / tags) change type-cache ETags,
+    // invalidating the user/group list snapshots. Re-warm here so the next
+    // visitor adopts a precomputed snapshot instead of paying enrichment +
+    // a large S3 PUT in their request. Never throws.
+    const { warmCollectionSnapshots } = await import(
+      './features/asset-management/services/collectionSnapshotWarmer'
+    );
+    await warmCollectionSnapshots();
   } catch (error) {
+    if (error instanceof JobAlreadyCompletedError) {
+      return; // redelivered message for a finished job - nothing to do
+    }
     await handleBulkOperationError(jobStateService, jobId, error);
   }
 }
@@ -417,6 +429,14 @@ async function processBulkOperationJob(message: BulkOperationMessage, record: an
 /**
  * Initialize a bulk operation job
  */
+/** Thrown to short-circuit processing of a redelivered, already-completed job */
+class JobAlreadyCompletedError extends Error {
+  constructor(jobId: string) {
+    super(`Job ${jobId} already completed`);
+    this.name = 'JobAlreadyCompletedError';
+  }
+}
+
 async function initializeBulkOperationJob(
   jobStateService: JobStateService,
   jobId: string,
@@ -425,6 +445,15 @@ async function initializeBulkOperationJob(
   // Check if job already exists (created by API Lambda)
   const existingJob = await jobStateService.getJobStatus(jobId);
   if (existingJob) {
+    // Idempotency guard: an SQS redelivery (visibility timeout while the
+    // first invocation is still running, or a retry) must not reset and
+    // re-run a job that already finished its mutations
+    if (existingJob.status === 'completed') {
+      logger.info('Bulk operation job already completed - skipping redelivered message', {
+        jobId,
+      });
+      throw new JobAlreadyCompletedError(jobId);
+    }
     // Job already exists, just update it to processing
     await jobStateService.updateJobStatus(jobId, {
       status: 'processing',
@@ -591,9 +620,10 @@ async function handleCSVExportError(
  */
 async function cleanupStuckJobs(jobStateService: JobStateService, jobType: string): Promise<void> {
   try {
-    const cleanedCount = await jobStateService.cleanupStuckJobs(
-      WORKER_CONFIG.STUCK_JOB_TIMEOUT_MINUTES
-    );
+    // No explicit threshold: use JOB_CONFIG.STUCK_JOB_TIMEOUT_MINUTES (30).
+    // The old 5-minute WORKER_CONFIG value was shorter than a legitimate bulk
+    // job and auto-failed live jobs as "worker died or timed out".
+    const cleanedCount = await jobStateService.cleanupStuckJobs();
     if (cleanedCount > 0) {
       logger.info(`Cleaned up ${cleanedCount} dead ${jobType} jobs before processing`);
     }
