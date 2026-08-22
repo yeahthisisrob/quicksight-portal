@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.10.1...v1.10.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* active-first relationship sort, missing collection sort keys, catalog truncation, group-removal race ([#46](https://github.com/yeahthisisrob/quicksight-portal/issues/46)) ([13a6360](https://github.com/yeahthisisrob/quicksight-portal/commit/13a6360e83f327ed2c4f25b200d19f9bfdc3ae09))
+
 ## [1.10.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.10.0...v1.10.1) (2026-08-18)
 
 
