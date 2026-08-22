@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.4](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.10.3...v1.10.4) (2026-08-22)
+
+
+### Bug Fixes
+
+* enforce FSD boundaries in lint and fix the violations they allowed ([#51](https://github.com/yeahthisisrob/quicksight-portal/issues/51)) ([ff0779e](https://github.com/yeahthisisrob/quicksight-portal/commit/ff0779ef3b13598a41a8b37b544058d0ccbcf834))
+
 ## [1.10.3](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.10.2...v1.10.3) (2026-08-22)
 
 
