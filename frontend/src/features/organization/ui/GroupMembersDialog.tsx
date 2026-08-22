@@ -109,6 +109,21 @@ export default function GroupMembersDialog({
     }
   });
 
+  // Job polling for member removal — poll to completion instead of guessing
+  // with a fixed delay, so the cache has actually been updated before we reload
+  const { startPolling: startRemovePolling } = useJobPolling({
+    onComplete: () => {
+      enqueueSnackbar('Removed member from group', { variant: 'success' });
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      window.location.reload();
+    },
+    onFailed: (job) => {
+      enqueueSnackbar(job.message || 'Failed to remove member from group', { variant: 'error' });
+      setRemovingMember(null);
+    }
+  });
+
   const loadAvailableUsers = useCallback(async () => {
     setIsLoadingUsers(true);
     try {
@@ -233,27 +248,24 @@ export default function GroupMembersDialog({
     setRemovingMember(memberName);
     try {
       const result = await usersApi.removeUsersFromGroup(groupName, [memberName]);
-      
+
       // Check if it's a job response
       if (result?.jobId) {
         enqueueSnackbar(`Removing ${memberName} from group...`, { variant: 'info' });
-        // For now, just wait a bit and reload - could use job polling here too
-        setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: ['groups'] });
-          queryClient.invalidateQueries({ queryKey: ['users'] });
-          window.location.reload();
-        }, 2000);
+        // Keep the row spinner until the job completes; the poller's
+        // onComplete/onFailed handles refresh and clearing the spinner
+        startRemovePolling(result.jobId);
       } else {
         enqueueSnackbar(`Removed ${memberName} from group`, { variant: 'success' });
         // Invalidate cache and reload
         queryClient.invalidateQueries({ queryKey: ['groups'] });
         queryClient.invalidateQueries({ queryKey: ['users'] });
         window.location.reload();
+        setRemovingMember(null);
       }
     } catch (error: any) {
       console.error('Failed to remove member:', error);
       enqueueSnackbar(error.message || 'Failed to remove member from group', { variant: 'error' });
-    } finally {
       setRemovingMember(null);
     }
   };

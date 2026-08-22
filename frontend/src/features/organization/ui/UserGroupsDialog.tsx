@@ -29,8 +29,11 @@ import AddToGroupDialog from './AddToGroupDialog';
 interface UserGroupsDialogProps {
   open: boolean;
   onClose: () => void;
+  // Accepts a users-grid row (UserListItem: name/id) or a legacy { userName } shape
   user: {
-    userName: string;
+    userName?: string;
+    name?: string;
+    id?: string;
     email?: string;
     groups?: string[];
   };
@@ -43,6 +46,7 @@ export default function UserGroupsDialog({
   user,
   onGroupsChange,
 }: UserGroupsDialogProps) {
+  const userName = user.userName || user.name || user.id || '';
   const { enqueueSnackbar } = useSnackbar();
   const [groups, setGroups] = useState<string[]>(user.groups || []);
   const [removing, setRemoving] = useState<string | null>(null);
@@ -51,13 +55,13 @@ export default function UserGroupsDialog({
   const handleRemoveFromGroup = async (groupName: string) => {
     setRemoving(groupName);
     try {
-      const response = await usersApi.removeUsersFromGroup(groupName, [user.userName]);
+      const response = await usersApi.removeUsersFromGroup(groupName, [userName]);
 
       const { successful } = response;
       
       if (successful.length > 0) {
         enqueueSnackbar(
-          `Removed ${user.userName} from ${groupName}`,
+          `Removed ${userName} from ${groupName}`,
           { variant: 'success' }
         );
         setGroups(groups.filter(g => g !== groupName));
@@ -128,7 +132,7 @@ export default function UserGroupsDialog({
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: spacing.xs / 8 }}>
                   <Typography variant="caption" color="text.secondary">
-                    {user.userName} {user.email && `(${user.email})`}
+                    {userName} {user.email && `(${user.email})`}
                   </Typography>
                   <Chip 
                     label={groups.length} 
@@ -304,7 +308,7 @@ export default function UserGroupsDialog({
       <AddToGroupDialog
         open={addGroupOpen}
         onClose={() => setAddGroupOpen(false)}
-        selectedUsers={[{ userName: user.userName, email: user.email }]}
+        selectedUsers={[{ userName: userName, email: user.email }]}
         onComplete={handleAddToGroupComplete}
       />
     </>
