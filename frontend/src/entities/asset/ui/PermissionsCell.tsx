@@ -1,8 +1,9 @@
 import { Box } from '@mui/material';
 
-import { Permission } from '@/entities/asset';
-
 import { TypedChip } from '@/shared/ui';
+
+import { type Permission } from '../model/types';
+
 
 interface PermissionsCellProps {
   permissions?: Permission[];

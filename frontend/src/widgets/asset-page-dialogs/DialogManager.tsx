@@ -4,12 +4,6 @@
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
 import { memo } from 'react';
 
-import { 
-  AssetFoldersDialog, 
-  PermissionsDialog, 
-  RelatedAssetsDialog, 
-  TagsDialog 
-} from '@/widgets/asset-dialogs';
 
 import { InactivityMailtoDialog, UserInactiveMailtoDialog, UserUnusedDatasetsDialog } from '@/features/activity';
 import {
@@ -28,6 +22,13 @@ import { AddToFolderDialog } from '@/entities/folder';
 import { BulkTagDialog } from '@/entities/tag';
 
 import { JsonViewerModal } from '@/shared/ui';
+
+import { 
+  AssetFoldersDialog, 
+  PermissionsDialog, 
+  RelatedAssetsDialog, 
+  TagsDialog 
+} from './dialogs';
 
 
 import type { AssetType } from '@/shared/types/asset';

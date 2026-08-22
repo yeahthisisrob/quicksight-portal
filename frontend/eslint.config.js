@@ -98,19 +98,16 @@ export default [{
         rules: [
           {
             from: 'app',
-            allow: ['processes', 'pages', 'widgets', 'features', 'entities', 'shared']
-          },
-          {
-            from: 'processes',
             allow: ['pages', 'widgets', 'features', 'entities', 'shared']
           },
+          // 'app' is the top layer: nothing below it may import from it
           {
             from: 'pages',
-            allow: ['widgets', 'features', 'entities', 'shared', 'app']
+            allow: ['widgets', 'features', 'entities', 'shared']
           },
           {
             from: 'widgets',
-            allow: ['features', 'entities', 'shared', 'app']
+            allow: ['features', 'entities', 'shared']
           },
           {
             from: 'features',
@@ -139,7 +136,7 @@ export default [{
           },
           // Features should not import internals from other features
           {
-            group: ['@/features/*/lib/*', '@/features/*/model/*', '@/features/*/api/*'],
+            group: ['@/features/*/lib/*', '@/features/*/model/*', '@/features/*/api/*', '@/features/*/ui/*', '@/features/*/utils/*'],
             message: 'Features should only import public APIs from other features, not internal modules.'
           },
           // Entities should not import internals from other entities
@@ -164,7 +161,6 @@ export default [{
     },
     'boundaries/elements': [
       { type: 'app', pattern: 'src/app/**' },
-      { type: 'processes', pattern: 'src/processes/**' },
       { type: 'pages', pattern: 'src/pages/**' },
       { type: 'widgets', pattern: 'src/widgets/**' },
       { type: 'features', pattern: 'src/features/**' },
@@ -172,4 +168,54 @@ export default [{
       { type: 'shared', pattern: 'src/shared/**' }
     ]
   }
-}, ...storybook.configs["flat/recommended"]];
+},
+// Same-layer cross-slice bans. boundaries/element-types can't see slices
+// (elements are defined per layer), so alias imports of a sibling slice are
+// banned per layer here. Same-slice imports use relative paths, so an alias
+// import of your own layer is by definition a cross-slice import.
+{
+  files: ['src/widgets/**/*.{ts,tsx}'],
+  rules: {
+    'no-restricted-imports': ['error', {
+      patterns: [
+        { group: ['@/widgets', '@/widgets/*'], message: 'Cross-imports between widget slices are not allowed. Merge the slices, move shared code down a layer, or compose at the page level.' },
+        { group: ['@/features/*/lib/*', '@/features/*/model/*', '@/features/*/api/*', '@/features/*/ui/*', '@/features/*/utils/*'], message: 'Import the feature public API, not internal modules.' },
+        { group: ['@/entities/*/model/*', '@/entities/*/lib/*', '@/entities/*/ui/*'], message: 'Import the entity public API, not internal modules.' }
+      ]
+    }]
+  }
+},
+{
+  files: ['src/features/**/*.{ts,tsx}'],
+  rules: {
+    'no-restricted-imports': ['error', {
+      patterns: [
+        { group: ['@/features', '@/features/*'], message: 'Cross-imports between feature slices are not allowed. Move shared code to entities/shared, or compose at the widget/page level (e.g. via a slot prop).' },
+        { group: ['@/entities/*/model/*', '@/entities/*/lib/*', '@/entities/*/ui/*'], message: 'Import the entity public API, not internal modules.' }
+      ]
+    }]
+  }
+},
+{
+  files: ['src/entities/**/*.{ts,tsx}'],
+  rules: {
+    'no-restricted-imports': ['error', {
+      patterns: [
+        { group: ['@/entities', '@/entities/*'], message: 'Cross-imports between entity slices are not allowed. Use relative paths within a slice; move shared code to shared.' }
+      ]
+    }]
+  }
+},
+{
+  files: ['src/pages/**/*.{ts,tsx}'],
+  rules: {
+    'no-restricted-imports': ['error', {
+      patterns: [
+        { group: ['@/pages', '@/pages/*'], message: 'Cross-imports between pages are not allowed. Extract shared logic to widgets or features.' },
+        { group: ['@/features/*/lib/*', '@/features/*/model/*', '@/features/*/api/*', '@/features/*/ui/*', '@/features/*/utils/*'], message: 'Import the feature public API, not internal modules.' },
+        { group: ['@/entities/*/model/*', '@/entities/*/lib/*', '@/entities/*/ui/*'], message: 'Import the entity public API, not internal modules.' }
+      ]
+    }]
+  }
+},
+...storybook.configs["flat/recommended"]];

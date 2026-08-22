@@ -5,8 +5,7 @@ import { format } from 'date-fns';
 import React, { useState, useCallback } from 'react';
 
 import { EnhancedAssetTable , copyToClipboard } from '@/widgets/asset-table';
-
-import { RestoreAssetDialog } from '@/features/asset-management/ui/RestoreAssetDialog';
+import { RestoreAssetDialog } from '@/widgets/restore-asset-dialog';
 
 
 import { assetsApi } from '@/shared/api';

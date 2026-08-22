@@ -2,9 +2,9 @@ import { Box, CircularProgress, Typography } from '@mui/material';
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-import { useAuth } from '@/app/providers';
-
 import { exchangeCodeForTokens } from '@/shared/api';
+import { useAuth } from '@/shared/lib/auth';
+
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();

@@ -27,11 +27,12 @@ import {
 import { useSnackbar } from 'notistack';
 import { useState, useEffect, useCallback } from 'react';
 
-import { useFolders } from '@/entities/folder';
-import { folderApi } from '@/entities/folder/api';
 
 import { assetsApi } from '@/shared/api';
 import { useJobPolling } from '@/shared/hooks/useJobPolling';
+
+import { folderApi } from '../api';
+import { useFolders } from '../model';
 
 import type { BulkAssetReference } from '@/shared/types/bulk';
 

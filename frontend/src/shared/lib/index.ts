@@ -11,4 +11,4 @@ export type { DialogState, AssetPageState, AssetPageActions } from './useAssetPa
 export * from './exportUtils';
 export { useExportCSV } from './useExportCSV';
 export { useFilters } from './useFilters';
-export type { UseFiltersOptions, UseFiltersReturn, TagFilter, AssetFilter } from './useFilters';
+export type { UseFiltersOptions, UseFiltersReturn, TagFilter, AssetFilter } from './useFilters';export { AuthProvider, useAuth } from './auth';

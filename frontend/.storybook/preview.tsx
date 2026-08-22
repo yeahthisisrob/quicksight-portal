@@ -3,8 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SnackbarProvider } from 'notistack';
 import { MemoryRouter } from 'react-router-dom';
 
-import { theme } from '../src/theme';
 import { AuthProvider } from './mocks/providers';
+import { theme } from '../src/app/theme';
 
 import type { Preview } from '@storybook/react-vite';
 
