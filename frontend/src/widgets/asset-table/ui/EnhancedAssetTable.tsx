@@ -9,8 +9,10 @@ import {
 } from '@mui/x-data-grid';
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 
-import { BulkActionsToolbar } from '@/widgets';
+import { spacing } from '@/shared/design-system/theme';
+import { useDebounce, usePagination } from '@/shared/lib';
 
+import { BulkActionsToolbar } from '../bulk-actions';
 import {
   FilterBar,
   type DateFilterState,
@@ -33,11 +35,7 @@ import {
   DEFAULT_ACTIVITY_FILTER,
   DEFAULT_SMUS_FILTER,
   DEFAULT_IMPORT_MODE_FILTER,
-} from '@/widgets/filter-bar';
-
-import { spacing } from '@/shared/design-system/theme';
-import { useDebounce, usePagination } from '@/shared/lib';
-
+} from '../filter-bar';
 import { TableHeader, TableToolbar } from './components';
 import { tableStyles } from '../lib/tableStyles';
 

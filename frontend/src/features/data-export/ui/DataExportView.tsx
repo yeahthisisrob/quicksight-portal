@@ -6,9 +6,7 @@
  * activity card (current job logs / job history / activity timeline).
  */
 import { Alert, Box, Button, Card, Divider, Stack, Tab, Tabs, Typography } from '@mui/material';
-import { useState } from 'react';
-
-import { TimelineFeed } from '@/features/activity';
+import { useState, type ReactNode } from 'react';
 
 import { spacing } from '@/shared/design-system/theme';
 import { PageLayout } from '@/shared/ui';
@@ -44,6 +42,8 @@ interface ExportTabBodyProps {
   isRunning: boolean;
   currentJobId: string | null;
   onSelectHistoryJob: (jobId: string) => void;
+  /** Activity timeline content, injected by the page (cross-feature composition) */
+  timelineFeed?: ReactNode;
 }
 
 function ExportTabBody({
@@ -52,6 +52,7 @@ function ExportTabBody({
   isRunning,
   currentJobId,
   onSelectHistoryJob,
+  timelineFeed,
 }: ExportTabBodyProps) {
   if (activeTab === 'history') {
     return <JobHistory onSelectJob={onSelectHistoryJob} currentJobId={currentJobId} />;
@@ -60,7 +61,7 @@ function ExportTabBody({
   if (activeTab === 'timeline') {
     return (
       <Box sx={{ maxHeight: 600, display: 'flex', flexDirection: 'column' }}>
-        <TimelineFeed />
+        {timelineFeed}
       </Box>
     );
   }
@@ -95,7 +96,7 @@ function ExportTabBody({
   );
 }
 
-export default function DataExportView() {
+export default function DataExportView({ timelineFeed }: { timelineFeed?: ReactNode }) {
   const [selectedAssetTypes, setSelectedAssetTypes] = useState<AssetType[]>(ALL_SELECTABLE_TYPES);
   const [exportMode, setExportMode] = useState<ExportMode>('smart');
   const [activeTab, setActiveTab] = useState<ExportTab>('current');
@@ -234,6 +235,7 @@ export default function DataExportView() {
             isRunning={isRunning}
             currentJobId={currentJobId}
             onSelectHistoryJob={handleSelectHistoryJob}
+            timelineFeed={timelineFeed}
           />
         </Card>
       </Stack>

@@ -26,15 +26,23 @@ const config: StorybookConfig = {
     config.resolve.alias = config.resolve.alias || {};
     
     // Add our mock as the first alias to take precedence
+    // (auth lives in shared/lib/auth; app/providers re-exports it)
     if (Array.isArray(config.resolve.alias)) {
-      config.resolve.alias.unshift({
-        find: '@/app/providers',
-        replacement: path.resolve(__dirname, './mocks/providers.tsx'),
-      });
+      config.resolve.alias.unshift(
+        {
+          find: '@/app/providers',
+          replacement: path.resolve(__dirname, './mocks/providers.tsx'),
+        },
+        {
+          find: '@/shared/lib/auth',
+          replacement: path.resolve(__dirname, './mocks/providers.tsx'),
+        }
+      );
     } else {
       // If alias is an object, override the specific path
       config.resolve.alias = {
         '@/app/providers': path.resolve(__dirname, './mocks/providers.tsx'),
+        '@/shared/lib/auth': path.resolve(__dirname, './mocks/providers.tsx'),
         ...config.resolve.alias,
       };
     }

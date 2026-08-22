@@ -11,9 +11,9 @@ import {
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
-import { useAuth } from '@/app/providers';
-
 import { config } from '@/shared/config';
+import { useAuth } from '@/shared/lib/auth';
+
 
 interface AuthMethod {
   id: string;

@@ -1,8 +1,8 @@
 import { Stack } from '@mui/material';
 
-import { Permission } from '@/entities/asset';
-
 import PermissionsCell from './PermissionsCell';
+import { type Permission } from '../model/types';
+
 
 import type { Meta, StoryObj } from '@storybook/react-vite';
 

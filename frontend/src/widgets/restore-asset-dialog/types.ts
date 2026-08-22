@@ -1,7 +1,7 @@
 /**
  * Types for RestoreAssetDialog components
  */
-import type { ArchivedAssetItem } from '../../model/types';
+import type { ArchivedAssetItem } from '@/features/asset-management';
 import type { ValidationResult } from '@/shared/api/modules/deploy';
 import type { ReactNode } from 'react';
 
@@ -15,21 +15,7 @@ export interface RestoreAssetDialogProps {
   asset: ArchivedAssetItem | null;
 }
 
-export interface AssetMetadata {
-  permissions?: any[];
-  tags?: Array<{ key: string; value: string }>;
-  refreshSchedules?: any[];
-  refreshProperties?: any;
-  folderMemberships?: any[];
-  originalName?: string;
-  description?: string;
-  createdTime?: string;
-  lastUpdatedTime?: string;
-  importMode?: string;
-  rowCount?: number;
-  consumedSpiceCapacityInBytes?: number;
-  [key: string]: any;
-}
+export type { AssetMetadata } from '@/features/asset-management';
 
 export interface TabPanelProps {
   children?: ReactNode;

@@ -5,8 +5,8 @@ import { SnackbarProvider } from 'notistack';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 
-import App from './App';
-import { theme } from './theme';
+import App from './app/App';
+import { theme } from './app/theme';
 
 // The single QueryClient lives in AppProviders (rendered inside App) — a
 // second one here would shadow it and bind Devtools to a dead cache.

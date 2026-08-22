@@ -3,7 +3,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 
-import { extractAssetMetadata } from '@/features/asset-management/utils/metadataExtractor';
+import { extractAssetMetadata } from '@/features/asset-management';
 
 import { assetsApi, deployApi } from '@/shared/api';
 

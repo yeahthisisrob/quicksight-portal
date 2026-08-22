@@ -3,7 +3,7 @@
  */
 import { normalizePermissionsArray } from './permissions';
 
-import type { AssetMetadata } from '../ui/RestoreAssetDialog/types';
+import type { AssetMetadata } from '../model/types';
 
 /**
  * Extract base metadata from API responses

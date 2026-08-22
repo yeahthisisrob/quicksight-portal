@@ -6,7 +6,7 @@ import { useState } from 'react';
 
 import { RestoreAssetDialog } from './RestoreAssetDialog';
 
-import type { ArchivedAssetItem } from '../../model/types';
+import type { ArchivedAssetItem } from '@/features/asset-management';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta = {

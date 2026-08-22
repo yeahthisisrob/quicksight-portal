@@ -89,3 +89,22 @@ export interface ArchivedAssetItem {
     consumedSpiceCapacityInBytes?: number;
   };
 }
+/**
+ * Metadata extracted from an archived asset's stored API responses
+ * (used by metadataExtractor and the restore flow)
+ */
+export interface AssetMetadata {
+  permissions?: any[];
+  tags?: Array<{ key: string; value: string }>;
+  refreshSchedules?: any[];
+  refreshProperties?: any;
+  folderMemberships?: any[];
+  originalName?: string;
+  description?: string;
+  createdTime?: string;
+  lastUpdatedTime?: string;
+  importMode?: string;
+  rowCount?: number;
+  consumedSpiceCapacityInBytes?: number;
+  [key: string]: any;
+}

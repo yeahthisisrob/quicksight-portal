@@ -7,8 +7,8 @@ import { deployApi } from '@/shared/api';
 
 import { buildDeploymentConfig } from '../utils/buildDeploymentConfig';
 
-import type { ArchivedAssetItem } from '../../../model/types';
 import type { RestoreFormData, RestoreOptions } from '../types';
+import type { ArchivedAssetItem } from '@/features/asset-management';
 import type { ValidationResult } from '@/shared/api/modules/deploy';
 
 

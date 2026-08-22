@@ -11,14 +11,13 @@ import {
   DialogManager, 
   useDialogStates 
 } from '@/widgets/asset-page-dialogs';
-import { createAssetColumns ,type  FetchAssetsOptions } from '@/widgets/asset-table';
+import { createAssetColumns ,type  FetchAssetsOptions ,type  TagOption,type  FolderOption,type  RoleOption,type  GroupOption,type  SourceTypeOption } from '@/widgets/asset-table';
 
 import { useAssetPage } from '@/features/asset-management';
 
 import { useAssetPageState, useExportCSV } from '@/shared/lib';
 
 import type { AssetType } from '@/shared/types/asset';
-import type { TagOption, FolderOption, RoleOption, GroupOption, SourceTypeOption } from '@/widgets/filter-bar';
 
 interface GenericAssetPageProps {
   assetType: AssetType;

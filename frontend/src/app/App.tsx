@@ -2,8 +2,7 @@ import { Box } from '@mui/material';
 import { Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 
-import { AuthGuard, AuthenticatedApp } from './app/providers';
-import { AppProviders } from './app/providers/AppProviders';
+import { AuthGuard, AuthenticatedApp } from './providers';
 import {
   LoginPage,
   AuthCallbackPage,
@@ -15,9 +14,10 @@ import {
   ArchivedAssetsPage,
   ScriptsPage,
   IngestionsPage,
-} from './pages';
-import { PageLoader, ErrorBoundary } from './shared/ui';
-import { MainLayout } from './widgets';
+} from '../pages';
+import { AppProviders } from './providers/AppProviders';
+import { PageLoader, ErrorBoundary } from '../shared/ui';
+import { MainLayout } from '../widgets';
 
 // Lazy load all pages for code splitting
 

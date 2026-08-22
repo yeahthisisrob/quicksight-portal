@@ -13,9 +13,8 @@ import {
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { useAuth } from '@/app/providers';
-
 import { colors, spacing } from '@/shared/design-system/theme';
+import { useAuth } from '@/shared/lib/auth';
 import { navigationIcons } from '@/shared/ui/icons';
 
 import { navigationConfig } from './navigationConfig';
