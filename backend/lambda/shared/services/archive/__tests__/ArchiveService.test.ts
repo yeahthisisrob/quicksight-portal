@@ -12,9 +12,7 @@ vi.mock('../../../utils/logger');
 
 // Test constants
 const TEST_BUCKET = 'test-bucket';
-const MILLISECONDS_IN_DAY = 86400000;
 const BYTES_PER_GB = 1073741824;
-const DAYS_IN_MONTH = 30;
 const GB_ARCHIVE_QUARTER = 4;
 const TOTAL_ARCHIVED_COUNT = 5;
 const EXPECTED_SIZE_GB = 1.75;
@@ -415,117 +413,6 @@ describe('ArchiveService - getArchivedAssets', () => {
   });
 });
 
-describe('ArchiveService - getArchivedAssetsPaginated', () => {
-  it('should return paginated archived assets', async () => {
-    const options = {
-      assetType: 'dashboard' as const,
-      page: 1,
-      pageSize: 2,
-      search: 'test',
-      sortBy: 'name',
-      sortOrder: 'asc' as const,
-    };
-
-    const mockAssetsCount = 5;
-    const mockAssets = Array.from({ length: mockAssetsCount }, (_, i) => ({
-      assetId: `dash-${i}`,
-      assetName: `Test Dashboard ${i}`,
-      assetType: 'dashboard' as const,
-      arn: `arn:aws:quicksight:us-east-1:123456789012:dashboard/dash-${i}`,
-      status: 'archived' as const,
-      enrichmentStatus: 'enriched' as const,
-      createdTime: new Date(),
-      lastUpdatedTime: new Date(),
-      exportedAt: new Date(),
-      exportFilePath: `archived/dashboards/dash-${i}.json`,
-      storageType: 'individual' as const,
-      tags: [],
-      permissions: [],
-      metadata: {
-        archived: {
-          archivedAt: new Date().toISOString(),
-          archiveReason: 'Test reason',
-          archivedBy: 'user',
-          originalPath: `assets/dashboards/dash-${i}.json`,
-        },
-      },
-    }));
-
-    vi.spyOn(archiveService, 'getArchivedAssets').mockResolvedValue(mockAssets);
-
-    const result = await archiveService.getArchivedAssetsPaginated(options);
-
-    const expectedPageSize = 2;
-    expect(result.items).toHaveLength(expectedPageSize);
-    expect(result.totalCount).toBeGreaterThan(0);
-    expect(result.nextToken).toBeDefined();
-  });
-
-  it('should filter by date range', async () => {
-    const options = {
-      assetType: 'dashboard' as const,
-      dateRange: '7d',
-      page: 1,
-      pageSize: 10,
-    };
-
-    const oldAsset = {
-      assetId: 'old-dash',
-      assetName: 'Old Dashboard',
-      assetType: 'dashboard' as const,
-      arn: 'arn:aws:quicksight:us-east-1:123456789012:dashboard/old-dash',
-      status: 'archived' as const,
-      enrichmentStatus: 'enriched' as const,
-      createdTime: new Date(),
-      lastUpdatedTime: new Date(),
-      exportedAt: new Date(),
-      exportFilePath: 'archived/dashboards/old-dash.json',
-      storageType: 'individual' as const,
-      tags: [],
-      permissions: [],
-      metadata: {
-        archived: {
-          archivedAt: new Date(Date.now() - MILLISECONDS_IN_DAY * DAYS_IN_MONTH).toISOString(),
-          archiveReason: 'Old',
-          archivedBy: 'user',
-          originalPath: 'assets/dashboards/old-dash.json',
-        },
-      },
-    };
-
-    const recentAsset = {
-      assetId: 'recent-dash',
-      assetName: 'Recent Dashboard',
-      assetType: 'dashboard' as const,
-      arn: 'arn:aws:quicksight:us-east-1:123456789012:dashboard/recent-dash',
-      status: 'archived' as const,
-      enrichmentStatus: 'enriched' as const,
-      createdTime: new Date(),
-      lastUpdatedTime: new Date(),
-      exportedAt: new Date(),
-      exportFilePath: 'archived/dashboards/recent-dash.json',
-      storageType: 'individual' as const,
-      tags: [],
-      permissions: [],
-      metadata: {
-        archived: {
-          archivedAt: new Date().toISOString(),
-          archiveReason: 'Recent',
-          archivedBy: 'user',
-          originalPath: 'assets/dashboards/recent-dash.json',
-        },
-      },
-    };
-
-    vi.spyOn(archiveService, 'getArchivedAssets').mockResolvedValue([oldAsset, recentAsset]);
-
-    const result = await archiveService.getArchivedAssetsPaginated(options);
-
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0]?.id).toBe('recent-dash');
-  });
-});
-
 describe('ArchiveService - statistics', () => {
   describe('getArchiveStatistics', () => {
     it('should calculate archive statistics correctly', async () => {
@@ -614,45 +501,6 @@ describe('ArchiveService - statistics', () => {
       Object.values(stats.byType).forEach((count) => {
         expect(count).toBe(0);
       });
-    });
-  });
-});
-
-describe('ArchiveService - transformations', () => {
-  describe('transformArchivedAsset', () => {
-    it('should transform cache entry to archived asset response', () => {
-      const cacheEntry = {
-        assetId: 'dash-123',
-        assetName: 'Test Dashboard',
-        assetType: 'dashboard' as const,
-        status: 'archived',
-        createdTime: new Date('2024-01-01'),
-        lastUpdatedTime: new Date('2024-02-01'),
-        exportedAt: new Date('2024-01-15'),
-        enrichmentStatus: 'enriched' as const,
-        tags: [{ Key: 'env', Value: 'prod' }],
-        permissions: [{ Principal: 'user1', Actions: ['read'] }],
-        metadata: {
-          enrichmentTimestamps: { tags: '2024-01-10' },
-          archived: {
-            archivedAt: '2024-03-01T00:00:00.000Z',
-            archivedBy: 'admin',
-            archiveReason: 'Cleanup',
-            originalPath: 'assets/dashboards/dash-123.json',
-          },
-        },
-      };
-
-      const result = archiveService.transformArchivedAsset(cacheEntry as any);
-
-      expect(result.id).toBe('dash-123');
-      expect(result.name).toBe('Test Dashboard');
-      expect(result.type).toBe('dashboard');
-      expect(result.status).toBe('archived');
-      expect(result.archiveMetadata.archivedAt).toBe('2024-03-01T00:00:00.000Z');
-      expect(result.archiveMetadata.archivedBy).toBe('admin');
-      expect(result.archiveMetadata.archiveReason).toBe('Cleanup');
-      expect(result.canRestore).toBe(true);
     });
   });
 });

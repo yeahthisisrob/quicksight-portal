@@ -27,7 +27,6 @@ import { RefreshScheduleDialog } from '@/entities/dataset';
 import { AddToFolderDialog } from '@/entities/folder';
 import { BulkTagDialog } from '@/entities/tag';
 
-import { normalizePermissions } from '@/shared/lib/dataGridColumns';
 import { JsonViewerModal } from '@/shared/ui';
 
 
@@ -54,7 +53,7 @@ const CoreAssetDialogs = memo(({
         assetId={permissionsDialog.asset.id}
         assetName={permissionsDialog.asset.name}
         assetType={typeCapitalized}
-        permissions={normalizePermissions(permissionsDialog.asset?.permissions || [])}
+        permissions={permissionsDialog.asset?.permissions || []}
         onPermissionRevoked={() => refreshAssetType(assetType)}
       />
     )}
