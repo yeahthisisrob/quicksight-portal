@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.6](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.10.5...v1.10.6) (2026-08-22)
+
+
+### Bug Fixes
+
+* deleted assets lingering in lists, bulk jobs falsely shown as timed out, cache hardening ([#55](https://github.com/yeahthisisrob/quicksight-portal/issues/55)) ([e88d652](https://github.com/yeahthisisrob/quicksight-portal/commit/e88d6522ca207446f62bc4596bd4a2941841d24f))
+
 ## [1.10.5](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.10.4...v1.10.5) (2026-08-22)
 
 
