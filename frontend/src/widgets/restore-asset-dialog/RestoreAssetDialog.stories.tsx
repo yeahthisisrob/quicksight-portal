@@ -27,7 +27,10 @@ const mockDataset: ArchivedAssetItem = {
   name: 'Sales Dataset 2024',
   type: 'dataset',
   createdTime: '2024-01-15T10:30:00Z',
-  lastPublishedTime: '2024-06-20T14:45:00Z',
+  lastUpdatedTime: '2024-06-01T00:00:00Z',
+  lastExportTime: '2024-06-01T00:00:00Z',
+  enrichmentStatus: 'enriched',
+  permissions: [],
   archivedDate: '2024-07-01T09:00:00Z',
   archivedBy: 'admin@example.com',
   archiveReason: 'Replaced with updated version',
@@ -49,7 +52,10 @@ const mockDashboard: ArchivedAssetItem = {
   name: 'Executive Sales Dashboard',
   type: 'dashboard',
   createdTime: '2024-02-01T11:00:00Z',
-  lastPublishedTime: '2024-06-15T16:30:00Z',
+  lastUpdatedTime: '2024-06-01T00:00:00Z',
+  lastExportTime: '2024-06-01T00:00:00Z',
+  enrichmentStatus: 'enriched',
+  permissions: [],
   archivedDate: '2024-07-05T10:30:00Z',
   archivedBy: 'manager@example.com',
   archiveReason: 'End of quarter cleanup',
@@ -66,7 +72,10 @@ const mockAnalysis: ArchivedAssetItem = {
   name: 'Q2 Performance Analysis',
   type: 'analysis',
   createdTime: '2024-03-10T09:15:00Z',
-  lastPublishedTime: '2024-06-10T13:00:00Z',
+  lastUpdatedTime: '2024-06-01T00:00:00Z',
+  lastExportTime: '2024-06-01T00:00:00Z',
+  enrichmentStatus: 'enriched',
+  permissions: [],
   archivedDate: '2024-07-02T11:15:00Z',
   archivedBy: 'analyst@example.com',
   archiveReason: 'Quarterly review completed',
@@ -174,8 +183,8 @@ export const WithoutArchiveReason: Story = {
     <RestoreDialogWrapper 
       asset={{
         ...mockDashboard,
-        archiveReason: undefined,
-      }} 
+        archiveReason: '',
+      }}
     />
   ),
 };

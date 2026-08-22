@@ -1,24 +1,42 @@
 /**
  * Create column handlers for GenericAssetPage
  */
+import type {
+  AssetFoldersDialogState,
+  DefinitionErrorsDialogState,
+  DeleteGroupDialogState,
+  DeleteUserDialogState,
+  FolderMembersDialogState,
+  GroupAssetsDialogState,
+  GroupMembersDialogState,
+  JsonViewerDialogState,
+  NotifyInactiveAnalysesDialogState,
+  NotifyInactiveDialogState,
+  NotifyUnusedDatasetsDialogState,
+  RefreshScheduleDialogState,
+  UpdateGroupDialogState,
+  UserAssetAccessDialogState,
+  UserGroupsDialogState,
+} from './useDialogStates';
 import type { AssetType } from '@/shared/types/asset';
 
+
 interface DialogSetters {
-  setJsonViewerDialog: (state: any) => void;
-  setFolderMembersDialog: (state: any) => void;
-  setAssetFoldersDialog: (state: any) => void;
-  setUserGroupsDialog: (state: any) => void;
-  setGroupMembersDialog: (state: any) => void;
-  setGroupAssetsDialog: (state: any) => void;
-  setUpdateGroupDialog: (state: any) => void;
-  setDeleteGroupDialog: (state: any) => void;
-  setDeleteUserDialog: (state: any) => void;
-  setRefreshScheduleDialog: (state: any) => void;
-  setDefinitionErrorsDialog: (state: any) => void;
-  setUserAssetAccessDialog: (state: any) => void;
-  setNotifyInactiveDialog: (state: any) => void;
-  setNotifyInactiveAnalysesDialog: (state: any) => void;
-  setNotifyUnusedDatasetsDialog: (state: any) => void;
+  setJsonViewerDialog: (state: JsonViewerDialogState) => void;
+  setFolderMembersDialog: (state: FolderMembersDialogState) => void;
+  setAssetFoldersDialog: (state: AssetFoldersDialogState) => void;
+  setUserGroupsDialog: (state: UserGroupsDialogState) => void;
+  setGroupMembersDialog: (state: GroupMembersDialogState) => void;
+  setGroupAssetsDialog: (state: GroupAssetsDialogState) => void;
+  setUpdateGroupDialog: (state: UpdateGroupDialogState) => void;
+  setDeleteGroupDialog: (state: DeleteGroupDialogState) => void;
+  setDeleteUserDialog: (state: DeleteUserDialogState) => void;
+  setRefreshScheduleDialog: (state: RefreshScheduleDialogState) => void;
+  setDefinitionErrorsDialog: (state: DefinitionErrorsDialogState) => void;
+  setUserAssetAccessDialog: (state: UserAssetAccessDialogState) => void;
+  setNotifyInactiveDialog: (state: NotifyInactiveDialogState) => void;
+  setNotifyInactiveAnalysesDialog: (state: NotifyInactiveAnalysesDialogState) => void;
+  setNotifyUnusedDatasetsDialog: (state: NotifyUnusedDatasetsDialogState) => void;
 }
 
 interface PageStateActions {

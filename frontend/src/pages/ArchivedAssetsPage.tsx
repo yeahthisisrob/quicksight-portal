@@ -119,21 +119,7 @@ export const ArchivedAssetsPage: React.FC = () => {
   };
 
   const handleRestore = (asset: ArchivedAssetItem) => {
-    // Convert to local type
-    const localAsset: LocalArchivedAssetItem = {
-      type: asset.type,
-      id: asset.id,
-      name: asset.name,
-      createdTime: asset.createdTime,
-      lastUpdatedTime: asset.lastUpdatedTime,
-      lastExportTime: asset.lastExportTime,
-      lastActivity: typeof asset.lastActivity === 'string' ? asset.lastActivity : undefined,
-      archivedDate: asset.archivedDate,
-      archiveReason: asset.archiveReason,
-      archivedBy: asset.archivedBy,
-      tags: asset.tags?.map(t => ({ key: t.key || '', value: t.value || '' })) || [],
-    };
-    setAssetToRestore(localAsset);
+    setAssetToRestore(asset);
     setRestoreDialogOpen(true);
   };
 

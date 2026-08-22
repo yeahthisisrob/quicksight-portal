@@ -1,3 +1,5 @@
+import type { components } from '@shared/generated';
+
 export interface ColumnConfig {
   id: string;
   label: string;
@@ -67,28 +69,15 @@ export interface TagsDialogProps {
   onUpdateTags: (tags: string[]) => void;
 }
 
-// Archive and deployment types
-export interface ArchivedAssetItem {
-  type: string;
-  id: string;
-  name: string;
-  createdTime?: string;
-  lastUpdatedTime?: string;
-  lastPublishedTime?: string;
-  lastExportTime?: string;
-  lastActivity?: string | null;
-  archivedDate?: string;
-  archiveReason?: string;
-  archivedBy?: string;
+// Archive and deployment types — grounded in the generated OpenAPI schema
+export type ArchivedAssetItem = components['schemas']['ArchivedAssetItem'] & {
   size?: number;
-  status?: string;
-  tags?: Array<{ key: string; value: string }>;
   metadata?: {
     importMode?: string;
     rowCount?: number;
     consumedSpiceCapacityInBytes?: number;
   };
-}
+};
 /**
  * Metadata extracted from an archived asset's stored API responses
  * (used by metadataExtractor and the restore flow)

@@ -10,22 +10,15 @@ import type { AssetType, ExportMode } from '../model/types';
 import type {
   ExportJobOptions,
   ExportLogEntry,
-  JobStatus as JobStatusType,
   RefreshOptions,
 } from '@/shared/api/types/export.types';
+import type { components } from '@shared/generated';
 
-
-interface JobStatus {
-  status: JobStatusType;
-  progress: number;
-  message?: string;
-  stats?: {
-    totalAssets?: number;
-    processedAssets?: number;
-    failedAssets?: number;
-    apiCalls?: number;
-  };
-}
+// The slice of the generated job-status payload this hook tracks
+type JobStatus = Pick<
+  components['schemas']['ExportJobStatus']['data'],
+  'status' | 'progress' | 'message' | 'stats'
+>;
 
 /**
  * Convert plural UI asset types to singular backend asset types

@@ -25,7 +25,7 @@ type SearchMatchReason = components['schemas']['SearchMatchReason'];
 // while allowing flexibility for frontend-added properties
 interface AssetRow extends Omit<AssetListItem, 'enrichmentStatus'> {
   // Type discriminator
-  type: 'dashboard' | 'analysis' | 'dataset' | 'datasource' | 'folder' | 'user' | 'group';
+  type: components['schemas']['AssetType'];
   
   // Frontend-added properties
   relatedAssets?: any;

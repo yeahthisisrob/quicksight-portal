@@ -57,7 +57,7 @@ export default function UserGroupsDialog({
     try {
       const response = await usersApi.removeUsersFromGroup(groupName, [userName]);
 
-      const { successful } = response;
+      const { successful = [] } = response;
       
       if (successful.length > 0) {
         enqueueSnackbar(
