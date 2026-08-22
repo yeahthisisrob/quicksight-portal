@@ -3,6 +3,50 @@ import { ApiResponse } from '../types';
 
 import type { components } from '@shared/generated/types';
 
+type Schemas = components['schemas'];
+
+/** Params shared by every paginated list endpoint; extra filter params pass through */
+export type PaginatedListParams = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  dateRange?: string;
+  sortBy?: string;
+  sortOrder?: string;
+  filters?: Record<string, any>;
+  [key: string]: any;
+};
+
+type FilterCount = { value: string; count: number };
+
+/** Response shape of a paginated list keyed by its collection name */
+type PaginatedList<K extends string, TItem> = { [P in K]: TItem[] } & {
+  pagination: Schemas['PaginationInfo'];
+  fromCache?: boolean;
+};
+
+/**
+ * One fetcher for all seven paginated asset lists - identical wire contract,
+ * differing only in URL segment, collection key, and item type
+ */
+async function getPaginatedList<TResult>(
+  segment: string,
+  label: string,
+  params?: PaginatedListParams
+): Promise<TResult> {
+  const queryParams: any = { ...params };
+  if (params?.filters) {
+    queryParams.filters = JSON.stringify(params.filters);
+  }
+  const response = await apiClient.get<ApiResponse<TResult>>(`/assets/${segment}/paginated`, {
+    params: queryParams,
+  });
+  if (!response.data.success) {
+    throw new Error(response.data.error || `Failed to fetch ${label}`);
+  }
+  return response.data.data!;
+}
+
 /**
  * Assets API - handles all QuickSight asset types (dashboards, analyses, datasets, datasources)
  */
@@ -59,210 +103,59 @@ export const assetsApi = {
 
 
   // Get paginated datasets with full info
-  async getDatasetsPaginated(params?: {
-    page?: number;
-    pageSize?: number;
-    search?: string;
-    dateRange?: string;
-    sortBy?: string;
-    sortOrder?: string;
-    filters?: Record<string, any>;
-  }): Promise<{
-    datasets: components['schemas']['DatasetListItem'][];
-    pagination: components['schemas']['PaginationInfo'];
-    fromCache?: boolean;
-    availableSourceTypes?: Array<{ value: string; count: number }>;
-  }> {
-    const queryParams: any = { ...params };
-    if (params?.filters) {
-      queryParams.filters = JSON.stringify(params.filters);
+  getDatasetsPaginated(params?: PaginatedListParams) {
+    return getPaginatedList<
+      PaginatedList<'datasets', Schemas['DatasetListItem']> & {
+      availableSourceTypes?: FilterCount[];
     }
-    const response = await apiClient.get<ApiResponse<{
-      datasets: components['schemas']['DatasetListItem'][];
-      pagination: components['schemas']['PaginationInfo'];
-      fromCache?: boolean;
-    }>>('/assets/datasets/paginated', { params: queryParams });
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch datasets');
-    }
-    return response.data.data!;
+    >('datasets', 'datasets', params);
   },
 
   // Get paginated dashboards with full info
-  async getDashboardsPaginated(params?: {
-    page?: number;
-    pageSize?: number;
-    search?: string;
-    dateRange?: string;
-    sortBy?: string;
-    sortOrder?: string;
-    filters?: Record<string, any>;
-  }): Promise<{ 
-    dashboards: components['schemas']['DashboardListItem'][];
-    pagination: components['schemas']['PaginationInfo'];
-    fromCache?: boolean;
-  }> {
-    const queryParams: any = { ...params };
-    if (params?.filters) {
-      queryParams.filters = JSON.stringify(params.filters);
-    }
-    const response = await apiClient.get<ApiResponse<{
-      dashboards: components['schemas']['DashboardListItem'][];
-      pagination: components['schemas']['PaginationInfo'];
-      fromCache?: boolean;
-    }>>('/assets/dashboards/paginated', { params: queryParams });
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch dashboards');
-    }
-    return response.data.data!;
+  getDashboardsPaginated(params?: PaginatedListParams) {
+    return getPaginatedList<
+      PaginatedList<'dashboards', Schemas['DashboardListItem']>
+    >('dashboards', 'dashboards', params);
   },
 
   // Get paginated analyses with full info
-  async getAnalysesPaginated(params?: {
-    page?: number;
-    pageSize?: number;
-    search?: string;
-    dateRange?: string;
-    sortBy?: string;
-    sortOrder?: string;
-    filters?: Record<string, any>;
-  }): Promise<{ 
-    analyses: components['schemas']['AnalysisListItem'][];
-    pagination: components['schemas']['PaginationInfo'];
-    fromCache?: boolean;
-  }> {
-    const queryParams: any = { ...params };
-    if (params?.filters) {
-      queryParams.filters = JSON.stringify(params.filters);
-    }
-    const response = await apiClient.get<ApiResponse<{
-      analyses: components['schemas']['AnalysisListItem'][];
-      pagination: components['schemas']['PaginationInfo'];
-      fromCache?: boolean;
-    }>>('/assets/analyses/paginated', { params: queryParams });
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch analyses');
-    }
-    return response.data.data!;
+  getAnalysesPaginated(params?: PaginatedListParams) {
+    return getPaginatedList<
+      PaginatedList<'analyses', Schemas['AnalysisListItem']>
+    >('analyses', 'analyses', params);
   },
 
   // Get paginated datasources with full info
-  async getDatasourcesPaginated(params?: {
-    page?: number;
-    pageSize?: number;
-    search?: string;
-    dateRange?: string;
-    sortBy?: string;
-    sortOrder?: string;
-    filters?: Record<string, any>;
-  }): Promise<{
-    datasources: components['schemas']['DatasourceListItem'][];
-    pagination: components['schemas']['PaginationInfo'];
-    fromCache?: boolean;
-    availableSourceTypes?: Array<{ value: string; count: number }>;
-  }> {
-    const queryParams: any = { ...params };
-    if (params?.filters) {
-      queryParams.filters = JSON.stringify(params.filters);
+  getDatasourcesPaginated(params?: PaginatedListParams) {
+    return getPaginatedList<
+      PaginatedList<'datasources', Schemas['DatasourceListItem']> & {
+      availableSourceTypes?: FilterCount[];
     }
-    const response = await apiClient.get<ApiResponse<{
-      datasources: components['schemas']['DatasourceListItem'][];
-      pagination: components['schemas']['PaginationInfo'];
-      fromCache?: boolean;
-    }>>('/assets/datasources/paginated', { params: queryParams });
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch datasources');
-    }
-    return response.data.data!;
+    >('datasources', 'datasources', params);
   },
 
   // Get paginated folders with full info
-  async getFoldersPaginated(params?: {
-    page?: number;
-    pageSize?: number;
-    search?: string;
-    sortBy?: string;
-    sortOrder?: string;
-    filters?: Record<string, any>;
-  }): Promise<{ 
-    folders: components['schemas']['FolderListItem'][];
-    pagination: components['schemas']['PaginationInfo'];
-    fromCache?: boolean;
-  }> {
-    const queryParams: any = { ...params };
-    if (params?.filters) {
-      queryParams.filters = JSON.stringify(params.filters);
-    }
-    const response = await apiClient.get<ApiResponse<{
-      folders: components['schemas']['FolderListItem'][];
-      pagination: components['schemas']['PaginationInfo'];
-      fromCache?: boolean;
-    }>>('/assets/folders/paginated', { params: queryParams });
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch folders');
-    }
-    return response.data.data!;
+  getFoldersPaginated(params?: PaginatedListParams) {
+    return getPaginatedList<
+      PaginatedList<'folders', Schemas['FolderListItem']>
+    >('folders', 'folders', params);
   },
 
   // Get paginated groups with full info
-  async getGroupsPaginated(params?: {
-    page?: number;
-    pageSize?: number;
-    search?: string;
-    dateRange?: string;
-    sortBy?: string;
-    sortOrder?: string;
-    filters?: Record<string, any>;
-  }): Promise<{ 
-    groups: components['schemas']['GroupListItem'][];
-    pagination: components['schemas']['PaginationInfo'];
-    fromCache?: boolean;
-  }> {
-    const queryParams: any = { ...params };
-    if (params?.filters) {
-      queryParams.filters = JSON.stringify(params.filters);
-    }
-    const response = await apiClient.get<ApiResponse<{
-      groups: components['schemas']['GroupListItem'][];
-      pagination: components['schemas']['PaginationInfo'];
-      fromCache?: boolean;
-    }>>('/assets/groups/paginated', { params: queryParams });
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch groups');
-    }
-    return response.data.data!;
+  getGroupsPaginated(params?: PaginatedListParams) {
+    return getPaginatedList<
+      PaginatedList<'groups', Schemas['GroupListItem']>
+    >('groups', 'groups', params);
   },
 
   // Get paginated users with full info
-  async getUsersPaginated(params?: {
-    page?: number;
-    pageSize?: number;
-    search?: string;
-    dateRange?: string;
-    sortBy?: string;
-    sortOrder?: string;
-    filters?: Record<string, any>;
-  }): Promise<{
-    users: components['schemas']['UserListItem'][];
-    pagination: components['schemas']['PaginationInfo'];
-    fromCache?: boolean;
-    availableRoles?: Array<{ value: string; count: number }>;
-    availableGroups?: Array<{ value: string; count: number }>;
-  }> {
-    const queryParams: any = { ...params };
-    if (params?.filters) {
-      queryParams.filters = JSON.stringify(params.filters);
+  getUsersPaginated(params?: PaginatedListParams) {
+    return getPaginatedList<
+      PaginatedList<'users', Schemas['UserListItem']> & {
+      availableRoles?: FilterCount[];
+      availableGroups?: FilterCount[];
     }
-    const response = await apiClient.get<ApiResponse<{
-      users: components['schemas']['UserListItem'][];
-      pagination: components['schemas']['PaginationInfo'];
-      fromCache?: boolean;
-    }>>('/assets/users/paginated', { params: queryParams });
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch users');
-    }
-    // The backend returns { users: [...], pagination: {...}, fromCache: true }
-    return response.data.data!;
+    >('users', 'users', params);
   },
 
   // Get permission sources for an asset (how each user has access)

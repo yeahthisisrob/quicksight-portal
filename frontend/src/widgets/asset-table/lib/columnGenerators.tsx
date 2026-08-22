@@ -816,12 +816,20 @@ export function generateDashboardAnalysisColumns(handlers: Handlers): ColumnConf
 }
 
 /**
- * Generate used by column
+ * Generate a relationship-count column (Used By / Uses). Shows the active
+ * count as a typed chip and the archived count as a muted chip; both open
+ * the related-assets dialog.
  */
-export function generateUsedByColumn(handlers: Handlers): ColumnConfig {
+function generateRelationshipColumn(
+  kind: 'used_by' | 'uses',
+  id: string,
+  label: string,
+  legacyKey: 'usedBy' | 'uses',
+  handlers: Handlers
+): ColumnConfig {
   return {
-    id: 'usedBy',
-    label: 'Used By',
+    id,
+    label,
     width: 100,
     visible: true,
     sortable: true,
@@ -829,18 +837,19 @@ export function generateUsedByColumn(handlers: Handlers): ColumnConfig {
       const relatedAssets = params.row.relatedAssets;
       let activeCount = 0;
       let archivedCount = 0;
-      
+
       if (Array.isArray(relatedAssets)) {
-        const usedByAssets = relatedAssets.filter(r => r.relationshipType === 'used_by');
-        activeCount = usedByAssets.filter(r => !r.targetIsArchived).length;
-        archivedCount = usedByAssets.filter(r => r.targetIsArchived).length;
-      } else if (relatedAssets?.usedBy) {
-        activeCount = relatedAssets.usedBy.length;
+        const matches = relatedAssets.filter(r => r.relationshipType === kind);
+        activeCount = matches.filter(r => !r.targetIsArchived).length;
+        archivedCount = matches.filter(r => r.targetIsArchived).length;
+      } else if (relatedAssets?.[legacyKey]) {
+        activeCount = relatedAssets[legacyKey].length;
       }
-      
-      const totalCount = activeCount + archivedCount;
-      
-      if (totalCount === 0) {
+
+      const openDialog = () =>
+        handlers.onRelatedAssetsClick?.(params.row, params.row.relatedAssets);
+
+      if (activeCount + archivedCount === 0) {
         return (
           <TypedChip
             type="RELATIONSHIP"
@@ -848,11 +857,11 @@ export function generateUsedByColumn(handlers: Handlers): ColumnConfig {
             size="small"
             variant="filled"
             showIcon={false}
-            onClick={() => handlers.onRelatedAssetsClick?.(params.row, params.row.relatedAssets)}
+            onClick={openDialog}
           />
         );
       }
-      
+
       return (
         <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
           {activeCount > 0 && (
@@ -862,7 +871,7 @@ export function generateUsedByColumn(handlers: Handlers): ColumnConfig {
               size="small"
               variant="filled"
               showIcon={false}
-              onClick={() => handlers.onRelatedAssetsClick?.(params.row, params.row.relatedAssets)}
+              onClick={openDialog}
             />
           )}
           {archivedCount > 0 && (
@@ -879,7 +888,7 @@ export function generateUsedByColumn(handlers: Handlers): ColumnConfig {
                   cursor: 'pointer',
                 },
               }}
-              onClick={() => handlers.onRelatedAssetsClick?.(params.row, params.row.relatedAssets)}
+              onClick={openDialog}
             />
           )}
         </Box>
@@ -888,91 +897,25 @@ export function generateUsedByColumn(handlers: Handlers): ColumnConfig {
     valueGetter: (params: { row: AssetRow }) => {
       const relatedAssets = params.row.relatedAssets;
       if (Array.isArray(relatedAssets)) {
-        return relatedAssets.filter(r => r.relationshipType === 'used_by').length;
+        return relatedAssets.filter(r => r.relationshipType === kind).length;
       }
-      return params.row.relatedAssets?.usedBy?.length || 0;
+      return params.row.relatedAssets?.[legacyKey]?.length || 0;
     },
   };
+}
+
+/**
+ * Generate used by column
+ */
+export function generateUsedByColumn(handlers: Handlers): ColumnConfig {
+  return generateRelationshipColumn('used_by', 'usedBy', 'Used By', 'usedBy', handlers);
 }
 
 /**
  * Generate uses column
  */
 export function generateUsesColumn(handlers: Handlers): ColumnConfig {
-  return {
-    id: 'uses',
-    label: 'Uses',
-    width: 100,
-    visible: true,
-    sortable: true,
-    renderCell: (params: { row: AssetRow; value: any }) => {
-      const relatedAssets = params.row.relatedAssets;
-      let activeCount = 0;
-      let archivedCount = 0;
-      
-      if (Array.isArray(relatedAssets)) {
-        const usesAssets = relatedAssets.filter(r => r.relationshipType === 'uses');
-        activeCount = usesAssets.filter(r => !r.targetIsArchived).length;
-        archivedCount = usesAssets.filter(r => r.targetIsArchived).length;
-      } else if (relatedAssets?.uses) {
-        activeCount = relatedAssets.uses.length;
-      }
-      
-      const totalCount = activeCount + archivedCount;
-      
-      if (totalCount === 0) {
-        return (
-          <TypedChip
-            type="RELATIONSHIP"
-            count={0}
-            size="small"
-            variant="filled"
-            showIcon={false}
-            onClick={() => handlers.onRelatedAssetsClick?.(params.row, params.row.relatedAssets)}
-          />
-        );
-      }
-      
-      return (
-        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-          {activeCount > 0 && (
-            <TypedChip
-              type="RELATIONSHIP"
-              count={activeCount}
-              size="small"
-              variant="filled"
-              showIcon={false}
-              onClick={() => handlers.onRelatedAssetsClick?.(params.row, params.row.relatedAssets)}
-            />
-          )}
-          {archivedCount > 0 && (
-            <Chip
-              label={archivedCount}
-              size="small"
-              sx={{
-                height: 20,
-                fontSize: '0.75rem',
-                backgroundColor: alpha(colors.neutral[500], 0.1),
-                color: colors.neutral[600],
-                '&:hover': {
-                  backgroundColor: alpha(colors.neutral[500], 0.2),
-                  cursor: 'pointer',
-                },
-              }}
-              onClick={() => handlers.onRelatedAssetsClick?.(params.row, params.row.relatedAssets)}
-            />
-          )}
-        </Box>
-      );
-    },
-    valueGetter: (params: { row: AssetRow }) => {
-      const relatedAssets = params.row.relatedAssets;
-      if (Array.isArray(relatedAssets)) {
-        return relatedAssets.filter(r => r.relationshipType === 'uses').length;
-      }
-      return params.row.relatedAssets?.uses?.length || 0;
-    },
-  };
+  return generateRelationshipColumn('uses', 'uses', 'Uses', 'uses', handlers);
 }
 
 /**
