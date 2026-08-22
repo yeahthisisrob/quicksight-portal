@@ -1,17 +1,5 @@
 import { type AssetType } from '../../types/assetTypes';
 
-export interface CacheSearchOptions {
-  query?: string;
-  types?: string[];
-  status?: string[];
-  tags?: string[];
-  owners?: string[];
-  limit?: number;
-  offset?: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
-
 export interface CacheUpdateEvent {
   eventType: 'asset_added' | 'asset_updated' | 'asset_deleted' | 'asset_archived';
   assetType: string;
