@@ -60,7 +60,7 @@ export default function RemoveFromGroupDialog({
         selectedUsers.map(u => u.userName)
       );
 
-      const { successful, failed } = response;
+      const { successful = [], failed = [] } = response;
       
       if (successful.length > 0) {
         enqueueSnackbar(

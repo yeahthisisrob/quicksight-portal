@@ -1,4 +1,4 @@
 /**
- * Common asset types used throughout the application
+ * AssetType comes from the generated OpenAPI schema - single source of truth
  */
-export type AssetType = 'dashboard' | 'analysis' | 'dataset' | 'datasource' | 'folder' | 'user' | 'group';
+export type { AssetType } from '@shared/generated';

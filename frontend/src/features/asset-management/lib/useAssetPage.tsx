@@ -1,13 +1,15 @@
 import { GridRowSelectionModel, GridSortModel } from '@mui/x-data-grid';
 import { useState, useEffect, useCallback } from 'react';
 
+import type { AssetType } from '@/shared/types/asset';
+
 // Module-level constant so the grid receives a stable sort-model identity
 const DEFAULT_SORT_MODEL: GridSortModel = [{ field: 'lastModified', sort: 'desc' }];
 
 interface UseAssetPageOptions {
-  assetType: 'dashboard' | 'dataset' | 'analysis' | 'datasource' | 'folder' | 'user' | 'group';
+  assetType: AssetType;
   assets: any[];
-  refreshAssetType: (type: 'dashboard' | 'dataset' | 'analysis' | 'datasource' | 'folder' | 'user' | 'group') => Promise<void>;
+  refreshAssetType: (type: AssetType) => Promise<void>;
   updateAssetTags: (type: string, id: string, tags: any[]) => void;
 }
 

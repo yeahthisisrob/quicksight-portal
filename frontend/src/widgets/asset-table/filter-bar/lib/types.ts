@@ -1,3 +1,5 @@
+import type { components } from '@shared/generated';
+
 export type DateFieldOption = string;
 export type DateRangeOption = 'all' | '24h' | '7d' | '30d' | '90d';
 
@@ -12,10 +14,7 @@ export interface TagOption {
   count: number;
 }
 
-export interface TagFilter {
-  key: string;
-  value: string;
-}
+export type TagFilter = components['schemas']['TagFilter'];
 
 export type ErrorFilterState = 'all' | 'with_errors' | 'without_errors';
 
@@ -58,11 +57,7 @@ export interface AssetOption {
   fieldCount?: number;
 }
 
-export interface AssetFilter {
-  id: string;
-  name: string;
-  type: string;
-}
+export type AssetFilter = components['schemas']['AssetFilter'];
 
 export interface MatchReasonSummary {
   reason: string;

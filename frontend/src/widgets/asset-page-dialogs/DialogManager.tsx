@@ -31,7 +31,25 @@ import {
 } from './dialogs';
 
 
+import type {
+  AssetFoldersDialogState,
+  DefinitionErrorsDialogState,
+  DeleteGroupDialogState,
+  DeleteUserDialogState,
+  FolderMembersDialogState,
+  GroupAssetsDialogState,
+  GroupMembersDialogState,
+  JsonViewerDialogState,
+  NotifyInactiveAnalysesDialogState,
+  NotifyInactiveDialogState,
+  NotifyUnusedDatasetsDialogState,
+  RefreshScheduleDialogState,
+  UpdateGroupDialogState,
+  UserAssetAccessDialogState,
+  UserGroupsDialogState,
+} from './useDialogStates';
 import type { AssetType } from '@/shared/types/asset';
+
 
 // Sub-component for Core Asset Dialogs
 const CoreAssetDialogs = memo(({
@@ -233,39 +251,39 @@ interface DialogManagerProps {
   bulkDeleteOpen: boolean;
   setBulkDeleteOpen: (open: boolean) => void;
   
-  // Asset-specific dialogs
-  jsonViewerDialog: any;
-  setJsonViewerDialog: (state: any) => void;
+  // Asset-specific dialogs — states come typed from useDialogStates
+  jsonViewerDialog: JsonViewerDialogState;
+  setJsonViewerDialog: (state: JsonViewerDialogState) => void;
   addToGroupOpen: boolean;
   setAddToGroupOpen: (open: boolean) => void;
-  folderMembersDialog: any;
-  setFolderMembersDialog: (state: any) => void;
-  userGroupsDialog: any;
-  setUserGroupsDialog: (state: any) => void;
-  userAssetAccessDialog: any;
-  setUserAssetAccessDialog: (state: any) => void;
-  groupMembersDialog: any;
-  setGroupMembersDialog: (state: any) => void;
-  groupAssetsDialog: any;
-  setGroupAssetsDialog: (state: any) => void;
-  refreshScheduleDialog: any;
-  setRefreshScheduleDialog: (state: any) => void;
-  definitionErrorsDialog: any;
-  setDefinitionErrorsDialog: (state: any) => void;
-  assetFoldersDialog: any;
-  setAssetFoldersDialog: (state: any) => void;
-  updateGroupDialog: any;
-  setUpdateGroupDialog: (state: any) => void;
-  deleteGroupDialog: any;
-  setDeleteGroupDialog: (state: any) => void;
-  deleteUserDialog: any;
-  setDeleteUserDialog: (state: any) => void;
-  notifyInactiveDialog: any;
-  setNotifyInactiveDialog: (state: any) => void;
-  notifyInactiveAnalysesDialog: any;
-  setNotifyInactiveAnalysesDialog: (state: any) => void;
-  notifyUnusedDatasetsDialog: any;
-  setNotifyUnusedDatasetsDialog: (state: any) => void;
+  folderMembersDialog: FolderMembersDialogState;
+  setFolderMembersDialog: (state: FolderMembersDialogState) => void;
+  userGroupsDialog: UserGroupsDialogState;
+  setUserGroupsDialog: (state: UserGroupsDialogState) => void;
+  userAssetAccessDialog: UserAssetAccessDialogState;
+  setUserAssetAccessDialog: (state: UserAssetAccessDialogState) => void;
+  groupMembersDialog: GroupMembersDialogState;
+  setGroupMembersDialog: (state: GroupMembersDialogState) => void;
+  groupAssetsDialog: GroupAssetsDialogState;
+  setGroupAssetsDialog: (state: GroupAssetsDialogState) => void;
+  refreshScheduleDialog: RefreshScheduleDialogState;
+  setRefreshScheduleDialog: (state: RefreshScheduleDialogState) => void;
+  definitionErrorsDialog: DefinitionErrorsDialogState;
+  setDefinitionErrorsDialog: (state: DefinitionErrorsDialogState) => void;
+  assetFoldersDialog: AssetFoldersDialogState;
+  setAssetFoldersDialog: (state: AssetFoldersDialogState) => void;
+  updateGroupDialog: UpdateGroupDialogState;
+  setUpdateGroupDialog: (state: UpdateGroupDialogState) => void;
+  deleteGroupDialog: DeleteGroupDialogState;
+  setDeleteGroupDialog: (state: DeleteGroupDialogState) => void;
+  deleteUserDialog: DeleteUserDialogState;
+  setDeleteUserDialog: (state: DeleteUserDialogState) => void;
+  notifyInactiveDialog: NotifyInactiveDialogState;
+  setNotifyInactiveDialog: (state: NotifyInactiveDialogState) => void;
+  notifyInactiveAnalysesDialog: NotifyInactiveAnalysesDialogState;
+  setNotifyInactiveAnalysesDialog: (state: NotifyInactiveAnalysesDialogState) => void;
+  notifyUnusedDatasetsDialog: NotifyUnusedDatasetsDialogState;
+  setNotifyUnusedDatasetsDialog: (state: NotifyUnusedDatasetsDialogState) => void;
 
   // Other props
   assetType: AssetType;

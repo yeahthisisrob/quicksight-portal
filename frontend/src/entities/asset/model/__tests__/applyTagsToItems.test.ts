@@ -8,12 +8,23 @@ import { applyTagsToItems } from '../AssetsContext';
 
 const TAGS = [{ key: 'env', value: 'prod' }];
 
+// Minimal AssetListItem-shaped fixture (AssetData is grounded in the schema)
+const item = (id: string, name: string) => ({
+  id,
+  name,
+  type: 'dashboard' as const,
+  status: 'active' as const,
+  createdTime: '',
+  lastUpdatedTime: '',
+  lastExportTime: '',
+  enrichmentStatus: 'enriched' as const,
+  permissions: [],
+  tags: [],
+});
+
 describe('applyTagsToItems', () => {
   it('replaces tags on the matching item only, immutably', () => {
-    const items = [
-      { id: 'a', name: 'A', type: 'dashboard', lastExportTime: '', tags: [] },
-      { id: 'b', name: 'B', type: 'dashboard', lastExportTime: '', tags: [] },
-    ];
+    const items = [item('a', 'A'), item('b', 'B')];
 
     const result = applyTagsToItems(items, 'a', TAGS);
 
@@ -27,7 +38,7 @@ describe('applyTagsToItems', () => {
   });
 
   it('returns the input unchanged when no item matches', () => {
-    const items = [{ id: 'a', name: 'A', type: 'dashboard', lastExportTime: '', tags: [] }];
+    const items = [item('a', 'A')];
     const result = applyTagsToItems(items, 'missing', TAGS);
     expect(result).toEqual(items);
   });

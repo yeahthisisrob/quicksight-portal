@@ -4,6 +4,8 @@ import React, { createContext, useContext, useState, useCallback, useMemo, React
 
 import { assetsApi } from '@/shared/api';
 
+import type { AssetListItem, components } from '@shared/generated';
+
 // Cross-tab caching for asset lists: within the stale window a tab switch is
 // served instantly from the query cache; explicit refreshes invalidate first,
 // which forces a refetch regardless of staleness.
@@ -26,24 +28,11 @@ export function applyTagsToItems(
   return items.map((item) => (item.id === assetId ? { ...item, tags } : item));
 }
 
-interface AssetData {
-  id: string;
-  name: string;
-  type: string;
-  lastExportTime: string;  // Matches backend field name
-  permissions?: any[];
-  tags?: any[];
-  metadata?: any;
-  [key: string]: any;  // Allows additional fields from backend
-}
+// Grounded in the generated OpenAPI schema; the index signature admits the
+// per-type enrichment fields (email, memberCount, …) the backend adds
+type AssetData = AssetListItem & { [key: string]: any };
 
-interface PaginationInfo {
-  page: number;
-  pageSize: number;
-  totalItems: number;
-  totalPages: number;
-  hasMore?: boolean;  // Made optional to match backend
-}
+type PaginationInfo = components['schemas']['PaginationInfo'];
 
 export type FetchParams = {
   page: number;

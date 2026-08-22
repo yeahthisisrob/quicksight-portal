@@ -7,88 +7,99 @@ import { useState } from 'react';
 import type { AssetType } from '@/shared/types/asset';
 import type { components } from '@shared/generated/types';
 
-// Type aliases for better readability
-type DashboardItem = components["schemas"]["DashboardListItem"];
-type AnalysisItem = components["schemas"]["AnalysisListItem"];
-type DatasetItem = components["schemas"]["DatasetListItem"];
-type FolderItem = components["schemas"]["FolderListItem"];
-type UserItem = components["schemas"]["UserListItem"];
-type GroupItem = components["schemas"]["GroupListItem"];
-type AssetWithErrors = DashboardItem | AnalysisItem;
-type AssetItem = components["schemas"]["AssetListItem"];
+// Type aliases for better readability. The intersections add enrichment
+// fields the backend attaches to list items but the OpenAPI schema does not
+// declare yet (activity, definitionErrors, refreshProperties) — tighten the
+// schema and drop these when it catches up.
+export type DashboardItem = components["schemas"]["DashboardListItem"] & {
+  activity?: { lastViewed?: string | null; totalViews?: number };
+  definitionErrors?: any[];
+};
+export type AnalysisItem = components["schemas"]["AnalysisListItem"] & {
+  activity?: { lastViewed?: string | null; totalViews?: number };
+  definitionErrors?: any[];
+};
+export type DatasetItem = components["schemas"]["DatasetListItem"] & {
+  refreshProperties?: any;
+};
+export type FolderItem = components["schemas"]["FolderListItem"];
+export type UserItem = components["schemas"]["UserListItem"];
+export type GroupItem = components["schemas"]["GroupListItem"];
+export type AssetWithErrors = DashboardItem | AnalysisItem;
+export type AssetItem = components["schemas"]["AssetListItem"];
 
 // Dialog state types
-interface JsonViewerDialogState {
+export interface JsonViewerDialogState {
   open: boolean;
   [key: string]: any; // For dynamic asset type properties
 }
 
-interface FolderMembersDialogState {
+export interface FolderMembersDialogState {
   open: boolean;
   folder: FolderItem | null;
 }
 
-interface UserGroupsDialogState {
+export interface UserGroupsDialogState {
   open: boolean;
   user: UserItem | null;
 }
 
-interface GroupMembersDialogState {
+export interface GroupMembersDialogState {
   open: boolean;
   group: GroupItem | null;
 }
 
-interface GroupAssetsDialogState {
+export interface GroupAssetsDialogState {
   open: boolean;
   group: GroupItem | null;
 }
 
-interface RefreshScheduleDialogState {
+export interface RefreshScheduleDialogState {
   open: boolean;
   dataset: DatasetItem | null;
 }
 
-interface DefinitionErrorsDialogState {
+export interface DefinitionErrorsDialogState {
   open: boolean;
   asset: AssetWithErrors | null;
 }
 
-interface AssetFoldersDialogState {
+export interface AssetFoldersDialogState {
   open: boolean;
   asset: AssetItem | null;
 }
 
-interface UpdateGroupDialogState {
+export interface UpdateGroupDialogState {
   open: boolean;
   group: GroupItem | null;
 }
 
-interface DeleteGroupDialogState {
+export interface DeleteGroupDialogState {
   open: boolean;
   group: GroupItem | null;
 }
 
-interface DeleteUserDialogState {
+export interface DeleteUserDialogState {
   open: boolean;
   user: UserItem | null;
 }
 
-interface NotifyInactiveDialogState {
+export interface NotifyInactiveDialogState {
   open: boolean;
   asset: DashboardItem | AnalysisItem | null;
 }
 
-interface UserAssetAccessDialogState {
+export interface UserAssetAccessDialogState {
   open: boolean;
   user: UserItem | null;
 }
 
-interface NotifyInactiveAnalysesDialogState {
+export interface NotifyInactiveAnalysesDialogState {
   open: boolean;
   user: UserItem | null;
 }
 
-interface NotifyUnusedDatasetsDialogState {
+export interface NotifyUnusedDatasetsDialogState {
   open: boolean;
   user: UserItem | null;
 }
