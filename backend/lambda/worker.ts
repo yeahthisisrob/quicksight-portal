@@ -4,12 +4,18 @@ import { type SQSEvent, type Context } from 'aws-lambda';
 import { ActivityRefreshProcessor } from './features/activity/processors/ActivityRefreshProcessor';
 import { ExportOrchestrator } from './features/data-export/services/ExportOrchestrator';
 import { type DeploymentConfig } from './features/deployment/services/deploy/types';
+import { warmCollectionSnapshots } from './features/asset-management/services/collectionSnapshotWarmer';
 import { STORAGE_LIMITS, WORKER_CONFIG } from './shared/constants';
 import { type AssetType } from './shared/models/asset.model';
 import { S3Service } from './shared/services/aws/S3Service';
 import { cacheService } from './shared/services/cache/CacheService';
 import { JobStateService } from './shared/services/jobs/JobStateService';
 import { logger } from './shared/utils/logger';
+
+// Composition root: wire cross-slice derived-data recomputation here so
+// feature slices (data-export, activity) trigger it via cacheService hooks
+// instead of importing asset-management's warmer directly (import cycle)
+cacheService.registerCacheRebuildHook(warmCollectionSnapshots);
 
 // Get AWS account ID from environment
 const accountId = process.env.AWS_ACCOUNT_ID || '';
@@ -414,10 +420,7 @@ async function processBulkOperationJob(message: BulkOperationMessage, record: an
     // invalidating the user/group list snapshots. Re-warm here so the next
     // visitor adopts a precomputed snapshot instead of paying enrichment +
     // a large S3 PUT in their request. Never throws.
-    const { warmCollectionSnapshots } = await import(
-      './features/asset-management/services/collectionSnapshotWarmer'
-    );
-    await warmCollectionSnapshots();
+    await cacheService.runCacheRebuildHooks();
   } catch (error) {
     if (error instanceof JobAlreadyCompletedError) {
       return; // redelivered message for a finished job - nothing to do

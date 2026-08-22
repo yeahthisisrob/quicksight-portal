@@ -485,14 +485,19 @@ export class JobRepository {
    * Remove job from cache index
    */
   private async removeFromIndex(jobId: string): Promise<void> {
-    // Get current index from cache
-    let allJobs = await this.cacheService.getJobIndex();
+    // Fresh read for the same last-writer-wins reason as updateJobInIndex
+    let allJobs = await this.cacheService.getJobIndex(true);
 
     // Remove job from index
     allJobs = allJobs.filter((j: any) => j.jobId !== jobId);
 
-    // Update cache
+    // Update cache and persist so the deletion is durable, not memory-only
     await this.cacheService.updateJobIndex(allJobs);
+    try {
+      await this.cacheService.persistJobIndex();
+    } catch (error) {
+      logger.warn('Failed to persist job index after removal', { error, jobId });
+    }
   }
 
   /**
@@ -518,8 +523,12 @@ export class JobRepository {
    * Update job in cache index
    */
   private async updateJobInIndex(job: JobMetadata): Promise<void> {
-    // Get current index from memory cache (instant!)
-    let allJobs = await this.cacheService.getJobIndex();
+    // Force a fresh S3 read: the whole index is persisted last-writer-wins,
+    // so mutating a memory copy that can be minutes stale would clobber
+    // other Lambdas' recent writes (e.g. another job's completion). The
+    // fresh read shrinks that window to milliseconds. (The real fix is
+    // per-job S3 objects; tracked as future work.)
+    let allJobs = await this.cacheService.getJobIndex(true);
 
     // Stamp the heartbeat — every write proves the owning worker is alive.
     const stamped: JobMetadata = { ...job, lastUpdatedTime: new Date().toISOString() };

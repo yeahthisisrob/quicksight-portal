@@ -16,7 +16,6 @@ import { CacheService } from '../../../shared/services/cache/CacheService';
 import { IngestionRefreshService } from '../../../shared/services/ingestions/IngestionRefreshService';
 import { type JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { logger } from '../../../shared/utils/logger';
-import { warmCollectionSnapshots } from '../../asset-management/services/collectionSnapshotWarmer';
 import { GroupService } from '../../organization/services/GroupService';
 import { ActivityService, type EventNameProgress } from '../services/ActivityService';
 import { type ActivityRefreshRequest } from '../types';
@@ -325,8 +324,8 @@ export class ActivityRefreshProcessor {
       await this.markCompleted(result.message, { refreshed: result.refreshed, duration });
       // Activity ETags are part of the user snapshot version key, so a
       // successful refresh invalidates it — precompute the replacement now.
-      // warmCollectionSnapshots never throws.
-      await warmCollectionSnapshots();
+      // runCacheRebuildHooks never throws.
+      await CacheService.getInstance().runCacheRebuildHooks();
     }
   }
 
