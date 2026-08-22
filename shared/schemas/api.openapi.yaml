@@ -1595,19 +1595,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [success, jobId, status, message]
-                properties:
-                  success:
-                    type: boolean
-                  jobId:
-                    type: string
-                  status:
-                    type: string
-                  message:
-                    type: string
-                  estimatedOperations:
-                    type: integer
+                $ref: '#/components/schemas/BulkJobAccepted'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1616,6 +1604,80 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 
   # Group management endpoints
+  /api/groups/{groupName}/members:
+    post:
+      summary: Add users to a group
+      description: Queues a bulk job that adds the given users to the group; poll the returned jobId for completion
+      operationId: addUsersToGroup
+      parameters:
+        - name: groupName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userNames]
+              properties:
+                userNames:
+                  type: array
+                  items:
+                    type: string
+                  description: QuickSight user names to add
+      responses:
+        '202':
+          description: Membership job queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkJobAccepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Remove users from a group
+      description: Queues a bulk job that removes the given users from the group; poll the returned jobId for completion
+      operationId: removeUsersFromGroup
+      parameters:
+        - name: groupName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userNames]
+              properties:
+                userNames:
+                  type: array
+                  items:
+                    type: string
+                  description: QuickSight user names to remove
+      responses:
+        '202':
+          description: Membership job queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkJobAccepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /api/groups/{groupName}/assets:
     get:
       summary: Get assets accessible by a group
@@ -2162,6 +2224,58 @@ components:
           description: Display name of the asset
 
     # Dashboard-specific responses
+    # Shared 202 response for queued bulk jobs (delete, membership, permissions)
+    BulkJobAccepted:
+      type: object
+      required: [success, jobId, status, message]
+      properties:
+        success:
+          type: boolean
+        jobId:
+          type: string
+          description: Poll /jobs/{jobId} for completion
+        status:
+          type: string
+        message:
+          type: string
+        estimatedOperations:
+          type: integer
+
+    # View-activity summary attached to dashboard/analysis list items
+    ViewActivitySummary:
+      type: object
+      description: Activity summary (views)
+      properties:
+        totalViews:
+          type: integer
+          minimum: 0
+        uniqueViewers:
+          type: integer
+          minimum: 0
+        lastViewed:
+          type: string
+          format: date-time
+          nullable: true
+
+    DefinitionError:
+      type: object
+      required: [type, message]
+      properties:
+        type:
+          type: string
+          description: Error type (e.g., COLUMN_NOT_FOUND)
+        message:
+          type: string
+          description: Error message
+        violatedEntities:
+          type: array
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+                description: Path to the entity with the error
+
     DashboardListItem:
       allOf:
         - $ref: '#/components/schemas/AssetListItem'
@@ -2188,41 +2302,14 @@ components:
               type: integer
               description: Published version number (if any)
             activity:
-              type: object
-              description: Dashboard activity summary
-              properties:
-                totalViews:
-                  type: integer
-                  minimum: 0
-                uniqueViewers:
-                  type: integer
-                  minimum: 0
-                lastViewed:
-                  type: string
-                  format: date-time
-                  nullable: true
+              $ref: '#/components/schemas/ViewActivitySummary'
             definitionErrors:
               type: array
               description: Definition validation errors
               items:
-                type: object
-                properties:
-                  type:
-                    type: string
-                    description: Error type (e.g., COLUMN_NOT_FOUND)
-                  message:
-                    type: string
-                    description: Error message
-                  violatedEntities:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        path:
-                          type: string
-                          description: Path to the entity with the error
+                $ref: '#/components/schemas/DefinitionError'
 
-    # Dataset-specific responses  
+    # Dataset-specific responses
     AnalysisListItem:
       allOf:
         - $ref: '#/components/schemas/AssetListItem'
@@ -2238,6 +2325,13 @@ components:
             datasetCount:
               type: integer
               description: Number of datasets used
+            activity:
+              $ref: '#/components/schemas/ViewActivitySummary'
+            definitionErrors:
+              type: array
+              description: Definition validation errors
+              items:
+                $ref: '#/components/schemas/DefinitionError'
             sourceEntity:
               type: object
               properties:

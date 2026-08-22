@@ -18,6 +18,7 @@ import { useSnackbar } from 'notistack';
 import { useState } from 'react';
 
 import { usersApi } from '@/shared/api';
+import { useJobPolling } from '@/shared/hooks/useJobPolling';
 
 interface RemoveFromGroupDialogProps {
   open: boolean;
@@ -40,6 +41,24 @@ export default function RemoveFromGroupDialog({
   const [selectedGroup, setSelectedGroup] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Membership mutations are queued bulk jobs - poll to completion so the
+  // caller's refresh sees the post-mutation state
+  const { startPolling } = useJobPolling({
+    onComplete: () => {
+      enqueueSnackbar(
+        `Removed ${selectedUsers.length} user${selectedUsers.length !== 1 ? 's' : ''} from ${selectedGroup}`,
+        { variant: 'success' }
+      );
+      setSubmitting(false);
+      onComplete();
+      handleClose();
+    },
+    onFailed: (job) => {
+      enqueueSnackbar(job.message || 'Failed to remove users from group', { variant: 'error' });
+      setSubmitting(false);
+    },
+  });
+
   // Get common groups across all selected users
   const commonGroups = selectedUsers.length > 0
     ? selectedUsers[0].groups.filter(group =>
@@ -59,28 +78,12 @@ export default function RemoveFromGroupDialog({
         selectedGroup,
         selectedUsers.map(u => u.userName)
       );
-
-      const { successful = [], failed = [] } = response;
-      
-      if (successful.length > 0) {
-        enqueueSnackbar(
-          `Successfully removed ${successful.length} user${successful.length !== 1 ? 's' : ''} from ${selectedGroup}`,
-          { variant: 'success' }
-        );
-      }
-      
-      if (failed.length > 0) {
-        enqueueSnackbar(
-          `Failed to remove ${failed.length} user${failed.length !== 1 ? 's' : ''}. Check console for details.`,
-          { variant: 'error' }
-        );
-      }
-
-      onComplete();
-      handleClose();
+      // Always a queued job; keep the dialog in the submitting state until
+      // the job completes (onComplete/onFailed above close it out)
+      enqueueSnackbar('Removing users from group...', { variant: 'info' });
+      startPolling(response.jobId);
     } catch (_error) {
       enqueueSnackbar('Failed to remove users from group', { variant: 'error' });
-    } finally {
       setSubmitting(false);
     }
   };

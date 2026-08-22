@@ -15,13 +15,9 @@ import {
   Divider,
 } from '@mui/material';
 
-interface DefinitionError {
-  type: string;
-  message: string;
-  violatedEntities?: Array<{
-    path: string;
-  }>;
-}
+import type { components } from '@shared/generated';
+
+type DefinitionError = components['schemas']['DefinitionError'];
 
 interface DefinitionErrorsDialogProps {
   open: boolean;
