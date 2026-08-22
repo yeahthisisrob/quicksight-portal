@@ -15,7 +15,7 @@ import { createAssetColumns ,type  FetchAssetsOptions ,type  TagOption,type  Fol
 
 import { useAssetPage } from '@/features/asset-management';
 
-import { useAssetPageState, useExportCSV } from '@/shared/lib';
+import { useExportCSV } from '@/shared/lib';
 
 import type { AssetType } from '@/shared/types/asset';
 
@@ -114,7 +114,6 @@ export default function GenericAssetPage({
   refreshKey = 0,
 }: GenericAssetPageProps) {
   const navigate = useNavigate();
-  const pageState = useAssetPageState();
   const handleExportCSV = useExportCSV(assetType, 'Export');
   
   // Asset page hook for core functionality
@@ -169,12 +168,6 @@ export default function GenericAssetPage({
     setNotifyUnusedDatasetsDialog,
     setAddToGroupOpen,
   } = dialogStates;
-  const {
-    openPermissionsDialog: pageOpenPermissionsDialog,
-    openTagsDialog: pageOpenTagsDialog,
-    openRelatedAssetsDialog: pageOpenRelatedAssetsDialog,
-  } = pageState;
-
   // Create column handlers (memoized so the DataGrid keeps a stable column
   // identity instead of re-initializing all columns/cells on every render)
   const columnHandlers = useMemo(
@@ -202,11 +195,6 @@ export default function GenericAssetPage({
           openPermissionsDialog,
           openTagsDialog,
           openRelatedAssetsDialog,
-          pageState: {
-            openPermissionsDialog: pageOpenPermissionsDialog,
-            openTagsDialog: pageOpenTagsDialog,
-            openRelatedAssetsDialog: pageOpenRelatedAssetsDialog,
-          },
         },
         onActivityClick
       ),
@@ -216,9 +204,6 @@ export default function GenericAssetPage({
       openPermissionsDialog,
       openTagsDialog,
       openRelatedAssetsDialog,
-      pageOpenPermissionsDialog,
-      pageOpenTagsDialog,
-      pageOpenRelatedAssetsDialog,
       setJsonViewerDialog,
       setFolderMembersDialog,
       setAssetFoldersDialog,
