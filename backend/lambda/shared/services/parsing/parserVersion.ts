@@ -11,5 +11,8 @@
  * v2: dataset lineage physical tables carry name/schema/catalog and
  *     custom-SQL table refs (sqlTables) for the Schema column and SMUS
  *     catalog matching.
+ * v3: composite dataset support - dataset lineage carries datasetIds/
+ *     datasetArns extracted from LogicalTableMap Source.DataSetArn and
+ *     PhysicalTableMap DataSetArn, powering dataset->dataset uses/used_by.
  */
-export const PARSER_METADATA_VERSION = 2;
+export const PARSER_METADATA_VERSION = 3;

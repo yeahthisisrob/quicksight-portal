@@ -68,7 +68,7 @@ export class DatasetParser extends BaseAssetParser {
   public readonly assetType = ASSET_TYPES.dataset;
 
   public readonly capabilities: ParserCapabilities = {
-    hasDataSets: false, // Datasets don't reference other datasets
+    hasDataSets: true, // Composite datasets reference their source datasets
     hasCalculatedFields: true,
     hasParameters: false,
     hasFilters: false,
@@ -403,6 +403,20 @@ export class DatasetParser extends BaseAssetParser {
   }
 
   /**
+   * Record a source-dataset ARN reference (composite datasets)
+   */
+  private collectDatasetArn(arn: unknown, datasetArns: string[], datasetIds: string[]): void {
+    if (typeof arn !== 'string' || !arn) {
+      return;
+    }
+    datasetArns.push(arn);
+    const datasetId = arn.split('/').pop();
+    if (datasetId) {
+      datasetIds.push(datasetId);
+    }
+  }
+
+  /**
    * Extract datasource ARNs for cache service lookup
    */
   private extractDatasourceArns(definition: any): string[] {
@@ -435,14 +449,19 @@ export class DatasetParser extends BaseAssetParser {
 
     const datasourceArns: string[] = [];
     const datasourceIds: string[] = [];
+    const datasetArns: string[] = [];
+    const datasetIds: string[] = [];
     const lineageData: any = {
       datasourceIds: [],
       datasourceArns: [],
+      datasetIds: [],
+      datasetArns: [],
       physicalTables: [],
       logicalTables: [],
     };
 
-    // Extract physical table information
+    // Extract physical table information (composite datasets can also carry a
+    // DataSetArn directly on a physical table entry)
     if (definition.PhysicalTableMap) {
       this.extractPhysicalTables(
         definition.PhysicalTableMap,
@@ -450,19 +469,35 @@ export class DatasetParser extends BaseAssetParser {
         datasourceArns,
         datasourceIds
       );
+      for (const table of Object.values(definition.PhysicalTableMap) as any[]) {
+        this.collectDatasetArn(table?.DataSetArn, datasetArns, datasetIds);
+      }
     }
 
-    // Extract logical table information
+    // Extract logical table information. Composite datasets (built by joining
+    // other datasets) reference their source datasets via Source.DataSetArn.
     if (definition.LogicalTableMap) {
       this.extractLogicalTables(definition.LogicalTableMap, lineageData);
+      for (const table of Object.values(definition.LogicalTableMap) as any[]) {
+        this.collectDatasetArn(table?.Source?.DataSetArn, datasetArns, datasetIds);
+      }
     }
 
-    // Set datasourceIds and datasourceArns to unique lists
+    // Set id/arn lists to unique values
     lineageData.datasourceIds = [...new Set(datasourceIds)];
     lineageData.datasourceArns = [...new Set(datasourceArns)];
+    lineageData.datasetIds = [...new Set(datasetIds)];
+    lineageData.datasetArns = [...new Set(datasetArns)];
 
-    // Return undefined if no lineage data found (allows fuzzy matching for flat files)
-    if (lineageData.datasourceIds.length === 0 && lineageData.physicalTables.length === 0) {
+    // Return undefined only when nothing at all was found (allows fuzzy
+    // matching for flat files). Composite datasets have an empty
+    // PhysicalTableMap and no datasources - their dataset references ARE the
+    // lineage, so they must be kept.
+    if (
+      lineageData.datasourceIds.length === 0 &&
+      lineageData.physicalTables.length === 0 &&
+      lineageData.datasetIds.length === 0
+    ) {
       return undefined;
     }
 

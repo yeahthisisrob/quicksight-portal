@@ -242,118 +242,142 @@ export class LineageService {
   }
 
   private buildTransitiveDependencies(lineageMap: Map<string, AssetLineage>): void {
-    // Build transitive dependencies in both directions
+    // Multi-hop transitive dependencies. Composite datasets create
+    // dataset->dataset chains (dashboard -> composite -> source datasets ->
+    // datasources), so a single-hop walk misses everything past the first
+    // dataset. For each dashboard/analysis we resolve the full dataset
+    // closure of its direct datasets (cycle-safe), then connect:
+    //   - dashboard/analysis <-> every transitive source dataset
+    //     (also what feeds dataset activity for composite sources)
+    //   - dashboard/analysis <-> every datasource used anywhere in the chain
 
-    // 1. For each datasource, find all transitive dependencies (analyses and dashboards)
-    lineageMap.forEach((lineage) => {
-      if (lineage.assetType === ASSET_TYPES.datasource) {
-        const transitiveRelationships: LineageRelationship[] = [];
-
-        // Find datasets that use this datasource
-        const directDatasets = lineage.relationships
-          .filter(
-            (rel) =>
-              rel.relationshipType === 'used_by' && rel.targetAssetType === ASSET_TYPES.dataset
-          )
-          .map((rel) => rel.targetAssetId);
-
-        // For each dataset, find what uses it (analyses and dashboards)
-        directDatasets.forEach((datasetId) => {
-          const datasetLineage = lineageMap.get(datasetId);
-          if (datasetLineage) {
-            datasetLineage.relationships
-              .filter(
-                (rel) =>
-                  rel.relationshipType === 'used_by' &&
-                  (rel.targetAssetType === ASSET_TYPES.analysis ||
-                    rel.targetAssetType === ASSET_TYPES.dashboard)
-              )
-              .forEach((rel) => {
-                // Add transitive relationship
-                transitiveRelationships.push({
-                  sourceAssetId: lineage.assetId,
-                  sourceAssetType: ASSET_TYPES.datasource,
-                  sourceAssetName: lineage.assetName,
-                  sourceIsArchived: lineage.isArchived,
-                  targetAssetId: rel.targetAssetId,
-                  targetAssetType: rel.targetAssetType,
-                  targetAssetName: rel.targetAssetName,
-                  targetIsArchived: rel.targetIsArchived,
-                  relationshipType: 'used_by',
-                });
-              });
-          }
-        });
-
-        // Add transitive relationships to datasource (deduplicate)
-        transitiveRelationships.forEach((newRel) => {
-          const exists = lineage.relationships.some(
-            (existingRel) =>
-              existingRel.targetAssetId === newRel.targetAssetId &&
-              existingRel.targetAssetType === newRel.targetAssetType &&
-              existingRel.relationshipType === newRel.relationshipType
-          );
-          if (!exists) {
-            lineage.relationships.push(newRel);
-          }
-        });
+    // Memoized closure: a dataset plus all source datasets reachable through
+    // dataset->dataset 'uses' edges
+    const closures = new Map<string, Set<string>>();
+    const resolveDatasetClosure = (datasetId: string, trail: Set<string>): Set<string> => {
+      const cached = closures.get(datasetId);
+      if (cached) {
+        return cached;
       }
-    });
+      const closure = new Set<string>([datasetId]);
+      if (trail.has(datasetId)) {
+        return closure; // cycle guard - stop expanding, keep what we have
+      }
+      trail.add(datasetId);
+      const entry = lineageMap.get(datasetId);
+      if (entry && entry.assetType === ASSET_TYPES.dataset) {
+        for (const rel of entry.relationships) {
+          if (rel.relationshipType === 'uses' && rel.targetAssetType === ASSET_TYPES.dataset) {
+            resolveDatasetClosure(rel.targetAssetId, trail).forEach((id) => closure.add(id));
+          }
+        }
+      }
+      trail.delete(datasetId);
+      closures.set(datasetId, closure);
+      return closure;
+    };
 
-    // 2. For each dashboard and analysis, find datasources they indirectly use through datasets
+    const addRelationship = (entry: AssetLineage, rel: LineageRelationship): void => {
+      const exists = entry.relationships.some(
+        (r) =>
+          r.targetAssetId === rel.targetAssetId &&
+          r.targetAssetType === rel.targetAssetType &&
+          r.relationshipType === rel.relationshipType
+      );
+      if (!exists) {
+        entry.relationships.push(rel);
+      }
+    };
+
     lineageMap.forEach((lineage) => {
       if (
-        lineage.assetType === ASSET_TYPES.dashboard ||
-        lineage.assetType === ASSET_TYPES.analysis
+        lineage.assetType !== ASSET_TYPES.dashboard &&
+        lineage.assetType !== ASSET_TYPES.analysis
       ) {
-        const transitiveRelationships: LineageRelationship[] = [];
+        return;
+      }
 
-        // Find datasets that this asset uses
-        const usedDatasets = lineage.relationships
+      const directDatasetIds = new Set(
+        lineage.relationships
           .filter(
             (rel) => rel.relationshipType === 'uses' && rel.targetAssetType === ASSET_TYPES.dataset
           )
-          .map((rel) => rel.targetAssetId);
+          .map((rel) => rel.targetAssetId)
+      );
 
-        // For each dataset, find what datasources it uses
-        usedDatasets.forEach((datasetId) => {
-          const datasetLineage = lineageMap.get(datasetId);
-          if (datasetLineage) {
-            datasetLineage.relationships
-              .filter(
-                (rel) =>
-                  rel.relationshipType === 'uses' && rel.targetAssetType === ASSET_TYPES.datasource
-              )
-              .forEach((rel) => {
-                // Add transitive relationship
-                transitiveRelationships.push({
-                  sourceAssetId: lineage.assetId,
-                  sourceAssetType: lineage.assetType,
-                  sourceAssetName: lineage.assetName,
-                  sourceIsArchived: lineage.isArchived,
-                  targetAssetId: rel.targetAssetId,
-                  targetAssetType: rel.targetAssetType,
-                  targetAssetName: rel.targetAssetName,
-                  targetIsArchived: rel.targetIsArchived,
-                  relationshipType: 'uses',
-                });
+      const chainDatasetIds = new Set<string>();
+      directDatasetIds.forEach((id) =>
+        resolveDatasetClosure(id, new Set()).forEach((d) => chainDatasetIds.add(d))
+      );
+
+      chainDatasetIds.forEach((datasetId) => {
+        const datasetLineage = lineageMap.get(datasetId);
+        if (!datasetLineage || datasetLineage.assetType !== ASSET_TYPES.dataset) {
+          return;
+        }
+
+        // Transitive source datasets (reached through a composite): connect
+        // both directions so the source dataset's Used By shows the
+        // dashboards/analyses it ultimately powers
+        if (!directDatasetIds.has(datasetId)) {
+          addRelationship(lineage, {
+            sourceAssetId: lineage.assetId,
+            sourceAssetType: lineage.assetType,
+            sourceAssetName: lineage.assetName,
+            sourceIsArchived: lineage.isArchived,
+            targetAssetId: datasetLineage.assetId,
+            targetAssetType: ASSET_TYPES.dataset,
+            targetAssetName: datasetLineage.assetName,
+            targetIsArchived: datasetLineage.isArchived,
+            relationshipType: 'uses',
+          });
+          addRelationship(datasetLineage, {
+            sourceAssetId: datasetLineage.assetId,
+            sourceAssetType: ASSET_TYPES.dataset,
+            sourceAssetName: datasetLineage.assetName,
+            sourceIsArchived: datasetLineage.isArchived,
+            targetAssetId: lineage.assetId,
+            targetAssetType: lineage.assetType,
+            targetAssetName: lineage.assetName,
+            targetIsArchived: lineage.isArchived,
+            relationshipType: 'used_by',
+          });
+        }
+
+        // Datasources used anywhere in the dataset chain
+        datasetLineage.relationships
+          .filter(
+            (rel) =>
+              rel.relationshipType === 'uses' && rel.targetAssetType === ASSET_TYPES.datasource
+          )
+          .forEach((rel) => {
+            addRelationship(lineage, {
+              sourceAssetId: lineage.assetId,
+              sourceAssetType: lineage.assetType,
+              sourceAssetName: lineage.assetName,
+              sourceIsArchived: lineage.isArchived,
+              targetAssetId: rel.targetAssetId,
+              targetAssetType: rel.targetAssetType,
+              targetAssetName: rel.targetAssetName,
+              targetIsArchived: rel.targetIsArchived,
+              relationshipType: 'uses',
+            });
+            const datasourceLineage = lineageMap.get(rel.targetAssetId);
+            if (datasourceLineage && datasourceLineage.assetType === ASSET_TYPES.datasource) {
+              addRelationship(datasourceLineage, {
+                sourceAssetId: datasourceLineage.assetId,
+                sourceAssetType: ASSET_TYPES.datasource,
+                sourceAssetName: datasourceLineage.assetName,
+                sourceIsArchived: datasourceLineage.isArchived,
+                targetAssetId: lineage.assetId,
+                targetAssetType: lineage.assetType,
+                targetAssetName: lineage.assetName,
+                targetIsArchived: lineage.isArchived,
+                relationshipType: 'used_by',
               });
-          }
-        });
-
-        // Add transitive relationships to dashboard/analysis (deduplicate)
-        transitiveRelationships.forEach((newRel) => {
-          const exists = lineage.relationships.some(
-            (existingRel) =>
-              existingRel.targetAssetId === newRel.targetAssetId &&
-              existingRel.targetAssetType === newRel.targetAssetType &&
-              existingRel.relationshipType === newRel.relationshipType
-          );
-          if (!exists) {
-            lineage.relationships.push(newRel);
-          }
-        });
-      }
+            }
+          });
+      });
     });
   }
 
@@ -482,6 +506,15 @@ export class LineageService {
     logger.info(`Found ${totalRelationships} total relationships`);
   }
 
+  /**
+   * Name for a dataset that has no lineage entry, from the cache-rebuild
+   * name enrichment on the referencing asset's lineageData
+   */
+  private lookupEnrichedDatasetName(lineageData: any, datasetId: string): string {
+    const enriched = lineageData?.datasets?.find((d: { id: string }) => d.id === datasetId);
+    return enriched?.name || datasetId;
+  }
+
   private async processAnalysisLineageFromCache(
     analysis: { id: string; name: string; type: AssetType; exportFilePath: string },
     cacheEntry: CacheEntry,
@@ -530,7 +563,21 @@ export class LineageService {
             relationshipType: 'used_by',
           });
         } else {
+          // Graceful degradation: the dataset has no lineage entry (deleted,
+          // never exported, or undescribable). Keep the analysis's 'uses'
+          // edge with the enriched name instead of losing both directions.
           logger.warn(`Dataset ${datasetId} not found in lineage map for analysis ${analysis.id}`);
+          analysisLineage.relationships.push({
+            sourceAssetId: analysis.id,
+            sourceAssetType: ASSET_TYPES.analysis,
+            sourceAssetName: analysis.name,
+            sourceIsArchived: analysisLineage.isArchived,
+            targetAssetId: datasetId,
+            targetAssetType: ASSET_TYPES.dataset,
+            targetAssetName: this.lookupEnrichedDatasetName(lineageData, datasetId),
+            targetIsArchived: false,
+            relationshipType: 'uses',
+          });
         }
       }
     }
@@ -671,9 +718,23 @@ export class LineageService {
             relationshipType: 'used_by',
           });
         } else {
+          // Graceful degradation: keep the dashboard's 'uses' edge even when
+          // the dataset has no lineage entry (deleted / never exported /
+          // undescribable) instead of losing both directions
           logger.warn(
             `Dataset ${datasetId} not found in lineage map for dashboard ${dashboard.id}`
           );
+          dashboardLineage.relationships.push({
+            sourceAssetId: dashboard.id,
+            sourceAssetType: ASSET_TYPES.dashboard,
+            sourceAssetName: dashboard.name,
+            sourceIsArchived: dashboardLineage.isArchived,
+            targetAssetId: datasetId,
+            targetAssetType: ASSET_TYPES.dataset,
+            targetAssetName: this.lookupEnrichedDatasetName(lineageData, datasetId),
+            targetIsArchived: false,
+            relationshipType: 'uses',
+          });
         }
       }
     }
@@ -722,9 +783,22 @@ export class LineageService {
             relationshipType: 'used_by',
           });
         } else {
+          // Graceful degradation: keep the composite's 'uses' edge even when
+          // the source dataset has no lineage entry (deleted / undescribable)
           logger.warn(
             `Child dataset ${childDatasetId} not found in lineage map for composite dataset ${dataset.id}`
           );
+          datasetLineage.relationships.push({
+            sourceAssetId: dataset.id,
+            sourceAssetType: ASSET_TYPES.dataset,
+            sourceAssetName: dataset.name,
+            sourceIsArchived: datasetLineage.isArchived,
+            targetAssetId: childDatasetId,
+            targetAssetType: ASSET_TYPES.dataset,
+            targetAssetName: this.lookupEnrichedDatasetName(lineageData, childDatasetId),
+            targetIsArchived: false,
+            relationshipType: 'uses',
+          });
         }
       }
     }

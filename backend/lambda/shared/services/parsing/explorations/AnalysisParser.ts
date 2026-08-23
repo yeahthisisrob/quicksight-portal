@@ -71,13 +71,25 @@ export class AnalysisParser extends ExplorationParser {
     describeData: any
   ): AnalysisMetadata {
     const counts = this.getCounts(undefined);
+
+    // Graceful lineage fallback: DescribeAnalysis carries DataSetArns even
+    // when no definition is available - keep uses/used_by working
+    const datasetArns: string[] = Array.isArray(describeData?.DataSetArns)
+      ? describeData.DataSetArns.filter((a: unknown) => typeof a === 'string')
+      : [];
+    const datasetIds = [
+      ...new Set(datasetArns.map((arn) => arn.split('/').pop()).filter(Boolean)),
+    ] as string[];
+    const lineageData = datasetIds.length > 0 ? { datasetIds, datasetArns } : undefined;
+
     return {
       ...basicMetadata,
       status: listData?.Status || describeData?.Status,
       sheetCount: counts.sheetCount,
       visualCount: counts.visualCount,
-      datasetCount: counts.datasetCount,
+      datasetCount: datasetIds.length || counts.datasetCount,
       sheets: counts.sheets,
+      ...(lineageData ? { lineageData } : {}),
     };
   }
 

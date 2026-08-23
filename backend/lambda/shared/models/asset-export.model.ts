@@ -225,6 +225,8 @@ export interface PhysicalTable {
     UploadSettings?: any;
     InputColumns?: any[];
   };
+  /** Composite datasets can reference a source dataset directly */
+  DataSetArn?: string;
 }
 
 // Note: The adapter unwraps the response, so this is the DataSet object directly
