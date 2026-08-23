@@ -50,6 +50,7 @@ import type {
   GroupOption,
   RoleOption,
   SourceTypeOption,
+  UserAccessOption,
   TagOption,
   TagFilter,
   FolderOption,
@@ -117,6 +118,13 @@ export interface FilterControlsProps {
   onGroupMembershipFilterChange?: (filter: GroupMembershipFilterState) => void;
   selectedGroups: string[];
   onSelectedGroupsChange?: (groups: string[]) => void;
+
+  // User-access controls
+  enableUserAccessFiltering?: boolean;
+  availableAccessUsers?: UserAccessOption[];
+  selectedAccessUsers?: string[];
+  onSelectedAccessUsersChange?: (users: string[]) => void;
+  isLoadingAccessUsers?: boolean;
 
   // Source type controls
   enableSourceTypeFiltering: boolean;
@@ -783,6 +791,11 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
   onGroupMembershipFilterChange,
   selectedGroups,
   onSelectedGroupsChange,
+  enableUserAccessFiltering = false,
+  availableAccessUsers = [],
+  selectedAccessUsers = [],
+  onSelectedAccessUsersChange,
+  isLoadingAccessUsers = false,
   enableSourceTypeFiltering,
   availableSourceTypes,
   selectedSourceTypes,
@@ -872,6 +885,35 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
       />
 
       {/* Source Type Filter Row */}
+      {/* User-access filter: show only assets the selected users can access */}
+      {enableUserAccessFiltering && onSelectedAccessUsersChange && (
+        <Stack direction="row" spacing={2} alignItems="center">
+          <PersonIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />
+          <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
+            User access:
+          </Typography>
+          <Autocomplete
+            multiple
+            sx={{ minWidth: 300 }}
+            size="small"
+            loading={isLoadingAccessUsers}
+            value={availableAccessUsers.filter((u) => selectedAccessUsers.includes(u.value))}
+            onChange={(_, newValue) => onSelectedAccessUsersChange(newValue.map((v) => v.value))}
+            options={availableAccessUsers}
+            getOptionLabel={(option) => option.value}
+            disableCloseOnSelect
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Has access (users)"
+                placeholder="Select users..."
+                variant="outlined"
+              />
+            )}
+          />
+        </Stack>
+      )}
+
       {enableSourceTypeFiltering && availableSourceTypes.length > 0 && onSelectedSourceTypesChange && (
         <Stack direction="row" spacing={2} alignItems="center">
           <StorageIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />

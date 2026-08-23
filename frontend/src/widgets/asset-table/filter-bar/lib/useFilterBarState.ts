@@ -60,6 +60,9 @@ interface UseFilterBarStateOptions {
   selectedSourceTypes?: string[];
   onSelectedSourceTypesChange?: (types: string[]) => void;
 
+  // User access
+  selectedAccessUsers?: string[];
+
   // Assets
   enableAssetSelection?: boolean;
   availableAssets?: AssetOption[];
@@ -90,6 +93,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     onExcludeFoldersChange,
     selectedSourceTypes = [],
     onSelectedSourceTypesChange,
+    selectedAccessUsers = [],
     enableAssetSelection = false,
     availableAssets = [],
     selectedAssets = [],
@@ -136,8 +140,9 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     count += excludeFolders.length;
     count += selectedSourceTypes.length;
     count += selectedAssets.length;
+    count += selectedAccessUsers.length;
     return count;
-  }, [dateFilter, errorFilter, activityFilter, smusFilter, importModeFilter, includeTags, excludeTags, includeFolders, excludeFolders, selectedSourceTypes, selectedAssets]);
+  }, [dateFilter, errorFilter, activityFilter, smusFilter, importModeFilter, includeTags, excludeTags, includeFolders, excludeFolders, selectedSourceTypes, selectedAssets, selectedAccessUsers]);
 
   // Tag handlers
   const handleAddTag = useCallback(

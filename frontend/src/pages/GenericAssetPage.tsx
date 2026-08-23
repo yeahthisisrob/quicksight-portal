@@ -1,6 +1,7 @@
 /**
  * Refactored GenericAssetPage with reduced complexity
  */
+import { useQuery } from '@tanstack/react-query';
 import { ReactNode, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -15,6 +16,7 @@ import { createAssetColumns ,type  FetchAssetsOptions ,type  TagOption,type  Fol
 
 import { useAssetPage } from '@/features/asset-management';
 
+import { assetsApi } from '@/shared/api';
 import { useExportCSV } from '@/shared/lib';
 
 import type { AssetType } from '@/shared/types/asset';
@@ -115,6 +117,25 @@ export default function GenericAssetPage({
 }: GenericAssetPageProps) {
   const navigate = useNavigate();
   const handleExportCSV = useExportCSV(assetType, 'Export');
+
+  // User-access filter: available on asset pages (not the users/groups pages
+  // themselves). Options load once and are shared across pages via the query
+  // cache.
+  const enableUserAccessFiltering = !['user', 'group'].includes(assetType);
+  const { data: availableAccessUsers = [], isLoading: isLoadingAccessUsers } = useQuery({
+    queryKey: ['access-user-options'],
+    queryFn: async () => {
+      const res = await assetsApi.getUsersPaginated({
+        page: 1,
+        pageSize: 1000,
+        sortBy: 'name',
+        sortOrder: 'asc',
+      });
+      return (res.users || []).map((u) => ({ value: u.name }));
+    },
+    enabled: enableUserAccessFiltering,
+    staleTime: 5 * 60 * 1000,
+  });
   
   // Asset page hook for core functionality
   const {
@@ -280,6 +301,9 @@ export default function GenericAssetPage({
       enableFolderFiltering={enableFolderFiltering}
       availableFolders={availableFolders}
       isLoadingFolders={isLoadingFolders}
+      enableUserAccessFiltering={enableUserAccessFiltering}
+      availableAccessUsers={availableAccessUsers}
+      isLoadingAccessUsers={isLoadingAccessUsers}
       refreshKey={refreshKey}
     >
       <DialogManager

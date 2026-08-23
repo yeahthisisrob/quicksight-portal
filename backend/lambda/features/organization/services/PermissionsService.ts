@@ -63,6 +63,20 @@ export class PermissionsService {
   }
 
   /**
+   * Build a predicate that answers "does ANY of these users have access to
+   * this cache entry?" — direct permissions, group membership, and
+   * folder-inherited access, using the same resolvers as the bulk counts.
+   * Used by the asset lists' user-access filter.
+   */
+  public buildUserAccessChecker(
+    userNames: string[],
+    cache: MasterCache
+  ): (entry: CacheEntry) => boolean {
+    const resolvers = this.buildBulkAccessResolvers(cache, userNames);
+    return (entry: CacheEntry) => this.resolveEntryAccessUsers(entry, resolvers).size > 0;
+  }
+
+  /**
    * Get permissions for an analysis
    */
   public async getAnalysisPermissions(analysisId: string): Promise<AssetPermission[]> {

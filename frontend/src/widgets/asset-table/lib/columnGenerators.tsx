@@ -777,6 +777,28 @@ export function generateDashboardAnalysisColumns(handlers: Handlers): ColumnConf
       },
     },
     {
+      id: 'sheetCount',
+      label: 'Sheets',
+      width: 90,
+      visible: true,
+      sortable: true,
+      renderCell: (params: { row: AssetRow; value: any }) => (
+        <Typography variant="body2">{(params.row as any).sheetCount ?? 0}</Typography>
+      ),
+      valueGetter: (params) => (params.row as any).sheetCount ?? 0,
+    },
+    {
+      id: 'visualCount',
+      label: 'Visuals',
+      width: 90,
+      visible: true,
+      sortable: true,
+      renderCell: (params: { row: AssetRow; value: any }) => (
+        <Typography variant="body2">{(params.row as any).visualCount ?? 0}</Typography>
+      ),
+      valueGetter: (params) => (params.row as any).visualCount ?? 0,
+    },
+    {
       id: 'activity',
       label: 'Activity',
       width: 150,

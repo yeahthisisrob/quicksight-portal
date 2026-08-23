@@ -46,6 +46,7 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
     availableAssets: p.availableAssets,
     selectedAssets: p.selectedAssets,
     onSelectedAssetsChange: p.onSelectedAssetsChange,
+    selectedAccessUsers: p.selectedAccessUsers,
   });
 
   const showSearchBar = p.showSearch && p.onSearchChange;
@@ -136,6 +137,11 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
             onGroupMembershipFilterChange={p.onGroupMembershipFilterChange}
             selectedGroups={p.selectedGroups ?? []}
             onSelectedGroupsChange={p.onSelectedGroupsChange}
+            enableUserAccessFiltering={p.enableUserAccessFiltering ?? false}
+            availableAccessUsers={p.availableAccessUsers ?? []}
+            selectedAccessUsers={p.selectedAccessUsers ?? []}
+            onSelectedAccessUsersChange={p.onSelectedAccessUsersChange}
+            isLoadingAccessUsers={p.isLoadingAccessUsers ?? false}
             enableSourceTypeFiltering={p.enableSourceTypeFiltering ?? false}
             availableSourceTypes={p.availableSourceTypes ?? []}
             selectedSourceTypes={p.selectedSourceTypes ?? []}

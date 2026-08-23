@@ -59,6 +59,11 @@ export interface AssetOption {
 
 export type AssetFilter = components['schemas']['AssetFilter'];
 
+/** Option for the user-access filter dropdown (value = QuickSight user name) */
+export interface UserAccessOption {
+  value: string;
+}
+
 export interface MatchReasonSummary {
   reason: string;
   count: number;
@@ -130,6 +135,13 @@ export interface FilterBarProps {
   onGroupMembershipFilterChange?: (filter: GroupMembershipFilterState) => void;
   selectedGroups?: string[];
   onSelectedGroupsChange?: (groups: string[]) => void;
+
+  // User-access filtering: show only assets the selected users can access
+  enableUserAccessFiltering?: boolean;
+  availableAccessUsers?: UserAccessOption[];
+  selectedAccessUsers?: string[];
+  onSelectedAccessUsersChange?: (users: string[]) => void;
+  isLoadingAccessUsers?: boolean;
 
   // Source type filtering
   enableSourceTypeFiltering?: boolean;

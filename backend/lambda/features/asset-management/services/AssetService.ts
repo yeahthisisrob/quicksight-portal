@@ -185,10 +185,21 @@ export class AssetService {
 
       this.validateRegularAssetType(assetType);
 
-      const cachedAssets = cache.entries[assetType as keyof typeof cache.entries] || [];
+      let cachedAssets = cache.entries[assetType as keyof typeof cache.entries] || [];
       if (!Array.isArray(cachedAssets)) {
         logger.warn(`No cached data found for asset type: ${assetType}`);
         return { items: [], nextToken: undefined };
+      }
+
+      // User-access filter: keep only assets ANY of the selected users can
+      // reach (direct permissions, group membership, or folder inheritance).
+      // Applied on raw cache entries before enrichment.
+      if (request.accessUsers && request.accessUsers.length > 0) {
+        const hasAccess = this.permissionsService.buildUserAccessChecker(
+          request.accessUsers,
+          cache
+        );
+        cachedAssets = cachedAssets.filter(hasAccess);
       }
 
       const items = await this.enrichCachedAssets(assetType, cachedAssets, cache);
@@ -1234,6 +1245,8 @@ export class AssetService {
       tags: sortConfig('tags'),
       folders: sortConfig('folders'),
       folderCount: sortConfig('folderCount'),
+      sheetCount: sortConfig('sheetCount'),
+      visualCount: sortConfig('visualCount'),
     };
   }
 
@@ -1303,6 +1316,8 @@ export class AssetService {
       memberCount: asset.memberCount || asset.Members?.length || 0,
       path: asset.path || asset.fullPath || asset.name || '',
       errors: asset.definitionErrors?.length || 0,
+      sheetCount: asset.sheetCount || 0,
+      visualCount: asset.visualCount || 0,
     };
 
     if (sortField === 'consumedSpiceCapacityInBytes' || sortField === 'spiceCapacity') {
@@ -1405,11 +1420,24 @@ export class AssetService {
   ): Promise<AssetListResponse> {
     try {
       // Get collection assets from cache - already filtered to active only
-      const items = cache.entries[assetType] || [];
+      let items = cache.entries[assetType] || [];
 
       if (!Array.isArray(items)) {
         logger.warn(`Invalid cache data format for ${assetType}`);
         return { items: [], nextToken: undefined };
+      }
+
+      // User-access filter applies to folders too (folder permissions)
+      if (
+        assetType === ASSET_TYPES.folder &&
+        request.accessUsers &&
+        request.accessUsers.length > 0
+      ) {
+        const hasAccess = this.permissionsService.buildUserAccessChecker(
+          request.accessUsers,
+          cache
+        );
+        items = items.filter(hasAccess);
       }
 
       let mappedItems: any[];
