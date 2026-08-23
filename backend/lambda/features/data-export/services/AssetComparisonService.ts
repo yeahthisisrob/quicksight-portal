@@ -64,6 +64,14 @@ export class AssetComparisonService {
       );
     }
 
+    // If the per-type cache is missing (e.g. it was cleared) but exported
+    // asset files still exist in S3, hydrate the cache by re-parsing them -
+    // zero QuickSight calls - so Smart Sync compares incrementally instead
+    // of falling back to a full re-export. Also restores deletion detection.
+    if (!forceRefresh) {
+      await this.hydrateCacheFromS3IfMissing(assetType);
+    }
+
     // Detect deleted assets (archiving happens in orchestrator)
     const deletedAssetIds = await this.detectDeletedAssets(
       assetType,
@@ -324,6 +332,37 @@ export class AssetComparisonService {
     }
 
     return deduplicatedAssets;
+  }
+
+  /**
+   * When the per-type cache has no entries but exported files exist under
+   * assets/, rebuild the cache for that type by re-parsing the files
+   * (CacheWriter.rebuildCacheForAssetType - no QuickSight API calls). This
+   * restores the lastUpdatedTime / parserVersion / enrichment metadata the
+   * comparison ladder needs after a cache clear.
+   */
+  private async hydrateCacheFromS3IfMissing(assetType: AssetType): Promise<void> {
+    try {
+      const cachedEntries = await this.cacheService.getTypeCache(assetType);
+      if (cachedEntries && cachedEntries.length > 0) {
+        return;
+      }
+
+      await this.cacheService.rebuildCacheForAssetType(assetType);
+      const hydrated = await this.cacheService.getTypeCache(assetType);
+      if (hydrated && hydrated.length > 0) {
+        const message = `Cache for ${assetType} was missing - restored ${hydrated.length} entries from existing S3 exports (no API calls); comparing incrementally`;
+        logger.info(message);
+        if (this.jobStateService) {
+          await this.jobStateService.logInfo(this.jobId, message, { assetType });
+        }
+      }
+    } catch (error) {
+      // Non-fatal: fall through to the normal "no cache -> export all" path
+      logger.warn(`Cache hydration from S3 failed for ${assetType} (falling back to full export)`, {
+        error,
+      });
+    }
   }
 
   /**

@@ -126,9 +126,6 @@ export class ExportOrchestrator {
     this.operationTracker.resetOperationStats();
   }
 
-  /**
-   * Set the job state service and job ID for this orchestrator instance
-   */
   public setJobStateService(jobStateService: JobStateService, jobId: string): void {
     this.jobStateService = jobStateService;
     this.jobId = jobId;
@@ -183,6 +180,42 @@ export class ExportOrchestrator {
     } catch (error) {
       logger.error(`Error archiving deleted ${assetType} assets:`, error);
     }
+  }
+
+  /**
+   * Set the job state service and job ID for this orchestrator instance
+   */
+  /**
+   * Adapter handing CacheWriter's rebuild progress into this job's log pane
+   * (CacheWriter expects { appendLog, checkpoint })
+   */
+  private buildRebuildProgressLogger():
+    | {
+        appendLog: (message: string, level?: string) => Promise<void>;
+        checkpoint: () => Promise<void>;
+      }
+    | undefined {
+    const jobStateService = this.jobStateService;
+    if (!jobStateService) {
+      return undefined;
+    }
+    const jobId = this.jobId;
+    return {
+      appendLog: async (message: string, level: string = 'info') => {
+        await jobStateService.appendLog(jobId, {
+          timestamp: new Date().toISOString(),
+          level: level as 'info' | 'warn' | 'error',
+          message,
+        });
+      },
+      checkpoint: async () => {
+        // Heartbeat: refresh lastUpdatedTime so the stuck-job sweep never
+        // auto-fails a long rebuild
+        await jobStateService.updateJobStatus(jobId, {
+          message: 'Rebuilding cache from existing S3 files...',
+        });
+      },
+    };
   }
 
   /**
@@ -984,10 +1017,25 @@ export class ExportOrchestrator {
 
         // For rebuild index mode, do a cache rebuild
         if (exportOptions.rebuildIndex || isCacheRebuildOnly) {
-          // Rebuild cache with lineage from existing S3 files
-          await cacheService.rebuildCache(true, true);
+          // Rebuild cache with lineage from existing S3 files.
+          // NON-destructive (forceRefresh=false): saveMasterCache overwrites
+          // every per-type cache file anyway, and a pre-clear used to wipe
+          // cache/jobs.json (all job history) plus activity/ingestion caches
+          // mid-job - which also 404'd the UI's job polling and made the
+          // worker re-create this very job as "failed".
+          if (this.jobStateService) {
+            await this.jobStateService.updateJobStatus(this.jobId, {
+              message: 'Rebuilding cache from existing S3 files...',
+            });
+          }
+          await cacheService.rebuildCache(false, true, this.buildRebuildProgressLogger());
           await cacheService.updateFieldCache(null);
           logger.info('Cache rebuilt successfully from S3 files');
+          if (this.jobStateService) {
+            await this.jobStateService.updateJobStatus(this.jobId, {
+              message: 'Cache rebuilt from S3 files - rebuilding catalogs...',
+            });
+          }
         }
 
         // Rebuild field cache once after all exports complete

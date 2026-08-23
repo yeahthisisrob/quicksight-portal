@@ -405,9 +405,20 @@ export class JobRepository {
    * Update job metadata
    */
   public async updateJob(jobId: string, updates: Partial<JobMetadata>): Promise<void> {
-    const current = await this.getJob(jobId);
+    let current = await this.getJob(jobId);
     if (!current) {
-      throw new Error(`Job ${jobId} not found`);
+      // Upsert rather than throw: if the index entry was lost (e.g. a cache
+      // clear raced this job), throwing here turned a SUCCESSFUL run into a
+      // spurious "failed" job via the caller's error handler. Recreate a
+      // minimal record and apply the update to it instead.
+      logger.warn('Job missing from index during update - recreating entry', { jobId });
+      current = {
+        jobId,
+        jobType: (updates as any).jobType || 'export',
+        status: 'processing',
+        startTime: updates.endTime || new Date().toISOString(),
+        lastUpdatedTime: new Date().toISOString(),
+      } as JobMetadata;
     }
 
     const updated: JobMetadata = {

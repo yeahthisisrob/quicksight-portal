@@ -19,33 +19,51 @@ export interface CacheStorageOptions {
  * S3-based cache adapter for persistent storage
  */
 export class S3CacheAdapter {
+  /**
+   * Keys under cache/ that must SURVIVE a cache clear: operational history
+   * and data that is expensive or impossible to recompute from assets/*.json.
+   * Everything else (per-type caches, metadata, field/lineage caches,
+   * derived snapshots) is rebuildable.
+   */
+  private static readonly CLEAR_PRESERVE_KEYS = new Set([
+    'cache/jobs.json', // job index - the entire job history
+    'cache/activity-cache.json', // CloudTrail-derived activity (expensive)
+    'cache/activity-persistence.json', // historical activity dates (irrecoverable)
+    'cache/ingestions.json', // dataset refresh history
+  ]);
   private bucketName: string | null = null;
   private readonly CACHE_BASE_PATH = 'cache';
-  private readonly COLLECTION_ASSET_TYPES = ['user', 'group', 'folder'] as const;
 
+  private readonly COLLECTION_ASSET_TYPES = ['user', 'group', 'folder'] as const;
   private readonly FIELD_CACHE_TTL = FIELD_LIMITS.CACHE_TTL_MS;
+
   // In-memory cache for field cache to avoid repeated S3 reads during single Lambda execution
   private fieldCacheMemory: { data: any | null; timestamp: number } | null = null;
 
   constructor(private readonly s3Service: S3Service) {}
 
   /**
-   * Clear all caches
+   * Clear all rebuildable caches (preserves job history and activity data)
    */
   public async clearAllCaches(): Promise<void> {
     const bucketName = await this.getBucket();
 
-    // List all cache objects and delete them
+    // List all cache objects and delete them - except the preserve set
     const cacheObjects = await this.s3Service.listObjects(bucketName, this.CACHE_BASE_PATH);
+    const deletable = cacheObjects.filter(
+      (obj) => !S3CacheAdapter.CLEAR_PRESERVE_KEYS.has(obj.key)
+    );
 
     const limit = pLimit(EXPORT_CONFIG.s3Operations.maxConcurrentDeletes);
 
-    const deletePromises = cacheObjects.map((obj) =>
+    const deletePromises = deletable.map((obj) =>
       limit(async () => await this.s3Service.deleteObject(bucketName, obj.key))
     );
 
     await Promise.allSettled(deletePromises);
-    logger.info(`Cleared ${deletePromises.length} cache files`);
+    logger.info(
+      `Cleared ${deletePromises.length} cache files (preserved ${cacheObjects.length - deletable.length} operational files)`
+    );
   }
 
   // =============================================================================

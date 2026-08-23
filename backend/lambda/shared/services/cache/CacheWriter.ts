@@ -119,11 +119,17 @@ export class CacheWriter {
 
   public async clearAllCaches(): Promise<void> {
     try {
-      // Clear S3 caches
+      // Clear S3 caches (preserves job history + activity data, see adapter)
       await this.s3Adapter.clearAllCaches();
 
-      // Clear memory cache
+      // Clear memory cache, but keep the in-memory job index - dropping it
+      // while cache/jobs.json survives would make the next persistJobIndex
+      // see "no memory copy" and skip, or worse, lose in-flight job updates
+      const jobs = this.memoryAdapter.get('jobs');
       this.memoryAdapter.clear();
+      if (jobs) {
+        this.memoryAdapter.set('jobs', jobs);
+      }
 
       logger.info('Cleared all caches');
     } catch (error) {
