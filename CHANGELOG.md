@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.11.0...v1.12.0) (2026-08-23)
+
+
+### Features
+
+* sheets/visuals columns for dashboards+analyses, user-access filter on asset pages ([#63](https://github.com/yeahthisisrob/quicksight-portal/issues/63)) ([943fc71](https://github.com/yeahthisisrob/quicksight-portal/commit/943fc71c3a3d5d481b708c47dd6aafc6edaa1ba7))
+
 ## [1.11.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.10.7...v1.11.0) (2026-08-23)
 
 
