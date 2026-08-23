@@ -68,13 +68,34 @@ export class DashboardParser extends ExplorationParser {
    */
   private createBasicDashboardMetadata(basicMetadata: any, describeData: any): DashboardMetadata {
     const counts = this.getCounts(undefined);
+
+    // Graceful lineage fallback: even without a definition, DescribeDashboard
+    // carries Version.DataSetArns and Version.SourceEntityArn - enough to keep
+    // uses/used_by working instead of silently losing all lineage
+    const datasetArns: string[] = Array.isArray(describeData?.Version?.DataSetArns)
+      ? describeData.Version.DataSetArns.filter((a: unknown) => typeof a === 'string')
+      : [];
+    const datasetIds = [
+      ...new Set(datasetArns.map((arn) => arn.split('/').pop()).filter(Boolean)),
+    ] as string[];
+    const sourceAnalysisArn =
+      typeof describeData?.Version?.SourceEntityArn === 'string' &&
+      describeData.Version.SourceEntityArn.includes(':analysis/')
+        ? describeData.Version.SourceEntityArn
+        : undefined;
+    const lineageData =
+      datasetIds.length > 0 || sourceAnalysisArn
+        ? { datasetIds, datasetArns, ...(sourceAnalysisArn ? { sourceAnalysisArn } : {}) }
+        : undefined;
+
     return {
       ...basicMetadata,
       status: describeData?.Version?.Status,
       sheetCount: counts.sheetCount,
       visualCount: counts.visualCount,
-      datasetCount: counts.datasetCount,
+      datasetCount: datasetIds.length || counts.datasetCount,
       sheets: counts.sheets,
+      ...(lineageData ? { lineageData } : {}),
     };
   }
 

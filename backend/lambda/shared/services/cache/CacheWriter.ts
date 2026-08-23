@@ -1928,7 +1928,8 @@ export class CacheWriter {
     dashboardEntries.forEach(enrichDashboardOrAnalysis);
     analysisEntries.forEach(enrichDashboardOrAnalysis);
 
-    // Enrich datasets with datasource names
+    // Enrich datasets with datasource names (and, for composite datasets,
+    // their source-dataset names)
     datasetEntries.forEach((entry) => {
       const lineage = entry.metadata?.lineageData;
       if (!lineage) {
@@ -1940,6 +1941,14 @@ export class CacheWriter {
         lineage.datasources = lineage.datasourceIds.map((id) => ({
           id,
           name: datasourceNameMap.get(id) || id, // Fallback to ID if name not found
+        }));
+      }
+
+      // Enrich source-dataset names (composite datasets)
+      if (lineage.datasetIds && lineage.datasetIds.length > 0) {
+        lineage.datasets = lineage.datasetIds.map((id) => ({
+          id,
+          name: datasetNameMap.get(id) || id,
         }));
       }
     });
@@ -2009,6 +2018,13 @@ export class CacheWriter {
           lineage.datasources = lineage.datasourceIds.map((id) => ({
             id,
             name: datasourceNameMap.get(id) || id,
+          }));
+        }
+        // Enrich source-dataset names (composite datasets)
+        if (lineage.datasetIds && lineage.datasetIds.length > 0) {
+          lineage.datasets = lineage.datasetIds.map((id) => ({
+            id,
+            name: datasetNameMap.get(id) || id,
           }));
         }
       }

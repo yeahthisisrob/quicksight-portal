@@ -200,10 +200,30 @@ export interface CacheEntry {
     lineageData?: {
       // For dashboards: source analysis ARN
       sourceAnalysisArn?: string;
-      // For dashboards/analyses: dataset IDs (from definition)
+      // For dashboards/analyses: dataset IDs (from definition).
+      // For composite datasets: SOURCE dataset IDs (from LogicalTableMap
+      // Source.DataSetArn / PhysicalTableMap DataSetArn).
       datasetIds?: string[];
+      datasetArns?: string[];
       // For datasets: datasource IDs from PhysicalTableMap
       datasourceIds?: string[];
+      datasourceArns?: string[];
+      // For datasets: table structure extracted from the definition
+      physicalTables?: Array<{
+        tableId: string;
+        type: string;
+        name?: string;
+        schema?: string;
+        catalog?: string;
+        sqlTables?: string[];
+        datasourceArn?: string;
+      }>;
+      logicalTables?: Array<{
+        tableId: string;
+        source?: any;
+        alias?: string;
+        dataTransforms?: number;
+      }>;
       // Enriched with names for searchability (populated during cache rebuild)
       datasets?: Array<{ id: string; name: string }>;
       datasources?: Array<{ id: string; name: string }>;
