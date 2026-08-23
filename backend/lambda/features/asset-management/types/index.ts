@@ -67,6 +67,8 @@ export interface AssetListRequest {
   groupMembershipFilter?: 'all' | 'in_groups' | 'not_in_groups';
   /** Filter by specific group names */
   groupFilter?: string[];
+  /** Show only assets any of these users can access (direct, group, or folder permissions) */
+  accessUsers?: string[];
   /** Folders to include (OR logic) - show assets in these folders */
   includeFolders?: FolderFilter[];
   /** Folders to exclude (AND NOT logic) - hide assets in these folders */

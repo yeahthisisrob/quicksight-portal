@@ -76,6 +76,8 @@ export type FetchParams = {
   excludeFolders?: string;
   smusFilter?: string;
   importModeFilter?: string;
+  /** JSON array of user names - show only assets they can access */
+  accessUsers?: string;
 };
 
 export type AssetFetchFn = (options: FetchParams) => Promise<void>;

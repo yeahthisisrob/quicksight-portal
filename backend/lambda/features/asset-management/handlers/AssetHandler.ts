@@ -543,6 +543,7 @@ export class AssetHandler {
         | 'in_groups'
         | 'not_in_groups',
       groupFilter: queryParams.groupFilter ? JSON.parse(queryParams.groupFilter) : undefined,
+      accessUsers: queryParams.accessUsers ? JSON.parse(queryParams.accessUsers) : undefined,
       includeFolders: queryParams.includeFolders
         ? JSON.parse(queryParams.includeFolders)
         : undefined,

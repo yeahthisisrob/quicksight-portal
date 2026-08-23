@@ -79,6 +79,8 @@ export interface FetchAssetsOptions {
   includeFolders?: string;
   excludeFolders?: string;
   sourceTypeFilter?: string;
+  /** JSON array of user names - show only assets they can access */
+  accessUsers?: string;
 }
 
 interface EnhancedAssetTableProps {
@@ -139,6 +141,12 @@ interface EnhancedAssetTableProps {
   enableSourceTypeFiltering?: boolean;
   /** Available source types for filtering */
   availableSourceTypes?: SourceTypeOption[];
+  /** Enable user-access filtering UI (show only assets selected users can access) */
+  enableUserAccessFiltering?: boolean;
+  /** Available users for the access filter */
+  availableAccessUsers?: Array<{ value: string }>;
+  /** Loading state for user options */
+  isLoadingAccessUsers?: boolean;
   /** Enable folder filtering UI */
   enableFolderFiltering?: boolean;
   /** Available folders for filtering */
@@ -194,6 +202,7 @@ function buildFetchOptionsFromState(state: {
   selectedRoles: string[]; permissionsFilter: PermissionsFilterState;
   groupMembershipFilter: GroupMembershipFilterState; selectedGroups: string[];
   selectedSourceTypes: string[];
+  selectedAccessUsers: string[];
   includeFolders: FolderFilter[]; excludeFolders: FolderFilter[];
 }): FetchAssetsOptions {
   const { sortModel, currentPage, pageSize, debouncedSearchTerm, dateFilter, filterModel } = state;
@@ -208,6 +217,8 @@ function buildFetchOptionsFromState(state: {
     filters: convertGridFiltersToBackend(filterModel),
     dateField: dateFilter.field,
     includeTags: state.includeTags.length > 0 ? JSON.stringify(state.includeTags) : undefined,
+    accessUsers:
+      state.selectedAccessUsers.length > 0 ? JSON.stringify(state.selectedAccessUsers) : undefined,
     excludeTags: state.excludeTags.length > 0 ? JSON.stringify(state.excludeTags) : undefined,
     errorFilter: state.errorFilter !== 'all' ? state.errorFilter : undefined,
     activityFilter: state.activityFilter !== 'all' ? state.activityFilter : undefined,
@@ -357,6 +368,9 @@ export default function EnhancedAssetTable({
   availableGroups = [],
   enableSourceTypeFiltering = false,
   availableSourceTypes = [],
+  enableUserAccessFiltering = false,
+  availableAccessUsers = [],
+  isLoadingAccessUsers = false,
   enableFolderFiltering = false,
   availableFolders = [],
   isLoadingFolders = false,
@@ -385,6 +399,7 @@ export default function EnhancedAssetTable({
   const [groupMembershipFilter, setGroupMembershipFilter] = useState<GroupMembershipFilterState>('all');
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [selectedSourceTypes, setSelectedSourceTypes] = useState<string[]>([]);
+  const [selectedAccessUsers, setSelectedAccessUsers] = useState<string[]>([]);
   const [includeFolders, setIncludeFolders] = useState<FolderFilter[]>([]);
   const [excludeFolders, setExcludeFolders] = useState<FolderFilter[]>([]);
 
@@ -469,12 +484,12 @@ export default function EnhancedAssetTable({
       currentPage, pageSize, debouncedSearchTerm, dateFilter, sortModel, filterModel,
       mapSortField, includeTags, excludeTags, errorFilter, activityFilter, smusFilter, importModeFilter,
       selectedRoles, permissionsFilter, groupMembershipFilter, selectedGroups,
-      selectedSourceTypes, includeFolders, excludeFolders,
+      selectedSourceTypes, selectedAccessUsers, includeFolders, excludeFolders,
     }),
     [currentPage, pageSize, debouncedSearchTerm, dateFilter, sortModel, filterModel,
       mapSortField, includeTags, excludeTags, errorFilter, activityFilter, smusFilter, importModeFilter,
       selectedRoles, permissionsFilter, groupMembershipFilter, selectedGroups,
-      selectedSourceTypes, includeFolders, excludeFolders]
+      selectedSourceTypes, selectedAccessUsers, includeFolders, excludeFolders]
   );
 
   // Handle bulk tag action - prefer direct handler, fall back to custom action
@@ -571,6 +586,11 @@ export default function EnhancedAssetTable({
           onGroupMembershipFilterChange={setGroupMembershipFilter}
           selectedGroups={selectedGroups}
           onSelectedGroupsChange={setSelectedGroups}
+          enableUserAccessFiltering={enableUserAccessFiltering}
+          availableAccessUsers={availableAccessUsers}
+          selectedAccessUsers={selectedAccessUsers}
+          onSelectedAccessUsersChange={setSelectedAccessUsers}
+          isLoadingAccessUsers={isLoadingAccessUsers}
           enableSourceTypeFiltering={enableSourceTypeFiltering}
           availableSourceTypes={availableSourceTypes}
           selectedSourceTypes={selectedSourceTypes}
