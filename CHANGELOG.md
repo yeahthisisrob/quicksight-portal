@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.10.7...v1.11.0) (2026-08-23)
+
+
+### Features
+
+* composite dataset lineage - dataset-to-dataset uses/used_by, multi-hop transitive walk, graceful lineage degradation ([#61](https://github.com/yeahthisisrob/quicksight-portal/issues/61)) ([a4e8b45](https://github.com/yeahthisisrob/quicksight-portal/commit/a4e8b4545032a430812c8ccc23a62f9d113ed612))
+
 ## [1.10.7](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.10.6...v1.10.7) (2026-08-22)
 
 
