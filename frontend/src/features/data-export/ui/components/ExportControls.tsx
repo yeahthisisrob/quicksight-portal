@@ -42,14 +42,16 @@ const EXPORT_MODES = [
   {
     value: 'smart' as ExportMode,
     label: 'Smart Sync',
-    description: 'Exports only assets that changed since the last run — skips unchanged ones.',
+    description:
+      'Exports only assets that changed since the last run — skips unchanged ones. If the cache is missing, it is first restored from existing S3 files (no extra API calls).',
     icon: Autorenew,
     color: colors.primary.main,
   },
   {
     value: 'force' as ExportMode,
     label: 'Force Refresh',
-    description: 'Re-exports every selected asset regardless of cache status.',
+    description:
+      'Re-exports every selected asset from QuickSight regardless of cache status — the most expensive mode.',
     icon: Cached,
     color: colors.status.warning,
   },
@@ -57,7 +59,7 @@ const EXPORT_MODES = [
     value: 'rebuild' as ExportMode,
     label: 'Rebuild Cache',
     description:
-      'Reconstructs the cache from existing S3 files for all asset types — no new API calls.',
+      'Re-parses existing S3 export files into fresh caches for all asset types — zero QuickSight API calls. Job history and activity data are preserved.',
     icon: BuildCircle,
     color: colors.status.error,
   },
@@ -178,8 +180,9 @@ export default function ExportControls({
       )}
       {exportMode === 'rebuild' && (
         <Alert severity="info" sx={{ py: 0.5 }}>
-          Rebuild cache will reconstruct the cache from existing S3 files without making new API
-          calls. Asset type selection is ignored.
+          Rebuilds all caches by re-parsing the existing S3 export files — no QuickSight API
+          calls are made, and job history / activity data are preserved. Asset type selection is
+          ignored. Progress appears in the log pane below; large accounts can take a few minutes.
         </Alert>
       )}
 
