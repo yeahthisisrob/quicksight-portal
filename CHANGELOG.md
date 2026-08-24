@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.12.0...v1.12.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* cache rebuild no longer wipes job history; Smart Sync restores cache from S3 instead of full re-export ([#65](https://github.com/yeahthisisrob/quicksight-portal/issues/65)) ([319242b](https://github.com/yeahthisisrob/quicksight-portal/commit/319242b53b15c7d5b0c16a72ecda686db99c15be))
+
 ## [1.12.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.11.0...v1.12.0) (2026-08-23)
 
 
