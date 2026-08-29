@@ -1569,6 +1569,66 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/assets/{assetType}/{assetId}/rename:
+    post:
+      summary: Rename an asset live in QuickSight
+      description: |
+        Renames the asset in QuickSight and updates the portal cache
+        immediately. Dashboards get a new version published so viewers see
+        the new name; analyses and datasets are updated in place; folders
+        use the name-only update API. Data sources, users, and groups
+        cannot be renamed. The exported asset file refreshes on the next
+        Smart Sync.
+      parameters:
+        - name: assetType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [dashboard, analysis, dataset, folder]
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  description: The new asset name
+      responses:
+        '200':
+          description: Asset renamed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [name]
+                    properties:
+                      name:
+                        type: string
+                        description: The applied (trimmed) name
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /api/assets/{assetType}/{assetId}/revoke-permissions:
     post:
       summary: Bulk revoke direct permissions from an asset
