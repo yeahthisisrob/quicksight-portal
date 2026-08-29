@@ -21,6 +21,25 @@ export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'stop
 export type JobPhaseStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';
 
 /**
+ * Progress checkpoint for resumable export jobs. Kept intentionally small -
+ * it rides on the job index entry, which is read/written on every heartbeat.
+ */
+export interface ExportCheckpoint {
+  /** Asset types fully exported (and cache-upserted) in earlier invocations */
+  completedAssetTypes?: string[];
+  /** Types whose per-type cache was hydrated from S3 this job (cache was
+   *  missing) - the catalog/lineage/field caches must be rebuilt even when
+   *  zero assets were re-exported, or they stay empty after a cache wipe. */
+  hydratedAssetTypes?: string[];
+  /** All asset phases done; only the catalog/lineage/field rebuild remains */
+  catalogPending?: boolean;
+  /** Assets processed across ALL invocations of this job (drives the
+   *  "does the catalog need rebuilding" decision on the final invocation) */
+  totalProcessed?: number;
+  updatedAt?: string;
+}
+
+/**
  * Optional step-based progress reported alongside the global percent.
  * Job types opt in by emitting a fixed-length array of phases — others
  * leave it undefined and consumers fall back to the linear progress bar.
@@ -74,6 +93,13 @@ export interface JobMetadata {
 
   // Optional step-based progress for multi-phase jobs (e.g. activity-refresh).
   phases?: JobPhase[];
+
+  /**
+   * Resumable-export progress. Written after each asset type completes so a
+   * continuation invocation (the worker requeues itself before the 15-min
+   * Lambda wall) can skip finished work instead of starting over.
+   */
+  checkpoint?: ExportCheckpoint;
 
   // Error info
   error?: string;

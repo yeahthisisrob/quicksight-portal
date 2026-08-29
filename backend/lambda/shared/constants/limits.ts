@@ -80,6 +80,18 @@ export const WORKER_CONFIG = {
   // NOTE: the stuck-job threshold lives in JOB_CONFIG.STUCK_JOB_TIMEOUT_MINUTES
   // (30 min, matched to the 15-min Lambda ceiling). A previous 5-minute value
   // here auto-failed live bulk jobs as "worker died or timed out".
+
+  // Export continuation budget. The worker stops cleanly this far before the
+  // Lambda hard timeout so it can checkpoint + requeue instead of being killed
+  // mid-write (a kill leaves the SQS message undeleted -> 90-min redelivery).
+  EXPORT_DEADLINE_SAFETY_MS: 2 * 60 * 1000,
+  // Don't START a new asset type / the catalog phase with less than this left.
+  EXPORT_MIN_MS_TO_START_PHASE: 3 * 60 * 1000,
+  // A redelivered message for a still-active job beyond this receive count is
+  // dropped and the job failed (mirrors the production DLQ maxReceiveCount).
+  EXPORT_MAX_RECEIVE_COUNT: 3,
+  // Hard cap on continuation hops for one job - guards against a requeue loop.
+  EXPORT_MAX_CONTINUATIONS: 20,
 } as const;
 
 // Field metadata configuration

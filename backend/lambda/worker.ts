@@ -5,11 +5,12 @@ import { ActivityRefreshProcessor } from './features/activity/processors/Activit
 import { warmCollectionSnapshots } from './features/asset-management/services/collectionSnapshotWarmer';
 import { ExportOrchestrator } from './features/data-export/services/ExportOrchestrator';
 import { type DeploymentConfig } from './features/deployment/services/deploy/types';
-import { STORAGE_LIMITS, WORKER_CONFIG } from './shared/constants';
+import { JOB_CONFIG, STORAGE_LIMITS, TIME_UNITS, WORKER_CONFIG } from './shared/constants';
 import { type AssetType } from './shared/models/asset.model';
 import { S3Service } from './shared/services/aws/S3Service';
 import { cacheService } from './shared/services/cache/CacheService';
 import { JobStateService } from './shared/services/jobs/JobStateService';
+import { queueService } from './shared/services/jobs/QueueService';
 import { logger } from './shared/utils/logger';
 
 // Composition root: wire cross-slice derived-data recomputation here so
@@ -40,6 +41,10 @@ interface ExportMessage {
   bucketName: string;
   userId?: string;
   initialMessage?: string;
+  /** Set on messages the worker requeues to itself to resume a paused job */
+  continuation?: boolean;
+  /** How many continuation hops this job has taken (runaway-loop guard) */
+  continuationCount?: number;
   options: {
     forceRefresh?: boolean;
     rebuildIndex?: boolean;
@@ -127,7 +132,7 @@ export const handler = async (event: SQSEvent, context: Context): Promise<void> 
     // Process all records
     const results = await Promise.allSettled(
       event.Records.map(async (record) => {
-        return await processRecord(record);
+        return await processRecord(record, context);
       })
     );
 
@@ -158,7 +163,7 @@ export const handler = async (event: SQSEvent, context: Context): Promise<void> 
 /**
  * Process a single SQS record
  */
-async function processRecord(record: any): Promise<void> {
+async function processRecord(record: any, context: Context): Promise<void> {
   const startTime = Date.now();
   let jobId: string | null = null;
 
@@ -182,11 +187,24 @@ async function processRecord(record: any): Promise<void> {
     } else if (rawMessage.jobType === 'csv-export') {
       await processCSVExportJob(rawMessage as CSVExportMessage, record);
     } else {
-      await processExportJob(rawMessage as ExportMessage, record);
+      await processExportJob(rawMessage as ExportMessage, record, context);
     }
   } catch (error) {
     handleJobError(error, jobId, startTime);
   }
+}
+
+/**
+ * Wall-clock deadline for this invocation: stop starting new work this far
+ * before the Lambda hard timeout so the export can checkpoint + requeue a
+ * continuation instead of being killed mid-write. null = no limit (local dev
+ * invokes the handler with an empty context).
+ */
+function computeInvocationDeadline(context: Context): number | null {
+  if (typeof context?.getRemainingTimeInMillis !== 'function') {
+    return null;
+  }
+  return Date.now() + context.getRemainingTimeInMillis() - WORKER_CONFIG.EXPORT_DEADLINE_SAFETY_MS;
 }
 
 /**
@@ -236,13 +254,19 @@ async function processDeploymentJob(message: DeployMessage, record: any): Promis
 /**
  * Process an export job from SQS message
  */
-async function processExportJob(message: ExportMessage, record: any): Promise<void> {
+async function processExportJob(
+  message: ExportMessage,
+  record: any,
+  context: Context
+): Promise<void> {
   const { jobId, accountId: msgAccountId, bucketName, options } = message;
 
   logger.info('Starting export job from SQS', {
     jobId,
     accountId: msgAccountId,
     messageId: record.messageId,
+    receiveCount: record.attributes?.ApproximateReceiveCount,
+    continuation: message.continuation === true,
     options,
   });
 
@@ -251,8 +275,17 @@ async function processExportJob(message: ExportMessage, record: any): Promise<vo
 
   try {
     await cleanupStuckJobs(jobStateService, 'export');
-    await initializeExportJob(jobStateService, jobId, message);
-    await executeExportJob(jobStateService, jobId, exportOrchestrator, options);
+    const shouldProcess = await initializeExportJob(jobStateService, jobId, message, record);
+    if (!shouldProcess) {
+      return; // message is deleted; a zombie/duplicate delivery dies here
+    }
+    await executeExportJob(
+      jobStateService,
+      jobId,
+      exportOrchestrator,
+      message,
+      computeInvocationDeadline(context)
+    );
   } catch (error) {
     await handleExportError(jobStateService, jobId, error);
   }
@@ -774,25 +807,44 @@ async function executeDeploymentJob(
 }
 
 /**
- * Initialize an export job
+ * Initialize an export job. Returns false when this delivery must NOT be
+ * processed - the message is then deleted (we return without throwing), which
+ * is what kills zombie redelivery loops:
+ *
+ * - A redelivered message for a finished/stopped/failed job is dropped. Old
+ *   messages left looping by the pre-continuation timeout bug land here (the
+ *   pre-run sweep has long since auto-failed their jobs).
+ * - A redelivery while the job's heartbeat is still fresh means another
+ *   invocation is live (visibility timeout elapsed mid-run) - dropped to
+ *   prevent two workers processing the same job concurrently.
+ * - Excessive receive counts / continuation hops fail the job and drop.
+ * - Only one export may run at a time: a fresh job that arrives while another
+ *   export job is active is failed immediately with a clear message.
  */
 async function initializeExportJob(
   jobStateService: JobStateService,
   jobId: string,
-  message: ExportMessage
-): Promise<void> {
+  message: ExportMessage,
+  record: any
+): Promise<boolean> {
+  const receiveCount = parseInt(record.attributes?.ApproximateReceiveCount || '1', 10);
+  const isContinuation = message.continuation === true;
+
+  // Runaway-continuation guard
+  if ((message.continuationCount || 0) > WORKER_CONFIG.EXPORT_MAX_CONTINUATIONS) {
+    logger.error('Export exceeded max continuation hops - failing job', { jobId });
+    await jobStateService.updateJobStatus(jobId, {
+      status: 'failed',
+      endTime: new Date().toISOString(),
+      message: `Export failed: exceeded ${WORKER_CONFIG.EXPORT_MAX_CONTINUATIONS} continuation invocations`,
+      error: 'Continuation limit exceeded',
+    });
+    return false;
+  }
+
   // Check if job already exists (created by API Lambda)
   const existingJob = await jobStateService.getJobStatus(jobId);
-
-  if (existingJob) {
-    // Job already exists, just update it to processing
-    await jobStateService.updateJobStatus(jobId, {
-      status: 'processing',
-      message: 'Starting export job',
-      progress: 0,
-    });
-    logger.info('Updated existing export job to processing', { jobId });
-  } else {
+  if (!existingJob) {
     // Fallback: create the job if it doesn't exist (for backwards compatibility)
     await jobStateService.createJob(jobId, {
       status: 'processing',
@@ -801,20 +853,140 @@ async function initializeExportJob(
       startTime: new Date().toISOString(),
     });
     logger.info('Created new export job (fallback)', { jobId });
+    return true;
   }
+
+  const redeliveryOk = await guardExportRedelivery(
+    jobStateService,
+    jobId,
+    existingJob,
+    receiveCount,
+    isContinuation
+  );
+  if (!redeliveryOk) {
+    return false;
+  }
+
+  if (!isContinuation && !(await guardSingleExportSlot(jobStateService, jobId))) {
+    return false;
+  }
+
+  // Job exists and is ours to run: mark processing
+  await jobStateService.updateJobStatus(jobId, {
+    status: 'processing',
+    message: isContinuation
+      ? `Resuming export (continuation ${message.continuationCount || 1})`
+      : 'Starting export job',
+    ...(isContinuation ? {} : { progress: 0 }),
+  });
+  logger.info('Updated existing export job to processing', { jobId, isContinuation });
+  return true;
 }
 
 /**
- * Execute an export job
+ * Redelivery guards: drop zombie messages for terminal jobs, cap retries of
+ * died workers, and refuse to run concurrently with a live invocation.
+ * Returns false when the delivery must be dropped.
+ */
+async function guardExportRedelivery(
+  jobStateService: JobStateService,
+  jobId: string,
+  existingJob: { status: string; startTime: string; lastUpdatedTime?: string },
+  receiveCount: number,
+  isContinuation: boolean
+): Promise<boolean> {
+  // Terminal job: this is a redelivered zombie message - drop it. Old
+  // messages left looping by the pre-continuation timeout bug land here.
+  if (['completed', 'stopped', 'failed'].includes(existingJob.status)) {
+    logger.info('Dropping redelivered message for terminal export job', {
+      jobId,
+      status: existingJob.status,
+      receiveCount,
+    });
+    return false;
+  }
+
+  if (receiveCount > WORKER_CONFIG.EXPORT_MAX_RECEIVE_COUNT) {
+    logger.error('Export message redelivered too many times - failing job', {
+      jobId,
+      receiveCount,
+    });
+    await jobStateService.updateJobStatus(jobId, {
+      status: 'failed',
+      endTime: new Date().toISOString(),
+      message: `Export failed: worker died ${receiveCount - 1} times (likely timeout/OOM). Start a new export to retry.`,
+      error: 'Max redeliveries exceeded',
+    });
+    return false;
+  }
+
+  // Redelivery of an active job: if its heartbeat is fresh, another
+  // invocation is still working on it - don't process concurrently.
+  // (A stale heartbeat would already have been auto-failed by the
+  // cleanupStuckJobs sweep that runs before this.)
+  if (receiveCount > 1 && !isContinuation) {
+    const lastHeartbeat = new Date(existingJob.lastUpdatedTime || existingJob.startTime).getTime();
+    const heartbeatAge = Date.now() - lastHeartbeat;
+    const freshMs = JOB_CONFIG.STUCK_JOB_TIMEOUT_MINUTES * TIME_UNITS.MINUTE;
+    if (heartbeatAge < freshMs) {
+      logger.warn('Dropping redelivered message - job appears actively processed elsewhere', {
+        jobId,
+        receiveCount,
+      });
+      return false;
+    }
+    await jobStateService.logWarn(
+      jobId,
+      `Retrying export after a died worker (delivery attempt ${receiveCount})`
+    );
+  }
+
+  return true;
+}
+
+/**
+ * Only one export job may run at a time (any mode). The API also enforces
+ * this with a 409; this is the last line of defense against races.
+ */
+async function guardSingleExportSlot(
+  jobStateService: JobStateService,
+  jobId: string
+): Promise<boolean> {
+  const activeJobs = await jobStateService.getActiveJobs();
+  const otherActive = activeJobs.filter((job) => job.jobId !== jobId && job.jobType === 'export');
+  if (otherActive.length > 0 && otherActive[0]) {
+    logger.warn('Export job blocked - another export is already running', {
+      blockedJobId: jobId,
+      existingJobId: otherActive[0].jobId,
+    });
+    await jobStateService.updateJobStatus(jobId, {
+      status: 'failed',
+      endTime: new Date().toISOString(),
+      message: `Another export job is already running (${otherActive[0].jobId})`,
+      error: 'Duplicate export blocked',
+    });
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Execute an export job. When the orchestrator pauses before the Lambda
+ * timeout, requeue a continuation message for the same job - the checkpoint
+ * on the job record lets the next invocation resume where this one stopped.
  */
 async function executeExportJob(
   jobStateService: JobStateService,
   jobId: string,
   exportOrchestrator: ExportOrchestrator,
-  options: any
+  message: ExportMessage,
+  deadlineAt: number | null
 ): Promise<void> {
+  const options = message.options;
+
   // Set the job state service for the orchestrator
   exportOrchestrator.setJobStateService(jobStateService, jobId);
+  exportOrchestrator.setExecutionDeadline(deadlineAt);
 
   // Prepare export options
   const exportOptions: any = {
@@ -830,6 +1002,17 @@ async function executeExportJob(
 
   // Execute the export with progress tracking
   const result = await exportOrchestrator.exportAssets(exportOptions);
+
+  if (result.incomplete) {
+    await requeueExportContinuation(jobStateService, jobId, message, result.remainingAssetTypes);
+    return; // job stays 'processing'; final status comes from the last hop
+  }
+
+  const jobAfterRun = await jobStateService.getJobStatus(jobId);
+  if (jobAfterRun?.status === 'stopped') {
+    logger.info('Export job was stopped by user', { jobId });
+    return; // don't overwrite the stopped status
+  }
 
   // Mark job as completed with stats. Include the per-operation counts the
   // orchestrator tracked (api.* / s3.* namespaces) — the job history's
@@ -851,6 +1034,65 @@ async function executeExportJob(
     jobId,
     totals: result.totals,
     duration: result.duration,
+  });
+}
+
+/**
+ * Requeue the export message so a fresh invocation (with a fresh 15-minute
+ * budget) continues the same job from its checkpoint.
+ */
+async function requeueExportContinuation(
+  jobStateService: JobStateService,
+  jobId: string,
+  message: ExportMessage,
+  remainingAssetTypes?: string[]
+): Promise<void> {
+  const continuationCount = (message.continuationCount || 0) + 1;
+  const continuationMessage: ExportMessage = {
+    ...message,
+    jobType: 'export',
+    continuation: true,
+    continuationCount,
+  };
+
+  await jobStateService.updateJobStatus(jobId, {
+    status: 'processing',
+    message: `Paused before Lambda timeout - continuing in a new invocation${
+      remainingAssetTypes?.length ? ` (remaining: ${remainingAssetTypes.join(', ')})` : ''
+    }`,
+  });
+
+  // Local development has no SQS loop - re-enter this worker's own handler on
+  // the next event-loop tick (mirrors localDevelopment.executeJobLocallyAsync
+  // without importing it, which would create a module cycle)
+  const isLocalDev =
+    process.env.AWS_SAM_LOCAL === 'true' ||
+    process.env.IS_LOCAL === 'true' ||
+    (process.env.NODE_ENV === 'development' && process.env.DIRECT_WORKER_EXECUTION === 'true');
+  if (isLocalDev) {
+    globalThis.setTimeout(() => {
+      const mockEvent = {
+        Records: [
+          {
+            messageId: `continuation-${jobId}-${continuationCount}`,
+            body: JSON.stringify(continuationMessage),
+            attributes: { ApproximateReceiveCount: '1' },
+            eventSource: 'aws:sqs',
+          },
+        ],
+      } as unknown as SQSEvent;
+      handler(mockEvent, {} as Context).catch((error) => {
+        logger.error('Local export continuation failed', { jobId, error });
+      });
+    }, 0);
+  } else {
+    await queueService.sendMessage(continuationMessage as any);
+  }
+
+  logger.info('Requeued export continuation', {
+    jobId,
+    continuationCount,
+    remainingAssetTypes,
   });
 }
 

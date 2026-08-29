@@ -22,6 +22,8 @@ function hasStaleParserMetadata(cachedEntry: any): boolean {
 
 export class AssetComparisonService {
   private readonly cacheService: CacheService;
+  /** Types whose per-type cache had to be restored from S3 exports this run */
+  private readonly hydratedTypes = new Set<AssetType>();
   private jobId: string = '';
   private jobStateService: JobStateService | null = null;
 
@@ -258,6 +260,16 @@ export class AssetComparisonService {
   }
 
   /**
+   * Asset types whose cache was hydrated from S3 during this run. The
+   * orchestrator uses this to force the catalog/lineage/field rebuild even
+   * when the comparison found zero changed assets - after a cache wipe,
+   * "everything unchanged" must still repopulate the derived caches.
+   */
+  public getHydratedTypes(): AssetType[] {
+    return Array.from(this.hydratedTypes);
+  }
+
+  /**
    * Process assets to prepare them for comparison
    * Assets are already in domain format (camelCase)
    */
@@ -351,6 +363,7 @@ export class AssetComparisonService {
       await this.cacheService.rebuildCacheForAssetType(assetType);
       const hydrated = await this.cacheService.getTypeCache(assetType);
       if (hydrated && hydrated.length > 0) {
+        this.hydratedTypes.add(assetType);
         const message = `Cache for ${assetType} was missing - restored ${hydrated.length} entries from existing S3 exports (no API calls); comparing incrementally`;
         logger.info(message);
         if (this.jobStateService) {

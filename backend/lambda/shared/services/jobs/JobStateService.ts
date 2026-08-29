@@ -9,6 +9,7 @@ import {
   type JobMetadata,
   type JobLog as RepoJobLog,
   type JobPhase,
+  type ExportCheckpoint,
 } from './JobRepository';
 import { type S3Service } from '../../../shared/services/aws/S3Service';
 import { JOB_CONFIG, QUICKSIGHT_LIMITS, MATH_CONSTANTS } from '../../constants';
@@ -21,6 +22,8 @@ export interface JobStatus {
   progress: number;
   message?: string;
   startTime: string;
+  /** Heartbeat - stamped on every job write (see JobMetadata.lastUpdatedTime) */
+  lastUpdatedTime?: string;
   endTime?: string;
   duration?: number;
   stats?: {
@@ -30,6 +33,7 @@ export interface JobStatus {
     operations?: Record<string, number>; // Generic operation counter
   };
   phases?: JobPhase[];
+  checkpoint?: ExportCheckpoint;
   error?: string;
   stopRequested?: boolean;
 }
@@ -164,10 +168,12 @@ export class JobStateService {
       progress: metadata.progress || 0,
       message: metadata.message,
       startTime: metadata.startTime,
+      lastUpdatedTime: metadata.lastUpdatedTime,
       endTime: metadata.endTime,
       duration: metadata.duration,
       stats: metadata.stats,
       phases: metadata.phases,
+      checkpoint: metadata.checkpoint,
       error: metadata.error,
       stopRequested: metadata.stopRequested,
     };

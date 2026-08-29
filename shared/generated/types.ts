@@ -1060,6 +1060,23 @@ export interface paths {
                     };
                 };
                 401: components["responses"]["Unauthorized"];
+                /** @description Another export job is already running (only one export may run at a time) */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example false */
+                            success?: boolean;
+                            error?: string;
+                            data?: {
+                                /** @description ID of the export job currently running */
+                                activeJobId?: string;
+                            };
+                        };
+                    };
+                };
                 500: components["responses"]["InternalServerError"];
             };
         };

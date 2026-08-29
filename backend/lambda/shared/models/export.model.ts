@@ -140,4 +140,12 @@ export interface ExportSummary {
     apiCalls: number;
   };
   options: ExportOptions;
+  /**
+   * True when the run paused before the Lambda timeout instead of finishing.
+   * The worker requeues a continuation message; completed work is recorded in
+   * the job's checkpoint so the next invocation resumes where this one left off.
+   */
+  incomplete?: boolean;
+  /** Asset types not yet exported when the run paused (informational) */
+  remainingAssetTypes?: AssetType[];
 }

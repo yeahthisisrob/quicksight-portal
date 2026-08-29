@@ -233,6 +233,9 @@ export class QuicksightPortalStack extends Stack {
         AWS_ACCOUNT_ID: this.account,
         DEPLOYMENT_TIME: new Date().toISOString(),
         BUCKET_NAME: `quicksight-metadata-bucket-${this.account}`,
+        // Continuation pattern: the worker requeues an export that would
+        // outlive the 15-min Lambda ceiling so a fresh invocation resumes it
+        EXPORT_QUEUE_URL: exportQueue.queueUrl,
       },
     });
 
@@ -241,6 +244,9 @@ export class QuicksightPortalStack extends Stack {
       batchSize: 1, // Process one export job at a time
       maxBatchingWindow: Duration.seconds(0), // Process immediately
     }));
+
+    // Worker requeues continuation messages for long-running exports
+    exportQueue.grantSendMessages(workerLambda);
 
     /* 6 ────────── API Gateway HTTP API v2 (same-origin via CloudFront) */
     // HTTP API v2: lower cost + lower latency than REST v1, and no
