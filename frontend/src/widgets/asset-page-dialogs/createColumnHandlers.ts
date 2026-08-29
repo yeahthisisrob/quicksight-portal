@@ -13,6 +13,7 @@ import type {
   NotifyInactiveAnalysesDialogState,
   NotifyInactiveDialogState,
   NotifyUnusedDatasetsDialogState,
+  RenameAssetDialogState,
   RefreshScheduleDialogState,
   UpdateGroupDialogState,
   UserAssetAccessDialogState,
@@ -35,6 +36,7 @@ interface DialogSetters {
   setDefinitionErrorsDialog: (state: DefinitionErrorsDialogState) => void;
   setUserAssetAccessDialog: (state: UserAssetAccessDialogState) => void;
   setNotifyInactiveDialog: (state: NotifyInactiveDialogState) => void;
+  setRenameAssetDialog: (state: RenameAssetDialogState) => void;
   setNotifyInactiveAnalysesDialog: (state: NotifyInactiveAnalysesDialogState) => void;
   setNotifyUnusedDatasetsDialog: (state: NotifyUnusedDatasetsDialogState) => void;
 }
@@ -65,6 +67,7 @@ export function createColumnHandlers(
     setDefinitionErrorsDialog,
     setUserAssetAccessDialog,
     setNotifyInactiveDialog,
+    setRenameAssetDialog,
     setNotifyInactiveAnalysesDialog,
     setNotifyUnusedDatasetsDialog,
   } = dialogSetters;
@@ -125,6 +128,9 @@ export function createColumnHandlers(
     },
     onNotifyInactive: (asset: any) => {
       setNotifyInactiveDialog({ open: true, asset });
+    },
+    onRenameClick: (asset: any) => {
+      setRenameAssetDialog({ open: true, asset });
     },
     onNotifyInactiveAnalyses: (user: any) => {
       setNotifyInactiveAnalysesDialog({ open: true, user });
