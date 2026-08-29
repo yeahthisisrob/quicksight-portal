@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.12.2...v1.13.0) (2026-08-29)
+
+
+### Features
+
+* job service on DynamoDB - per-job records, item-per-line logs, atomic heartbeats, race-free export lock ([#69](https://github.com/yeahthisisrob/quicksight-portal/issues/69)) ([252070a](https://github.com/yeahthisisrob/quicksight-portal/commit/252070a7e0ec4c818c87c43e6beed3a1dbfa4d50))
+
 ## [1.12.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.12.1...v1.12.2) (2026-08-29)
 
 
