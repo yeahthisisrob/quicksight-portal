@@ -10,7 +10,7 @@ const meta: Meta<typeof ExportJobStatus> = {
     docs: {
       description: {
         component:
-          'Live status panel for the current (or a selected historical) export job: status chip, progress bar, message, and processed/failed/API-call stats.',
+          'Live status panel for the current (or a selected historical) export job: status chip, progress bar, message, processed/failed/API-call stats, checkpoint-driven per-asset-type progress, and a worker heartbeat liveness indicator.',
       },
     },
   },
@@ -33,6 +33,34 @@ export const Processing: Story = {
     progress: 62,
     message: 'Exporting dashboards (125 of 200)...',
     stats: { totalAssets: 200, processedAssets: 125, failedAssets: 0, apiCalls: 431 },
+    lastUpdatedTime: new Date(Date.now() - 4 * 1000).toISOString(), // active 4s ago
+    checkpoint: { completedAssetTypes: ['dashboard', 'analysis', 'dataset'] },
+    jobId: 'export-1755440000-abc123',
+  },
+};
+
+export const WorkerQuiet: Story = {
+  args: {
+    status: 'processing',
+    progress: 71,
+    message: 'Enriching folders...',
+    stats: { totalAssets: 200, processedAssets: 142, failedAssets: 0, apiCalls: 611 },
+    lastUpdatedTime: new Date(Date.now() - 3 * 60 * 1000).toISOString(), // quiet 3m
+    checkpoint: { completedAssetTypes: ['dashboard', 'analysis', 'dataset', 'datasource'] },
+    jobId: 'export-1755440000-abc123',
+  },
+};
+
+export const WorkerStalled: Story = {
+  args: {
+    status: 'processing',
+    progress: 71,
+    message: 'Enriching folders...',
+    lastUpdatedTime: new Date(Date.now() - 12 * 60 * 1000).toISOString(), // silent 12m
+    checkpoint: {
+      completedAssetTypes: ['dashboard', 'analysis', 'dataset', 'datasource'],
+      catalogPending: true,
+    },
     jobId: 'export-1755440000-abc123',
   },
 };

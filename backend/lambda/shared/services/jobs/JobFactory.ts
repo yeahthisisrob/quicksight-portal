@@ -5,16 +5,11 @@ import { queueService, type QueueMessage } from './QueueService';
 import { type AssetType } from '../../models/asset.model';
 import { isLocalDevelopment, executeJobLocallyAsync } from '../../utils/localDevelopment';
 import { logger } from '../../utils/logger';
-import { S3Service } from '../aws/S3Service';
 
 // Job factory constants
 const JOB_FACTORY_CONSTANTS = {
   UUID_SHORT_LENGTH: 8, // Length of UUID substring for job IDs
 } as const;
-
-// Create a singleton S3Service instance for job operations
-const accountId = process.env.AWS_ACCOUNT_ID || '';
-const s3Service = new S3Service(accountId);
 
 export interface BaseJobConfig {
   jobId?: string;
@@ -109,7 +104,7 @@ export class JobFactory {
     });
 
     // Create the job entry FIRST in the API Lambda so it's immediately visible
-    const jobRepository = new JobRepository(s3Service, config.bucketName);
+    const jobRepository = new JobRepository();
     const initialMessage = this.getInitialJobMessage(config);
 
     try {
@@ -192,12 +187,23 @@ export class JobFactory {
         message: `${config.jobType} job queued successfully`,
       };
     } catch (error) {
-      // In production, if SQS fails, we don't have a job entry to update
-      // Just throw the error and let the API return 500
+      // The job record was already created as 'queued' - fail it so it
+      // doesn't linger as a phantom active job (which would also hold the
+      // single-export 409 guard) until the stuck-job sweep catches it.
       logger.error('Failed to queue job', {
         jobId,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
+      try {
+        await jobRepository.updateJob(jobId, {
+          status: 'failed',
+          endTime: new Date().toISOString(),
+          message: 'Failed to enqueue job for processing',
+          error: error instanceof Error ? error.message : 'Enqueue failed',
+        });
+      } catch (updateError) {
+        logger.error('Failed to mark unqueued job as failed', { jobId, updateError });
+      }
       throw error;
     }
   }

@@ -36,7 +36,7 @@ export class DeploymentHandler {
     );
 
     // Pass 'deploy' as job type
-    this.jobStateService = new JobStateService(this.s3Service, this.bucketName, 'deploy');
+    this.jobStateService = new JobStateService('deploy');
   }
 
   /**

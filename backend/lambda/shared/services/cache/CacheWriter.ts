@@ -119,17 +119,10 @@ export class CacheWriter {
 
   public async clearAllCaches(): Promise<void> {
     try {
-      // Clear S3 caches (preserves job history + activity data, see adapter)
+      // Clear S3 caches (preserves activity data, see adapter). Job records
+      // live in DynamoDB, so a cache clear can't touch job history.
       await this.s3Adapter.clearAllCaches();
-
-      // Clear memory cache, but keep the in-memory job index - dropping it
-      // while cache/jobs.json survives would make the next persistJobIndex
-      // see "no memory copy" and skip, or worse, lose in-flight job updates
-      const jobs = this.memoryAdapter.get('jobs');
       this.memoryAdapter.clear();
-      if (jobs) {
-        this.memoryAdapter.set('jobs', jobs);
-      }
 
       logger.info('Cleared all caches');
     } catch (error) {
@@ -290,22 +283,14 @@ export class CacheWriter {
    */
   public async rebuildCacheForAssetType(
     assetType: AssetType,
-    _exportStateService?: any
+    exportStateService?: any
   ): Promise<void> {
     try {
       logger.info(`Starting cache rebuild for ${assetType} only`);
       const startTime = Date.now();
 
-      // Load existing cache entries for this asset type first
-      // This allows us to preserve data during metadata-only updates
-      const existingCache = await this.loadTypeCache(assetType);
-      const existingEntriesMap = new Map<string, CacheEntry>();
-
-      if (existingCache && Array.isArray(existingCache)) {
-        existingCache.forEach((entry: CacheEntry) => {
-          existingEntriesMap.set(entry.assetId, entry);
-        });
-      }
+      // Existing entries are preserved during metadata-only updates
+      const existingEntriesMap = await this.loadExistingEntriesMap(assetType);
 
       // List all active asset files for this type
       const assets = await this.s3Adapter.listAssets(assetType);
@@ -316,6 +301,12 @@ export class CacheWriter {
       logger.info(
         `Found ${assets.length} active and ${archivedAssets.length} archived ${assetType} assets`
       );
+      if (assets.length > 0) {
+        await this.logTypeRebuildToJob(
+          exportStateService,
+          `Re-parsing ${assets.length} ${assetType} files into the cache...`
+        );
+      }
 
       // Process active assets in batches
       const newEntries: CacheEntry[] = [];
@@ -323,7 +314,8 @@ export class CacheWriter {
         const activeEntries = await this.processActiveAssetsWithMerge(
           assetType,
           assets,
-          existingEntriesMap
+          existingEntriesMap,
+          exportStateService
         );
         newEntries.push(...activeEntries);
       }
@@ -363,6 +355,12 @@ export class CacheWriter {
         duration: `${(duration / TIME_UNITS.SECOND).toFixed(2)}s`,
         assetCount: newEntries.length,
       });
+      if (newEntries.length > 0) {
+        await this.logTypeRebuildToJob(
+          exportStateService,
+          `Cache for ${assetType} rebuilt: ${newEntries.length} entries in ${(duration / TIME_UNITS.SECOND).toFixed(1)}s`
+        );
+      }
     } catch (error) {
       logger.error(`Failed to rebuild cache for ${assetType}`, { error });
       throw error;
@@ -661,25 +659,23 @@ export class CacheWriter {
 
   /**
    * Upsert cache entries for a specific set of just-exported assets by
-   * re-parsing only their S3 files, merging into the existing type cache.
-   *
-   * This replaces the post-export full-type rebuild (which re-listed and
-   * re-parsed EVERY file of the type even when 5 assets changed) - the cost
-   * that pushed large Smart Sync runs past the 15-min Lambda ceiling.
+   * re-parsing only their S3 files, merging into the existing type cache -
+   * cost scales with what changed, not with account size.
    *
    * Collection types (user/group/folder) live in one S3 file, so a full
    * type rebuild is already a single read - delegate to it.
    */
   public async upsertCacheEntriesForAssets(
     assetType: AssetType,
-    assetIds: string[]
+    assetIds: string[],
+    exportStateService?: any
   ): Promise<void> {
     if (assetIds.length === 0) {
       return;
     }
 
     if (isCollectionType(assetType)) {
-      return this.rebuildCacheForAssetType(assetType);
+      return this.rebuildCacheForAssetType(assetType, exportStateService);
     }
 
     try {
@@ -687,12 +683,28 @@ export class CacheWriter {
       const existing = (await this.loadTypeCache(assetType)) || [];
       const byId = new Map<string, CacheEntry>(existing.map((e) => [e.assetId, e]));
 
+      // Chunked so large re-parses (e.g. a parser-version bump touching the
+      // whole account) can report progress + heartbeat between chunks
       const limit = pLimit(EXPORT_CONFIG.cacheRebuild.maxConcurrentReads);
-      const parsed = await Promise.all(
-        assetIds.map((assetId) =>
-          limit(() => this.createCacheEntryFromAsset(assetType, assetId, 'active'))
-        )
-      );
+      const chunkSize =
+        EXPORT_CONFIG.cacheRebuild.batchSize * EXPORT_CONFIG.cacheRebuild.progressLogInterval;
+      const parsed: (CacheEntry | null)[] = [];
+      for (let i = 0; i < assetIds.length; i += chunkSize) {
+        const chunk = assetIds.slice(i, i + chunkSize);
+        const chunkResults = await Promise.all(
+          chunk.map((assetId) =>
+            limit(() => this.createCacheEntryFromAsset(assetType, assetId, 'active'))
+          )
+        );
+        parsed.push(...chunkResults);
+        if (exportStateService && i + chunkSize < assetIds.length) {
+          await exportStateService.appendLog(
+            `Re-parse progress: ${i + chunk.length}/${assetIds.length} ${assetType} files`,
+            'info'
+          );
+          await exportStateService.checkpoint();
+        }
+      }
 
       const newEntries = parsed.filter((e): e is CacheEntry => e !== null);
       for (const entry of newEntries) {
@@ -1359,6 +1371,16 @@ export class CacheWriter {
       : await this.getArchivedAsset(assetType, assetKey);
   }
 
+  /** Existing type-cache entries keyed by assetId (empty map when no cache) */
+  private async loadExistingEntriesMap(assetType: AssetType): Promise<Map<string, CacheEntry>> {
+    const existingCache = await this.loadTypeCache(assetType);
+    const map = new Map<string, CacheEntry>();
+    if (existingCache && Array.isArray(existingCache)) {
+      existingCache.forEach((entry: CacheEntry) => map.set(entry.assetId, entry));
+    }
+    return map;
+  }
+
   /**
    * Load existing type cache
    */
@@ -1417,6 +1439,15 @@ export class CacheWriter {
     }
   }
 
+  /** Job-log line + heartbeat for per-type rebuild progress (no-op without a job) */
+  private async logTypeRebuildToJob(exportStateService: any, message: string): Promise<void> {
+    if (!exportStateService) {
+      return;
+    }
+    await exportStateService.appendLog(message, 'info');
+    await exportStateService.checkpoint();
+  }
+
   /**
    * Process active assets with merge support for metadata updates
    * Preserves existing data when doing permissions-only or tags-only updates
@@ -1424,11 +1455,13 @@ export class CacheWriter {
   private async processActiveAssetsWithMerge(
     assetType: AssetType,
     assets: string[],
-    existingEntriesMap: Map<string, CacheEntry>
+    existingEntriesMap: Map<string, CacheEntry>,
+    exportStateService?: any
   ): Promise<CacheEntry[]> {
     const entries: CacheEntry[] = [];
     const BATCH_SIZE = EXPORT_CONFIG.cacheRebuild.batchSize;
     const MAX_CONCURRENT_READS = EXPORT_CONFIG.cacheRebuild.maxConcurrentReads;
+    const progressEvery = EXPORT_CONFIG.cacheRebuild.progressLogInterval * BATCH_SIZE;
 
     const batches = [];
     for (let i = 0; i < assets.length; i += BATCH_SIZE) {
@@ -1443,6 +1476,17 @@ export class CacheWriter {
       if (!batch) {
         logger.warn(`Batch ${i} is undefined, skipping`);
         continue;
+      }
+
+      // Periodic job-log progress + heartbeat so long re-parses stay visible
+      // and never read as a stalled worker
+      const processedSoFar = i * BATCH_SIZE;
+      if (exportStateService && i > 0 && processedSoFar % progressEvery === 0) {
+        await exportStateService.appendLog(
+          `Re-parse progress: ${processedSoFar}/${assets.length} ${assetType} files`,
+          'info'
+        );
+        await exportStateService.checkpoint();
       }
 
       const batchPromises = batch.map((assetPath) =>

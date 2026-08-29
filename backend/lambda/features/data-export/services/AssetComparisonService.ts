@@ -55,6 +55,7 @@ export class AssetComparisonService {
     forceRefresh: boolean
   ): Promise<{
     needsUpdate: Set<string>;
+    needsReparse: Set<string>;
     unchanged: Set<string>;
     deletedAssetIds: Set<string>;
   }> {
@@ -103,9 +104,14 @@ export class AssetComparisonService {
   }
 
   /**
-   * Compare a list of assets with the cache to determine which need updates
-   * Uses the in-memory cache from CacheService
-   * @returns Sets of asset IDs that need updates and those that are unchanged
+   * Compare a list of assets with the cache to determine which need work.
+   * Three buckets:
+   * - needsUpdate: changed in QuickSight (or unparseable locally) - full
+   *   export with API calls
+   * - needsReparse: unchanged in QuickSight but exported before the current
+   *   parser version; the definition already sits in the S3 asset file, so a
+   *   local re-parse refreshes the metadata with ZERO API calls
+   * - unchanged: nothing to do
    */
   public async compareWithCache(
     assetType: AssetType,
@@ -119,15 +125,17 @@ export class AssetComparisonService {
     forceRefresh: boolean = false
   ): Promise<{
     needsUpdate: Set<string>;
+    needsReparse: Set<string>;
     unchanged: Set<string>;
   }> {
     const needsUpdate = new Set<string>();
+    const needsReparse = new Set<string>();
     const unchanged = new Set<string>();
 
     if (forceRefresh) {
       // Force refresh - all assets need update
       assets.forEach((asset) => needsUpdate.add(asset.id));
-      return { needsUpdate, unchanged };
+      return { needsUpdate, needsReparse, unchanged };
     }
 
     // Get only the specific asset type cache we need (not all types)
@@ -137,57 +145,37 @@ export class AssetComparisonService {
       // No cache exists yet - all assets need export
       logger.info(`No cache found for ${assetType} - all ${assets.length} assets need export`);
       assets.forEach((asset) => needsUpdate.add(asset.id));
-      return { needsUpdate, unchanged };
+      return { needsUpdate, needsReparse, unchanged };
     }
 
     // Build map for quick lookup of cached entries
     const cacheMap = new Map(cachedEntries.map((c) => [c.assetId, c]));
 
+    // Organizational assets (folders, groups, users) need special handling:
+    // - Groups/Users: don't have LastUpdatedTime in List API response
+    // - Folders: have LastUpdatedTime but it doesn't change when members/permissions change
+    // For these asset types, we must always refresh to catch all changes
+    const isOrganizationalAsset =
+      assetType === 'folder' || assetType === 'group' || assetType === 'user';
+
     // Check each asset against cache
     for (const asset of assets) {
-      const cachedEntry = cacheMap.get(asset.id);
-
-      // Organizational assets (folders, groups, users) need special handling:
-      // - Groups/Users: don't have LastUpdatedTime in List API response
-      // - Folders: have LastUpdatedTime but it doesn't change when members/permissions change
-      // For these asset types, we must always refresh to catch all changes
-      const isOrganizationalAsset =
-        assetType === 'folder' || assetType === 'group' || assetType === 'user';
-
-      if (!cachedEntry) {
-        // New asset not in cache
+      const bucket = this.classifyAsset(
+        assetType,
+        asset,
+        cacheMap.get(asset.id),
+        isOrganizationalAsset
+      );
+      if (bucket === 'update') {
         needsUpdate.add(asset.id);
-        logger.debug(`Asset ${asset.id} not in cache - marking for export`);
-      } else if (isOrganizationalAsset) {
-        // Always refresh organizational assets since we can't reliably detect changes
-        needsUpdate.add(asset.id);
-        logger.debug(`${assetType} ${asset.id} - always refresh (organizational asset)`);
-      } else if (hasStaleParserMetadata(cachedEntry)) {
-        needsUpdate.add(asset.id);
-      } else if (!cachedEntry.lastUpdatedTime && !asset.lastModified) {
-        // Both have no lastUpdatedTime - consider unchanged for non-organizational assets
-        unchanged.add(asset.id);
-      } else if (!cachedEntry.lastUpdatedTime || !asset.lastModified) {
-        // One has lastUpdatedTime and other doesn't - needs update
-        needsUpdate.add(asset.id);
-        logger.debug(`Asset ${asset.id} missing timestamp - marking for export`);
+      } else if (bucket === 'reparse') {
+        needsReparse.add(asset.id);
       } else {
-        // Compare timestamps
-        const cachedTime = new Date(cachedEntry.lastUpdatedTime).getTime();
-        const assetTime = new Date(asset.lastModified).getTime();
-
-        if (assetTime > cachedTime) {
-          needsUpdate.add(asset.id);
-          logger.debug(
-            `Asset ${asset.id} modified (${asset.lastModified} > ${cachedEntry.lastUpdatedTime}) - marking for export`
-          );
-        } else {
-          unchanged.add(asset.id);
-        }
+        unchanged.add(asset.id);
       }
     }
 
-    return { needsUpdate, unchanged };
+    return { needsUpdate, needsReparse, unchanged };
   }
 
   /**
@@ -307,6 +295,36 @@ export class AssetComparisonService {
   }
 
   /**
+   * Classify one asset: 'update' = full export with API calls, 'reparse' =
+   * unchanged in QuickSight but exported before the current parser version
+   * (fully enriched entries re-parse locally from their S3 file, zero API
+   * calls; anything less exports so missing pieces get fetched), 'unchanged'.
+   */
+  private classifyAsset(
+    assetType: AssetType,
+    asset: { id: string; lastModified: string | undefined },
+    cachedEntry: CacheEntry | undefined,
+    isOrganizationalAsset: boolean
+  ): 'update' | 'reparse' | 'unchanged' {
+    if (!cachedEntry) {
+      logger.debug(`Asset ${asset.id} not in cache - marking for export`);
+      return 'update';
+    }
+    if (isOrganizationalAsset) {
+      // Always refresh organizational assets since we can't reliably detect changes
+      logger.debug(`${assetType} ${asset.id} - always refresh (organizational asset)`);
+      return 'update';
+    }
+    if (this.hasAssetChanged(cachedEntry, asset)) {
+      return 'update';
+    }
+    if (hasStaleParserMetadata(cachedEntry)) {
+      return cachedEntry.enrichmentStatus === 'enriched' ? 'reparse' : 'update';
+    }
+    return 'unchanged';
+  }
+
+  /**
    * Deduplicate cache entries by assetId, keeping the most recent entry
    * This handles cases where there are duplicate entries (e.g., active + archived)
    */
@@ -347,6 +365,31 @@ export class AssetComparisonService {
   }
 
   /**
+   * Whether the asset changed in QuickSight relative to the cached entry
+   * (timestamp comparison; a one-sided missing timestamp counts as changed)
+   */
+  private hasAssetChanged(
+    cachedEntry: CacheEntry,
+    asset: { id: string; lastModified: string | undefined }
+  ): boolean {
+    if (!cachedEntry.lastUpdatedTime && !asset.lastModified) {
+      return false;
+    }
+    if (!cachedEntry.lastUpdatedTime || !asset.lastModified) {
+      logger.debug(`Asset ${asset.id} missing timestamp - marking for export`);
+      return true;
+    }
+    const changed =
+      new Date(asset.lastModified).getTime() > new Date(cachedEntry.lastUpdatedTime).getTime();
+    if (changed) {
+      logger.debug(
+        `Asset ${asset.id} modified (${asset.lastModified} > ${cachedEntry.lastUpdatedTime}) - marking for export`
+      );
+    }
+    return changed;
+  }
+
+  /**
    * When the per-type cache has no entries but exported files exist under
    * assets/, rebuild the cache for that type by re-parsing the files
    * (CacheWriter.rebuildCacheForAssetType - no QuickSight API calls). This
@@ -360,7 +403,13 @@ export class AssetComparisonService {
         return;
       }
 
-      await this.cacheService.rebuildCacheForAssetType(assetType);
+      // Progress logger: hydration re-parses every file of the type, which
+      // can run minutes - keep the job log and heartbeat alive throughout
+      const progressLogger = this.jobStateService?.progressLogger(
+        this.jobId,
+        `Restoring ${assetType} cache from existing S3 exports...`
+      );
+      await this.cacheService.rebuildCacheForAssetType(assetType, progressLogger);
       const hydrated = await this.cacheService.getTypeCache(assetType);
       if (hydrated && hydrated.length > 0) {
         this.hydratedTypes.add(assetType);

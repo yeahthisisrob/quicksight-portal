@@ -217,6 +217,7 @@ describe('ExportOrchestrator - exportAssetType', () => {
       // Mock comparison result with deleted assets
       mockAssetComparisonService.compareAndDetectChanges.mockResolvedValue({
         needsUpdate: new Set(['asset1', 'asset2']),
+        needsReparse: new Set(),
         unchanged: new Set(),
         deletedAssetIds: new Set(['deleted1', 'deleted2']),
       });
@@ -305,6 +306,7 @@ describe('ExportOrchestrator - exportAssetType', () => {
 
       mockAssetComparisonService.compareAndDetectChanges.mockResolvedValue({
         needsUpdate: new Set(['asset1']),
+        needsReparse: new Set(),
         unchanged: new Set(),
         deletedAssetIds: new Set(['deleted1']),
       });
@@ -397,6 +399,7 @@ describe('ExportOrchestrator - asset filtering', () => {
       // Mark deleted1 as deleted and needing update (shouldn't happen but test the filter)
       mockAssetComparisonService.compareAndDetectChanges.mockResolvedValue({
         needsUpdate: new Set(['active1', 'active2', 'deleted1']),
+        needsReparse: new Set(),
         unchanged: new Set(),
         deletedAssetIds: new Set(['deleted1']),
       });
@@ -473,6 +476,7 @@ describe('ExportOrchestrator - integration', () => {
       const deletedIds = new Set(['deleted-dash-1', 'deleted-dash-2']);
       mockAssetComparisonService.compareAndDetectChanges.mockResolvedValue({
         needsUpdate: new Set(['active1']),
+        needsReparse: new Set(),
         unchanged: new Set(),
         deletedAssetIds: deletedIds,
       });
@@ -787,6 +791,7 @@ describe('ExportOrchestrator - Standard refresh with comparison', () => {
     // Mock comparison service to return only one asset needs update
     mockAssetComparisonService.compareAndDetectChanges.mockResolvedValue({
       needsUpdate: new Set(['a1']), // Only a1 needs update
+      needsReparse: new Set(),
       unchanged: new Set(['a2']),
       deletedAssetIds: new Set(),
     });
@@ -859,7 +864,7 @@ describe('ExportOrchestrator - Standard refresh with comparison', () => {
     // Verify standard comparison log message
     expect(mockJobStateService.logInfo).toHaveBeenCalledWith(
       'test-job-123',
-      'Comparison result: 1 need updates, 1 unchanged',
+      'Comparison result: 1 need updates, 0 re-parsed locally, 1 unchanged',
       { assetType }
     );
   });

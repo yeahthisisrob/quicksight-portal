@@ -203,8 +203,11 @@ export class LineageService {
       logger.info('Rebuilt lineage cache');
       return Array.from(lineageMap.values());
     } catch (error) {
+      // Rethrow: rebuilds run inside jobs (export catalog phase, cache
+      // rebuild), whose handlers surface the failure in the job log.
+      // Swallowing here would let a job "succeed" with stale/empty lineage.
       logger.error('Error rebuilding lineage:', error);
-      return [];
+      throw error;
     }
   }
 

@@ -26,7 +26,6 @@ export class S3CacheAdapter {
    * derived snapshots) is rebuildable.
    */
   private static readonly CLEAR_PRESERVE_KEYS = new Set([
-    'cache/jobs.json', // job index - the entire job history
     'cache/activity-cache.json', // CloudTrail-derived activity (expensive)
     'cache/activity-persistence.json', // historical activity dates (irrecoverable)
     'cache/ingestions.json', // dataset refresh history

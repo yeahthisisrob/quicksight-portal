@@ -1,12 +1,26 @@
 /**
  * JobRepository - Centralized job storage and retrieval
- * Handles all job types (export, deploy, etc.) with S3 persistence
+ *
+ * Storage model (single DynamoDB table, composite key pk/sk):
+ * - Job records: item { pk: jobId, sk: 'META' }. Per-job items make every
+ *   write atomic. A GSI (gsi1pk='JOB', sort key startTime) serves
+ *   newest-first listings; a TTL attribute (expiresAt) is the retention
+ *   backstop.
+ * - Job logs: one item per entry { pk: jobId, sk: 'LOG#<ts>#<seq>' }. Each
+ *   appendLog is a single atomic put; the poller reads them back
+ *   chronologically with one consistent query, and TTL cleans them up with
+ *   the job.
+ * - Job results live on the job item too. A result that would threaten the
+ *   400KB item limit is replaced with a truncation marker (loud in the logs;
+ *   in practice results are small metadata - the CSV export is the one
+ *   producer that can exceed it, and rarely).
+ * - The single-export mutex is a conditional-write lock item - race-free,
+ *   auto-expiring, re-entrant for continuation invocations of the same job.
  */
 
 import { JOB_CONFIG, JOB_LIMITS, TIME_UNITS } from '../../constants';
 import { logger } from '../../utils/logger';
-import { type S3Service } from '../aws/S3Service';
-import { CacheService } from '../cache/CacheService';
+import { DynamoDBService, isConditionalCheckFailed } from '../aws/DynamoDBService';
 
 export type JobType =
   | 'export'
@@ -21,8 +35,11 @@ export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'stop
 export type JobPhaseStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';
 
 /**
- * Progress checkpoint for resumable export jobs. Kept intentionally small -
- * it rides on the job index entry, which is read/written on every heartbeat.
+ * Progress checkpoint for resumable export jobs. Written only when it
+ * changes (its own atomic SET - heartbeats don't carry it). Kept lean
+ * anyway: it shares the job item's 400KB budget and the FE receives it on
+ * every status poll, so it should stay summary-shaped (names and counts,
+ * never per-asset payloads).
  */
 export interface ExportCheckpoint {
   /** Asset types fully exported (and cache-upserted) in earlier invocations */
@@ -108,7 +125,7 @@ export interface JobMetadata {
   // Control flags
   stopRequested?: boolean;
 
-  // Job result data (stored in cache)
+  // Job result data (oversized results are truncated, see saveJobResult)
   result?: any;
 }
 
@@ -128,49 +145,106 @@ export interface JobListOptions {
   beforeDate?: Date;
 }
 
-export class JobRepository {
-  private static readonly JOBS_PREFIX = 'jobs/';
-  private readonly cacheService: CacheService;
+/** Item shape stored in DynamoDB: the job plus key/index/TTL attributes */
+type JobItem = JobMetadata & { pk?: string; sk?: string; gsi1pk?: string; expiresAt?: number };
 
-  constructor(
-    private readonly s3Service: S3Service,
-    private readonly bucketName: string
-  ) {
-    this.cacheService = CacheService.getInstance();
-    // Ensure CacheService uses the same bucket name as the repository
-    this.cacheService.setBucketName(bucketName);
+const GSI_NAME = 'byStartTime';
+const GSI_PARTITION_VALUE = 'JOB'; // constant partition: job volume is tiny
+const META_SK = 'META';
+const LOG_SK_PREFIX = 'LOG#';
+const EXPORT_LOCK_ID = '__export-lock__';
+/** DynamoDB items cap at 400KB - refuse results that would threaten it */
+const RESULT_MAX_BYTES = 358400; // 350 KB
+/** TTL grace beyond retention so cleanupOldJobs normally wins the race
+ *  against the TTL backstop (TTL deletion can lag up to ~48h) */
+const TTL_GRACE_DAYS = 7;
+const QUERY_FETCH_LIMIT = 500;
+const MS_PER_SECOND = 1000;
+const SECONDS_PER_DAY = 86400;
+/** Lock TTL backstop = 2x the lock's own expiry */
+const LOCK_TTL_FACTOR = 2;
+/** Sequence pad width keeps LOG# sort keys lexicographically ordered */
+const LOG_SEQ_PAD = 6;
+
+export class JobRepository {
+  /** Per-process log sequence + count per job: the worker is the only log
+   *  writer for its job, so this both orders same-millisecond entries and
+   *  caps runaway logging per invocation. */
+  private static readonly logCounters = new Map<string, number>();
+  private readonly dynamo: DynamoDBService;
+  private readonly tableName: string;
+
+  constructor() {
+    this.dynamo = new DynamoDBService();
+    const accountId = process.env.AWS_ACCOUNT_ID || '';
+    this.tableName = process.env.JOBS_TABLE_NAME || `quicksight-portal-jobs-${accountId}`;
   }
 
   /**
-   * Append log entry to job
+   * Acquire the single-export lock via conditional write. Succeeds when the
+   * lock is free, expired, or already held by this job (re-entrant, so
+   * continuation invocations of the same export re-acquire it). Expires after
+   * the stuck-job timeout, so a died worker can never wedge exports.
+   */
+  public async acquireExportLock(jobId: string): Promise<boolean> {
+    await this.ensureReady();
+    const now = Date.now();
+    try {
+      await this.dynamo.putItem(
+        this.tableName,
+        {
+          pk: EXPORT_LOCK_ID,
+          sk: META_SK,
+          ownerJobId: jobId,
+          acquiredAt: new Date(now).toISOString(),
+          lockExpiresAt: now + JOB_CONFIG.STUCK_JOB_TIMEOUT_MINUTES * TIME_UNITS.MINUTE,
+          expiresAt:
+            Math.ceil(now / MS_PER_SECOND) +
+            ((JOB_CONFIG.STUCK_JOB_TIMEOUT_MINUTES * TIME_UNITS.MINUTE) / MS_PER_SECOND) *
+              LOCK_TTL_FACTOR,
+        },
+        'attribute_not_exists(pk) OR lockExpiresAt < :now OR ownerJobId = :owner',
+        { ':now': now, ':owner': jobId }
+      );
+      return true;
+    } catch (error) {
+      if (isConditionalCheckFailed(error)) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Append a log entry: one atomic put of one small item - no reads, no
+   * race with status writes. Per-invocation cap guards against runaway
+   * logging.
    */
   public async appendLog(jobId: string, log: JobLog): Promise<void> {
-    const logsKey = `${JobRepository.JOBS_PREFIX}${jobId}-logs.json`;
-
-    // Read existing logs
-    let logs: JobLog[] = [];
-    try {
-      logs = (await this.s3Service.getObject<JobLog[]>(this.bucketName, logsKey)) || [];
-    } catch (error: any) {
-      if (error.name !== 'NoSuchKey') {
-        logger.warn('Failed to read existing logs', { error, jobId });
+    const seq = (JobRepository.logCounters.get(jobId) || 0) + 1;
+    JobRepository.logCounters.set(jobId, seq);
+    if (seq > JOB_LIMITS.MAX_LOG_ENTRIES) {
+      if (seq === JOB_LIMITS.MAX_LOG_ENTRIES + 1) {
+        logger.warn('Job log cap reached - dropping further entries this invocation', { jobId });
       }
+      return;
     }
 
-    // Append new log
-    logs.push(log);
-
-    // Limit logs to last entries to prevent unbounded growth
-    if (logs.length > JOB_LIMITS.MAX_LOG_ENTRIES) {
-      logs = logs.slice(-JOB_LIMITS.MAX_LOG_ENTRIES);
-    }
-
-    // Save back
-    await this.s3Service.putObject(this.bucketName, logsKey, logs);
+    await this.ensureReady();
+    await this.dynamo.putItem(this.tableName, {
+      pk: jobId,
+      sk: `${LOG_SK_PREFIX}${log.timestamp}#${String(seq).padStart(LOG_SEQ_PAD, '0')}`,
+      ...log,
+      expiresAt:
+        Math.ceil(Date.now() / MS_PER_SECOND) +
+        (JOB_CONFIG.DEFAULT_RETENTION_DAYS + TTL_GRACE_DAYS) * SECONDS_PER_DAY,
+    });
   }
 
   /**
-   * Clean up old jobs
+   * Clean up jobs past the retention window (meta + log items). The table's
+   * TTL attribute is only the backstop - this sweep keeps listings tidy
+   * without waiting on TTL's up-to-48h lag.
    */
   public async cleanupOldJobs(
     daysToKeep: number = JOB_CONFIG.DEFAULT_RETENTION_DAYS
@@ -178,13 +252,15 @@ export class JobRepository {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
 
-    const oldJobs = await this.listJobs({ beforeDate: cutoffDate });
+    const oldJobs = await this.listJobs({ beforeDate: cutoffDate, limit: QUERY_FETCH_LIMIT });
 
     for (const job of oldJobs) {
       await this.deleteJob(job.jobId);
     }
 
-    logger.info(`Cleaned up ${oldJobs.length} old jobs`);
+    if (oldJobs.length > 0) {
+      logger.info(`Cleaned up ${oldJobs.length} old jobs`);
+    }
     return oldJobs.length;
   }
 
@@ -204,86 +280,55 @@ export class JobRepository {
   public async cleanupStuckJobs(
     timeoutMinutes: number = JOB_CONFIG.STUCK_JOB_TIMEOUT_MINUTES
   ): Promise<number> {
-    // Force a fresh S3 read: the memory copy can be up to MEMORY_TTL stale,
-    // which both undercounts heartbeats (marking live jobs dead early) and
-    // risks persisting a stale snapshot over a job's completion write.
-    const allJobs = await this.cacheService.getJobIndex(true);
-    const transitioned = this.markDeadJobs(allJobs, timeoutMinutes);
-    if (transitioned > 0) {
-      await this.cacheService.updateJobIndex(allJobs);
-      await this.cacheService.persistJobIndex();
-      logger.info(`Marked ${transitioned} dead jobs as failed`);
-    }
-    return transitioned;
+    const allJobs = await this.queryAllJobs();
+    return await this.repairDeadJobs(allJobs, timeoutMinutes);
   }
 
   /**
-   * Create a new job with metadata
+   * Create a new job with metadata (immediately visible to other Lambdas -
+   * per-job items need no separate persistence step)
    */
   public async createJob(metadata: JobMetadata): Promise<void> {
-    const { jobId } = metadata;
-
-    // Update memory cache only (instant!)
-    await this.updateJobInIndex(metadata);
-
-    // Persist immediately so the job shows up in the UI
-    // For new jobs, we need immediate persistence so the API Lambda can find them
-    try {
-      await this.cacheService.persistJobIndex();
-      logger.info('Job index persisted immediately for new job', { jobId });
-    } catch (error) {
-      logger.error('Failed to persist job index immediately', { error, jobId });
-    }
+    await this.ensureReady();
+    await this.putJob({ ...metadata, lastUpdatedTime: new Date().toISOString() });
+    logger.info('Job created', { jobId: metadata.jobId, jobType: metadata.jobType });
   }
 
   /**
-   * Delete a job and all its data
+   * Delete a job and all its data (meta + log items)
    */
   public async deleteJob(jobId: string): Promise<void> {
-    // Delete logs file if it exists
-    const logsKey = `${JobRepository.JOBS_PREFIX}${jobId}-logs.json`;
-    try {
-      await this.s3Service.deleteObject(this.bucketName, logsKey);
-    } catch (error: any) {
-      if (error.name !== 'NoSuchKey') {
-        logger.warn('Failed to delete logs', { jobId, error: error.message });
-      }
+    // The whole partition: META item plus every LOG# item
+    const items = await this.dynamo.queryPartition<{ pk: string; sk: string }>(
+      this.tableName,
+      'pk',
+      jobId
+    );
+    if (items.length > 0) {
+      await this.dynamo.batchDelete(
+        this.tableName,
+        items.map(({ pk, sk }) => ({ pk, sk }))
+      );
     }
-
-    // Remove from cache index
-    await this.removeFromIndex(jobId);
-
-    logger.info('Job deleted', { jobId });
+    logger.info('Job deleted', { jobId, itemsDeleted: items.length });
   }
 
   /**
-   * Force immediate persistence (call before Lambda shutdown)
-   */
-  public async forcePersist(): Promise<void> {
-    try {
-      await this.cacheService.persistJobIndex();
-      logger.info('Job index force persisted to S3');
-    } catch (error) {
-      logger.error('Failed to force persist job index', { error });
-      throw error;
-    }
-  }
-
-  /**
-   * Get job metadata
+   * Get job metadata (strongly consistent read)
    */
   public async getJob(jobId: string): Promise<JobMetadata | null> {
     try {
-      // For individual job queries, force refresh from S3 to get latest status
-      // This ensures API Lambda gets updates made by Worker Lambda
-      const allJobs = await this.cacheService.getJobIndex(true); // Force S3 fetch
-
+      await this.ensureReady();
+      const item = await this.dynamo.getItem<JobItem>(this.tableName, { pk: jobId, sk: META_SK });
+      if (!item) {
+        return null;
+      }
       // Self-healing: a poller watching a job whose worker died sees it flip
-      // to 'failed' instead of spinning forever.
-      await this.repairDeadJobs(allJobs);
-
-      const job = allJobs.find((j: any) => j.jobId === jobId);
-      return job || null;
+      // to 'failed' instead of spinning forever. The repair pass replaces
+      // array slots, so read the (possibly repaired) job back from the array.
+      const jobs: JobItem[] = [item];
+      await this.repairDeadJobs(jobs);
+      return this.toMetadata(jobs[0] as JobItem);
     } catch (error: any) {
       logger.error('Failed to get job', { jobId, error: error.message });
       return null;
@@ -291,22 +336,17 @@ export class JobRepository {
   }
 
   /**
-   * Get job logs
+   * Get job logs, chronological (one consistent partition query)
    */
   public async getJobLogs(jobId: string): Promise<JobLog[]> {
-    try {
-      return (
-        (await this.s3Service.getObject<JobLog[]>(
-          this.bucketName,
-          `${JobRepository.JOBS_PREFIX}${jobId}-logs.json`
-        )) || []
-      );
-    } catch (error: any) {
-      if (error.name === 'NoSuchKey') {
-        return [];
-      }
-      throw error;
-    }
+    await this.ensureReady();
+    const items = await this.dynamo.queryPartition<JobLog & { pk: string; sk: string }>(
+      this.tableName,
+      'pk',
+      jobId,
+      { sortKeyBeginsWith: { name: 'sk', prefix: LOG_SK_PREFIX } }
+    );
+    return items.map(({ pk: _pk, sk: _sk, expiresAt: _e, ...log }: any) => log as JobLog);
   }
 
   /**
@@ -314,9 +354,9 @@ export class JobRepository {
    */
   public async getJobResult<T = any>(jobId: string): Promise<T | null> {
     try {
-      const allJobs = await this.cacheService.getJobIndex();
-      const job = allJobs.find((j: any) => j.jobId === jobId);
-      return job?.result || null;
+      await this.ensureReady();
+      const item = await this.dynamo.getItem<JobItem>(this.tableName, { pk: jobId, sk: META_SK });
+      return (item?.result as T) || null;
     } catch (error: any) {
       logger.error('Failed to get job result', { jobId, error: error.message });
       return null;
@@ -332,57 +372,62 @@ export class JobRepository {
   }
 
   /**
-   * List jobs with filtering
+   * List jobs with filtering (newest first via the byStartTime GSI)
    */
   public async listJobs(options: JobListOptions = {}): Promise<JobMetadata[]> {
     const { jobType, status, userId, limit = 50, afterDate, beforeDate } = options;
 
     try {
-      // Get all jobs from cache service
-      const allJobs = await this.cacheService.getJobIndex();
+      const allJobs = await this.queryAllJobs(
+        beforeDate ? { sortKeyBefore: beforeDate.toISOString() } : {}
+      );
 
       // Self-healing: repair dead jobs before answering. This also unblocks
       // single-flight guards (e.g. activity refresh) that treat a stuck
       // 'processing' job as still active.
       await this.repairDeadJobs(allJobs);
 
-      // Filter jobs
-      let filtered = allJobs;
+      // Single declarative pass: every provided option must match
+      const matchesFilters = (job: JobMetadata): boolean =>
+        (!jobType || job.jobType === jobType) &&
+        (!status || job.status === status) &&
+        (!userId || job.userId === userId) &&
+        (!afterDate || new Date(job.startTime) >= afterDate) &&
+        (!beforeDate || new Date(job.startTime) <= beforeDate);
+      const filtered = allJobs.filter(matchesFilters);
 
-      if (jobType) {
-        filtered = filtered.filter((job: any) => job.jobType === jobType);
-      }
-
-      if (status) {
-        filtered = filtered.filter((job) => job.status === status);
-      }
-
-      if (userId) {
-        filtered = filtered.filter((job) => job.userId === userId);
-      }
-
-      if (afterDate) {
-        filtered = filtered.filter((job) => new Date(job.startTime) >= afterDate);
-      }
-
-      if (beforeDate) {
-        filtered = filtered.filter((job) => new Date(job.startTime) <= beforeDate);
-      }
-
-      // Sort by start time descending (newest first)
+      // The GSI already returns newest-first; keep an explicit sort for
+      // determinism (equal timestamps)
       filtered.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
 
-      // Apply limit
-      return filtered.slice(0, limit);
+      return filtered.slice(0, limit).map((job) => this.toMetadata(job as JobItem));
     } catch (error: any) {
       logger.error('Failed to list jobs', {
         error: error.message,
         errorName: error.name,
         options,
-        cacheServiceBucket: (this.cacheService as any).bucketName,
-        repositoryBucket: this.bucketName,
+        tableName: this.tableName,
       });
       return [];
+    }
+  }
+
+  /**
+   * Release the single-export lock (only if this job holds it). Safe to call
+   * unconditionally on terminal status writes.
+   */
+  public async releaseExportLock(jobId: string): Promise<void> {
+    try {
+      await this.dynamo.deleteItem(
+        this.tableName,
+        { pk: EXPORT_LOCK_ID, sk: META_SK },
+        'ownerJobId = :owner',
+        { ':owner': jobId }
+      );
+    } catch (error) {
+      if (!isConditionalCheckFailed(error)) {
+        logger.warn('Failed to release export lock', { jobId, error });
+      }
     }
   }
 
@@ -403,87 +448,151 @@ export class JobRepository {
   }
 
   /**
-   * Save job result data
+   * Save job result data on the job item. Results beyond the size threshold
+   * are replaced with a truncation marker so the item never nears the 400KB
+   * limit.
    */
   public async saveJobResult<T = any>(jobId: string, result: T): Promise<void> {
-    const current = await this.getJob(jobId);
-    if (!current) {
-      throw new Error(`Job ${jobId} not found`);
+    await this.ensureReady();
+
+    let stored: any = result;
+    const sizeBytes = JSON.stringify(result).length;
+    if (sizeBytes > RESULT_MAX_BYTES) {
+      // Loud, not silent: consumers see a truncation marker instead of a
+      // corrupt payload, and the log names the culprit
+      logger.error('Job result exceeds the DynamoDB size budget - storing truncation marker', {
+        jobId,
+        sizeBytes,
+        maxBytes: RESULT_MAX_BYTES,
+      });
+      stored = {
+        truncated: true,
+        message: `Result too large to store (${sizeBytes} bytes > ${RESULT_MAX_BYTES})`,
+      };
     }
 
-    const updated: JobMetadata = {
-      ...current,
-      result,
-    };
-
-    await this.updateJobInIndex(updated);
-
-    // Persist immediately: a later getJob() force-fetches S3 into memory,
-    // which would silently discard a memory-only result
+    // Atomic partial write onto the existing record (no read)
     try {
-      await this.cacheService.persistJobIndex();
+      await this.dynamo.updateItem(
+        this.tableName,
+        { pk: jobId, sk: META_SK },
+        { set: { result: stored, lastUpdatedTime: new Date().toISOString() } },
+        'attribute_exists(pk)'
+      );
     } catch (error) {
-      logger.error('Failed to persist job index after saving result', { error, jobId });
+      if (isConditionalCheckFailed(error)) {
+        throw new Error(`Job ${jobId} not found`);
+      }
+      throw error;
     }
   }
 
   /**
-   * Update job metadata
+   * Update job metadata as ONE atomic partial write (UpdateItem): only the
+   * provided fields are touched, so concurrent writers to the same job (a
+   * worker heartbeat vs. the API setting stopRequested) can never clobber
+   * each other, and a routine heartbeat costs zero reads. Terminal writes
+   * (endTime present) do one read to compute duration and learn the jobType.
    */
   public async updateJob(jobId: string, updates: Partial<JobMetadata>): Promise<void> {
-    let current = await this.getJob(jobId);
-    if (!current) {
-      // Upsert rather than throw: if the index entry was lost (e.g. a cache
-      // clear raced this job), throwing here turned a SUCCESSFUL run into a
-      // spurious "failed" job via the caller's error handler. Recreate a
-      // minimal record and apply the update to it instead.
-      logger.warn('Job missing from index during update - recreating entry', { jobId });
-      current = {
-        jobId,
-        jobType: (updates as any).jobType || 'export',
-        status: 'processing',
-        startTime: updates.endTime || new Date().toISOString(),
-        lastUpdatedTime: new Date().toISOString(),
-      } as JobMetadata;
+    await this.ensureReady();
+    const now = new Date().toISOString();
+
+    const set: Record<string, any> = { ...updates, lastUpdatedTime: now };
+    delete set.jobId;
+
+    let jobType: JobType | undefined = updates.jobType;
+    if (updates.endTime) {
+      const current = await this.dynamo.getItem<JobItem>(this.tableName, {
+        pk: jobId,
+        sk: META_SK,
+      });
+      if (!current) {
+        // Upsert rather than throw: a lost record must not turn a SUCCESSFUL
+        // run into a spurious "failed" job via the caller's error handler
+        logger.warn('Job missing during update - upserting minimal record', { jobId });
+      }
+      set.duration =
+        new Date(updates.endTime).getTime() - new Date(current?.startTime || now).getTime();
+      jobType = jobType || current?.jobType;
     }
 
-    const updated: JobMetadata = {
-      ...current,
-      ...updates,
-      duration: updates.endTime
-        ? new Date(updates.endTime).getTime() - new Date(current.startTime).getTime()
-        : current.duration,
-    };
+    await this.dynamo.updateItem(
+      this.tableName,
+      { pk: jobId, sk: META_SK },
+      {
+        set,
+        // Upsert defaults so a recreated record is valid and queryable
+        setIfNotExists: {
+          jobId,
+          jobType: jobType || 'export',
+          status: 'processing',
+          startTime: now,
+          gsi1pk: GSI_PARTITION_VALUE,
+          expiresAt:
+            Math.ceil(Date.now() / MS_PER_SECOND) +
+            (JOB_CONFIG.DEFAULT_RETENTION_DAYS + TTL_GRACE_DAYS) * SECONDS_PER_DAY,
+        },
+        // A job completing successfully must not carry a stale auto-fail error
+        // (e.g. a "no heartbeat" stamp from the stuck-job sweep) forward
+        remove: updates.status === 'completed' && updates.error === undefined ? ['error'] : [],
+      }
+    );
 
-    // A job completing successfully must not carry a stale auto-fail error
-    // (e.g. a "no heartbeat" stamp from the stuck-job sweep) forward
-    if (updates.status === 'completed' && updates.error === undefined) {
-      delete (updated as { error?: string }).error;
-    }
-
-    await this.updateJobInIndex(updated);
-
-    // Always persist immediately to S3 so the API Lambda can see updates
-    try {
-      await this.cacheService.persistJobIndex();
-    } catch (error) {
-      logger.error('Failed to persist job index', { error, jobId });
+    // Terminal export jobs free the single-export mutex (conditional on
+    // ownership, so this is a no-op for every other job type)
+    const isTerminal = updates.status
+      ? ['completed', 'failed', 'stopped'].includes(updates.status)
+      : false;
+    if (isTerminal && (jobType || 'export') === 'export') {
+      await this.releaseExportLock(jobId);
     }
   }
 
   /**
-   * In-place dead-job marking on a loaded index. Returns how many jobs
-   * transitioned. Callers persist iff the count is > 0.
+   * Bootstrap: make sure the table exists (one-time, guarded per process)
    */
-  private markDeadJobs(
-    allJobs: JobMetadata[],
+  private async ensureReady(): Promise<void> {
+    await this.dynamo.ensureJobsTableExists(this.tableName);
+  }
+
+  /** Persist one job item (stamps index + TTL attributes) */
+  private async putJob(job: JobMetadata): Promise<void> {
+    await this.ensureReady();
+    await this.dynamo.putItem(this.tableName, this.toItem(job));
+  }
+
+  /** All real job items, newest first (marker/lock items have no gsi1pk) */
+  private async queryAllJobs(options: { sortKeyBefore?: string } = {}): Promise<JobMetadata[]> {
+    await this.ensureReady();
+    return await this.dynamo.queryIndex<JobItem>(
+      this.tableName,
+      GSI_NAME,
+      'gsi1pk',
+      GSI_PARTITION_VALUE,
+      {
+        limit: QUERY_FETCH_LIMIT,
+        ...(options.sortKeyBefore && {
+          sortKeyBefore: { name: 'startTime', value: options.sortKeyBefore },
+        }),
+      }
+    );
+  }
+
+  /**
+   * Shared self-healing pass: mark dead jobs failed and write each
+   * transitioned item back individually. Write errors are non-fatal - reads
+   * must not fail because a repair couldn't be saved.
+   */
+  private async repairDeadJobs(
+    jobs: JobMetadata[],
     timeoutMinutes: number = JOB_CONFIG.STUCK_JOB_TIMEOUT_MINUTES
-  ): number {
+  ): Promise<number> {
     const cutoff = Date.now() - timeoutMinutes * TIME_UNITS.MINUTE;
     let transitioned = 0;
 
-    for (let i = 0; i < allJobs.length; i++) {
-      const job = allJobs[i];
+    for (let i = 0; i < jobs.length; i++) {
+      const job = jobs[i];
       if (!job) {
         continue;
       }
@@ -497,7 +606,7 @@ export class JobRepository {
         continue;
       }
 
-      allJobs[i] = {
+      const failed: JobMetadata = {
         ...job,
         status: 'failed',
         endTime: new Date().toISOString(),
@@ -505,7 +614,20 @@ export class JobRepository {
         error: `No heartbeat since ${job.lastUpdatedTime || job.startTime} while in '${job.status}' status`,
         duration: Date.now() - new Date(job.startTime).getTime(),
       };
+      jobs[i] = failed;
       transitioned++;
+
+      try {
+        await this.putJob(failed);
+        if (failed.jobType === 'export') {
+          await this.releaseExportLock(failed.jobId);
+        }
+      } catch (error) {
+        logger.warn('Failed to persist dead-job repair (will retry on next read)', {
+          jobId: job.jobId,
+          error,
+        });
+      }
 
       logger.warn('Auto-failed dead job', {
         jobId: job.jobId,
@@ -515,76 +637,32 @@ export class JobRepository {
       });
     }
 
+    if (transitioned > 0) {
+      logger.info(`Marked ${transitioned} dead jobs as failed`);
+    }
     return transitioned;
   }
 
-  /**
-   * Remove job from cache index
-   */
-  private async removeFromIndex(jobId: string): Promise<void> {
-    // Fresh read for the same last-writer-wins reason as updateJobInIndex
-    let allJobs = await this.cacheService.getJobIndex(true);
-
-    // Remove job from index
-    allJobs = allJobs.filter((j: any) => j.jobId !== jobId);
-
-    // Update cache and persist so the deletion is durable, not memory-only
-    await this.cacheService.updateJobIndex(allJobs);
-    try {
-      await this.cacheService.persistJobIndex();
-    } catch (error) {
-      logger.warn('Failed to persist job index after removal', { error, jobId });
-    }
+  /** Stamp DynamoDB key + index + TTL attributes onto a job */
+  private toItem(job: JobMetadata): JobItem {
+    const startEpochSeconds = Math.ceil(new Date(job.startTime).getTime() / MS_PER_SECOND) || 0;
+    return {
+      ...job,
+      pk: job.jobId,
+      sk: META_SK,
+      gsi1pk: GSI_PARTITION_VALUE,
+      expiresAt:
+        startEpochSeconds + (JOB_CONFIG.DEFAULT_RETENTION_DAYS + TTL_GRACE_DAYS) * SECONDS_PER_DAY,
+    };
   }
 
-  /**
-   * Repair pass shared by the read paths: mark dead jobs and, when anything
-   * changed, write the repaired index back (memory + S3). Persistence errors
-   * are non-fatal — reads must not fail because a repair couldn't be saved.
-   */
-  private async repairDeadJobs(allJobs: JobMetadata[]): Promise<void> {
-    const transitioned = this.markDeadJobs(allJobs);
-    if (transitioned === 0) {
-      return;
-    }
-    try {
-      await this.cacheService.updateJobIndex(allJobs);
-      await this.cacheService.persistJobIndex();
-      logger.info(`Auto-failed ${transitioned} dead jobs during read`);
-    } catch (error) {
-      logger.warn('Failed to persist dead-job repair (will retry on next read)', { error });
-    }
-  }
-
-  /**
-   * Update job in cache index
-   */
-  private async updateJobInIndex(job: JobMetadata): Promise<void> {
-    // Force a fresh S3 read: the whole index is persisted last-writer-wins,
-    // so mutating a memory copy that can be minutes stale would clobber
-    // other Lambdas' recent writes (e.g. another job's completion). The
-    // fresh read shrinks that window to milliseconds. (The real fix is
-    // per-job S3 objects; tracked as future work.)
-    let allJobs = await this.cacheService.getJobIndex(true);
-
-    // Stamp the heartbeat — every write proves the owning worker is alive.
-    const stamped: JobMetadata = { ...job, lastUpdatedTime: new Date().toISOString() };
-
-    // Update or add job in index
-    const existingIndex = allJobs.findIndex((j: any) => j.jobId === stamped.jobId);
-    if (existingIndex >= 0) {
-      allJobs[existingIndex] = stamped;
-    } else {
-      allJobs.push(stamped);
-    }
-
-    // Keep only last jobs total, sorted by start time
-    allJobs.sort(
-      (a: any, b: any) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-    );
-    allJobs = allJobs.slice(0, JOB_CONFIG.MAX_JOBS_IN_INDEX);
-
-    // Update memory cache only (instant!)
-    await this.cacheService.updateJobIndex(allJobs);
+  /** Strip storage-only attributes before handing a job to callers */
+  private toMetadata(item: JobItem): JobMetadata {
+    const job: JobItem = { ...item };
+    delete job.pk;
+    delete job.sk;
+    delete job.gsi1pk;
+    delete job.expiresAt;
+    return job;
   }
 }

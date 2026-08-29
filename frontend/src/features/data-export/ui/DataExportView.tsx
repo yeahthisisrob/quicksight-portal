@@ -206,13 +206,16 @@ export default function DataExportView({ timelineFeed }: { timelineFeed?: ReactN
           </Box>
         </Card>
 
-        {/* Current job status: progress bar + stats */}
+        {/* Current job status: progress bar, stats, per-type checkpoint
+            progress, and worker heartbeat liveness */}
         {jobStatus && (
           <ExportJobStatus
             status={jobStatus.status}
             progress={jobStatus.progress}
             message={jobStatus.message}
             stats={jobStatus.stats}
+            lastUpdatedTime={jobStatus.lastUpdatedTime}
+            checkpoint={jobStatus.checkpoint}
             jobId={currentJobId}
           />
         )}

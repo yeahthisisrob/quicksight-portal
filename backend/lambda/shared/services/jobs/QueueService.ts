@@ -44,21 +44,7 @@ export class QueueService {
         socketTimeout: 5000, // 5 second socket timeout for SQS
       }),
     });
-    this.queueUrl = process.env.EXPORT_QUEUE_URL || ''; // Will be renamed to WORKER_QUEUE_URL
-  }
-
-  /**
-   * Get the configured queue URL
-   */
-  public getQueueUrl(): string {
-    return this.queueUrl;
-  }
-
-  /**
-   * Check if running in local/SAM mode
-   */
-  public isLocalMode(): boolean {
-    return process.env.AWS_SAM_LOCAL === 'true' || process.env.IS_LOCAL === 'true';
+    this.queueUrl = process.env.EXPORT_QUEUE_URL || '';
   }
 
   /**

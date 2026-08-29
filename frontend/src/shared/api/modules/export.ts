@@ -117,6 +117,7 @@ export const exportApi = {
       progress?: number;
       message?: string;
       startTime: string;
+      lastUpdatedTime?: string;
       endTime?: string;
       duration?: number;
       stats?: {
@@ -124,6 +125,11 @@ export const exportApi = {
         processedAssets?: number;
         failedAssets?: number;
         operations?: Record<string, number>;
+      };
+      checkpoint?: {
+        completedAssetTypes?: string[];
+        catalogPending?: boolean;
+        totalProcessed?: number;
       };
       exportOptions?: { exportIngestions?: boolean };
       error?: string;
@@ -147,6 +153,8 @@ export const exportApi = {
       progress?: number;
       message?: string;
       startTime: string;
+      /** Heartbeat - stamped on every job write; drives the liveness display */
+      lastUpdatedTime?: string;
       endTime?: string;
       duration?: number;
       stats?: {
@@ -154,6 +162,14 @@ export const exportApi = {
         processedAssets?: number;
         failedAssets?: number;
         apiCalls?: number;
+      };
+      /** Resumable-export progress (export jobs) - drives per-type progress */
+      checkpoint?: {
+        completedAssetTypes?: string[];
+        hydratedAssetTypes?: string[];
+        catalogPending?: boolean;
+        totalProcessed?: number;
+        updatedAt?: string;
       };
     }>>(`/jobs/${jobId}`);
     
