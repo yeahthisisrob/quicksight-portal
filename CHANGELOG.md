@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.13.0...v1.13.1) (2026-08-29)
+
+
+### Chores
+
+* maintenance - Dependabot, dependency bumps, cdk-nag guardrail, README refresh ([#71](https://github.com/yeahthisisrob/quicksight-portal/issues/71)) ([dec22e5](https://github.com/yeahthisisrob/quicksight-portal/commit/dec22e50b9f9971ff58fee7abc91e0b727898c4b))
+
 ## [1.13.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.12.2...v1.13.0) (2026-08-29)
 
 
