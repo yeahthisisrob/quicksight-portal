@@ -1355,6 +1355,25 @@ export class QuickSightService {
     );
   }
 
+  /**
+   * Publish a dashboard version so viewers see it (UpdateDashboard only
+   * creates a new draft version)
+   */
+  public async updateDashboardPublishedVersion(
+    dashboardId: string,
+    versionNumber: number
+  ): Promise<any> {
+    return await this.executeWithTracking(
+      () => this.adapter.updateDashboardPublishedVersion(dashboardId, versionNumber),
+      {
+        operation: 'UpdateDashboardPublishedVersion',
+        assetType: ASSET_TYPES.dashboard,
+        assetId: dashboardId,
+      },
+      'other'
+    );
+  }
+
   public async updateDataSet(params: {
     dataSetId: string;
     name: string;

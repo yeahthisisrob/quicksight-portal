@@ -16,7 +16,7 @@ import {
   UserGroupsDialog
 } from '@/features/organization';
 
-import { BulkDeleteDialog, DefinitionErrorsDialog } from '@/entities/asset';
+import { BulkDeleteDialog, DefinitionErrorsDialog, RenameAssetDialog } from '@/entities/asset';
 import { RefreshScheduleDialog } from '@/entities/dataset';
 import { AddToFolderDialog } from '@/entities/folder';
 import { BulkTagDialog } from '@/entities/tag';
@@ -42,6 +42,7 @@ import type {
   JsonViewerDialogState,
   NotifyInactiveAnalysesDialogState,
   NotifyInactiveDialogState,
+  RenameAssetDialogState,
   NotifyUnusedDatasetsDialogState,
   RefreshScheduleDialogState,
   UpdateGroupDialogState,
@@ -280,6 +281,8 @@ interface DialogManagerProps {
   setDeleteUserDialog: (state: DeleteUserDialogState) => void;
   notifyInactiveDialog: NotifyInactiveDialogState;
   setNotifyInactiveDialog: (state: NotifyInactiveDialogState) => void;
+  renameAssetDialog: RenameAssetDialogState;
+  setRenameAssetDialog: (state: RenameAssetDialogState) => void;
   notifyInactiveAnalysesDialog: NotifyInactiveAnalysesDialogState;
   setNotifyInactiveAnalysesDialog: (state: NotifyInactiveAnalysesDialogState) => void;
   notifyUnusedDatasetsDialog: NotifyUnusedDatasetsDialogState;
@@ -338,6 +341,8 @@ export function DialogManager({
   setDeleteUserDialog,
   notifyInactiveDialog,
   setNotifyInactiveDialog,
+  renameAssetDialog,
+  setRenameAssetDialog,
   notifyInactiveAnalysesDialog,
   setNotifyInactiveAnalysesDialog,
   notifyUnusedDatasetsDialog,
@@ -436,6 +441,20 @@ export function DialogManager({
         />
       )}
       
+      {/* Rename asset (live in QuickSight) */}
+      {renameAssetDialog.asset && (
+        <RenameAssetDialog
+          open={renameAssetDialog.open}
+          onClose={() => setRenameAssetDialog({ open: false, asset: null })}
+          onSuccess={() => {
+            setRenameAssetDialog({ open: false, asset: null });
+            refreshAssetType(assetType);
+          }}
+          assetType={assetType}
+          asset={renameAssetDialog.asset}
+        />
+      )}
+
       {/* Inactivity mailto dialog */}
       {notifyInactiveDialog.asset && (
         <InactivityMailtoDialog

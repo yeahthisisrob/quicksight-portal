@@ -56,6 +56,12 @@ export const assetManagementRoutes: RouteHandler[] = [
 
   {
     method: 'POST',
+    path: /^\/assets\/(dashboard|analysis|dataset|folder)\/([^/]+)\/rename$/,
+    handler: (event) => handler.renameAsset(event),
+  },
+
+  {
+    method: 'POST',
     path: '/assets/bulk-delete',
     handler: (event) => handler.bulkDelete(event),
   },
