@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { Construct } from 'constructs';
 import {
-  Stack, StackProps, Duration, RemovalPolicy, CfnOutput, Validations,
+  Stack, StackProps, Duration, RemovalPolicy, CfnOutput, Token, Validations,
 } from 'aws-cdk-lib';
 import {
   Bucket, BucketEncryption, BlockPublicAccess,
@@ -601,6 +601,15 @@ export class QuicksightPortalStack extends Stack {
     ];
     // IAM4/IAM5 are granular rules - each finding is acknowledged
     // individually so any NEW wildcard still fails synth.
+    //
+    // cdk-nag renders finding ids with RESOLVED values when the stack has an
+    // environment (real deploys: account/region are concrete) and with
+    // placeholder tokens (<AWS::AccountId>) in env-less synths. Register the
+    // ARN-bearing acknowledgments for BOTH renderings so `cdk deploy` and
+    // env-less `cdk synth` both pass.
+    const nagAccounts = Token.isUnresolved(this.account)
+      ? ['<AWS::AccountId>']
+      : [this.account, '<AWS::AccountId>'];
     const quicksightAdminReason =
       'The portal administers ALL QuickSight assets in the account by design; ' +
       'QuickSight actions are scoped to account-level QuickSight ARNs.';
@@ -619,18 +628,18 @@ export class QuicksightPortalStack extends Stack {
         id: `AwsSolutions-IAM5[Action::quicksight:${a}]`,
         reason: quicksightAdminReason,
       })),
-      {
-        id: `AwsSolutions-IAM5[Resource::arn:aws:quicksight:${this.region}:<AWS::AccountId>:*]`,
+      ...nagAccounts.map((acct) => ({
+        id: `AwsSolutions-IAM5[Resource::arn:aws:quicksight:${this.region}:${acct}:*]`,
         reason: quicksightAdminReason,
-      },
+      })),
       ...['GetObject*', 'GetBucket*', 'List*', 'DeleteObject*', 'Abort*'].map((a) => ({
         id: `AwsSolutions-IAM5[Action::s3:${a}]`,
         reason: metadataBucketReason,
       })),
-      {
-        id: 'AwsSolutions-IAM5[Resource::arn:aws:s3:::quicksight-metadata-bucket-<AWS::AccountId>/*]',
+      ...nagAccounts.map((acct) => ({
+        id: `AwsSolutions-IAM5[Resource::arn:aws:s3:::quicksight-metadata-bucket-${acct}/*]`,
         reason: metadataBucketReason,
-      },
+      })),
       {
         id: 'AwsSolutions-IAM5[Resource::<WebsiteBucket75C24D94.Arn>/*]',
         reason: metadataBucketReason,
@@ -646,10 +655,10 @@ export class QuicksightPortalStack extends Stack {
           'cloudtrail:LookupEvents and datazone:SearchListings do not support ' +
           'resource-level scoping.',
       },
-      {
-        id: `AwsSolutions-IAM5[Resource::arn:aws:s3:::cdk-hnb659fds-assets-<AWS::AccountId>-${this.region}/*]`,
+      ...nagAccounts.map((acct) => ({
+        id: `AwsSolutions-IAM5[Resource::arn:aws:s3:::cdk-hnb659fds-assets-${acct}-${this.region}/*]`,
         reason: 'CDK-managed BucketDeployment reads its own asset bucket.',
-      },
+      })),
     ];
 
     for (const ack of acknowledgments) {
