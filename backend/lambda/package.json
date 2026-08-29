@@ -65,7 +65,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-import": "^2.32.0",
-    "eslint-plugin-perfectionist": "^4.15.1",
+    "eslint-plugin-perfectionist": "^5.10.1",
     "eslint-plugin-prettier": "^5.5.6",
     "nodemon": "^3.1.14",
     "openapi-typescript": "^7.13.0",

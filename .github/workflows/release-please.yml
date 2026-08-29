@@ -12,7 +12,7 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         with:
           # Uses release-please-config.json + .release-please-manifest.json
           # at the repo root. release-please scans conventional-commit
