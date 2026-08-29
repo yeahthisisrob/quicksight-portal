@@ -34,14 +34,14 @@ jobs:
         npm run build
     
     - name: Upload backend artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: backend-dist
         path: backend/lambda/dist/
         retention-days: 7
     
     - name: Upload frontend artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: frontend-dist
         path: frontend/dist/
