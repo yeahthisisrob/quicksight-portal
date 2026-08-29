@@ -8,7 +8,7 @@
  * Consumers: the activity-refresh job (refresh phase) and IngestionHandler
  * (live DescribeIngestion for the detail view).
  */
-import pLimit from 'p-limit';
+import pLimit, { type LimitFunction } from 'p-limit';
 
 import { EXPORT_CONFIG } from '../../config/exportConfig';
 import { type Ingestion, type IngestionMetadata } from '../../models/ingestion.model';
@@ -26,7 +26,7 @@ export interface IngestionRefreshResult {
 
 export class IngestionRefreshService {
   private readonly cacheService: CacheService;
-  private readonly concurrencyLimit: pLimit.Limit;
+  private readonly concurrencyLimit: LimitFunction;
   private readonly quickSightService: QuickSightService;
 
   constructor(quickSightService: QuickSightService, cacheService: CacheService) {
