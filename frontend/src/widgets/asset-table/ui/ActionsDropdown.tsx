@@ -1,4 +1,5 @@
 import {
+  DriveFileRenameOutline as RenameIcon,
   Hub as HubIcon,
   MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
@@ -23,8 +24,13 @@ interface ActionsDropdownProps {
     onNotifyInactive?: (asset: any) => void;
     onNotifyInactiveAnalyses?: (asset: any) => void;
     onNotifyUnusedDatasets?: (asset: any) => void;
+    onRenameClick?: (asset: any) => void;
   };
 }
+
+// Types the backend can rename live in QuickSight (datasources need
+// connection params resent; users/groups have no rename API)
+const RENAMEABLE_TYPES = ['dashboard', 'analysis', 'dataset', 'folder'];
 
 // Memoized: rendered once per row, so stable props skip re-rendering all rows'
 // menus when the grid re-renders
@@ -93,6 +99,12 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
         <MenuItem onClick={() => handleAction(() => handlers.onJsonViewerClick?.(asset, assetType))}>
           View JSON
         </MenuItem>
+        {RENAMEABLE_TYPES.includes(assetType) && (
+          <MenuItem onClick={() => handleAction(() => handlers.onRenameClick?.(asset))}>
+            <RenameIcon fontSize="small" sx={{ mr: 1 }} />
+            Rename
+          </MenuItem>
+        )}
         {(assetType === 'dashboard' || assetType === 'analysis') && (
           <MenuItem onClick={() => handleAction(() => handlers.onNotifyInactive?.(asset))}>
             Notify Inactive

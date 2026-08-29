@@ -69,6 +69,18 @@ export const assetsApi = {
     return response.data.data;
   },
 
+  // Rename an asset live in QuickSight (dashboard/analysis/dataset/folder)
+  async renameAsset(assetType: string, assetId: string, name: string): Promise<{ name: string }> {
+    const response = await apiClient.post<ApiResponse<{ name: string }>>(
+      `/assets/${assetType}/${assetId}/rename`,
+      { name }
+    );
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to rename asset');
+    }
+    return response.data.data!;
+  },
+
   // Rebuild index and catalog from existing exported data
   async rebuildIndex(): Promise<any> {
     const response = await apiClient.post<ApiResponse<any>>('/assets/rebuild-index');

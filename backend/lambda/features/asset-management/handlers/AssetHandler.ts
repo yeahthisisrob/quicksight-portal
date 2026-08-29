@@ -10,6 +10,7 @@ import { successResponse, errorResponse, createResponse } from '../../../shared/
 import { logger } from '../../../shared/utils/logger';
 import { PermissionsService } from '../../organization/services/PermissionsService';
 import { AssetService } from '../services/AssetService';
+import { isRenameableAssetType, RenameService } from '../services/RenameService';
 import { type AssetListRequest } from '../types';
 
 export class AssetHandler {
@@ -442,6 +443,43 @@ export class AssetHandler {
     } catch (error) {
       logger.error('Failed to rebuild index', { error });
       return errorResponse(event, STATUS_CODES.INTERNAL_SERVER_ERROR, 'Failed to rebuild index');
+    }
+  }
+
+  /**
+   * Rename an asset live in QuickSight (dashboard/analysis/dataset/folder).
+   * POST /assets/{assetType}/{assetId}/rename  body: { name }
+   */
+  public async renameAsset(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const assetType = event.pathParameters?.assetType || '';
+      const assetId = event.pathParameters?.assetId || '';
+      const { name } = JSON.parse(event.body || '{}');
+
+      if (!isRenameableAssetType(assetType)) {
+        return errorResponse(
+          event,
+          STATUS_CODES.BAD_REQUEST,
+          `Asset type '${assetType}' cannot be renamed (supported: dashboard, analysis, dataset, folder)`
+        );
+      }
+      if (!assetId || typeof name !== 'string' || name.trim().length === 0) {
+        return errorResponse(
+          event,
+          STATUS_CODES.BAD_REQUEST,
+          'Asset id and a non-empty name are required'
+        );
+      }
+
+      logger.info('Rename requested', { user: user.email, assetType, assetId });
+      const renameService = new RenameService(this.accountId);
+      const result = await renameService.renameAsset(assetType, assetId, name);
+
+      return successResponse(event, { success: true, data: result });
+    } catch (error: any) {
+      logger.error('Rename failed', { error });
+      return errorResponse(event, STATUS_CODES.BAD_REQUEST, error.message || 'Rename failed');
     }
   }
 
