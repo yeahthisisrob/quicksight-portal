@@ -659,6 +659,66 @@ export class CacheWriter {
     }
   }
 
+  /**
+   * Upsert cache entries for a specific set of just-exported assets by
+   * re-parsing only their S3 files, merging into the existing type cache.
+   *
+   * This replaces the post-export full-type rebuild (which re-listed and
+   * re-parsed EVERY file of the type even when 5 assets changed) - the cost
+   * that pushed large Smart Sync runs past the 15-min Lambda ceiling.
+   *
+   * Collection types (user/group/folder) live in one S3 file, so a full
+   * type rebuild is already a single read - delegate to it.
+   */
+  public async upsertCacheEntriesForAssets(
+    assetType: AssetType,
+    assetIds: string[]
+  ): Promise<void> {
+    if (assetIds.length === 0) {
+      return;
+    }
+
+    if (isCollectionType(assetType)) {
+      return this.rebuildCacheForAssetType(assetType);
+    }
+
+    try {
+      const startTime = Date.now();
+      const existing = (await this.loadTypeCache(assetType)) || [];
+      const byId = new Map<string, CacheEntry>(existing.map((e) => [e.assetId, e]));
+
+      const limit = pLimit(EXPORT_CONFIG.cacheRebuild.maxConcurrentReads);
+      const parsed = await Promise.all(
+        assetIds.map((assetId) =>
+          limit(() => this.createCacheEntryFromAsset(assetType, assetId, 'active'))
+        )
+      );
+
+      const newEntries = parsed.filter((e): e is CacheEntry => e !== null);
+      for (const entry of newEntries) {
+        byId.set(entry.assetId, entry);
+      }
+      const merged = Array.from(byId.values());
+
+      // Only the new/changed entries need lineage-name resolution
+      await this.resolveLineageNamesForEntries(newEntries, assetType);
+
+      await this.saveTypeCache(assetType, merged);
+      await this.updateCacheMetadata(assetType, merged.length);
+      this.evictMemoryForType(assetType);
+      this.memoryAdapter.delete('master-cache');
+
+      logger.info(`Upserted ${newEntries.length} ${assetType} cache entries`, {
+        requested: assetIds.length,
+        totalInCache: merged.length,
+        duration: `${((Date.now() - startTime) / TIME_UNITS.SECOND).toFixed(2)}s`,
+      });
+    } catch (error) {
+      logger.error(`Failed to upsert cache entries for ${assetType}`, { error });
+      throw error;
+    }
+  }
+
   private buildCacheEntry(params: {
     assetType: AssetType;
     assetKey: string;

@@ -738,6 +738,24 @@ paths:
                 $ref: '#/components/schemas/ExportJobResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Another export job is already running (only one export may run at a time)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      activeJobId:
+                        type: string
+                        description: ID of the export job currently running
         '500':
           $ref: '#/components/responses/InternalServerError'
 

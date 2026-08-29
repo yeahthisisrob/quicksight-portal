@@ -92,7 +92,9 @@ function buildRefreshOptions(exportMode: ExportMode): RefreshOptions | undefined
 /**
  * Check if error is a network error with status code
  */
-function isNetworkError(error: unknown): error is { response?: { status?: number } } {
+function isNetworkError(
+  error: unknown
+): error is { response?: { status?: number; data?: any } } {
   return (
     error !== null &&
     typeof error === 'object' &&
@@ -100,6 +102,9 @@ function isNetworkError(error: unknown): error is { response?: { status?: number
     typeof (error as any).response === 'object'
   );
 }
+
+/** Job statuses that mean an export is still in flight */
+const ACTIVE_JOB_STATUSES = ['queued', 'processing', 'stopping'];
 
 /**
  * Get error message from unknown error type
@@ -211,20 +216,43 @@ export function useExportJob(onCacheSummaryUpdate: () => void) {
       const exportOptions = buildExportOptions(exportMode, backendAssetTypes);
       
       const result = await exportApi.startExportJob(exportOptions);
-      
+
       if (result?.jobId) {
         setCurrentJobId(result.jobId);
         localStorage.setItem('lastExportJobId', result.jobId);
-        
+
         setJobStatus({
           status: 'queued',
           progress: 0,
           message: 'Export job queued...',
         });
-        
+
         enqueueSnackbar(`Export job started: ${result.jobId}`, { variant: 'success' });
       }
     } catch (error) {
+      // 409: only one export may run at a time - attach to the running job
+      // instead of erroring, so the user sees its live progress
+      if (isNetworkError(error) && error.response?.status === 409) {
+        const activeJobId: string | undefined = error.response?.data?.data?.activeJobId;
+        enqueueSnackbar(
+          'An export job is already running - showing its progress instead.',
+          { variant: 'warning' }
+        );
+        if (activeJobId) {
+          setCurrentJobId(activeJobId);
+          localStorage.setItem('lastExportJobId', activeJobId);
+          setJobStartedInSession(false);
+          setJobStatus({
+            status: 'processing',
+            progress: 0,
+            message: 'Export already in progress...',
+          });
+          return; // keep isRunning=true so polling attaches to the job
+        }
+        setIsRunning(false);
+        return;
+      }
+
       const errorMessage = getErrorMessage(error);
       console.error('Failed to start export:', error);
       enqueueSnackbar(errorMessage, { variant: 'error' });
@@ -261,14 +289,41 @@ export function useExportJob(onCacheSummaryUpdate: () => void) {
     }
   }, [isRefreshing, currentJobId, loadJobStatus]);
   
-  // Load last job from localStorage on mount (but not if viewing historical)
+  // On mount: first adopt any export job that's already running server-side
+  // (only one export may run at a time - it may have been started in another
+  // tab or by another user), so the UI shows its progress and blocks a second
+  // start. Otherwise fall back to the last job from localStorage.
   useEffect(() => {
     if (isViewingHistorical) return;
-    
-    const storedJobId = localStorage.getItem('lastExportJobId');
-    if (storedJobId) {
+
+    let cancelled = false;
+    const adoptActiveJob = async (): Promise<boolean> => {
+      try {
+        const { jobs } = await exportApi.listJobs({ type: 'export', limit: 10 });
+        const active = jobs.find((job) => ACTIVE_JOB_STATUSES.includes(job.status));
+        if (!active || cancelled) return false;
+
+        setCurrentJobId(active.jobId);
+        localStorage.setItem('lastExportJobId', active.jobId);
+        setJobStartedInSession(false);
+        setIsRunning(true);
+        setJobStatus({
+          status: active.status,
+          progress: active.progress || 0,
+          message: active.message,
+          stats: active.stats,
+        });
+        return true;
+      } catch {
+        return false; // non-fatal - fall through to localStorage restore
+      }
+    };
+
+    const restoreFromStorage = () => {
+      const storedJobId = localStorage.getItem('lastExportJobId');
+      if (!storedJobId || cancelled) return;
       setCurrentJobId(storedJobId);
-      
+
       // Load status directly without depending on loadJobStatus to avoid circular deps
       const loadInitialStatus = async () => {
         try {
@@ -310,9 +365,19 @@ export function useExportJob(onCacheSummaryUpdate: () => void) {
           }
         }
       };
-      
+
       loadInitialStatus();
-    }
+    };
+
+    adoptActiveJob().then((adopted) => {
+      if (!adopted) {
+        restoreFromStorage();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [isViewingHistorical, onCacheSummaryUpdate]); // Re-run when historical viewing changes
   
   // Poll for job status (only for active jobs, not historical)

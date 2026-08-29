@@ -3,20 +3,24 @@ import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambd
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { JobHandler } from '../../../shared/handlers/JobHandler';
+import { S3Service } from '../../../shared/services/aws/S3Service';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { jobFactory, type ExportJobConfig } from '../../../shared/services/jobs/JobFactory';
+import { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { createResponse, successResponse, errorResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 
 export class ExportHandler {
   private readonly bucketName: string;
   private readonly jobHandler: JobHandler;
+  private readonly jobStateService: JobStateService;
 
   constructor() {
     const accountId = process.env.AWS_ACCOUNT_ID || '';
     this.bucketName = process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`;
 
     this.jobHandler = new JobHandler();
+    this.jobStateService = new JobStateService(new S3Service(accountId), this.bucketName, 'export');
   }
 
   public async exportAssets(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -31,6 +35,20 @@ export class ExportHandler {
       } = JSON.parse(event.body || '{}');
 
       const accountId = process.env.AWS_ACCOUNT_ID || '';
+
+      // Only one export may run at a time (any mode - smart sync, force
+      // refresh, cache rebuild, permissions, tags). Reading the job list also
+      // auto-fails dead jobs (repairDeadJobs), so a crashed export can never
+      // wedge this guard.
+      const activeExports = await this.jobStateService.getActiveJobs();
+      const running = activeExports.filter((job) => job.jobType === 'export');
+      if (running.length > 0 && running[0]) {
+        return createResponse(event, STATUS_CODES.CONFLICT, {
+          success: false,
+          error: 'An export job is already running. Wait for it to finish or stop it first.',
+          data: { activeJobId: running[0].jobId },
+        });
+      }
 
       // If exportOrganizational is true, set assetTypes to organizational types
       const finalAssetTypes = exportOrganizational ? ['group', 'folder', 'user'] : assetTypes;

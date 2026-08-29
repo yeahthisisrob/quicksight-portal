@@ -711,6 +711,19 @@ export class CacheService extends EventEmitter {
   }
 
   /**
+   * Merge cache entries for just the given assets by re-parsing only their S3
+   * files - the incremental alternative to rebuildCacheForAssetType after an
+   * export where only a subset of assets changed.
+   */
+  public async upsertCacheEntriesForAssets(
+    assetType: AssetType,
+    assetIds: string[]
+  ): Promise<void> {
+    const writer = await this.getCacheWriter();
+    return writer.upsertCacheEntriesForAssets(assetType, assetIds);
+  }
+
+  /**
    * Map asset type to count key for the summary
    */
   private getAssetTypeCountKey(assetType: AssetType): keyof AssetTypeCounts | null {
