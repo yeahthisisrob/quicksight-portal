@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.12.1...v1.12.2) (2026-08-29)
+
+
+### Bug Fixes
+
+* export survives Lambda timeout via checkpoint/resume; single-export mutex; incremental cache upserts ([#67](https://github.com/yeahthisisrob/quicksight-portal/issues/67)) ([7e1647c](https://github.com/yeahthisisrob/quicksight-portal/commit/7e1647c8201c8d953ade8e53487c34c82ab5233d))
+
 ## [1.12.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.12.0...v1.12.1) (2026-08-23)
 
 
