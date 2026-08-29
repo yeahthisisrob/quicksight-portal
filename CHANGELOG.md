@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.14.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.13.1...v1.14.0) (2026-08-29)
+
+
+### Features
+
+* rename assets live in QuickSight from the asset tables ([#90](https://github.com/yeahthisisrob/quicksight-portal/issues/90)) ([715fa7d](https://github.com/yeahthisisrob/quicksight-portal/commit/715fa7d36be476670cb622c460bb22f36986b0c5))
+
+## [1.13.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.13.0...v1.13.1) (2026-08-29)
+
+
+### Chores
+
+* maintenance - Dependabot, dependency bumps, cdk-nag guardrail, README refresh ([#71](https://github.com/yeahthisisrob/quicksight-portal/issues/71)) ([dec22e5](https://github.com/yeahthisisrob/quicksight-portal/commit/dec22e50b9f9971ff58fee7abc91e0b727898c4b))
+
 ## [1.13.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.12.2...v1.13.0) (2026-08-29)
 
 

@@ -61,6 +61,7 @@ import {
   DeleteUserCommand,
   RegisterUserCommand,
   UpdateDashboardCommand,
+  UpdateDashboardPublishedVersionCommand,
   UpdateAnalysisCommand,
   UpdateDataSetCommand,
   UpdateDataSourceCommand,
@@ -1237,6 +1238,24 @@ export class QuickSightAdapter {
       Permissions: response.Permissions,
       RequestId: response.RequestId,
     };
+  }
+
+  /**
+   * Publish a dashboard version (UpdateDashboard creates a new draft
+   * version; viewers only see it once published)
+   */
+  public async updateDashboardPublishedVersion(
+    dashboardId: string,
+    versionNumber: number
+  ): Promise<{ dashboardId?: string; status?: number }> {
+    const command = new UpdateDashboardPublishedVersionCommand({
+      AwsAccountId: this.awsAccountId,
+      DashboardId: dashboardId,
+      VersionNumber: versionNumber,
+    });
+
+    const response = await this.sendWithRateLimit(command);
+    return { dashboardId: response.DashboardId, status: response.Status };
   }
 
   public async updateDataSet(params: {
