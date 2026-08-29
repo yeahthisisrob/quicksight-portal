@@ -5,7 +5,6 @@ import { CloudTrailAdapter } from '../../../adapters/aws/CloudTrailAdapter';
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants/httpStatusCodes';
 import { ACTIVITY_LIMITS } from '../../../shared/constants/limits';
-import { S3Service } from '../../../shared/services/aws/S3Service';
 import { CacheService } from '../../../shared/services/cache/CacheService';
 import {
   jobFactory,
@@ -76,11 +75,7 @@ export async function refreshActivity(event: APIGatewayProxyEvent): Promise<APIG
     // Single-flight: if an activity-refresh job is already queued or in flight,
     // return its jobId rather than enqueuing a duplicate. The FE polls by
     // jobId, so "click refresh again" naturally follows the existing job.
-    const jobStateService = new JobStateService(
-      new S3Service(accountId),
-      bucketName,
-      'activity-refresh'
-    );
+    const jobStateService = new JobStateService('activity-refresh');
     const [existing] = await jobStateService.getActiveJobs();
     if (existing) {
       logger.info('Active activity-refresh job exists; returning its id instead of enqueuing', {

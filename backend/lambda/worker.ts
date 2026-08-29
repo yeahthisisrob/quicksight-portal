@@ -211,14 +211,7 @@ function computeInvocationDeadline(context: Context): number | null {
  * Process a deployment job from SQS message
  */
 async function processDeploymentJob(message: DeployMessage, record: any): Promise<void> {
-  const {
-    jobId,
-    accountId: msgAccountId,
-    bucketName,
-    assetType,
-    assetId,
-    deploymentConfig,
-  } = message;
+  const { jobId, accountId: msgAccountId, assetType, assetId, deploymentConfig } = message;
 
   logger.info('Starting deployment job from SQS', {
     jobId,
@@ -229,7 +222,7 @@ async function processDeploymentJob(message: DeployMessage, record: any): Promis
     messageId: record.messageId,
   });
 
-  const jobStateService = new JobStateService(s3Service, bucketName, 'deploy');
+  const jobStateService = new JobStateService('deploy');
 
   try {
     await cleanupStuckJobs(jobStateService, 'deployment');
@@ -259,7 +252,7 @@ async function processExportJob(
   record: any,
   context: Context
 ): Promise<void> {
-  const { jobId, accountId: msgAccountId, bucketName, options } = message;
+  const { jobId, accountId: msgAccountId, options } = message;
 
   logger.info('Starting export job from SQS', {
     jobId,
@@ -270,7 +263,7 @@ async function processExportJob(
     options,
   });
 
-  const jobStateService = new JobStateService(s3Service, bucketName, 'export');
+  const jobStateService = new JobStateService('export');
   const exportOrchestrator = new ExportOrchestrator(msgAccountId);
 
   try {
@@ -298,7 +291,7 @@ async function processActivityRefreshJob(
   message: ActivityRefreshMessage,
   record: any
 ): Promise<void> {
-  const { jobId, accountId: msgAccountId, bucketName, options } = message;
+  const { jobId, accountId: msgAccountId, options } = message;
 
   logger.info('Processing activity refresh job', {
     jobId,
@@ -307,7 +300,7 @@ async function processActivityRefreshJob(
     options,
   });
 
-  const jobStateService = new JobStateService(s3Service, bucketName, 'activity-refresh');
+  const jobStateService = new JobStateService('activity-refresh');
   const activityProcessor = new ActivityRefreshProcessor(process.env.AWS_REGION || 'us-east-1');
 
   try {
@@ -388,14 +381,7 @@ async function handleActivityRefreshError(
  * Process a bulk operation job from SQS message
  */
 async function processBulkOperationJob(message: BulkOperationMessage, record: any): Promise<void> {
-  const {
-    jobId,
-    accountId: msgAccountId,
-    bucketName,
-    operationConfig,
-    batchSize,
-    maxConcurrency,
-  } = message;
+  const { jobId, accountId: msgAccountId, operationConfig, batchSize, maxConcurrency } = message;
 
   logger.info('Processing bulk operation job', {
     jobId,
@@ -405,7 +391,7 @@ async function processBulkOperationJob(message: BulkOperationMessage, record: an
     estimatedOperations: message.estimatedOperations,
   });
 
-  const jobStateService = new JobStateService(s3Service, bucketName, 'bulk-operation');
+  const jobStateService = new JobStateService('bulk-operation');
 
   // Import BulkOperationsProcessor dynamically to avoid circular dependencies
   const { BulkOperationsProcessor } = await import(
@@ -429,7 +415,7 @@ async function processBulkOperationJob(message: BulkOperationMessage, record: an
 
     // Save the result
     const { JobRepository } = await import('./shared/services/jobs/JobRepository');
-    const jobRepository = new JobRepository(s3Service, bucketName);
+    const jobRepository = new JobRepository();
     await jobRepository.saveJobResult(jobId, result);
 
     // Mark job as completed (processor should have done this, but ensure it's done)
@@ -537,7 +523,7 @@ async function handleBulkOperationError(
  * Process a CSV export job from SQS message
  */
 async function processCSVExportJob(message: CSVExportMessage, record: any): Promise<void> {
-  const { jobId, accountId: msgAccountId, bucketName, assetType, options } = message;
+  const { jobId, accountId: msgAccountId, assetType, options } = message;
 
   logger.info('Processing CSV export job', {
     jobId,
@@ -547,7 +533,7 @@ async function processCSVExportJob(message: CSVExportMessage, record: any): Prom
     options,
   });
 
-  const jobStateService = new JobStateService(s3Service, bucketName, 'csv-export');
+  const jobStateService = new JobStateService('csv-export');
 
   // Import CSVExportProcessor dynamically
   const { CSVExportProcessor } = await import(
@@ -565,13 +551,10 @@ async function processCSVExportJob(message: CSVExportMessage, record: any): Prom
     // Generate the CSV export
     const result = await csvExportProcessor.generateCSVExport(assetType, options || {});
 
-    // Save the result
+    // Save the result (durable immediately - per-job DynamoDB item)
     const { JobRepository } = await import('./shared/services/jobs/JobRepository');
-    const jobRepository = new JobRepository(s3Service, bucketName);
+    const jobRepository = new JobRepository();
     await jobRepository.saveJobResult(jobId, result);
-
-    // Persist the job index immediately so result is available
-    await cacheService.persistJobIndex();
 
     // Mark job as completed
     await jobStateService.updateJobStatus(jobId, {
@@ -656,9 +639,8 @@ async function handleCSVExportError(
  */
 async function cleanupStuckJobs(jobStateService: JobStateService, jobType: string): Promise<void> {
   try {
-    // No explicit threshold: use JOB_CONFIG.STUCK_JOB_TIMEOUT_MINUTES (30).
-    // The old 5-minute WORKER_CONFIG value was shorter than a legitimate bulk
-    // job and auto-failed live jobs as "worker died or timed out".
+    // No explicit threshold: JOB_CONFIG.STUCK_JOB_TIMEOUT_MINUTES (30) is
+    // deliberately longer than any legitimate single invocation.
     const cleanedCount = await jobStateService.cleanupStuckJobs();
     if (cleanedCount > 0) {
       logger.info(`Cleaned up ${cleanedCount} dead ${jobType} jobs before processing`);
@@ -763,7 +745,7 @@ async function executeDeploymentJob(
 
   // Always save the result for inspection
   const { JobRepository } = await import('./shared/services/jobs/JobRepository');
-  const jobRepository = new JobRepository(s3Service, bucketName);
+  const jobRepository = new JobRepository();
   await jobRepository.saveJobResult(jobId, result);
 
   const verification = result.metadata?.verification;
@@ -811,9 +793,7 @@ async function executeDeploymentJob(
  * processed - the message is then deleted (we return without throwing), which
  * is what kills zombie redelivery loops:
  *
- * - A redelivered message for a finished/stopped/failed job is dropped. Old
- *   messages left looping by the pre-continuation timeout bug land here (the
- *   pre-run sweep has long since auto-failed their jobs).
+ * - A redelivered message for a finished/stopped/failed job is dropped.
  * - A redelivery while the job's heartbeat is still fresh means another
  *   invocation is live (visibility timeout elapsed mid-run) - dropped to
  *   prevent two workers processing the same job concurrently.
@@ -867,7 +847,9 @@ async function initializeExportJob(
     return false;
   }
 
-  if (!isContinuation && !(await guardSingleExportSlot(jobStateService, jobId))) {
+  // Re-entrant, so continuation invocations re-acquire (and thereby refresh
+  // the lock expiry each hop)
+  if (!(await guardSingleExportSlot(jobStateService, jobId))) {
     return false;
   }
 
@@ -895,8 +877,7 @@ async function guardExportRedelivery(
   receiveCount: number,
   isContinuation: boolean
 ): Promise<boolean> {
-  // Terminal job: this is a redelivered zombie message - drop it. Old
-  // messages left looping by the pre-continuation timeout bug land here.
+  // Terminal job: this is a redelivered zombie message - drop it.
   if (['completed', 'stopped', 'failed'].includes(existingJob.status)) {
     logger.info('Dropping redelivered message for terminal export job', {
       jobId,
@@ -945,24 +926,25 @@ async function guardExportRedelivery(
 }
 
 /**
- * Only one export job may run at a time (any mode). The API also enforces
- * this with a 409; this is the last line of defense against races.
+ * Only one export job may run at a time (any mode). Enforced by an atomic
+ * conditional-write lock in DynamoDB - race-free, auto-expiring (stuck-job
+ * timeout), re-entrant for continuations, and released on terminal status
+ * writes. The API's 409 check is the friendly front door; this is the
+ * authoritative gate.
  */
 async function guardSingleExportSlot(
   jobStateService: JobStateService,
   jobId: string
 ): Promise<boolean> {
-  const activeJobs = await jobStateService.getActiveJobs();
-  const otherActive = activeJobs.filter((job) => job.jobId !== jobId && job.jobType === 'export');
-  if (otherActive.length > 0 && otherActive[0]) {
-    logger.warn('Export job blocked - another export is already running', {
+  const acquired = await jobStateService.acquireExportLock(jobId);
+  if (!acquired) {
+    logger.warn('Export job blocked - another export holds the export lock', {
       blockedJobId: jobId,
-      existingJobId: otherActive[0].jobId,
     });
     await jobStateService.updateJobStatus(jobId, {
       status: 'failed',
       endTime: new Date().toISOString(),
-      message: `Another export job is already running (${otherActive[0].jobId})`,
+      message: 'Another export job is already running',
       error: 'Duplicate export blocked',
     });
     return false;

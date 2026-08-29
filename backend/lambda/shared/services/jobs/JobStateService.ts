@@ -11,7 +11,6 @@ import {
   type JobPhase,
   type ExportCheckpoint,
 } from './JobRepository';
-import { type S3Service } from '../../../shared/services/aws/S3Service';
 import { JOB_CONFIG, QUICKSIGHT_LIMITS, MATH_CONSTANTS } from '../../constants';
 
 export type { JobPhase, JobPhaseStatus } from './JobRepository';
@@ -45,15 +44,34 @@ export interface JobLog {
   details?: any;
 }
 
+/**
+ * Minimal progress sink handed to long-running cache/parse operations:
+ * appendLog feeds the job log pane, checkpoint stamps the heartbeat so the
+ * stuck-job sweep never auto-fails a live rebuild.
+ */
+export interface JobProgressLogger {
+  appendLog: (message: string, level?: string) => Promise<void>;
+  checkpoint: () => Promise<void>;
+}
+
 export class JobStateService {
   private readonly defaultJobType: JobType = 'export'; // Default for backward compatibility
   private readonly repository: JobRepository;
 
-  constructor(s3Service: S3Service, bucketName: string, jobType?: JobType) {
-    this.repository = new JobRepository(s3Service, bucketName);
+  constructor(jobType?: JobType) {
+    this.repository = new JobRepository();
     if (jobType) {
       this.defaultJobType = jobType;
     }
+  }
+
+  /**
+   * Acquire the single-export mutex (atomic conditional write; re-entrant
+   * for continuation invocations of the same job). Returns false when
+   * another export holds it.
+   */
+  public async acquireExportLock(jobId: string): Promise<boolean> {
+    return await this.repository.acquireExportLock(jobId);
   }
 
   /**
@@ -266,6 +284,32 @@ export class JobStateService {
       message,
       details,
     });
+  }
+
+  /**
+   * Build a JobProgressLogger for a long-running operation. checkpoint()
+   * writes the given status message, which also stamps the job heartbeat.
+   */
+  public progressLogger(jobId: string, heartbeatMessage: string): JobProgressLogger {
+    return {
+      appendLog: async (message: string, level: string = 'info') => {
+        await this.appendLog(jobId, {
+          timestamp: new Date().toISOString(),
+          level: level as 'info' | 'warn' | 'error',
+          message,
+        });
+      },
+      checkpoint: async () => {
+        await this.updateJobStatus(jobId, { message: heartbeatMessage });
+      },
+    };
+  }
+
+  /**
+   * Release the single-export mutex (no-op if this job doesn't hold it)
+   */
+  public async releaseExportLock(jobId: string): Promise<void> {
+    await this.repository.releaseExportLock(jobId);
   }
 
   /**

@@ -21,7 +21,106 @@ interface ExportJobStatusProps {
     failedAssets?: number;
     apiCalls?: number;
   };
+  /** Job heartbeat - stamped on every worker write; drives the liveness dot */
+  lastUpdatedTime?: string;
+  /** Resumable-export progress - drives the per-asset-type chips */
+  checkpoint?: {
+    completedAssetTypes?: string[];
+    catalogPending?: boolean;
+  };
   jobId?: string | null;
+}
+
+const HEARTBEAT_QUIET_MS = 90 * 1000; // amber: worker hasn't written in a while
+const HEARTBEAT_STALLED_MS = 5 * 60 * 1000; // red: likely dead (auto-fails at 30m)
+
+function formatAge(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
+
+/**
+ * Worker-liveness line for active jobs, derived from the job heartbeat
+ * (lastUpdatedTime is stamped on every job write). Re-renders with each
+ * status poll, so the age stays fresh at poll granularity.
+ */
+function HeartbeatIndicator({ lastUpdatedTime }: { lastUpdatedTime: string }) {
+  const ageMs = Date.now() - new Date(lastUpdatedTime).getTime();
+  if (Number.isNaN(ageMs) || ageMs < 0) return null;
+
+  let dotColor = colors.status.success;
+  let text = `Worker active ${formatAge(ageMs)} ago`;
+  if (ageMs >= HEARTBEAT_STALLED_MS) {
+    dotColor = colors.status.error;
+    text = `No heartbeat for ${formatAge(ageMs)} — worker may have died (auto-fails after 30m)`;
+  } else if (ageMs >= HEARTBEAT_QUIET_MS) {
+    dotColor = colors.status.warning;
+    text = `Worker quiet for ${formatAge(ageMs)}`;
+  }
+
+  return (
+    <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mt: 1 }}>
+      <Box
+        sx={{
+          width: 8,
+          height: 8,
+          borderRadius: '50%',
+          bgcolor: dotColor,
+          flexShrink: 0,
+        }}
+      />
+      <Typography variant="caption" color="text.secondary">
+        {text}
+      </Typography>
+    </Stack>
+  );
+}
+
+/**
+ * Data-driven per-asset-type progress from the export checkpoint (written
+ * after each type completes) - no log parsing required. Also surfaces the
+ * deferred catalog-rebuild phase of a continuation run.
+ */
+function CheckpointProgress({
+  checkpoint,
+  isActive,
+}: {
+  checkpoint: NonNullable<ExportJobStatusProps['checkpoint']>;
+  isActive: boolean;
+}) {
+  const completed = checkpoint.completedAssetTypes || [];
+  if (completed.length === 0 && !checkpoint.catalogPending) return null;
+
+  return (
+    <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', rowGap: 0.5 }}>
+      <Typography variant="caption" color="text.secondary">
+        Asset types done:
+      </Typography>
+      {completed.map((type) => (
+        <Chip
+          key={type}
+          icon={<SuccessIcon sx={{ fontSize: 14 }} />}
+          label={type}
+          size="small"
+          variant="outlined"
+          color="success"
+          sx={{ height: 20, fontSize: '0.65rem' }}
+        />
+      ))}
+      {checkpoint.catalogPending && isActive && (
+        <Chip
+          label="catalog rebuild pending"
+          size="small"
+          variant="outlined"
+          color="info"
+          sx={{ height: 20, fontSize: '0.65rem' }}
+        />
+      )}
+    </Stack>
+  );
 }
 
 const STATUS_CONFIG: Record<
@@ -57,6 +156,8 @@ export default function ExportJobStatus({
   progress,
   message,
   stats,
+  lastUpdatedTime,
+  checkpoint,
   jobId,
 }: ExportJobStatusProps) {
   const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.queued;
@@ -110,6 +211,10 @@ export default function ExportJobStatus({
             )}
           </Stack>
         )}
+
+        {checkpoint && <CheckpointProgress checkpoint={checkpoint} isActive={isActive} />}
+
+        {isActive && lastUpdatedTime && <HeartbeatIndicator lastUpdatedTime={lastUpdatedTime} />}
       </Box>
     </Card>
   );

@@ -3,7 +3,6 @@ import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambd
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { JobHandler } from '../../../shared/handlers/JobHandler';
-import { S3Service } from '../../../shared/services/aws/S3Service';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { jobFactory, type ExportJobConfig } from '../../../shared/services/jobs/JobFactory';
 import { JobStateService } from '../../../shared/services/jobs/JobStateService';
@@ -20,7 +19,7 @@ export class ExportHandler {
     this.bucketName = process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`;
 
     this.jobHandler = new JobHandler();
-    this.jobStateService = new JobStateService(new S3Service(accountId), this.bucketName, 'export');
+    this.jobStateService = new JobStateService('export');
   }
 
   public async exportAssets(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {

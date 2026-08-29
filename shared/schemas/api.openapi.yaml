@@ -3433,6 +3433,12 @@ components:
             startTime:
               type: string
               format: date-time
+            lastUpdatedTime:
+              type: string
+              format: date-time
+              description: |
+                Heartbeat - stamped on every job write. The UI uses it to show
+                worker liveness ("active Ns ago") and flag stalled jobs.
             endTime:
               type: string
               format: date-time
@@ -3459,6 +3465,29 @@ components:
                 (e.g. activity-refresh). Older job types omit this field.
               items:
                 $ref: '#/components/schemas/JobPhase'
+            checkpoint:
+              type: object
+              description: |
+                Resumable-export progress (export jobs only). Written after
+                each asset type completes so continuation invocations resume
+                where the previous one paused; the UI renders it as per-type
+                progress.
+              properties:
+                completedAssetTypes:
+                  type: array
+                  items:
+                    type: string
+                hydratedAssetTypes:
+                  type: array
+                  items:
+                    type: string
+                catalogPending:
+                  type: boolean
+                totalProcessed:
+                  type: integer
+                updatedAt:
+                  type: string
+                  format: date-time
 
     ExportJobList:
       type: object

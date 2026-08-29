@@ -1,701 +1,403 @@
-import { vi, type Mocked } from 'vitest';
+import { vi } from 'vitest';
 
-import { S3Service } from '../../aws/S3Service';
-import { CacheService } from '../../cache/CacheService';
-import { JobRepository, type JobMetadata } from '../JobRepository';
+import { JobRepository, type JobMetadata, type JobLog } from '../JobRepository';
 
-// Test constants
-const TEST_CONSTANTS = {
-  TEST_YEAR: 2025,
-  RETRY_COUNT: 3,
-  SMALL_BATCH: 5,
-  MEDIUM_BATCH: 10,
-} as const;
+const HOUR_MS = 3600000;
+const MEDIUM_BATCH = 10;
+const TEST_YEAR = 2025;
+const BIG_RESULT_BYTES = 400000; // past the 350KB truncation threshold
+const LOCK_KEY = { pk: '__export-lock__', sk: 'META' };
 
-// Mock dependencies
-vi.mock('../../aws/S3Service');
-vi.mock('../../cache/CacheService');
+// Shared DynamoDB mock (hoisted so the module factory can reference it)
+const mocks = vi.hoisted(() => ({
+  dynamo: {
+    getItem: vi.fn(),
+    putItem: vi.fn(),
+    deleteItem: vi.fn(),
+    updateItem: vi.fn(),
+    queryIndex: vi.fn(),
+    queryPartition: vi.fn(),
+    batchDelete: vi.fn(),
+    ensureJobsTableExists: vi.fn(),
+  },
+}));
+
+vi.mock('../../aws/DynamoDBService', () => ({
+  DynamoDBService: vi.fn(() => mocks.dynamo),
+  isConditionalCheckFailed: (error: any) => error?.name === 'ConditionalCheckFailedException',
+}));
 vi.mock('../../../utils/logger');
 
-// Test data factories
-const createMockJob = (overrides = {}): JobMetadata => ({
+const conditionalFailure = () => {
+  const error = new Error('conditional check failed');
+  (error as any).name = 'ConditionalCheckFailedException';
+  return error;
+};
+
+const createMockJob = (overrides: Partial<JobMetadata> = {}): JobMetadata => ({
   jobId: 'export-123',
   jobType: 'export',
   status: 'completed',
   // Fresh heartbeat: keeps active-status fixtures from being auto-failed by
-  // the dead-job sweep that now runs inside listJobs()/getJob().
+  // the dead-job sweep that runs inside listJobs()/getJob().
   lastUpdatedTime: new Date().toISOString(),
   progress: 100,
   message: 'Export completed successfully',
   startTime: '2025-01-01T00:00:00.000Z',
   endTime: '2025-01-01T00:05:00.000Z',
   duration: 300000,
-  stats: {
-    totalAssets: 10,
-    processedAssets: 10,
-    failedAssets: 0,
-    operations: { describeDashboard: 10, describeDataset: 20 },
-  },
   ...overrides,
 });
 
-const createMockJobs = (): JobMetadata[] => [
+/** Point the mocks at a fixed set of stored jobs */
+function setStoredJobs(jobs: JobMetadata[]): void {
+  mocks.dynamo.getItem.mockImplementation(
+    async (_table: string, key: { pk: string; sk: string }) =>
+      jobs.find((j) => j.jobId === key.pk) || null
+  );
+  mocks.dynamo.queryIndex.mockResolvedValue(jobs);
+}
+
+let repository: JobRepository;
+
+/** Fresh repository + clean mocks for every test */
+function setupRepository(): void {
+  vi.clearAllMocks();
+  (JobRepository as any).logCounters.clear();
+  repository = new JobRepository();
+  setStoredJobs([]);
+  mocks.dynamo.queryPartition.mockResolvedValue([]);
+}
+
+const deadJob = (overrides: Partial<JobMetadata> = {}): JobMetadata =>
   createMockJob({
-    jobId: 'export-123',
-    status: 'completed',
-    startTime: '2025-01-01T00:00:00.000Z',
-  }),
-  createMockJob({
-    jobId: 'export-456',
+    jobId: 'dead-1',
     status: 'processing',
-    progress: 50,
-    startTime: '2025-01-01T00:01:00.000Z',
+    startTime: new Date(Date.now() - 2 * HOUR_MS).toISOString(),
+    lastUpdatedTime: new Date(Date.now() - HOUR_MS).toISOString(),
     endTime: undefined,
     duration: undefined,
-  }),
-];
-
-describe('JobRepository', () => {
-  let repository: JobRepository;
-  let mockS3Service: Mocked<S3Service>;
-  let mockCacheService: Mocked<CacheService>;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-
-    // Create mock instances
-    mockS3Service = new S3Service('test-account') as Mocked<S3Service>;
-
-    // Mock CacheService.getInstance to return our mock
-    mockCacheService = {
-      getJobIndex: vi.fn(),
-      updateJobIndex: vi.fn(),
-      setBucketName: vi.fn(),
-      persistJobIndex: vi.fn(),
-    } as any;
-
-    (CacheService.getInstance as any) = vi.fn().mockReturnValue(mockCacheService);
-
-    // Create repository instance
-    repository = new JobRepository(mockS3Service, 'test-bucket');
+    ...overrides,
   });
 
-  describe('listJobs', () => {
-    it('should return jobs from cache service', async () => {
-      // Arrange
-      const mockJobs = createMockJobs();
+describe('JobRepository - listJobs', () => {
+  beforeEach(setupRepository);
 
-      mockCacheService.getJobIndex.mockResolvedValue(mockJobs);
+  it('returns jobs newest first', async () => {
+    setStoredJobs([
+      createMockJob({ jobId: 'export-old', startTime: '2025-01-01T00:00:00.000Z' }),
+      createMockJob({ jobId: 'export-new', startTime: '2025-01-02T00:00:00.000Z' }),
+      createMockJob({ jobId: 'export-middle', startTime: '2025-01-01T12:00:00.000Z' }),
+    ]);
 
-      // Act
-      const result = await repository.listJobs({ jobType: 'export' });
+    const result = await repository.listJobs({ jobType: 'export' });
 
-      // Assert
-      expect(mockCacheService.getJobIndex).toHaveBeenCalled();
-      // Jobs are sorted by start time descending (newest first)
-      expect(result).toEqual([mockJobs[1], mockJobs[0]]);
-    });
+    expect(result.map((j) => j.jobId)).toEqual(['export-new', 'export-middle', 'export-old']);
+  });
 
-    it('should return empty array when cache returns empty', async () => {
-      // Arrange
-      mockCacheService.getJobIndex.mockResolvedValue([]);
+  it('filters by job type and status', async () => {
+    setStoredJobs([
+      createMockJob({ jobId: 'export-123', jobType: 'export', status: 'completed' }),
+      createMockJob({ jobId: 'deploy-456', jobType: 'deploy', status: 'completed' }),
+      createMockJob({ jobId: 'export-789', jobType: 'export', status: 'stopped' }),
+    ]);
 
-      // Act
-      const result = await repository.listJobs({ jobType: 'export' });
+    const result = await repository.listJobs({ jobType: 'export', status: 'completed' });
 
-      // Assert
-      expect(mockCacheService.getJobIndex).toHaveBeenCalled();
-      expect(result).toEqual([]);
-    });
+    expect(result).toHaveLength(1);
+    expect(result[0]?.jobId).toBe('export-123');
+  });
 
-    it('should filter jobs by type', async () => {
-      // Arrange
-      const mockJobs = [
-        {
-          jobId: 'export-123',
-          jobType: 'export',
-          status: 'completed',
-          startTime: '2025-01-01T00:00:00.000Z',
-        },
-        {
-          jobId: 'deploy-456',
-          jobType: 'deploy',
-          status: 'completed',
-          startTime: '2025-01-01T00:01:00.000Z',
-        },
-      ];
+  it('applies the limit', async () => {
+    setStoredJobs(
+      Array.from({ length: 100 }, (_, i) =>
+        createMockJob({
+          jobId: `export-${i}`,
+          startTime: new Date(TEST_YEAR, 0, 1, 0, i).toISOString(),
+        })
+      )
+    );
 
-      mockCacheService.getJobIndex.mockResolvedValue(mockJobs);
+    const result = await repository.listJobs({ limit: MEDIUM_BATCH });
 
-      // Act
-      const result = await repository.listJobs({ jobType: 'export' });
+    expect(result).toHaveLength(MEDIUM_BATCH);
+  });
 
-      // Assert
-      expect(result).toHaveLength(1);
-      expect(result[0]?.jobType).toBe('export');
-    });
+  it('strips storage-only attributes from returned jobs', async () => {
+    setStoredJobs([
+      {
+        ...createMockJob(),
+        pk: 'export-123',
+        sk: 'META',
+        gsi1pk: 'JOB',
+        expiresAt: 1234567890,
+      } as unknown as JobMetadata,
+    ]);
 
-    it('should filter jobs by status', async () => {
-      // Arrange
-      const mockJobs = [
-        {
-          jobId: 'export-123',
-          jobType: 'export',
-          status: 'completed',
-          startTime: '2025-01-01T00:00:00.000Z',
-        },
-        {
-          jobId: 'export-456',
-          jobType: 'export',
-          status: 'processing',
-          startTime: '2025-01-01T00:01:00.000Z',
-        },
-      ];
+    const result = await repository.listJobs();
 
-      mockCacheService.getJobIndex.mockResolvedValue(mockJobs);
+    expect(result[0]).not.toHaveProperty('pk');
+    expect(result[0]).not.toHaveProperty('sk');
+    expect(result[0]).not.toHaveProperty('gsi1pk');
+    expect(result[0]).not.toHaveProperty('expiresAt');
+  });
 
-      // Act
-      const result = await repository.listJobs({
-        jobType: 'export',
-        status: 'completed',
-      });
+  it('returns an empty array when the query fails', async () => {
+    mocks.dynamo.queryIndex.mockRejectedValue(new Error('DynamoDB error'));
 
-      // Assert
-      expect(result).toHaveLength(1);
-      expect(result[0]?.status).toBe('completed');
-    });
+    const result = await repository.listJobs();
 
-    it('should sort jobs by start time descending', async () => {
-      // Arrange
-      const mockJobs = [
-        {
-          jobId: 'export-old',
-          jobType: 'export',
-          status: 'completed',
-          startTime: '2025-01-01T00:00:00.000Z',
-        },
-        {
-          jobId: 'export-new',
-          jobType: 'export',
-          status: 'completed',
-          startTime: '2025-01-02T00:00:00.000Z',
-        },
-        {
-          jobId: 'export-middle',
-          jobType: 'export',
-          status: 'completed',
-          startTime: '2025-01-01T12:00:00.000Z',
-        },
-      ];
-
-      mockCacheService.getJobIndex.mockResolvedValue(mockJobs);
-
-      // Act
-      const result = await repository.listJobs({ jobType: 'export' });
-
-      // Assert
-      expect(result[0]?.jobId).toBe('export-new');
-      expect(result[1]?.jobId).toBe('export-middle');
-      expect(result[2]?.jobId).toBe('export-old');
-    });
-
-    it('should apply limit correctly', async () => {
-      // Arrange
-      const mockJobs = Array.from({ length: 100 }, (_, i) => ({
-        jobId: `export-${i}`,
-        jobType: 'export',
-        status: 'completed',
-        startTime: new Date(TEST_CONSTANTS.TEST_YEAR, 0, 1, 0, i).toISOString(),
-      }));
-
-      mockCacheService.getJobIndex.mockResolvedValue(mockJobs);
-
-      // Act
-      const result = await repository.listJobs({
-        jobType: 'export',
-        limit: TEST_CONSTANTS.MEDIUM_BATCH,
-      });
-
-      // Assert
-      expect(result).toHaveLength(TEST_CONSTANTS.MEDIUM_BATCH);
-    });
-
-    it('should handle cache service errors gracefully', async () => {
-      // Arrange
-      mockCacheService.getJobIndex.mockRejectedValue(new Error('Cache error'));
-
-      // Act
-      const result = await repository.listJobs();
-
-      // Assert - errors are caught and empty array returned
-      expect(result).toEqual([]);
-    });
-
-    it('should handle undefined/null from cache', async () => {
-      // Arrange
-      mockCacheService.getJobIndex.mockResolvedValue(undefined as any);
-
-      // Act
-      const result = await repository.listJobs();
-
-      // Assert
-      expect(result).toEqual([]);
-    });
+    expect(result).toEqual([]);
   });
 });
 
-describe('JobRepository - createJob', () => {
-  let repository: JobRepository;
-  let mockS3Service: Mocked<S3Service>;
-  let mockCacheService: Mocked<CacheService>;
+describe('JobRepository - createJob and updateJob', () => {
+  beforeEach(setupRepository);
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockS3Service = new S3Service('test-account') as Mocked<S3Service>;
-    mockCacheService = {
-      getJobIndex: vi.fn(),
-      updateJobIndex: vi.fn(),
-      setBucketName: vi.fn(),
-      persistJobIndex: vi.fn(),
-    } as any;
-    (CacheService.getInstance as any) = vi.fn().mockReturnValue(mockCacheService);
-    repository = new JobRepository(mockS3Service, 'test-bucket');
-  });
+  it('createJob writes one item with key, index, and TTL attributes plus a heartbeat', async () => {
+    await repository.createJob(
+      createMockJob({ jobId: 'export-789', status: 'queued', progress: 0 })
+    );
 
-  describe('createJob', () => {
-    it('should save job to cache only', async () => {
-      // Arrange
-      const jobMetadata = {
+    expect(mocks.dynamo.putItem).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        pk: 'export-789',
+        sk: 'META',
         jobId: 'export-789',
-        jobType: 'export' as const,
-        status: 'queued' as const,
-        progress: 0,
-        message: 'Job queued',
-        startTime: '2025-01-01T00:00:00.000Z',
-      };
-
-      mockCacheService.getJobIndex.mockResolvedValue([]);
-      mockS3Service.putObject.mockResolvedValue(undefined);
-
-      // Act
-      await repository.createJob(jobMetadata);
-
-      // Assert
-      expect(mockS3Service.putObject).not.toHaveBeenCalled();
-      // The write stamps a lastUpdatedTime heartbeat on top of the metadata
-      expect(mockCacheService.updateJobIndex).toHaveBeenCalledWith([
-        expect.objectContaining(jobMetadata),
-      ]);
-    });
-  });
-});
-
-describe('JobRepository - updateJob', () => {
-  let repository: JobRepository;
-  let mockS3Service: Mocked<S3Service>;
-  let mockCacheService: Mocked<CacheService>;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockS3Service = new S3Service('test-account') as Mocked<S3Service>;
-    mockCacheService = {
-      getJobIndex: vi.fn(),
-      updateJobIndex: vi.fn(),
-      setBucketName: vi.fn(),
-      persistJobIndex: vi.fn(),
-    } as any;
-    (CacheService.getInstance as any) = vi.fn().mockReturnValue(mockCacheService);
-    repository = new JobRepository(mockS3Service, 'test-bucket');
+        status: 'queued',
+        gsi1pk: 'JOB',
+        expiresAt: expect.any(Number),
+        lastUpdatedTime: expect.any(String),
+      })
+    );
   });
 
-  describe('updateJob', () => {
-    it('should update job in cache only', async () => {
-      // Arrange
-      const existingJob = createMockJob({
+  it('updateJob writes one atomic partial update and computes duration on terminal writes', async () => {
+    setStoredJobs([
+      createMockJob({
         jobId: 'export-123',
-        status: 'processing' as const,
+        status: 'processing',
         progress: 50,
-        startTime: '2025-01-01T00:00:00.000Z',
         endTime: undefined,
         duration: undefined,
-      });
+      }),
+    ]);
 
-      const updates = {
-        status: 'completed' as const,
-        progress: 100,
-        endTime: '2025-01-01T00:01:00.000Z',
-      };
+    await repository.updateJob('export-123', {
+      status: 'completed',
+      progress: 100,
+      endTime: '2025-01-01T00:01:00.000Z',
+    });
 
-      mockCacheService.getJobIndex.mockResolvedValue([existingJob]);
-
-      // Act
-      await repository.updateJob('export-123', updates);
-
-      // Assert
-      expect(mockS3Service.putObject).not.toHaveBeenCalled();
-      // Subset match: the write also re-stamps the lastUpdatedTime heartbeat
-      expect(mockCacheService.updateJobIndex).toHaveBeenCalledWith([
-        expect.objectContaining({
-          jobId: 'export-123',
+    expect(mocks.dynamo.updateItem).toHaveBeenCalledWith(
+      expect.any(String),
+      { pk: 'export-123', sk: 'META' },
+      expect.objectContaining({
+        set: expect.objectContaining({
           status: 'completed',
           progress: 100,
           endTime: '2025-01-01T00:01:00.000Z',
-          duration: 60000, // Should calculate duration
+          duration: 60000,
+          lastUpdatedTime: expect.any(String),
         }),
-      ]);
-    });
+      })
+    );
+    // Partial update - never a whole-item put that could clobber other fields
+    expect(mocks.dynamo.putItem).not.toHaveBeenCalled();
+  });
+
+  it('heartbeat-style updates cost zero reads', async () => {
+    await repository.updateJob('export-123', { progress: 50, message: 'Enriching datasets' });
+
+    expect(mocks.dynamo.getItem).not.toHaveBeenCalled();
+    expect(mocks.dynamo.updateItem).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases the export lock when an export job reaches a terminal status', async () => {
+    setStoredJobs([createMockJob({ jobId: 'export-123', status: 'processing' })]);
+
+    await repository.updateJob('export-123', { status: 'completed' });
+
+    expect(mocks.dynamo.deleteItem).toHaveBeenCalledWith(
+      expect.any(String),
+      LOCK_KEY,
+      'ownerJobId = :owner',
+      { ':owner': 'export-123' }
+    );
+  });
+
+  it('does not touch the lock for non-terminal updates', async () => {
+    setStoredJobs([createMockJob({ jobId: 'export-123', status: 'processing' })]);
+
+    await repository.updateJob('export-123', { progress: 50 });
+
+    expect(mocks.dynamo.deleteItem).not.toHaveBeenCalled();
+  });
+
+  it('upserts a minimal record when the job is missing', async () => {
+    setStoredJobs([]);
+
+    await repository.updateJob('ghost-1', { status: 'completed' });
+
+    expect(mocks.dynamo.updateItem).toHaveBeenCalledWith(
+      expect.any(String),
+      { pk: 'ghost-1', sk: 'META' },
+      expect.objectContaining({
+        set: expect.objectContaining({ status: 'completed' }),
+        setIfNotExists: expect.objectContaining({ jobId: 'ghost-1', gsi1pk: 'JOB' }),
+      })
+    );
+  });
+
+  it('drops a stale auto-fail error when a job completes successfully', async () => {
+    setStoredJobs([
+      createMockJob({
+        jobId: 'export-123',
+        status: 'processing',
+        error: 'No heartbeat since ... (stale sweep stamp)',
+      }),
+    ]);
+
+    await repository.updateJob('export-123', { status: 'completed' });
+
+    expect(mocks.dynamo.updateItem).toHaveBeenCalledWith(
+      expect.any(String),
+      { pk: 'export-123', sk: 'META' },
+      expect.objectContaining({ remove: ['error'] })
+    );
   });
 });
 
-describe('JobRepository - Memory-first pattern', () => {
-  let repository: JobRepository;
-  let mockS3Service: Mocked<S3Service>;
-  let mockCacheService: Mocked<CacheService>;
+describe('JobRepository - export lock and logs', () => {
+  beforeEach(setupRepository);
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockS3Service = new S3Service('test-account') as Mocked<S3Service>;
-    mockCacheService = {
-      getJobIndex: vi.fn(),
-      updateJobIndex: vi.fn(),
-      setBucketName: vi.fn(),
-      persistJobIndex: vi.fn(),
-    } as any;
-    (CacheService.getInstance as any) = vi.fn().mockReturnValue(mockCacheService);
-    repository = new JobRepository(mockS3Service, 'test-bucket');
+  it('acquires the lock via conditional write', async () => {
+    const acquired = await repository.acquireExportLock('export-1');
+
+    expect(acquired).toBe(true);
+    expect(mocks.dynamo.putItem).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ ...LOCK_KEY, ownerJobId: 'export-1' }),
+      expect.stringContaining('attribute_not_exists(pk)'),
+      expect.objectContaining({ ':owner': 'export-1' })
+    );
   });
 
-  describe('Memory-first pattern with scheduled persistence', () => {
-    beforeEach(() => {
-      // Use fake timers for this test suite
-      vi.useFakeTimers();
-      vi.spyOn(global, 'setTimeout');
-      vi.spyOn(global, 'clearTimeout');
-    });
+  it('returns false when another export holds the lock', async () => {
+    mocks.dynamo.putItem.mockRejectedValueOnce(conditionalFailure());
 
-    afterEach(() => {
-      vi.useRealTimers();
-      vi.restoreAllMocks();
-    });
+    const acquired = await repository.acquireExportLock('export-2');
 
-    it('should persist immediately when job completes', async () => {
-      // Arrange
-      const existingJob = {
-        jobId: 'test-job',
-        jobType: 'export',
-        status: 'processing',
-        startTime: '2025-01-01T00:00:00.000Z',
-        lastUpdatedTime: new Date().toISOString(),
-      };
-      mockCacheService.getJobIndex.mockResolvedValue([existingJob]);
-
-      // Act - update job to completed
-      await repository.updateJob('test-job', { status: 'completed' });
-
-      // Assert - persistence should happen immediately (not scheduled)
-      expect(mockCacheService.persistJobIndex).toHaveBeenCalled();
-      // No setTimeout for completed status
-      expect(global.setTimeout).not.toHaveBeenCalled();
-    });
-
-    it('should persist immediately when job fails', async () => {
-      // Arrange
-      const existingJob = {
-        jobId: 'test-job',
-        jobType: 'export',
-        status: 'processing',
-        startTime: '2025-01-01T00:00:00.000Z',
-        lastUpdatedTime: new Date().toISOString(),
-      };
-      mockCacheService.getJobIndex.mockResolvedValue([existingJob]);
-
-      // Act - update job to failed
-      await repository.updateJob('test-job', { status: 'failed', error: 'Test error' });
-
-      // Assert - persistence should happen immediately (not scheduled)
-      expect(mockCacheService.persistJobIndex).toHaveBeenCalled();
-      // No setTimeout for failed status
-      expect(global.setTimeout).not.toHaveBeenCalled();
-    });
-
-    it('should persist immediately for multiple completed jobs', async () => {
-      // Arrange
-      const jobs = [
-        {
-          jobId: 'job-1',
-          jobType: 'export',
-          status: 'processing',
-          startTime: '2025-01-01T00:00:00.000Z',
-          lastUpdatedTime: new Date().toISOString(),
-        },
-        {
-          jobId: 'job-2',
-          jobType: 'export',
-          status: 'processing',
-          startTime: '2025-01-01T00:00:00.000Z',
-          lastUpdatedTime: new Date().toISOString(),
-        },
-        {
-          jobId: 'job-3',
-          jobType: 'export',
-          status: 'processing',
-          startTime: '2025-01-01T00:00:00.000Z',
-          lastUpdatedTime: new Date().toISOString(),
-        },
-      ];
-
-      // Mock getJobIndex to return all jobs (it's called for each update)
-      mockCacheService.getJobIndex.mockResolvedValue(jobs);
-
-      // Act - complete multiple jobs rapidly
-      await repository.updateJob('job-1', { status: 'completed' });
-      await repository.updateJob('job-2', { status: 'completed' });
-      await repository.updateJob('job-3', { status: 'completed' });
-
-      // Assert - persistence should be called immediately for each completion
-      // (3 times total since each completed job triggers immediate persistence)
-      expect(mockCacheService.persistJobIndex).toHaveBeenCalledTimes(TEST_CONSTANTS.RETRY_COUNT);
-      // No setTimeout for completed status
-      expect(global.setTimeout).not.toHaveBeenCalled();
-    });
-
-    it('should persist immediately for progress updates', async () => {
-      // Arrange
-      const existingJob = {
-        jobId: 'test-job',
-        jobType: 'export',
-        status: 'processing',
-        startTime: '2025-01-01T00:00:00.000Z',
-        lastUpdatedTime: new Date().toISOString(),
-      };
-      mockCacheService.getJobIndex.mockResolvedValue([existingJob]);
-
-      // Act - update job progress (not a terminal status)
-      await repository.updateJob('test-job', { progress: 50, message: 'Processing...' });
-
-      // Assert - persistence should happen immediately now
-      expect(mockCacheService.persistJobIndex).toHaveBeenCalled();
-      expect(global.setTimeout).not.toHaveBeenCalled();
-    });
+    expect(acquired).toBe(false);
   });
 
-  describe('forcePersist', () => {
-    beforeEach(() => {
-      vi.useFakeTimers();
-      vi.spyOn(global, 'setTimeout');
-      vi.spyOn(global, 'clearTimeout');
-    });
+  it('release swallows the conditional failure of not holding the lock', async () => {
+    mocks.dynamo.deleteItem.mockRejectedValueOnce(conditionalFailure());
 
-    afterEach(() => {
-      vi.useRealTimers();
-      vi.restoreAllMocks();
-    });
-
-    it('should immediately persist job index', async () => {
-      // Act
-      await repository.forcePersist();
-
-      // Assert
-      expect(mockCacheService.persistJobIndex).toHaveBeenCalledTimes(1);
-    });
-
-    it('should persist immediately without timer management', async () => {
-      // Arrange - update job with progress (not terminal status)
-      const existingJob = {
-        jobId: 'test-job',
-        jobType: 'export',
-        status: 'processing',
-        startTime: '2025-01-01T00:00:00.000Z',
-        lastUpdatedTime: new Date().toISOString(),
-      };
-      mockCacheService.getJobIndex.mockResolvedValue([existingJob]);
-
-      // Update with progress (this now persists immediately)
-      await repository.updateJob('test-job', { progress: 50, message: 'In progress' });
-
-      // Should persist immediately without timer
-      expect(mockCacheService.persistJobIndex).toHaveBeenCalledTimes(1);
-      expect(global.setTimeout).not.toHaveBeenCalled();
-
-      // Act - force persist
-      await repository.forcePersist();
-
-      // Assert - should persist again
-      expect(mockCacheService.persistJobIndex).toHaveBeenCalledTimes(2);
-      // No timer management needed anymore
-      expect(global.clearTimeout).not.toHaveBeenCalled();
-    });
-
-    it('should propagate errors from persistence', async () => {
-      // Arrange
-      const error = new Error('S3 write failed');
-      mockCacheService.persistJobIndex = vi.fn().mockRejectedValue(error);
-
-      // Act & Assert
-      await expect(repository.forcePersist()).rejects.toThrow('S3 write failed');
-    });
-  });
-});
-
-describe('JobRepository - Memory updates', () => {
-  let repository: JobRepository;
-  let mockS3Service: Mocked<S3Service>;
-  let mockCacheService: Mocked<CacheService>;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockS3Service = new S3Service('test-account') as Mocked<S3Service>;
-    mockCacheService = {
-      getJobIndex: vi.fn(),
-      updateJobIndex: vi.fn(),
-      setBucketName: vi.fn(),
-      persistJobIndex: vi.fn(),
-    } as any;
-    (CacheService.getInstance as any) = vi.fn().mockReturnValue(mockCacheService);
-    repository = new JobRepository(mockS3Service, 'test-bucket');
+    await expect(repository.releaseExportLock('export-3')).resolves.toBeUndefined();
   });
 
-  describe('Memory updates are instant', () => {
-    it('should update memory immediately without waiting for S3', async () => {
-      // Arrange
-      const initialJobs = [
-        {
-          jobId: 'job-1',
-          jobType: 'export',
-          status: 'processing',
-          startTime: '2025-01-01T00:00:00.000Z',
-          lastUpdatedTime: new Date().toISOString(),
-        },
-      ];
-      mockCacheService.getJobIndex.mockResolvedValue(initialJobs);
+  it('appendLog writes one item per entry - no reads', async () => {
+    const log: JobLog = {
+      timestamp: '2025-01-01T00:00:01.000Z',
+      level: 'info',
+      message: 'Listing dashboards',
+    };
 
-      // Act - create a new job
-      await repository.createJob({
-        jobId: 'job-2',
-        jobType: 'export',
-        status: 'queued',
-        startTime: '2025-01-01T00:01:00.000Z',
-      });
+    await repository.appendLog('export-1', log);
 
-      // Assert - memory should be updated immediately
-      expect(mockCacheService.updateJobIndex).toHaveBeenCalledWith(
-        expect.arrayContaining([
-          expect.objectContaining({ jobId: 'job-1' }),
-          expect.objectContaining({ jobId: 'job-2' }),
-        ])
-      );
+    expect(mocks.dynamo.putItem).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        pk: 'export-1',
+        sk: expect.stringMatching(/^LOG#2025-01-01T00:00:01\.000Z#\d{6}$/),
+        message: 'Listing dashboards',
+        level: 'info',
+        expiresAt: expect.any(Number),
+      })
+    );
+    expect(mocks.dynamo.getItem).not.toHaveBeenCalled();
+  });
 
-      // Persistence IS triggered immediately on create (for UI visibility)
-      expect(mockCacheService.persistJobIndex).toHaveBeenCalled();
-    });
+  it('getJobLogs queries the partition and strips storage attributes', async () => {
+    mocks.dynamo.queryPartition.mockResolvedValue([
+      {
+        pk: 'export-1',
+        sk: 'LOG#2025-01-01T00:00:01.000Z#000001',
+        timestamp: '2025-01-01T00:00:01.000Z',
+        level: 'info',
+        message: 'first',
+        expiresAt: 123,
+      },
+      {
+        pk: 'export-1',
+        sk: 'LOG#2025-01-01T00:00:02.000Z#000002',
+        timestamp: '2025-01-01T00:00:02.000Z',
+        level: 'warn',
+        message: 'second',
+        expiresAt: 123,
+      },
+    ]);
 
-    it('should allow concurrent reads while updates are happening', async () => {
-      // Arrange
-      const jobs = [];
-      for (let i = 0; i < TEST_CONSTANTS.SMALL_BATCH; i++) {
-        jobs.push({
-          jobId: `job-${i}`,
-          jobType: 'export',
-          status: 'processing',
-          startTime: '2025-01-01T00:00:00.000Z',
-          lastUpdatedTime: new Date().toISOString(),
-        });
-      }
-      mockCacheService.getJobIndex.mockResolvedValue(jobs);
+    const logs = await repository.getJobLogs('export-1');
 
-      // Act - concurrent operations
-      const operations = [
-        repository.listJobs({ limit: 10 }),
-        repository.updateJob('job-0', { progress: 50 }),
-        repository.listJobs({ jobType: 'export' }),
-        repository.updateJob('job-1', { progress: 75 }),
-        repository.getJob('job-2'),
-      ];
-
-      const results = await Promise.all(operations);
-
-      // Assert - all operations should complete successfully
-      expect(results[0]).toHaveLength(TEST_CONSTANTS.SMALL_BATCH); // First listJobs
-      expect(results[2]).toHaveLength(TEST_CONSTANTS.SMALL_BATCH); // Second listJobs
-      const job = results[4] as JobMetadata | null;
-      expect(job?.jobId).toBe('job-2'); // getJob
-
-      // Memory updates should have been called
-      expect(mockCacheService.updateJobIndex).toHaveBeenCalled();
-    });
+    expect(logs).toEqual([
+      { timestamp: '2025-01-01T00:00:01.000Z', level: 'info', message: 'first' },
+      { timestamp: '2025-01-01T00:00:02.000Z', level: 'warn', message: 'second' },
+    ]);
   });
 });
 
 describe('JobRepository - self-healing dead jobs', () => {
-  let repository: JobRepository;
-  let mockS3Service: Mocked<S3Service>;
-  let mockCacheService: Mocked<CacheService>;
-
-  const HOUR_MS = 3600000;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockS3Service = new S3Service('test-account') as Mocked<S3Service>;
-    mockCacheService = {
-      getJobIndex: vi.fn(),
-      updateJobIndex: vi.fn(),
-      setBucketName: vi.fn(),
-      persistJobIndex: vi.fn(),
-    } as any;
-    (CacheService.getInstance as any) = vi.fn().mockReturnValue(mockCacheService);
-    repository = new JobRepository(mockS3Service, 'test-bucket');
-  });
-
-  const deadJob = (overrides = {}): JobMetadata =>
-    ({
-      jobId: 'dead-1',
-      jobType: 'export',
-      status: 'processing',
-      startTime: new Date(Date.now() - 2 * HOUR_MS).toISOString(),
-      lastUpdatedTime: new Date(Date.now() - HOUR_MS).toISOString(),
-      ...overrides,
-    }) as JobMetadata;
+  beforeEach(setupRepository);
 
   it('listJobs auto-fails a job whose heartbeat stopped past the timeout', async () => {
-    mockCacheService.getJobIndex.mockResolvedValue([deadJob()]);
+    setStoredJobs([deadJob()]);
 
     const jobs = await repository.listJobs();
 
     expect(jobs[0]?.status).toBe('failed');
     expect(jobs[0]?.error).toContain('No heartbeat');
-    // Repaired index is written back and persisted
-    expect(mockCacheService.updateJobIndex).toHaveBeenCalled();
-    expect(mockCacheService.persistJobIndex).toHaveBeenCalled();
+    // The repaired job is written back as its own item
+    expect(mocks.dynamo.putItem).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ jobId: 'dead-1', status: 'failed' })
+    );
   });
 
   it('getJob flips a dead job to failed so pollers stop waiting', async () => {
-    mockCacheService.getJobIndex.mockResolvedValue([deadJob({ jobId: 'dead-2' })]);
+    setStoredJobs([deadJob({ jobId: 'dead-2' })]);
 
     const job = await repository.getJob('dead-2');
 
     expect(job?.status).toBe('failed');
   });
 
+  it('releases the export lock held by a dead export job', async () => {
+    setStoredJobs([deadJob({ jobId: 'dead-3' })]);
+
+    await repository.listJobs();
+
+    expect(mocks.dynamo.deleteItem).toHaveBeenCalledWith(
+      expect.any(String),
+      LOCK_KEY,
+      'ownerJobId = :owner',
+      { ':owner': 'dead-3' }
+    );
+  });
+
   it('does not touch active jobs with a recent heartbeat, even if started long ago', async () => {
-    const longRunner = deadJob({
-      jobId: 'alive-1',
-      lastUpdatedTime: new Date().toISOString(), // fresh heartbeat
-    });
-    mockCacheService.getJobIndex.mockResolvedValue([longRunner]);
+    setStoredJobs([deadJob({ jobId: 'alive-1', lastUpdatedTime: new Date().toISOString() })]);
 
     const jobs = await repository.listJobs();
 
     expect(jobs[0]?.status).toBe('processing');
-    expect(mockCacheService.persistJobIndex).not.toHaveBeenCalled();
+    expect(mocks.dynamo.putItem).not.toHaveBeenCalled();
   });
 
   it('falls back to startTime when a job has no heartbeat (queued but never picked up)', async () => {
-    const orphanQueued = deadJob({
-      jobId: 'orphan-1',
-      status: 'queued',
-      lastUpdatedTime: undefined,
-    });
-    mockCacheService.getJobIndex.mockResolvedValue([orphanQueued]);
+    setStoredJobs([deadJob({ jobId: 'orphan-1', status: 'queued', lastUpdatedTime: undefined })]);
 
     const jobs = await repository.listJobs();
 
@@ -703,12 +405,56 @@ describe('JobRepository - self-healing dead jobs', () => {
   });
 
   it('leaves terminal jobs alone regardless of age', async () => {
-    const oldCompleted = deadJob({ jobId: 'done-1', status: 'completed' });
-    mockCacheService.getJobIndex.mockResolvedValue([oldCompleted]);
+    setStoredJobs([deadJob({ jobId: 'done-1', status: 'completed' })]);
 
     const jobs = await repository.listJobs();
 
     expect(jobs[0]?.status).toBe('completed');
-    expect(mockCacheService.persistJobIndex).not.toHaveBeenCalled();
+    expect(mocks.dynamo.putItem).not.toHaveBeenCalled();
+  });
+});
+
+describe('JobRepository - results and deletion', () => {
+  beforeEach(setupRepository);
+
+  it('stores results on the job item', async () => {
+    setStoredJobs([createMockJob({ jobId: 'csv-1', status: 'processing' })]);
+
+    await repository.saveJobResult('csv-1', { count: 5 });
+
+    expect(mocks.dynamo.updateItem).toHaveBeenCalledWith(
+      expect.any(String),
+      { pk: 'csv-1', sk: 'META' },
+      { set: { result: { count: 5 }, lastUpdatedTime: expect.any(String) } },
+      'attribute_exists(pk)'
+    );
+  });
+
+  it('replaces an oversized result with a loud truncation marker (never S3, never a corrupt payload)', async () => {
+    const bigResult = { rows: 'x'.repeat(BIG_RESULT_BYTES) };
+    setStoredJobs([createMockJob({ jobId: 'bulk-1', status: 'processing' })]);
+
+    await repository.saveJobResult('bulk-1', bigResult);
+
+    const written = mocks.dynamo.updateItem.mock.calls.find(
+      (call) => call[1]?.pk === 'bulk-1'
+    )?.[2];
+    expect(written.set.result).toEqual(
+      expect.objectContaining({ truncated: true, message: expect.stringContaining('too large') })
+    );
+  });
+
+  it('deleteJob removes the whole partition (meta + logs)', async () => {
+    mocks.dynamo.queryPartition.mockResolvedValue([
+      { pk: 'export-9', sk: 'META' },
+      { pk: 'export-9', sk: 'LOG#2025-01-01T00:00:01.000Z#000001' },
+    ]);
+
+    await repository.deleteJob('export-9');
+
+    expect(mocks.dynamo.batchDelete).toHaveBeenCalledWith(expect.any(String), [
+      { pk: 'export-9', sk: 'META' },
+      { pk: 'export-9', sk: 'LOG#2025-01-01T00:00:01.000Z#000001' },
+    ]);
   });
 });

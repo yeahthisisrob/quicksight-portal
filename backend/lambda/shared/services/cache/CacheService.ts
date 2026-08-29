@@ -391,43 +391,6 @@ export class CacheService extends EventEmitter {
     }
   }
 
-  // Job index operations - single cache file for all jobs
-  public async getJobIndex(forceS3Fetch: boolean = false): Promise<any[]> {
-    const cacheKey = 'jobs';
-
-    try {
-      // Try memory cache first (unless forcing S3 fetch)
-      if (!forceS3Fetch) {
-        const memoryResult = this.memoryAdapter.get(cacheKey);
-        if (memoryResult && Array.isArray(memoryResult)) {
-          return memoryResult;
-        }
-      }
-
-      // Try S3 cache
-      const s3Result = await this.s3Service.getObject<any[]>(
-        this.bucketName,
-        `cache/${cacheKey}.json`
-      );
-
-      if (s3Result) {
-        // Store in memory cache for faster access
-        this.memoryAdapter.set(cacheKey, s3Result);
-        return s3Result;
-      }
-
-      return [];
-    } catch (error: any) {
-      if (
-        error.name === 'NoSuchKey' ||
-        error.$metadata?.httpStatusCode === STATUS_CODES.NOT_FOUND
-      ) {
-        return [];
-      }
-      throw error;
-    }
-  }
-
   /**
    * Get master cache with flexible status filtering
    * @param options.statusFilter - Filter by asset status (default: ACTIVE - most common use case)
@@ -523,20 +486,6 @@ export class CacheService extends EventEmitter {
   ): Promise<any> {
     const writer = await this.getCacheWriter();
     return writer.markForSync(assetType, assetIds, components);
-  }
-
-  public async persistJobIndex(): Promise<void> {
-    const cacheKey = 'jobs';
-    const jobs = this.memoryAdapter.get(cacheKey) as any[] | null;
-
-    // No memory copy (expired or never loaded): persisting would overwrite
-    // the S3 index with an empty array, wiping all job history. No-op instead.
-    if (!Array.isArray(jobs)) {
-      logger.warn('persistJobIndex skipped: no in-memory job index to persist');
-      return;
-    }
-
-    await this.s3Service.putObject(this.bucketName, `cache/${cacheKey}.json`, jobs);
   }
 
   /**
@@ -698,18 +647,6 @@ export class CacheService extends EventEmitter {
     return writer.updateGroupMembership(groupName, operation, userName, userArn, userEmail);
   }
 
-  public async updateJobIndex(jobs: any[]): Promise<void> {
-    const cacheKey = 'jobs';
-
-    // Update memory cache FIRST (instant!)
-    this.memoryAdapter.set(cacheKey, jobs);
-
-    // Don't write to S3 here - let the caller decide when to persist
-    // This makes updates instant and non-blocking
-    // Use nextTick to make it truly async without blocking
-    await new Promise<void>((resolve) => process.nextTick(resolve));
-  }
-
   /**
    * Merge cache entries for just the given assets by re-parsing only their S3
    * files - the incremental alternative to rebuildCacheForAssetType after an
@@ -717,10 +654,11 @@ export class CacheService extends EventEmitter {
    */
   public async upsertCacheEntriesForAssets(
     assetType: AssetType,
-    assetIds: string[]
+    assetIds: string[],
+    exportStateService?: any
   ): Promise<void> {
     const writer = await this.getCacheWriter();
-    return writer.upsertCacheEntriesForAssets(assetType, assetIds);
+    return writer.upsertCacheEntriesForAssets(assetType, assetIds, exportStateService);
   }
 
   /**

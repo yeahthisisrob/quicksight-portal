@@ -14,7 +14,10 @@ import { QuickSightService } from '../../../shared/services/aws/QuickSightServic
 import { S3Service } from '../../../shared/services/aws/S3Service';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { type ExportCheckpoint } from '../../../shared/services/jobs/JobRepository';
-import { type JobStateService } from '../../../shared/services/jobs/JobStateService';
+import {
+  type JobProgressLogger,
+  type JobStateService,
+} from '../../../shared/services/jobs/JobStateService';
 import { LineageService } from '../../../shared/services/lineage/LineageService';
 import { OperationTrackingService } from '../../../shared/services/operations/OperationTrackingService';
 import { AssetParserService } from '../../../shared/services/parsing/AssetParserService';
@@ -241,33 +244,11 @@ export class ExportOrchestrator {
    * Adapter handing CacheWriter's rebuild progress into this job's log pane
    * (CacheWriter expects { appendLog, checkpoint })
    */
-  private buildRebuildProgressLogger():
-    | {
-        appendLog: (message: string, level?: string) => Promise<void>;
-        checkpoint: () => Promise<void>;
-      }
-    | undefined {
-    const jobStateService = this.jobStateService;
-    if (!jobStateService) {
-      return undefined;
-    }
-    const jobId = this.jobId;
-    return {
-      appendLog: async (message: string, level: string = 'info') => {
-        await jobStateService.appendLog(jobId, {
-          timestamp: new Date().toISOString(),
-          level: level as 'info' | 'warn' | 'error',
-          message,
-        });
-      },
-      checkpoint: async () => {
-        // Heartbeat: refresh lastUpdatedTime so the stuck-job sweep never
-        // auto-fails a long rebuild
-        await jobStateService.updateJobStatus(jobId, {
-          message: 'Rebuilding cache from existing S3 files...',
-        });
-      },
-    };
+  private buildRebuildProgressLogger(): JobProgressLogger | undefined {
+    return this.jobStateService?.progressLogger(
+      this.jobId,
+      'Rebuilding cache from existing S3 files...'
+    );
   }
 
   /**
@@ -398,8 +379,8 @@ export class ExportOrchestrator {
       errors,
     };
 
-    // Merge just-exported assets into the type cache (incremental - avoids
-    // the old full-type re-parse of every S3 file after each asset type)
+    // Merge just-exported assets into the type cache (incremental: only
+    // the changed assets' files are re-parsed)
     await this.upsertProcessedAssetsIntoCache(assetType, results, options.rebuildIndex);
 
     progressCallback?.onAssetTypeComplete?.(assetType, summary);
@@ -543,6 +524,10 @@ export class ExportOrchestrator {
     // Archive deleted assets (move files from assets/ to archived/)
     await this.archiveDeletedAssets(assetType, comparisonResult.deletedAssetIds);
 
+    // Assets whose only staleness is the parser version: re-parse their
+    // existing S3 files into the cache - zero QuickSight API calls
+    await this.reparseStaleParserAssets(assetType, comparisonResult.needsReparse, jobStateService);
+
     // Filter to only assets that need processing
     const activeAssetsToProcess = listingResult.allAssetsToProcess.filter(
       (asset) =>
@@ -552,7 +537,7 @@ export class ExportOrchestrator {
 
     await jobStateService.logInfo(
       this.jobId,
-      `Comparison result: ${comparisonResult.needsUpdate.size} need updates, ${comparisonResult.unchanged.size} unchanged`,
+      `Comparison result: ${comparisonResult.needsUpdate.size} need updates, ${comparisonResult.needsReparse.size} re-parsed locally, ${comparisonResult.unchanged.size} unchanged`,
       { assetType }
     );
 
@@ -1218,10 +1203,8 @@ export class ExportOrchestrator {
         if (exportOptions.rebuildIndex || isCacheRebuildOnly) {
           // Rebuild cache with lineage from existing S3 files.
           // NON-destructive (forceRefresh=false): saveMasterCache overwrites
-          // every per-type cache file anyway, and a pre-clear used to wipe
-          // cache/jobs.json (all job history) plus activity/ingestion caches
-          // mid-job - which also 404'd the UI's job polling and made the
-          // worker re-create this very job as "failed".
+          // every per-type cache file anyway, so no pre-clear is needed
+          // (activity/ingestion caches must survive a rebuild).
           if (this.jobStateService) {
             await this.jobStateService.updateJobStatus(this.jobId, {
               message: 'Rebuilding cache from existing S3 files...',
@@ -1237,13 +1220,16 @@ export class ExportOrchestrator {
           }
         }
 
-        // Rebuild field cache once after all exports complete
+        // Rebuild field cache once after all exports complete. Each step
+        // below writes a job status update, which doubles as a heartbeat -
+        // the catalog phase is the longest stretch without batch progress.
         if (!exportOptions.rebuildIndex && !isCacheRebuildOnly) {
           // rebuildIndex already did this above
-          logger.info('Rebuilding field cache after all exports...');
+          await this.updateCatalogPhaseStatus('Rebuilding field cache...');
           await cacheService.updateFieldCache(null);
         }
 
+        await this.updateCatalogPhaseStatus('Rebuilding data catalog...');
         const catalogService = new CatalogService();
         // Build the pre-computed catalog index from the freshly rebuilt field cache.
         await catalogService.rebuildCatalogIndex();
@@ -1253,7 +1239,7 @@ export class ExportOrchestrator {
         // Now rebuild lineage since all assets are exported
         if (!exportOptions.rebuildIndex && !isCacheRebuildOnly) {
           // rebuildIndex already did this above
-          logger.info('Rebuilding lineage after all assets exported...');
+          await this.updateCatalogPhaseStatus('Rebuilding lineage...');
           const lineageService = new LineageService();
           await lineageService.rebuildLineage();
           logger.info('Lineage rebuilt successfully');
@@ -1273,6 +1259,44 @@ export class ExportOrchestrator {
         }
         // Don't fail the export if catalog rebuild fails
       }
+    }
+  }
+
+  /**
+   * Refresh cache entries whose parsed metadata predates the current parser
+   * version by re-parsing their existing S3 exports - the definitions are
+   * unchanged in QuickSight, so no Describe calls are needed. Failure falls
+   * back to a full export of those assets on the next run (their
+   * parserVersion stays stale).
+   */
+  private async reparseStaleParserAssets(
+    assetType: AssetType,
+    needsReparse: Set<string>,
+    jobStateService: JobStateService
+  ): Promise<void> {
+    if (needsReparse.size === 0) {
+      return;
+    }
+    await jobStateService.logInfo(
+      this.jobId,
+      `Re-parsing ${needsReparse.size} ${assetType} assets with an updated parser from existing exports (no API calls)`,
+      { assetType }
+    );
+    try {
+      await cacheService.upsertCacheEntriesForAssets(
+        assetType,
+        Array.from(needsReparse),
+        jobStateService.progressLogger(this.jobId, `Re-parsing ${assetType} metadata...`)
+      );
+    } catch (error) {
+      logger.error(`Parser re-parse failed for ${assetType} - assets stay stale until next run`, {
+        error,
+      });
+      await jobStateService.logWarn(
+        this.jobId,
+        `Re-parse of ${needsReparse.size} ${assetType} assets failed - they will retry next export`,
+        { assetType }
+      );
     }
   }
 
@@ -1363,6 +1387,18 @@ export class ExportOrchestrator {
         updatedAt: new Date().toISOString(),
       },
     });
+  }
+
+  /**
+   * Catalog-phase step marker: job status message (= heartbeat) + log line,
+   * so the phase is visible in the UI and never reads as stalled.
+   */
+  private async updateCatalogPhaseStatus(message: string): Promise<void> {
+    logger.info(message);
+    if (this.jobStateService) {
+      await this.jobStateService.updateJobStatus(this.jobId, { message });
+      await this.jobStateService.logInfo(this.jobId, message);
+    }
   }
 
   /**

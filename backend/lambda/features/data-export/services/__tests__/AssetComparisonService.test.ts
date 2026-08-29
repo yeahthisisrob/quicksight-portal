@@ -143,8 +143,36 @@ describe('AssetComparisonService', () => {
 
         const result = await service.compareAndDetectChanges('dashboard', currentAssets, [], false);
 
-        // unchanged timestamp, but no parserVersion stamp -> must re-export
+        // unchanged timestamp, but no parserVersion stamp and not enriched
+        // -> must re-export (the file may lack the definition to re-parse)
         expect(result.needsUpdate.has('asset1')).toBe(true);
+        expect(result.needsReparse.has('asset1')).toBe(false);
+      });
+
+      it('re-parses (no API calls) enriched unchanged assets with stale parser metadata', async () => {
+        const staleEnrichedCache: any[] = [
+          {
+            assetId: 'asset1',
+            assetName: 'Asset 1',
+            lastUpdatedTime: '2025-01-15T10:00:00Z',
+            enrichmentStatus: 'enriched',
+            metadata: { parserVersion: PARSER_METADATA_VERSION - 1 },
+          },
+        ];
+        const currentAssets: any[] = [
+          { id: 'asset1', name: 'Asset 1', lastModified: '2025-01-15T10:00:00Z' },
+        ];
+        mockCacheService.getMasterCache.mockResolvedValue({
+          entries: { dashboard: staleEnrichedCache },
+        } as any);
+        mockCacheService.getTypeCache.mockResolvedValue(staleEnrichedCache);
+
+        const result = await service.compareAndDetectChanges('dashboard', currentAssets, [], false);
+
+        // Unchanged in QuickSight + fully enriched file on S3: parser bump is
+        // satisfied by a local re-parse, never a full export
+        expect(result.needsReparse.has('asset1')).toBe(true);
+        expect(result.needsUpdate.has('asset1')).toBe(false);
       });
 
       it('should handle assets without timestamps', async () => {

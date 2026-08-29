@@ -3319,6 +3319,13 @@ export interface components {
                 message?: string;
                 /** Format: date-time */
                 startTime: string;
+                /**
+                 * Format: date-time
+                 * @description Heartbeat - stamped on every job write. The UI uses it to show
+                 *     worker liveness ("active Ns ago") and flag stalled jobs.
+                 *
+                 */
+                lastUpdatedTime?: string;
                 /** Format: date-time */
                 endTime?: string | null;
                 /** @description Duration in milliseconds */
@@ -3333,6 +3340,19 @@ export interface components {
                  *     (e.g. activity-refresh). Older job types omit this field.
                  *      */
                 phases?: components["schemas"]["JobPhase"][];
+                /** @description Resumable-export progress (export jobs only). Written after
+                 *     each asset type completes so continuation invocations resume
+                 *     where the previous one paused; the UI renders it as per-type
+                 *     progress.
+                 *      */
+                checkpoint?: {
+                    completedAssetTypes?: string[];
+                    hydratedAssetTypes?: string[];
+                    catalogPending?: boolean;
+                    totalProcessed?: number;
+                    /** Format: date-time */
+                    updatedAt?: string;
+                };
             };
         };
         ExportJobList: {

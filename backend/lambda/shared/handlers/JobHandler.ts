@@ -7,7 +7,6 @@ import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambd
 
 import { requireAuth } from '../auth';
 import { STATUS_CODES, PAGINATION } from '../constants';
-import { S3Service } from '../services/aws/S3Service';
 import { JobRepository, type JobType, type JobListOptions } from '../services/jobs/JobRepository';
 import { successResponse, errorResponse } from '../utils/cors';
 import { logger } from '../utils/logger';
@@ -16,12 +15,7 @@ export class JobHandler {
   private readonly repository: JobRepository;
 
   constructor() {
-    const accountId = process.env.AWS_ACCOUNT_ID || '';
-    const bucketName = process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`;
-
-    const s3Service = new S3Service(accountId);
-
-    this.repository = new JobRepository(s3Service, bucketName);
+    this.repository = new JobRepository();
   }
 
   /**

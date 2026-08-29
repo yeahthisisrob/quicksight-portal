@@ -30,6 +30,9 @@ import {
 } from 'aws-cdk-lib/aws-cognito';
 import { Queue, QueueEncryption } from 'aws-cdk-lib/aws-sqs';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+import {
+  Table as DynamoTable, AttributeType, BillingMode, ProjectionType,
+} from 'aws-cdk-lib/aws-dynamodb';
 
 export class QuicksightPortalStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -125,6 +128,27 @@ export class QuicksightPortalStack extends Stack {
       },
     });
 
+    /* 3b ────────── DynamoDB table for job records + logs */
+    // pk=jobId, sk='META' for the job record; sk='LOG#<ts>#<seq>' for log
+    // entries (one atomic put per log line). GSI lists newest-first; TTL is
+    // the retention backstop behind the cleanupOldJobs sweep. Also holds the
+    // single-export lock item (conditional writes). Job storage never
+    // touches S3.
+    const jobsTable = new DynamoTable(this, 'JobsTable', {
+      tableName: `quicksight-portal-jobs-${this.account}`,
+      partitionKey: { name: 'pk', type: AttributeType.STRING },
+      sortKey: { name: 'sk', type: AttributeType.STRING },
+      billingMode: BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: 'expiresAt',
+      removalPolicy: RemovalPolicy.RETAIN, // job history survives stack teardown
+    });
+    jobsTable.addGlobalSecondaryIndex({
+      indexName: 'byStartTime',
+      partitionKey: { name: 'gsi1pk', type: AttributeType.STRING },
+      sortKey: { name: 'startTime', type: AttributeType.STRING },
+      projectionType: ProjectionType.ALL,
+    });
+
     /* 4 ────────── Lambda behind the API */
     const lambdaRole = new Role(this, 'LambdaExecutionRole', {
       assumedBy: new ServicePrincipal('lambda.amazonaws.com'),
@@ -209,6 +233,7 @@ export class QuicksightPortalStack extends Stack {
         COGNITO_ISSUER: `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}`,
         BUCKET_NAME: `quicksight-metadata-bucket-${this.account}`,
         EXPORT_QUEUE_URL: exportQueue.queueUrl,
+        JOBS_TABLE_NAME: jobsTable.tableName,
         ...(smusDomainId ? { SMUS_DOMAIN_ID: smusDomainId } : {}),
         ...(smusPortalUrl ? { SMUS_PORTAL_URL: smusPortalUrl } : {}),
       },
@@ -216,6 +241,9 @@ export class QuicksightPortalStack extends Stack {
 
     // Grant API Lambda permission to send messages to the queue
     exportQueue.grantSendMessages(apiLambda);
+
+    // Job records live in DynamoDB (shared execution role covers both Lambdas)
+    jobsTable.grantReadWriteData(lambdaRole);
 
     /* 5 ────────── Worker Lambda for export processing */
     const workerLambda = new LambdaFunction(this, 'WorkerLambda', {
@@ -236,6 +264,7 @@ export class QuicksightPortalStack extends Stack {
         // Continuation pattern: the worker requeues an export that would
         // outlive the 15-min Lambda ceiling so a fresh invocation resumes it
         EXPORT_QUEUE_URL: exportQueue.queueUrl,
+        JOBS_TABLE_NAME: jobsTable.tableName,
       },
     });
 

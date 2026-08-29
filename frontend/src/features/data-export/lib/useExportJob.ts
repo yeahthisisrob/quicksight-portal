@@ -14,10 +14,12 @@ import type {
 } from '@/shared/api/types/export.types';
 import type { components } from '@shared/generated';
 
-// The slice of the generated job-status payload this hook tracks
+// The slice of the generated job-status payload this hook tracks.
+// lastUpdatedTime drives the worker-liveness display; checkpoint drives
+// data-driven per-asset-type progress (instead of inferring from logs).
 type JobStatus = Pick<
   components['schemas']['ExportJobStatus']['data'],
-  'status' | 'progress' | 'message' | 'stats'
+  'status' | 'progress' | 'message' | 'stats' | 'lastUpdatedTime' | 'checkpoint'
 >;
 
 /**
@@ -143,7 +145,9 @@ export function useExportJob(onCacheSummaryUpdate: () => void) {
         status: status.status,
         progress: status.progress || 0,
         message: status.message,
-        stats: status.stats
+        stats: status.stats,
+        lastUpdatedTime: status.lastUpdatedTime,
+        checkpoint: status.checkpoint,
       });
       
       // Load logs for all jobs (running or completed)
@@ -312,6 +316,8 @@ export function useExportJob(onCacheSummaryUpdate: () => void) {
           progress: active.progress || 0,
           message: active.message,
           stats: active.stats,
+          lastUpdatedTime: active.lastUpdatedTime,
+          checkpoint: active.checkpoint,
         });
         return true;
       } catch {
@@ -334,7 +340,9 @@ export function useExportJob(onCacheSummaryUpdate: () => void) {
             status: status.status,
             progress: status.progress || 0,
             message: status.message,
-            stats: status.stats
+            stats: status.stats,
+            lastUpdatedTime: status.lastUpdatedTime,
+            checkpoint: status.checkpoint,
           });
           
           // Load logs
@@ -393,7 +401,9 @@ export function useExportJob(onCacheSummaryUpdate: () => void) {
           status: status.status,
           progress: status.progress || 0,
           message: status.message,
-          stats: status.stats
+          stats: status.stats,
+          lastUpdatedTime: status.lastUpdatedTime,
+          checkpoint: status.checkpoint,
         });
         
         // Load logs for all jobs (running or completed)
@@ -455,7 +465,9 @@ export function useExportJob(onCacheSummaryUpdate: () => void) {
           status: status.status,
           progress: status.progress || 0,
           message: status.message,
-          stats: status.stats
+          stats: status.stats,
+          lastUpdatedTime: status.lastUpdatedTime,
+          checkpoint: status.checkpoint,
         });
       }
       
