@@ -367,13 +367,7 @@ export interface RefreshSchedule {
     Interval: 'MINUTE15' | 'MINUTE30' | 'HOURLY' | 'DAILY' | 'WEEKLY' | 'MONTHLY';
     RefreshOnDay?: {
       DayOfWeek?:
-        | 'SUNDAY'
-        | 'MONDAY'
-        | 'TUESDAY'
-        | 'WEDNESDAY'
-        | 'THURSDAY'
-        | 'FRIDAY'
-        | 'SATURDAY';
+        'SUNDAY' | 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY';
       DayOfMonth?: string;
     };
     TimeOfTheDay?: string;

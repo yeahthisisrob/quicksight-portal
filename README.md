@@ -1,292 +1,175 @@
 # QuickSight Assets Portal
 
-A comprehensive web application for managing, exploring, and deploying AWS QuickSight assets including dashboards, analyses, datasets, and data sources.
+[![Release](https://img.shields.io/github/v/release/yeahthisisrob/quicksight-portal)](https://github.com/yeahthisisrob/quicksight-portal/releases)
+[![Build](https://github.com/yeahthisisrob/quicksight-portal/actions/workflows/build.yml/badge.svg)](https://github.com/yeahthisisrob/quicksight-portal/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+A self-hosted admin portal for AWS QuickSight: inventory, search, and govern every dashboard, analysis, dataset, data source, folder, user, and group in your account — with data lineage, a field-level data catalog, activity analytics, and safe export/restore. Deploys into your own AWS account with a single CDK command.
 
 ## Features
 
-- **Asset Management**: Browse, search, and organize QuickSight dashboards, analyses, datasets, and data sources
-- **Folder Organization**: Create and manage folder hierarchies for better asset organization
-- **User & Group Management**: Manage QuickSight users, groups, and permissions
-- **Asset Export/Import**: Export QuickSight assets to JSON and restore them across environments
-- **Data Lineage**: Visualize relationships between datasets, data sources, and dashboards
-- **Field-Level Metadata**: Explore dataset schemas with field descriptions and usage tracking
-- **Tagging System**: Organize assets with tags for better categorization
-- **Audit History**: Track asset changes and user activities via CloudTrail integration
-- **Refresh Schedules**: Manage and monitor dataset refresh schedules
+### Asset management
+- **Full inventory** of dashboards, analyses, datasets, data sources, folders, users, and groups with server-side search, sorting, and pagination
+- **Smart Sync export engine** — incremental exports that only touch assets that changed in QuickSight; if the cache is lost it self-heals by re-parsing existing S3 exports with zero API calls
+- **Resumable long runs** — exports checkpoint their progress and continue across Lambda invocations, so account size never hits the 15-minute wall; only one export runs at a time (enforced by an atomic DynamoDB lock)
+- **Live job telemetry** — real-time progress, per-asset-type checkpoint chips, worker heartbeat/liveness indicator, and streaming job logs in the UI
+- **Bulk operations** — tag, folder-membership, and delete operations across selections, with per-item results
+- **Archive & restore** — deleted QuickSight assets are detected, archived with their full definitions, and restorable
+- **CSV export** of any asset listing
+
+### Insight & governance
+- **Data lineage** — dataset ↔ data source ↔ dashboard/analysis relationships, including composite (dataset-of-datasets) lineage and transitive dependencies
+- **Data catalog** — pre-computed, field-level catalog across datasets, analyses, and dashboards: physical/calculated fields, expressions, SQL table references, visual-field usage
+- **Activity analytics** — CloudTrail-derived view counts and viewer history for dashboards/analyses, dataset refresh (ingestion) history, and per-user activity
+- **SMUS / DataZone integration** *(optional)* — live catalog links from datasets to SageMaker Unified Studio listings via table-identity matching
+- **Tags & permissions** — browse and edit tags, inspect asset permissions, filter any asset page by a user's access
 
 ## Architecture
 
-The application consists of:
-- **Frontend**: React/TypeScript SPA with Material-UI
-- **Backend**: Node.js Lambda functions with TypeScript
-- **Infrastructure**: AWS CDK for deployment
-- **Storage**: S3 for metadata and export storage
-- **Authentication**: AWS Cognito for user management
-- **Queue**: SQS for async export job processing
+| Layer | Technology |
+|---|---|
+| Frontend | React 18 + TypeScript + MUI, organized by [Feature-Sliced Design](https://feature-sliced.design/) |
+| Backend | Node.js 22 Lambda (TypeScript), organized by Vertical Slice Architecture |
+| API | HTTP API (API Gateway v2) behind CloudFront (same-origin), contract-first via OpenAPI |
+| Auth | Cognito user pool; JWT verified in-Lambda on every route; optional WAF + IP allowlist at the edge |
+| Jobs | **DynamoDB** — per-job records, item-per-line logs, atomic heartbeats, TTL retention, conditional-write export lock; SQS + worker Lambda with a self-requeuing continuation pattern for long runs |
+| Asset data | **S3** — exported asset definitions (source of truth), per-type caches with ETag-revalidated in-memory reads, pre-computed catalog/lineage/field indexes |
+| Infrastructure | AWS CDK with [cdk-nag](https://github.com/cdklabs/cdk-nag) (AWS Solutions rules) enforced on every synth |
+
+### How an export works
+
+1. The API creates a job record (DynamoDB) and enqueues a message (SQS) — the UI starts polling immediately.
+2. The worker Lambda acquires the single-export lock, lists assets from QuickSight, and compares against the cache: changed assets are re-exported, assets exported under an older parser version are re-parsed locally (zero API calls), everything else is skipped.
+3. Every log line, progress update, and checkpoint is an atomic DynamoDB write that doubles as a heartbeat — a dead worker is auto-failed within 30 minutes, never leaving a stuck job.
+4. If the run approaches the Lambda time limit, it checkpoints and requeues itself; a fresh invocation resumes exactly where it stopped.
+5. When all asset types finish, the derived caches (field catalog, lineage, list snapshots) rebuild once.
 
 ## Prerequisites
 
-- Node.js 18+ and npm
-- AWS Account with QuickSight enabled
-- AWS CLI configured with appropriate credentials
-- AWS CDK CLI (`npm install -g aws-cdk`)
-- Docker Desktop (for local development with SAM Local)
-- Just command runner (optional, for simplified development workflows)
+- Node.js 22+ and npm
+- AWS account with QuickSight (Enterprise edition recommended for full API coverage)
+- AWS CLI configured with credentials
+- Docker Desktop *(only for local development with SAM Local)*
+- [Just](https://just.systems) command runner *(optional, for dev workflows)*
 
 ## Quick Start
 
-1. **Clone the repository**
+1. **Clone and install**
    ```bash
    git clone https://github.com/yeahthisisrob/quicksight-portal.git
    cd quicksight-portal
-   ```
-
-2. **Install dependencies**
-   ```bash
    npm run install:all
    ```
 
-3. **Configure AWS account**
+2. **Point at your AWS account**
    ```bash
-   # Set environment variables for CDK
    export CDK_DEFAULT_ACCOUNT=your-aws-account-id
    export CDK_DEFAULT_REGION=us-east-1
-   
-   # Or use AWS CLI profiles
-   export AWS_PROFILE=your-profile-name
+   # or: export AWS_PROFILE=your-profile-name
    ```
 
-4. **Deploy everything**
+3. **Deploy**
    ```bash
-   # First, build the project (required for bootstrap)
-   npm run build:prod
-   
-   # Bootstrap CDK (first time only)
-   npm run cdk:bootstrap
-   
-   # Deploy the stack (this also builds if needed)
-   npm run deploy:prod
-   
-   # This will:
-   # - Configure Cognito automatically
-   # - Deploy frontend with correct config
-   # - Output the site URL
+   npm run cdk:bootstrap   # first time only
+   npm run deploy:prod     # builds backend + frontend, deploys the stack
    ```
+   The stack creates CloudFront + S3 (SPA), the API and worker Lambdas, Cognito, the SQS export queue + DLQ, and the DynamoDB jobs table. Outputs include the **SiteURL** — the portal is live there.
 
-5. **Access your portal**
-   ```bash
-   # CDK output will show:
-   # SiteURL: https://[cloudfront-id].cloudfront.net
-   # 
-   # The portal is ready to use at this URL!
-   ```
+   Optional context flags: `-c enableWaf=false` (WAF is on by default), `-c allowedIpRanges='["1.2.3.4/32"]'` (edge IP allowlist), `-c smusDomainId=dzd_xxxx` (SMUS integration), `-c nag=false` (skip cdk-nag for a one-off synth).
 
-6. **Create your first user**
-   
-   **Option A: Using AWS Console (easier)**
-   - Go to AWS Cognito Console
-   - Find your User Pool (from CDK output)
-   - Create a new user with your email
-   - Add user to `QuickSightUsers` group
-   
-   **Option B: Using AWS CLI**
+4. **Create your first user**
    ```bash
-   # Create a user in Cognito (replace with your email)
    aws cognito-idp admin-create-user \
      --user-pool-id <UserPoolId from CDK output> \
-     --username your-email@example.com \
-     --user-attributes Name=email,Value=your-email@example.com \
-     --message-action SUPPRESS
-   
-   # Add user to QuickSightUsers group
+     --username you@example.com \
+     --user-attributes Name=email,Value=you@example.com
+
    aws cognito-idp admin-add-user-to-group \
      --user-pool-id <UserPoolId from CDK output> \
-     --username your-email@example.com \
+     --username you@example.com \
      --group-name QuickSightUsers
    ```
+   (Or use the Cognito console; add admins to the `Admins` group.)
 
-7. **Local development setup**
-   ```bash
-   # For local development, create a local config
-   cp frontend/public/config.js.example frontend/public/config.js
-   
-   # Edit with values from CDK output for local development
-   # The deployed version already has correct config
-   
-   # For backend development with SAM Local
-   cp sam/template.yaml.example sam/template.yaml
-   cp sam/env.example.json sam/env.json
-   # Edit both files with your AWS account details and CDK output values
-   ```
+5. **Run your first export** — sign in, open **Export Assets**, and start a **Smart Sync**. The portal populates itself from your QuickSight account.
 
 ## Development
 
-### Prerequisites for Local Development
-
-- **Docker Desktop** - Required for SAM Local API emulation
-- **Just** - Command runner for simplified workflows
-
-#### Installing Just
+### With Just (recommended)
 
 ```bash
-# macOS
-brew install just
-
-# Linux
-curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
-
-# Or via npm
-npm install -g just-install && just-install
+just dev          # full dev environment with checks
+just dev-quick    # faster startup, skip checks
+just check        # lint + typecheck + tests (backend and frontend)
+just backend      # SAM Local API only
+just frontend     # Vite dev server only
 ```
 
-### Local Development with Just
-
-The project includes a `justfile` with optimized development workflows:
+### Without Just
 
 ```bash
-# Run full development environment with all checks
-just dev
+# One-time local config
+cp frontend/public/config.js.example frontend/public/config.js
+cp sam/template.yaml.example sam/template.yaml
+cp sam/env.example.json sam/env.json
+# edit each with your account details / CDK outputs
 
-# Quick development mode (skip checks, faster startup)
-just dev-quick
-
-# Run all checks (lint, typecheck, tests)
-just check
-
-# Check backend only
-just check-backend
-
-# Check frontend only  
-just check-frontend
-
-# Start individual services
-just backend   # Start backend API
-just frontend  # Start frontend dev server
-just sam      # Start SAM Local API
+npm run dev:api-only          # backend via SAM Local
+cd frontend && npm run dev    # frontend
+npm test                      # backend tests
+npm run test:frontend         # frontend tests
+cd frontend && npm run storybook   # component workshop
 ```
 
-### Manual Development Commands
-
-If you prefer not to use Just:
-
-```bash
-# Start backend with SAM Local
-npm run dev:api-only
-
-# Start frontend dev server
-cd frontend && npm run dev
-
-# Run all checks
-npm run lint && npm run test
-
-# Run tests
-npm test              # Backend tests
-npm run test:frontend # Frontend tests
-```
-
-### Building for Production
-
-```bash
-# Using npm scripts (recommended)
-npm run build:prod
-
-# Or manually
-cd backend/lambda && npm run build
-cd frontend && npm run build
-```
-
-## Configuration
-
-### Environment Variables
-
-Key environment variables in `env.json`:
-- `AWS_ACCOUNT_ID`: Your AWS account ID
-- `AWS_REGION`: AWS region for deployment
-- `BUCKET_NAME`: S3 bucket for metadata storage
-- `COGNITO_USER_POOL_ID`: Cognito user pool ID (after deployment)
-- `API_URL`: API Gateway endpoint (after deployment)
-
-### QuickSight Permissions
-
-The Lambda execution role requires the following QuickSight permissions:
-- List, Describe, Get operations for all asset types
-- Tag management permissions
-- Create/Update/Delete for assets (if restore functionality is needed)
-- User and group management permissions
+Local development talks to your real AWS account (S3, DynamoDB, QuickSight); the jobs table is created automatically on first use if it doesn't exist.
 
 ## Project Structure
 
 ```
-├── frontend/               # React frontend application
-│   ├── src/
-│   │   ├── entities/      # Domain-specific components
-│   │   ├── features/      # Feature modules
-│   │   ├── pages/         # Page components
-│   │   ├── shared/        # Shared utilities and components
-│   │   └── widgets/       # Layout components
-│   └── public/
-├── backend/
-│   └── lambda/            # Lambda function code
-│       ├── features/      # Feature handlers
-│       ├── shared/        # Shared services
-│       └── services/      # Core services
-├── infrastructure/
-│   └── cdk/              # AWS CDK infrastructure code
-├── scripts/              # Utility scripts
-└── docs/                 # Documentation
+├── frontend/                 # React SPA (Feature-Sliced Design)
+│   └── src/
+│       ├── app/  pages/  widgets/  features/  entities/  shared/
+├── backend/lambda/           # Lambda code (Vertical Slice Architecture)
+│   ├── features/             # vertical slices (data-export, activity, data-catalog, ...)
+│   ├── shared/               # cross-slice services (cache, jobs, aws, parsing, lineage)
+│   ├── index.ts              # API Lambda entrypoint
+│   └── worker.ts             # SQS worker Lambda entrypoint
+├── infrastructure/cdk/       # CDK stack (+ cdk-nag)
+├── shared/schemas/           # OpenAPI spec (source of truth for API types)
+└── sam/                      # SAM Local templates for local development
 ```
 
-## API Documentation
+## API
 
-The API is documented using OpenAPI specification. See `shared/schemas/api.openapi.yaml` for the complete API documentation.
+Contract-first via OpenAPI: `shared/schemas/api.openapi.yaml` defines every endpoint; frontend types are generated from it (`shared/generated/types.ts`). Highlights:
 
-Key endpoints:
-- `/api/assets` - List and search assets
-- `/api/folders` - Manage folder hierarchy
-- `/api/users` - User management
-- `/api/groups` - Group management
-- `/api/export` - Export assets
-- `/api/import` - Import/restore assets
-- `/api/lineage` - Data lineage information
-- `/api/catalog` - Data catalog and field metadata
+- `/api/assets`, `/api/export/{assetType}/{assetId}` — asset listings and raw definitions
+- `/api/export`, `/api/jobs/*` — export jobs, status, logs, results, stop
+- `/api/lineage`, `/api/catalog` — lineage graph and field catalog
+- `/api/activity/*` — views, viewers, ingestion history
+- `/api/folders`, `/api/users`, `/api/groups`, `/api/tags` — organization and governance
 
 ## Security
 
-- Authentication via AWS Cognito with JWT tokens
-- Row-level security based on QuickSight permissions
-- Encrypted storage in S3
-- API Gateway with CORS configuration
-- CloudTrail integration for audit logging
-
-## Contributing
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+- Cognito authentication; JWTs verified in the API Lambda on every request
+- CloudFront same-origin API routing; WAF (managed rules) on by default with optional IP allowlisting at the edge
+- Least-privilege IAM scoped to the metadata bucket, jobs table, and QuickSight; encrypted S3/SQS/DynamoDB
+- **cdk-nag (AWS Solutions pack) fails synth on unreviewed findings** — every accepted deviation is acknowledged in the stack with a written reason
+- CloudTrail-based activity auditing surfaced in the portal
 
 ## Troubleshooting
 
-### Common Issues
+| Symptom | Check |
+|---|---|
+| Export stuck or slow | Job page shows worker heartbeat + per-type progress; a dead worker auto-fails within 30 min and the run can simply be restarted (Smart Sync resumes incrementally) |
+| Empty portal after deploy | Run a Smart Sync export; check the worker Lambda's CloudWatch logs |
+| Permission denied errors | Lambda execution role vs. QuickSight permissions; QuickSight must be active in the region |
+| Cognito callback mismatch | The deployed config is wired automatically; for local dev, check `frontend/public/config.js` |
 
-1. **CORS errors**: Ensure CloudFront distribution URL is added to API Gateway CORS configuration
-2. **Permission denied**: Check Lambda execution role has required QuickSight permissions
-3. **Cognito callback URL mismatch**: Update Cognito app client with correct callback URLs
-4. **S3 access denied**: Ensure metadata bucket exists and Lambda has read/write permissions
+## Contributing
 
-### Debugging
-
-- CloudWatch Logs for Lambda function logs
-- Browser DevTools for frontend debugging
-- AWS X-Ray for distributed tracing (if enabled)
+See [CONTRIBUTING.md](CONTRIBUTING.md). Releases are automated with release-please (conventional commits); CI runs lint, typecheck, tests, and builds on every PR, and Dependabot keeps dependencies current.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- AWS QuickSight team for the comprehensive API
-- React and Material-UI communities
-- AWS CDK for infrastructure as code
-
-## Support
-
-For issues, questions, or contributions, please open an issue on GitHub.
+MIT — see [LICENSE](LICENSE).

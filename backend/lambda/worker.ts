@@ -394,9 +394,8 @@ async function processBulkOperationJob(message: BulkOperationMessage, record: an
   const jobStateService = new JobStateService('bulk-operation');
 
   // Import BulkOperationsProcessor dynamically to avoid circular dependencies
-  const { BulkOperationsProcessor } = await import(
-    './shared/services/bulk/BulkOperationsProcessor'
-  );
+  const { BulkOperationsProcessor } =
+    await import('./shared/services/bulk/BulkOperationsProcessor');
   const bulkProcessor = new BulkOperationsProcessor(msgAccountId);
 
   try {
@@ -536,9 +535,8 @@ async function processCSVExportJob(message: CSVExportMessage, record: any): Prom
   const jobStateService = new JobStateService('csv-export');
 
   // Import CSVExportProcessor dynamically
-  const { CSVExportProcessor } = await import(
-    './features/asset-management/processors/CSVExportProcessor'
-  );
+  const { CSVExportProcessor } =
+    await import('./features/asset-management/processors/CSVExportProcessor');
   const csvExportProcessor = new CSVExportProcessor(msgAccountId);
 
   try {

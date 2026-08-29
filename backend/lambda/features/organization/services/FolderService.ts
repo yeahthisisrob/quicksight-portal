@@ -255,13 +255,11 @@ export class FolderService {
       // Return in the format expected by the frontend (typed as FolderMember[])
       return enrichedMembers
         .filter((member: any) => member.MemberId && member.MemberType)
-        .map(
-          (member: any): FolderMember => ({
-            MemberId: member.MemberId,
-            MemberType: member.MemberType as FolderMember['MemberType'],
-            MemberName: member.MemberName || `Unknown ${member.MemberType.toLowerCase()}`,
-          })
-        );
+        .map((member: any): FolderMember => ({
+          MemberId: member.MemberId,
+          MemberType: member.MemberType as FolderMember['MemberType'],
+          MemberName: member.MemberName || `Unknown ${member.MemberType.toLowerCase()}`,
+        }));
     } catch (error) {
       logger.error('Failed to get folder members', { folderId, error });
       throw error;

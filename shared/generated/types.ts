@@ -1369,7 +1369,6 @@ export interface paths {
         /**
          * Get a page of activity timeline events (global feed)
          * @description Returns a chronological feed of QuickSight mutation events (Create / Update / Delete / Publish / permission / membership / tagging / job events across all asset types and account settings). Cursor-based: pass the `nextCursor` returned in a previous response to fetch the next page. Reads (Get / Describe / List / Search) are NOT returned — the timeline only records events that touch assets or settings.
-         *
          */
         get: {
             parameters: {
@@ -1378,8 +1377,7 @@ export interface paths {
                     cursor?: string;
                     /** @description Page size. Default 50, max 200. */
                     limit?: number;
-                    /** @description Comma-separated list of resource types to include. Catalog types (dashboard, analysis, dataset, datasource, folder, group, user) show hydrated asset names; `other` covers templates, themes, brands, topics, account settings, etc.
-                     *      */
+                    /** @description Comma-separated list of resource types to include. Catalog types (dashboard, analysis, dataset, datasource, folder, group, user) show hydrated asset names; `other` covers templates, themes, brands, topics, account settings, etc. */
                     resourceTypes?: string;
                     /** @description Comma-separated list of user names to include. */
                     users?: string;
@@ -1434,7 +1432,6 @@ export interface paths {
         /**
          * Get a page of activity timeline events for one catalog asset
          * @description Same as /api/activity/timeline but pre-filtered to a specific catalog asset. All other query params (cursor, limit, users, eventNames, actions, date range) still apply and further narrow the results.
-         *
          */
         get: {
             parameters: {
@@ -1497,7 +1494,6 @@ export interface paths {
         /**
          * SMUS (SageMaker Unified Studio) integration status
          * @description Reports whether a SMUS domain is configured for this portal. When not configured, all SMUS UI (link indicators, actions, filters) is hidden.
-         *
          */
         get: {
             parameters: {
@@ -1540,7 +1536,6 @@ export interface paths {
         /**
          * Resolve SMUS catalog links for QuickSight datasets
          * @description Matches cached QuickSight dataset metadata (name and source table names from lineage) against the live SMUS domain catalog and returns per-dataset link resolutions. Catalog data is fetched live (short in-memory TTL) — it is never persisted to the portal cache.
-         *
          */
         post: {
             parameters: {
@@ -2440,7 +2435,6 @@ export interface components {
         /**
          * @description Indicates why an asset was included in search results.
          *     Multiple reasons can apply to a single asset.
-         *
          * @enum {string}
          */
         SearchMatchReason: "name" | "id" | "description" | "arn" | "tag_key" | "tag_value" | "permission" | "dependency_dataset" | "dependency_datasource" | "dependency_analysis";
@@ -2560,10 +2554,11 @@ export interface components {
              * @default []
              */
             permissions: components["schemas"]["Permission"][];
-            /** @description Why this asset matched the search query. Only present when a search
+            /**
+             * @description Why this asset matched the search query. Only present when a search
              *     query was provided. Multiple reasons can apply (e.g., matched on name
              *     AND is a dependency of another matched asset).
-             *      */
+             */
             searchMatchReasons?: components["schemas"]["SearchMatchReason"][];
         };
         ArchivedAssetItem: components["schemas"]["AssetListItem"] & {
@@ -2680,11 +2675,9 @@ export interface components {
             fieldCount: number;
             /** @description Dataset size in bytes */
             sizeInBytes?: number;
-            /** @description Data source type resolved from the dataset's data sources (the DataSource API's Type field — ATHENA, REDSHIFT, S3, etc.)
-             *      */
+            /** @description Data source type resolved from the dataset's data sources (the DataSource API's Type field — ATHENA, REDSHIFT, S3, etc.) */
             sourceType?: string;
-            /** @description Distinct source schemas (databases) from the dataset's relational physical tables — the RelationalTable Schema field, which is the database for Athena sources and the schema for Redshift and other relational engines. Populated at export time.
-             *      */
+            /** @description Distinct source schemas (databases) from the dataset's relational physical tables — the RelationalTable Schema field, which is the database for Athena sources and the schema for Redshift and other relational engines. Populated at export time. */
             schemas?: string[];
             /** @description Whether dataset has refresh properties configured */
             hasRefreshProperties?: boolean;
@@ -2694,8 +2687,7 @@ export interface components {
             refreshSchedules?: components["schemas"]["RefreshSchedule"][];
             /** @description Refresh configuration properties for the dataset */
             dataSetRefreshProperties?: Record<string, never>;
-            /** @description Aggregated activity for the dataset — views across the dashboards/analyses that use it, plus last refresh (ingestion).
-             *      */
+            /** @description Aggregated activity for the dataset — views across the dashboards/analyses that use it, plus last refresh (ingestion). */
             activity?: {
                 totalViews?: number;
                 uniqueViewers?: number;
@@ -2974,8 +2966,7 @@ export interface components {
                 groups?: string[];
             }[];
         };
-        /** @description Activity for a dataset — refresh (ingestion) history plus aggregated view/update activity of the dashboards and analyses that use it.
-         *      */
+        /** @description Activity for a dataset — refresh (ingestion) history plus aggregated view/update activity of the dashboards and analyses that use it. */
         DatasetActivityData: {
             /** @description Dataset identifier */
             datasetId: string;
@@ -3051,7 +3042,6 @@ export interface components {
             user: string;
             /**
              * @description Resource type the event targets. Catalog types (dashboard / analysis / dataset / datasource / folder / group / user) are hydrated with asset names; `other` covers templates, themes, brands, topics, action connectors, VPC connections, namespaces, and account-level settings.
-             *
              * @enum {string}
              */
             resourceType?: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "group" | "user" | "other";
@@ -3066,8 +3056,7 @@ export interface components {
             assetName?: string;
             /** @description Full resource ARN, when present on the CloudTrail event. */
             arn?: string;
-            /** @description The stored activity record, verbatim — pruned but with readable field names (timestamp, eventName, user, resourceId, name, kind, action, resourceType, details, eventId). For mutations, details holds the allowlisted CloudTrail payload slice. Powers the per-event JSON debugging view.
-             *      */
+            /** @description The stored activity record, verbatim — pruned but with readable field names (timestamp, eventName, user, resourceId, name, kind, action, resourceType, details, eventId). For mutations, details holds the allowlisted CloudTrail payload slice. Powers the per-event JSON debugging view. */
             raw?: Record<string, never>;
         };
         TimelinePage: {
@@ -3286,10 +3275,11 @@ export interface components {
          * @enum {string}
          */
         JobStatus: "queued" | "processing" | "completed" | "failed" | "stopping" | "stopped";
-        /** @description One step of a multi-phase job. Optional. Jobs that report phases
+        /**
+         * @description One step of a multi-phase job. Optional. Jobs that report phases
          *     emit a fixed-length array; status transitions monotonically
          *     (pending → in_progress → completed/failed/skipped).
-         *      */
+         */
         JobPhase: {
             /** @description Stable phase identifier (e.g. fetch-views, fetch-mutations) */
             key: string;
@@ -3323,7 +3313,6 @@ export interface components {
                  * Format: date-time
                  * @description Heartbeat - stamped on every job write. The UI uses it to show
                  *     worker liveness ("active Ns ago") and flag stalled jobs.
-                 *
                  */
                 lastUpdatedTime?: string;
                 /** Format: date-time */
@@ -3336,15 +3325,17 @@ export interface components {
                     failedAssets?: number;
                     apiCalls?: number;
                 };
-                /** @description Optional step-based progress. Present for jobs that emit phases
+                /**
+                 * @description Optional step-based progress. Present for jobs that emit phases
                  *     (e.g. activity-refresh). Older job types omit this field.
-                 *      */
+                 */
                 phases?: components["schemas"]["JobPhase"][];
-                /** @description Resumable-export progress (export jobs only). Written after
+                /**
+                 * @description Resumable-export progress (export jobs only). Written after
                  *     each asset type completes so continuation invocations resume
                  *     where the previous one paused; the UI renders it as per-type
                  *     progress.
-                 *      */
+                 */
                 checkpoint?: {
                     completedAssetTypes?: string[];
                     hydratedAssetTypes?: string[];
@@ -3445,7 +3436,6 @@ export interface components {
             linked: boolean;
             /**
              * @description How the dataset was matched, in descending confidence — by a relational source table (schema.table), by a db.table reference parsed from custom SQL, or by the dataset's display name
-             *
              * @enum {string}
              */
             matchType?: "source-table" | "custom-sql" | "name";
