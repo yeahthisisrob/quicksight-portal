@@ -140,13 +140,7 @@ export interface DeploymentResult {
  * Deployment status
  */
 export type DeploymentStatus =
-  | 'pending'
-  | 'validating'
-  | 'deploying'
-  | 'completed'
-  | 'failed'
-  | 'rolled_back'
-  | 'skipped';
+  'pending' | 'validating' | 'deploying' | 'completed' | 'failed' | 'rolled_back' | 'skipped';
 
 /**
  * Validation result

@@ -1,0 +1,55 @@
+version: 2
+updates:
+  # Root workspace (build tooling, openapi-typescript)
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 5
+
+  # Backend Lambda runtime
+  - package-ecosystem: npm
+    directory: "/backend/lambda"
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      aws-sdk:
+        patterns: ["@aws-sdk/*", "@smithy/*"]
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 5
+
+  # Frontend (React/MUI/Vite)
+  - package-ecosystem: npm
+    directory: "/frontend"
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 5
+
+  # CDK infrastructure
+  - package-ecosystem: npm
+    directory: "/infrastructure/cdk"
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 5
+
+  # GitHub Actions workflows
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5

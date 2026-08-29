@@ -4,13 +4,7 @@
  */
 
 export type AssetType =
-  | 'dashboard'
-  | 'analysis'
-  | 'dataset'
-  | 'datasource'
-  | 'folder'
-  | 'user'
-  | 'group';
+  'dashboard' | 'analysis' | 'dataset' | 'datasource' | 'folder' | 'user' | 'group';
 
 /**
  * Asset status enum for consistent status management
@@ -123,13 +117,7 @@ export interface CacheEntry {
         interval: 'MINUTE15' | 'MINUTE30' | 'HOURLY' | 'DAILY' | 'WEEKLY' | 'MONTHLY';
         refreshOnDay?: {
           dayOfWeek?:
-            | 'SUNDAY'
-            | 'MONDAY'
-            | 'TUESDAY'
-            | 'WEDNESDAY'
-            | 'THURSDAY'
-            | 'FRIDAY'
-            | 'SATURDAY';
+            'SUNDAY' | 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY';
           dayOfMonth?: string;
         };
         timeOfTheDay?: string;

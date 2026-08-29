@@ -337,10 +337,7 @@ export async function getActivityData(event: APIGatewayProxyEvent): Promise<APIG
 
     // Extract path parameters
     const assetType = event.pathParameters?.assetType as
-      | 'dashboard'
-      | 'analysis'
-      | 'dataset'
-      | 'user';
+      'dashboard' | 'analysis' | 'dataset' | 'user';
     const assetId = event.pathParameters?.assetId;
 
     if (!assetType || !assetId) {

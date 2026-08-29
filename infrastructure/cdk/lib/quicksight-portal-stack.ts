@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { Construct } from 'constructs';
 import {
-  Stack, StackProps, Duration, RemovalPolicy, CfnOutput,
+  Stack, StackProps, Duration, RemovalPolicy, CfnOutput, Validations,
 } from 'aws-cdk-lib';
 import {
   Bucket, BucketEncryption, BlockPublicAccess,
@@ -10,7 +10,7 @@ import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
 import {
   Distribution, ViewerProtocolPolicy, CachePolicy, AllowedMethods,
   ResponseHeadersPolicy, OriginAccessIdentity, CfnDistribution,
-  HeadersFrameOption, HeadersReferrerPolicy, SecurityPolicyProtocol,
+  HeadersFrameOption, HeadersReferrerPolicy,
   OriginRequestPolicy, CacheHeaderBehavior, CacheQueryStringBehavior,
   CacheCookieBehavior, OriginProtocolPolicy,
 } from 'aws-cdk-lib/aws-cloudfront';
@@ -112,6 +112,7 @@ export class QuicksightPortalStack extends Stack {
     const exportQueue = new Queue(this, 'ExportQueue', {
       queueName: `quicksight-export-queue-${this.account}`,
       encryption: QueueEncryption.KMS_MANAGED,
+      enforceSSL: true,
       // Well above the 15-min Lambda timeout (AWS guidance: >= 6x). Equal
       // values let a message go visible again while the first invocation is
       // still running, so two workers could process the same job concurrently
@@ -123,6 +124,7 @@ export class QuicksightPortalStack extends Stack {
         queue: new Queue(this, 'ExportDLQ', {
           queueName: `quicksight-export-dlq-${this.account}`,
           encryption: QueueEncryption.KMS_MANAGED,
+          enforceSSL: true,
           retentionPeriod: Duration.days(14),
         }),
       },
@@ -140,6 +142,7 @@ export class QuicksightPortalStack extends Stack {
       sortKey: { name: 'sk', type: AttributeType.STRING },
       billingMode: BillingMode.PAY_PER_REQUEST,
       timeToLiveAttribute: 'expiresAt',
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
       removalPolicy: RemovalPolicy.RETAIN, // job history survives stack teardown
     });
     jobsTable.addGlobalSecondaryIndex({
@@ -466,7 +469,9 @@ export class QuicksightPortalStack extends Stack {
         },
       },
       defaultRootObject: 'index.html',
-      minimumProtocolVersion: SecurityPolicyProtocol.TLS_V1_2_2021,
+      // NOTE: minimumProtocolVersion has no effect with the default
+      // CloudFront certificate (security policy is fixed at TLSv1). Set it
+      // (TLS_V1_2_2021) when a custom domain + ACM certificate are added.
       webAclId: waf?.attrArn,
       errorResponses: [{
         httpStatus: 404,
@@ -533,5 +538,132 @@ export class QuicksightPortalStack extends Stack {
     new CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId });
     new CfnOutput(this, 'UserPoolClientId', { value: userPoolClient.ref });
     new CfnOutput(this, 'ExportQueueUrl', { value: exportQueue.queueUrl });
+
+    /* 11 ────────── cdk-nag acknowledgments */
+    // Every remaining AWS Solutions finding is an explicit, reasoned decision.
+    // Anything not listed here fails synth - new resources must either
+    // comply or add their own acknowledgment with a reason.
+    const acknowledgments: Array<{ id: string; reason: string }> = [
+      {
+        id: 'AwsSolutions-L1',
+        reason:
+          'Lambdas are pinned to the Node 22 LTS runtime, matched to the build target ' +
+          'and @types/node; runtime upgrades are done deliberately, not implicitly. ' +
+          'The BucketDeployment handler runtime is CDK-managed.',
+      },
+      {
+        id: 'AwsSolutions-APIG4',
+        reason:
+          'Authorization is enforced in the API Lambda via Cognito JWT verification ' +
+          '(aws-jwt-verify) on every route except the auth endpoints; CloudFront ' +
+          'same-origin routing + WAF sit in front of the API.',
+      },
+      {
+        id: 'AwsSolutions-COG8',
+        reason:
+          'Cognito Plus tier / advanced security is a paid feature not justified for ' +
+          'this deployment; the pool has a strong password policy, optional TOTP MFA, ' +
+          'and no self-signup.',
+      },
+      {
+        id: 'AwsSolutions-COG2',
+        reason: 'MFA is offered (TOTP) but intentionally optional for this user base.',
+      },
+      {
+        id: 'AwsSolutions-S1',
+        reason:
+          'S3 server access logging is intentionally disabled on the SPA bucket: ' +
+          'CloudFront fronts all access and the added log bucket/cost is not justified.',
+      },
+      {
+        id: 'AwsSolutions-CFR1',
+        reason: 'No geo restriction requirement for this portal.',
+      },
+      {
+        id: 'AwsSolutions-CFR3',
+        reason:
+          'CloudFront access logging intentionally disabled for cost; API access logs ' +
+          'are captured at the HTTP API stage.',
+      },
+      {
+        id: 'AwsSolutions-CFR4',
+        reason:
+          'The distribution uses the default CloudFront certificate (no custom ' +
+          'domain), which fixes the minimum protocol at TLSv1; acceptable until a ' +
+          'custom domain + ACM certificate are introduced.',
+      },
+      {
+        id: 'AwsSolutions-CFR7',
+        reason:
+          'S3 origin uses an Origin Access Identity; migration to Origin Access ' +
+          'Control is tracked as a follow-up and needs a verified deploy window.',
+      },
+    ];
+    // IAM4/IAM5 are granular rules - each finding is acknowledged
+    // individually so any NEW wildcard still fails synth.
+    const quicksightAdminReason =
+      'The portal administers ALL QuickSight assets in the account by design; ' +
+      'QuickSight actions are scoped to account-level QuickSight ARNs.';
+    const metadataBucketReason =
+      'Object-level access to the portal-owned metadata/website buckets; the ' +
+      'object keyspace is the granularity S3 offers.';
+    const iamAcknowledgments: Array<{ id: string; reason: string }> = [
+      {
+        id: 'AwsSolutions-IAM4[Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole]',
+        reason:
+          'AWSLambdaBasicExecutionRole only grants CloudWatch Logs write for the ' +
+          'function log group; a customer-managed equivalent adds boilerplate ' +
+          'without reducing scope.',
+      },
+      ...['List*', 'Describe*', 'Get*', 'Search*', 'Update*'].map((a) => ({
+        id: `AwsSolutions-IAM5[Action::quicksight:${a}]`,
+        reason: quicksightAdminReason,
+      })),
+      {
+        id: `AwsSolutions-IAM5[Resource::arn:aws:quicksight:${this.region}:<AWS::AccountId>:*]`,
+        reason: quicksightAdminReason,
+      },
+      ...['GetObject*', 'GetBucket*', 'List*', 'DeleteObject*', 'Abort*'].map((a) => ({
+        id: `AwsSolutions-IAM5[Action::s3:${a}]`,
+        reason: metadataBucketReason,
+      })),
+      {
+        id: 'AwsSolutions-IAM5[Resource::arn:aws:s3:::quicksight-metadata-bucket-<AWS::AccountId>/*]',
+        reason: metadataBucketReason,
+      },
+      {
+        id: 'AwsSolutions-IAM5[Resource::<WebsiteBucket75C24D94.Arn>/*]',
+        reason: metadataBucketReason,
+      },
+      {
+        id: 'AwsSolutions-IAM5[Resource::<JobsTable1970BC16.Arn>/index/*]',
+        reason:
+          'grantReadWriteData covers the jobs table GSI (index/*) - required for job listings.',
+      },
+      {
+        id: 'AwsSolutions-IAM5[Resource::*]',
+        reason:
+          'cloudtrail:LookupEvents and datazone:SearchListings do not support ' +
+          'resource-level scoping.',
+      },
+      {
+        id: `AwsSolutions-IAM5[Resource::arn:aws:s3:::cdk-hnb659fds-assets-<AWS::AccountId>-${this.region}/*]`,
+        reason: 'CDK-managed BucketDeployment reads its own asset bucket.',
+      },
+    ];
+
+    for (const ack of acknowledgments) {
+      Validations.of(this).acknowledge(ack);
+    }
+    // Validations.acknowledge() rejects ids containing more than one '::'
+    // (the delimiter is reserved), which every ARN-bearing IAM finding id
+    // does. cdk-nag matches acknowledgments against the raw metadata entries
+    // under Validations.ACKNOWLEDGED_RULES_METADATA_KEY, so record those
+    // directly - same mechanism, same audit trail in the template.
+    for (const ack of iamAcknowledgments) {
+      this.node.addMetadata(Validations.ACKNOWLEDGED_RULES_METADATA_KEY, {
+        [ack.id]: ack.reason,
+      });
+    }
   }
 }

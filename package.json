@@ -43,11 +43,11 @@
     "cloc": "cloc . --by-file --exclude-dir=node_modules,dist,build,.next,out,cdk.out --match-f='.*\\.(ts|tsx)$'"
   },
   "devDependencies": {
-    "@apidevtools/swagger-parser": "^12.0.0",
-    "concurrently": "^9.2.0",
-    "openapi-typescript": "^7.8.0"
+    "@apidevtools/swagger-parser": "^12.1.0",
+    "concurrently": "^9.2.4",
+    "openapi-typescript": "^7.13.0"
   },
   "dependencies": {
-    "@aws-sdk/client-quicksight": "^3.848.0"
+    "@aws-sdk/client-quicksight": "^3.1121.0"
   }
 }

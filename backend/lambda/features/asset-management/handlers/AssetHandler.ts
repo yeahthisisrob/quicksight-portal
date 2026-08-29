@@ -522,26 +522,18 @@ export class AssetHandler {
       search: queryParams.search,
       filters: queryParams.filters ? JSON.parse(queryParams.filters) : undefined,
       dateField: (queryParams.dateField || 'lastUpdatedTime') as
-        | 'lastUpdatedTime'
-        | 'createdTime'
-        | 'lastActivity',
+        'lastUpdatedTime' | 'createdTime' | 'lastActivity',
       dateRange: (queryParams.dateRange || 'all') as 'all' | '24h' | '7d' | '30d' | '90d',
       includeTags: queryParams.includeTags ? JSON.parse(queryParams.includeTags) : undefined,
       excludeTags: queryParams.excludeTags ? JSON.parse(queryParams.excludeTags) : undefined,
       errorFilter: (queryParams.errorFilter || 'all') as 'all' | 'with_errors' | 'without_errors',
       activityFilter: (queryParams.activityFilter || 'all') as
-        | 'all'
-        | 'with_activity'
-        | 'without_activity',
+        'all' | 'with_activity' | 'without_activity',
       roleFilter: queryParams.roleFilter ? JSON.parse(queryParams.roleFilter) : undefined,
       permissionsFilter: (queryParams.permissionsFilter || 'all') as
-        | 'all'
-        | 'with_permissions'
-        | 'without_permissions',
+        'all' | 'with_permissions' | 'without_permissions',
       groupMembershipFilter: (queryParams.groupMembershipFilter || 'all') as
-        | 'all'
-        | 'in_groups'
-        | 'not_in_groups',
+        'all' | 'in_groups' | 'not_in_groups',
       groupFilter: queryParams.groupFilter ? JSON.parse(queryParams.groupFilter) : undefined,
       accessUsers: queryParams.accessUsers ? JSON.parse(queryParams.accessUsers) : undefined,
       includeFolders: queryParams.includeFolders
