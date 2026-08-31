@@ -58,7 +58,7 @@
     "@typescript-eslint/eslint-plugin": "^8.68.0",
     "@typescript-eslint/parser": "^8.68.0",
     "@vitest/coverage-v8": "^3.2.7",
-    "@vitest/ui": "^3.2.7",
+    "@vitest/ui": "^4.1.11",
     "aws-sdk-client-mock": "^4.1.0",
     "esbuild": "^0.28.2",
     "eslint": "^9.39.5",
