@@ -4,7 +4,7 @@
 import { CheckCircle } from '@mui/icons-material';
 import { Alert, Box, Stack, Typography } from '@mui/material';
 
-import type { AssetMetadata, ArchivedAssetItem } from '../types';
+import type { ArchivedAssetItem, AssetMetadata } from '../types';
 
 interface RestoreSummaryAlertProps {
   asset: ArchivedAssetItem;
@@ -15,27 +15,27 @@ export function RestoreSummaryAlert({ asset, assetMetadata }: RestoreSummaryAler
   if (!assetMetadata) return null;
 
   const components = [
-    { 
-      label: 'Asset Definition', 
-      show: true 
+    {
+      label: 'Asset Definition',
+      show: true,
     },
-    { 
-      label: `${assetMetadata.permissions?.length || 0} Permissions`, 
-      show: (assetMetadata.permissions?.length ?? 0) > 0 
+    {
+      label: `${assetMetadata.permissions?.length || 0} Permissions`,
+      show: (assetMetadata.permissions?.length ?? 0) > 0,
     },
-    { 
-      label: `${assetMetadata.tags?.length || 0} Tags`, 
-      show: (assetMetadata.tags?.length ?? 0) > 0 
+    {
+      label: `${assetMetadata.tags?.length || 0} Tags`,
+      show: (assetMetadata.tags?.length ?? 0) > 0,
     },
-    { 
-      label: `${assetMetadata.refreshSchedules?.length || 0} Refresh Schedules`, 
-      show: asset.type === 'dataset' && (assetMetadata.refreshSchedules?.length ?? 0) > 0 
+    {
+      label: `${assetMetadata.refreshSchedules?.length || 0} Refresh Schedules`,
+      show: asset.type === 'dataset' && (assetMetadata.refreshSchedules?.length ?? 0) > 0,
     },
-    { 
-      label: `${assetMetadata.folderMemberships?.length || 0} Folder Memberships`, 
-      show: (assetMetadata.folderMemberships?.length ?? 0) > 0 
+    {
+      label: `${assetMetadata.folderMemberships?.length || 0} Folder Memberships`,
+      show: (assetMetadata.folderMemberships?.length ?? 0) > 0,
     },
-  ].filter(c => c.show);
+  ].filter((c) => c.show);
 
   return (
     <Alert severity="info" sx={{ mb: 2 }}>

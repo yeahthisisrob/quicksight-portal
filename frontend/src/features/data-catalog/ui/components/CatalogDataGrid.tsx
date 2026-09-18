@@ -1,12 +1,12 @@
-import { Paper, alpha } from '@mui/material';
+import { alpha, Paper } from '@mui/material';
 import {
   DataGrid,
-  GridColDef,
-  GridSortModel,
-  GridPaginationModel,
+  type GridColDef,
+  type GridPaginationModel,
+  type GridSortModel,
   GridToolbar,
 } from '@mui/x-data-grid';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { colors, spacing } from '@/shared/design-system/theme';
 
@@ -70,18 +70,21 @@ export default function CatalogDataGrid({
     setPaginationModel({ page, pageSize });
   }, [page, pageSize]);
 
-  const handlePaginationModelChange = useCallback((model: GridPaginationModel) => {
-    if (model.page !== page) {
-      onPageChange(model.page);
-    }
-    if (model.pageSize !== pageSize) {
-      onPageSizeChange(model.pageSize);
-    }
-  }, [page, pageSize, onPageChange, onPageSizeChange]);
+  const handlePaginationModelChange = useCallback(
+    (model: GridPaginationModel) => {
+      if (model.page !== page) {
+        onPageChange(model.page);
+      }
+      if (model.pageSize !== pageSize) {
+        onPageSizeChange(model.pageSize);
+      }
+    },
+    [page, pageSize, onPageChange, onPageSizeChange]
+  );
 
   return (
-    <Paper 
-      sx={{ 
+    <Paper
+      sx={{
         height,
         width: '100%',
         borderRadius: `${spacing.md / 8}px`,
@@ -114,11 +117,13 @@ export default function CatalogDataGrid({
           toolbar: showToolbar ? GridToolbar : undefined,
         }}
         slotProps={{
-          toolbar: showToolbar ? {
-            showQuickFilter: false,
-            csvOptions: { disableToolbarButton: true },
-            printOptions: { disableToolbarButton: true },
-          } : undefined,
+          toolbar: showToolbar
+            ? {
+                showQuickFilter: false,
+                csvOptions: { disableToolbarButton: true },
+                printOptions: { disableToolbarButton: true },
+              }
+            : undefined,
         }}
         sx={{
           border: 'none',

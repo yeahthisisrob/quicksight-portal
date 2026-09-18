@@ -1,7 +1,7 @@
-import { components } from '@shared/generated/types';
+import type { components } from '@shared/generated/types';
 
 import { api } from '../client';
-import { ApiResponse } from '../types';
+import type { ApiResponse } from '../types';
 
 type ActivityData = components['schemas']['ActivityData'];
 type UserActivity = components['schemas']['UserActivity'];
@@ -64,10 +64,7 @@ export const activityApi = {
     status: string;
     message: string;
   }> {
-    const response = await api.post<ApiResponse<any>>(
-      '/activity/refresh',
-      params
-    );
+    const response = await api.post<ApiResponse<any>>('/activity/refresh', params);
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to start activity refresh job');
     }
@@ -77,7 +74,10 @@ export const activityApi = {
   /**
    * Get activity data for a specific asset
    */
-  async getActivityData(assetType: 'dashboard' | 'analysis' | 'user', assetId: string): Promise<ActivityData | UserActivity> {
+  async getActivityData(
+    assetType: 'dashboard' | 'analysis' | 'user',
+    assetId: string
+  ): Promise<ActivityData | UserActivity> {
     const response = await api.get<ApiResponse<ActivityData | UserActivity>>(
       `/activity/${assetType}/${assetId}`
     );
@@ -107,7 +107,7 @@ export const activityApi = {
     };
   }> {
     const response = await api.get<ApiResponse<any>>('/activity/summary', {
-      params: { days }
+      params: { days },
     });
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to fetch activity summary');
@@ -136,10 +136,10 @@ export const activityApi = {
     assetType: 'dashboard' | 'analysis',
     assetId: string
   ): Promise<RecipientsData> {
-    const response = await api.post<ApiResponse<RecipientsData>>(
-      '/activity/recipients',
-      { assetType, assetId }
-    );
+    const response = await api.post<ApiResponse<RecipientsData>>('/activity/recipients', {
+      assetType,
+      assetId,
+    });
     if (!response.data.success || !response.data.data) {
       throw new Error(response.data.error || 'Failed to resolve recipients');
     }

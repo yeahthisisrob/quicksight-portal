@@ -1,10 +1,7 @@
 /**
  * Expression tab for calculated field details
  */
-import {
-  ContentCopy as CopyIcon,
-  OpenInFull as ExpandIcon,
-} from '@mui/icons-material';
+import { ContentCopy as CopyIcon, OpenInFull as ExpandIcon } from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -30,18 +27,18 @@ interface ExpressionTabProps {
   onShowGraph: () => void;
 }
 
-export function ExpressionTab({ 
-  field, 
-  hasVariants, 
+export function ExpressionTab({
+  field,
+  hasVariants,
   currentExpression,
   onCopyExpression,
-  onShowGraph
+  onShowGraph,
 }: ExpressionTabProps) {
   const [selectedVariant, setSelectedVariant] = useState(0);
-  
+
   const renderExpression = (expression: string | undefined) => {
     if (!expression) return null;
-    
+
     return (
       <Box
         sx={{
@@ -62,7 +59,7 @@ export function ExpressionTab({
       </Box>
     );
   };
-  
+
   return (
     <Stack spacing={3}>
       {/* Variant Selector */}
@@ -104,9 +101,9 @@ export function ExpressionTab({
             </Tooltip>
           </Stack>
         </Stack>
-        
+
         {renderExpression(currentExpression)}
-        
+
         {/* Expression Metadata */}
         {field.expressions?.[selectedVariant] && (
           <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
@@ -114,7 +111,7 @@ export function ExpressionTab({
               <DatasourceTypeBadge key={type} datasourceType={type} />
             ))}
             {field.expressions[selectedVariant].assetCount && (
-              <Chip 
+              <Chip
                 label={`Used in ${field.expressions[selectedVariant].assetCount} assets`}
                 size="small"
                 variant="outlined"
@@ -131,20 +128,15 @@ export function ExpressionTab({
             Multiple Expression Variants Detected
           </Typography>
           <Typography variant="body2">
-            This calculated field has {field.expressions.length} different expression variants 
+            This calculated field has {field.expressions.length} different expression variants
             across your assets. This might indicate inconsistent business logic.
           </Typography>
         </Alert>
       )}
-      
+
       {/* Graph Button */}
       <Box>
-        <Button
-          variant="outlined"
-          startIcon={<ExpandIcon />}
-          onClick={onShowGraph}
-          fullWidth
-        >
+        <Button variant="outlined" startIcon={<ExpandIcon />} onClick={onShowGraph} fullWidth>
           View Expression Dependency Graph
         </Button>
       </Box>

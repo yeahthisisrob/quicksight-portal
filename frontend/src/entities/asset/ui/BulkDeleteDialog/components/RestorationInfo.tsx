@@ -1,19 +1,12 @@
 /**
  * Restoration info component for BulkDeleteDialog
  */
-import { 
-  Box, 
-  Typography, 
-  IconButton, 
-  Collapse, 
-  Stack, 
-  Alert 
-} from '@mui/material';
+import { Alert, Box, Collapse, IconButton, Stack, Typography } from '@mui/material';
 import { useState } from 'react';
 
 import { actionIcons, assetIcons } from '@/shared/ui/icons';
 
-import { RESTORATION_INFO ,type  Asset } from '../types';
+import { type Asset, RESTORATION_INFO } from '../types';
 
 const ExpandMoreIcon = actionIcons.expand;
 const ExpandLessIcon = actionIcons.collapse;
@@ -43,13 +36,13 @@ export function RestorationInfo({ assetsByType }: RestorationInfoProps) {
           {showDetails ? <ExpandLessIcon /> : <ExpandMoreIcon />}
         </IconButton>
       </Box>
-      
+
       <Collapse in={showDetails}>
         <Stack spacing={1}>
           {Object.entries(assetsByType).map(([type, typeAssets]) => {
             const info = RESTORATION_INFO[type as keyof typeof RESTORATION_INFO];
             const AssetIcon = assetIcons[type as keyof typeof assetIcons];
-            
+
             return (
               <Alert
                 key={type}

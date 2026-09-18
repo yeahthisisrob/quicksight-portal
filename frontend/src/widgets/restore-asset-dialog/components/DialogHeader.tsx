@@ -21,7 +21,9 @@ export function DialogHeader({ assetType, assetName, onClose, disabled }: Dialog
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <RestoreIcon color="primary" />
-          <Typography variant="h6">Restore {assetType}: {assetName}</Typography>
+          <Typography variant="h6">
+            Restore {assetType}: {assetName}
+          </Typography>
         </Box>
         <IconButton onClick={onClose} disabled={disabled}>
           <CloseIcon />

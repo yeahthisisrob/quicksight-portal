@@ -5,17 +5,14 @@
 /**
  * Process physical view row data
  */
-export function processPhysicalViewRows(
-  catalogData: any,
-  mappings: any[]
-) {
+export function processPhysicalViewRows(catalogData: any, mappings: any[]) {
   if (!catalogData?.items) return [];
-  
+
   return catalogData.items.map((field: any, index: number) => {
     const fieldId = getFieldId(field);
     const mapping = mappings?.find((m: any) => m.fieldId === fieldId && m.status === 'active');
     const sources = field.sources || [];
-    
+
     return {
       id: field.id || `${field.fieldName}-${index}`,
       fieldName: field.fieldName,
@@ -48,17 +45,13 @@ export function processPhysicalViewRows(
 /**
  * Process semantic view row data
  */
-export function processSemanticViewRows(
-  terms: any[],
-  mappings: any[],
-  visualFieldCatalog: any
-) {
+export function processSemanticViewRows(terms: any[], mappings: any[], visualFieldCatalog: any) {
   if (!terms) return [];
-  
+
   return terms.map((term: any) => {
     const termMappings = getTermMappings(mappings, term.id);
     const termUsageCount = visualFieldCatalog?.termUsageCounts?.[term.id] || 0;
-    
+
     return {
       id: term.id,
       businessName: term.businessName,
@@ -83,7 +76,7 @@ export function processSemanticViewRows(
  */
 export function processCalculatedViewRows(catalogData: any) {
   if (!catalogData?.items) return [];
-  
+
   return catalogData.items
     .filter((field: any) => field.isCalculated)
     .map((field: any, index: number) => ({
@@ -95,22 +88,17 @@ export function processCalculatedViewRows(catalogData: any) {
 /**
  * Process visual fields view row data
  */
-export function processVisualFieldsRows(
-  visualFieldCatalog: any,
-  terms: any[],
-  mappings: any[]
-) {
+export function processVisualFieldsRows(visualFieldCatalog: any, terms: any[], mappings: any[]) {
   if (!visualFieldCatalog?.fields) return [];
-  
+
   return visualFieldCatalog.fields.map((field: any) => {
-    const fieldMapping = mappings?.find((m: any) => 
-      m.fieldId === field.visualFieldId || 
-      m.fieldId === `visual-field:${field.displayName}`
+    const fieldMapping = mappings?.find(
+      (m: any) =>
+        m.fieldId === field.visualFieldId || m.fieldId === `visual-field:${field.displayName}`
     );
-    
-    const mappedTerm = fieldMapping ? 
-      terms?.find((t: any) => t.id === fieldMapping.termId) : null;
-    
+
+    const mappedTerm = fieldMapping ? terms?.find((t: any) => t.id === fieldMapping.termId) : null;
+
     return {
       ...field,
       id: field.id || field.visualFieldId || `visual-${field.displayName}`,
@@ -127,12 +115,12 @@ function getFieldId(field: any): string {
   if (field.semanticFieldId) {
     return field.semanticFieldId;
   }
-  
+
   if (field.sources?.[0]) {
     const source = field.sources[0];
     return `${source.assetType}:${source.assetId}:${field.fieldName}`;
   }
-  
+
   return `unknown:unknown:${field.fieldName}`;
 }
 
@@ -155,10 +143,8 @@ function getTermMappings(mappings: any[], termId: string): any[] {
  */
 function countUniqueAssets(mappings: any[], assetType: string): number {
   const uniqueIds = new Set(
-    mappings.flatMap((m: any) => 
-      (m.sources || [])
-        .filter((s: any) => s.assetType === assetType)
-        .map((s: any) => s.assetId)
+    mappings.flatMap((m: any) =>
+      (m.sources || []).filter((s: any) => s.assetType === assetType).map((s: any) => s.assetId)
     )
   );
   return uniqueIds.size;
@@ -169,12 +155,12 @@ function countUniqueAssets(mappings: any[], assetType: string): number {
  */
 function buildVariantFields(mappings: any[]): any[] {
   return mappings.reduce((acc: any[], mapping: any) => {
-    const existingField = acc.find(f => f.fieldName === mapping.fieldName);
+    const existingField = acc.find((f) => f.fieldName === mapping.fieldName);
     if (!existingField) {
       acc.push({
         fieldName: mapping.fieldName,
         dataType: mapping.dataType,
-        count: 1
+        count: 1,
       });
     } else {
       existingField.count++;

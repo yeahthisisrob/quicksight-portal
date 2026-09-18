@@ -1,6 +1,6 @@
-import { TimelineEventJsonDialog } from './TimelineEventJsonDialog';
-
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import { TimelineEventJsonDialog } from './TimelineEventJsonDialog';
 
 const meta: Meta<typeof TimelineEventJsonDialog> = {
   title: 'Features/Activity/TimelineEventJsonDialog',
@@ -46,7 +46,10 @@ export const ConsoleUpdateAnalysis: Story = {
         eventId: 'f2a7c9e1-1111-2222-3333-444455556666',
         details: {
           eventRequestDetails: [
-            { key: 'addSheet', value: { sheetId: 'arn:aws:quicksight:us-east-1:123:sheet/x', sheetName: 'Sheet 2' } },
+            {
+              key: 'addSheet',
+              value: { sheetId: 'arn:aws:quicksight:us-east-1:123:sheet/x', sheetName: 'Sheet 2' },
+            },
             { key: 'analysisId', value: 'arn:aws:quicksight:us-east-1:123:analysis/abc-123' },
           ],
         },

@@ -1,3 +1,2 @@
 // JsonViewer feature components
-export { default as JsonViewerModal } from './components/JsonViewerModal';
-export { default } from './components/JsonViewerModal';
+export { default as JsonViewerModal, default } from './components/JsonViewerModal';

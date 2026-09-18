@@ -1,7 +1,7 @@
-import { Button, CircularProgress, alpha } from '@mui/material';
+import { alpha, Button, CircularProgress } from '@mui/material';
 import {
-  GridToolbarContainer,
   GridToolbarColumnsButton,
+  GridToolbarContainer,
   GridToolbarDensitySelector,
 } from '@mui/x-data-grid';
 
@@ -51,7 +51,7 @@ export function TableToolbar({ onExportCSV, exportLabel, exporting }: TableToolb
           },
         }}
       />
-      
+
       {onExportCSV && (
         <Button
           onClick={onExportCSV}

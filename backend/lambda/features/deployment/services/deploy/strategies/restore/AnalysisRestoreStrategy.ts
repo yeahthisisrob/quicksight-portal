@@ -1,7 +1,7 @@
-import { BaseAssetRestoreStrategy } from './BaseAssetRestoreStrategy';
 import type { AssetExportData } from '../../../../../../shared/models/asset-export.model';
 import { reviveQuickSightTimestamps } from '../../../../../../shared/utils/quicksightTimestamps';
 import type { ValidationResult } from '../../types';
+import { BaseAssetRestoreStrategy } from './BaseAssetRestoreStrategy';
 
 /**
  * Analysis-specific restore strategy

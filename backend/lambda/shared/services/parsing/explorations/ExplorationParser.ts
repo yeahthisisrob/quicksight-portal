@@ -3,7 +3,7 @@
  * Handles common parsing logic for these similar asset types
  */
 
-import { type AssetType } from '../../../types/assetTypes';
+import type { AssetType } from '../../../types/assetTypes';
 import { logger } from '../../../utils/logger';
 import {
   BaseAssetParser,

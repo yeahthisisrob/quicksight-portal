@@ -1,8 +1,7 @@
 import { Box, Typography } from '@mui/material';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import MainLayout from './MainLayout';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta = {
   title: 'Widgets/Navigation/MainLayout',
@@ -11,7 +10,8 @@ const meta = {
     layout: 'fullscreen',
     docs: {
       description: {
-        component: 'The main application layout with a permanent sidebar navigation and content area. The sidebar includes user profile and logout functionality at the bottom.',
+        component:
+          'The main application layout with a permanent sidebar navigation and content area. The sidebar includes user profile and logout functionality at the bottom.',
       },
     },
   },
@@ -27,16 +27,18 @@ const MockContent = () => (
       Dashboard Assets
     </Typography>
     <Typography variant="body1" paragraph>
-      This is the main content area. The sidebar navigation is permanently visible on the left,
-      and the user profile with logout functionality is located at the bottom of the sidebar.
+      This is the main content area. The sidebar navigation is permanently visible on the left, and
+      the user profile with logout functionality is located at the bottom of the sidebar.
     </Typography>
-    <Box sx={{ 
-      mt: 3, 
-      p: 3, 
-      bgcolor: 'background.paper', 
-      borderRadius: 1,
-      boxShadow: 1 
-    }}>
+    <Box
+      sx={{
+        mt: 3,
+        p: 3,
+        bgcolor: 'background.paper',
+        borderRadius: 1,
+        boxShadow: 1,
+      }}
+    >
       <Typography variant="h6" gutterBottom>
         Key Features
       </Typography>

@@ -3,15 +3,15 @@
  * Delegates to JobRepository for actual storage
  */
 
+import { JOB_CONFIG, MATH_CONSTANTS, QUICKSIGHT_LIMITS } from '../../constants';
 import {
+  type ExportCheckpoint,
+  type JobMetadata,
+  type JobPhase,
   JobRepository,
   type JobType,
-  type JobMetadata,
   type JobLog as RepoJobLog,
-  type JobPhase,
-  type ExportCheckpoint,
 } from './JobRepository';
-import { JOB_CONFIG, QUICKSIGHT_LIMITS, MATH_CONSTANTS } from '../../constants';
 
 export type { JobPhase, JobPhaseStatus } from './JobRepository';
 
@@ -58,7 +58,7 @@ export class JobStateService {
   private readonly defaultJobType: JobType = 'export'; // Default for backward compatibility
   private readonly repository: JobRepository;
 
-  constructor(jobType?: JobType) {
+  public constructor(jobType?: JobType) {
     this.repository = new JobRepository();
     if (jobType) {
       this.defaultJobType = jobType;

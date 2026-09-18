@@ -1,49 +1,53 @@
 import {
+  Analytics as AnalysisIcon,
   Dashboard as DashboardIcon,
   Storage as DatasetIcon,
-  Analytics as AnalysisIcon,
   CloudQueue as DatasourceIcon,
-  Folder as FolderIcon,
-  Person as PersonIcon,
-  People as PeopleIcon,
-  Search as SearchIcon,
   FileDownload as FileDownloadIcon,
+  Folder as FolderIcon,
   MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
+  People as PeopleIcon,
+  Person as PersonIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Typography,
+  Alert,
+  alpha,
   Box,
+  Button,
+  Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  InputAdornment,
   List,
   ListItem,
-  ListItemText,
   ListItemIcon,
-  Chip,
-  TextField,
-  InputAdornment,
-  Tabs,
-  Tab,
-  Alert,
-  Tooltip,
-  alpha,
-  IconButton,
+  ListItemText,
   Menu,
   MenuItem,
+  Tab,
+  Tabs,
+  TextField,
+  Tooltip,
+  Typography,
 } from '@mui/material';
-import { useState, useEffect, useCallback } from 'react';
+import type { components } from '@shared/generated/types';
+import { useCallback, useEffect, useState } from 'react';
 
 import { assetsApi } from '@/shared/api';
 import { colors } from '@/shared/design-system/theme';
 import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
-import { dataToCSV, downloadCSV, generateCSVFilename, type ExportColumn } from '@/shared/lib/exportUtils';
-
-import type { components } from '@shared/generated/types';
+import {
+  dataToCSV,
+  downloadCSV,
+  type ExportColumn,
+  generateCSVFilename,
+} from '@/shared/lib/exportUtils';
 
 type UserAssetAccessItem = components['schemas']['UserAssetAccessItem'];
 type AccessSource = components['schemas']['AccessSource'];
@@ -65,7 +69,10 @@ const assetTypeIcons: Record<string, React.ReactElement> = {
   folder: <FolderIcon />,
 };
 
-const ACCESS_SOURCE_CONFIG: Record<string, { label: string; color: string; icon: typeof PersonIcon }> = {
+const ACCESS_SOURCE_CONFIG: Record<
+  string,
+  { label: string; color: string; icon: typeof PersonIcon }
+> = {
   direct: { label: 'Direct', color: colors.assetTypes.user.main, icon: PersonIcon },
   group: { label: 'Via Group', color: colors.assetTypes.group.main, icon: PeopleIcon },
   folder: { label: 'Via Folder', color: '#ed6c02', icon: FolderIcon },
@@ -75,19 +82,21 @@ function AccessSourceChip({ source }: { source: AccessSource }) {
   const config = ACCESS_SOURCE_CONFIG[source.type] || ACCESS_SOURCE_CONFIG.direct;
   const Icon = config.icon;
 
-  const label = source.type === 'group' && source.groupName
-    ? source.groupName
-    : source.type === 'folder' && source.folderName
-      ? source.folderName
-      : config.label;
+  const label =
+    source.type === 'group' && source.groupName
+      ? source.groupName
+      : source.type === 'folder' && source.folderName
+        ? source.folderName
+        : config.label;
 
-  const tooltip = source.type === 'folder' && source.groupName
-    ? `Via folder "${source.folderPath}" (through group ${source.groupName})`
-    : source.type === 'folder'
-      ? `Via folder "${source.folderPath}"`
-      : source.type === 'group'
-        ? `Member of group "${source.groupName}"`
-        : 'Direct permission on this asset';
+  const tooltip =
+    source.type === 'folder' && source.groupName
+      ? `Via folder "${source.folderPath}" (through group ${source.groupName})`
+      : source.type === 'folder'
+        ? `Via folder "${source.folderPath}"`
+        : source.type === 'group'
+          ? `Member of group "${source.groupName}"`
+          : 'Direct permission on this asset';
 
   return (
     <Tooltip title={tooltip}>
@@ -137,12 +146,12 @@ export function UserAssetAccessDialog({ open, onClose, user }: UserAssetAccessDi
     let filtered = [...assets];
 
     if (selectedType !== 'all') {
-      filtered = filtered.filter(asset => asset.assetType === selectedType);
+      filtered = filtered.filter((asset) => asset.assetType === selectedType);
     }
 
     if (accessFilter !== 'all') {
-      filtered = filtered.filter(asset =>
-        asset.sources.some(s => {
+      filtered = filtered.filter((asset) =>
+        asset.sources.some((s) => {
           if (accessFilter === 'direct') return s.type === 'direct';
           if (accessFilter === 'group') return s.type === 'group';
           if (accessFilter === 'folder') return s.type === 'folder';
@@ -153,13 +162,15 @@ export function UserAssetAccessDialog({ open, onClose, user }: UserAssetAccessDi
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(asset =>
-        asset.assetName.toLowerCase().includes(term) ||
-        asset.assetId.toLowerCase().includes(term) ||
-        asset.sources.some(s =>
-          s.groupName?.toLowerCase().includes(term) ||
-          s.folderName?.toLowerCase().includes(term)
-        )
+      filtered = filtered.filter(
+        (asset) =>
+          asset.assetName.toLowerCase().includes(term) ||
+          asset.assetId.toLowerCase().includes(term) ||
+          asset.sources.some(
+            (s) =>
+              s.groupName?.toLowerCase().includes(term) ||
+              s.folderName?.toLowerCase().includes(term)
+          )
       );
     }
 
@@ -209,12 +220,16 @@ export function UserAssetAccessDialog({ open, onClose, user }: UserAssetAccessDi
       {
         id: 'sources',
         label: 'Access Sources',
-        getValue: (row) => row.sources.map((s: AccessSource) => {
-          if (s.type === 'direct') return 'Direct';
-          if (s.type === 'group') return `Via Group: ${s.groupName}`;
-          if (s.type === 'folder') return `Via Folder: ${s.folderPath}${s.groupName ? ` (group: ${s.groupName})` : ''}`;
-          return s.type;
-        }).join('; ')
+        getValue: (row) =>
+          row.sources
+            .map((s: AccessSource) => {
+              if (s.type === 'direct') return 'Direct';
+              if (s.type === 'group') return `Via Group: ${s.groupName}`;
+              if (s.type === 'folder')
+                return `Via Folder: ${s.folderPath}${s.groupName ? ` (group: ${s.groupName})` : ''}`;
+              return s.type;
+            })
+            .join('; '),
       },
     ];
 
@@ -228,13 +243,7 @@ export function UserAssetAccessDialog({ open, onClose, user }: UserAssetAccessDi
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">Asset Access: {user.name}</Typography>
-          {!loading && (
-            <Chip
-              label={`${totalAssets} assets`}
-              color="primary"
-              size="small"
-            />
-          )}
+          {!loading && <Chip label={`${totalAssets} assets`} color="primary" size="small" />}
         </Box>
       </DialogTitle>
 
@@ -295,7 +304,15 @@ export function UserAssetAccessDialog({ open, onClose, user }: UserAssetAccessDi
               {['all', 'direct', 'group', 'folder'].map((filter) => (
                 <Chip
                   key={filter}
-                  label={filter === 'all' ? 'All Access' : filter === 'direct' ? 'Direct' : filter === 'group' ? 'Via Group' : 'Via Folder'}
+                  label={
+                    filter === 'all'
+                      ? 'All Access'
+                      : filter === 'direct'
+                        ? 'Direct'
+                        : filter === 'group'
+                          ? 'Via Group'
+                          : 'Via Folder'
+                  }
                   size="small"
                   variant={accessFilter === filter ? 'filled' : 'outlined'}
                   color={accessFilter === filter ? 'primary' : 'default'}
@@ -354,7 +371,10 @@ export function UserAssetAccessDialog({ open, onClose, user }: UserAssetAccessDi
                 <Menu
                   anchorEl={menuAnchor}
                   open={Boolean(menuAnchor)}
-                  onClose={() => { setMenuAnchor(null); setMenuAsset(null); }}
+                  onClose={() => {
+                    setMenuAnchor(null);
+                    setMenuAsset(null);
+                  }}
                 >
                   <MenuItem onClick={handleOpenInQuickSight}>
                     <OpenInNewIcon fontSize="small" sx={{ mr: 1 }} />
@@ -369,11 +389,7 @@ export function UserAssetAccessDialog({ open, onClose, user }: UserAssetAccessDi
 
       <DialogActions>
         {filteredAssets.length > 0 && (
-          <Button
-            onClick={handleExportCSV}
-            startIcon={<FileDownloadIcon />}
-            color="primary"
-          >
+          <Button onClick={handleExportCSV} startIcon={<FileDownloadIcon />} color="primary">
             Export CSV
           </Button>
         )}

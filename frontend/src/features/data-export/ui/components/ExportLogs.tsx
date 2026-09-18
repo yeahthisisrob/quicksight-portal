@@ -1,24 +1,24 @@
 import {
-  InfoOutlined as InfoIcon,
-  WarningAmberOutlined as WarningIcon,
   ErrorOutlineOutlined as ErrorIcon,
-  ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
-  AccessTime as TimeIcon,
+  ExpandMore as ExpandMoreIcon,
   FilterListOutlined as FilterIcon,
+  InfoOutlined as InfoIcon,
+  AccessTime as TimeIcon,
+  WarningAmberOutlined as WarningIcon,
 } from '@mui/icons-material';
 import {
-  Box,
-  Paper,
-  Typography,
-  Chip,
   alpha,
-  IconButton,
-  Tooltip,
+  Box,
+  Chip,
   Collapse,
-  useTheme,
+  IconButton,
+  Paper,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
+  Typography,
+  useTheme,
 } from '@mui/material';
 import { format } from 'date-fns';
 import React from 'react';
@@ -55,7 +55,7 @@ export function ExportLogs({
   // Get unique asset types from logs
   const availableTypes = React.useMemo(() => {
     const types = new Set<string>();
-    logs.forEach(log => {
+    logs.forEach((log) => {
       if (log.assetType) {
         types.add(log.assetType);
       }
@@ -67,9 +67,7 @@ export function ExportLogs({
   const filteredLogs = React.useMemo(() => {
     let filtered = logs;
     if (selectedTypes.length > 0) {
-      filtered = logs.filter(log => 
-        !log.assetType || selectedTypes.includes(log.assetType)
-      );
+      filtered = logs.filter((log) => !log.assetType || selectedTypes.includes(log.assetType));
     }
     // Sort by timestamp descending (newest first)
     return [...filtered].sort((a, b) => b.ts - a.ts);
@@ -240,10 +238,10 @@ export function ExportLogs({
                 px: 1,
                 textTransform: 'none',
                 fontFamily: 'monospace',
-              }
+              },
             }}
           >
-            {availableTypes.map(type => {
+            {availableTypes.map((type) => {
               const assetColors = getAssetTypeColor(type);
               return (
                 <ToggleButton
@@ -252,7 +250,9 @@ export function ExportLogs({
                   sx={{
                     backgroundColor: selectedTypes.includes(type) ? assetColors.bg : 'transparent',
                     borderColor: assetColors.border,
-                    color: selectedTypes.includes(type) ? assetColors.border : theme.palette.text.secondary,
+                    color: selectedTypes.includes(type)
+                      ? assetColors.border
+                      : theme.palette.text.secondary,
                     '&:hover': {
                       backgroundColor: assetColors.bg,
                     },
@@ -311,52 +311,72 @@ export function ExportLogs({
                 <Typography variant="caption" fontWeight={600}></Typography>
               </Box>
               {showTimestamps && (
-                <Box sx={{ 
-                  width: '160px', 
-                  padding: '6px 8px',
-                  backgroundColor: alpha(colors.primary.light, 0.05),
-                }}>
-                  <Typography variant="caption" fontWeight={600}>Time</Typography>
+                <Box
+                  sx={{
+                    width: '160px',
+                    padding: '6px 8px',
+                    backgroundColor: alpha(colors.primary.light, 0.05),
+                  }}
+                >
+                  <Typography variant="caption" fontWeight={600}>
+                    Time
+                  </Typography>
                 </Box>
               )}
-              <Box sx={{ 
-                width: '70px', 
-                padding: '6px 8px',
-                backgroundColor: alpha(colors.primary.light, 0.05),
-              }}>
-                <Typography variant="caption" fontWeight={600}>Duration</Typography>
+              <Box
+                sx={{
+                  width: '70px',
+                  padding: '6px 8px',
+                  backgroundColor: alpha(colors.primary.light, 0.05),
+                }}
+              >
+                <Typography variant="caption" fontWeight={600}>
+                  Duration
+                </Typography>
               </Box>
-              <Box sx={{ 
-                width: '80px', 
-                padding: '6px 8px',
-                backgroundColor: alpha(colors.primary.light, 0.05),
-              }}>
-                <Typography variant="caption" fontWeight={600}>API Calls</Typography>
+              <Box
+                sx={{
+                  width: '80px',
+                  padding: '6px 8px',
+                  backgroundColor: alpha(colors.primary.light, 0.05),
+                }}
+              >
+                <Typography variant="caption" fontWeight={600}>
+                  API Calls
+                </Typography>
               </Box>
-              <Box sx={{ 
-                width: '110px', 
-                padding: '6px 8px',
-                backgroundColor: alpha(colors.primary.light, 0.05),
-              }}>
-                <Typography variant="caption" fontWeight={600}>Type</Typography>
+              <Box
+                sx={{
+                  width: '110px',
+                  padding: '6px 8px',
+                  backgroundColor: alpha(colors.primary.light, 0.05),
+                }}
+              >
+                <Typography variant="caption" fontWeight={600}>
+                  Type
+                </Typography>
               </Box>
-              <Box sx={{ 
-                flex: 1,
-                padding: '6px 8px',
-                backgroundColor: alpha(colors.primary.light, 0.05),
-              }}>
-                <Typography variant="caption" fontWeight={600}>Message</Typography>
+              <Box
+                sx={{
+                  flex: 1,
+                  padding: '6px 8px',
+                  backgroundColor: alpha(colors.primary.light, 0.05),
+                }}
+              >
+                <Typography variant="caption" fontWeight={600}>
+                  Message
+                </Typography>
               </Box>
             </Box>
           </Box>
-          
+
           {/* Log Rows */}
           {filteredLogs.map((log, index) => {
             // Find the earliest timestamp from the original logs array (not filtered/sorted)
-            const startTime = Math.min(...logs.map(l => l.ts));
+            const startTime = Math.min(...logs.map((l) => l.ts));
             const runningDuration = ((log.ts - startTime) / 1000).toFixed(1);
             const assetColors = getAssetTypeColor(log.assetType);
-            
+
             return (
               <Box
                 key={`${log.ts}-${index}`}
@@ -367,55 +387,64 @@ export function ExportLogs({
                   backgroundColor: assetColors.bg,
                   borderLeft: log.assetType ? `3px solid ${assetColors.border}` : 'none',
                   '&:hover': {
-                    backgroundColor: log.assetType 
+                    backgroundColor: log.assetType
                       ? alpha(assetColors.border, 0.12)
                       : alpha(colors.primary.light, 0.03),
                   },
-                  borderBottom: index < filteredLogs.length - 1 ? `1px solid ${alpha(theme.palette.divider, 0.1)}` : 'none',
+                  borderBottom:
+                    index < filteredLogs.length - 1
+                      ? `1px solid ${alpha(theme.palette.divider, 0.1)}`
+                      : 'none',
                 }}
               >
                 {/* Level Icon */}
                 <Box sx={{ width: '24px', padding: '4px 2px', textAlign: 'center' }}>
                   {getLogIcon(log.level)}
                 </Box>
-                
+
                 {/* Timestamp */}
                 {showTimestamps && (
-                  <Box sx={{ 
-                    width: '160px',
+                  <Box
+                    sx={{
+                      width: '160px',
+                      padding: '4px 6px',
+                      fontFamily: 'monospace',
+                      fontSize: '0.7rem',
+                      color: alpha(theme.palette.text.secondary, 0.8),
+                    }}
+                  >
+                    {formatTimestamp(log.ts)}
+                  </Box>
+                )}
+
+                {/* Running Duration */}
+                <Box
+                  sx={{
+                    width: '70px',
                     padding: '4px 6px',
                     fontFamily: 'monospace',
                     fontSize: '0.7rem',
                     color: alpha(theme.palette.text.secondary, 0.8),
-                  }}>
-                    {formatTimestamp(log.ts)}
-                  </Box>
-                )}
-                
-                {/* Running Duration */}
-                <Box sx={{ 
-                  width: '70px',
-                  padding: '4px 6px',
-                  fontFamily: 'monospace',
-                  fontSize: '0.7rem',
-                  color: alpha(theme.palette.text.secondary, 0.8),
-                  textAlign: 'right',
-                }}>
+                    textAlign: 'right',
+                  }}
+                >
                   +{runningDuration}s
                 </Box>
-                
+
                 {/* API Calls */}
-                <Box sx={{ 
-                  width: '80px',
-                  padding: '4px 6px',
-                  fontFamily: 'monospace',
-                  fontSize: '0.7rem',
-                  color: alpha(theme.palette.text.secondary, 0.8),
-                  textAlign: 'center',
-                }}>
+                <Box
+                  sx={{
+                    width: '80px',
+                    padding: '4px 6px',
+                    fontFamily: 'monospace',
+                    fontSize: '0.7rem',
+                    color: alpha(theme.palette.text.secondary, 0.8),
+                    textAlign: 'center',
+                  }}
+                >
                   {log.apiCalls || '-'}
                 </Box>
-                
+
                 {/* Asset Type */}
                 <Box sx={{ width: '110px', padding: '4px 6px' }}>
                   {log.assetType && (
@@ -432,16 +461,18 @@ export function ExportLogs({
                     />
                   )}
                 </Box>
-                
+
                 {/* Message */}
-                <Box sx={{ 
-                  flex: 1,
-                  padding: '4px 6px',
-                  fontFamily: 'monospace',
-                  fontSize: '0.8rem',
-                  color: getLogColor(log.level),
-                  wordBreak: 'break-word',
-                }}>
+                <Box
+                  sx={{
+                    flex: 1,
+                    padding: '4px 6px',
+                    fontFamily: 'monospace',
+                    fontSize: '0.8rem',
+                    color: getLogColor(log.level),
+                    wordBreak: 'break-word',
+                  }}
+                >
                   {log.msg}
                 </Box>
               </Box>

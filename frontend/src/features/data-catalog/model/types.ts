@@ -2,7 +2,12 @@
  * Data Catalog domain types
  */
 
-export type DataCatalogViewMode = 'physical' | 'semantic' | 'mapping' | 'visual-fields' | 'calculated';
+export type DataCatalogViewMode =
+  | 'physical'
+  | 'semantic'
+  | 'mapping'
+  | 'visual-fields'
+  | 'calculated';
 
 export interface DataCatalogSummary {
   totalFields: number;

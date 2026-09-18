@@ -1,23 +1,23 @@
 import { Box } from '@mui/material';
 import { Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 
-import { AuthGuard, AuthenticatedApp } from './providers';
 import {
-  LoginPage,
-  AuthCallbackPage,
+  ActivityTimelinePage,
+  ArchivedAssetsPage,
   AssetsPage,
   AssetTimelinePage,
-  ActivityTimelinePage,
+  AuthCallbackPage,
   DataCatalogPage,
   ExportPage,
-  ArchivedAssetsPage,
-  ScriptsPage,
   IngestionsPage,
+  LoginPage,
+  ScriptsPage,
 } from '../pages';
-import { AppProviders } from './providers/AppProviders';
-import { PageLoader, ErrorBoundary } from '../shared/ui';
+import { ErrorBoundary, PageLoader } from '../shared/ui';
 import { MainLayout } from '../widgets';
+import { AuthenticatedApp, AuthGuard } from './providers';
+import { AppProviders } from './providers/AppProviders';
 
 // Lazy load all pages for code splitting
 
@@ -33,10 +33,10 @@ function App() {
               <Route path="/auth/callback" element={<AuthCallbackPage />} />
               <Route path="/auth/cognito/callback" element={<AuthCallbackPage />} />
               <Route path="/auth/error" element={<LoginPage />} />
-              
+
               {/* Protected routes - with layout */}
-              <Route 
-                path="/" 
+              <Route
+                path="/"
                 element={
                   <AuthGuard>
                     <AuthenticatedApp>
@@ -46,7 +46,7 @@ function App() {
                 }
               >
                 <Route index element={<Navigate to="/activity" replace />} />
-                
+
                 {/* Asset routes with type parameter */}
                 <Route
                   path="assets/:type"
@@ -69,15 +69,15 @@ function App() {
                     </ErrorBoundary>
                   }
                 />
-                <Route 
-                  path="data-catalog" 
+                <Route
+                  path="data-catalog"
                   element={
                     <ErrorBoundary>
                       <Suspense fallback={<PageLoader />}>
                         <DataCatalogPage />
                       </Suspense>
                     </ErrorBoundary>
-                  } 
+                  }
                 />
                 <Route
                   path="export"
@@ -99,35 +99,35 @@ function App() {
                     </ErrorBoundary>
                   }
                 />
-                <Route 
-                  path="archived-assets" 
+                <Route
+                  path="archived-assets"
                   element={
                     <ErrorBoundary>
                       <Suspense fallback={<PageLoader />}>
                         <ArchivedAssetsPage />
                       </Suspense>
                     </ErrorBoundary>
-                  } 
+                  }
                 />
-                <Route 
-                  path="scripts" 
+                <Route
+                  path="scripts"
                   element={
                     <ErrorBoundary>
                       <Suspense fallback={<PageLoader />}>
                         <ScriptsPage />
                       </Suspense>
                     </ErrorBoundary>
-                  } 
+                  }
                 />
-                <Route 
-                  path="ingestions" 
+                <Route
+                  path="ingestions"
                   element={
                     <ErrorBoundary>
                       <Suspense fallback={<PageLoader />}>
                         <IngestionsPage />
                       </Suspense>
                     </ErrorBoundary>
-                  } 
+                  }
                 />
               </Route>
             </Routes>

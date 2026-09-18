@@ -26,9 +26,6 @@ lerna-debug.log*
 # TypeScript
 backend/lib/
 backend/**/*.js
-!backend/**/jest.config.js
-!backend/**/jest.setup.js
-!backend/**/eslint.config.js
 !backend/**/*.config.js
 backend/**/*.js.map
 backend/**/*.d.ts
@@ -80,3 +77,12 @@ local-testing/
 scratch/
 
 .claude
+# mise: local, machine-specific tool overrides (mise.toml and mise.lock are committed)
+.mise.local.toml
+mise.local.toml
+
+# pnpm
+.pnpm-store/
+
+# gitleaks scratch output (see .gitleaksignore for reviewed findings)
+.gitleaks-report.json

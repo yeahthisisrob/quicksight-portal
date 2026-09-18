@@ -1,9 +1,8 @@
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 
+import type { AssetType } from '../../model/types';
 import AssetTypeSelector from './AssetTypeSelector';
-import { AssetType } from '../../model/types';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta = {
   title: 'Features/DataExport/AssetTypeSelector',
@@ -19,22 +18,14 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   render: (args) => {
     const [selectedTypes, setSelectedTypes] = useState<AssetType[]>(args.selectedTypes);
-    
+
     const handleToggle = (assetType: AssetType) => {
-      setSelectedTypes(prev =>
-        prev.includes(assetType)
-          ? prev.filter(t => t !== assetType)
-          : [...prev, assetType]
+      setSelectedTypes((prev) =>
+        prev.includes(assetType) ? prev.filter((t) => t !== assetType) : [...prev, assetType]
       );
     };
 
-    return (
-      <AssetTypeSelector
-        {...args}
-        selectedTypes={selectedTypes}
-        onToggle={handleToggle}
-      />
-    );
+    return <AssetTypeSelector {...args} selectedTypes={selectedTypes} onToggle={handleToggle} />;
   },
   args: {
     selectedTypes: ['dashboards', 'datasets'],
@@ -56,7 +47,15 @@ export const Default: Story = {
 export const AllSelected: Story = {
   render: Default.render,
   args: {
-    selectedTypes: ['dashboards', 'datasets', 'analyses', 'datasources', 'folders', 'groups', 'users'],
+    selectedTypes: [
+      'dashboards',
+      'datasets',
+      'analyses',
+      'datasources',
+      'folders',
+      'groups',
+      'users',
+    ],
     onToggle: () => {},
     counts: {
       dashboards: 125,

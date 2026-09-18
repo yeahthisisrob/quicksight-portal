@@ -1,12 +1,12 @@
-import { BaseAssetProcessor, type AssetProcessingCapabilities } from './BaseAssetProcessor';
-import {
-  type DataSetRefreshProperties,
-  type RefreshSchedule,
+import type {
+  DataSetRefreshProperties,
+  RefreshSchedule,
 } from '../../../shared/models/asset-export.model';
 import { isDatasetSummary } from '../../../shared/models/quicksight-domain.model';
 import { ASSET_TYPES, ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
-import { type AssetType, type AssetSummary } from '../types';
+import type { AssetSummary, AssetType } from '../types';
+import { type AssetProcessingCapabilities, BaseAssetProcessor } from './BaseAssetProcessor';
 
 /**
  * Dataset processor with consistent patterns and proper abstraction
@@ -22,7 +22,7 @@ export class DatasetProcessor extends BaseAssetProcessor {
 
   public readonly storageType = 'individual' as const;
 
-  constructor(
+  public constructor(
     quickSightService: any,
     s3Service: any,
     tagService: any,

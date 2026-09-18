@@ -1,4 +1,4 @@
-import { type RouteHandler } from '../../api/types';
+import type { RouteHandler } from '../../api/types';
 import { JobHandler } from '../handlers/JobHandler';
 
 const jobHandler = new JobHandler();

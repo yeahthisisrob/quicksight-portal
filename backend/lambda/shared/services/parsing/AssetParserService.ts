@@ -1,4 +1,12 @@
-import { type BaseAssetParser, type ParsedAssetInfo } from './BaseAssetParser';
+import {
+  type AssetExportData,
+  isAnalysisExport,
+  isDashboardExport,
+  isFolderExport,
+} from '../../models/asset-export.model';
+import { ASSET_TYPES, type AssetType } from '../../types/assetTypes';
+import { logger } from '../../utils/logger';
+import type { BaseAssetParser, ParsedAssetInfo } from './BaseAssetParser';
 import { DatasetParser } from './DatasetParser';
 import { DatasourceParser } from './DatasourceParser';
 import { AnalysisParser } from './explorations/AnalysisParser';
@@ -6,23 +14,15 @@ import { DashboardParser } from './explorations/DashboardParser';
 import { FolderParser } from './organization/FolderParser';
 import { GroupParser } from './organization/GroupParser';
 import { UserParser } from './organization/UserParser';
-import {
-  type AssetExportData,
-  isDashboardExport,
-  isAnalysisExport,
-  isFolderExport,
-} from '../../models/asset-export.model';
-import { type AssetType, ASSET_TYPES } from '../../types/assetTypes';
-import { logger } from '../../utils/logger';
 
 // Re-export types for convenience
 export type {
   CalculatedField,
-  Field,
-  ParsedAssetInfo,
   DataSetInfo,
-  Parameter,
+  Field,
   Filter,
+  Parameter,
+  ParsedAssetInfo,
   Sheet,
   Visual,
 } from './BaseAssetParser';
@@ -41,7 +41,7 @@ export class AssetParserService {
   private readonly parsers: Map<AssetType, BaseAssetParser>;
   private readonly userParser: UserParser;
 
-  constructor() {
+  public constructor() {
     this.dashboardParser = new DashboardParser();
     this.analysisParser = new AnalysisParser();
     this.datasetParser = new DatasetParser();

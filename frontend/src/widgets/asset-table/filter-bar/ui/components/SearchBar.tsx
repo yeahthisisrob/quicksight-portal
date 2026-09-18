@@ -1,6 +1,6 @@
 import { Search as SearchIcon } from '@mui/icons-material';
-import { Box, TextField, Chip, Stack, Typography, InputAdornment } from '@mui/material';
-import React from 'react';
+import { Box, Chip, InputAdornment, Stack, TextField, Typography } from '@mui/material';
+import type React from 'react';
 
 import { colors } from '@/shared/design-system/theme';
 

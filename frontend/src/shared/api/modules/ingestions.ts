@@ -1,6 +1,6 @@
-import { api } from '../client';
-
 import type { components } from '@shared/generated/types';
+
+import { api } from '../client';
 
 export const ingestionsApi = {
   /**
@@ -15,22 +15,25 @@ export const ingestionsApi = {
     dateRange?: string;
     dateField?: string;
     sourceTypeFilter?: string;
-  }): Promise<components['schemas']['IngestionListResponse']['data'] & {
-    availableSourceTypes?: Array<{ value: string; count: number }>;
-  }> => {
+  }): Promise<
+    components['schemas']['IngestionListResponse']['data'] & {
+      availableSourceTypes?: Array<{ value: string; count: number }>;
+    }
+  > => {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
     if (params?.search) queryParams.append('search', params.search);
     if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
     if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder);
-    if (params?.dateRange && params.dateRange !== 'all') queryParams.append('dateRange', params.dateRange);
+    if (params?.dateRange && params.dateRange !== 'all')
+      queryParams.append('dateRange', params.dateRange);
     if (params?.dateField) queryParams.append('dateField', params.dateField);
     if (params?.sourceTypeFilter) queryParams.append('sourceTypeFilter', params.sourceTypeFilter);
 
     const query = queryParams.toString();
     const url = `/ingestions${query ? `?${query}` : ''}`;
-    
+
     const response = await api.get<components['schemas']['IngestionListResponse']>(url);
     return response.data.data;
   },
@@ -38,7 +41,10 @@ export const ingestionsApi = {
   /**
    * Get ingestion details
    */
-  getDetails: async (datasetId: string, ingestionId: string): Promise<components['schemas']['Ingestion']> => {
+  getDetails: async (
+    datasetId: string,
+    ingestionId: string
+  ): Promise<components['schemas']['Ingestion']> => {
     const response = await api.get<{ success: boolean; data: components['schemas']['Ingestion'] }>(
       `/ingestions/${datasetId}/${ingestionId}`
     );

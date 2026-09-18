@@ -1,6 +1,6 @@
-import JobFailureList from './JobFailureList';
-
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import JobFailureList from './JobFailureList';
 
 const meta: Meta<typeof JobFailureList> = {
   title: 'Entities/Job/JobFailureList',

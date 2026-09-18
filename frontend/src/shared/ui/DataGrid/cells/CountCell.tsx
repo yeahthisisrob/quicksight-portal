@@ -1,5 +1,5 @@
-import { Tooltip, Typography, TypographyProps } from '@mui/material';
-import React from 'react';
+import { Tooltip, Typography, type TypographyProps } from '@mui/material';
+import type React from 'react';
 
 export interface CountCellProps {
   /** The numeric value to display */

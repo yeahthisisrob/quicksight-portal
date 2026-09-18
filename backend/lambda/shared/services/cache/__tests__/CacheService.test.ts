@@ -1,4 +1,4 @@
-import { vi, type Mocked, type MockedClass } from 'vitest';
+import { type Mocked, type MockedClass, vi } from 'vitest';
 
 // Mock dependencies first
 vi.mock('../../aws/S3Service', () => ({ S3Service: vi.fn() }));

@@ -1,19 +1,19 @@
 /**
  * Hook for managing RestoreAssetDialog state and logic
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { extractAssetMetadata } from '@/features/asset-management';
 
 import { assetsApi, deployApi } from '@/shared/api';
 
-import type { 
-  ArchivedAssetItem, 
-  AssetMetadata, 
-  RestoreFormData, 
+import type {
+  ArchivedAssetItem,
+  AssetMetadata,
+  DeploymentConfig,
+  RestoreFormData,
   RestoreOptions,
   ValidationResult,
-  DeploymentConfig 
 } from '../types';
 
 interface UseRestoreDialogProps {
@@ -67,7 +67,7 @@ export function useRestoreDialog({ asset, open }: UseRestoreDialogProps) {
   // Load metadata
   const loadAssetMetadata = useCallback(async () => {
     if (!asset) return;
-    
+
     setLoadingMetadata(true);
     try {
       const archivedData = await assetsApi.getArchivedAssetMetadata(asset.type, asset.id);
@@ -119,23 +119,25 @@ export function useRestoreDialog({ asset, open }: UseRestoreDialogProps) {
   // Validate deployment
   const handleValidate = useCallback(async () => {
     if (!asset) return;
-    
+
     setValidating(true);
     setValidationResults([]);
-    
+
     try {
       const config = buildDeploymentConfig();
       const result = await deployApi.validateDeployment(asset.type, asset.id, config);
-      
+
       setValidationResults(result.validationResults);
       setCanDeploy(result.canDeploy);
     } catch (error: any) {
-      setValidationResults([{
-        validator: 'general',
-        passed: false,
-        message: error.message || 'Validation failed',
-        severity: 'error',
-      }]);
+      setValidationResults([
+        {
+          validator: 'general',
+          passed: false,
+          message: error.message || 'Validation failed',
+          severity: 'error',
+        },
+      ]);
       setCanDeploy(false);
     } finally {
       setValidating(false);
@@ -148,16 +150,17 @@ export function useRestoreDialog({ asset, open }: UseRestoreDialogProps) {
       const timer = setTimeout(handleValidate, 100);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [open, asset, formData.assetId, formData.assetName, validating, canDeploy, handleValidate]);
 
   // Update form data
   const updateFormData = useCallback((updates: Partial<RestoreFormData>) => {
-    setFormData(prev => ({ ...prev, ...updates }));
+    setFormData((prev) => ({ ...prev, ...updates }));
   }, []);
 
   // Update options
   const updateOptions = useCallback((updates: Partial<RestoreOptions>) => {
-    setOptions(prev => ({ ...prev, ...updates }));
+    setOptions((prev) => ({ ...prev, ...updates }));
   }, []);
 
   return {
@@ -173,7 +176,7 @@ export function useRestoreDialog({ asset, open }: UseRestoreDialogProps) {
     loadingMetadata,
     formData,
     options,
-    
+
     // Actions
     updateFormData,
     updateOptions,

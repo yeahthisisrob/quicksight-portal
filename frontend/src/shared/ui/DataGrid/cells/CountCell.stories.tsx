@@ -1,8 +1,7 @@
 import { Box, Stack, Typography } from '@mui/material';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { CountCell } from './CountCell';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta: Meta<typeof CountCell> = {
   title: 'Shared/UI/DataGrid/Cells/CountCell',
@@ -83,13 +82,7 @@ export const Clickable: Story = {
   },
 };
 
-const StorySection = ({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) => (
+const StorySection = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <Box sx={{ mb: 3 }}>
     <Typography variant="subtitle2" gutterBottom sx={{ mb: 1, fontWeight: 500 }}>
       {title}
@@ -132,9 +125,7 @@ export const AllVariants: Story = {
               <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                 Visual Usage: 42
               </Typography>
-              <Typography variant="caption">
-                Hover to see this tooltip
-              </Typography>
+              <Typography variant="caption">Hover to see this tooltip</Typography>
             </Box>
           }
         />

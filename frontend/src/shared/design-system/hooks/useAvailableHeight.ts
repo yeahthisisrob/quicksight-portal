@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Hook to calculate available height for a component based on its position in the viewport
@@ -22,7 +22,7 @@ export const useAvailableHeight = (offset: number = 20) => {
     // Calculate on mount and resize
     calculateHeight();
     window.addEventListener('resize', calculateHeight);
-    
+
     // Recalculate after a short delay to account for any layout shifts
     const timer = setTimeout(calculateHeight, 100);
 

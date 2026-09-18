@@ -1,11 +1,25 @@
 /**
  * Dialog manager for GenericAssetPage
  */
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Typography,
+} from '@mui/material';
 import { memo } from 'react';
 
-
-import { InactivityMailtoDialog, UserInactiveMailtoDialog, UserUnusedDatasetsDialog } from '@/features/activity';
+import { BulkDeleteDialog, DefinitionErrorsDialog, RenameAssetDialog } from '@/entities/asset';
+import { RefreshScheduleDialog } from '@/entities/dataset';
+import { AddToFolderDialog } from '@/entities/folder';
+import { BulkTagDialog } from '@/entities/tag';
+import {
+  InactivityMailtoDialog,
+  UserInactiveMailtoDialog,
+  UserUnusedDatasetsDialog,
+} from '@/features/activity';
 import {
   AddToGroupDialog,
   FolderMembersDialog,
@@ -13,24 +27,13 @@ import {
   GroupMembersDialog,
   UpdateGroupDialog,
   UserAssetAccessDialog,
-  UserGroupsDialog
+  UserGroupsDialog,
 } from '@/features/organization';
 
-import { BulkDeleteDialog, DefinitionErrorsDialog, RenameAssetDialog } from '@/entities/asset';
-import { RefreshScheduleDialog } from '@/entities/dataset';
-import { AddToFolderDialog } from '@/entities/folder';
-import { BulkTagDialog } from '@/entities/tag';
-
+import type { AssetType } from '@/shared/types/asset';
 import { JsonViewerModal } from '@/shared/ui';
 
-import { 
-  AssetFoldersDialog, 
-  PermissionsDialog, 
-  RelatedAssetsDialog, 
-  TagsDialog 
-} from './dialogs';
-
-
+import { AssetFoldersDialog, PermissionsDialog, RelatedAssetsDialog, TagsDialog } from './dialogs';
 import type {
   AssetFoldersDialogState,
   DefinitionErrorsDialogState,
@@ -42,198 +45,204 @@ import type {
   JsonViewerDialogState,
   NotifyInactiveAnalysesDialogState,
   NotifyInactiveDialogState,
-  RenameAssetDialogState,
   NotifyUnusedDatasetsDialogState,
   RefreshScheduleDialogState,
+  RenameAssetDialogState,
   UpdateGroupDialogState,
   UserAssetAccessDialogState,
   UserGroupsDialogState,
 } from './useDialogStates';
-import type { AssetType } from '@/shared/types/asset';
-
 
 // Sub-component for Core Asset Dialogs
-const CoreAssetDialogs = memo(({
-  permissionsDialog,
-  setPermissionsDialog,
-  relatedAssetsDialog,
-  setRelatedAssetsDialog,
-  tagsDialog,
-  setTagsDialog,
-  typeCapitalized,
-  assetType,
-  updateAssetTags,
-  refreshAssetType
-}: any) => (
-  <>
-    {permissionsDialog.asset && (
-      <PermissionsDialog
-        open={permissionsDialog.open}
-        onClose={() => setPermissionsDialog({ open: false })}
-        assetId={permissionsDialog.asset.id}
-        assetName={permissionsDialog.asset.name}
-        assetType={typeCapitalized}
-        permissions={permissionsDialog.asset?.permissions || []}
-        onPermissionRevoked={() => refreshAssetType(assetType)}
-      />
-    )}
+const CoreAssetDialogs = memo(
+  ({
+    permissionsDialog,
+    setPermissionsDialog,
+    relatedAssetsDialog,
+    setRelatedAssetsDialog,
+    tagsDialog,
+    setTagsDialog,
+    typeCapitalized,
+    assetType,
+    updateAssetTags,
+    refreshAssetType,
+  }: any) => (
+    <>
+      {permissionsDialog.asset && (
+        <PermissionsDialog
+          open={permissionsDialog.open}
+          onClose={() => setPermissionsDialog({ open: false })}
+          assetId={permissionsDialog.asset.id}
+          assetName={permissionsDialog.asset.name}
+          assetType={typeCapitalized}
+          permissions={permissionsDialog.asset?.permissions || []}
+          onPermissionRevoked={() => refreshAssetType(assetType)}
+        />
+      )}
 
-    {relatedAssetsDialog.asset && (
-      <RelatedAssetsDialog
-        open={relatedAssetsDialog.open}
-        onClose={() => setRelatedAssetsDialog({ open: false })}
-        assetName={relatedAssetsDialog.asset.name}
-        assetType={typeCapitalized}
-        relatedAssets={relatedAssetsDialog.relatedAssets || []}
-      />
-    )}
+      {relatedAssetsDialog.asset && (
+        <RelatedAssetsDialog
+          open={relatedAssetsDialog.open}
+          onClose={() => setRelatedAssetsDialog({ open: false })}
+          assetName={relatedAssetsDialog.asset.name}
+          assetType={typeCapitalized}
+          relatedAssets={relatedAssetsDialog.relatedAssets || []}
+        />
+      )}
 
-    {tagsDialog.asset && (
-      <TagsDialog
-        open={tagsDialog.open}
-        onClose={() => setTagsDialog({ open: false })}
-        assetId={tagsDialog.asset.id}
-        assetName={tagsDialog.asset.name}
-        assetType={typeCapitalized}
-        resourceType={assetType}
-        initialTags={tagsDialog.asset?.tags || []}
-        onTagsUpdate={(tags: any[]) => updateAssetTags(assetType, tagsDialog.asset.id, tags)}
-      />
-    )}
-  </>
-));
+      {tagsDialog.asset && (
+        <TagsDialog
+          open={tagsDialog.open}
+          onClose={() => setTagsDialog({ open: false })}
+          assetId={tagsDialog.asset.id}
+          assetName={tagsDialog.asset.name}
+          assetType={typeCapitalized}
+          resourceType={assetType}
+          initialTags={tagsDialog.asset?.tags || []}
+          onTagsUpdate={(tags: any[]) => updateAssetTags(assetType, tagsDialog.asset.id, tags)}
+        />
+      )}
+    </>
+  )
+);
 
 // Sub-component for Bulk Action Dialogs
-const BulkActionDialogs = memo(({
-  addToFolderOpen,
-  setAddToFolderOpen,
-  addToGroupOpen,
-  setAddToGroupOpen,
-  bulkTagOpen,
-  setBulkTagOpen,
-  bulkDeleteOpen,
-  setBulkDeleteOpen,
-  selectedAssets,
-  handleBulkComplete
-}: any) => (
-  <>
-    <AddToFolderDialog
-      open={addToFolderOpen}
-      onClose={() => setAddToFolderOpen(false)}
-      selectedAssets={selectedAssets}
-      onComplete={handleBulkComplete}
-    />
-    
-    <AddToGroupDialog
-      open={addToGroupOpen}
-      onClose={() => setAddToGroupOpen(false)}
-      selectedUsers={selectedAssets}
-      onComplete={handleBulkComplete}
-    />
-    
-    <BulkTagDialog
-      open={bulkTagOpen}
-      onClose={() => setBulkTagOpen(false)}
-      selectedAssets={selectedAssets}
-      onComplete={handleBulkComplete}
-    />
-    
-    <BulkDeleteDialog
-      open={bulkDeleteOpen}
-      onClose={() => setBulkDeleteOpen(false)}
-      assets={selectedAssets}
-      onComplete={handleBulkComplete}
-    />
-  </>
-));
+const BulkActionDialogs = memo(
+  ({
+    addToFolderOpen,
+    setAddToFolderOpen,
+    addToGroupOpen,
+    setAddToGroupOpen,
+    bulkTagOpen,
+    setBulkTagOpen,
+    bulkDeleteOpen,
+    setBulkDeleteOpen,
+    selectedAssets,
+    handleBulkComplete,
+  }: any) => (
+    <>
+      <AddToFolderDialog
+        open={addToFolderOpen}
+        onClose={() => setAddToFolderOpen(false)}
+        selectedAssets={selectedAssets}
+        onComplete={handleBulkComplete}
+      />
+
+      <AddToGroupDialog
+        open={addToGroupOpen}
+        onClose={() => setAddToGroupOpen(false)}
+        selectedUsers={selectedAssets}
+        onComplete={handleBulkComplete}
+      />
+
+      <BulkTagDialog
+        open={bulkTagOpen}
+        onClose={() => setBulkTagOpen(false)}
+        selectedAssets={selectedAssets}
+        onComplete={handleBulkComplete}
+      />
+
+      <BulkDeleteDialog
+        open={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        assets={selectedAssets}
+        onComplete={handleBulkComplete}
+      />
+    </>
+  )
+);
 
 // Sub-component for Organization Dialogs
-const OrganizationDialogs = memo(({
-  folderMembersDialog,
-  setFolderMembersDialog,
-  assetFoldersDialog,
-  setAssetFoldersDialog,
-  userGroupsDialog,
-  setUserGroupsDialog,
-  userAssetAccessDialog,
-  setUserAssetAccessDialog,
-  groupMembersDialog,
-  setGroupMembersDialog,
-  groupAssetsDialog,
-  setGroupAssetsDialog,
-  updateGroupDialog,
-  setUpdateGroupDialog,
-  assetType,
-  refreshAssetType
-}: any) => (
-  <>
-    {folderMembersDialog.folder && (
-      <FolderMembersDialog
-        open={folderMembersDialog.open}
-        onClose={() => setFolderMembersDialog({ open: false, folder: null })}
-        folder={folderMembersDialog.folder}
-      />
-    )}
-    
-    {assetFoldersDialog.asset && (
-      <AssetFoldersDialog
-        open={assetFoldersDialog.open}
-        onClose={() => setAssetFoldersDialog({ open: false, asset: null })}
-        assetName={assetFoldersDialog.asset.name}
-        assetType={assetType}
-        folders={assetFoldersDialog.asset.folders || []}
-      />
-    )}
-    
-    {userGroupsDialog.user && (
-      <UserGroupsDialog
-        open={userGroupsDialog.open}
-        onClose={() => setUserGroupsDialog({ open: false, user: null })}
-        user={userGroupsDialog.user}
-        onGroupsChange={() => {
-          refreshAssetType(assetType);
-        }}
-      />
-    )}
-    
-    {userAssetAccessDialog.user && (
-      <UserAssetAccessDialog
-        open={userAssetAccessDialog.open}
-        onClose={() => setUserAssetAccessDialog({ open: false, user: null })}
-        user={userAssetAccessDialog.user}
-      />
-    )}
+const OrganizationDialogs = memo(
+  ({
+    folderMembersDialog,
+    setFolderMembersDialog,
+    assetFoldersDialog,
+    setAssetFoldersDialog,
+    userGroupsDialog,
+    setUserGroupsDialog,
+    userAssetAccessDialog,
+    setUserAssetAccessDialog,
+    groupMembersDialog,
+    setGroupMembersDialog,
+    groupAssetsDialog,
+    setGroupAssetsDialog,
+    updateGroupDialog,
+    setUpdateGroupDialog,
+    assetType,
+    refreshAssetType,
+  }: any) => (
+    <>
+      {folderMembersDialog.folder && (
+        <FolderMembersDialog
+          open={folderMembersDialog.open}
+          onClose={() => setFolderMembersDialog({ open: false, folder: null })}
+          folder={folderMembersDialog.folder}
+        />
+      )}
 
-    {groupMembersDialog.group && (
-      <GroupMembersDialog
-        open={groupMembersDialog.open}
-        onClose={() => setGroupMembersDialog({ open: false, group: null })}
-        groupName={groupMembersDialog.group.name}
-        members={groupMembersDialog.group.metadata?.members || groupMembersDialog.group.members || []}
-      />
-    )}
-    
-    {groupAssetsDialog.group && (
-      <GroupAssetsDialog
-        open={groupAssetsDialog.open}
-        onClose={() => setGroupAssetsDialog({ open: false, group: null })}
-        group={groupAssetsDialog.group}
-      />
-    )}
-    
-    {updateGroupDialog.group && (
-      <UpdateGroupDialog
-        open={updateGroupDialog.open}
-        onClose={() => setUpdateGroupDialog({ open: false, group: null })}
-        group={updateGroupDialog.group}
-        onSuccess={() => {
-          setUpdateGroupDialog({ open: false, group: null });
-          refreshAssetType('group');
-        }}
-      />
-    )}
-  </>
-));
+      {assetFoldersDialog.asset && (
+        <AssetFoldersDialog
+          open={assetFoldersDialog.open}
+          onClose={() => setAssetFoldersDialog({ open: false, asset: null })}
+          assetName={assetFoldersDialog.asset.name}
+          assetType={assetType}
+          folders={assetFoldersDialog.asset.folders || []}
+        />
+      )}
+
+      {userGroupsDialog.user && (
+        <UserGroupsDialog
+          open={userGroupsDialog.open}
+          onClose={() => setUserGroupsDialog({ open: false, user: null })}
+          user={userGroupsDialog.user}
+          onGroupsChange={() => {
+            refreshAssetType(assetType);
+          }}
+        />
+      )}
+
+      {userAssetAccessDialog.user && (
+        <UserAssetAccessDialog
+          open={userAssetAccessDialog.open}
+          onClose={() => setUserAssetAccessDialog({ open: false, user: null })}
+          user={userAssetAccessDialog.user}
+        />
+      )}
+
+      {groupMembersDialog.group && (
+        <GroupMembersDialog
+          open={groupMembersDialog.open}
+          onClose={() => setGroupMembersDialog({ open: false, group: null })}
+          groupName={groupMembersDialog.group.name}
+          members={
+            groupMembersDialog.group.metadata?.members || groupMembersDialog.group.members || []
+          }
+        />
+      )}
+
+      {groupAssetsDialog.group && (
+        <GroupAssetsDialog
+          open={groupAssetsDialog.open}
+          onClose={() => setGroupAssetsDialog({ open: false, group: null })}
+          group={groupAssetsDialog.group}
+        />
+      )}
+
+      {updateGroupDialog.group && (
+        <UpdateGroupDialog
+          open={updateGroupDialog.open}
+          onClose={() => setUpdateGroupDialog({ open: false, group: null })}
+          group={updateGroupDialog.group}
+          onSuccess={() => {
+            setUpdateGroupDialog({ open: false, group: null });
+            refreshAssetType('group');
+          }}
+        />
+      )}
+    </>
+  )
+);
 
 interface DialogManagerProps {
   // Core dialog states
@@ -243,7 +252,7 @@ interface DialogManagerProps {
   setRelatedAssetsDialog: (state: any) => void;
   tagsDialog: any;
   setTagsDialog: (state: any) => void;
-  
+
   // Bulk action dialogs
   addToFolderOpen: boolean;
   setAddToFolderOpen: (open: boolean) => void;
@@ -251,7 +260,7 @@ interface DialogManagerProps {
   setBulkTagOpen: (open: boolean) => void;
   bulkDeleteOpen: boolean;
   setBulkDeleteOpen: (open: boolean) => void;
-  
+
   // Asset-specific dialogs — states come typed from useDialogStates
   jsonViewerDialog: JsonViewerDialogState;
   setJsonViewerDialog: (state: JsonViewerDialogState) => void;
@@ -358,7 +367,7 @@ export function DialogManager({
   isDeletingUser,
 }: DialogManagerProps) {
   const typeCapitalized = assetType.charAt(0).toUpperCase() + assetType.slice(1);
-  
+
   return (
     <>
       {/* Core asset dialogs */}
@@ -374,7 +383,7 @@ export function DialogManager({
         updateAssetTags={updateAssetTags}
         refreshAssetType={refreshAssetType}
       />
-      
+
       {/* Bulk action dialogs */}
       <BulkActionDialogs
         addToFolderOpen={addToFolderOpen}
@@ -388,7 +397,7 @@ export function DialogManager({
         selectedAssets={selectedAssets}
         handleBulkComplete={handleBulkComplete}
       />
-      
+
       {/* Organization dialogs */}
       <OrganizationDialogs
         folderMembersDialog={folderMembersDialog}
@@ -408,7 +417,7 @@ export function DialogManager({
         assetType={assetType}
         refreshAssetType={refreshAssetType}
       />
-      
+
       {/* JSON viewer */}
       {jsonViewerDialog.open && (
         <JsonViewerModal
@@ -419,7 +428,7 @@ export function DialogManager({
           assetType={assetType}
         />
       )}
-      
+
       {/* Dataset-specific dialogs */}
       {refreshScheduleDialog.dataset && (
         <RefreshScheduleDialog
@@ -430,7 +439,7 @@ export function DialogManager({
           dataSetRefreshProperties={refreshScheduleDialog.dataset.dataSetRefreshProperties}
         />
       )}
-      
+
       {definitionErrorsDialog.asset && (
         <DefinitionErrorsDialog
           open={definitionErrorsDialog.open}
@@ -440,7 +449,7 @@ export function DialogManager({
           errors={definitionErrorsDialog.asset.definitionErrors || []}
         />
       )}
-      
+
       {/* Rename asset (live in QuickSight) */}
       {renameAssetDialog.asset && (
         <RenameAssetDialog
@@ -504,17 +513,15 @@ export function DialogManager({
         <DialogTitle>Delete Group</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete the group "{deleteGroupDialog.group?.name}"?
-            This action cannot be undone.
+            Are you sure you want to delete the group "{deleteGroupDialog.group?.name}"? This action
+            cannot be undone.
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteGroupDialog({ open: false, group: null })}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleGroupDelete} 
-            color="error" 
+          <Button onClick={() => setDeleteGroupDialog({ open: false, group: null })}>Cancel</Button>
+          <Button
+            onClick={handleGroupDelete}
+            color="error"
             variant="contained"
             disabled={isDeletingGroup}
           >
@@ -533,14 +540,12 @@ export function DialogManager({
         <DialogTitle>Delete User</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete the user "{deleteUserDialog.user?.name}"?
-            This action cannot be undone.
+            Are you sure you want to delete the user "{deleteUserDialog.user?.name}"? This action
+            cannot be undone.
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteUserDialog({ open: false, user: null })}>
-            Cancel
-          </Button>
+          <Button onClick={() => setDeleteUserDialog({ open: false, user: null })}>Cancel</Button>
           <Button
             onClick={handleUserDelete}
             color="error"

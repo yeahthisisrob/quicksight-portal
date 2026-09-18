@@ -1,10 +1,9 @@
 import { Box, Typography } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
-
-import { createSemanticColumns } from './semanticColumns';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import type { SemanticTermRow } from '../../types';
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import { createSemanticColumns } from './semanticColumns';
 
 const mockData: SemanticTermRow[] = [
   {
@@ -80,10 +79,8 @@ const mockData: SemanticTermRow[] = [
 ];
 
 const defaultCallbacks = {
-  onEditTerm: (term: SemanticTermRow) =>
-    alert(`Edit term: ${term.businessName}`),
-  onDeleteTerm: (term: SemanticTermRow) =>
-    alert(`Delete term: ${term.businessName}`),
+  onEditTerm: (term: SemanticTermRow) => alert(`Edit term: ${term.businessName}`),
+  onDeleteTerm: (term: SemanticTermRow) => alert(`Delete term: ${term.businessName}`),
   onShowMappedFields: (term: SemanticTermRow) =>
     alert(`Show mapped fields for: ${term.businessName}`),
 };
@@ -105,13 +102,7 @@ const meta: Meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const StorySection = ({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) => (
+const StorySection = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <Box sx={{ mb: 4 }}>
     <Typography variant="h6" gutterBottom sx={{ mb: 2, fontWeight: 500 }}>
       {title}
@@ -173,9 +164,7 @@ export const TermsWithVariants: Story = {
       ...defaultCallbacks,
       visualFieldCatalog: { termUsageCounts: {} },
     });
-    const filteredData = mockData.filter(
-      (d) => d.variantFields && d.variantFields.length > 1
-    );
+    const filteredData = mockData.filter((d) => d.variantFields && d.variantFields.length > 1);
     return (
       <StorySection title="Terms with Data Type Variants">
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

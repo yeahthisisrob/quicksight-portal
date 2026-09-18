@@ -1,4 +1,4 @@
-import { type APIGatewayProxyEvent } from 'aws-lambda';
+import type { APIGatewayProxyEvent } from 'aws-lambda';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { STATUS_CODES } from '../../../../shared/constants';

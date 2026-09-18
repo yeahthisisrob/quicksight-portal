@@ -17,11 +17,11 @@ import { colors } from '@/shared/design-system/theme';
 /**
  * Search bar component
  */
-export function SearchBar({ 
-  searchTerm, 
-  onSearchChange 
-}: { 
-  searchTerm: string; 
+export function SearchBar({
+  searchTerm,
+  onSearchChange,
+}: {
+  searchTerm: string;
   onSearchChange: (value: string) => void;
 }) {
   return (
@@ -57,7 +57,7 @@ export function SearchBar({
 /**
  * Main content view switcher
  */
-export function ContentView({ 
+export function ContentView({
   viewMode,
   rows,
   totalRows,
@@ -69,7 +69,7 @@ export function ContentView({
   onPageSizeChange,
   onSortModelChange,
   dialogHandlers,
-  additionalData
+  additionalData,
 }: any) {
   const viewProps = {
     data: rows,
@@ -84,7 +84,7 @@ export function ContentView({
     ...dialogHandlers,
     ...additionalData,
   };
-  
+
   switch (viewMode) {
     case 'physical':
       return <PhysicalView {...viewProps} onShowDetails={viewProps.onFieldClick} />;

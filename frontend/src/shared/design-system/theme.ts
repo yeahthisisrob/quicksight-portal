@@ -11,7 +11,7 @@ export const colors = {
     light: '#93C5FD',
     dark: '#1E40AF',
   },
-  
+
   // Asset Type Colors (matching your existing config)
   assetTypes: {
     dashboard: {
@@ -60,7 +60,7 @@ export const colors = {
       dark: '#1565c0',
     },
   },
-  
+
   // Status Colors
   status: {
     success: '#10B981',
@@ -76,7 +76,7 @@ export const colors = {
     infoLight: '#93C5FD',
     infoDark: '#1E40AF',
   },
-  
+
   // Neutral Colors (grayscale)
   neutral: {
     50: '#FAFAFA',
@@ -90,7 +90,7 @@ export const colors = {
     800: '#262626',
     900: '#171717',
   },
-  
+
   // Background Colors
   background: {
     default: '#FFFFFF',
@@ -115,12 +115,12 @@ export const typography = {
     monospace: '"Roboto Mono", "Courier New", monospace',
   },
   fontSize: {
-    xs: '0.75rem',    // 12px
-    sm: '0.875rem',   // 14px
-    base: '1rem',     // 16px
-    lg: '1.125rem',   // 18px
-    xl: '1.25rem',    // 20px
-    '2xl': '1.5rem',  // 24px
+    xs: '0.75rem', // 12px
+    sm: '0.875rem', // 14px
+    base: '1rem', // 16px
+    lg: '1.125rem', // 18px
+    xl: '1.25rem', // 20px
+    '2xl': '1.5rem', // 24px
     '3xl': '1.875rem', // 30px
   },
   fontWeight: {
@@ -164,7 +164,7 @@ export const components = {
     borderRadius: borderRadius.lg,
     maxHeight: '80vh',
   },
-  
+
   chip: {
     height: {
       small: 20,
@@ -172,7 +172,7 @@ export const components = {
       large: 32,
     },
   },
-  
+
   paper: {
     hover: {
       transform: 'translateX(4px)',

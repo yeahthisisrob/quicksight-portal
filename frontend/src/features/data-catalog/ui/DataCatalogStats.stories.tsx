@@ -1,7 +1,7 @@
-import DataCatalogStats from './DataCatalogStats';
-
-import type { DataCatalogSummary, VisualFieldSummary, SemanticStats } from '../model/types';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import type { DataCatalogSummary, SemanticStats, VisualFieldSummary } from '../model/types';
+import DataCatalogStats from './DataCatalogStats';
 
 const meta = {
   title: 'Features/DataCatalog/DataCatalogStats',
@@ -10,7 +10,8 @@ const meta = {
     layout: 'padded',
     docs: {
       description: {
-        component: 'Statistics cards for the data catalog, displaying different metrics based on the selected view mode. Features modern card designs with gradients, hover effects, and data visualization.',
+        component:
+          'Statistics cards for the data catalog, displaying different metrics based on the selected view mode. Features modern card designs with gradients, hover effects, and data visualization.',
       },
     },
   },
@@ -102,7 +103,8 @@ export const PhysicalViewStats: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Statistics for physical fields view, showing field counts, data type distribution, and calculated field breakdown.',
+        story:
+          'Statistics for physical fields view, showing field counts, data type distribution, and calculated field breakdown.',
       },
     },
   },
@@ -116,7 +118,8 @@ export const SemanticViewStats: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Statistics for semantic view, displaying term counts, mapping coverage, and field mapping status.',
+        story:
+          'Statistics for semantic view, displaying term counts, mapping coverage, and field mapping status.',
       },
     },
   },
@@ -130,7 +133,8 @@ export const VisualFieldsViewStats: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Statistics for visual fields view, showing field distribution across dashboards and analyses.',
+        story:
+          'Statistics for visual fields view, showing field distribution across dashboards and analyses.',
       },
     },
   },
@@ -144,7 +148,8 @@ export const CalculatedViewStats: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Statistics for calculated fields view, showing expression metrics and variant analysis.',
+        story:
+          'Statistics for calculated fields view, showing expression metrics and variant analysis.',
       },
     },
   },

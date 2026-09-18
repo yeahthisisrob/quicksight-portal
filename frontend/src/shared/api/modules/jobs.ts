@@ -1,7 +1,7 @@
-import { api as apiClient } from '../client';
-import { ApiResponse } from '../types';
-
 import type { components } from '@shared/generated';
+
+import { api as apiClient } from '../client';
+import type { ApiResponse } from '../types';
 
 export type BulkItemFailure = components['schemas']['BulkItemFailure'];
 
@@ -94,14 +94,14 @@ export const jobsApi = {
    * List jobs with optional filtering
    */
   async listJobs(options?: JobListOptions): Promise<JobMetadata[]> {
-    const response = await apiClient.get<ApiResponse<JobMetadata[]>>('/jobs', { 
-      params: options 
+    const response = await apiClient.get<ApiResponse<JobMetadata[]>>('/jobs', {
+      params: options,
     });
-    
+
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to list jobs');
     }
-    
+
     return response.data.data || [];
   },
 
@@ -110,12 +110,12 @@ export const jobsApi = {
    */
   async getJob(jobId: string): Promise<JobMetadata | null> {
     const response = await apiClient.get<ApiResponse<JobMetadata>>(`/jobs/${jobId}`);
-    
+
     if (!response.data.success) {
       if (response.status === 404) return null;
       throw new Error(response.data.error || 'Failed to get job');
     }
-    
+
     return response.data.data || null;
   },
 
@@ -123,12 +123,14 @@ export const jobsApi = {
    * Get job logs
    */
   async getJobLogs(jobId: string): Promise<JobLog[]> {
-    const response = await apiClient.get<ApiResponse<{ jobId: string; logs: JobLog[] }>>(`/jobs/${jobId}/logs`);
-    
+    const response = await apiClient.get<ApiResponse<{ jobId: string; logs: JobLog[] }>>(
+      `/jobs/${jobId}/logs`
+    );
+
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to get job logs');
     }
-    
+
     return response.data.data?.logs || [];
   },
 
@@ -137,12 +139,12 @@ export const jobsApi = {
    */
   async getJobResult<T = any>(jobId: string): Promise<T | null> {
     const response = await apiClient.get<ApiResponse<T>>(`/jobs/${jobId}/result`);
-    
+
     if (!response.data.success) {
       if (response.status === 404) return null;
       throw new Error(response.data.error || 'Failed to get job result');
     }
-    
+
     return response.data.data || null;
   },
 
@@ -151,7 +153,7 @@ export const jobsApi = {
    */
   async stopJob(jobId: string): Promise<void> {
     const response = await apiClient.post<ApiResponse<any>>(`/jobs/${jobId}/stop`);
-    
+
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to stop job');
     }

@@ -1,7 +1,7 @@
+import type { GridSortModel } from '@mui/x-data-grid';
+
 import { createVisualFieldColumns } from '../columns/visualFieldColumns';
 import { CatalogDataGrid } from '../components';
-
-import type { GridSortModel } from '@mui/x-data-grid';
 
 interface VisualFieldsViewProps {
   data: any[];

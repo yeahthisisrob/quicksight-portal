@@ -1,4 +1,4 @@
-import { ThemeProvider, CssBaseline } from '@mui/material';
+import { CssBaseline, ThemeProvider } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { SnackbarProvider } from 'notistack';
@@ -36,5 +36,5 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         </SnackbarProvider>
       </LocalizationProvider>
     </ThemeProvider>
-  </BrowserRouter>,
+  </BrowserRouter>
 );

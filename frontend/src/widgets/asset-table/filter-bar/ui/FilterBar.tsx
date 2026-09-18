@@ -1,19 +1,18 @@
 import { Box, Collapse, Paper } from '@mui/material';
-import React from 'react';
+import type React from 'react';
 
 import { colors, spacing } from '@/shared/design-system/theme';
 
-import {
-  FilterHeader,
-  FilterControls,
-  ActiveFiltersDisplay,
-  SearchBar,
-  FilterStats,
-} from './components';
 import { applyFilterBarDefaults } from '../lib/applyDefaults';
-import { useFilterBarState } from '../lib/useFilterBarState';
-
 import type { FilterBarProps } from '../lib/types';
+import { useFilterBarState } from '../lib/useFilterBarState';
+import {
+  ActiveFiltersDisplay,
+  FilterControls,
+  FilterHeader,
+  FilterStats,
+  SearchBar,
+} from './components';
 
 // ============================================================================
 // Main Component
@@ -50,12 +49,20 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
   });
 
   const showSearchBar = p.showSearch && p.onSearchChange;
-  const showStats = !p.isLoadingTags && (p.availableTags.length > 0 || p.availableAssets.length > 0 || p.availableFolders.length > 0);
+  const showStats =
+    !p.isLoadingTags &&
+    (p.availableTags.length > 0 || p.availableAssets.length > 0 || p.availableFolders.length > 0);
 
   return (
     <Paper
       elevation={0}
-      sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', mb: 2, overflow: 'hidden' }}
+      sx={{
+        borderRadius: 2,
+        border: '1px solid',
+        borderColor: 'divider',
+        mb: 2,
+        overflow: 'hidden',
+      }}
     >
       {showSearchBar && (
         <SearchBar
@@ -82,9 +89,13 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
         onClearAll={state.handleClearAll}
         onClearDateFilter={p.dateFilter ? state.handleClearDateFilter : undefined}
         onClearErrorFilter={p.errorFilter !== undefined ? state.handleClearErrorFilter : undefined}
-        onClearActivityFilter={p.activityFilter !== undefined ? state.handleClearActivityFilter : undefined}
+        onClearActivityFilter={
+          p.activityFilter !== undefined ? state.handleClearActivityFilter : undefined
+        }
         onClearSmusFilter={p.smusFilter !== undefined ? state.handleClearSmusFilter : undefined}
-        onClearImportModeFilter={p.importModeFilter !== undefined ? state.handleClearImportModeFilter : undefined}
+        onClearImportModeFilter={
+          p.importModeFilter !== undefined ? state.handleClearImportModeFilter : undefined
+        }
         onRemoveAsset={state.handleRemoveAsset}
         onRemoveIncludeTag={state.handleRemoveIncludeTag}
         onRemoveExcludeTag={state.handleRemoveExcludeTag}

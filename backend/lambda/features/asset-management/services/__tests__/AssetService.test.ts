@@ -1,10 +1,10 @@
-import { vi, type Mocked } from 'vitest';
+import { type Mocked, vi } from 'vitest';
 /**
  * Tests for AssetService to ensure proper initialization patterns
  * and prevent regression of dynamic import issues
  */
 
-import { type CacheEntry, type AssetType } from '../../../../shared/models/asset.model';
+import type { AssetType, CacheEntry } from '../../../../shared/models/asset.model';
 import { cacheService } from '../../../../shared/services/cache/CacheService';
 import { AssetService } from '../AssetService';
 

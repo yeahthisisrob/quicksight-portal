@@ -1,11 +1,11 @@
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { type AssetType, getSingularForm } from '../../../shared/types/assetTypes';
-import { createResponse, successResponse, errorResponse } from '../../../shared/utils/cors';
+import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { TagService } from '../services/TagService';
 
@@ -13,7 +13,7 @@ export class TagHandler {
   private readonly bulkOperationsService: BulkOperationsService;
   private readonly tagService: TagService;
 
-  constructor() {
+  public constructor() {
     const accountId = process.env.AWS_ACCOUNT_ID || '';
     this.tagService = new TagService(accountId);
     this.bulkOperationsService = new BulkOperationsService();

@@ -1,6 +1,6 @@
-import { RefreshScheduleDialog } from './RefreshScheduleDialog';
-
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import { RefreshScheduleDialog } from './RefreshScheduleDialog';
 
 const meta: Meta<typeof RefreshScheduleDialog> = {
   title: 'Entities/Dataset/RefreshScheduleDialog',

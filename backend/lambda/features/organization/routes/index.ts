@@ -1,4 +1,4 @@
-import { type RouteHandler } from '../../../api/types';
+import type { RouteHandler } from '../../../api/types';
 import { FolderHandler } from '../handlers/FolderHandler';
 import { GroupHandler } from '../handlers/GroupHandler';
 import { IdentityHandler } from '../handlers/IdentityHandler';

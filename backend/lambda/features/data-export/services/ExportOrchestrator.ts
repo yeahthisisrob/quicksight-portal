@@ -1,22 +1,20 @@
-import { AssetComparisonService } from './AssetComparisonService';
-import { BatchProcessingService } from './BatchProcessingService';
 import { EXPORT_CONFIG } from '../../../shared/config/exportConfig';
 import { WORKER_CONFIG } from '../../../shared/constants';
-import {
-  type AssetTypeSummary,
-  type ExportOptions,
-  type ExportProgressCallback,
-  type ExportSummary,
+import type {
+  AssetTypeSummary,
+  ExportOptions,
+  ExportProgressCallback,
+  ExportSummary,
 } from '../../../shared/models/export.model';
 import { getAssetId, getAssetName } from '../../../shared/models/quicksight-domain.model';
 import { ArchiveService } from '../../../shared/services/archive/ArchiveService';
 import { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { S3Service } from '../../../shared/services/aws/S3Service';
 import { cacheService } from '../../../shared/services/cache/CacheService';
-import { type ExportCheckpoint } from '../../../shared/services/jobs/JobRepository';
-import {
-  type JobProgressLogger,
-  type JobStateService,
+import type { ExportCheckpoint } from '../../../shared/services/jobs/JobRepository';
+import type {
+  JobProgressLogger,
+  JobStateService,
 } from '../../../shared/services/jobs/JobStateService';
 import { LineageService } from '../../../shared/services/lineage/LineageService';
 import { OperationTrackingService } from '../../../shared/services/operations/OperationTrackingService';
@@ -26,9 +24,9 @@ import { logger } from '../../../shared/utils/logger';
 import { CatalogService } from '../../data-catalog/services/CatalogService';
 import { TagService } from '../../organization/services/TagService';
 import { AnalysisProcessor } from '../processors/AnalysisProcessor';
-import {
-  type BaseAssetProcessor,
-  type EnhancedProcessingResult,
+import type {
+  BaseAssetProcessor,
+  EnhancedProcessingResult,
 } from '../processors/BaseAssetProcessor';
 import { DashboardProcessor } from '../processors/DashboardProcessor';
 import { DatasetProcessor } from '../processors/DatasetProcessor';
@@ -36,7 +34,9 @@ import { DatasourceProcessor } from '../processors/DatasourceProcessor';
 import { FolderProcessor } from '../processors/organizational/FolderProcessor';
 import { GroupProcessor } from '../processors/organizational/GroupProcessor';
 import { UserProcessor } from '../processors/organizational/UserProcessor';
-import { type AssetType, type AssetSummary, type ProcessingContext } from '../types';
+import type { AssetSummary, AssetType, ProcessingContext } from '../types';
+import { AssetComparisonService } from './AssetComparisonService';
+import { BatchProcessingService } from './BatchProcessingService';
 
 /**
  * Unified Export Orchestrator
@@ -66,7 +66,7 @@ export class ExportOrchestrator {
   private readonly s3Service: S3Service;
   private readonly tagService: TagService;
 
-  constructor(awsAccountId: string) {
+  public constructor(awsAccountId: string) {
     this.awsAccountId = awsAccountId;
 
     // Initialize operation tracking
@@ -1191,74 +1191,71 @@ export class ExportOrchestrator {
     // Check if this is a cache-rebuild-only operation
     const isCacheRebuildOnly =
       exportOptions.rebuildIndex && !exportOptions.forceRefresh && !exportOptions.assetTypes;
+    try {
+      logger.info('Rebuilding data catalog after export...', {
+        totalProcessed,
+        forced: context.forceCatalogRebuild,
+      });
 
-    {
-      try {
-        logger.info('Rebuilding data catalog after export...', {
-          totalProcessed,
-          forced: context.forceCatalogRebuild,
-        });
-
-        // For rebuild index mode, do a cache rebuild
-        if (exportOptions.rebuildIndex || isCacheRebuildOnly) {
-          // Rebuild cache with lineage from existing S3 files.
-          // NON-destructive (forceRefresh=false): saveMasterCache overwrites
-          // every per-type cache file anyway, so no pre-clear is needed
-          // (activity/ingestion caches must survive a rebuild).
-          if (this.jobStateService) {
-            await this.jobStateService.updateJobStatus(this.jobId, {
-              message: 'Rebuilding cache from existing S3 files...',
-            });
-          }
-          await cacheService.rebuildCache(false, true, this.buildRebuildProgressLogger());
-          await cacheService.updateFieldCache(null);
-          logger.info('Cache rebuilt successfully from S3 files');
-          if (this.jobStateService) {
-            await this.jobStateService.updateJobStatus(this.jobId, {
-              message: 'Cache rebuilt from S3 files - rebuilding catalogs...',
-            });
-          }
-        }
-
-        // Rebuild field cache once after all exports complete. Each step
-        // below writes a job status update, which doubles as a heartbeat -
-        // the catalog phase is the longest stretch without batch progress.
-        if (!exportOptions.rebuildIndex && !isCacheRebuildOnly) {
-          // rebuildIndex already did this above
-          await this.updateCatalogPhaseStatus('Rebuilding field cache...');
-          await cacheService.updateFieldCache(null);
-        }
-
-        await this.updateCatalogPhaseStatus('Rebuilding data catalog...');
-        const catalogService = new CatalogService();
-        // Build the pre-computed catalog index from the freshly rebuilt field cache.
-        await catalogService.rebuildCatalogIndex();
-        await catalogService.buildVisualFieldCatalog();
-        logger.info('Data catalog rebuilt successfully');
-
-        // Now rebuild lineage since all assets are exported
-        if (!exportOptions.rebuildIndex && !isCacheRebuildOnly) {
-          // rebuildIndex already did this above
-          await this.updateCatalogPhaseStatus('Rebuilding lineage...');
-          const lineageService = new LineageService();
-          await lineageService.rebuildLineage();
-          logger.info('Lineage rebuilt successfully');
-        }
-
-        // Precompute user/group list snapshots so the API Lambda's first
-        // request after this rebuild adopts them instead of re-enriching.
-        // Hook failures are logged inside — never fails the export.
-        await cacheService.runCacheRebuildHooks();
-      } catch (error) {
-        logger.error('Failed to rebuild catalogs after export:', error);
+      // For rebuild index mode, do a cache rebuild
+      if (exportOptions.rebuildIndex || isCacheRebuildOnly) {
+        // Rebuild cache with lineage from existing S3 files.
+        // NON-destructive (forceRefresh=false): saveMasterCache overwrites
+        // every per-type cache file anyway, so no pre-clear is needed
+        // (activity/ingestion caches must survive a rebuild).
         if (this.jobStateService) {
-          await this.jobStateService.logWarn(
-            this.jobId,
-            'Warning: Failed to rebuild data catalogs after export - may need manual refresh'
-          );
+          await this.jobStateService.updateJobStatus(this.jobId, {
+            message: 'Rebuilding cache from existing S3 files...',
+          });
         }
-        // Don't fail the export if catalog rebuild fails
+        await cacheService.rebuildCache(false, true, this.buildRebuildProgressLogger());
+        await cacheService.updateFieldCache(null);
+        logger.info('Cache rebuilt successfully from S3 files');
+        if (this.jobStateService) {
+          await this.jobStateService.updateJobStatus(this.jobId, {
+            message: 'Cache rebuilt from S3 files - rebuilding catalogs...',
+          });
+        }
       }
+
+      // Rebuild field cache once after all exports complete. Each step
+      // below writes a job status update, which doubles as a heartbeat -
+      // the catalog phase is the longest stretch without batch progress.
+      if (!exportOptions.rebuildIndex && !isCacheRebuildOnly) {
+        // rebuildIndex already did this above
+        await this.updateCatalogPhaseStatus('Rebuilding field cache...');
+        await cacheService.updateFieldCache(null);
+      }
+
+      await this.updateCatalogPhaseStatus('Rebuilding data catalog...');
+      const catalogService = new CatalogService();
+      // Build the pre-computed catalog index from the freshly rebuilt field cache.
+      await catalogService.rebuildCatalogIndex();
+      await catalogService.buildVisualFieldCatalog();
+      logger.info('Data catalog rebuilt successfully');
+
+      // Now rebuild lineage since all assets are exported
+      if (!exportOptions.rebuildIndex && !isCacheRebuildOnly) {
+        // rebuildIndex already did this above
+        await this.updateCatalogPhaseStatus('Rebuilding lineage...');
+        const lineageService = new LineageService();
+        await lineageService.rebuildLineage();
+        logger.info('Lineage rebuilt successfully');
+      }
+
+      // Precompute user/group list snapshots so the API Lambda's first
+      // request after this rebuild adopts them instead of re-enriching.
+      // Hook failures are logged inside — never fails the export.
+      await cacheService.runCacheRebuildHooks();
+    } catch (error) {
+      logger.error('Failed to rebuild catalogs after export:', error);
+      if (this.jobStateService) {
+        await this.jobStateService.logWarn(
+          this.jobId,
+          'Warning: Failed to rebuild data catalogs after export - may need manual refresh'
+        );
+      }
+      // Don't fail the export if catalog rebuild fails
     }
   }
 

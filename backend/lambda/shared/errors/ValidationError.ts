@@ -8,7 +8,7 @@ import { STATUS_CODES } from '../constants';
 export class ValidationError extends Error {
   public readonly statusCode = STATUS_CODES.BAD_REQUEST;
 
-  constructor(message: string) {
+  public constructor(message: string) {
     super(message);
     this.name = 'ValidationError';
   }

@@ -1,5 +1,5 @@
 // Accessibility testing with axe-playwright
-const { injectAxe, checkA11y } = require('axe-playwright');
+const { injectAxe } = require('axe-playwright');
 
 module.exports = {
   async preVisit(page) {
@@ -15,10 +15,10 @@ module.exports = {
         logs.push(msg.text());
       }
     });
-    
+
     // Wait a bit for any async operations to complete
     await page.waitForTimeout(100);
-    
+
     // Check for console errors
     if (logs.length > 0) {
       const ignoredErrors = [
@@ -47,18 +47,18 @@ module.exports = {
         'React will try to recreate this component tree',
         'StorybookTestRunnerError',
       ];
-      
+
       const relevantErrors = logs
-        .filter(log => !ignoredErrors.some(ignored => log.includes(ignored)))
-        .filter(log => !log.includes('at '))  // Filter out stack trace lines
-        .filter(log => !log.includes('http://'))  // Filter out source URLs
-        .filter(log => log.trim().length > 0);  // Filter out empty lines
-      
+        .filter((log) => !ignoredErrors.some((ignored) => log.includes(ignored)))
+        .filter((log) => !log.includes('at ')) // Filter out stack trace lines
+        .filter((log) => !log.includes('http://')) // Filter out source URLs
+        .filter((log) => log.trim().length > 0); // Filter out empty lines
+
       if (relevantErrors.length > 0) {
         throw new Error(`Console errors detected:\n${relevantErrors.join('\n')}`);
       }
     }
-    
+
     // Run accessibility checks (temporarily disabled to focus on component errors)
     // TODO: Re-enable once color contrast issues are fixed
     // await checkA11y(page, '#storybook-root', {

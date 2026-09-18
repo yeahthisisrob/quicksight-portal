@@ -1,5 +1,5 @@
-import { Refresh, CloudDownload, Analytics } from '@mui/icons-material';
-import { Box, Typography, Button, Stack, alpha } from '@mui/material';
+import { Analytics, CloudDownload, Refresh } from '@mui/icons-material';
+import { alpha, Box, Button, Stack, Typography } from '@mui/material';
 
 import { colors, spacing } from '@/shared/design-system/theme';
 
@@ -9,12 +9,11 @@ interface ExportHeaderProps {
   loading?: boolean;
 }
 
-export default function ExportHeader({ 
-  lastExportDate, 
+export default function ExportHeader({
+  lastExportDate,
   onRefreshSummary,
-  loading = false 
+  loading = false,
 }: ExportHeaderProps) {
-
   return (
     <Box
       sx={{
@@ -40,9 +39,14 @@ export default function ExportHeader({
             </Typography>
           </Box>
         </Stack>
-        
+
         {lastExportDate && (
-          <Stack direction="row" alignItems="center" spacing={spacing.xs / 8} sx={{ mt: spacing.xs / 8 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={spacing.xs / 8}
+            sx={{ mt: spacing.xs / 8 }}
+          >
             <Analytics sx={{ fontSize: 14, color: colors.neutral[500] }} />
             <Typography variant="caption" color="text.secondary">
               Last sync: {new Date(lastExportDate).toLocaleString()}

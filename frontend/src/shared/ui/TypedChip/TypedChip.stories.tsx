@@ -1,8 +1,7 @@
-import { Stack, Typography, Paper, Box } from '@mui/material';
+import { Box, Paper, Stack, Typography } from '@mui/material';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import TypedChip from './index';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta: Meta<typeof TypedChip> = {
   title: 'Shared/UI/TypedChip',
@@ -11,7 +10,8 @@ const meta: Meta<typeof TypedChip> = {
     layout: 'centered',
     docs: {
       description: {
-        component: 'A universal chip component for displaying various types (assets, fields, filters, tags, relationships, etc.) with consistent styling and behavior. Used across the application for asset indicators, JSON viewer highlights, tags, relationships, and more.',
+        component:
+          'A universal chip component for displaying various types (assets, fields, filters, tags, relationships, etc.) with consistent styling and behavior. Used across the application for asset indicators, JSON viewer highlights, tags, relationships, and more.',
       },
     },
   },
@@ -19,7 +19,26 @@ const meta: Meta<typeof TypedChip> = {
   argTypes: {
     type: {
       control: 'select',
-      options: ['DASHBOARD', 'ANALYSIS', 'DATASET', 'DATASOURCE', 'FOLDER', 'USER', 'GROUP', 'FIELDS', 'CALCULATED_FIELDS', 'VISUALS', 'SHEETS', 'FILTERS', 'EXPRESSIONS', 'UNKNOWN', 'TAG', 'CATALOG_HIDDEN', 'PORTAL_HIDDEN', 'RELATIONSHIP'],
+      options: [
+        'DASHBOARD',
+        'ANALYSIS',
+        'DATASET',
+        'DATASOURCE',
+        'FOLDER',
+        'USER',
+        'GROUP',
+        'FIELDS',
+        'CALCULATED_FIELDS',
+        'VISUALS',
+        'SHEETS',
+        'FILTERS',
+        'EXPRESSIONS',
+        'UNKNOWN',
+        'TAG',
+        'CATALOG_HIDDEN',
+        'PORTAL_HIDDEN',
+        'RELATIONSHIP',
+      ],
       description: 'The type to display',
     },
     count: {
@@ -260,15 +279,21 @@ export const RelationshipExamples: Story = {
         <Paper sx={{ p: 2 }}>
           <Stack spacing={2}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography variant="body2" sx={{ minWidth: 120 }}>No relationships:</Typography>
+              <Typography variant="body2" sx={{ minWidth: 120 }}>
+                No relationships:
+              </Typography>
               <TypedChip type="RELATIONSHIP" count={0} />
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography variant="body2" sx={{ minWidth: 120 }}>Few relationships:</Typography>
+              <Typography variant="body2" sx={{ minWidth: 120 }}>
+                Few relationships:
+              </Typography>
               <TypedChip type="RELATIONSHIP" count={3} />
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography variant="body2" sx={{ minWidth: 120 }}>Many relationships:</Typography>
+              <Typography variant="body2" sx={{ minWidth: 120 }}>
+                Many relationships:
+              </Typography>
               <TypedChip type="RELATIONSHIP" count={42} />
             </Box>
           </Stack>
@@ -306,7 +331,13 @@ export const RealWorldUsage: Story = {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <TypedChip type="TAG" customLabel="Owner:BI" variant="outlined" size="small" />
               <TypedChip type="TAG" customLabel="Dept:Sales" variant="outlined" size="small" />
-              <TypedChip type="TAG" customLabel="+3" variant="filled" size="small" showIcon={false} />
+              <TypedChip
+                type="TAG"
+                customLabel="+3"
+                variant="filled"
+                size="small"
+                showIcon={false}
+              />
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <TypedChip type="CATALOG_HIDDEN" size="small" />

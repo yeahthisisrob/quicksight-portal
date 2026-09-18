@@ -1,9 +1,9 @@
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
-import { successResponse, errorResponse, createResponse } from '../../../shared/utils/cors';
+import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { FolderService } from '../services/FolderService';
 
@@ -11,7 +11,7 @@ export class FolderHandler {
   private readonly bulkOperationsService: BulkOperationsService;
   private readonly folderService: FolderService;
 
-  constructor() {
+  public constructor() {
     const accountId = process.env.AWS_ACCOUNT_ID || '';
     this.folderService = new FolderService(accountId);
     this.bulkOperationsService = new BulkOperationsService(accountId);

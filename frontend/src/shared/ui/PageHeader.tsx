@@ -8,11 +8,7 @@ interface PageHeaderProps {
   extraActions?: React.ReactNode;
 }
 
-export function PageHeader({
-  title,
-  totalRows,
-  extraActions,
-}: PageHeaderProps) {
+export function PageHeader({ title, totalRows, extraActions }: PageHeaderProps) {
   return (
     <Box
       sx={{
@@ -37,9 +33,7 @@ export function PageHeader({
       </Box>
 
       {extraActions && (
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {extraActions}
-        </Box>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>{extraActions}</Box>
       )}
     </Box>
   );

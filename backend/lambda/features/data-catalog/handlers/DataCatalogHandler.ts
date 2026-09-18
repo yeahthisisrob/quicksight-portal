@@ -1,25 +1,25 @@
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../../../shared/auth';
-import { STATUS_CODES, PAGINATION } from '../../../shared/constants';
-import { type AssetType } from '../../../shared/types/assetTypes';
-import { successResponse, errorResponse } from '../../../shared/utils/cors';
+import { PAGINATION, STATUS_CODES } from '../../../shared/constants';
+import type { AssetType } from '../../../shared/types/assetTypes';
+import { errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import {
   type PaginationParams,
-  type SearchFieldConfig,
   processPaginatedData,
+  type SearchFieldConfig,
   type SortConfig,
 } from '../../../shared/utils/paginationUtils';
 import { CatalogService } from '../services/CatalogService';
 import { FieldMetadataService } from '../services/FieldMetadataService';
-import { type CatalogField, type DataCatalogResult } from '../types';
+import type { CatalogField, DataCatalogResult } from '../types';
 
 export class DataCatalogHandler {
   private readonly catalogService: CatalogService;
   private readonly fieldMetadataService: FieldMetadataService;
 
-  constructor() {
+  public constructor() {
     this.fieldMetadataService = new FieldMetadataService();
     this.catalogService = new CatalogService();
   }
@@ -347,7 +347,7 @@ export class DataCatalogHandler {
       const visualFieldCatalog = await this.catalogService.buildVisualFieldCatalog();
 
       // Check if catalog exists and has data
-      if (!visualFieldCatalog || !visualFieldCatalog.visualFields) {
+      if (!visualFieldCatalog?.visualFields) {
         logger.info('No visual field catalog data available');
         return successResponse(event, {
           success: true,

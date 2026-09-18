@@ -1,7 +1,7 @@
-import { BaseAssetRestoreStrategy } from './BaseAssetRestoreStrategy';
 import type { AssetExportData } from '../../../../../../shared/models/asset-export.model';
 import { logger } from '../../../../../../shared/utils/logger';
 import type { ValidationResult } from '../../types';
+import { BaseAssetRestoreStrategy } from './BaseAssetRestoreStrategy';
 
 /**
  * Dataset-specific restore strategy
@@ -216,7 +216,7 @@ export class DatasetRestoreStrategy extends BaseAssetRestoreStrategy {
         try {
           // Get the current dataset configuration
           const childDataset = await this.quickSightService.describeDataset(childDatasetId);
-          if (!childDataset || !childDataset.DataSet) {
+          if (!childDataset?.DataSet) {
             logger.warn(`Could not describe child dataset ${childDatasetId}, skipping refresh`);
             continue;
           }

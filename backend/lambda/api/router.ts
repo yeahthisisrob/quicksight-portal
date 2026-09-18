@@ -1,14 +1,14 @@
-import { type RouteHandler } from './types';
 import { activityRoutes } from '../features/activity';
 import { assetManagementRoutes } from '../features/asset-management';
 import { dataCatalogRoutes } from '../features/data-catalog';
 import { dataExportRoutes } from '../features/data-export';
 import { deploymentRoutes } from '../features/deployment';
 import { organizationRoutes } from '../features/organization';
-import { extractPathParams } from './utils/routeUtils';
 import { scriptsRoutes } from '../features/scripts/routes';
 import { smusRoutes } from '../features/smus';
 import { jobRoutes } from '../shared/routes/jobRoutes';
+import type { RouteHandler } from './types';
+import { extractPathParams } from './utils/routeUtils';
 
 export const featureRoutes: RouteHandler[] = [
   ...assetManagementRoutes,

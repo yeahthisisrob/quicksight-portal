@@ -3,23 +3,16 @@
  */
 import {
   Close as CloseIcon,
+  UnfoldLess as CollapseIcon,
   ContentCopy as CopyIcon,
   UnfoldMore as ExpandIcon,
-  UnfoldLess as CollapseIcon,
   Search as SearchIcon,
 } from '@mui/icons-material';
-import {
-  Box,
-  IconButton,
-  InputAdornment,
-  Stack,
-  TextField,
-  Tooltip,
-} from '@mui/material';
+import { Box, IconButton, InputAdornment, Stack, TextField, Tooltip } from '@mui/material';
 
-import TypedChip, { ChipType } from '@/shared/ui/TypedChip';
+import TypedChip, { type ChipType } from '@/shared/ui/TypedChip';
 
-import { HighlightType } from '../utils/jsonHighlighter';
+import type { HighlightType } from '../utils/jsonHighlighter';
 
 interface JsonViewerToolbarProps {
   searchTerm: string;
@@ -70,7 +63,7 @@ export function JsonViewerToolbar({
           ),
         }}
       />
-      
+
       <Stack direction="row" spacing={1} sx={{ flex: 1, overflow: 'auto' }}>
         {highlightChips.map(({ type, highlight, label }) => (
           <TypedChip
@@ -84,7 +77,7 @@ export function JsonViewerToolbar({
           />
         ))}
       </Stack>
-      
+
       <Stack direction="row" spacing={0.5}>
         <Tooltip title="Copy JSON">
           <IconButton size="small" onClick={onCopy}>

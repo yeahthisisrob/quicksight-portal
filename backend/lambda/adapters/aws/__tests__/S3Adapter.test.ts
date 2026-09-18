@@ -1,5 +1,5 @@
 import { S3Client } from '@aws-sdk/client-s3';
-import { vi, type Mock, type Mocked } from 'vitest';
+import { type Mock, type Mocked, vi } from 'vitest';
 /**
  * Tests for S3Adapter to ensure proper initialization patterns
  * and prevent regression of dynamic import issues

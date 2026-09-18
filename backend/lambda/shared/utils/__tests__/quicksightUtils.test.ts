@@ -1,8 +1,8 @@
 import {
-  principalMatchesGroup,
-  principalMatchesUser,
   extractNamespaceFromArn,
   extractResourceNameFromArn,
+  principalMatchesGroup,
+  principalMatchesUser,
 } from '../quicksightUtils';
 
 describe('quicksightUtils', () => {

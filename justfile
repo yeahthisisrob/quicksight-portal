@@ -1,200 +1,199 @@
-# QuickSight Assets Portal - Development Tasks
+# QuickSight Assets Portal - task runner
+#
+# Every recipe goes through `mise exec` so the pinned node/pnpm in mise.toml are
+# used even if mise is not activated in your shell.
+#
+# Start here:
+#   just install      one-time setup (toolchain, deps, git hooks)
+#   just dev          run the stack locally
+#   just check        what CI runs - do this before opening a PR
 
-# Default task - show available commands
+x := "mise exec --"
+
+# Show available recipes
 default:
-    @just --list
+    @just --list --unsorted
 
-# Full development workflow with validation
-dev: check start
+# ============================================================================
+# SETUP
+# ============================================================================
 
-# Quick development workflow - skip checks, just build and start
-dev-quick: clean build-dev
-    @echo "🚀 Starting development services (quick mode - no checks)..."
-    npx concurrently --names 'SAM,FRONTEND,WATCH,TSC,🚨ERRORS' --prefix-colors 'blue,green,yellow,cyan,red' \
-        "just sam" \
-        "just frontend" \
-        "just watch" \
-        "just typecheck-watch" \
-        "while true; do sam logs --tail --filter-pattern ERROR 2>/dev/null || sleep 2; done"
-
-# Pre-flight checks (fail fast) - Backend first, then Frontend
-check: check-backend check-frontend
-    @echo "✅ All checks passed!"
-
-# Backend checks only
-check-backend:
-    @echo "📦 Checking Backend..."
-    cd backend/lambda && npm run lint:fix
-    cd backend/lambda && npm run typecheck
-    cd backend/lambda && npm run test
-    @echo "✅ Backend checks passed!"
-
-# Frontend checks only
-check-frontend:
-    @echo "🎨 Checking Frontend..."
-    cd frontend && npm run lint:fix
-    cd frontend && npx tsc --noEmit
-    cd frontend && npm test
-    just check-storybook
-    @echo "✅ Frontend checks passed!"
-
-# Launch Storybook dev server (port 6006)
-storybook:
-    cd frontend && npm run storybook
-
-# Build the static Storybook bundle
-storybook-build:
-    cd frontend && npm run build-storybook
-
-# Storybook checks - smoke test all stories
-check-storybook:
-    @echo "📚 Checking Storybook stories..."
-    cd frontend && npm run test:storybook:ci
-    @echo "✅ Storybook checks passed!"
-
-# Full frontend check including Storybook
-check-frontend-full: check-frontend check-storybook
-    @echo "✅ All frontend checks including Storybook passed!"
-
-# Start all development services
-start: clean build-dev
-    @echo "🚀 Starting development services..."
-    npx concurrently --names 'SAM,FRONTEND,WATCH,TSC,🚨ERRORS' --prefix-colors 'blue,green,yellow,cyan,red' \
-        "just sam" \
-        "just frontend" \
-        "just watch" \
-        "just typecheck-watch" \
-        "while true; do sam logs --tail --filter-pattern ERROR 2>/dev/null || sleep 2; done"
-
-# Quick start (skip validation)
-quick: clean build-dev
-    @echo "⚡ Quick start (skipping checks)..."
-    npx concurrently --names 'SAM,FRONTEND,WATCH,🚨ERRORS' --prefix-colors 'blue,green,yellow,red' \
-        "just sam" \
-        "just frontend" \
-        "just watch" \
-        "while true; do sam logs --tail --filter-pattern ERROR 2>/dev/null || sleep 2; done"
-
-# Individual services
-sam:
-    sam local start-api --template-file sam/template.yaml --env-vars sam/env.json --port 3000 --warm-containers EAGER --skip-pull-image
-
-frontend:
-    cd frontend && npm run dev
-
-watch:
-    cd backend/lambda && npm run watch
-
-typecheck-watch:
-    cd backend/lambda && npm run watch:typecheck
-
-# Build tasks (schema validation and type generation handled by esbuild)
-build: lint test build-backend build-frontend
-
-build-dev:
-    cd backend/lambda && node build.js dev
-
-build-backend:
-    cd backend/lambda && npm run build
-
-build-frontend:
-    cd frontend && npm run build
-
-build-prod: build-backend-prod build-frontend
-
-# Quick production build (no linting/testing)
-build-backend-prod:
-    cd backend/lambda && npm run build:quick
-
-# Quality checks
-lint:
-    cd backend/lambda && npm run lint:fix
-    cd frontend && npm run lint:fix
-
-test:
-    cd backend/lambda && npm run test
-
-test-watch:
-    cd backend/lambda && npm run test:watch
-
-coverage: coverage-backend coverage-frontend
-    @echo "✅ All coverage reports generated!"
-
-coverage-backend:
-    cd backend/lambda && npm run test:coverage
-
-coverage-frontend:
-    cd frontend && npm run test:coverage
-
-
-# Run specific test files
-test-file FILE:
-    cd backend/lambda && npm test -- {{FILE}}
-
-# Run tests matching a pattern
-test-pattern PATTERN:
-    cd backend/lambda && npm test -- --testNamePattern="{{PATTERN}}"
-
-
-# Infrastructure
-deploy: build-prod
-    cd infrastructure/cdk && npm run deploy
-
-deploy-prod: build-prod
-    cd infrastructure/cdk && npx cdk deploy --all --require-approval never
-
-# Deploy with full validation (slower but safer)
-deploy-validated: validate build-prod
-    cd infrastructure/cdk && npm run deploy
-
-# Run all validations
-validate:
-    @echo "🔍 Running full validation suite..."
-    cd backend/lambda && npm run lint:fix
-    cd backend/lambda && npm run typecheck
-    cd backend/lambda && npm test
-    cd frontend && npm run lint:fix
-    @echo "✅ All validations passed!"
-
-cdk-synth: build
-    cd infrastructure/cdk && npx cdk synth
-
-cdk-diff: build
-    cd infrastructure/cdk && npx cdk diff
-
-# Utilities
-clean:
-    @echo "🧹 Cleaning up..."
-    ./scripts/kill-sam.sh || true
-    rm -rf .aws-sam
-
+# One-time setup: toolchain, dependencies, git hooks
+[group('setup')]
 install:
-    npm ci
-    cd backend/lambda && npm ci
-    cd frontend && npm ci
-    cd infrastructure/cdk && npm ci
+    mise install
+    {{x}} pnpm install
+    {{x}} lefthook install
+    @echo "Ready. 'just dev' to run the stack, 'just check' before a PR."
 
-# Development helpers
+# Remove build output and caches (keeps node_modules)
+[group('setup')]
+clean:
+    ./scripts/kill-sam.sh || true
+    rm -rf .aws-sam backend/lambda/dist frontend/dist infrastructure/cdk/cdk.out
+
+# ============================================================================
+# DEV
+# ============================================================================
+
+# Run backend (SAM, :3000) and frontend (Vite, :5173) together
+[group('dev')]
+dev: build-dev
+    {{x}} pnpm exec concurrently --names 'SAM,WEB,WATCH,TSC' --prefix-colors 'blue,green,yellow,cyan' \
+        "just sam" "just web" "just watch" "just watch-types"
+
+# API only, via SAM local
+[group('dev')]
+sam:
+    sam local start-api --template-file sam/template.yaml --env-vars sam/env.json \
+        --port 3000 --warm-containers EAGER --skip-pull-image
+
+# Frontend dev server
+[group('dev')]
+web:
+    {{x}} pnpm --filter @quicksight-portal/frontend run dev
+
+# Rebuild the Lambda bundle on change
+[group('dev')]
+watch:
+    {{x}} pnpm --filter @quicksight-portal/lambda run watch
+
+# Typecheck the backend on change
+[group('dev')]
+watch-types:
+    {{x}} pnpm --filter @quicksight-portal/lambda run watch:typecheck
+
+# Storybook (:6006)
+[group('dev')]
+storybook:
+    {{x}} pnpm --filter @quicksight-portal/frontend run storybook
+
+# Tail SAM logs
+[group('dev')]
 logs:
     ./scripts/get-sam-logs.sh
 
+# Stop a stuck SAM container
+[group('dev')]
 kill:
     ./scripts/kill-sam.sh
 
-# Code metrics - show file sizes
-cloc:
-    cloc . --by-file --exclude-dir=node_modules,dist,build,.next,out,cdk.out,__tests__,__mocks__,.storybook,storybook-static,generated --exclude-ext=test.ts,test.tsx,spec.ts,spec.tsx,stories.ts,stories.tsx,story.ts,story.tsx --match-f='.*\.(ts|tsx)$$'
+# ============================================================================
+# CHECK
+# ============================================================================
 
-# Count lines including tests and stories
-cloc-with-tests:
-    cloc . --by-file --exclude-dir=node_modules,dist,build,.next,out,cdk.out --match-f='.*\.(ts|tsx)$$'
+# Everything CI runs. Do this before opening a PR.
+[group('check')]
+check: lint typecheck test architecture
+    @echo "All checks passed."
 
-# Type check with details
+# Format + lint the whole repo (Biome, ~150ms)
+[group('check')]
+lint:
+    {{x}} pnpm exec biome check .
+
+# Apply every safe fix Biome can make
+[group('check')]
+fix:
+    {{x}} pnpm exec biome check --write .
+
+# Typecheck every package
+[group('check')]
 typecheck:
-    @echo "🔍 Running TypeScript type checking..."
-    @cd backend/lambda && npx tsc --noEmit
+    {{x}} pnpm -r run typecheck
 
-# Strict type check (shows all issues)
-typecheck-strict:
-    @echo "🔍 Running strict TypeScript checking..."
-    @cd backend/lambda && npx tsc --noEmit --listFiles=false 2>&1 | grep -v "^$$"
+# Unit tests, every package
+[group('check')]
+test *args:
+    {{x}} pnpm -r run test {{args}}
+
+# Tests for one package: just test-pkg lambda | frontend | cdk | shared
+[group('check')]
+test-pkg pkg *args:
+    {{x}} pnpm --filter @quicksight-portal/{{pkg}} run test {{args}}
+
+# Re-run tests on change (backend)
+[group('check')]
+test-watch:
+    {{x}} pnpm --filter @quicksight-portal/lambda run test:watch
+
+# Coverage, every package
+[group('check')]
+coverage:
+    {{x}} pnpm -r run test:coverage
+
+# Prove the VSA/FSD rules still catch violations
+[group('check')]
+architecture:
+    {{x}} node scripts/verify-architecture-rules.mjs
+
+# Smoke-test every Storybook story
+[group('check')]
+check-storybook:
+    {{x}} pnpm --filter @quicksight-portal/frontend run test:storybook:ci
+
+# ============================================================================
+# BUILD
+# ============================================================================
+
+# Production build of every package
+[group('build')]
+build:
+    {{x}} pnpm -r run build
+
+# Unminified backend bundle for local SAM
+[group('build')]
+build-dev:
+    {{x}} pnpm --filter @quicksight-portal/lambda exec node build.js dev
+
+# Validate the OpenAPI schema and regenerate shared types
+[group('build')]
+contract:
+    {{x}} pnpm --filter @quicksight-portal/shared run contract
+
+# ============================================================================
+# INFRA
+# ============================================================================
+
+# Show the CloudFormation diff
+[group('infra')]
+diff: build
+    {{x}} pnpm --filter @quicksight-portal/cdk exec cdk diff
+
+# Synthesize templates
+[group('infra')]
+synth: build
+    {{x}} pnpm --filter @quicksight-portal/cdk run synth
+
+# Deploy. Runs the full check first - never deploy something unverified.
+[group('infra')]
+deploy: check build
+    {{x}} pnpm --filter @quicksight-portal/cdk run deploy
+
+# ============================================================================
+# MAINTENANCE
+# ============================================================================
+
+# Show outdated dependencies across the workspace
+[group('maint')]
+outdated:
+    {{x}} pnpm -r outdated || true
+
+# Update dependencies within their current semver ranges
+[group('maint')]
+update:
+    {{x}} pnpm -r update
+    {{x}} pnpm install
+
+# Re-scan for secrets and refresh the allowlist baseline
+[group('maint')]
+secrets-baseline:
+    {{x}} gitleaks git --report-path .gitleaks-report.json --no-banner || true
+    @echo "Review .gitleaks-report.json, then add false positives to .gitleaksignore"
+
+# Lines of code by file, excluding tests, stories and generated code
+[group('maint')]
+cloc:
+    cloc . --by-file \
+        --exclude-dir=node_modules,dist,build,cdk.out,storybook-static,generated,.claude \
+        --match-f='.*\.(ts|tsx)$$'

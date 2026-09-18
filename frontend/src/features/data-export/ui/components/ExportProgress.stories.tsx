@@ -1,7 +1,7 @@
-import ExportProgress from './ExportProgress';
-import { TwoPhaseExportState } from '../../model/types';
-
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import type { TwoPhaseExportState } from '../../model/types';
+import ExportProgress from './ExportProgress';
 
 const meta = {
   title: 'Features/DataExport/ExportProgress',

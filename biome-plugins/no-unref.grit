@@ -1,0 +1,11 @@
+// unref() detaches a handle from the event loop, which lets Lambda freeze the
+// container mid-flight and silently truncate work in progress. It must never
+// appear in the Lambda source.
+//
+// This replaces the two no-restricted-syntax selectors the old ESLint config
+// carried; Biome expresses AST-level rules as GritQL plugins.
+language js
+
+`$obj.unref()` where {
+  register_diagnostic(span=$obj, message="unref() causes Lambda to terminate early. Remove unref() for Lambda compatibility.", severity="error")
+}

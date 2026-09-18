@@ -1,11 +1,10 @@
-import { Box, Chip, Stack, Typography, alpha } from '@mui/material';
-import React from 'react';
+import { alpha, Box, Chip, Stack, Typography } from '@mui/material';
+import type React from 'react';
 
 import { colors } from '@/shared/design-system/theme';
 
-import { CHIP_STYLES, getAssetConfig, truncateText } from './constants';
-
 import type { AssetFilter } from '../../lib/types';
+import { CHIP_STYLES, getAssetConfig, truncateText } from './constants';
 
 // ============================================================================
 // Shared Sub-Components

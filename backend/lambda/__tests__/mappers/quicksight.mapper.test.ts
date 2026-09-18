@@ -2,45 +2,42 @@
  * Unit tests for QuickSight mappers
  */
 
-/* eslint-disable max-lines-per-function */
-/* eslint-disable max-nested-callbacks */
-
 import {
-  mapSDKDashboardSummaryToDomain,
-  mapSDKDashboardToDomain,
   mapSDKAnalysisSummaryToDomain,
   mapSDKAnalysisToDomain,
+  mapSDKDashboardListToDomain,
+  mapSDKDashboardSummaryToDomain,
+  mapSDKDashboardToDomain,
   mapSDKDataSetSummaryToDomain,
   mapSDKDataSetToDomain,
   mapSDKDataSourceSummaryToDomain,
   mapSDKDataSourceToDomain,
+  mapSDKFolderMemberToDomain,
   mapSDKFolderSummaryToDomain,
   mapSDKFolderToDomain,
-  mapSDKFolderMemberToDomain,
-  mapSDKUserToDomain,
+  mapSDKGroupListToDomain,
   mapSDKGroupToDomain,
   mapSDKResourcePermissionToDomain,
   mapSDKTagToDomain,
-  mapSDKDashboardListToDomain,
   mapSDKUserListToDomain,
-  mapSDKGroupListToDomain,
+  mapSDKUserToDomain,
 } from '../../shared/mappers/quicksight.mapper';
 import type {
-  DashboardSummary as SDKDashboardSummary,
-  Dashboard as SDKDashboard,
-  AnalysisSummary as SDKAnalysisSummary,
   Analysis as SDKAnalysis,
-  DataSetSummary as SDKDataSetSummary,
+  AnalysisSummary as SDKAnalysisSummary,
+  Dashboard as SDKDashboard,
+  DashboardSummary as SDKDashboardSummary,
   DataSet as SDKDataSet,
-  DataSourceSummary as SDKDataSourceSummary,
+  DataSetSummary as SDKDataSetSummary,
   DataSource as SDKDataSource,
-  FolderSummary as SDKFolderSummary,
+  DataSourceSummary as SDKDataSourceSummary,
   Folder as SDKFolder,
   FolderMember as SDKFolderMember,
-  User as SDKUser,
+  FolderSummary as SDKFolderSummary,
   Group as SDKGroup,
   ResourcePermission as SDKResourcePermission,
   Tag as SDKTag,
+  User as SDKUser,
 } from '../../shared/types/aws-sdk-types';
 
 describe('QuickSight Mappers', () => {

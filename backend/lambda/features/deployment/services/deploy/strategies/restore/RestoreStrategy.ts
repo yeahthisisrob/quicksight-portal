@@ -1,12 +1,11 @@
-import { RestoreStrategyFactory } from './RestoreStrategyFactory';
 import { QUICKSIGHT_LIMITS } from '../../../../../../shared/constants';
 import * as mappers from '../../../../../../shared/mappers/quicksight.mapper';
-import { type AssetExportData } from '../../../../../../shared/models/asset-export.model';
 import { AssetStatus, type AssetType } from '../../../../../../shared/models/asset.model';
+import type { AssetExportData } from '../../../../../../shared/models/asset-export.model';
 import { getAssetName } from '../../../../../../shared/models/quicksight-domain.model';
 import { QuickSightService } from '../../../../../../shared/services/aws/QuickSightService';
-import { type S3Service } from '../../../../../../shared/services/aws/S3Service';
-import { type CacheService } from '../../../../../../shared/services/cache/CacheService';
+import type { S3Service } from '../../../../../../shared/services/aws/S3Service';
+import type { CacheService } from '../../../../../../shared/services/cache/CacheService';
 import {
   ASSET_TYPES,
   ASSET_TYPES_PLURAL,
@@ -18,14 +17,15 @@ import {
   normalizePermissionsArray,
 } from '../../../../../../shared/utils/permissions';
 import { reviveQuickSightTimestamps } from '../../../../../../shared/utils/quicksightTimestamps';
-import {
-  type IDeploymentStrategy,
-  type DeploymentType,
-  type DeploymentConfig,
-  type DeploymentResult,
-  type ValidationResult,
-  type DeploymentStatus,
+import type {
+  DeploymentConfig,
+  DeploymentResult,
+  DeploymentStatus,
+  DeploymentType,
+  IDeploymentStrategy,
+  ValidationResult,
 } from '../../types';
+import { RestoreStrategyFactory } from './RestoreStrategyFactory';
 
 // Reuse deployment constants from parent service
 const DEPLOYMENT_CONSTANTS = {
@@ -43,7 +43,7 @@ export class RestoreStrategy implements IDeploymentStrategy {
   private readonly quickSightService: QuickSightService;
   private readonly restoreStrategyFactory: RestoreStrategyFactory;
 
-  constructor(
+  public constructor(
     private readonly s3Service: S3Service,
     private readonly cacheService: CacheService,
     private readonly bucketName: string,
@@ -62,7 +62,7 @@ export class RestoreStrategy implements IDeploymentStrategy {
   /**
    * Deploy (restore) the asset
    */
-  // eslint-disable-next-line max-statements -- restore flow is inherently multi-step (transform, backup, create, verify, cache, backup-archive); verified as low-risk
+
   public async deploy(
     assetType: AssetType,
     assetId: string,

@@ -1,22 +1,23 @@
+import { STATUS_CODES } from '../../../shared/constants';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
-import { type QuickSightService } from '../../../shared/services/aws/QuickSightService';
+import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
-import {
-  type User,
-  type Group,
-  type GroupMember,
-  type BulkUserGroupResult,
-  type UserActivityRefreshResult,
-  type UsersAndGroupsExport,
+import type {
+  BulkUserGroupResult,
+  Group,
+  GroupMember,
+  User,
+  UserActivityRefreshResult,
+  UsersAndGroupsExport,
 } from '../types';
 
 export class IdentityService {
   private readonly quickSightService: QuickSightService;
 
-  constructor(accountId: string) {
+  public constructor(accountId: string) {
     this.quickSightService = ClientFactory.getQuickSightService(accountId);
   }
 
@@ -71,7 +72,7 @@ export class IdentityService {
         const error: any = new Error(
           `Cannot delete user with role "${user.role}". Only READER and READER_PRO users can be deleted.`
         );
-        error.statusCode = 403;
+        error.statusCode = STATUS_CODES.FORBIDDEN;
         throw error;
       }
 
@@ -216,7 +217,7 @@ export class IdentityService {
           try {
             // Try to get members from the export file
             const exportData = await cacheService.get(`exports/organization/groups.json`);
-            if (exportData && exportData[group.assetName]?.apiResponses?.members?.data) {
+            if (exportData?.[group.assetName]?.apiResponses?.members?.data) {
               members = exportData[group.assetName].apiResponses.members.data.map(
                 (member: any) => ({
                   memberName: member.MemberName || member.memberName,

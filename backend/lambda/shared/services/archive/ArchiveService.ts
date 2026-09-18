@@ -1,11 +1,11 @@
 import { STORAGE_CONVERSION } from '../../constants';
-import { type AssetType } from '../../models/asset.model';
-import { type ArchiveResult, type ArchiveStats } from '../../types/archiveTypes';
+import type { AssetType } from '../../models/asset.model';
+import type { ArchiveResult, ArchiveStats } from '../../types/archiveTypes';
 import { AssetStatusFilter } from '../../types/assetFilterTypes';
 import { ASSET_TYPES, ASSET_TYPES_PLURAL, isCollectionType } from '../../types/assetTypes';
 import { logger } from '../../utils/logger';
 import { S3Service } from '../aws/S3Service';
-import { type CacheService } from '../cache/CacheService';
+import type { CacheService } from '../cache/CacheService';
 
 /**
  * Service for handling asset archiving operations
@@ -14,7 +14,7 @@ import { type CacheService } from '../cache/CacheService';
 export class ArchiveService {
   private readonly s3Service: S3Service;
 
-  constructor(
+  public constructor(
     private readonly bucketName: string,
     private readonly cacheService?: CacheService
   ) {

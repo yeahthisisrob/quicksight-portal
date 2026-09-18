@@ -2,32 +2,30 @@
  * Job status section component for RestoreAssetDialog
  */
 import { Stop } from '@mui/icons-material';
-import { Box, Paper, Typography, LinearProgress, Button, Chip } from '@mui/material';
+import { Box, Button, Chip, LinearProgress, Paper, Typography } from '@mui/material';
 
 import type { JobStatusSectionProps } from '../types';
 
-export function JobStatusSection({
-  jobStatus,
-  jobLogs,
-  isPolling,
-  onStop,
-}: JobStatusSectionProps) {
+export function JobStatusSection({ jobStatus, jobLogs, isPolling, onStop }: JobStatusSectionProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'success';
-      case 'failed': return 'error';
-      case 'running': return 'info';
-      case 'pending': return 'warning';
-      default: return 'default';
+      case 'completed':
+        return 'success';
+      case 'failed':
+        return 'error';
+      case 'running':
+        return 'info';
+      case 'pending':
+        return 'warning';
+      default:
+        return 'default';
     }
   };
 
   return (
     <Paper variant="outlined" sx={{ p: 2, mt: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Typography variant="subtitle2">
-          Deployment Job Status
-        </Typography>
+        <Typography variant="subtitle2">Deployment Job Status</Typography>
         {isPolling && (
           <Button
             size="small"
@@ -56,7 +54,9 @@ export function JobStatusSection({
 
       {jobStatus.progress !== undefined && (
         <Box sx={{ mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+          <Box
+            sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}
+          >
             <Typography variant="caption">Progress</Typography>
             <Typography variant="caption">{jobStatus.progress}%</Typography>
           </Box>
@@ -69,9 +69,17 @@ export function JobStatusSection({
           <Typography variant="caption" color="text.secondary" gutterBottom>
             Job Logs
           </Typography>
-          <Paper variant="outlined" sx={{ p: 1, maxHeight: 200, overflowY: 'auto', bgcolor: 'grey.50' }}>
+          <Paper
+            variant="outlined"
+            sx={{ p: 1, maxHeight: 200, overflowY: 'auto', bgcolor: 'grey.50' }}
+          >
             {jobLogs.map((log, index) => (
-              <Typography key={index} variant="caption" component="div" sx={{ fontFamily: 'monospace' }}>
+              <Typography
+                key={index}
+                variant="caption"
+                component="div"
+                sx={{ fontFamily: 'monospace' }}
+              >
                 {log.timestamp && `[${new Date(log.timestamp).toLocaleTimeString()}] `}
                 {log.message || log}
               </Typography>

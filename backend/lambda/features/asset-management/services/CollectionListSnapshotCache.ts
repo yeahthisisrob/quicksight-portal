@@ -69,7 +69,7 @@ export class CollectionListSnapshotCache {
   private readonly singleFlight = new SingleFlight();
   private readonly snapshots = new Map<CollectionSnapshotType, CollectionListSnapshot>();
 
-  constructor(private readonly storage?: SnapshotStorage) {}
+  public constructor(private readonly storage?: SnapshotStorage) {}
 
   public getOrCompute(
     assetType: CollectionSnapshotType,

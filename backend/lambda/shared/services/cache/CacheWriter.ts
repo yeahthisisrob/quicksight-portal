@@ -3,20 +3,16 @@
  */
 import pLimit from 'p-limit';
 
-import { type MemoryCacheAdapter } from './adapters/MemoryCacheAdapter';
-import { type S3CacheAdapter } from './adapters/S3CacheAdapter';
-import { CacheReader } from './CacheReader';
-import { type FieldInfo } from './types';
 import { EXPORT_CONFIG } from '../../config/exportConfig';
 import { TIME_UNITS } from '../../constants';
 import * as mappers from '../../mappers/quicksight.mapper';
-import { type CacheEntry, type MasterCache, type AssetType } from '../../models/asset.model';
+import type { AssetType, CacheEntry, MasterCache } from '../../models/asset.model';
 import { getAssetName } from '../../models/quicksight-domain.model';
 import { AssetStatusFilter } from '../../types/assetFilterTypes';
 import {
   ASSET_TYPES,
-  ASSET_TYPES_WITH_FIELDS,
   ASSET_TYPES_PLURAL,
+  ASSET_TYPES_WITH_FIELDS,
   isCollectionType,
 } from '../../types/assetTypes';
 import { pascalToCamel } from '../../utils/caseConverter';
@@ -24,12 +20,16 @@ import { logger } from '../../utils/logger';
 import { determinePrincipalType } from '../../utils/permissions';
 import { AssetParserService } from '../parsing/AssetParserService';
 import { PARSER_METADATA_VERSION } from '../parsing/parserVersion';
+import type { MemoryCacheAdapter } from './adapters/MemoryCacheAdapter';
+import type { S3CacheAdapter } from './adapters/S3CacheAdapter';
+import { CacheReader } from './CacheReader';
+import type { FieldInfo } from './types';
 
 export class CacheWriter {
   private readonly assetParser: AssetParserService;
   private readonly cacheReader: CacheReader;
 
-  constructor(
+  public constructor(
     private readonly s3Adapter: S3CacheAdapter,
     private readonly memoryAdapter: MemoryCacheAdapter,
     private readonly s3Service: any,
@@ -143,7 +143,7 @@ export class CacheWriter {
       });
       const asset = entries.find((a: CacheEntry) => a.assetId === assetId);
 
-      if (asset && asset.enrichmentTimestamps) {
+      if (asset?.enrichmentTimestamps) {
         // Mark these components as freshly synced
         for (const component of components) {
           if (
@@ -255,7 +255,7 @@ export class CacheWriter {
       if (rebuildLineage) {
         logger.info('Rebuilding lineage cache...');
         // Use dynamic import to avoid circular dependency
-        // eslint-disable-next-line import/no-cycle
+
         const { LineageService } = await import('../lineage/LineageService');
         const lineageService = new LineageService();
         await lineageService.rebuildLineage();
@@ -542,7 +542,7 @@ export class CacheWriter {
 
         if (exportData) {
           // Update tags in the export data
-          if (exportData.apiResponses && exportData.apiResponses.tags) {
+          if (exportData.apiResponses?.tags) {
             exportData.apiResponses.tags = {
               timestamp: now.toISOString(),
               data: tags,
@@ -1895,7 +1895,7 @@ export class CacheWriter {
       pathSegments.push(entry.assetName);
 
       // Build the full path
-      entry.metadata.fullPath = '/' + pathSegments.join('/');
+      entry.metadata.fullPath = `/${pathSegments.join('/')}`;
 
       // Also set the parent ID (last item in folderPath)
       if (entry.metadata.folderPath && entry.metadata.folderPath.length > 0) {
@@ -1972,7 +1972,7 @@ export class CacheWriter {
       pathSegments.push(entry.assetName);
 
       // Build the full path
-      entry.metadata.fullPath = '/' + pathSegments.join('/');
+      entry.metadata.fullPath = `/${pathSegments.join('/')}`;
 
       // Also set the parent ID (last item in folderPath)
       if (entry.metadata.folderPath && entry.metadata.folderPath.length > 0) {
@@ -2257,7 +2257,7 @@ export class CacheWriter {
     const exportFilePath = `assets/organization/groups.json`;
     try {
       const exportData = await this.s3Service.getObject(this.bucketName, exportFilePath);
-      if (exportData && exportData.groups) {
+      if (exportData?.groups) {
         const groupIndex = exportData.groups.findIndex(
           (g: any) => g.name === groupName || g.id === groupName
         );

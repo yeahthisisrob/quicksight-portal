@@ -1,4 +1,4 @@
-import { vi, type Mock, type Mocked, type MockedClass } from 'vitest';
+import { type Mock, type Mocked, type MockedClass, vi } from 'vitest';
 
 import { S3Adapter } from '../../../../adapters/aws/S3Adapter';
 import { withRetry } from '../../../utils/awsRetry';

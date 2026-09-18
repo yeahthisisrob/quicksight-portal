@@ -1,8 +1,7 @@
 import { Alert, AlertTitle, Box, List, ListItem, ListItemText, Typography } from '@mui/material';
 
-import { typography } from '@/shared/design-system/theme';
-
 import type { BulkItemFailure } from '@/shared/api/modules/jobs';
+import { typography } from '@/shared/design-system/theme';
 
 export interface JobFailureListProps {
   /** Item-level failures from a bulk job record (job.failures) */

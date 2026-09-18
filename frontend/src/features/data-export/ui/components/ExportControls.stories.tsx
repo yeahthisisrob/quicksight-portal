@@ -1,9 +1,8 @@
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 
+import type { ExportMode } from '../../model/types';
 import ExportControls from './ExportControls';
-import { ExportMode } from '../../model/types';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta = {
   title: 'Features/DataExport/ExportControls',
@@ -27,13 +26,7 @@ export const Default: Story = {
   render: (args) => {
     const [exportMode, setExportMode] = useState<ExportMode>(args.exportMode);
 
-    return (
-      <ExportControls
-        {...args}
-        exportMode={exportMode}
-        onModeChange={setExportMode}
-      />
-    );
+    return <ExportControls {...args} exportMode={exportMode} onModeChange={setExportMode} />;
   },
   args: {
     exportMode: 'smart',

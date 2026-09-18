@@ -1,5 +1,5 @@
 import { logger } from '../../../../shared/utils/logger';
-import { BaseAssetProcessor, type AssetProcessingCapabilities } from '../BaseAssetProcessor';
+import { type AssetProcessingCapabilities, BaseAssetProcessor } from '../BaseAssetProcessor';
 
 /**
  * Base class for organizational asset processors (users, groups, folders)

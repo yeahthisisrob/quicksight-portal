@@ -18,14 +18,14 @@ let failedQueue: Array<{
 }> = [];
 
 const processQueue = (error: any, token: string | null = null) => {
-  failedQueue.forEach(prom => {
+  failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error);
     } else {
       prom.resolve(token);
     }
   });
-  
+
   failedQueue = [];
 };
 
@@ -48,47 +48,49 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
-    
+
     // Handle 401 errors
     if (error.response?.status === 401) {
       // Skip auth endpoints
       if (originalRequest.url?.includes('/auth/') || originalRequest.url?.includes('/identity')) {
         return Promise.reject(error);
       }
-      
+
       // If already retried, reject
       if (originalRequest._retry) {
         return Promise.reject(error);
       }
-      
+
       originalRequest._retry = true;
-      
+
       if (isRefreshing) {
         // Wait for refresh to complete
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
-        }).then(() => {
-          return api(originalRequest);
-        }).catch(err => {
-          return Promise.reject(err);
-        });
+        })
+          .then(() => {
+            return api(originalRequest);
+          })
+          .catch((err) => {
+            return Promise.reject(err);
+          });
       }
-      
+
       isRefreshing = true;
-      
+
       // Clear auth and redirect to login
       localStorage.removeItem('idToken');
       localStorage.removeItem('refreshToken');
       processQueue(error, null);
       isRefreshing = false;
-      
+
       if (!window.location.pathname.includes('/login')) {
         window.location.href = '/login?error=session_expired';
       }
-      
+
       return Promise.reject(error);
     }
-    
+
     // Handle network errors with retry.
     // Client-side timeouts (ECONNABORTED) are excluded: the server is still
     // processing the slow request, and retrying just multiplies its load.
@@ -100,12 +102,12 @@ api.interceptors.response.use(
     ) {
       originalRequest._retry = true;
       retryCount++;
-      
-      const delay = RETRY_DELAY * Math.pow(2, retryCount - 1);
-      await new Promise(resolve => setTimeout(resolve, delay));
+
+      const delay = RETRY_DELAY * 2 ** (retryCount - 1);
+      await new Promise((resolve) => setTimeout(resolve, delay));
       return api(originalRequest);
     }
-    
+
     return Promise.reject(error);
   }
 );

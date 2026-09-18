@@ -1,5 +1,5 @@
 import { api as apiClient } from '../client';
-import { ApiResponse } from '../types';
+import type { ApiResponse } from '../types';
 
 /**
  * Groups API - handles group management operations
@@ -8,10 +8,7 @@ import { ApiResponse } from '../types';
 export const groupsApi = {
   // Create a new group
   async createGroup(groupName: string, description?: string): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>(
-      '/groups',
-      { groupName, description }
-    );
+    const response = await apiClient.post<ApiResponse<any>>('/groups', { groupName, description });
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to create group');
     }

@@ -1,7 +1,7 @@
-import { components } from '@shared/generated/types';
+import type { components } from '@shared/generated/types';
 
 import { api } from '../client';
-import { ApiResponse } from '../types';
+import type { ApiResponse } from '../types';
 
 export type SmusStatus = components['schemas']['SmusStatus'];
 export type SmusDatasetLink = components['schemas']['SmusDatasetLink'];

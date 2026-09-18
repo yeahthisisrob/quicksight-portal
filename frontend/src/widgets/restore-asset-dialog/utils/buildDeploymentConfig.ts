@@ -1,8 +1,10 @@
 /**
  * Utility function to build deployment configuration
  */
-import type { RestoreFormData, RestoreOptions } from '../types';
+
 import type { DeploymentConfig } from '@/shared/api/modules/deploy';
+
+import type { RestoreFormData, RestoreOptions } from '../types';
 
 export function buildDeploymentConfig(
   formData: RestoreFormData,

@@ -1,8 +1,7 @@
 import { Box, Stack, Typography } from '@mui/material';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { FieldNameCell } from './FieldNameCell';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta: Meta<typeof FieldNameCell> = {
   title: 'Shared/UI/DataGrid/Cells/FieldNameCell',
@@ -97,13 +96,7 @@ export const CustomTooltips: Story = {
   },
 };
 
-const StorySection = ({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) => (
+const StorySection = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <Box sx={{ mb: 3 }}>
     <Typography variant="subtitle2" gutterBottom sx={{ mb: 1, fontWeight: 500 }}>
       {title}
@@ -120,10 +113,7 @@ export const AllVariants: Story = {
       </StorySection>
 
       <StorySection title="Clickable Field">
-        <FieldNameCell
-          name="order_date"
-          onClick={() => alert('Show field details')}
-        />
+        <FieldNameCell name="order_date" onClick={() => alert('Show field details')} />
       </StorySection>
 
       <StorySection title="Calculated Field">
@@ -135,11 +125,7 @@ export const AllVariants: Story = {
       </StorySection>
 
       <StorySection title="Field with Variants (hover warning icon)">
-        <FieldNameCell
-          name="product_price"
-          hasVariants
-          onClick={() => alert('Show variants')}
-        />
+        <FieldNameCell name="product_price" hasVariants onClick={() => alert('Show variants')} />
       </StorySection>
 
       <StorySection title="Calculated Field with Variants">

@@ -1,9 +1,6 @@
-import {
-  Calculate as CalculateIcon,
-  Warning as WarningIcon,
-} from '@mui/icons-material';
-import { Box, Tooltip, Typography, TypographyProps } from '@mui/material';
-import React from 'react';
+import { Calculate as CalculateIcon, Warning as WarningIcon } from '@mui/icons-material';
+import { Box, Tooltip, Typography, type TypographyProps } from '@mui/material';
+import type React from 'react';
 
 export interface FieldNameCellProps {
   /** The field name to display */

@@ -1,7 +1,7 @@
-import { BaseAssetProcessor, type AssetProcessingCapabilities } from './BaseAssetProcessor';
 import { ASSET_TYPES, ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
-import { type AssetType, type AssetSummary } from '../types';
+import type { AssetSummary, AssetType } from '../types';
+import { type AssetProcessingCapabilities, BaseAssetProcessor } from './BaseAssetProcessor';
 
 /**
  * DataSource processor with consistent patterns and proper abstraction

@@ -1,0 +1,20 @@
+{
+  "name": "@quicksight-portal/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The API contract (OpenAPI) and the TypeScript types generated from it",
+  "scripts": {
+    "contract": "pnpm run lint:schema && pnpm run generate",
+    "lint:schema": "redocly lint schemas/api.openapi.yaml --skip-rule operation-4xx-response",
+    "generate": "openapi-typescript schemas/api.openapi.yaml -o generated/types.ts",
+    "build": "pnpm run contract",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"no tests in shared\" && exit 0"
+  },
+  "devDependencies": {
+    "@redocly/cli": "^2.49.0",
+    "@types/node": "^26.6.1",
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.9.3"
+  }
+}

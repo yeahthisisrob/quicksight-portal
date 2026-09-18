@@ -1,8 +1,8 @@
-import { vi, type Mocked, type MockedClass } from 'vitest';
+import { type Mocked, type MockedClass, vi } from 'vitest';
 
 import { logger } from '../../../utils/logger';
 import { S3Service } from '../../aws/S3Service';
-import { type CacheService } from '../../cache/CacheService';
+import type { CacheService } from '../../cache/CacheService';
 import { ArchiveService } from '../ArchiveService';
 
 // Mock dependencies

@@ -1,9 +1,8 @@
-import { FolderOpen, CloudUpload } from '@mui/icons-material';
+import { CloudUpload, FolderOpen } from '@mui/icons-material';
 import { Box } from '@mui/material';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import BulkActionsToolbar from './BulkActionsToolbar';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta = {
   title: 'Widgets/BulkActionsToolbar',

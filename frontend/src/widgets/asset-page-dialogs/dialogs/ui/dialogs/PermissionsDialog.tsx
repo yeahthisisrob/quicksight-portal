@@ -1,45 +1,44 @@
 import {
-  Close as CloseIcon,
-  Security as SecurityIcon,
-  Person as PersonIcon,
-  People as PeopleIcon,
-  Public as PublicIcon,
-  Language as NamespaceIcon,
-  Folder as FolderIcon,
-  Search as SearchIcon,
   CheckBox as CheckBoxIcon,
   CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon,
+  Close as CloseIcon,
+  Folder as FolderIcon,
+  Language as NamespaceIcon,
+  People as PeopleIcon,
+  Person as PersonIcon,
+  Public as PublicIcon,
+  Search as SearchIcon,
+  Security as SecurityIcon,
 } from '@mui/icons-material';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  alpha,
   Box,
-  Typography,
-  IconButton,
-  Chip,
-  Checkbox,
   Button,
+  Checkbox,
+  Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  InputAdornment,
   LinearProgress,
   TextField,
-  InputAdornment,
   Tooltip,
-  alpha,
+  Typography,
 } from '@mui/material';
+import type { components } from '@shared/generated/types';
 import { useSnackbar } from 'notistack';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Permission } from '@/entities/asset';
+import type { Permission } from '@/entities/asset';
 
 import { assetsApi } from '@/shared/api';
-import { borderRadius, typography, colors, spacing } from '@/shared/design-system/theme';
+import { borderRadius, colors, spacing, typography } from '@/shared/design-system/theme';
 import { useJobPolling } from '@/shared/hooks/useJobPolling';
 
-import { PermissionsDialogProps } from '../../model';
-
-import type { components } from '@shared/generated/types';
+import type { PermissionsDialogProps } from '../../model';
 
 type UserAccessInfo = components['schemas']['UserAccessInfo'];
 type GroupAccessInfo = components['schemas']['GroupAccessInfo'];
@@ -57,12 +56,15 @@ interface PermissionEntry {
 type PrincipalFilter = 'ALL' | 'USER' | 'GROUP' | 'NAMESPACE' | 'PUBLIC';
 type AccessFilter = 'ALL' | 'DIRECT' | 'INHERITED';
 
-const PRINCIPAL_CONFIG: Record<string, {
-  icon: typeof PersonIcon;
-  color: string;
-  lightColor: string;
-  label: string;
-}> = {
+const PRINCIPAL_CONFIG: Record<
+  string,
+  {
+    icon: typeof PersonIcon;
+    color: string;
+    lightColor: string;
+    label: string;
+  }
+> = {
   USER: {
     icon: PersonIcon,
     color: colors.assetTypes.user.main,
@@ -89,11 +91,14 @@ const PRINCIPAL_CONFIG: Record<string, {
   },
 };
 
-const ACCESS_SOURCE_CONFIG: Record<string, {
-  label: string;
-  color: string;
-  icon: typeof PersonIcon;
-}> = {
+const ACCESS_SOURCE_CONFIG: Record<
+  string,
+  {
+    label: string;
+    color: string;
+    icon: typeof PersonIcon;
+  }
+> = {
   direct: { label: 'Direct', color: colors.assetTypes.user.main, icon: PersonIcon },
   group: { label: 'Via Group', color: colors.assetTypes.group.main, icon: PeopleIcon },
   folder: { label: 'Via Folder', color: '#ed6c02', icon: FolderIcon },
@@ -103,19 +108,21 @@ const AccessSourceChip = ({ source }: { source: AccessSource }) => {
   const config = ACCESS_SOURCE_CONFIG[source.type];
   const Icon = config.icon;
 
-  const label = source.type === 'group' && source.groupName
-    ? source.groupName
-    : source.type === 'folder' && source.folderName
-      ? source.folderName
-      : config.label;
+  const label =
+    source.type === 'group' && source.groupName
+      ? source.groupName
+      : source.type === 'folder' && source.folderName
+        ? source.folderName
+        : config.label;
 
-  const tooltip = source.type === 'folder' && source.groupName
-    ? `Via folder "${source.folderPath}" (through group ${source.groupName})`
-    : source.type === 'folder'
-      ? `Via folder "${source.folderPath}"`
-      : source.type === 'group'
-        ? `Member of group "${source.groupName}"`
-        : 'Direct permission on this asset';
+  const tooltip =
+    source.type === 'folder' && source.groupName
+      ? `Via folder "${source.folderPath}" (through group ${source.groupName})`
+      : source.type === 'folder'
+        ? `Via folder "${source.folderPath}"`
+        : source.type === 'group'
+          ? `Member of group "${source.groupName}"`
+          : 'Direct permission on this asset';
 
   return (
     <Tooltip title={tooltip}>
@@ -138,15 +145,22 @@ const AccessSourceChip = ({ source }: { source: AccessSource }) => {
   );
 };
 
-const PermissionEntryRow = ({ entry, selected, onToggle }: {
+const PermissionEntryRow = ({
+  entry,
+  selected,
+  onToggle,
+}: {
   entry: PermissionEntry;
   selected?: boolean;
   onToggle?: (entry: PermissionEntry) => void;
 }) => {
   const config = PRINCIPAL_CONFIG[entry.principalType];
   const Icon = config.icon;
-  const hasDirectAccess = entry.accessSources.some(s => s.type === 'direct') || (entry.actions.length > 0 && entry.accessSources.length === 0);
-  const hasOnlyDirectAccess = hasDirectAccess && !entry.accessSources.some(s => s.type !== 'direct');
+  const hasDirectAccess =
+    entry.accessSources.some((s) => s.type === 'direct') ||
+    (entry.actions.length > 0 && entry.accessSources.length === 0);
+  const hasOnlyDirectAccess =
+    hasDirectAccess && !entry.accessSources.some((s) => s.type !== 'direct');
 
   return (
     <Box
@@ -168,7 +182,13 @@ const PermissionEntryRow = ({ entry, selected, onToggle }: {
       {onToggle && (
         <Box sx={{ flexShrink: 0, mt: 0.125 }}>
           {hasDirectAccess ? (
-            <Tooltip title={hasOnlyDirectAccess ? 'Select to remove direct permission' : 'Select to remove direct permission (inherited access will remain)'}>
+            <Tooltip
+              title={
+                hasOnlyDirectAccess
+                  ? 'Select to remove direct permission'
+                  : 'Select to remove direct permission (inherited access will remain)'
+              }
+            >
               <Checkbox
                 edge="start"
                 checked={!!selected}
@@ -228,10 +248,7 @@ const PermissionEntryRow = ({ entry, selected, onToggle }: {
           />
         </Box>
 
-        <Typography
-          variant="caption"
-          sx={{ color: 'text.secondary', fontSize: 11 }}
-        >
+        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: 11 }}>
           {entry.actions.length} permission{entry.actions.length !== 1 ? 's' : ''}
         </Typography>
 
@@ -251,13 +268,19 @@ const PermissionEntryRow = ({ entry, selected, onToggle }: {
 const parseActions = (permission: Permission): string[] => {
   if (Array.isArray(permission.actions)) return permission.actions;
   if (typeof permission.actions === 'string') {
-    return (permission.actions as string).split(',').map(a => a.trim()).filter(Boolean);
+    return (permission.actions as string)
+      .split(',')
+      .map((a) => a.trim())
+      .filter(Boolean);
   }
   const capitalizedActions = (permission as any).Actions;
   if (capitalizedActions) {
     if (Array.isArray(capitalizedActions)) return capitalizedActions;
     if (typeof capitalizedActions === 'string') {
-      return capitalizedActions.split(',').map((a: string) => a.trim()).filter(Boolean);
+      return capitalizedActions
+        .split(',')
+        .map((a: string) => a.trim())
+        .filter(Boolean);
     }
   }
   return [];
@@ -303,12 +326,19 @@ export default function PermissionsDialog({
     }
   }, [enqueueSnackbar, onPermissionRevoked, assetId, assetType]);
 
-  const handleJobFailed = useCallback((job: any) => {
-    enqueueSnackbar(job.error || 'Failed to revoke permissions', { variant: 'error' });
-    setProcessing(false);
-  }, [enqueueSnackbar]);
+  const handleJobFailed = useCallback(
+    (job: any) => {
+      enqueueSnackbar(job.error || 'Failed to revoke permissions', { variant: 'error' });
+      setProcessing(false);
+    },
+    [enqueueSnackbar]
+  );
 
-  const { jobStatus, startPolling, reset: resetJob } = useJobPolling({
+  const {
+    jobStatus,
+    startPolling,
+    reset: resetJob,
+  } = useJobPolling({
     onComplete: handleJobComplete,
     onFailed: handleJobFailed,
   });
@@ -331,7 +361,7 @@ export default function PermissionsDialog({
   }, [assetId, assetType]);
 
   const togglePrincipalSelection = useCallback((entry: PermissionEntry) => {
-    setSelectedPrincipals(prev => {
+    setSelectedPrincipals((prev) => {
       const next = new Set(prev);
       if (next.has(entry.principal)) {
         next.delete(entry.principal);
@@ -364,11 +394,14 @@ export default function PermissionsDialog({
     const seenGroupNames = new Set<string>();
 
     const typeOrder: Array<'PUBLIC' | 'NAMESPACE' | 'GROUP' | 'USER'> = [
-      'PUBLIC', 'NAMESPACE', 'GROUP', 'USER',
+      'PUBLIC',
+      'NAMESPACE',
+      'GROUP',
+      'USER',
     ];
 
     for (const type of typeOrder) {
-      const typePerms = permissions.filter(p => p.principalType === type);
+      const typePerms = permissions.filter((p) => p.principalType === type);
       for (const perm of typePerms) {
         const fallbackName = perm.principal?.split('/').pop() || perm.principal || 'Unknown';
         const actions = parseActions(perm);
@@ -378,8 +411,8 @@ export default function PermissionsDialog({
 
         if (type === 'USER') {
           // Find canonical name from access sources (resolves QuickSight-reader/email correctly)
-          const userInfo = userAccessSources.find(u =>
-            u.userArn === perm.principal || u.userName === fallbackName
+          const userInfo = userAccessSources.find(
+            (u) => u.userArn === perm.principal || u.userName === fallbackName
           );
           if (userInfo) {
             principalName = userInfo.userName;
@@ -387,8 +420,8 @@ export default function PermissionsDialog({
           }
           seenUserNames.add(principalName);
         } else if (type === 'GROUP') {
-          const groupInfo = groupAccessSources.find(g =>
-            g.groupArn === perm.principal || g.groupName === fallbackName
+          const groupInfo = groupAccessSources.find(
+            (g) => g.groupArn === perm.principal || g.groupName === fallbackName
           );
           if (groupInfo) {
             principalName = groupInfo.groupName;
@@ -410,7 +443,7 @@ export default function PermissionsDialog({
     // Add users who ONLY have access via folder (not in direct permissions)
     for (const user of userAccessSources) {
       if (seenUserNames.has(user.userName)) continue;
-      const hasFolderAccess = user.sources.some(s => s.type === 'folder');
+      const hasFolderAccess = user.sources.some((s) => s.type === 'folder');
       if (!hasFolderAccess) continue;
 
       entries.push({
@@ -425,7 +458,7 @@ export default function PermissionsDialog({
     // Add groups who ONLY have access via folder (not in direct permissions)
     for (const group of groupAccessSources) {
       if (seenGroupNames.has(group.groupName)) continue;
-      const hasFolderAccess = group.sources.some(s => s.type === 'folder');
+      const hasFolderAccess = group.sources.some((s) => s.type === 'folder');
       if (!hasFolderAccess) continue;
 
       entries.push({
@@ -456,29 +489,29 @@ export default function PermissionsDialog({
 
     // Principal type filter
     if (activeFilter !== 'ALL') {
-      result = result.filter(e => e.principalType === activeFilter);
+      result = result.filter((e) => e.principalType === activeFilter);
     }
 
     // Access mode filter
     if (accessFilter === 'DIRECT') {
-      result = result.filter(e =>
-        e.accessSources.some(s => s.type === 'direct') || e.actions.length > 0
+      result = result.filter(
+        (e) => e.accessSources.some((s) => s.type === 'direct') || e.actions.length > 0
       );
     } else if (accessFilter === 'INHERITED') {
-      result = result.filter(e =>
-        e.accessSources.some(s => s.type !== 'direct')
-      );
+      result = result.filter((e) => e.accessSources.some((s) => s.type !== 'direct'));
     }
 
     // Text search
     if (filterText) {
       const term = filterText.toLowerCase();
-      result = result.filter(e =>
-        e.principalName.toLowerCase().includes(term) ||
-        e.accessSources.some(s =>
-          s.groupName?.toLowerCase().includes(term) ||
-          s.folderName?.toLowerCase().includes(term)
-        )
+      result = result.filter(
+        (e) =>
+          e.principalName.toLowerCase().includes(term) ||
+          e.accessSources.some(
+            (s) =>
+              s.groupName?.toLowerCase().includes(term) ||
+              s.folderName?.toLowerCase().includes(term)
+          )
       );
     }
     return result;
@@ -488,8 +521,24 @@ export default function PermissionsDialog({
     { key: 'ALL', label: 'All', color: colors.primary.main },
     { key: 'USER', label: 'Users', color: PRINCIPAL_CONFIG.USER.color },
     { key: 'GROUP', label: 'Groups', color: PRINCIPAL_CONFIG.GROUP.color },
-    ...(counts.NAMESPACE > 0 ? [{ key: 'NAMESPACE' as PrincipalFilter, label: 'Namespace', color: PRINCIPAL_CONFIG.NAMESPACE.color }] : []),
-    ...(counts.PUBLIC > 0 ? [{ key: 'PUBLIC' as PrincipalFilter, label: 'Public', color: PRINCIPAL_CONFIG.PUBLIC.color }] : []),
+    ...(counts.NAMESPACE > 0
+      ? [
+          {
+            key: 'NAMESPACE' as PrincipalFilter,
+            label: 'Namespace',
+            color: PRINCIPAL_CONFIG.NAMESPACE.color,
+          },
+        ]
+      : []),
+    ...(counts.PUBLIC > 0
+      ? [
+          {
+            key: 'PUBLIC' as PrincipalFilter,
+            label: 'Public',
+            color: PRINCIPAL_CONFIG.PUBLIC.color,
+          },
+        ]
+      : []),
   ];
 
   const accessChips: Array<{ key: AccessFilter; label: string; color: string }> = [
@@ -508,28 +557,32 @@ export default function PermissionsDialog({
         sx: {
           borderRadius: `${borderRadius.lg}px`,
           maxHeight: '85vh',
-        }
+        },
       }}
     >
       {/* Header */}
-      <DialogTitle sx={{
-        pb: spacing.md / 8,
-        borderBottom: `1px solid ${alpha(colors.neutral[200], 0.5)}`,
-        backgroundColor: alpha(colors.primary.light, 0.08),
-        backgroundImage: `linear-gradient(to right, ${alpha(colors.primary.light, 0.06)}, transparent)`,
-      }}>
+      <DialogTitle
+        sx={{
+          pb: spacing.md / 8,
+          borderBottom: `1px solid ${alpha(colors.neutral[200], 0.5)}`,
+          backgroundColor: alpha(colors.primary.light, 0.08),
+          backgroundImage: `linear-gradient(to right, ${alpha(colors.primary.light, 0.06)}, transparent)`,
+        }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: spacing.sm / 8 }}>
-            <Box sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 36,
-              height: 36,
-              borderRadius: `${borderRadius.sm}px`,
-              backgroundColor: alpha(colors.primary.main, 0.1),
-              border: `1px solid ${alpha(colors.primary.main, 0.2)}`,
-            }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 36,
+                height: 36,
+                borderRadius: `${borderRadius.sm}px`,
+                backgroundColor: alpha(colors.primary.main, 0.1),
+                border: `1px solid ${alpha(colors.primary.main, 0.2)}`,
+              }}
+            >
               <SecurityIcon sx={{ color: colors.primary.main, fontSize: 20 }} />
             </Box>
             <Box>
@@ -541,10 +594,16 @@ export default function PermissionsDialog({
                 Permissions
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: spacing.xs / 8 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ textTransform: 'capitalize' }}
+                >
                   {assetType}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">·</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  ·
+                </Typography>
                 <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 250 }}>
                   {assetName}
                 </Typography>
@@ -582,13 +641,15 @@ export default function PermissionsDialog({
 
       <DialogContent sx={{ px: 0, py: 0 }}>
         {permissions.length === 0 && !loading ? (
-          <Box sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            py: 8,
-          }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              py: 8,
+            }}
+          >
             <SecurityIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
             <Typography variant="body1" color="text.secondary">
               No permissions found
@@ -597,18 +658,20 @@ export default function PermissionsDialog({
         ) : (
           <>
             {/* Filter toggles + search */}
-            <Box sx={{
-              px: 2.5,
-              pt: 2,
-              pb: 1.5,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1.5,
-              position: 'sticky',
-              top: 0,
-              backgroundColor: 'background.paper',
-              zIndex: 1,
-            }}>
+            <Box
+              sx={{
+                px: 2.5,
+                pt: 2,
+                pb: 1.5,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1.5,
+                position: 'sticky',
+                top: 0,
+                backgroundColor: 'background.paper',
+                zIndex: 1,
+              }}
+            >
               {/* Type filter chips */}
               <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
                 {filterChips.map(({ key, label, color }) => {
@@ -627,21 +690,20 @@ export default function PermissionsDialog({
                         height: 28,
                         ...(isActive
                           ? {
-                            backgroundColor: alpha(color, 0.15),
-                            color: color,
-                            border: `1px solid ${alpha(color, 0.3)}`,
-                            '&:hover': { backgroundColor: alpha(color, 0.2) },
-                          }
-                          : {
-                            borderColor: alpha(colors.neutral[400], 0.3),
-                            color: 'text.secondary',
-                            '&:hover': {
-                              backgroundColor: alpha(color, 0.05),
-                              borderColor: alpha(color, 0.3),
+                              backgroundColor: alpha(color, 0.15),
                               color: color,
-                            },
-                          }
-                        ),
+                              border: `1px solid ${alpha(color, 0.3)}`,
+                              '&:hover': { backgroundColor: alpha(color, 0.2) },
+                            }
+                          : {
+                              borderColor: alpha(colors.neutral[400], 0.3),
+                              color: 'text.secondary',
+                              '&:hover': {
+                                backgroundColor: alpha(color, 0.05),
+                                borderColor: alpha(color, 0.3),
+                                color: color,
+                              },
+                            }),
                       }}
                     />
                   );
@@ -665,21 +727,20 @@ export default function PermissionsDialog({
                         height: 24,
                         ...(isActive
                           ? {
-                            backgroundColor: alpha(color, 0.15),
-                            color: color,
-                            border: `1px solid ${alpha(color, 0.3)}`,
-                            '&:hover': { backgroundColor: alpha(color, 0.2) },
-                          }
-                          : {
-                            borderColor: alpha(colors.neutral[400], 0.3),
-                            color: 'text.secondary',
-                            '&:hover': {
-                              backgroundColor: alpha(color, 0.05),
-                              borderColor: alpha(color, 0.3),
+                              backgroundColor: alpha(color, 0.15),
                               color: color,
-                            },
-                          }
-                        ),
+                              border: `1px solid ${alpha(color, 0.3)}`,
+                              '&:hover': { backgroundColor: alpha(color, 0.2) },
+                            }
+                          : {
+                              borderColor: alpha(colors.neutral[400], 0.3),
+                              color: 'text.secondary',
+                              '&:hover': {
+                                backgroundColor: alpha(color, 0.05),
+                                borderColor: alpha(color, 0.3),
+                                color: color,
+                              },
+                            }),
                       }}
                     />
                   );
@@ -730,7 +791,11 @@ export default function PermissionsDialog({
                     {jobStatus.progress !== undefined && (
                       <Box sx={{ mt: 1 }}>
                         <LinearProgress variant="determinate" value={jobStatus.progress || 0} />
-                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ mt: 0.5, display: 'block' }}
+                        >
                           Progress: {jobStatus.progress}%
                         </Typography>
                       </Box>
@@ -749,15 +814,17 @@ export default function PermissionsDialog({
 
             {/* Entries list */}
             {!processing && (
-              <Box sx={{
-                px: 1.5,
-                pb: 2,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 0.25,
-                maxHeight: 450,
-                overflowY: 'auto',
-              }}>
+              <Box
+                sx={{
+                  px: 1.5,
+                  pb: 2,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 0.25,
+                  maxHeight: 450,
+                  overflowY: 'auto',
+                }}
+              >
                 {filteredEntries.length === 0 ? (
                   <Box sx={{ py: 4, textAlign: 'center' }}>
                     <Typography variant="body2" color="text.secondary">
@@ -794,8 +861,8 @@ export default function PermissionsDialog({
               setProcessing(true);
               try {
                 const revocations = allEntries
-                  .filter(e => selectedPrincipals.has(e.principal))
-                  .map(e => ({ principal: e.principal, actions: e.actions }));
+                  .filter((e) => selectedPrincipals.has(e.principal))
+                  .map((e) => ({ principal: e.principal, actions: e.actions }));
 
                 const result = await assetsApi.bulkRevokePermissions(
                   assetType.toLowerCase(),
@@ -808,7 +875,9 @@ export default function PermissionsDialog({
                   startPolling(result.jobId);
                 }
               } catch (err: any) {
-                enqueueSnackbar(err.message || 'Failed to revoke permissions', { variant: 'error' });
+                enqueueSnackbar(err.message || 'Failed to revoke permissions', {
+                  variant: 'error',
+                });
                 setProcessing(false);
               }
             }}

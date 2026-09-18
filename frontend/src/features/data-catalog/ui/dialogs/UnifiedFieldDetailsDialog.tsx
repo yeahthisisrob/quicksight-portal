@@ -3,8 +3,8 @@
  */
 import {
   Close as CloseIcon,
-  Functions as FunctionIcon,
   TableChart as FieldIcon,
+  Functions as FunctionIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material';
 import {
@@ -46,14 +46,14 @@ function extractFieldReferences(expression: string): string[] {
   const fieldReferences: string[] = [];
   const fieldPattern = /\{([^}]+)\}/g;
   let match;
-  
+
   while ((match = fieldPattern.exec(expression)) !== null) {
     const fieldName = match[1].trim();
     if (fieldName && !fieldReferences.includes(fieldName)) {
       fieldReferences.push(fieldName);
     }
   }
-  
+
   return fieldReferences;
 }
 
@@ -78,7 +78,10 @@ function getAvailableTabs(field: any, viewMode: string) {
     { label: 'Expression', enabled: field?.isCalculated || false },
     { label: 'Dependencies', enabled: field?.isCalculated || false },
     { label: 'Usage', enabled: true },
-    { label: 'Visual Details', enabled: viewMode === 'visual-fields' || field?.visualData || false },
+    {
+      label: 'Visual Details',
+      enabled: viewMode === 'visual-fields' || field?.visualData || false,
+    },
   ];
 }
 
@@ -106,15 +109,17 @@ export default function UnifiedFieldDetailsDialog({
 
   if (!field) return null;
 
-  const hasVariants = field.hasVariants && (field.expressions?.length > 1 || field.variants?.length > 1);
-  const currentExpression = hasVariants && field.expressions
-    ? field.expressions[selectedVariant]?.expression 
-    : field.expression;
+  const hasVariants =
+    field.hasVariants && (field.expressions?.length > 1 || field.variants?.length > 1);
+  const currentExpression =
+    hasVariants && field.expressions
+      ? field.expressions[selectedVariant]?.expression
+      : field.expression;
   // Prefer per-variant client extraction for the currently-displayed expression;
   // fall back to the server-computed references when no expression string is shown.
   const fieldReferences = currentExpression
     ? extractFieldReferences(currentExpression)
-    : (field.fieldReferences || []);
+    : field.fieldReferences || [];
   const groupedSources = groupSourcesByType(field.sources);
 
   const handleCopyExpression = () => {
@@ -124,17 +129,13 @@ export default function UnifiedFieldDetailsDialog({
 
   const getCurrentTabContent = () => {
     const tabLabel = allTabs[selectedTab]?.label;
-    
+
     switch (tabLabel) {
       case 'Overview':
         return (
-          <OverviewTab 
-            field={field} 
-            hasVariants={hasVariants} 
-            groupedSources={groupedSources}
-          />
+          <OverviewTab field={field} hasVariants={hasVariants} groupedSources={groupedSources} />
         );
-        
+
       case 'Expression':
         return (
           <ExpressionTab
@@ -145,7 +146,7 @@ export default function UnifiedFieldDetailsDialog({
             onShowGraph={() => setShowExpressionGraph(true)}
           />
         );
-        
+
       case 'Dependencies':
         return (
           <DependenciesTab
@@ -153,17 +154,13 @@ export default function UnifiedFieldDetailsDialog({
             allCalculatedFields={allCalculatedFields}
           />
         );
-        
+
       case 'Usage':
         return <UsageTab groupedSources={groupedSources} />;
-        
+
       case 'Visual Details':
-        return (
-          <Typography color="text.secondary">
-            Visual details not yet implemented
-          </Typography>
-        );
-        
+        return <Typography color="text.secondary">Visual details not yet implemented</Typography>;
+
       default:
         return null;
     }
@@ -177,7 +174,7 @@ export default function UnifiedFieldDetailsDialog({
         maxWidth="lg"
         fullWidth
         PaperProps={{
-          sx: { height: '90vh' }
+          sx: { height: '90vh' },
         }}
       >
         <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
@@ -204,7 +201,7 @@ export default function UnifiedFieldDetailsDialog({
                 />
               )}
             </Stack>
-            
+
             <IconButton onClick={onClose} size="small">
               <CloseIcon />
             </IconButton>
@@ -218,15 +215,15 @@ export default function UnifiedFieldDetailsDialog({
             sx={{ borderBottom: 1, borderColor: 'divider', px: 3 }}
           >
             {allTabs.map((tab, index) => (
-              <Tab 
-                key={index} 
-                label={tab.label} 
+              <Tab
+                key={index}
+                label={tab.label}
                 disabled={!tab.enabled}
                 sx={{
                   '&.Mui-disabled': {
                     color: 'text.disabled',
-                    opacity: 0.5
-                  }
+                    opacity: 0.5,
+                  },
                 }}
               />
             ))}

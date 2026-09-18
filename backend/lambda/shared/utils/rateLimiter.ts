@@ -8,7 +8,7 @@ export class TokenBucketRateLimiter {
   private readonly refillRate: number; // tokens per second
   private tokens: number;
 
-  constructor(maxTokens: number, refillRate: number) {
+  public constructor(maxTokens: number, refillRate: number) {
     this.maxTokens = maxTokens;
     this.tokens = maxTokens;
     this.refillRate = refillRate;
@@ -42,7 +42,6 @@ export class TokenBucketRateLimiter {
       // Add small jitter to prevent synchronized waiting
       const jitter = Math.random() * RATE_LIMITS.JITTER_MS;
       await new Promise<void>((resolve) => {
-        // eslint-disable-next-line no-undef
         setTimeout(resolve, waitMs + jitter);
       });
     }

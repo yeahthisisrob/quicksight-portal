@@ -1,24 +1,23 @@
-
 import {
+  ArrowBack as ArrowBackIcon,
+  ArrowForward as ArrowForwardIcon,
   Close as CloseIcon,
   Link as LinkIcon,
-  ArrowForward as ArrowForwardIcon,
-  ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
   Box,
-  Typography,
-  IconButton,
   Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   FormControlLabel,
+  IconButton,
   Switch,
+  Typography,
 } from '@mui/material';
-import { useState, useMemo, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { RelatedAsset } from '@/entities/asset';
+import type { RelatedAsset } from '@/entities/asset';
 
 import { borderRadius, typography } from '@/shared/design-system/theme';
 import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
@@ -83,10 +82,12 @@ export default function RelatedAssetsDialog({
   }, [relatedAssets]);
 
   // Count archived assets
-  const archivedCount = useMemo(() =>
-    allUsesArray.filter(a => a.isArchived).length +
-    allUsedByArray.filter(a => a.isArchived).length,
-  [allUsesArray, allUsedByArray]);
+  const archivedCount = useMemo(
+    () =>
+      allUsesArray.filter((a) => a.isArchived).length +
+      allUsedByArray.filter((a) => a.isArchived).length,
+    [allUsesArray, allUsedByArray]
+  );
 
   // Filter and group assets
   const { usesArray, usedByArray, usesAssets, usedByAssets } = useMemo(() => {
@@ -96,23 +97,29 @@ export default function RelatedAssetsDialog({
     // Filter based on toggle (always create new arrays to avoid mutation)
     const filteredUses = showArchived
       ? [...allUsesArray]
-      : allUsesArray.filter(a => !a.isArchived);
+      : allUsesArray.filter((a) => !a.isArchived);
     const filteredUsedBy = showArchived
       ? [...allUsedByArray]
-      : allUsedByArray.filter(a => !a.isArchived);
+      : allUsedByArray.filter((a) => !a.isArchived);
 
     // Group by asset type
-    const usesGrouped = filteredUses.reduce((acc, asset) => {
-      if (!acc[asset.type]) acc[asset.type] = [];
-      acc[asset.type].push(asset);
-      return acc;
-    }, {} as Record<string, RelatedAsset[]>);
+    const usesGrouped = filteredUses.reduce(
+      (acc, asset) => {
+        if (!acc[asset.type]) acc[asset.type] = [];
+        acc[asset.type].push(asset);
+        return acc;
+      },
+      {} as Record<string, RelatedAsset[]>
+    );
 
-    const usedByGrouped = filteredUsedBy.reduce((acc, asset) => {
-      if (!acc[asset.type]) acc[asset.type] = [];
-      acc[asset.type].push(asset);
-      return acc;
-    }, {} as Record<string, RelatedAsset[]>);
+    const usedByGrouped = filteredUsedBy.reduce(
+      (acc, asset) => {
+        if (!acc[asset.type]) acc[asset.type] = [];
+        acc[asset.type].push(asset);
+        return acc;
+      },
+      {} as Record<string, RelatedAsset[]>
+    );
 
     // Sort dashboards and analyses by views
     if (usesGrouped.dashboard) usesGrouped.dashboard.sort(sortByViews);
@@ -136,16 +143,16 @@ export default function RelatedAssetsDialog({
   };
 
   return (
-    <Dialog 
-      open={open} 
-      onClose={onClose} 
-      maxWidth="md" 
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
       fullWidth
       PaperProps={{
         sx: {
           borderRadius: `${borderRadius.lg}px`,
           maxHeight: '80vh',
-        }
+        },
       }}
     >
       <DialogTitle sx={{ pb: 2 }}>
@@ -158,7 +165,7 @@ export default function RelatedAssetsDialog({
               <Chip
                 label={assetType}
                 size="small"
-                sx={{ 
+                sx={{
                   fontWeight: typography.fontWeight.medium,
                   textTransform: 'capitalize',
                 }}
@@ -192,29 +199,33 @@ export default function RelatedAssetsDialog({
           </Box>
         </Box>
       </DialogTitle>
-      
+
       <DialogContent sx={{ p: 0 }}>
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', height: '100%', minHeight: 400 }}>
+        <Box
+          sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', height: '100%', minHeight: 400 }}
+        >
           {/* Left Column - Used By */}
-          <Box sx={{ 
-            p: 3, 
-            borderRight: '1px solid',
-            borderColor: 'divider',
-            backgroundColor: 'grey.50',
-          }}>
+          <Box
+            sx={{
+              p: 3,
+              borderRight: '1px solid',
+              borderColor: 'divider',
+              backgroundColor: 'grey.50',
+            }}
+          >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
               <ArrowBackIcon sx={{ color: 'secondary.main' }} />
               <Typography variant="h6" fontWeight={typography.fontWeight.semibold}>
                 Used By
               </Typography>
-              <Chip 
-                label={usedByArray.length} 
-                size="small" 
+              <Chip
+                label={usedByArray.length}
+                size="small"
                 color="secondary"
                 sx={{ fontWeight: typography.fontWeight.semibold }}
               />
             </Box>
-            
+
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {(['dashboard', 'analysis', 'dataset', 'datasource'] as const).map((type) => (
                 <AssetRelationshipSection
@@ -234,14 +245,14 @@ export default function RelatedAssetsDialog({
               <Typography variant="h6" fontWeight={typography.fontWeight.semibold}>
                 Uses
               </Typography>
-              <Chip 
-                label={usesArray.length} 
-                size="small" 
+              <Chip
+                label={usesArray.length}
+                size="small"
                 color="primary"
                 sx={{ fontWeight: typography.fontWeight.semibold }}
               />
             </Box>
-            
+
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {(['dashboard', 'analysis', 'dataset', 'datasource'] as const).map((type) => (
                 <AssetRelationshipSection
@@ -256,14 +267,16 @@ export default function RelatedAssetsDialog({
 
           {/* No Related Assets Message - Spans both columns */}
           {usesArray.length === 0 && usedByArray.length === 0 && (
-            <Box sx={{ 
-              gridColumn: '1 / -1', 
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              py: 8,
-            }}>
+            <Box
+              sx={{
+                gridColumn: '1 / -1',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                py: 8,
+              }}
+            >
               <LinkIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
               <Typography variant="body1" color="text.secondary">
                 No related assets found

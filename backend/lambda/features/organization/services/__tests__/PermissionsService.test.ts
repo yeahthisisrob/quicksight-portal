@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-import { type CacheEntry, type MasterCache } from '../../../../shared/models/asset.model';
+import type { CacheEntry, MasterCache } from '../../../../shared/models/asset.model';
 import {
   principalMatchesGroup,
   principalMatchesUser,

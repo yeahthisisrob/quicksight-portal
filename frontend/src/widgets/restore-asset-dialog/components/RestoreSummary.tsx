@@ -5,7 +5,7 @@ import { Alert, Box, Stack, Typography } from '@mui/material';
 
 import { statusIcons } from '@/shared/ui/icons';
 
-import type { AssetMetadata, ArchivedAssetItem } from '../types';
+import type { ArchivedAssetItem, AssetMetadata } from '../types';
 
 const CheckCircleIcon = statusIcons.success;
 
@@ -19,17 +19,20 @@ export function RestoreSummary({ asset, metadata }: RestoreSummaryProps) {
 
   const components = [
     { label: 'Asset Definition', show: true },
-    { label: `${metadata.permissions?.length || 0} Permissions`, show: (metadata.permissions?.length ?? 0) > 0 },
+    {
+      label: `${metadata.permissions?.length || 0} Permissions`,
+      show: (metadata.permissions?.length ?? 0) > 0,
+    },
     { label: `${metadata.tags?.length || 0} Tags`, show: (metadata.tags?.length ?? 0) > 0 },
-    { 
-      label: `${metadata.refreshSchedules?.length || 0} Refresh Schedules`, 
-      show: asset.type === 'dataset' && (metadata.refreshSchedules?.length ?? 0) > 0 
+    {
+      label: `${metadata.refreshSchedules?.length || 0} Refresh Schedules`,
+      show: asset.type === 'dataset' && (metadata.refreshSchedules?.length ?? 0) > 0,
     },
-    { 
-      label: `${metadata.folderMemberships?.length || 0} Folder Memberships`, 
-      show: (metadata.folderMemberships?.length ?? 0) > 0 
+    {
+      label: `${metadata.folderMemberships?.length || 0} Folder Memberships`,
+      show: (metadata.folderMemberships?.length ?? 0) > 0,
     },
-  ].filter(c => c.show);
+  ].filter((c) => c.show);
 
   return (
     <Alert severity="info" sx={{ mb: 2 }}>

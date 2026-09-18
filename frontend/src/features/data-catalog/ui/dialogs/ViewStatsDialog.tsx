@@ -5,31 +5,31 @@ import {
   Visibility as ViewIcon,
 } from '@mui/icons-material';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
+  Alert,
   Box,
-  Typography,
+  Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   IconButton,
+  Paper,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
-  Chip,
-  Alert,
   TableSortLabel,
+  Typography,
 } from '@mui/material';
 import { format } from 'date-fns';
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 interface ViewStatsDialogProps {
   open: boolean;
   onClose: () => void;
-  dashboardId: string;  // Works for both dashboards and analyses
-  dashboardName: string;  // Works for both dashboards and analyses
+  dashboardId: string; // Works for both dashboards and analyses
+  dashboardName: string; // Works for both dashboards and analyses
   viewStats?: {
     totalViews: number;
     uniqueViewers: number;
@@ -72,11 +72,11 @@ export default function ViewStatsDialog({
   // Sort viewers based on current sort criteria
   const sortedViewers = useMemo(() => {
     if (!viewStats?.viewers) return [];
-    
+
     return [...viewStats.viewers].sort((a, b) => {
       let aValue: any;
       let bValue: any;
-      
+
       switch (sortBy) {
         case 'userName':
           aValue = a.userName.toLowerCase();
@@ -93,7 +93,7 @@ export default function ViewStatsDialog({
         default:
           return 0;
       }
-      
+
       if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
       return 0;
@@ -108,7 +108,6 @@ export default function ViewStatsDialog({
       setSortOrder(field === 'viewCount' ? 'desc' : 'asc'); // Default to desc for view count, asc for others
     }
   };
-
 
   const formatDate = (dateStr: string) => {
     try {
@@ -126,7 +125,7 @@ export default function ViewStatsDialog({
       const diffMins = Math.floor(diffMs / (1000 * 60));
       const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      
+
       if (diffMins < 60) return `${diffMins} minutes ago`;
       if (diffHours < 24) return `${diffHours} hours ago`;
       if (diffDays < 7) return `${diffDays} days ago`;
@@ -143,7 +142,7 @@ export default function ViewStatsDialog({
       maxWidth="md"
       fullWidth
       PaperProps={{
-        sx: { minHeight: '60vh' }
+        sx: { minHeight: '60vh' },
       }}
     >
       <DialogTitle>
@@ -184,7 +183,10 @@ export default function ViewStatsDialog({
               </Paper>
               {viewStats.lastViewedAt && (
                 <Paper sx={{ p: 2, flex: 1 }}>
-                  <Typography variant="body1" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Typography
+                    variant="body1"
+                    sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                  >
                     <TimeIcon fontSize="small" />
                     {formatRelativeTime(viewStats.lastViewedAt)}
                   </Typography>
@@ -271,15 +273,16 @@ export default function ViewStatsDialog({
               </TableContainer>
             ) : (
               <Alert severity="info">
-                {viewStats.totalViews > 0 
-                  ? "Individual viewer details are not available. Only aggregate statistics are stored."
-                  : "No views recorded in the last 90 days"}
+                {viewStats.totalViews > 0
+                  ? 'Individual viewer details are not available. Only aggregate statistics are stored.'
+                  : 'No views recorded in the last 90 days'}
               </Alert>
             )}
           </Box>
         ) : (
           <Alert severity="info">
-            No view statistics available. Try refreshing view stats from the dashboard page or export process.
+            No view statistics available. Try refreshing view stats from the dashboard page or
+            export process.
           </Alert>
         )}
       </DialogContent>

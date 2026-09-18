@@ -1,6 +1,6 @@
-import { RenameAssetDialog } from './RenameAssetDialog';
-
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import { RenameAssetDialog } from './RenameAssetDialog';
 
 const meta: Meta<typeof RenameAssetDialog> = {
   title: 'Entities/Asset/RenameAssetDialog',

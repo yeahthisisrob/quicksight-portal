@@ -104,5 +104,7 @@ export interface FieldTag {
 export type Field = PhysicalField | CalculatedField;
 
 // Type guards
-export const isCalculatedField = (field: Field): field is CalculatedField => field.isCalculated === true;
-export const isPhysicalField = (field: Field): field is PhysicalField => field.isCalculated === false;
+export const isCalculatedField = (field: Field): field is CalculatedField =>
+  field.isCalculated === true;
+export const isPhysicalField = (field: Field): field is PhysicalField =>
+  field.isCalculated === false;

@@ -1,10 +1,10 @@
 import { Box } from '@mui/material';
-import { subHours, subDays } from 'date-fns';
-
-import { TimelineRow } from './TimelineRow';
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { subDays, subHours } from 'date-fns';
 
 import type { TimelineEvent } from '@/shared/api/modules/activity';
-import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import { TimelineRow } from './TimelineRow';
 
 const meta: Meta<typeof TimelineRow> = {
   title: 'Features/Activity/TimelineRow',

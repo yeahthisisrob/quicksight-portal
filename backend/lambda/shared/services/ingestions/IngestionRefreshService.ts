@@ -11,11 +11,11 @@
 import pLimit, { type LimitFunction } from 'p-limit';
 
 import { EXPORT_CONFIG } from '../../config/exportConfig';
-import { type Ingestion, type IngestionMetadata } from '../../models/ingestion.model';
+import type { Ingestion, IngestionMetadata } from '../../models/ingestion.model';
 import { resolveSourceTypeFromArns } from '../../utils/filterUtils';
 import { logger } from '../../utils/logger';
-import { type QuickSightService } from '../aws/QuickSightService';
-import { type CacheService } from '../cache/CacheService';
+import type { QuickSightService } from '../aws/QuickSightService';
+import type { CacheService } from '../cache/CacheService';
 
 export interface IngestionRefreshResult {
   ingestions: Ingestion[];
@@ -29,7 +29,7 @@ export class IngestionRefreshService {
   private readonly concurrencyLimit: LimitFunction;
   private readonly quickSightService: QuickSightService;
 
-  constructor(quickSightService: QuickSightService, cacheService: CacheService) {
+  public constructor(quickSightService: QuickSightService, cacheService: CacheService) {
     this.quickSightService = quickSightService;
     this.cacheService = cacheService;
     this.concurrencyLimit = pLimit(EXPORT_CONFIG.concurrency.perProcessor);

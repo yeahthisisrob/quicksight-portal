@@ -1,6 +1,6 @@
-import AssetTypeProgress from './AssetTypeProgress';
-
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import AssetTypeProgress from './AssetTypeProgress';
 
 const meta = {
   title: 'Features/DataExport/AssetTypeProgress',

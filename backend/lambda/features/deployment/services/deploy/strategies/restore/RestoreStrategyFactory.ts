@@ -1,12 +1,12 @@
+import type { QuickSightService } from '../../../../../../shared/services/aws/QuickSightService';
+import type { S3Service } from '../../../../../../shared/services/aws/S3Service';
+import type { AssetType } from '../../../../../data-export/types';
 import { AnalysisRestoreStrategy } from './AnalysisRestoreStrategy';
-import { type BaseAssetRestoreStrategy } from './BaseAssetRestoreStrategy';
+import type { BaseAssetRestoreStrategy } from './BaseAssetRestoreStrategy';
 import { DashboardRestoreStrategy } from './DashboardRestoreStrategy';
 import { DatasetRestoreStrategy } from './DatasetRestoreStrategy';
 import { DatasourceRestoreStrategy } from './DatasourceRestoreStrategy';
 import { UnsupportedRestoreStrategy } from './UnsupportedRestoreStrategy';
-import { type QuickSightService } from '../../../../../../shared/services/aws/QuickSightService';
-import { type S3Service } from '../../../../../../shared/services/aws/S3Service';
-import type { AssetType } from '../../../../../data-export/types';
 
 /**
  * Factory for creating asset-specific restore strategies
@@ -18,7 +18,7 @@ export class RestoreStrategyFactory {
   private readonly s3Service: S3Service;
   private readonly strategies: Map<AssetType, BaseAssetRestoreStrategy>;
 
-  constructor(
+  public constructor(
     quickSightService: QuickSightService,
     s3Service: S3Service,
     awsAccountId: string,

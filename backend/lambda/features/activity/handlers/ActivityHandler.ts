@@ -1,5 +1,5 @@
 import { CloudTrailClient } from '@aws-sdk/client-cloudtrail';
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { CloudTrailAdapter } from '../../../adapters/aws/CloudTrailAdapter';
 import { requireAuth } from '../../../shared/auth';
@@ -7,22 +7,22 @@ import { STATUS_CODES } from '../../../shared/constants/httpStatusCodes';
 import { ACTIVITY_LIMITS } from '../../../shared/constants/limits';
 import { CacheService } from '../../../shared/services/cache/CacheService';
 import {
-  jobFactory,
   type ActivityRefreshJobConfig,
+  jobFactory,
 } from '../../../shared/services/jobs/JobFactory';
 import { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { LineageService } from '../../../shared/services/lineage';
-import { type AssetType } from '../../../shared/types/assetTypes';
-import { createResponse, successResponse, errorResponse } from '../../../shared/utils/cors';
+import type { AssetType } from '../../../shared/types/assetTypes';
+import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { GroupService } from '../../organization/services/GroupService';
 import { ActivityService } from '../services/ActivityService';
-import {
-  type ActionCategory,
-  type ActivityRefreshRequest,
-  type DatasetDependentRef,
-  type TimelineQuery,
-  type TimelineResourceType,
+import type {
+  ActionCategory,
+  ActivityRefreshRequest,
+  DatasetDependentRef,
+  TimelineQuery,
+  TimelineResourceType,
 } from '../types';
 
 // Initialize services
@@ -337,7 +337,10 @@ export async function getActivityData(event: APIGatewayProxyEvent): Promise<APIG
 
     // Extract path parameters
     const assetType = event.pathParameters?.assetType as
-      'dashboard' | 'analysis' | 'dataset' | 'user';
+      | 'dashboard'
+      | 'analysis'
+      | 'dataset'
+      | 'user';
     const assetId = event.pathParameters?.assetId;
 
     if (!assetType || !assetId) {
@@ -395,9 +398,9 @@ export async function getActivitySummary(
     const authUser = requireAuth(event);
 
     // Extract query parameters
-    const days = parseInt(event.queryStringParameters?.days || '30');
+    const days = parseInt(event.queryStringParameters?.days || '30', 10);
 
-    if (isNaN(days) || days < 1 || days > ACTIVITY_LIMITS.MAX_ACTIVITY_DAYS) {
+    if (Number.isNaN(days) || days < 1 || days > ACTIVITY_LIMITS.MAX_ACTIVITY_DAYS) {
       return errorResponse(
         event,
         STATUS_CODES.BAD_REQUEST,

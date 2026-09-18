@@ -1,6 +1,6 @@
-import TagsDialog from '../TagsDialog';
-
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import TagsDialog from '../TagsDialog';
 
 const meta: Meta<typeof TagsDialog> = {
   title: 'Widgets/AssetDialogs/TagsDialog',
@@ -9,7 +9,8 @@ const meta: Meta<typeof TagsDialog> = {
     layout: 'centered',
     docs: {
       description: {
-        component: 'A dialog component for managing asset tags with edit mode, portal visibility controls for folders, and TypedChip integration.',
+        component:
+          'A dialog component for managing asset tags with edit mode, portal visibility controls for folders, and TypedChip integration.',
       },
     },
   },
@@ -145,13 +146,15 @@ export const LongTagValues: Story = {
     assetId: 'datasource-222',
     resourceType: 'datasource',
     initialTags: [
-      { 
-        key: 'Description', 
-        value: 'This is a very long description that contains detailed information about the data source including its purpose, update frequency, and various other metadata that might be relevant for users' 
+      {
+        key: 'Description',
+        value:
+          'This is a very long description that contains detailed information about the data source including its purpose, update frequency, and various other metadata that might be relevant for users',
       },
-      { 
-        key: 'ConnectionString', 
-        value: 'Server=myServerAddress;Database=myDataBase;User Id=myUsername;Password=myPassword;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;' 
+      {
+        key: 'ConnectionString',
+        value:
+          'Server=myServerAddress;Database=myDataBase;User Id=myUsername;Password=myPassword;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;',
       },
     ],
   },

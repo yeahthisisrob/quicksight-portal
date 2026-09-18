@@ -1,4 +1,4 @@
-import { components } from '@shared/generated/types';
+import type { components } from '@shared/generated/types';
 
 export type ActivityData = components['schemas']['ActivityData'];
 export type UserActivity = components['schemas']['UserActivity'];

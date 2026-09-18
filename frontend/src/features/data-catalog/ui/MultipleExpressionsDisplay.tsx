@@ -1,19 +1,19 @@
 import {
-  ExpandMore as ExpandMoreIcon,
   ContentCopy as CopyIcon,
-  Warning as WarningIcon,
+  ExpandMore as ExpandMoreIcon,
   AccountTree as GraphIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
 import {
-  Box,
-  Paper,
-  Typography,
-  IconButton,
   Accordion,
-  AccordionSummary,
   AccordionDetails,
+  AccordionSummary,
+  Box,
   Chip,
+  IconButton,
+  Paper,
   Stack,
+  Typography,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 
@@ -53,7 +53,7 @@ export default function MultipleExpressionsDisplay({
 
   if (uniqueExpressions.length === 0) {
     if (!primaryExpression) return null;
-    
+
     return (
       <Box>
         <Paper sx={{ p: 2, bgcolor: 'grey.100', position: 'relative' }}>
@@ -106,18 +106,19 @@ export default function MultipleExpressionsDisplay({
           Multiple Expressions Found ({uniqueExpressions.length} variations)
         </Typography>
       </Stack>
-      
+
       {uniqueExpressions.map((expr, idx) => (
         <Accordion key={idx} defaultExpanded={idx === 0}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="body2">
-              Variation {idx + 1} - Used in {expr.sources.length} asset{expr.sources.length !== 1 ? 's' : ''}
+              Variation {idx + 1} - Used in {expr.sources.length} asset
+              {expr.sources.length !== 1 ? 's' : ''}
             </Typography>
           </AccordionSummary>
           <AccordionDetails>
             <Box>
               <Typography variant="caption" color="text.secondary" gutterBottom display="block">
-                Used in: {expr.sources.map(s => s.assetName).join(', ')}
+                Used in: {expr.sources.map((s) => s.assetName).join(', ')}
               </Typography>
               <Paper sx={{ p: 2, bgcolor: 'grey.50', position: 'relative', mt: 1 }}>
                 <Typography

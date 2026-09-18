@@ -15,19 +15,21 @@ interface WarningsSectionProps {
   assetsWithDependents: Asset[];
 }
 
-export function WarningsSection({ 
-  hasNonRestorableAssets, 
-  assetsWithDependents 
+export function WarningsSection({
+  hasNonRestorableAssets,
+  assetsWithDependents,
 }: WarningsSectionProps) {
-  const totalDependents = assetsWithDependents.reduce((sum, asset) => 
-    sum + (asset.usedBy?.length || 0), 0);
+  const totalDependents = assetsWithDependents.reduce(
+    (sum, asset) => sum + (asset.usedBy?.length || 0),
+    0
+  );
 
   return (
     <>
       {/* Critical Warning for Non-Restorable Assets */}
       {hasNonRestorableAssets && (
-        <Alert 
-          severity="error" 
+        <Alert
+          severity="error"
           icon={<WarningIcon />}
           sx={{
             '& .MuiAlert-icon': {
@@ -39,8 +41,8 @@ export function WarningsSection({
             Warning: This action includes assets that CANNOT be restored!
           </AlertTitle>
           <Typography variant="body2">
-            You are about to permanently delete dashboards, datasets, and/or data sources. 
-            These assets cannot be recovered through QuickSight after deletion.
+            You are about to permanently delete dashboards, datasets, and/or data sources. These
+            assets cannot be recovered through QuickSight after deletion.
           </Typography>
         </Alert>
       )}
@@ -49,11 +51,13 @@ export function WarningsSection({
       {assetsWithDependents.length > 0 && (
         <Alert severity="warning" icon={<WarningIcon />}>
           <AlertTitle sx={{ fontWeight: 600 }}>
-            {assetsWithDependents.length} asset{assetsWithDependents.length > 1 ? 's have' : ' has'} dependent assets
+            {assetsWithDependents.length} asset{assetsWithDependents.length > 1 ? 's have' : ' has'}{' '}
+            dependent assets
           </AlertTitle>
           <Typography variant="body2">
-            Deleting these assets will break {totalDependents} dependent asset{totalDependents > 1 ? 's' : ''}. 
-            The dependent assets will show errors when accessed in QuickSight.
+            Deleting these assets will break {totalDependents} dependent asset
+            {totalDependents > 1 ? 's' : ''}. The dependent assets will show errors when accessed in
+            QuickSight.
           </Typography>
         </Alert>
       )}
@@ -62,12 +66,13 @@ export function WarningsSection({
       <Alert severity="info" icon={<InfoIcon />}>
         <AlertTitle>Assets will be archived in this portal</AlertTitle>
         <Typography variant="body2" sx={{ mb: 1 }}>
-          All deleted assets will be archived with their complete JSON metadata in this portal. 
-          This archived data can be used to restore assets in the future.
+          All deleted assets will be archived with their complete JSON metadata in this portal. This
+          archived data can be used to restore assets in the future.
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          <strong>Note:</strong> A restore feature using archived JSON is planned but not yet available. 
-          Once implemented, you'll be able to recreate any deleted asset from its archived metadata.
+          <strong>Note:</strong> A restore feature using archived JSON is planned but not yet
+          available. Once implemented, you'll be able to recreate any deleted asset from its
+          archived metadata.
         </Typography>
       </Alert>
     </>

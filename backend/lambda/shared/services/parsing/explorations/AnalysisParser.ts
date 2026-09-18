@@ -3,9 +3,9 @@
  * Extends ExplorationParser for common Dashboard/Analysis functionality
  */
 
-import { ExplorationParser } from './ExplorationParser';
-import { type AssetExportData } from '../../../models/asset-export.model';
+import type { AssetExportData } from '../../../models/asset-export.model';
 import { ASSET_TYPES } from '../../../types/assetTypes';
+import { ExplorationParser } from './ExplorationParser';
 
 /**
  * Analysis metadata extracted from API responses

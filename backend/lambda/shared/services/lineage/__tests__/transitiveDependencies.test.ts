@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { LineageService, type AssetLineage, type LineageRelationship } from '../LineageService';
+import { type AssetLineage, type LineageRelationship, LineageService } from '../LineageService';
 
 function entry(assetId: string, assetType: string, assetName: string): AssetLineage {
   return {

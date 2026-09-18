@@ -1,11 +1,11 @@
-import { BaseAssetProcessor, type AssetProcessingCapabilities } from './BaseAssetProcessor';
-import { type QuickSightService } from '../../../shared/services/aws/QuickSightService';
-import { type S3Service } from '../../../shared/services/aws/S3Service';
-import { type AssetParserService } from '../../../shared/services/parsing/AssetParserService';
+import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
+import type { S3Service } from '../../../shared/services/aws/S3Service';
+import type { AssetParserService } from '../../../shared/services/parsing/AssetParserService';
 import { ASSET_TYPES, ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
-import { type TagService } from '../../organization/services/TagService';
-import { type AssetType, type AssetSummary } from '../types';
+import type { TagService } from '../../organization/services/TagService';
+import type { AssetSummary, AssetType } from '../types';
+import { type AssetProcessingCapabilities, BaseAssetProcessor } from './BaseAssetProcessor';
 
 /**
  * Analysis processor with consistent patterns and proper abstraction
@@ -21,7 +21,7 @@ export class AnalysisProcessor extends BaseAssetProcessor {
 
   public readonly storageType = 'individual' as const;
 
-  constructor(
+  public constructor(
     quickSightService: QuickSightService,
     s3Service: S3Service,
     tagService: TagService,

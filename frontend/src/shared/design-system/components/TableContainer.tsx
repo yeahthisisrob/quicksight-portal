@@ -1,8 +1,8 @@
 import { Box, Paper } from '@mui/material';
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { useAvailableHeight } from '../hooks/useAvailableHeight';
-import { useTableStyles, TableStyleOptions } from '../hooks/useTableStyles';
+import { type TableStyleOptions, useTableStyles } from '../hooks/useTableStyles';
 
 export interface TableContainerProps extends TableStyleOptions {
   children: ReactNode;
@@ -26,7 +26,7 @@ export const TableContainer = ({
   const styles = useTableStyles(styleOptions);
   const { containerRef, availableHeight } = useAvailableHeight(bottomOffset);
 
-  const containerStyles = useMaxHeight 
+  const containerStyles = useMaxHeight
     ? {
         ...styles.container,
         height: availableHeight,
@@ -35,15 +35,9 @@ export const TableContainer = ({
     : styles.container;
 
   return (
-    <Paper 
-      ref={useMaxHeight ? containerRef : undefined}
-      className={className} 
-      sx={containerStyles}
-    >
+    <Paper ref={useMaxHeight ? containerRef : undefined} className={className} sx={containerStyles}>
       {searchBar}
-      <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
-        {children}
-      </Box>
+      <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>{children}</Box>
     </Paper>
   );
 };

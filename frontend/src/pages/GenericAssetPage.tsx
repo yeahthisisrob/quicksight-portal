@@ -2,24 +2,26 @@
  * Refactored GenericAssetPage with reduced complexity
  */
 import { useQuery } from '@tanstack/react-query';
-import { ReactNode, useCallback, useMemo } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { EnhancedAssetTable } from '@/widgets';
-
-import { 
-  createColumnHandlers, 
-  DialogManager, 
-  useDialogStates 
-} from '@/widgets/asset-page-dialogs';
-import { createAssetColumns ,type  FetchAssetsOptions ,type  TagOption,type  FolderOption,type  RoleOption,type  GroupOption,type  SourceTypeOption } from '@/widgets/asset-table';
-
 import { useAssetPage } from '@/features/asset-management';
+import { createColumnHandlers, DialogManager, useDialogStates } from '@/widgets/asset-page-dialogs';
+import {
+  createAssetColumns,
+  type FetchAssetsOptions,
+  type FolderOption,
+  type GroupOption,
+  type RoleOption,
+  type SourceTypeOption,
+  type TagOption,
+} from '@/widgets/asset-table';
 
 import { assetsApi } from '@/shared/api';
 import { useExportCSV } from '@/shared/lib';
-
 import type { AssetType } from '@/shared/types/asset';
+
+import { EnhancedAssetTable } from '@/widgets';
 
 interface GenericAssetPageProps {
   assetType: AssetType;
@@ -136,7 +138,7 @@ export default function GenericAssetPage({
     enabled: enableUserAccessFiltering,
     staleTime: 5 * 60 * 1000,
   });
-  
+
   // Asset page hook for core functionality
   const {
     selectedRows,
@@ -165,7 +167,7 @@ export default function GenericAssetPage({
     refreshAssetType,
     updateAssetTags,
   });
-  
+
   // Dialog states hook
   const dialogStates = useDialogStates(refreshAssetType);
 
@@ -264,7 +266,7 @@ export default function GenericAssetPage({
       setAddToFolderOpen(true);
     }
   }, [assetType, setAddToGroupOpen, setAddToFolderOpen]);
-  
+
   return (
     <EnhancedAssetTable
       title={title}
@@ -317,7 +319,6 @@ export default function GenericAssetPage({
         setRelatedAssetsDialog={setRelatedAssetsDialog}
         tagsDialog={tagsDialog}
         setTagsDialog={setTagsDialog}
-        
         // Bulk action dialogs
         addToFolderOpen={addToFolderOpen}
         setAddToFolderOpen={setAddToFolderOpen}
@@ -325,10 +326,8 @@ export default function GenericAssetPage({
         setBulkTagOpen={setBulkTagOpen}
         bulkDeleteOpen={bulkDeleteOpen}
         setBulkDeleteOpen={setBulkDeleteOpen}
-        
         // Asset-specific dialogs
         {...dialogStates}
-        
         // Other props
         assetType={assetType}
         selectedAssets={selectedAssets}

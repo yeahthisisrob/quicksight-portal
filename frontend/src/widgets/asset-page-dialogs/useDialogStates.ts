@@ -1,24 +1,25 @@
 /**
  * Hook to manage dialog states for GenericAssetPage
  */
+
+import type { components } from '@shared/generated/types';
 import { useSnackbar } from 'notistack';
 import { useState } from 'react';
 
 import { useAssetsOptional } from '@/entities/asset';
 
 import type { AssetType } from '@/shared/types/asset';
-import type { components } from '@shared/generated/types';
 
 // Type aliases for better readability - all fields come from the generated
 // OpenAPI schema (activity/definitionErrors/dataSetRefreshProperties included)
-export type DashboardItem = components["schemas"]["DashboardListItem"];
-export type AnalysisItem = components["schemas"]["AnalysisListItem"];
-export type DatasetItem = components["schemas"]["DatasetListItem"];
-export type FolderItem = components["schemas"]["FolderListItem"];
-export type UserItem = components["schemas"]["UserListItem"];
-export type GroupItem = components["schemas"]["GroupListItem"];
+export type DashboardItem = components['schemas']['DashboardListItem'];
+export type AnalysisItem = components['schemas']['AnalysisListItem'];
+export type DatasetItem = components['schemas']['DatasetListItem'];
+export type FolderItem = components['schemas']['FolderListItem'];
+export type UserItem = components['schemas']['UserListItem'];
+export type GroupItem = components['schemas']['GroupListItem'];
 export type AssetWithErrors = DashboardItem | AnalysisItem;
-export type AssetItem = components["schemas"]["AssetListItem"];
+export type AssetItem = components['schemas']['AssetListItem'];
 
 // Dialog state types
 export interface JsonViewerDialogState {
@@ -101,31 +102,69 @@ export interface NotifyUnusedDatasetsDialogState {
   user: UserItem | null;
 }
 
-export function useDialogStates(
-  refreshAssetType: (type: AssetType) => Promise<void>
-) {
+export function useDialogStates(refreshAssetType: (type: AssetType) => Promise<void>) {
   const { enqueueSnackbar } = useSnackbar();
   // Optional: absent in Storybook, present under the app's AssetsProvider
   const assetsContext = useAssetsOptional();
-  
+
   // Core dialog states - now properly typed
   const [jsonViewerDialog, setJsonViewerDialog] = useState<JsonViewerDialogState>({ open: false });
   const [addToGroupOpen, setAddToGroupOpen] = useState(false);
-  const [folderMembersDialog, setFolderMembersDialog] = useState<FolderMembersDialogState>({ open: false, folder: null });
-  const [userGroupsDialog, setUserGroupsDialog] = useState<UserGroupsDialogState>({ open: false, user: null });
-  const [groupMembersDialog, setGroupMembersDialog] = useState<GroupMembersDialogState>({ open: false, group: null });
-  const [groupAssetsDialog, setGroupAssetsDialog] = useState<GroupAssetsDialogState>({ open: false, group: null });
-  const [refreshScheduleDialog, setRefreshScheduleDialog] = useState<RefreshScheduleDialogState>({ open: false, dataset: null });
-  const [definitionErrorsDialog, setDefinitionErrorsDialog] = useState<DefinitionErrorsDialogState>({ open: false, asset: null });
-  const [assetFoldersDialog, setAssetFoldersDialog] = useState<AssetFoldersDialogState>({ open: false, asset: null });
-  const [updateGroupDialog, setUpdateGroupDialog] = useState<UpdateGroupDialogState>({ open: false, group: null });
-  const [deleteGroupDialog, setDeleteGroupDialog] = useState<DeleteGroupDialogState>({ open: false, group: null });
-  const [notifyInactiveDialog, setNotifyInactiveDialog] = useState<NotifyInactiveDialogState>({ open: false, asset: null });
-  const [renameAssetDialog, setRenameAssetDialog] = useState<RenameAssetDialogState>({ open: false, asset: null });
-  const [userAssetAccessDialog, setUserAssetAccessDialog] = useState<UserAssetAccessDialogState>({ open: false, user: null });
-  const [notifyInactiveAnalysesDialog, setNotifyInactiveAnalysesDialog] = useState<NotifyInactiveAnalysesDialogState>({ open: false, user: null });
-  const [notifyUnusedDatasetsDialog, setNotifyUnusedDatasetsDialog] = useState<NotifyUnusedDatasetsDialogState>({ open: false, user: null });
-  const [deleteUserDialog, setDeleteUserDialog] = useState<DeleteUserDialogState>({ open: false, user: null });
+  const [folderMembersDialog, setFolderMembersDialog] = useState<FolderMembersDialogState>({
+    open: false,
+    folder: null,
+  });
+  const [userGroupsDialog, setUserGroupsDialog] = useState<UserGroupsDialogState>({
+    open: false,
+    user: null,
+  });
+  const [groupMembersDialog, setGroupMembersDialog] = useState<GroupMembersDialogState>({
+    open: false,
+    group: null,
+  });
+  const [groupAssetsDialog, setGroupAssetsDialog] = useState<GroupAssetsDialogState>({
+    open: false,
+    group: null,
+  });
+  const [refreshScheduleDialog, setRefreshScheduleDialog] = useState<RefreshScheduleDialogState>({
+    open: false,
+    dataset: null,
+  });
+  const [definitionErrorsDialog, setDefinitionErrorsDialog] = useState<DefinitionErrorsDialogState>(
+    { open: false, asset: null }
+  );
+  const [assetFoldersDialog, setAssetFoldersDialog] = useState<AssetFoldersDialogState>({
+    open: false,
+    asset: null,
+  });
+  const [updateGroupDialog, setUpdateGroupDialog] = useState<UpdateGroupDialogState>({
+    open: false,
+    group: null,
+  });
+  const [deleteGroupDialog, setDeleteGroupDialog] = useState<DeleteGroupDialogState>({
+    open: false,
+    group: null,
+  });
+  const [notifyInactiveDialog, setNotifyInactiveDialog] = useState<NotifyInactiveDialogState>({
+    open: false,
+    asset: null,
+  });
+  const [renameAssetDialog, setRenameAssetDialog] = useState<RenameAssetDialogState>({
+    open: false,
+    asset: null,
+  });
+  const [userAssetAccessDialog, setUserAssetAccessDialog] = useState<UserAssetAccessDialogState>({
+    open: false,
+    user: null,
+  });
+  const [notifyInactiveAnalysesDialog, setNotifyInactiveAnalysesDialog] =
+    useState<NotifyInactiveAnalysesDialogState>({ open: false, user: null });
+  const [notifyUnusedDatasetsDialog, setNotifyUnusedDatasetsDialog] =
+    useState<NotifyUnusedDatasetsDialogState>({ open: false, user: null });
+  const [deleteUserDialog, setDeleteUserDialog] = useState<DeleteUserDialogState>({
+    open: false,
+    user: null,
+  });
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
   const [isDeletingUser, setIsDeletingUser] = useState(false);
 
@@ -137,7 +176,9 @@ export function useDialogStates(
       const { usersApi } = await import('@/shared/api');
       await usersApi.deleteUser(deleteUserDialog.user.name);
 
-      enqueueSnackbar(`User "${deleteUserDialog.user.name}" deleted successfully`, { variant: 'success' });
+      enqueueSnackbar(`User "${deleteUserDialog.user.name}" deleted successfully`, {
+        variant: 'success',
+      });
       // Optimistic removal: the immediate list refetch can race the backend's
       // cache revalidation window; drop the row locally right away
       assetsContext?.removeAssets('user', [deleteUserDialog.user.id]);
@@ -153,13 +194,15 @@ export function useDialogStates(
 
   const handleGroupDelete = async () => {
     if (!deleteGroupDialog.group) return;
-    
+
     try {
       setIsDeletingGroup(true);
       const { groupsApi } = await import('@/shared/api');
       await groupsApi.deleteGroup(deleteGroupDialog.group.name);
-      
-      enqueueSnackbar(`Group "${deleteGroupDialog.group.name}" deleted successfully`, { variant: 'success' });
+
+      enqueueSnackbar(`Group "${deleteGroupDialog.group.name}" deleted successfully`, {
+        variant: 'success',
+      });
       assetsContext?.removeAssets('group', [deleteGroupDialog.group.id]);
       setDeleteGroupDialog({ open: false, group: null });
       refreshAssetType('group');
@@ -170,7 +213,7 @@ export function useDialogStates(
       setIsDeletingGroup(false);
     }
   };
-  
+
   return {
     // Dialog states
     jsonViewerDialog,

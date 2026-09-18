@@ -5,7 +5,7 @@
 
 import type { components } from '@shared/generated/types';
 
-import { type CacheEntry } from '../models/asset.model';
+import type { CacheEntry } from '../models/asset.model';
 import { ASSET_TYPES } from '../types/assetTypes';
 
 type AssetListItem = components['schemas']['AssetListItem'];

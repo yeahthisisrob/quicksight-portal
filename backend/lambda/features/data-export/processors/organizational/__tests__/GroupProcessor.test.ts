@@ -1,10 +1,10 @@
-import { vi, type Mocked } from 'vitest';
+import { type Mocked, vi } from 'vitest';
 
-import { type QuickSightService } from '../../../../../shared/services/aws/QuickSightService';
-import { type S3Service } from '../../../../../shared/services/aws/S3Service';
-import { type AssetParserService } from '../../../../../shared/services/parsing/AssetParserService';
+import type { QuickSightService } from '../../../../../shared/services/aws/QuickSightService';
+import type { S3Service } from '../../../../../shared/services/aws/S3Service';
+import type { AssetParserService } from '../../../../../shared/services/parsing/AssetParserService';
 import * as logger from '../../../../../shared/utils/logger';
-import { type TagService } from '../../../../organization/services/TagService';
+import type { TagService } from '../../../../organization/services/TagService';
 import { GroupProcessor } from '../GroupProcessor';
 
 vi.mock('../../../../../shared/utils/logger', () => ({

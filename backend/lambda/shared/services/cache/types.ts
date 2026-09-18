@@ -1,4 +1,4 @@
-import { type AssetType } from '../../types/assetTypes';
+import type { AssetType } from '../../types/assetTypes';
 
 export interface CacheUpdateEvent {
   eventType: 'asset_added' | 'asset_updated' | 'asset_deleted' | 'asset_archived';

@@ -1,5 +1,5 @@
 import { api as apiClient } from '../client';
-import { ApiResponse } from '../types';
+import type { ApiResponse } from '../types';
 
 /**
  * Export API - handles asset export operations
@@ -7,17 +7,20 @@ import { ApiResponse } from '../types';
  */
 export const exportApi = {
   // Get paginated assets (replaces the non-existent stats/list endpoints)
-  async listAssets(assetType: string, options: {
-    page?: number;
-    pageSize?: number;
-    search?: string;
-    useCache?: boolean;
-    dateRange?: string;
-    sortBy?: string;
-    sortOrder?: string;
-  } = {}) {
+  async listAssets(
+    assetType: string,
+    options: {
+      page?: number;
+      pageSize?: number;
+      search?: string;
+      useCache?: boolean;
+      dateRange?: string;
+      sortBy?: string;
+      sortOrder?: string;
+    } = {}
+  ) {
     const params = new URLSearchParams();
-    
+
     if (options.page) params.append('page', options.page.toString());
     if (options.pageSize) params.append('pageSize', options.pageSize.toString());
     if (options.search) params.append('search', options.search);
@@ -25,235 +28,258 @@ export const exportApi = {
     if (options.dateRange) params.append('dateRange', options.dateRange);
     if (options.sortBy) params.append('sortBy', options.sortBy);
     if (options.sortOrder) params.append('sortOrder', options.sortOrder);
-    
-    const response = await apiClient.get<ApiResponse<{
-      [key: string]: any; // Dynamic key based on asset type (dashboards, datasets, etc.)
-      pagination: {
-        page: number;
-        pageSize: number;
-        totalItems: number;
-        totalPages: number;
-        hasMore: boolean;
-      };
-      fromCache?: boolean;
-    }>>(`/assets/${assetType}/paginated?${params}`);
-    
+
+    const response = await apiClient.get<
+      ApiResponse<{
+        [key: string]: any; // Dynamic key based on asset type (dashboards, datasets, etc.)
+        pagination: {
+          page: number;
+          pageSize: number;
+          totalItems: number;
+          totalPages: number;
+          hasMore: boolean;
+        };
+        fromCache?: boolean;
+      }>
+    >(`/assets/${assetType}/paginated?${params}`);
+
     if (!response.data.success) {
       throw new Error(response.data.error || `Failed to list ${assetType}`);
     }
-    
+
     // Extract the assets array from the response
     const data = response.data.data;
     if (!data) {
       throw new Error('No data in response');
     }
-    
-    const assetKey = Object.keys(data).find(key => key !== 'pagination' && key !== 'fromCache');
+
+    const assetKey = Object.keys(data).find((key) => key !== 'pagination' && key !== 'fromCache');
     const assets = assetKey ? data[assetKey] : [];
-    
+
     return {
       items: assets,
       pagination: data.pagination,
-      fromCache: data.fromCache || false
+      fromCache: data.fromCache || false,
     };
   },
 
   // Trigger export job - returns job ID immediately
-  async startExportJob(options: {
-    forceRefresh?: boolean;
-    rebuildIndex?: boolean;
-    exportOrganizational?: boolean;
-    assetTypes?: string[];
-    refreshOptions?: {
-      definitions?: boolean;
-      permissions?: boolean;
-      tags?: boolean;
-    };
-  } = {}) {
-    const response = await apiClient.post<ApiResponse<{
-      jobId: string;
-      status: 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';
-      message: string;
-    }>>('/export', options);
-    
+  async startExportJob(
+    options: {
+      forceRefresh?: boolean;
+      rebuildIndex?: boolean;
+      exportOrganizational?: boolean;
+      assetTypes?: string[];
+      refreshOptions?: {
+        definitions?: boolean;
+        permissions?: boolean;
+        tags?: boolean;
+      };
+    } = {}
+  ) {
+    const response = await apiClient.post<
+      ApiResponse<{
+        jobId: string;
+        status: 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';
+        message: string;
+      }>
+    >('/export', options);
+
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to start export job');
     }
-    
+
     return response.data.data;
   },
 
   // Trigger full export (compatibility wrapper that uses job-based API)
-  async triggerFullExport(options: {
-    forceRefresh?: boolean;
-    rebuildIndex?: boolean;
-    assetTypes?: string[];
-    refreshOptions?: {
-      definitions?: boolean;
-      permissions?: boolean;
-      tags?: boolean;
-    };
-  } = {}) {
+  async triggerFullExport(
+    options: {
+      forceRefresh?: boolean;
+      rebuildIndex?: boolean;
+      assetTypes?: string[];
+      refreshOptions?: {
+        definitions?: boolean;
+        permissions?: boolean;
+        tags?: boolean;
+      };
+    } = {}
+  ) {
     // Use the new job-based API
     return this.startExportJob(options);
   },
 
   // List recent jobs of any type (unified job API). Pass `type` to filter
   // to one job type (e.g. 'export', 'activity-refresh'); omit for all types.
-  async listJobs(options: {
-    limit?: number;
-    status?: 'queued' | 'processing' | 'completed' | 'failed' | 'stopped';
-    type?: string;
-  } = {}) {
+  async listJobs(
+    options: {
+      limit?: number;
+      status?: 'queued' | 'processing' | 'completed' | 'failed' | 'stopped';
+      type?: string;
+    } = {}
+  ) {
     const params = new URLSearchParams();
     if (options.type) params.append('type', options.type);
     if (options.limit) params.append('limit', options.limit.toString());
     if (options.status) params.append('status', options.status);
-    
-    const response = await apiClient.get<ApiResponse<Array<{
-      jobId: string;
-      jobType: string;
-      status: 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';
-      progress?: number;
-      message?: string;
-      startTime: string;
-      lastUpdatedTime?: string;
-      endTime?: string;
-      duration?: number;
-      stats?: {
-        totalAssets?: number;
-        processedAssets?: number;
-        failedAssets?: number;
-        operations?: Record<string, number>;
-      };
-      checkpoint?: {
-        completedAssetTypes?: string[];
-        catalogPending?: boolean;
-        totalProcessed?: number;
-      };
-      exportOptions?: { exportIngestions?: boolean };
-      error?: string;
-      stopRequested?: boolean;
-    }>>>(`/jobs?${params.toString()}`);
-    
+
+    const response = await apiClient.get<
+      ApiResponse<
+        Array<{
+          jobId: string;
+          jobType: string;
+          status: 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';
+          progress?: number;
+          message?: string;
+          startTime: string;
+          lastUpdatedTime?: string;
+          endTime?: string;
+          duration?: number;
+          stats?: {
+            totalAssets?: number;
+            processedAssets?: number;
+            failedAssets?: number;
+            operations?: Record<string, number>;
+          };
+          checkpoint?: {
+            completedAssetTypes?: string[];
+            catalogPending?: boolean;
+            totalProcessed?: number;
+          };
+          exportOptions?: { exportIngestions?: boolean };
+          error?: string;
+          stopRequested?: boolean;
+        }>
+      >
+    >(`/jobs?${params.toString()}`);
+
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to list jobs');
     }
-    
+
     // Return in the format the JobHistory component expects
     return { jobs: response.data.data || [] };
   },
 
   // Get job status (using new unified job API)
   async getJobStatus(jobId: string) {
-    const response = await apiClient.get<ApiResponse<{
-      jobId: string;
-      jobType: string;
-      status: 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';
-      progress?: number;
-      message?: string;
-      startTime: string;
-      /** Heartbeat - stamped on every job write; drives the liveness display */
-      lastUpdatedTime?: string;
-      endTime?: string;
-      duration?: number;
-      stats?: {
-        totalAssets?: number;
-        processedAssets?: number;
-        failedAssets?: number;
-        apiCalls?: number;
-      };
-      /** Resumable-export progress (export jobs) - drives per-type progress */
-      checkpoint?: {
-        completedAssetTypes?: string[];
-        hydratedAssetTypes?: string[];
-        catalogPending?: boolean;
-        totalProcessed?: number;
-        updatedAt?: string;
-      };
-    }>>(`/jobs/${jobId}`);
-    
+    const response = await apiClient.get<
+      ApiResponse<{
+        jobId: string;
+        jobType: string;
+        status: 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';
+        progress?: number;
+        message?: string;
+        startTime: string;
+        /** Heartbeat - stamped on every job write; drives the liveness display */
+        lastUpdatedTime?: string;
+        endTime?: string;
+        duration?: number;
+        stats?: {
+          totalAssets?: number;
+          processedAssets?: number;
+          failedAssets?: number;
+          apiCalls?: number;
+        };
+        /** Resumable-export progress (export jobs) - drives per-type progress */
+        checkpoint?: {
+          completedAssetTypes?: string[];
+          hydratedAssetTypes?: string[];
+          catalogPending?: boolean;
+          totalProcessed?: number;
+          updatedAt?: string;
+        };
+      }>
+    >(`/jobs/${jobId}`);
+
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to get job status');
     }
-    
+
     return response.data.data;
   },
 
   // Get job logs (using new unified job API)
   async getJobLogs(jobId: string) {
-    const response = await apiClient.get<ApiResponse<{
-      jobId: string;
-      logs: Array<{
-        timestamp: string;
-        level: 'info' | 'warn' | 'error' | 'debug';
-        message: string;
-        details?: any;
-      }>;
-    }>>(`/jobs/${jobId}/logs`);
-    
+    const response = await apiClient.get<
+      ApiResponse<{
+        jobId: string;
+        logs: Array<{
+          timestamp: string;
+          level: 'info' | 'warn' | 'error' | 'debug';
+          message: string;
+          details?: any;
+        }>;
+      }>
+    >(`/jobs/${jobId}/logs`);
+
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to get job logs');
     }
-    
+
     return response.data.data;
   },
 
   // Stop a running export job (using new unified job API)
   async stopJob(jobId: string) {
-    const response = await apiClient.post<ApiResponse<{
-      success: boolean;
-      message: string;
-    }>>(`/jobs/${jobId}/stop`);
-    
+    const response = await apiClient.post<
+      ApiResponse<{
+        success: boolean;
+        message: string;
+      }>
+    >(`/jobs/${jobId}/stop`);
+
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to stop job');
     }
-    
+
     return response.data.data;
   },
 
   // Get export summary
   async getExportSummary() {
-    const response = await apiClient.get<ApiResponse<{
-      totalAssets: number;
-      exportedAssets: number;
-      lastExportDate: string | null;
-      exportInProgress: boolean;
-      needsInitialExport?: boolean;
-      message?: string;
-      assetTypeCounts: {
-        dashboards: number;
-        datasets: number;
-        analyses: number;
-        datasources: number;
-        folders: number;
-        users?: number;
-        groups?: number;
-      };
-      archivedAssetCounts?: {
-        dashboards: number;
-        datasets: number;
-        analyses: number;
-        datasources: number;
-        folders: number;
-        users: number;
-        groups: number;
-        total: number;
-      };
-      fieldStatistics: {
-        totalFields: number;
-        totalCalculatedFields: number;
-        totalUniqueFields: number;
-      } | null;
-      totalSize?: number;
-      indexVersion?: string;
-    }>>('/export/summary');
-    
+    const response =
+      await apiClient.get<
+        ApiResponse<{
+          totalAssets: number;
+          exportedAssets: number;
+          lastExportDate: string | null;
+          exportInProgress: boolean;
+          needsInitialExport?: boolean;
+          message?: string;
+          assetTypeCounts: {
+            dashboards: number;
+            datasets: number;
+            analyses: number;
+            datasources: number;
+            folders: number;
+            users?: number;
+            groups?: number;
+          };
+          archivedAssetCounts?: {
+            dashboards: number;
+            datasets: number;
+            analyses: number;
+            datasources: number;
+            folders: number;
+            users: number;
+            groups: number;
+            total: number;
+          };
+          fieldStatistics: {
+            totalFields: number;
+            totalCalculatedFields: number;
+            totalUniqueFields: number;
+          } | null;
+          totalSize?: number;
+          indexVersion?: string;
+        }>
+      >('/export/summary');
+
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to get export summary');
     }
-    
+
     return response.data.data;
   },
 
@@ -279,7 +305,7 @@ export const exportApi = {
       total: 0,
       succeeded: 0,
       cached: 0,
-      failed: 0
+      failed: 0,
     };
 
     try {
@@ -287,44 +313,47 @@ export const exportApi = {
       const firstPage = await this.listAssets(assetType, {
         page: 1,
         pageSize: batchSize,
-        useCache: !options?.forceRefresh
+        useCache: !options?.forceRefresh,
       });
 
       const totalItems = firstPage.pagination.totalItems;
       const totalPages = firstPage.pagination.totalPages;
-      
+
       totalSummary.total = totalItems;
 
       // Process all pages
       for (let page = 1; page <= totalPages; page++) {
-        const pageData = page === 1 ? firstPage : await this.listAssets(assetType, {
-          page,
-          pageSize: batchSize,
-          useCache: !options?.forceRefresh
-        });
+        const pageData =
+          page === 1
+            ? firstPage
+            : await this.listAssets(assetType, {
+                page,
+                pageSize: batchSize,
+                useCache: !options?.forceRefresh,
+              });
 
         // Process this batch of assets
         const batch = pageData.items;
         const processedCount = (page - 1) * batchSize + batch.length;
-        
+
         onProgress?.(processedCount, totalItems);
-        
+
         // Create batch result
         const batchResult = {
           summary: {
             total: batch.length,
             succeeded: batch.length, // Assume success since we got the data
             cached: pageData.fromCache ? batch.length : 0,
-            failed: 0
-          }
+            failed: 0,
+          },
         };
-        
+
         results.push(batchResult);
         totalSummary.succeeded += batchResult.summary.succeeded;
         totalSummary.cached += batchResult.summary.cached;
-        
+
         onBatchProgress?.(page, totalPages, batchResult);
-        
+
         // Report progress for each asset if callback provided
         if (onAssetProgress) {
           batch.forEach((asset: any) => {
@@ -332,7 +361,7 @@ export const exportApi = {
               assetId: asset.id,
               assetName: asset.name,
               status: 'success',
-              processingTimeMs: 0
+              processingTimeMs: 0,
             });
           });
         }
@@ -344,7 +373,7 @@ export const exportApi = {
     return {
       summary: totalSummary,
       batches: results,
-      message: `Processed ${totalSummary.total} ${assetType}: ${totalSummary.succeeded} succeeded, ${totalSummary.cached} cached, ${totalSummary.failed} failed`
+      message: `Processed ${totalSummary.total} ${assetType}: ${totalSummary.succeeded} succeeded, ${totalSummary.cached} cached, ${totalSummary.failed} failed`,
     };
   },
 
@@ -357,5 +386,5 @@ export const exportApi = {
     } catch {
       return false;
     }
-  }
+  },
 };

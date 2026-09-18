@@ -1,2 +1,2 @@
-export { Sidebar, DRAWER_WIDTH } from './Sidebar';
 export type { NavigationItem, NavigationSection } from './navigationConfig';
+export { DRAWER_WIDTH, Sidebar } from './Sidebar';

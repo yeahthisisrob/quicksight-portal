@@ -6,9 +6,8 @@ import { Grid } from '@mui/material';
 import { colors, spacing } from '@/shared/design-system/theme';
 import { catalogIcons, statusIcons } from '@/shared/ui/icons';
 
-import { StatCard } from '../components/StatCard';
-
 import type { SemanticStats } from '../../model/types';
+import { StatCard } from '../components/StatCard';
 
 interface SemanticStatsViewProps {
   stats: SemanticStats;
@@ -22,25 +21,25 @@ export function SemanticStatsView({ stats }: SemanticStatsViewProps) {
 
   const statCards = [
     {
-      title: "Total Terms",
+      title: 'Total Terms',
       value: stats.totalTerms || 0,
       icon: <FieldIcon sx={{ color: colors.primary.main, fontSize: 28 }} />,
       color: colors.primary.main,
     },
     {
-      title: "Mapped Fields",
+      title: 'Mapped Fields',
       value: stats.mappedFields || 0,
       icon: <CheckCircleIcon sx={{ color: colors.assetTypes.dashboard.main, fontSize: 28 }} />,
       color: colors.assetTypes.dashboard.main,
     },
     {
-      title: "Unmapped Fields",
+      title: 'Unmapped Fields',
       value: stats.unmappedFields || 0,
       icon: <WarningIcon sx={{ color: colors.assetTypes.datasource.main, fontSize: 28 }} />,
       color: colors.assetTypes.datasource.main,
     },
     {
-      title: "Coverage",
+      title: 'Coverage',
       value: stats.coverage ? `${stats.coverage}%` : '0%',
       icon: <TrendingUpIcon sx={{ color: colors.primary.dark, fontSize: 28 }} />,
       color: colors.primary.dark,

@@ -1,8 +1,8 @@
-import { Box, Button, Chip, Stack, Tooltip, Typography, alpha } from '@mui/material';
+import { alpha, Box, Button, Chip, Stack, Tooltip, Typography } from '@mui/material';
 
 import { spacing } from '@/shared/design-system/theme';
 
-import { AssetType } from '../../model/types';
+import type { AssetType } from '../../model/types';
 import { assetTypeConfig } from '../constants';
 
 interface AssetTypeSelectorProps {

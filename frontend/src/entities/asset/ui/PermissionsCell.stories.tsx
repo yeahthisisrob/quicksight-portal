@@ -1,10 +1,8 @@
 import { Stack } from '@mui/material';
-
-import PermissionsCell from './PermissionsCell';
-import { type Permission } from '../model/types';
-
-
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import type { Permission } from '../model/types';
+import PermissionsCell from './PermissionsCell';
 
 const meta: Meta<typeof PermissionsCell> = {
   title: 'Entities/Asset/PermissionsCell',
@@ -13,7 +11,8 @@ const meta: Meta<typeof PermissionsCell> = {
     layout: 'centered',
     docs: {
       description: {
-        component: 'A compact cell component for displaying permission counts grouped by users and groups, using TypedChip components.',
+        component:
+          'A compact cell component for displaying permission counts grouped by users and groups, using TypedChip components.',
       },
     },
   },
@@ -58,13 +57,13 @@ export const Default: Story = {
 
 export const UsersOnly: Story = {
   args: {
-    permissions: mockPermissions.filter(p => p.principalType === 'USER'),
+    permissions: mockPermissions.filter((p) => p.principalType === 'USER'),
   },
 };
 
 export const GroupsOnly: Story = {
   args: {
-    permissions: mockPermissions.filter(p => p.principalType === 'GROUP'),
+    permissions: mockPermissions.filter((p) => p.principalType === 'GROUP'),
   },
 };
 
@@ -101,16 +100,20 @@ export const Empty: Story = {
 export const ManyPermissions: Story = {
   args: {
     permissions: [
-      ...Array(15).fill(null).map((_, i) => ({
-        principal: `arn:aws:quicksight:us-east-1:123456789012:user/default/user${i}@example.com`,
-        principalType: 'USER' as const,
-        actions: ['quicksight:DescribeDashboard'],
-      })),
-      ...Array(5).fill(null).map((_, i) => ({
-        principal: `arn:aws:quicksight:us-east-1:123456789012:group/default/Group${i}`,
-        principalType: 'GROUP' as const,
-        actions: ['quicksight:DescribeDashboard'],
-      })),
+      ...Array(15)
+        .fill(null)
+        .map((_, i) => ({
+          principal: `arn:aws:quicksight:us-east-1:123456789012:user/default/user${i}@example.com`,
+          principalType: 'USER' as const,
+          actions: ['quicksight:DescribeDashboard'],
+        })),
+      ...Array(5)
+        .fill(null)
+        .map((_, i) => ({
+          principal: `arn:aws:quicksight:us-east-1:123456789012:group/default/Group${i}`,
+          principalType: 'GROUP' as const,
+          actions: ['quicksight:DescribeDashboard'],
+        })),
     ],
   },
 };
@@ -129,49 +132,55 @@ export const AllVariations: Story = {
         <h3>No Permissions</h3>
         <PermissionsCell permissions={[]} />
       </div>
-      
+
       <div>
         <h3>Single User</h3>
-        <PermissionsCell 
-          permissions={[{
-            principal: 'user@example.com',
-            principalType: 'USER',
-            actions: ['read'],
-          }]} 
+        <PermissionsCell
+          permissions={[
+            {
+              principal: 'user@example.com',
+              principalType: 'USER',
+              actions: ['read'],
+            },
+          ]}
         />
       </div>
-      
+
       <div>
         <h3>Multiple Users</h3>
-        <PermissionsCell 
+        <PermissionsCell
           permissions={[
             { principal: 'user1@example.com', principalType: 'USER', actions: ['read'] },
             { principal: 'user2@example.com', principalType: 'USER', actions: ['read', 'write'] },
             { principal: 'user3@example.com', principalType: 'USER', actions: ['read'] },
-          ]} 
+          ]}
         />
       </div>
-      
+
       <div>
         <h3>Users and Groups</h3>
         <PermissionsCell permissions={mockPermissions} />
       </div>
-      
+
       <div>
         <h3>Large Numbers</h3>
-        <PermissionsCell 
+        <PermissionsCell
           permissions={[
-            ...Array(99).fill(null).map((_, i) => ({
-              principal: `user${i}@example.com`,
-              principalType: 'USER' as const,
-              actions: ['read'],
-            })),
-            ...Array(25).fill(null).map((_, i) => ({
-              principal: `Group${i}`,
-              principalType: 'GROUP' as const,
-              actions: ['read'],
-            })),
-          ]} 
+            ...Array(99)
+              .fill(null)
+              .map((_, i) => ({
+                principal: `user${i}@example.com`,
+                principalType: 'USER' as const,
+                actions: ['read'],
+              })),
+            ...Array(25)
+              .fill(null)
+              .map((_, i) => ({
+                principal: `Group${i}`,
+                principalType: 'GROUP' as const,
+                actions: ['read'],
+              })),
+          ]}
         />
       </div>
     </Stack>

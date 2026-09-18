@@ -1,8 +1,7 @@
 import { Stack } from '@mui/material';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { AssetRelationshipSection } from './index';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta: Meta<typeof AssetRelationshipSection> = {
   title: 'Shared/UI/AssetRelationshipSection',
@@ -11,7 +10,8 @@ const meta: Meta<typeof AssetRelationshipSection> = {
     layout: 'centered',
     docs: {
       description: {
-        component: 'A reusable component for displaying a section of related assets grouped by type, used in the RelatedAssetsDialog.',
+        component:
+          'A reusable component for displaying a section of related assets grouped by type, used in the RelatedAssetsDialog.',
       },
     },
   },
@@ -44,7 +44,12 @@ const mockAssets = {
   ],
   analyses: [
     { id: 'analysis-001', name: 'Revenue Analysis', type: 'analysis', relationshipType: 'uses' },
-    { id: 'analysis-002', name: 'Customer Segmentation', type: 'analysis', relationshipType: 'uses' },
+    {
+      id: 'analysis-002',
+      name: 'Customer Segmentation',
+      type: 'analysis',
+      relationshipType: 'uses',
+    },
   ],
   datasets: [
     { id: 'dataset-001', name: 'Sales Data 2024', type: 'dataset', relationshipType: 'uses' },
@@ -53,7 +58,12 @@ const mockAssets = {
     { id: 'dataset-004', name: 'Transaction History', type: 'dataset', relationshipType: 'uses' },
   ],
   datasources: [
-    { id: 'datasource-001', name: 'Production Database', type: 'datasource', relationshipType: 'uses' },
+    {
+      id: 'datasource-001',
+      name: 'Production Database',
+      type: 'datasource',
+      relationshipType: 'uses',
+    },
   ],
 };
 
@@ -95,7 +105,9 @@ export const EmptySection: Story = {
 export const SingleAsset: Story = {
   args: {
     type: 'analysis',
-    assets: [{ id: 'analysis-001', name: 'Quarterly Report', type: 'analysis', relationshipType: 'uses' }],
+    assets: [
+      { id: 'analysis-001', name: 'Quarterly Report', type: 'analysis', relationshipType: 'uses' },
+    ],
   },
 };
 
@@ -103,17 +115,17 @@ export const LongNames: Story = {
   args: {
     type: 'dataset',
     assets: [
-      { 
-        id: 'dataset-001', 
-        name: 'Comprehensive Customer Transaction History with Demographic and Behavioral Enrichment Data 2020-2024', 
+      {
+        id: 'dataset-001',
+        name: 'Comprehensive Customer Transaction History with Demographic and Behavioral Enrichment Data 2020-2024',
         type: 'dataset',
-        relationshipType: 'uses'
+        relationshipType: 'uses',
       },
-      { 
-        id: 'dataset-002', 
-        name: 'Real-time Streaming Events from IoT Sensors Across Manufacturing Facilities', 
+      {
+        id: 'dataset-002',
+        name: 'Real-time Streaming Events from IoT Sensors Across Manufacturing Facilities',
         type: 'dataset',
-        relationshipType: 'uses'
+        relationshipType: 'uses',
       },
     ],
   },
@@ -149,26 +161,10 @@ export const AllTypesComparison: Story = {
 export const EmptyStates: Story = {
   render: () => (
     <Stack spacing={2} sx={{ width: 400 }}>
-      <AssetRelationshipSection
-        type="dashboard"
-        assets={[]}
-        onAssetClick={() => {}}
-      />
-      <AssetRelationshipSection
-        type="analysis"
-        assets={[]}
-        onAssetClick={() => {}}
-      />
-      <AssetRelationshipSection
-        type="dataset"
-        assets={[]}
-        onAssetClick={() => {}}
-      />
-      <AssetRelationshipSection
-        type="datasource"
-        assets={[]}
-        onAssetClick={() => {}}
-      />
+      <AssetRelationshipSection type="dashboard" assets={[]} onAssetClick={() => {}} />
+      <AssetRelationshipSection type="analysis" assets={[]} onAssetClick={() => {}} />
+      <AssetRelationshipSection type="dataset" assets={[]} onAssetClick={() => {}} />
+      <AssetRelationshipSection type="datasource" assets={[]} onAssetClick={() => {}} />
     </Stack>
   ),
 };

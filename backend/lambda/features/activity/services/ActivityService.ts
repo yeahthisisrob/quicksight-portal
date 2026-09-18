@@ -6,44 +6,44 @@ import {
   JobAbortedError,
 } from '../../../adapters/aws/CloudTrailAdapter';
 import { ACTIVITY_LIMITS } from '../../../shared/constants';
-import { type CacheService } from '../../../shared/services/cache/CacheService';
+import type { CacheService } from '../../../shared/services/cache/CacheService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES, type AssetType } from '../../../shared/types/assetTypes';
 import { pLimit } from '../../../shared/utils/concurrency';
 import { logger } from '../../../shared/utils/logger';
-import { type GroupService } from '../../organization/services/GroupService';
+import type { GroupService } from '../../organization/services/GroupService';
 import {
   ALL_MUTATION_EVENT_NAMES,
   ASSET_EVENT_CONFIG,
   ASSET_MUTATION_CONFIG,
-  MUTATION_EVENT_TO_ASSET_TYPE,
   captureMutationDetails,
   classifyAction,
   extractEventName,
   extractIdFromArnScan,
   extractParam,
+  MUTATION_EVENT_TO_ASSET_TYPE,
   normalizeServiceEventDetails,
 } from '../lib/cloudTrailEvents';
 import {
-  TIMELINE_CONSTANTS,
   applyTimelinePredicate,
   buildTimelinePredicate,
   flattenMutations,
+  TIMELINE_CONSTANTS,
 } from '../lib/timeline';
 import {
   ACTIVITY_CACHE_SCHEMA_VERSION,
+  type ActivityCache,
   type ActivityRefreshRequest,
   type ActivityRefreshResponse,
   type ActivitySummaryResponse,
-  type ActivityCache,
-  type MinimalEvent,
   type AssetActivityData,
   type DatasetActivityData,
   type DatasetDependentRef,
-  type UserActivityData,
+  type MinimalEvent,
   type TimelineEvent,
   type TimelinePage,
   type TimelineQuery,
+  type UserActivityData,
 } from '../types';
 
 /**
@@ -153,7 +153,7 @@ export class ActivityService {
     return (ActivityService.DASHBOARD_EVENTS as string[]).includes(eventName);
   }
 
-  constructor(
+  public constructor(
     private readonly cacheService: CacheService,
     private readonly cloudTrailAdapter: CloudTrailAdapter,
     private readonly groupService?: GroupService
@@ -962,7 +962,7 @@ export class ActivityService {
   private computeFetchWindowStart(
     eventName: string,
     fullWindowStart: Date,
-    watermarks?: { [eventName: string]: string }
+    watermarks?: { [name: string]: string }
   ): Date {
     const watermark = watermarks?.[eventName];
     if (!watermark) {
@@ -1570,7 +1570,7 @@ export class ActivityService {
     relevantEvents: string[],
     assetIds: string[]
   ): boolean {
-    return relevantEvents.includes(event.eventName) && Boolean(event.resourceId) && event.resourceId
+    return relevantEvents.includes(event.eventName) && event.resourceId && event.resourceId
       ? assetIds.includes(event.resourceId)
       : false;
   }

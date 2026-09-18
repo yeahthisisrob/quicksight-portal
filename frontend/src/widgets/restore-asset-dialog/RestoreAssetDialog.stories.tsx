@@ -2,12 +2,12 @@
  * Storybook stories for RestoreAssetDialog component
  */
 import { Button } from '@mui/material';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 
-import { RestoreAssetDialog } from './RestoreAssetDialog';
-
 import type { ArchivedAssetItem } from '@/features/asset-management';
-import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import { RestoreAssetDialog } from './RestoreAssetDialog';
 
 const meta = {
   title: 'Features/AssetManagement/RestoreAssetDialog',
@@ -88,15 +88,15 @@ const mockAnalysis: ArchivedAssetItem = {
 };
 
 // Wrapper component to handle dialog state
-function RestoreDialogWrapper({ 
-  asset, 
-  defaultOpen = false 
-}: { 
+function RestoreDialogWrapper({
+  asset,
+  defaultOpen = false,
+}: {
   asset: ArchivedAssetItem;
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-  
+
   return (
     <>
       <Button variant="contained" onClick={() => setOpen(true)}>
@@ -163,11 +163,11 @@ export const WithMinimalTags: Story = {
     asset: null,
   },
   render: () => (
-    <RestoreDialogWrapper 
+    <RestoreDialogWrapper
       asset={{
         ...mockDataset,
         tags: [],
-      }} 
+      }}
     />
   ),
 };
@@ -180,7 +180,7 @@ export const WithoutArchiveReason: Story = {
     asset: null,
   },
   render: () => (
-    <RestoreDialogWrapper 
+    <RestoreDialogWrapper
       asset={{
         ...mockDashboard,
         archiveReason: '',
@@ -197,7 +197,7 @@ export const LargeDataset: Story = {
     asset: null,
   },
   render: () => (
-    <RestoreDialogWrapper 
+    <RestoreDialogWrapper
       asset={{
         ...mockDataset,
         size: 1024 * 1024 * 1024 * 5, // 5 GB
@@ -206,7 +206,7 @@ export const LargeDataset: Story = {
           rowCount: 50000000,
           consumedSpiceCapacityInBytes: 1024 * 1024 * 1024 * 5,
         },
-      }} 
+      }}
     />
   ),
 };
@@ -219,7 +219,7 @@ export const DirectQueryDataset: Story = {
     asset: null,
   },
   render: () => (
-    <RestoreDialogWrapper 
+    <RestoreDialogWrapper
       asset={{
         ...mockDataset,
         metadata: {
@@ -227,7 +227,7 @@ export const DirectQueryDataset: Story = {
           rowCount: undefined,
           consumedSpiceCapacityInBytes: 0,
         },
-      }} 
+      }}
     />
   ),
 };

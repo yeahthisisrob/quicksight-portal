@@ -1,5 +1,5 @@
 import { api as apiClient } from '../client';
-import { ApiResponse } from '../types';
+import type { ApiResponse } from '../types';
 
 /**
  * Tags API - handles tagging operations for all resource types
@@ -25,10 +25,9 @@ export const tagsApi = {
     resourceId: string,
     tags: Array<{ key: string; value: string }>
   ): Promise<void> {
-    const response = await apiClient.post<ApiResponse<any>>(
-      `/tags/${resourceType}/${resourceId}`,
-      { tags }
-    );
+    const response = await apiClient.post<ApiResponse<any>>(`/tags/${resourceType}/${resourceId}`, {
+      tags,
+    });
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to update tags');
     }
@@ -63,7 +62,7 @@ export const tagsApi = {
       // New call: getFieldMetadata(sourceType, sourceId, fieldName)
       url = `/tags/field/${sourceTypeOrDatasetId}/${sourceIdOrFieldName}/${encodeURIComponent(fieldNameOrUndefined)}`;
     }
-    
+
     const response = await apiClient.get<ApiResponse<any>>(url);
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to fetch field metadata');
@@ -79,7 +78,7 @@ export const tagsApi = {
   ): Promise<any> {
     let url: string;
     let metadata: any;
-    
+
     if (metadataOrUndefined === undefined) {
       // Legacy call: updateFieldMetadata(datasetId, fieldName, metadata)
       url = `/tags/field/${sourceTypeOrDatasetId}/${encodeURIComponent(sourceIdOrFieldName)}`;
@@ -89,7 +88,7 @@ export const tagsApi = {
       url = `/tags/field/${sourceTypeOrDatasetId}/${sourceIdOrFieldName}/${encodeURIComponent(fieldNameOrMetadata as string)}`;
       metadata = metadataOrUndefined;
     }
-    
+
     const response = await apiClient.put<ApiResponse<any>>(url, metadata);
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to update field metadata');
@@ -105,7 +104,7 @@ export const tagsApi = {
   ): Promise<void> {
     let url: string;
     let tags: Array<{ key: string; value: string }>;
-    
+
     if (Array.isArray(fieldNameOrTags)) {
       // Legacy call: addFieldTags(datasetId, fieldName, tags)
       url = `/tags/field/${sourceTypeOrDatasetId}/${encodeURIComponent(sourceIdOrFieldName)}/tags`;
@@ -115,7 +114,7 @@ export const tagsApi = {
       url = `/tags/field/${sourceTypeOrDatasetId}/${sourceIdOrFieldName}/${encodeURIComponent(fieldNameOrTags)}/tags`;
       tags = tagsOrUndefined!;
     }
-    
+
     const response = await apiClient.post<ApiResponse<any>>(url, { tags });
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to add field tags');
@@ -130,7 +129,7 @@ export const tagsApi = {
   ): Promise<void> {
     let url: string;
     let tagKeys: string[];
-    
+
     if (Array.isArray(fieldNameOrTagKeys)) {
       // Legacy call: removeFieldTags(datasetId, fieldName, tagKeys)
       url = `/tags/field/${sourceTypeOrDatasetId}/${encodeURIComponent(sourceIdOrFieldName)}/tags`;
@@ -140,7 +139,7 @@ export const tagsApi = {
       url = `/tags/field/${sourceTypeOrDatasetId}/${sourceIdOrFieldName}/${encodeURIComponent(fieldNameOrTagKeys)}/tags`;
       tagKeys = tagKeysOrUndefined!;
     }
-    
+
     const response = await apiClient.delete<ApiResponse<any>>(url, { data: { tagKeys } });
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to remove field tags');
@@ -152,7 +151,7 @@ export const tagsApi = {
     sourceIdOrUndefined?: string
   ): Promise<any[]> {
     let url: string;
-    
+
     if (sourceIdOrUndefined === undefined) {
       // Legacy call: getAllFieldsMetadata(datasetId)
       url = `/tags/field/dataset/${sourceTypeOrDatasetId}/all`;
@@ -160,7 +159,7 @@ export const tagsApi = {
       // New call: getAllFieldsMetadata(sourceType, sourceId)
       url = `/tags/field/${sourceTypeOrDatasetId}/${sourceIdOrUndefined}/all`;
     }
-    
+
     const response = await apiClient.get<ApiResponse<any[]>>(url);
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to fetch fields metadata');
@@ -169,10 +168,7 @@ export const tagsApi = {
   },
 
   async searchFieldsByTags(tags: Array<{ key: string; value?: string }>): Promise<any[]> {
-    const response = await apiClient.post<ApiResponse<any[]>>(
-      '/tags/field/search',
-      { tags }
-    );
+    const response = await apiClient.post<ApiResponse<any[]>>('/tags/field/search', { tags });
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to search fields');
     }

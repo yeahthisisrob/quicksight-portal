@@ -1,18 +1,18 @@
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  CircularProgress,
   Alert,
   Box,
-  Typography,
+  Button,
   Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Typography,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { useCallback, useState } from 'react';
@@ -20,7 +20,7 @@ import { useCallback, useState } from 'react';
 import { JobFailureList } from '@/entities/job';
 import { resolveUserName, type UserLike } from '@/entities/user';
 
-import { useGroupMembershipJob, type MembershipOutcome } from '../lib/useGroupMembershipJob';
+import { type MembershipOutcome, useGroupMembershipJob } from '../lib/useGroupMembershipJob';
 
 const MAX_USER_CHIPS = 10;
 
@@ -49,11 +49,11 @@ export default function RemoveFromGroupDialog({
   }, [onClose]);
 
   const handleSettled = useCallback(
-    (outcome: MembershipOutcome) => {
-      if (outcome.succeeded > 0) {
+    (settled: MembershipOutcome) => {
+      if (settled.succeeded > 0) {
         onComplete();
       }
-      if (outcome.ok) {
+      if (settled.ok) {
         closeAndReset();
       }
     },
@@ -63,11 +63,12 @@ export default function RemoveFromGroupDialog({
   const { run, reset, isRunning, outcome } = useGroupMembershipJob({ onSettled: handleSettled });
 
   // Get common groups across all selected users
-  const commonGroups = selectedUsers.length > 0
-    ? selectedUsers[0].groups.filter(group =>
-        selectedUsers.every(user => user.groups.includes(group))
-      )
-    : [];
+  const commonGroups =
+    selectedUsers.length > 0
+      ? selectedUsers[0].groups.filter((group) =>
+          selectedUsers.every((user) => user.groups.includes(group))
+        )
+      : [];
 
   const handleSubmit = () => {
     if (!selectedGroup) {
@@ -90,9 +91,7 @@ export default function RemoveFromGroupDialog({
       <DialogTitle>Remove Users from Group</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-          <Alert severity="info">
-            Removing {pluralUsers(selectedUsers.length)} from a group
-          </Alert>
+          <Alert severity="info">Removing {pluralUsers(selectedUsers.length)} from a group</Alert>
 
           {showFailures && (
             <JobFailureList
@@ -154,9 +153,7 @@ export default function RemoveFromGroupDialog({
           </FormControl>
 
           {commonGroups.length === 0 && (
-            <Alert severity="warning">
-              The selected users don't share any common groups.
-            </Alert>
+            <Alert severity="warning">The selected users don't share any common groups.</Alert>
           )}
         </Box>
       </DialogContent>
@@ -170,7 +167,13 @@ export default function RemoveFromGroupDialog({
           color="error"
           disabled={!selectedGroup || isRunning || commonGroups.length === 0}
         >
-          {isRunning ? <CircularProgress size={24} /> : showFailures ? 'Retry' : 'Remove from Group'}
+          {isRunning ? (
+            <CircularProgress size={24} />
+          ) : showFailures ? (
+            'Retry'
+          ) : (
+            'Remove from Group'
+          )}
         </Button>
       </DialogActions>
     </Dialog>

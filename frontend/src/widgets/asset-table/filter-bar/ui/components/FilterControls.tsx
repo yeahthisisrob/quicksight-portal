@@ -1,63 +1,62 @@
 import {
-  FilterList,
-  Clear,
-  LocalOffer,
-  Add,
-  Remove,
-  Schedule,
-  Error as ErrorIcon,
-  CheckCircle,
-  Dashboard as DashboardIcon,
-  Folder as FolderIcon,
   Timeline as ActivityIcon,
+  Add,
+  Bolt as BoltIcon,
+  CheckCircle,
+  Clear,
+  Dashboard as DashboardIcon,
+  Error as ErrorIcon,
+  FilterList,
+  Folder as FolderIcon,
+  Group as GroupIcon,
+  Hub as HubIcon,
+  LocalOffer,
   Block as NoActivityIcon,
   Person as PersonIcon,
-  Group as GroupIcon,
+  Remove,
+  Schedule,
   Security as SecurityIcon,
   Storage as StorageIcon,
-  Hub as HubIcon,
-  Bolt as BoltIcon,
 } from '@mui/icons-material';
 import {
-  Box,
   Autocomplete,
-  TextField,
-  Stack,
-  Typography,
+  Box,
   IconButton,
-  Tooltip,
-  ToggleButtonGroup,
+  Stack,
+  TextField,
   ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
+  Typography,
 } from '@mui/material';
-import React from 'react';
+import type React from 'react';
 
 import { colors } from '@/shared/design-system/theme';
 
-import { ASSET_KEY, getAssetConfig } from './constants';
-import { CountChip } from './shared';
 import { DATE_FIELD_OPTIONS, DATE_RANGE_OPTIONS } from '../../lib/constants';
-
 import type {
-  DateFilterState,
+  ActivityFilterState,
+  AssetFilter,
+  AssetOption,
   DateFieldOption,
+  DateFilterState,
   DateRangeOption,
   ErrorFilterState,
-  ActivityFilterState,
-  SmusFilterState,
-  ImportModeFilterState,
-  GroupMembershipFilterState,
-  PermissionsFilterState,
-  GroupOption,
-  RoleOption,
-  SourceTypeOption,
-  UserAccessOption,
-  TagOption,
-  TagFilter,
-  FolderOption,
   FolderFilter,
-  AssetOption,
-  AssetFilter,
+  FolderOption,
+  GroupMembershipFilterState,
+  GroupOption,
+  ImportModeFilterState,
+  PermissionsFilterState,
+  RoleOption,
+  SmusFilterState,
+  SourceTypeOption,
+  TagFilter,
+  TagOption,
+  UserAccessOption,
 } from '../../lib/types';
+import { ASSET_KEY, getAssetConfig } from './constants';
+import { CountChip } from './shared';
 
 // ============================================================================
 // Types
@@ -187,7 +186,8 @@ const DateFilterRow: React.FC<DateFilterRowProps> = ({
         size="small"
         value={fieldOptions.find((f) => f.value === dateFilter.field) || fieldOptions[0]}
         onChange={(_, newValue) =>
-          newValue && onDateFilterChange({ ...dateFilter, field: newValue.value as DateFieldOption })
+          newValue &&
+          onDateFilterChange({ ...dateFilter, field: newValue.value as DateFieldOption })
         }
         options={fieldOptions}
         getOptionLabel={(option) => option.label}
@@ -197,9 +197,12 @@ const DateFilterRow: React.FC<DateFilterRowProps> = ({
       <Autocomplete
         sx={{ minWidth: 160 }}
         size="small"
-        value={DATE_RANGE_OPTIONS.find((r) => r.value === dateFilter.range) || DATE_RANGE_OPTIONS[0]}
+        value={
+          DATE_RANGE_OPTIONS.find((r) => r.value === dateFilter.range) || DATE_RANGE_OPTIONS[0]
+        }
         onChange={(_, newValue) =>
-          newValue && onDateFilterChange({ ...dateFilter, range: newValue.value as DateRangeOption })
+          newValue &&
+          onDateFilterChange({ ...dateFilter, range: newValue.value as DateRangeOption })
         }
         options={DATE_RANGE_OPTIONS}
         getOptionLabel={(option) => option.label}
@@ -460,7 +463,12 @@ const AssetAutocomplete: React.FC<AssetAutocompleteProps> = ({
     getOptionLabel={(option) => option.name}
     disabled={isLoading}
     renderInput={(params) => (
-      <TextField {...params} label="Select Asset" placeholder="Search assets..." variant="outlined" />
+      <TextField
+        {...params}
+        label="Select Asset"
+        placeholder="Search assets..."
+        variant="outlined"
+      />
     )}
     renderOption={(props, option) => {
       const { key, ...otherProps } = props as any;
@@ -475,12 +483,18 @@ const AssetAutocomplete: React.FC<AssetAutocompleteProps> = ({
               <Typography variant="body2" noWrap>
                 {option.name}
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ textTransform: 'capitalize' }}
+              >
                 {option.type}
               </Typography>
             </Box>
             <Stack direction="row" spacing={0.5}>
-              {option.fieldCount !== undefined && <CountChip count={option.fieldCount} label="fields" />}
+              {option.fieldCount !== undefined && (
+                <CountChip count={option.fieldCount} label="fields" />
+              )}
               {isSelected && <CountChip count={0} label="selected" color="primary" />}
             </Stack>
           </Stack>
@@ -562,10 +576,19 @@ interface UserFiltersSectionProps {
 }
 
 const UserFiltersSection: React.FC<UserFiltersSectionProps> = ({
-  enableRoleFiltering, availableRoles, selectedRoles, onSelectedRolesChange,
-  enablePermissionsFiltering, permissionsFilter, onPermissionsFilterChange,
-  enableGroupFiltering, availableGroups, groupMembershipFilter,
-  onGroupMembershipFilterChange, selectedGroups, onSelectedGroupsChange,
+  enableRoleFiltering,
+  availableRoles,
+  selectedRoles,
+  onSelectedRolesChange,
+  enablePermissionsFiltering,
+  permissionsFilter,
+  onPermissionsFilterChange,
+  enableGroupFiltering,
+  availableGroups,
+  groupMembershipFilter,
+  onGroupMembershipFilterChange,
+  selectedGroups,
+  onSelectedGroupsChange,
 }) => (
   <>
     {/* Role Filter Row */}
@@ -585,7 +608,12 @@ const UserFiltersSection: React.FC<UserFiltersSectionProps> = ({
           getOptionLabel={(option) => option.value}
           disableCloseOnSelect
           renderInput={(params) => (
-            <TextField {...params} label="Filter by Role" placeholder="Select roles..." variant="outlined" />
+            <TextField
+              {...params}
+              label="Filter by Role"
+              placeholder="Select roles..."
+              variant="outlined"
+            />
           )}
           renderOption={(props, option) => {
             const { key, ...otherProps } = props as any;
@@ -667,7 +695,12 @@ const UserFiltersSection: React.FC<UserFiltersSectionProps> = ({
           getOptionLabel={(option) => option.value}
           disableCloseOnSelect
           renderInput={(params) => (
-            <TextField {...params} label="Filter by Group" placeholder="Select groups..." variant="outlined" />
+            <TextField
+              {...params}
+              label="Filter by Group"
+              placeholder="Select groups..."
+              variant="outlined"
+            />
           )}
           renderOption={(props, option) => {
             const { key, ...otherProps } = props as any;
@@ -914,40 +947,47 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
         </Stack>
       )}
 
-      {enableSourceTypeFiltering && availableSourceTypes.length > 0 && onSelectedSourceTypesChange && (
-        <Stack direction="row" spacing={2} alignItems="center">
-          <StorageIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />
-          <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
-            Data Source Type:
-          </Typography>
-          <Autocomplete
-            multiple
-            sx={{ minWidth: 300 }}
-            size="small"
-            value={availableSourceTypes.filter((t) => selectedSourceTypes.includes(t.value))}
-            onChange={(_, newValue) => onSelectedSourceTypesChange(newValue.map((v) => v.value))}
-            options={availableSourceTypes}
-            getOptionLabel={(option) => option.value}
-            disableCloseOnSelect
-            renderInput={(params) => (
-              <TextField {...params} label="Filter by Source Type" placeholder="Select types..." variant="outlined" />
-            )}
-            renderOption={(props, option) => {
-              const { key, ...otherProps } = props as any;
-              return (
-                <Box component="li" key={key} {...otherProps}>
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
-                    <Typography variant="body2" sx={{ flex: 1 }}>
-                      {option.value}
-                    </Typography>
-                    <CountChip count={option.count} label="assets" />
-                  </Stack>
-                </Box>
-              );
-            }}
-          />
-        </Stack>
-      )}
+      {enableSourceTypeFiltering &&
+        availableSourceTypes.length > 0 &&
+        onSelectedSourceTypesChange && (
+          <Stack direction="row" spacing={2} alignItems="center">
+            <StorageIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />
+            <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
+              Data Source Type:
+            </Typography>
+            <Autocomplete
+              multiple
+              sx={{ minWidth: 300 }}
+              size="small"
+              value={availableSourceTypes.filter((t) => selectedSourceTypes.includes(t.value))}
+              onChange={(_, newValue) => onSelectedSourceTypesChange(newValue.map((v) => v.value))}
+              options={availableSourceTypes}
+              getOptionLabel={(option) => option.value}
+              disableCloseOnSelect
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Filter by Source Type"
+                  placeholder="Select types..."
+                  variant="outlined"
+                />
+              )}
+              renderOption={(props, option) => {
+                const { key, ...otherProps } = props as any;
+                return (
+                  <Box component="li" key={key} {...otherProps}>
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+                      <Typography variant="body2" sx={{ flex: 1 }}>
+                        {option.value}
+                      </Typography>
+                      <CountChip count={option.count} label="assets" />
+                    </Stack>
+                  </Box>
+                );
+              }}
+            />
+          </Stack>
+        )}
 
       {/* User-specific Filters (Role, Permissions, Groups) */}
       <UserFiltersSection

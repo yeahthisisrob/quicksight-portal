@@ -1,7 +1,7 @@
 /**
  * Reusable StatCard component for displaying metrics
  */
-import { Card, CardContent, Typography, Box, alpha } from '@mui/material';
+import { alpha, Box, Card, CardContent, Typography } from '@mui/material';
 
 import { colors, spacing } from '@/shared/design-system/theme';
 
@@ -15,10 +15,10 @@ interface StatCardProps {
 
 export function StatCard({ title, value, icon, color, subtitle }: StatCardProps) {
   return (
-    <Card 
-      sx={{ 
-        height: '100%', 
-        position: 'relative', 
+    <Card
+      sx={{
+        height: '100%',
+        position: 'relative',
         overflow: 'visible',
         borderRadius: `${spacing.sm / 8}px`,
         border: `1px solid ${colors.neutral[200]}`,
@@ -48,11 +48,11 @@ export function StatCard({ title, value, icon, color, subtitle }: StatCardProps)
             {icon}
           </Box>
           <Box sx={{ flexGrow: 1 }}>
-            <Typography 
-              color="text.secondary" 
-              variant="caption" 
+            <Typography
+              color="text.secondary"
+              variant="caption"
               display="block"
-              sx={{ 
+              sx={{
                 fontSize: '0.75rem',
                 fontWeight: 500,
                 textTransform: 'uppercase',
@@ -62,9 +62,9 @@ export function StatCard({ title, value, icon, color, subtitle }: StatCardProps)
             >
               {title}
             </Typography>
-            <Typography 
-              variant="h5" 
-              sx={{ 
+            <Typography
+              variant="h5"
+              sx={{
                 fontWeight: 700,
                 background: `linear-gradient(135deg, ${color} 0%, ${alpha(color, 0.8)} 100%)`,
                 backgroundClip: 'text',
@@ -75,9 +75,9 @@ export function StatCard({ title, value, icon, color, subtitle }: StatCardProps)
               {typeof value === 'number' ? value.toLocaleString() : value}
             </Typography>
             {subtitle && (
-              <Typography 
-                variant="caption" 
-                sx={{ 
+              <Typography
+                variant="caption"
+                sx={{
                   color: colors.neutral[600],
                   fontSize: '0.75rem',
                 }}

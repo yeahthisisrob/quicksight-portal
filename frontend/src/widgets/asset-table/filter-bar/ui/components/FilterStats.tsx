@@ -1,5 +1,5 @@
 import { Typography } from '@mui/material';
-import React from 'react';
+import type React from 'react';
 
 import { colors, spacing } from '@/shared/design-system/theme';
 

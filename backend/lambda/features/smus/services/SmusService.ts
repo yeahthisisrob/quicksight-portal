@@ -9,12 +9,12 @@
  * plus single-flight keeps page renders from hammering the API while staying
  * fresh enough to be truthful.
  */
-import { type CatalogListing, type DataZoneAdapter } from '../../../adapters/aws/DataZoneAdapter';
+import type { CatalogListing, DataZoneAdapter } from '../../../adapters/aws/DataZoneAdapter';
 import { getSmusConfig, type SmusConfig } from '../../../shared/config/smusConfig';
 import { CACHE_TTL } from '../../../shared/constants/timeConstants';
-import { type CacheService } from '../../../shared/services/cache/CacheService';
+import type { CacheService } from '../../../shared/services/cache/CacheService';
 import { logger } from '../../../shared/utils/logger';
-import { type SmusDatasetLink, type SmusMatchType, type SmusStatus } from '../types';
+import type { SmusDatasetLink, SmusMatchType, SmusStatus } from '../types';
 
 /** Link map freshness window — catalog membership changes slowly. */
 const LINK_MAP_TTL_MS = CACHE_TTL.SHORT;
@@ -47,7 +47,7 @@ export class SmusService {
 
   private readonly config: SmusConfig;
 
-  constructor(
+  public constructor(
     private readonly cacheService: CacheService,
     private readonly dataZoneAdapter: DataZoneAdapter | null,
     config?: SmusConfig

@@ -1,10 +1,9 @@
 import { Box } from '@mui/material';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 
-import { TimelineFilterBar, type TimelineDateRange } from './TimelineFilterBar';
-
 import type { TimelineFilters } from '../hooks/useActivityTimeline';
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import { type TimelineDateRange, TimelineFilterBar } from './TimelineFilterBar';
 
 const meta: Meta<typeof TimelineFilterBar> = {
   title: 'Features/Activity/TimelineFilterBar',

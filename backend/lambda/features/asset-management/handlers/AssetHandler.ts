@@ -1,17 +1,17 @@
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../../../shared/auth';
-import { STATUS_CODES, PAGINATION } from '../../../shared/constants';
+import { PAGINATION, STATUS_CODES } from '../../../shared/constants';
 import { S3Service } from '../../../shared/services/aws/S3Service';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
 import { jobFactory } from '../../../shared/services/jobs/JobFactory';
 import { ASSET_TYPES, ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
-import { successResponse, errorResponse, createResponse } from '../../../shared/utils/cors';
+import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { PermissionsService } from '../../organization/services/PermissionsService';
 import { AssetService } from '../services/AssetService';
 import { isRenameableAssetType, RenameService } from '../services/RenameService';
-import { type AssetListRequest } from '../types';
+import type { AssetListRequest } from '../types';
 
 export class AssetHandler {
   private readonly accountId: string;
@@ -20,7 +20,7 @@ export class AssetHandler {
   private readonly bulkOperationsService: BulkOperationsService;
   private readonly s3Service: S3Service;
 
-  constructor() {
+  public constructor() {
     this.accountId = process.env.AWS_ACCOUNT_ID || '';
     this.assetService = new AssetService(this.accountId);
     this.bucketName = process.env.BUCKET_NAME || `quicksight-metadata-bucket-${this.accountId}`;
@@ -147,7 +147,7 @@ export class AssetHandler {
 
       // Extract asset type from path: /assets/{assetType}/export
       const pathMatch = event.path.match(/\/assets\/([^/]+)\/export/);
-      if (!pathMatch || !pathMatch[1]) {
+      if (!pathMatch?.[1]) {
         return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Invalid path format');
       }
 
@@ -389,8 +389,8 @@ export class AssetHandler {
       const params = event.queryStringParameters || {};
 
       // Extract pagination and filtering parameters
-      const page = parseInt(params.page || '1');
-      const pageSize = parseInt(params.pageSize || '50');
+      const page = parseInt(params.page || '1', 10);
+      const pageSize = parseInt(params.pageSize || '50', 10);
       const search = params.search || '';
       const assetType = params.type as any;
       const sortBy = params.sortBy || 'archivedDate';
@@ -547,8 +547,8 @@ export class AssetHandler {
     params: Record<string, string | undefined> | null
   ): AssetListRequest & { page: number } {
     const queryParams = params || {};
-    const page = parseInt(queryParams.page || '1');
-    const pageSize = parseInt(queryParams.pageSize || String(PAGINATION.DEFAULT_PAGE_SIZE));
+    const page = parseInt(queryParams.page || '1', 10);
+    const pageSize = parseInt(queryParams.pageSize || String(PAGINATION.DEFAULT_PAGE_SIZE), 10);
 
     return {
       page,
@@ -560,18 +560,26 @@ export class AssetHandler {
       search: queryParams.search,
       filters: queryParams.filters ? JSON.parse(queryParams.filters) : undefined,
       dateField: (queryParams.dateField || 'lastUpdatedTime') as
-        'lastUpdatedTime' | 'createdTime' | 'lastActivity',
+        | 'lastUpdatedTime'
+        | 'createdTime'
+        | 'lastActivity',
       dateRange: (queryParams.dateRange || 'all') as 'all' | '24h' | '7d' | '30d' | '90d',
       includeTags: queryParams.includeTags ? JSON.parse(queryParams.includeTags) : undefined,
       excludeTags: queryParams.excludeTags ? JSON.parse(queryParams.excludeTags) : undefined,
       errorFilter: (queryParams.errorFilter || 'all') as 'all' | 'with_errors' | 'without_errors',
       activityFilter: (queryParams.activityFilter || 'all') as
-        'all' | 'with_activity' | 'without_activity',
+        | 'all'
+        | 'with_activity'
+        | 'without_activity',
       roleFilter: queryParams.roleFilter ? JSON.parse(queryParams.roleFilter) : undefined,
       permissionsFilter: (queryParams.permissionsFilter || 'all') as
-        'all' | 'with_permissions' | 'without_permissions',
+        | 'all'
+        | 'with_permissions'
+        | 'without_permissions',
       groupMembershipFilter: (queryParams.groupMembershipFilter || 'all') as
-        'all' | 'in_groups' | 'not_in_groups',
+        | 'all'
+        | 'in_groups'
+        | 'not_in_groups',
       groupFilter: queryParams.groupFilter ? JSON.parse(queryParams.groupFilter) : undefined,
       accessUsers: queryParams.accessUsers ? JSON.parse(queryParams.accessUsers) : undefined,
       includeFolders: queryParams.includeFolders

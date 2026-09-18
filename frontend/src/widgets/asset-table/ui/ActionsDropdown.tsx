@@ -1,8 +1,8 @@
 import {
-  DriveFileRenameOutline as RenameIcon,
   Hub as HubIcon,
   MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
+  DriveFileRenameOutline as RenameIcon,
   Timeline as TimelineIcon,
 } from '@mui/icons-material';
 import { IconButton, Menu, MenuItem } from '@mui/material';
@@ -57,7 +57,7 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
       <IconButton
         size="small"
         onClick={handleClick}
-        sx={{ 
+        sx={{
           '&:hover': { backgroundColor: 'action.hover' },
           color: 'text.secondary',
           padding: '4px',
@@ -72,14 +72,20 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <MenuItem onClick={() => handleAction(() => handlers.navigate(`/assets/${assetType}s/${asset.id}`))}>
+        <MenuItem
+          onClick={() => handleAction(() => handlers.navigate(`/assets/${assetType}s/${asset.id}`))}
+        >
           View Details
         </MenuItem>
         {!['user', 'group'].includes(assetType) && (
-          <MenuItem onClick={() => handleAction(() => {
-            const url = getQuickSightConsoleUrl(assetType, asset.id);
-            if (url) window.open(url, '_blank');
-          })}>
+          <MenuItem
+            onClick={() =>
+              handleAction(() => {
+                const url = getQuickSightConsoleUrl(assetType, asset.id);
+                if (url) window.open(url, '_blank');
+              })
+            }
+          >
             <OpenInNewIcon fontSize="small" sx={{ mr: 1 }} />
             Open in QuickSight
           </MenuItem>
@@ -91,12 +97,16 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
           </MenuItem>
         )}
         <MenuItem
-          onClick={() => handleAction(() => handlers.navigate(`/assets/${assetType}s/${asset.id}/timeline`))}
+          onClick={() =>
+            handleAction(() => handlers.navigate(`/assets/${assetType}s/${asset.id}/timeline`))
+          }
         >
           <TimelineIcon fontSize="small" sx={{ mr: 1 }} />
           View Timeline
         </MenuItem>
-        <MenuItem onClick={() => handleAction(() => handlers.onJsonViewerClick?.(asset, assetType))}>
+        <MenuItem
+          onClick={() => handleAction(() => handlers.onJsonViewerClick?.(asset, assetType))}
+        >
           View JSON
         </MenuItem>
         {RENAMEABLE_TYPES.includes(assetType) && (

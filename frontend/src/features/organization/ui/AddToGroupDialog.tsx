@@ -1,26 +1,26 @@
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  CircularProgress,
   Alert,
   AlertTitle,
   Box,
-  Typography,
+  Button,
   Chip,
-  Stack,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
-  useTheme,
+  FormControl,
+  InputLabel,
   LinearProgress,
+  MenuItem,
+  Select,
+  Stack,
+  Typography,
+  useTheme,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { JobFailureList } from '@/entities/job';
 import { resolveUserName, type UserLike } from '@/entities/user';
@@ -28,7 +28,7 @@ import { resolveUserName, type UserLike } from '@/entities/user';
 import { assetsApi } from '@/shared/api';
 import { assetIcons } from '@/shared/ui/icons';
 
-import { useGroupMembershipJob, type MembershipOutcome } from '../lib/useGroupMembershipJob';
+import { type MembershipOutcome, useGroupMembershipJob } from '../lib/useGroupMembershipJob';
 
 const GroupIcon = assetIcons.group;
 const UserIcon = assetIcons.user;
@@ -70,12 +70,12 @@ export default function AddToGroupDialog({
   }, [onClose]);
 
   const handleSettled = useCallback(
-    (outcome: MembershipOutcome) => {
-      if (outcome.succeeded > 0) {
+    (settled: MembershipOutcome) => {
+      if (settled.succeeded > 0) {
         onComplete();
       }
       // Partial / total failure keeps the dialog open so the reasons stay visible
-      if (outcome.ok) {
+      if (settled.ok) {
         closeAndReset();
       }
     },
@@ -135,7 +135,7 @@ export default function AddToGroupDialog({
       PaperProps={{
         sx: {
           borderRadius: 2,
-        }
+        },
       }}
     >
       <DialogTitle sx={{ pb: 1 }}>
@@ -186,9 +186,7 @@ export default function AddToGroupDialog({
           {!isRunning && (
             <>
               <Alert severity="info" icon={<UserIcon />}>
-                <AlertTitle>
-                  Adding {pluralUsers(selectedUsers.length)} to group
-                </AlertTitle>
+                <AlertTitle>Adding {pluralUsers(selectedUsers.length)} to group</AlertTitle>
                 Select a group below to add the selected users as members.
               </Alert>
 
@@ -198,7 +196,7 @@ export default function AddToGroupDialog({
                   sx={{
                     mb: 1,
                     color: theme.palette.text.secondary,
-                    fontWeight: 600
+                    fontWeight: 600,
                   }}
                 >
                   Selected Users
@@ -232,7 +230,7 @@ export default function AddToGroupDialog({
                                 component="span"
                                 sx={{
                                   display: 'block',
-                                  color: theme.palette.text.secondary
+                                  color: theme.palette.text.secondary,
                                 }}
                               >
                                 {user.email}
@@ -248,7 +246,7 @@ export default function AddToGroupDialog({
                             display: 'block',
                             whiteSpace: 'normal',
                             py: 0.5,
-                          }
+                          },
                         }}
                       />
                     );
@@ -277,7 +275,7 @@ export default function AddToGroupDialog({
                       display: 'flex',
                       alignItems: 'center',
                       gap: 1,
-                    }
+                    },
                   }}
                 >
                   {loading ? (
@@ -297,9 +295,7 @@ export default function AddToGroupDialog({
                         <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
                           <GroupIcon sx={{ mr: 1, color: theme.palette.text.secondary }} />
                           <Box sx={{ flexGrow: 1 }}>
-                            <Typography variant="body1">
-                              {group.name}
-                            </Typography>
+                            <Typography variant="body1">{group.name}</Typography>
                             {group.description && (
                               <Typography variant="caption" color="text.secondary">
                                 {group.description}
@@ -328,11 +324,7 @@ export default function AddToGroupDialog({
       <Divider />
 
       <DialogActions sx={{ p: 2 }}>
-        <Button
-          onClick={handleClose}
-          disabled={isRunning}
-          sx={{ minWidth: 100 }}
-        >
+        <Button onClick={handleClose} disabled={isRunning} sx={{ minWidth: 100 }}>
           {showFailures ? 'Close' : 'Cancel'}
         </Button>
         {!isRunning && (

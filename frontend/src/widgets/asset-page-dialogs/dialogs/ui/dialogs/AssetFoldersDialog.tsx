@@ -4,24 +4,24 @@ import {
   FolderOpen as FolderOpenIcon,
 } from '@mui/icons-material';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  Box,
-  Typography,
-  IconButton,
-  Chip,
-  Paper,
   alpha,
+  Box,
+  Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  IconButton,
   List,
   ListItem,
   ListItemIcon,
   ListItemText,
-  Divider,
+  Paper,
+  Typography,
 } from '@mui/material';
 import React from 'react';
 
-import { borderRadius, typography, colors, spacing } from '@/shared/design-system/theme';
+import { borderRadius, colors, spacing, typography } from '@/shared/design-system/theme';
 import { TypedChip } from '@/shared/ui';
 
 interface Folder {
@@ -46,16 +46,16 @@ export default function AssetFoldersDialog({
   folders,
 }: AssetFoldersDialogProps) {
   return (
-    <Dialog 
-      open={open} 
-      onClose={onClose} 
-      maxWidth="sm" 
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
       fullWidth
       PaperProps={{
         sx: {
           borderRadius: `${borderRadius.lg}px`,
           maxHeight: '80vh',
-        }
+        },
       }}
     >
       <DialogTitle sx={{ pb: 2 }}>
@@ -68,7 +68,7 @@ export default function AssetFoldersDialog({
               <Chip
                 label={assetType}
                 size="small"
-                sx={{ 
+                sx={{
                   fontWeight: typography.fontWeight.medium,
                   textTransform: 'capitalize',
                 }}
@@ -85,50 +85,54 @@ export default function AssetFoldersDialog({
           </Box>
         </Box>
       </DialogTitle>
-      
+
       <DialogContent sx={{ p: 3, pt: 0 }}>
         <Paper
           variant="outlined"
-          sx={{ 
+          sx={{
             borderRadius: `${borderRadius.md}px`,
             backgroundColor: folders.length > 0 ? alpha(colors.primary.light, 0.05) : 'transparent',
             border: `1px solid ${folders.length > 0 ? alpha(colors.primary.main, 0.2) : 'transparent'}`,
             overflow: 'hidden',
           }}
         >
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 1, 
-            px: spacing.md / 8,
-            py: 1.5,
-            backgroundColor: folders.length > 0 ? alpha(colors.primary.main, 0.05) : 'transparent',
-            borderBottom: folders.length > 0 ? `1px solid ${alpha(colors.primary.main, 0.1)}` : 'none',
-          }}>
-            <FolderOpenIcon sx={{ fontSize: 20, color: folders.length > 0 ? colors.primary.main : 'text.disabled' }} />
-            <Typography 
-              variant="subtitle1" 
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              px: spacing.md / 8,
+              py: 1.5,
+              backgroundColor:
+                folders.length > 0 ? alpha(colors.primary.main, 0.05) : 'transparent',
+              borderBottom:
+                folders.length > 0 ? `1px solid ${alpha(colors.primary.main, 0.1)}` : 'none',
+            }}
+          >
+            <FolderOpenIcon
+              sx={{
+                fontSize: 20,
+                color: folders.length > 0 ? colors.primary.main : 'text.disabled',
+              }}
+            />
+            <Typography
+              variant="subtitle1"
               fontWeight={typography.fontWeight.semibold}
               color={folders.length > 0 ? 'text.primary' : 'text.disabled'}
             >
               Folders
             </Typography>
             {folders.length > 0 && (
-              <TypedChip 
-                type="FOLDER"
-                count={folders.length}
-                showIcon={false}
-                size="small"
-              />
+              <TypedChip type="FOLDER" count={folders.length} showIcon={false} size="small" />
             )}
           </Box>
-          
+
           {folders.length === 0 ? (
-            <Typography 
-              variant="body2" 
-              color="text.secondary" 
-              sx={{ 
-                textAlign: 'center', 
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                textAlign: 'center',
                 py: 4,
                 px: 2,
               }}
@@ -158,8 +162,8 @@ export default function AssetFoldersDialog({
                         </Typography>
                       }
                       secondary={
-                        <Typography 
-                          variant="caption" 
+                        <Typography
+                          variant="caption"
                           color="text.secondary"
                           sx={{
                             fontFamily: 'monospace',
@@ -171,27 +175,30 @@ export default function AssetFoldersDialog({
                       }
                     />
                   </ListItem>
-                  {index < folders.length - 1 && (
-                    <Divider sx={{ mx: spacing.md / 8 }} />
-                  )}
+                  {index < folders.length - 1 && <Divider sx={{ mx: spacing.md / 8 }} />}
                 </React.Fragment>
               ))}
             </List>
           )}
         </Paper>
-        
+
         {folders.length > 0 && (
           <Box sx={{ mt: 2 }}>
-            <Typography 
-              variant="caption" 
+            <Typography
+              variant="caption"
               color="text.secondary"
               sx={{ display: 'block', textAlign: 'center' }}
             >
-              {assetType === 'dashboard' ? 'Dashboards' : 
-               assetType === 'analysis' ? 'Analyses' :
-               assetType === 'dataset' ? 'Datasets' :
-               assetType === 'datasource' ? 'Data sources' :
-               'Assets'} can be organized into folders for better management
+              {assetType === 'dashboard'
+                ? 'Dashboards'
+                : assetType === 'analysis'
+                  ? 'Analyses'
+                  : assetType === 'dataset'
+                    ? 'Datasets'
+                    : assetType === 'datasource'
+                      ? 'Data sources'
+                      : 'Assets'}{' '}
+              can be organized into folders for better management
             </Typography>
           </Box>
         )}

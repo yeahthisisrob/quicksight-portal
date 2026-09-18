@@ -1,17 +1,17 @@
 import CloseIcon from '@mui/icons-material/Close';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  Typography,
   Box,
-  Paper,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   IconButton,
+  Paper,
+  Typography,
 } from '@mui/material';
-import React from 'react';
+import type React from 'react';
 
 import { functionCategories, getDocLink } from '@/shared/lib/functionCategories';
-import { getDependencyChain, CalculatedFieldForGraph } from '@/shared/lib/graphUtils';
+import { type CalculatedFieldForGraph, getDependencyChain } from '@/shared/lib/graphUtils';
 
 interface ExpressionGraphDialogProps {
   field: CalculatedFieldForGraph | null;
@@ -24,7 +24,7 @@ const wrapFunctionsWithLinks = (expression: string): React.ReactNode[] => {
   if (!expression || typeof expression !== 'string') {
     return [];
   }
-  
+
   const functionPattern = /\b(\w+)\s*(\()/g;
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
@@ -51,13 +51,13 @@ const wrapFunctionsWithLinks = (expression: string): React.ReactNode[] => {
             target="_blank"
             rel="noopener noreferrer"
             style={{
-              color: "#0073bb",
-              textDecoration: "none",
-              fontWeight: "bold",
+              color: '#0073bb',
+              textDecoration: 'none',
+              fontWeight: 'bold',
             }}
           >
             {funcName}
-          </a>,
+          </a>
         );
       } else {
         parts.push(funcName);
@@ -77,34 +77,31 @@ const wrapFunctionsWithLinks = (expression: string): React.ReactNode[] => {
   return parts;
 };
 
-const DependencyItem: React.FC<{ item: any; isLast: boolean }> = ({
-  item,
-  isLast,
-}) => (
+const DependencyItem: React.FC<{ item: any; isLast: boolean }> = ({ item, isLast }) => (
   <Box
     sx={{
-      display: "flex",
-      flexDirection: "column",
+      display: 'flex',
+      flexDirection: 'column',
       ml: item.level * 3,
       mb: isLast ? 0 : 2,
-      position: "relative",
-      "&::before": {
+      position: 'relative',
+      '&::before': {
         content: '""',
-        position: "absolute",
-        left: "-16px",
-        top: "50%",
-        width: "16px",
-        height: "1px",
-        bgcolor: "primary.light",
+        position: 'absolute',
+        left: '-16px',
+        top: '50%',
+        width: '16px',
+        height: '1px',
+        bgcolor: 'primary.light',
       },
-      "&::after": {
+      '&::after': {
         content: '""',
-        position: "absolute",
-        left: "-16px",
-        top: "0",
-        bottom: isLast ? "50%" : "0",
-        width: "1px",
-        bgcolor: "primary.light",
+        position: 'absolute',
+        left: '-16px',
+        top: '0',
+        bottom: isLast ? '50%' : '0',
+        width: '1px',
+        bgcolor: 'primary.light',
       },
     }}
   >
@@ -112,30 +109,25 @@ const DependencyItem: React.FC<{ item: any; isLast: boolean }> = ({
       elevation={3}
       sx={{
         p: 2,
-        width: "calc(100% - 16px)",
-        border: "1px solid",
-        borderColor: "primary.light",
-        borderRadius: "8px",
-        transition: "box-shadow 0.3s",
-        "&:hover": {
-          boxShadow: "0 0 10px rgba(0,0,0,0.1)",
+        width: 'calc(100% - 16px)',
+        border: '1px solid',
+        borderColor: 'primary.light',
+        borderRadius: '8px',
+        transition: 'box-shadow 0.3s',
+        '&:hover': {
+          boxShadow: '0 0 10px rgba(0,0,0,0.1)',
         },
       }}
     >
-      <Typography
-        variant="subtitle1"
-        fontWeight="bold"
-        color="primary.main"
-        gutterBottom
-      >
+      <Typography variant="subtitle1" fontWeight="bold" color="primary.main" gutterBottom>
         {item.alias}
       </Typography>
       <Typography
         variant="body2"
         sx={{
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-          overflowWrap: "break-word",
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          overflowWrap: 'break-word',
           fontFamily: 'monospace',
           fontSize: '0.875rem',
         }}
@@ -152,10 +144,7 @@ const ExpressionGraphDialog: React.FC<ExpressionGraphDialogProps> = ({
   onClose,
   allFields,
 }) => {
-  
-  const expressionChain = field && field.expression
-    ? getDependencyChain(field, allFields)
-    : [];
+  const expressionChain = field?.expression ? getDependencyChain(field, allFields) : [];
 
   return (
     <Dialog
@@ -165,10 +154,10 @@ const ExpressionGraphDialog: React.FC<ExpressionGraphDialogProps> = ({
       fullWidth
       PaperProps={{
         sx: {
-          borderRadius: "12px",
-          boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-          width: "100%",
-          maxWidth: "800px",
+          borderRadius: '12px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+          width: '100%',
+          maxWidth: '800px',
         },
       }}
     >
@@ -176,9 +165,9 @@ const ExpressionGraphDialog: React.FC<ExpressionGraphDialogProps> = ({
         sx={{
           m: 0,
           p: 3,
-          backgroundColor: "primary.main",
-          color: "white",
-          pr: "48px",
+          backgroundColor: 'primary.main',
+          color: 'white',
+          pr: '48px',
         }}
       >
         Expression Dependency Chain: {field?.fieldName}
@@ -186,12 +175,12 @@ const ExpressionGraphDialog: React.FC<ExpressionGraphDialogProps> = ({
           aria-label="close"
           onClick={onClose}
           sx={{
-            position: "absolute",
+            position: 'absolute',
             right: 8,
             top: 8,
-            color: "white",
-            "&:hover": {
-              backgroundColor: "rgba(255,255,255,0.1)",
+            color: 'white',
+            '&:hover': {
+              backgroundColor: 'rgba(255,255,255,0.1)',
             },
           }}
         >
@@ -202,12 +191,12 @@ const ExpressionGraphDialog: React.FC<ExpressionGraphDialogProps> = ({
         dividers
         sx={{
           p: 4,
-          backgroundColor: "#f5f5f5",
-          overflowX: "hidden",
+          backgroundColor: '#f5f5f5',
+          overflowX: 'hidden',
         }}
       >
-        {field && field.expression && expressionChain.length > 0 ? (
-          <Box sx={{ position: "relative", pl: 3, pr: 1 }}>
+        {field?.expression && expressionChain.length > 0 ? (
+          <Box sx={{ position: 'relative', pl: 3, pr: 1 }}>
             {expressionChain.map((item, index) => (
               <DependencyItem
                 key={`${item.alias}-${index}`}
@@ -218,7 +207,11 @@ const ExpressionGraphDialog: React.FC<ExpressionGraphDialogProps> = ({
           </Box>
         ) : (
           <Typography>
-            {!field ? 'No field selected.' : !field.expression ? 'No expression available for this field.' : 'No dependencies found for this calculated field.'}
+            {!field
+              ? 'No field selected.'
+              : !field.expression
+                ? 'No expression available for this field.'
+                : 'No dependencies found for this calculated field.'}
           </Typography>
         )}
       </DialogContent>

@@ -1,7 +1,7 @@
+import type { GridSortModel } from '@mui/x-data-grid';
+
 import { createMappingColumns } from '../columns/mappingColumns';
 import { CatalogDataGrid } from '../components';
-
-import type { GridSortModel } from '@mui/x-data-grid';
 
 interface MappingViewProps {
   data: any[];

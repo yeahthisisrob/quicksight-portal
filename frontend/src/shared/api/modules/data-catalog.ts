@@ -1,5 +1,5 @@
 import { api as apiClient } from '../client';
-import { ApiResponse } from '../types';
+import type { ApiResponse } from '../types';
 
 /**
  * Data Catalog API - handles field catalog and visual field mapping operations
@@ -30,9 +30,9 @@ export const dataCatalogApi = {
     includeAnalyses?: boolean; // Source scope: include the authoring (analyses) layer
   }): Promise<any> {
     try {
-      const response = await apiClient.get<ApiResponse<any>>('/data-catalog', { 
+      const response = await apiClient.get<ApiResponse<any>>('/data-catalog', {
         params,
-        timeout: 120000 // 2 minutes timeout for data catalog operations
+        timeout: 120000, // 2 minutes timeout for data catalog operations
       });
       if (!response.data.success) {
         throw new Error(response.data.error || 'Failed to fetch data catalog');
@@ -41,7 +41,9 @@ export const dataCatalogApi = {
     } catch (error: any) {
       // Handle timeout and gateway errors
       if (error.code === 'ECONNABORTED' || error.response?.status === 504) {
-        throw new Error('The data catalog request timed out. Try reducing the page size or simplifying the sort operation.');
+        throw new Error(
+          'The data catalog request timed out. Try reducing the page size or simplifying the sort operation.'
+        );
       }
       throw error;
     }
@@ -49,7 +51,10 @@ export const dataCatalogApi = {
 
   // Get available tags for filtering
   async getAvailableTags(): Promise<{ key: string; value: string; count: number }[]> {
-    const response = await apiClient.get<ApiResponse<{ key: string; value: string; count: number }[]>>('/data-catalog/tags');
+    const response =
+      await apiClient.get<ApiResponse<{ key: string; value: string; count: number }[]>>(
+        '/data-catalog/tags'
+      );
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to fetch available tags');
     }
@@ -57,8 +62,13 @@ export const dataCatalogApi = {
   },
 
   // Get available assets for filtering
-  async getAvailableAssets(): Promise<{ id: string; name: string; type: string; fieldCount: number }[]> {
-    const response = await apiClient.get<ApiResponse<{ id: string; name: string; type: string; fieldCount: number }[]>>('/data-catalog/assets');
+  async getAvailableAssets(): Promise<
+    { id: string; name: string; type: string; fieldCount: number }[]
+  > {
+    const response =
+      await apiClient.get<
+        ApiResponse<{ id: string; name: string; type: string; fieldCount: number }[]>
+      >('/data-catalog/assets');
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to fetch available assets');
     }
@@ -83,9 +93,9 @@ export const dataCatalogApi = {
     sortOrder?: 'asc' | 'desc';
   }): Promise<any> {
     try {
-      const response = await apiClient.get<ApiResponse<any>>('/data-catalog/visual-fields', { 
+      const response = await apiClient.get<ApiResponse<any>>('/data-catalog/visual-fields', {
         params,
-        timeout: 120000 // 2 minutes timeout for data catalog operations
+        timeout: 120000, // 2 minutes timeout for data catalog operations
       });
       if (!response.data.success) {
         throw new Error(response.data.error || 'Failed to fetch visual field catalog');
@@ -94,7 +104,9 @@ export const dataCatalogApi = {
     } catch (error: any) {
       // Handle timeout and gateway errors
       if (error.code === 'ECONNABORTED' || error.response?.status === 504) {
-        throw new Error('The visual field catalog request timed out. Try reducing the page size or simplifying the sort operation.');
+        throw new Error(
+          'The visual field catalog request timed out. Try reducing the page size or simplifying the sort operation.'
+        );
       }
       throw error;
     }
@@ -111,7 +123,9 @@ export const dataCatalogApi = {
 
   // Get visual field metadata
   async getVisualFieldMetadata(visualFieldId: string): Promise<any> {
-    const response = await apiClient.get<ApiResponse<any>>(`/data-catalog/visual-field/${encodeURIComponent(visualFieldId)}`);
+    const response = await apiClient.get<ApiResponse<any>>(
+      `/data-catalog/visual-field/${encodeURIComponent(visualFieldId)}`
+    );
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to fetch visual field metadata');
     }
@@ -120,7 +134,10 @@ export const dataCatalogApi = {
 
   // Update visual field metadata
   async updateVisualFieldMetadata(visualFieldId: string, metadata: any): Promise<any> {
-    const response = await apiClient.put<ApiResponse<any>>(`/data-catalog/visual-field/${encodeURIComponent(visualFieldId)}`, metadata);
+    const response = await apiClient.put<ApiResponse<any>>(
+      `/data-catalog/visual-field/${encodeURIComponent(visualFieldId)}`,
+      metadata
+    );
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to update visual field metadata');
     }

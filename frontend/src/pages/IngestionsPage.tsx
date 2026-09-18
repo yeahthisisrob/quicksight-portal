@@ -5,27 +5,48 @@ import {
   OpenInNew,
   Refresh,
 } from '@mui/icons-material';
-import { Alert, Box, Chip, IconButton, Menu, MenuItem, Tooltip, Typography, alpha } from '@mui/material';
+import {
+  Alert,
+  alpha,
+  Box,
+  Chip,
+  IconButton,
+  Menu,
+  MenuItem,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import type { components } from '@shared/generated/types';
 import { format } from 'date-fns';
 import { useSnackbar } from 'notistack';
-import { useState, useCallback } from 'react';
-
-import { EnhancedAssetTable, formatBytes, type  ColumnConfig,type  FetchAssetsOptions } from '@/widgets/asset-table';
+import { useCallback, useState } from 'react';
 
 import { formatDatasourceType } from '@/entities/field';
-import { formatDuration, INGESTION_ACTIVE_STATUSES, IngestionStatusChip } from '@/entities/ingestion';
+import {
+  formatDuration,
+  INGESTION_ACTIVE_STATUSES,
+  IngestionStatusChip,
+} from '@/entities/ingestion';
+import {
+  type ColumnConfig,
+  EnhancedAssetTable,
+  type FetchAssetsOptions,
+  formatBytes,
+} from '@/widgets/asset-table';
 
 import { ingestionsApi } from '@/shared/api';
 import { colors } from '@/shared/design-system/theme';
 import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 import { PageLayout } from '@/shared/ui';
 
-import type { components } from '@shared/generated/types';
-
 type Ingestion = components['schemas']['Ingestion'];
 type IngestionMetadata = components['schemas']['IngestionListResponse']['data']['metadata'];
 
-function IngestionActionsMenu({ ingestion, onViewDetails, onCancel }: {
+function IngestionActionsMenu({
+  ingestion,
+  onViewDetails,
+  onCancel,
+}: {
   ingestion: Ingestion;
   onViewDetails: (i: Ingestion) => void;
   onCancel: (i: Ingestion) => void;
@@ -38,7 +59,10 @@ function IngestionActionsMenu({ ingestion, onViewDetails, onCancel }: {
     <>
       <IconButton
         size="small"
-        onClick={(e) => { e.stopPropagation(); setAnchorEl(e.currentTarget); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          setAnchorEl(e.currentTarget);
+        }}
         sx={{ color: 'text.secondary', padding: '4px' }}
       >
         <MoreVertIcon fontSize="small" />
@@ -50,19 +74,31 @@ function IngestionActionsMenu({ ingestion, onViewDetails, onCancel }: {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <MenuItem onClick={() => { onViewDetails(ingestion); setAnchorEl(null); }}>
+        <MenuItem
+          onClick={() => {
+            onViewDetails(ingestion);
+            setAnchorEl(null);
+          }}
+        >
           View Details
         </MenuItem>
-        <MenuItem onClick={() => {
-          const url = getQuickSightConsoleUrl('dataset', ingestion.datasetId);
-          if (url) window.open(url, '_blank');
-          setAnchorEl(null);
-        }}>
+        <MenuItem
+          onClick={() => {
+            const url = getQuickSightConsoleUrl('dataset', ingestion.datasetId);
+            if (url) window.open(url, '_blank');
+            setAnchorEl(null);
+          }}
+        >
           <OpenInNew sx={{ fontSize: 16, mr: 1 }} />
           Open in QuickSight
         </MenuItem>
         {canCancel && (
-          <MenuItem onClick={() => { onCancel(ingestion); setAnchorEl(null); }}>
+          <MenuItem
+            onClick={() => {
+              onCancel(ingestion);
+              setAnchorEl(null);
+            }}
+          >
             Cancel Ingestion
           </MenuItem>
         )}
@@ -78,37 +114,42 @@ export default function IngestionsPage() {
   const [loading, setLoading] = useState(false);
   const [metadata, setMetadata] = useState<IngestionMetadata | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [availableSourceTypes, setAvailableSourceTypes] = useState<Array<{ value: string; count: number }>>([]);
+  const [availableSourceTypes, setAvailableSourceTypes] = useState<
+    Array<{ value: string; count: number }>
+  >([]);
 
-  const fetchIngestions = useCallback(async (options: FetchAssetsOptions) => {
-    try {
-      setLoading(true);
-      const result = await ingestionsApi.list({
-        page: options.page,
-        pageSize: options.pageSize,
-        search: options.search,
-        sortBy: options.sortBy,
-        sortOrder: options.sortOrder as 'asc' | 'desc' | undefined,
-        dateRange: options.dateRange,
-        dateField: options.dateField,
-        sourceTypeFilter: options.sourceTypeFilter,
-      });
-      setIngestions(result.ingestions || []);
-      setTotalRows(result.pagination?.totalItems || 0);
-      setMetadata(result.metadata || null);
-      if (result.availableSourceTypes) setAvailableSourceTypes(result.availableSourceTypes);
-    } catch (_error) {
-      enqueueSnackbar('Failed to load ingestions', { variant: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  }, [enqueueSnackbar]);
+  const fetchIngestions = useCallback(
+    async (options: FetchAssetsOptions) => {
+      try {
+        setLoading(true);
+        const result = await ingestionsApi.list({
+          page: options.page,
+          pageSize: options.pageSize,
+          search: options.search,
+          sortBy: options.sortBy,
+          sortOrder: options.sortOrder as 'asc' | 'desc' | undefined,
+          dateRange: options.dateRange,
+          dateField: options.dateField,
+          sourceTypeFilter: options.sourceTypeFilter,
+        });
+        setIngestions(result.ingestions || []);
+        setTotalRows(result.pagination?.totalItems || 0);
+        setMetadata(result.metadata || null);
+        if (result.availableSourceTypes) setAvailableSourceTypes(result.availableSourceTypes);
+      } catch (_error) {
+        enqueueSnackbar('Failed to load ingestions', { variant: 'error' });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [enqueueSnackbar]
+  );
 
   const handleCancelIngestion = async (ingestion: Ingestion) => {
     try {
       await ingestionsApi.cancel(ingestion.datasetId, ingestion.id);
       enqueueSnackbar('Ingestion cancelled successfully', { variant: 'success' });
-      setRefreshKey(prev => prev + 1);
+      setRefreshKey((prev) => prev + 1);
     } catch (_error) {
       enqueueSnackbar('Failed to cancel ingestion', { variant: 'error' });
     }
@@ -135,7 +176,13 @@ export default function IngestionsPage() {
       required: true,
       renderCell: (params: any) => {
         const ingestion = params.row as Ingestion;
-        return <IngestionActionsMenu ingestion={ingestion} onViewDetails={handleViewDetails} onCancel={handleCancelIngestion} />;
+        return (
+          <IngestionActionsMenu
+            ingestion={ingestion}
+            onViewDetails={handleViewDetails}
+            onCancel={handleCancelIngestion}
+          />
+        );
       },
     },
     {
@@ -171,7 +218,9 @@ export default function IngestionsPage() {
       width: 180,
       dateFilterField: 'createdTime',
       valueGetter: (params: any) =>
-        params.row.createdTime ? format(new Date(params.row.createdTime), 'MMM d, yyyy HH:mm') : '-',
+        params.row.createdTime
+          ? format(new Date(params.row.createdTime), 'MMM d, yyyy HH:mm')
+          : '-',
     },
     {
       id: 'ingestionTimeInSeconds',
@@ -202,13 +251,13 @@ export default function IngestionsPage() {
       renderCell: (params: any) => {
         const size = params.row.sizeInBytes;
         if (!size || params.row.importMode !== 'SPICE') {
-          return <Typography variant="body2" color="text.secondary">-</Typography>;
+          return (
+            <Typography variant="body2" color="text.secondary">
+              -
+            </Typography>
+          );
         }
-        return (
-          <Typography variant="body2">
-            {formatBytes(size)}
-          </Typography>
-        );
+        return <Typography variant="body2">{formatBytes(size)}</Typography>;
       },
     },
   ];
@@ -236,7 +285,11 @@ export default function IngestionsPage() {
         </>
       )}
       <Tooltip title="Refresh">
-        <IconButton size="small" onClick={() => setRefreshKey(prev => prev + 1)} disabled={loading}>
+        <IconButton
+          size="small"
+          onClick={() => setRefreshKey((prev) => prev + 1)}
+          disabled={loading}
+        >
           <Refresh fontSize="small" />
         </IconButton>
       </Tooltip>

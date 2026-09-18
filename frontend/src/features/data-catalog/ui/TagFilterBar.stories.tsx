@@ -1,9 +1,8 @@
 import { Box } from '@mui/material';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 
 import { TagFilterBar } from './TagFilterBar';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta = {
   title: 'Features/DataCatalog/TagFilterBar',
@@ -12,7 +11,8 @@ const meta = {
     layout: 'padded',
     docs: {
       description: {
-        component: 'A unified filter component for the data catalog with include/exclude tag filtering and asset filtering.',
+        component:
+          'A unified filter component for the data catalog with include/exclude tag filtering and asset filtering.',
       },
     },
   },
@@ -71,12 +71,8 @@ export const Default: Story = {
 export const WithActiveFilters: Story = {
   args: {
     availableTags: mockTags,
-    includeTags: [
-      { key: 'Environment', value: 'Production' },
-    ],
-    excludeTags: [
-      { key: 'DataClassification', value: 'Confidential' },
-    ],
+    includeTags: [{ key: 'Environment', value: 'Production' }],
+    excludeTags: [{ key: 'DataClassification', value: 'Confidential' }],
     onIncludeTagsChange: (tags) => console.log('Include tags changed:', tags),
     onExcludeTagsChange: (tags) => console.log('Exclude tags changed:', tags),
     isLoading: false,
@@ -129,7 +125,9 @@ export const Interactive: Story = {
   render: (args) => {
     const [includeTags, setIncludeTags] = useState<{ key: string; value: string }[]>([]);
     const [excludeTags, setExcludeTags] = useState<{ key: string; value: string }[]>([]);
-    const [selectedAssets, setSelectedAssets] = useState<{ id: string; name: string; type: string }[]>([]);
+    const [selectedAssets, setSelectedAssets] = useState<
+      { id: string; name: string; type: string }[]
+    >([]);
 
     return (
       <Box>
@@ -147,19 +145,19 @@ export const Interactive: Story = {
           <Box sx={{ mb: 1 }}>
             <strong>Selected Assets ({selectedAssets.length}):</strong>{' '}
             {selectedAssets.length > 0
-              ? selectedAssets.map(a => `${a.name} (${a.type})`).join(', ')
+              ? selectedAssets.map((a) => `${a.name} (${a.type})`).join(', ')
               : 'None'}
           </Box>
           <Box sx={{ mb: 1 }}>
             <strong>Include Tags ({includeTags.length}):</strong>{' '}
             {includeTags.length > 0
-              ? includeTags.map(t => `${t.key}=${t.value}`).join(', ')
+              ? includeTags.map((t) => `${t.key}=${t.value}`).join(', ')
               : 'None'}
           </Box>
           <Box>
             <strong>Exclude Tags ({excludeTags.length}):</strong>{' '}
             {excludeTags.length > 0
-              ? excludeTags.map(t => `${t.key}=${t.value}`).join(', ')
+              ? excludeTags.map((t) => `${t.key}=${t.value}`).join(', ')
               : 'None'}
           </Box>
         </Box>

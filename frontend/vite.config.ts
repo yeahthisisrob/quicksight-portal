@@ -1,4 +1,5 @@
-import path from 'path';
+import path from 'node:path';
+
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import checker from 'vite-plugin-checker';
@@ -9,7 +10,7 @@ export default defineConfig({
     react(),
     checker({
       typescript: true,
-    })
+    }),
   ],
   resolve: {
     alias: {
@@ -26,7 +27,7 @@ export default defineConfig({
         target: 'http://localhost:3000',
         changeOrigin: true,
       },
-    }
+    },
   },
   build: {
     rollupOptions: {
@@ -38,9 +39,9 @@ export default defineConfig({
           router: ['react-router-dom'],
           query: ['@tanstack/react-query'],
           monaco: ['@monaco-editor/react'],
-        }
-      }
+        },
+      },
     },
-    chunkSizeWarningLimit: 1000
-  }
+    chunkSizeWarningLimit: 1000,
+  },
 });

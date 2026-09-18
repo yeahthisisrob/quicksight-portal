@@ -1,9 +1,9 @@
+import type { QuickSightService } from '../../../../shared/services/aws/QuickSightService';
+import type { S3Service } from '../../../../shared/services/aws/S3Service';
+import type { AssetParserService } from '../../../../shared/services/parsing/AssetParserService';
+import type { TagService } from '../../../organization/services/TagService';
+import type { AssetType } from '../../types';
 import { OrganizationalProcessor } from './OrganizationalProcessor';
-import { type QuickSightService } from '../../../../shared/services/aws/QuickSightService';
-import { type S3Service } from '../../../../shared/services/aws/S3Service';
-import { type AssetParserService } from '../../../../shared/services/parsing/AssetParserService';
-import { type TagService } from '../../../organization/services/TagService';
-import { type AssetType } from '../../types';
 
 /**
  * Processor for QuickSight Users
@@ -11,7 +11,7 @@ import { type AssetType } from '../../types';
 export class UserProcessor extends OrganizationalProcessor {
   public readonly assetType: AssetType = 'user';
 
-  constructor(
+  public constructor(
     quickSightService: QuickSightService,
     s3Service: S3Service,
     tagService: TagService,

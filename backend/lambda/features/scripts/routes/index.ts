@@ -1,4 +1,4 @@
-import { type RouteHandler } from '../../../api/types';
+import type { RouteHandler } from '../../../api/types';
 import { ScriptsHandler } from '../handlers/ScriptsHandler';
 
 const accountId = process.env.AWS_ACCOUNT_ID || '';

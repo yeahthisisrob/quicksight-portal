@@ -1,9 +1,8 @@
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import DataCatalogHeader from './DataCatalogHeader';
 import { DataCatalogProvider } from '../model';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import DataCatalogHeader from './DataCatalogHeader';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,7 +19,8 @@ const meta = {
     layout: 'padded',
     docs: {
       description: {
-        component: 'Header component for the data catalog with view mode switcher and action buttons. Displays different views: Physical Fields, Visual Fields, Calculated Fields, and locked Semantic Layer and Field Mapping views.',
+        component:
+          'Header component for the data catalog with view mode switcher and action buttons. Displays different views: Physical Fields, Visual Fields, Calculated Fields, and locked Semantic Layer and Field Mapping views.',
       },
     },
   },

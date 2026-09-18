@@ -18,7 +18,7 @@ export class ExportCache<T> {
   private misses = 0;
   private readonly ttl: number;
 
-  constructor(
+  public constructor(
     private readonly name: string,
     ttl?: number,
     maxSize?: number

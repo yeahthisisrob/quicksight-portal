@@ -1,9 +1,8 @@
-import { Stack, Typography, Box, Paper, TextField } from '@mui/material';
-
-import { SearchMatchChip, SearchMatchChipGroup } from './index';
-
+import { Box, Paper, Stack, TextField, Typography } from '@mui/material';
 import type { SearchMatchReason } from '@shared/generated';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import { SearchMatchChip, SearchMatchChipGroup } from './index';
 
 const meta: Meta<typeof SearchMatchChip> = {
   title: 'Shared/UI/SearchMatchChip',
@@ -178,13 +177,7 @@ export const ChipGroup: Story = {
               With overflow (5):
             </Typography>
             <SearchMatchChipGroup
-              reasons={[
-                'name',
-                'tag_key',
-                'tag_value',
-                'permission',
-                'dependency_dataset',
-              ]}
+              reasons={['name', 'tag_key', 'tag_value', 'permission', 'dependency_dataset']}
               maxVisible={3}
             />
           </Stack>
@@ -232,7 +225,11 @@ export const RealWorldUsage: Story = {
               },
               {
                 name: 'Customer Metrics',
-                reasons: ['permission', 'dependency_dataset', 'dependency_datasource'] as SearchMatchReason[],
+                reasons: [
+                  'permission',
+                  'dependency_dataset',
+                  'dependency_datasource',
+                ] as SearchMatchReason[],
               },
               { name: 'Product KPIs', reasons: ['description', 'tag_key'] as SearchMatchReason[] },
             ].map((row, i) => (
@@ -306,7 +303,9 @@ export const RealWorldUsage: Story = {
           <Stack spacing={1} sx={{ ml: 2 }}>
             <Stack direction="row" spacing={1} alignItems="center">
               <SearchMatchChip reason="name" />
-              <Typography variant="caption">- Direct match: &quot;customer_data&quot; dataset</Typography>
+              <Typography variant="caption">
+                - Direct match: &quot;customer_data&quot; dataset
+              </Typography>
             </Stack>
             <Stack direction="row" spacing={1} alignItems="center">
               <SearchMatchChip reason="dependency_dataset" />

@@ -1,7 +1,7 @@
+import type { GridSortModel } from '@mui/x-data-grid';
+
 import { createSemanticColumns } from '../columns/semanticColumns';
 import { CatalogDataGrid } from '../components';
-
-import type { GridSortModel } from '@mui/x-data-grid';
 
 interface SemanticViewProps {
   data: any[];

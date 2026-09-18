@@ -1,14 +1,14 @@
 /**
  * API handler with authentication middleware and modular routing
  */
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
-import { findRoute } from './router';
-import { applyHttpCaching } from './utils/httpCaching';
 import { getAuthContext, UnauthorizedError } from '../shared/auth';
 import { STATUS_CODES } from '../shared/constants/httpStatusCodes';
-import { createResponse, successResponse, errorResponse } from '../shared/utils/cors';
+import { createResponse, errorResponse, successResponse } from '../shared/utils/cors';
 import { logger } from '../shared/utils/logger';
+import { findRoute } from './router';
+import { applyHttpCaching } from './utils/httpCaching';
 
 export const apiHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   // ETag/304 decoration for successful GETs; everything else passes through

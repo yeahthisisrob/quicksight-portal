@@ -1,8 +1,8 @@
 /**
  * Logger using AWS Lambda Powertools
  */
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 import { Logger, LogLevel } from '@aws-lambda-powertools/logger';
 
@@ -82,7 +82,7 @@ const writeToLocalFile = (level: string, message: string, data?: any): void => {
 
   try {
     // In development, log everything to file for debugging
-    const logEntry = `[${new Date().toISOString()}] [${level}] ${message}${data ? ' ' + JSON.stringify(data) : ''}\n`;
+    const logEntry = `[${new Date().toISOString()}] [${level}] ${message}${data ? ` ${JSON.stringify(data)}` : ''}\n`;
     fs.appendFileSync(localLogFile, logEntry);
   } catch (_error) {
     // Fail silently

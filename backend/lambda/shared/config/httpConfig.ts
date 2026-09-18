@@ -1,4 +1,4 @@
-import { Agent } from 'https';
+import { Agent } from 'node:https';
 
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 

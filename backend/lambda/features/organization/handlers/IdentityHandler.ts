@@ -1,11 +1,11 @@
-import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
+import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { isValidationError } from '../../../shared/errors/ValidationError';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
-import { successResponse, errorResponse, createResponse } from '../../../shared/utils/cors';
+import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { IdentityService } from '../services/IdentityService';
 import { PermissionsService } from '../services/PermissionsService';
@@ -15,7 +15,7 @@ export class IdentityHandler {
   private readonly identityService: IdentityService;
   private readonly permissionsService: PermissionsService;
 
-  constructor() {
+  public constructor() {
     const accountId = process.env.AWS_ACCOUNT_ID || '';
     this.identityService = new IdentityService(accountId);
     this.bulkOperationsService = new BulkOperationsService(accountId);

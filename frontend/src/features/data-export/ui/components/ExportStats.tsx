@@ -1,5 +1,5 @@
-import { Storage, Functions, Schedule, Archive } from '@mui/icons-material';
-import { Box, Card, Typography, Skeleton, alpha } from '@mui/material';
+import { Archive, Functions, Schedule, Storage } from '@mui/icons-material';
+import { alpha, Box, Card, Skeleton, Typography } from '@mui/material';
 
 import { colors, spacing } from '@/shared/design-system/theme';
 
@@ -43,7 +43,8 @@ function StatItem({ label, value, subtitle, icon: Icon, color, loading }: StatIt
             </Typography>
           )}
           <Typography variant="caption" color="text.secondary" noWrap>
-            {label}{subtitle ? ` · ${subtitle}` : ''}
+            {label}
+            {subtitle ? ` · ${subtitle}` : ''}
           </Typography>
         </Box>
       </Box>
@@ -63,7 +64,10 @@ interface ExportStatsProps {
   loading?: boolean;
 }
 
-function formatLastUpdated(dateString: string | null | undefined): { value: string; subtitle: string } {
+function formatLastUpdated(dateString: string | null | undefined): {
+  value: string;
+  subtitle: string;
+} {
   if (!dateString) return { value: 'Never', subtitle: 'Run initial export' };
 
   const diffMs = Date.now() - new Date(dateString).getTime();
@@ -73,7 +77,8 @@ function formatLastUpdated(dateString: string | null | undefined): { value: stri
 
   if (diffMins < 1) return { value: 'Just now', subtitle: 'Current' };
   if (diffMins < 60) return { value: `${diffMins}m ago`, subtitle: 'Current' };
-  if (diffHours < 24) return { value: `${diffHours}h ago`, subtitle: diffHours < 6 ? 'Current' : 'Consider refresh' };
+  if (diffHours < 24)
+    return { value: `${diffHours}h ago`, subtitle: diffHours < 6 ? 'Current' : 'Consider refresh' };
   if (diffDays < 7) return { value: `${diffDays}d ago`, subtitle: 'May need refresh' };
   return { value: new Date(dateString).toLocaleDateString(), subtitle: 'Stale' };
 }

@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-import { JobRepository, type JobMetadata, type JobLog } from '../JobRepository';
+import { type JobLog, type JobMetadata, JobRepository } from '../JobRepository';
 
 const HOUR_MS = 3600000;
 const MEDIUM_BATCH = 10;

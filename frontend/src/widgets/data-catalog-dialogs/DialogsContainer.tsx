@@ -40,7 +40,7 @@ export function DialogsContainer({
   invalidateSemanticQueries,
 }: DialogsContainerProps) {
   const calculatedFields = catalogData?.items?.filter((f: any) => f.isCalculated) || [];
-  
+
   return (
     <>
       <UnifiedFieldDetailsDialog
@@ -50,14 +50,14 @@ export function DialogsContainer({
         allCalculatedFields={calculatedFields}
         viewMode={viewMode as 'physical' | 'visual-fields' | 'calculated'}
       />
-      
+
       <SemanticTermDialog
         open={dialogState.termDialogOpen}
         onClose={() => closeDialog('termDialogOpen')}
         term={dialogState.selectedTerm}
         onSave={() => invalidateSemanticQueries()}
       />
-      
+
       <SemanticMappingDialog
         open={dialogState.mappingDialogOpen}
         onClose={() => closeDialog('mappingDialogOpen')}
@@ -68,7 +68,7 @@ export function DialogsContainer({
           invalidateSemanticQueries();
         }}
       />
-      
+
       <UnmappedFieldsDialog
         open={dialogState.unmappedDialogOpen}
         onClose={() => closeDialog('unmappedDialogOpen')}
@@ -79,7 +79,7 @@ export function DialogsContainer({
           invalidateSemanticQueries();
         }}
       />
-      
+
       <AssetListDialog
         open={dialogState.assetListDialogOpen}
         onClose={() => closeDialog('assetListDialogOpen')}
@@ -87,7 +87,7 @@ export function DialogsContainer({
         assetType={dialogState.selectedAssetType}
         assets={dialogState.selectedAssets || []}
       />
-      
+
       <MappedFieldsDialog
         open={dialogState.mappedFieldsDialogOpen}
         onClose={() => closeDialog('mappedFieldsDialogOpen')}
@@ -96,7 +96,7 @@ export function DialogsContainer({
         fields={catalogData?.items || []}
         visualFields={visualFieldCatalog?.fields || []}
       />
-      
+
       <ConfirmationDialog
         open={dialogState.confirmDialog?.open || false}
         onClose={closeConfirmDialog}

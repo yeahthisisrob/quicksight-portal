@@ -1,17 +1,16 @@
-import { 
-  Dashboard as DashboardIcon,
+import {
   Analytics as AnalysisIcon,
+  Dashboard as DashboardIcon,
   Storage as DatasetIcon,
   CloudQueue as DatasourceIcon,
   Folder as FolderIcon,
-  Person as UserIcon,
   Group as GroupIcon,
+  Person as UserIcon,
 } from '@mui/icons-material';
-import { Box, Typography, Paper, Chip, Stack } from '@mui/material';
-
-import { colors, spacing, typography, borderRadius, shadows } from '../theme';
-
+import { Box, Chip, Paper, Stack, Typography } from '@mui/material';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import { borderRadius, colors, shadows, spacing, typography } from '../theme';
 
 const meta: Meta = {
   title: 'Shared/Design System/Theme',
@@ -27,7 +26,13 @@ const meta: Meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const AssetTypeIcon = ({ type, icon: Icon }: { type: keyof typeof colors.assetTypes; icon: any }) => {
+const AssetTypeIcon = ({
+  type,
+  icon: Icon,
+}: {
+  type: keyof typeof colors.assetTypes;
+  icon: any;
+}) => {
   const config = colors.assetTypes[type];
   return (
     <Paper
@@ -62,31 +67,31 @@ const AssetTypeIcon = ({ type, icon: Icon }: { type: keyof typeof colors.assetTy
         {type}
       </Typography>
       <Stack spacing={1} alignItems="center">
-        <Chip 
-          label="Main" 
-          size="small" 
-          sx={{ 
-            backgroundColor: config.main, 
+        <Chip
+          label="Main"
+          size="small"
+          sx={{
+            backgroundColor: config.main,
             color: 'white',
             fontWeight: typography.fontWeight.semibold,
-          }} 
+          }}
         />
-        <Chip 
-          label="Light" 
-          size="small" 
-          sx={{ 
-            backgroundColor: config.light, 
+        <Chip
+          label="Light"
+          size="small"
+          sx={{
+            backgroundColor: config.light,
             color: config.dark,
             border: `1px solid ${config.main}`,
-          }} 
+          }}
         />
-        <Chip 
-          label="Dark" 
-          size="small" 
-          sx={{ 
-            backgroundColor: config.dark, 
+        <Chip
+          label="Dark"
+          size="small"
+          sx={{
+            backgroundColor: config.dark,
             color: 'white',
-          }} 
+          }}
         />
       </Stack>
     </Paper>
@@ -96,13 +101,17 @@ const AssetTypeIcon = ({ type, icon: Icon }: { type: keyof typeof colors.assetTy
 export const Colors: Story = {
   render: () => (
     <Box sx={{ p: 4 }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: 4, fontWeight: typography.fontWeight.semibold }}>
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{ mb: 4, fontWeight: typography.fontWeight.semibold }}
+      >
         Asset Type Colors
       </Typography>
-      <Box 
-        sx={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
           gap: 3,
           mb: 6,
         }}
@@ -116,7 +125,11 @@ export const Colors: Story = {
         <AssetTypeIcon type="group" icon={GroupIcon} />
       </Box>
 
-      <Typography variant="h4" gutterBottom sx={{ mb: 4, fontWeight: typography.fontWeight.semibold }}>
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{ mb: 4, fontWeight: typography.fontWeight.semibold }}
+      >
         Status Colors
       </Typography>
       <Stack direction="row" spacing={2}>
@@ -148,14 +161,18 @@ export const Colors: Story = {
 export const TypographyScale: Story = {
   render: () => (
     <Box sx={{ p: 4 }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: 4, fontWeight: typography.fontWeight.semibold }}>
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{ mb: 4, fontWeight: typography.fontWeight.semibold }}
+      >
         Typography Scale
       </Typography>
       <Stack spacing={3}>
         {Object.entries(typography.fontSize).map(([size, value]) => (
           <Box key={size}>
-            <Typography 
-              sx={{ 
+            <Typography
+              sx={{
                 fontSize: value,
                 fontWeight: typography.fontWeight.regular,
                 mb: 0.5,
@@ -170,14 +187,18 @@ export const TypographyScale: Story = {
         ))}
       </Stack>
 
-      <Typography variant="h4" gutterBottom sx={{ mt: 6, mb: 4, fontWeight: typography.fontWeight.semibold }}>
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{ mt: 6, mb: 4, fontWeight: typography.fontWeight.semibold }}
+      >
         Font Weights
       </Typography>
       <Stack spacing={2}>
         {Object.entries(typography.fontWeight).map(([weight, value]) => (
           <Box key={weight}>
-            <Typography 
-              sx={{ 
+            <Typography
+              sx={{
                 fontSize: typography.fontSize.base,
                 fontWeight: value,
                 mb: 0.5,
@@ -198,7 +219,11 @@ export const TypographyScale: Story = {
 export const Spacing: Story = {
   render: () => (
     <Box sx={{ p: 4 }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: 4, fontWeight: typography.fontWeight.semibold }}>
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{ mb: 4, fontWeight: typography.fontWeight.semibold }}
+      >
         Spacing Scale
       </Typography>
       <Stack spacing={2}>
@@ -228,7 +253,11 @@ export const Spacing: Story = {
 export const BorderRadius: Story = {
   render: () => (
     <Box sx={{ p: 4 }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: 4, fontWeight: typography.fontWeight.semibold }}>
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{ mb: 4, fontWeight: typography.fontWeight.semibold }}
+      >
         Border Radius
       </Typography>
       <Stack direction="row" spacing={3} flexWrap="wrap">
@@ -245,7 +274,8 @@ export const BorderRadius: Story = {
             />
             <Typography variant="body2">{size}</Typography>
             <Typography variant="caption" color="text.secondary">
-              {value}{typeof value === 'number' ? 'px' : ''}
+              {value}
+              {typeof value === 'number' ? 'px' : ''}
             </Typography>
           </Box>
         ))}
@@ -257,7 +287,11 @@ export const BorderRadius: Story = {
 export const Shadows: Story = {
   render: () => (
     <Box sx={{ p: 4 }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: 4, fontWeight: typography.fontWeight.semibold }}>
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{ mb: 4, fontWeight: typography.fontWeight.semibold }}
+      >
         Shadow Elevations
       </Typography>
       <Stack spacing={4}>

@@ -190,6 +190,6 @@ export function createPattern(template: string): RegExp {
  * @example extractParamNames('/users/:id/posts/:postId') => ['id', 'postId']
  */
 export function extractParamNames(template: string): string[] {
-  const matches = template.match(new RegExp(':[^/]+', 'g')) || [];
+  const matches = template.match(/:[^/]+/g) || [];
   return matches.map((match) => match.substring(1));
 }

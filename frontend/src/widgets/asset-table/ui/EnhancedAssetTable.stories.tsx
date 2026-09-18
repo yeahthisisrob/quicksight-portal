@@ -1,9 +1,8 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
-
-import EnhancedAssetTable, { ColumnConfig } from './EnhancedAssetTable';
-
 import type { GridRowSelectionModel } from '@mui/x-data-grid';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { useCallback, useMemo, useRef, useState } from 'react';
+
+import EnhancedAssetTable, { type ColumnConfig } from './EnhancedAssetTable';
 
 const meta = {
   title: 'Widgets/AssetTable/EnhancedAssetTable',
@@ -12,7 +11,8 @@ const meta = {
     layout: 'fullscreen',
     docs: {
       description: {
-        component: 'A sleek, modern table component for displaying and managing assets with advanced features like search, filtering, sorting, bulk actions, and export functionality.',
+        component:
+          'A sleek, modern table component for displaying and managing assets with advanced features like search, filtering, sorting, bulk actions, and export functionality.',
       },
     },
   },
@@ -30,7 +30,7 @@ const generateMockAssets = (count: number) => {
     name: `Asset ${i + 1}`,
     type: ['Dashboard', 'Analysis', 'Dataset'][i % 3],
     owner: `user${(i % 5) + 1}@example.com`,
-    lastModified: new Date(baseDate.getTime() - (i * 24 * 60 * 60 * 1000)).toISOString(),
+    lastModified: new Date(baseDate.getTime() - i * 24 * 60 * 60 * 1000).toISOString(),
     viewCount: (i * 37) % 1000, // Deterministic view count
     tags: i % 2 === 0 ? [{ key: 'Department', value: 'Sales' }] : [],
   }));
@@ -70,7 +70,7 @@ const columns: ColumnConfig[] = [
   },
 ];
 
-const InteractiveWrapper = ({ 
+const InteractiveWrapper = ({
   initialAssets = mockAssets,
   title = 'Assets',
   enableBulkActions = true,
@@ -84,60 +84,67 @@ const InteractiveWrapper = ({
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const isInitialMount = useRef(true);
 
-  const handleFetchAssets = useCallback(async (options: {
-    page: number;
-    pageSize: number;
-    search?: string;
-    sortBy?: string;
-    sortOrder?: string;
-  }) => {
-    const { page, pageSize, search, sortBy, sortOrder } = options;
-    // Skip the first call on mount to prevent flashing
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
+  const handleFetchAssets = useCallback(
+    async (options: {
+      page: number;
+      pageSize: number;
+      search?: string;
+      sortBy?: string;
+      sortOrder?: string;
+    }) => {
+      const { page, pageSize, search, sortBy, sortOrder } = options;
+      // Skip the first call on mount to prevent flashing
+      if (isInitialMount.current) {
+        isInitialMount.current = false;
+        return;
+      }
 
-    setLoading(true);
+      setLoading(true);
 
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 300));
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
-    let filtered = [...initialAssets];
+      let filtered = [...initialAssets];
 
-    if (search) {
-      filtered = filtered.filter(a =>
-        a.name.toLowerCase().includes(search.toLowerCase()) ||
-        a.owner.toLowerCase().includes(search.toLowerCase())
-      );
-    }
+      if (search) {
+        filtered = filtered.filter(
+          (a) =>
+            a.name.toLowerCase().includes(search.toLowerCase()) ||
+            a.owner.toLowerCase().includes(search.toLowerCase())
+        );
+      }
 
-    if (sortBy) {
-      filtered.sort((a, b) => {
-        const aVal = a[sortBy as keyof typeof a];
-        const bVal = b[sortBy as keyof typeof b];
-        const comparison = aVal > bVal ? 1 : -1;
-        return sortOrder === 'desc' ? -comparison : comparison;
-      });
-    }
+      if (sortBy) {
+        filtered.sort((a, b) => {
+          const aVal = a[sortBy as keyof typeof a];
+          const bVal = b[sortBy as keyof typeof b];
+          const comparison = aVal > bVal ? 1 : -1;
+          return sortOrder === 'desc' ? -comparison : comparison;
+        });
+      }
 
-    // Paginate
-    const start = (page - 1) * pageSize;
-    const paginated = filtered.slice(start, start + pageSize);
+      // Paginate
+      const start = (page - 1) * pageSize;
+      const paginated = filtered.slice(start, start + pageSize);
 
-    setAssets(paginated);
-    setLoading(false);
-  }, [initialAssets]);
+      setAssets(paginated);
+      setLoading(false);
+    },
+    [initialAssets]
+  );
 
   const handleExportCSV = useCallback(async () => {
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise((resolve) => setTimeout(resolve, 1500));
   }, []);
 
   // Memoize callback props
-  const memoizedCallbacks = useMemo(() => ({
-    onAddToFolder: onAddToFolder || (() => {}),
-    onBulkTag: onBulkTag || (() => {}),
-  }), [onAddToFolder, onBulkTag]);
+  const memoizedCallbacks = useMemo(
+    () => ({
+      onAddToFolder: onAddToFolder || (() => {}),
+      onBulkTag: onBulkTag || (() => {}),
+    }),
+    [onAddToFolder, onBulkTag]
+  );
 
   return (
     <EnhancedAssetTable
@@ -160,17 +167,11 @@ const InteractiveWrapper = ({
 };
 
 export const Default = {
-  render: () => <InteractiveWrapper 
-    onAddToFolder={() => {}}
-    onBulkTag={() => {}}
-  />,
+  render: () => <InteractiveWrapper onAddToFolder={() => {}} onBulkTag={() => {}} />,
 };
 
 export const WithoutBulkActions = {
-  render: () => <InteractiveWrapper 
-    title="Read-Only Assets"
-    enableBulkActions={false}
-  />,
+  render: () => <InteractiveWrapper title="Read-Only Assets" enableBulkActions={false} />,
 };
 
 export const Loading: Story = {
@@ -198,19 +199,26 @@ export const Empty: Story = {
 export const WithSelection = {
   render: () => {
     const Component = () => {
-      const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>(['asset-1', 'asset-3', 'asset-5']);
+      const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([
+        'asset-1',
+        'asset-3',
+        'asset-5',
+      ]);
       const [assets] = useState(mockAssets);
       const [loading, setLoading] = useState(false);
       const isInitialMount = useRef(true);
 
-      const handleFetchAssets = useCallback(async (_options: { page: number; pageSize: number }) => {
-        if (isInitialMount.current) {
-          isInitialMount.current = false;
-          return;
-        }
-        setLoading(true);
-        setTimeout(() => setLoading(false), 500);
-      }, []);
+      const handleFetchAssets = useCallback(
+        async (_options: { page: number; pageSize: number }) => {
+          if (isInitialMount.current) {
+            isInitialMount.current = false;
+            return;
+          }
+          setLoading(true);
+          setTimeout(() => setLoading(false), 500);
+        },
+        []
+      );
 
       return (
         <EnhancedAssetTable
@@ -234,11 +242,13 @@ export const WithSelection = {
 };
 
 export const CustomExportLabel = {
-  render: () => <InteractiveWrapper 
-    title="User Assets"
-    exportLabel="Export Users"
-    folderActionLabel="Add to Group"
-    onAddToFolder={() => {}}
-    onBulkTag={() => {}}
-  />,
+  render: () => (
+    <InteractiveWrapper
+      title="User Assets"
+      exportLabel="Export Users"
+      folderActionLabel="Add to Group"
+      onAddToFolder={() => {}}
+      onBulkTag={() => {}}
+    />
+  ),
 };

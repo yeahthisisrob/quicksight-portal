@@ -1,2 +1,2 @@
 export { BulkDeleteDialog } from './BulkDeleteDialog';
-export type { BulkDeleteDialogProps, Asset } from './types';
+export type { Asset, BulkDeleteDialogProps } from './types';

@@ -1,4 +1,4 @@
-import { STATUS_CODES, RETRY_CONFIG } from '../constants';
+import { RETRY_CONFIG, STATUS_CODES } from '../constants';
 import { logger } from './logger';
 
 export interface RetryOptions {
@@ -83,10 +83,7 @@ export async function withRetry<T>(
       }
 
       // Calculate delay with exponential backoff and jitter
-      const baseDelay = Math.min(
-        opts.baseDelay * Math.pow(opts.backoffMultiplier, attempt),
-        opts.maxDelay
-      );
+      const baseDelay = Math.min(opts.baseDelay * opts.backoffMultiplier ** attempt, opts.maxDelay);
       const jitter = Math.random() * RETRY_CONFIG.JITTER_FACTOR * baseDelay;
       const delay = Math.floor(baseDelay + jitter);
 
@@ -103,7 +100,6 @@ export async function withRetry<T>(
       );
 
       await new Promise<void>((resolve) => {
-        // eslint-disable-next-line no-undef
         setTimeout(resolve, delay);
       });
     }

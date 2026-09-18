@@ -1,22 +1,22 @@
-import { Close as CloseIcon, Add as AddIcon } from '@mui/icons-material';
+import { Add as AddIcon, Close as CloseIcon } from '@mui/icons-material';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  Grid,
-  MenuItem,
-  Chip,
   Box,
-  Typography,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Grid,
   IconButton,
   InputAdornment,
+  MenuItem,
+  TextField,
+  Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { semanticApi } from '@/shared/api';
 
@@ -37,7 +37,7 @@ export default function SemanticTermDialog({
   const [loading, setLoading] = useState(false);
   const [synonymInput, setSynonymInput] = useState('');
   const [tagInput, setTagInput] = useState('');
-  
+
   const [formData, setFormData] = useState({
     term: '',
     businessName: '',
@@ -125,7 +125,7 @@ export default function SemanticTermDialog({
   const handleRemoveSynonym = (synonym: string) => {
     setFormData({
       ...formData,
-      synonyms: formData.synonyms.filter(s => s !== synonym),
+      synonyms: formData.synonyms.filter((s) => s !== synonym),
     });
   };
 
@@ -142,7 +142,7 @@ export default function SemanticTermDialog({
   const handleRemoveTag = (tag: string) => {
     setFormData({
       ...formData,
-      tags: formData.tags.filter(t => t !== tag),
+      tags: formData.tags.filter((t) => t !== tag),
     });
   };
 
@@ -170,7 +170,7 @@ export default function SemanticTermDialog({
           </IconButton>
         </Box>
       </DialogTitle>
-      
+
       <DialogContent>
         <Grid container spacing={3} sx={{ mt: 0 }}>
           <Grid item xs={12} sm={6}>
@@ -183,7 +183,7 @@ export default function SemanticTermDialog({
               helperText="The technical field name or identifier"
             />
           </Grid>
-          
+
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
@@ -194,7 +194,7 @@ export default function SemanticTermDialog({
               helperText="User-friendly business name"
             />
           </Grid>
-          
+
           <Grid item xs={12}>
             <TextField
               fullWidth
@@ -206,7 +206,7 @@ export default function SemanticTermDialog({
               helperText="Detailed description of what this term represents"
             />
           </Grid>
-          
+
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
@@ -223,7 +223,7 @@ export default function SemanticTermDialog({
               ))}
             </TextField>
           </Grid>
-          
+
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
@@ -240,7 +240,7 @@ export default function SemanticTermDialog({
               ))}
             </TextField>
           </Grid>
-          
+
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
@@ -250,7 +250,7 @@ export default function SemanticTermDialog({
               helperText="e.g., YYYY-MM-DD, ###-##-####"
             />
           </Grid>
-          
+
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
@@ -260,7 +260,7 @@ export default function SemanticTermDialog({
               helperText="Sample value for reference"
             />
           </Grid>
-          
+
           <Grid item xs={12}>
             <TextField
               fullWidth
@@ -290,7 +290,7 @@ export default function SemanticTermDialog({
               ))}
             </Box>
           </Grid>
-          
+
           <Grid item xs={12}>
             <TextField
               fullWidth
@@ -311,16 +311,11 @@ export default function SemanticTermDialog({
             />
             <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
               {formData.tags.map((tag) => (
-                <Chip
-                  key={tag}
-                  label={tag}
-                  size="small"
-                  onDelete={() => handleRemoveTag(tag)}
-                />
+                <Chip key={tag} label={tag} size="small" onDelete={() => handleRemoveTag(tag)} />
               ))}
             </Box>
           </Grid>
-          
+
           <Grid item xs={12}>
             <TextField
               fullWidth
@@ -332,14 +327,10 @@ export default function SemanticTermDialog({
           </Grid>
         </Grid>
       </DialogContent>
-      
+
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={loading}
-        >
+        <Button onClick={handleSubmit} variant="contained" disabled={loading}>
           {term ? 'Update' : 'Create'}
         </Button>
       </DialogActions>

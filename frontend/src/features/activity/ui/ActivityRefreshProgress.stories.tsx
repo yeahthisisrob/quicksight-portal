@@ -1,8 +1,8 @@
-import { type JobMetadata, type JobPhase } from '@/shared/api/modules/jobs';
+import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import type { JobMetadata, JobPhase } from '@/shared/api/modules/jobs';
 
 import { ActivityRefreshProgress } from './ActivityRefreshProgress';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta = {
   title: 'Features/Activity/ActivityRefreshProgress',

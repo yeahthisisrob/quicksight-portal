@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import type { components } from '@shared/generated/types';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { activityApi } from '@/shared/api/modules/activity';
-
-import type { components } from '@shared/generated/types';
 
 type UserInactiveAnalysis = components['schemas']['UserInactiveAnalysis'];
 

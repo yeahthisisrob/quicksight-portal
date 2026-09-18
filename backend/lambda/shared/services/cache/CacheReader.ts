@@ -1,11 +1,9 @@
 /**
  * CacheReader - VSA View Layer for Cache Read Operations
  */
-import { type MemoryCacheAdapter } from './adapters/MemoryCacheAdapter';
-import { type S3CacheAdapter } from './adapters/S3CacheAdapter';
-import { type FieldInfo } from './types';
+
 import { CACHE_CONFIG } from '../../constants';
-import { type CacheEntry, type MasterCache, type AssetType } from '../../models/asset.model';
+import type { AssetType, CacheEntry, MasterCache } from '../../models/asset.model';
 import {
   AssetStatusFilter,
   DEFAULT_STATUS_FILTER,
@@ -14,13 +12,16 @@ import {
 import { ASSET_TYPES } from '../../types/assetTypes';
 import { logger } from '../../utils/logger';
 import { SingleFlight } from '../../utils/singleFlight';
+import type { MemoryCacheAdapter } from './adapters/MemoryCacheAdapter';
+import type { S3CacheAdapter } from './adapters/S3CacheAdapter';
+import type { FieldInfo } from './types';
 
 export class CacheReader {
   // Coalesces concurrent reads/revalidations of the same cache object so a
   // burst of parallel callers produces one S3 HEAD/GET instead of N
   private readonly singleFlight = new SingleFlight();
 
-  constructor(
+  public constructor(
     private readonly s3Adapter: S3CacheAdapter,
     private readonly memoryAdapter: MemoryCacheAdapter
   ) {}

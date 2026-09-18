@@ -1,0 +1,21 @@
+# Reviewed false positives, so `gitleaks` stays a signal rather than noise.
+#
+# All entries below were inspected on 2026-09-18. None is a credential:
+#
+#  * generic-api-key on `v2Credentials.expireTime = ...` - an expiry
+#    timestamp assignment that trips the generic high-entropy heuristic.
+#  * curl-auth-header in old local test scripts - "Authorization: Bearer
+#    $TOKEN" placeholders. Those scripts no longer exist in the tree.
+#
+# Add a fingerprint here only after confirming the match is not a secret.
+# Regenerate candidates with: just secrets-baseline
+1436ed527ec72a407b66810c068a9068072493e9:backend/services/export/utils/V3CredentialBridge.ts:generic-api-key:98
+4641438e771072a389c56b01879a96cb4964e9e7:backend/lambda/adapters/aws/QuickSightAdapter.ts:generic-api-key:156
+4d3257b2ca1d05e7db47ad7e18b62dabb147e984:justfile:curl-auth-header:111
+6f64ec72b925cfe9db1fbc9f6ba3447b93a0f86b:backend/services/export/utils/V3CredentialBridge.ts:generic-api-key:98
+78ff95a7e4cd2e0ba84d7f9cf77ecd0db7e09c4f:backend/services/export/utils/V3CredentialBridge.ts:generic-api-key:98
+7982d163d4aadf6ea23a03b711c22cd8a926861b:test-refresh-views-1day.sh:curl-auth-header:5
+7982d163d4aadf6ea23a03b711c22cd8a926861b:test-refresh-views-ready.sh:curl-auth-header:6
+7982d163d4aadf6ea23a03b711c22cd8a926861b:test-refresh-views.sh:curl-auth-header:6
+a83598fbb3e07e6ea333384ad038013f1dcc0ec2:backend/lambda/adapters/aws/QuickSightAdapter.ts:generic-api-key:1451
+e8ac9408f5afcd186b82eb24d0bdcdbb7fd824dc:backend/lambda/adapters/aws/QuickSightAdapter.ts:generic-api-key:1553

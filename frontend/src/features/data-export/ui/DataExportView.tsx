@@ -6,11 +6,15 @@
  * activity card (current job logs / job history / activity timeline).
  */
 import { Alert, Box, Button, Card, Divider, Stack, Tab, Tabs, Typography } from '@mui/material';
-import { useState, type ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 
 import { spacing } from '@/shared/design-system/theme';
 import { PageLayout } from '@/shared/ui';
 
+import { useCacheSummary } from '../lib/useCacheSummary';
+import { useExportJob } from '../lib/useExportJob';
+import { useExportOperations } from '../lib/useExportOperations';
+import type { AssetType, ExportMode } from '../model/types';
 import {
   AssetTypeSelector,
   ExportControls,
@@ -20,11 +24,6 @@ import {
   JobHistory,
 } from './components';
 import { assetTypeConfig } from './constants';
-import { useCacheSummary } from '../lib/useCacheSummary';
-import { useExportJob } from '../lib/useExportJob';
-import { useExportOperations } from '../lib/useExportOperations';
-
-import type { AssetType, ExportMode } from '../model/types';
 
 type ExportTab = 'current' | 'history' | 'timeline';
 
@@ -60,9 +59,7 @@ function ExportTabBody({
 
   if (activeTab === 'timeline') {
     return (
-      <Box sx={{ maxHeight: 600, display: 'flex', flexDirection: 'column' }}>
-        {timelineFeed}
-      </Box>
+      <Box sx={{ maxHeight: 600, display: 'flex', flexDirection: 'column' }}>{timelineFeed}</Box>
     );
   }
 
@@ -80,14 +77,16 @@ function ExportTabBody({
   return (
     <Box sx={{ p: 2 }}>
       <ExportLogs
-        logs={exportLogs.filter(log => log.level !== 'debug').map(log => ({
-          ts: new Date(log.timestamp).getTime(),
-          msg: log.message,
-          level: log.level as 'info' | 'warn' | 'error',
-          assetType: (log.details as any)?.assetType,
-          assetId: (log.details as any)?.assetId,
-          apiCalls: (log.details as any)?.apiCalls,
-        }))}
+        logs={exportLogs
+          .filter((log) => log.level !== 'debug')
+          .map((log) => ({
+            ts: new Date(log.timestamp).getTime(),
+            msg: log.message,
+            level: log.level as 'info' | 'warn' | 'error',
+            assetType: (log.details as any)?.assetType,
+            assetId: (log.details as any)?.assetId,
+            apiCalls: (log.details as any)?.apiCalls,
+          }))}
         maxHeight={300}
         showTimestamps={true}
         defaultExpanded={isRunning}
@@ -121,10 +120,7 @@ export default function DataExportView({ timelineFeed }: { timelineFeed?: ReactN
     loadHistoricalJob,
   } = useExportJob(loadCacheSummary);
 
-  const {
-    refreshingActivity,
-    refreshActivity,
-  } = useExportOperations();
+  const { refreshingActivity, refreshActivity } = useExportOperations();
 
   const handleStartExport = async () => {
     await startExport(selectedAssetTypes, exportMode);
@@ -138,7 +134,6 @@ export default function DataExportView({ timelineFeed }: { timelineFeed?: ReactN
 
   return (
     <PageLayout title="Export Assets">
-
       {/* Initial Export Prompt */}
       {showInitialExportPrompt && (
         <Alert
@@ -160,11 +155,17 @@ export default function DataExportView({ timelineFeed }: { timelineFeed?: ReactN
           totalAssets={cacheSummary?.totalAssets || 0}
           archivedAssets={cacheSummary?.archivedAssetCounts?.total || 0}
           lastUpdated={cacheSummary?.lastExportDate}
-          fieldStats={cacheSummary?.fieldStatistics ? {
-            total: cacheSummary.fieldStatistics.totalFields || 0,
-            calculated: cacheSummary.fieldStatistics.totalCalculatedFields || 0,
-            physical: (cacheSummary.fieldStatistics.totalFields || 0) - (cacheSummary.fieldStatistics.totalCalculatedFields || 0)
-          } : null}
+          fieldStats={
+            cacheSummary?.fieldStatistics
+              ? {
+                  total: cacheSummary.fieldStatistics.totalFields || 0,
+                  calculated: cacheSummary.fieldStatistics.totalCalculatedFields || 0,
+                  physical:
+                    (cacheSummary.fieldStatistics.totalFields || 0) -
+                    (cacheSummary.fieldStatistics.totalCalculatedFields || 0),
+                }
+              : null
+          }
           loading={cacheSummaryLoading}
         />
 
@@ -180,7 +181,7 @@ export default function DataExportView({ timelineFeed }: { timelineFeed?: ReactN
                 onToggle={(assetType) => {
                   setSelectedAssetTypes((prev: AssetType[]) =>
                     prev.includes(assetType)
-                      ? prev.filter(t => t !== assetType)
+                      ? prev.filter((t) => t !== assetType)
                       : [...prev, assetType]
                   );
                 }}
@@ -227,7 +228,11 @@ export default function DataExportView({ timelineFeed }: { timelineFeed?: ReactN
             onChange={(_, tab) => setActiveTab(tab)}
             sx={{ px: 1, borderBottom: 1, borderColor: 'divider', minHeight: 44 }}
           >
-            <Tab label="Current Job" value="current" sx={{ minHeight: 44, textTransform: 'none' }} />
+            <Tab
+              label="Current Job"
+              value="current"
+              sx={{ minHeight: 44, textTransform: 'none' }}
+            />
             <Tab label="History" value="history" sx={{ minHeight: 44, textTransform: 'none' }} />
             <Tab label="Timeline" value="timeline" sx={{ minHeight: 44, textTransform: 'none' }} />
           </Tabs>

@@ -4,11 +4,10 @@
 import { Grid } from '@mui/material';
 
 import { colors, spacing } from '@/shared/design-system/theme';
-import { catalogIcons, assetIcons } from '@/shared/ui/icons';
-
-import { StatCard } from '../components/StatCard';
+import { assetIcons, catalogIcons } from '@/shared/ui/icons';
 
 import type { VisualFieldSummary } from '../../model/types';
+import { StatCard } from '../components/StatCard';
 
 interface VisualFieldStatsViewProps {
   visualFieldSummary: VisualFieldSummary;
@@ -22,25 +21,25 @@ export function VisualFieldStatsView({ visualFieldSummary }: VisualFieldStatsVie
 
   const statCards = [
     {
-      title: "Total Fields",
+      title: 'Total Fields',
       value: visualFieldSummary.totalFields || 0,
       icon: <FieldIcon sx={{ color: colors.primary.main, fontSize: 28 }} />,
       color: colors.primary.main,
     },
     {
-      title: "In Dashboards",
+      title: 'In Dashboards',
       value: visualFieldSummary.mappingsByAssetType?.dashboards || 0,
       icon: <DashboardIcon sx={{ color: colors.assetTypes.dashboard.main, fontSize: 28 }} />,
       color: colors.assetTypes.dashboard.main,
     },
     {
-      title: "In Analyses",
+      title: 'In Analyses',
       value: visualFieldSummary.mappingsByAssetType?.analyses || 0,
       icon: <AnalysisIcon sx={{ color: colors.assetTypes.analysis.main, fontSize: 28 }} />,
       color: colors.assetTypes.analysis.main,
     },
     {
-      title: "Visual Types",
+      title: 'Visual Types',
       value: Object.keys(visualFieldSummary.mappingsByVisualType || {}).length,
       icon: <TableChartIcon sx={{ color: colors.primary.dark, fontSize: 28 }} />,
       color: colors.primary.dark,

@@ -1,2 +1,2 @@
-export * from './ui/dialogs';
 export * from './model';
+export * from './ui/dialogs';

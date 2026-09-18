@@ -1,17 +1,16 @@
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 
-import { FilterBar } from './FilterBar';
 import { DEFAULT_DATE_FILTER, DEFAULT_ERROR_FILTER } from '../lib/constants';
-
 import type {
+  AssetFilter,
+  AssetOption,
   DateFilterState,
+  ErrorFilterState,
   TagFilter,
   TagOption,
-  ErrorFilterState,
-  AssetOption,
-  AssetFilter,
 } from '../lib/types';
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import { FilterBar } from './FilterBar';
 
 const meta: Meta<typeof FilterBar> = {
   title: 'Widgets/FilterBar',

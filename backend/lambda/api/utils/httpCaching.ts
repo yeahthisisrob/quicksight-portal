@@ -5,9 +5,9 @@
  * caching-unaware. Only successful GET responses are touched — everything
  * else keeps the default no-store headers from createResponse.
  */
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { STATUS_CODES } from '../../shared/constants/httpStatusCodes';
 

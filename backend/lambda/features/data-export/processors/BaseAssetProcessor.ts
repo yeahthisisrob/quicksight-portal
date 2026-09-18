@@ -1,14 +1,14 @@
 import pLimit from 'p-limit';
 
 import { EXPORT_CONFIG } from '../../../shared/config/exportConfig';
-import { type AssetExportData } from '../../../shared/models/asset-export.model';
-import { type QuickSightService } from '../../../shared/services/aws/QuickSightService';
-import { type S3Service } from '../../../shared/services/aws/S3Service';
-import { type AssetParserService } from '../../../shared/services/parsing/AssetParserService';
+import type { AssetExportData } from '../../../shared/models/asset-export.model';
+import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
+import type { S3Service } from '../../../shared/services/aws/S3Service';
+import type { AssetParserService } from '../../../shared/services/parsing/AssetParserService';
 import { logger } from '../../../shared/utils/logger';
 import { buildAssetCacheKey } from '../../../shared/utils/s3KeyUtils';
-import { type TagService } from '../../organization/services/TagService';
-import { type AssetType, type AssetSummary, type ProcessingContext } from '../types';
+import type { TagService } from '../../organization/services/TagService';
+import type { AssetSummary, AssetType, ProcessingContext } from '../types';
 
 /**
  * Asset processing capabilities - defines what operations an asset type supports
@@ -117,7 +117,7 @@ export abstract class BaseAssetProcessor {
   protected s3Service: S3Service;
   public abstract readonly storageType: 'individual' | 'collection';
   protected tagService: TagService;
-  constructor(
+  public constructor(
     quickSightService: QuickSightService,
     s3Service: S3Service,
     tagService: TagService,

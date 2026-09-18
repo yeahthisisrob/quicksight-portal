@@ -1,24 +1,14 @@
-import {
-  Box,
-  TextField,
-  Button,
-  Stack,
-  MenuItem,
-} from '@mui/material';
+import { Box, Button, MenuItem, Stack, TextField } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import React, { useState } from 'react';
+import type React from 'react';
+import { useState } from 'react';
 
 interface MetadataFormProps {
   metadata: any;
   onSave: (metadata: any) => void;
 }
 
-const dataClassificationOptions = [
-  'Public',
-  'Internal',
-  'Confidential',
-  'Restricted',
-];
+const dataClassificationOptions = ['Public', 'Internal', 'Confidential', 'Restricted'];
 
 export default function MetadataForm({ metadata, onSave }: MetadataFormProps) {
   const [formData, setFormData] = useState({
@@ -65,28 +55,28 @@ export default function MetadataForm({ metadata, onSave }: MetadataFormProps) {
           multiline
           rows={3}
         />
-        
+
         <TextField
           label="Owner"
           value={formData.owner}
           onChange={handleChange('owner')}
           fullWidth
         />
-        
+
         <TextField
           label="Category"
           value={formData.category}
           onChange={handleChange('category')}
           fullWidth
         />
-        
+
         <TextField
           label="Business Unit"
           value={formData.businessUnit}
           onChange={handleChange('businessUnit')}
           fullWidth
         />
-        
+
         <TextField
           label="Data Classification"
           value={formData.dataClassification}
@@ -101,21 +91,21 @@ export default function MetadataForm({ metadata, onSave }: MetadataFormProps) {
             </MenuItem>
           ))}
         </TextField>
-        
+
         <DatePicker
           label="Last Reviewed"
           value={formData.lastReviewed}
           onChange={handleDateChange('lastReviewed')}
           slotProps={{ textField: { fullWidth: true } }}
         />
-        
+
         <TextField
           label="Reviewed By"
           value={formData.reviewedBy}
           onChange={handleChange('reviewedBy')}
           fullWidth
         />
-        
+
         <TextField
           label="Notes"
           value={formData.notes}
@@ -124,13 +114,8 @@ export default function MetadataForm({ metadata, onSave }: MetadataFormProps) {
           multiline
           rows={4}
         />
-        
-        <Button
-          type="submit"
-          variant="contained"
-          color="primary"
-          fullWidth
-        >
+
+        <Button type="submit" variant="contained" color="primary" fullWidth>
           Save Metadata
         </Button>
       </Stack>

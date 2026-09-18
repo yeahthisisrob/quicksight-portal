@@ -1,45 +1,44 @@
 import { Box, Paper } from '@mui/material';
 import {
   DataGrid,
-  GridColDef,
-  GridRowSelectionModel,
-  GridSortModel,
-  GridPaginationModel,
-  GridFilterModel,
+  type GridColDef,
+  type GridFilterModel,
+  type GridPaginationModel,
+  type GridRowSelectionModel,
+  type GridSortModel,
 } from '@mui/x-data-grid';
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import type { SearchMatchReason } from '@shared/generated';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { spacing } from '@/shared/design-system/theme';
 import { useDebounce, usePagination } from '@/shared/lib';
 
 import { BulkActionsToolbar } from '../bulk-actions';
 import {
-  FilterBar,
-  type DateFilterState,
-  type TagFilter,
-  type TagOption,
-  type FolderFilter,
-  type FolderOption,
-  type ErrorFilterState,
   type ActivityFilterState,
-  type SmusFilterState,
-  type ImportModeFilterState,
-  type RoleOption,
-  type GroupOption,
-  type GroupMembershipFilterState,
-  type PermissionsFilterState,
-  type SourceTypeOption,
-  type MatchReasonSummary,
+  type DateFilterState,
+  DEFAULT_ACTIVITY_FILTER,
   DEFAULT_DATE_FILTER,
   DEFAULT_ERROR_FILTER,
-  DEFAULT_ACTIVITY_FILTER,
-  DEFAULT_SMUS_FILTER,
   DEFAULT_IMPORT_MODE_FILTER,
+  DEFAULT_SMUS_FILTER,
+  type ErrorFilterState,
+  FilterBar,
+  type FolderFilter,
+  type FolderOption,
+  type GroupMembershipFilterState,
+  type GroupOption,
+  type ImportModeFilterState,
+  type MatchReasonSummary,
+  type PermissionsFilterState,
+  type RoleOption,
+  type SmusFilterState,
+  type SourceTypeOption,
+  type TagFilter,
+  type TagOption,
 } from '../filter-bar';
-import { TableHeader, TableToolbar } from './components';
 import { tableStyles } from '../lib/tableStyles';
-
-import type { SearchMatchReason } from '@shared/generated';
+import { TableHeader, TableToolbar } from './components';
 
 export interface ColumnConfig {
   id: string;
@@ -193,23 +192,34 @@ function convertGridFiltersToBackend(model: GridFilterModel): Record<string, any
 
 // Build fetch options from filter state (extracted to reduce component complexity)
 function buildFetchOptionsFromState(state: {
-  currentPage: number; pageSize: number; debouncedSearchTerm: string;
-  dateFilter: DateFilterState; sortModel: GridSortModel; filterModel: GridFilterModel;
+  currentPage: number;
+  pageSize: number;
+  debouncedSearchTerm: string;
+  dateFilter: DateFilterState;
+  sortModel: GridSortModel;
+  filterModel: GridFilterModel;
   mapSortField: (f: string | undefined) => string | undefined;
-  includeTags: TagFilter[]; excludeTags: TagFilter[];
-  errorFilter: ErrorFilterState; activityFilter: ActivityFilterState; smusFilter: SmusFilterState;
+  includeTags: TagFilter[];
+  excludeTags: TagFilter[];
+  errorFilter: ErrorFilterState;
+  activityFilter: ActivityFilterState;
+  smusFilter: SmusFilterState;
   importModeFilter: ImportModeFilterState;
-  selectedRoles: string[]; permissionsFilter: PermissionsFilterState;
-  groupMembershipFilter: GroupMembershipFilterState; selectedGroups: string[];
+  selectedRoles: string[];
+  permissionsFilter: PermissionsFilterState;
+  groupMembershipFilter: GroupMembershipFilterState;
+  selectedGroups: string[];
   selectedSourceTypes: string[];
   selectedAccessUsers: string[];
-  includeFolders: FolderFilter[]; excludeFolders: FolderFilter[];
+  includeFolders: FolderFilter[];
+  excludeFolders: FolderFilter[];
 }): FetchAssetsOptions {
   const { sortModel, currentPage, pageSize, debouncedSearchTerm, dateFilter, filterModel } = state;
   const sortField = sortModel.length > 0 ? sortModel[0].field : undefined;
   const sortOrder = sortModel.length > 0 && sortModel[0].sort ? sortModel[0].sort : undefined;
   return {
-    page: currentPage, pageSize,
+    page: currentPage,
+    pageSize,
     search: debouncedSearchTerm,
     dateRange: dateFilter.range,
     sortBy: state.mapSortField(sortField),
@@ -226,19 +236,20 @@ function buildFetchOptionsFromState(state: {
     importModeFilter: state.importModeFilter !== 'all' ? state.importModeFilter : undefined,
     roleFilter: state.selectedRoles.length > 0 ? JSON.stringify(state.selectedRoles) : undefined,
     permissionsFilter: state.permissionsFilter !== 'all' ? state.permissionsFilter : undefined,
-    groupMembershipFilter: state.groupMembershipFilter !== 'all' ? state.groupMembershipFilter : undefined,
+    groupMembershipFilter:
+      state.groupMembershipFilter !== 'all' ? state.groupMembershipFilter : undefined,
     groupFilter: state.selectedGroups.length > 0 ? JSON.stringify(state.selectedGroups) : undefined,
-    sourceTypeFilter: state.selectedSourceTypes.length > 0 ? JSON.stringify(state.selectedSourceTypes) : undefined,
-    includeFolders: state.includeFolders.length > 0 ? JSON.stringify(state.includeFolders) : undefined,
-    excludeFolders: state.excludeFolders.length > 0 ? JSON.stringify(state.excludeFolders) : undefined,
+    sourceTypeFilter:
+      state.selectedSourceTypes.length > 0 ? JSON.stringify(state.selectedSourceTypes) : undefined,
+    includeFolders:
+      state.includeFolders.length > 0 ? JSON.stringify(state.includeFolders) : undefined,
+    excludeFolders:
+      state.excludeFolders.length > 0 ? JSON.stringify(state.excludeFolders) : undefined,
   };
 }
 
 // Compute match reason summary from search results (extracted to reduce component complexity)
-function computeMatchReasonSummary(
-  assets: any[],
-  hasSearch: boolean
-): MatchReasonSummary[] {
+function computeMatchReasonSummary(assets: any[], hasSearch: boolean): MatchReasonSummary[] {
   if (!hasSearch) return [];
   const reasonCounts = new Map<SearchMatchReason, number>();
   for (const asset of assets) {
@@ -256,7 +267,7 @@ function computeMatchReasonSummary(
 
 // Filter valid rows for DataGrid (extracted to reduce component complexity)
 function filterValidRows(assets: any[], getRowId?: (row: any) => string): any[] {
-  return assets.filter((asset) => asset && (asset.id || (getRowId && getRowId(asset))));
+  return assets.filter((asset) => asset && (asset.id || getRowId?.(asset)));
 }
 
 // Map frontend sort field to backend field name
@@ -292,28 +303,34 @@ function useAutoHeight() {
 }
 
 // Build column configs from ColumnConfig[] (extracted to reduce component complexity)
-function buildColumnsConfig(columns: ColumnConfig[]): { visible: GridColDef[]; visibilityModel: Record<string, boolean> } {
+function buildColumnsConfig(columns: ColumnConfig[]): {
+  visible: GridColDef[];
+  visibilityModel: Record<string, boolean>;
+} {
   const visible = columns
     .filter((col) => col.id && col.label)
-    .map((col) => ({
-      field: col.id,
-      headerName: col.label,
-      width: col.width,
-      flex: col.flex,
-      minWidth: col.minWidth,
-      sortable: col.sortable !== false,
-      hideable: col.hideable !== false,
-      // v7 cells are block-level by default (fast text path). Columns with
-      // custom renderers opt into the flex cell display so chips and
-      // stacked content center vertically in every density.
-      display: col.renderCell ? ('flex' as const) : undefined,
-      renderCell: col.renderCell,
-      // ColumnConfig valueGetters use the v6 `(params)` shape; adapt to the
-      // v7 `(value, row)` signature in this single mapping point.
-      valueGetter: col.valueGetter
-        ? (value: unknown, row: unknown) => col.valueGetter!({ value, row })
-        : undefined,
-    }) as GridColDef);
+    .map(
+      (col) =>
+        ({
+          field: col.id,
+          headerName: col.label,
+          width: col.width,
+          flex: col.flex,
+          minWidth: col.minWidth,
+          sortable: col.sortable !== false,
+          hideable: col.hideable !== false,
+          // v7 cells are block-level by default (fast text path). Columns with
+          // custom renderers opt into the flex cell display so chips and
+          // stacked content center vertically in every density.
+          display: col.renderCell ? ('flex' as const) : undefined,
+          renderCell: col.renderCell,
+          // ColumnConfig valueGetters use the v6 `(params)` shape; adapt to the
+          // v7 `(value, row)` signature in this single mapping point.
+          valueGetter: col.valueGetter
+            ? (value: unknown, row: unknown) => col.valueGetter!({ value, row })
+            : undefined,
+        }) as GridColDef
+    );
 
   const visibilityModel: Record<string, boolean> = {};
   columns.forEach((col) => {
@@ -379,24 +396,26 @@ export default function EnhancedAssetTable({
   const [searchTerm, setSearchTerm] = useState('');
   const [sortModel, setSortModel] = useState<GridSortModel>(defaultSortModel);
   const [exporting, setExporting] = useState(false);
-  const [dateFilter, setDateFilter] = useState<DateFilterState>(
-    () => {
-      const firstDateCol = initialColumns.find((col) => col.dateFilterField);
-      return firstDateCol
-        ? { field: firstDateCol.dateFilterField!, range: 'all' as const }
-        : DEFAULT_DATE_FILTER;
-    }
-  );
+  const [dateFilter, setDateFilter] = useState<DateFilterState>(() => {
+    const firstDateCol = initialColumns.find((col) => col.dateFilterField);
+    return firstDateCol
+      ? { field: firstDateCol.dateFilterField!, range: 'all' as const }
+      : DEFAULT_DATE_FILTER;
+  });
   const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [] });
   const [includeTags, setIncludeTags] = useState<TagFilter[]>([]);
   const [excludeTags, setExcludeTags] = useState<TagFilter[]>([]);
   const [errorFilter, setErrorFilter] = useState<ErrorFilterState>(DEFAULT_ERROR_FILTER);
-  const [activityFilter, setActivityFilter] = useState<ActivityFilterState>(DEFAULT_ACTIVITY_FILTER);
+  const [activityFilter, setActivityFilter] =
+    useState<ActivityFilterState>(DEFAULT_ACTIVITY_FILTER);
   const [smusFilter, setSmusFilter] = useState<SmusFilterState>(DEFAULT_SMUS_FILTER);
-  const [importModeFilter, setImportModeFilter] = useState<ImportModeFilterState>(DEFAULT_IMPORT_MODE_FILTER);
+  const [importModeFilter, setImportModeFilter] = useState<ImportModeFilterState>(
+    DEFAULT_IMPORT_MODE_FILTER
+  );
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [permissionsFilter, setPermissionsFilter] = useState<PermissionsFilterState>('all');
-  const [groupMembershipFilter, setGroupMembershipFilter] = useState<GroupMembershipFilterState>('all');
+  const [groupMembershipFilter, setGroupMembershipFilter] =
+    useState<GroupMembershipFilterState>('all');
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [selectedSourceTypes, setSelectedSourceTypes] = useState<string[]>([]);
   const [selectedAccessUsers, setSelectedAccessUsers] = useState<string[]>([]);
@@ -480,16 +499,53 @@ export default function EnhancedAssetTable({
 
   // Build fetch options from current filter state
   const buildFetchOptions = useCallback(
-    () => buildFetchOptionsFromState({
-      currentPage, pageSize, debouncedSearchTerm, dateFilter, sortModel, filterModel,
-      mapSortField, includeTags, excludeTags, errorFilter, activityFilter, smusFilter, importModeFilter,
-      selectedRoles, permissionsFilter, groupMembershipFilter, selectedGroups,
-      selectedSourceTypes, selectedAccessUsers, includeFolders, excludeFolders,
-    }),
-    [currentPage, pageSize, debouncedSearchTerm, dateFilter, sortModel, filterModel,
-      mapSortField, includeTags, excludeTags, errorFilter, activityFilter, smusFilter, importModeFilter,
-      selectedRoles, permissionsFilter, groupMembershipFilter, selectedGroups,
-      selectedSourceTypes, selectedAccessUsers, includeFolders, excludeFolders]
+    () =>
+      buildFetchOptionsFromState({
+        currentPage,
+        pageSize,
+        debouncedSearchTerm,
+        dateFilter,
+        sortModel,
+        filterModel,
+        mapSortField,
+        includeTags,
+        excludeTags,
+        errorFilter,
+        activityFilter,
+        smusFilter,
+        importModeFilter,
+        selectedRoles,
+        permissionsFilter,
+        groupMembershipFilter,
+        selectedGroups,
+        selectedSourceTypes,
+        selectedAccessUsers,
+        includeFolders,
+        excludeFolders,
+      }),
+    [
+      currentPage,
+      pageSize,
+      debouncedSearchTerm,
+      dateFilter,
+      sortModel,
+      filterModel,
+      mapSortField,
+      includeTags,
+      excludeTags,
+      errorFilter,
+      activityFilter,
+      smusFilter,
+      importModeFilter,
+      selectedRoles,
+      permissionsFilter,
+      groupMembershipFilter,
+      selectedGroups,
+      selectedSourceTypes,
+      selectedAccessUsers,
+      includeFolders,
+      excludeFolders,
+    ]
   );
 
   // Handle bulk tag action - prefer direct handler, fall back to custom action
@@ -510,11 +566,7 @@ export default function EnhancedAssetTable({
   return (
     <Box>
       {title && (
-        <TableHeader
-          title={title}
-          totalRows={totalRows}
-          extraActions={extraToolbarActions}
-        />
+        <TableHeader title={title} totalRows={totalRows} extraActions={extraToolbarActions} />
       )}
 
       {enableBulkActions && selectedRows.length > 0 && (

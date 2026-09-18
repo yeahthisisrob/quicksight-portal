@@ -1,9 +1,9 @@
 /**
  * Utility functions for extracting metadata from archived asset data
  */
-import { normalizePermissionsArray } from './permissions';
 
 import type { AssetMetadata } from '../model/types';
+import { normalizePermissionsArray } from './permissions';
 
 /**
  * Extract base metadata from API responses
@@ -23,7 +23,7 @@ export function extractBaseMetadata(apiResponses: any): Partial<AssetMetadata> {
  */
 export function extractDescribeMetadata(describeData: any): Partial<AssetMetadata> {
   if (!describeData) return {};
-  
+
   return {
     originalName: describeData.Name || describeData.name,
     description: describeData.Description || describeData.description,
@@ -37,7 +37,7 @@ export function extractDescribeMetadata(describeData: any): Partial<AssetMetadat
  */
 export function extractDatasetMetadata(describeData: any): Partial<AssetMetadata> {
   if (!describeData) return {};
-  
+
   return {
     importMode: describeData.ImportMode || describeData.importMode,
     rowCount: describeData.RowInfo?.RowCount,
@@ -51,7 +51,7 @@ export function extractDatasetMetadata(describeData: any): Partial<AssetMetadata
 export function extractAssetMetadata(archivedData: any, assetType: string): AssetMetadata {
   const apiResponses = archivedData.apiResponses || {};
   const describeData = apiResponses.describe?.data;
-  
+
   return {
     ...extractBaseMetadata(apiResponses),
     ...extractDescribeMetadata(describeData),

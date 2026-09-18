@@ -1,13 +1,12 @@
-import { vi, type Mocked } from 'vitest';
+import { type Mocked, vi } from 'vitest';
 
-import { type CacheService } from '../../../../shared/services/cache/CacheService';
+import type { CacheService } from '../../../../shared/services/cache/CacheService';
 import { PARSER_METADATA_VERSION } from '../../../../shared/services/parsing/parserVersion';
 import { logger } from '../../../../shared/utils/logger';
 import { AssetComparisonService } from '../AssetComparisonService';
 
 vi.mock('../../../../shared/utils/logger');
 
-// eslint-disable-next-line max-lines-per-function
 describe('AssetComparisonService', () => {
   let service: AssetComparisonService;
   let mockCacheService: Mocked<CacheService>;
@@ -27,7 +26,6 @@ describe('AssetComparisonService', () => {
     service = new AssetComparisonService(mockCacheService);
   });
 
-  // eslint-disable-next-line max-lines-per-function
   describe('compareAndDetectChanges', () => {
     const mockAssets: any[] = [
       { id: 'asset1', name: 'Asset 1', lastModified: '2025-01-15T10:00:00Z' },

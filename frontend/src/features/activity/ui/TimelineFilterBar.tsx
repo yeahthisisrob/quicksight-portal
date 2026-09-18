@@ -6,9 +6,9 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  type SelectChangeEvent,
   Stack,
   Switch,
-  type SelectChangeEvent,
 } from '@mui/material';
 import { subDays } from 'date-fns';
 
@@ -68,7 +68,6 @@ function dateRangeToStartDate(range: TimelineDateRange): string | undefined {
       return subDays(now, 30).toISOString();
     case '90d':
       return subDays(now, 90).toISOString();
-    case 'all':
     default:
       return undefined;
   }

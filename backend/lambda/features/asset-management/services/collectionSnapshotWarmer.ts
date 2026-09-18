@@ -1,5 +1,5 @@
-import { AssetService } from './AssetService';
 import { logger } from '../../../shared/utils/logger';
+import { AssetService } from './AssetService';
 
 /**
  * Precompute and persist the user/group list snapshots after a cache rebuild.

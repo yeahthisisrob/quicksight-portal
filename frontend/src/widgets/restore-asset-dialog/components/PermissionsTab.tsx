@@ -32,7 +32,7 @@ export function PermissionsTab({ metadata, loadingMetadata }: PermissionsTabProp
       <Typography variant="h6" gutterBottom>
         Permissions to Restore
       </Typography>
-      
+
       {metadata?.permissions && metadata.permissions.length > 0 ? (
         <Paper variant="outlined" sx={{ p: 2, backgroundColor: colors.background.subtle }}>
           <Stack spacing={2}>
@@ -65,13 +65,12 @@ export function PermissionsTab({ metadata, loadingMetadata }: PermissionsTabProp
           </Stack>
         </Paper>
       ) : (
-        <Alert severity="info">
-          No permissions found in the archived asset
-        </Alert>
+        <Alert severity="info">No permissions found in the archived asset</Alert>
       )}
-      
+
       <Alert severity="info" icon={<InfoIcon />}>
-        All permissions from the archived asset will be restored. You can modify them after restoration if needed.
+        All permissions from the archived asset will be restored. You can modify them after
+        restoration if needed.
       </Alert>
     </Stack>
   );

@@ -1,5 +1,6 @@
 import { CheckCircle, Error as ErrorIcon, HourglassEmpty } from '@mui/icons-material';
 import {
+  alpha,
   Box,
   Card,
   Chip,
@@ -9,9 +10,8 @@ import {
   StepLabel,
   Stepper,
   Typography,
-  alpha,
 } from '@mui/material';
-import { type ReactNode, type ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 
 import { colors, spacing } from '@/shared/design-system/theme';
 
@@ -89,9 +89,7 @@ export default function JobProgress(props: JobProgressProps) {
     <Card
       sx={{
         borderRadius: `${spacing.sm / 8}px`,
-        background: isError
-          ? alpha(colors.status.error, 0.02)
-          : alpha(colors.primary.main, 0.02),
+        background: isError ? alpha(colors.status.error, 0.02) : alpha(colors.primary.main, 0.02),
         border: `1px solid ${
           isError ? alpha(colors.status.error, 0.1) : alpha(colors.primary.main, 0.08)
         }`,
@@ -198,11 +196,7 @@ export default function JobProgress(props: JobProgressProps) {
                 },
               }}
             />
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ mt: 0.5, display: 'block' }}
-            >
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
               {Math.round(progressPercent ?? 0)}% complete
             </Typography>
           </Box>

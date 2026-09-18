@@ -2,27 +2,27 @@
  * CacheService - Main orchestrator for all caching operations
  * VSA Pattern - Service Layer
  */
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 
-import { MemoryCacheAdapter } from './adapters/MemoryCacheAdapter';
-import { CacheReader } from './CacheReader';
-import { S3Service } from '../aws/S3Service';
-import { S3CacheAdapter } from './adapters/S3CacheAdapter';
 import { CACHE_CONFIG, STATUS_CODES } from '../../constants';
-import { type AssetType, type CacheEntry, type MasterCache } from '../../models/asset.model';
+import type { AssetType, CacheEntry, MasterCache } from '../../models/asset.model';
 import {
   AssetStatusFilter,
-  DEFAULT_STATUS_FILTER,
   type CacheFilterOptions,
+  DEFAULT_STATUS_FILTER,
 } from '../../types/assetFilterTypes';
 import { ASSET_TYPES } from '../../types/assetTypes';
-import {
-  type ExportSummary,
-  type AssetTypeCounts,
-  type FieldStatistics,
+import type {
+  AssetTypeCounts,
+  ExportSummary,
+  FieldStatistics,
 } from '../../types/exportSummaryTypes';
 import { logger } from '../../utils/logger';
 import { SingleFlight } from '../../utils/singleFlight';
+import { S3Service } from '../aws/S3Service';
+import { MemoryCacheAdapter } from './adapters/MemoryCacheAdapter';
+import { S3CacheAdapter } from './adapters/S3CacheAdapter';
+import { CacheReader } from './CacheReader';
 
 /**
  * Main CacheService - coordinates all caching operations
@@ -292,7 +292,6 @@ export class CacheService extends EventEmitter {
   // Get cache writer for advanced operations
   public async getCacheWriter(): Promise<any> {
     if (!this.cacheWriter) {
-      // eslint-disable-next-line import/no-cycle
       const { CacheWriter } = await import('./CacheWriter');
       this.cacheWriter = new CacheWriter(
         this.s3Adapter,
@@ -715,7 +714,8 @@ export class CacheService extends EventEmitter {
   private getMemoryCacheSize(): number {
     const lambdaMemoryMB = parseInt(
       process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE ||
-        CACHE_CONFIG.DEFAULT_LAMBDA_MEMORY_MB.toString()
+        CACHE_CONFIG.DEFAULT_LAMBDA_MEMORY_MB.toString(),
+      10
     );
 
     if (lambdaMemoryMB >= CACHE_CONFIG.LARGE_LAMBDA_MEMORY_MB) {

@@ -1,10 +1,10 @@
 import pLimit from 'p-limit';
 
-import { exportCacheManager } from './ExportCache';
 import { EXPORT_CONFIG } from '../../../shared/config/exportConfig';
 import { MATH_CONSTANTS } from '../../../shared/constants';
 import { withRetry } from '../../../shared/utils/awsRetry';
 import { logger } from '../../../shared/utils/logger';
+import { exportCacheManager } from './ExportCache';
 
 interface BulkFetchOptions<T> {
   // Asset IDs to fetch data for

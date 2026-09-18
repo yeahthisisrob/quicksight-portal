@@ -5,19 +5,18 @@ import { Box } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 
 import {
-  DialogsContainer,
-  PageComponents,
-  rowDataProcessors
-} from '@/widgets/data-catalog-dialogs';
-
-import {
   DataCatalogHeader,
   DataCatalogProvider,
   DataCatalogStats,
   useDataCatalogHandlers,
   useDataCatalogQueries,
-  useDataCatalogState
+  useDataCatalogState,
 } from '@/features/data-catalog';
+import {
+  DialogsContainer,
+  PageComponents,
+  rowDataProcessors,
+} from '@/widgets/data-catalog-dialogs';
 
 import { dataCatalogApi } from '@/shared/api/modules/data-catalog';
 import { useDebounce, useFilters } from '@/shared/lib';
@@ -34,7 +33,13 @@ const {
 /**
  * Process rows based on view mode
  */
-function processRows(viewMode: string, catalogData: any, terms: any[], mappings: any[], visualFieldCatalog: any) {
+function processRows(
+  viewMode: string,
+  catalogData: any,
+  terms: any[],
+  mappings: any[],
+  visualFieldCatalog: any
+) {
   switch (viewMode) {
     case 'physical':
       return processPhysicalViewRows(catalogData, mappings || []);
@@ -54,7 +59,12 @@ function processRows(viewMode: string, catalogData: any, terms: any[], mappings:
 /**
  * Get loading state based on view mode
  */
-function getLoadingState(viewMode: string, termsLoading: boolean, visualFieldsLoading: boolean, catalogLoading: boolean) {
+function getLoadingState(
+  viewMode: string,
+  termsLoading: boolean,
+  visualFieldsLoading: boolean,
+  catalogLoading: boolean
+) {
   if (viewMode === 'semantic') return termsLoading;
   if (viewMode === 'visual-fields') return visualFieldsLoading;
   return catalogLoading;
@@ -68,7 +78,9 @@ function getLoadingState(viewMode: string, termsLoading: boolean, visualFieldsLo
 function getTotalRows(viewMode: string, terms: any[], visualFieldCatalog: any, catalogData: any) {
   if (viewMode === 'semantic') return terms?.length || 0;
   if (viewMode === 'visual-fields') {
-    return visualFieldCatalog?.pagination?.totalItems || visualFieldCatalog?.summary?.totalMappings || 0;
+    return (
+      visualFieldCatalog?.pagination?.totalItems || visualFieldCatalog?.summary?.totalMappings || 0
+    );
   }
   return catalogData?.pagination?.totalItems || 0;
 }
@@ -123,20 +135,20 @@ function DataCatalogPageContent() {
 
   // Process data for rendering
   const rowsData = processRows(
-    state.viewMode, 
-    queries.catalogData, 
-    queries.terms || [], 
-    queries.mappings || [], 
+    state.viewMode,
+    queries.catalogData,
+    queries.terms || [],
+    queries.mappings || [],
     queries.visualFieldCatalog
   );
-  
+
   const loading = getLoadingState(
     state.viewMode,
     queries.termsLoading,
     queries.visualFieldsLoading,
     queries.catalogLoading
   );
-  
+
   const totalRows = getTotalRows(
     state.viewMode,
     queries.terms || [],
@@ -185,21 +197,18 @@ function DataCatalogPageContent() {
         includeAnalyses={state.includeAnalyses}
         onIncludeAnalysesChange={state.setIncludeAnalyses}
       />
-      
+
       <DataCatalogStats
         viewMode={state.viewMode}
         stats={queries.stats}
         catalogSummary={queries.catalogData?.summary}
         visualFieldSummary={queries.visualFieldCatalog?.summary}
       />
-      
+
       <Box sx={{ mb: 2 }}>
-        <SearchBar 
-          searchTerm={state.searchTerm} 
-          onSearchChange={state.setSearchTerm}
-        />
+        <SearchBar searchTerm={state.searchTerm} onSearchChange={state.setSearchTerm} />
       </Box>
-        
+
       <ContentView
         viewMode={state.viewMode}
         rows={rowsData}

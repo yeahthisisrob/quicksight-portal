@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { requireAuth } from '../../../../shared/auth';
 import { STATUS_CODES } from '../../../../shared/constants';

@@ -1,4 +1,4 @@
-import { type APIGatewayProxyEvent } from 'aws-lambda';
+import type { APIGatewayProxyEvent } from 'aws-lambda';
 
 import { logger } from '../utils/logger';
 
@@ -14,7 +14,7 @@ export interface AuthContext {
  * Top-level handlers catch this and return 401 (not 500).
  */
 export class UnauthorizedError extends Error {
-  constructor(message = 'Unauthorized') {
+  public constructor(message = 'Unauthorized') {
     super(message);
     this.name = 'UnauthorizedError';
   }

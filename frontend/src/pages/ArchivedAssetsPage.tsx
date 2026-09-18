@@ -1,19 +1,39 @@
-import { ContentCopy as CopyIcon, Dashboard, Analytics, Dataset, Storage, Folder, Person, Group, MoreVert as MoreVertIcon } from '@mui/icons-material';
-import { Box, Typography, Chip, Tooltip, IconButton, Menu, MenuItem, Select, FormControl, InputLabel, SelectChangeEvent } from '@mui/material';
-import { GridRowSelectionModel } from '@mui/x-data-grid';
+import {
+  Analytics,
+  ContentCopy as CopyIcon,
+  Dashboard,
+  Dataset,
+  Folder,
+  Group,
+  MoreVert as MoreVertIcon,
+  Person,
+  Storage,
+} from '@mui/icons-material';
+import {
+  Box,
+  Chip,
+  FormControl,
+  IconButton,
+  InputLabel,
+  Menu,
+  MenuItem,
+  Select,
+  type SelectChangeEvent,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import type { GridRowSelectionModel } from '@mui/x-data-grid';
+import type { components } from '@shared/generated/types';
 import { format } from 'date-fns';
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 
-import { EnhancedAssetTable , copyToClipboard } from '@/widgets/asset-table';
+import type { ArchivedAssetItem as LocalArchivedAssetItem } from '@/features/asset-management';
+import { copyToClipboard, EnhancedAssetTable } from '@/widgets/asset-table';
 import { RestoreAssetDialog } from '@/widgets/restore-asset-dialog';
-
 
 import { assetsApi } from '@/shared/api';
 import { PageLayout } from '@/shared/ui';
 import { JsonViewerModal } from '@/shared/ui/JsonViewer';
-
-import type { ArchivedAssetItem as LocalArchivedAssetItem } from '@/features/asset-management';
-import type { components } from '@shared/generated/types';
 
 type ArchivedAssetItem = components['schemas']['ArchivedAssetItem'];
 type AssetType = components['schemas']['AssetType'];
@@ -38,7 +58,11 @@ const ASSET_TYPE_COLORS: Record<AssetType, string> = {
   group: '#7b1fa2',
 };
 
-function ArchivedActionsMenu({ asset, onRestore, onViewJson }: {
+function ArchivedActionsMenu({
+  asset,
+  onRestore,
+  onViewJson,
+}: {
   asset: ArchivedAssetItem;
   onRestore: (a: ArchivedAssetItem) => void;
   onViewJson: (a: ArchivedAssetItem) => void;
@@ -50,7 +74,10 @@ function ArchivedActionsMenu({ asset, onRestore, onViewJson }: {
     <>
       <IconButton
         size="small"
-        onClick={(e) => { e.stopPropagation(); setAnchorEl(e.currentTarget); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          setAnchorEl(e.currentTarget);
+        }}
         sx={{ color: 'text.secondary', padding: '4px' }}
       >
         <MoreVertIcon fontSize="small" />
@@ -62,10 +89,20 @@ function ArchivedActionsMenu({ asset, onRestore, onViewJson }: {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <MenuItem onClick={() => { onRestore(asset); setAnchorEl(null); }}>
+        <MenuItem
+          onClick={() => {
+            onRestore(asset);
+            setAnchorEl(null);
+          }}
+        >
           Restore Asset
         </MenuItem>
-        <MenuItem onClick={() => { onViewJson(asset); setAnchorEl(null); }}>
+        <MenuItem
+          onClick={() => {
+            onViewJson(asset);
+            setAnchorEl(null);
+          }}
+        >
           View JSON
         </MenuItem>
       </Menu>
@@ -84,34 +121,37 @@ export const ArchivedAssetsPage: React.FC = () => {
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [assetToRestore, setAssetToRestore] = useState<LocalArchivedAssetItem | null>(null);
 
-  const fetchAssets = useCallback(async (options: {
-    page: number;
-    pageSize: number;
-    search?: string;
-    dateRange?: string;
-    sortBy?: string;
-    sortOrder?: string;
-  }) => {
-    const { page, pageSize, search, dateRange, sortBy, sortOrder } = options;
-    setLoading(true);
-    try {
-      const response = await assetsApi.getArchivedAssetsPaginated({
-        type: selectedType === 'all' ? undefined : selectedType,
-        page,
-        pageSize,
-        search,
-        dateRange,
-        sortBy,
-        sortOrder,
-      });
-      setAssets(response.items);
-      setTotalRows(response.totalCount);
-    } catch (error) {
-      console.error('Failed to fetch archived assets:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedType]);
+  const fetchAssets = useCallback(
+    async (options: {
+      page: number;
+      pageSize: number;
+      search?: string;
+      dateRange?: string;
+      sortBy?: string;
+      sortOrder?: string;
+    }) => {
+      const { page, pageSize, search, dateRange, sortBy, sortOrder } = options;
+      setLoading(true);
+      try {
+        const response = await assetsApi.getArchivedAssetsPaginated({
+          type: selectedType === 'all' ? undefined : selectedType,
+          page,
+          pageSize,
+          search,
+          dateRange,
+          sortBy,
+          sortOrder,
+        });
+        setAssets(response.items);
+        setTotalRows(response.totalCount);
+      } catch (error) {
+        console.error('Failed to fetch archived assets:', error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [selectedType]
+  );
 
   const handleViewJson = (asset: ArchivedAssetItem) => {
     setSelectedAsset(asset);
@@ -137,7 +177,11 @@ export const ArchivedAssetsPage: React.FC = () => {
       sortable: false,
       required: true,
       renderCell: (params: any) => (
-        <ArchivedActionsMenu asset={params.row} onRestore={handleRestore} onViewJson={handleViewJson} />
+        <ArchivedActionsMenu
+          asset={params.row}
+          onRestore={handleRestore}
+          onViewJson={handleViewJson}
+        />
       ),
     },
     {
@@ -154,9 +198,7 @@ export const ArchivedAssetsPage: React.FC = () => {
       minWidth: 200,
       renderCell: (params: any) => {
         const fullId = params.value || '';
-        const shortId = fullId.length > 15
-          ? `${fullId.slice(0, 8)}...${fullId.slice(-4)}`
-          : fullId;
+        const shortId = fullId.length > 15 ? `${fullId.slice(0, 8)}...${fullId.slice(-4)}` : fullId;
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Tooltip title={fullId}>
@@ -173,7 +215,11 @@ export const ArchivedAssetsPage: React.FC = () => {
                 {shortId}
               </Typography>
             </Tooltip>
-            <IconButton size="small" onClick={() => copyToClipboard(fullId)} sx={{ padding: '2px' }}>
+            <IconButton
+              size="small"
+              onClick={() => copyToClipboard(fullId)}
+              sx={{ padding: '2px' }}
+            >
               <CopyIcon sx={{ fontSize: '16px' }} />
             </IconButton>
           </Box>
@@ -206,7 +252,9 @@ export const ArchivedAssetsPage: React.FC = () => {
       label: 'Created',
       width: 180,
       valueGetter: (params: any) =>
-        params.row.createdTime ? format(new Date(params.row.createdTime), 'MMM dd, yyyy HH:mm') : '-',
+        params.row.createdTime
+          ? format(new Date(params.row.createdTime), 'MMM dd, yyyy HH:mm')
+          : '-',
     },
     {
       id: 'lastUpdatedTime',

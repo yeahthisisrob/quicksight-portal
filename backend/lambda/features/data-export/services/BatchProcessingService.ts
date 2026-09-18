@@ -7,21 +7,21 @@ import pLimit from 'p-limit';
 
 import { EXPORT_CONFIG } from '../../../shared/config/exportConfig';
 import { LOGGING_CONFIG } from '../../../shared/constants';
-import {
-  type BatchContext,
-  type BatchError,
-  type BatchProcessingOptions,
-  type BatchProcessingResult,
-  type BatchProgressCallback,
+import type {
+  BatchContext,
+  BatchError,
+  BatchProcessingOptions,
+  BatchProcessingResult,
+  BatchProgressCallback,
 } from '../../../shared/models/batch.model';
-import { type S3Service } from '../../../shared/services/aws/S3Service';
-import { type JobStateService } from '../../../shared/services/jobs/JobStateService';
+import type { S3Service } from '../../../shared/services/aws/S3Service';
+import type { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { logger } from '../../../shared/utils/logger';
 import {
   BaseAssetProcessor,
   type EnhancedProcessingResult,
 } from '../processors/BaseAssetProcessor';
-import { type AssetType, type ProcessingContext } from '../types';
+import type { AssetType, ProcessingContext } from '../types';
 
 /**
  * Service for processing assets in batches with proper error handling and progress tracking
@@ -30,7 +30,7 @@ export class BatchProcessingService {
   private jobId: string = '';
   private jobStateService: JobStateService | null = null;
 
-  constructor(private readonly s3Service: S3Service) {}
+  public constructor(private readonly s3Service: S3Service) {}
 
   /**
    * Create batches from a list of items

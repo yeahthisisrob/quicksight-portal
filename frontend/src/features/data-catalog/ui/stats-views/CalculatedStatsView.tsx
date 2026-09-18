@@ -4,11 +4,10 @@
 import { Grid } from '@mui/material';
 
 import { colors, spacing } from '@/shared/design-system/theme';
-import { catalogIcons, statusIcons, actionIcons } from '@/shared/ui/icons';
-
-import { StatCard } from '../components/StatCard';
+import { actionIcons, catalogIcons, statusIcons } from '@/shared/ui/icons';
 
 import type { DataCatalogSummary } from '../../model/types';
+import { StatCard } from '../components/StatCard';
 
 interface CalculatedStatsViewProps {
   catalogSummary: DataCatalogSummary;
@@ -25,29 +24,29 @@ export function CalculatedStatsView({ catalogSummary }: CalculatedStatsViewProps
 
   const statCards = [
     {
-      title: "Calculated Fields",
+      title: 'Calculated Fields',
       value: calculatedFields,
       icon: <CalculatedIcon sx={{ color: colors.primary.main, fontSize: 28 }} />,
       color: colors.primary.main,
     },
     {
-      title: "With Comments",
+      title: 'With Comments',
       value: fieldsWithComments,
       icon: <CodeIcon sx={{ color: colors.assetTypes.dashboard.main, fontSize: 28 }} />,
       color: colors.assetTypes.dashboard.main,
     },
     {
-      title: "With Variants",
+      title: 'With Variants',
       value: fieldsWithVariants,
       icon: <WarningIcon sx={{ color: colors.assetTypes.datasource.main, fontSize: 28 }} />,
       color: colors.assetTypes.datasource.main,
     },
     {
-      title: "Avg Length",
+      title: 'Avg Length',
       value: catalogSummary.avgExpressionLength || 0,
       icon: <CalculatedIcon sx={{ color: colors.primary.dark, fontSize: 28 }} />,
       color: colors.primary.dark,
-      subtitle: "characters",
+      subtitle: 'characters',
     },
   ];
 

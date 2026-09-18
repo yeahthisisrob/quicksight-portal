@@ -182,7 +182,7 @@ export abstract class BaseAssetParser {
       fieldConfig.NumericalMeasureField ||
       fieldConfig.DateMeasureField;
 
-    if (!field || !field.Column) {
+    if (!field?.Column) {
       return null;
     }
 

@@ -1,10 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
-
-import { assetsApi } from '@/shared/api';
 
 import type { AssetListItem, components } from '@shared/generated';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type React from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from 'react';
+
+import { assetsApi } from '@/shared/api';
 
 // Cross-tab caching for asset lists: within the stale window a tab switch is
 // served instantly from the query cache; explicit refreshes invalidate first,
@@ -133,7 +134,9 @@ interface AssetsContextType {
   fetchUsers: AssetFetchFn;
   fetchGroups: AssetFetchFn;
   refreshExportSummary: () => Promise<void>;
-  refreshAssetType: (assetType: 'dashboard' | 'dataset' | 'analysis' | 'datasource' | 'folder' | 'user' | 'group') => Promise<void>;
+  refreshAssetType: (
+    assetType: 'dashboard' | 'dataset' | 'analysis' | 'datasource' | 'folder' | 'user' | 'group'
+  ) => Promise<void>;
 
   // Tag updates
   updateAssetTags: (assetType: string, assetId: string, tags: any[]) => void;
@@ -163,10 +166,10 @@ interface AssetsProviderProps {
 
 // Asset type configuration for the factory
 interface AssetTypeConfig {
-  key: string;                           // Request key prefix
+  key: string; // Request key prefix
   apiMethod: (params: FetchParams) => Promise<any>;
-  dataKey: string;                       // Key in response to get items
-  queryKey: string;                      // Query invalidation key
+  dataKey: string; // Key in response to get items
+  queryKey: string; // Query invalidation key
 }
 
 const ASSET_CONFIGS: Record<string, AssetTypeConfig> = {
@@ -258,15 +261,23 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
   const [groupsPagination, setGroupsPagination] = useState<PaginationInfo | null>(null);
 
   const [availableRoles, setAvailableRoles] = useState<Array<{ value: string; count: number }>>([]);
-  const [availableGroups, setAvailableGroups] = useState<Array<{ value: string; count: number }>>([]);
-  const [availableSourceTypes, setAvailableSourceTypes] = useState<Array<{ value: string; count: number }>>([]);
+  const [availableGroups, setAvailableGroups] = useState<Array<{ value: string; count: number }>>(
+    []
+  );
+  const [availableSourceTypes, setAvailableSourceTypes] = useState<
+    Array<{ value: string; count: number }>
+  >([]);
 
   // Refresh trigger - incremented to signal tables to re-fetch with current params
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Export summary query with proper caching (react-query dedupes in-flight
   // requests itself — no extra wrapper needed)
-  const { data: exportSummary, isLoading: exportSummaryLoading, refetch: refetchSummary } = useQuery({
+  const {
+    data: exportSummary,
+    isLoading: exportSummaryLoading,
+    refetch: refetchSummary,
+  } = useQuery({
     queryKey: ['export-summary'],
     queryFn: () => assetsApi.getExportSummary(),
     staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
@@ -274,64 +285,96 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
   });
 
   // State setters map for the factory
-  const stateSetters = useMemo(() => ({
-    dashboards: { setData: setDashboards, setLoading: setDashboardsLoading, setPagination: setDashboardsPagination },
-    datasets: { setData: setDatasets, setLoading: setDatasetsLoading, setPagination: setDatasetsPagination },
-    analyses: { setData: setAnalyses, setLoading: setAnalysesLoading, setPagination: setAnalysesPagination },
-    datasources: { setData: setDatasources, setLoading: setDatasourcesLoading, setPagination: setDatasourcesPagination },
-    folders: { setData: setFolders, setLoading: setFoldersLoading, setPagination: setFoldersPagination },
-    users: { setData: setUsers, setLoading: setUsersLoading, setPagination: setUsersPagination },
-    groups: { setData: setGroups, setLoading: setGroupsLoading, setPagination: setGroupsPagination },
-  }), []);
+  const stateSetters = useMemo(
+    () => ({
+      dashboards: {
+        setData: setDashboards,
+        setLoading: setDashboardsLoading,
+        setPagination: setDashboardsPagination,
+      },
+      datasets: {
+        setData: setDatasets,
+        setLoading: setDatasetsLoading,
+        setPagination: setDatasetsPagination,
+      },
+      analyses: {
+        setData: setAnalyses,
+        setLoading: setAnalysesLoading,
+        setPagination: setAnalysesPagination,
+      },
+      datasources: {
+        setData: setDatasources,
+        setLoading: setDatasourcesLoading,
+        setPagination: setDatasourcesPagination,
+      },
+      folders: {
+        setData: setFolders,
+        setLoading: setFoldersLoading,
+        setPagination: setFoldersPagination,
+      },
+      users: { setData: setUsers, setLoading: setUsersLoading, setPagination: setUsersPagination },
+      groups: {
+        setData: setGroups,
+        setLoading: setGroupsLoading,
+        setPagination: setGroupsPagination,
+      },
+    }),
+    []
+  );
 
   // Factory function to create fetch methods - eliminates 7 duplicate implementations
-  const createAssetFetcher = useCallback((assetType: keyof typeof ASSET_CONFIGS): AssetFetchFn => {
-    const config = ASSET_CONFIGS[assetType];
-    const setters = stateSetters[assetType];
+  const createAssetFetcher = useCallback(
+    (assetType: keyof typeof ASSET_CONFIGS): AssetFetchFn => {
+      const config = ASSET_CONFIGS[assetType];
+      const setters = stateSetters[assetType];
 
-    return async (options: FetchParams) => {
-      const { page, pageSize } = options;
-      setters.setLoading(true);
+      return async (options: FetchParams) => {
+        const { page, pageSize } = options;
+        setters.setLoading(true);
 
-      try {
-        // The full options object is the query key (react-query hashes it
-        // structurally), so every filter — including the DataGrid filter
-        // model — participates in caching and in-flight dedupe. Cached pages
-        // serve tab switches instantly; invalidation forces refetches.
-        const data = await queryClient.fetchQuery({
-          queryKey: [config.queryKey, options],
-          queryFn: () => config.apiMethod(options),
-          staleTime: LIST_STALE_TIME_MS,
-          gcTime: LIST_GC_TIME_MS,
-        });
+        try {
+          // The full options object is the query key (react-query hashes it
+          // structurally), so every filter — including the DataGrid filter
+          // model — participates in caching and in-flight dedupe. Cached pages
+          // serve tab switches instantly; invalidation forces refetches.
+          const data = await queryClient.fetchQuery({
+            queryKey: [config.queryKey, options],
+            queryFn: () => config.apiMethod(options),
+            staleTime: LIST_STALE_TIME_MS,
+            gcTime: LIST_GC_TIME_MS,
+          });
 
-        const items = data[config.dataKey] || [];
-        setters.setData(items);
+          const items = data[config.dataKey] || [];
+          setters.setData(items);
 
-        // Capture available filter options from responses
-        if (assetType === 'users') {
-          if (data.availableRoles) setAvailableRoles(data.availableRoles);
-          if (data.availableGroups) setAvailableGroups(data.availableGroups);
+          // Capture available filter options from responses
+          if (assetType === 'users') {
+            if (data.availableRoles) setAvailableRoles(data.availableRoles);
+            if (data.availableGroups) setAvailableGroups(data.availableGroups);
+          }
+          if (assetType === 'datasets' || assetType === 'datasources') {
+            if (data.availableSourceTypes) setAvailableSourceTypes(data.availableSourceTypes);
+          }
+
+          // Handle pagination with fallback for backwards compatibility
+          setters.setPagination(
+            data.pagination || {
+              page,
+              pageSize,
+              totalItems: items.length,
+              totalPages: Math.ceil(items.length / pageSize),
+              hasMore: false,
+            }
+          );
+        } catch (_error) {
+          setters.setData([]);
+        } finally {
+          setters.setLoading(false);
         }
-        if (assetType === 'datasets' || assetType === 'datasources') {
-          if (data.availableSourceTypes) setAvailableSourceTypes(data.availableSourceTypes);
-        }
-
-        // Handle pagination with fallback for backwards compatibility
-        setters.setPagination(data.pagination || {
-          page,
-          pageSize,
-          totalItems: items.length,
-          totalPages: Math.ceil(items.length / pageSize),
-          hasMore: false,
-        });
-      } catch (_error) {
-        setters.setData([]);
-      } finally {
-        setters.setLoading(false);
-      }
-    };
-  }, [queryClient, stateSetters]);
+      };
+    },
+    [queryClient, stateSetters]
+  );
 
   // Create all fetch methods using the factory
   const fetchDashboards = useMemo(() => createAssetFetcher('dashboards'), [createAssetFetcher]);
@@ -348,72 +391,81 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
   }, [refetchSummary]);
 
   // Refresh specific asset type - invalidates cache and signals tables to re-fetch with current params
-  const refreshAssetType = useCallback(async (assetType: 'dashboard' | 'dataset' | 'analysis' | 'datasource' | 'folder' | 'user' | 'group') => {
-    const pluralType = ASSET_TYPE_MAP[assetType] as keyof typeof ASSET_CONFIGS;
-    const config = ASSET_CONFIGS[pluralType];
+  const refreshAssetType = useCallback(
+    async (
+      assetType: 'dashboard' | 'dataset' | 'analysis' | 'datasource' | 'folder' | 'user' | 'group'
+    ) => {
+      const pluralType = ASSET_TYPE_MAP[assetType] as keyof typeof ASSET_CONFIGS;
+      const config = ASSET_CONFIGS[pluralType];
 
-    await queryClient.invalidateQueries({ queryKey: [config.queryKey] });
+      await queryClient.invalidateQueries({ queryKey: [config.queryKey] });
 
-    // Increment refreshKey to trigger tables to re-fetch with their current sort/filter/search params
-    setRefreshKey(prev => prev + 1);
+      // Increment refreshKey to trigger tables to re-fetch with their current sort/filter/search params
+      setRefreshKey((prev) => prev + 1);
 
-    // The immediate refetch can land inside the backend's per-container
-    // revalidation window and read the pre-mutation list; refresh once more
-    // just past the window so the table always converges on server truth.
-    setTimeout(() => {
-      queryClient.invalidateQueries({ queryKey: [config.queryKey] }).then(() => {
-        setRefreshKey(prev => prev + 1);
-      });
-    }, BACKEND_REVALIDATE_WINDOW_MS);
-  }, [queryClient]);
+      // The immediate refetch can land inside the backend's per-container
+      // revalidation window and read the pre-mutation list; refresh once more
+      // just past the window so the table always converges on server truth.
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: [config.queryKey] }).then(() => {
+          setRefreshKey((prev) => prev + 1);
+        });
+      }, BACKEND_REVALIDATE_WINDOW_MS);
+    },
+    [queryClient]
+  );
 
   // Optimistically remove deleted assets from the visible list and every
   // cached page, so a delete disappears immediately regardless of backend
   // cache timing. The refreshAssetType that follows reconciles with the
   // server (including its delayed post-window pass).
-  const removeAssets = useCallback((assetType: string, assetIds: string[]) => {
-    const pluralType = ASSET_TYPE_MAP[assetType] as keyof typeof ASSET_CONFIGS | undefined;
-    if (!pluralType || assetIds.length === 0) return;
+  const removeAssets = useCallback(
+    (assetType: string, assetIds: string[]) => {
+      const pluralType = ASSET_TYPE_MAP[assetType] as keyof typeof ASSET_CONFIGS | undefined;
+      if (!pluralType || assetIds.length === 0) return;
 
-    const ids = new Set(assetIds);
-    const setters = stateSetters[pluralType];
-    if (setters) {
-      setters.setData((prev: AssetData[]) => removeAssetsFromItems(prev, ids) || prev);
-    }
+      const ids = new Set(assetIds);
+      const setters = stateSetters[pluralType];
+      if (setters) {
+        setters.setData((prev: AssetData[]) => removeAssetsFromItems(prev, ids) || prev);
+      }
 
-    // Write through to the query cache too — otherwise a later cache hit for
-    // the same key would resurrect the deleted rows
-    const config = ASSET_CONFIGS[pluralType];
-    if (config) {
-      queryClient.setQueriesData({ queryKey: [config.queryKey] }, (old: any) =>
-        old
-          ? { ...old, [config.dataKey]: removeAssetsFromItems(old[config.dataKey], ids) }
-          : old
-      );
-    }
-  }, [stateSetters, queryClient]);
+      // Write through to the query cache too — otherwise a later cache hit for
+      // the same key would resurrect the deleted rows
+      const config = ASSET_CONFIGS[pluralType];
+      if (config) {
+        queryClient.setQueriesData({ queryKey: [config.queryKey] }, (old: any) =>
+          old ? { ...old, [config.dataKey]: removeAssetsFromItems(old[config.dataKey], ids) } : old
+        );
+      }
+    },
+    [stateSetters, queryClient]
+  );
 
   // Update tags for a specific asset (optimistic update) - simplified with map
-  const updateAssetTags = useCallback((assetType: string, assetId: string, tags: any[]) => {
-    const pluralType = ASSET_TYPE_MAP[assetType] as keyof typeof stateSetters | undefined;
-    if (!pluralType) return;
+  const updateAssetTags = useCallback(
+    (assetType: string, assetId: string, tags: any[]) => {
+      const pluralType = ASSET_TYPE_MAP[assetType] as keyof typeof stateSetters | undefined;
+      if (!pluralType) return;
 
-    const setters = stateSetters[pluralType];
-    if (setters) {
-      setters.setData((prev: AssetData[]) => applyTagsToItems(prev, assetId, tags) || prev);
-    }
+      const setters = stateSetters[pluralType];
+      if (setters) {
+        setters.setData((prev: AssetData[]) => applyTagsToItems(prev, assetId, tags) || prev);
+      }
 
-    // Write through to the query cache too — otherwise a later cache hit for
-    // the same key would silently revert the optimistic edit
-    const config = ASSET_CONFIGS[pluralType];
-    if (config) {
-      queryClient.setQueriesData({ queryKey: [config.queryKey] }, (old: any) =>
-        old
-          ? { ...old, [config.dataKey]: applyTagsToItems(old[config.dataKey], assetId, tags) }
-          : old
-      );
-    }
-  }, [stateSetters, queryClient]);
+      // Write through to the query cache too — otherwise a later cache hit for
+      // the same key would silently revert the optimistic edit
+      const config = ASSET_CONFIGS[pluralType];
+      if (config) {
+        queryClient.setQueriesData({ queryKey: [config.queryKey] }, (old: any) =>
+          old
+            ? { ...old, [config.dataKey]: applyTagsToItems(old[config.dataKey], assetId, tags) }
+            : old
+        );
+      }
+    },
+    [stateSetters, queryClient]
+  );
 
   // Memoized so consumers only re-render when state actually changes,
   // not on every provider render

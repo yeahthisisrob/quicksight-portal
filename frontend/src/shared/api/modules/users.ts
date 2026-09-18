@@ -1,7 +1,7 @@
-import { api as apiClient } from '../client';
-import { ApiResponse } from '../types';
-
 import type { components } from '@shared/generated';
+
+import { api as apiClient } from '../client';
+import type { ApiResponse } from '../types';
 
 /**
  * Users API - handles group membership operations
@@ -21,7 +21,6 @@ export interface DeleteUserResult {
 }
 
 export const usersApi = {
-
   // Add users to group (queued job - poll the returned jobId)
   async addUsersToGroup(
     groupName: string,

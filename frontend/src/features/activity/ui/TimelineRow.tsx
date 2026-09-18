@@ -1,30 +1,29 @@
 import {
-  Add as CreateIcon,
-  Edit as UpdateIcon,
-  Delete as DeleteIcon,
-  Publish as PublishIcon,
-  Lock as GrantIcon,
-  LockOpen as RevokeIcon,
-  GroupAdd as MemberIcon,
-  LocalOffer as TagIcon,
-  PlayArrow as JobIcon,
   DynamicFeed as BatchIcon,
-  HelpOutline as OtherIcon,
-  OpenInNew as OpenInNewIcon,
+  Add as CreateIcon,
+  Delete as DeleteIcon,
+  Lock as GrantIcon,
+  PlayArrow as JobIcon,
   DataObject as JsonIcon,
+  GroupAdd as MemberIcon,
+  OpenInNew as OpenInNewIcon,
+  HelpOutline as OtherIcon,
+  Publish as PublishIcon,
+  LockOpen as RevokeIcon,
   type SvgIconComponent,
+  LocalOffer as TagIcon,
+  Edit as UpdateIcon,
 } from '@mui/icons-material';
 import { Avatar, Box, IconButton, Stack, Tooltip, Typography } from '@mui/material';
-import { formatDistanceToNow, format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import type { TimelineEvent } from '@/shared/api/modules/activity';
 import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 import TypedChip, { type ChipType } from '@/shared/ui/TypedChip';
 
 import { TimelineEventJsonDialog } from './TimelineEventJsonDialog';
-
-import type { TimelineEvent } from '@/shared/api/modules/activity';
 
 /* ───────── Action → icon / color / verb ─────────────────────────────────── */
 
@@ -124,7 +123,9 @@ export function TimelineRow({ event }: TimelineRowProps) {
 
   const displayLabel = event.assetName || event.assetId || formatEventName(event.eventName);
   const quicksightUrl =
-    event.assetType && event.assetId ? getQuickSightConsoleUrl(event.assetType, event.assetId) : null;
+    event.assetType && event.assetId
+      ? getQuickSightConsoleUrl(event.assetType, event.assetId)
+      : null;
 
   const handleAssetClick = () => {
     if (event.assetType && event.assetId) {
@@ -165,7 +166,16 @@ export function TimelineRow({ event }: TimelineRowProps) {
       </Avatar>
 
       {/* User + verb + asset */}
-      <Box sx={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+      <Box
+        sx={{
+          minWidth: 0,
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.75,
+          flexWrap: 'wrap',
+        }}
+      >
         <Tooltip title={event.user}>
           <Avatar sx={{ width: 22, height: 22, fontSize: 11 }}>{userInitials(event.user)}</Avatar>
         </Tooltip>

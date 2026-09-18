@@ -1,4 +1,4 @@
-import { type RouteHandler } from '../../../api/types';
+import type { RouteHandler } from '../../../api/types';
 import { DeploymentHandler } from '../handlers/DeploymentHandler';
 
 const deploymentHandler = new DeploymentHandler();

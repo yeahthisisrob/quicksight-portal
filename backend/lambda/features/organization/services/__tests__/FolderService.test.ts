@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ClientFactory } from '../../../../shared/services/aws/ClientFactory';
 import { S3Service } from '../../../../shared/services/aws/S3Service';

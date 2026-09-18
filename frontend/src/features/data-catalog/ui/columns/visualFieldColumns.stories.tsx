@@ -1,10 +1,9 @@
 import { Box, Typography } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
-
-import { createVisualFieldColumns } from './visualFieldColumns';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import type { VisualFieldRow } from '../../types';
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import { createVisualFieldColumns } from './visualFieldColumns';
 
 const mockData: VisualFieldRow[] = [
   {
@@ -30,9 +29,7 @@ const mockData: VisualFieldRow[] = [
     datasetName: 'Customer Dataset',
     visualsCount: 8,
     visualTypes: ['TABLE', 'PIE_CHART'],
-    sources: [
-      { assetType: 'dashboard', assetId: 'db-2', assetName: 'Customer Dashboard' },
-    ],
+    sources: [{ assetType: 'dashboard', assetId: 'db-2', assetName: 'Customer Dashboard' }],
     dashboardsCount: 2,
     analysesCount: 0,
   },
@@ -67,8 +64,7 @@ const mockData: VisualFieldRow[] = [
 ];
 
 const defaultCallbacks = {
-  onShowDetails: (field: VisualFieldRow) =>
-    alert(`Show details for: ${field.fieldName}`),
+  onShowDetails: (field: VisualFieldRow) => alert(`Show details for: ${field.fieldName}`),
 };
 
 const meta: Meta = {
@@ -88,13 +84,7 @@ const meta: Meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const StorySection = ({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) => (
+const StorySection = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <Box sx={{ mb: 4 }}>
     <Typography variant="h6" gutterBottom sx={{ mb: 2, fontWeight: 500 }}>
       {title}
@@ -125,9 +115,7 @@ export const AllColumns: Story = {
 export const CalculatedFields: Story = {
   render: () => {
     const columns = createVisualFieldColumns(defaultCallbacks);
-    const filteredData = mockData.filter(
-      (d) => d.fieldType === 'CALCULATED_FIELD'
-    );
+    const filteredData = mockData.filter((d) => d.fieldType === 'CALCULATED_FIELD');
     return (
       <StorySection title="Calculated Fields">
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -149,9 +137,7 @@ export const CalculatedFields: Story = {
 export const VisualTypesOverflow: Story = {
   render: () => {
     const columns = createVisualFieldColumns(defaultCallbacks);
-    const filteredData = mockData.filter(
-      (d) => d.visualTypes && d.visualTypes.length > 3
-    );
+    const filteredData = mockData.filter((d) => d.visualTypes && d.visualTypes.length > 3);
     return (
       <StorySection title="Visual Types Overflow">
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

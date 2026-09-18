@@ -1,9 +1,8 @@
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SnackbarProvider } from 'notistack';
 
 import AddToGroupDialog from '../AddToGroupDialog';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta: Meta<typeof AddToGroupDialog> = {
   title: 'Features/Organization/AddToGroupDialog',
@@ -12,7 +11,8 @@ const meta: Meta<typeof AddToGroupDialog> = {
     layout: 'centered',
     docs: {
       description: {
-        component: 'A dialog component for adding users to groups with modern design system styling.',
+        component:
+          'A dialog component for adding users to groups with modern design system styling.',
       },
     },
   },
@@ -22,12 +22,19 @@ const meta: Meta<typeof AddToGroupDialog> = {
       // In docs mode, don't render the dialog open by default
       if (context.viewMode === 'docs') {
         return (
-          <div style={{ height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div
+            style={{
+              height: '100px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
             <p>Dialog component - Click on a story to see it in action</p>
           </div>
         );
       }
-      
+
       const queryClient = new QueryClient({
         defaultOptions: {
           queries: {
@@ -118,9 +125,7 @@ const createMockDecorator = (mockGroups: any[]) => (Story: any) => {
 export const SingleUser: Story = {
   args: {
     open: true,
-    selectedUsers: [
-      { userName: 'john.doe', email: 'john.doe@example.com' },
-    ],
+    selectedUsers: [{ userName: 'john.doe', email: 'john.doe@example.com' }],
   },
   decorators: [createMockDecorator(mockGroups)],
 };
@@ -179,9 +184,7 @@ export const MixedUsers: Story = {
 export const NoGroups: Story = {
   args: {
     open: true,
-    selectedUsers: [
-      { userName: 'john.doe', email: 'john.doe@example.com' },
-    ],
+    selectedUsers: [{ userName: 'john.doe', email: 'john.doe@example.com' }],
   },
   decorators: [createMockDecorator([])],
 };
@@ -189,9 +192,7 @@ export const NoGroups: Story = {
 export const SingleGroup: Story = {
   args: {
     open: true,
-    selectedUsers: [
-      { userName: 'john.doe', email: 'john.doe@example.com' },
-    ],
+    selectedUsers: [{ userName: 'john.doe', email: 'john.doe@example.com' }],
   },
   decorators: [createMockDecorator([mockGroups[0]])],
 };
@@ -200,17 +201,17 @@ export const LongUserNames: Story = {
   args: {
     open: true,
     selectedUsers: [
-      { 
-        userName: 'alexanderdavid.smithsonwilliams', 
-        email: 'alexanderdavid.smithsonwilliams@very-long-company-domain-name.com' 
+      {
+        userName: 'alexanderdavid.smithsonwilliams',
+        email: 'alexanderdavid.smithsonwilliams@very-long-company-domain-name.com',
       },
-      { 
-        userName: 'jennifer.elizabethmarie.andersonjohnson', 
-        email: 'j.andersonjohnson@enterprise.co.uk' 
+      {
+        userName: 'jennifer.elizabethmarie.andersonjohnson',
+        email: 'j.andersonjohnson@enterprise.co.uk',
       },
-      { 
-        userName: 'christopher.benjamin.rodriguez', 
-        email: 'cbr@corp.io' 
+      {
+        userName: 'christopher.benjamin.rodriguez',
+        email: 'cbr@corp.io',
       },
     ],
   },
@@ -220,25 +221,23 @@ export const LongUserNames: Story = {
 export const Loading: Story = {
   args: {
     open: true,
-    selectedUsers: [
-      { userName: 'john.doe', email: 'john.doe@example.com' },
-    ],
+    selectedUsers: [{ userName: 'john.doe', email: 'john.doe@example.com' }],
   },
-  decorators: [(Story) => {
-    // Mock API to never resolve, keeping the loading state
-    (window as any).__STORYBOOK_MOCK_API__ = {
-      getGroupsPaginated: () => new Promise(() => {}),
-    };
-    return <Story />;
-  }],
+  decorators: [
+    (Story) => {
+      // Mock API to never resolve, keeping the loading state
+      (window as any).__STORYBOOK_MOCK_API__ = {
+        getGroupsPaginated: () => new Promise(() => {}),
+      };
+      return <Story />;
+    },
+  ],
 };
 
 export const Closed: Story = {
   args: {
     open: false,
-    selectedUsers: [
-      { userName: 'john.doe', email: 'john.doe@example.com' },
-    ],
+    selectedUsers: [{ userName: 'john.doe', email: 'john.doe@example.com' }],
   },
   decorators: [createMockDecorator(mockGroups)],
 };

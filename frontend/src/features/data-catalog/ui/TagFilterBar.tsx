@@ -1,31 +1,32 @@
 import {
-  FilterList,
-  Clear,
-  ExpandMore,
-  ExpandLess,
-  LocalOffer,
   Add,
-  Remove,
-  Dashboard as DashboardIcon,
   Analytics as AnalysisIcon,
+  Clear,
+  Dashboard as DashboardIcon,
   Storage as DatasetIcon,
+  ExpandLess,
+  ExpandMore,
+  FilterList,
+  LocalOffer,
+  Remove,
 } from '@mui/icons-material';
 import {
-  Box,
   Autocomplete,
-  TextField,
-  Chip,
-  Stack,
-  Typography,
-  IconButton,
-  Collapse,
-  Paper,
-  Tooltip,
   alpha,
-  ToggleButtonGroup,
+  Box,
+  Chip,
+  Collapse,
+  IconButton,
+  Paper,
+  Stack,
+  TextField,
   ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
+  Typography,
 } from '@mui/material';
-import React, { useState, useMemo, useCallback } from 'react';
+import type React from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { colors, spacing } from '@/shared/design-system/theme';
 
@@ -86,7 +87,8 @@ const CHIP_STYLES = {
 // Utility Functions
 // ============================================================================
 
-const getAssetConfig = (type: string) => ASSET_TYPE_CONFIG[type] || { icon: DatasetIcon, color: colors.neutral[500] };
+const getAssetConfig = (type: string) =>
+  ASSET_TYPE_CONFIG[type] || { icon: DatasetIcon, color: colors.neutral[500] };
 
 const truncateText = (text: string, maxLength: number) =>
   text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
@@ -121,7 +123,12 @@ interface AssetChipProps {
   showFullName?: boolean;
 }
 
-const AssetChip: React.FC<AssetChipProps> = ({ asset, onDelete, stopPropagation = false, showFullName = false }) => {
+const AssetChip: React.FC<AssetChipProps> = ({
+  asset,
+  onDelete,
+  stopPropagation = false,
+  showFullName = false,
+}) => {
   const config = getAssetConfig(asset.type);
   const Icon = config.icon;
 
@@ -189,7 +196,9 @@ const renderFilterTypeOption = (
       <Box component="li" key={key} {...otherProps}>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
           <DashboardIcon sx={{ fontSize: 16, color: colors.primary.main }} />
-          <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }}>Asset</Typography>
+          <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }}>
+            Asset
+          </Typography>
           <CountChip count={availableAssetsCount} label="available" color="primary" />
         </Stack>
       </Box>
@@ -199,7 +208,9 @@ const renderFilterTypeOption = (
   return (
     <Box component="li" key={key} {...otherProps}>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
-        <Typography variant="body2" sx={{ flex: 1 }}>{option}</Typography>
+        <Typography variant="body2" sx={{ flex: 1 }}>
+          {option}
+        </Typography>
         <CountChip count={groupedTags[option]?.length || 0} label="values" />
       </Stack>
     </Box>
@@ -220,7 +231,9 @@ const renderAssetOption = (
       <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
         <Icon sx={{ fontSize: 18, color: config.color }} />
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="body2" noWrap>{option.name}</Typography>
+          <Typography variant="body2" noWrap>
+            {option.name}
+          </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
             {option.type}
           </Typography>
@@ -245,7 +258,9 @@ const renderTagValueOption = (
   return (
     <Box component="li" key={key} {...otherProps}>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
-        <Typography variant="body2" sx={{ flex: 1 }}>{option.value}</Typography>
+        <Typography variant="body2" sx={{ flex: 1 }}>
+          {option.value}
+        </Typography>
         <Stack direction="row" spacing={0.5}>
           <CountChip count={option.count} label="assets" />
           {isIncluded && <CountChip count={0} label="included" color="success" />}
@@ -300,25 +315,39 @@ const FilterHeader: React.FC<FilterHeaderProps> = ({
   return (
     <Box sx={headerSx} onClick={onToggleExpand}>
       <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap', gap: 1 }}>
-        <LocalOffer sx={{ color: totalFilters > 0 ? colors.primary.main : colors.neutral[500], fontSize: 20 }} />
-        <Typography variant="subtitle2" fontWeight={600}>Filters</Typography>
+        <LocalOffer
+          sx={{ color: totalFilters > 0 ? colors.primary.main : colors.neutral[500], fontSize: 20 }}
+        />
+        <Typography variant="subtitle2" fontWeight={600}>
+          Filters
+        </Typography>
 
         {totalFilters > 0 && (
           <Chip
             label={`${totalFilters} active`}
             size="small"
             color="primary"
-            onDelete={(e) => { e.stopPropagation(); onClearAll(); }}
+            onDelete={(e) => {
+              e.stopPropagation();
+              onClearAll();
+            }}
           />
         )}
 
         {selectedAssets.length > 0 && (
           <Stack direction="row" spacing={0.5} alignItems="center">
             {selectedAssets.slice(0, 2).map((asset, idx) => (
-              <AssetChip key={`asset-${idx}`} asset={asset} onDelete={() => onRemoveAsset(idx)} stopPropagation />
+              <AssetChip
+                key={`asset-${idx}`}
+                asset={asset}
+                onDelete={() => onRemoveAsset(idx)}
+                stopPropagation
+              />
             ))}
             {selectedAssets.length > 2 && (
-              <Typography variant="caption" color="text.secondary">+{selectedAssets.length - 2} more</Typography>
+              <Typography variant="caption" color="text.secondary">
+                +{selectedAssets.length - 2} more
+              </Typography>
             )}
           </Stack>
         )}
@@ -334,11 +363,16 @@ const FilterHeader: React.FC<FilterHeaderProps> = ({
                 color="success"
                 variant="outlined"
                 sx={CHIP_STYLES.medium}
-                onDelete={(e) => { e.stopPropagation(); onRemoveIncludeTag(idx); }}
+                onDelete={(e) => {
+                  e.stopPropagation();
+                  onRemoveIncludeTag(idx);
+                }}
               />
             ))}
             {includeTags.length > 2 && (
-              <Typography variant="caption" color="text.secondary">+{includeTags.length - 2} more</Typography>
+              <Typography variant="caption" color="text.secondary">
+                +{includeTags.length - 2} more
+              </Typography>
             )}
           </Stack>
         )}
@@ -354,17 +388,28 @@ const FilterHeader: React.FC<FilterHeaderProps> = ({
                 color="error"
                 variant="outlined"
                 sx={CHIP_STYLES.medium}
-                onDelete={(e) => { e.stopPropagation(); onRemoveExcludeTag(idx); }}
+                onDelete={(e) => {
+                  e.stopPropagation();
+                  onRemoveExcludeTag(idx);
+                }}
               />
             ))}
             {excludeTags.length > 2 && (
-              <Typography variant="caption" color="text.secondary">+{excludeTags.length - 2} more</Typography>
+              <Typography variant="caption" color="text.secondary">
+                +{excludeTags.length - 2} more
+              </Typography>
             )}
           </Stack>
         )}
       </Stack>
 
-      <IconButton size="small" onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}>
+      <IconButton
+        size="small"
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleExpand();
+        }}
+      >
         {isExpanded ? <ExpandLess /> : <ExpandMore />}
       </IconButton>
     </Box>
@@ -416,7 +461,9 @@ const FilterControls: React.FC<FilterControlsProps> = ({
     <>
       {!isAssetMode && (
         <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
-          <Typography variant="body2" fontWeight={500}>Tag Filter Mode:</Typography>
+          <Typography variant="body2" fontWeight={500}>
+            Tag Filter Mode:
+          </Typography>
           <ToggleButtonGroup
             size="small"
             value={filterMode}
@@ -433,7 +480,9 @@ const FilterControls: React.FC<FilterControlsProps> = ({
             </ToggleButton>
           </ToggleButtonGroup>
           <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
-            {filterMode === 'include' ? 'Assets must have at least one of these tags' : 'Assets must not have any of these tags'}
+            {filterMode === 'include'
+              ? 'Assets must have at least one of these tags'
+              : 'Assets must not have any of these tags'}
           </Typography>
         </Stack>
       )}
@@ -447,15 +496,19 @@ const FilterControls: React.FC<FilterControlsProps> = ({
           value={selectedKey}
           onChange={(_, newValue) => onSelectedKeyChange(newValue)}
           options={allKeys}
-          getOptionLabel={(option) => option === ASSET_KEY ? 'Asset' : option}
+          getOptionLabel={(option) => (option === ASSET_KEY ? 'Asset' : option)}
           disabled={isLoading}
           renderInput={(params) => (
             <TextField {...params} label="Filter Type" placeholder="Select..." variant="outlined" />
           )}
-          renderOption={(props, option) => renderFilterTypeOption(props, option, groupedTags, availableAssets.length)}
+          renderOption={(props, option) =>
+            renderFilterTypeOption(props, option, groupedTags, availableAssets.length)
+          }
         />
 
-        <Typography variant="body2" sx={{ color: colors.neutral[500], fontWeight: 600 }}>=</Typography>
+        <Typography variant="body2" sx={{ color: colors.neutral[500], fontWeight: 600 }}>
+          =
+        </Typography>
 
         {isAssetMode ? (
           <Autocomplete
@@ -467,9 +520,20 @@ const FilterControls: React.FC<FilterControlsProps> = ({
             getOptionLabel={(option) => option.name}
             disabled={isLoading}
             renderInput={(params) => (
-              <TextField {...params} label="Select Asset" placeholder="Search assets..." variant="outlined" />
+              <TextField
+                {...params}
+                label="Select Asset"
+                placeholder="Search assets..."
+                variant="outlined"
+              />
             )}
-            renderOption={(props, option) => renderAssetOption(props, option, selectedAssets.some(a => a.id === option.id))}
+            renderOption={(props, option) =>
+              renderAssetOption(
+                props,
+                option,
+                selectedAssets.some((a) => a.id === option.id)
+              )
+            }
           />
         ) : (
           <Autocomplete
@@ -482,14 +546,21 @@ const FilterControls: React.FC<FilterControlsProps> = ({
             disabled={!selectedKey || selectedKey === ASSET_KEY || isLoading}
             noOptionsText={selectedKey ? 'No values available' : 'Select a filter type first'}
             renderInput={(params) => (
-              <TextField {...params} label="Tag Value" placeholder="Select value..." variant="outlined" />
+              <TextField
+                {...params}
+                label="Tag Value"
+                placeholder="Select value..."
+                variant="outlined"
+              />
             )}
-            renderOption={(props, option) => renderTagValueOption(
-              props,
-              option,
-              includeTags.some(t => t.key === option.key && t.value === option.value),
-              excludeTags.some(t => t.key === option.key && t.value === option.value)
-            )}
+            renderOption={(props, option) =>
+              renderTagValueOption(
+                props,
+                option,
+                includeTags.some((t) => t.key === option.key && t.value === option.value),
+                excludeTags.some((t) => t.key === option.key && t.value === option.value)
+              )
+            }
           />
         )}
 
@@ -532,15 +603,28 @@ const ActiveFiltersDisplay: React.FC<ActiveFiltersDisplayProps> = ({
   return (
     <Box sx={{ mt: 2 }}>
       {selectedAssets.length > 0 && (
-        <FilterSection title="Assets (fields from these assets):" icon={<DashboardIcon sx={{ fontSize: 14 }} />} color="primary.main">
+        <FilterSection
+          title="Assets (fields from these assets):"
+          icon={<DashboardIcon sx={{ fontSize: 14 }} />}
+          color="primary.main"
+        >
           {selectedAssets.map((asset, idx) => (
-            <AssetChip key={`asset-full-${idx}`} asset={asset} onDelete={() => onRemoveAsset(idx)} showFullName />
+            <AssetChip
+              key={`asset-full-${idx}`}
+              asset={asset}
+              onDelete={() => onRemoveAsset(idx)}
+              showFullName
+            />
           ))}
         </FilterSection>
       )}
 
       {includeTags.length > 0 && (
-        <FilterSection title="Include Tags (OR):" icon={<Add sx={{ fontSize: 14 }} />} color="success.main">
+        <FilterSection
+          title="Include Tags (OR):"
+          icon={<Add sx={{ fontSize: 14 }} />}
+          color="success.main"
+        >
           {includeTags.map((tag, idx) => (
             <Chip
               key={`include-${idx}`}
@@ -555,7 +639,11 @@ const ActiveFiltersDisplay: React.FC<ActiveFiltersDisplayProps> = ({
       )}
 
       {excludeTags.length > 0 && (
-        <FilterSection title="Exclude Tags (AND NOT):" icon={<Remove sx={{ fontSize: 14 }} />} color="error.main">
+        <FilterSection
+          title="Exclude Tags (AND NOT):"
+          icon={<Remove sx={{ fontSize: 14 }} />}
+          color="error.main"
+        >
           {excludeTags.map((tag, idx) => (
             <Chip
               key={`exclude-${idx}`}
@@ -592,11 +680,14 @@ export const TagFilterBar: React.FC<TagFilterBarProps> = ({
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const groupedTags = useMemo(() => {
-    return availableTags.reduce((acc, tag) => {
-      if (!acc[tag.key]) acc[tag.key] = [];
-      acc[tag.key].push(tag);
-      return acc;
-    }, {} as Record<string, TagOption[]>);
+    return availableTags.reduce(
+      (acc, tag) => {
+        if (!acc[tag.key]) acc[tag.key] = [];
+        acc[tag.key].push(tag);
+        return acc;
+      },
+      {} as Record<string, TagOption[]>
+    );
   }, [availableTags]);
 
   const allKeys = useMemo(() => {
@@ -606,35 +697,53 @@ export const TagFilterBar: React.FC<TagFilterBarProps> = ({
 
   const totalFilters = includeTags.length + excludeTags.length + selectedAssets.length;
 
-  const handleAddTag = useCallback((tag: TagOption) => {
-    const newTag = { key: tag.key, value: tag.value };
-    const targetList = filterMode === 'include' ? includeTags : excludeTags;
-    const onChange = filterMode === 'include' ? onIncludeTagsChange : onExcludeTagsChange;
-    if (!targetList.some(t => t.key === newTag.key && t.value === newTag.value)) {
-      onChange([...targetList, newTag]);
-    }
-  }, [filterMode, includeTags, excludeTags, onIncludeTagsChange, onExcludeTagsChange]);
+  const handleAddTag = useCallback(
+    (tag: TagOption) => {
+      const newTag = { key: tag.key, value: tag.value };
+      const targetList = filterMode === 'include' ? includeTags : excludeTags;
+      const onChange = filterMode === 'include' ? onIncludeTagsChange : onExcludeTagsChange;
+      if (!targetList.some((t) => t.key === newTag.key && t.value === newTag.value)) {
+        onChange([...targetList, newTag]);
+      }
+    },
+    [filterMode, includeTags, excludeTags, onIncludeTagsChange, onExcludeTagsChange]
+  );
 
-  const handleAddAsset = useCallback((asset: AssetOption) => {
-    if (!onSelectedAssetsChange) return;
-    if (!selectedAssets.some(a => a.id === asset.id)) {
-      onSelectedAssetsChange([...selectedAssets, { id: asset.id, name: asset.name, type: asset.type }]);
-    }
-  }, [onSelectedAssetsChange, selectedAssets]);
+  const handleAddAsset = useCallback(
+    (asset: AssetOption) => {
+      if (!onSelectedAssetsChange) return;
+      if (!selectedAssets.some((a) => a.id === asset.id)) {
+        onSelectedAssetsChange([
+          ...selectedAssets,
+          { id: asset.id, name: asset.name, type: asset.type },
+        ]);
+      }
+    },
+    [onSelectedAssetsChange, selectedAssets]
+  );
 
-  const handleRemoveIncludeTag = useCallback((index: number) => {
-    onIncludeTagsChange(includeTags.filter((_, i) => i !== index));
-  }, [includeTags, onIncludeTagsChange]);
+  const handleRemoveIncludeTag = useCallback(
+    (index: number) => {
+      onIncludeTagsChange(includeTags.filter((_, i) => i !== index));
+    },
+    [includeTags, onIncludeTagsChange]
+  );
 
-  const handleRemoveExcludeTag = useCallback((index: number) => {
-    onExcludeTagsChange(excludeTags.filter((_, i) => i !== index));
-  }, [excludeTags, onExcludeTagsChange]);
+  const handleRemoveExcludeTag = useCallback(
+    (index: number) => {
+      onExcludeTagsChange(excludeTags.filter((_, i) => i !== index));
+    },
+    [excludeTags, onExcludeTagsChange]
+  );
 
-  const handleRemoveAsset = useCallback((index: number) => {
-    if (onSelectedAssetsChange) {
-      onSelectedAssetsChange(selectedAssets.filter((_, i) => i !== index));
-    }
-  }, [onSelectedAssetsChange, selectedAssets]);
+  const handleRemoveAsset = useCallback(
+    (index: number) => {
+      if (onSelectedAssetsChange) {
+        onSelectedAssetsChange(selectedAssets.filter((_, i) => i !== index));
+      }
+    },
+    [onSelectedAssetsChange, selectedAssets]
+  );
 
   const handleClearAll = useCallback(() => {
     onIncludeTagsChange([]);
@@ -642,10 +751,19 @@ export const TagFilterBar: React.FC<TagFilterBarProps> = ({
     onSelectedAssetsChange?.([]);
   }, [onIncludeTagsChange, onExcludeTagsChange, onSelectedAssetsChange]);
 
-  const toggleExpanded = useCallback(() => setIsExpanded(prev => !prev), []);
+  const toggleExpanded = useCallback(() => setIsExpanded((prev) => !prev), []);
 
   return (
-    <Paper elevation={0} sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', mb: 2, overflow: 'hidden' }}>
+    <Paper
+      elevation={0}
+      sx={{
+        borderRadius: 2,
+        border: '1px solid',
+        borderColor: 'divider',
+        mb: 2,
+        overflow: 'hidden',
+      }}
+    >
       <FilterHeader
         totalFilters={totalFilters}
         selectedAssets={selectedAssets}
@@ -689,8 +807,12 @@ export const TagFilterBar: React.FC<TagFilterBarProps> = ({
           />
 
           {!isLoading && (availableTags.length > 0 || availableAssets.length > 0) && (
-            <Typography variant="caption" sx={{ mt: spacing.sm / 8, display: 'block', color: colors.neutral[600] }}>
-              {Object.keys(groupedTags).length} tag keys | {availableTags.length} tag values | {availableAssets.length} assets
+            <Typography
+              variant="caption"
+              sx={{ mt: spacing.sm / 8, display: 'block', color: colors.neutral[600] }}
+            >
+              {Object.keys(groupedTags).length} tag keys | {availableTags.length} tag values |{' '}
+              {availableAssets.length} assets
             </Typography>
           )}
         </Box>

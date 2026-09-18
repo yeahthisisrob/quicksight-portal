@@ -2,7 +2,7 @@ import { ArrowBack } from '@mui/icons-material';
 import { Alert, Box, Button, Stack, Typography } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { TimelineFeed, type TimelineAssetType } from '@/features/activity';
+import { type TimelineAssetType, TimelineFeed } from '@/features/activity';
 
 import { PageLayout } from '@/shared/ui';
 

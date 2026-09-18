@@ -1,8 +1,8 @@
 import {
   type CloudTrailClient,
-  type LookupEventsCommandInput,
   type Event as CloudTrailEvent,
   LookupEventsCommand,
+  type LookupEventsCommandInput,
 } from '@aws-sdk/client-cloudtrail';
 import { subDays } from 'date-fns';
 
@@ -14,7 +14,7 @@ import { cloudTrailRateLimiter } from '../../shared/utils/rateLimiter';
 
 export class JobAbortedError extends Error {
   public readonly aborted = true;
-  constructor(message = 'CloudTrail fetch aborted') {
+  public constructor(message = 'CloudTrail fetch aborted') {
     super(message);
     this.name = 'JobAbortedError';
   }
@@ -254,7 +254,10 @@ export class CloudTrailAdapter {
   private readonly client: CloudTrailClient;
   private readonly region: string;
 
-  constructor(client: CloudTrailClient, region: string = CLOUDTRAIL_CONSTANTS.DEFAULT_REGION) {
+  public constructor(
+    client: CloudTrailClient,
+    region: string = CLOUDTRAIL_CONSTANTS.DEFAULT_REGION
+  ) {
     this.client = client;
     this.region = region;
   }
@@ -708,7 +711,7 @@ export class CloudTrailAdapter {
       // Look for resource in Resources array
       if (event.Resources && event.Resources.length > 0) {
         const resource = event.Resources[0];
-        if (resource && resource.ResourceName) {
+        if (resource?.ResourceName) {
           // Extract dashboard/analysis ID from ARN
           const match = resource.ResourceName.match(
             new RegExp(CLOUDTRAIL_CONSTANTS.RESOURCE_ARN_PATTERN)

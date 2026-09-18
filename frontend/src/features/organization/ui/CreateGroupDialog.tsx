@@ -1,14 +1,14 @@
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Button,
-  Box,
-  Typography,
   Alert,
+  Box,
+  Button,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TextField,
+  Typography,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { useState } from 'react';
@@ -51,28 +51,23 @@ export function CreateGroupDialog({ open, onClose, onSuccess }: CreateGroupDialo
       enqueueSnackbar(`Group "${groupName}" created successfully`, { variant: 'success' });
       handleClose();
       onSuccess();
-    } catch (error: any) {
-      setError(error.message || 'Failed to create group');
-      enqueueSnackbar(error.message || 'Failed to create group', { variant: 'error' });
+    } catch (err: any) {
+      setError(err.message || 'Failed to create group');
+      enqueueSnackbar(err.message || 'Failed to create group', { variant: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Dialog 
-      open={open} 
-      onClose={handleClose}
-      maxWidth="sm"
-      fullWidth
-    >
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>Create New Group</DialogTitle>
       <DialogContent>
         <Box sx={{ pt: 2 }}>
           <Typography variant="body2" color="text.secondary" gutterBottom>
             Create a new QuickSight group to organize users and manage permissions.
           </Typography>
-          
+
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}

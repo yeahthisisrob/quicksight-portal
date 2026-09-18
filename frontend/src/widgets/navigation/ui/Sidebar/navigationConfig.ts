@@ -1,4 +1,4 @@
-import { NavigationIconType } from '@/shared/ui/icons';
+import type { NavigationIconType } from '@/shared/ui/icons';
 
 export interface NavigationItem {
   text: string;
@@ -31,25 +31,25 @@ export const navigationConfig: NavigationSection[] = [
         text: 'Dashboards',
         icon: 'dashboard',
         path: '/assets/dashboards',
-        colorKey: 'dashboard'
+        colorKey: 'dashboard',
       },
-      { 
-        text: 'Analyses', 
-        icon: 'analysis', 
+      {
+        text: 'Analyses',
+        icon: 'analysis',
         path: '/assets/analyses',
-        colorKey: 'analysis'
+        colorKey: 'analysis',
       },
-      { 
-        text: 'Datasets', 
-        icon: 'dataset', 
+      {
+        text: 'Datasets',
+        icon: 'dataset',
         path: '/assets/datasets',
-        colorKey: 'dataset'
+        colorKey: 'dataset',
       },
-      { 
-        text: 'Datasources', 
-        icon: 'datasource', 
+      {
+        text: 'Datasources',
+        icon: 'datasource',
         path: '/assets/datasources',
-        colorKey: 'datasource'
+        colorKey: 'datasource',
       },
     ],
   },
@@ -57,28 +57,28 @@ export const navigationConfig: NavigationSection[] = [
     title: 'Organization',
     divider: true,
     items: [
-      { 
-        text: 'Folders', 
-        icon: 'folder', 
+      {
+        text: 'Folders',
+        icon: 'folder',
         path: '/assets/folders',
-        colorKey: 'folder'
+        colorKey: 'folder',
       },
-      { 
-        text: 'Users', 
-        icon: 'user', 
+      {
+        text: 'Users',
+        icon: 'user',
         path: '/assets/users',
-        colorKey: 'user'
+        colorKey: 'user',
       },
-      { 
-        text: 'Groups', 
-        icon: 'group', 
+      {
+        text: 'Groups',
+        icon: 'group',
         path: '/assets/groups',
-        colorKey: 'group'
+        colorKey: 'group',
       },
-      { 
-        text: 'Ingestions', 
-        icon: 'storage', 
-        path: '/ingestions'
+      {
+        text: 'Ingestions',
+        icon: 'storage',
+        path: '/ingestions',
       },
     ],
   },
@@ -86,25 +86,25 @@ export const navigationConfig: NavigationSection[] = [
     title: 'Tools',
     divider: true,
     items: [
-      { 
-        text: 'Data Catalog', 
-        icon: 'dataCatalog', 
-        path: '/data-catalog'
+      {
+        text: 'Data Catalog',
+        icon: 'dataCatalog',
+        path: '/data-catalog',
       },
       {
         text: 'Export Assets',
         icon: 'exportManagement',
-        path: '/export'
+        path: '/export',
       },
       {
         text: 'Archived Assets',
         icon: 'archive',
-        path: '/archived-assets'
+        path: '/archived-assets',
       },
-      { 
-        text: 'Scripts', 
-        icon: 'code', 
-        path: '/scripts'
+      {
+        text: 'Scripts',
+        icon: 'code',
+        path: '/scripts',
       },
     ],
   },

@@ -1,9 +1,9 @@
 import { FIELD_LIMITS } from '../../../shared/constants';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
-import { type S3Service } from '../../../shared/services/aws/S3Service';
-import { type AssetType } from '../../../shared/types/assetTypes';
+import type { S3Service } from '../../../shared/services/aws/S3Service';
+import type { AssetType } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
-import { type FieldMetadataEntry, type BulkFieldMetadata } from '../types';
+import type { BulkFieldMetadata, FieldMetadataEntry } from '../types';
 
 export interface FieldMetadata {
   sourceType: AssetType;
@@ -45,7 +45,7 @@ export class FieldMetadataService {
   private metadataCache: Map<string, FieldMetadataEntry> | null = null;
   private readonly s3Service: S3Service;
 
-  constructor() {
+  public constructor() {
     this.s3Service = ClientFactory.getS3Service();
     const bucketName = process.env.BUCKET_NAME;
     if (!bucketName) {
@@ -378,7 +378,7 @@ export class FieldMetadataService {
       const bulkData = await this.s3Service.getObject(this.bucketName, this.METADATA_KEY);
       this.metadataCache = new Map();
 
-      if (bulkData && bulkData.fields) {
+      if (bulkData?.fields) {
         for (const [fieldId, metadata] of Object.entries(bulkData.fields)) {
           this.metadataCache.set(fieldId, metadata as FieldMetadataEntry);
         }

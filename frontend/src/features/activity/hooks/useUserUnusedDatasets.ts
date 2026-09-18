@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import type { components } from '@shared/generated/types';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { activityApi } from '@/shared/api/modules/activity';
-
-import type { components } from '@shared/generated/types';
 
 type UserUnusedDataset = components['schemas']['UserUnusedDataset'];
 
@@ -49,11 +48,12 @@ export function useUserUnusedDatasets({ open, user }: UseUserUnusedDatasetsProps
           : 'Unknown';
 
         const mode = dataset.importMode === 'SPICE' ? 'SPICE' : 'Direct Query';
-        const sizeInfo = dataset.importMode === 'SPICE' && dataset.sizeFormatted
-          ? ` (${dataset.sizeFormatted})`
-          : dataset.importMode === 'SPICE'
-            ? ' (size unknown)'
-            : '';
+        const sizeInfo =
+          dataset.importMode === 'SPICE' && dataset.sizeFormatted
+            ? ` (${dataset.sizeFormatted})`
+            : dataset.importMode === 'SPICE'
+              ? ' (size unknown)'
+              : '';
 
         lines.push(`  - ${dataset.datasetName}`);
         lines.push(`    Created: ${created} | Modified: ${modified}`);
@@ -67,7 +67,9 @@ export function useUserUnusedDatasets({ open, user }: UseUserUnusedDatasetsProps
       lines.push('Deleting unused SPICE datasets will free up SPICE capacity.');
     }
     lines.push('');
-    lines.push('Note: Due to QuickSight limitations, dataset usage may not be fully accurate. Please double-check with the Usage tab in the QuickSight console before deleting.');
+    lines.push(
+      'Note: Due to QuickSight limitations, dataset usage may not be fully accurate. Please double-check with the Usage tab in the QuickSight console before deleting.'
+    );
     lines.push('');
     lines.push('Thank you');
 

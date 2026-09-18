@@ -1,14 +1,13 @@
 import { Alert, Box, CircularProgress, Skeleton, Stack, Typography } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-
-import { TimelineFilterBar, type TimelineDateRange } from './TimelineFilterBar';
-import { TimelineRow } from './TimelineRow';
 import {
-  useActivityTimeline,
   type TimelineAssetPin,
   type TimelineFilters,
+  useActivityTimeline,
 } from '../hooks/useActivityTimeline';
+import { type TimelineDateRange, TimelineFilterBar } from './TimelineFilterBar';
+import { TimelineRow } from './TimelineRow';
 
 const PAGE_SIZE = 50;
 const SENTINEL_ROOT_MARGIN = '400px'; // pre-fetch the next page 400px before it comes into view
@@ -54,10 +53,7 @@ export function TimelineFeed({ assetPin, renderHeader }: TimelineFeedProps) {
 
   const query = useActivityTimeline({ filters, assetPin, pageSize: PAGE_SIZE });
 
-  const items = useMemo(
-    () => query.data?.pages.flatMap((page) => page.items) ?? [],
-    [query.data]
-  );
+  const items = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
 
   // The first page carries the cache's lastUpdated; all pages return the
   // same value so we can read it off pages[0] safely.
@@ -112,8 +108,8 @@ export function TimelineFeed({ assetPin, renderHeader }: TimelineFeedProps) {
       {!query.isLoading && items.length === 0 && !query.isError && (
         <Box sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="body2" color="text.secondary">
-            No activity events in this window. Try widening the date range or
-            running an activity refresh.
+            No activity events in this window. Try widening the date range or running an activity
+            refresh.
           </Typography>
         </Box>
       )}
@@ -150,7 +146,6 @@ function dateRangeToStartDate(range: TimelineDateRange): string | undefined {
       return new Date(now.getTime() - 30 * MS_PER_DAY).toISOString();
     case '90d':
       return new Date(now.getTime() - 90 * MS_PER_DAY).toISOString();
-    case 'all':
     default:
       return undefined;
   }

@@ -1,11 +1,11 @@
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Typography,
   Alert,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Typography,
 } from '@mui/material';
 
 import FieldMetadataContent from '../FieldMetadataContent';
@@ -28,22 +28,20 @@ export default function FieldMetadataEditDialog({
   if (!field || !sourceId) return null;
 
   return (
-    <Dialog 
-      open={open} 
-      onClose={onClose} 
-      maxWidth="md" 
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
       fullWidth
       PaperProps={{
-        sx: { 
+        sx: {
           height: '90vh',
           maxHeight: '90vh',
-        }
+        },
       }}
     >
       <DialogTitle>
-        <Typography variant="h6">
-          Edit Field Metadata: {field.fieldName}
-        </Typography>
+        <Typography variant="h6">Edit Field Metadata: {field.fieldName}</Typography>
         <Typography variant="body2" color="text.secondary">
           {sourceType === 'dataset' && `Dataset: ${sourceId}`}
           {sourceType === 'analysis' && `Analysis: ${sourceId}`}
@@ -53,8 +51,9 @@ export default function FieldMetadataEditDialog({
       <DialogContent dividers>
         {sourceType !== 'dataset' && field.isCalculated && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            This is a calculated field defined in {sourceType === 'analysis' ? 'an analysis' : 'a dashboard'}. 
-            Metadata is stored separately from dataset fields.
+            This is a calculated field defined in{' '}
+            {sourceType === 'analysis' ? 'an analysis' : 'a dashboard'}. Metadata is stored
+            separately from dataset fields.
           </Alert>
         )}
         <FieldMetadataContent

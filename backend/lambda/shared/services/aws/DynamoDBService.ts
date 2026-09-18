@@ -41,7 +41,7 @@ export class DynamoDBService {
   private readonly client: DynamoDBClient;
   private readonly docClient: DynamoDBDocumentClient;
 
-  constructor() {
+  public constructor() {
     this.client = new DynamoDBClient(getOptimizedAwsConfig());
     this.docClient = DynamoDBDocumentClient.from(this.client, {
       marshallOptions: { removeUndefinedValues: true },

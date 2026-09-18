@@ -3,7 +3,7 @@
  * Shared types for all bulk operations across the application
  */
 
-import { type AssetType } from './assetTypes';
+import type { AssetType } from './assetTypes';
 
 // Bulk operation types that can be processed
 export type BulkOperationType =

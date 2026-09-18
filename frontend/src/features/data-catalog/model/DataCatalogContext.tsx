@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import React, { createContext, useContext, useCallback, useState } from 'react';
+import type React from 'react';
+import { createContext, useCallback, useContext, useState } from 'react';
 
 import { dataCatalogApi } from '@/shared/api';
 
@@ -33,11 +34,11 @@ export function DataCatalogProvider({ children }: DataCatalogProviderProps) {
   const [isRebuilding, setIsRebuilding] = useState(false);
 
   // Main query for catalog data
-  const { 
-    data: catalogData, 
-    isLoading: catalogLoading, 
+  const {
+    data: catalogData,
+    isLoading: catalogLoading,
     error: catalogError,
-    refetch 
+    refetch,
   } = useQuery({
     queryKey: ['data-catalog'],
     queryFn: () => dataCatalogApi.getCatalog(),
@@ -78,9 +79,5 @@ export function DataCatalogProvider({ children }: DataCatalogProviderProps) {
     isRebuilding,
   };
 
-  return (
-    <DataCatalogContext.Provider value={value}>
-      {children}
-    </DataCatalogContext.Provider>
-  );
+  return <DataCatalogContext.Provider value={value}>{children}</DataCatalogContext.Provider>;
 }

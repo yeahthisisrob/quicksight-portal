@@ -1,7 +1,7 @@
-import { type ActivityData } from '../../../shared/types/activityTypes';
-import { type AssetType, type FolderInfo } from '../../../shared/types/assetTypes';
-import { type TagFilter } from '../../../shared/types/filterTypes';
-import { type LineageData } from '../../../shared/types/lineage.types';
+import type { ActivityData } from '../../../shared/types/activityTypes';
+import type { AssetType, FolderInfo } from '../../../shared/types/assetTypes';
+import type { TagFilter } from '../../../shared/types/filterTypes';
+import type { LineageData } from '../../../shared/types/lineage.types';
 
 // Re-export shared TagFilter for convenience
 export type { TagFilter };

@@ -1,15 +1,15 @@
 import {
+  Avatar,
+  alpha,
+  Box,
+  Divider,
   Drawer,
   List,
   ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Divider,
-  Box,
-  Avatar,
   Typography,
-  alpha,
 } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -33,9 +33,9 @@ export function Sidebar() {
   const sidebarContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Box sx={{ p: spacing.md / 8 }}>
-        <Typography 
-          variant="h6" 
-          sx={{ 
+        <Typography
+          variant="h6"
+          sx={{
             fontWeight: 700,
             background: `linear-gradient(135deg, ${colors.assetTypes.dashboard.main} 0%, ${colors.assetTypes.analysis.main} 100%)`,
             backgroundClip: 'text',
@@ -53,7 +53,7 @@ export function Sidebar() {
             {section.items.map((item) => {
               const Icon = navigationIcons[item.icon];
               const isActive = location.pathname === item.path;
-              
+
               return (
                 <ListItem key={item.path} disablePadding>
                   <ListItemButton
@@ -89,7 +89,7 @@ export function Sidebar() {
           </div>
         ))}
       </List>
-      
+
       {/* User section at bottom */}
       <Box>
         <Divider sx={{ mx: spacing.sm / 8, mb: spacing.sm / 8 }} />
@@ -104,10 +104,10 @@ export function Sidebar() {
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', mb: spacing.sm / 8 }}>
-            <Avatar 
-              sx={{ 
-                width: 36, 
-                height: 36, 
+            <Avatar
+              sx={{
+                width: 36,
+                height: 36,
                 mr: spacing.sm / 8,
                 background: `linear-gradient(135deg, ${colors.assetTypes.dashboard.main} 0%, ${colors.assetTypes.analysis.main} 100%)`,
                 border: `2px solid ${alpha(colors.neutral[100], 0.8)}`,
@@ -116,9 +116,9 @@ export function Sidebar() {
               {user?.email?.[0]?.toUpperCase() || <navigationIcons.user />}
             </Avatar>
             <Box sx={{ overflow: 'hidden' }}>
-              <Typography 
-                variant="body2" 
-                sx={{ 
+              <Typography
+                variant="body2"
+                sx={{
                   fontWeight: 600,
                   color: colors.neutral[800],
                   textOverflow: 'ellipsis',
@@ -128,9 +128,9 @@ export function Sidebar() {
               >
                 {user?.email?.split('@')[0] || 'User'}
               </Typography>
-              <Typography 
-                variant="caption" 
-                sx={{ 
+              <Typography
+                variant="caption"
+                sx={{
                   color: colors.neutral[600],
                   textOverflow: 'ellipsis',
                   overflow: 'hidden',
@@ -142,7 +142,7 @@ export function Sidebar() {
               </Typography>
             </Box>
           </Box>
-          
+
           <ListItemButton
             onClick={logout}
             sx={{
@@ -161,10 +161,7 @@ export function Sidebar() {
             <ListItemIcon sx={{ minWidth: 32 }}>
               <navigationIcons.logout />
             </ListItemIcon>
-            <ListItemText 
-              primary="Logout" 
-              primaryTypographyProps={{ fontSize: '0.875rem' }}
-            />
+            <ListItemText primary="Logout" primaryTypographyProps={{ fontSize: '0.875rem' }} />
           </ListItemButton>
         </Box>
       </Box>
@@ -175,8 +172,8 @@ export function Sidebar() {
     <Drawer
       variant="permanent"
       sx={{
-        '& .MuiDrawer-paper': { 
-          boxSizing: 'border-box', 
+        '& .MuiDrawer-paper': {
+          boxSizing: 'border-box',
           width: DRAWER_WIDTH,
           borderRight: `1px solid ${colors.neutral[200]}`,
           background: `linear-gradient(to bottom, ${alpha(colors.neutral[50], 0.8)}, ${alpha(colors.neutral[50], 0.95)})`,

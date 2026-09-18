@@ -1,6 +1,6 @@
-import { BaseAssetParser, type ParserCapabilities } from './BaseAssetParser';
-import { type AssetExportData } from '../../models/asset-export.model';
+import type { AssetExportData } from '../../models/asset-export.model';
 import { ASSET_TYPES } from '../../types/assetTypes';
+import { BaseAssetParser, type ParserCapabilities } from './BaseAssetParser';
 
 /**
  * Datasource metadata extracted from API responses

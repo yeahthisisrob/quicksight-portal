@@ -2,70 +2,70 @@
  * QuickSight Adapter - AWS SDK interaction layer
  */
 import {
-  type QuickSightClient,
-  ListDashboardsCommand,
-  ListDataSetsCommand,
-  ListAnalysesCommand,
-  ListDataSourcesCommand,
-  ListFoldersCommand,
-  ListFolderMembersCommand,
-  ListUsersCommand,
-  ListGroupsCommand,
-  ListGroupMembershipsCommand,
-  ListUserGroupsCommand,
-  DescribeDashboardCommand,
-  DescribeDashboardDefinitionCommand,
-  DescribeAnalysisCommand,
-  DescribeAnalysisDefinitionCommand,
-  DescribeDataSetCommand,
-  DescribeDataSetRefreshPropertiesCommand,
-  DescribeDataSourceCommand,
-  DescribeFolderCommand,
-  DescribeDashboardPermissionsCommand,
-  DescribeAnalysisPermissionsCommand,
-  DescribeDataSetPermissionsCommand,
-  DescribeDataSourcePermissionsCommand,
-  DescribeFolderPermissionsCommand,
-  UpdateFolderPermissionsCommand,
-  UpdateDashboardPermissionsCommand,
-  UpdateAnalysisPermissionsCommand,
-  UpdateDataSetPermissionsCommand,
-  UpdateDataSourcePermissionsCommand,
+  CancelIngestionCommand,
+  CreateAnalysisCommand,
+  CreateDashboardCommand,
+  CreateDataSetCommand,
+  CreateDataSourceCommand,
+  CreateFolderCommand,
+  CreateFolderMembershipCommand,
+  CreateGroupCommand,
+  CreateGroupMembershipCommand,
+  CreateRefreshScheduleCommand,
   DeleteAnalysisCommand,
   DeleteDashboardCommand,
   DeleteDataSetCommand,
   DeleteDataSourceCommand,
-  CreateRefreshScheduleCommand,
-  PutDataSetRefreshPropertiesCommand,
-  ListRefreshSchedulesCommand,
-  DescribeUserCommand,
+  DeleteFolderMembershipCommand,
+  DeleteGroupCommand,
+  DeleteGroupMembershipCommand,
+  DeleteUserCommand,
+  DescribeAnalysisCommand,
+  DescribeAnalysisDefinitionCommand,
+  DescribeAnalysisPermissionsCommand,
+  DescribeDashboardCommand,
+  DescribeDashboardDefinitionCommand,
+  DescribeDashboardPermissionsCommand,
+  DescribeDataSetCommand,
+  DescribeDataSetPermissionsCommand,
+  DescribeDataSetRefreshPropertiesCommand,
+  DescribeDataSourceCommand,
+  DescribeDataSourcePermissionsCommand,
+  DescribeFolderCommand,
+  DescribeFolderPermissionsCommand,
   DescribeGroupCommand,
   DescribeGroupMembershipCommand,
-  CreateGroupMembershipCommand,
-  DeleteGroupMembershipCommand,
-  CreateFolderMembershipCommand,
-  DeleteFolderMembershipCommand,
+  DescribeIngestionCommand,
+  DescribeUserCommand,
+  ListAnalysesCommand,
+  ListDashboardsCommand,
+  ListDataSetsCommand,
+  ListDataSourcesCommand,
+  ListFolderMembersCommand,
+  ListFoldersCommand,
+  ListGroupMembershipsCommand,
+  ListGroupsCommand,
+  ListIngestionsCommand,
+  ListRefreshSchedulesCommand,
+  ListTagsForResourceCommand,
+  ListUserGroupsCommand,
+  ListUsersCommand,
+  PutDataSetRefreshPropertiesCommand,
+  type QuickSightClient,
+  RegisterUserCommand,
   TagResourceCommand,
   UntagResourceCommand,
-  ListTagsForResourceCommand,
-  ListIngestionsCommand,
-  DescribeIngestionCommand,
-  CancelIngestionCommand,
-  CreateDashboardCommand,
-  CreateAnalysisCommand,
-  CreateDataSetCommand,
-  CreateDataSourceCommand,
-  CreateFolderCommand,
-  CreateGroupCommand,
-  DeleteGroupCommand,
-  DeleteUserCommand,
-  RegisterUserCommand,
-  UpdateDashboardCommand,
-  UpdateDashboardPublishedVersionCommand,
   UpdateAnalysisCommand,
+  UpdateAnalysisPermissionsCommand,
+  UpdateDashboardCommand,
+  UpdateDashboardPermissionsCommand,
+  UpdateDashboardPublishedVersionCommand,
   UpdateDataSetCommand,
+  UpdateDataSetPermissionsCommand,
   UpdateDataSourceCommand,
+  UpdateDataSourcePermissionsCommand,
   UpdateFolderCommand,
+  UpdateFolderPermissionsCommand,
   UpdateGroupCommand,
   UpdateUserCommand,
 } from '@aws-sdk/client-quicksight';
@@ -73,34 +73,34 @@ import {
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import * as aws from 'aws-sdk';
 
-import { STATUS_CODES, QUICKSIGHT_LIMITS, RETRY_CONFIG } from '../../shared/constants';
+import { QUICKSIGHT_LIMITS, RETRY_CONFIG, STATUS_CODES } from '../../shared/constants';
 import type {
-  DashboardSummary,
-  DataSetSummary,
+  Analysis,
+  AnalysisDefinition,
   AnalysisSummary,
-  DataSourceSummary,
+  DashboardSummary,
+  DashboardVersionDefinition,
+  DataSetSummary,
   DataSource,
+  DataSourceCredentials,
+  DataSourceParameters,
+  DataSourceSummary,
   FolderSummary,
-  User,
+  FolderType,
   Group,
   GroupMember,
-  Analysis,
-  DashboardVersionDefinition,
-  AnalysisDefinition,
-  DataSourceParameters,
-  DataSourceCredentials,
+  IdentityType,
+  MemberType,
   ResourcePermission,
   Tag,
-  FolderType,
-  MemberType,
+  User,
   UserRole,
-  IdentityType,
 } from '../../shared/types/aws-sdk-types';
 import { withRetry } from '../../shared/utils/awsRetry';
 import { logger } from '../../shared/utils/logger';
 import {
-  quickSightRateLimiter,
   quickSightPermissionsRateLimiter,
+  quickSightRateLimiter,
 } from '../../shared/utils/rateLimiter';
 
 /**
@@ -123,7 +123,7 @@ export class QuickSightAdapter {
   private v2CredentialsInitialized?: Promise<void>;
   private v2DataSourceLister?: aws.QuickSight;
 
-  constructor(
+  public constructor(
     private readonly client: QuickSightClient,
     private readonly awsAccountId: string
   ) {
@@ -350,7 +350,7 @@ export class QuickSightAdapter {
     });
 
     const response = await this.client.send(command);
-    if (!response.Group || !response.Group.Arn || !response.Group.GroupName) {
+    if (!response.Group?.Arn || !response.Group.GroupName) {
       throw new Error('Invalid response from CreateGroup');
     }
     return {
@@ -1096,7 +1096,7 @@ export class QuickSightAdapter {
     });
 
     const response = await this.client.send(command);
-    if (!response.User || !response.User.Arn || !response.User.UserName || !response.User.Role) {
+    if (!response.User?.Arn || !response.User.UserName || !response.User.Role) {
       throw new Error('Invalid response from RegisterUser');
     }
     return {
@@ -1429,7 +1429,7 @@ export class QuickSightAdapter {
     });
 
     const response = await this.client.send(command);
-    if (!response.Group || !response.Group.Arn || !response.Group.GroupName) {
+    if (!response.Group?.Arn || !response.Group.GroupName) {
       throw new Error('Invalid response from UpdateGroup');
     }
     return {
@@ -1462,7 +1462,7 @@ export class QuickSightAdapter {
     });
 
     const response = await this.client.send(command);
-    if (!response.User || !response.User.Arn || !response.User.UserName || !response.User.Role) {
+    if (!response.User?.Arn || !response.User.UserName || !response.User.Role) {
       throw new Error('Invalid response from UpdateUser');
     }
     return {

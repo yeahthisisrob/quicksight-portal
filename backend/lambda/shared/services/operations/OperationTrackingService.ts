@@ -4,11 +4,11 @@
  */
 
 import {
-  OperationName,
   type OperationContext,
+  OperationName,
   type OperationTracker,
 } from '../../models/operations.model';
-import { type JobStateService } from '../jobs/JobStateService';
+import type { JobStateService } from '../jobs/JobStateService';
 
 export class OperationTrackingService implements OperationTracker {
   private jobId?: string;

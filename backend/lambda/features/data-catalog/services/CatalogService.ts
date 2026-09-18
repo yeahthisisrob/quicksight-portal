@@ -1,6 +1,6 @@
-import { type CacheEntry } from '../../../shared/models/asset.model';
+import type { CacheEntry } from '../../../shared/models/asset.model';
 import { cacheService } from '../../../shared/services/cache/CacheService';
-import { type FieldInfo } from '../../../shared/services/cache/types';
+import type { FieldInfo } from '../../../shared/services/cache/types';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
 import {
@@ -13,12 +13,12 @@ import { PORTAL_EXCLUDE_TAGS } from '../../../shared/utils/constants';
 import { logger } from '../../../shared/utils/logger';
 import { FolderService } from '../../organization/services/FolderService';
 import { detectConflict } from '../lib/expressionAnalysis';
-import {
-  type CatalogField,
-  type CatalogIndex,
-  type CatalogSourceScope,
-  type DataCatalogResult,
-  type IndexedCatalogField,
+import type {
+  CatalogField,
+  CatalogIndex,
+  CatalogSourceScope,
+  DataCatalogResult,
+  IndexedCatalogField,
 } from '../types';
 import { catalogIndexBuilder } from './CatalogIndexBuilder';
 
@@ -30,7 +30,7 @@ export class CatalogService {
   private indexCache: CatalogIndex | null = null;
   private indexCacheAt = 0;
 
-  constructor() {
+  public constructor() {
     const accountId = process.env.AWS_ACCOUNT_ID || '';
     this.folderService = new FolderService(accountId);
   }

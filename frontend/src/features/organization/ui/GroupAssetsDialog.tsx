@@ -1,36 +1,41 @@
 import {
+  Analytics as AnalysisIcon,
   Dashboard as DashboardIcon,
   Storage as DatasetIcon,
-  Analytics as AnalysisIcon,
   CloudQueue as DatasourceIcon,
+  FileDownload as FileDownloadIcon,
   Folder as FolderIcon,
   Search as SearchIcon,
-  FileDownload as FileDownloadIcon,
 } from '@mui/icons-material';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Typography,
+  Alert,
   Box,
+  Button,
+  Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  InputAdornment,
   List,
   ListItem,
-  ListItemText,
   ListItemIcon,
-  Chip,
-  TextField,
-  InputAdornment,
-  Tabs,
+  ListItemText,
   Tab,
-  Alert,
+  Tabs,
+  TextField,
+  Typography,
 } from '@mui/material';
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { api } from '@/shared/api';
-import { dataToCSV, downloadCSV, generateCSVFilename, type ExportColumn } from '@/shared/lib/exportUtils';
+import {
+  dataToCSV,
+  downloadCSV,
+  type ExportColumn,
+  generateCSVFilename,
+} from '@/shared/lib/exportUtils';
 
 interface GroupAssetsDialogProps {
   open: boolean;
@@ -74,16 +79,17 @@ export function GroupAssetsDialog({ open, onClose, group }: GroupAssetsDialogPro
 
     // Filter by type
     if (selectedType !== 'all') {
-      filtered = filtered.filter(asset => asset.assetType === selectedType);
+      filtered = filtered.filter((asset) => asset.assetType === selectedType);
     }
 
     // Filter by search term
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(asset => 
-        asset.assetName.toLowerCase().includes(term) ||
-        asset.assetId.toLowerCase().includes(term) ||
-        asset.folderPath?.toLowerCase().includes(term)
+      filtered = filtered.filter(
+        (asset) =>
+          asset.assetName.toLowerCase().includes(term) ||
+          asset.assetId.toLowerCase().includes(term) ||
+          asset.folderPath?.toLowerCase().includes(term)
       );
     }
 
@@ -92,7 +98,7 @@ export function GroupAssetsDialog({ open, onClose, group }: GroupAssetsDialogPro
 
   const fetchGroupAssets = useCallback(async () => {
     if (!group) return;
-    
+
     setLoading(true);
     setError(null);
     try {
@@ -139,11 +145,11 @@ export function GroupAssetsDialog({ open, onClose, group }: GroupAssetsDialogPro
       { id: 'assetId', label: 'Asset ID' },
       { id: 'accessType', label: 'Access Type' },
       { id: 'folderPath', label: 'Folder Path' },
-      { 
-        id: 'permissions', 
+      {
+        id: 'permissions',
         label: 'Permission Level',
-        getValue: (row) => getPermissionLabel(row.permissions)
-      }
+        getValue: (row) => getPermissionLabel(row.permissions),
+      },
     ];
 
     const csvContent = dataToCSV(filteredAssets, columns);
@@ -152,14 +158,18 @@ export function GroupAssetsDialog({ open, onClose, group }: GroupAssetsDialogPro
   };
 
   const getPermissionLabel = (permissions: string[] = []) => {
-    if (permissions.includes('quicksight:UpdateDashboard') || 
-        permissions.includes('quicksight:UpdateAnalysis') || 
-        permissions.includes('quicksight:UpdateDataSet')) {
+    if (
+      permissions.includes('quicksight:UpdateDashboard') ||
+      permissions.includes('quicksight:UpdateAnalysis') ||
+      permissions.includes('quicksight:UpdateDataSet')
+    ) {
       return 'Edit';
     }
-    if (permissions.includes('quicksight:DescribeDashboard') || 
-        permissions.includes('quicksight:DescribeAnalysis') || 
-        permissions.includes('quicksight:DescribeDataSet')) {
+    if (
+      permissions.includes('quicksight:DescribeDashboard') ||
+      permissions.includes('quicksight:DescribeAnalysis') ||
+      permissions.includes('quicksight:DescribeDataSet')
+    ) {
       return 'View';
     }
     return 'Access';
@@ -170,16 +180,10 @@ export function GroupAssetsDialog({ open, onClose, group }: GroupAssetsDialogPro
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">Assets for Group: {group.name}</Typography>
-          {!loading && (
-            <Chip 
-              label={`${totalAssets} total assets`} 
-              color="primary" 
-              size="small"
-            />
-          )}
+          {!loading && <Chip label={`${totalAssets} total assets`} color="primary" size="small" />}
         </Box>
       </DialogTitle>
-      
+
       <DialogContent dividers>
         {loading ? (
           <Box display="flex" justifyContent="center" p={4}>
@@ -206,8 +210,8 @@ export function GroupAssetsDialog({ open, onClose, group }: GroupAssetsDialogPro
               sx={{ mb: 2 }}
             />
 
-            <Tabs 
-              value={selectedType} 
+            <Tabs
+              value={selectedType}
               onChange={handleTabChange}
               variant="scrollable"
               scrollButtons="auto"
@@ -217,18 +221,18 @@ export function GroupAssetsDialog({ open, onClose, group }: GroupAssetsDialogPro
               {Object.entries(assetsByType).map(([type, count]) => {
                 // Map plural type names to singular for filtering
                 const typeMap: Record<string, string> = {
-                  'dashboards': 'dashboard',
-                  'datasets': 'dataset',
-                  'analyses': 'analysis',
-                  'datasources': 'datasource',
-                  'folders': 'folder'
+                  dashboards: 'dashboard',
+                  datasets: 'dataset',
+                  analyses: 'analysis',
+                  datasources: 'datasource',
+                  folders: 'folder',
                 };
-                
+
                 return (
-                  <Tab 
-                    key={type} 
-                    label={`${type.charAt(0).toUpperCase() + type.slice(1)} (${count})`} 
-                    value={typeMap[type] || type} 
+                  <Tab
+                    key={type}
+                    label={`${type.charAt(0).toUpperCase() + type.slice(1)} (${count})`}
+                    value={typeMap[type] || type}
                   />
                 );
               })}
@@ -236,32 +240,30 @@ export function GroupAssetsDialog({ open, onClose, group }: GroupAssetsDialogPro
 
             {filteredAssets.length === 0 ? (
               <Typography color="textSecondary" align="center" py={4}>
-                {searchTerm || selectedType !== 'all' 
-                  ? 'No assets match your filters' 
+                {searchTerm || selectedType !== 'all'
+                  ? 'No assets match your filters'
                   : 'This group has no asset permissions'}
               </Typography>
             ) : (
               <List>
                 {filteredAssets.map((asset) => (
                   <ListItem key={`${asset.assetType}-${asset.assetId}`}>
-                    <ListItemIcon>
-                      {assetTypeIcons[asset.assetType] || <FolderIcon />}
-                    </ListItemIcon>
+                    <ListItemIcon>{assetTypeIcons[asset.assetType] || <FolderIcon />}</ListItemIcon>
                     <ListItemText
                       disableTypography
                       primary={
                         <Box display="flex" alignItems="center" gap={1}>
                           <Typography variant="body1">{asset.assetName}</Typography>
-                          <Chip 
-                            label={asset.accessType === 'folder_inherited' ? 'Inherited' : 'Direct'} 
-                            size="small" 
+                          <Chip
+                            label={asset.accessType === 'folder_inherited' ? 'Inherited' : 'Direct'}
+                            size="small"
                             color={asset.accessType === 'folder_inherited' ? 'default' : 'primary'}
                             variant="outlined"
                           />
                           {asset.permissions && (
-                            <Chip 
-                              label={getPermissionLabel(asset.permissions)} 
-                              size="small" 
+                            <Chip
+                              label={getPermissionLabel(asset.permissions)}
+                              size="small"
                               color="success"
                               variant="outlined"
                             />
@@ -288,14 +290,10 @@ export function GroupAssetsDialog({ open, onClose, group }: GroupAssetsDialogPro
           </>
         )}
       </DialogContent>
-      
+
       <DialogActions>
         {filteredAssets.length > 0 && (
-          <Button 
-            onClick={handleExportCSV}
-            startIcon={<FileDownloadIcon />}
-            color="primary"
-          >
+          <Button onClick={handleExportCSV} startIcon={<FileDownloadIcon />} color="primary">
             Export CSV
           </Button>
         )}

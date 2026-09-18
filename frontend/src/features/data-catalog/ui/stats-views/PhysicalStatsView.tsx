@@ -1,15 +1,14 @@
 /**
  * Physical stats view for Data Catalog
  */
-import { Grid, Card, CardContent, Typography, Box, alpha } from '@mui/material';
+import { alpha, Box, Card, CardContent, Grid, Typography } from '@mui/material';
 
 import { colors, spacing } from '@/shared/design-system/theme';
-import { catalogIcons, assetIcons, specialIcons, statusIcons } from '@/shared/ui/icons';
-
-import { DataTypeBar } from '../components/DataTypeBar';
-import { StatCard } from '../components/StatCard';
+import { assetIcons, catalogIcons, specialIcons, statusIcons } from '@/shared/ui/icons';
 
 import type { DataCatalogSummary, DataType } from '../../model/types';
+import { DataTypeBar } from '../components/DataTypeBar';
+import { StatCard } from '../components/StatCard';
 
 interface PhysicalStatsViewProps {
   catalogSummary: DataCatalogSummary;
@@ -40,38 +39,38 @@ export function PhysicalStatsView({ catalogSummary }: PhysicalStatsViewProps) {
   // One row per distinct field name in scope, so "Total Fields" matches the table.
   const statCards = [
     {
-      title: "Total Fields",
+      title: 'Total Fields',
       value: totalFields,
       icon: <FieldIcon sx={{ color: colors.primary.main, fontSize: 28 }} />,
       color: colors.primary.main,
     },
     {
-      title: "Calculated",
+      title: 'Calculated',
       value: catalogSummary.totalCalculatedFields || 0,
       icon: <CalculatedIcon sx={{ color: colors.primary.dark, fontSize: 28 }} />,
       color: colors.primary.dark,
     },
     {
-      title: "Dataset Calculated",
+      title: 'Dataset Calculated',
       value: catalogSummary.calculatedDatasetFields || 0,
       icon: <DatasetIcon sx={{ color: colors.assetTypes.dataset.main, fontSize: 28 }} />,
       color: colors.assetTypes.dataset.main,
     },
     {
-      title: "Analysis Calculated",
+      title: 'Analysis Calculated',
       value: catalogSummary.calculatedAnalysisFields || 0,
       icon: <AnalysisIcon sx={{ color: colors.assetTypes.analysis.main, fontSize: 28 }} />,
       color: colors.assetTypes.analysis.main,
       subtitle: 'scope: + Analyses',
     },
     {
-      title: "With Conflicts",
+      title: 'With Conflicts',
       value: catalogSummary.fieldsWithConflicts || 0,
       icon: <WarningIcon sx={{ color: colors.status.error, fontSize: 28 }} />,
       color: colors.status.error,
     },
     {
-      title: "Visual Fields",
+      title: 'Visual Fields',
       value: catalogSummary.visualFields || 0,
       icon: <TableChartIcon sx={{ color: colors.assetTypes.dashboard.main, fontSize: 28 }} />,
       color: colors.assetTypes.dashboard.main,
@@ -89,8 +88,8 @@ export function PhysicalStatsView({ catalogSummary }: PhysicalStatsViewProps) {
       </Grid>
 
       {Object.keys(fieldsByDataType).length > 0 && (
-        <Card 
-          sx={{ 
+        <Card
+          sx={{
             mt: spacing.md / 8,
             borderRadius: `${spacing.sm / 8}px`,
             border: `1px solid ${colors.neutral[200]}`,
@@ -99,16 +98,16 @@ export function PhysicalStatsView({ catalogSummary }: PhysicalStatsViewProps) {
         >
           <CardContent sx={{ p: spacing.lg / 8 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: spacing.md / 8 }}>
-              <DataTypeIcon 
-                sx={{ 
-                  mr: spacing.sm / 8, 
+              <DataTypeIcon
+                sx={{
+                  mr: spacing.sm / 8,
                   color: colors.neutral[600],
                   fontSize: 24,
-                }} 
+                }}
               />
-              <Typography 
-                variant="subtitle1" 
-                sx={{ 
+              <Typography
+                variant="subtitle1"
+                sx={{
                   fontWeight: 700,
                   color: colors.neutral[800],
                 }}

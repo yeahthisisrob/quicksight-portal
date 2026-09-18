@@ -1,32 +1,29 @@
+import { Close as CloseIcon, AutoAwesome as SuggestIcon } from '@mui/icons-material';
 import {
-  Close as CloseIcon,
-  AutoAwesome as SuggestIcon,
-} from '@mui/icons-material';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
+  Alert,
   Box,
-  Typography,
+  Button,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  FormControl,
   IconButton,
+  InputLabel,
   List,
   ListItem,
   ListItemText,
-  Chip,
-  Alert,
-  CircularProgress,
-  Divider,
   MenuItem,
-  FormControl,
-  InputLabel,
   Select,
+  TextField,
+  Typography,
 } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { semanticApi } from '@/shared/api';
 
@@ -68,14 +65,14 @@ export default function SemanticMappingDialog({
   const suggestMutation = useMutation({
     mutationFn: async () => {
       if (!field) return [];
-      
+
       const fieldMetadata = {
         dataType: field.dataType,
         description: field.description,
         sampleValues: field.sampleValues,
         context: field.sources?.[0]?.assetName,
       };
-      
+
       return semanticApi.suggestMappings({
         fieldName: field.fieldName,
         ...fieldMetadata,
@@ -90,7 +87,7 @@ export default function SemanticMappingDialog({
   const createMappingMutation = useMutation({
     mutationFn: async () => {
       if (!field || !selectedTermId) throw new Error('Missing required data');
-      
+
       return semanticApi.createMapping({
         fieldId: field.semanticFieldId || field.fieldId,
         termId: selectedTermId,
@@ -114,7 +111,7 @@ export default function SemanticMappingDialog({
       setSelectedTermId('');
       setReason('');
       setSuggestions([]);
-      
+
       // Load suggestions
       setLoadingSuggestions(true);
       suggestMutation.mutate();
@@ -132,7 +129,7 @@ export default function SemanticMappingDialog({
       enqueueSnackbar('Please select a semantic term', { variant: 'error' });
       return;
     }
-    
+
     createMappingMutation.mutate();
   };
 
@@ -142,7 +139,7 @@ export default function SemanticMappingDialog({
     return 'error';
   };
 
-  const selectedTerm = terms.find(t => t.id === selectedTermId);
+  const selectedTerm = terms.find((t) => t.id === selectedTermId);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -154,7 +151,7 @@ export default function SemanticMappingDialog({
           </IconButton>
         </Box>
       </DialogTitle>
-      
+
       <DialogContent>
         {field && (
           <>
@@ -165,17 +162,13 @@ export default function SemanticMappingDialog({
               </Typography>
               <Typography variant="h6">{field.fieldName}</Typography>
               <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
-                {field.dataType && (
-                  <Chip label={field.dataType} size="small" variant="outlined" />
-                )}
-                {field.isCalculated && (
-                  <Chip label="Calculated" size="small" color="primary" />
-                )}
+                {field.dataType && <Chip label={field.dataType} size="small" variant="outlined" />}
+                {field.isCalculated && <Chip label="Calculated" size="small" color="primary" />}
                 {field.sources?.[0] && (
-                  <Chip 
-                    label={`From: ${field.sources[0].assetName}`} 
-                    size="small" 
-                    variant="outlined" 
+                  <Chip
+                    label={`From: ${field.sources[0].assetName}`}
+                    size="small"
+                    variant="outlined"
                   />
                 )}
               </Box>
@@ -200,39 +193,39 @@ export default function SemanticMappingDialog({
                 ) : (
                   <List dense>
                     {suggestions.map((suggestion) => {
-                      const term = terms.find(t => t.id === suggestion.termId);
+                      const term = terms.find((t) => t.id === suggestion.termId);
                       if (!term) return null;
-                      
+
                       return (
                         <ListItem
                           key={suggestion.termId}
                           button
                           selected={selectedTermId === suggestion.termId}
                           onClick={() => handleSelectSuggestion(suggestion)}
-                          sx={{ 
-                            border: 1, 
-                            borderColor: 'divider', 
-                            borderRadius: 1, 
+                          sx={{
+                            border: 1,
+                            borderColor: 'divider',
+                            borderRadius: 1,
                             mb: 1,
                             '&.Mui-selected': {
                               borderColor: 'primary.main',
                               bgcolor: 'action.selected',
-                            }
+                            },
                           }}
                         >
                           <ListItemText
                             primary={
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography variant="subtitle2">
-                                  {term.businessName}
-                                </Typography>
+                                <Typography variant="subtitle2">{term.businessName}</Typography>
                                 <Chip
                                   label="Match"
                                   size="small"
                                   color={getScoreColor(
-                                    suggestion.score.nameMatch + suggestion.score.descriptionMatch + 
-                                    suggestion.score.dataTypeMatch + suggestion.score.patternMatch + 
-                                    suggestion.score.contextMatch
+                                    suggestion.score.nameMatch +
+                                      suggestion.score.descriptionMatch +
+                                      suggestion.score.dataTypeMatch +
+                                      suggestion.score.patternMatch +
+                                      suggestion.score.contextMatch
                                   )}
                                 />
                               </Box>
@@ -242,7 +235,11 @@ export default function SemanticMappingDialog({
                                 <Typography variant="caption" component="div">
                                   Technical: {term.term}
                                 </Typography>
-                                <Typography variant="caption" color="text.secondary" component="div">
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  component="div"
+                                >
                                   {suggestion.reasons.join(' • ')}
                                 </Typography>
                               </>
@@ -289,13 +286,10 @@ export default function SemanticMappingDialog({
                     {selectedTerm.businessName}
                   </Typography>
                   {selectedTerm.description && (
-                    <Typography variant="caption">
-                      {selectedTerm.description}
-                    </Typography>
+                    <Typography variant="caption">{selectedTerm.description}</Typography>
                   )}
                 </Alert>
               )}
-
 
               <TextField
                 fullWidth
@@ -310,7 +304,7 @@ export default function SemanticMappingDialog({
           </>
         )}
       </DialogContent>
-      
+
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button

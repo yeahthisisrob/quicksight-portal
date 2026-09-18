@@ -1,9 +1,9 @@
 import { Dialog, DialogContent, DialogTitle } from '@mui/material';
-
-import { DatasetActivityContent } from '../DatasetActivityContent';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import type { DatasetActivityData } from '@/shared/api/modules/activity';
-import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import { DatasetActivityContent } from '../DatasetActivityContent';
 
 const meta: Meta<typeof DatasetActivityContent> = {
   title: 'Widgets/ActivityStats/DatasetActivityDialog',

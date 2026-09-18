@@ -1,11 +1,11 @@
+import type { AssetExportData } from '../../models/asset-export.model';
+import { ASSET_TYPES } from '../../types/assetTypes';
 import {
   BaseAssetParser,
-  type ParserCapabilities,
   type CalculatedField,
   type Field,
+  type ParserCapabilities,
 } from './BaseAssetParser';
-import { type AssetExportData } from '../../models/asset-export.model';
-import { ASSET_TYPES } from '../../types/assetTypes';
 
 /**
  * Dataset metadata extracted from API responses

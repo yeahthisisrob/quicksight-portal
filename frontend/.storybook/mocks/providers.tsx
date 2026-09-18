@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import React from 'react';
+import type React from 'react';
 
 import { MockAuthProvider, useAuth } from './auth';
 

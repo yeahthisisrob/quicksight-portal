@@ -3,18 +3,18 @@
  * Used by both export and deployment features
  */
 
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../auth';
-import { STATUS_CODES, PAGINATION } from '../constants';
-import { JobRepository, type JobType, type JobListOptions } from '../services/jobs/JobRepository';
-import { successResponse, errorResponse } from '../utils/cors';
+import { PAGINATION, STATUS_CODES } from '../constants';
+import { type JobListOptions, JobRepository, type JobType } from '../services/jobs/JobRepository';
+import { errorResponse, successResponse } from '../utils/cors';
 import { logger } from '../utils/logger';
 
 export class JobHandler {
   private readonly repository: JobRepository;
 
-  constructor() {
+  public constructor() {
     this.repository = new JobRepository();
   }
 
