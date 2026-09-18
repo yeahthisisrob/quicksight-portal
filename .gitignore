@@ -86,3 +86,6 @@ mise.local.toml
 
 # gitleaks scratch output (see .gitleaksignore for reviewed findings)
 .gitleaks-report.json
+
+# TypeScript incremental build state
+*.tsbuildinfo
