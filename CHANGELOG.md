@@ -5,6 +5,7 @@
 
 ### Bug Fixes
 
+* **frontend:** blank page after login — Rolldown produced a cyclic chunk graph ([#119](https://github.com/yeahthisisrob/quicksight-portal/issues/119)) ([f2b38e0](https://github.com/yeahthisisrob/quicksight-portal/commit/f2b38e0af2547710853e77b18280eba4ca0ee155))
 * **ts:** repair the TypeScript 7 module settings and make the CDK app emit-free ([#117](https://github.com/yeahthisisrob/quicksight-portal/issues/117)) ([ca3e8b3](https://github.com/yeahthisisrob/quicksight-portal/commit/ca3e8b31e4edb46645d578367dcac7b8c6c49e0b))
 
 ## [1.14.3](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.14.2...v1.14.3) (2026-09-18)
