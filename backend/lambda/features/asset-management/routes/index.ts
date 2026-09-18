@@ -59,6 +59,16 @@ export const assetManagementRoutes: RouteHandler[] = [
     path: /^\/assets\/(dashboard|analysis|dataset|folder)\/([^/]+)\/rename$/,
     handler: (event) => handler.renameAsset(event),
   },
+  {
+    method: 'GET',
+    path: /^\/assets\/(dataset)\/([^/]+)\/source$/,
+    handler: (event) => handler.getDatasetSource(event),
+  },
+  {
+    method: 'PUT',
+    path: /^\/assets\/(dataset)\/([^/]+)\/source$/,
+    handler: (event) => handler.updateDatasetSource(event),
+  },
 
   {
     method: 'POST',

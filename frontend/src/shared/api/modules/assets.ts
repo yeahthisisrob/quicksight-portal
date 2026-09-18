@@ -5,6 +5,13 @@ import type { ApiResponse } from '../types';
 
 type Schemas = components['schemas'];
 
+export type DatasetSource = Schemas['DatasetSource'];
+export type DatasetPhysicalTable = Schemas['DatasetPhysicalTable'];
+export type DatasetTableEdit = Schemas['DatasetTableEdit'];
+export type DataSourceOption = Schemas['DataSourceOption'];
+/** The GET response adds the selectable data sources to the dataset's own sources. */
+export type DatasetSourceResponse = DatasetSource & { dataSources: DataSourceOption[] };
+
 /** Params shared by every paginated list endpoint; extra filter params pass through */
 export type PaginatedListParams = {
   page?: number;
@@ -80,6 +87,33 @@ export const assetsApi = {
     );
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to rename asset');
+    }
+    return response.data.data!;
+  },
+
+  // Where a dataset reads its data from, live from QuickSight, plus the data
+  // sources a table may be pointed at.
+  async getDatasetSource(assetId: string): Promise<DatasetSourceResponse> {
+    const response = await apiClient.get<ApiResponse<DatasetSourceResponse>>(
+      `/assets/dataset/${encodeURIComponent(assetId)}/source`
+    );
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to read the dataset source');
+    }
+    return response.data.data!;
+  },
+
+  // Repoint a dataset's physical tables and/or rename it.
+  async updateDatasetSource(
+    assetId: string,
+    update: { name?: string; tables?: DatasetTableEdit[] }
+  ): Promise<DatasetSource> {
+    const response = await apiClient.put<ApiResponse<DatasetSource>>(
+      `/assets/dataset/${encodeURIComponent(assetId)}/source`,
+      update
+    );
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to update the dataset source');
     }
     return response.data.data!;
   },

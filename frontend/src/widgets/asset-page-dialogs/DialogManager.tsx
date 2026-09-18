@@ -12,7 +12,7 @@ import {
 import { memo } from 'react';
 
 import { BulkDeleteDialog, DefinitionErrorsDialog, RenameAssetDialog } from '@/entities/asset';
-import { RefreshScheduleDialog } from '@/entities/dataset';
+import { DatasetSourceDialog, RefreshScheduleDialog } from '@/entities/dataset';
 import { AddToFolderDialog } from '@/entities/folder';
 import { BulkTagDialog } from '@/entities/tag';
 import {
@@ -36,6 +36,7 @@ import { JsonViewerModal } from '@/shared/ui';
 import { AssetFoldersDialog, PermissionsDialog, RelatedAssetsDialog, TagsDialog } from './dialogs';
 import type {
   AssetFoldersDialogState,
+  DatasetSourceDialogState,
   DefinitionErrorsDialogState,
   DeleteGroupDialogState,
   DeleteUserDialogState,
@@ -292,6 +293,8 @@ interface DialogManagerProps {
   setNotifyInactiveDialog: (state: NotifyInactiveDialogState) => void;
   renameAssetDialog: RenameAssetDialogState;
   setRenameAssetDialog: (state: RenameAssetDialogState) => void;
+  datasetSourceDialog: DatasetSourceDialogState;
+  setDatasetSourceDialog: (state: DatasetSourceDialogState) => void;
   notifyInactiveAnalysesDialog: NotifyInactiveAnalysesDialogState;
   setNotifyInactiveAnalysesDialog: (state: NotifyInactiveAnalysesDialogState) => void;
   notifyUnusedDatasetsDialog: NotifyUnusedDatasetsDialogState;
@@ -352,6 +355,8 @@ export function DialogManager({
   setNotifyInactiveDialog,
   renameAssetDialog,
   setRenameAssetDialog,
+  datasetSourceDialog,
+  setDatasetSourceDialog,
   notifyInactiveAnalysesDialog,
   setNotifyInactiveAnalysesDialog,
   notifyUnusedDatasetsDialog,
@@ -461,6 +466,15 @@ export function DialogManager({
           }}
           assetType={assetType}
           asset={renameAssetDialog.asset}
+        />
+      )}
+
+      {datasetSourceDialog.dataset && (
+        <DatasetSourceDialog
+          open={datasetSourceDialog.open}
+          onClose={() => setDatasetSourceDialog({ open: false, dataset: null })}
+          dataset={datasetSourceDialog.dataset}
+          onSaved={() => refreshAssetType(assetType)}
         />
       )}
 

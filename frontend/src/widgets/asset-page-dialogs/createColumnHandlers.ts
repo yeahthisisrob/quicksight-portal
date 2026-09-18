@@ -6,6 +6,7 @@ import type { AssetType } from '@/shared/types/asset';
 
 import type {
   AssetFoldersDialogState,
+  DatasetSourceDialogState,
   DefinitionErrorsDialogState,
   DeleteGroupDialogState,
   DeleteUserDialogState,
@@ -38,6 +39,7 @@ interface DialogSetters {
   setUserAssetAccessDialog: (state: UserAssetAccessDialogState) => void;
   setNotifyInactiveDialog: (state: NotifyInactiveDialogState) => void;
   setRenameAssetDialog: (state: RenameAssetDialogState) => void;
+  setDatasetSourceDialog: (state: DatasetSourceDialogState) => void;
   setNotifyInactiveAnalysesDialog: (state: NotifyInactiveAnalysesDialogState) => void;
   setNotifyUnusedDatasetsDialog: (state: NotifyUnusedDatasetsDialogState) => void;
 }
@@ -69,6 +71,7 @@ export function createColumnHandlers(
     setUserAssetAccessDialog,
     setNotifyInactiveDialog,
     setRenameAssetDialog,
+    setDatasetSourceDialog,
     setNotifyInactiveAnalysesDialog,
     setNotifyUnusedDatasetsDialog,
   } = dialogSetters;
@@ -128,6 +131,9 @@ export function createColumnHandlers(
     },
     onRenameClick: (asset: any) => {
       setRenameAssetDialog({ open: true, asset });
+    },
+    onEditSourceClick: (dataset: any) => {
+      setDatasetSourceDialog({ open: true, dataset });
     },
     onNotifyInactiveAnalyses: (user: any) => {
       setNotifyInactiveAnalysesDialog({ open: true, user });

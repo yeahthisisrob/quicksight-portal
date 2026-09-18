@@ -1569,6 +1569,107 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/assets/dataset/{assetId}/source:
+    get:
+      summary: Where a dataset reads its data from
+      description: |
+        Returns the dataset's physical tables, read live from QuickSight (not
+        the portal cache, which can be stale), together with the data sources
+        a table may be pointed at.
+
+        Uploaded (flat file) datasets have no queryable specification and
+        return 400.
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The dataset's current sources
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/DatasetSource'
+                      - type: object
+                        required: [dataSources]
+                        properties:
+                          dataSources:
+                            type: array
+                            description: |
+                              Every data source in the account. A table's data
+                              source is always chosen from this list - ARNs are
+                              never entered by hand - and the server re-checks
+                              membership on update.
+                            items:
+                              $ref: '#/components/schemas/DataSourceOption'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      summary: Repoint a dataset's physical tables and/or rename it
+      description: |
+        Applies the given edits and writes the whole specification back to
+        QuickSight, which has no partial-update API.
+
+        Column definitions are always preserved: logical tables, calculated
+        fields and downstream dashboards reference those names, so this
+        endpoint changes only where the data comes from. If the new table or
+        query does not produce those columns, QuickSight rejects the update
+        and its message is returned verbatim.
+
+        A table cannot change kind - relational stays relational, custom SQL
+        stays custom SQL.
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Supply a name, a list of table edits, or both.
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  description: Rename the dataset at the same time
+                tables:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/DatasetTableEdit'
+      responses:
+        '200':
+          description: The dataset's sources after the update
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/DatasetSource'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/assets/{assetType}/{assetId}/rename:
     post:
       summary: Rename an asset live in QuickSight
@@ -3467,6 +3568,89 @@ components:
               type: integer
             errors:
               type: integer
+
+    DatasetPhysicalTable:
+      type: object
+      required: [id, kind, dataSourceArn, name, columnCount, editable]
+      properties:
+        id:
+          type: string
+          description: |
+            Key in the dataset's PhysicalTableMap. Referenced by the logical
+            table map, so it never changes.
+        kind:
+          type: string
+          enum: [RELATIONAL, CUSTOM_SQL, S3]
+        dataSourceArn:
+          type: string
+        name:
+          type: string
+          description: "Relational: the table name. Custom SQL: the query's display name."
+        catalog:
+          type: string
+          description: Relational only; absent for engines with no catalog concept.
+        schema:
+          type: string
+          description: Relational only. The database for Athena-backed sources.
+        sqlQuery:
+          type: string
+          description: Custom SQL only.
+        columnCount:
+          type: integer
+          description: How many columns are pinned to this table.
+        editable:
+          type: boolean
+          description: False for S3 sources, which have no schema or query to edit.
+
+    DatasetSource:
+      type: object
+      required: [dataSetId, name, importMode, tables]
+      properties:
+        dataSetId:
+          type: string
+        name:
+          type: string
+        importMode:
+          type: string
+        tables:
+          type: array
+          items:
+            $ref: '#/components/schemas/DatasetPhysicalTable'
+
+    DatasetTableEdit:
+      type: object
+      required: [id]
+      description: A change to one physical table. Omitted fields are left alone.
+      properties:
+        id:
+          type: string
+        dataSourceArn:
+          type: string
+          description: Must be one of the account's data sources.
+        name:
+          type: string
+        catalog:
+          type: string
+          description: Relational only. Send an empty string to clear it.
+        schema:
+          type: string
+          description: Relational only.
+        sqlQuery:
+          type: string
+          description: Custom SQL only.
+
+    DataSourceOption:
+      type: object
+      required: [id, name, arn]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        arn:
+          type: string
+        type:
+          type: string
 
     BulkItemFailure:
       type: object

@@ -10,6 +10,7 @@ import { createResponse, errorResponse, successResponse } from '../../../shared/
 import { logger } from '../../../shared/utils/logger';
 import { PermissionsService } from '../../organization/services/PermissionsService';
 import { AssetService } from '../services/AssetService';
+import { DatasetSourceService } from '../services/DatasetSourceService';
 import { isRenameableAssetType, RenameService } from '../services/RenameService';
 import type { AssetListRequest } from '../types';
 
@@ -480,6 +481,76 @@ export class AssetHandler {
     } catch (error: any) {
       logger.error('Rename failed', { error });
       return errorResponse(event, STATUS_CODES.BAD_REQUEST, error.message || 'Rename failed');
+    }
+  }
+
+  /**
+   * Where a dataset reads its data from, live from QuickSight.
+   * GET /assets/dataset/{assetId}/source
+   */
+  public async getDatasetSource(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const dataSetId = event.pathParameters?.assetId || '';
+      if (!dataSetId) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Dataset id is required');
+      }
+
+      const service = new DatasetSourceService(this.accountId);
+      const [source, dataSources] = await Promise.all([
+        service.getSource(dataSetId),
+        service.listDataSourceOptions(),
+      ]);
+
+      return successResponse(event, { success: true, data: { ...source, dataSources } });
+    } catch (error: any) {
+      logger.error('Get dataset source failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.BAD_REQUEST,
+        error.message || 'Failed to read the dataset source'
+      );
+    }
+  }
+
+  /**
+   * Repoint a dataset's physical tables and/or rename it.
+   * PUT /assets/dataset/{assetId}/source  body: { name?, tables? }
+   */
+  public async updateDatasetSource(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const dataSetId = event.pathParameters?.assetId || '';
+      if (!dataSetId) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Dataset id is required');
+      }
+
+      const { name, tables } = JSON.parse(event.body || '{}');
+      if (name === undefined && !Array.isArray(tables)) {
+        return errorResponse(
+          event,
+          STATUS_CODES.BAD_REQUEST,
+          'Provide a name and/or a tables array to change'
+        );
+      }
+      if (tables !== undefined && !Array.isArray(tables)) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'tables must be an array');
+      }
+
+      logger.info('Dataset source update requested', { user: user.email, dataSetId });
+      const service = new DatasetSourceService(this.accountId);
+      const result = await service.updateSource(dataSetId, { name, tables });
+
+      return successResponse(event, { success: true, data: result });
+    } catch (error: any) {
+      logger.error('Update dataset source failed', { error });
+      // QuickSight's own rejection (a column that the new table does not
+      // produce, a query that will not parse) is the useful message here.
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.BAD_REQUEST,
+        error.message || 'Failed to update the dataset source'
+      );
     }
   }
 

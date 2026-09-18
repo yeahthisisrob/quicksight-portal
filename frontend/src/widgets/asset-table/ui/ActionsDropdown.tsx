@@ -1,4 +1,5 @@
 import {
+  EditNote as EditSourceIcon,
   Hub as HubIcon,
   MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
@@ -25,6 +26,7 @@ interface ActionsDropdownProps {
     onNotifyInactiveAnalyses?: (asset: any) => void;
     onNotifyUnusedDatasets?: (asset: any) => void;
     onRenameClick?: (asset: any) => void;
+    onEditSourceClick?: (asset: any) => void;
   };
 }
 
@@ -113,6 +115,12 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
           <MenuItem onClick={() => handleAction(() => handlers.onRenameClick?.(asset))}>
             <RenameIcon fontSize="small" sx={{ mr: 1 }} />
             Rename
+          </MenuItem>
+        )}
+        {assetType === 'dataset' && (
+          <MenuItem onClick={() => handleAction(() => handlers.onEditSourceClick?.(asset))}>
+            <EditSourceIcon fontSize="small" sx={{ mr: 1 }} />
+            Edit Source
           </MenuItem>
         )}
         {(assetType === 'dashboard' || assetType === 'analysis') && (
