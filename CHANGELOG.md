@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.14.1...v1.14.2) (2026-09-18)
+
+
+### Bug Fixes
+
+* adding users to groups sent [null] user names; bulk jobs now record why each item failed ([#111](https://github.com/yeahthisisrob/quicksight-portal/issues/111)) ([0676e3b](https://github.com/yeahthisisrob/quicksight-portal/commit/0676e3be27a0d11f5808061be0a54a0948ab12ed))
+
 ## [1.14.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.14.0...v1.14.1) (2026-08-29)
 
 
