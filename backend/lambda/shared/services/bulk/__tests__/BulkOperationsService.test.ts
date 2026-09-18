@@ -281,6 +281,32 @@ describe('BulkOperationsService - Group Operations', () => {
       await expect(service.bulkAddUsersToGroups(['user1'], null as any, TEST_USER)).rejects.toThrow(
         'Group names array is required and must not be empty'
       );
+
+      await expect(service.bulkAddUsersToGroups(['user1'], [''], TEST_USER)).rejects.toThrow(
+        'Each group name must be a non-empty string (received "" at index 0)'
+      );
+    });
+
+    it('should reject null, blank and non-string user names before queueing a job', async () => {
+      // A users-grid row without a userName field serialises as [null] - this
+      // used to reach the worker and die inside the SDK with an opaque
+      // "No value provided for HTTP label: MemberName"
+      await expect(
+        service.bulkAddUsersToGroups([null] as any, ['group1'], TEST_USER)
+      ).rejects.toMatchObject({
+        name: 'ValidationError',
+        message: 'Each user name must be a non-empty string (received null at index 0)',
+      });
+
+      await expect(
+        service.bulkAddUsersToGroups(['alice', '   '], ['group1'], TEST_USER)
+      ).rejects.toThrow('Each user name must be a non-empty string (received "   " at index 1)');
+
+      await expect(
+        service.bulkRemoveUsersFromGroups([{ name: 'alice' }] as any, ['group1'], TEST_USER)
+      ).rejects.toThrow('Each user name must be a non-empty string');
+
+      expect(jobFactory.createJob).not.toHaveBeenCalled();
     });
 
     it('should enforce maximum users limit', async () => {

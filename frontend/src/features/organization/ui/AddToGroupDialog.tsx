@@ -22,19 +22,25 @@ import {
 import { useSnackbar } from 'notistack';
 import { useState, useEffect, useCallback } from 'react';
 
-import { usersApi, assetsApi } from '@/shared/api';
-import { useJobPolling } from '@/shared/hooks/useJobPolling';
+import { JobFailureList } from '@/entities/job';
+import { resolveUserName, type UserLike } from '@/entities/user';
+
+import { assetsApi } from '@/shared/api';
 import { assetIcons } from '@/shared/ui/icons';
 
-import type { JobMetadata } from '@/shared/api/modules/jobs';
+import { useGroupMembershipJob, type MembershipOutcome } from '../lib/useGroupMembershipJob';
 
 const GroupIcon = assetIcons.group;
 const UserIcon = assetIcons.user;
 
+const MAX_USER_CHIPS = 10;
+
 interface AddToGroupDialogProps {
   open: boolean;
   onClose: () => void;
-  selectedUsers: Array<{ userName: string; email?: string }>;
+  /** Users-grid rows (name/id) or legacy { userName } selections - both work */
+  selectedUsers: ReadonlyArray<UserLike>;
+  /** Fired when at least one user was added, so the caller can refresh */
   onComplete: () => void;
 }
 
@@ -43,6 +49,8 @@ interface Group {
   description?: string;
   memberCount?: number;
 }
+
+const pluralUsers = (n: number): string => `${n} user${n === 1 ? '' : 's'}`;
 
 export default function AddToGroupDialog({
   open,
@@ -55,52 +63,34 @@ export default function AddToGroupDialog({
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroup, setSelectedGroup] = useState('');
   const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
-  // Set up job polling first to get resetJob
-  const { jobStatus, isPolling, startPolling, reset: resetJob } = useJobPolling({
-    onComplete: (job: JobMetadata) => handleJobComplete(job),
-    onFailed: (job: JobMetadata) => handleJobFailed(job),
+  const closeAndReset = useCallback(() => {
+    setSelectedGroup('');
+    onClose();
+  }, [onClose]);
+
+  const handleSettled = useCallback(
+    (outcome: MembershipOutcome) => {
+      if (outcome.succeeded > 0) {
+        onComplete();
+      }
+      // Partial / total failure keeps the dialog open so the reasons stay visible
+      if (outcome.ok) {
+        closeAndReset();
+      }
+    },
+    [onComplete, closeAndReset]
+  );
+
+  const { run, reset, isRunning, jobStatus, outcome } = useGroupMembershipJob({
+    onSettled: handleSettled,
   });
 
-  // Handle close dialog
   const handleClose = useCallback(() => {
-    if (!isPolling) {
-      setSelectedGroup('');
-      resetJob();
-      onClose();
-    }
-  }, [isPolling, resetJob, onClose]);
-
-  // Handle job completion
-  const handleJobComplete = useCallback((job: JobMetadata) => {
-    const stats = job.stats || {};
-    const processed = stats.processedAssets || 0;
-    const failed = stats.failedAssets || 0;
-    
-    if (processed > 0) {
-      enqueueSnackbar(
-        `Successfully added ${processed} user${processed !== 1 ? 's' : ''} to ${selectedGroup}`,
-        { variant: 'success' }
-      );
-    }
-    
-    if (failed > 0) {
-      enqueueSnackbar(
-        `Failed to add ${failed} user${failed !== 1 ? 's' : ''}. Check job details for more information.`,
-        { variant: 'error' }
-      );
-    }
-    
-    setSubmitting(false);
-    onComplete();
-    handleClose();
-  }, [enqueueSnackbar, selectedGroup, onComplete, handleClose]);
-
-  const handleJobFailed = useCallback((job: JobMetadata) => {
-    enqueueSnackbar(job.error || 'Failed to add users to group', { variant: 'error' });
-    setSubmitting(false);
-  }, [enqueueSnackbar]);
+    if (isRunning) return;
+    reset();
+    closeAndReset();
+  }, [isRunning, reset, closeAndReset]);
 
   const fetchGroups = useCallback(async () => {
     setLoading(true);
@@ -117,56 +107,30 @@ export default function AddToGroupDialog({
   useEffect(() => {
     if (open) {
       fetchGroups();
-      // Reset state when dialog opens
       setSelectedGroup('');
-      resetJob();
+      reset();
     }
-  }, [open, fetchGroups, resetJob]);
+  }, [open, fetchGroups, reset]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!selectedGroup) {
       enqueueSnackbar('Please select a group', { variant: 'error' });
       return;
     }
-
-    setSubmitting(true);
-    try {
-      const response = await usersApi.addUsersToGroup(
-        selectedGroup,
-        selectedUsers.map(u => u.userName)
-      );
-
-      // Handle job response
-      if (response?.jobId) {
-        enqueueSnackbar(
-          `Adding ${selectedUsers.length} user${selectedUsers.length !== 1 ? 's' : ''} to ${selectedGroup}. This operation will complete in the background.`,
-          { variant: 'info' }
-        );
-        startPolling(response.jobId);
-      } else {
-        // Shouldn't happen with new API, but handle gracefully
-        enqueueSnackbar('Operation completed', { variant: 'success' });
-        setSubmitting(false);
-        onComplete();
-        handleClose();
-      }
-    } catch (error: any) {
-      console.error('Failed to add users to group:', error);
-      enqueueSnackbar(error.message || 'Failed to add users to group', { variant: 'error' });
-      setSubmitting(false);
-    }
+    void run('add', selectedGroup, selectedUsers);
   };
 
-  // Don't render if no users selected
   if (!selectedUsers || selectedUsers.length === 0) {
     return null;
   }
 
+  const showFailures = outcome !== null && !outcome.ok;
+
   return (
-    <Dialog 
-      open={open} 
-      onClose={handleClose} 
-      maxWidth="sm" 
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="sm"
       fullWidth
       PaperProps={{
         sx: {
@@ -185,8 +149,7 @@ export default function AddToGroupDialog({
 
       <DialogContent sx={{ pt: 3 }}>
         <Stack spacing={3}>
-          {/* Show job progress if polling */}
-          {isPolling && jobStatus && (
+          {isRunning && jobStatus && (
             <Alert severity="info">
               <AlertTitle>Operation in Progress</AlertTitle>
               <Typography variant="body2" sx={{ mb: 1 }}>
@@ -194,9 +157,9 @@ export default function AddToGroupDialog({
               </Typography>
               {jobStatus.progress !== undefined && (
                 <Box sx={{ mt: 1 }}>
-                  <LinearProgress 
-                    variant="determinate" 
-                    value={jobStatus.progress} 
+                  <LinearProgress
+                    variant="determinate"
+                    value={jobStatus.progress}
                     sx={{ mb: 0.5 }}
                   />
                   <Typography variant="caption" color="text.secondary">
@@ -212,32 +175,38 @@ export default function AddToGroupDialog({
             </Alert>
           )}
 
-          {/* Summary Alert */}
-          {!isPolling && (
+          {showFailures && (
+            <JobFailureList
+              title={`${pluralUsers(outcome.failed)} could not be added to ${outcome.groupName}`}
+              failures={outcome.failures}
+              summary={outcome.error}
+            />
+          )}
+
+          {!isRunning && (
             <>
               <Alert severity="info" icon={<UserIcon />}>
                 <AlertTitle>
-                  Adding {selectedUsers.length} user{selectedUsers.length !== 1 ? 's' : ''} to group
+                  Adding {pluralUsers(selectedUsers.length)} to group
                 </AlertTitle>
                 Select a group below to add the selected users as members.
               </Alert>
 
-              {/* Selected Users Section */}
               <Box>
-                <Typography 
-                  variant="subtitle2" 
-                  sx={{ 
+                <Typography
+                  variant="subtitle2"
+                  sx={{
                     mb: 1,
                     color: theme.palette.text.secondary,
-                    fontWeight: 600 
+                    fontWeight: 600
                   }}
                 >
                   Selected Users
                 </Typography>
-                <Box 
-                  sx={{ 
-                    display: 'flex', 
-                    flexWrap: 'wrap', 
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
                     gap: 1,
                     p: 2,
                     bgcolor: theme.palette.grey[50],
@@ -245,44 +214,48 @@ export default function AddToGroupDialog({
                     border: `1px solid ${theme.palette.divider}`,
                   }}
                 >
-                  {selectedUsers.slice(0, 10).map((user) => (
-                    <Chip
-                      key={user.userName}
-                      icon={<UserIcon />}
-                      label={
-                        <Box>
-                          <Typography variant="body2" component="span">
-                            {user.userName}
-                          </Typography>
-                          {user.email && (
-                            <Typography 
-                              variant="caption" 
-                              component="span"
-                              sx={{ 
-                                display: 'block',
-                                color: theme.palette.text.secondary 
-                              }}
-                            >
-                              {user.email}
+                  {selectedUsers.slice(0, MAX_USER_CHIPS).map((user) => {
+                    const userName = resolveUserName(user);
+                    return (
+                      <Chip
+                        key={userName || user.email || 'unknown'}
+                        icon={<UserIcon />}
+                        color={userName ? 'default' : 'error'}
+                        label={
+                          <Box>
+                            <Typography variant="body2" component="span">
+                              {userName || 'No QuickSight user name'}
                             </Typography>
-                          )}
-                        </Box>
-                      }
-                      size="small"
-                      variant="outlined"
-                      sx={{
-                        height: 'auto',
-                        '& .MuiChip-label': {
-                          display: 'block',
-                          whiteSpace: 'normal',
-                          py: 0.5,
+                            {user.email && (
+                              <Typography
+                                variant="caption"
+                                component="span"
+                                sx={{
+                                  display: 'block',
+                                  color: theme.palette.text.secondary
+                                }}
+                              >
+                                {user.email}
+                              </Typography>
+                            )}
+                          </Box>
                         }
-                      }}
-                    />
-                  ))}
-                  {selectedUsers.length > 10 && (
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          height: 'auto',
+                          '& .MuiChip-label': {
+                            display: 'block',
+                            whiteSpace: 'normal',
+                            py: 0.5,
+                          }
+                        }}
+                      />
+                    );
+                  })}
+                  {selectedUsers.length > MAX_USER_CHIPS && (
                     <Chip
-                      label={`+${selectedUsers.length - 10} more`}
+                      label={`+${selectedUsers.length - MAX_USER_CHIPS} more`}
                       size="small"
                       color="primary"
                       sx={{ fontWeight: 600 }}
@@ -291,7 +264,6 @@ export default function AddToGroupDialog({
                 </Box>
               </Box>
 
-              {/* Group Selection */}
               <FormControl fullWidth>
                 <InputLabel id="group-select-label">Select Group</InputLabel>
                 <Select
@@ -299,7 +271,7 @@ export default function AddToGroupDialog({
                   value={selectedGroup}
                   onChange={(e) => setSelectedGroup(e.target.value)}
                   label="Select Group"
-                  disabled={loading || submitting}
+                  disabled={loading}
                   sx={{
                     '& .MuiSelect-select': {
                       display: 'flex',
@@ -356,22 +328,22 @@ export default function AddToGroupDialog({
       <Divider />
 
       <DialogActions sx={{ p: 2 }}>
-        <Button 
-          onClick={handleClose} 
-          disabled={isPolling}
+        <Button
+          onClick={handleClose}
+          disabled={isRunning}
           sx={{ minWidth: 100 }}
         >
-          {isPolling ? 'Close' : 'Cancel'}
+          {showFailures ? 'Close' : 'Cancel'}
         </Button>
-        {!isPolling && (
+        {!isRunning && (
           <Button
             onClick={handleSubmit}
             variant="contained"
-            disabled={!selectedGroup || submitting || groups.length === 0}
-            startIcon={submitting ? <CircularProgress size={20} /> : <GroupIcon />}
+            disabled={!selectedGroup || groups.length === 0}
+            startIcon={<GroupIcon />}
             sx={{ minWidth: 120 }}
           >
-            {submitting ? 'Adding...' : 'Add to Group'}
+            {showFailures ? 'Retry' : 'Add to Group'}
           </Button>
         )}
       </DialogActions>

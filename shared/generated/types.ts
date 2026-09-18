@@ -3361,6 +3361,12 @@ export interface components {
                 errors?: number;
             } | null;
         };
+        BulkItemFailure: {
+            /** @description Human-readable item label, e.g. "alice → analysts" */
+            item: string;
+            /** @description Failure reason as reported by the underlying operation */
+            error: string;
+        };
         ExportJobStatus: {
             success: boolean;
             data: {
@@ -3388,6 +3394,16 @@ export interface components {
                     failedAssets?: number;
                     apiCalls?: number;
                 };
+                /**
+                 * @description Why the job failed, or - for a completed bulk job with partial
+                 *     failures - the distinct per-item failure reasons with counts.
+                 */
+                error?: string;
+                /**
+                 * @description Item-level failures for bulk jobs (capped; the full list is on
+                 *     the job result). Present only when at least one item failed.
+                 */
+                failures?: components["schemas"]["BulkItemFailure"][];
                 /**
                  * @description Optional step-based progress. Present for jobs that emit phases
                  *     (e.g. activity-refresh). Older job types omit this field.

@@ -2,7 +2,15 @@ import { type APIGatewayProxyEvent } from 'aws-lambda';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { STATUS_CODES } from '../../../../shared/constants';
+import { ValidationError } from '../../../../shared/errors/ValidationError';
 import { IdentityHandler } from '../IdentityHandler';
+
+/** Reach the mocked bulk service instance a handler was constructed with */
+const bulkServiceOf = (handler: IdentityHandler) =>
+  (handler as any).bulkOperationsService as {
+    bulkAddUsersToGroups: ReturnType<typeof vi.fn>;
+    bulkRemoveUsersFromGroups: ReturnType<typeof vi.fn>;
+  };
 
 vi.mock('../../../../shared/auth', () => ({
   requireAuth: vi.fn().mockResolvedValue({ userId: 'test-user', email: 'test@example.com' }),
@@ -112,6 +120,34 @@ describe('IdentityHandler', () => {
       expect(result.statusCode).toBe(STATUS_CODES.BAD_REQUEST);
       expect(body.success).toBe(false);
       expect(body.error).toBe('Group name and user names array are required');
+    });
+
+    it('should surface validation failures from the bulk service as 400 with their message', async () => {
+      const validationMessage =
+        'Each user name must be a non-empty string (received null at index 0)';
+      bulkServiceOf(handler).bulkAddUsersToGroups.mockRejectedValueOnce(
+        new ValidationError(validationMessage)
+      );
+      mockEvent.body = JSON.stringify({ userNames: [null] });
+
+      const result = await handler.addUsersToGroup(mockEvent);
+      const body = JSON.parse(result.body);
+
+      expect(result.statusCode).toBe(STATUS_CODES.BAD_REQUEST);
+      expect(body).toEqual({ success: false, error: validationMessage });
+    });
+
+    it('should keep infrastructure failures generic (500)', async () => {
+      bulkServiceOf(handler).bulkAddUsersToGroups.mockRejectedValueOnce(
+        new Error('DynamoDB is on fire')
+      );
+      mockEvent.body = JSON.stringify({ userNames: ['user1'] });
+
+      const result = await handler.addUsersToGroup(mockEvent);
+      const body = JSON.parse(result.body);
+
+      expect(result.statusCode).toBe(STATUS_CODES.INTERNAL_SERVER_ERROR);
+      expect(body).toEqual({ success: false, error: 'Failed to add users to group' });
     });
   });
 

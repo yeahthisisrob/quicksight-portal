@@ -23,6 +23,7 @@
     "lint:fix": "npm run lint:fix:backend && npm run lint:fix:frontend",
     "lint:fix:backend": "cd backend/lambda && npm run lint:fix",
     "lint:fix:frontend": "cd frontend && npm run lint:fix",
+    "generate-types": "cd backend/lambda && npx openapi-typescript ../../shared/schemas/api.openapi.yaml -o ../../shared/generated/types.ts",
     "test": "cd backend/lambda && npm test",
     "test:watch": "cd backend/lambda && npm run test:watch",
     "test:coverage": "cd backend/lambda && npm run test:coverage",

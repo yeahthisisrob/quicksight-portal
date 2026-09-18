@@ -242,3 +242,29 @@ export const Closed: Story = {
   },
   decorators: [createMockDecorator(mockGroups)],
 };
+/**
+ * The bulk path hands the dialog users-grid rows (generated UserListItem:
+ * `name` / `id`, no `userName`). This is the shape that used to serialise as
+ * `[null]` and fail inside the SDK - the dialog must resolve it correctly.
+ */
+export const UsersGridRows: Story = {
+  args: {
+    open: true,
+    selectedUsers: [
+      { id: 'u-1', name: 'john.doe', email: 'john.doe@example.com', type: 'user' },
+      { id: 'u-2', name: 'jane.smith', email: 'jane.smith@example.com', type: 'user' },
+    ] as any,
+  },
+  decorators: [createMockDecorator(mockGroups)],
+};
+
+export const UnresolvableUser: Story = {
+  args: {
+    open: true,
+    selectedUsers: [
+      { userName: 'john.doe', email: 'john.doe@example.com' },
+      { email: 'no-user-name@example.com' },
+    ],
+  },
+  decorators: [createMockDecorator(mockGroups)],
+};

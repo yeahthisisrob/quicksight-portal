@@ -3,6 +3,7 @@ import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambd
 
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
+import { isValidationError } from '../../../shared/errors/ValidationError';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
 import { successResponse, errorResponse, createResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
@@ -21,46 +22,8 @@ export class IdentityHandler {
     this.permissionsService = new PermissionsService(accountId);
   }
 
-  public async addUsersToGroup(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-    try {
-      const user = await requireAuth(event); // Validate authentication
-
-      // Extract groupName from the path
-      const pathMatch = event.path.match(/\/groups\/([^/]+)\/members/);
-      const groupName = pathMatch ? pathMatch[1] : undefined;
-
-      const { userNames } = JSON.parse(event.body || '{}');
-
-      if (!groupName || !userNames || !Array.isArray(userNames)) {
-        return errorResponse(
-          event,
-          STATUS_CODES.BAD_REQUEST,
-          'Group name and user names array are required'
-        );
-      }
-
-      // Always use job queue for bulk operations
-      const result = await this.bulkOperationsService.bulkAddUsersToGroups(
-        userNames,
-        [decodeURIComponent(groupName)],
-        user.email || user.userId || 'unknown'
-      );
-
-      return createResponse(event, STATUS_CODES.ACCEPTED, {
-        success: true,
-        jobId: result.jobId,
-        status: result.status,
-        message: result.message,
-        estimatedOperations: result.estimatedOperations,
-      });
-    } catch (error) {
-      logger.error('Add users to group failed', { error });
-      return errorResponse(
-        event,
-        STATUS_CODES.INTERNAL_SERVER_ERROR,
-        'Failed to add users to group'
-      );
-    }
+  public addUsersToGroup(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    return this.queueMembershipJob(event, 'add');
   }
 
   public async addUserToGroup(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -290,11 +253,25 @@ export class IdentityHandler {
     }
   }
 
-  public async removeUsersFromGroup(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-    try {
-      const user = await requireAuth(event); // Validate authentication
+  public removeUsersFromGroup(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    return this.queueMembershipJob(event, 'remove');
+  }
 
-      // Extract groupName from the path
+  /**
+   * Shared path for POST/DELETE /groups/{groupName}/members: both queue the
+   * same kind of bulk job and differ only in direction. Input problems come
+   * back as 400 with the validator's message (e.g. a null user name) so the
+   * caller learns what was wrong instead of a generic 500.
+   */
+  private async queueMembershipJob(
+    event: APIGatewayProxyEvent,
+    action: MembershipAction
+  ): Promise<APIGatewayProxyResult> {
+    const { label, queue } = MEMBERSHIP_ACTIONS[action];
+
+    try {
+      const user = await requireAuth(event);
+
       const pathMatch = event.path.match(/\/groups\/([^/]+)\/members/);
       const groupName = pathMatch ? pathMatch[1] : undefined;
 
@@ -308,8 +285,8 @@ export class IdentityHandler {
         );
       }
 
-      // Always use job queue for bulk operations
-      const result = await this.bulkOperationsService.bulkRemoveUsersFromGroups(
+      const result = await queue(
+        this.bulkOperationsService,
         userNames,
         [decodeURIComponent(groupName)],
         user.email || user.userId || 'unknown'
@@ -323,12 +300,38 @@ export class IdentityHandler {
         estimatedOperations: result.estimatedOperations,
       });
     } catch (error) {
-      logger.error('Remove users from group failed', { error });
-      return errorResponse(
-        event,
-        STATUS_CODES.INTERNAL_SERVER_ERROR,
-        'Failed to remove users from group'
-      );
+      if (isValidationError(error)) {
+        logger.warn(`${label} rejected: invalid request`, { error: error.message });
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, error.message);
+      }
+      logger.error(`${label} failed`, { error });
+      return errorResponse(event, STATUS_CODES.INTERNAL_SERVER_ERROR, `Failed to ${label}`);
     }
   }
 }
+
+type MembershipAction = 'add' | 'remove';
+
+const MEMBERSHIP_ACTIONS: Record<
+  MembershipAction,
+  {
+    label: string;
+    queue: (
+      service: BulkOperationsService,
+      userNames: string[],
+      groupNames: string[],
+      requestedBy: string
+    ) => ReturnType<BulkOperationsService['bulkAddUsersToGroups']>;
+  }
+> = {
+  add: {
+    label: 'add users to group',
+    queue: (service, userNames, groupNames, requestedBy) =>
+      service.bulkAddUsersToGroups(userNames, groupNames, requestedBy),
+  },
+  remove: {
+    label: 'remove users from group',
+    queue: (service, userNames, groupNames, requestedBy) =>
+      service.bulkRemoveUsersFromGroups(userNames, groupNames, requestedBy),
+  },
+};

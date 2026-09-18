@@ -8,6 +8,7 @@ import { type DeploymentConfig } from './features/deployment/services/deploy/typ
 import { JOB_CONFIG, STORAGE_LIMITS, TIME_UNITS, WORKER_CONFIG } from './shared/constants';
 import { type AssetType } from './shared/models/asset.model';
 import { S3Service } from './shared/services/aws/S3Service';
+import { summarizeBulkResult } from './shared/services/bulk/bulkResultSummary';
 import { cacheService } from './shared/services/cache/CacheService';
 import { JobStateService } from './shared/services/jobs/JobStateService';
 import { queueService } from './shared/services/jobs/QueueService';
@@ -417,11 +418,15 @@ async function processBulkOperationJob(message: BulkOperationMessage, record: an
     const jobRepository = new JobRepository();
     await jobRepository.saveJobResult(jobId, result);
 
-    // Mark job as completed (processor should have done this, but ensure it's done)
+    // Mark job as completed (processor should have done this, but ensure it's done).
+    // Partial failures ride along on the record: `error` carries the distinct
+    // reasons, `failures` the offending items - so "1 failed" is actionable.
+    const summary = summarizeBulkResult(result);
     await jobStateService.updateJobStatus(jobId, {
       status: 'completed',
       endTime: new Date().toISOString(),
-      message: `Bulk ${operationConfig.operationType} completed: ${result.successCount}/${result.totalItems} successful`,
+      message: summary.message,
+      ...(summary.error && { error: summary.error, failures: summary.failures }),
       progress: 100,
       stats: {
         totalAssets: result.totalItems,

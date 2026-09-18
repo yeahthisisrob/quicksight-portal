@@ -4,6 +4,7 @@
  * Routes operations to job queue for async processing
  */
 
+import { ValidationError } from '../../errors/ValidationError';
 import { ASSET_TYPES } from '../../types/assetTypes';
 import {
   type BulkOperationConfig,
@@ -318,18 +319,18 @@ export class BulkOperationsService {
    */
   private validateAssets(assets: BulkAssetReference[]): void {
     if (!assets || !Array.isArray(assets) || assets.length === 0) {
-      throw new Error('Assets array is required and must not be empty');
+      throw new ValidationError('Assets array is required and must not be empty');
     }
 
     if (assets.length > BULK_OPERATION_LIMITS.MAX_ITEMS_PER_REQUEST) {
-      throw new Error(
+      throw new ValidationError(
         `Maximum ${BULK_OPERATION_LIMITS.MAX_ITEMS_PER_REQUEST} assets allowed per request`
       );
     }
 
     for (const asset of assets) {
       if (!asset.type || !asset.id) {
-        throw new Error('Each asset must have type and id');
+        throw new ValidationError('Each asset must have type and id');
       }
     }
   }
@@ -339,12 +340,12 @@ export class BulkOperationsService {
    */
   private validateFolderIds(folderIds: string[]): void {
     if (!folderIds || !Array.isArray(folderIds) || folderIds.length === 0) {
-      throw new Error('Folder IDs array is required and must not be empty');
+      throw new ValidationError('Folder IDs array is required and must not be empty');
     }
 
     for (const folderId of folderIds) {
       if (!folderId || typeof folderId !== 'string') {
-        throw new Error('Each folder ID must be a non-empty string');
+        throw new ValidationError('Each folder ID must be a non-empty string');
       }
     }
   }
@@ -354,7 +355,26 @@ export class BulkOperationsService {
    */
   private validateGroupNames(groupNames: string[]): void {
     if (!groupNames || !Array.isArray(groupNames) || groupNames.length === 0) {
-      throw new Error('Group names array is required and must not be empty');
+      throw new ValidationError('Group names array is required and must not be empty');
+    }
+
+    this.validateNonEmptyStrings(groupNames, 'group name');
+  }
+
+  /**
+   * Reject blank / null / non-string entries up front. A null user name
+   * otherwise surfaces minutes later as an opaque SDK "No value provided for
+   * HTTP label: MemberName" inside the job, with no hint of which caller sent it.
+   */
+  private validateNonEmptyStrings(values: unknown[], label: string): void {
+    const invalidIndex = values.findIndex(
+      (value) => typeof value !== 'string' || value.trim().length === 0
+    );
+    if (invalidIndex !== -1) {
+      const received = JSON.stringify(values[invalidIndex]);
+      throw new ValidationError(
+        `Each ${label} must be a non-empty string (received ${received} at index ${invalidIndex})`
+      );
     }
   }
 
@@ -363,12 +383,12 @@ export class BulkOperationsService {
    */
   private validateTags(tags: Array<{ Key: string; Value: string }>): void {
     if (!tags || !Array.isArray(tags) || tags.length === 0) {
-      throw new Error('Tags array is required and must not be empty');
+      throw new ValidationError('Tags array is required and must not be empty');
     }
 
     for (const tag of tags) {
       if (!tag.Key || typeof tag.Key !== 'string') {
-        throw new Error('Each tag must have a Key');
+        throw new ValidationError('Each tag must have a Key');
       }
     }
   }
@@ -378,13 +398,15 @@ export class BulkOperationsService {
    */
   private validateUserNames(userNames: string[]): void {
     if (!userNames || !Array.isArray(userNames) || userNames.length === 0) {
-      throw new Error('User names array is required and must not be empty');
+      throw new ValidationError('User names array is required and must not be empty');
     }
 
     if (userNames.length > BULK_OPERATION_LIMITS.MAX_ITEMS_PER_REQUEST) {
-      throw new Error(
+      throw new ValidationError(
         `Maximum ${BULK_OPERATION_LIMITS.MAX_ITEMS_PER_REQUEST} users allowed per request`
       );
     }
+
+    this.validateNonEmptyStrings(userNames, 'user name');
   }
 }

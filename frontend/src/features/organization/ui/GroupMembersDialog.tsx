@@ -39,10 +39,14 @@ import { useSnackbar } from 'notistack';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { assetsApi, usersApi } from '@/shared/api';
+import { JobFailureList } from '@/entities/job';
+import { resolveUserName } from '@/entities/user';
+
+import { assetsApi } from '@/shared/api';
 import { colors, spacing, borderRadius, typography } from '@/shared/design-system/theme';
-import { useJobPolling } from '@/shared/hooks/useJobPolling';
 import { dataToCSV, downloadCSV, generateCSVFilename, type ExportColumn } from '@/shared/lib/exportUtils';
+
+import { useGroupMembershipJob } from '../lib/useGroupMembershipJob';
 
 interface Member {
   memberName: string;
@@ -98,31 +102,36 @@ export default function GroupMembersDialog({
   // State for removing members
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   
-  // Job polling for bulk add
-  const { startPolling, jobStatus, isPolling, reset } = useJobPolling({
-    onComplete: () => {
-      enqueueSnackbar('Successfully added users to group', { variant: 'success' });
-      handleAddMembersComplete();
+  const reloadMembers = useCallback(() => {
+    // Members arrive as a prop from the grid row; the simplest way to see the
+    // post-mutation list is to refetch the page
+    queryClient.invalidateQueries({ queryKey: ['groups'] });
+    queryClient.invalidateQueries({ queryKey: ['users'] });
+    window.location.reload();
+  }, [queryClient]);
+
+  // Bulk add: keep the picker open on partial failure so the reasons stay
+  // visible; anything that did succeed still warrants a refresh
+  const addJob = useGroupMembershipJob({
+    onSettled: (outcome) => {
+      if (outcome.ok) {
+        handleAddMembersComplete();
+      } else if (outcome.succeeded > 0) {
+        reloadMembers();
+      }
     },
-    onFailed: (job) => {
-      enqueueSnackbar(job.message || 'Failed to add users to group', { variant: 'error' });
-    }
   });
 
-  // Job polling for member removal — poll to completion instead of guessing
-  // with a fixed delay, so the cache has actually been updated before we reload
-  const { startPolling: startRemovePolling } = useJobPolling({
-    onComplete: () => {
-      enqueueSnackbar('Removed member from group', { variant: 'success' });
-      queryClient.invalidateQueries({ queryKey: ['groups'] });
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      window.location.reload();
-    },
-    onFailed: (job) => {
-      enqueueSnackbar(job.message || 'Failed to remove member from group', { variant: 'error' });
+  // Single-row remove: the row spinner stays until the job settles
+  const removeJob = useGroupMembershipJob({
+    onSettled: (outcome) => {
       setRemovingMember(null);
-    }
+      if (outcome.succeeded > 0) {
+        reloadMembers();
+      }
+    },
   });
+  const isPolling = addJob.isRunning;
 
   const loadAvailableUsers = useCallback(async () => {
     setIsLoadingUsers(true);
@@ -138,7 +147,7 @@ export default function GroupMembersDialog({
       // If there are no members, show all users as available
       if (!members || members.length === 0) {
         const allUsers = (Array.isArray(usersData) ? usersData : []).map((user: any) => ({
-          name: user.userName || user.name || user.id,
+          name: resolveUserName(user),
           id: user.id,
           email: user.email,
           arn: user.arn,
@@ -167,14 +176,14 @@ export default function GroupMembersDialog({
       // usersData already extracted above
       const availableUsersList = (Array.isArray(usersData) ? usersData : []).filter((user: any) => {
         // Check various possible username formats
-        const userName = user.userName || user.name || user.id;
+        const userName = resolveUserName(user);
         const userNameParts = userName && typeof userName === 'string' && userName.includes('/') ? userName.split('/').pop() : userName;
         
         // Check if this user is already a member
         return !existingMemberNames.has(userName) && 
                !existingMemberNames.has(userNameParts || userName);
       }).map((user: any) => ({
-        name: user.userName || user.name || user.id,
+        name: resolveUserName(user),
         id: user.id,
         email: user.email,
         arn: user.arn,
@@ -207,67 +216,29 @@ export default function GroupMembersDialog({
     setOrderBy(property);
   };
 
-  const handleAddMembersComplete = () => {
+  const closeAddMembers = () => {
     setIsAddMembersOpen(false);
     setSelectedUsers([]);
     setSearchTerm('');
-    reset();
-    // Invalidate cache and reload
-    queryClient.invalidateQueries({ queryKey: ['groups'] });
-    queryClient.invalidateQueries({ queryKey: ['users'] });
-    window.location.reload();
+    addJob.reset();
   };
 
-  const handleAddMembers = async () => {
+  const handleAddMembersComplete = () => {
+    closeAddMembers();
+    reloadMembers();
+  };
+
+  const handleAddMembers = () => {
     if (selectedUsers.length === 0) {
       enqueueSnackbar('Please select users to add', { variant: 'warning' });
       return;
     }
-
-    try {
-      const userNames = selectedUsers.map(u => u.name);
-      const jobData = await usersApi.addUsersToGroup(groupName, userNames);
-      
-      if (jobData?.jobId) {
-        // Start polling for job status
-        startPolling(jobData.jobId);
-        enqueueSnackbar(`Adding ${userNames.length} user(s) to group...`, { variant: 'info' });
-      } else {
-        // Direct response (for small operations)
-        enqueueSnackbar(`Successfully added ${userNames.length} user(s) to group`, { variant: 'success' });
-        handleAddMembersComplete();
-      }
-    } catch (error: any) {
-      console.error('Failed to add users to group:', error);
-      enqueueSnackbar(error.message || 'Failed to add users to group', { variant: 'error' });
-    }
+    void addJob.run('add', groupName, selectedUsers);
   };
 
-  const handleRemoveMember = async (member: ProcessedMember) => {
-    const memberName = member.name;
-    setRemovingMember(memberName);
-    try {
-      const result = await usersApi.removeUsersFromGroup(groupName, [memberName]);
-
-      // Check if it's a job response
-      if (result?.jobId) {
-        enqueueSnackbar(`Removing ${memberName} from group...`, { variant: 'info' });
-        // Keep the row spinner until the job completes; the poller's
-        // onComplete/onFailed handles refresh and clearing the spinner
-        startRemovePolling(result.jobId);
-      } else {
-        enqueueSnackbar(`Removed ${memberName} from group`, { variant: 'success' });
-        // Invalidate cache and reload
-        queryClient.invalidateQueries({ queryKey: ['groups'] });
-        queryClient.invalidateQueries({ queryKey: ['users'] });
-        window.location.reload();
-        setRemovingMember(null);
-      }
-    } catch (error: any) {
-      console.error('Failed to remove member:', error);
-      enqueueSnackbar(error.message || 'Failed to remove member from group', { variant: 'error' });
-      setRemovingMember(null);
-    }
+  const handleRemoveMember = (member: ProcessedMember) => {
+    setRemovingMember(member.name);
+    void removeJob.run('remove', groupName, [{ userName: member.name }]);
   };
 
   const handleExportCSV = () => {
@@ -624,7 +595,7 @@ export default function GroupMembersDialog({
       {/* Add Members Dialog */}
       <Dialog 
         open={isAddMembersOpen} 
-        onClose={() => !isPolling && setIsAddMembersOpen(false)}
+        onClose={() => !isPolling && closeAddMembers()}
         maxWidth="sm" 
         fullWidth
         PaperProps={{
@@ -639,7 +610,7 @@ export default function GroupMembersDialog({
               Add Members to {groupName}
             </Typography>
             <IconButton 
-              onClick={() => !isPolling && setIsAddMembersOpen(false)}
+              onClick={() => !isPolling && closeAddMembers()}
               disabled={isPolling}
             >
               <CloseIcon fontSize="small" />
@@ -722,10 +693,14 @@ export default function GroupMembersDialog({
               </Box>
             )}
 
-            {jobStatus?.status === 'failed' && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {jobStatus.message || 'Failed to add users to group'}
-              </Alert>
+            {addJob.outcome && !addJob.outcome.ok && (
+              <Box sx={{ mb: 2 }}>
+                <JobFailureList
+                  title={`${addJob.outcome.failed} user${addJob.outcome.failed === 1 ? '' : 's'} could not be added to ${groupName}`}
+                  failures={addJob.outcome.failures}
+                  summary={addJob.outcome.error}
+                />
+              </Box>
             )}
           </Box>
         </DialogContent>
@@ -734,7 +709,7 @@ export default function GroupMembersDialog({
           <Box sx={{ px: 3, pb: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
             <Button
               variant="outlined"
-              onClick={() => setIsAddMembersOpen(false)}
+              onClick={closeAddMembers}
               disabled={isPolling}
             >
               Cancel

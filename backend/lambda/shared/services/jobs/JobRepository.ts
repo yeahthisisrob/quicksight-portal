@@ -19,6 +19,7 @@
  */
 
 import { JOB_CONFIG, JOB_LIMITS, TIME_UNITS } from '../../constants';
+import { type BulkItemFailure } from '../../types/bulkOperationTypes';
 import { logger } from '../../utils/logger';
 import { DynamoDBService, isConditionalCheckFailed } from '../aws/DynamoDBService';
 
@@ -121,6 +122,11 @@ export interface JobMetadata {
   // Error info
   error?: string;
   errorStack?: string;
+  /**
+   * Bulk jobs: item-level failures (capped) so the UI can say *which* items
+   * failed and why without fetching the full result.
+   */
+  failures?: BulkItemFailure[];
 
   // Control flags
   stopRequested?: boolean;
