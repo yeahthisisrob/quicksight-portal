@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.4](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.14.3...v1.14.4) (2026-09-18)
+
+
+### Bug Fixes
+
+* **ts:** repair the TypeScript 7 module settings and make the CDK app emit-free ([#117](https://github.com/yeahthisisrob/quicksight-portal/issues/117)) ([ca3e8b3](https://github.com/yeahthisisrob/quicksight-portal/commit/ca3e8b31e4edb46645d578367dcac7b8c6c49e0b))
+
 ## [1.14.3](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.14.2...v1.14.3) (2026-09-18)
 
 
