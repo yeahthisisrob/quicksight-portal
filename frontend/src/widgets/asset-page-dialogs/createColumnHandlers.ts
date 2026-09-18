@@ -17,11 +17,13 @@ import type {
   NotifyInactiveAnalysesDialogState,
   NotifyInactiveDialogState,
   NotifyUnusedDatasetsDialogState,
+  RebindDialogState,
   RefreshScheduleDialogState,
   RenameAssetDialogState,
   UpdateGroupDialogState,
   UserAssetAccessDialogState,
   UserGroupsDialogState,
+  WireframeDialogState,
 } from './useDialogStates';
 
 interface DialogSetters {
@@ -40,6 +42,8 @@ interface DialogSetters {
   setNotifyInactiveDialog: (state: NotifyInactiveDialogState) => void;
   setRenameAssetDialog: (state: RenameAssetDialogState) => void;
   setDatasetSourceDialog: (state: DatasetSourceDialogState) => void;
+  setWireframeDialog: (state: WireframeDialogState) => void;
+  setRebindDialog: (state: RebindDialogState) => void;
   setNotifyInactiveAnalysesDialog: (state: NotifyInactiveAnalysesDialogState) => void;
   setNotifyUnusedDatasetsDialog: (state: NotifyUnusedDatasetsDialogState) => void;
 }
@@ -72,6 +76,8 @@ export function createColumnHandlers(
     setNotifyInactiveDialog,
     setRenameAssetDialog,
     setDatasetSourceDialog,
+    setWireframeDialog,
+    setRebindDialog,
     setNotifyInactiveAnalysesDialog,
     setNotifyUnusedDatasetsDialog,
   } = dialogSetters;
@@ -134,6 +140,12 @@ export function createColumnHandlers(
     },
     onEditSourceClick: (dataset: any) => {
       setDatasetSourceDialog({ open: true, dataset });
+    },
+    onWireframeClick: (asset: any) => {
+      setWireframeDialog({ open: true, asset });
+    },
+    onRebindClick: (asset: any) => {
+      setRebindDialog({ open: true, asset });
     },
     onNotifyInactiveAnalyses: (user: any) => {
       setNotifyInactiveAnalysesDialog({ open: true, user });

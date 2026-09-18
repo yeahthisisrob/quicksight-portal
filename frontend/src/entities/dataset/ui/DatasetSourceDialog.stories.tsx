@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SnackbarProvider } from 'notistack';
+import { useEffect, useState } from 'react';
 
+import { mockApi } from '../../../../.storybook/mocks/api';
 import DatasetSourceDialog from './DatasetSourceDialog';
 
 /**
@@ -39,31 +41,46 @@ const CUSTOM_SQL_TABLE = {
   editable: true,
 };
 
-/** Stub the one request the dialog makes on open. */
-function stubSource(tables: unknown[], failWith?: string) {
-  const original = window.fetch;
-  window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
-    if (url.includes('/source')) {
-      if (failWith) {
-        return new Response(JSON.stringify({ success: false, error: failWith }), { status: 400 });
-      }
-      return new Response(
-        JSON.stringify({
-          success: true,
-          data: {
-            dataSetId: 'ds-1',
-            name: 'orders_fact',
-            importMode: 'SPICE',
-            tables,
-            dataSources: DATA_SOURCES,
-          },
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-    return original(input, init);
-  }) as typeof window.fetch;
+/**
+ * Stub the one request the dialog makes on open. The API client is axios over
+ * XMLHttpRequest, so this replaces its adapter rather than window.fetch.
+ */
+function Stubbed({
+  tables,
+  failWith,
+  children,
+}: {
+  tables: unknown[];
+  failWith?: string;
+  children: React.ReactNode;
+}) {
+  // Installed during render, not in an effect: the dialog's own effect
+  // (a child's) would otherwise fire its request before the stub exists.
+  const [restore] = useState(() =>
+    mockApi([
+      {
+        method: 'get',
+        url: '/source',
+        respond: () =>
+          failWith
+            ? { status: 400, body: { success: false, error: failWith } }
+            : {
+                body: {
+                  success: true,
+                  data: {
+                    dataSetId: 'ds-1',
+                    name: 'orders_fact',
+                    importMode: 'SPICE',
+                    tables,
+                    dataSources: DATA_SOURCES,
+                  },
+                },
+              },
+      },
+    ])
+  );
+  useEffect(() => restore, [restore]);
+  return <>{children}</>;
 }
 
 const meta: Meta<typeof DatasetSourceDialog> = {
@@ -102,55 +119,62 @@ const args = {
 
 export const RelationalTable: Story = {
   args,
-  render: (a) => {
-    stubSource([RELATIONAL_TABLE]);
-    return <DatasetSourceDialog {...a} />;
-  },
+  render: (a) => (
+    <Stubbed tables={[RELATIONAL_TABLE]}>
+      <DatasetSourceDialog {...a} />
+    </Stubbed>
+  ),
 };
 
 export const CustomSql: Story = {
   args,
-  render: (a) => {
-    stubSource([CUSTOM_SQL_TABLE]);
-    return <DatasetSourceDialog {...a} />;
-  },
+  render: (a) => (
+    <Stubbed tables={[CUSTOM_SQL_TABLE]}>
+      <DatasetSourceDialog {...a} />
+    </Stubbed>
+  ),
 };
 
 /** Composite datasets mix both kinds; each is edited on its own terms. */
 export const MixedTables: Story = {
   args,
-  render: (a) => {
-    stubSource([RELATIONAL_TABLE, CUSTOM_SQL_TABLE]);
-    return <DatasetSourceDialog {...a} />;
-  },
+  render: (a) => (
+    <Stubbed tables={[RELATIONAL_TABLE, CUSTOM_SQL_TABLE]}>
+      <DatasetSourceDialog {...a} />
+    </Stubbed>
+  ),
 };
 
 /** S3-backed tables have no schema or query, so they are shown but not editable. */
 export const S3SourceNotEditable: Story = {
   args,
-  render: (a) => {
-    stubSource([
-      {
-        id: 't-s3',
-        kind: 'S3',
-        dataSourceArn: SOURCE_A,
-        name: 't-s3',
-        columnCount: 5,
-        editable: false,
-      },
-    ]);
-    return <DatasetSourceDialog {...a} />;
-  },
+  render: (a) => (
+    <Stubbed
+      tables={[
+        {
+          id: 't-s3',
+          kind: 'S3',
+          dataSourceArn: SOURCE_A,
+          name: 't-s3',
+          columnCount: 5,
+          editable: false,
+        },
+      ]}
+    >
+      <DatasetSourceDialog {...a} />
+    </Stubbed>
+  ),
 };
 
 /** Uploaded datasets have no queryable specification at all. */
 export const CannotBeEdited: Story = {
   args,
-  render: (a) => {
-    stubSource(
-      [],
-      'Could not load this dataset from QuickSight. Uploaded (flat file) datasets have no queryable specification and cannot be edited here.'
-    );
-    return <DatasetSourceDialog {...a} />;
-  },
+  render: (a) => (
+    <Stubbed
+      tables={[]}
+      failWith="Could not load this dataset from QuickSight. Uploaded (flat file) datasets have no queryable specification and cannot be edited here."
+    >
+      <DatasetSourceDialog {...a} />
+    </Stubbed>
+  ),
 };

@@ -3,8 +3,10 @@ import {
   Hub as HubIcon,
   MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
+  SwapHoriz as RebindIcon,
   DriveFileRenameOutline as RenameIcon,
   Timeline as TimelineIcon,
+  ViewQuilt as WireframeIcon,
 } from '@mui/icons-material';
 import { IconButton, Menu, MenuItem } from '@mui/material';
 import { memo, useState } from 'react';
@@ -27,6 +29,8 @@ interface ActionsDropdownProps {
     onNotifyUnusedDatasets?: (asset: any) => void;
     onRenameClick?: (asset: any) => void;
     onEditSourceClick?: (asset: any) => void;
+    onWireframeClick?: (asset: any) => void;
+    onRebindClick?: (asset: any) => void;
   };
 }
 
@@ -111,6 +115,18 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
         >
           View JSON
         </MenuItem>
+        {(assetType === 'dashboard' || assetType === 'analysis') && (
+          <MenuItem onClick={() => handleAction(() => handlers.onWireframeClick?.(asset))}>
+            <WireframeIcon fontSize="small" sx={{ mr: 1 }} />
+            View Wireframe
+          </MenuItem>
+        )}
+        {(assetType === 'dashboard' || assetType === 'analysis') && (
+          <MenuItem onClick={() => handleAction(() => handlers.onRebindClick?.(asset))}>
+            <RebindIcon fontSize="small" sx={{ mr: 1 }} />
+            Change Datasets
+          </MenuItem>
+        )}
         {RENAMEABLE_TYPES.includes(assetType) && (
           <MenuItem onClick={() => handleAction(() => handlers.onRenameClick?.(asset))}>
             <RenameIcon fontSize="small" sx={{ mr: 1 }} />

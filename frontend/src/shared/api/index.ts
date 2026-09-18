@@ -6,6 +6,7 @@ export * from './cognito';
 export * from './errors';
 export { activityApi } from './modules/activity';
 export { assetsApi } from './modules/assets';
+export { authoringApi } from './modules/authoring';
 export { dataCatalogApi } from './modules/data-catalog';
 export { deployApi } from './modules/deploy';
 export { exportApi } from './modules/export';

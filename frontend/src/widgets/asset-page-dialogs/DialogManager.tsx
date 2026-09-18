@@ -13,6 +13,7 @@ import { memo } from 'react';
 
 import { BulkDeleteDialog, DefinitionErrorsDialog, RenameAssetDialog } from '@/entities/asset';
 import { DatasetSourceDialog, RefreshScheduleDialog } from '@/entities/dataset';
+import { WireframeDialog } from '@/entities/definition';
 import { AddToFolderDialog } from '@/entities/folder';
 import { BulkTagDialog } from '@/entities/tag';
 import {
@@ -20,6 +21,7 @@ import {
   UserInactiveMailtoDialog,
   UserUnusedDatasetsDialog,
 } from '@/features/activity';
+import { RebindDialog } from '@/features/asset-management';
 import {
   AddToGroupDialog,
   FolderMembersDialog,
@@ -47,11 +49,13 @@ import type {
   NotifyInactiveAnalysesDialogState,
   NotifyInactiveDialogState,
   NotifyUnusedDatasetsDialogState,
+  RebindDialogState,
   RefreshScheduleDialogState,
   RenameAssetDialogState,
   UpdateGroupDialogState,
   UserAssetAccessDialogState,
   UserGroupsDialogState,
+  WireframeDialogState,
 } from './useDialogStates';
 
 // Sub-component for Core Asset Dialogs
@@ -295,6 +299,10 @@ interface DialogManagerProps {
   setRenameAssetDialog: (state: RenameAssetDialogState) => void;
   datasetSourceDialog: DatasetSourceDialogState;
   setDatasetSourceDialog: (state: DatasetSourceDialogState) => void;
+  wireframeDialog: WireframeDialogState;
+  setWireframeDialog: (state: WireframeDialogState) => void;
+  rebindDialog: RebindDialogState;
+  setRebindDialog: (state: RebindDialogState) => void;
   notifyInactiveAnalysesDialog: NotifyInactiveAnalysesDialogState;
   setNotifyInactiveAnalysesDialog: (state: NotifyInactiveAnalysesDialogState) => void;
   notifyUnusedDatasetsDialog: NotifyUnusedDatasetsDialogState;
@@ -357,6 +365,10 @@ export function DialogManager({
   setRenameAssetDialog,
   datasetSourceDialog,
   setDatasetSourceDialog,
+  wireframeDialog,
+  setWireframeDialog,
+  rebindDialog,
+  setRebindDialog,
   notifyInactiveAnalysesDialog,
   setNotifyInactiveAnalysesDialog,
   notifyUnusedDatasetsDialog,
@@ -431,6 +443,28 @@ export function DialogManager({
           assetId={jsonViewerDialog[assetType]?.id}
           assetName={jsonViewerDialog[assetType]?.name}
           assetType={assetType}
+        />
+      )}
+
+      {/* Wireframe of a cached dashboard/analysis definition */}
+      {wireframeDialog.asset && (assetType === 'dashboard' || assetType === 'analysis') && (
+        <WireframeDialog
+          open={wireframeDialog.open}
+          onClose={() => setWireframeDialog({ open: false, asset: null })}
+          assetId={wireframeDialog.asset.id}
+          assetName={wireframeDialog.asset.name}
+          assetType={assetType}
+        />
+      )}
+
+      {/* Point a dashboard/analysis at different datasets, in place or as a copy */}
+      {rebindDialog.asset && (assetType === 'dashboard' || assetType === 'analysis') && (
+        <RebindDialog
+          open={rebindDialog.open}
+          onClose={() => setRebindDialog({ open: false, asset: null })}
+          assetType={assetType}
+          asset={rebindDialog.asset}
+          onApplied={() => refreshAssetType(assetType)}
         />
       )}
 
