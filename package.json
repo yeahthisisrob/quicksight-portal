@@ -44,7 +44,7 @@
     "cloc": "cloc . --by-file --exclude-dir=node_modules,dist,build,.next,out,cdk.out --match-f='.*\\.(ts|tsx)$'"
   },
   "devDependencies": {
-    "@apidevtools/swagger-parser": "^12.1.0",
+    "@apidevtools/swagger-parser": "^13.0.0",
     "concurrently": "^10.0.5",
     "openapi-typescript": "^7.13.0"
   },
