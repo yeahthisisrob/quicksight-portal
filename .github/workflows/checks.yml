@@ -73,6 +73,16 @@ jobs:
   storybook:
     name: Storybook
     runs-on: ubuntu-latest
+    # Non-blocking, and honestly so. @storybook/test-runner drives its suites
+    # through jest 30, which refuses `module.register()` - the API Storybook's
+    # own module loader calls. Every story suite therefore fails to load, on
+    # Storybook 10.5.10 and 10.6.0 alike. It is not caused by anything in this
+    # branch: the previous workflow ran this step as `|| true`, so it could
+    # never fail and nobody saw it.
+    #
+    # Keeping the job visible but non-blocking turns a silent `|| true` into a
+    # tracked red mark. Remove this line once the test runner supports it.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
 
