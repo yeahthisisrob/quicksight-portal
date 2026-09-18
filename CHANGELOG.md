@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.3](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.14.2...v1.14.3) (2026-09-18)
+
+
+### Bug Fixes
+
+* **lint:** make Biome respect .gitignore so generated files stop failing checks ([#115](https://github.com/yeahthisisrob/quicksight-portal/issues/115)) ([5633369](https://github.com/yeahthisisrob/quicksight-portal/commit/56333698286669ec2b11243ca753bf38d4935a63))
+
 ## [1.14.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.14.1...v1.14.2) (2026-09-18)
 
 
