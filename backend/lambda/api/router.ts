@@ -1,5 +1,6 @@
 import { activityRoutes } from '../features/activity';
 import { assetManagementRoutes } from '../features/asset-management';
+import { authoringRoutes } from '../features/authoring';
 import { dataCatalogRoutes } from '../features/data-catalog';
 import { dataExportRoutes } from '../features/data-export';
 import { deploymentRoutes } from '../features/deployment';
@@ -12,6 +13,7 @@ import { extractPathParams } from './utils/routeUtils';
 
 export const featureRoutes: RouteHandler[] = [
   ...assetManagementRoutes,
+  ...authoringRoutes,
   ...deploymentRoutes,
   ...dataExportRoutes,
   ...organizationRoutes,

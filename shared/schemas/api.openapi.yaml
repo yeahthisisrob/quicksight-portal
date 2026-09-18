@@ -1670,6 +1670,180 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/authoring/{assetType}/{assetId}/datasets:
+    get:
+      summary: The datasets a definition declares and what it reads from each
+      description: |
+        Reads the analysis or dashboard definition live from QuickSight and
+        lists every `DataSetIdentifierDeclarations` entry with the columns the
+        definition depends on (field wells, filters, parameter defaults, sheet
+        controls, formatting and calculated-field expressions). Calculated
+        fields are reported separately: they live in the definition, so a
+        replacement dataset does not have to provide them.
+
+        This is the read side of a rebind. A caller (the UI, a CLI, or a
+        planner) uses it to decide which identifier to repoint and at what.
+      parameters:
+        - $ref: '#/components/parameters/AuthorableAssetType'
+        - $ref: '#/components/parameters/AuthoringAssetId'
+      responses:
+        '200':
+          description: The definition's datasets
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/DefinitionDatasets'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/authoring/{assetType}/{assetId}/rebind/plan:
+    post:
+      summary: Dry-run a rebind - what would change and whether it can be applied
+      description: |
+        Read-only. For each requested rebind, resolves every column the
+        definition reads from that dataset identifier against the target
+        dataset's output columns:
+
+        - `matched`: the same name exists in the target
+        - `mapped`: renamed through `columnMap` to a column the target has
+        - `suggested`: not in the target, but an unambiguous near match exists
+          (case, spaces and separators ignored). Offered, never applied.
+        - `missing`: not in the target and nothing close
+
+        `canApply` is true only when nothing is suggested or missing. A caller
+        turns a suggestion into a rename by adding it to `columnMap` and
+        planning again, so every rename is explicit and readable in the
+        request.
+      parameters:
+        - $ref: '#/components/parameters/AuthorableAssetType'
+        - $ref: '#/components/parameters/AuthoringAssetId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rebinds]
+              properties:
+                rebinds:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RebindRequest'
+      responses:
+        '200':
+          description: The plan
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/RebindPlan'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/authoring/{assetType}/{assetId}/rebind:
+    post:
+      summary: Apply a rebind in place, or as a clone
+      description: |
+        Plans again, refuses unless every column resolves, then writes the
+        rewritten definition to QuickSight.
+
+        - `update` rewrites the asset in place. A dashboard gets a new version
+          which is published immediately so viewers see it.
+        - `clone` creates a new asset (id generated unless `newAssetId` is
+          given) carrying the rewritten definition, the source's theme and the
+          source's permissions, so the copy has the same audience.
+
+        The dataset identifier and every field id are preserved; only the
+        declaration's ARN, the mapped column names and the matching
+        calculated-field expressions change. QuickSight's own validation
+        error is returned verbatim if the new dataset still cannot satisfy the
+        definition.
+      parameters:
+        - $ref: '#/components/parameters/AuthorableAssetType'
+        - $ref: '#/components/parameters/AuthoringAssetId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyRebindRequest'
+      responses:
+        '200':
+          description: The asset that was written
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/ApplyRebindResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/authoring/{assetType}/{assetId}/propose:
+    post:
+      summary: Turn a natural-language ask into a validated rebind proposal
+      description: |
+        "Copy this onto the orders_gold dataset", "switch this analysis to the
+        new customer table in place". A model is asked two narrow questions -
+        which candidate dataset each identifier should read from, and, only if
+        the server's dry run leaves columns unresolved, which target column
+        each unresolved source column means. Everything else is deterministic
+        and the returned `plan` is the same dry run the plan endpoint gives.
+
+        Nothing is applied. The caller reviews the proposal and calls the
+        rebind endpoint with its `rebinds`, `mode` and `name`.
+
+        The model is chosen by deployment configuration (Bedrock by default;
+        a local Claude or Codex CLI, or any OpenAI-compatible endpoint, in
+        development) and is reported in `model`.
+      parameters:
+        - $ref: '#/components/parameters/AuthorableAssetType'
+        - $ref: '#/components/parameters/AuthoringAssetId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProposeRequest'
+      responses:
+        '200':
+          description: The proposal and its dry run
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Proposal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/assets/{assetType}/{assetId}/rename:
     post:
       summary: Rename an asset live in QuickSight
@@ -2113,6 +2287,20 @@ components:
       bearerFormat: JWT
       description: JWT token for API authentication
   
+  parameters:
+    AuthorableAssetType:
+      name: assetType
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/AuthorableAssetType'
+    AuthoringAssetId:
+      name: assetId
+      in: path
+      required: true
+      schema:
+        type: string
+
   schemas:
     # Core types
     AssetType:
@@ -3651,6 +3839,303 @@ components:
           type: string
         type:
           type: string
+
+    # -------------------------------------------------------------------------
+    # Authoring - rebind a definition to different datasets
+    # -------------------------------------------------------------------------
+    ColumnUsage:
+      type: object
+      description: How many times a column is referenced, by kind of site.
+      required: [visual, filter, calculatedField, parameter, control, other]
+      properties:
+        visual:
+          type: integer
+        filter:
+          type: integer
+        calculatedField:
+          type: integer
+        parameter:
+          type: integer
+        control:
+          type: integer
+        other:
+          type: integer
+
+    ReferencedColumn:
+      type: object
+      required: [name, usage]
+      properties:
+        name:
+          type: string
+        usage:
+          $ref: '#/components/schemas/ColumnUsage'
+
+    DefinitionDataset:
+      type: object
+      description: One DataSetIdentifierDeclarations entry and what the definition takes from it.
+      required: [identifier, dataSetArn, dataSetId, columns, calculatedFields]
+      properties:
+        identifier:
+          type: string
+        dataSetArn:
+          type: string
+        dataSetId:
+          type: string
+        columns:
+          type: array
+          description: Columns the definition reads from this dataset, calculated fields excluded.
+          items:
+            $ref: '#/components/schemas/ReferencedColumn'
+        calculatedFields:
+          type: array
+          description: Calculated fields declared against this dataset. Provided by the definition, not the dataset.
+          items:
+            type: string
+
+    DefinitionDatasets:
+      type: object
+      required: [assetType, assetId, name, datasets]
+      properties:
+        assetType:
+          $ref: '#/components/schemas/AuthorableAssetType'
+        assetId:
+          type: string
+        name:
+          type: string
+        datasets:
+          type: array
+          items:
+            $ref: '#/components/schemas/DefinitionDataset'
+
+    AuthorableAssetType:
+      type: string
+      enum: [analysis, dashboard]
+
+    RebindRequest:
+      type: object
+      description: Point one dataset identifier at a different dataset.
+      required: [identifier, targetDataSetId]
+      properties:
+        identifier:
+          type: string
+          description: A DataSetIdentifierDeclarations entry of the definition.
+        targetDataSetId:
+          type: string
+        columnMap:
+          type: object
+          description: Source column name to target column name, for names that differ.
+          additionalProperties:
+            type: string
+
+    ColumnResolutionStatus:
+      type: string
+      enum: [matched, mapped, suggested, missing]
+
+    ColumnResolution:
+      type: object
+      required: [name, status, usage]
+      properties:
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/ColumnResolutionStatus'
+        resolvedTo:
+          type: string
+          description: The name the definition will use after the rebind (matched or mapped).
+        suggestion:
+          type: string
+          description: A target column that differs only in case, spacing or separators.
+        targetType:
+          type: string
+        usage:
+          $ref: '#/components/schemas/ColumnUsage'
+
+    DatasetRebindPlan:
+      type: object
+      required: [identifier, current, target, columns, unusedTargetColumns, summary]
+      properties:
+        identifier:
+          type: string
+        current:
+          type: object
+          required: [dataSetId, dataSetArn]
+          properties:
+            dataSetId:
+              type: string
+            dataSetArn:
+              type: string
+        target:
+          type: object
+          required: [dataSetId, dataSetArn, name, columnCount]
+          properties:
+            dataSetId:
+              type: string
+            dataSetArn:
+              type: string
+            name:
+              type: string
+            columnCount:
+              type: integer
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/ColumnResolution'
+        unusedTargetColumns:
+          type: array
+          description: Target columns nothing in the definition uses. Informational.
+          items:
+            type: string
+        summary:
+          type: object
+          required: [matched, mapped, suggested, missing]
+          properties:
+            matched:
+              type: integer
+            mapped:
+              type: integer
+            suggested:
+              type: integer
+            missing:
+              type: integer
+
+    RebindPlan:
+      type: object
+      required: [assetType, assetId, name, datasets, canApply]
+      properties:
+        assetType:
+          $ref: '#/components/schemas/AuthorableAssetType'
+        assetId:
+          type: string
+        name:
+          type: string
+        datasets:
+          type: array
+          items:
+            $ref: '#/components/schemas/DatasetRebindPlan'
+        canApply:
+          type: boolean
+          description: True only when every referenced column is matched or mapped.
+
+    ApplyRebindRequest:
+      type: object
+      required: [mode, rebinds]
+      properties:
+        mode:
+          type: string
+          enum: [update, clone]
+        rebinds:
+          type: array
+          description: May be empty for a rename-only update or a plain clone.
+          items:
+            $ref: '#/components/schemas/RebindRequest'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Required for clone. Optional rename for update.
+        newAssetId:
+          type: string
+          description: Clone only. Generated when omitted.
+
+    ApplyRebindResult:
+      type: object
+      required: [assetType, assetId, name, arn, mode, plan]
+      properties:
+        assetType:
+          $ref: '#/components/schemas/AuthorableAssetType'
+        assetId:
+          type: string
+          description: The written asset - the source for update, the new asset for clone.
+        name:
+          type: string
+        arn:
+          type: string
+        mode:
+          type: string
+          enum: [update, clone]
+        versionNumber:
+          type: integer
+          description: Dashboards only. The version created (and, for update, published).
+        plan:
+          $ref: '#/components/schemas/RebindPlan'
+
+    ProposeRequest:
+      type: object
+      required: [ask]
+      properties:
+        ask:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: What the person wants, in their words.
+        candidateDataSetIds:
+          type: array
+          description: Restrict the datasets the planner may choose from. Defaults to every active dataset.
+          items:
+            type: string
+
+    ProposedRebind:
+      allOf:
+        - $ref: '#/components/schemas/RebindRequest'
+        - type: object
+          required: [reason]
+          properties:
+            reason:
+              type: string
+              description: Why the planner chose this dataset.
+
+    UnmappedColumn:
+      type: object
+      required: [identifier, column, reason]
+      properties:
+        identifier:
+          type: string
+        column:
+          type: string
+        reason:
+          type: string
+
+    Proposal:
+      type: object
+      required: [ask, intent, mode, reason, rebinds, unmapped, plan, model]
+      properties:
+        ask:
+          type: string
+        intent:
+          type: string
+          enum: [rebind, unclear]
+          description: unclear when the ask is not a rebind or clone the planner can express.
+        mode:
+          type: string
+          enum: [update, clone]
+        name:
+          type: string
+          description: Proposed name. Absent means keep the current one.
+        reason:
+          type: string
+        rebinds:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProposedRebind'
+        unmapped:
+          type: array
+          description: Columns the planner looked at and could not map.
+          items:
+            $ref: '#/components/schemas/UnmappedColumn'
+        plan:
+          type: object
+          nullable: true
+          description: The server's own dry run of the proposal. Null when the intent is unclear.
+          allOf:
+            - $ref: '#/components/schemas/RebindPlan'
+        model:
+          type: object
+          required: [provider, model]
+          properties:
+            provider:
+              type: string
+            model:
+              type: string
 
     BulkItemFailure:
       type: object

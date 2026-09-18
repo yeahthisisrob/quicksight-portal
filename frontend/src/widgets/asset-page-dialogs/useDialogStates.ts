@@ -92,6 +92,16 @@ export interface DatasetSourceDialogState {
   dataset: { id: string; name: string } | null;
 }
 
+export interface WireframeDialogState {
+  open: boolean;
+  asset: { id: string; name: string } | null;
+}
+
+export interface RebindDialogState {
+  open: boolean;
+  asset: { id: string; name: string } | null;
+}
+
 export interface UserAssetAccessDialogState {
   open: boolean;
   user: UserItem | null;
@@ -161,6 +171,14 @@ export function useDialogStates(refreshAssetType: (type: AssetType) => Promise<v
   const [datasetSourceDialog, setDatasetSourceDialog] = useState<DatasetSourceDialogState>({
     open: false,
     dataset: null,
+  });
+  const [wireframeDialog, setWireframeDialog] = useState<WireframeDialogState>({
+    open: false,
+    asset: null,
+  });
+  const [rebindDialog, setRebindDialog] = useState<RebindDialogState>({
+    open: false,
+    asset: null,
   });
   const [userAssetAccessDialog, setUserAssetAccessDialog] = useState<UserAssetAccessDialogState>({
     open: false,
@@ -253,6 +271,10 @@ export function useDialogStates(refreshAssetType: (type: AssetType) => Promise<v
     setRenameAssetDialog,
     datasetSourceDialog,
     setDatasetSourceDialog,
+    wireframeDialog,
+    setWireframeDialog,
+    rebindDialog,
+    setRebindDialog,
     userAssetAccessDialog,
     setUserAssetAccessDialog,
     notifyInactiveAnalysesDialog,

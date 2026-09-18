@@ -214,6 +214,8 @@ export const createAssetColumns = (
     onGroupUpdate?: (group: any) => void;
     onRefreshScheduleClick?: (dataset: any) => void;
     onDefinitionErrorsClick?: (asset: any) => void;
+    onWireframeClick?: (asset: any) => void;
+    onRebindClick?: (asset: any) => void;
   }
 ): ColumnConfig[] => {
   // Get base columns

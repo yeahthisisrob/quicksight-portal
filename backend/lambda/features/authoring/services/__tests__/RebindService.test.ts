@@ -1,0 +1,317 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { GOLD_COLUMNS, ORDERS_ARN, sampleDefinition } from '../../lib/__tests__/fixtures';
+import { RebindService } from '../RebindService';
+
+const mocks = vi.hoisted(() => ({
+  qs: {
+    describeAnalysisDefinition: vi.fn(),
+    describeDashboardDefinition: vi.fn(),
+    describeDataset: vi.fn(),
+    describeAnalysisPermissions: vi.fn(),
+    describeDashboardPermissions: vi.fn(),
+    updateAnalysis: vi.fn(),
+    updateDashboard: vi.fn(),
+    updateDashboardPublishedVersion: vi.fn(),
+    createAnalysis: vi.fn(),
+    createDashboard: vi.fn(),
+  },
+  s3: { getObject: vi.fn() },
+}));
+
+vi.mock('../../../../shared/services/aws/ClientFactory', () => ({
+  ClientFactory: { getQuickSightService: () => mocks.qs, getS3Service: () => mocks.s3 },
+}));
+
+vi.mock('../../../../shared/utils/logger', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
+const GOLD_ARN = 'arn:aws:quicksight:us-east-1:1:dataset/orders-gold';
+const FULL_MAP = { order_date: 'Order Date' };
+
+describe('RebindService', () => {
+  let service: RebindService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.qs.describeAnalysisDefinition.mockResolvedValue({
+      Name: 'Sales analysis',
+      Definition: sampleDefinition(),
+      ThemeArn: 'arn:theme',
+    });
+    mocks.qs.describeDashboardDefinition.mockResolvedValue({
+      Name: 'Sales dashboard',
+      Definition: sampleDefinition(),
+      ThemeArn: 'arn:theme',
+      DashboardPublishOptions: { AdHocFilteringOption: { AvailabilityStatus: 'ENABLED' } },
+    });
+    mocks.qs.describeDataset.mockResolvedValue({
+      Arn: GOLD_ARN,
+      Name: 'orders_gold',
+      OutputColumns: GOLD_COLUMNS,
+    });
+    mocks.qs.describeAnalysisPermissions.mockResolvedValue([
+      { Principal: 'arn:user/rob', Actions: ['quicksight:DescribeAnalysis'] },
+    ]);
+    mocks.qs.describeDashboardPermissions.mockResolvedValue({
+      Permissions: [{ Principal: 'arn:user/rob', Actions: ['quicksight:DescribeDashboard'] }],
+      LinkSharingConfiguration: {},
+    });
+    mocks.qs.updateAnalysis.mockResolvedValue({ arn: 'arn:analysis/a1' });
+    mocks.qs.updateDashboard.mockResolvedValue({
+      arn: 'arn:dashboard/d1',
+      versionArn: 'arn:dashboard/d1/version/7',
+    });
+    mocks.qs.createAnalysis.mockResolvedValue({ arn: 'arn:analysis/new', analysisId: 'new' });
+    mocks.qs.createDashboard.mockResolvedValue({
+      arn: 'arn:dashboard/new',
+      dashboardId: 'new',
+      versionArn: 'arn:dashboard/new/version/1',
+    });
+    service = new RebindService('1');
+  });
+
+  describe('describeDatasets', () => {
+    it('reads the live definition and lists what it takes from each dataset', async () => {
+      const result = await service.describeDatasets('analysis', 'a1');
+
+      expect(mocks.qs.describeAnalysisDefinition).toHaveBeenCalledWith('a1');
+      expect(result.name).toBe('Sales analysis');
+      expect(result.datasets.map((d) => d.identifier)).toEqual(['orders', 'regions']);
+      expect(result.datasets[0]?.columns.map((c) => c.name)).toEqual([
+        'cost',
+        'order_date',
+        'revenue',
+        'status',
+      ]);
+    });
+
+    it('uses the dashboard definition API for dashboards', async () => {
+      await service.describeDatasets('dashboard', 'd1');
+      expect(mocks.qs.describeDashboardDefinition).toHaveBeenCalledWith('d1');
+      expect(mocks.qs.describeAnalysisDefinition).not.toHaveBeenCalled();
+    });
+
+    it('fails clearly when the definition cannot be loaded', async () => {
+      mocks.qs.describeAnalysisDefinition.mockResolvedValue({ Name: 'x' });
+      await expect(service.describeDatasets('analysis', 'a1')).rejects.toThrow(
+        'Could not load the analysis definition'
+      );
+    });
+  });
+
+  describe('plan', () => {
+    it('resolves every referenced column against the target', async () => {
+      const plan = await service.plan('analysis', 'a1', [
+        { identifier: 'orders', targetDataSetId: 'orders-gold' },
+      ]);
+
+      expect(plan.canApply).toBe(false);
+      const [orders] = plan.datasets;
+      expect(orders?.current).toEqual({ dataSetId: 'orders-silver', dataSetArn: ORDERS_ARN });
+      expect(orders?.target).toEqual({
+        dataSetId: 'orders-gold',
+        dataSetArn: GOLD_ARN,
+        name: 'orders_gold',
+        columnCount: 5,
+      });
+      expect(orders?.summary).toEqual({ matched: 3, mapped: 0, suggested: 1, missing: 0 });
+      expect(orders?.columns.find((c) => c.name === 'order_date')).toMatchObject({
+        status: 'suggested',
+        suggestion: 'Order Date',
+      });
+      expect(orders?.unusedTargetColumns).toEqual(['Order Date', 'customer_id']);
+    });
+
+    it('becomes applicable once the caller maps the odd column', async () => {
+      const plan = await service.plan('analysis', 'a1', [
+        { identifier: 'orders', targetDataSetId: 'orders-gold', columnMap: FULL_MAP },
+      ]);
+      expect(plan.canApply).toBe(true);
+      expect(plan.datasets[0]?.summary).toEqual({
+        matched: 3,
+        mapped: 1,
+        suggested: 0,
+        missing: 0,
+      });
+    });
+
+    it('rejects an identifier the definition does not declare', async () => {
+      await expect(
+        service.plan('analysis', 'a1', [{ identifier: 'ghost', targetDataSetId: 'orders-gold' }])
+      ).rejects.toThrow("no dataset identifier 'ghost'. Declared: orders, regions");
+    });
+
+    it('rejects the same identifier twice', async () => {
+      await expect(
+        service.plan('analysis', 'a1', [
+          { identifier: 'orders', targetDataSetId: 'orders-gold' },
+          { identifier: 'orders', targetDataSetId: 'orders-gold' },
+        ])
+      ).rejects.toThrow('rebound twice');
+    });
+
+    it('falls back to the S3 export when the dataset cannot be described', async () => {
+      mocks.qs.describeDataset.mockRejectedValue(new Error('flat file'));
+      mocks.s3.getObject.mockResolvedValue({
+        apiResponses: {
+          describe: { data: { Arn: GOLD_ARN, Name: 'orders_gold', OutputColumns: GOLD_COLUMNS } },
+        },
+      });
+
+      const plan = await service.plan('analysis', 'a1', [
+        { identifier: 'orders', targetDataSetId: 'orders-gold', columnMap: FULL_MAP },
+      ]);
+
+      expect(mocks.s3.getObject).toHaveBeenCalledWith(
+        expect.any(String),
+        'assets/datasets/orders-gold.json'
+      );
+      expect(plan.canApply).toBe(true);
+    });
+
+    it('fails when the target dataset exists nowhere', async () => {
+      mocks.qs.describeDataset.mockRejectedValue(new Error('nope'));
+      mocks.s3.getObject.mockRejectedValue(new Error('NoSuchKey'));
+      await expect(
+        service.plan('analysis', 'a1', [{ identifier: 'orders', targetDataSetId: 'zzz' }])
+      ).rejects.toThrow("Dataset 'zzz' was not found");
+    });
+
+    it('fails when the target carries no column information', async () => {
+      mocks.qs.describeDataset.mockResolvedValue({ Arn: GOLD_ARN, Name: 'no-cols' });
+      mocks.s3.getObject.mockResolvedValue({ apiResponses: {} });
+      await expect(
+        service.plan('analysis', 'a1', [{ identifier: 'orders', targetDataSetId: 'no-cols' }])
+      ).rejects.toThrow('no column information');
+    });
+  });
+
+  describe('apply', () => {
+    it('refuses while any column is unresolved and names them', async () => {
+      await expect(
+        service.apply('analysis', 'a1', {
+          mode: 'update',
+          rebinds: [{ identifier: 'orders', targetDataSetId: 'orders-gold' }],
+        })
+      ).rejects.toThrow("orders.order_date (did you mean 'Order Date'?)");
+      expect(mocks.qs.updateAnalysis).not.toHaveBeenCalled();
+    });
+
+    it('updates an analysis in place with the rewritten definition', async () => {
+      const result = await service.apply('analysis', 'a1', {
+        mode: 'update',
+        rebinds: [{ identifier: 'orders', targetDataSetId: 'orders-gold', columnMap: FULL_MAP }],
+      });
+
+      expect(mocks.qs.updateAnalysis).toHaveBeenCalledTimes(1);
+      const call = mocks.qs.updateAnalysis.mock.calls[0]?.[0];
+      expect(call.analysisId).toBe('a1');
+      expect(call.name).toBe('Sales analysis');
+      expect(call.themeArn).toBe('arn:theme');
+      expect(call.definition.DataSetIdentifierDeclarations[0].DataSetArn).toBe(GOLD_ARN);
+      expect(
+        call.definition.Sheets[0].Visuals[1].KPIVisual.ChartConfiguration.FieldWells.TrendGroups[0]
+          .DateDimensionField.Column.ColumnName
+      ).toBe('Order Date');
+      expect(result).toMatchObject({
+        assetType: 'analysis',
+        assetId: 'a1',
+        name: 'Sales analysis',
+        arn: 'arn:analysis/a1',
+        mode: 'update',
+      });
+      expect(result.plan.canApply).toBe(true);
+    });
+
+    it('updates a dashboard and publishes the new version', async () => {
+      const result = await service.apply('dashboard', 'd1', {
+        mode: 'update',
+        name: 'Sales dashboard (gold)',
+        rebinds: [{ identifier: 'orders', targetDataSetId: 'orders-gold', columnMap: FULL_MAP }],
+      });
+
+      const call = mocks.qs.updateDashboard.mock.calls[0]?.[0];
+      expect(call).toMatchObject({
+        dashboardId: 'd1',
+        name: 'Sales dashboard (gold)',
+        themeArn: 'arn:theme',
+        dashboardPublishOptions: { AdHocFilteringOption: { AvailabilityStatus: 'ENABLED' } },
+      });
+      expect(mocks.qs.updateDashboardPublishedVersion).toHaveBeenCalledWith('d1', 7);
+      expect(result.versionNumber).toBe(7);
+    });
+
+    it('fails loudly if the dashboard version cannot be read back', async () => {
+      mocks.qs.updateDashboard.mockResolvedValue({ arn: 'arn:dashboard/d1' });
+      await expect(
+        service.apply('dashboard', 'd1', {
+          mode: 'update',
+          rebinds: [{ identifier: 'orders', targetDataSetId: 'orders-gold', columnMap: FULL_MAP }],
+        })
+      ).rejects.toThrow('new version could not be determined');
+      expect(mocks.qs.updateDashboardPublishedVersion).not.toHaveBeenCalled();
+    });
+
+    it('allows a rename-only update', async () => {
+      await service.apply('analysis', 'a1', { mode: 'update', rebinds: [], name: 'Renamed' });
+      const call = mocks.qs.updateAnalysis.mock.calls[0]?.[0];
+      expect(call.name).toBe('Renamed');
+      expect(call.definition).toEqual(sampleDefinition());
+    });
+
+    it('refuses an update that changes nothing', async () => {
+      await expect(
+        service.apply('analysis', 'a1', { mode: 'update', rebinds: [] })
+      ).rejects.toThrow('Nothing to do');
+    });
+
+    it('clones an analysis with the source permissions and a generated id', async () => {
+      const result = await service.apply('analysis', 'a1', {
+        mode: 'clone',
+        name: 'Sales analysis (gold)',
+        rebinds: [{ identifier: 'orders', targetDataSetId: 'orders-gold', columnMap: FULL_MAP }],
+      });
+
+      const call = mocks.qs.createAnalysis.mock.calls[0]?.[0];
+      expect(call.analysisId).toMatch(/^[0-9a-f-]{36}$/);
+      expect(call.name).toBe('Sales analysis (gold)');
+      expect(call.permissions).toEqual([
+        { Principal: 'arn:user/rob', Actions: ['quicksight:DescribeAnalysis'] },
+      ]);
+      expect(call.definition.DataSetIdentifierDeclarations[0].DataSetArn).toBe(GOLD_ARN);
+      expect(mocks.qs.updateAnalysis).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ assetId: 'new', arn: 'arn:analysis/new', mode: 'clone' });
+    });
+
+    it('clones a dashboard, honouring a requested id and normalising permissions', async () => {
+      const result = await service.apply('dashboard', 'd1', {
+        mode: 'clone',
+        name: 'Copy',
+        newAssetId: 'my-copy',
+        rebinds: [],
+      });
+
+      const call = mocks.qs.createDashboard.mock.calls[0]?.[0];
+      expect(call.dashboardId).toBe('my-copy');
+      expect(call.permissions).toEqual([
+        { Principal: 'arn:user/rob', Actions: ['quicksight:DescribeDashboard'] },
+      ]);
+      expect(call.definition).toEqual(sampleDefinition());
+      expect(result.versionNumber).toBe(1);
+    });
+
+    it('requires a name to clone', async () => {
+      await expect(service.apply('analysis', 'a1', { mode: 'clone', rebinds: [] })).rejects.toThrow(
+        'A name is required to clone'
+      );
+    });
+
+    it('omits permissions when the source has none rather than sending an empty list', async () => {
+      mocks.qs.describeAnalysisPermissions.mockResolvedValue([]);
+      await service.apply('analysis', 'a1', { mode: 'clone', name: 'Copy', rebinds: [] });
+      expect(mocks.qs.createAnalysis.mock.calls[0]?.[0].permissions).toBeUndefined();
+    });
+  });
+});

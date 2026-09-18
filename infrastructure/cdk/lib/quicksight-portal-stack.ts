@@ -193,6 +193,17 @@ export class QuicksightPortalStack extends Stack {
       actions: ['cloudtrail:LookupEvents'],
       resources: ['*'],
     }));
+    // Planner (natural-language rebind proposals) over the Bedrock Converse
+    // API. The wildcard region matters: cross-region inference profiles
+    // (us.anthropic.*) fan out to other regions' foundation models.
+    lambdaRole.addToPolicy(new PolicyStatement({
+      effect: Effect.ALLOW,
+      actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
+      resources: [
+        'arn:aws:bedrock:*::foundation-model/*',
+        `arn:aws:bedrock:*:${this.account}:inference-profile/*`,
+      ],
+    }));
     // SMUS (SageMaker Unified Studio) catalog lookups — the only DataZone
     // call the portal makes. Harmless when SMUS_DOMAIN_ID is not configured.
     lambdaRole.addToPolicy(new PolicyStatement({
@@ -235,6 +246,10 @@ export class QuicksightPortalStack extends Stack {
         COGNITO_USER_POOL_ID: userPool.userPoolId,
         COGNITO_ISSUER: `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}`,
         BUCKET_NAME: `quicksight-metadata-bucket-${this.account}`,
+        // Planner (natural-language rebind proposals). Bedrock in every
+        // deployed environment; the CLI providers are local-dev only.
+        PLANNER_PROVIDER: 'bedrock',
+        PLANNER_MODEL_ID: process.env.PLANNER_MODEL_ID || 'us.anthropic.claude-sonnet-4-6',
         EXPORT_QUEUE_URL: exportQueue.queueUrl,
         JOBS_TABLE_NAME: jobsTable.tableName,
         ...(smusDomainId ? { SMUS_DOMAIN_ID: smusDomainId } : {}),
