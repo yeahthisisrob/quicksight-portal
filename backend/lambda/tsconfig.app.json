@@ -2,9 +2,12 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2022",
-    "module": "commonjs",
+    "module": "preserve",
     "lib": ["ES2022", "DOM"],
-    "outDir": "./dist",
+    // Type-check only. esbuild (build.js) produces the Lambda bundles, and it
+    // wipes dist first, so anything tsc emitted here was thrown away - and
+    // racing the bundler for the same directory.
+    "noEmit": true,
     "rootDir": "../..",
     "strictPropertyInitialization": true,
     "noPropertyAccessFromIndexSignature": false,
@@ -14,7 +17,6 @@
     "paths": {
       "@shared/*": ["../../shared/*"]
     },
-    "moduleResolution": "bundler",
     // Explicit under TypeScript 7: it no longer pulls every @types package
     // into the global scope automatically, so without this every `process`
     // and `node:*` import fails to resolve.
