@@ -200,7 +200,7 @@ export class QuicksightPortalStack extends Stack {
       effect: Effect.ALLOW,
       actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
       resources: [
-        'arn:aws:bedrock:*::foundation-model/*',
+        'arn:aws:bedrock:*::foundation-model/anthropic.*',
         `arn:aws:bedrock:*:${this.account}:inference-profile/*`,
       ],
     }));
@@ -673,6 +673,21 @@ export class QuicksightPortalStack extends Stack {
       ...nagAccounts.map((acct) => ({
         id: `AwsSolutions-IAM5[Resource::arn:aws:s3:::cdk-hnb659fds-assets-${acct}-${this.region}/*]`,
         reason: 'CDK-managed BucketDeployment reads its own asset bucket.',
+      })),
+      {
+        id: 'AwsSolutions-IAM5[Resource::arn:aws:bedrock:*::foundation-model/anthropic.*]',
+        reason:
+          'The planner invokes a cross-region inference profile (us.anthropic.*), ' +
+          'which routes to the foundation model in whichever region has capacity, ' +
+          'so the model ARN must span regions. Scoped to the Anthropic family the ' +
+          'planner is configured for (PLANNER_MODEL_ID).',
+      },
+      ...nagAccounts.map((acct) => ({
+        id: `AwsSolutions-IAM5[Resource::arn:aws:bedrock:*:${acct}:inference-profile/*]`,
+        reason:
+          'Inference profiles are account-scoped and named per model; the model is ' +
+          'chosen by PLANNER_MODEL_ID at deploy time, so the profile name is not ' +
+          'fixed here. Region is wildcarded because profiles are cross-region.',
       })),
     ];
 
