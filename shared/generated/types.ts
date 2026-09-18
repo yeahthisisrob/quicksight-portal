@@ -2039,6 +2039,113 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assets/dataset/{assetId}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where a dataset reads its data from
+         * @description Returns the dataset's physical tables, read live from QuickSight (not
+         *     the portal cache, which can be stale), together with the data sources
+         *     a table may be pointed at.
+         *
+         *     Uploaded (flat file) datasets have no queryable specification and
+         *     return 400.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assetId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The dataset's current sources */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["DatasetSource"] & {
+                                /**
+                                 * @description Every data source in the account. A table's data
+                                 *     source is always chosen from this list - ARNs are
+                                 *     never entered by hand - and the server re-checks
+                                 *     membership on update.
+                                 */
+                                dataSources: components["schemas"]["DataSourceOption"][];
+                            };
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        /**
+         * Repoint a dataset's physical tables and/or rename it
+         * @description Applies the given edits and writes the whole specification back to
+         *     QuickSight, which has no partial-update API.
+         *
+         *     Column definitions are always preserved: logical tables, calculated
+         *     fields and downstream dashboards reference those names, so this
+         *     endpoint changes only where the data comes from. If the new table or
+         *     query does not produce those columns, QuickSight rejects the update
+         *     and its message is returned verbatim.
+         *
+         *     A table cannot change kind - relational stays relational, custom SQL
+         *     stays custom SQL.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assetId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description Rename the dataset at the same time */
+                        name?: string;
+                        tables?: components["schemas"]["DatasetTableEdit"][];
+                    };
+                };
+            };
+            responses: {
+                /** @description The dataset's sources after the update */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["DatasetSource"];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assets/{assetType}/{assetId}/rename": {
         parameters: {
             query?: never;
@@ -3360,6 +3467,53 @@ export interface components {
                 truncated?: number;
                 errors?: number;
             } | null;
+        };
+        DatasetPhysicalTable: {
+            /**
+             * @description Key in the dataset's PhysicalTableMap. Referenced by the logical
+             *     table map, so it never changes.
+             */
+            id: string;
+            /** @enum {string} */
+            kind: "RELATIONAL" | "CUSTOM_SQL" | "S3";
+            dataSourceArn: string;
+            /** @description Relational: the table name. Custom SQL: the query's display name. */
+            name: string;
+            /** @description Relational only; absent for engines with no catalog concept. */
+            catalog?: string;
+            /** @description Relational only. The database for Athena-backed sources. */
+            schema?: string;
+            /** @description Custom SQL only. */
+            sqlQuery?: string;
+            /** @description How many columns are pinned to this table. */
+            columnCount: number;
+            /** @description False for S3 sources, which have no schema or query to edit. */
+            editable: boolean;
+        };
+        DatasetSource: {
+            dataSetId: string;
+            name: string;
+            importMode: string;
+            tables: components["schemas"]["DatasetPhysicalTable"][];
+        };
+        /** @description A change to one physical table. Omitted fields are left alone. */
+        DatasetTableEdit: {
+            id: string;
+            /** @description Must be one of the account's data sources. */
+            dataSourceArn?: string;
+            name?: string;
+            /** @description Relational only. Send an empty string to clear it. */
+            catalog?: string;
+            /** @description Relational only. */
+            schema?: string;
+            /** @description Custom SQL only. */
+            sqlQuery?: string;
+        };
+        DataSourceOption: {
+            id: string;
+            name: string;
+            arn: string;
+            type?: string;
         };
         BulkItemFailure: {
             /** @description Human-readable item label, e.g. "alice → analysts" */

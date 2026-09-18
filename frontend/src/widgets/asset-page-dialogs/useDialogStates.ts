@@ -87,6 +87,11 @@ export interface RenameAssetDialogState {
   asset: { id: string; name: string } | null;
 }
 
+export interface DatasetSourceDialogState {
+  open: boolean;
+  dataset: { id: string; name: string } | null;
+}
+
 export interface UserAssetAccessDialogState {
   open: boolean;
   user: UserItem | null;
@@ -152,6 +157,10 @@ export function useDialogStates(refreshAssetType: (type: AssetType) => Promise<v
   const [renameAssetDialog, setRenameAssetDialog] = useState<RenameAssetDialogState>({
     open: false,
     asset: null,
+  });
+  const [datasetSourceDialog, setDatasetSourceDialog] = useState<DatasetSourceDialogState>({
+    open: false,
+    dataset: null,
   });
   const [userAssetAccessDialog, setUserAssetAccessDialog] = useState<UserAssetAccessDialogState>({
     open: false,
@@ -242,6 +251,8 @@ export function useDialogStates(refreshAssetType: (type: AssetType) => Promise<v
     setNotifyInactiveDialog,
     renameAssetDialog,
     setRenameAssetDialog,
+    datasetSourceDialog,
+    setDatasetSourceDialog,
     userAssetAccessDialog,
     setUserAssetAccessDialog,
     notifyInactiveAnalysesDialog,
