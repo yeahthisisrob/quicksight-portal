@@ -86,9 +86,15 @@ export type BulkOperationConfig =
 // Result types for bulk operations
 export interface BulkOperationItemResult {
   success: boolean;
-  item: string; // asset ID, user name, etc.
+  item: string; // human-readable label, e.g. "alice → analysts"
   message?: string;
   error?: string;
+}
+
+/** One failed item, as recorded on the job record (see bulkResultSummary) */
+export interface BulkItemFailure {
+  item: string;
+  error: string;
 }
 
 export interface BulkOperationResult {

@@ -5,8 +5,9 @@ import type { CloudTrailAdapter } from '../../../../adapters/aws/CloudTrailAdapt
 import { type CacheService } from '../../../../shared/services/cache/CacheService';
 import { logger } from '../../../../shared/utils/logger';
 import { type GroupService } from '../../../organization/services/GroupService';
+import { classifyAction } from '../../lib/cloudTrailEvents';
 import { type ActivityCache, type ActivityRefreshRequest, type MinimalEvent } from '../../types';
-import { ActivityService, classifyAction } from '../ActivityService';
+import { ActivityService } from '../ActivityService';
 
 // Mock dependencies
 vi.mock('../../../../adapters/aws/CloudTrailAdapter');

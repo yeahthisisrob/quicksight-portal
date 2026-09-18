@@ -16,5 +16,6 @@ export { smusApi } from './modules/smus';
 
 // Export shared utilities
 export * from './client';
+export * from './errors';
 export * from './cognito';
 export * from './types';

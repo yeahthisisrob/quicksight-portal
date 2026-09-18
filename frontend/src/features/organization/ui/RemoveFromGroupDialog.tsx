@@ -15,21 +15,24 @@ import {
   Chip,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
-import { usersApi } from '@/shared/api';
-import { useJobPolling } from '@/shared/hooks/useJobPolling';
+import { JobFailureList } from '@/entities/job';
+import { resolveUserName, type UserLike } from '@/entities/user';
+
+import { useGroupMembershipJob, type MembershipOutcome } from '../lib/useGroupMembershipJob';
+
+const MAX_USER_CHIPS = 10;
 
 interface RemoveFromGroupDialogProps {
   open: boolean;
   onClose: () => void;
-  selectedUsers: Array<{ 
-    userName: string; 
-    email?: string;
-    groups: string[];
-  }>;
+  selectedUsers: Array<UserLike & { groups: string[] }>;
+  /** Fired when at least one user was removed, so the caller can refresh */
   onComplete: () => void;
 }
+
+const pluralUsers = (n: number): string => `${n} user${n === 1 ? '' : 's'}`;
 
 export default function RemoveFromGroupDialog({
   open,
@@ -39,25 +42,25 @@ export default function RemoveFromGroupDialog({
 }: RemoveFromGroupDialogProps) {
   const { enqueueSnackbar } = useSnackbar();
   const [selectedGroup, setSelectedGroup] = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
-  // Membership mutations are queued bulk jobs - poll to completion so the
-  // caller's refresh sees the post-mutation state
-  const { startPolling } = useJobPolling({
-    onComplete: () => {
-      enqueueSnackbar(
-        `Removed ${selectedUsers.length} user${selectedUsers.length !== 1 ? 's' : ''} from ${selectedGroup}`,
-        { variant: 'success' }
-      );
-      setSubmitting(false);
-      onComplete();
-      handleClose();
+  const closeAndReset = useCallback(() => {
+    setSelectedGroup('');
+    onClose();
+  }, [onClose]);
+
+  const handleSettled = useCallback(
+    (outcome: MembershipOutcome) => {
+      if (outcome.succeeded > 0) {
+        onComplete();
+      }
+      if (outcome.ok) {
+        closeAndReset();
+      }
     },
-    onFailed: (job) => {
-      enqueueSnackbar(job.message || 'Failed to remove users from group', { variant: 'error' });
-      setSubmitting(false);
-    },
-  });
+    [onComplete, closeAndReset]
+  );
+
+  const { run, reset, isRunning, outcome } = useGroupMembershipJob({ onSettled: handleSettled });
 
   // Get common groups across all selected users
   const commonGroups = selectedUsers.length > 0
@@ -66,32 +69,21 @@ export default function RemoveFromGroupDialog({
       )
     : [];
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!selectedGroup) {
       enqueueSnackbar('Please select a group', { variant: 'error' });
       return;
     }
-
-    setSubmitting(true);
-    try {
-      const response = await usersApi.removeUsersFromGroup(
-        selectedGroup,
-        selectedUsers.map(u => u.userName)
-      );
-      // Always a queued job; keep the dialog in the submitting state until
-      // the job completes (onComplete/onFailed above close it out)
-      enqueueSnackbar('Removing users from group...', { variant: 'info' });
-      startPolling(response.jobId);
-    } catch (_error) {
-      enqueueSnackbar('Failed to remove users from group', { variant: 'error' });
-      setSubmitting(false);
-    }
+    void run('remove', selectedGroup, selectedUsers);
   };
 
   const handleClose = () => {
-    setSelectedGroup('');
-    onClose();
+    if (isRunning) return;
+    reset();
+    closeAndReset();
   };
+
+  const showFailures = outcome !== null && !outcome.ok;
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -99,25 +91,37 @@ export default function RemoveFromGroupDialog({
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           <Alert severity="info">
-            Removing {selectedUsers.length} user{selectedUsers.length !== 1 ? 's' : ''} from a group
+            Removing {pluralUsers(selectedUsers.length)} from a group
           </Alert>
+
+          {showFailures && (
+            <JobFailureList
+              title={`${pluralUsers(outcome.failed)} could not be removed from ${outcome.groupName}`}
+              failures={outcome.failures}
+              summary={outcome.error}
+            />
+          )}
 
           <Box>
             <Typography variant="subtitle2" gutterBottom>
               Selected Users:
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-              {selectedUsers.slice(0, 10).map((user) => (
+              {selectedUsers.slice(0, MAX_USER_CHIPS).map((user) => {
+                const userName = resolveUserName(user);
+                return (
+                  <Chip
+                    key={userName || user.email || 'unknown'}
+                    label={userName || 'No QuickSight user name'}
+                    color={userName ? 'default' : 'error'}
+                    size="small"
+                    variant="outlined"
+                  />
+                );
+              })}
+              {selectedUsers.length > MAX_USER_CHIPS && (
                 <Chip
-                  key={user.userName}
-                  label={user.userName}
-                  size="small"
-                  variant="outlined"
-                />
-              ))}
-              {selectedUsers.length > 10 && (
-                <Chip
-                  label={`+${selectedUsers.length - 10} more`}
+                  label={`+${selectedUsers.length - MAX_USER_CHIPS} more`}
                   size="small"
                   color="primary"
                 />
@@ -131,7 +135,7 @@ export default function RemoveFromGroupDialog({
               value={selectedGroup}
               onChange={(e) => setSelectedGroup(e.target.value)}
               label="Select Group to Remove From"
-              disabled={submitting}
+              disabled={isRunning}
             >
               {commonGroups.length === 0 ? (
                 <MenuItem disabled>
@@ -157,16 +161,16 @@ export default function RemoveFromGroupDialog({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} disabled={submitting}>
-          Cancel
+        <Button onClick={handleClose} disabled={isRunning}>
+          {showFailures ? 'Close' : 'Cancel'}
         </Button>
         <Button
           onClick={handleSubmit}
           variant="contained"
           color="error"
-          disabled={!selectedGroup || submitting || commonGroups.length === 0}
+          disabled={!selectedGroup || isRunning || commonGroups.length === 0}
         >
-          {submitting ? <CircularProgress size={24} /> : 'Remove from Group'}
+          {isRunning ? <CircularProgress size={24} /> : showFailures ? 'Retry' : 'Remove from Group'}
         </Button>
       </DialogActions>
     </Dialog>

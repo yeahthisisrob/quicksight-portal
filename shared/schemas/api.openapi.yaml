@@ -3468,6 +3468,17 @@ components:
             errors:
               type: integer
 
+    BulkItemFailure:
+      type: object
+      required: [item, error]
+      properties:
+        item:
+          type: string
+          description: Human-readable item label, e.g. "alice → analysts"
+        error:
+          type: string
+          description: Failure reason as reported by the underlying operation
+
     ExportJobStatus:
       type: object
       required: [success, data]
@@ -3518,6 +3529,18 @@ components:
                   type: integer
                 apiCalls:
                   type: integer
+            error:
+              type: string
+              description: |
+                Why the job failed, or - for a completed bulk job with partial
+                failures - the distinct per-item failure reasons with counts.
+            failures:
+              type: array
+              description: |
+                Item-level failures for bulk jobs (capped; the full list is on
+                the job result). Present only when at least one item failed.
+              items:
+                $ref: '#/components/schemas/BulkItemFailure'
             phases:
               type: array
               description: |

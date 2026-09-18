@@ -1,7 +1,18 @@
 import { api as apiClient } from '../client';
 import { ApiResponse } from '../types';
 
-export type JobType = 'export' | 'deploy' | 'ingestion' | 'rebuild' | 'activity-refresh';
+import type { components } from '@shared/generated';
+
+export type BulkItemFailure = components['schemas']['BulkItemFailure'];
+
+export type JobType =
+  | 'export'
+  | 'deploy'
+  | 'ingestion'
+  | 'rebuild'
+  | 'activity-refresh'
+  | 'bulk-operation'
+  | 'csv-export';
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';
 export type JobPhaseStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';
 
@@ -52,6 +63,8 @@ export interface JobMetadata {
   // Error info
   error?: string;
   errorStack?: string;
+  /** Bulk jobs: which items failed and why (capped server-side) */
+  failures?: BulkItemFailure[];
 
   // Control flags
   stopRequested?: boolean;

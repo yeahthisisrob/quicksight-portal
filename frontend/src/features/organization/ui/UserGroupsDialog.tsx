@@ -18,26 +18,20 @@ import {
   IconButton,
   alpha,
 } from '@mui/material';
-import { useSnackbar } from 'notistack';
 import { useState } from 'react';
 
-import { usersApi } from '@/shared/api';
+import { resolveUserName, type UserLike } from '@/entities/user';
+
 import { colors, spacing, borderRadius, typography } from '@/shared/design-system/theme';
-import { useJobPolling } from '@/shared/hooks/useJobPolling';
 
 import AddToGroupDialog from './AddToGroupDialog';
+import { useGroupMembershipJob } from '../lib/useGroupMembershipJob';
 
 interface UserGroupsDialogProps {
   open: boolean;
   onClose: () => void;
   // Accepts a users-grid row (UserListItem: name/id) or a legacy { userName } shape
-  user: {
-    userName?: string;
-    name?: string;
-    id?: string;
-    email?: string;
-    groups?: string[];
-  };
+  user: UserLike & { groups?: string[] };
   onGroupsChange: () => void;
 }
 
@@ -47,40 +41,26 @@ export default function UserGroupsDialog({
   user,
   onGroupsChange,
 }: UserGroupsDialogProps) {
-  const userName = user.userName || user.name || user.id || '';
-  const { enqueueSnackbar } = useSnackbar();
+  const userName = resolveUserName(user);
   const [groups, setGroups] = useState<string[]>(user.groups || []);
   const [removing, setRemoving] = useState<string | null>(null);
   const [addGroupOpen, setAddGroupOpen] = useState(false);
 
-  // Membership removal is a queued bulk job - poll to completion so the
-  // group list and parent refresh reflect the post-mutation state
-  const { startPolling: startRemovePolling } = useJobPolling({
-    onComplete: () => {
-      const groupName = removing;
-      enqueueSnackbar(`Removed ${userName} from ${groupName}`, { variant: 'success' });
-      if (groupName) {
-        setGroups(prev => prev.filter(g => g !== groupName));
+  // Membership removal is a queued bulk job - the row spinner stays until it
+  // settles, and the group list / parent only refresh once it really happened
+  const removeJob = useGroupMembershipJob({
+    onSettled: (outcome) => {
+      setRemoving(null);
+      if (outcome.ok) {
+        setGroups(prev => prev.filter(g => g !== outcome.groupName));
+        onGroupsChange();
       }
-      setRemoving(null);
-      onGroupsChange();
-    },
-    onFailed: (job) => {
-      enqueueSnackbar(job.message || 'Failed to remove user from group', { variant: 'error' });
-      setRemoving(null);
     },
   });
 
-  const handleRemoveFromGroup = async (groupName: string) => {
+  const handleRemoveFromGroup = (groupName: string) => {
     setRemoving(groupName);
-    try {
-      const response = await usersApi.removeUsersFromGroup(groupName, [userName]);
-      // Keep the row spinner until the job completes (handlers above)
-      startRemovePolling(response.jobId);
-    } catch (_error) {
-      enqueueSnackbar('Failed to remove user from group', { variant: 'error' });
-      setRemoving(null);
-    }
+    void removeJob.run('remove', groupName, [user]);
   };
 
   const handleAddToGroupComplete = () => {

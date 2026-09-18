@@ -7,6 +7,7 @@
 
 import pLimit from 'p-limit';
 
+import { summarizeBulkResult } from './bulkResultSummary';
 // Import services that will handle individual operations
 import { BulkDeleteService } from '../../../features/asset-management/services/BulkDeleteService';
 import { FolderService } from '../../../features/organization/services/FolderService';
@@ -39,6 +40,9 @@ const PROCESSING_CONSTANTS = {
 // threshold (30 min) so live jobs are never auto-failed
 const HEARTBEAT_INTERVAL_MS = 60_000;
 const HEARTBEAT_PROGRESS_PERCENT = 50;
+
+const describeGroupOperation = (op: { userName: string; groupName: string }): string =>
+  `${op.userName} → ${op.groupName}`;
 
 export class BulkOperationsProcessor {
   // Services
@@ -117,10 +121,7 @@ export class BulkOperationsProcessor {
       result.endTime = endTime;
       result.duration = duration;
 
-      await this.updateProgress(
-        `Bulk ${config.operationType} completed: ${result.successCount}/${result.totalItems} successful`,
-        PAGINATION.MAX_PAGE_SIZE
-      );
+      await this.updateProgress(summarizeBulkResult(result).message, PAGINATION.MAX_PAGE_SIZE);
 
       // DRY post-mutation cache maintenance for all bulk ops.
       // No explicit memory invalidation needed: cache reads are ETag-revalidated
@@ -187,14 +188,17 @@ export class BulkOperationsProcessor {
   }
 
   /**
-   * Generic batched operation processor
+   * Generic batched operation processor.
+   * `describeItem` labels each op in the per-item results (e.g. "alice → analysts");
+   * those labels are what the job record's failures list shows to the user.
    */
   private async processBatchedOperations<T>(
     operationType: string,
     operations: T[],
     processor: (op: T) => Promise<string>,
     batchSize: number,
-    maxConcurrency: number
+    maxConcurrency: number,
+    describeItem: (op: T) => string = (op) => JSON.stringify(op)
   ): Promise<BulkOperationResult> {
     const results: BulkOperationItemResult[] = [];
     const limit = pLimit(maxConcurrency);
@@ -219,8 +223,8 @@ export class BulkOperationsProcessor {
 
       // Collect results
       batchResults.forEach((result, index) => {
-        const operation = batch[index];
-        const itemId = JSON.stringify(operation);
+        const operation = batch[index] as T;
+        const itemId = describeItem(operation);
 
         if (result.status === 'fulfilled') {
           results.push({
@@ -387,7 +391,8 @@ export class BulkOperationsProcessor {
         return `Added ${op.assetType}:${op.assetId} to folder ${op.folderId}`;
       },
       batchSize,
-      maxConcurrency
+      maxConcurrency,
+      (op) => `${op.assetType}:${op.assetId} → folder ${op.folderId}`
     );
   }
 
@@ -412,7 +417,8 @@ export class BulkOperationsProcessor {
         return `Removed ${op.assetType}:${op.assetId} from folder ${op.folderId}`;
       },
       batchSize,
-      maxConcurrency
+      maxConcurrency,
+      (op) => `${op.assetType}:${op.assetId} → folder ${op.folderId}`
     );
   }
 
@@ -445,7 +451,8 @@ export class BulkOperationsProcessor {
         return `Added ${op.userName} to group ${op.groupName}`;
       },
       batchSize,
-      maxConcurrency
+      maxConcurrency,
+      describeGroupOperation
     );
   }
 
@@ -478,7 +485,8 @@ export class BulkOperationsProcessor {
         return `Removed ${op.userName} from group ${op.groupName}`;
       },
       batchSize,
-      maxConcurrency
+      maxConcurrency,
+      describeGroupOperation
     );
   }
 
@@ -528,7 +536,8 @@ export class BulkOperationsProcessor {
         return `Revoked permissions for ${op.principal.split('/').pop()}`;
       },
       batchSize,
-      maxConcurrency
+      maxConcurrency,
+      (op) => `${op.principal.split('/').pop()} on ${op.assetType}:${op.assetId}`
     );
 
     // Update cache — remove all revoked principals from cached permissions
@@ -600,7 +609,8 @@ export class BulkOperationsProcessor {
         return `Updated tags for ${op.assetType}:${op.assetId}`;
       },
       batchSize,
-      maxConcurrency
+      maxConcurrency,
+      (op) => `${op.assetType}:${op.assetId}`
     );
   }
 
