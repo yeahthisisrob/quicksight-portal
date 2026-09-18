@@ -1,39 +1,39 @@
-import { QuickSightAdapter, type ListResult } from '../../../adapters/aws/QuickSightAdapter';
+import { type ListResult, QuickSightAdapter } from '../../../adapters/aws/QuickSightAdapter';
 import { createQuickSightClient } from '../../config/awsClients';
 import * as mappers from '../../mappers/quicksight.mapper';
-import { type OperationTracker } from '../../models/operations.model';
+import type { OperationTracker } from '../../models/operations.model';
 import type {
+  AnalysisSummary,
   DashboardSummary,
   DatasetSummary,
-  AnalysisSummary,
   DatasourceSummary,
   FolderSummary,
-  User,
   Group,
+  User,
 } from '../../models/quicksight-domain.model';
-import { type AssetType, ASSET_TYPES } from '../../types/assetTypes';
+import { ASSET_TYPES, type AssetType } from '../../types/assetTypes';
 import type {
   AnalysisDefinition,
-  DashboardVersionDefinition,
-  ResourcePermission,
-  DashboardPublishOptions,
   AnalysisSourceEntity,
-  DashboardSourceEntity,
-  DataSourceParameters,
-  DataSourceCredentials,
-  VpcConnectionProperties,
-  SslProperties,
-  PhysicalTableMap,
-  LogicalTableMap,
-  FieldFolders,
-  DataSetImportMode,
   ColumnGroup,
+  ColumnLevelPermissionRule,
+  DashboardPublishOptions,
+  DashboardSourceEntity,
+  DashboardVersionDefinition,
+  DataSetImportMode,
+  DataSetUsageConfiguration,
+  DataSourceCredentials,
+  DataSourceParameters,
+  DatasetParameter,
+  FieldFolders,
+  FolderType,
+  LogicalTableMap,
+  PhysicalTableMap,
+  ResourcePermission,
   RowLevelPermissionDataSet,
   RowLevelPermissionTagConfiguration,
-  ColumnLevelPermissionRule,
-  DataSetUsageConfiguration,
-  DatasetParameter,
-  FolderType,
+  SslProperties,
+  VpcConnectionProperties,
 } from '../../types/aws-sdk-types';
 import { withRetry } from '../../utils/awsRetry';
 import { logger } from '../../utils/logger';
@@ -95,7 +95,7 @@ export class QuickSightService {
 
   private operationTracker?: OperationTracker;
 
-  constructor(awsAccountId: string, operationTracker?: OperationTracker) {
+  public constructor(awsAccountId: string, operationTracker?: OperationTracker) {
     const client = createQuickSightClient();
     this.adapter = new QuickSightAdapter(client, awsAccountId);
     this.operationTracker = operationTracker;

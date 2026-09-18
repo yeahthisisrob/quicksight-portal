@@ -1,6 +1,6 @@
-import { DefinitionErrorsDialog } from './DefinitionErrorsDialog';
-
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import { DefinitionErrorsDialog } from './DefinitionErrorsDialog';
 
 const meta: Meta<typeof DefinitionErrorsDialog> = {
   title: 'Entities/Asset/DefinitionErrorsDialog',
@@ -31,40 +31,40 @@ const sampleErrors = [
     message: 'Column that used in the field can not be found in Dataset',
     violatedEntities: [
       {
-        path: 'sheet/0809bd69-baa0-4a50-8002-712b7d2927dd/visual/12e8804f-97c0-4591-b514-3a7f7699fad4/field/b8131bae-8b44-40d6-8005-6c5d3015afc1.3.1749778767210'
-      }
-    ]
+        path: 'sheet/0809bd69-baa0-4a50-8002-712b7d2927dd/visual/12e8804f-97c0-4591-b514-3a7f7699fad4/field/b8131bae-8b44-40d6-8005-6c5d3015afc1.3.1749778767210',
+      },
+    ],
   },
   {
     type: 'COLUMN_NOT_FOUND',
     message: 'Column that used in the filter can not be found in Dataset',
     violatedEntities: [
       {
-        path: 'filter-group/5bacd001-3967-4ef6-8adf-6620da4e0d15/filter/c76fa8d0-3d09-46e4-86ba-ff24ffe634ad'
-      }
-    ]
+        path: 'filter-group/5bacd001-3967-4ef6-8adf-6620da4e0d15/filter/c76fa8d0-3d09-46e4-86ba-ff24ffe634ad',
+      },
+    ],
   },
   {
     type: 'INVALID_REFERENCE',
     message: 'Referenced dataset is no longer available',
     violatedEntities: [
       {
-        path: 'dataset/7f0a01e6-dca7-4898-88bb-0f40e2b79b20'
-      }
-    ]
+        path: 'dataset/7f0a01e6-dca7-4898-88bb-0f40e2b79b20',
+      },
+    ],
   },
   {
     type: 'CALCULATED_FIELD_ERROR',
     message: 'Expression in calculated field contains syntax errors',
     violatedEntities: [
       {
-        path: 'calculated-field/revenue-growth'
+        path: 'calculated-field/revenue-growth',
       },
       {
-        path: 'calculated-field/profit-margin'
-      }
-    ]
-  }
+        path: 'calculated-field/profit-margin',
+      },
+    ],
+  },
 ];
 
 export const DashboardErrors: Story = {
@@ -110,7 +110,7 @@ export const NoViolatedEntities: Story = {
       {
         type: 'PERMISSION_ERROR',
         message: 'Insufficient permissions to access some datasets',
-      }
+      },
     ],
     onClose: () => console.log('Dialog closed'),
   },

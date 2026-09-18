@@ -2,16 +2,18 @@ import { Add as AddIcon } from '@mui/icons-material';
 import { Button } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { useParams, Navigate } from 'react-router-dom';
-
-import { ActivityStatsDialog, DatasetActivityDialog, UserActivityDialog } from '@/widgets/activity-stats';
-
-import { CreateGroupDialog } from '@/features/organization';
-import { useSmusDatasetLinks, useSmusStatus } from '@/features/smus';
+import { Navigate, useParams } from 'react-router-dom';
 
 import { useAssets } from '@/entities/asset';
+import { CreateGroupDialog } from '@/features/organization';
+import { useSmusDatasetLinks, useSmusStatus } from '@/features/smus';
+import {
+  ActivityStatsDialog,
+  DatasetActivityDialog,
+  UserActivityDialog,
+} from '@/widgets/activity-stats';
 
-import { dataCatalogApi, assetsApi } from '@/shared/api';
+import { assetsApi, dataCatalogApi } from '@/shared/api';
 
 import GenericAssetPage from './GenericAssetPage';
 
@@ -27,15 +29,36 @@ const assetConfigs = {
 
 export default function AssetsPage() {
   const { type } = useParams<{ type: string }>();
-  
-  const { 
-    dashboards, dashboardsLoading, dashboardsPagination, fetchDashboards,
-    analyses, analysesLoading, analysesPagination, fetchAnalyses,
-    datasets, datasetsLoading, datasetsPagination, fetchDatasets,
-    datasources, datasourcesLoading, datasourcesPagination, fetchDatasources,
-    folders, foldersLoading, foldersPagination, fetchFolders,
-    users, usersLoading, usersPagination, fetchUsers,
-    groups, groupsLoading, groupsPagination, fetchGroups,
+
+  const {
+    dashboards,
+    dashboardsLoading,
+    dashboardsPagination,
+    fetchDashboards,
+    analyses,
+    analysesLoading,
+    analysesPagination,
+    fetchAnalyses,
+    datasets,
+    datasetsLoading,
+    datasetsPagination,
+    fetchDatasets,
+    datasources,
+    datasourcesLoading,
+    datasourcesPagination,
+    fetchDatasources,
+    folders,
+    foldersLoading,
+    foldersPagination,
+    fetchFolders,
+    users,
+    usersLoading,
+    usersPagination,
+    fetchUsers,
+    groups,
+    groupsLoading,
+    groupsPagination,
+    fetchGroups,
     refreshAssetType,
     updateAssetTags,
     availableRoles,
@@ -45,12 +68,12 @@ export default function AssetsPage() {
   } = useAssets();
 
   // Activity state
-  const [activityDialog, setActivityDialog] = useState<{ 
-    open: boolean; 
+  const [activityDialog, setActivityDialog] = useState<{
+    open: boolean;
     asset?: any;
     activity?: any;
   }>({ open: false });
-  
+
   // Group creation state
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
 
@@ -102,27 +125,58 @@ export default function AssetsPage() {
 
   // Select the right data based on asset type
   const assetData = {
-    dashboard: { assets: dashboards, loading: dashboardsLoading, pagination: dashboardsPagination, fetch: fetchDashboards },
-    analysis: { assets: analyses, loading: analysesLoading, pagination: analysesPagination, fetch: fetchAnalyses },
-    dataset: { assets: datasetsWithSmus, loading: datasetsLoading, pagination: datasetsPagination, fetch: fetchDatasets },
-    datasource: { assets: datasources, loading: datasourcesLoading, pagination: datasourcesPagination, fetch: fetchDatasources },
-    folder: { assets: folders, loading: foldersLoading, pagination: foldersPagination, fetch: fetchFolders },
+    dashboard: {
+      assets: dashboards,
+      loading: dashboardsLoading,
+      pagination: dashboardsPagination,
+      fetch: fetchDashboards,
+    },
+    analysis: {
+      assets: analyses,
+      loading: analysesLoading,
+      pagination: analysesPagination,
+      fetch: fetchAnalyses,
+    },
+    dataset: {
+      assets: datasetsWithSmus,
+      loading: datasetsLoading,
+      pagination: datasetsPagination,
+      fetch: fetchDatasets,
+    },
+    datasource: {
+      assets: datasources,
+      loading: datasourcesLoading,
+      pagination: datasourcesPagination,
+      fetch: fetchDatasources,
+    },
+    folder: {
+      assets: folders,
+      loading: foldersLoading,
+      pagination: foldersPagination,
+      fetch: fetchFolders,
+    },
     user: { assets: users, loading: usersLoading, pagination: usersPagination, fetch: fetchUsers },
-    group: { assets: groups, loading: groupsLoading, pagination: groupsPagination, fetch: fetchGroups },
+    group: {
+      assets: groups,
+      loading: groupsLoading,
+      pagination: groupsPagination,
+      fetch: fetchGroups,
+    },
   };
 
   const { assets, loading, pagination, fetch } = assetData[config.assetType] || assetData.dashboard;
 
-  const extraToolbarActions = config.assetType === 'group' ? (
-    <Button
-      variant="contained"
-      startIcon={<AddIcon />}
-      onClick={() => setCreateGroupOpen(true)}
-      size="small"
-    >
-      Create Group
-    </Button>
-  ) : undefined;
+  const extraToolbarActions =
+    config.assetType === 'group' ? (
+      <Button
+        variant="contained"
+        startIcon={<AddIcon />}
+        onClick={() => setCreateGroupOpen(true)}
+        size="small"
+      >
+        Create Group
+      </Button>
+    ) : undefined;
 
   return (
     <>
@@ -135,18 +189,27 @@ export default function AssetsPage() {
         fetchAssets={fetch}
         refreshAssetType={refreshAssetType}
         updateAssetTags={updateAssetTags}
-        onActivityClick={['dashboard', 'analysis', 'dataset', 'user'].includes(config.assetType) ?
-          (asset) => setActivityDialog({
-            open: true,
-            asset
-          }) : undefined
+        onActivityClick={
+          ['dashboard', 'analysis', 'dataset', 'user'].includes(config.assetType)
+            ? (asset) =>
+                setActivityDialog({
+                  open: true,
+                  asset,
+                })
+            : undefined
         }
         extraToolbarActions={extraToolbarActions}
-        enableTagFiltering={['dashboard', 'analysis', 'dataset', 'datasource', 'folder'].includes(config.assetType)}
+        enableTagFiltering={['dashboard', 'analysis', 'dataset', 'datasource', 'folder'].includes(
+          config.assetType
+        )}
         availableTags={availableTags}
         isLoadingTags={tagsLoading}
-        enableErrorFiltering={['dashboard', 'analysis', 'dataset', 'datasource'].includes(config.assetType)}
-        enableActivityFiltering={['dashboard', 'analysis', 'dataset', 'user'].includes(config.assetType)}
+        enableErrorFiltering={['dashboard', 'analysis', 'dataset', 'datasource'].includes(
+          config.assetType
+        )}
+        enableActivityFiltering={['dashboard', 'analysis', 'dataset', 'user'].includes(
+          config.assetType
+        )}
         enableRoleFiltering={config.assetType === 'user'}
         availableRoles={config.assetType === 'user' ? availableRoles : undefined}
         enablePermissionsFiltering={config.assetType === 'user'}
@@ -155,24 +218,29 @@ export default function AssetsPage() {
         enableSmusFiltering={config.assetType === 'dataset' && smusConfigured}
         enableImportModeFiltering={config.assetType === 'dataset'}
         enableSourceTypeFiltering={['dataset', 'datasource'].includes(config.assetType)}
-        availableSourceTypes={['dataset', 'datasource'].includes(config.assetType) ? availableSourceTypes : undefined}
-        enableFolderFiltering={['dashboard', 'analysis', 'dataset', 'datasource'].includes(config.assetType)}
+        availableSourceTypes={
+          ['dataset', 'datasource'].includes(config.assetType) ? availableSourceTypes : undefined
+        }
+        enableFolderFiltering={['dashboard', 'analysis', 'dataset', 'datasource'].includes(
+          config.assetType
+        )}
         availableFolders={availableFolders}
         isLoadingFolders={filterFoldersLoading}
         refreshKey={refreshKey}
       />
-      
+
       {/* Activity dialog for dashboards and analyses */}
-      {(config.assetType === 'dashboard' || config.assetType === 'analysis') && activityDialog.asset && (
-        <ActivityStatsDialog
-          open={activityDialog.open}
-          onClose={() => setActivityDialog({ open: false })}
-          assetName={activityDialog.asset.name}
-          assetType={config.assetType as 'dashboard' | 'analysis'}
-          assetId={activityDialog.asset.id}
-        />
-      )}
-      
+      {(config.assetType === 'dashboard' || config.assetType === 'analysis') &&
+        activityDialog.asset && (
+          <ActivityStatsDialog
+            open={activityDialog.open}
+            onClose={() => setActivityDialog({ open: false })}
+            assetName={activityDialog.asset.name}
+            assetType={config.assetType as 'dashboard' | 'analysis'}
+            assetId={activityDialog.asset.id}
+          />
+        )}
+
       {/* Dataset activity dialog (refresh history + usage by dashboards/analyses) */}
       {config.assetType === 'dataset' && activityDialog.asset && (
         <DatasetActivityDialog
@@ -192,7 +260,7 @@ export default function AssetsPage() {
           userId={activityDialog.asset.id}
         />
       )}
-      
+
       {/* Create Group Dialog */}
       {config.assetType === 'group' && (
         <CreateGroupDialog

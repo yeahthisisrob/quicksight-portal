@@ -31,7 +31,7 @@ const MAX_LISTINGS = 5000;
 export class DataZoneAdapter {
   private readonly client: DataZoneClient;
 
-  constructor(region: string) {
+  public constructor(region: string) {
     this.client = new DataZoneClient({ region });
   }
 

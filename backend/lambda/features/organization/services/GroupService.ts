@@ -1,15 +1,15 @@
 import { DEBUG_CONFIG } from '../../../shared/constants';
-import {
-  type ApiResponse,
-  type AssetExportData,
-  type GroupDescribeData,
-  type GroupListData,
+import type { CacheEntry, MasterCache } from '../../../shared/models/asset.model';
+import type {
+  ApiResponse,
+  AssetExportData,
+  GroupDescribeData,
+  GroupListData,
 } from '../../../shared/models/asset-export.model';
-import { type CacheEntry, type MasterCache } from '../../../shared/models/asset.model';
 import { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { S3Service } from '../../../shared/services/aws/S3Service';
 import { cacheService } from '../../../shared/services/cache/CacheService';
-import { ASSET_TYPES, getPluralForm, type AssetType } from '../../../shared/types/assetTypes';
+import { ASSET_TYPES, type AssetType, getPluralForm } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
 import { principalMatchesGroup } from '../../../shared/utils/quicksightUtils';
 
@@ -42,7 +42,7 @@ export class GroupService {
   private readonly quickSightService: QuickSightService;
   private readonly s3Service: S3Service;
 
-  constructor() {
+  public constructor() {
     const awsAccountId = process.env.AWS_ACCOUNT_ID || '';
     this.quickSightService = new QuickSightService(awsAccountId);
     this.s3Service = new S3Service(awsAccountId);

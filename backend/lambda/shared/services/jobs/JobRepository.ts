@@ -19,7 +19,7 @@
  */
 
 import { JOB_CONFIG, JOB_LIMITS, TIME_UNITS } from '../../constants';
-import { type BulkItemFailure } from '../../types/bulkOperationTypes';
+import type { BulkItemFailure } from '../../types/bulkOperationTypes';
 import { logger } from '../../utils/logger';
 import { DynamoDBService, isConditionalCheckFailed } from '../aws/DynamoDBService';
 
@@ -180,7 +180,7 @@ export class JobRepository {
   private readonly dynamo: DynamoDBService;
   private readonly tableName: string;
 
-  constructor() {
+  public constructor() {
     this.dynamo = new DynamoDBService();
     const accountId = process.env.AWS_ACCOUNT_ID || '';
     this.tableName = process.env.JOBS_TABLE_NAME || `quicksight-portal-jobs-${accountId}`;

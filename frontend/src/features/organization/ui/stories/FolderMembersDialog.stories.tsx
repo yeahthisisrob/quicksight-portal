@@ -1,10 +1,9 @@
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { FoldersProvider } from '@/entities/folder';
 
 import FolderMembersDialog from '../FolderMembersDialog';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta: Meta<typeof FolderMembersDialog> = {
   title: 'Features/Organization/FolderMembersDialog',
@@ -13,7 +12,8 @@ const meta: Meta<typeof FolderMembersDialog> = {
     layout: 'centered',
     docs: {
       description: {
-        component: 'A dialog component for viewing and managing folder members with a modern, sleek design.',
+        component:
+          'A dialog component for viewing and managing folder members with a modern, sleek design.',
       },
     },
   },
@@ -23,7 +23,14 @@ const meta: Meta<typeof FolderMembersDialog> = {
       // In docs mode, don't render the dialog open by default
       if (context.viewMode === 'docs') {
         return (
-          <div style={{ height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div
+            style={{
+              height: '100px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
             <p>Dialog component - Click on a story to see it in action</p>
           </div>
         );
@@ -54,7 +61,11 @@ type Story = StoryObj<typeof meta>;
 const mockMembers = {
   mixed: [
     { MemberId: 'dashboard-1', MemberType: 'DASHBOARD', MemberName: 'Sales Dashboard Q4 2024' },
-    { MemberId: 'dashboard-2', MemberType: 'DASHBOARD', MemberName: 'Customer Analytics Dashboard' },
+    {
+      MemberId: 'dashboard-2',
+      MemberType: 'DASHBOARD',
+      MemberName: 'Customer Analytics Dashboard',
+    },
     { MemberId: 'analysis-1', MemberType: 'ANALYSIS', MemberName: 'Revenue Trend Analysis' },
     { MemberId: 'analysis-2', MemberType: 'ANALYSIS', MemberName: 'Market Segmentation Study' },
     { MemberId: 'dataset-1', MemberType: 'DATASET', MemberName: 'Sales Data 2024' },
@@ -132,18 +143,22 @@ export const LongNames: Story = {
       Name: 'Enterprise Resource Planning and Business Intelligence Reports Collection',
     },
   },
-  decorators: [createMockDecorator([
-    { 
-      MemberId: 'analysis-long-1', 
-      MemberType: 'ANALYSIS', 
-      MemberName: 'Comprehensive Market Analysis Report for North American Regional Sales Performance Q4 2024' 
-    },
-    { 
-      MemberId: 'dataset-long-1', 
-      MemberType: 'DATASET', 
-      MemberName: 'Consolidated Customer Transaction History with Demographic Enrichment Data 2020-2024' 
-    },
-  ])],
+  decorators: [
+    createMockDecorator([
+      {
+        MemberId: 'analysis-long-1',
+        MemberType: 'ANALYSIS',
+        MemberName:
+          'Comprehensive Market Analysis Report for North American Regional Sales Performance Q4 2024',
+      },
+      {
+        MemberId: 'dataset-long-1',
+        MemberType: 'DATASET',
+        MemberName:
+          'Consolidated Customer Transaction History with Demographic Enrichment Data 2020-2024',
+      },
+    ]),
+  ],
 };
 
 export const Loading: Story = {
@@ -154,24 +169,26 @@ export const Loading: Story = {
       Name: 'Loading Example',
     },
   },
-  decorators: [(Story) => {
-    const queryClient = new QueryClient({
-      defaultOptions: {
-        queries: {
-          retry: false,
-          // This will keep the query in loading state
-          staleTime: 0,
-          refetchInterval: false,
+  decorators: [
+    (Story) => {
+      const queryClient = new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: false,
+            // This will keep the query in loading state
+            staleTime: 0,
+            refetchInterval: false,
+          },
         },
-      },
-    });
+      });
 
-    return (
-      <QueryClientProvider client={queryClient}>
-        <FoldersProvider>
-          <Story />
-        </FoldersProvider>
-      </QueryClientProvider>
-    );
-  }],
+      return (
+        <QueryClientProvider client={queryClient}>
+          <FoldersProvider>
+            <Story />
+          </FoldersProvider>
+        </QueryClientProvider>
+      );
+    },
+  ],
 };

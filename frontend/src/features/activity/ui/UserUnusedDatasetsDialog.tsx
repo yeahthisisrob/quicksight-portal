@@ -34,11 +34,7 @@ interface UserUnusedDatasetsDialogProps {
   user: { name: string; email: string };
 }
 
-export function UserUnusedDatasetsDialog({
-  open,
-  onClose,
-  user,
-}: UserUnusedDatasetsDialogProps) {
+export function UserUnusedDatasetsDialog({ open, onClose, user }: UserUnusedDatasetsDialogProps) {
   const {
     loading,
     error,
@@ -74,10 +70,7 @@ export function UserUnusedDatasetsDialog({
         <EmailIcon color="action" />
         Notify Unused Datasets
         <Chip label={user.name} size="small" variant="outlined" />
-        <IconButton
-          onClick={onClose}
-          sx={{ position: 'absolute', right: 8, top: 8 }}
-        >
+        <IconButton onClick={onClose} sx={{ position: 'absolute', right: 8, top: 8 }}>
           <CloseIcon />
         </IconButton>
       </DialogTitle>
@@ -85,16 +78,13 @@ export function UserUnusedDatasetsDialog({
       <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
         {/* Summary Banner */}
         {!loading && (
-          <Alert
-            severity={datasets.length > 0 ? 'warning' : 'info'}
-            variant="outlined"
-          >
+          <Alert severity={datasets.length > 0 ? 'warning' : 'info'} variant="outlined">
             <Typography variant="body2">
               {datasets.length > 0 ? (
                 <>
                   Found <strong>{datasets.length}</strong> unused dataset
-                  {datasets.length !== 1 ? 's' : ''} owned by{' '}
-                  <strong>{user.name}</strong> with no dashboard or analysis references.
+                  {datasets.length !== 1 ? 's' : ''} owned by <strong>{user.name}</strong> with no
+                  dashboard or analysis references.
                 </>
               ) : (
                 error || 'No unused datasets found for this user.'
@@ -152,11 +142,7 @@ export function UserUnusedDatasetsDialog({
               borderRadius: 1,
             }}
           >
-            <ListItemButton
-              onClick={() => toggleEmail(user.email)}
-              dense
-              sx={{ py: 0.25 }}
-            >
+            <ListItemButton onClick={() => toggleEmail(user.email)} dense sx={{ py: 0.25 }}>
               <ListItemIcon sx={{ minWidth: 32 }}>
                 <Checkbox
                   edge="start"
@@ -170,8 +156,10 @@ export function UserUnusedDatasetsDialog({
               <ListItemText
                 primary={user.name}
                 secondary={user.email}
-                primaryTypographyProps={{ variant: 'body2' }}
-                secondaryTypographyProps={{ variant: 'caption' }}
+                slotProps={{
+                  primary: { variant: 'body2' },
+                  secondary: { variant: 'caption' },
+                }}
               />
             </ListItemButton>
           </List>
@@ -234,9 +222,11 @@ export function UserUnusedDatasetsDialog({
             minRows={4}
             maxRows={8}
             value={body}
-            InputProps={{ readOnly: true }}
             helperText="Auto-generated from lineage data"
             sx={{ '& .MuiInputBase-input': { fontFamily: 'monospace', fontSize: 12 } }}
+            slotProps={{
+              input: { readOnly: true },
+            }}
           />
         </Box>
       </DialogContent>

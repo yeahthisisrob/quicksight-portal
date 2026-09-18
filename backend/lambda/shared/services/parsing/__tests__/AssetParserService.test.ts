@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { type AssetExportData } from '../../../models/asset-export.model';
+import type { AssetExportData } from '../../../models/asset-export.model';
 import { AssetParserService } from '../AssetParserService';
 
 describe('AssetParserService - metadata updates', () => {

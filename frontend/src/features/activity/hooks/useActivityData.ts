@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { activityApi, type DatasetActivityData } from '@/shared/api/modules/activity';
 
-import { ActivityData, UserActivity } from '../model/types';
+import type { ActivityData, UserActivity } from '../model/types';
 
 const ACTIVITY_QUERY_OPTIONS = {
   staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes

@@ -1,6 +1,6 @@
-import { ActivityStatsDialog } from '../ActivityStatsDialog';
-
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import { ActivityStatsDialog } from '../ActivityStatsDialog';
 
 const meta: Meta<typeof ActivityStatsDialog> = {
   title: 'Widgets/ActivityStats/ActivityStatsDialog',
@@ -9,7 +9,8 @@ const meta: Meta<typeof ActivityStatsDialog> = {
     layout: 'centered',
     docs: {
       description: {
-        component: 'Dialog component for viewing detailed activity statistics for dashboards and analyses. Shows total views, unique viewers, top viewers list, and activity timeline.',
+        component:
+          'Dialog component for viewing detailed activity statistics for dashboards and analyses. Shows total views, unique viewers, top viewers list, and activity timeline.',
       },
     },
   },
@@ -19,7 +20,14 @@ const meta: Meta<typeof ActivityStatsDialog> = {
       // In docs mode, don't render the dialog open by default
       if (context.viewMode === 'docs') {
         return (
-          <div style={{ height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div
+            style={{
+              height: '100px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
             <p>Dialog component - Click on a story to see it in action</p>
           </div>
         );
@@ -104,9 +112,7 @@ const mockSingleViewerData = {
     '2024-01-24': 3,
     '2024-01-23': 2,
   },
-  viewers: [
-    { userName: 'admin@company.com', viewCount: 5, lastViewed: '2024-01-24T09:00:00Z' },
-  ],
+  viewers: [{ userName: 'admin@company.com', viewCount: 5, lastViewed: '2024-01-24T09:00:00Z' }],
 };
 
 export const Default: Story = {
@@ -148,7 +154,8 @@ export const SingleViewer: Story = {
 export const LongAssetName: Story = {
   args: {
     open: true,
-    assetName: 'Comprehensive Enterprise Resource Planning and Business Intelligence Integration Dashboard for Executive Leadership Team Q4 2024',
+    assetName:
+      'Comprehensive Enterprise Resource Planning and Business Intelligence Integration Dashboard for Executive Leadership Team Q4 2024',
     assetType: 'dashboard',
     assetId: 'dashboard-long-name-001',
   },

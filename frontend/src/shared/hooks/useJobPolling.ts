@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { jobsApi, type JobMetadata } from '@/shared/api/modules/jobs';
+import { type JobMetadata, jobsApi } from '@/shared/api/modules/jobs';
 
 /**
  * Polling interval. Pass a number for a fixed cadence, or a function that

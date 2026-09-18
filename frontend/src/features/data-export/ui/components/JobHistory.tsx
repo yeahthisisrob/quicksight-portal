@@ -1,37 +1,37 @@
 import {
+  ErrorOutlined as ErrorIcon,
   HistoryOutlined as HistoryIcon,
   DescriptionOutlined as LogsIcon,
-  RefreshOutlined as RefreshIcon,
-  CheckCircleOutline as SuccessIcon,
-  ErrorOutline as ErrorIcon,
-  PauseCircleOutline as StoppedIcon,
   HourglassEmpty as ProcessingIcon,
   Schedule as QueuedIcon,
+  RefreshOutlined as RefreshIcon,
+  PauseCircleOutlined as StoppedIcon,
+  CheckCircleOutlined as SuccessIcon,
 } from '@mui/icons-material';
 import {
+  alpha,
   Box,
+  Chip,
+  FormControl,
+  IconButton,
+  InputLabel,
+  MenuItem,
   Paper,
-  Typography,
+  Select,
+  Skeleton,
+  Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
-  IconButton,
   Tooltip,
-  alpha,
-  Skeleton,
-  Stack,
+  Typography,
   useTheme,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
 } from '@mui/material';
 import { format, formatDistanceToNow } from 'date-fns';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { exportApi } from '@/shared/api';
 import { colors, spacing } from '@/shared/design-system/theme';
@@ -115,7 +115,7 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
       setLoading(true);
       const result = await exportApi.listJobs({
         limit: 50,
-        status: statusFilter === 'all' ? undefined : statusFilter as any,
+        status: statusFilter === 'all' ? undefined : (statusFilter as any),
         type: typeFilter === 'all' ? undefined : typeFilter,
       });
       setJobs(result?.jobs || []);
@@ -166,7 +166,6 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
         return 'warning';
       case 'processing':
         return 'info';
-      case 'queued':
       default:
         return 'default';
     }
@@ -177,7 +176,7 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
     const seconds = Math.floor(duration / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes % 60}m`;
     } else if (minutes > 0) {
@@ -208,9 +207,9 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
           justifyContent: 'space-between',
         }}
       >
-        <Box display="flex" alignItems="center" gap={1}>
+        <Box sx={{ gap: 1, alignItems: 'center', display: 'flex' }}>
           <HistoryIcon sx={{ fontSize: 20, color: colors.primary.main }} />
-          <Typography variant="subtitle1" fontWeight={600}>
+          <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
             Job History
           </Typography>
           <Chip
@@ -224,8 +223,8 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
             }}
           />
         </Box>
-        
-        <Stack direction="row" spacing={2} alignItems="center">
+
+        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>Type</InputLabel>
             <Select
@@ -258,7 +257,7 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
               <MenuItem value="queued">Queued</MenuItem>
             </Select>
           </FormControl>
-          
+
           <Tooltip title="Refresh">
             <IconButton
               onClick={refresh}
@@ -270,14 +269,16 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
                 },
               }}
             >
-              <RefreshIcon sx={{ 
-                fontSize: 20,
-                animation: refreshing ? 'spin 1s linear infinite' : 'none',
-                '@keyframes spin': {
-                  '0%': { transform: 'rotate(0deg)' },
-                  '100%': { transform: 'rotate(360deg)' },
-                },
-              }} />
+              <RefreshIcon
+                sx={{
+                  fontSize: 20,
+                  animation: refreshing ? 'spin 1s linear infinite' : 'none',
+                  '@keyframes spin': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' },
+                  },
+                }}
+              />
             </IconButton>
           </Tooltip>
         </Stack>
@@ -288,21 +289,15 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
         <Table stickyHeader size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>
-                Status
-              </TableCell>
-              <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>
-                Type
-              </TableCell>
+              <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>Status</TableCell>
+              <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>Type</TableCell>
               <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>
                 Started
               </TableCell>
               <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>
                 Duration
               </TableCell>
-              <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>
-                Assets
-              </TableCell>
+              <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>Assets</TableCell>
               <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>
                 API Calls
               </TableCell>
@@ -316,7 +311,7 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
               Array.from({ length: 5 }).map((_, index) => (
                 <TableRow key={index}>
                   <TableCell colSpan={7}>
-                    <Skeleton height={40} />
+                    <Skeleton sx={{ height: 40 }} />
                   </TableCell>
                 </TableRow>
               ))
@@ -335,9 +330,8 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
                   hover
                   sx={{
                     cursor: 'pointer',
-                    backgroundColor: job.jobId === currentJobId 
-                      ? alpha(colors.primary.main, 0.08) 
-                      : 'transparent',
+                    backgroundColor:
+                      job.jobId === currentJobId ? alpha(colors.primary.main, 0.08) : 'transparent',
                     '&:hover': {
                       backgroundColor: alpha(colors.primary.main, 0.04),
                     },
@@ -345,7 +339,7 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
                   onClick={() => onSelectJob(job.jobId)}
                 >
                   <TableCell>
-                    <Box display="flex" alignItems="center" gap={1}>
+                    <Box sx={{ gap: 1, alignItems: 'center', display: 'flex' }}>
                       {getStatusIcon(job.status)}
                       <Chip
                         label={job.status}
@@ -371,13 +365,12 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
                     </Tooltip>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="caption">
-                      {formatDuration(job.duration)}
-                    </Typography>
+                    <Typography variant="caption">{formatDuration(job.duration)}</Typography>
                   </TableCell>
                   <TableCell>
                     <Typography variant="caption">
-                      {job.stats?.totalAssets !== undefined || job.stats?.processedAssets !== undefined
+                      {job.stats?.totalAssets !== undefined ||
+                      job.stats?.processedAssets !== undefined
                         ? `${job.stats?.processedAssets || 0} / ${job.stats?.totalAssets || 0}`
                         : '—'}
                     </Typography>

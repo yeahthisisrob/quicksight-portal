@@ -1,12 +1,12 @@
 /**
  * JSON content display component
  */
-import { Box, alpha } from '@mui/material';
+import { alpha, Box } from '@mui/material';
 import { forwardRef } from 'react';
 
 import { borderRadius, colors, spacing, typography } from '@/shared/design-system/theme';
 
-import { getHighlightStyles, highlightJson, HighlightType } from '../utils/jsonHighlighter';
+import { getHighlightStyles, type HighlightType, highlightJson } from '../utils/jsonHighlighter';
 
 interface JsonContentProps {
   data: any;
@@ -18,17 +18,19 @@ interface JsonContentProps {
  * Format JSON with line numbers
  */
 function formatJsonWithLineNumbers(
-  jsonString: string, 
-  highlightType: HighlightType, 
+  jsonString: string,
+  highlightType: HighlightType,
   searchTerm: string
 ): string {
   const lines = jsonString.split('\n');
-  
-  return lines.map((line, index) => {
-    const lineNumber = (index + 1).toString().padStart(4, ' ');
-    const highlightedLine = highlightJson(line, highlightType, searchTerm);
-    return `<span style="color: ${colors.neutral[500]}; user-select: none; margin-right: 16px;">${lineNumber}</span>${highlightedLine}`;
-  }).join('\n');
+
+  return lines
+    .map((line, index) => {
+      const lineNumber = (index + 1).toString().padStart(4, ' ');
+      const highlightedLine = highlightJson(line, highlightType, searchTerm);
+      return `<span style="color: ${colors.neutral[500]}; user-select: none; margin-right: 16px;">${lineNumber}</span>${highlightedLine}`;
+    })
+    .join('\n');
 }
 
 export const JsonContent = forwardRef<HTMLDivElement, JsonContentProps>(
@@ -36,7 +38,7 @@ export const JsonContent = forwardRef<HTMLDivElement, JsonContentProps>(
     const jsonString = JSON.stringify(data, null, 2);
     const formattedContent = formatJsonWithLineNumbers(jsonString, highlightType, searchTerm);
     const highlightStyles = getHighlightStyles();
-    
+
     return (
       <Box
         ref={ref}
@@ -67,6 +69,9 @@ export const JsonContent = forwardRef<HTMLDivElement, JsonContentProps>(
           ...highlightStyles,
         }}
       >
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: formattedContent is
+            produced by this component's own highlighter from JSON.stringify output,
+            with the source escaped before any markup is added. */}
         <pre dangerouslySetInnerHTML={{ __html: formattedContent }} />
       </Box>
     );

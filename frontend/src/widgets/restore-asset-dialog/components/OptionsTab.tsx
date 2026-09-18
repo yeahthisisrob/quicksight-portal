@@ -18,31 +18,31 @@ export function OptionsTab({ options, onChange }: OptionsTabProps) {
           <Checkbox
             checked={options.skipIfExists}
             onChange={(e) => {
-              onChange({ 
+              onChange({
                 skipIfExists: e.target.checked,
-                overwriteExisting: e.target.checked ? false : options.overwriteExisting
+                overwriteExisting: e.target.checked ? false : options.overwriteExisting,
               });
             }}
           />
         }
         label="Skip if asset already exists"
       />
-      
+
       <FormControlLabel
         control={
           <Checkbox
             checked={options.overwriteExisting}
             onChange={(e) => {
-              onChange({ 
+              onChange({
                 overwriteExisting: e.target.checked,
-                skipIfExists: e.target.checked ? false : options.skipIfExists
+                skipIfExists: e.target.checked ? false : options.skipIfExists,
               });
             }}
           />
         }
         label="Overwrite if asset already exists"
       />
-      
+
       <FormControlLabel
         control={
           <Checkbox
@@ -52,7 +52,7 @@ export function OptionsTab({ options, onChange }: OptionsTabProps) {
         }
         label="Create backup of archived version"
       />
-      
+
       <FormControlLabel
         control={
           <Checkbox

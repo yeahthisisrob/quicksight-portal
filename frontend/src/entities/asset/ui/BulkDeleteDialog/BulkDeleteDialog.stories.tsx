@@ -2,13 +2,12 @@
  * Storybook stories for BulkDeleteDialog component
  */
 import { Button } from '@mui/material';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { BulkDeleteDialog } from './BulkDeleteDialog';
-
 import type { Asset } from './types';
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta: Meta<typeof BulkDeleteDialog> = {
   title: 'Entities/Asset/BulkDeleteDialog',
@@ -17,7 +16,8 @@ const meta: Meta<typeof BulkDeleteDialog> = {
     layout: 'centered',
     docs: {
       description: {
-        component: 'A dialog for confirming and managing bulk deletion of QuickSight assets with comprehensive warnings and dependency information.',
+        component:
+          'A dialog for confirming and managing bulk deletion of QuickSight assets with comprehensive warnings and dependency information.',
       },
     },
   },
@@ -42,9 +42,7 @@ const sampleAssets: Asset[] = [
     id: 'anal-001',
     name: 'Revenue Analysis',
     type: 'analysis',
-    uses: [
-      { id: 'data-001', name: 'Sales Data', type: 'dataset' },
-    ],
+    uses: [{ id: 'data-001', name: 'Sales Data', type: 'dataset' }],
   },
   {
     id: 'data-001',
@@ -54,9 +52,7 @@ const sampleAssets: Asset[] = [
       { id: 'dash-001', name: 'Sales Dashboard', type: 'dashboard' },
       { id: 'anal-001', name: 'Revenue Analysis', type: 'analysis' },
     ],
-    uses: [
-      { id: 'ds-001', name: 'PostgreSQL Production', type: 'datasource' },
-    ],
+    uses: [{ id: 'ds-001', name: 'PostgreSQL Production', type: 'datasource' }],
   },
   {
     id: 'ds-001',
@@ -81,18 +77,16 @@ function DialogWrapper({ assets, ...props }: any) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <>
-        <Button variant="contained" color="error" onClick={() => setOpen(true)}>
-          Open Bulk Delete Dialog
-        </Button>
-        <BulkDeleteDialog
-          open={open}
-          onClose={() => setOpen(false)}
-          assets={assets}
-          onComplete={() => console.log('Delete completed')}
-          {...props}
-        />
-      </>
+      <Button variant="contained" color="error" onClick={() => setOpen(true)}>
+        Open Bulk Delete Dialog
+      </Button>
+      <BulkDeleteDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        assets={assets}
+        onComplete={() => console.log('Delete completed')}
+        {...props}
+      />
     </QueryClientProvider>
   );
 }
@@ -103,21 +97,21 @@ export const Default: Story = {
 
 export const SingleAsset: Story = {
   render: () => (
-    <DialogWrapper 
+    <DialogWrapper
       assets={[
         {
           id: 'dash-001',
           name: 'Sales Dashboard',
           type: 'dashboard',
         },
-      ]} 
+      ]}
     />
   ),
 };
 
 export const OnlyRestorableAssets: Story = {
   render: () => (
-    <DialogWrapper 
+    <DialogWrapper
       assets={[
         {
           id: 'anal-001',
@@ -129,14 +123,14 @@ export const OnlyRestorableAssets: Story = {
           name: 'Customer Analysis',
           type: 'analysis',
         },
-      ]} 
+      ]}
     />
   ),
 };
 
 export const WithDependencies: Story = {
   render: () => (
-    <DialogWrapper 
+    <DialogWrapper
       assets={[
         {
           id: 'data-001',
@@ -147,26 +141,22 @@ export const WithDependencies: Story = {
             { id: 'dash-002', name: 'Regional Dashboard', type: 'dashboard' },
             { id: 'anal-001', name: 'Revenue Analysis', type: 'analysis' },
           ],
-          uses: [
-            { id: 'ds-001', name: 'PostgreSQL Production', type: 'datasource' },
-          ],
+          uses: [{ id: 'ds-001', name: 'PostgreSQL Production', type: 'datasource' }],
         },
         {
           id: 'data-002',
           name: 'Customer Data',
           type: 'dataset',
-          usedBy: [
-            { id: 'dash-003', name: 'Customer Dashboard', type: 'dashboard' },
-          ],
+          usedBy: [{ id: 'dash-003', name: 'Customer Dashboard', type: 'dashboard' }],
         },
-      ]} 
+      ]}
     />
   ),
 };
 
 export const MixedAssetTypes: Story = {
   render: () => (
-    <DialogWrapper 
+    <DialogWrapper
       assets={[
         { id: 'dash-001', name: 'Dashboard 1', type: 'dashboard' },
         { id: 'dash-002', name: 'Dashboard 2', type: 'dashboard' },
@@ -175,7 +165,7 @@ export const MixedAssetTypes: Story = {
         { id: 'data-002', name: 'Dataset 2', type: 'dataset' },
         { id: 'data-003', name: 'Dataset 3', type: 'dataset' },
         { id: 'ds-001', name: 'Data Source 1', type: 'datasource' },
-      ]} 
+      ]}
     />
   ),
 };
@@ -187,7 +177,7 @@ export const LargeNumberOfAssets: Story = {
       name: `Asset ${i + 1}`,
       type: ['dashboard', 'analysis', 'dataset', 'datasource'][i % 4] as Asset['type'],
     }));
-    
+
     return <DialogWrapper assets={manyAssets} />;
   },
 };

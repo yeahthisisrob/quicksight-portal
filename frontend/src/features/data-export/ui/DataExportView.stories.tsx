@@ -1,10 +1,9 @@
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { SnackbarProvider } from 'notistack';
 
 import { exportApi } from '@/shared/api';
 
 import DataExportView from './DataExportView';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 // Mock the API
 const mockExportApi = {
@@ -78,7 +77,7 @@ const mockExportApi = {
     ],
   }),
   triggerFullExport: async () => {
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 2000));
     return {
       duration: 45000,
       totals: {
@@ -213,9 +212,9 @@ export const ExportInProgress: Story = {
           ],
         }),
       };
-      
+
       Object.assign(exportApi, inProgressMock);
-      
+
       return (
         <SnackbarProvider maxSnack={3}>
           <div style={{ padding: '24px', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
@@ -299,9 +298,9 @@ export const ExportWithErrors: Story = {
           ],
         }),
       };
-      
+
       Object.assign(exportApi, errorMock);
-      
+
       return (
         <SnackbarProvider maxSnack={3}>
           <div style={{ padding: '24px', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>

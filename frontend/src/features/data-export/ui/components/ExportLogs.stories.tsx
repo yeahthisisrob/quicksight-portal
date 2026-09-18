@@ -1,8 +1,7 @@
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import React from 'react';
 
 import { ExportLogs } from './ExportLogs';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta: Meta<typeof ExportLogs> = {
   title: 'Features/DataExport/ExportLogs',
@@ -101,7 +100,7 @@ export const Empty: Story = {
 
 export const ErrorsOnly: Story = {
   args: {
-    logs: sampleLogs.filter(log => log.level === 'error'),
+    logs: sampleLogs.filter((log) => log.level === 'error'),
   },
 };
 
@@ -154,7 +153,7 @@ export const LongMessages: Story = {
 export const RealTimeSimulation: Story = {
   render: (args) => {
     const [logs, setLogs] = React.useState(args.logs || []);
-    
+
     React.useEffect(() => {
       const messages = [
         { msg: 'Processing dashboard', assetType: 'dashboard' },
@@ -164,18 +163,23 @@ export const RealTimeSimulation: Story = {
         { msg: 'Failed to enrich asset', level: 'error' as const },
         { msg: 'Batch completed', level: 'info' as const },
       ];
-      
+
       const interval = setInterval(() => {
         const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-        setLogs(prev => [...prev, {
-          ts: Date.now(),
-          ...randomMessage,
-        }].slice(-20)); // Keep last 20 logs
+        setLogs((prev) =>
+          [
+            ...prev,
+            {
+              ts: Date.now(),
+              ...randomMessage,
+            },
+          ].slice(-20)
+        ); // Keep last 20 logs
       }, 2000);
-      
+
       return () => clearInterval(interval);
     }, []);
-    
+
     return <ExportLogs {...args} logs={logs} />;
   },
   args: {

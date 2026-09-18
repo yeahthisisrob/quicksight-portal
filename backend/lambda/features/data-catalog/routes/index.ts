@@ -1,4 +1,4 @@
-import { type RouteHandler } from '../../../api/types';
+import type { RouteHandler } from '../../../api/types';
 import { DataCatalogHandler } from '../handlers/DataCatalogHandler';
 
 const handler = new DataCatalogHandler();

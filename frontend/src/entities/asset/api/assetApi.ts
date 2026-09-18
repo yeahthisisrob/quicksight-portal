@@ -1,6 +1,6 @@
 import { assetsApi, tagsApi } from '@/shared/api';
 
-import { AssetType, BaseAsset } from '../model';
+import type { AssetType, BaseAsset } from '../model';
 
 // Asset-specific API methods that work with typed entities
 export const assetApi = {
@@ -23,5 +23,5 @@ export const assetApi = {
   // Update asset permissions
   async updateAssetPermissions(_type: AssetType, _id: string, _permissions: any[]) {
     return { success: true };
-  }
+  },
 };

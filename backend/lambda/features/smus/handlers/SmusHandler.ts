@@ -1,11 +1,11 @@
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { DataZoneAdapter } from '../../../adapters/aws/DataZoneAdapter';
 import { requireAuth } from '../../../shared/auth';
 import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { STATUS_CODES } from '../../../shared/constants/httpStatusCodes';
 import { CacheService } from '../../../shared/services/cache/CacheService';
-import { successResponse, errorResponse } from '../../../shared/utils/cors';
+import { errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { SmusService } from '../services/SmusService';
 

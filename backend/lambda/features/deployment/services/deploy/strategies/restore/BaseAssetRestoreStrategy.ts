@@ -1,6 +1,6 @@
 import type { AssetExportData } from '../../../../../../shared/models/asset-export.model';
-import { type QuickSightService } from '../../../../../../shared/services/aws/QuickSightService';
-import { type S3Service } from '../../../../../../shared/services/aws/S3Service';
+import type { QuickSightService } from '../../../../../../shared/services/aws/QuickSightService';
+import type { S3Service } from '../../../../../../shared/services/aws/S3Service';
 import { ASSET_TYPES_PLURAL, isCollectionType } from '../../../../../../shared/types/assetTypes';
 import { logger } from '../../../../../../shared/utils/logger';
 import { normalizePermissionsArray } from '../../../../../../shared/utils/permissions';
@@ -18,7 +18,7 @@ export abstract class BaseAssetRestoreStrategy {
   protected readonly quickSightService: QuickSightService;
   protected readonly s3Service: S3Service;
 
-  constructor(
+  public constructor(
     quickSightService: QuickSightService,
     s3Service: S3Service,
     awsAccountId: string,

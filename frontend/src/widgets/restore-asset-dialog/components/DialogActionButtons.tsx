@@ -34,7 +34,7 @@ export function DialogActionButtons({
   onStop,
 }: DialogActionButtonsProps) {
   const isProcessing = isPolling && jobStatus?.status === 'processing';
-  
+
   return (
     <DialogActions>
       <Button onClick={onClose} disabled={loading || validating || isPolling}>

@@ -1,17 +1,17 @@
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  Box,
-  Typography,
   Alert,
-  LinearProgress,
+  Box,
+  Button,
   Chip,
-  Stack,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
+  LinearProgress,
+  Stack,
+  TextField,
+  Typography,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { useState } from 'react';
@@ -64,7 +64,7 @@ export default function BulkTagDialog({
 
   const handleApplyTags = async () => {
     // Validate tags
-    const validTags = tags.filter(tag => tag.key && tag.value);
+    const validTags = tags.filter((tag) => tag.key && tag.value);
     if (validTags.length === 0) {
       enqueueSnackbar('Please add at least one valid tag', { variant: 'warning' });
       return;
@@ -78,44 +78,45 @@ export default function BulkTagDialog({
     try {
       // Group assets by type for bulk operations
       const assetsByType = new Map<string, Array<{ id: string; name: string }>>();
-      selectedAssets.forEach(asset => {
+      selectedAssets.forEach((asset) => {
         const assets = assetsByType.get(asset.type) || [];
         assets.push({ id: asset.id, name: asset.name });
         assetsByType.set(asset.type, assets);
       });
 
       let totalProcessed = 0;
-      
+
       // Process each asset type
       for (const [assetType, assets] of assetsByType) {
         try {
-          const assetIds = assets.map(a => a.id);
-          
+          const assetIds = assets.map((a) => a.id);
+
           // Use bulk update API with 'add' operation to add/update tags
-          const result = await assetsApi.bulkUpdateAssetTags(
-            assetType,
-            assetIds,
-            'add',
-            validTags
-          );
-          
+          const result = await assetsApi.bulkUpdateAssetTags(assetType, assetIds, 'add', validTags);
+
           // Count successes and failures from the bulk operation
           if (result.summary) {
             totalProcessed += result.summary.successful;
             result.results?.forEach((r: any) => {
               if (!r.success) {
-                const asset = assets.find(a => a.id === r.assetId);
-                setErrors(prev => [...prev, `${asset?.name || r.assetId}: ${r.error || 'Failed to apply tags'}`]);
+                const asset = assets.find((a) => a.id === r.assetId);
+                setErrors((prev) => [
+                  ...prev,
+                  `${asset?.name || r.assetId}: ${r.error || 'Failed to apply tags'}`,
+                ]);
               }
             });
           }
-          
+
           setProcessedCount(totalProcessed);
           setProgress((totalProcessed / selectedAssets.length) * 100);
         } catch (error: any) {
           // If bulk operation fails entirely, add all assets of this type to errors
-          assets.forEach(asset => {
-            setErrors(prev => [...prev, `${asset.name}: ${error.message || 'Failed to apply tags'}`]);
+          assets.forEach((asset) => {
+            setErrors((prev) => [
+              ...prev,
+              `${asset.name}: ${error.message || 'Failed to apply tags'}`,
+            ]);
           });
         }
       }
@@ -126,17 +127,15 @@ export default function BulkTagDialog({
     // Show completion message
     const successCount = processedCount - errors.length;
     if (successCount > 0) {
-      enqueueSnackbar(
-        `Successfully tagged ${successCount} asset${successCount !== 1 ? 's' : ''}`,
-        { variant: 'success' }
-      );
+      enqueueSnackbar(`Successfully tagged ${successCount} asset${successCount !== 1 ? 's' : ''}`, {
+        variant: 'success',
+      });
     }
-    
+
     if (errors.length > 0) {
-      enqueueSnackbar(
-        `Failed to tag ${errors.length} asset${errors.length !== 1 ? 's' : ''}`,
-        { variant: 'error' }
-      );
+      enqueueSnackbar(`Failed to tag ${errors.length} asset${errors.length !== 1 ? 's' : ''}`, {
+        variant: 'error',
+      });
     }
 
     setTimeout(() => {
@@ -171,7 +170,7 @@ export default function BulkTagDialog({
           </Typography>
         </Box>
       </DialogTitle>
-      
+
       <DialogContent>
         {processing ? (
           <Box sx={{ py: 2 }}>
@@ -186,11 +185,11 @@ export default function BulkTagDialog({
             </Box>
             {errors.length > 0 && (
               <Alert severity="error" sx={{ mt: 2 }}>
-                <Typography variant="body2" fontWeight="bold">
+                <Typography sx={{ fontWeight: 'bold' }} variant="body2">
                   Errors occurred:
                 </Typography>
                 {errors.map((error, index) => (
-                  <Typography key={index} variant="caption" display="block">
+                  <Typography sx={{ display: 'block' }} key={index} variant="caption">
                     • {error}
                   </Typography>
                 ))}
@@ -200,9 +199,10 @@ export default function BulkTagDialog({
         ) : (
           <>
             <Alert severity="info" sx={{ mb: 2 }}>
-              Tags will be applied to all selected assets. Existing tags with the same key will be updated.
+              Tags will be applied to all selected assets. Existing tags with the same key will be
+              updated.
             </Alert>
-            
+
             <Stack spacing={2}>
               {tags.map((tag, index) => (
                 <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -230,7 +230,7 @@ export default function BulkTagDialog({
                 </Box>
               ))}
             </Stack>
-            
+
             <Button
               startIcon={<AddIcon />}
               onClick={handleAddTag}
@@ -240,14 +240,14 @@ export default function BulkTagDialog({
             >
               Add Another Tag
             </Button>
-            
+
             <Box sx={{ mt: 3 }}>
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Preview:
               </Typography>
-              <Stack direction="row" spacing={1} flexWrap="wrap">
+              <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1}>
                 {tags
-                  .filter(tag => tag.key && tag.value)
+                  .filter((tag) => tag.key && tag.value)
                   .map((tag, index) => (
                     <Chip
                       key={index}
@@ -261,7 +261,7 @@ export default function BulkTagDialog({
           </>
         )}
       </DialogContent>
-      
+
       <DialogActions>
         <Button onClick={handleClose} disabled={processing}>
           {processing ? 'Close' : 'Cancel'}
@@ -269,7 +269,7 @@ export default function BulkTagDialog({
         <Button
           onClick={handleApplyTags}
           variant="contained"
-          disabled={processing || !tags.some(tag => tag.key && tag.value)}
+          disabled={processing || !tags.some((tag) => tag.key && tag.value)}
           startIcon={<TagIcon />}
         >
           Apply Tags

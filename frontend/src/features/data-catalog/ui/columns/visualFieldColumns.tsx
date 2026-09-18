@@ -1,12 +1,12 @@
 import { Info as InfoIcon } from '@mui/icons-material';
 import { Box, Chip, IconButton, Tooltip, Typography } from '@mui/material';
-import { GridColDef } from '@mui/x-data-grid';
+import type { GridColDef } from '@mui/x-data-grid';
 
 import { FieldUsageBadges } from '@/entities/field';
 
 import { CountCell, FieldNameCell } from '@/shared/ui/DataGrid/cells';
 
-import type { VisualFieldRow, VisualFieldColumnsCallbacks } from '../../types';
+import type { VisualFieldColumnsCallbacks, VisualFieldRow } from '../../types';
 
 interface CreateVisualFieldColumnsProps {
   onShowDetails: VisualFieldColumnsCallbacks['onShowDetails'];
@@ -90,9 +90,7 @@ export function createVisualFieldColumns({
       field: 'usageTypes',
       headerName: 'Usage',
       width: 180,
-      renderCell: (params) => (
-        <FieldUsageBadges sources={params.row.sources || []} />
-      ),
+      renderCell: (params) => <FieldUsageBadges sources={params.row.sources || []} />,
     },
     {
       field: 'dashboardsCount',

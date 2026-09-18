@@ -27,7 +27,7 @@ export const useTableStyles = (options: TableStyleOptions = {}) => {
 
   return useMemo(() => {
     const densityConfig = TABLE_CONFIG.density[density];
-    
+
     // Calculate dynamic height if fullHeight is true
     // This leaves minimal space at the bottom for better space utilization
     const calculatedHeight = fullHeight
@@ -47,23 +47,23 @@ export const useTableStyles = (options: TableStyleOptions = {}) => {
         display: 'flex',
         flexDirection: 'column' as const,
       },
-      
+
       dataGrid: {
         border: 'none',
         flex: 1,
         height: '100%',
-        
+
         '& .MuiDataGrid-main': {
           borderRadius: 0,
           overflow: 'hidden',
         },
-        
+
         '& .MuiDataGrid-cell': {
           borderBottom: `1px solid ${colors.neutral[100]}`,
           py: densityConfig.padding / 8,
           fontSize: densityConfig.fontSize,
         },
-        
+
         '& .MuiDataGrid-columnHeaders': {
           backgroundColor: colors.neutral[50],
           borderBottom: `2px solid ${colors.neutral[200]}`,
@@ -75,28 +75,28 @@ export const useTableStyles = (options: TableStyleOptions = {}) => {
             zIndex: 2,
           }),
         },
-        
+
         '& .MuiDataGrid-columnHeaderTitle': {
           fontWeight: 600,
           color: colors.neutral[700],
         },
-        
+
         '& .MuiDataGrid-row': {
           display: 'flex !important',
           minHeight: densityConfig.rowHeight,
-          
+
           ...(variant === 'hover' && {
             '&:hover': {
               backgroundColor: alpha(colors.primary.main, 0.04),
             },
           }),
-          
+
           ...(variant === 'striped' && {
             '&:nth-of-type(even)': {
               backgroundColor: colors.neutral[50],
             },
           }),
-          
+
           '&.Mui-selected': {
             backgroundColor: alpha(colors.primary.main, 0.08),
             '&:hover': {
@@ -104,11 +104,11 @@ export const useTableStyles = (options: TableStyleOptions = {}) => {
             },
           },
         },
-        
+
         '& .MuiDataGrid-virtualScroller': {
           overflowX: 'auto',
           overflowY: 'auto',
-          
+
           // Custom scrollbar styling
           '&::-webkit-scrollbar': {
             width: LAYOUT.table.scrollbar.width,
@@ -133,20 +133,20 @@ export const useTableStyles = (options: TableStyleOptions = {}) => {
           '&::-webkit-scrollbar-corner': {
             backgroundColor: colors.neutral[50],
           },
-          
+
           // Firefox scrollbar styling
           scrollbarWidth: 'thin',
           scrollbarColor: `${colors.neutral[400]} ${colors.neutral[50]}`,
         },
-        
+
         '& .MuiDataGrid-virtualScrollerContent': {
           minWidth: 'max-content',
         },
-        
+
         '& .MuiDataGrid-virtualScrollerRenderZone': {
           minWidth: '100%',
         },
-        
+
         '& .MuiDataGrid-footerContainer': {
           borderTop: `1px solid ${colors.neutral[200]}`,
           backgroundColor: colors.neutral[50],

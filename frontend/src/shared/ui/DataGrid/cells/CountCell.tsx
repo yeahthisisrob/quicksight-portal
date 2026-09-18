@@ -1,5 +1,5 @@
-import { Tooltip, Typography, TypographyProps } from '@mui/material';
-import React from 'react';
+import { Tooltip, Typography, type TypographyProps } from '@mui/material';
+import type React from 'react';
 
 export interface CountCellProps {
   /** The numeric value to display */
@@ -25,9 +25,9 @@ export const CountCell: React.FC<CountCellProps> = ({
   const content = (
     <Typography
       variant="body2"
-      fontWeight={value > 0 ? 'medium' : 'normal'}
       color={value > 0 ? 'text.primary' : 'text.disabled'}
       sx={{
+        fontWeight: value > 0 ? 'medium' : 'normal',
         cursor: tooltipContent ? 'help' : onClick ? 'pointer' : 'default',
         ...(onClick && {
           '&:hover': { textDecoration: 'underline' },

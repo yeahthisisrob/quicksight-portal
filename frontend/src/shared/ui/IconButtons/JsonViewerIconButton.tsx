@@ -8,18 +8,15 @@ interface JsonViewerIconButtonProps {
   tooltip?: string;
 }
 
-export const JsonViewerIconButton = ({ 
-  asset, 
-  assetType, 
-  onView, 
-  tooltip = "View JSON" 
+export const JsonViewerIconButton = ({
+  asset,
+  assetType,
+  onView,
+  tooltip = 'View JSON',
 }: JsonViewerIconButtonProps) => {
   return (
     <Tooltip title={tooltip}>
-      <IconButton
-        size="small"
-        onClick={() => onView({ open: true, [assetType]: asset })}
-      >
+      <IconButton size="small" onClick={() => onView({ open: true, [assetType]: asset })}>
         <JsonIcon fontSize="small" />
       </IconButton>
     </Tooltip>

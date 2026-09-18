@@ -1,15 +1,15 @@
 import type { components } from '@shared/generated/types';
 
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
-import { type QuickSightService } from '../../../shared/services/aws/QuickSightService';
+import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { S3Service } from '../../../shared/services/aws/S3Service';
-import { type FolderMetadata } from '../types';
-import { TagService } from './TagService';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES, type AssetType } from '../../../shared/types/assetTypes';
 import { mapFolderFromCache } from '../../../shared/utils/assetMapping';
 import { logger } from '../../../shared/utils/logger';
+import type { FolderMetadata } from '../types';
+import { TagService } from './TagService';
 
 // Use shared API types for consistency
 
@@ -57,7 +57,7 @@ export class FolderService {
   private readonly s3Service: S3Service;
   private readonly tagService: TagService;
 
-  constructor(private readonly accountId: string) {
+  public constructor(private readonly accountId: string) {
     this.quickSightService = ClientFactory.getQuickSightService(accountId);
     this.s3Service = new S3Service(accountId);
     this.tagService = new TagService(accountId);
@@ -255,11 +255,13 @@ export class FolderService {
       // Return in the format expected by the frontend (typed as FolderMember[])
       return enrichedMembers
         .filter((member: any) => member.MemberId && member.MemberType)
-        .map((member: any): FolderMember => ({
-          MemberId: member.MemberId,
-          MemberType: member.MemberType as FolderMember['MemberType'],
-          MemberName: member.MemberName || `Unknown ${member.MemberType.toLowerCase()}`,
-        }));
+        .map(
+          (member: any): FolderMember => ({
+            MemberId: member.MemberId,
+            MemberType: member.MemberType as FolderMember['MemberType'],
+            MemberName: member.MemberName || `Unknown ${member.MemberType.toLowerCase()}`,
+          })
+        );
     } catch (error) {
       logger.error('Failed to get folder members', { folderId, error });
       throw error;
@@ -453,10 +455,10 @@ export class FolderService {
       });
 
       // Also update the exported JSON file
-      const exportPath = 'assets/folders/' + folderId + '.json';
+      const exportPath = `assets/folders/${folderId}.json`;
       try {
         const exportData = await this.s3Service.getObject(this.bucketName, exportPath);
-        if (exportData && exportData.apiResponses?.listMembers) {
+        if (exportData?.apiResponses?.listMembers) {
           exportData.apiResponses.listMembers = {
             timestamp: new Date().toISOString(),
             data: updatedMembers,

@@ -1,18 +1,15 @@
 import { Link as LinkIcon } from '@mui/icons-material';
-import { Box, Typography, Tooltip, Badge } from '@mui/material';
+import { Badge, Box, Tooltip, Typography } from '@mui/material';
 
 interface RelatedAssetsColumnProps {
   asset?: any;
   onClick: () => void;
 }
 
-export default function RelatedAssetsColumn({ 
-  asset,
-  onClick 
-}: RelatedAssetsColumnProps) {
+export default function RelatedAssetsColumn({ asset, onClick }: RelatedAssetsColumnProps) {
   // Handle both flat array and object formats
   let totalCount = 0;
-  
+
   if (Array.isArray(asset?.relatedAssets)) {
     // New flat array format
     totalCount = asset.relatedAssets.length;
@@ -22,7 +19,7 @@ export default function RelatedAssetsColumn({
     const usesAssets = asset.relatedAssets.uses || [];
     totalCount = usedByAssets.length + usesAssets.length;
   }
-  
+
   if (totalCount === 0) {
     return (
       <Typography variant="body2" color="text.disabled" sx={{ textAlign: 'center' }}>
@@ -30,20 +27,20 @@ export default function RelatedAssetsColumn({
       </Typography>
     );
   }
-  
+
   return (
-    <Box 
-      sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
         justifyContent: 'center',
         cursor: 'pointer',
       }}
       onClick={onClick}
     >
       <Tooltip title={`View ${totalCount} related asset${totalCount > 1 ? 's' : ''}`}>
-        <Badge 
-          badgeContent={totalCount} 
+        <Badge
+          badgeContent={totalCount}
           color="primary"
           sx={{
             '& .MuiBadge-badge': {
@@ -56,19 +53,19 @@ export default function RelatedAssetsColumn({
               '&:hover': {
                 transform: 'scale(1.1)',
                 backgroundColor: 'primary.dark',
-              }
-            }
+              },
+            },
           }}
         >
-          <LinkIcon 
-            sx={{ 
-              fontSize: 20, 
+          <LinkIcon
+            sx={{
+              fontSize: 20,
               color: 'action.active',
               transition: 'all 0.2s',
               '&:hover': {
                 color: 'primary.main',
-              }
-            }} 
+              },
+            }}
           />
         </Badge>
       </Tooltip>

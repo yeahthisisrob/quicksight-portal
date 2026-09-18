@@ -1,40 +1,38 @@
 import {
-  Folder as FolderIcon,
-  Search as SearchIcon,
   CheckBox as CheckBoxIcon,
   CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon,
+  Folder as FolderIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Box,
   Button,
+  Checkbox,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  InputAdornment,
+  LinearProgress,
   List,
   ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
   TextField,
-  InputAdornment,
-  CircularProgress,
-  Box,
   Typography,
-  LinearProgress,
-  Checkbox,
-  Chip,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
-import { useState, useEffect, useCallback } from 'react';
-
+import { useCallback, useEffect, useState } from 'react';
 
 import { assetsApi } from '@/shared/api';
 import { useJobPolling } from '@/shared/hooks/useJobPolling';
+import type { BulkAssetReference } from '@/shared/types/bulk';
 
 import { folderApi } from '../api';
 import { useFolders } from '../model';
-
-import type { BulkAssetReference } from '@/shared/types/bulk';
 
 interface AddToFolderDialogProps {
   open: boolean;
@@ -56,12 +54,12 @@ export default function AddToFolderDialog({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFolders, setSelectedFolders] = useState<string[]>([]);
   const [processing, setProcessing] = useState(false);
-  
+
   // Memoize callbacks for job polling
   const handleJobComplete = useCallback(async () => {
     enqueueSnackbar('Assets successfully added to folders', { variant: 'success' });
     await handleBulkOperationComplete();
-    
+
     // Close dialog after a short delay
     setTimeout(() => {
       onClose();
@@ -69,13 +67,21 @@ export default function AddToFolderDialog({
     }, 2000);
   }, [enqueueSnackbar, handleBulkOperationComplete, onClose, onComplete]);
 
-  const handleJobFailed = useCallback((job: any) => {
-    enqueueSnackbar(job.error || 'Failed to add assets to folders', { variant: 'error' });
-    setProcessing(false);
-  }, [enqueueSnackbar]);
+  const handleJobFailed = useCallback(
+    (job: any) => {
+      enqueueSnackbar(job.error || 'Failed to add assets to folders', { variant: 'error' });
+      setProcessing(false);
+    },
+    [enqueueSnackbar]
+  );
 
   // Set up job polling
-  const { jobStatus, isPolling, startPolling, reset: resetJob } = useJobPolling({
+  const {
+    jobStatus,
+    isPolling,
+    startPolling,
+    reset: resetJob,
+  } = useJobPolling({
     onComplete: handleJobComplete,
     onFailed: handleJobFailed,
   });
@@ -102,14 +108,14 @@ export default function AddToFolderDialog({
     }
   }, [open, resetJob, loadFolders]);
 
-  const filteredFolders = folders.filter(folder =>
+  const filteredFolders = folders.filter((folder) =>
     folder.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const toggleFolderSelection = (folderId: string) => {
-    setSelectedFolders(prev => {
+    setSelectedFolders((prev) => {
       if (prev.includes(folderId)) {
-        return prev.filter(id => id !== folderId);
+        return prev.filter((id) => id !== folderId);
       }
       return [...prev, folderId];
     });
@@ -125,7 +131,7 @@ export default function AddToFolderDialog({
 
     try {
       // Convert selected assets to BulkAssetReference format
-      const bulkAssets: BulkAssetReference[] = selectedAssets.map(asset => ({
+      const bulkAssets: BulkAssetReference[] = selectedAssets.map((asset) => ({
         type: asset.type as any,
         id: asset.id,
         name: asset.name,
@@ -136,20 +142,24 @@ export default function AddToFolderDialog({
       if (selectedFolders.length === 1) {
         // Single folder - use bulk API
         const response = await folderApi.bulkAddAssets(selectedFolders[0], bulkAssets);
-        
+
         if (response.data?.jobId) {
-          enqueueSnackbar(`Bulk operation started (Job ID: ${response.data.jobId})`, { variant: 'info' });
+          enqueueSnackbar(`Bulk operation started (Job ID: ${response.data.jobId})`, {
+            variant: 'info',
+          });
           startPolling(response.data.jobId);
         }
       } else {
         // Multiple folders - create multiple jobs
         // This is a temporary approach until backend supports multiple folders
-        enqueueSnackbar(`Adding assets to ${selectedFolders.length} folders...`, { variant: 'info' });
-        
+        enqueueSnackbar(`Adding assets to ${selectedFolders.length} folders...`, {
+          variant: 'info',
+        });
+
         let successCount = 0;
         let failCount = 0;
         let lastJobId: string | null = null;
-        
+
         for (const folderId of selectedFolders) {
           try {
             const response = await folderApi.bulkAddAssets(folderId, bulkAssets);
@@ -163,16 +173,16 @@ export default function AddToFolderDialog({
             console.error(`Failed to add assets to folder ${folderId}:`, error);
           }
         }
-        
+
         if (successCount > 0) {
           enqueueSnackbar(`Started ${successCount} bulk operations`, { variant: 'success' });
-          
+
           // For the last job, start polling
           if (lastJobId) {
             startPolling(lastJobId);
           }
         }
-        
+
         if (failCount > 0) {
           enqueueSnackbar(`Failed to start ${failCount} operations`, { variant: 'error' });
         }
@@ -189,13 +199,13 @@ export default function AddToFolderDialog({
     }
   };
 
-
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        Add {selectedAssets.length} Asset{selectedAssets.length !== 1 ? 's' : ''} to Folder{selectedFolders.length > 1 ? 's' : ''}
+        Add {selectedAssets.length} Asset{selectedAssets.length !== 1 ? 's' : ''} to Folder
+        {selectedFolders.length > 1 ? 's' : ''}
       </DialogTitle>
-      
+
       <DialogContent>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
@@ -222,7 +232,11 @@ export default function AddToFolderDialog({
                   </Typography>
                 )}
                 {jobStatus?.jobId && (
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ mt: 1, display: 'block' }}
+                  >
                     Job ID: {jobStatus.jobId}
                   </Typography>
                 )}
@@ -246,22 +260,24 @@ export default function AddToFolderDialog({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               sx={{ mb: 2 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
-            
+
             {selectedFolders.length > 0 && (
               <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                 <Typography variant="body2" sx={{ width: '100%', mb: 1 }}>
                   Selected folders ({selectedFolders.length}):
                 </Typography>
-                {selectedFolders.map(folderId => {
-                  const folder = folders.find(f => f.id === folderId);
+                {selectedFolders.map((folderId) => {
+                  const folder = folders.find((f) => f.id === folderId);
                   return folder ? (
                     <Chip
                       key={folderId}
@@ -273,7 +289,7 @@ export default function AddToFolderDialog({
                 })}
               </Box>
             )}
-            
+
             {filteredFolders.length === 0 ? (
               <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 3 }}>
                 No folders found
@@ -283,12 +299,10 @@ export default function AddToFolderDialog({
                 {filteredFolders.map((folder) => {
                   const folderId = folder.id;
                   const isSelected = selectedFolders.includes(folderId);
-                  
+
                   return (
                     <ListItem key={folderId} disablePadding>
-                      <ListItemButton
-                        onClick={() => toggleFolderSelection(folderId)}
-                      >
+                      <ListItemButton onClick={() => toggleFolderSelection(folderId)}>
                         <ListItemIcon>
                           <Checkbox
                             edge="start"
@@ -303,9 +317,7 @@ export default function AddToFolderDialog({
                           <FolderIcon color={isSelected ? 'primary' : 'inherit'} />
                         </ListItemIcon>
                         <ListItemText
-                          primary={
-                            <Typography variant="body1">{folder.name}</Typography>
-                          }
+                          primary={<Typography variant="body1">{folder.name}</Typography>}
                           secondary={
                             <Typography variant="caption" color="text.secondary">
                               Path: {folder.path}
@@ -318,14 +330,14 @@ export default function AddToFolderDialog({
                 })}
               </List>
             )}
-            
+
             <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
               Tip: You can select multiple folders to add assets to all of them at once
             </Typography>
           </>
         )}
       </DialogContent>
-      
+
       <DialogActions>
         <Button onClick={handleClose} disabled={processing}>
           {processing ? 'Processing...' : 'Cancel'}

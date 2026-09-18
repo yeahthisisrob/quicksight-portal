@@ -83,10 +83,7 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
         <EmailIcon color="action" />
         Notify Inactive
         <Chip label={typeLabel} size="small" variant="outlined" />
-        <IconButton
-          onClick={onClose}
-          sx={{ position: 'absolute', right: 8, top: 8 }}
-        >
+        <IconButton onClick={onClose} sx={{ position: 'absolute', right: 8, top: 8 }}>
           <CloseIcon />
         </IconButton>
       </DialogTitle>
@@ -99,11 +96,14 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
             {hasActivityData && (
               <>
                 {' '}
-                <strong>{filteredActivity.totalViews}</strong> view{filteredActivity.totalViews !== 1 ? 's' : ''} by{' '}
-                <strong>{filteredActivity.uniqueViewers}</strong> user{filteredActivity.uniqueViewers !== 1 ? 's' : ''}
+                <strong>{filteredActivity.totalViews}</strong> view
+                {filteredActivity.totalViews !== 1 ? 's' : ''} by{' '}
+                <strong>{filteredActivity.uniqueViewers}</strong> user
+                {filteredActivity.uniqueViewers !== 1 ? 's' : ''}
                 {excludedGroups.size > 0 && (
                   <Typography component="span" variant="body2" color="text.secondary">
-                    {' '}(filtered)
+                    {' '}
+                    (filtered)
                   </Typography>
                 )}
               </>
@@ -147,7 +147,9 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
 
         {/* Recipients */}
         <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+          <Box
+            sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}
+          >
             <Typography variant="subtitle2">
               Recipients {selectedCount > 0 && `(${selectedCount})`}
             </Typography>
@@ -195,14 +197,22 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
                     sx={{ py: 0.25 }}
                   >
                     <ListItemIcon sx={{ minWidth: 32 }}>
-                      <Checkbox edge="start" checked={selected} size="small" tabIndex={-1} disableRipple />
+                      <Checkbox
+                        edge="start"
+                        checked={selected}
+                        size="small"
+                        tabIndex={-1}
+                        disableRipple
+                      />
                     </ListItemIcon>
                     <PersonIcon sx={{ fontSize: 16, color: 'action.active', mr: 1 }} />
                     <ListItemText
                       primary={user.userName}
                       secondary={user.email}
-                      primaryTypographyProps={{ variant: 'body2' }}
-                      secondaryTypographyProps={{ variant: 'caption' }}
+                      slotProps={{
+                        primary: { variant: 'body2' },
+                        secondary: { variant: 'caption' },
+                      }}
                     />
                   </ListItemButton>
                 );
@@ -212,7 +222,8 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
               {recipients.groups.length > 0 && recipients.users.length > 0 && <Divider />}
               {recipients.groups.map((group) => {
                 const groupEmails = group.members.map((m) => m.email);
-                const allGroupSelected = groupEmails.length > 0 && groupEmails.every((e) => selectedEmails.has(e));
+                const allGroupSelected =
+                  groupEmails.length > 0 && groupEmails.every((e) => selectedEmails.has(e));
                 const someGroupSelected = groupEmails.some((e) => selectedEmails.has(e));
                 const isExpanded = expandedGroups.has(group.groupName);
                 const selectedInGroup = groupEmails.filter((e) => selectedEmails.has(e)).length;
@@ -256,9 +267,15 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
                             />
                           </Box>
                         }
-                        primaryTypographyProps={{ variant: 'body2' }}
+                        slotProps={{
+                          primary: { variant: 'body2' },
+                        }}
                       />
-                      {isExpanded ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+                      {isExpanded ? (
+                        <ExpandLess fontSize="small" />
+                      ) : (
+                        <ExpandMore fontSize="small" />
+                      )}
                     </ListItemButton>
 
                     <Collapse in={isExpanded} timeout="auto">
@@ -272,13 +289,21 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
                             sx={{ pl: 7, py: 0.125 }}
                           >
                             <ListItemIcon sx={{ minWidth: 32 }}>
-                              <Checkbox edge="start" checked={selected} size="small" tabIndex={-1} disableRipple />
+                              <Checkbox
+                                edge="start"
+                                checked={selected}
+                                size="small"
+                                tabIndex={-1}
+                                disableRipple
+                              />
                             </ListItemIcon>
                             <ListItemText
                               primary={member.userName}
                               secondary={member.email}
-                              primaryTypographyProps={{ variant: 'body2', fontSize: 13 }}
-                              secondaryTypographyProps={{ variant: 'caption', fontSize: 11 }}
+                              slotProps={{
+                                primary: { variant: 'body2', sx: { fontSize: 13 } },
+                                secondary: { variant: 'caption', sx: { fontSize: 11 } },
+                              }}
                             />
                           </ListItemButton>
                         );
@@ -311,9 +336,11 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
             minRows={4}
             maxRows={8}
             value={body}
-            InputProps={{ readOnly: true }}
             helperText="Auto-generated from activity data and group filters"
             sx={{ '& .MuiInputBase-input': { fontFamily: 'monospace', fontSize: 12 } }}
+            slotProps={{
+              input: { readOnly: true },
+            }}
           />
         </Box>
       </DialogContent>

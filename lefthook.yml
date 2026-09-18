@@ -1,0 +1,60 @@
+# Git hooks, run by lefthook (a single Go binary pinned in mise.toml - no
+# Python, no node_modules bootstrap, and it runs commands in parallel).
+#
+# Install once: `just install` (or `lefthook install`).
+#
+# Every command goes through `mise exec --` because git runs hooks in a bare
+# shell: without it, pnpm and gitleaks are simply not on PATH and the hook
+# fails with "command not found" instead of doing its job.
+#
+# The split is deliberate:
+#   pre-commit  protects you from obvious mistakes. It must stay fast enough
+#               that nobody reaches for --no-verify, so it only looks at staged
+#               files and fixes what it can.
+#   pre-push    proves the thing you are about to share actually works. It is
+#               allowed to take a minute.
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: format-and-lint
+      # Formats, sorts imports and applies safe lint fixes to staged files
+      # only, then restages them. Biome does the whole repo in ~150ms, so
+      # scoping is about not touching files you did not stage, not speed.
+      glob: '*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc,css}'
+      run: mise exec -- pnpm exec biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+      stage_fixed: true
+
+    - name: secrets
+      # Blocks a commit that introduces a credential. Scans the staged diff
+      # only, so it stays fast and does not re-flag history.
+      run: mise exec -- gitleaks protect --staged --redact --no-banner
+
+    - name: architecture
+      # Cheap (9 fixture files, well under a second) and catches the failure
+      # mode where a lint config silently stops enforcing anything.
+      glob: '{biome.jsonc,biome-plugins/*.grit}'
+      run: mise exec -- node scripts/verify-architecture-rules.mjs
+
+pre-push:
+  # Sequential on purpose. The contract job regenerates
+  # shared/generated/types.ts, which typecheck reads - running them in parallel
+  # lets typecheck see a half-written file and fail intermittently.
+  parallel: false
+  jobs:
+    - name: typecheck
+      run: mise exec -- pnpm -r run typecheck
+
+    - name: test
+      run: mise exec -- pnpm -r run test
+
+    - name: architecture
+      run: mise exec -- node scripts/verify-architecture-rules.mjs
+
+    - name: contract
+      # The generated types are committed; this fails if the OpenAPI schema and
+      # shared/generated/types.ts have drifted apart.
+      run: |
+        mise exec -- pnpm --filter @quicksight-portal/shared run generate
+        git diff --exit-code --stat shared/generated \
+          || { echo "shared/generated is stale - run 'just contract' and commit the result"; exit 1; }

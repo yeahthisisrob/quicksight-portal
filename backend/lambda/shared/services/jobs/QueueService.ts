@@ -2,7 +2,7 @@
  * QueueService - Shared service for queue operations
  * VSA Pattern - Shared Service Layer
  */
-import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
+import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 
 import { getOptimizedAwsConfig } from '../../config/httpConfig';

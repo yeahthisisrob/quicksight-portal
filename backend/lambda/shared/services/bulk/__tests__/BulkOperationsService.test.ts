@@ -1,14 +1,14 @@
-import { vi, type Mock, type Mocked } from 'vitest';
+import { type Mock, type Mocked, vi } from 'vitest';
 
 import { ASSET_TYPES } from '../../../types/assetTypes';
-import {
-  type BulkAssetReference,
-  type BulkDeleteConfig,
-  type BulkFolderAddConfig,
-  type BulkFolderRemoveConfig,
-  type BulkGroupAddConfig,
-  type BulkGroupRemoveConfig,
-  type BulkTagUpdateConfig,
+import type {
+  BulkAssetReference,
+  BulkDeleteConfig,
+  BulkFolderAddConfig,
+  BulkFolderRemoveConfig,
+  BulkGroupAddConfig,
+  BulkGroupRemoveConfig,
+  BulkTagUpdateConfig,
 } from '../../../types/bulkOperationTypes';
 import { logger } from '../../../utils/logger';
 import { CacheService } from '../../cache/CacheService';

@@ -1,12 +1,11 @@
 import { CssBaseline, ThemeProvider } from '@mui/material';
+import type { Preview } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SnackbarProvider } from 'notistack';
 import { MemoryRouter } from 'react-router-dom';
 
-import { AuthProvider } from './mocks/providers';
 import { theme } from '../src/app/theme';
-
-import type { Preview } from '@storybook/react-vite';
+import { AuthProvider } from './mocks/providers';
 
 // Declare global APP_CONFIG type
 declare global {

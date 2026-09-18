@@ -1,9 +1,9 @@
-import { vi, type Mocked } from 'vitest';
+import { type Mocked, vi } from 'vitest';
 
-import { type ArchiveService } from '../../../../shared/services/archive/ArchiveService';
+import type { ArchiveService } from '../../../../shared/services/archive/ArchiveService';
 import type { JobStateService } from '../../../../shared/services/jobs/JobStateService';
 import { logger } from '../../../../shared/utils/logger';
-import { type AssetComparisonService } from '../AssetComparisonService';
+import type { AssetComparisonService } from '../AssetComparisonService';
 import { ExportOrchestrator } from '../ExportOrchestrator';
 
 vi.mock('../AssetComparisonService');

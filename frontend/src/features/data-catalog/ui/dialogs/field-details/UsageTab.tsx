@@ -2,10 +2,10 @@
  * Usage tab showing where field is used
  */
 import {
-  OpenInNew as OpenInNewIcon,
+  Analytics as AnalyticsIcon,
   Dashboard as DashboardIcon,
   Dataset as DatasetIcon,
-  Analytics as AnalyticsIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import {
   alpha,
@@ -28,77 +28,75 @@ interface UsageTabProps {
 }
 
 const assetTypeConfig = {
-  dataset: { 
-    icon: DatasetIcon, 
+  dataset: {
+    icon: DatasetIcon,
     color: '#3B82F6',
     bgColor: alpha('#3B82F6', 0.1),
     path: '/assets/datasets',
     label: 'Dataset',
-    pluralLabel: 'Datasets'
+    pluralLabel: 'Datasets',
   },
-  analysis: { 
-    icon: AnalyticsIcon, 
+  analysis: {
+    icon: AnalyticsIcon,
     color: '#8B5CF6',
     bgColor: alpha('#8B5CF6', 0.1),
     path: '/assets/analyses',
     label: 'Analysis',
-    pluralLabel: 'Analyses'
+    pluralLabel: 'Analyses',
   },
-  dashboard: { 
-    icon: DashboardIcon, 
+  dashboard: {
+    icon: DashboardIcon,
     color: '#10B981',
     bgColor: alpha('#10B981', 0.1),
     path: '/assets/dashboards',
     label: 'Dashboard',
-    pluralLabel: 'Dashboards'
+    pluralLabel: 'Dashboards',
   },
 };
 
 export function UsageTab({ groupedSources }: UsageTabProps) {
   const navigate = useNavigate();
-  
+
   const handleNavigateToAsset = (assetType: string, assetId: string) => {
     const config = assetTypeConfig[assetType as keyof typeof assetTypeConfig];
     if (config) {
       navigate(`${config.path}/${assetId}`);
     }
   };
-  
+
   const assetGroups = Object.entries(groupedSources);
-  
+
   if (assetGroups.length === 0) {
     return (
       <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="text.secondary">
-          No usage information available
-        </Typography>
+        <Typography color="text.secondary">No usage information available</Typography>
       </Paper>
     );
   }
-  
+
   return (
     <Stack spacing={3}>
       {assetGroups.map(([type, sources]: [string, any]) => {
         const config = assetTypeConfig[type as keyof typeof assetTypeConfig];
         if (!config) return null;
-        
+
         return (
           <Paper key={type} variant="outlined" sx={{ p: 3 }}>
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 2 }}>
               <config.icon sx={{ color: config.color }} />
-              <Typography variant="subtitle2" fontWeight={600}>
+              <Typography sx={{ fontWeight: 600 }} variant="subtitle2">
                 {config.pluralLabel} ({sources.length})
               </Typography>
             </Stack>
-            
+
             <List dense>
               {sources.map((source: any, index: number) => (
                 <React.Fragment key={source.assetId}>
                   <ListItem
                     secondaryAction={
                       <Tooltip title="Open Asset">
-                        <IconButton 
-                          edge="end" 
+                        <IconButton
+                          edge="end"
                           size="small"
                           onClick={() => handleNavigateToAsset(type, source.assetId)}
                         >

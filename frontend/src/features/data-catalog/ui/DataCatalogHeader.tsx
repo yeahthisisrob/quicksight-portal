@@ -1,10 +1,4 @@
-import {
-  Box,
-  Button,
-  ButtonGroup,
-  Tooltip,
-  alpha,
-} from '@mui/material';
+import { alpha, Box, Button, ButtonGroup, Tooltip } from '@mui/material';
 
 import { colors, spacing } from '@/shared/design-system/theme';
 import { catalogIcons } from '@/shared/ui/icons';
@@ -60,7 +54,6 @@ export default function DataCatalogHeader({
   includeAnalyses = false,
   onIncludeAnalysesChange,
 }: DataCatalogHeaderProps) {
-
   const PhysicalIcon = catalogIcons.physical;
   const VisualFieldIcon = catalogIcons.visual;
   const CalculatedIcon = catalogIcons.calculated;
@@ -87,17 +80,19 @@ export default function DataCatalogHeader({
       )}
 
       {/* Tabs */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        mb: spacing.lg / 8,
-        p: spacing.md / 8,
-        borderRadius: `${spacing.sm / 8}px`,
-        background: `linear-gradient(135deg, ${alpha(colors.primary.light, 0.03)} 0%, ${alpha(colors.primary.main, 0.03)} 100%)`,
-        border: `1px solid ${alpha(colors.primary.main, 0.08)}`,
-      }}>
-        <ButtonGroup 
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          mb: spacing.lg / 8,
+          p: spacing.md / 8,
+          borderRadius: `${spacing.sm / 8}px`,
+          background: `linear-gradient(135deg, ${alpha(colors.primary.light, 0.03)} 0%, ${alpha(colors.primary.main, 0.03)} 100%)`,
+          border: `1px solid ${alpha(colors.primary.main, 0.08)}`,
+        }}
+      >
+        <ButtonGroup
           variant="outlined"
           sx={{
             '& .MuiButton-root': {

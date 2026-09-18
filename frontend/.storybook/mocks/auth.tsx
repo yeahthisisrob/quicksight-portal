@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext } from 'react';
+import type React from 'react';
+import { createContext, useContext } from 'react';
 
 interface User {
   email?: string;
@@ -24,7 +25,7 @@ export const mockAuthValue: AuthContextType = {
     sub: 'mock-user-id',
     email: 'user@example.com',
     name: 'Mock User',
-    groups: []
+    groups: [],
   },
   isAuthenticated: true,
   isLoading: false,
@@ -44,11 +45,7 @@ export const mockAuthValue: AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const MockAuthProvider = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <AuthContext.Provider value={mockAuthValue}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={mockAuthValue}>{children}</AuthContext.Provider>;
 };
 
 // Mock useAuth hook that matches the real implementation

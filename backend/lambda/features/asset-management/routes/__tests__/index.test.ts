@@ -1,32 +1,38 @@
-import { type APIGatewayProxyEvent } from 'aws-lambda';
+import type { APIGatewayProxyEvent } from 'aws-lambda';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock the handlers before importing anything else
 vi.mock('../../handlers/AssetHandler', () => ({
-  AssetHandler: vi.fn().mockImplementation(() => ({
-    list: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
-    listArchived: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
-    getArchivedAssetMetadata: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
-    rebuildIndex: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
-    clearMemoryCache: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
-    getExportedAsset: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
-    bulkDelete: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
-    validateBulkDelete: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
-  })),
+  AssetHandler: vi.fn().mockImplementation(function () {
+    return {
+      list: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
+      listArchived: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
+      getArchivedAssetMetadata: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
+      rebuildIndex: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
+      clearMemoryCache: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
+      getExportedAsset: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
+      bulkDelete: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
+      validateBulkDelete: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
+    };
+  }),
 }));
 
 vi.mock('../../handlers/IngestionHandler', () => ({
-  IngestionHandler: vi.fn().mockImplementation(() => ({
-    list: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
-    getDetails: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
-    cancel: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
-  })),
+  IngestionHandler: vi.fn().mockImplementation(function () {
+    return {
+      list: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
+      getDetails: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
+      cancel: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
+    };
+  }),
 }));
 
 vi.mock('../../../organization/handlers/TagHandler', () => ({
-  TagHandler: vi.fn().mockImplementation(() => ({
-    updateTags: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
-  })),
+  TagHandler: vi.fn().mockImplementation(function () {
+    return {
+      updateTags: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
+    };
+  }),
 }));
 
 // Now import the routes after mocks are set up

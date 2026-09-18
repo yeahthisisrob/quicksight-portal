@@ -8,10 +8,9 @@ import {
   TrendingUp,
 } from '@mui/icons-material';
 import { Alert, Stack } from '@mui/material';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import JobProgress from './JobProgress';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta = {
   title: 'Entities/Job/JobProgress',

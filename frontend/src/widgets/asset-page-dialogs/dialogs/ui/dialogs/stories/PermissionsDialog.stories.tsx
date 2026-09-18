@@ -1,8 +1,8 @@
-import { Permission } from '@/entities/asset';
+import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import type { Permission } from '@/entities/asset';
 
 import PermissionsDialog from '../PermissionsDialog';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta: Meta<typeof PermissionsDialog> = {
   title: 'Widgets/AssetDialogs/PermissionsDialog',
@@ -11,7 +11,8 @@ const meta: Meta<typeof PermissionsDialog> = {
     layout: 'centered',
     docs: {
       description: {
-        component: 'Unified permissions dialog showing all principals with type filter toggles, search, and access source resolution (direct, via group, via folder).',
+        component:
+          'Unified permissions dialog showing all principals with type filter toggles, search, and access source resolution (direct, via group, via folder).',
       },
     },
   },
@@ -36,12 +37,20 @@ const mockPermissions: Permission[] = [
   {
     principal: 'arn:aws:quicksight:us-east-1:123456789012:user/default/john.doe@example.com',
     principalType: 'USER',
-    actions: ['quicksight:DescribeDashboard', 'quicksight:ListDashboardVersions', 'quicksight:QueryDashboard'],
+    actions: [
+      'quicksight:DescribeDashboard',
+      'quicksight:ListDashboardVersions',
+      'quicksight:QueryDashboard',
+    ],
   },
   {
     principal: 'arn:aws:quicksight:us-east-1:123456789012:user/default/jane.smith@example.com',
     principalType: 'USER',
-    actions: ['quicksight:DescribeDashboard', 'quicksight:UpdateDashboard', 'quicksight:DeleteDashboard'],
+    actions: [
+      'quicksight:DescribeDashboard',
+      'quicksight:UpdateDashboard',
+      'quicksight:DeleteDashboard',
+    ],
   },
   {
     principal: 'arn:aws:quicksight:us-east-1:123456789012:group/default/DataAnalysts',
@@ -77,16 +86,20 @@ export const ManyPermissions: Story = {
     assetName: 'Enterprise Dashboard',
     assetType: 'dashboard',
     permissions: [
-      ...Array(8).fill(null).map((_, i) => ({
-        principal: `arn:aws:quicksight:us-east-1:123456789012:user/default/user${i}@example.com`,
-        principalType: 'USER' as const,
-        actions: ['quicksight:DescribeDashboard', 'quicksight:QueryDashboard'],
-      })),
-      ...Array(4).fill(null).map((_, i) => ({
-        principal: `arn:aws:quicksight:us-east-1:123456789012:group/default/Team${['Alpha', 'Beta', 'Gamma', 'Delta'][i]}`,
-        principalType: 'GROUP' as const,
-        actions: ['quicksight:DescribeDashboard'],
-      })),
+      ...Array(8)
+        .fill(null)
+        .map((_, i) => ({
+          principal: `arn:aws:quicksight:us-east-1:123456789012:user/default/user${i}@example.com`,
+          principalType: 'USER' as const,
+          actions: ['quicksight:DescribeDashboard', 'quicksight:QueryDashboard'],
+        })),
+      ...Array(4)
+        .fill(null)
+        .map((_, i) => ({
+          principal: `arn:aws:quicksight:us-east-1:123456789012:group/default/Team${['Alpha', 'Beta', 'Gamma', 'Delta'][i]}`,
+          principalType: 'GROUP' as const,
+          actions: ['quicksight:DescribeDashboard'],
+        })),
     ],
   },
 };
@@ -123,7 +136,7 @@ export const GroupsOnly: Story = {
     assetId: 'dataset-shared',
     assetName: 'Shared Product Dataset',
     assetType: 'dataset',
-    permissions: mockPermissions.filter(p => p.principalType === 'GROUP'),
+    permissions: mockPermissions.filter((p) => p.principalType === 'GROUP'),
   },
 };
 
@@ -135,12 +148,14 @@ export const LongNames: Story = {
     assetType: 'analysis',
     permissions: [
       {
-        principal: 'arn:aws:quicksight:us-east-1:123456789012:user/default/very-long-username-that-might-get-truncated@example-company.com',
+        principal:
+          'arn:aws:quicksight:us-east-1:123456789012:user/default/very-long-username-that-might-get-truncated@example-company.com',
         principalType: 'USER',
         actions: ['quicksight:DescribeAnalysis'],
       },
       {
-        principal: 'arn:aws:quicksight:us-east-1:123456789012:group/default/VeryLongGroupNameForDataScientistsAndAnalysts',
+        principal:
+          'arn:aws:quicksight:us-east-1:123456789012:group/default/VeryLongGroupNameForDataScientistsAndAnalysts',
         principalType: 'GROUP',
         actions: ['quicksight:DescribeAnalysis', 'quicksight:QueryAnalysis'],
       },

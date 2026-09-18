@@ -1,17 +1,17 @@
 import {
+  alpha,
   Box,
   Button,
   Chip,
-  Stack,
   Fade,
   IconButton,
+  Stack,
   Tooltip,
-  alpha,
   useTheme,
 } from '@mui/material';
 
 import { colors, spacing } from '@/shared/design-system/theme';
-import { assetIcons, actionIcons } from '@/shared/ui/icons';
+import { actionIcons, assetIcons } from '@/shared/ui/icons';
 
 const FolderIcon = assetIcons.folder;
 const TagIcon = actionIcons.tag;
@@ -40,7 +40,7 @@ export default function BulkActionsToolbar({
   showDeleteAction = false,
 }: BulkActionsToolbarProps) {
   const theme = useTheme();
-  
+
   const buttonStyles = {
     bgcolor: alpha(theme.palette.common.white, 0.15),
     color: 'white',
@@ -59,7 +59,7 @@ export default function BulkActionsToolbar({
       transform: 'translateY(0)',
     },
   };
-  
+
   return (
     <Fade in={selectedCount > 0}>
       <Box
@@ -82,10 +82,10 @@ export default function BulkActionsToolbar({
           },
         }}
       >
-        <Stack direction="row" spacing={2} alignItems="center">
+        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
           <Chip
             label={`${selectedCount} selected`}
-            sx={{ 
+            sx={{
               bgcolor: alpha(theme.palette.common.white, 0.2),
               color: 'white',
               fontWeight: 600,
@@ -96,7 +96,7 @@ export default function BulkActionsToolbar({
               },
             }}
           />
-          
+
           {customActions ? (
             // Use custom actions if provided
             customActions.map((action, index) => (
@@ -123,7 +123,7 @@ export default function BulkActionsToolbar({
                   {folderActionLabel}
                 </Button>
               )}
-              
+
               <Button
                 variant="contained"
                 startIcon={<TagIcon />}
@@ -155,13 +155,13 @@ export default function BulkActionsToolbar({
               )}
             </>
           )}
-          
+
           <Box sx={{ flexGrow: 1 }} />
-          
+
           <Tooltip title="Clear selection">
             <IconButton
               onClick={onClearSelection}
-              sx={{ 
+              sx={{
                 color: 'white',
                 bgcolor: alpha(theme.palette.common.white, 0.1),
                 border: `1px solid ${alpha(theme.palette.common.white, 0.2)}`,

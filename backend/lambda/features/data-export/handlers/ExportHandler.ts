@@ -1,12 +1,12 @@
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { JobHandler } from '../../../shared/handlers/JobHandler';
 import { cacheService } from '../../../shared/services/cache/CacheService';
-import { jobFactory, type ExportJobConfig } from '../../../shared/services/jobs/JobFactory';
+import { type ExportJobConfig, jobFactory } from '../../../shared/services/jobs/JobFactory';
 import { JobStateService } from '../../../shared/services/jobs/JobStateService';
-import { createResponse, successResponse, errorResponse } from '../../../shared/utils/cors';
+import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 
 export class ExportHandler {
@@ -14,7 +14,7 @@ export class ExportHandler {
   private readonly jobHandler: JobHandler;
   private readonly jobStateService: JobStateService;
 
-  constructor() {
+  public constructor() {
     const accountId = process.env.AWS_ACCOUNT_ID || '';
     this.bucketName = process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`;
 

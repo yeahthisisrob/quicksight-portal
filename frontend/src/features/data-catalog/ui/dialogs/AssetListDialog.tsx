@@ -1,26 +1,26 @@
 import {
-  Close as CloseIcon,
-  Search as SearchIcon,
-  Storage as DatasetIcon,
   Assessment as AnalysisIcon,
+  Close as CloseIcon,
   Dashboard as DashboardIcon,
+  Storage as DatasetIcon,
   OpenInNew as OpenIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
   Box,
-  Typography,
+  Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   IconButton,
+  InputAdornment,
   List,
   ListItem,
-  ListItemText,
-  ListItemIcon,
   ListItemButton,
+  ListItemIcon,
+  ListItemText,
   TextField,
-  InputAdornment,
-  Chip,
+  Typography,
 } from '@mui/material';
 import { useState } from 'react';
 
@@ -41,9 +41,10 @@ export default function AssetListDialog({
 }: AssetListDialogProps) {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredAssets = assets.filter(asset =>
-    asset.assetName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    asset.assetId?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredAssets = assets.filter(
+    (asset) =>
+      asset.assetName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      asset.assetId?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getAssetIcon = () => {
@@ -93,7 +94,7 @@ export default function AssetListDialog({
           </IconButton>
         </Box>
       </DialogTitle>
-      
+
       <DialogContent>
         <Box sx={{ mb: 2 }}>
           <TextField
@@ -102,12 +103,14 @@ export default function AssetListDialog({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             size="small"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              },
             }}
           />
         </Box>
@@ -119,11 +122,7 @@ export default function AssetListDialog({
         ) : (
           <List>
             {filteredAssets.map((asset, index) => (
-              <ListItem
-                key={`${asset.assetId}-${index}`}
-                disablePadding
-                sx={{ mb: 1 }}
-              >
+              <ListItem key={`${asset.assetId}-${index}`} disablePadding sx={{ mb: 1 }}>
                 <ListItemButton
                   onClick={() => handleOpenAsset(asset)}
                   sx={{
@@ -132,18 +131,14 @@ export default function AssetListDialog({
                     borderRadius: 1,
                     '&:hover': {
                       bgcolor: 'action.hover',
-                    }
+                    },
                   }}
                 >
-                  <ListItemIcon>
-                    {getAssetIcon()}
-                  </ListItemIcon>
+                  <ListItemIcon>{getAssetIcon()}</ListItemIcon>
                   <ListItemText
                     primary={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body1">
-                          {asset.assetName}
-                        </Typography>
+                        <Typography variant="body1">{asset.assetName}</Typography>
                         {asset.isCalculated && (
                           <Chip label="Calculated" size="small" color="primary" />
                         )}
@@ -166,7 +161,8 @@ export default function AssetListDialog({
 
         <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
           <Typography variant="body2" color="text.secondary" align="center">
-            Total: {filteredAssets.length} {assetType}{filteredAssets.length !== 1 ? 's' : ''}
+            Total: {filteredAssets.length} {assetType}
+            {filteredAssets.length !== 1 ? 's' : ''}
           </Typography>
         </Box>
       </DialogContent>

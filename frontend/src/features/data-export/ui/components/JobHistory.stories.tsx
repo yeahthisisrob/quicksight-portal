@@ -1,8 +1,7 @@
 import { Box } from '@mui/material';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { JobHistory } from './JobHistory';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta = {
   title: 'Features/DataExport/JobHistory',
@@ -100,7 +99,7 @@ const withMockData = (jobs: any[]) => {
     beforeEach: async () => {
       const exportApi = await import('@/shared/api/modules/export');
       exportApi.exportApi.listJobs = async () => ({
-        jobs: jobs.map(job => ({ ...job, jobType: 'export' })),
+        jobs: jobs.map((job) => ({ ...job, jobType: 'export' })),
       });
     },
   };
@@ -129,11 +128,11 @@ export const WithCurrentJob: Story = {
 };
 
 export const OnlyCompleted: Story = {
-  ...withMockData(mockJobs.filter(job => job.status === 'completed')),
+  ...withMockData(mockJobs.filter((job) => job.status === 'completed')),
 };
 
 export const OnlyFailed: Story = {
-  ...withMockData(mockJobs.filter(job => job.status === 'failed')),
+  ...withMockData(mockJobs.filter((job) => job.status === 'failed')),
 };
 
 export const ManyJobs: Story = {
@@ -153,10 +152,10 @@ export const ManyJobs: Story = {
         apiCalls: Math.floor(Math.random() * 5000) + 500,
       },
     }));
-    
+
     const exportApi = await import('@/shared/api/modules/export');
     exportApi.exportApi.listJobs = async () => ({
-      jobs: manyJobs.map(job => ({ ...job, jobType: 'export' })),
+      jobs: manyJobs.map((job) => ({ ...job, jobType: 'export' })),
     });
   },
 };

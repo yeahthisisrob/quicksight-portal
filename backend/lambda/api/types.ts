@@ -1,4 +1,4 @@
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 /**
  * Interface for feature-based route handlers

@@ -1,20 +1,16 @@
 import {
   Functions as CalculatedIcon,
-  Warning as WarningIcon,
   Info as InfoIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
 import { Box, Button, Chip, IconButton, Tooltip, Typography } from '@mui/material';
-import { GridColDef } from '@mui/x-data-grid';
+import type { GridColDef } from '@mui/x-data-grid';
 
 import { FieldUsageBadges } from '@/entities/field';
 
 import { CountCell, FieldNameCell } from '@/shared/ui/DataGrid/cells';
 
-import type {
-  PhysicalFieldRow,
-  PhysicalColumnsCallbacks,
-  DataTypeVariant,
-} from '../../types';
+import type { DataTypeVariant, PhysicalColumnsCallbacks, PhysicalFieldRow } from '../../types';
 
 interface CreatePhysicalColumnsProps extends Partial<PhysicalColumnsCallbacks> {
   terms?: unknown[];
@@ -178,10 +174,10 @@ export function createPhysicalColumns({
           value={params.value || 0}
           tooltipContent={
             <Box>
-              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+              <Typography variant="body2" sx={{ display: 'block', fontWeight: 'bold', mb: 0.5 }}>
                 Total usage: {params.value || 0}
               </Typography>
-              <Typography variant="caption" display="block">
+              <Typography variant="caption">
                 Occurrences across datasets, dashboards{' '}
                 {(params.row.analysesCount || 0) > 0 ? 'and analyses' : ''}
               </Typography>

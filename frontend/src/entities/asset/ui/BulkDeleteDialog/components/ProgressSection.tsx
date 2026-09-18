@@ -1,7 +1,7 @@
 /**
  * Progress section component for BulkDeleteDialog
  */
-import { Box, Typography, LinearProgress } from '@mui/material';
+import { Box, LinearProgress, Typography } from '@mui/material';
 
 interface ProgressSectionProps {
   jobStatus: any;
@@ -13,7 +13,7 @@ export function ProgressSection({ jobStatus }: ProgressSectionProps) {
       <Typography variant="body2" color="text.secondary" gutterBottom>
         {jobStatus.message || 'Processing delete operation...'}
       </Typography>
-      <LinearProgress 
+      <LinearProgress
         variant={jobStatus.progress ? 'determinate' : 'indeterminate'}
         value={jobStatus.progress || 0}
         sx={{ mb: 1 }}

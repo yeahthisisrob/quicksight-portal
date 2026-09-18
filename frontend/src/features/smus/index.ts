@@ -1,5 +1,4 @@
 // Hooks
-export { useSmusStatus, useSmusDatasetLinks } from './hooks/useSmus';
-
+export { useSmusDatasetLinks, useSmusStatus } from './hooks/useSmus';
 // UI Components
-export { SmusLinkBadge, SMUS_ACCENT } from './ui/SmusLinkBadge';
+export { SMUS_ACCENT, SmusLinkBadge } from './ui/SmusLinkBadge';

@@ -1,17 +1,17 @@
 import {
+  Autocomplete,
+  alpha,
   Box,
   Chip,
-  TextField,
-  IconButton,
-  Paper,
-  Typography,
-  Autocomplete,
   createFilterOptions,
   Fade,
+  IconButton,
+  Paper,
+  TextField,
+  Typography,
   useTheme,
-  alpha,
 } from '@mui/material';
-import { useState, KeyboardEvent, useRef, useEffect } from 'react';
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 import { actionIcons } from '@/shared/ui/icons';
 
@@ -71,7 +71,7 @@ export default function ModernTagsInput({
     }
 
     // Check for duplicates
-    if (tags.some(tag => tag.key === newTagKey.trim())) {
+    if (tags.some((tag) => tag.key === newTagKey.trim())) {
       setKeyInputError('This tag key already exists');
       return;
     }
@@ -84,7 +84,7 @@ export default function ModernTagsInput({
 
     // Add the tag
     onChange([...tags, { key: newTagKey.trim(), value: newTagValue.trim() || newTagKey.trim() }]);
-    
+
     // Reset inputs
     setNewTagKey('');
     setNewTagValue('');
@@ -109,7 +109,7 @@ export default function ModernTagsInput({
   };
 
   const handleRemoveTag = (tagKey: string) => {
-    onChange(tags.filter(tag => tag.key !== tagKey));
+    onChange(tags.filter((tag) => tag.key !== tagKey));
   };
 
   const chipColors = [
@@ -129,7 +129,10 @@ export default function ModernTagsInput({
       {/* Tags Display */}
       {tags.length > 0 && (
         <Box sx={{ mb: 2 }}>
-          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500, mb: 1, display: 'block' }}>
+          <Typography
+            variant="caption"
+            sx={{ color: 'text.secondary', fontWeight: 500, mb: 1, display: 'block' }}
+          >
             {tags.length} tag{tags.length !== 1 ? 's' : ''} applied
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>

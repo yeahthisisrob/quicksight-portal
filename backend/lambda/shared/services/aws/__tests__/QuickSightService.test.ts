@@ -1,7 +1,7 @@
-import { vi, type Mock, type Mocked } from 'vitest';
+import { type Mock, type Mocked, vi } from 'vitest';
 
 import { QuickSightAdapter } from '../../../../adapters/aws/QuickSightAdapter';
-import { type OperationTracker } from '../../../models/operations.model';
+import type { OperationTracker } from '../../../models/operations.model';
 import * as awsRetry from '../../../utils/awsRetry';
 import { QuickSightService } from '../QuickSightService';
 

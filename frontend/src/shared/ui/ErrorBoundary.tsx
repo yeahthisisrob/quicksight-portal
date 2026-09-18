@@ -1,6 +1,7 @@
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import { Box, Typography, Button, Paper } from '@mui/material';
-import React, { Component, ReactNode } from 'react';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
+import { Box, Button, Paper, Typography } from '@mui/material';
+import type React from 'react';
+import { Component, type ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -22,7 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  componentDidCatch(_error: Error, _errorInfo: React.ErrorInfo) {
+  override componentDidCatch(_error: Error, _errorInfo: React.ErrorInfo) {
     // Error logging could be added here
   }
 
@@ -31,7 +32,7 @@ export class ErrorBoundary extends Component<Props, State> {
     window.location.reload();
   };
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return <>{this.props.fallback}</>;
@@ -58,20 +59,14 @@ export class ErrorBoundary extends Component<Props, State> {
               borderColor: 'error.light',
             }}
           >
-            <ErrorOutlineIcon
-              sx={{ fontSize: 48, color: 'error.main', mb: 2 }}
-            />
+            <ErrorOutlineIcon sx={{ fontSize: 48, color: 'error.main', mb: 2 }} />
             <Typography variant="h6" gutterBottom>
               Something went wrong
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               {this.state.error?.message || 'An unexpected error occurred'}
             </Typography>
-            <Button
-              variant="contained"
-              onClick={this.handleReset}
-              size="small"
-            >
+            <Button variant="contained" onClick={this.handleReset} size="small">
               Reload Page
             </Button>
           </Paper>

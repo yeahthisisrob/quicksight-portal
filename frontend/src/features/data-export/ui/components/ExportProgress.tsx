@@ -1,11 +1,11 @@
 import { CheckCircle, Storage, TrendingUp } from '@mui/icons-material';
-import { Box, Stack, Typography, alpha } from '@mui/material';
+import { alpha, Box, Stack, Typography } from '@mui/material';
 
-import { JobProgress, type JobPhaseStatus, type JobProgressStep } from '@/entities/job';
+import { type JobPhaseStatus, JobProgress, type JobProgressStep } from '@/entities/job';
 
 import { colors, spacing } from '@/shared/design-system/theme';
 
-import { TwoPhaseExportState } from '../../model/types';
+import type { TwoPhaseExportState } from '../../model/types';
 
 const exportSteps: JobProgressStep[] = [
   {
@@ -70,16 +70,13 @@ export default function ExportProgress({ exportState }: ExportProgressProps) {
   const stepIndex = phaseToStepIndex(exportState.phase, exportState.currentStep);
   const status = phaseToStatus(exportState.phase);
   const progress =
-    exportState.totalAssets > 0
-      ? (exportState.processedAssets / exportState.totalAssets) * 100
-      : 0;
+    exportState.totalAssets > 0 ? (exportState.processedAssets / exportState.totalAssets) * 100 : 0;
 
   const elapsedMs = exportState.timing?.startTime
     ? (exportState.timing.endTime || Date.now()) - exportState.timing.startTime
     : null;
 
-  const showProgress =
-    exportState.phase === 'inventory' || exportState.phase === 'enrichment';
+  const showProgress = exportState.phase === 'inventory' || exportState.phase === 'enrichment';
 
   // Export shows the success card with a duration line — keep that flourish.
   const completedFooter =
@@ -92,7 +89,7 @@ export default function ExportProgress({ exportState }: ExportProgressProps) {
           border: `1px solid ${alpha(colors.status.success, 0.1)}`,
         }}
       >
-        <Stack direction="row" alignItems="center" spacing={spacing.xs / 8}>
+        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={spacing.xs / 8}>
           <CheckCircle sx={{ color: colors.status.success, fontSize: 20 }} />
           <Typography variant="body2" color="success.main" sx={{ fontWeight: 600 }}>
             Export completed successfully

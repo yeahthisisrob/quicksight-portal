@@ -1,36 +1,35 @@
 import {
-  FilterList,
-  ExpandMore,
-  ExpandLess,
+  Timeline as ActivityIcon,
   Add,
+  Bolt as BoltIcon,
+  CheckCircle,
+  Error as ErrorIcon,
+  ExpandLess,
+  ExpandMore,
+  FilterList,
+  Folder as FolderIcon,
+  Hub as HubIcon,
+  Block as NoActivityIcon,
   Remove,
   Schedule,
-  Error as ErrorIcon,
-  CheckCircle,
-  Folder as FolderIcon,
-  Timeline as ActivityIcon,
-  Block as NoActivityIcon,
-  Hub as HubIcon,
-  Bolt as BoltIcon,
 } from '@mui/icons-material';
-import { Box, Chip, Stack, Typography, IconButton, alpha } from '@mui/material';
-import React from 'react';
+import { alpha, Box, Chip, IconButton, Stack, Typography } from '@mui/material';
+import type React from 'react';
 
 import { colors } from '@/shared/design-system/theme';
 
-import { CHIP_STYLES, getDateFilterLabel } from './constants';
-import { AssetChip } from './shared';
-
 import type {
+  ActivityFilterState,
+  AssetFilter,
   DateFilterState,
   ErrorFilterState,
-  ActivityFilterState,
-  SmusFilterState,
-  ImportModeFilterState,
-  TagFilter,
   FolderFilter,
-  AssetFilter,
+  ImportModeFilterState,
+  SmusFilterState,
+  TagFilter,
 } from '../../lib/types';
+import { CHIP_STYLES, getDateFilterLabel } from './constants';
+import { AssetChip } from './shared';
 
 // ============================================================================
 // Types
@@ -69,7 +68,8 @@ export interface FilterHeaderProps {
 // ============================================================================
 
 interface FilterChipProps {
-  icon: React.ReactNode;
+  // MUI's Chip `icon` takes an element; ReactNode would admit null.
+  icon: React.ReactElement;
   label: string;
   color: 'info' | 'error' | 'success' | 'warning';
   onDelete: (e: React.MouseEvent) => void;
@@ -77,7 +77,7 @@ interface FilterChipProps {
 
 const FilterChip: React.FC<FilterChipProps> = ({ icon, label, color, onDelete }) => (
   <Chip
-    icon={<>{icon}</>}
+    icon={icon}
     label={label}
     size="small"
     color={color}
@@ -107,7 +107,7 @@ const ChipGroup: React.FC<ChipGroupProps> = ({
   if (items.length === 0) return null;
 
   return (
-    <Stack direction="row" spacing={0.5} alignItems="center">
+    <Stack sx={{ alignItems: 'center' }} direction="row" spacing={0.5}>
       {icon}
       {items.slice(0, maxVisible).map((item, idx) => (
         <Chip
@@ -260,11 +260,11 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
 
   return (
     <Box sx={headerSx} onClick={onToggleExpand}>
-      <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap', gap: 1 }}>
+      <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
         <FilterList
           sx={{ color: totalFilters > 0 ? colors.primary.main : colors.neutral[500], fontSize: 20 }}
         />
-        <Typography variant="subtitle2" fontWeight={600}>
+        <Typography sx={{ fontWeight: 600 }} variant="subtitle2">
           Filters
         </Typography>
 
@@ -295,7 +295,11 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
 
         {/* Error filter chip */}
         {hasErrorFilter && onClearErrorFilter && (
-          <ErrorFilterChip errorFilter={errorFilter} errorCount={errorCount} onClear={onClearErrorFilter} />
+          <ErrorFilterChip
+            errorFilter={errorFilter}
+            errorCount={errorCount}
+            onClear={onClearErrorFilter}
+          />
         )}
 
         {/* Activity filter chip */}
@@ -310,12 +314,15 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
 
         {/* Import mode filter chip */}
         {hasImportModeFilter && onClearImportModeFilter && (
-          <ImportModeFilterChip importModeFilter={importModeFilter} onClear={onClearImportModeFilter} />
+          <ImportModeFilterChip
+            importModeFilter={importModeFilter}
+            onClear={onClearImportModeFilter}
+          />
         )}
 
         {/* Asset chips */}
         {selectedAssets.length > 0 && (
-          <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack sx={{ alignItems: 'center' }} direction="row" spacing={0.5}>
             {selectedAssets.slice(0, 2).map((asset, idx) => (
               <AssetChip
                 key={`asset-${idx}`}

@@ -1,11 +1,11 @@
-import { type CacheEntry, type MasterCache } from '../../../shared/models/asset.model';
+import type { CacheEntry, MasterCache } from '../../../shared/models/asset.model';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
-import { type QuickSightService } from '../../../shared/services/aws/QuickSightService';
+import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { ASSET_TYPES, type AssetType } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
 import { principalMatchesGroup, principalMatchesUser } from '../../../shared/utils/quicksightUtils';
-import { type AssetPermission } from '../types';
+import type { AssetPermission } from '../types';
 
 /**
  * Describes how a user has access to an asset
@@ -58,7 +58,7 @@ interface BulkAccessResolvers {
 export class PermissionsService {
   private readonly quickSightService: QuickSightService;
 
-  constructor(accountId: string) {
+  public constructor(accountId: string) {
     this.quickSightService = ClientFactory.getQuickSightService(accountId);
   }
 

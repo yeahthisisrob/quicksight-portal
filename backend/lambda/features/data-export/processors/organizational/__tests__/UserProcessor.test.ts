@@ -1,9 +1,9 @@
-import { vi, type Mocked } from 'vitest';
+import { type Mocked, vi } from 'vitest';
 
-import { type QuickSightService } from '../../../../../shared/services/aws/QuickSightService';
-import { type S3Service } from '../../../../../shared/services/aws/S3Service';
-import { type AssetParserService } from '../../../../../shared/services/parsing/AssetParserService';
-import { type TagService } from '../../../../organization/services/TagService';
+import type { QuickSightService } from '../../../../../shared/services/aws/QuickSightService';
+import type { S3Service } from '../../../../../shared/services/aws/S3Service';
+import type { AssetParserService } from '../../../../../shared/services/parsing/AssetParserService';
+import type { TagService } from '../../../../organization/services/TagService';
 import { UserProcessor } from '../UserProcessor';
 
 describe('UserProcessor', () => {

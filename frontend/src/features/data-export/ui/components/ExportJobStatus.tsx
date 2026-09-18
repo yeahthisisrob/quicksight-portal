@@ -1,15 +1,14 @@
 import {
-  CheckCircleOutline as SuccessIcon,
-  ErrorOutline as ErrorIcon,
+  ErrorOutlined as ErrorIcon,
   HourglassEmpty as ProcessingIcon,
-  PauseCircleOutline as StoppedIcon,
   Schedule as QueuedIcon,
+  PauseCircleOutlined as StoppedIcon,
+  CheckCircleOutlined as SuccessIcon,
 } from '@mui/icons-material';
-import { Box, Card, Chip, LinearProgress, Stack, Tooltip, Typography, alpha } from '@mui/material';
-
-import { colors } from '@/shared/design-system/theme';
+import { alpha, Box, Card, Chip, LinearProgress, Stack, Tooltip, Typography } from '@mui/material';
 
 import type { JobStatus } from '@/shared/api/types/export.types';
+import { colors } from '@/shared/design-system/theme';
 
 interface ExportJobStatusProps {
   status: JobStatus;
@@ -62,7 +61,7 @@ function HeartbeatIndicator({ lastUpdatedTime }: { lastUpdatedTime: string }) {
   }
 
   return (
-    <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mt: 1 }}>
+    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', mt: 1 }}>
       <Box
         sx={{
           width: 8,
@@ -95,7 +94,11 @@ function CheckpointProgress({
   if (completed.length === 0 && !checkpoint.catalogPending) return null;
 
   return (
-    <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', rowGap: 0.5 }}>
+    <Stack
+      direction="row"
+      spacing={1}
+      sx={{ alignItems: 'center', mt: 1, flexWrap: 'wrap', rowGap: 0.5 }}
+    >
       <Typography variant="caption" color="text.secondary">
         Asset types done:
       </Typography>
@@ -125,23 +128,55 @@ function CheckpointProgress({
 
 const STATUS_CONFIG: Record<
   JobStatus,
-  { label: string; color: string; chipColor: 'success' | 'error' | 'warning' | 'info' | 'default'; icon: React.ElementType }
+  {
+    label: string;
+    color: string;
+    chipColor: 'success' | 'error' | 'warning' | 'info' | 'default';
+    icon: React.ElementType;
+  }
 > = {
-  completed: { label: 'Completed', color: colors.status.success, chipColor: 'success', icon: SuccessIcon },
+  completed: {
+    label: 'Completed',
+    color: colors.status.success,
+    chipColor: 'success',
+    icon: SuccessIcon,
+  },
   failed: { label: 'Failed', color: colors.status.error, chipColor: 'error', icon: ErrorIcon },
-  stopping: { label: 'Stopping', color: colors.status.warning, chipColor: 'warning', icon: StoppedIcon },
-  stopped: { label: 'Stopped', color: colors.status.warning, chipColor: 'warning', icon: StoppedIcon },
-  processing: { label: 'Processing', color: colors.status.info, chipColor: 'info', icon: ProcessingIcon },
+  stopping: {
+    label: 'Stopping',
+    color: colors.status.warning,
+    chipColor: 'warning',
+    icon: StoppedIcon,
+  },
+  stopped: {
+    label: 'Stopped',
+    color: colors.status.warning,
+    chipColor: 'warning',
+    icon: StoppedIcon,
+  },
+  processing: {
+    label: 'Processing',
+    color: colors.status.info,
+    chipColor: 'info',
+    icon: ProcessingIcon,
+  },
   queued: { label: 'Queued', color: colors.neutral[500], chipColor: 'default', icon: QueuedIcon },
 };
 
-function StatValue({ label, value, emphasize }: { label: string; value: string; emphasize?: boolean }) {
+function StatValue({
+  label,
+  value,
+  emphasize,
+}: {
+  label: string;
+  value: string;
+  emphasize?: boolean;
+}) {
   return (
     <Typography variant="caption" color={emphasize ? colors.status.error : 'text.secondary'}>
       <Box component="span" sx={{ fontWeight: 600, color: emphasize ? 'inherit' : 'text.primary' }}>
         {value}
-      </Box>
-      {' '}
+      </Box>{' '}
       {label}
     </Typography>
   );
@@ -167,7 +202,7 @@ export default function ExportJobStatus({
   return (
     <Card sx={{ border: `1px solid ${alpha(config.color, 0.3)}` }}>
       <Box sx={{ px: 2, py: 1.5 }}>
-        <Stack direction="row" alignItems="center" spacing={1.5}>
+        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={1.5}>
           <StatusIcon sx={{ fontSize: 20, color: config.color }} />
           <Tooltip title={jobId ? `Job ${jobId}` : ''}>
             <Chip
@@ -204,7 +239,11 @@ export default function ExportJobStatus({
               value={`${(stats.processedAssets || 0).toLocaleString()} / ${(stats.totalAssets || 0).toLocaleString()}`}
             />
             {(stats.failedAssets || 0) > 0 && (
-              <StatValue label="failed" value={(stats.failedAssets || 0).toLocaleString()} emphasize />
+              <StatValue
+                label="failed"
+                value={(stats.failedAssets || 0).toLocaleString()}
+                emphasize
+              />
             )}
             {stats.apiCalls !== undefined && (
               <StatValue label="API calls" value={stats.apiCalls.toLocaleString()} />

@@ -1,7 +1,7 @@
+import type { GridSortModel } from '@mui/x-data-grid';
+
 import { createPhysicalColumns } from '../columns/physicalColumns';
 import { CatalogDataGrid } from '../components';
-
-import type { GridSortModel } from '@mui/x-data-grid';
 
 interface PhysicalViewProps {
   data: any[];

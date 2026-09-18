@@ -1,16 +1,15 @@
 /**
  * Hook for restore validation logic
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
+import type { ArchivedAssetItem } from '@/features/asset-management';
 
 import { deployApi } from '@/shared/api';
-
-import { buildDeploymentConfig } from '../utils/buildDeploymentConfig';
-
-import type { RestoreFormData, RestoreOptions } from '../types';
-import type { ArchivedAssetItem } from '@/features/asset-management';
 import type { ValidationResult } from '@/shared/api/modules/deploy';
 
+import type { RestoreFormData, RestoreOptions } from '../types';
+import { buildDeploymentConfig } from '../utils/buildDeploymentConfig';
 
 export function useRestoreValidation(
   asset: ArchivedAssetItem | null,
@@ -24,23 +23,25 @@ export function useRestoreValidation(
 
   const handleValidate = useCallback(async () => {
     if (!asset) return;
-    
+
     setValidating(true);
     setValidationResults([]);
-    
+
     try {
       const config = buildDeploymentConfig(formData, options);
       const result = await deployApi.validateDeployment(asset.type, asset.id, config);
-      
+
       setValidationResults(result.validationResults);
       setCanDeploy(result.canDeploy);
     } catch (error: any) {
-      setValidationResults([{
-        validator: 'general',
-        passed: false,
-        message: error.message || 'Validation failed',
-        severity: 'error',
-      }]);
+      setValidationResults([
+        {
+          validator: 'general',
+          passed: false,
+          message: error.message || 'Validation failed',
+          severity: 'error',
+        },
+      ]);
       setCanDeploy(false);
     } finally {
       setValidating(false);
@@ -53,6 +54,7 @@ export function useRestoreValidation(
       const timer = setTimeout(handleValidate, 100);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [open, asset, formData.assetId, formData.assetName, validating, canDeploy, handleValidate]);
 
   // Reset validation when asset changes

@@ -23,9 +23,8 @@ import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { AssetTypeBadge } from '@/entities/asset';
 import { formatDuration, IngestionStatusChip } from '@/entities/ingestion';
 
-import { spacing } from '@/shared/design-system/theme';
-
 import type { DatasetActivityData } from '@/shared/api/modules/activity';
+import { spacing } from '@/shared/design-system/theme';
 
 interface DatasetActivityContentProps {
   activity: DatasetActivityData;
@@ -88,21 +87,21 @@ export function DatasetActivityContent({ activity }: DatasetActivityContentProps
     <>
       {/* Summary Stats */}
       <Grid container spacing={2} sx={{ mb: spacing.md / 8 }}>
-        <Grid item xs={12} sm={3}>
+        <Grid size={{ xs: 12, sm: 3 }}>
           <SummaryTile
             icon={<TrendingUpIcon color="primary" sx={iconSx} />}
             primary={activity.totalViews.toLocaleString()}
             label="Views (via usage)"
           />
         </Grid>
-        <Grid item xs={12} sm={3}>
+        <Grid size={{ xs: 12, sm: 3 }}>
           <SummaryTile
             icon={<PeopleIcon color="primary" sx={iconSx} />}
             primary={activity.uniqueViewers.toLocaleString()}
             label="Unique Viewers"
           />
         </Grid>
-        <Grid item xs={12} sm={3}>
+        <Grid size={{ xs: 12, sm: 3 }}>
           <SummaryTile
             icon={<AccessTimeIcon color="primary" sx={iconSx} />}
             primary={
@@ -113,7 +112,7 @@ export function DatasetActivityContent({ activity }: DatasetActivityContentProps
             label="Last Viewed"
           />
         </Grid>
-        <Grid item xs={12} sm={3}>
+        <Grid size={{ xs: 12, sm: 3 }}>
           <SummaryTile
             icon={<AutorenewIcon color="primary" sx={iconSx} />}
             primary={
@@ -162,8 +161,12 @@ export function DatasetActivityContent({ activity }: DatasetActivityContentProps
               <TableRow>
                 <TableCell sx={{ minWidth: 130 }}>Status</TableCell>
                 <TableCell sx={{ minWidth: 160 }}>Started</TableCell>
-                <TableCell align="right" sx={{ minWidth: 90 }}>Duration</TableCell>
-                <TableCell align="right" sx={{ minWidth: 100 }}>Rows</TableCell>
+                <TableCell align="right" sx={{ minWidth: 90 }}>
+                  Duration
+                </TableCell>
+                <TableCell align="right" sx={{ minWidth: 100 }}>
+                  Rows
+                </TableCell>
                 <TableCell sx={{ minWidth: 130 }}>Type</TableCell>
               </TableRow>
             </TableHead>
@@ -208,17 +211,25 @@ export function DatasetActivityContent({ activity }: DatasetActivityContentProps
               <TableRow>
                 <TableCell sx={{ width: '35%', minWidth: 220 }}>Asset</TableCell>
                 <TableCell sx={{ minWidth: 110 }}>Type</TableCell>
-                <TableCell align="right" sx={{ minWidth: 70 }}>Views</TableCell>
-                <TableCell align="right" sx={{ minWidth: 80 }}>Viewers</TableCell>
-                <TableCell align="right" sx={{ minWidth: 160 }}>Last Viewed</TableCell>
-                <TableCell align="right" sx={{ minWidth: 160 }}>Last Updated</TableCell>
+                <TableCell align="right" sx={{ minWidth: 70 }}>
+                  Views
+                </TableCell>
+                <TableCell align="right" sx={{ minWidth: 80 }}>
+                  Viewers
+                </TableCell>
+                <TableCell align="right" sx={{ minWidth: 160 }}>
+                  Last Viewed
+                </TableCell>
+                <TableCell align="right" sx={{ minWidth: 160 }}>
+                  Last Updated
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {usedBy.map((dependent, index) => (
                 <TableRow key={`${dependent.assetType}:${dependent.assetId}`}>
                   <TableCell>
-                    <Typography variant="body2" fontWeight="medium">
+                    <Typography sx={{ fontWeight: 'medium' }} variant="body2">
                       {dependent.assetName || dependent.assetId}
                     </Typography>
                   </TableCell>

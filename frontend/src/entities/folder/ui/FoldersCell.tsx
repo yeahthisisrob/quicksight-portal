@@ -16,16 +16,19 @@ export default function FoldersCell({ folders, folderCount, onClick }: FoldersCe
   const count = folderCount ?? folders?.length ?? 0;
 
   return (
-    <Chip 
-      label={count} 
-      size="small" 
+    <Chip
+      label={count}
+      size="small"
       color={count > 0 ? 'primary' : 'default'}
-      sx={{ 
+      sx={{
         cursor: count > 0 ? 'pointer' : 'default',
-        '&:hover': count > 0 ? { 
-          backgroundColor: 'primary.main',
-          color: 'primary.contrastText',
-        } : {}
+        '&:hover':
+          count > 0
+            ? {
+                backgroundColor: 'primary.main',
+                color: 'primary.contrastText',
+              }
+            : {},
       }}
       onClick={count > 0 ? onClick : undefined}
     />

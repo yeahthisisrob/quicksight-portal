@@ -1,12 +1,12 @@
 import { subDays } from 'date-fns';
-import { vi, type Mocked } from 'vitest';
+import { type Mocked, vi } from 'vitest';
 
 import type { CloudTrailAdapter } from '../../../../adapters/aws/CloudTrailAdapter';
-import { type CacheService } from '../../../../shared/services/cache/CacheService';
+import type { CacheService } from '../../../../shared/services/cache/CacheService';
 import { logger } from '../../../../shared/utils/logger';
-import { type GroupService } from '../../../organization/services/GroupService';
+import type { GroupService } from '../../../organization/services/GroupService';
 import { classifyAction } from '../../lib/cloudTrailEvents';
-import { type ActivityCache, type ActivityRefreshRequest, type MinimalEvent } from '../../types';
+import type { ActivityCache, ActivityRefreshRequest, MinimalEvent } from '../../types';
 import { ActivityService } from '../ActivityService';
 
 // Mock dependencies
@@ -859,8 +859,8 @@ describe('ActivityService - Persistence', () => {
 
       expect(persistence.dashboards[TEST_DASHBOARD_ID]).toBe('2024-01-16T10:00:00.000Z');
       expect(persistence.analyses[TEST_ANALYSIS_ID]).toBe('2024-01-15T11:00:00.000Z');
-      expect(persistence.users['user1']).toBe('2024-01-16T10:00:00.000Z');
-      expect(persistence.users['user2']).toBe('2024-01-15T11:00:00.000Z');
+      expect(persistence.users.user1).toBe('2024-01-16T10:00:00.000Z');
+      expect(persistence.users.user2).toBe('2024-01-15T11:00:00.000Z');
     });
 
     it('should use persisted dates when no recent activity exists', async () => {

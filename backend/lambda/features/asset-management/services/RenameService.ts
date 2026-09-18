@@ -22,7 +22,7 @@
 
 import { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { cacheService } from '../../../shared/services/cache/CacheService';
-import { type AssetType } from '../../../shared/types/assetTypes';
+import type { AssetType } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
 
 export const RENAMEABLE_ASSET_TYPES = ['dashboard', 'analysis', 'dataset', 'folder'] as const;
@@ -40,7 +40,7 @@ export function isRenameableAssetType(assetType: string): assetType is Renameabl
 export class RenameService {
   private readonly quickSightService: QuickSightService;
 
-  constructor(awsAccountId: string) {
+  public constructor(awsAccountId: string) {
     this.quickSightService = new QuickSightService(awsAccountId);
   }
 

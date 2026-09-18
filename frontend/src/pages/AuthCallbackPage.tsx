@@ -1,10 +1,9 @@
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { exchangeCodeForTokens } from '@/shared/api';
 import { useAuth } from '@/shared/lib/auth';
-
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
@@ -18,10 +17,8 @@ export function AuthCallbackPage() {
         const code = params.get('code');
         const idToken = params.get('idToken');
 
-        const token = code 
-          ? await exchangeCodeForTokens(code) 
-          : idToken;
-          
+        const token = code ? await exchangeCodeForTokens(code) : idToken;
+
         if (!token) {
           navigate('/login?error=no_token', { replace: true });
           return;

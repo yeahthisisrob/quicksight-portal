@@ -1,7 +1,7 @@
-import { vi, type Mock, type Mocked } from 'vitest';
+import { type Mock, type Mocked, vi } from 'vitest';
 
 import { ClientFactory } from '../../../../shared/services/aws/ClientFactory';
-import { type QuickSightService } from '../../../../shared/services/aws/QuickSightService';
+import type { QuickSightService } from '../../../../shared/services/aws/QuickSightService';
 import { cacheService } from '../../../../shared/services/cache/CacheService';
 import { AssetStatusFilter } from '../../../../shared/types/assetFilterTypes';
 import { logger } from '../../../../shared/utils/logger';

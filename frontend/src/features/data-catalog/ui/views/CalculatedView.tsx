@@ -1,4 +1,5 @@
-import { Box, Button, alpha } from '@mui/material';
+import { alpha, Box, Button } from '@mui/material';
+import type { GridSortModel } from '@mui/x-data-grid';
 import { utils, writeFile } from 'xlsx';
 
 import { colors, spacing } from '@/shared/design-system/theme';
@@ -6,8 +7,6 @@ import { actionIcons } from '@/shared/ui/icons';
 
 import { createCalculatedColumns } from '../columns/calculatedColumns';
 import { CatalogDataGrid } from '../components';
-
-import type { GridSortModel } from '@mui/x-data-grid';
 
 interface CalculatedViewProps {
   data: any[];
@@ -39,7 +38,7 @@ export default function CalculatedView({
   onShowVariants,
 }: CalculatedViewProps) {
   const ExportIcon = actionIcons.download;
-  
+
   const columns = createCalculatedColumns({
     onShowExpression,
     onShowDetails,
@@ -48,25 +47,25 @@ export default function CalculatedView({
 
   const handleExportCSV = () => {
     // Prepare data for export
-    const exportData = data.map(field => ({
+    const exportData = data.map((field) => ({
       'Field Name': field.fieldName,
-      'Expression': field.expression || '',
+      Expression: field.expression || '',
       'Usage Count': field.usageCount || 0,
-      'Datasets': field.sources?.filter((s: any) => s.assetType === 'dataset').length || 0,
-      'Analyses': field.sources?.filter((s: any) => s.assetType === 'analysis').length || 0,
-      'Dashboards': field.sources?.filter((s: any) => s.assetType === 'dashboard').length || 0,
+      Datasets: field.sources?.filter((s: any) => s.assetType === 'dataset').length || 0,
+      Analyses: field.sources?.filter((s: any) => s.assetType === 'analysis').length || 0,
+      Dashboards: field.sources?.filter((s: any) => s.assetType === 'dashboard').length || 0,
       'Has Variants': field.hasVariants ? 'Yes' : 'No',
       'Variant Count': field.expressions?.length || 1,
-      'Dependencies': field.fieldReferences?.join(', ') || 'None',
+      Dependencies: field.fieldReferences?.join(', ') || 'None',
     }));
 
     // Create worksheet
     const ws = utils.json_to_sheet(exportData);
-    
+
     // Create workbook
     const wb = utils.book_new();
     utils.book_append_sheet(wb, ws, 'Calculated Fields');
-    
+
     // Save file
     const fileName = `calculated-fields-${new Date().toISOString().split('T')[0]}.csv`;
     writeFile(wb, fileName, { bookType: 'csv' });
@@ -100,7 +99,7 @@ export default function CalculatedView({
           Export CSV
         </Button>
       </Box>
-      
+
       <CatalogDataGrid
         data={data}
         columns={columns}

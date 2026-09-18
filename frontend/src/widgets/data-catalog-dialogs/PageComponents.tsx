@@ -17,11 +17,11 @@ import { colors } from '@/shared/design-system/theme';
 /**
  * Search bar component
  */
-export function SearchBar({ 
-  searchTerm, 
-  onSearchChange 
-}: { 
-  searchTerm: string; 
+export function SearchBar({
+  searchTerm,
+  onSearchChange,
+}: {
+  searchTerm: string;
   onSearchChange: (value: string) => void;
 }) {
   return (
@@ -33,13 +33,6 @@ export function SearchBar({
         onChange={(e) => onSearchChange(e.target.value)}
         variant="outlined"
         size="medium"
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon />
-            </InputAdornment>
-          ),
-        }}
         sx={{
           backgroundColor: 'background.paper',
           borderRadius: 1,
@@ -47,6 +40,15 @@ export function SearchBar({
             '&:hover fieldset': {
               borderColor: colors.primary.main,
             },
+          },
+        }}
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
           },
         }}
       />
@@ -57,7 +59,7 @@ export function SearchBar({
 /**
  * Main content view switcher
  */
-export function ContentView({ 
+export function ContentView({
   viewMode,
   rows,
   totalRows,
@@ -69,7 +71,7 @@ export function ContentView({
   onPageSizeChange,
   onSortModelChange,
   dialogHandlers,
-  additionalData
+  additionalData,
 }: any) {
   const viewProps = {
     data: rows,
@@ -84,7 +86,7 @@ export function ContentView({
     ...dialogHandlers,
     ...additionalData,
   };
-  
+
   switch (viewMode) {
     case 'physical':
       return <PhysicalView {...viewProps} onShowDetails={viewProps.onFieldClick} />;

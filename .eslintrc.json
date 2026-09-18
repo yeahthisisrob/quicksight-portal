@@ -26,13 +26,10 @@
     }
   },
   "rules": {
-    "react-refresh/only-export-components": [
-      "warn",
-      { "allowConstantExport": true }
-    ],
+    "react-refresh/only-export-components": ["warn", { "allowConstantExport": true }],
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
-    "import/no-duplicates": ["error", {"prefer-inline": true}],
+    "import/no-duplicates": ["error", { "prefer-inline": true }],
     "no-restricted-syntax": [
       "error",
       {

@@ -2,6 +2,7 @@ import { GridRowSelectionModel, GridSortModel } from '@mui/x-data-grid';
 import { useState, useEffect, useCallback } from 'react';
 
 import type { AssetType } from '@/shared/types/asset';
+import { EMPTY_SELECTION, isRowSelected } from '@/shared/lib/gridSelection';
 
 // Module-level constant so the grid receives a stable sort-model identity
 const DEFAULT_SORT_MODEL: GridSortModel = [{ field: 'lastModified', sort: 'desc' }];
@@ -19,7 +20,7 @@ export function useAssetPage({
   refreshAssetType,
   updateAssetTags,
 }: UseAssetPageOptions) {
-  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
+  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>(EMPTY_SELECTION);
   const [permissionsDialog, setPermissionsDialog] = useState<{ open: boolean; asset?: any }>({ open: false });
   const [relatedAssetsDialog, setRelatedAssetsDialog] = useState<{ open: boolean; asset?: any; relatedAssets?: any[] }>({ open: false });
   const [tagsDialog, setTagsDialog] = useState<{ open: boolean; asset?: any }>({ open: false });
@@ -43,11 +44,11 @@ export function useAssetPage({
   );
 
   const handleBulkComplete = () => {
-    setSelectedRows([]);
+    setSelectedRows(EMPTY_SELECTION);
     refreshAssetType(assetType);
   };
 
-  const selectedAssets = assets.filter((asset: any) => selectedRows.includes(asset.id));
+  const selectedAssets = assets.filter((asset: any) => isRowSelected(selectedRows, asset.id));
 
   const defaultSortModel = DEFAULT_SORT_MODEL;
 

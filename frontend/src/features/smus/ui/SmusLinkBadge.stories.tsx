@@ -1,8 +1,7 @@
 import { Box, Typography } from '@mui/material';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { SmusLinkBadge } from './SmusLinkBadge';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta: Meta<typeof SmusLinkBadge> = {
   title: 'Features/Smus/SmusLinkBadge',

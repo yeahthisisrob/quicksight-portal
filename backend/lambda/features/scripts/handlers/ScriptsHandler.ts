@@ -1,15 +1,15 @@
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
-import { successResponse, errorResponse } from '../../../shared/utils/cors';
+import { errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { DemoCleanupService } from '../services/DemoCleanupService';
 
 export class ScriptsHandler {
   private readonly demoCleanupService: DemoCleanupService;
 
-  constructor(accountId: string) {
+  public constructor(accountId: string) {
     this.demoCleanupService = new DemoCleanupService(accountId);
   }
 

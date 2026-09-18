@@ -1,14 +1,14 @@
 import {
   TrendingUp as ConfidenceIcon,
-  Edit as EditIcon,
   Delete as DeleteIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
 import { Box, Chip, IconButton, LinearProgress, Tooltip, Typography } from '@mui/material';
-import { GridColDef } from '@mui/x-data-grid';
+import type { GridColDef } from '@mui/x-data-grid';
 
 import { CountCell } from '@/shared/ui/DataGrid/cells';
 
-import type { MappingRow, MappingColumnsCallbacks } from '../../types';
+import type { MappingColumnsCallbacks, MappingRow } from '../../types';
 
 export function createMappingColumns({
   onEditMapping,
@@ -27,7 +27,7 @@ export function createMappingColumns({
       flex: 1,
       minWidth: 200,
       renderCell: (params) => (
-        <Typography variant="body2" fontWeight="medium">
+        <Typography sx={{ fontWeight: 'medium' }} variant="body2">
           {params.value}
         </Typography>
       ),
@@ -45,9 +45,7 @@ export function createMappingColumns({
         };
 
         return (
-          <Box
-            sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}
-          >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
             <ConfidenceIcon fontSize="small" color="primary" />
             <LinearProgress
               variant="determinate"
@@ -80,11 +78,7 @@ export function createMappingColumns({
       headerName: 'Data Type',
       width: 120,
       renderCell: (params) => (
-        <Chip
-          label={params.value || 'Unknown'}
-          size="small"
-          variant="outlined"
-        />
+        <Chip label={params.value || 'Unknown'} size="small" variant="outlined" />
       ),
     },
     {
@@ -116,11 +110,7 @@ export function createMappingColumns({
             </IconButton>
           </Tooltip>
           <Tooltip title="Delete">
-            <IconButton
-              size="small"
-              color="error"
-              onClick={() => onDeleteMapping(params.row)}
-            >
+            <IconButton size="small" color="error" onClick={() => onDeleteMapping(params.row)}>
               <DeleteIcon fontSize="small" />
             </IconButton>
           </Tooltip>

@@ -1,6 +1,4 @@
-import {
-  Code as JsonIcon,
-} from '@mui/icons-material';
+import { Code as JsonIcon } from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -14,13 +12,14 @@ import {
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { assetsApi } from '@/shared/api';
 
+import { type HighlightType, highlightConfigs } from '../utils/jsonHighlighter';
 import { JsonContent } from './JsonContent';
 import { JsonViewerToolbar } from './JsonViewerToolbar';
-import { highlightConfigs, HighlightType } from '../utils/jsonHighlighter';
 
 interface JsonViewerModalProps {
   open: boolean;
@@ -39,12 +38,7 @@ interface TabPanelProps {
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
   return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      {...other}
-      style={{ height: '100%' }}
-    >
+    <div role="tabpanel" hidden={value !== index} {...other} style={{ height: '100%' }}>
       {value === index && children}
     </div>
   );
@@ -64,15 +58,15 @@ function getAssetTypeParam(assetType: string): string {
 function extractDataViews(assetData: any, assetType: string) {
   const fullData = assetData || {};
   const definition = fullData.Definition || fullData.DataSet?.Definition || {};
-  
+
   // Dynamic describe based on asset type
   const describeKey = assetType.charAt(0).toUpperCase() + assetType.slice(1);
   const describe = fullData[describeKey] || fullData.DataSet || {};
-  
+
   const metadata = fullData['@metadata'] || {};
   const permissions = fullData.Permissions || [];
   const tags = fullData.Tags || [];
-  
+
   return { fullData, definition, describe, metadata, permissions, tags };
 }
 
@@ -84,7 +78,7 @@ function useJsonViewer(open: boolean) {
   const [highlightType, setHighlightType] = useState<HighlightType>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [, setExpandedPaths] = useState<Set<string>>(new Set());
-  
+
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
@@ -93,7 +87,7 @@ function useJsonViewer(open: boolean) {
       setSearchTerm('');
     }
   }, [open]);
-  
+
   return {
     activeTab,
     setActiveTab,
@@ -109,7 +103,9 @@ function useJsonViewer(open: boolean) {
  * Hook to handle scrolling to highlights
  */
 function useScrollToHighlight(
-  contentRef: React.RefObject<HTMLDivElement>,
+  // React 19 types: useRef<T>(null) yields RefObject<T | null>, so the
+  // parameter has to admit null too.
+  contentRef: React.RefObject<HTMLDivElement | null>,
   highlightType: HighlightType,
   searchTerm: string,
   activeTab: number,
@@ -122,15 +118,11 @@ function useScrollToHighlight(
         const jumpTarget = highlightConfigs[highlightType].jumpTo;
         const content = contentRef.current?.textContent || '';
         const targetIndex = content.indexOf(jumpTarget);
-        
+
         if (targetIndex !== -1) {
           // Find the element containing this text
-          const walker = document.createTreeWalker(
-            contentRef.current!,
-            NodeFilter.SHOW_TEXT,
-            null
-          );
-          
+          const walker = document.createTreeWalker(contentRef.current!, NodeFilter.SHOW_TEXT, null);
+
           let node;
           while ((node = walker.nextNode())) {
             if (node.textContent?.includes(jumpTarget)) {
@@ -143,7 +135,7 @@ function useScrollToHighlight(
           }
         }
       }
-      
+
       // Fallback to first highlight
       const firstHighlight = contentRef.current?.querySelector('mark');
       if (firstHighlight) {
@@ -151,7 +143,7 @@ function useScrollToHighlight(
       }
     }, 100);
   }, [contentRef, highlightType]);
-  
+
   useEffect(() => {
     if ((highlightType || searchTerm) && open) {
       scrollToFirstHighlight();
@@ -159,16 +151,16 @@ function useScrollToHighlight(
   }, [highlightType, searchTerm, activeTab, open, scrollToFirstHighlight]);
 }
 
-export default function JsonViewerModal({ 
-  open, 
-  onClose, 
-  assetId, 
-  assetName, 
-  assetType 
+export default function JsonViewerModal({
+  open,
+  onClose,
+  assetId,
+  assetName,
+  assetType,
 }: JsonViewerModalProps) {
   const { enqueueSnackbar } = useSnackbar();
   const contentRef = useRef<HTMLDivElement>(null);
-  
+
   // State management
   const {
     activeTab,
@@ -179,12 +171,16 @@ export default function JsonViewerModal({
     setSearchTerm,
     expandedPaths,
   } = useJsonViewer(open);
-  
+
   // Scroll to highlights
   useScrollToHighlight(contentRef, highlightType, searchTerm, activeTab, open);
-  
+
   // Fetch asset data
-  const { data: assetData, isLoading, error } = useQuery({
+  const {
+    data: assetData,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['asset-json', assetType, assetId],
     queryFn: async () => {
       const assetTypeParam = getAssetTypeParam(assetType);
@@ -192,17 +188,19 @@ export default function JsonViewerModal({
     },
     enabled: open && !!assetId,
   });
-  
+
   // Extract data views
-  const { fullData, definition, describe, metadata, permissions, tags } = 
-    extractDataViews(assetData, assetType);
-  
+  const { fullData, definition, describe, metadata, permissions, tags } = extractDataViews(
+    assetData,
+    assetType
+  );
+
   // Get current tab data
   const getCurrentData = () => {
     const tabData = [fullData, describe, definition, metadata, permissions, tags];
     return tabData[activeTab] || fullData;
   };
-  
+
   // Handle actions
   const handleCopy = async () => {
     try {
@@ -213,28 +211,30 @@ export default function JsonViewerModal({
       enqueueSnackbar('Failed to copy JSON', { variant: 'error' });
     }
   };
-  
+
   const handleExpandAll = () => {
     enqueueSnackbar('Expanded all nodes', { variant: 'info' });
   };
-  
+
   const handleCollapseAll = () => {
     expandedPaths(new Set());
     enqueueSnackbar('Collapsed all nodes', { variant: 'info' });
   };
-  
+
   return (
     <Dialog
       open={open}
       onClose={onClose}
       maxWidth="lg"
       fullWidth
-      PaperProps={{
-        sx: {
-          height: '90vh',
-          backgroundColor: 'background.paper',
-          backgroundImage: 'none',
-          overflow: 'hidden',
+      slotProps={{
+        paper: {
+          sx: {
+            height: '90vh',
+            backgroundColor: 'background.paper',
+            backgroundImage: 'none',
+            overflow: 'hidden',
+          },
         },
       }}
     >
@@ -246,7 +246,7 @@ export default function JsonViewerModal({
           </Typography>
         </Box>
       </DialogTitle>
-      
+
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', p: 2, overflow: 'hidden' }}>
         <JsonViewerToolbar
           searchTerm={searchTerm}
@@ -258,9 +258,9 @@ export default function JsonViewerModal({
           onCollapseAll={handleCollapseAll}
           onClose={onClose}
         />
-        
-        <Tabs 
-          value={activeTab} 
+
+        <Tabs
+          value={activeTab}
           onChange={(_, newValue) => setActiveTab(newValue)}
           sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}
         >
@@ -271,34 +271,37 @@ export default function JsonViewerModal({
           <Tab label="Permissions" />
           <Tab label="Tags" />
         </Tabs>
-        
+
         <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           {isLoading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100%',
+              }}
+            >
               <CircularProgress />
             </Box>
           )}
-          
+
           {error && (
-            <Alert severity="error">
-              Failed to load asset data: {(error as Error).message}
-            </Alert>
+            <Alert severity="error">Failed to load asset data: {(error as Error).message}</Alert>
           )}
-          
-          {!isLoading && !error && (
-            <>
-              {[0, 1, 2, 3, 4, 5].map((index) => (
-                <TabPanel key={index} value={activeTab} index={index}>
-                  <JsonContent
-                    ref={activeTab === index ? contentRef : null}
-                    data={getCurrentData()}
-                    highlightType={highlightType}
-                    searchTerm={searchTerm}
-                  />
-                </TabPanel>
-              ))}
-            </>
-          )}
+
+          {!isLoading &&
+            !error &&
+            [0, 1, 2, 3, 4, 5].map((index) => (
+              <TabPanel key={index} value={activeTab} index={index}>
+                <JsonContent
+                  ref={activeTab === index ? contentRef : null}
+                  data={getCurrentData()}
+                  highlightType={highlightType}
+                  searchTerm={searchTerm}
+                />
+              </TabPanel>
+            ))}
         </Box>
       </DialogContent>
     </Dialog>

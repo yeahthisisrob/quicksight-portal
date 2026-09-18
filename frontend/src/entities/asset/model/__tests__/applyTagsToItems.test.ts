@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 // AssetsContext transitively imports the runtime-injected APP_CONFIG; stub
 // the api module so this pure-function test needs no window config

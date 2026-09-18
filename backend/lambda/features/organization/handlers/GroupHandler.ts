@@ -1,15 +1,15 @@
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
-import { successResponse, errorResponse } from '../../../shared/utils/cors';
+import { errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { GroupService } from '../services/GroupService';
 
 export class GroupHandler {
   private readonly groupService: GroupService;
 
-  constructor() {
+  public constructor() {
     this.groupService = new GroupService();
   }
 
@@ -44,7 +44,7 @@ export class GroupHandler {
   public async deleteGroup(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       const auth = await requireAuth(event); // Validate authentication
-      const pathMatch = event.path.match(new RegExp('/groups/([^/]+)$'));
+      const pathMatch = event.path.match(/\/groups\/([^/]+)$/);
       const groupName = pathMatch?.[1];
 
       if (!groupName) {
@@ -107,7 +107,7 @@ export class GroupHandler {
   public async updateGroup(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       const auth = await requireAuth(event); // Validate authentication
-      const pathMatch = event.path.match(new RegExp('/groups/([^/]+)$'));
+      const pathMatch = event.path.match(/\/groups\/([^/]+)$/);
       const groupName = pathMatch?.[1];
 
       if (!groupName) {

@@ -7,7 +7,7 @@
  * fetch or a trip to the logs.
  */
 
-import { type BulkItemFailure, type BulkOperationResult } from '../../types/bulkOperationTypes';
+import type { BulkItemFailure, BulkOperationResult } from '../../types/bulkOperationTypes';
 
 /** Failures kept on the job record itself; the full list stays in the result */
 export const MAX_RECORDED_FAILURES = 25;

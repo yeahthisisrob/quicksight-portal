@@ -6,9 +6,9 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  type SelectChangeEvent,
   Stack,
   Switch,
-  type SelectChangeEvent,
 } from '@mui/material';
 import { subDays } from 'date-fns';
 
@@ -68,7 +68,6 @@ function dateRangeToStartDate(range: TimelineDateRange): string | undefined {
       return subDays(now, 30).toISOString();
     case '90d':
       return subDays(now, 90).toISOString();
-    case 'all':
     default:
       return undefined;
   }
@@ -121,9 +120,14 @@ export function TimelineFilterBar({
     <Stack
       direction="row"
       spacing={1.5}
-      alignItems="center"
-      flexWrap="wrap"
-      sx={{ py: 1.5, px: 2, borderBottom: '1px solid', borderColor: 'divider' }}
+      sx={{
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        py: 1.5,
+        px: 2,
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+      }}
     >
       <FormControl size="small" sx={{ minWidth: 160 }}>
         <InputLabel id="timeline-date-range-label">Date range</InputLabel>

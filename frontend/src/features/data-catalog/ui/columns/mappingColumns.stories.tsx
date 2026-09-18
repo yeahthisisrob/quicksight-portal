@@ -1,10 +1,9 @@
 import { Box, Typography } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
-
-import { createMappingColumns } from './mappingColumns';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import type { MappingRow } from '../../types';
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import { createMappingColumns } from './mappingColumns';
 
 const mockData: MappingRow[] = [
   {
@@ -93,13 +92,7 @@ const meta: Meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const StorySection = ({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) => (
+const StorySection = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <Box sx={{ mb: 4 }}>
     <Typography variant="h6" gutterBottom sx={{ mb: 2, fontWeight: 500 }}>
       {title}
@@ -133,8 +126,7 @@ export const ConfidenceScoreVariants: Story = {
     return (
       <StorySection title="Confidence Score Color Coding">
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Confidence progress bars are color-coded: green (&ge;80%), yellow
-          (50-79%), red (&lt;50%)
+          Confidence progress bars are color-coded: green (&ge;80%), yellow (50-79%), red (&lt;50%)
         </Typography>
         <Box sx={{ height: 400, width: '100%' }}>
           <DataGrid
@@ -155,8 +147,7 @@ export const MappingMethods: Story = {
     return (
       <StorySection title="Mapping Methods">
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Manual mappings show a filled primary chip, auto/suggested show
-          outlined chips
+          Manual mappings show a filled primary chip, auto/suggested show outlined chips
         </Typography>
         <Box sx={{ height: 400, width: '100%' }}>
           <DataGrid

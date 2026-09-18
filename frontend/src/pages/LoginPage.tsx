@@ -1,19 +1,18 @@
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
-  Typography,
-  Button,
-  Alert,
   CircularProgress,
   Stack,
+  Typography,
 } from '@mui/material';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { config } from '@/shared/config';
 import { useAuth } from '@/shared/lib/auth';
-
 
 interface AuthMethod {
   id: string;
@@ -65,24 +64,24 @@ export function LoginPage() {
     setAuthMethods([
       {
         id: 'cognito',
-        name: 'Sign in with AWS Cognito', 
+        name: 'Sign in with AWS Cognito',
         description: 'Sign in using your AWS Cognito credentials',
         configured: true,
-      }
+      },
     ]);
     setLoading(false);
   };
 
   const handleCognitoLogin = () => {
     // Redirect directly to Cognito Hosted UI
-    const redirectUri = encodeURIComponent(window.location.origin + '/auth/cognito/callback');
+    const redirectUri = encodeURIComponent(`${window.location.origin}/auth/cognito/callback`);
     const cognitoUrl = `${config.COGNITO_DOMAIN}/login?client_id=${config.USER_POOL_CLIENT_ID}&response_type=code&scope=openid+email+profile&redirect_uri=${redirectUri}`;
     window.location.href = cognitoUrl;
   };
 
   const handleLogin = (methodId: string) => {
     setError(null);
-    
+
     switch (methodId) {
       case 'cognito':
         handleCognitoLogin();
@@ -95,10 +94,7 @@ export function LoginPage() {
   if (loading) {
     return (
       <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        height="100vh"
+        sx={{ height: '100vh', alignItems: 'center', display: 'flex', justifyContent: 'center' }}
       >
         <CircularProgress />
       </Box>
@@ -122,7 +118,7 @@ export function LoginPage() {
           <Typography variant="h4" component="h1" gutterBottom align="center">
             QuickSight Assets Portal
           </Typography>
-          
+
           <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 3 }}>
             Sign in to continue
           </Typography>

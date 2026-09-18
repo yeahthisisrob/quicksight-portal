@@ -1,12 +1,16 @@
 /**
  * Types for RestoreAssetDialog components
  */
-import type { ArchivedAssetItem } from '@/features/asset-management';
-import type { ValidationResult } from '@/shared/api/modules/deploy';
+
 import type { ReactNode } from 'react';
 
-export type { ArchivedAssetItem };
+import type { ArchivedAssetItem } from '@/features/asset-management';
+
+import type { ValidationResult } from '@/shared/api/modules/deploy';
+
 export type { ValidationResult } from '@/shared/api/modules/deploy';
+
+export type { ArchivedAssetItem };
 
 export interface RestoreAssetDialogProps {
   open: boolean;

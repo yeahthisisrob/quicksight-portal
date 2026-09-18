@@ -1,10 +1,10 @@
 import { AssetStatus, type CacheEntry } from '../../../shared/models/asset.model';
 import { CacheService } from '../../../shared/services/cache/CacheService';
-import { type JobStateService } from '../../../shared/services/jobs/JobStateService';
+import type { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { PARSER_METADATA_VERSION } from '../../../shared/services/parsing/parserVersion';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { logger } from '../../../shared/utils/logger';
-import { type AssetType, type AssetSummary } from '../types';
+import type { AssetSummary, AssetType } from '../types';
 
 /**
  * Service for comparing assets with cache and detecting changes/deletions
@@ -31,7 +31,7 @@ export class AssetComparisonService {
    * Constructor allows dependency injection for testing while maintaining Lambda optimization
    * @param cacheService - Optional cache service instance (defaults to singleton for production)
    */
-  constructor(cacheService?: CacheService) {
+  public constructor(cacheService?: CacheService) {
     // Use injected service for testing, or lazy-load singleton for production Lambda
     this.cacheService = cacheService || CacheService.getInstance();
   }

@@ -1,4 +1,4 @@
-import { vi, type Mocked, type MockedClass } from 'vitest';
+import { type Mocked, type MockedClass, vi } from 'vitest';
 
 // Mock dependencies first
 vi.mock('../../aws/S3Service', () => ({ S3Service: vi.fn() }));
@@ -25,7 +25,9 @@ vi.mock('../../../utils/logger', () => ({
 
 // Mock the S3Client
 vi.mock('@aws-sdk/client-s3', () => ({
-  S3Client: vi.fn().mockImplementation(() => ({})),
+  S3Client: vi.fn().mockImplementation(function () {
+    return {};
+  }),
 }));
 
 // Mock the http config
@@ -51,7 +53,9 @@ describe('CacheService - Data Consistency', () => {
     mockS3Service = createMockS3Service();
 
     // Mock the S3Service constructor to return our mock
-    vi.mocked(S3Service).mockImplementation(() => mockS3Service as any);
+    vi.mocked(S3Service).mockImplementation(function () {
+      return mockS3Service as any;
+    });
 
     // Get the singleton instance
     cacheService = CacheService.getInstance();
@@ -222,7 +226,9 @@ describe('CacheService - ETag revalidation', () => {
     } as any;
 
     const S3ServiceMock = S3Service as unknown as MockedClass<typeof S3Service>;
-    S3ServiceMock.mockImplementation(() => mockS3Service);
+    S3ServiceMock.mockImplementation(function () {
+      return mockS3Service;
+    });
 
     cacheService = CacheService.getInstance();
   });

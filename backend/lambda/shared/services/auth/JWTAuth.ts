@@ -1,6 +1,6 @@
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
 import type { CognitoJwtVerifierSingleUserPool } from 'aws-jwt-verify/cognito-verifier';
-import { type APIGatewayProxyEvent } from 'aws-lambda';
+import type { APIGatewayProxyEvent } from 'aws-lambda';
 
 import { logger } from '../../utils/logger';
 

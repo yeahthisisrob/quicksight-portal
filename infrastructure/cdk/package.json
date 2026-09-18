@@ -1,5 +1,5 @@
 {
-  "name": "quicksight-portal-cdk",
+  "name": "@quicksight-portal/cdk",
   "version": "1.0.0",
   "private": true,
   "description": "AWS CDK infrastructure for QuickSight Assets Portal",
@@ -7,7 +7,10 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "test": "jest",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
     "cdk": "cdk",
     "bootstrap": "cdk bootstrap",
     "synth": "cdk synth",
@@ -20,11 +23,17 @@
   "type": "commonjs",
   "devDependencies": {
     "@types/node": "^26.3.0",
+    "@types/source-map-support": "^0.5.10",
+    "@vitest/coverage-v8": "^5.0.1",
     "aws-cdk": "^2.1139.0",
     "aws-cdk-lib": "^2.267.0",
     "cdk-nag": "^3.0.2",
     "constructs": "^10.8.1",
     "esbuild": "^0.28.2",
-    "typescript": "^5.9.3"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  },
+  "engines": {
+    "node": ">=22 <23"
   }
 }

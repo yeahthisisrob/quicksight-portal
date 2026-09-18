@@ -6,10 +6,10 @@ import pLimit from 'p-limit';
 
 import { EXPORT_CONFIG } from '../../../config/exportConfig';
 import { FIELD_LIMITS } from '../../../constants';
-import { type CacheEntry, type AssetType } from '../../../models/asset.model';
+import type { AssetType, CacheEntry } from '../../../models/asset.model';
 import { ASSET_TYPES_PLURAL } from '../../../types/assetTypes';
 import { logger } from '../../../utils/logger';
-import { type S3Service } from '../../aws/S3Service';
+import type { S3Service } from '../../aws/S3Service';
 
 export interface CacheStorageOptions {
   partition?: string;
@@ -39,7 +39,7 @@ export class S3CacheAdapter {
   // In-memory cache for field cache to avoid repeated S3 reads during single Lambda execution
   private fieldCacheMemory: { data: any | null; timestamp: number } | null = null;
 
-  constructor(private readonly s3Service: S3Service) {}
+  public constructor(private readonly s3Service: S3Service) {}
 
   /**
    * Clear all rebuildable caches (preserves job history and activity data)

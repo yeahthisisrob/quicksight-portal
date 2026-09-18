@@ -2,6 +2,7 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { AwsSolutionsChecks } from 'cdk-nag';
+
 import { QuicksightPortalStack } from '../lib/quicksight-portal-stack';
 
 const app = new cdk.App();

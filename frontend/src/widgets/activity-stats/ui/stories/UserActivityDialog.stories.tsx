@@ -1,6 +1,6 @@
-import { UserActivityDialog } from '../UserActivityDialog';
-
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import { UserActivityDialog } from '../UserActivityDialog';
 
 const meta: Meta<typeof UserActivityDialog> = {
   title: 'Widgets/ActivityStats/UserActivityDialog',
@@ -9,7 +9,8 @@ const meta: Meta<typeof UserActivityDialog> = {
     layout: 'centered',
     docs: {
       description: {
-        component: 'Dialog component for viewing user activity statistics. Shows total activities, dashboards/analyses viewed, and activity timeline.',
+        component:
+          'Dialog component for viewing user activity statistics. Shows total activities, dashboards/analyses viewed, and activity timeline.',
       },
     },
   },
@@ -19,7 +20,14 @@ const meta: Meta<typeof UserActivityDialog> = {
       // In docs mode, don't render the dialog open by default
       if (context.viewMode === 'docs') {
         return (
-          <div style={{ height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div
+            style={{
+              height: '100px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
             <p>Dialog component - Click on a story to see it in action</p>
           </div>
         );
@@ -65,43 +73,43 @@ const mockUserActivityData = {
     '2024-01-18': 44,
   },
   dashboards: [
-    { 
-      dashboardId: 'dash-001', 
-      dashboardName: 'Executive Summary Dashboard', 
-      viewCount: 87, 
-      lastViewed: '2024-01-24T15:30:00Z' 
+    {
+      dashboardId: 'dash-001',
+      dashboardName: 'Executive Summary Dashboard',
+      viewCount: 87,
+      lastViewed: '2024-01-24T15:30:00Z',
     },
-    { 
-      dashboardId: 'dash-002', 
-      dashboardName: 'Sales Performance Dashboard', 
-      viewCount: 65, 
-      lastViewed: '2024-01-24T14:20:00Z' 
+    {
+      dashboardId: 'dash-002',
+      dashboardName: 'Sales Performance Dashboard',
+      viewCount: 65,
+      lastViewed: '2024-01-24T14:20:00Z',
     },
-    { 
-      dashboardId: 'dash-003', 
-      dashboardName: 'Marketing Analytics', 
-      viewCount: 43, 
-      lastViewed: '2024-01-23T16:45:00Z' 
+    {
+      dashboardId: 'dash-003',
+      dashboardName: 'Marketing Analytics',
+      viewCount: 43,
+      lastViewed: '2024-01-23T16:45:00Z',
     },
-    { 
-      dashboardId: 'dash-004', 
-      dashboardName: 'Operations Dashboard', 
-      viewCount: 32, 
-      lastViewed: '2024-01-22T11:30:00Z' 
+    {
+      dashboardId: 'dash-004',
+      dashboardName: 'Operations Dashboard',
+      viewCount: 32,
+      lastViewed: '2024-01-22T11:30:00Z',
     },
   ],
   analyses: [
-    { 
-      analysisId: 'analysis-001', 
-      analysisName: 'Q4 Revenue Analysis', 
-      viewCount: 28, 
-      lastViewed: '2024-01-24T10:15:00Z' 
+    {
+      analysisId: 'analysis-001',
+      analysisName: 'Q4 Revenue Analysis',
+      viewCount: 28,
+      lastViewed: '2024-01-24T10:15:00Z',
     },
-    { 
-      analysisId: 'analysis-002', 
-      analysisName: 'Customer Segmentation', 
-      viewCount: 19, 
-      lastViewed: '2024-01-23T09:00:00Z' 
+    {
+      analysisId: 'analysis-002',
+      analysisName: 'Customer Segmentation',
+      viewCount: 19,
+      lastViewed: '2024-01-23T09:00:00Z',
     },
   ],
 };

@@ -6,14 +6,14 @@ import pLimit from 'p-limit';
 
 import { EXPORT_CONFIG } from '../../../shared/config/exportConfig';
 import { TIME_UNITS } from '../../../shared/constants';
-import { type CacheEntry } from '../../../shared/models/asset.model';
+import type { CacheEntry } from '../../../shared/models/asset.model';
 import { ArchiveService } from '../../../shared/services/archive/ArchiveService';
-import { type QuickSightService } from '../../../shared/services/aws/QuickSightService';
+import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import {
   ASSET_TYPES,
-  COLLECTION_ASSET_TYPES,
   type AssetType,
+  COLLECTION_ASSET_TYPES,
 } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
 
@@ -48,7 +48,7 @@ export interface BulkDeleteResult {
 export class BulkDeleteService {
   private readonly archiveService: ArchiveService;
 
-  constructor(private readonly quickSightService: QuickSightService) {
+  public constructor(private readonly quickSightService: QuickSightService) {
     const bucketName = process.env.BUCKET_NAME || 'quicksight-metadata-bucket';
     this.archiveService = new ArchiveService(bucketName, cacheService);
   }

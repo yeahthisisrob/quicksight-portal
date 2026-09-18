@@ -20,10 +20,10 @@ interface DependenciesTabProps {
 
 export function DependenciesTab({ fieldReferences, allCalculatedFields }: DependenciesTabProps) {
   const getDependencyType = (fieldName: string) => {
-    const isCalculated = allCalculatedFields.some(f => f.fieldName === fieldName);
+    const isCalculated = allCalculatedFields.some((f) => f.fieldName === fieldName);
     return isCalculated ? 'calculated' : 'physical';
   };
-  
+
   if (fieldReferences.length === 0) {
     return (
       <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>
@@ -33,7 +33,7 @@ export function DependenciesTab({ fieldReferences, allCalculatedFields }: Depend
       </Paper>
     );
   }
-  
+
   return (
     <Stack spacing={3}>
       <Paper variant="outlined" sx={{ p: 3 }}>
@@ -51,11 +51,11 @@ export function DependenciesTab({ fieldReferences, allCalculatedFields }: Depend
                 <ListItemIcon>
                   <DependencyIcon color={depType === 'calculated' ? 'primary' : 'action'} />
                 </ListItemIcon>
-                <ListItemText 
+                <ListItemText
                   primary={fieldName}
                   secondary={
                     <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
-                      <Chip 
+                      <Chip
                         label={depType === 'calculated' ? 'Calculated Field' : 'Physical Field'}
                         size="small"
                         color={depType === 'calculated' ? 'primary' : 'default'}

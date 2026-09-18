@@ -1,22 +1,19 @@
 import {
   Functions as CalculatedIcon,
-  Warning as WarningIcon,
-  AccountTree as DependencyIcon,
-  Comment as CommentIcon,
   Code as CodeIcon,
+  Comment as CommentIcon,
+  AccountTree as DependencyIcon,
   Info as InfoIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
-import { Box, Chip, Button, Tooltip, Typography, IconButton } from '@mui/material';
-import { GridColDef } from '@mui/x-data-grid';
+import { Box, Button, Chip, IconButton, Tooltip, Typography } from '@mui/material';
+import type { GridColDef } from '@mui/x-data-grid';
 
 import { FieldUsageBadges } from '@/entities/field';
 
 import { CountCell } from '@/shared/ui/DataGrid/cells';
 
-import type {
-  CalculatedFieldRow,
-  CalculatedColumnsCallbacks,
-} from '../../types';
+import type { CalculatedColumnsCallbacks, CalculatedFieldRow } from '../../types';
 
 export function createCalculatedColumns({
   onShowExpression,
@@ -125,8 +122,7 @@ export function createCalculatedColumns({
             label={length.toLocaleString()}
             size="small"
             sx={{
-              backgroundColor: (theme) =>
-                `${theme.palette[color].main}15`,
+              backgroundColor: (theme) => `${theme.palette[color].main}15`,
               color: (theme) => theme.palette[color].main,
               fontWeight: 'medium',
             }}
@@ -163,9 +159,7 @@ export function createCalculatedColumns({
       field: 'sources',
       headerName: 'Sources',
       width: 200,
-      renderCell: (params) => (
-        <FieldUsageBadges sources={params.value || []} />
-      ),
+      renderCell: (params) => <FieldUsageBadges sources={params.value || []} />,
     },
     {
       field: 'dependencies',

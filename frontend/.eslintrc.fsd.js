@@ -72,7 +72,8 @@ module.exports = {
           // Pages cannot import from other pages
           {
             group: ['@/pages/*/*'],
-            message: 'Pages cannot import from other pages. Extract shared logic to widgets, features, or entities.',
+            message:
+              'Pages cannot import from other pages. Extract shared logic to widgets, features, or entities.',
           },
           // Widgets cannot import from pages
           {
@@ -92,12 +93,14 @@ module.exports = {
           // Shared cannot import from any other layer
           {
             group: ['@/app/**', '@/pages/**', '@/widgets/**', '@/features/**', '@/entities/**'],
-            message: 'Shared layer cannot import from any other layer. It should be completely independent.',
+            message:
+              'Shared layer cannot import from any other layer. It should be completely independent.',
           },
           // Features cannot cross-import from other features
           {
             group: ['@/features/*/lib', '@/features/*/api', '@/features/*/model'],
-            message: 'Features should not import internal modules from other features. Use public API exports.',
+            message:
+              'Features should not import internal modules from other features. Use public API exports.',
           },
         ],
       },
@@ -114,7 +117,8 @@ module.exports = {
             patterns: [
               {
                 group: ['@/pages/*/*'],
-                message: 'Pages cannot import from other pages. Extract shared logic to widgets, features, or entities.',
+                message:
+                  'Pages cannot import from other pages. Extract shared logic to widgets, features, or entities.',
               },
             ],
           },
@@ -156,7 +160,8 @@ module.exports = {
               },
               {
                 group: ['@/features/*/lib/**', '@/features/*/api/**', '@/features/*/model/**'],
-                message: 'Features should not import internals from other features. Use public API exports.',
+                message:
+                  'Features should not import internals from other features. Use public API exports.',
               },
             ],
           },

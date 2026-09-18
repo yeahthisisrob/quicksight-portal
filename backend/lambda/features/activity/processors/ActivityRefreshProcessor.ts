@@ -14,11 +14,11 @@ import { ACTIVITY_LIMITS } from '../../../shared/constants';
 import { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { CacheService } from '../../../shared/services/cache/CacheService';
 import { IngestionRefreshService } from '../../../shared/services/ingestions/IngestionRefreshService';
-import { type JobStateService } from '../../../shared/services/jobs/JobStateService';
+import type { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { logger } from '../../../shared/utils/logger';
 import { GroupService } from '../../organization/services/GroupService';
 import { ActivityService, type EventNameProgress } from '../services/ActivityService';
-import { type ActivityRefreshRequest } from '../types';
+import type { ActivityRefreshRequest } from '../types';
 
 export interface ActivityRefreshOptions {
   assetTypes: ('dashboard' | 'analysis' | 'user' | 'all')[];
@@ -66,7 +66,7 @@ export class ActivityRefreshProcessor {
   private jobId: string = '';
   private jobStateService: JobStateService | null = null;
 
-  constructor(region: string = 'us-east-1') {
+  public constructor(region: string = 'us-east-1') {
     const cacheService = CacheService.getInstance();
     const cloudTrailClient = new CloudTrailClient({ region });
     const cloudTrailAdapter = new CloudTrailAdapter(cloudTrailClient, region);
@@ -366,10 +366,10 @@ export class ActivityRefreshProcessor {
           err: err instanceof Error ? err.message : err,
         });
       }
-      // eslint-disable-next-line no-undef
+
       setTimeout(tick, ACTIVITY_LIMITS.ABORT_POLL_INTERVAL_MS);
     };
-    // eslint-disable-next-line no-undef
+
     setTimeout(tick, ACTIVITY_LIMITS.ABORT_POLL_INTERVAL_MS);
     return () => {
       stopped = true;

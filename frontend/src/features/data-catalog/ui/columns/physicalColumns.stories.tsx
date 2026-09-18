@@ -1,10 +1,9 @@
 import { Box, Typography } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
-
-import { createPhysicalColumns } from './physicalColumns';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import type { PhysicalFieldRow } from '../../types';
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import { createPhysicalColumns } from './physicalColumns';
 
 const mockData: PhysicalFieldRow[] = [
   {
@@ -98,10 +97,8 @@ const mockData: PhysicalFieldRow[] = [
 ];
 
 const defaultCallbacks = {
-  onShowDetails: (field: PhysicalFieldRow) =>
-    alert(`Show details for: ${field.fieldName}`),
-  onShowVariants: (field: PhysicalFieldRow) =>
-    alert(`Show variants for: ${field.fieldName}`),
+  onShowDetails: (field: PhysicalFieldRow) => alert(`Show details for: ${field.fieldName}`),
+  onShowVariants: (field: PhysicalFieldRow) => alert(`Show variants for: ${field.fieldName}`),
 };
 
 const meta: Meta = {
@@ -121,13 +118,7 @@ const meta: Meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const StorySection = ({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) => (
+const StorySection = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <Box sx={{ mb: 4 }}>
     <Typography variant="h6" gutterBottom sx={{ mb: 2, fontWeight: 500 }}>
       {title}
@@ -158,9 +149,7 @@ export const AllColumns: Story = {
 export const FieldNameVariants: Story = {
   render: () => {
     const columns = createPhysicalColumns(defaultCallbacks);
-    const filteredData = mockData.filter(
-      (d) => d.isCalculated || d.hasVariants
-    );
+    const filteredData = mockData.filter((d) => d.isCalculated || d.hasVariants);
     return (
       <StorySection title="Field Name Variants (Calculated & Data Type Variants)">
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

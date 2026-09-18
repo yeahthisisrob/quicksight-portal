@@ -1,4 +1,4 @@
-import { type AssetType } from '../../../shared/types/assetTypes';
+import type { AssetType } from '../../../shared/types/assetTypes';
 
 export interface Tag {
   key: string;

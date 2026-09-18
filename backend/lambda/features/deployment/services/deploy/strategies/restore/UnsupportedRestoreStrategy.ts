@@ -1,7 +1,7 @@
-import { BaseAssetRestoreStrategy } from './BaseAssetRestoreStrategy';
 import type { AssetExportData } from '../../../../../../shared/models/asset-export.model';
 import { logger } from '../../../../../../shared/utils/logger';
 import type { ValidationResult } from '../../types';
+import { BaseAssetRestoreStrategy } from './BaseAssetRestoreStrategy';
 
 /**
  * Strategy for asset types that don't support restore operations

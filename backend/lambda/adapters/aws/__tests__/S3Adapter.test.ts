@@ -1,5 +1,5 @@
 import { S3Client } from '@aws-sdk/client-s3';
-import { vi, type Mock, type Mocked } from 'vitest';
+import { type Mock, type Mocked, vi } from 'vitest';
 /**
  * Tests for S3Adapter to ensure proper initialization patterns
  * and prevent regression of dynamic import issues
@@ -110,12 +110,12 @@ describe('S3Adapter', () => {
       let rateLimiterCalled = false;
       let s3OperationCalled = false;
 
-      (s3RateLimiter.waitForToken as Mock).mockImplementation(() => {
+      (s3RateLimiter.waitForToken as Mock).mockImplementation(function () {
         rateLimiterCalled = true;
         return Promise.resolve();
       });
 
-      s3Client.send = vi.fn().mockImplementation(() => {
+      s3Client.send = vi.fn().mockImplementation(function () {
         // Rate limiter should be called before S3 operation
         expect(rateLimiterCalled).toBe(true);
         s3OperationCalled = true;

@@ -1,10 +1,9 @@
 import { Box, Typography } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
-
-import { createCalculatedColumns } from './calculatedColumns';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import type { CalculatedFieldRow } from '../../types';
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import { createCalculatedColumns } from './calculatedColumns';
 
 const mockData: CalculatedFieldRow[] = [
   {
@@ -37,9 +36,7 @@ const mockData: CalculatedFieldRow[] = [
     expressionLength: 42,
     hasComments: true,
     usageCount: 12,
-    sources: [
-      { assetType: 'analysis', assetId: 'an-1', assetName: 'Profit Analysis' },
-    ],
+    sources: [{ assetType: 'analysis', assetId: 'an-1', assetName: 'Profit Analysis' }],
     fieldReferences: ['revenue', 'cost'],
     expressions: [
       '({revenue} - {cost}) / {revenue} * 100',
@@ -53,8 +50,7 @@ const mockData: CalculatedFieldRow[] = [
     dataType: 'DECIMAL',
     isCalculated: true,
     hasVariants: false,
-    expression:
-      'percentDifference(sum({amount}), [{date} ASC], PRE_AGG, -1, Year)',
+    expression: 'percentDifference(sum({amount}), [{date} ASC], PRE_AGG, -1, Year)',
     expressionLength: 68,
     hasComments: false,
     usageCount: 5,
@@ -82,9 +78,7 @@ const mockData: CalculatedFieldRow[] = [
     expressionLength: 180,
     hasComments: true,
     usageCount: 3,
-    sources: [
-      { assetType: 'dataset', assetId: 'ds-3', assetName: 'Regional Dataset' },
-    ],
+    sources: [{ assetType: 'dataset', assetId: 'ds-3', assetName: 'Regional Dataset' }],
     fieldReferences: ['region', 'amount'],
   },
   {
@@ -129,24 +123,14 @@ sumOver(
       { assetType: 'analysis', assetId: 'an-3', assetName: 'Regional Analysis' },
       { assetType: 'dashboard', assetId: 'db-4', assetName: 'Complex Dashboard' },
     ],
-    fieldReferences: [
-      'status',
-      'region',
-      'amount',
-      'exchange_rate',
-      'discount_rate',
-      'category',
-    ],
+    fieldReferences: ['status', 'region', 'amount', 'exchange_rate', 'discount_rate', 'category'],
   },
 ];
 
 const defaultCallbacks = {
-  onShowExpression: (field: CalculatedFieldRow) =>
-    alert(`Show expression for: ${field.fieldName}`),
-  onShowDetails: (field: CalculatedFieldRow) =>
-    alert(`Show details for: ${field.fieldName}`),
-  onShowVariants: (field: CalculatedFieldRow) =>
-    alert(`Show variants for: ${field.fieldName}`),
+  onShowExpression: (field: CalculatedFieldRow) => alert(`Show expression for: ${field.fieldName}`),
+  onShowDetails: (field: CalculatedFieldRow) => alert(`Show details for: ${field.fieldName}`),
+  onShowVariants: (field: CalculatedFieldRow) => alert(`Show variants for: ${field.fieldName}`),
 };
 
 const meta: Meta = {
@@ -166,13 +150,7 @@ const meta: Meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const StorySection = ({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) => (
+const StorySection = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <Box sx={{ mb: 4 }}>
     <Typography variant="h6" gutterBottom sx={{ mb: 2, fontWeight: 500 }}>
       {title}
@@ -207,8 +185,7 @@ export const ExpressionLengthVariants: Story = {
     return (
       <StorySection title="Expression Length Color Coding">
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Expression length chips are color-coded: green (&lt;100), yellow
-          (100-500), red (&gt;500)
+          Expression length chips are color-coded: green (&lt;100), yellow (100-500), red (&gt;500)
         </Typography>
         <Box sx={{ height: 400, width: '100%' }}>
           <DataGrid
@@ -231,9 +208,9 @@ export const FieldsWithConflicts: Story = {
     return (
       <StorySection title="Fields with Expression Conflicts">
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          When the same field name resolves to more than one distinct expression
-          across assets, the field name shows a red conflict icon and the
-          expression cell shows a "N conflicting expressions" button.
+          When the same field name resolves to more than one distinct expression across assets, the
+          field name shows a red conflict icon and the expression cell shows a "N conflicting
+          expressions" button.
         </Typography>
         <Box sx={{ height: 300, width: '100%' }}>
           <DataGrid
@@ -278,8 +255,7 @@ export const SourcesDisplay: Story = {
     return (
       <StorySection title="Asset Sources Display">
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Sources column shows grouped asset chips with tooltips containing
-          asset names
+          Sources column shows grouped asset chips with tooltips containing asset names
         </Typography>
         <Box sx={{ height: 400, width: '100%' }}>
           <DataGrid

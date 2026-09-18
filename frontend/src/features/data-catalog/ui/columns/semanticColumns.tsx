@@ -1,15 +1,15 @@
 import {
   Calculate as CalculateIcon,
-  Warning as WarningIcon,
-  Edit as EditIcon,
   Delete as DeleteIcon,
+  Edit as EditIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
-import { Box, Chip, Button, IconButton, Tooltip, Typography } from '@mui/material';
-import { GridColDef } from '@mui/x-data-grid';
+import { Box, Button, Chip, IconButton, Tooltip, Typography } from '@mui/material';
+import type { GridColDef } from '@mui/x-data-grid';
 
 import { CountCell } from '@/shared/ui/DataGrid/cells';
 
-import type { SemanticTermRow, SemanticColumnsCallbacks } from '../../types';
+import type { SemanticColumnsCallbacks, SemanticTermRow } from '../../types';
 
 interface CreateSemanticColumnsProps extends SemanticColumnsCallbacks {
   visualFieldCatalog?: {
@@ -134,10 +134,10 @@ export function createSemanticColumns({
             value={count}
             tooltipContent={
               <Box>
-                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                <Typography variant="body2" sx={{ display: 'block', fontWeight: 'bold', mb: 0.5 }}>
                   Visual Usage Count: {count}
                 </Typography>
-                <Typography variant="caption" display="block">
+                <Typography variant="caption">
                   Times used in visuals across all dashboards/analyses
                 </Typography>
               </Box>
@@ -194,11 +194,7 @@ export function createSemanticColumns({
             </IconButton>
           </Tooltip>
           <Tooltip title="Delete">
-            <IconButton
-              size="small"
-              color="error"
-              onClick={() => onDeleteTerm(params.row)}
-            >
+            <IconButton size="small" color="error" onClick={() => onDeleteTerm(params.row)}>
               <DeleteIcon fontSize="small" />
             </IconButton>
           </Tooltip>

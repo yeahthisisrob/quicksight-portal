@@ -1,5 +1,5 @@
 import { api as apiClient } from '../client';
-import { ApiResponse } from '../types';
+import type { ApiResponse } from '../types';
 
 /**
  * Scripts API - handles automation scripts like demo cleanup

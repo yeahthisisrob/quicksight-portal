@@ -1,14 +1,7 @@
 /**
  * Assets list component for BulkDeleteDialog
  */
-import { 
-  Box, 
-  Typography, 
-  List, 
-  ListItem, 
-  ListItemIcon, 
-  ListItemText 
-} from '@mui/material';
+import { Box, List, ListItem, ListItemIcon, ListItemText, Typography } from '@mui/material';
 
 import { colors } from '@/shared/design-system/theme';
 import { assetIcons } from '@/shared/ui/icons';
@@ -29,18 +22,20 @@ function AssetDependencies({ asset }: { asset: Asset }) {
     <Box sx={{ ml: 5, mt: 0.5 }}>
       {hasUsedBy && (
         <Box sx={{ mb: 1 }}>
-          <Typography 
-            variant="caption" 
-            color="error" 
-            sx={{ fontWeight: 600, display: 'block' }}
-          >
-            ⚠️ Used by {asset.usedBy?.length} asset{asset.usedBy && asset.usedBy.length > 1 ? 's' : ''}:
+          <Typography variant="caption" color="error" sx={{ fontWeight: 600, display: 'block' }}>
+            ⚠️ Used by {asset.usedBy?.length} asset
+            {asset.usedBy && asset.usedBy.length > 1 ? 's' : ''}:
           </Typography>
           {asset.usedBy?.map((dep, idx) => {
             const DepIcon = assetIcons[dep.type as keyof typeof assetIcons] || assetIcons.dataset;
             return (
               <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 2 }}>
-                <DepIcon sx={{ fontSize: '0.875rem', color: colors.assetTypes[dep.type as keyof typeof colors.assetTypes]?.main }} />
+                <DepIcon
+                  sx={{
+                    fontSize: '0.875rem',
+                    color: colors.assetTypes[dep.type as keyof typeof colors.assetTypes]?.main,
+                  }}
+                />
                 <Typography variant="caption" color="text.secondary">
                   {dep.name}
                 </Typography>
@@ -49,21 +44,22 @@ function AssetDependencies({ asset }: { asset: Asset }) {
           })}
         </Box>
       )}
-      
+
       {hasUses && (
         <Box>
-          <Typography 
-            variant="caption" 
-            color="text.secondary" 
-            sx={{ display: 'block' }}
-          >
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
             Uses {asset.uses?.length} asset{asset.uses && asset.uses.length > 1 ? 's' : ''}:
           </Typography>
           {asset.uses?.map((dep, idx) => {
             const DepIcon = assetIcons[dep.type as keyof typeof assetIcons] || assetIcons.dataset;
             return (
               <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 2 }}>
-                <DepIcon sx={{ fontSize: '0.875rem', color: colors.assetTypes[dep.type as keyof typeof colors.assetTypes]?.main }} />
+                <DepIcon
+                  sx={{
+                    fontSize: '0.875rem',
+                    color: colors.assetTypes[dep.type as keyof typeof colors.assetTypes]?.main,
+                  }}
+                />
                 <Typography variant="caption" color="text.secondary">
                   {dep.name}
                 </Typography>
@@ -79,7 +75,7 @@ function AssetDependencies({ asset }: { asset: Asset }) {
 export function AssetsList({ assets }: AssetsListProps) {
   return (
     <Box>
-      <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
         Assets to be deleted and their dependencies:
       </Typography>
       <Box
@@ -95,29 +91,32 @@ export function AssetsList({ assets }: AssetsListProps) {
         <List dense disablePadding>
           {assets.map((asset) => {
             const AssetIcon = assetIcons[asset.type];
-            const hasDependencies = (asset.usedBy && asset.usedBy.length > 0) || 
-                                   (asset.uses && asset.uses.length > 0);
-            
+            const hasDependencies =
+              (asset.usedBy && asset.usedBy.length > 0) || (asset.uses && asset.uses.length > 0);
+
             return (
               <Box key={asset.id} sx={{ mb: hasDependencies ? 2 : 1 }}>
                 <ListItem disableGutters>
                   <ListItemIcon sx={{ minWidth: 32 }}>
-                    <AssetIcon 
-                      sx={{ 
+                    <AssetIcon
+                      sx={{
                         fontSize: '1rem',
                         color: colors.assetTypes[asset.type].main,
-                      }} 
+                      }}
                     />
                   </ListItemIcon>
                   <ListItemText
                     primary={asset.name}
                     secondary={asset.type}
-                    primaryTypographyProps={{
-                      variant: 'body2',
-                      fontWeight: hasDependencies ? 600 : 400,
-                    }}
-                    secondaryTypographyProps={{
-                      variant: 'caption',
+                    slotProps={{
+                      primary: {
+                        variant: 'body2',
+                        sx: { fontWeight: hasDependencies ? 600 : 400 },
+                      },
+
+                      secondary: {
+                        variant: 'caption',
+                      },
                     }}
                   />
                 </ListItem>

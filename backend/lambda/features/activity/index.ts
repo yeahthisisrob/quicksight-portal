@@ -1,14 +1,14 @@
+import type { RouteHandler } from '../../api/types';
 import {
-  refreshActivity,
   getActivityData,
   getActivitySummary,
-  resolveRecipients,
+  getAssetTimeline,
+  getTimeline,
   getUserInactiveAnalyses,
   getUserUnusedDatasets,
-  getTimeline,
-  getAssetTimeline,
+  refreshActivity,
+  resolveRecipients,
 } from './handlers/ActivityHandler';
-import { type RouteHandler } from '../../api/types';
 
 export const activityRoutes: RouteHandler[] = [
   // Timeline routes — registered BEFORE the /activity/{assetType}/{assetId}
@@ -55,20 +55,18 @@ export const activityRoutes: RouteHandler[] = [
   },
 ];
 
-// Export handlers
-export {
-  refreshActivity,
-  getActivityData,
-  getActivitySummary,
-  resolveRecipients,
-  getUserInactiveAnalyses,
-  getUserUnusedDatasets,
-  getTimeline,
-  getAssetTimeline,
-};
-
-// Export types
-export type * from './types';
-
 // Export service
 export { ActivityService } from './services/ActivityService';
+// Export types
+export type * from './types';
+// Export handlers
+export {
+  getActivityData,
+  getActivitySummary,
+  getAssetTimeline,
+  getTimeline,
+  getUserInactiveAnalyses,
+  getUserUnusedDatasets,
+  refreshActivity,
+  resolveRecipients,
+};

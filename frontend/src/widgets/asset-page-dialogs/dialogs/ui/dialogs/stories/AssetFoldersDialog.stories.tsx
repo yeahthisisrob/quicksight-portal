@@ -1,6 +1,6 @@
-import AssetFoldersDialog from '../AssetFoldersDialog';
-
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import AssetFoldersDialog from '../AssetFoldersDialog';
 
 const meta: Meta<typeof AssetFoldersDialog> = {
   title: 'Widgets/AssetDialogs/AssetFoldersDialog',
@@ -9,7 +9,8 @@ const meta: Meta<typeof AssetFoldersDialog> = {
     layout: 'centered',
     docs: {
       description: {
-        component: 'A dialog component for displaying folder memberships of assets with hierarchical paths and visual organization.',
+        component:
+          'A dialog component for displaying folder memberships of assets with hierarchical paths and visual organization.',
       },
     },
   },
@@ -42,20 +43,20 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const mockFolders = [
-  { 
-    id: 'folder-1', 
-    name: 'Sales Reports', 
-    path: '/Company Data/Sales/Sales Reports' 
+  {
+    id: 'folder-1',
+    name: 'Sales Reports',
+    path: '/Company Data/Sales/Sales Reports',
   },
-  { 
-    id: 'folder-2', 
-    name: 'Q4 2023', 
-    path: '/Company Data/Sales/Quarterly Reports/Q4 2023' 
+  {
+    id: 'folder-2',
+    name: 'Q4 2023',
+    path: '/Company Data/Sales/Quarterly Reports/Q4 2023',
   },
-  { 
-    id: 'folder-3', 
-    name: 'Executive Dashboards', 
-    path: '/Executive Dashboards' 
+  {
+    id: 'folder-3',
+    name: 'Executive Dashboards',
+    path: '/Executive Dashboards',
   },
 ];
 
@@ -74,10 +75,10 @@ export const SingleFolder: Story = {
     assetName: 'Customer Analysis',
     assetType: 'Analysis',
     folders: [
-      { 
-        id: 'folder-1', 
-        name: 'Customer Insights', 
-        path: '/Analytics/Customer Insights' 
+      {
+        id: 'folder-1',
+        name: 'Customer Insights',
+        path: '/Analytics/Customer Insights',
       },
     ],
   },
@@ -116,15 +117,15 @@ export const LongPaths: Story = {
     assetName: 'Deeply Nested Dataset',
     assetType: 'Dataset',
     folders: [
-      { 
-        id: 'folder-1', 
-        name: 'Metrics', 
-        path: '/Company/Division/Department/Team/Project/Subproject/Data/Metrics' 
+      {
+        id: 'folder-1',
+        name: 'Metrics',
+        path: '/Company/Division/Department/Team/Project/Subproject/Data/Metrics',
       },
-      { 
-        id: 'folder-2', 
-        name: 'Archive', 
-        path: '/Historical/2020/Q1/January/Week1/Daily/Reports/Archive' 
+      {
+        id: 'folder-2',
+        name: 'Archive',
+        path: '/Historical/2020/Q1/January/Week1/Daily/Reports/Archive',
       },
     ],
   },
@@ -136,20 +137,20 @@ export const SpecialCharacterPaths: Story = {
     assetName: 'International Sales Data',
     assetType: 'Data source',
     folders: [
-      { 
-        id: 'folder-1', 
-        name: 'Sales & Marketing', 
-        path: '/Sales & Marketing' 
+      {
+        id: 'folder-1',
+        name: 'Sales & Marketing',
+        path: '/Sales & Marketing',
       },
-      { 
-        id: 'folder-2', 
-        name: 'EMEA (Europe, Middle East & Africa)', 
-        path: '/Regions/EMEA (Europe, Middle East & Africa)' 
+      {
+        id: 'folder-2',
+        name: 'EMEA (Europe, Middle East & Africa)',
+        path: '/Regions/EMEA (Europe, Middle East & Africa)',
       },
-      { 
-        id: 'folder-3', 
-        name: '日本 (Japan)', 
-        path: '/Regions/APAC/日本 (Japan)' 
+      {
+        id: 'folder-3',
+        name: '日本 (Japan)',
+        path: '/Regions/APAC/日本 (Japan)',
       },
     ],
   },
@@ -161,30 +162,30 @@ export const DuplicateNames: Story = {
     assetName: 'Multi-Department Report',
     assetType: 'Dashboard',
     folders: [
-      { 
-        id: 'folder-1', 
-        name: 'Reports', 
-        path: '/Sales/Reports' 
+      {
+        id: 'folder-1',
+        name: 'Reports',
+        path: '/Sales/Reports',
       },
-      { 
-        id: 'folder-2', 
-        name: 'Reports', 
-        path: '/Marketing/Reports' 
+      {
+        id: 'folder-2',
+        name: 'Reports',
+        path: '/Marketing/Reports',
       },
-      { 
-        id: 'folder-3', 
-        name: 'Reports', 
-        path: '/Finance/Reports' 
+      {
+        id: 'folder-3',
+        name: 'Reports',
+        path: '/Finance/Reports',
       },
-      { 
-        id: 'folder-4', 
-        name: 'Dashboards', 
-        path: '/Sales/Dashboards' 
+      {
+        id: 'folder-4',
+        name: 'Dashboards',
+        path: '/Sales/Dashboards',
       },
-      { 
-        id: 'folder-5', 
-        name: 'Dashboards', 
-        path: '/Executive/Dashboards' 
+      {
+        id: 'folder-5',
+        name: 'Dashboards',
+        path: '/Executive/Dashboards',
       },
     ],
   },

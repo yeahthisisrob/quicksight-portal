@@ -1,15 +1,15 @@
 import {
-  type S3Client,
-  GetObjectCommand,
-  PutObjectCommand,
-  DeleteObjectCommand,
-  ListObjectsV2Command,
-  HeadObjectCommand,
   CreateBucketCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
   HeadBucketCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
   PutBucketCorsCommand,
   PutBucketLifecycleConfigurationCommand,
   PutBucketVersioningCommand,
+  PutObjectCommand,
+  type S3Client,
 } from '@aws-sdk/client-s3';
 
 import { withRetry } from '../../shared/utils/awsRetry';
@@ -23,7 +23,7 @@ export class S3Adapter {
   private readonly awsAccountId: string;
   private readonly client: S3Client;
 
-  constructor(client: S3Client, awsAccountId: string) {
+  public constructor(client: S3Client, awsAccountId: string) {
     this.client = client;
     this.awsAccountId = awsAccountId;
   }

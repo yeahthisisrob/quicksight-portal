@@ -3,21 +3,21 @@
  * Follows FSD architecture and DRY principles
  */
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
-  Typography,
   Chip,
-  Stack,
-  Divider,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  Stack,
+  Typography,
   useTheme,
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { assetsApi } from '@/shared/api';
 import { spacing } from '@/shared/design-system/theme';
@@ -31,42 +31,39 @@ import { ConfirmationSection } from './components/ConfirmationSection';
 import { ProgressSection } from './components/ProgressSection';
 import { RestorationInfo } from './components/RestorationInfo';
 import { WarningsSection } from './components/WarningsSection';
-
-import type { BulkDeleteDialogProps, Asset } from './types';
+import type { Asset, BulkDeleteDialogProps } from './types';
 
 const DeleteIcon = actionIcons.delete;
 
 // Helper functions
 function groupAssetsByType(assets: Asset[]): Record<string, Asset[]> {
-  return assets.reduce((acc, asset) => {
-    if (!acc[asset.type]) {
-      acc[asset.type] = [];
-    }
-    acc[asset.type].push(asset);
-    return acc;
-  }, {} as Record<string, Asset[]>);
+  return assets.reduce(
+    (acc, asset) => {
+      if (!acc[asset.type]) {
+        acc[asset.type] = [];
+      }
+      acc[asset.type].push(asset);
+      return acc;
+    },
+    {} as Record<string, Asset[]>
+  );
 }
 
 function getAssetsWithDependents(assets: Asset[]): Asset[] {
-  return assets.filter(asset => asset.usedBy && asset.usedBy.length > 0);
+  return assets.filter((asset) => asset.usedBy && asset.usedBy.length > 0);
 }
 
 function hasNonRestorableAssets(assets: Asset[]): boolean {
-  return assets.some(asset => asset.type !== 'analysis');
+  return assets.some((asset) => asset.type !== 'analysis');
 }
 
-export function BulkDeleteDialog({
-  open,
-  onClose,
-  assets,
-  onComplete,
-}: BulkDeleteDialogProps) {
+export function BulkDeleteDialog({ open, onClose, assets, onComplete }: BulkDeleteDialogProps) {
   const theme = useTheme();
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
   // Optional: absent in Storybook, present under the app's AssetsProvider
   const assetsContext = useAssetsOptional();
-  
+
   // State
   const [reason, setReason] = useState('');
   const [confirmText, setConfirmText] = useState('');
@@ -125,10 +122,13 @@ export function BulkDeleteDialog({
     }, 1500);
   }, [enqueueSnackbar, onClose, onComplete, queryClient, assets, assetsContext]);
 
-  const handleJobFailed = useCallback((job: any) => {
-    enqueueSnackbar(job.error || 'Failed to delete assets', { variant: 'error' });
-    setProcessing(false);
-  }, [enqueueSnackbar]);
+  const handleJobFailed = useCallback(
+    (job: any) => {
+      enqueueSnackbar(job.error || 'Failed to delete assets', { variant: 'error' });
+      setProcessing(false);
+    },
+    [enqueueSnackbar]
+  );
 
   // Set up job polling
   const { jobStatus, isPolling, startPolling } = useJobPolling({
@@ -145,15 +145,15 @@ export function BulkDeleteDialog({
     setProcessing(true);
 
     try {
-      const assetsToDelete = assets.map(asset => ({
+      const assetsToDelete = assets.map((asset) => ({
         type: asset.type,
         id: asset.id,
         name: asset.name,
       }));
-      
+
       const result = await assetsApi.bulkDelete(assetsToDelete, reason.trim());
       const jobId = result?.jobId || result?.data?.jobId;
-      
+
       if (jobId) {
         enqueueSnackbar(`Bulk delete operation started (Job ID: ${jobId})`, { variant: 'info' });
         startPolling(jobId);
@@ -169,14 +169,20 @@ export function BulkDeleteDialog({
       enqueueSnackbar(error.message || 'Failed to delete assets', { variant: 'error' });
       setProcessing(false);
     }
-  }, [confirmText, expectedConfirmText, reason, assets, enqueueSnackbar, startPolling, onClose, onComplete]);
+  }, [
+    confirmText,
+    expectedConfirmText,
+    reason,
+    assets,
+    enqueueSnackbar,
+    startPolling,
+    onClose,
+    onComplete,
+  ]);
 
   // Check if confirm button should be enabled
-  const isConfirmEnabled = 
-    confirmText === expectedConfirmText && 
-    reason.trim().length > 0 && 
-    !processing && 
-    !isPolling;
+  const isConfirmEnabled =
+    confirmText === expectedConfirmText && reason.trim().length > 0 && !processing && !isPolling;
 
   return (
     <Dialog
@@ -184,10 +190,12 @@ export function BulkDeleteDialog({
       onClose={!processing && !isPolling ? onClose : undefined}
       maxWidth="md"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: spacing.sm / 8,
-          boxShadow: theme.shadows[24],
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: spacing.sm / 8,
+            boxShadow: theme.shadows[24],
+          },
         },
       }}
     >
@@ -200,7 +208,7 @@ export function BulkDeleteDialog({
         }}
       >
         <DeleteIcon sx={{ color: theme.palette.error.main }} />
-        <Typography variant="h6" component="span" fontWeight={600}>
+        <Typography sx={{ fontWeight: 600 }} variant="h6" component="span">
           Confirm Bulk Delete
         </Typography>
         <Chip
@@ -215,26 +223,24 @@ export function BulkDeleteDialog({
       <DialogContent>
         <Stack spacing={2}>
           {/* Progress section when job is running */}
-          {isPolling && jobStatus && (
-            <ProgressSection jobStatus={jobStatus} />
-          )}
+          {isPolling && jobStatus && <ProgressSection jobStatus={jobStatus} />}
 
           {/* Main content when not processing */}
           {!isPolling && (
             <>
-              <WarningsSection 
+              <WarningsSection
                 hasNonRestorableAssets={hasNonRestorable}
                 assetsWithDependents={assetsWithDependents}
               />
-              
+
               <RestorationInfo assetsByType={assetsByType} />
-              
+
               <Divider />
-              
+
               <AssetsList assets={assets} />
-              
+
               <Divider />
-              
+
               <ConfirmationSection
                 reason={reason}
                 setReason={setReason}
@@ -248,11 +254,7 @@ export function BulkDeleteDialog({
       </DialogContent>
 
       <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button
-          onClick={onClose}
-          disabled={processing || isPolling}
-          sx={{ minWidth: 100 }}
-        >
+        <Button onClick={onClose} disabled={processing || isPolling} sx={{ minWidth: 100 }}>
           Cancel
         </Button>
         {!isPolling && (

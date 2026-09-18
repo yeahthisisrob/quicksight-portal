@@ -1,8 +1,8 @@
-import { RelatedAsset } from '@/entities/asset';
+import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import type { RelatedAsset } from '@/entities/asset';
 
 import RelatedAssetsDialog from '../RelatedAssetsDialog';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta: Meta<typeof RelatedAssetsDialog> = {
   title: 'Features/AssetManagement/RelatedAssetsDialog',
@@ -11,7 +11,8 @@ const meta: Meta<typeof RelatedAssetsDialog> = {
     layout: 'centered',
     docs: {
       description: {
-        component: 'A dialog component for viewing asset relationships with a two-column layout showing "Used By" and "Uses" relationships.',
+        component:
+          'A dialog component for viewing asset relationships with a two-column layout showing "Used By" and "Uses" relationships.',
       },
     },
   },
@@ -21,7 +22,14 @@ const meta: Meta<typeof RelatedAssetsDialog> = {
       // In docs mode, don't render the dialog open by default
       if (context.viewMode === 'docs') {
         return (
-          <div style={{ height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div
+            style={{
+              height: '100px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
             <p>Dialog component - Click on a story to see it in action</p>
           </div>
         );
@@ -59,8 +67,8 @@ type Story = StoryObj<typeof meta>;
 
 // Mock data generators
 const createMockAsset = (
-  id: string, 
-  name: string, 
+  id: string,
+  name: string,
   type: 'dashboard' | 'analysis' | 'dataset' | 'datasource',
   relationshipType: string = 'uses',
   activity?: { totalViews?: number; uniqueViewers?: number; lastViewed?: string | null }
@@ -69,20 +77,32 @@ const createMockAsset = (
   name,
   type,
   relationshipType,
-  ...(activity && { activity })
+  ...(activity && { activity }),
 });
 
 const mockRelatedAssets = {
   comprehensive: {
     usedBy: [
-      createMockAsset('dash-001', 'Executive Summary Dashboard', 'dashboard', 'used_by', 
-        { totalViews: 1250, uniqueViewers: 45, lastViewed: '2024-01-15T14:30:00Z' }),
-      createMockAsset('dash-002', 'Sales Performance Dashboard', 'dashboard', 'used_by',
-        { totalViews: 850, uniqueViewers: 32, lastViewed: '2024-01-15T09:15:00Z' }),
-      createMockAsset('analysis-001', 'Quarterly Revenue Analysis', 'analysis', 'used_by',
-        { totalViews: 420, uniqueViewers: 18, lastViewed: '2024-01-14T16:45:00Z' }),
-      createMockAsset('analysis-002', 'Customer Segmentation Study', 'analysis', 'used_by',
-        { totalViews: 280, uniqueViewers: 12, lastViewed: '2024-01-13T11:20:00Z' }),
+      createMockAsset('dash-001', 'Executive Summary Dashboard', 'dashboard', 'used_by', {
+        totalViews: 1250,
+        uniqueViewers: 45,
+        lastViewed: '2024-01-15T14:30:00Z',
+      }),
+      createMockAsset('dash-002', 'Sales Performance Dashboard', 'dashboard', 'used_by', {
+        totalViews: 850,
+        uniqueViewers: 32,
+        lastViewed: '2024-01-15T09:15:00Z',
+      }),
+      createMockAsset('analysis-001', 'Quarterly Revenue Analysis', 'analysis', 'used_by', {
+        totalViews: 420,
+        uniqueViewers: 18,
+        lastViewed: '2024-01-14T16:45:00Z',
+      }),
+      createMockAsset('analysis-002', 'Customer Segmentation Study', 'analysis', 'used_by', {
+        totalViews: 280,
+        uniqueViewers: 12,
+        lastViewed: '2024-01-13T11:20:00Z',
+      }),
     ],
     uses: [
       createMockAsset('dataset-001', 'Sales Transactions 2024', 'dataset', 'uses'),
@@ -94,20 +114,33 @@ const mockRelatedAssets = {
   },
   dashboardHeavy: {
     usedBy: [
-      createMockAsset('dash-001', 'CEO Dashboard', 'dashboard', 'used_by',
-        { totalViews: 2500, uniqueViewers: 85, lastViewed: '2024-01-15T08:00:00Z' }),
-      createMockAsset('dash-002', 'CFO Dashboard', 'dashboard', 'used_by',
-        { totalViews: 1800, uniqueViewers: 62, lastViewed: '2024-01-15T10:30:00Z' }),
-      createMockAsset('dash-003', 'CMO Dashboard', 'dashboard', 'used_by',
-        { totalViews: 1200, uniqueViewers: 48, lastViewed: '2024-01-14T15:45:00Z' }),
-      createMockAsset('dash-004', 'COO Dashboard', 'dashboard', 'used_by',
-        { totalViews: 950, uniqueViewers: 38, lastViewed: '2024-01-15T11:15:00Z' }),
-      createMockAsset('dash-005', 'CTO Dashboard', 'dashboard', 'used_by',
-        { totalViews: 750, uniqueViewers: 28, lastViewed: '2024-01-13T17:20:00Z' }),
+      createMockAsset('dash-001', 'CEO Dashboard', 'dashboard', 'used_by', {
+        totalViews: 2500,
+        uniqueViewers: 85,
+        lastViewed: '2024-01-15T08:00:00Z',
+      }),
+      createMockAsset('dash-002', 'CFO Dashboard', 'dashboard', 'used_by', {
+        totalViews: 1800,
+        uniqueViewers: 62,
+        lastViewed: '2024-01-15T10:30:00Z',
+      }),
+      createMockAsset('dash-003', 'CMO Dashboard', 'dashboard', 'used_by', {
+        totalViews: 1200,
+        uniqueViewers: 48,
+        lastViewed: '2024-01-14T15:45:00Z',
+      }),
+      createMockAsset('dash-004', 'COO Dashboard', 'dashboard', 'used_by', {
+        totalViews: 950,
+        uniqueViewers: 38,
+        lastViewed: '2024-01-15T11:15:00Z',
+      }),
+      createMockAsset('dash-005', 'CTO Dashboard', 'dashboard', 'used_by', {
+        totalViews: 750,
+        uniqueViewers: 28,
+        lastViewed: '2024-01-13T17:20:00Z',
+      }),
     ],
-    uses: [
-      createMockAsset('dataset-001', 'Consolidated KPIs', 'dataset'),
-    ],
+    uses: [createMockAsset('dataset-001', 'Consolidated KPIs', 'dataset')],
   },
   datasetCentric: {
     usedBy: [
@@ -144,9 +177,15 @@ const mockRelatedAssets = {
 // Legacy array format for backward compatibility testing
 const legacyArrayFormat: RelatedAsset[] = [
   { ...createMockAsset('dash-001', 'Legacy Dashboard', 'dashboard'), relationshipType: 'used_by' },
-  { ...createMockAsset('analysis-001', 'Legacy Analysis', 'analysis'), relationshipType: 'used_by' },
+  {
+    ...createMockAsset('analysis-001', 'Legacy Analysis', 'analysis'),
+    relationshipType: 'used_by',
+  },
   { ...createMockAsset('dataset-001', 'Legacy Dataset', 'dataset'), relationshipType: 'uses' },
-  { ...createMockAsset('datasource-001', 'Legacy Datasource', 'datasource'), relationshipType: 'uses' },
+  {
+    ...createMockAsset('datasource-001', 'Legacy Datasource', 'datasource'),
+    relationshipType: 'uses',
+  },
 ];
 
 export const Default: Story = {
@@ -215,20 +254,21 @@ export const LegacyFormat: Story = {
 export const LongAssetNames: Story = {
   args: {
     open: true,
-    assetName: 'Comprehensive Enterprise Resource Planning and Business Intelligence Integration Dashboard for Executive Leadership Team Q4 2024',
+    assetName:
+      'Comprehensive Enterprise Resource Planning and Business Intelligence Integration Dashboard for Executive Leadership Team Q4 2024',
     assetType: 'dashboard',
     relatedAssets: {
       usedBy: [
         createMockAsset(
-          'dash-001', 
-          'Executive Summary Dashboard with Extended Financial Metrics and Operational KPIs for Board Reporting', 
+          'dash-001',
+          'Executive Summary Dashboard with Extended Financial Metrics and Operational KPIs for Board Reporting',
           'dashboard'
         ),
       ],
       uses: [
         createMockAsset(
-          'dataset-001', 
-          'Consolidated Financial and Operational Data from Multiple ERP Systems Including SAP, Oracle, and Microsoft Dynamics', 
+          'dataset-001',
+          'Consolidated Financial and Operational Data from Multiple ERP Systems Including SAP, Oracle, and Microsoft Dynamics',
           'dataset'
         ),
       ],
@@ -265,16 +305,31 @@ export const WithActivityIndicators: Story = {
     assetType: 'dashboard',
     relatedAssets: {
       usedBy: [
-        createMockAsset('dash-001', 'Regional Sales Overview', 'dashboard', 'used_by',
-          { totalViews: 5420, uniqueViewers: 125, lastViewed: '2024-01-15T16:30:00Z' }),
-        createMockAsset('dash-002', 'Product Performance Metrics', 'dashboard', 'used_by',
-          { totalViews: 3210, uniqueViewers: 89, lastViewed: '2024-01-15T14:15:00Z' }),
-        createMockAsset('analysis-001', 'Monthly Sales Trends', 'analysis', 'used_by',
-          { totalViews: 1850, uniqueViewers: 45, lastViewed: '2024-01-15T12:00:00Z' }),
-        createMockAsset('analysis-002', 'Customer Behavior Analysis', 'analysis', 'used_by',
-          { totalViews: 950, uniqueViewers: 28, lastViewed: '2024-01-14T18:45:00Z' }),
-        createMockAsset('analysis-003', 'Inactive Analysis', 'analysis', 'used_by',
-          { totalViews: 0, uniqueViewers: 0, lastViewed: null }),
+        createMockAsset('dash-001', 'Regional Sales Overview', 'dashboard', 'used_by', {
+          totalViews: 5420,
+          uniqueViewers: 125,
+          lastViewed: '2024-01-15T16:30:00Z',
+        }),
+        createMockAsset('dash-002', 'Product Performance Metrics', 'dashboard', 'used_by', {
+          totalViews: 3210,
+          uniqueViewers: 89,
+          lastViewed: '2024-01-15T14:15:00Z',
+        }),
+        createMockAsset('analysis-001', 'Monthly Sales Trends', 'analysis', 'used_by', {
+          totalViews: 1850,
+          uniqueViewers: 45,
+          lastViewed: '2024-01-15T12:00:00Z',
+        }),
+        createMockAsset('analysis-002', 'Customer Behavior Analysis', 'analysis', 'used_by', {
+          totalViews: 950,
+          uniqueViewers: 28,
+          lastViewed: '2024-01-14T18:45:00Z',
+        }),
+        createMockAsset('analysis-003', 'Inactive Analysis', 'analysis', 'used_by', {
+          totalViews: 0,
+          uniqueViewers: 0,
+          lastViewed: null,
+        }),
       ],
       uses: [
         createMockAsset('dataset-001', 'Sales Data Warehouse', 'dataset', 'uses'),

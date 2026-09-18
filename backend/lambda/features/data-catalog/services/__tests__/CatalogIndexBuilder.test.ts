@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { type FieldInfo } from '../../../../shared/services/cache/types';
+import type { FieldInfo } from '../../../../shared/services/cache/types';
 import { CatalogIndexBuilder } from '../CatalogIndexBuilder';
 
 const EXPECTED_DISTINCT_FIELDS = 3;
@@ -65,8 +65,8 @@ describe('CatalogIndexBuilder.build', () => {
       field({ fieldName: 'Cost' }),
     ]);
 
-    expect(index.lineage['Revenue']).toContain('Margin');
-    expect(index.lineage['Cost']).toContain('Margin');
+    expect(index.lineage.Revenue).toContain('Margin');
+    expect(index.lineage.Cost).toContain('Margin');
     expect(index.summary.totalDistinctFields).toBe(EXPECTED_DISTINCT_FIELDS);
   });
 });

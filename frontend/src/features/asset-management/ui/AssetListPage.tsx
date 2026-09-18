@@ -4,30 +4,31 @@ import {
   LocalOffer as TagIcon,
 } from '@mui/icons-material';
 import {
-  Box,
-  Paper,
-  Typography,
-  CircularProgress,
   Alert,
+  Box,
+  CircularProgress,
   IconButton,
-  Tooltip,
-  TextField,
   InputAdornment,
+  Paper,
+  TextField,
+  Tooltip,
+  Typography,
 } from '@mui/material';
 import {
   DataGrid,
-  GridColDef,
-  GridRowSelectionModel,
+  type GridColDef,
+  type GridRowSelectionModel,
   type GridSortModel,
 } from '@mui/x-data-grid';
 import { useSnackbar } from 'notistack';
-import { useState, useEffect, ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 
 import { AddToFolderDialog } from '@/entities/folder';
 import { BulkTagDialog } from '@/entities/tag';
 
 import { assetsApi } from '@/shared/api';
 import { useDebounce } from '@/shared/lib';
+import { EMPTY_SELECTION, isRowSelected, selectionCount } from '@/shared/lib/gridSelection';
 
 interface AssetListPageProps {
   title: string;
@@ -68,64 +69,56 @@ export default function AssetListPage({
   const { enqueueSnackbar } = useSnackbar();
   const [refreshing, setRefreshing] = useState(false);
   const [refreshingTags, setRefreshingTags] = useState(false);
-  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
+  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>(EMPTY_SELECTION);
   const [addToFolderOpen, setAddToFolderOpen] = useState(false);
   const [bulkTagOpen, setBulkTagOpen] = useState(false);
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: defaultPageSize });
   const [searchTerm, setSearchTerm] = useState('');
   const [sortModel, setSortModel] = useState<GridSortModel>(defaultSortModel);
-  
+
   // Debounce search term
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
-  
+
   // Use lineage hook for related assets
   const getRelatedAssetsForAsset = (_assetId: string) => [];
-  
+
   // Fetch assets when pagination or search changes
   useEffect(() => {
-    onFetchAssets(
-      paginationModel.page + 1,
-      paginationModel.pageSize,
-      debouncedSearchTerm
-    );
+    onFetchAssets(paginationModel.page + 1, paginationModel.pageSize, debouncedSearchTerm);
   }, [paginationModel.page, paginationModel.pageSize, debouncedSearchTerm, onFetchAssets]);
-  
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await onRefreshAssets();
-    await onFetchAssets(
-      paginationModel.page + 1,
-      paginationModel.pageSize,
-      debouncedSearchTerm
-    );
+    await onFetchAssets(paginationModel.page + 1, paginationModel.pageSize, debouncedSearchTerm);
     setRefreshing(false);
   };
-  
-  const selectedAssets = assets.filter((asset: any) => selectedRows.includes(asset.id));
-  
+
+  const selectedAssets = assets.filter((asset: any) => isRowSelected(selectedRows, asset.id));
+
   const handleBulkComplete = () => {
-    setSelectedRows([]);
+    setSelectedRows(EMPTY_SELECTION);
     handleRefresh();
   };
-  
+
   const handleRefreshTags = async () => {
     setRefreshingTags(true);
     try {
       // Get all asset IDs from the current page
       const assetIds = assets.map((asset: any) => asset.id);
-      
+
       if (assetIds.length === 0) {
         enqueueSnackbar('No assets to refresh', { variant: 'info' });
         return;
       }
-      
+
       const result = await assetsApi.refreshAssetTags(assetType, assetIds);
-      
+
       if (result.successful > 0) {
-        enqueueSnackbar(`Successfully refreshed tags for ${result.successful} ${assetType}s`, { 
-          variant: 'success' 
+        enqueueSnackbar(`Successfully refreshed tags for ${result.successful} ${assetType}s`, {
+          variant: 'success',
         });
-        
+
         // Refresh the current page to show updated tags
         await onFetchAssets(
           paginationModel.page + 1,
@@ -133,10 +126,10 @@ export default function AssetListPage({
           debouncedSearchTerm
         );
       }
-      
+
       if (result.failed > 0) {
-        enqueueSnackbar(`Failed to refresh tags for ${result.failed} ${assetType}s`, { 
-          variant: 'error' 
+        enqueueSnackbar(`Failed to refresh tags for ${result.failed} ${assetType}s`, {
+          variant: 'error',
         });
       }
     } catch (_error) {
@@ -145,20 +138,22 @@ export default function AssetListPage({
       setRefreshingTags(false);
     }
   };
-  
+
   // Provide lineage data to columns via context
-  const columnsWithContext = columns.map(col => ({
+  const columnsWithContext = columns.map((col) => ({
     ...col,
     // Add lineage data to render context
-    renderCell: col.renderCell ? (params: any) => {
-      const enhancedParams = { 
-        ...params, 
-        getRelatedAssetsForAsset: (asset: any) => getRelatedAssetsForAsset(asset || params.row)
-      };
-      return col.renderCell!(enhancedParams);
-    } : undefined,
+    renderCell: col.renderCell
+      ? (params: any) => {
+          const enhancedParams = {
+            ...params,
+            getRelatedAssetsForAsset: (asset: any) => getRelatedAssetsForAsset(asset || params.row),
+          };
+          return col.renderCell!(enhancedParams);
+        }
+      : undefined,
   }));
-  
+
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
@@ -181,22 +176,23 @@ export default function AssetListPage({
           </Tooltip>
         </Box>
       </Box>
-      
+
       {/* Bulk Actions Toolbar */}
-      {enableBulkActions && selectedRows.length > 0 && (
+      {enableBulkActions && selectionCount(selectedRows, assets.length) > 0 && (
         <Paper sx={{ mb: 2, p: 2, backgroundColor: 'primary.main', color: 'primary.contrastText' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Typography variant="body1">
-              {selectedRows.length} item{selectedRows.length !== 1 ? 's' : ''} selected
+              {selectionCount(selectedRows, assets.length)} item
+              {selectionCount(selectedRows, assets.length) !== 1 ? 's' : ''} selected
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <IconButton 
+              <IconButton
                 onClick={() => setAddToFolderOpen(true)}
                 sx={{ color: 'primary.contrastText' }}
               >
                 <TagIcon />
               </IconButton>
-              <IconButton 
+              <IconButton
                 onClick={() => setBulkTagOpen(true)}
                 sx={{ color: 'primary.contrastText' }}
               >
@@ -206,7 +202,7 @@ export default function AssetListPage({
           </Box>
         </Paper>
       )}
-      
+
       {/* Search Bar */}
       <Paper sx={{ mb: 2, p: 2 }}>
         <TextField
@@ -218,18 +214,20 @@ export default function AssetListPage({
           onChange={(e) => {
             setSearchTerm(e.target.value);
             // Reset to first page when searching
-            setPaginationModel(prev => ({ ...prev, page: 0 }));
+            setPaginationModel((prev) => ({ ...prev, page: 0 }));
           }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            },
           }}
         />
       </Paper>
-      
+
       <Paper>
         {loading && assets.length === 0 ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
@@ -271,7 +269,7 @@ export default function AssetListPage({
           </Alert>
         )}
       </Paper>
-      
+
       {/* Dialog Components */}
       {dialogComponents?.permissions}
       {dialogComponents?.relatedAssets}
@@ -279,7 +277,7 @@ export default function AssetListPage({
       {dialogComponents?.custom?.map((dialog, index) => (
         <div key={index}>{dialog}</div>
       ))}
-      
+
       {/* Bulk Action Dialogs */}
       {enableBulkActions && (
         <>
@@ -289,18 +287,18 @@ export default function AssetListPage({
             selectedAssets={selectedAssets.map((asset: any) => ({
               id: asset.id,
               name: asset.name,
-              type: assetType
+              type: assetType,
             }))}
             onComplete={handleBulkComplete}
           />
-          
+
           <BulkTagDialog
             open={bulkTagOpen}
             onClose={() => setBulkTagOpen(false)}
             selectedAssets={selectedAssets.map((asset: any) => ({
               id: asset.id,
               name: asset.name,
-              type: assetType
+              type: assetType,
             }))}
             onComplete={handleBulkComplete}
           />

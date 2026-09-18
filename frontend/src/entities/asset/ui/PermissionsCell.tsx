@@ -2,8 +2,7 @@ import { Box } from '@mui/material';
 
 import { TypedChip } from '@/shared/ui';
 
-import { type Permission } from '../model/types';
-
+import type { Permission } from '../model/types';
 
 interface PermissionsCellProps {
   permissions?: Permission[];
@@ -11,10 +10,10 @@ interface PermissionsCellProps {
 }
 
 export default function PermissionsCell({ permissions = [], onClick }: PermissionsCellProps) {
-  const userCount = permissions.filter(p => p.principalType === 'USER').length;
-  const groupCount = permissions.filter(p => p.principalType === 'GROUP').length;
-  const namespaceCount = permissions.filter(p => p.principalType === 'NAMESPACE').length;
-  const publicCount = permissions.filter(p => p.principalType === 'PUBLIC').length;
+  const userCount = permissions.filter((p) => p.principalType === 'USER').length;
+  const groupCount = permissions.filter((p) => p.principalType === 'GROUP').length;
+  const namespaceCount = permissions.filter((p) => p.principalType === 'NAMESPACE').length;
+  const publicCount = permissions.filter((p) => p.principalType === 'PUBLIC').length;
   const totalCount = permissions.length;
 
   if (totalCount === 0) {
@@ -22,13 +21,13 @@ export default function PermissionsCell({ permissions = [], onClick }: Permissio
   }
 
   return (
-    <Box 
-      sx={{ 
-        display: 'flex', 
-        gap: 0.5, 
+    <Box
+      sx={{
+        display: 'flex',
+        gap: 0.5,
         alignItems: 'center',
         cursor: onClick ? 'pointer' : 'default',
-        '&:hover': onClick ? { opacity: 0.8 } : {}
+        '&:hover': onClick ? { opacity: 0.8 } : {},
       }}
       onClick={onClick}
     >
@@ -49,12 +48,7 @@ export default function PermissionsCell({ permissions = [], onClick }: Permissio
         />
       )}
       {userCount > 0 && (
-        <TypedChip
-          type="USER"
-          customLabel={userCount.toString()}
-          size="small"
-          variant="outlined"
-        />
+        <TypedChip type="USER" customLabel={userCount.toString()} size="small" variant="outlined" />
       )}
       {groupCount > 0 && (
         <TypedChip

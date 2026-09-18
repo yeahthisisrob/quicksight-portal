@@ -1,10 +1,10 @@
 import { v4 as uuidv4 } from 'uuid';
 
-import { JobRepository } from './JobRepository';
-import { queueService, type QueueMessage } from './QueueService';
-import { type AssetType } from '../../models/asset.model';
-import { isLocalDevelopment, executeJobLocallyAsync } from '../../utils/localDevelopment';
+import type { AssetType } from '../../models/asset.model';
+import { executeJobLocallyAsync, isLocalDevelopment } from '../../utils/localDevelopment';
 import { logger } from '../../utils/logger';
+import { JobRepository } from './JobRepository';
+import { type QueueMessage, queueService } from './QueueService';
 
 // Job factory constants
 const JOB_FACTORY_CONSTANTS = {

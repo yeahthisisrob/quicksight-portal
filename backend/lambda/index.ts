@@ -1,8 +1,8 @@
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult, type Context } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
 
 import { apiHandler } from './api/apiHandler';
 import { STATUS_CODES } from './shared/constants';
-import { successResponse, errorResponse } from './shared/utils/cors';
+import { errorResponse, successResponse } from './shared/utils/cors';
 import { logger } from './shared/utils/logger';
 
 // Warm start optimization - keep track of initialization

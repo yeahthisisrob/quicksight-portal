@@ -6,23 +6,21 @@
  * (name, tags, dependencies, permissions, etc.)
  */
 import {
-  TextFields as NameIcon,
-  Key as IdIcon,
-  Description as DescriptionIcon,
+  Analytics as AnalysisIcon,
   Cloud as ArnIcon,
-  LocalOffer as TagIcon,
-  Security as PermissionIcon,
   Storage as DatasetIcon,
   CloudQueue as DatasourceIcon,
-  Analytics as AnalysisIcon,
+  Description as DescriptionIcon,
+  Key as IdIcon,
+  TextFields as NameIcon,
+  Security as PermissionIcon,
+  LocalOffer as TagIcon,
 } from '@mui/icons-material';
-import { Chip, ChipProps, Tooltip } from '@mui/material';
+import { Chip, type ChipProps, Tooltip } from '@mui/material';
+import type { SearchMatchReason } from '@shared/generated';
 import React from 'react';
 
 import { colors } from '@/shared/design-system/theme';
-
-import type { SearchMatchReason } from '@shared/generated';
-
 
 /**
  * Configuration for each match reason type
@@ -127,7 +125,10 @@ export interface SearchMatchChipProps extends Omit<ChipProps, 'label' | 'icon' |
  * Used in search results to provide transparency about match reasons.
  */
 export const SearchMatchChip = React.forwardRef<HTMLDivElement, SearchMatchChipProps>(
-  ({ reason, showIcon = true, compact = false, size = 'small', label: customLabel, ...chipProps }, ref) => {
+  (
+    { reason, showIcon = true, compact = false, size = 'small', label: customLabel, ...chipProps },
+    ref
+  ) => {
     const config = MATCH_REASON_CONFIG[reason];
 
     if (!config) {
@@ -136,11 +137,10 @@ export const SearchMatchChip = React.forwardRef<HTMLDivElement, SearchMatchChipP
 
     const Icon = config.icon;
     // Use custom label if provided (e.g., count), otherwise use the config label
-    const label = compact ? undefined : (customLabel !== undefined ? customLabel : config.label);
+    const label = compact ? undefined : customLabel !== undefined ? customLabel : config.label;
     // When custom label is used, enhance the tooltip to include the reason label
-    const tooltipText = customLabel !== undefined
-      ? `${config.label}: ${config.tooltip}`
-      : config.tooltip;
+    const tooltipText =
+      customLabel !== undefined ? `${config.label}: ${config.tooltip}` : config.tooltip;
 
     return (
       <Tooltip title={tooltipText} arrow placement="top">

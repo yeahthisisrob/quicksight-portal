@@ -4,7 +4,7 @@ import { S3Adapter } from '../../../adapters/aws/S3Adapter';
 import { createS3Client } from '../../config/awsClients';
 import { EXPORT_CONFIG } from '../../config/exportConfig';
 import { S3_LIMITS, STATUS_CODES } from '../../constants';
-import { type OperationTracker } from '../../models/operations.model';
+import type { OperationTracker } from '../../models/operations.model';
 import { withRetry } from '../../utils/awsRetry';
 import { logger } from '../../utils/logger';
 
@@ -25,7 +25,7 @@ export class S3Service {
   private readonly operationTracker?: OperationTracker;
   private readonly s3Adapter: S3Adapter;
 
-  constructor(awsAccountId: string, operationTracker?: OperationTracker) {
+  public constructor(awsAccountId: string, operationTracker?: OperationTracker) {
     const client = createS3Client();
     this.s3Adapter = new S3Adapter(client, awsAccountId);
     this.operationTracker = operationTracker;

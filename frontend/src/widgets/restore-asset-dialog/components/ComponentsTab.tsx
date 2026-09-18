@@ -6,7 +6,7 @@ import { Alert, Box, CircularProgress, Paper, Stack, Typography } from '@mui/mat
 import { colors } from '@/shared/design-system/theme';
 import { actionIcons, statusIcons } from '@/shared/ui/icons';
 
-import type { AssetMetadata, ArchivedAssetItem } from '../types';
+import type { ArchivedAssetItem, AssetMetadata } from '../types';
 
 const ScheduleIcon = actionIcons.schedule;
 const RefreshIcon = actionIcons.refresh;
@@ -33,7 +33,7 @@ export function ComponentsTab({ asset, metadata, loadingMetadata }: ComponentsTa
       <Typography variant="h6" gutterBottom>
         Components to Restore
       </Typography>
-      
+
       <Stack spacing={2}>
         {/* Dataset-specific components */}
         {asset.type === 'dataset' && (
@@ -59,7 +59,7 @@ export function ComponentsTab({ asset, metadata, loadingMetadata }: ComponentsTa
                 </Typography>
               )}
             </Paper>
-            
+
             <Paper variant="outlined" sx={{ p: 2, backgroundColor: colors.background.subtle }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                 <RefreshIcon color="primary" />
@@ -77,7 +77,7 @@ export function ComponentsTab({ asset, metadata, loadingMetadata }: ComponentsTa
             </Paper>
           </>
         )}
-        
+
         {/* Common components */}
         <Paper variant="outlined" sx={{ p: 2, backgroundColor: colors.background.subtle }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -98,7 +98,7 @@ export function ComponentsTab({ asset, metadata, loadingMetadata }: ComponentsTa
             </Typography>
           )}
         </Paper>
-        
+
         <Alert severity="success" icon={<CheckCircleIcon />}>
           All components will be automatically restored with the asset
         </Alert>

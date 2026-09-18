@@ -5,15 +5,15 @@ import { alpha } from '@mui/material';
 
 import { colors } from '@/shared/design-system/theme';
 
-export type HighlightType = 
-  | 'FIELDS' 
-  | 'CALCULATED_FIELDS' 
-  | 'VISUALS' 
-  | 'SHEETS' 
-  | 'DATASET' 
-  | 'DATASOURCE' 
-  | 'FILTERS' 
-  | 'EXPRESSIONS' 
+export type HighlightType =
+  | 'FIELDS'
+  | 'CALCULATED_FIELDS'
+  | 'VISUALS'
+  | 'SHEETS'
+  | 'DATASET'
+  | 'DATASOURCE'
+  | 'FILTERS'
+  | 'EXPRESSIONS'
   | null;
 
 export const highlightConfigs = {
@@ -26,7 +26,16 @@ export const highlightConfigs = {
     jumpTo: '"CalculatedFields"',
   },
   VISUALS: {
-    patterns: [/Visual/gi, /ChartConfiguration/gi, /BarChart/gi, /LineChart/gi, /PieChart/gi, /Table/gi, /PivotTable/gi, /KPIVisual/gi],
+    patterns: [
+      /Visual/gi,
+      /ChartConfiguration/gi,
+      /BarChart/gi,
+      /LineChart/gi,
+      /PieChart/gi,
+      /Table/gi,
+      /PivotTable/gi,
+      /KPIVisual/gi,
+    ],
     jumpTo: '"Visuals"',
   },
   SHEETS: {
@@ -68,16 +77,17 @@ function escapeHtml(text: string): string {
  */
 function applyHighlightPatterns(text: string, highlightType: HighlightType): string {
   if (!highlightType) return text;
-  
+
   let highlighted = text;
   const config = highlightConfigs[highlightType];
-  
-  config.patterns.forEach(pattern => {
-    highlighted = highlighted.replace(pattern, (match) => 
-      `<mark class="highlight-${highlightType}">${match}</mark>`
+
+  config.patterns.forEach((pattern) => {
+    highlighted = highlighted.replace(
+      pattern,
+      (match) => `<mark class="highlight-${highlightType}">${match}</mark>`
     );
   });
-  
+
   return highlighted;
 }
 
@@ -86,25 +96,27 @@ function applyHighlightPatterns(text: string, highlightType: HighlightType): str
  */
 function applySearchHighlight(text: string, searchTerm: string): string {
   if (!searchTerm) return text;
-  
+
   const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const searchPattern = new RegExp(escapedSearchTerm, 'gi');
-  
-  return text.replace(searchPattern, (match) => 
-    `<mark class="highlight-search">${match}</mark>`
-  );
+
+  return text.replace(searchPattern, (match) => `<mark class="highlight-search">${match}</mark>`);
 }
 
 /**
  * Main highlight function
  */
-export function highlightJson(text: string, highlightType: HighlightType, searchTerm: string): string {
+export function highlightJson(
+  text: string,
+  highlightType: HighlightType,
+  searchTerm: string
+): string {
   if (!highlightType && !searchTerm) return text;
-  
+
   let highlighted = escapeHtml(text);
   highlighted = applyHighlightPatterns(highlighted, highlightType);
   highlighted = applySearchHighlight(highlighted, searchTerm);
-  
+
   return highlighted;
 }
 

@@ -1,21 +1,21 @@
 // Export all API modules (clean modular structure)
-export { assetsApi } from './modules/assets';
-export { exportApi } from './modules/export';
-export { dataCatalogApi } from './modules/data-catalog';
-export { usersApi } from './modules/users';
-export { groupsApi } from './modules/groups';
-export { tagsApi } from './modules/tags';
-export { foldersApi } from './modules/folders';
-export { semanticApi } from './modules/semantic';
-export { activityApi } from './modules/activity';
-export { scriptsApi } from './modules/scripts';
-export { ingestionsApi } from './modules/ingestions';
-export { deployApi } from './modules/deploy';
-export { jobsApi } from './modules/jobs';
-export { smusApi } from './modules/smus';
 
 // Export shared utilities
 export * from './client';
-export * from './errors';
 export * from './cognito';
+export * from './errors';
+export { activityApi } from './modules/activity';
+export { assetsApi } from './modules/assets';
+export { dataCatalogApi } from './modules/data-catalog';
+export { deployApi } from './modules/deploy';
+export { exportApi } from './modules/export';
+export { foldersApi } from './modules/folders';
+export { groupsApi } from './modules/groups';
+export { ingestionsApi } from './modules/ingestions';
+export { jobsApi } from './modules/jobs';
+export { scriptsApi } from './modules/scripts';
+export { semanticApi } from './modules/semantic';
+export { smusApi } from './modules/smus';
+export { tagsApi } from './modules/tags';
+export { usersApi } from './modules/users';
 export * from './types';

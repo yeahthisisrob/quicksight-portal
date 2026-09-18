@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ClientFactory } from '../../../../shared/services/aws/ClientFactory';
 import { S3Service } from '../../../../shared/services/aws/S3Service';
@@ -41,7 +41,9 @@ describe('FolderService', () => {
 
     // Setup mock returns
     (ClientFactory.getQuickSightService as any).mockReturnValue(mockQuickSightService);
-    (S3Service as any).mockImplementation(() => mockS3Service);
+    (S3Service as any).mockImplementation(function () {
+      return mockS3Service;
+    });
     (cacheService as any).getCacheEntries = mockCacheService.getCacheEntries;
     (cacheService as any).updateAsset = mockCacheService.updateAsset;
     (cacheService as any).clearMemoryCache = mockCacheService.clearMemoryCache;

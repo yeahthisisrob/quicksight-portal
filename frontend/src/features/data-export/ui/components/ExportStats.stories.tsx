@@ -1,6 +1,6 @@
-import ExportStats from './ExportStats';
-
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import ExportStats from './ExportStats';
 
 const meta = {
   title: 'Features/DataExport/ExportStats',

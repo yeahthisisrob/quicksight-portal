@@ -1,9 +1,8 @@
 import { Box } from '@mui/material';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { SnackbarProvider } from 'notistack';
 
 import MultipleExpressionsDisplay from './MultipleExpressionsDisplay';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta: Meta<typeof MultipleExpressionsDisplay> = {
   title: 'Features/DataCatalog/MultipleExpressionsDisplay',

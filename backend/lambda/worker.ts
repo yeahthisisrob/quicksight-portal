@@ -1,12 +1,12 @@
 /* global setInterval, clearInterval, setTimeout */
-import { type SQSEvent, type Context } from 'aws-lambda';
+import type { Context, SQSEvent } from 'aws-lambda';
 
 import { ActivityRefreshProcessor } from './features/activity/processors/ActivityRefreshProcessor';
 import { warmCollectionSnapshots } from './features/asset-management/services/collectionSnapshotWarmer';
 import { ExportOrchestrator } from './features/data-export/services/ExportOrchestrator';
-import { type DeploymentConfig } from './features/deployment/services/deploy/types';
+import type { DeploymentConfig } from './features/deployment/services/deploy/types';
 import { JOB_CONFIG, STORAGE_LIMITS, TIME_UNITS, WORKER_CONFIG } from './shared/constants';
-import { type AssetType } from './shared/models/asset.model';
+import type { AssetType } from './shared/models/asset.model';
 import { S3Service } from './shared/services/aws/S3Service';
 import { summarizeBulkResult } from './shared/services/bulk/bulkResultSummary';
 import { cacheService } from './shared/services/cache/CacheService';
@@ -120,12 +120,11 @@ export const handler = async (event: SQSEvent, context: Context): Promise<void> 
       if (!isProcessingComplete) {
         logger.debug('Worker heartbeat', {
           uptime: process.uptime(),
-          memoryUsage:
-            Math.round(
-              process.memoryUsage().heapUsed /
-                STORAGE_LIMITS.CHUNK_SIZE_KB /
-                STORAGE_LIMITS.CHUNK_SIZE_KB
-            ) + 'MB',
+          memoryUsage: `${Math.round(
+            process.memoryUsage().heapUsed /
+              STORAGE_LIMITS.CHUNK_SIZE_KB /
+              STORAGE_LIMITS.CHUNK_SIZE_KB
+          )}MB`,
         });
       }
     }, WORKER_CONFIG.HEARTBEAT_INTERVAL_MS);
@@ -395,8 +394,9 @@ async function processBulkOperationJob(message: BulkOperationMessage, record: an
   const jobStateService = new JobStateService('bulk-operation');
 
   // Import BulkOperationsProcessor dynamically to avoid circular dependencies
-  const { BulkOperationsProcessor } =
-    await import('./shared/services/bulk/BulkOperationsProcessor');
+  const { BulkOperationsProcessor } = await import(
+    './shared/services/bulk/BulkOperationsProcessor'
+  );
   const bulkProcessor = new BulkOperationsProcessor(msgAccountId);
 
   try {
@@ -457,7 +457,7 @@ async function processBulkOperationJob(message: BulkOperationMessage, record: an
  */
 /** Thrown to short-circuit processing of a redelivered, already-completed job */
 class JobAlreadyCompletedError extends Error {
-  constructor(jobId: string) {
+  public constructor(jobId: string) {
     super(`Job ${jobId} already completed`);
     this.name = 'JobAlreadyCompletedError';
   }
@@ -540,8 +540,9 @@ async function processCSVExportJob(message: CSVExportMessage, record: any): Prom
   const jobStateService = new JobStateService('csv-export');
 
   // Import CSVExportProcessor dynamically
-  const { CSVExportProcessor } =
-    await import('./features/asset-management/processors/CSVExportProcessor');
+  const { CSVExportProcessor } = await import(
+    './features/asset-management/processors/CSVExportProcessor'
+  );
   const csvExportProcessor = new CSVExportProcessor(msgAccountId);
 
   try {

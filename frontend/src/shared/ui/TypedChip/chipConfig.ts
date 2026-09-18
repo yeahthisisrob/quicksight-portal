@@ -1,6 +1,27 @@
 import { chipIcons } from '@/shared/ui/icons';
 
-export type ChipType = 'VIEWS' | 'DASHBOARD' | 'ANALYSIS' | 'DATASET' | 'DATASOURCE' | 'FOLDER' | 'USER' | 'GROUP' | 'NAMESPACE' | 'PUBLIC' | 'FIELDS' | 'CALCULATED_FIELDS' | 'VISUALS' | 'SHEETS' | 'FILTERS' | 'EXPRESSIONS' | 'UNKNOWN' | 'TAG' | 'CATALOG_HIDDEN' | 'PORTAL_HIDDEN' | 'RELATIONSHIP';
+export type ChipType =
+  | 'VIEWS'
+  | 'DASHBOARD'
+  | 'ANALYSIS'
+  | 'DATASET'
+  | 'DATASOURCE'
+  | 'FOLDER'
+  | 'USER'
+  | 'GROUP'
+  | 'NAMESPACE'
+  | 'PUBLIC'
+  | 'FIELDS'
+  | 'CALCULATED_FIELDS'
+  | 'VISUALS'
+  | 'SHEETS'
+  | 'FILTERS'
+  | 'EXPRESSIONS'
+  | 'UNKNOWN'
+  | 'TAG'
+  | 'CATALOG_HIDDEN'
+  | 'PORTAL_HIDDEN'
+  | 'RELATIONSHIP';
 
 export const chipConfig = {
   // Activity
@@ -10,38 +31,38 @@ export const chipConfig = {
     label: 'Views',
   },
   // Asset types
-  DASHBOARD: { 
-    icon: chipIcons.DASHBOARD, 
+  DASHBOARD: {
+    icon: chipIcons.DASHBOARD,
     colorKey: 'dashboard' as const,
     label: 'Dashboard',
   },
-  ANALYSIS: { 
-    icon: chipIcons.ANALYSIS, 
+  ANALYSIS: {
+    icon: chipIcons.ANALYSIS,
     colorKey: 'analysis' as const,
     label: 'Analysis',
   },
-  DATASET: { 
-    icon: chipIcons.DATASET, 
+  DATASET: {
+    icon: chipIcons.DATASET,
     colorKey: 'dataset' as const,
     label: 'Dataset',
   },
-  DATASOURCE: { 
-    icon: chipIcons.DATASOURCE, 
+  DATASOURCE: {
+    icon: chipIcons.DATASOURCE,
     colorKey: 'datasource' as const,
     label: 'Data Source',
   },
-  FOLDER: { 
-    icon: chipIcons.FOLDER, 
+  FOLDER: {
+    icon: chipIcons.FOLDER,
     colorKey: 'folder' as const,
     label: 'Folder',
   },
-  USER: { 
-    icon: chipIcons.USER, 
+  USER: {
+    icon: chipIcons.USER,
     colorKey: 'user' as const,
     label: 'User',
   },
-  GROUP: { 
-    icon: chipIcons.GROUP, 
+  GROUP: {
+    icon: chipIcons.GROUP,
     colorKey: 'group' as const,
     label: 'Group',
   },
@@ -55,7 +76,7 @@ export const chipConfig = {
     colorKey: 'public' as const,
     label: 'Public',
   },
-  
+
   // JSON Viewer highlight types
   FIELDS: {
     icon: chipIcons.FIELDS,
@@ -87,14 +108,14 @@ export const chipConfig = {
     label: 'Expressions',
     jsonHighlight: true,
   },
-  
+
   // Status types
   UNKNOWN: {
     icon: chipIcons.UNKNOWN,
     label: 'Unknown',
     statusType: true,
   },
-  
+
   // Tag types
   TAG: {
     icon: chipIcons.TAG,
@@ -113,7 +134,7 @@ export const chipConfig = {
     tagType: true,
     specialTag: 'error',
   },
-  
+
   // Relationship type
   RELATIONSHIP: {
     icon: chipIcons.RELATIONSHIP,

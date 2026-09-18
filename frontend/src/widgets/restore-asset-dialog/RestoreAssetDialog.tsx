@@ -2,33 +2,33 @@
  * Refactored RestoreAssetDialog with reduced complexity
  */
 import {
-  RestoreFromTrash,
+  CheckCircle,
   Close,
   Edit,
-  Security,
-  Tag,
   Info,
+  RestoreFromTrash,
+  Security,
   Settings,
-  CheckCircle,
+  Tag,
 } from '@mui/icons-material';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Box,
   Button,
-  Typography,
-  IconButton,
-  Tabs,
-  Tab,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Tab,
+  Tabs,
+  Typography,
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
-import React, { useCallback } from 'react';
+import type React from 'react';
+import { useCallback } from 'react';
 
 import { useDeploymentJob } from '@/features/deployment';
-
 
 import { BasicInfoTab } from './components/BasicInfoTab';
 import { ComponentsTab } from './components/ComponentsTab';
@@ -37,10 +37,17 @@ import { PermissionsTab } from './components/PermissionsTab';
 import { RestoreSummaryAlert } from './components/RestoreSummaryAlert';
 import { ValidationSection } from './components/ValidationSection';
 import { useRestoreDialog } from './hooks/useRestoreDialog';
-
 import type { RestoreAssetDialogProps } from './types';
 
-function TabPanel({ children, value, index }: { children?: React.ReactNode; value: number; index: number }) {
+function TabPanel({
+  children,
+  value,
+  index,
+}: {
+  children?: React.ReactNode;
+  value: number;
+  index: number;
+}) {
   return (
     <div role="tabpanel" hidden={value !== index} id={`restore-tabpanel-${index}`}>
       {value === index && <Box sx={{ py: 2 }}>{children}</Box>}
@@ -75,13 +82,7 @@ export const RestoreAssetDialog: React.FC<RestoreAssetDialogProps> = ({
   } = useRestoreDialog({ asset, open, onSuccess, onClose });
 
   // Deployment job management
-  const {
-    jobStatus,
-    jobLogs,
-    isPolling,
-    startDeployment,
-    stopDeployment,
-  } = useDeploymentJob({
+  const { jobStatus, jobLogs, isPolling, startDeployment, stopDeployment } = useDeploymentJob({
     onSuccess: async () => {
       // Mirror the post-mutation query invalidation done for bulk delete.
       // Restore is a live op that adds an asset to the active index; backend
@@ -116,7 +117,7 @@ export const RestoreAssetDialog: React.FC<RestoreAssetDialogProps> = ({
   // Handle restore action
   const handleRestore = useCallback(async () => {
     if (!asset || !canDeploy) return;
-    
+
     setLoading(true);
     try {
       const config = buildDeploymentConfig();
@@ -151,13 +152,17 @@ export const RestoreAssetDialog: React.FC<RestoreAssetDialogProps> = ({
       onClose={handleClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{ sx: { minHeight: '600px' } }}
+      slotProps={{
+        paper: { sx: { minHeight: '600px' } },
+      }}
     >
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <RestoreFromTrash color="primary" />
-            <Typography variant="h6">Restore {asset.type}: {asset.name}</Typography>
+            <Typography variant="h6">
+              Restore {asset.type}: {asset.name}
+            </Typography>
           </Box>
           <IconButton onClick={handleClose} disabled={loading || validating}>
             <Close />
@@ -169,7 +174,12 @@ export const RestoreAssetDialog: React.FC<RestoreAssetDialogProps> = ({
         <RestoreSummaryAlert asset={asset} assetMetadata={assetMetadata} />
 
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={activeTab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto">
+          <Tabs
+            value={activeTab}
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+          >
             <Tab icon={<Edit />} label="Basic Info" iconPosition="start" />
             <Tab icon={<Security />} label="Permissions" iconPosition="start" />
             <Tab icon={<Tag />} label="Tags" iconPosition="start" />
@@ -229,7 +239,7 @@ export const RestoreAssetDialog: React.FC<RestoreAssetDialogProps> = ({
         <Button onClick={handleClose} disabled={loading || isPolling}>
           Cancel
         </Button>
-        
+
         <Button
           onClick={handleValidate}
           disabled={!hasRequiredFields || validating || loading || isPolling}

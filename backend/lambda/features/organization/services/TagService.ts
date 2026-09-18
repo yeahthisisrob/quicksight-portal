@@ -1,14 +1,14 @@
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
-import { type QuickSightService } from '../../../shared/services/aws/QuickSightService';
-import { type AssetType } from '../../../shared/types/assetTypes';
+import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
+import type { AssetType } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
-import { type Tag } from '../types';
+import type { Tag } from '../types';
 
 export class TagService {
   private readonly awsRegion: string;
   private readonly quickSightService: QuickSightService;
 
-  constructor(awsAccountId: string) {
+  public constructor(awsAccountId: string) {
     this.awsRegion = process.env.AWS_REGION || 'us-east-1';
     this.quickSightService = ClientFactory.getQuickSightService(awsAccountId);
   }

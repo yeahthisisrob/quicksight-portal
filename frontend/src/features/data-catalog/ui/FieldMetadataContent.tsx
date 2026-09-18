@@ -1,20 +1,20 @@
 import {
-  Box,
-  Typography,
-  TextField,
-  CircularProgress,
-  Button,
   Accordion,
-  AccordionSummary,
   AccordionDetails,
-  useTheme,
+  AccordionSummary,
   alpha,
-  Paper,
+  Box,
+  Button,
   Chip,
+  CircularProgress,
+  Paper,
+  TextField,
+  Typography,
+  useTheme,
 } from '@mui/material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { ModernTagsInput } from '@/entities/tag';
 
@@ -62,18 +62,23 @@ const commonFieldTagKeys = [
   'Dimension',
 ];
 
-export default function FieldMetadataContent({ sourceType, sourceId, field, onUpdate }: FieldMetadataContentProps) {
+export default function FieldMetadataContent({
+  sourceType,
+  sourceId,
+  field,
+  onUpdate,
+}: FieldMetadataContentProps) {
   const theme = useTheme();
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [expandedAccordion, setExpandedAccordion] = useState<string | false>('basic');
-  
+
   // Field metadata state
   const [description, setDescription] = useState('');
   const [businessGlossary, setBusinessGlossary] = useState('');
   const [tags, setTags] = useState<Tag[]>([]);
-  
+
   // Lineage
   const [sourceSystem, setSourceSystem] = useState('');
   const [sourceTable, setSourceTable] = useState('');
@@ -93,7 +98,7 @@ export default function FieldMetadataContent({ sourceType, sourceId, field, onUp
       setDescription(metadata.description || '');
       setBusinessGlossary(metadata.businessGlossary || '');
       setTags(metadata.tags || []);
-      
+
       if (metadata.lineage) {
         setSourceSystem(metadata.lineage.sourceSystem || '');
         setSourceTable(metadata.lineage.sourceTable || '');
@@ -104,18 +109,23 @@ export default function FieldMetadataContent({ sourceType, sourceId, field, onUp
     }
   }, [metadata]);
 
-  const handleAccordionChange = (panel: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
-    setExpandedAccordion(isExpanded ? panel : false);
-  };
+  const handleAccordionChange =
+    (panel: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
+      setExpandedAccordion(isExpanded ? panel : false);
+    };
 
   const handleSave = async () => {
     try {
       setSaving(true);
-      
+
       const updatedMetadata = {
         fieldId: `${sourceType}::${sourceId}::${field.name}`,
         sourceType,
-        [sourceType === 'dataset' ? 'datasetId' : sourceType === 'analysis' ? 'analysisId' : 'dashboardId']: sourceId,
+        [sourceType === 'dataset'
+          ? 'datasetId'
+          : sourceType === 'analysis'
+            ? 'analysisId'
+            : 'dashboardId']: sourceId,
         fieldName: field.name,
         tags,
         description,
@@ -131,22 +141,23 @@ export default function FieldMetadataContent({ sourceType, sourceId, field, onUp
         lastUpdated: new Date().toISOString(),
         updatedBy: 'current-user', // In real app, get from auth context
       };
-      
-      
+
       await tagsApi.updateFieldMetadata(sourceType, sourceId, field.name, updatedMetadata);
-      
+
       // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['field-metadata', sourceType, sourceId, field.name] });
+      queryClient.invalidateQueries({
+        queryKey: ['field-metadata', sourceType, sourceId, field.name],
+      });
       queryClient.invalidateQueries({ queryKey: ['field-tag-search'] });
       // Also invalidate data catalog queries if they exist
       queryClient.invalidateQueries({ queryKey: ['data-catalog'] });
       queryClient.invalidateQueries({ queryKey: ['data-catalog-paginated'] });
-      
+
       // Call the onUpdate callback if provided
       if (onUpdate) {
         onUpdate(updatedMetadata);
       }
-      
+
       enqueueSnackbar('Field metadata updated successfully', { variant: 'success' });
     } catch (_error) {
       enqueueSnackbar('Failed to save field metadata', { variant: 'error' });
@@ -186,7 +197,7 @@ export default function FieldMetadataContent({ sourceType, sourceId, field, onUp
                 <Chip
                   label={field.type}
                   size="small"
-                  sx={{ 
+                  sx={{
                     bgcolor: alpha(theme.palette.info.main, 0.1),
                     color: theme.palette.info.main,
                   }}
@@ -197,7 +208,7 @@ export default function FieldMetadataContent({ sourceType, sourceId, field, onUp
                   icon={<CategoryIcon sx={{ fontSize: 16 }} />}
                   label={metadata.semanticType}
                   size="small"
-                  sx={{ 
+                  sx={{
                     bgcolor: alpha(theme.palette.secondary.main, 0.1),
                     color: theme.palette.secondary.main,
                   }}
@@ -207,7 +218,7 @@ export default function FieldMetadataContent({ sourceType, sourceId, field, onUp
                 <Chip
                   label={`Calculated Field (${sourceType})`}
                   size="small"
-                  sx={{ 
+                  sx={{
                     bgcolor: alpha(theme.palette.warning.main, 0.1),
                     color: theme.palette.warning.main,
                   }}
@@ -254,7 +265,7 @@ export default function FieldMetadataContent({ sourceType, sourceId, field, onUp
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <InfoIcon color="primary" />
-              <Typography variant="subtitle1" fontWeight={600}>
+              <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
                 Basic Information
               </Typography>
             </Box>
@@ -306,7 +317,7 @@ export default function FieldMetadataContent({ sourceType, sourceId, field, onUp
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <TagIcon color="primary" />
-              <Typography variant="subtitle1" fontWeight={600}>
+              <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
                 Tags
               </Typography>
               {tags.length > 0 && (
@@ -355,13 +366,19 @@ export default function FieldMetadataContent({ sourceType, sourceId, field, onUp
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <LineageIcon color="primary" />
-              <Typography variant="subtitle1" fontWeight={600}>
+              <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
                 Lineage & Source Information
               </Typography>
             </Box>
           </AccordionSummary>
           <AccordionDetails sx={{ pt: 3 }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 2 }}>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                gap: 2,
+              }}
+            >
               <TextField
                 label="Source System"
                 value={sourceSystem}

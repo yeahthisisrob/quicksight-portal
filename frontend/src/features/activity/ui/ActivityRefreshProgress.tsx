@@ -7,18 +7,17 @@ import {
   Settings,
   Warning,
 } from '@mui/icons-material';
-import { Alert, Box, Stack, Typography, alpha } from '@mui/material';
-import { type ReactNode } from 'react';
+import { Alert, alpha, Box, Stack, Typography } from '@mui/material';
+import type { ReactNode } from 'react';
 
 import {
   JobProgress,
-  type JobPhaseStatus as UIJobPhaseStatus,
   type JobProgressStep,
+  type JobPhaseStatus as UIJobPhaseStatus,
 } from '@/entities/job';
 
-import { colors, spacing } from '@/shared/design-system/theme';
-
 import type { JobMetadata, JobPhase } from '@/shared/api/modules/jobs';
+import { colors, spacing } from '@/shared/design-system/theme';
 
 type ActivityPhaseKey =
   | 'initialize'
@@ -143,10 +142,7 @@ const computeProgressDetails = (
   };
 };
 
-const renderFooter = (
-  status: UIJobPhaseStatus,
-  totals: PhaseTotals
-): ReactNode => {
+const renderFooter = (status: UIJobPhaseStatus, totals: PhaseTotals): ReactNode => {
   if (status !== 'completed') return undefined;
   if (totals.truncated === 0 && totals.errors === 0) {
     return (
@@ -158,7 +154,7 @@ const renderFooter = (
           border: `1px solid ${alpha(colors.status.success, 0.1)}`,
         }}
       >
-        <Stack direction="row" alignItems="center" spacing={spacing.xs / 8}>
+        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={spacing.xs / 8}>
           <CheckCircle sx={{ color: colors.status.success, fontSize: 20 }} />
           <Typography variant="body2" color="success.main" sx={{ fontWeight: 600 }}>
             Activity refresh completed — {totals.newEvents.toLocaleString()} new events ingested
@@ -177,8 +173,8 @@ const renderFooter = (
       )}
       {totals.errors > 0 && (
         <Alert severity="warning" variant="outlined">
-          {totals.errors} event {totals.errors === 1 ? 'type' : 'types'} failed during this
-          refresh and will retry next time.
+          {totals.errors} event {totals.errors === 1 ? 'type' : 'types'} failed during this refresh
+          and will retry next time.
         </Alert>
       )}
     </Stack>

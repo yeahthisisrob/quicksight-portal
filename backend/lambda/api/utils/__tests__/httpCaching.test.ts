@@ -1,4 +1,4 @@
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { STATUS_CODES } from '../../../shared/constants/httpStatusCodes';
 import { applyHttpCaching, computeStrongEtag, etagMatches } from '../httpCaching';

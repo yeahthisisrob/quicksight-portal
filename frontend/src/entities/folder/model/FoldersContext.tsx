@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useQueryClient } from '@tanstack/react-query';
-import React, { createContext, useContext, ReactNode, useCallback } from 'react';
+import type React from 'react';
+import { createContext, type ReactNode, useCallback, useContext } from 'react';
 
 interface FoldersContextType {
   // Methods to invalidate and refresh folder-related data
@@ -8,7 +9,7 @@ interface FoldersContextType {
   invalidateFolderMembers: (folderId?: string) => Promise<void>;
   invalidateFolderTags: () => Promise<void>;
   invalidateAllFolderData: () => Promise<void>;
-  
+
   // Method to handle post-bulk operations
   handleBulkOperationComplete: () => Promise<void>;
 }
@@ -29,45 +30,44 @@ interface FoldersProviderProps {
 
 export const FoldersProvider: React.FC<FoldersProviderProps> = ({ children }) => {
   const queryClient = useQueryClient();
-  
+
   // Invalidate folders list
   const invalidateFolders = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['folders'] });
   }, [queryClient]);
-  
+
   // Invalidate folder members - optionally for a specific folder
-  const invalidateFolderMembers = useCallback(async (folderId?: string) => {
-    if (folderId) {
-      await queryClient.invalidateQueries({ queryKey: ['folder-members', folderId] });
-    } else {
-      await queryClient.invalidateQueries({ queryKey: ['folder-members'] });
-    }
-  }, [queryClient]);
-  
+  const invalidateFolderMembers = useCallback(
+    async (folderId?: string) => {
+      if (folderId) {
+        await queryClient.invalidateQueries({ queryKey: ['folder-members', folderId] });
+      } else {
+        await queryClient.invalidateQueries({ queryKey: ['folder-members'] });
+      }
+    },
+    [queryClient]
+  );
+
   // Invalidate folder tags
   const invalidateFolderTags = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['live-tags-folders'] });
     await queryClient.invalidateQueries({ queryKey: ['folder-tags'] });
   }, [queryClient]);
-  
+
   // Invalidate all folder-related data
   const invalidateAllFolderData = useCallback(async () => {
-    await Promise.all([
-      invalidateFolders(),
-      invalidateFolderMembers(),
-      invalidateFolderTags(),
-    ]);
+    await Promise.all([invalidateFolders(), invalidateFolderMembers(), invalidateFolderTags()]);
   }, [invalidateFolders, invalidateFolderMembers, invalidateFolderTags]);
-  
+
   // Handle completion of bulk operations
   const handleBulkOperationComplete = useCallback(async () => {
     // Invalidate all folder-related queries to ensure fresh data
     await invalidateAllFolderData();
-    
+
     // Also invalidate asset queries since assets may have moved
     await queryClient.invalidateQueries({ queryKey: ['assets'] });
     await queryClient.invalidateQueries({ queryKey: ['export-summary'] });
-    
+
     // Invalidate paginated asset queries (prefix-matches every cached
     // page/filter combination; invalidated entries refetch on next use)
     await queryClient.invalidateQueries({ queryKey: ['dashboards-paginated'] });
@@ -94,7 +94,7 @@ export const FoldersProvider: React.FC<FoldersProviderProps> = ({ children }) =>
     // at once. Invalidation above is enough: active queries refetch
     // immediately, cached ones refetch on next use.
   }, [queryClient, invalidateAllFolderData]);
-  
+
   const value: FoldersContextType = {
     invalidateFolders,
     invalidateFolderMembers,
@@ -102,6 +102,6 @@ export const FoldersProvider: React.FC<FoldersProviderProps> = ({ children }) =>
     invalidateAllFolderData,
     handleBulkOperationComplete,
   };
-  
+
   return <FoldersContext.Provider value={value}>{children}</FoldersContext.Provider>;
 };

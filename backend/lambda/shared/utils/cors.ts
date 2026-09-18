@@ -1,7 +1,7 @@
 /**
  * CORS and response utilities
  */
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { STATUS_CODES } from '../constants';
 

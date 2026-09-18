@@ -5,20 +5,20 @@ import {
   OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  Box,
-  Typography,
-  IconButton,
-  Chip,
-  Paper,
-  CircularProgress,
   Alert,
-  Tooltip,
   alpha,
+  Box,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Paper,
+  Tooltip,
+  Typography,
 } from '@mui/material';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -26,8 +26,8 @@ import { useNavigate } from 'react-router-dom';
 import { useFolders } from '@/entities/folder';
 
 import { foldersApi } from '@/shared/api';
-import { colors, spacing, borderRadius, typography } from '@/shared/design-system/theme';
-import TypedChip, { ChipType } from '@/shared/ui/TypedChip';
+import { borderRadius, colors, spacing, typography } from '@/shared/design-system/theme';
+import TypedChip, { type ChipType } from '@/shared/ui/TypedChip';
 
 interface FolderMembersDialogProps {
   open: boolean;
@@ -36,39 +36,42 @@ interface FolderMembersDialogProps {
 }
 
 const assetTypeConfig = {
-  DASHBOARD: { 
+  DASHBOARD: {
     path: '/assets/dashboards',
-    pluralLabel: 'Dashboards'
+    pluralLabel: 'Dashboards',
   },
-  ANALYSIS: { 
+  ANALYSIS: {
     path: '/assets/analyses',
-    pluralLabel: 'Analyses'
+    pluralLabel: 'Analyses',
   },
-  DATASET: { 
+  DATASET: {
     path: '/assets/datasets',
-    pluralLabel: 'Datasets'
+    pluralLabel: 'Datasets',
   },
-  DATASOURCE: { 
+  DATASOURCE: {
     path: '/assets/datasources',
-    pluralLabel: 'Data Sources'
+    pluralLabel: 'Data Sources',
   },
 } as const;
 
-export default function FolderMembersDialog({
-  open,
-  onClose,
-  folder,
-}: FolderMembersDialogProps) {
+export default function FolderMembersDialog({ open, onClose, folder }: FolderMembersDialogProps) {
   const { enqueueSnackbar } = useSnackbar();
   const navigate = useNavigate();
   const { invalidateFolderMembers, invalidateFolders } = useFolders();
   const [removingMembers, setRemovingMembers] = useState<Set<string>>(new Set());
-  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set(['DASHBOARD', 'ANALYSIS', 'DATASET', 'DATASOURCE']));
+  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(
+    new Set(['DASHBOARD', 'ANALYSIS', 'DATASET', 'DATASOURCE'])
+  );
 
   const folderId = folder?.FolderId || folder?.id;
   const folderName = folder?.Name || folder?.name;
-  
-  const { data: members = [], isLoading, error, refetch } = useQuery({
+
+  const {
+    data: members = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['folder-members', folderId],
     queryFn: () => foldersApi.getMembers(folderId),
     enabled: open && !!folderId,
@@ -79,7 +82,7 @@ export default function FolderMembersDialog({
       return foldersApi.removeMember(folderId, memberId, memberType);
     },
     onMutate: async ({ memberId }) => {
-      setRemovingMembers(prev => new Set(prev).add(memberId));
+      setRemovingMembers((prev) => new Set(prev).add(memberId));
     },
     onSuccess: async () => {
       enqueueSnackbar('Asset removed from folder', { variant: 'success' });
@@ -89,11 +92,11 @@ export default function FolderMembersDialog({
       await invalidateFolderMembers(folderId);
       await invalidateFolders();
     },
-    onError: (error: any) => {
-      enqueueSnackbar(error.message || 'Failed to remove asset from folder', { variant: 'error' });
+    onError: (err: any) => {
+      enqueueSnackbar(err.message || 'Failed to remove asset from folder', { variant: 'error' });
     },
     onSettled: (_, __, { memberId }) => {
-      setRemovingMembers(prev => {
+      setRemovingMembers((prev) => {
         const next = new Set(prev);
         next.delete(memberId);
         return next;
@@ -128,47 +131,55 @@ export default function FolderMembersDialog({
   }, {});
 
   return (
-    <Dialog 
-      open={open} 
-      onClose={onClose} 
-      maxWidth="sm" 
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: `${borderRadius.lg}px`,
-          maxHeight: '90vh',
-          backgroundColor: 'background.paper',
-          backgroundImage: 'none',
-        }
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: `${borderRadius.lg}px`,
+            maxHeight: '90vh',
+            backgroundColor: 'background.paper',
+            backgroundImage: 'none',
+          },
+        },
       }}
     >
-      <DialogTitle sx={{ 
-        pb: spacing.md / 8,
-        borderBottom: `1px solid ${alpha(colors.neutral[200], 0.5)}`,
-        backgroundColor: alpha(colors.assetTypes.folder.light, 0.3),
-        backgroundImage: `linear-gradient(to right, ${alpha(colors.assetTypes.folder.light, 0.1)}, transparent)`,
-      }}>
+      <DialogTitle
+        sx={{
+          pb: spacing.md / 8,
+          borderBottom: `1px solid ${alpha(colors.neutral[200], 0.5)}`,
+          backgroundColor: alpha(colors.assetTypes.folder.light, 0.3),
+          backgroundImage: `linear-gradient(to right, ${alpha(colors.assetTypes.folder.light, 0.1)}, transparent)`,
+        }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: spacing.sm / 8 }}>
-            <Box sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 36,
-              height: 36,
-              borderRadius: `${borderRadius.sm}px`,
-              backgroundColor: alpha(colors.assetTypes.folder.main, 0.1),
-              border: `1px solid ${alpha(colors.assetTypes.folder.main, 0.2)}`,
-            }}>
-              <FolderIcon sx={{ 
-                color: colors.assetTypes.folder.main,
-                fontSize: 20,
-              }} />
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 36,
+                height: 36,
+                borderRadius: `${borderRadius.sm}px`,
+                backgroundColor: alpha(colors.assetTypes.folder.main, 0.1),
+                border: `1px solid ${alpha(colors.assetTypes.folder.main, 0.2)}`,
+              }}
+            >
+              <FolderIcon
+                sx={{
+                  color: colors.assetTypes.folder.main,
+                  fontSize: 20,
+                }}
+              />
             </Box>
             <Box>
-              <Typography 
-                variant="h6" 
-                fontWeight={typography.fontWeight.semibold}
+              <Typography
+                sx={{ fontWeight: typography.fontWeight.semibold }}
+                variant="h6"
                 color="text.primary"
               >
                 Folder Members
@@ -177,10 +188,10 @@ export default function FolderMembersDialog({
                 <Typography variant="caption" color="text.secondary">
                   {folderName}
                 </Typography>
-                <Chip 
-                  label={members.length} 
-                  size="small" 
-                  sx={{ 
+                <Chip
+                  label={members.length}
+                  size="small"
+                  sx={{
                     fontWeight: typography.fontWeight.semibold,
                     backgroundColor: alpha(colors.assetTypes.folder.main, 0.1),
                     color: colors.assetTypes.folder.main,
@@ -190,8 +201,8 @@ export default function FolderMembersDialog({
               </Box>
             </Box>
           </Box>
-          <IconButton 
-            onClick={onClose} 
+          <IconButton
+            onClick={onClose}
             sx={{
               color: 'action.active',
               transition: 'all 0.2s',
@@ -205,28 +216,30 @@ export default function FolderMembersDialog({
           </IconButton>
         </Box>
       </DialogTitle>
-      
+
       <DialogContent sx={{ px: 0, py: 2 }}>
         {isLoading && (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>
         )}
-        
+
         {error && (
           <Alert severity="error" sx={{ mx: 3, mb: 2 }}>
             Failed to load folder members
           </Alert>
         )}
-        
+
         {!isLoading && !error && members.length === 0 && (
-          <Box sx={{ 
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            py: 8,
-          }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              py: 8,
+            }}
+          >
             <FolderIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
             <Typography variant="body1" color="text.secondary">
               This folder is empty
@@ -236,23 +249,32 @@ export default function FolderMembersDialog({
             </Typography>
           </Box>
         )}
-        
+
         {!isLoading && !error && members.length > 0 && (
           <Box sx={{ px: 3 }}>
             <Box sx={{ mb: spacing.md / 8 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: spacing.sm / 8 }}>
-                Click on an asset to navigate to it. Use the delete button to remove it from this folder.
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', mb: spacing.sm / 8 }}
+              >
+                Click on an asset to navigate to it. Use the delete button to remove it from this
+                folder.
               </Typography>
-              
+
               {/* Type Filter Chips */}
               <Box sx={{ display: 'flex', gap: spacing.xs / 8, flexWrap: 'wrap' }}>
                 {(['DASHBOARD', 'ANALYSIS', 'DATASET', 'DATASOURCE'] as const).map((type) => {
                   const config = assetTypeConfig[type];
                   const typeMembers = membersByType[type] || [];
                   const isSelected = selectedTypes.has(type);
-                  const assetColorKey = type.toLowerCase() as 'dashboard' | 'analysis' | 'dataset' | 'datasource';
+                  const assetColorKey = type.toLowerCase() as
+                    | 'dashboard'
+                    | 'analysis'
+                    | 'dataset'
+                    | 'datasource';
                   const colorConfig = colors.assetTypes[assetColorKey];
-                  
+
                   return (
                     <Chip
                       key={type}
@@ -284,52 +306,65 @@ export default function FolderMembersDialog({
                 })}
               </Box>
             </Box>
-            
+
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: spacing.md / 8 }}>
-              {(['DASHBOARD', 'ANALYSIS', 'DATASET', 'DATASOURCE'] as const).filter(type => selectedTypes.has(type)).map((type) => {
-                const typeMembers = membersByType[type] || [];
-                const config = assetTypeConfig[type];
-                const assetColorKey = type.toLowerCase() as 'dashboard' | 'analysis' | 'dataset' | 'datasource';
-                const colorConfig = colors.assetTypes[assetColorKey];
+              {(['DASHBOARD', 'ANALYSIS', 'DATASET', 'DATASOURCE'] as const)
+                .filter((type) => selectedTypes.has(type))
+                .map((type) => {
+                  const typeMembers = membersByType[type] || [];
+                  const config = assetTypeConfig[type];
+                  const assetColorKey = type.toLowerCase() as
+                    | 'dashboard'
+                    | 'analysis'
+                    | 'dataset'
+                    | 'datasource';
+                  const colorConfig = colors.assetTypes[assetColorKey];
 
-                if (typeMembers.length === 0) return null;
+                  if (typeMembers.length === 0) return null;
 
-                return (
-                  <Paper
-                    key={type}
-                    variant="outlined"
-                    sx={{ 
-                      p: spacing.md / 8,
-                      border: `1px solid ${alpha(colorConfig.main, 0.2)}`,
-                      backgroundColor: alpha(colorConfig.light, 0.3),
-                      borderRadius: `${borderRadius.md}px`,
-                      transition: 'all 0.2s',
-                      '&:hover': {
-                        borderColor: alpha(colorConfig.main, 0.3),
-                        backgroundColor: alpha(colorConfig.light, 0.4),
-                      },
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: spacing.xs / 8, mb: spacing.sm / 8 }}>
-                      <Typography 
-                        variant="subtitle2" 
-                        fontWeight={typography.fontWeight.semibold}
-                        color="text.primary"
+                  return (
+                    <Paper
+                      key={type}
+                      variant="outlined"
+                      sx={{
+                        p: spacing.md / 8,
+                        border: `1px solid ${alpha(colorConfig.main, 0.2)}`,
+                        backgroundColor: alpha(colorConfig.light, 0.3),
+                        borderRadius: `${borderRadius.md}px`,
+                        transition: 'all 0.2s',
+                        '&:hover': {
+                          borderColor: alpha(colorConfig.main, 0.3),
+                          backgroundColor: alpha(colorConfig.light, 0.4),
+                        },
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: spacing.xs / 8,
+                          mb: spacing.sm / 8,
+                        }}
                       >
-                        {config.pluralLabel}
-                      </Typography>
-                      <TypedChip 
-                        type={type as ChipType} 
-                        count={typeMembers.length}
-                        showIcon={false}
-                        size="small"
-                      />
-                    </Box>
-                    
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: spacing.xs / 8 }}>
-                      {typeMembers.map((member: any, index: number) => {
+                        <Typography
+                          sx={{ fontWeight: typography.fontWeight.semibold }}
+                          variant="subtitle2"
+                          color="text.primary"
+                        >
+                          {config.pluralLabel}
+                        </Typography>
+                        <TypedChip
+                          type={type as ChipType}
+                          count={typeMembers.length}
+                          showIcon={false}
+                          size="small"
+                        />
+                      </Box>
+
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: spacing.xs / 8 }}>
+                        {typeMembers.map((member: any, index: number) => {
                           const isRemoving = removingMembers.has(member.MemberId);
-                          
+
                           return (
                             <Box
                               key={`${type}-${index}`}
@@ -348,17 +383,21 @@ export default function FolderMembersDialog({
                                   backgroundColor: alpha(colorConfig.main, 0.05),
                                   borderColor: alpha(colorConfig.main, 0.2),
                                   transform: isRemoving ? 'none' : 'translateX(2px)',
-                                }
+                                },
                               }}
                               onClick={() => !isRemoving && handleAssetClick(member)}
                             >
                               <Box sx={{ overflow: 'hidden', flex: 1 }}>
-                                <Typography variant="body2" fontWeight={typography.fontWeight.medium} noWrap>
+                                <Typography
+                                  sx={{ fontWeight: typography.fontWeight.medium }}
+                                  variant="body2"
+                                  noWrap
+                                >
                                   {member.MemberName || member.MemberId || 'Unknown'}
                                 </Typography>
-                                <Typography 
-                                  variant="caption" 
-                                  sx={{ 
+                                <Typography
+                                  variant="caption"
+                                  sx={{
                                     color: 'text.secondary',
                                     fontFamily: typography.fontFamily.monospace,
                                     fontSize: typography.fontSize.xs,
@@ -379,12 +418,12 @@ export default function FolderMembersDialog({
                                       handleRemoveMember(member);
                                     }}
                                     disabled={isRemoving}
-                                    sx={{ 
+                                    sx={{
                                       ml: 0.5,
                                       '&:hover': {
                                         color: 'error.main',
                                         backgroundColor: alpha('#f44336', 0.08),
-                                      }
+                                      },
                                     }}
                                   >
                                     {isRemoving ? (
@@ -399,9 +438,9 @@ export default function FolderMembersDialog({
                           );
                         })}
                       </Box>
-                  </Paper>
-                );
-              })}
+                    </Paper>
+                  );
+                })}
             </Box>
           </Box>
         )}

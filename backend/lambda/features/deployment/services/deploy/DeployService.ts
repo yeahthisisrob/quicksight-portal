@@ -1,18 +1,18 @@
-import { RestoreStrategy } from './strategies/restore/RestoreStrategy';
-import {
-  type DeploymentConfig,
-  type DeploymentResult,
-  type DeploymentType,
-  type IDeploymentStrategy,
-  type ValidationResult,
-  type DeploymentManifest,
-  type DeploymentItem,
-} from './types';
-import { type AssetType } from '../../../../shared/models/asset.model';
-import { type S3Service } from '../../../../shared/services/aws/S3Service';
-import { type CacheService } from '../../../../shared/services/cache/CacheService';
+import type { AssetType } from '../../../../shared/models/asset.model';
+import type { S3Service } from '../../../../shared/services/aws/S3Service';
+import type { CacheService } from '../../../../shared/services/cache/CacheService';
 import { getPluralForm } from '../../../../shared/types/assetTypes';
 import { logger } from '../../../../shared/utils/logger';
+import { RestoreStrategy } from './strategies/restore/RestoreStrategy';
+import type {
+  DeploymentConfig,
+  DeploymentItem,
+  DeploymentManifest,
+  DeploymentResult,
+  DeploymentType,
+  IDeploymentStrategy,
+  ValidationResult,
+} from './types';
 
 // Deployment-specific constants
 const DEPLOYMENT_CONSTANTS = {
@@ -37,7 +37,7 @@ export class DeployService {
   private readonly deploymentHistory: Map<string, DeploymentResult> = new Map();
   private readonly strategies: Map<DeploymentType, IDeploymentStrategy>;
 
-  constructor(
+  public constructor(
     private readonly s3Service: S3Service,
     cacheService: CacheService,
     private readonly bucketName: string,

@@ -1,5 +1,6 @@
 import { CheckCircle, Error as ErrorIcon, HourglassEmpty } from '@mui/icons-material';
 import {
+  alpha,
   Box,
   Card,
   Chip,
@@ -9,9 +10,8 @@ import {
   StepLabel,
   Stepper,
   Typography,
-  alpha,
 } from '@mui/material';
-import { type ReactNode, type ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 
 import { colors, spacing } from '@/shared/design-system/theme';
 
@@ -89,9 +89,7 @@ export default function JobProgress(props: JobProgressProps) {
     <Card
       sx={{
         borderRadius: `${spacing.sm / 8}px`,
-        background: isError
-          ? alpha(colors.status.error, 0.02)
-          : alpha(colors.primary.main, 0.02),
+        background: isError ? alpha(colors.status.error, 0.02) : alpha(colors.primary.main, 0.02),
         border: `1px solid ${
           isError ? alpha(colors.status.error, 0.1) : alpha(colors.primary.main, 0.08)
         }`,
@@ -100,9 +98,7 @@ export default function JobProgress(props: JobProgressProps) {
       <Box sx={{ p: spacing.md / 8 }}>
         <Stack
           direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-          sx={{ mb: spacing.md / 8 }}
+          sx={{ alignItems: 'center', justifyContent: 'space-between', mb: spacing.md / 8 }}
         >
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             {title}
@@ -132,34 +128,36 @@ export default function JobProgress(props: JobProgressProps) {
             <Step key={step.key}>
               <StepLabel
                 error={isError && index === currentStepIndex}
-                StepIconComponent={({ active, completed, error }) => (
-                  <Box
-                    sx={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: error
-                        ? colors.status.error
-                        : completed
-                          ? colors.status.success
-                          : active
-                            ? `linear-gradient(135deg, ${colors.primary.main} 0%, ${colors.primary.dark} 100%)`
-                            : colors.neutral[300],
-                      color: 'white',
-                      boxShadow: active ? `0 0 0 4px ${alpha(colors.primary.main, 0.2)}` : 'none',
-                      transition: 'all 0.3s ease',
-                    }}
-                  >
-                    {error ? (
-                      <ErrorIcon sx={{ fontSize: 20 }} />
-                    ) : (
-                      <step.icon sx={{ fontSize: 20 }} />
-                    )}
-                  </Box>
-                )}
+                slots={{
+                  stepIcon: ({ active, completed, error }) => (
+                    <Box
+                      sx={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: error
+                          ? colors.status.error
+                          : completed
+                            ? colors.status.success
+                            : active
+                              ? `linear-gradient(135deg, ${colors.primary.main} 0%, ${colors.primary.dark} 100%)`
+                              : colors.neutral[300],
+                        color: 'white',
+                        boxShadow: active ? `0 0 0 4px ${alpha(colors.primary.main, 0.2)}` : 'none',
+                        transition: 'all 0.3s ease',
+                      }}
+                    >
+                      {error ? (
+                        <ErrorIcon sx={{ fontSize: 20 }} />
+                      ) : (
+                        <step.icon sx={{ fontSize: 20 }} />
+                      )}
+                    </Box>
+                  ),
+                }}
               >
                 <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                   {step.label}
@@ -175,7 +173,7 @@ export default function JobProgress(props: JobProgressProps) {
         {showProgressBar && (
           <Box>
             {progressDetails && (
-              <Stack direction="row" justifyContent="space-between" sx={{ mb: spacing.xs / 8 }}>
+              <Stack direction="row" sx={{ justifyContent: 'space-between', mb: spacing.xs / 8 }}>
                 <Typography variant="body2" color="text.secondary">
                   {progressDetails.label}
                 </Typography>
@@ -198,11 +196,7 @@ export default function JobProgress(props: JobProgressProps) {
                 },
               }}
             />
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ mt: 0.5, display: 'block' }}
-            >
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
               {Math.round(progressPercent ?? 0)}% complete
             </Typography>
           </Box>
@@ -217,7 +211,7 @@ export default function JobProgress(props: JobProgressProps) {
               border: `1px solid ${alpha(colors.status.success, 0.1)}`,
             }}
           >
-            <Stack direction="row" alignItems="center" spacing={spacing.xs / 8}>
+            <Stack sx={{ alignItems: 'center' }} direction="row" spacing={spacing.xs / 8}>
               <CheckCircle sx={{ color: colors.status.success, fontSize: 20 }} />
               <Typography variant="body2" color="success.main" sx={{ fontWeight: 600 }}>
                 {title} completed successfully
@@ -235,7 +229,7 @@ export default function JobProgress(props: JobProgressProps) {
               border: `1px solid ${alpha(colors.status.error, 0.1)}`,
             }}
           >
-            <Stack direction="row" alignItems="center" spacing={spacing.xs / 8}>
+            <Stack sx={{ alignItems: 'center' }} direction="row" spacing={spacing.xs / 8}>
               <ErrorIcon sx={{ color: colors.status.error, fontSize: 20 }} />
               <Typography variant="body2" color="error.main" sx={{ fontWeight: 600 }}>
                 {title} failed

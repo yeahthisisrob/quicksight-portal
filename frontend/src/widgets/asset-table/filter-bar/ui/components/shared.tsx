@@ -1,11 +1,10 @@
-import { Box, Chip, Stack, Typography, alpha } from '@mui/material';
-import React from 'react';
+import { alpha, Box, Chip, Stack, Typography } from '@mui/material';
+import type React from 'react';
 
 import { colors } from '@/shared/design-system/theme';
 
-import { CHIP_STYLES, getAssetConfig, truncateText } from './constants';
-
 import type { AssetFilter } from '../../lib/types';
+import { CHIP_STYLES, getAssetConfig, truncateText } from './constants';
 
 // ============================================================================
 // Shared Sub-Components
@@ -81,13 +80,12 @@ export const FilterSection: React.FC<FilterSectionProps> = ({ title, icon, color
   <Box sx={{ mb: 1 }}>
     <Typography
       variant="caption"
-      fontWeight={600}
       color={color}
-      sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}
+      sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}
     >
       {icon} {title}
     </Typography>
-    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+    <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={0.5} useFlexGap>
       {children}
     </Stack>
   </Box>

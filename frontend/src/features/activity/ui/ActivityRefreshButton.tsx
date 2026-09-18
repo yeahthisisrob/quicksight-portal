@@ -1,8 +1,8 @@
 import { Analytics as AnalyticsIcon } from '@mui/icons-material';
-import { IconButton, Tooltip, CircularProgress } from '@mui/material';
+import { CircularProgress, IconButton, Tooltip } from '@mui/material';
 
 import { useActivityRefresh } from '../hooks/useActivityRefresh';
-import { ActivityRefreshOptions } from '../model/types';
+import type { ActivityRefreshOptions } from '../model/types';
 
 interface ActivityRefreshButtonProps {
   assetTypes: ActivityRefreshOptions['assetTypes'];
@@ -11,11 +11,11 @@ interface ActivityRefreshButtonProps {
   tooltipPrefix?: string;
 }
 
-export function ActivityRefreshButton({ 
-  assetTypes, 
+export function ActivityRefreshButton({
+  assetTypes,
   days = 90,
   onRefreshComplete,
-  tooltipPrefix = 'Refresh activity statistics'
+  tooltipPrefix = 'Refresh activity statistics',
 }: ActivityRefreshButtonProps) {
   const { refreshing, refreshActivity } = useActivityRefresh();
 
@@ -28,18 +28,14 @@ export function ActivityRefreshButton({
     }
   };
 
-  const tooltipText = refreshing 
-    ? 'Refreshing activity statistics...' 
+  const tooltipText = refreshing
+    ? 'Refreshing activity statistics...'
     : `${tooltipPrefix} (may take several minutes)`;
 
   return (
     <Tooltip title={tooltipText}>
       <span>
-        <IconButton 
-          onClick={handleRefresh} 
-          disabled={refreshing}
-          color="primary"
-        >
+        <IconButton onClick={handleRefresh} disabled={refreshing} color="primary">
           {refreshing ? <CircularProgress size={24} /> : <AnalyticsIcon />}
         </IconButton>
       </span>

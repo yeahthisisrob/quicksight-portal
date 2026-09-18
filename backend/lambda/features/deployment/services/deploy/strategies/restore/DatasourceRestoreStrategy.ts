@@ -1,6 +1,6 @@
-import { BaseAssetRestoreStrategy } from './BaseAssetRestoreStrategy';
 import type { AssetExportData } from '../../../../../../shared/models/asset-export.model';
 import type { ValidationResult } from '../../types';
+import { BaseAssetRestoreStrategy } from './BaseAssetRestoreStrategy';
 
 /**
  * Datasource-specific restore strategy

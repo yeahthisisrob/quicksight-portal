@@ -1,10 +1,7 @@
 /**
  * Refactored MappedFieldsDialog with reduced complexity
  */
-import {
-  Close as CloseIcon,
-  Search as SearchIcon,
-} from '@mui/icons-material';
+import { Close as CloseIcon, Search as SearchIcon } from '@mui/icons-material';
 import {
   Box,
   Dialog,
@@ -40,25 +37,24 @@ interface MappedFieldsDialogProps {
 /**
  * Header component for the dialog
  */
-function DialogHeader({ 
-  term, 
-  physicalCount, 
-  visualCount, 
-  onClose 
-}: { 
-  term: any; 
-  physicalCount: number; 
-  visualCount: number; 
+function DialogHeader({
+  term,
+  physicalCount,
+  visualCount,
+  onClose,
+}: {
+  term: any;
+  physicalCount: number;
+  visualCount: number;
   onClose: () => void;
 }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <Box>
-        <Typography variant="h6">
-          Mapped Fields for "{term.businessName}"
-        </Typography>
+        <Typography variant="h6">Mapped Fields for "{term.businessName}"</Typography>
         <Typography variant="caption" color="text.secondary">
-          {physicalCount} physical field{physicalCount !== 1 ? 's' : ''} and {visualCount} visual field{visualCount !== 1 ? 's' : ''}
+          {physicalCount} physical field{physicalCount !== 1 ? 's' : ''} and {visualCount} visual
+          field{visualCount !== 1 ? 's' : ''}
         </Typography>
       </Box>
       <IconButton onClick={onClose} size="small">
@@ -71,13 +67,13 @@ function DialogHeader({
 /**
  * Search bar component
  */
-function SearchBar({ 
-  searchTerm, 
-  onSearchChange, 
-  activeTab 
-}: { 
-  searchTerm: string; 
-  onSearchChange: (value: string) => void; 
+function SearchBar({
+  searchTerm,
+  onSearchChange,
+  activeTab,
+}: {
+  searchTerm: string;
+  onSearchChange: (value: string) => void;
   activeTab: number;
 }) {
   return (
@@ -88,12 +84,14 @@ function SearchBar({
         value={searchTerm}
         onChange={(e) => onSearchChange(e.target.value)}
         size="small"
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon />
-            </InputAdornment>
-          ),
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          },
         }}
       />
     </Box>
@@ -126,14 +124,14 @@ export default function MappedFieldsDialog({
 
   // Process mappings
   const { physicalFieldMappings, visualFieldMappings } = processMappings(mappings, term.id);
-  
+
   // Map field data
   const mappedPhysicalFieldsData = mapPhysicalFields(physicalFieldMappings, fields);
   const mappedVisualFieldsData = mapVisualFields(visualFieldMappings, visualFields);
 
   // Get current data based on active tab
   const currentData = activeTab === 0 ? mappedPhysicalFieldsData : mappedVisualFieldsData;
-  
+
   // Filter by search
   const filteredMappings = filterMappingsBySearch(currentData, searchTerm);
 
@@ -150,7 +148,7 @@ export default function MappedFieldsDialog({
           onClose={onClose}
         />
       </DialogTitle>
-      
+
       <DialogContent>
         {showTabs && (
           <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
@@ -158,12 +156,8 @@ export default function MappedFieldsDialog({
             <Tab label={`Visual Fields (${visualFieldMappings.length})`} />
           </Tabs>
         )}
-        
-        <SearchBar 
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          activeTab={activeTab}
-        />
+
+        <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} activeTab={activeTab} />
 
         {filteredMappings.length === 0 ? (
           <EmptyState />

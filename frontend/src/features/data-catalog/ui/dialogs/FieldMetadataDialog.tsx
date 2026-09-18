@@ -1,33 +1,33 @@
 import {
+  Category as CategoryIcon,
   Close as CloseIcon,
-  LocalOffer as TagIcon,
+  ExpandMore as ExpandMoreIcon,
   Info as InfoIcon,
   AccountTree as LineageIcon,
-  ExpandMore as ExpandMoreIcon,
   Save as SaveIcon,
-  Category as CategoryIcon,
+  LocalOffer as TagIcon,
 } from '@mui/icons-material';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Box,
-  Typography,
-  TextField,
-  CircularProgress,
-  IconButton,
   Accordion,
-  AccordionSummary,
   AccordionDetails,
-  useTheme,
+  AccordionSummary,
   alpha,
+  Box,
+  Button,
   Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  TextField,
+  Typography,
+  useTheme,
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { ModernTagsInput } from '@/entities/tag';
 
@@ -82,12 +82,12 @@ export default function FieldMetadataDialog({
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [expandedAccordion, setExpandedAccordion] = useState<string | false>('basic');
-  
+
   // Field metadata state
   const [description, setDescription] = useState('');
   const [businessGlossary, setBusinessGlossary] = useState('');
   const [tags, setTags] = useState<Tag[]>([]);
-  
+
   // Lineage
   const [sourceSystem, setSourceSystem] = useState('');
   const [sourceTable, setSourceTable] = useState('');
@@ -100,7 +100,7 @@ export default function FieldMetadataDialog({
       setDescription(metadata.description || '');
       setBusinessGlossary(metadata.businessGlossary || '');
       setTags(metadata.tags || []);
-      
+
       if (metadata.lineage) {
         setSourceSystem(metadata.lineage.sourceSystem || '');
         setSourceTable(metadata.lineage.sourceTable || '');
@@ -111,14 +111,15 @@ export default function FieldMetadataDialog({
     }
   }, [metadata]);
 
-  const handleAccordionChange = (panel: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
-    setExpandedAccordion(isExpanded ? panel : false);
-  };
+  const handleAccordionChange =
+    (panel: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
+      setExpandedAccordion(isExpanded ? panel : false);
+    };
 
   const handleSave = async () => {
     try {
       setSaving(true);
-      
+
       const updatedMetadata = {
         fieldId: `dataset::${datasetId}::${field.name}`,
         sourceType: 'dataset' as const,
@@ -138,14 +139,16 @@ export default function FieldMetadataDialog({
         lastUpdated: new Date().toISOString(),
         updatedBy: 'current-user', // In real app, get from auth context
       };
-      
+
       await tagsApi.updateFieldMetadata('dataset', datasetId, field.name, updatedMetadata);
-      
+
       // Invalidate the data catalog cache to trigger refresh
       queryClient.invalidateQueries({ queryKey: ['data-catalog'] });
       queryClient.invalidateQueries({ queryKey: ['data-catalog-paginated'] });
-      queryClient.invalidateQueries({ queryKey: ['field-metadata', 'dataset', datasetId, field.name] });
-      
+      queryClient.invalidateQueries({
+        queryKey: ['field-metadata', 'dataset', datasetId, field.name],
+      });
+
       enqueueSnackbar('Field metadata updated successfully', { variant: 'success' });
       if (onUpdate) {
         onUpdate();
@@ -159,21 +162,23 @@ export default function FieldMetadataDialog({
   };
 
   return (
-    <Dialog 
-      open={open} 
-      onClose={onClose} 
-      maxWidth="md" 
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 2,
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: 2,
+          },
         },
       }}
     >
       <DialogTitle sx={{ pb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box>
-            <Typography variant="h6" fontWeight={600}>
+            <Typography sx={{ fontWeight: 600 }} variant="h6">
               Field Metadata
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
@@ -184,7 +189,7 @@ export default function FieldMetadataDialog({
                 <Chip
                   label={field.type}
                   size="small"
-                  sx={{ 
+                  sx={{
                     bgcolor: alpha(theme.palette.info.main, 0.1),
                     color: theme.palette.info.main,
                   }}
@@ -195,7 +200,7 @@ export default function FieldMetadataDialog({
                   icon={<CategoryIcon sx={{ fontSize: 16 }} />}
                   label={metadata.semanticType}
                   size="small"
-                  sx={{ 
+                  sx={{
                     bgcolor: alpha(theme.palette.secondary.main, 0.1),
                     color: theme.palette.secondary.main,
                   }}
@@ -205,7 +210,7 @@ export default function FieldMetadataDialog({
                 <Chip
                   label="Calculated Field"
                   size="small"
-                  sx={{ 
+                  sx={{
                     bgcolor: alpha(theme.palette.warning.main, 0.1),
                     color: theme.palette.warning.main,
                   }}
@@ -218,7 +223,7 @@ export default function FieldMetadataDialog({
           </IconButton>
         </Box>
       </DialogTitle>
-      
+
       <DialogContent sx={{ px: 3 }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {/* Basic Information Accordion */}
@@ -242,7 +247,7 @@ export default function FieldMetadataDialog({
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <InfoIcon color="primary" />
-                <Typography variant="subtitle1" fontWeight={600}>
+                <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
                   Basic Information
                 </Typography>
               </Box>
@@ -294,7 +299,7 @@ export default function FieldMetadataDialog({
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <TagIcon color="primary" />
-                <Typography variant="subtitle1" fontWeight={600}>
+                <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
                   Tags
                 </Typography>
                 {tags.length > 0 && (
@@ -343,13 +348,19 @@ export default function FieldMetadataDialog({
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <LineageIcon color="primary" />
-                <Typography variant="subtitle1" fontWeight={600}>
+                <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
                   Lineage & Source Information
                 </Typography>
               </Box>
             </AccordionSummary>
             <AccordionDetails sx={{ pt: 3 }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 2 }}>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: 2,
+                }}
+              >
                 <TextField
                   label="Source System"
                   value={sourceSystem}
@@ -399,13 +410,13 @@ export default function FieldMetadataDialog({
           </Accordion>
         </Box>
       </DialogContent>
-      
+
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} color="inherit">
           Cancel
         </Button>
-        <Button 
-          onClick={handleSave} 
+        <Button
+          onClick={handleSave}
           variant="contained"
           disabled={saving}
           startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}

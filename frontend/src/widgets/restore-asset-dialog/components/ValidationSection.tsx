@@ -3,9 +3,8 @@
  */
 import { Alert, Box, CircularProgress, Divider, Stack, Typography } from '@mui/material';
 
-import { statusIcons } from '@/shared/ui/icons';
-
 import type { ValidationResult } from '@/shared/api/modules/deploy';
+import { statusIcons } from '@/shared/ui/icons';
 
 const WarningIcon = statusIcons.warning;
 const InfoIcon = statusIcons.info;
@@ -25,10 +24,10 @@ function getValidationIcon(result: ValidationResult) {
   );
 }
 
-export function ValidationSection({ 
-  validationResults, 
-  validating, 
-  hasRequiredFields 
+export function ValidationSection({
+  validationResults,
+  validating,
+  hasRequiredFields,
 }: ValidationSectionProps) {
   if (validating) {
     return (

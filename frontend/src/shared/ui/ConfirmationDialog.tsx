@@ -1,17 +1,13 @@
+import { Error as ErrorIcon, Info as InfoIcon, Warning as WarningIcon } from '@mui/icons-material';
 import {
-  Warning as WarningIcon,
-  Info as InfoIcon,
-  Error as ErrorIcon,
-} from '@mui/icons-material';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Typography,
   Box,
+  Button,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Typography,
 } from '@mui/material';
 
 interface ConfirmationDialogProps {
@@ -62,25 +58,20 @@ export default function ConfirmationDialog({
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-    >
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {getIcon()}
           <Typography variant="h6">{title}</Typography>
         </Box>
       </DialogTitle>
-      
+
       <DialogContent>
         <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
           {message}
         </Typography>
       </DialogContent>
-      
+
       <DialogActions>
         <Button onClick={onClose} disabled={loading}>
           {cancelText}

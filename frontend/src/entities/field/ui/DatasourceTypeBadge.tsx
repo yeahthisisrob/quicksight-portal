@@ -1,4 +1,4 @@
-import { Chip, Tooltip, Box, Typography } from '@mui/material';
+import { Box, Chip, Tooltip, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
 import { formatDatasourceType } from '../lib/formatDatasourceType';
@@ -15,7 +15,7 @@ const StyledChip = styled(Chip, {
   // Define colors for different datasource types
   const getColor = () => {
     if (!datasourceType) return theme.palette.grey[400];
-    
+
     const lowerType = datasourceType.toLowerCase();
     if (lowerType.includes('redshift')) return '#E31C58';
     if (lowerType.includes('s3')) return '#FF9900';
@@ -29,7 +29,8 @@ const StyledChip = styled(Chip, {
   };
 
   return {
-    backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[50],
+    backgroundColor:
+      theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[50],
     borderColor: getColor(),
     color: getColor(),
     borderWidth: 1.5,
@@ -56,7 +57,11 @@ const ImportModeChip = styled(Chip)<{ mode?: string }>(({ theme, mode }) => ({
   },
 }));
 
-export default function DatasourceTypeBadge({ datasourceType, importMode, compact = false }: DatasourceTypeBadgeProps) {
+export default function DatasourceTypeBadge({
+  datasourceType,
+  importMode,
+  compact = false,
+}: DatasourceTypeBadgeProps) {
   if (!datasourceType && !importMode) {
     return null;
   }
@@ -64,7 +69,7 @@ export default function DatasourceTypeBadge({ datasourceType, importMode, compac
   const formatType = (type: string) => {
     const mapped = formatDatasourceType(type);
     if (mapped.length > 10 && compact) {
-      return mapped.substring(0, 8) + '...';
+      return `${mapped.substring(0, 8)}...`;
     }
     return mapped;
   };
@@ -100,14 +105,10 @@ export default function DatasourceTypeBadge({ datasourceType, importMode, compac
   }
 
   return (
-    <Tooltip 
+    <Tooltip
       title={
         <Box>
-          {datasourceType && (
-            <Typography variant="body2">
-              Datasource: {datasourceType}
-            </Typography>
-          )}
+          {datasourceType && <Typography variant="body2">Datasource: {datasourceType}</Typography>}
           {importMode && (
             <Typography variant="body2">
               Mode: {importMode === 'SPICE' ? 'SPICE (In-Memory)' : 'Direct Query'}

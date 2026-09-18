@@ -1,13 +1,14 @@
-import { OpenInNew as OpenInNewIcon ,
-  Dashboard as DashboardIcon,
+import {
   Analytics as AnalysisIcon,
+  Archive as ArchiveIcon,
+  Dashboard as DashboardIcon,
   Storage as DatasetIcon,
   CloudQueue as DatasourceIcon,
-  Archive as ArchiveIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
-import { Box, Paper, Typography, alpha, Chip, Tooltip } from '@mui/material';
+import { alpha, Box, Chip, Paper, Tooltip, Typography } from '@mui/material';
 
-import { colors, spacing, borderRadius, typography } from '@/shared/design-system/theme';
+import { borderRadius, colors, spacing, typography } from '@/shared/design-system/theme';
 import TypedChip from '@/shared/ui/TypedChip';
 
 interface Tag {
@@ -50,10 +51,10 @@ const assetPluralLabels = {
   datasource: 'Data Sources',
 } as const;
 
-export function AssetRelationshipSection({ 
-  type, 
-  assets = [], 
-  onAssetClick 
+export function AssetRelationshipSection({
+  type,
+  assets = [],
+  onAssetClick,
 }: AssetRelationshipSectionProps) {
   const Icon = assetIcons[type];
   const colorConfig = colors.assetTypes[type];
@@ -62,7 +63,7 @@ export function AssetRelationshipSection({
   return (
     <Paper
       variant="outlined"
-      sx={{ 
+      sx={{
         p: spacing.md / 8,
         border: `1px solid ${hasAssets ? alpha(colorConfig.main, 0.2) : 'transparent'}`,
         backgroundColor: hasAssets ? alpha(colorConfig.light, 0.3) : 'transparent',
@@ -72,15 +73,15 @@ export function AssetRelationshipSection({
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: hasAssets ? 1.5 : 0 }}>
         <Icon sx={{ fontSize: 20, color: hasAssets ? colorConfig.main : 'text.disabled' }} />
-        <Typography 
-          variant="subtitle1" 
-          fontWeight={typography.fontWeight.semibold}
+        <Typography
+          sx={{ fontWeight: typography.fontWeight.semibold }}
+          variant="subtitle1"
           color={hasAssets ? 'text.primary' : 'text.disabled'}
         >
           {assetPluralLabels[type]}
         </Typography>
         {hasAssets && (
-          <TypedChip 
+          <TypedChip
             type={type.toUpperCase() as any}
             count={assets.length}
             showIcon={false}
@@ -88,7 +89,7 @@ export function AssetRelationshipSection({
           />
         )}
       </Box>
-      
+
       {hasAssets && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {assets.map((asset) => (
@@ -109,7 +110,7 @@ export function AssetRelationshipSection({
                     ? alpha('#ff9800', 0.1)
                     : alpha(colorConfig.main, 0.05),
                   transform: 'translateX(4px)',
-                }
+                },
               }}
               onClick={() => onAssetClick(asset)}
             >
@@ -117,8 +118,8 @@ export function AssetRelationshipSection({
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flexWrap: 'wrap' }}>
                   <Typography
                     variant="body2"
-                    fontWeight={typography.fontWeight.medium}
                     sx={{
+                      fontWeight: typography.fontWeight.medium,
                       textDecoration: asset.isArchived ? 'line-through' : 'none',
                       color: asset.isArchived ? 'text.secondary' : 'text.primary',
                       wordBreak: 'break-word',
@@ -140,12 +141,14 @@ export function AssetRelationshipSection({
                         '& .MuiChip-icon': {
                           marginLeft: '4px',
                           color: '#ff9800',
-                        }
+                        },
                       }}
                     />
                   )}
                 </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 0.25 }}>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 0.25 }}
+                >
                   <Typography
                     variant="caption"
                     sx={{
@@ -158,56 +161,68 @@ export function AssetRelationshipSection({
                     {asset.id}
                   </Typography>
                   {/* Activity indicator for dashboards and analyses */}
-                  {(asset.type === 'dashboard' || asset.type === 'analysis') && asset.activity && asset.activity.totalViews !== undefined && (
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.5,
-                        backgroundColor: asset.activity.totalViews === 0
-                          ? alpha('#000', 0.05)
-                          : alpha(colorConfig.main, 0.1),
-                        borderRadius: `${borderRadius.sm}px`,
-                        px: 0.5,
-                        py: 0.25,
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Typography
-                        variant="caption"
+                  {(asset.type === 'dashboard' || asset.type === 'analysis') &&
+                    asset.activity &&
+                    asset.activity.totalViews !== undefined && (
+                      <Box
                         sx={{
-                          fontSize: '0.65rem',
-                          fontWeight: typography.fontWeight.medium,
-                          color: asset.activity.totalViews === 0
-                            ? 'text.secondary'
-                            : colorConfig.main,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.5,
+                          backgroundColor:
+                            asset.activity.totalViews === 0
+                              ? alpha('#000', 0.05)
+                              : alpha(colorConfig.main, 0.1),
+                          borderRadius: `${borderRadius.sm}px`,
+                          px: 0.5,
+                          py: 0.25,
+                          flexShrink: 0,
                         }}
                       >
-                        {asset.activity.totalViews >= 1000
-                          ? `${(asset.activity.totalViews / 1000).toFixed(1)}k`
-                          : asset.activity.totalViews}
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          fontSize: '0.65rem',
-                          color: 'text.secondary',
-                        }}
-                      >
-                        views
-                      </Typography>
-                    </Box>
-                  )}
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontSize: '0.65rem',
+                            fontWeight: typography.fontWeight.medium,
+                            color:
+                              asset.activity.totalViews === 0 ? 'text.secondary' : colorConfig.main,
+                          }}
+                        >
+                          {asset.activity.totalViews >= 1000
+                            ? `${(asset.activity.totalViews / 1000).toFixed(1)}k`
+                            : asset.activity.totalViews}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontSize: '0.65rem',
+                            color: 'text.secondary',
+                          }}
+                        >
+                          views
+                        </Typography>
+                      </Box>
+                    )}
                 </Box>
                 {/* Tags display */}
                 {asset.tags && asset.tags.length > 0 && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      flexWrap: 'wrap',
+                      mt: 0.5,
+                    }}
+                  >
                     {asset.tags.slice(0, 2).map((tag, idx) => (
                       <Tooltip key={idx} title={`${tag.key}: ${tag.value}`}>
                         <Box component="span">
                           <TypedChip
                             type="TAG"
-                            customLabel={tag.value.length > 12 ? `${tag.value.substring(0, 12)}...` : tag.value}
+                            customLabel={
+                              tag.value.length > 12 ? `${tag.value.substring(0, 12)}...` : tag.value
+                            }
                             size="small"
                             variant="outlined"
                             showIcon={false}
@@ -217,10 +232,11 @@ export function AssetRelationshipSection({
                     ))}
                     {asset.tags.length > 2 && (
                       <Tooltip
+                        sx={{ display: 'block' }}
                         title={
                           <Box>
                             {asset.tags.slice(2).map((tag, idx) => (
-                              <Typography key={idx} variant="caption" display="block">
+                              <Typography key={idx} variant="caption">
                                 {tag.key}: {tag.value}
                               </Typography>
                             ))}
@@ -241,7 +257,9 @@ export function AssetRelationshipSection({
                   </Box>
                 )}
               </Box>
-              <OpenInNewIcon sx={{ fontSize: 14, color: 'text.secondary', flexShrink: 0, mt: 0.5 }} />
+              <OpenInNewIcon
+                sx={{ fontSize: 14, color: 'text.secondary', flexShrink: 0, mt: 0.5 }}
+              />
             </Box>
           ))}
         </Box>

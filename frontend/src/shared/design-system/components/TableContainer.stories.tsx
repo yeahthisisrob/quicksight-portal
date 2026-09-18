@@ -1,9 +1,8 @@
-import { Box, TextField, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
-import { DataGrid, GridColDef } from '@mui/x-data-grid';
+import { Box, FormControl, InputLabel, MenuItem, Select, TextField } from '@mui/material';
+import { DataGrid, type GridColDef } from '@mui/x-data-grid';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { TableContainer } from './TableContainer';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta: Meta<typeof TableContainer> = {
   title: 'Design System/TableContainer',
@@ -84,15 +83,11 @@ export const WithSearchBar: Story = {
     fullHeight: true,
   },
   render: (args) => (
-    <TableContainer 
+    <TableContainer
       {...args}
       searchBar={
         <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0', display: 'flex', gap: 2 }}>
-          <TextField
-            size="small"
-            placeholder="Search..."
-            sx={{ flex: 1, maxWidth: 400 }}
-          />
+          <TextField size="small" placeholder="Search..." sx={{ flex: 1, maxWidth: 400 }} />
           <FormControl size="small" sx={{ minWidth: 120 }}>
             <InputLabel>Status</InputLabel>
             <Select label="Status">

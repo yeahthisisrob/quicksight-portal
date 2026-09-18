@@ -1,12 +1,11 @@
 import { api as apiClient } from '../client';
-import { ApiResponse } from '../types';
+import type { ApiResponse } from '../types';
 
 /**
  * Folders API - handles folder-specific operations and membership management
  * Note: For listing folders, use assetsApi.getFoldersPaginated()
  */
 export const foldersApi = {
-
   // Get single folder
   async get(folderId: string): Promise<any> {
     const response = await apiClient.get<ApiResponse<any>>(`/folders/${folderId}`);
@@ -41,10 +40,7 @@ export const foldersApi = {
 
   // Update folder tags
   async updateTags(folderId: string, tags: Array<{ key: string; value: string }>): Promise<void> {
-    const response = await apiClient.put<ApiResponse<any>>(
-      `/folders/${folderId}/tags`,
-      { tags }
-    );
+    const response = await apiClient.put<ApiResponse<any>>(`/folders/${folderId}/tags`, { tags });
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to update tags');
     }
@@ -52,21 +48,20 @@ export const foldersApi = {
 
   // Remove folder tags
   async removeTags(folderId: string, tagKeys: string[]): Promise<void> {
-    const response = await apiClient.delete<ApiResponse<any>>(
-      `/folders/${folderId}/tags`,
-      { data: { tagKeys } }
-    );
+    const response = await apiClient.delete<ApiResponse<any>>(`/folders/${folderId}/tags`, {
+      data: { tagKeys },
+    });
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to remove tags');
     }
   },
 
   // Add member to folder (use direct endpoint)
-  async addMember(folderId: string, member: { memberType: string; memberId: string; role?: string }): Promise<void> {
-    const response = await apiClient.post<ApiResponse<any>>(
-      `/folders/${folderId}/members`,
-      member
-    );
+  async addMember(
+    folderId: string,
+    member: { memberType: string; memberId: string; role?: string }
+  ): Promise<void> {
+    const response = await apiClient.post<ApiResponse<any>>(`/folders/${folderId}/members`, member);
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to add member');
     }
@@ -74,9 +69,7 @@ export const foldersApi = {
 
   // Get folder members
   async getMembers(folderId: string): Promise<any[]> {
-    const response = await apiClient.get<ApiResponse<any[]>>(
-      `/folders/${folderId}/members`
-    );
+    const response = await apiClient.get<ApiResponse<any[]>>(`/folders/${folderId}/members`);
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to get folder members');
     }

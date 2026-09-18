@@ -1,89 +1,96 @@
-name: Checks (just check)
+name: Checks
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  backend-checks:
-    name: Backend Checks
+  check:
+    name: Check
     runs-on: ubuntu-latest
-    
     steps:
-    - uses: actions/checkout@v7
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v7
-      with:
-        node-version: '22'
-        cache: 'npm'
-        cache-dependency-path: backend/lambda/package-lock.json
-    
-    - name: Install backend dependencies
-      run: |
-        cd backend/lambda
-        npm ci
-    
-    - name: Run backend lint fix
-      run: |
-        cd backend/lambda
-        npm run lint:fix
-    
-    - name: Run backend typecheck
-      run: |
-        cd backend/lambda
-        npm run typecheck
-    
-    - name: Run backend tests
-      run: |
-        cd backend/lambda
-        npm run test
+      - uses: actions/checkout@v7
 
-  frontend-checks:
-    name: Frontend Checks
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v7
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v7
-      with:
-        node-version: '22'
-        cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
-    
-    - name: Install frontend dependencies
-      run: |
-        cd frontend
-        npm ci
-    
-    - name: Run frontend lint fix
-      run: |
-        cd frontend
-        npm run lint:fix
-    
-    - name: Run frontend typecheck
-      run: |
-        cd frontend
-        npx tsc --noEmit
-    
-    - name: Run frontend tests
-      run: |
-        cd frontend
-        npm test
-    
-    - name: Run Storybook smoke tests
-      run: |
-        cd frontend
-        npm run test:storybook:ci || true  # Don't fail if Storybook tests aren't set up yet
+      # mise installs the exact node/pnpm/lefthook/gitleaks pinned in
+      # mise.toml, verified against mise.lock. CI and laptops therefore run the
+      # same binaries - no `node-version:` here to drift from the toolchain file.
+      - name: Set up toolchain
+        uses: jdx/mise-action@v3
+        with:
+          version: 2026.9.2
+          cache: true
 
-  all-checks-passed:
-    name: All Checks Passed
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Biome checks format + lint for the whole repo in well under a second,
+      # so there is no reason to split this per package.
+      - name: Format and lint
+        run: pnpm exec biome ci .
+
+      - name: Typecheck
+        run: pnpm -r run typecheck
+
+      - name: Test
+        run: pnpm -r run test
+
+      # A lint config that silently stops matching reports success. This proves
+      # the VSA and FSD rules still reject the things they are supposed to.
+      - name: Verify architecture rules
+        run: node scripts/verify-architecture-rules.mjs
+
+      # The generated API types are committed; fail if they have drifted from
+      # the OpenAPI schema.
+      - name: Verify generated types are current
+        run: |
+          pnpm --filter @quicksight-portal/shared run generate
+          git diff --exit-code --stat shared/generated \
+            || { echo "::error::shared/generated is stale - run 'just contract' and commit the result"; exit 1; }
+
+  secrets:
+    name: Secret scan
     runs-on: ubuntu-latest
-    needs: [backend-checks, frontend-checks]
     steps:
-      - name: All checks passed
-        run: echo "✅ All checks passed!"
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up toolchain
+        uses: jdx/mise-action@v3
+        with:
+          version: 2026.9.2
+          cache: true
+
+      - name: Scan history
+        run: gitleaks git --no-banner --redact
+
+  storybook:
+    name: Storybook
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up toolchain
+        uses: jdx/mise-action@v3
+        with:
+          version: 2026.9.2
+          cache: true
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm --filter @quicksight-portal/frontend exec playwright install --with-deps chromium
+
+      # Renders all 365 stories in Chromium and fails on any render error or
+      # unexpected console error. Blocking: the previous workflow ran this with
+      # `|| true`, which is why three React bugs sat unnoticed in Sidebar and
+      # two dialogs.
+      - name: Smoke-test stories
+        run: pnpm --filter @quicksight-portal/frontend run test:storybook:ci

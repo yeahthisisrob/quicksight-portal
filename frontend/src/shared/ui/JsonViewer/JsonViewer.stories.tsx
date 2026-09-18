@@ -1,11 +1,10 @@
-import { Stack, Box, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { JsonViewerIconButton } from '../IconButtons';
 import JsonViewerModal from './components/JsonViewerModal';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 // Create a query client with mocked data for stories
 const createQueryClientWithMocks = () => {
@@ -20,13 +19,19 @@ const createQueryClientWithMocks = () => {
   });
 
   // Pre-populate cache with mock data for all potential story asset IDs
-  queryClient.setQueryData(['asset-json', 'dashboard', 'sample-dashboard-123'], createMockDashboardData());
-  queryClient.setQueryData(['asset-json', 'dataset', 'sample-dataset-456'], createMockDatasetData());
+  queryClient.setQueryData(
+    ['asset-json', 'dashboard', 'sample-dashboard-123'],
+    createMockDashboardData()
+  );
+  queryClient.setQueryData(
+    ['asset-json', 'dataset', 'sample-dataset-456'],
+    createMockDatasetData()
+  );
   queryClient.setQueryData(['asset-json', 'dashboard', 'dash-001'], createMockDashboardData());
   queryClient.setQueryData(['asset-json', 'dataset', 'dataset-001'], createMockDatasetData());
   queryClient.setQueryData(['asset-json', 'analysis', 'analysis-001'], createMockDashboardData()); // Use dashboard data as fallback
   queryClient.setQueryData(['asset-json', 'dashboard', 'sample-001'], createMockDashboardData());
-  
+
   return queryClient;
 };
 
@@ -44,12 +49,12 @@ const createMockDashboardData = () => ({
       description: '2024-03-20T14:45:00Z',
       definition: '2024-03-20T14:45:00Z',
       permissions: '2024-03-20T14:45:00Z',
-      tags: '2024-03-20T14:45:00Z'
+      tags: '2024-03-20T14:45:00Z',
     },
     exportTime: '2024-03-20T14:45:00Z',
     sheetCount: 3,
     visualCount: 12,
-    visualFieldMappingCount: 45
+    visualFieldMappingCount: 45,
   },
   Dashboard: {
     DashboardId: 'sample-dashboard-123',
@@ -64,42 +69,42 @@ const createMockDashboardData = () => ({
       CreatedTime: '2024-03-20T14:45:00Z',
       DataSetArns: [
         'arn:aws:quicksight:us-east-1:123456789012:dataset/sales-data-456',
-        'arn:aws:quicksight:us-east-1:123456789012:dataset/customer-data-789'
+        'arn:aws:quicksight:us-east-1:123456789012:dataset/customer-data-789',
       ],
       Sheets: [
         { Name: 'Overview', SheetId: 'sheet-overview-001' },
         { Name: 'Regional Analysis', SheetId: 'sheet-regional-002' },
-        { Name: 'Trend Analysis', SheetId: 'sheet-trends-003' }
-      ]
-    }
+        { Name: 'Trend Analysis', SheetId: 'sheet-trends-003' },
+      ],
+    },
   },
   Definition: {
     DataSetIdentifierDeclarations: [
       {
         Identifier: 'sales-data',
-        DataSetArn: 'arn:aws:quicksight:us-east-1:123456789012:dataset/sales-data-456'
+        DataSetArn: 'arn:aws:quicksight:us-east-1:123456789012:dataset/sales-data-456',
       },
       {
         Identifier: 'customer-data',
-        DataSetArn: 'arn:aws:quicksight:us-east-1:123456789012:dataset/customer-data-789'
-      }
+        DataSetArn: 'arn:aws:quicksight:us-east-1:123456789012:dataset/customer-data-789',
+      },
     ],
     CalculatedFields: [
       {
         DataSetIdentifier: 'sales-data',
         Expression: 'sum({Revenue})',
-        Name: 'Total Revenue'
+        Name: 'Total Revenue',
       },
       {
         DataSetIdentifier: 'sales-data',
         Expression: 'concat({FirstName}, " ", {LastName})',
-        Name: 'Full Name'
+        Name: 'Full Name',
       },
       {
         DataSetIdentifier: 'customer-data',
         Expression: 'ifelse({Status} = "Premium", {Price} * 0.9, {Price})',
-        Name: 'Discounted Price'
-      }
+        Name: 'Discounted Price',
+      },
     ],
     Sheets: [
       {
@@ -114,11 +119,11 @@ const createMockDashboardData = () => ({
                 FieldWells: {
                   BarsAggregatedFieldWells: {
                     Category: [{ CategoricalDimensionField: { FieldId: 'region-field' } }],
-                    Values: [{ NumericalMeasureField: { FieldId: 'revenue-field' } }]
-                  }
-                }
-              }
-            }
+                    Values: [{ NumericalMeasureField: { FieldId: 'revenue-field' } }],
+                  },
+                },
+              },
+            },
           },
           {
             LineChartVisual: {
@@ -128,14 +133,14 @@ const createMockDashboardData = () => ({
                 FieldWells: {
                   LineChartAggregatedFieldWells: {
                     Category: [{ DateDimensionField: { FieldId: 'date-field' } }],
-                    Values: [{ NumericalMeasureField: { FieldId: 'sales-field' } }]
-                  }
-                }
-              }
-            }
-          }
-        ]
-      }
+                    Values: [{ NumericalMeasureField: { FieldId: 'sales-field' } }],
+                  },
+                },
+              },
+            },
+          },
+        ],
+      },
     ],
     FilterGroups: [
       {
@@ -144,36 +149,36 @@ const createMockDashboardData = () => ({
           {
             DateTimeFilter: {
               FilterId: 'date-filter-001',
-              Column: { DataSetIdentifier: 'sales-data', ColumnName: 'OrderDate' }
-            }
+              Column: { DataSetIdentifier: 'sales-data', ColumnName: 'OrderDate' },
+            },
           },
           {
             NumericRangeFilter: {
               FilterId: 'revenue-filter-002',
-              Column: { DataSetIdentifier: 'sales-data', ColumnName: 'Revenue' }
-            }
-          }
-        ]
-      }
-    ]
+              Column: { DataSetIdentifier: 'sales-data', ColumnName: 'Revenue' },
+            },
+          },
+        ],
+      },
+    ],
   },
   Permissions: [
     {
       principal: 'arn:aws:quicksight:us-east-1:123456789012:user/default/john.doe',
       principalType: 'USER',
-      actions: ['quicksight:DescribeDashboard', 'quicksight:QueryDashboard']
+      actions: ['quicksight:DescribeDashboard', 'quicksight:QueryDashboard'],
     },
     {
       principal: 'arn:aws:quicksight:us-east-1:123456789012:group/default/sales-team',
       principalType: 'GROUP',
-      actions: ['quicksight:DescribeDashboard']
-    }
+      actions: ['quicksight:DescribeDashboard'],
+    },
   ],
   Tags: [
     { key: 'Department', value: 'Sales' },
     { key: 'Environment', value: 'Production' },
-    { key: 'Owner', value: 'Sales Team' }
-  ]
+    { key: 'Owner', value: 'Sales Team' },
+  ],
 });
 
 const createMockDatasetData = () => ({
@@ -181,7 +186,7 @@ const createMockDatasetData = () => ({
     assetType: 'datasets',
     assetId: 'sample-dataset-456',
     status: 'enriched',
-    name: 'Customer Analytics Dataset'
+    name: 'Customer Analytics Dataset',
   },
   DataSet: {
     DataSetId: 'sample-dataset-456',
@@ -197,28 +202,26 @@ const createMockDatasetData = () => ({
             { Name: 'customer_id', Type: 'INTEGER' },
             { Name: 'first_name', Type: 'STRING' },
             { Name: 'last_name', Type: 'STRING' },
-            { Name: 'email', Type: 'STRING' }
-          ]
-        }
-      }
-    }
+            { Name: 'email', Type: 'STRING' },
+          ],
+        },
+      },
+    },
   },
-  Tags: [
-    { key: 'Source', value: 'Customer Database' }
-  ]
+  Tags: [{ key: 'Source', value: 'Customer Database' }],
 });
 
 // Shared mock data generators (consistent with other stories)
 const createMockAsset = (
-  id: string, 
-  name: string, 
+  id: string,
+  name: string,
   type: 'dashboard' | 'analysis' | 'dataset' | 'datasource'
 ) => ({
   id,
   name,
   type,
   arn: `arn:aws:quicksight:us-east-1:123456789012:${type}/${id}`,
-  lastUpdated: '2024-03-20T14:45:00Z'
+  lastUpdated: '2024-03-20T14:45:00Z',
 });
 
 const mockAssets = {
@@ -245,7 +248,8 @@ const meta: Meta<typeof JsonViewerModal> = {
     layout: 'centered',
     docs: {
       description: {
-        component: 'A modal component for viewing and exploring asset JSON data with syntax highlighting, search, type-specific highlighting, tabs, and line numbers.',
+        component:
+          'A modal component for viewing and exploring asset JSON data with syntax highlighting, search, type-specific highlighting, tabs, and line numbers.',
       },
     },
   },
@@ -255,15 +259,26 @@ const meta: Meta<typeof JsonViewerModal> = {
       // In docs mode, show a simple placeholder to avoid API calls
       if (context.viewMode === 'docs') {
         return (
-          <Box sx={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 1 }}>
+          <Box
+            sx={{
+              height: '200px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px dashed',
+              borderColor: 'divider',
+              borderRadius: 1,
+            }}
+          >
             <Typography color="text.secondary" align="center">
-              JSON Viewer Modal<br />
+              JSON Viewer Modal
+              <br />
               <small>Click on individual stories to see them in action</small>
             </Typography>
           </Box>
         );
       }
-      
+
       return (
         <QueryClientProvider client={createQueryClientWithMocks()}>
           <Story />
@@ -340,9 +355,9 @@ export const WithIconButton: Story = {
   render: () => {
     const [modalOpen, setModalOpen] = useState(false);
     const mockAsset = mockAssets.dashboards[0];
-    
+
     return (
-      <Stack spacing={2} alignItems="center">
+      <Stack sx={{ alignItems: 'center' }} spacing={2}>
         <Typography variant="h6">JSON Viewer Icon Button</Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography>Click to view JSON:</Typography>
@@ -368,7 +383,8 @@ export const LongAssetName: Story = {
   args: {
     open: true,
     assetId: 'long-name-asset',
-    assetName: 'Enterprise Executive Dashboard with Real-time KPIs and Advanced Analytics for Board Reporting Q4 2024',
+    assetName:
+      'Enterprise Executive Dashboard with Real-time KPIs and Advanced Analytics for Board Reporting Q4 2024',
     assetType: 'dashboard',
   },
 };

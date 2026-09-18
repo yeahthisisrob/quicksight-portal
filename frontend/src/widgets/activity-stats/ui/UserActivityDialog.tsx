@@ -1,42 +1,41 @@
-import { 
-  TrendingUp as TrendingUpIcon,
-  Dashboard as DashboardIcon,
-  Analytics as AnalyticsIcon,
+import {
   AccessTime as AccessTimeIcon,
+  Analytics as AnalyticsIcon,
   CalendarToday as CalendarTodayIcon,
   Close as CloseIcon,
-  ContentCopy as CopyIcon
+  ContentCopy as CopyIcon,
+  Dashboard as DashboardIcon,
+  TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
-import { 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  Box, 
-  Typography,
-  Grid,
-  Paper,
+import {
+  Alert,
+  alpha,
+  Box,
   Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  Grid,
+  IconButton,
+  Paper,
+  Skeleton,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Divider,
-  Skeleton,
-  Alert,
-  IconButton,
-  alpha
+  Typography,
 } from '@mui/material';
 import { format, parseISO } from 'date-fns';
 import { enqueueSnackbar } from 'notistack';
-import { useState, useEffect, useCallback } from 'react';
-
-
-import { activityApi } from '@/shared/api';
-import { colors, borderRadius, typography } from '@/shared/design-system/theme';
+import { useCallback, useEffect, useState } from 'react';
 
 import type { UserActivity } from '@/features/activity';
+
+import { activityApi } from '@/shared/api';
+import { borderRadius, colors, typography } from '@/shared/design-system/theme';
 
 interface UserActivityDialogProps {
   open: boolean;
@@ -45,12 +44,7 @@ interface UserActivityDialogProps {
   userId: string;
 }
 
-export function UserActivityDialog({ 
-  open, 
-  onClose, 
-  userName,
-  userId
-}: UserActivityDialogProps) {
+export function UserActivityDialog({ open, onClose, userName, userId }: UserActivityDialogProps) {
   const [activity, setActivity] = useState<UserActivity | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +88,11 @@ export function UserActivityDialog({
       <DialogTitle sx={{ px: 3, py: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box>
-            <Typography variant="h6" component="div" sx={{ fontWeight: typography.fontWeight.semibold }}>
+            <Typography
+              variant="h6"
+              component="div"
+              sx={{ fontWeight: typography.fontWeight.semibold }}
+            >
               User Activity
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
@@ -108,7 +106,7 @@ export function UserActivityDialog({
                   backgroundColor: alpha(colors.assetTypes.user.main, 0.1),
                   color: colors.assetTypes.user.dark,
                   fontWeight: typography.fontWeight.medium,
-                  fontSize: typography.fontSize.xs
+                  fontSize: typography.fontSize.xs,
                 }}
               />
             </Box>
@@ -122,23 +120,25 @@ export function UserActivityDialog({
                 <CopyIcon fontSize="small" />
               </IconButton>
             </Box>
-            <IconButton
-              aria-label="close"
-              onClick={onClose}
-              sx={{ ml: 1 }}
-            >
+            <IconButton aria-label="close" onClick={onClose} sx={{ ml: 1 }}>
               <CloseIcon />
             </IconButton>
           </Box>
         </Box>
       </DialogTitle>
-      
+
       <DialogContent sx={{ px: 3, pb: 3 }}>
         <Box sx={{ pt: 1 }}>
           {loading && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Skeleton variant="rectangular" height={100} sx={{ borderRadius: `${borderRadius.md}px` }} />
-              <Skeleton variant="rectangular" height={200} sx={{ borderRadius: `${borderRadius.md}px` }} />
+              <Skeleton
+                variant="rectangular"
+                sx={{ height: 100, borderRadius: `${borderRadius.md}px` }}
+              />
+              <Skeleton
+                variant="rectangular"
+                sx={{ height: 200, borderRadius: `${borderRadius.md}px` }}
+              />
             </Box>
           )}
           {error && (
@@ -150,62 +150,85 @@ export function UserActivityDialog({
             <>
               {/* Summary Stats */}
               <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={4}>
-                  <Paper 
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <Paper
                     variant="outlined"
-                    sx={{ 
-                      p: 2.5, 
+                    sx={{
+                      p: 2.5,
                       textAlign: 'center',
                       border: `1px solid ${alpha(colors.primary.main, 0.2)}`,
                       backgroundColor: alpha(colors.primary.light, 0.05),
-                      borderRadius: `${borderRadius.md}px`
+                      borderRadius: `${borderRadius.md}px`,
                     }}
                   >
                     <TrendingUpIcon sx={{ fontSize: 36, color: colors.primary.main, mb: 1 }} />
-                    <Typography variant="h4" sx={{ fontWeight: typography.fontWeight.bold, color: colors.primary.dark }}>
+                    <Typography
+                      variant="h4"
+                      sx={{ fontWeight: typography.fontWeight.bold, color: colors.primary.dark }}
+                    >
                       {activity.totalActivities.toLocaleString()}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: typography.fontWeight.medium }}>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ fontWeight: typography.fontWeight.medium }}
+                    >
                       Total Activities
                     </Typography>
                   </Paper>
                 </Grid>
-                <Grid item xs={12} sm={4}>
-                  <Paper 
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <Paper
                     variant="outlined"
-                    sx={{ 
-                      p: 2.5, 
+                    sx={{
+                      p: 2.5,
                       textAlign: 'center',
                       border: `1px solid ${alpha(colors.assetTypes.dashboard.main, 0.2)}`,
                       backgroundColor: alpha(colors.assetTypes.dashboard.light, 0.05),
-                      borderRadius: `${borderRadius.md}px`
+                      borderRadius: `${borderRadius.md}px`,
                     }}
                   >
-                    <DashboardIcon sx={{ fontSize: 36, color: colors.assetTypes.dashboard.main, mb: 1 }} />
-                    <Typography variant="h4" sx={{ fontWeight: typography.fontWeight.bold, color: colors.assetTypes.dashboard.dark }}>
+                    <DashboardIcon
+                      sx={{ fontSize: 36, color: colors.assetTypes.dashboard.main, mb: 1 }}
+                    />
+                    <Typography
+                      variant="h4"
+                      sx={{
+                        fontWeight: typography.fontWeight.bold,
+                        color: colors.assetTypes.dashboard.dark,
+                      }}
+                    >
                       {(activity.dashboards?.length || 0).toLocaleString()}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: typography.fontWeight.medium }}>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ fontWeight: typography.fontWeight.medium }}
+                    >
                       Dashboards Viewed
                     </Typography>
                   </Paper>
                 </Grid>
-                <Grid item xs={12} sm={4}>
-                  <Paper 
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <Paper
                     variant="outlined"
-                    sx={{ 
-                      p: 2.5, 
+                    sx={{
+                      p: 2.5,
                       textAlign: 'center',
                       border: `1px solid ${alpha(colors.neutral[300], 0.5)}`,
                       backgroundColor: alpha(colors.neutral[100], 0.5),
-                      borderRadius: `${borderRadius.md}px`
+                      borderRadius: `${borderRadius.md}px`,
                     }}
                   >
                     <AccessTimeIcon sx={{ fontSize: 36, color: colors.neutral[600], mb: 1 }} />
                     <Typography variant="body1" sx={{ fontWeight: typography.fontWeight.medium }}>
                       {activity.lastActive ? formatDate(activity.lastActive) : 'Never'}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: typography.fontWeight.medium }}>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ fontWeight: typography.fontWeight.medium }}
+                    >
                       Last Active
                     </Typography>
                   </Paper>
@@ -217,16 +240,19 @@ export function UserActivityDialog({
               {/* Dashboard Activity */}
               {activity.dashboards && activity.dashboards.length > 0 && (
                 <>
-                  <Typography variant="h6" sx={{ mb: 2, fontWeight: typography.fontWeight.semibold }}>
+                  <Typography
+                    variant="h6"
+                    sx={{ mb: 2, fontWeight: typography.fontWeight.semibold }}
+                  >
                     Dashboard Activity
                   </Typography>
-                  <TableContainer 
-                    component={Paper} 
+                  <TableContainer
+                    component={Paper}
                     variant="outlined"
-                    sx={{ 
+                    sx={{
                       mb: 3,
                       borderRadius: `${borderRadius.md}px`,
-                      overflow: 'hidden'
+                      overflow: 'hidden',
                     }}
                   >
                     <Table size="small">
@@ -242,17 +268,23 @@ export function UserActivityDialog({
                           <TableRow key={dashboard.dashboardId}>
                             <TableCell>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <DashboardIcon fontSize="small" sx={{ color: colors.assetTypes.dashboard.main }} />
+                                <DashboardIcon
+                                  fontSize="small"
+                                  sx={{ color: colors.assetTypes.dashboard.main }}
+                                />
                                 <Box>
-                                  <Typography variant="body2" sx={{ fontWeight: typography.fontWeight.medium }}>
+                                  <Typography
+                                    variant="body2"
+                                    sx={{ fontWeight: typography.fontWeight.medium }}
+                                  >
                                     {dashboard.dashboardName || 'Unnamed Dashboard'}
                                   </Typography>
-                                  <Typography 
-                                    variant="caption" 
+                                  <Typography
+                                    variant="caption"
                                     color="text.secondary"
-                                    sx={{ 
+                                    sx={{
                                       fontFamily: typography.fontFamily.monospace,
-                                      fontSize: typography.fontSize.xs 
+                                      fontSize: typography.fontSize.xs,
                                     }}
                                   >
                                     {dashboard.dashboardId}
@@ -261,11 +293,7 @@ export function UserActivityDialog({
                               </Box>
                             </TableCell>
                             <TableCell align="right">
-                              <Chip 
-                                label={dashboard.viewCount} 
-                                size="small" 
-                                color="primary"
-                              />
+                              <Chip label={dashboard.viewCount} size="small" color="primary" />
                             </TableCell>
                             <TableCell align="right">
                               <Typography variant="body2" color="text.secondary">
@@ -283,15 +311,18 @@ export function UserActivityDialog({
               {/* Analysis Activity */}
               {activity.analyses && activity.analyses.length > 0 && (
                 <>
-                  <Typography variant="h6" sx={{ mb: 2, fontWeight: typography.fontWeight.semibold }}>
+                  <Typography
+                    variant="h6"
+                    sx={{ mb: 2, fontWeight: typography.fontWeight.semibold }}
+                  >
                     Analysis Activity
                   </Typography>
-                  <TableContainer 
-                    component={Paper} 
+                  <TableContainer
+                    component={Paper}
                     variant="outlined"
-                    sx={{ 
+                    sx={{
                       borderRadius: `${borderRadius.md}px`,
-                      overflow: 'hidden'
+                      overflow: 'hidden',
                     }}
                   >
                     <Table size="small">
@@ -307,17 +338,23 @@ export function UserActivityDialog({
                           <TableRow key={analysis.analysisId}>
                             <TableCell>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <AnalyticsIcon fontSize="small" sx={{ color: colors.assetTypes.analysis.main }} />
+                                <AnalyticsIcon
+                                  fontSize="small"
+                                  sx={{ color: colors.assetTypes.analysis.main }}
+                                />
                                 <Box>
-                                  <Typography variant="body2" sx={{ fontWeight: typography.fontWeight.medium }}>
+                                  <Typography
+                                    variant="body2"
+                                    sx={{ fontWeight: typography.fontWeight.medium }}
+                                  >
                                     {analysis.analysisName || 'Unnamed Analysis'}
                                   </Typography>
-                                  <Typography 
-                                    variant="caption" 
+                                  <Typography
+                                    variant="caption"
                                     color="text.secondary"
-                                    sx={{ 
+                                    sx={{
                                       fontFamily: typography.fontFamily.monospace,
-                                      fontSize: typography.fontSize.xs 
+                                      fontSize: typography.fontSize.xs,
                                     }}
                                   >
                                     {analysis.analysisId}
@@ -326,11 +363,7 @@ export function UserActivityDialog({
                               </Box>
                             </TableCell>
                             <TableCell align="right">
-                              <Chip 
-                                label={analysis.viewCount} 
-                                size="small" 
-                                color="primary"
-                              />
+                              <Chip label={analysis.viewCount} size="small" color="primary" />
                             </TableCell>
                             <TableCell align="right">
                               <Typography variant="body2" color="text.secondary">
@@ -348,15 +381,18 @@ export function UserActivityDialog({
               {/* Activity by Date */}
               {Object.keys(activity.activitiesByDate || {}).length > 0 && (
                 <>
-                  <Typography variant="h6" sx={{ mt: 3, mb: 2, fontWeight: typography.fontWeight.semibold }}>
+                  <Typography
+                    variant="h6"
+                    sx={{ mt: 3, mb: 2, fontWeight: typography.fontWeight.semibold }}
+                  >
                     Recent Activity
                   </Typography>
-                  <Paper 
+                  <Paper
                     variant="outlined"
-                    sx={{ 
+                    sx={{
                       p: 2.5,
                       borderRadius: `${borderRadius.md}px`,
-                      backgroundColor: alpha(colors.neutral[50], 0.5)
+                      backgroundColor: alpha(colors.neutral[50], 0.5),
                     }}
                   >
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>

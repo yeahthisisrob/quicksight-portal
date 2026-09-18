@@ -3,10 +3,10 @@ import { useSnackbar } from 'notistack';
 import { useCallback, useState } from 'react';
 
 import { activityApi } from '@/shared/api/modules/activity';
-import { type JobMetadata } from '@/shared/api/modules/jobs';
-import { useJobPolling, type PollIntervalFn } from '@/shared/hooks/useJobPolling';
+import type { JobMetadata } from '@/shared/api/modules/jobs';
+import { type PollIntervalFn, useJobPolling } from '@/shared/hooks/useJobPolling';
 
-import { ActivityRefreshOptions } from '../model/types';
+import type { ActivityRefreshOptions } from '../model/types';
 
 /**
  * Smart polling backoff. Tight cadence early so the stepper animates lively,

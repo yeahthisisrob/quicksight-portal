@@ -1,8 +1,7 @@
 import { Box, Stack, Typography } from '@mui/material';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { CountCell } from './CountCell';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta: Meta<typeof CountCell> = {
   title: 'Shared/UI/DataGrid/Cells/CountCell',
@@ -62,13 +61,13 @@ export const WithTooltip: Story = {
         <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
           Total Usage: 42
         </Typography>
-        <Typography variant="caption" display="block">
+        <Typography sx={{ display: 'block' }} variant="caption">
           Count of actual usage in:
         </Typography>
-        <Typography variant="caption" display="block">
+        <Typography sx={{ display: 'block' }} variant="caption">
           Visuals (charts, tables, etc.)
         </Typography>
-        <Typography variant="caption" display="block">
+        <Typography sx={{ display: 'block' }} variant="caption">
           Calculated field expressions
         </Typography>
       </Box>
@@ -83,13 +82,7 @@ export const Clickable: Story = {
   },
 };
 
-const StorySection = ({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) => (
+const StorySection = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <Box sx={{ mb: 3 }}>
     <Typography variant="subtitle2" gutterBottom sx={{ mb: 1, fontWeight: 500 }}>
       {title}
@@ -102,21 +95,21 @@ export const AllVariants: Story = {
   render: () => (
     <Stack spacing={3} sx={{ minWidth: 300 }}>
       <StorySection title="Count States">
-        <Stack direction="row" spacing={3} alignItems="center">
+        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={3}>
           <Box>
-            <Typography variant="caption" display="block">
+            <Typography sx={{ display: 'block' }} variant="caption">
               Zero
             </Typography>
             <CountCell value={0} />
           </Box>
           <Box>
-            <Typography variant="caption" display="block">
+            <Typography sx={{ display: 'block' }} variant="caption">
               Low
             </Typography>
             <CountCell value={5} />
           </Box>
           <Box>
-            <Typography variant="caption" display="block">
+            <Typography sx={{ display: 'block' }} variant="caption">
               High
             </Typography>
             <CountCell value={1234} />
@@ -132,9 +125,7 @@ export const AllVariants: Story = {
               <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                 Visual Usage: 42
               </Typography>
-              <Typography variant="caption">
-                Hover to see this tooltip
-              </Typography>
+              <Typography variant="caption">Hover to see this tooltip</Typography>
             </Box>
           }
         />

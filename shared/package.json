@@ -1,0 +1,19 @@
+{
+  "name": "@quicksight-portal/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The API contract (OpenAPI) and the TypeScript types generated from it",
+  "scripts": {
+    "contract": "pnpm --filter @quicksight-portal/openapi-codegen run contract",
+    "generate": "pnpm --filter @quicksight-portal/openapi-codegen run generate",
+    "lint:schema": "pnpm --filter @quicksight-portal/openapi-codegen run lint:schema",
+    "build": "pnpm run contract",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"no tests in shared\" && exit 0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.1",
+    "@vitest/coverage-v8": "^5.0.1",
+    "vitest": "^5.0.1"
+  }
+}

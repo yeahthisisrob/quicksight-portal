@@ -1,4 +1,4 @@
-import { type AssetType } from '../../../shared/types/assetTypes';
+import type { AssetType } from '../../../shared/types/assetTypes';
 
 // Keep original types for backward compatibility but map to new types
 export type ActivityData = AssetActivityData;

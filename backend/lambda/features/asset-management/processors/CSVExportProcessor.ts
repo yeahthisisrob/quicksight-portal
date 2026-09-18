@@ -4,7 +4,7 @@
  * Part of the asset-management vertical slice (VSA)
  */
 import { cacheService } from '../../../shared/services/cache/CacheService';
-import { type JobStateService } from '../../../shared/services/jobs/JobStateService';
+import type { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { getSingularForm } from '../../../shared/types/assetTypes';
 import { generateCSV } from '../../../shared/utils/csvExport';
@@ -47,7 +47,7 @@ export class CSVExportProcessor {
   private jobId?: string;
   private jobStateService?: JobStateService;
 
-  constructor(accountId: string) {
+  public constructor(accountId: string) {
     this.assetService = new AssetService(accountId);
   }
 
@@ -66,7 +66,7 @@ export class CSVExportProcessor {
       // Get all assets from cache (already filtered to active only)
       const cache = await cacheService.getMasterCache({ statusFilter: AssetStatusFilter.ACTIVE });
 
-      if (!cache || !cache.entries) {
+      if (!cache?.entries) {
         throw new Error('No cached data available');
       }
 

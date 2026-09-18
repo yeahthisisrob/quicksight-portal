@@ -46,7 +46,7 @@ export class MemoryCacheAdapter {
   private readonly cache = new Map<string, InternalEntry>();
   private readonly stats: MemoryCacheStats;
 
-  constructor(private readonly options: MemoryCacheOptions) {
+  public constructor(private readonly options: MemoryCacheOptions) {
     this.stats = { hits: 0, misses: 0, hitRate: 0 };
   }
 

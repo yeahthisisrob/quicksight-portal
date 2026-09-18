@@ -7,25 +7,25 @@
 
 import pLimit from 'p-limit';
 
-import { summarizeBulkResult } from './bulkResultSummary';
 // Import services that will handle individual operations
 import { BulkDeleteService } from '../../../features/asset-management/services/BulkDeleteService';
 import { FolderService } from '../../../features/organization/services/FolderService';
 import { IdentityService } from '../../../features/organization/services/IdentityService';
 import { TagService } from '../../../features/organization/services/TagService';
 import { MATH_CONSTANTS, PAGINATION, TIME_UNITS } from '../../constants';
-import { type AssetType } from '../../types/assetTypes';
-import {
-  type BulkOperationConfig,
-  type BulkOperationResult,
-  type BulkOperationItemResult,
-  type BulkAssetReference,
+import type { AssetType } from '../../types/assetTypes';
+import type {
+  BulkAssetReference,
+  BulkOperationConfig,
+  BulkOperationItemResult,
+  BulkOperationResult,
 } from '../../types/bulkOperationTypes';
 import { logger } from '../../utils/logger';
 import { ClientFactory } from '../aws/ClientFactory';
 import { QuickSightService } from '../aws/QuickSightService';
 import { cacheService } from '../cache/CacheService';
-import { type JobStateService } from '../jobs/JobStateService';
+import type { JobStateService } from '../jobs/JobStateService';
+import { summarizeBulkResult } from './bulkResultSummary';
 
 // Processing constants
 const PROCESSING_CONSTANTS = {
@@ -55,7 +55,7 @@ export class BulkOperationsProcessor {
   private lastProgressUpdate: number = 0;
   private readonly tagService: TagService;
 
-  constructor(accountId: string) {
+  public constructor(accountId: string) {
     const quickSightService = ClientFactory.getQuickSightService(accountId);
 
     this.bulkDeleteService = new BulkDeleteService(quickSightService);
@@ -635,7 +635,7 @@ export class BulkOperationsProcessor {
           });
           // Exponential backoff
           await new Promise<void>((resolve) => {
-            const timeout = Math.pow(2, attempt) * TIME_UNITS.SECOND;
+            const timeout = 2 ** attempt * TIME_UNITS.SECOND;
             setTimeout(resolve, timeout);
           });
         }

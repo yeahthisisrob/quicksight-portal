@@ -77,7 +77,7 @@ export class DemoCleanupService {
   private readonly archiveService: ArchiveService;
   private readonly quickSightService;
 
-  constructor(private readonly accountId: string) {
+  public constructor(private readonly accountId: string) {
     const bucketName = process.env.BUCKET_NAME || 'quicksight-metadata-bucket';
     this.archiveService = new ArchiveService(bucketName, cacheService);
     this.quickSightService = ClientFactory.getQuickSightService(this.accountId);
@@ -281,12 +281,12 @@ export class DemoCleanupService {
   private async ensureCache(): Promise<any> {
     let cache = await cacheService.getMasterCache({ statusFilter: AssetStatusFilter.ACTIVE });
 
-    if (!cache || !cache.entries || Object.keys(cache.entries).length === 0) {
+    if (!cache?.entries || Object.keys(cache.entries).length === 0) {
       logger.warn('No cached data found, building cache first...');
       await cacheService.rebuildCache(false, true);
 
       cache = await cacheService.getMasterCache({ statusFilter: AssetStatusFilter.ACTIVE });
-      if (!cache || !cache.entries || Object.keys(cache.entries).length === 0) {
+      if (!cache?.entries || Object.keys(cache.entries).length === 0) {
         logger.error('Failed to build cache, cannot identify demo assets');
         return null;
       }

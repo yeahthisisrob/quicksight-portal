@@ -1,30 +1,30 @@
 import {
   Close as CloseIcon,
-  Search as SearchIcon,
-  Warning as UnmappedIcon,
-  AutoAwesome as SuggestIcon,
-  TrendingUp as UsageIcon,
   DataObject as FieldIcon,
+  Search as SearchIcon,
+  AutoAwesome as SuggestIcon,
+  Warning as UnmappedIcon,
+  TrendingUp as UsageIcon,
 } from '@mui/icons-material';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  Box,
-  Typography,
-  IconButton,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
-  Chip,
-  Button,
-  TextField,
-  InputAdornment,
   Alert,
   Badge,
-  Tabs,
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  InputAdornment,
+  List,
+  ListItem,
+  ListItemSecondaryAction,
+  ListItemText,
   Tab,
+  Tabs,
+  TextField,
+  Typography,
 } from '@mui/material';
 import { useState } from 'react';
 
@@ -67,30 +67,33 @@ export default function UnmappedFieldsDialog({
   const [selectedDataType, setSelectedDataType] = useState<string>('all');
 
   // Filter fields based on search and data type
-  const filteredFields = unmappedFields.filter(field => {
-    const matchesSearch = !searchTerm || 
+  const filteredFields = unmappedFields.filter((field) => {
+    const matchesSearch =
+      !searchTerm ||
       field.fieldName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       field.sourceName.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesDataType = selectedDataType === 'all' || 
-      field.dataType === selectedDataType;
-    
+
+    const matchesDataType = selectedDataType === 'all' || field.dataType === selectedDataType;
+
     return matchesSearch && matchesDataType;
   });
 
   // Group fields by source
-  const fieldsBySource = filteredFields.reduce((acc, field) => {
-    const key = `${field.sourceType}-${field.sourceId}`;
-    if (!acc[key]) {
-      acc[key] = {
-        sourceType: field.sourceType,
-        sourceName: field.sourceName,
-        fields: [],
-      };
-    }
-    acc[key].fields.push(field);
-    return acc;
-  }, {} as Record<string, any>);
+  const fieldsBySource = filteredFields.reduce(
+    (acc, field) => {
+      const key = `${field.sourceType}-${field.sourceId}`;
+      if (!acc[key]) {
+        acc[key] = {
+          sourceType: field.sourceType,
+          sourceName: field.sourceName,
+          fields: [],
+        };
+      }
+      acc[key].fields.push(field);
+      return acc;
+    },
+    {} as Record<string, any>
+  );
 
   // Get most used fields
   const mostUsedFields = [...filteredFields]
@@ -99,11 +102,11 @@ export default function UnmappedFieldsDialog({
 
   // Get fields with suggestions
   const fieldsWithSuggestions = filteredFields.filter(
-    field => field.suggestions && field.suggestions.length > 0
+    (field) => field.suggestions && field.suggestions.length > 0
   );
 
   // Get unique data types
-  const dataTypes = Array.from(new Set(unmappedFields.map(f => f.dataType).filter(Boolean)));
+  const dataTypes = Array.from(new Set(unmappedFields.map((f) => f.dataType).filter(Boolean)));
 
   const getSourceIcon = (sourceType: string) => {
     switch (sourceType) {
@@ -121,11 +124,11 @@ export default function UnmappedFieldsDialog({
   const renderFieldItem = (field: any, showSource = true) => (
     <ListItem
       key={field.fieldId}
-      sx={{ 
-        border: 1, 
-        borderColor: 'divider', 
-        borderRadius: 1, 
-        mb: 1 
+      sx={{
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: 1,
+        mb: 1,
       }}
     >
       <ListItemText
@@ -133,9 +136,7 @@ export default function UnmappedFieldsDialog({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <FieldIcon fontSize="small" color="action" />
             <Typography variant="subtitle2">{field.fieldName}</Typography>
-            {field.dataType && (
-              <Chip label={field.dataType} size="small" variant="outlined" />
-            )}
+            {field.dataType && <Chip label={field.dataType} size="small" variant="outlined" />}
             {field.occurrences > 1 && (
               <Badge badgeContent={field.occurrences} color="primary" max={99}>
                 <UsageIcon fontSize="small" color="action" />
@@ -159,7 +160,8 @@ export default function UnmappedFieldsDialog({
               <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <SuggestIcon fontSize="small" color="primary" />
                 <Typography variant="caption" color="primary">
-                  {field.suggestions.length} suggestion{field.suggestions.length > 1 ? 's' : ''} available
+                  {field.suggestions.length} suggestion{field.suggestions.length > 1 ? 's' : ''}{' '}
+                  available
                 </Typography>
               </Box>
             )}
@@ -167,11 +169,7 @@ export default function UnmappedFieldsDialog({
         }
       />
       <ListItemSecondaryAction>
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={() => onMapField(field)}
-        >
+        <Button size="small" variant="outlined" onClick={() => onMapField(field)}>
           Map
         </Button>
       </ListItemSecondaryAction>
@@ -184,16 +182,14 @@ export default function UnmappedFieldsDialog({
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <UnmappedIcon color="warning" />
-            <Typography variant="h6">
-              Unmapped Fields ({unmappedFields.length})
-            </Typography>
+            <Typography variant="h6">Unmapped Fields ({unmappedFields.length})</Typography>
           </Box>
           <IconButton onClick={onClose} size="small">
             <CloseIcon />
           </IconButton>
         </Box>
       </DialogTitle>
-      
+
       <DialogContent>
         {unmappedFields.length === 0 ? (
           <Alert severity="success" sx={{ mt: 2 }}>
@@ -209,12 +205,14 @@ export default function UnmappedFieldsDialog({
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 size="small"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  },
                 }}
               />
               <TextField
@@ -224,13 +222,17 @@ export default function UnmappedFieldsDialog({
                 onChange={(e) => setSelectedDataType(e.target.value)}
                 size="small"
                 sx={{ minWidth: 150 }}
-                SelectProps={{
-                  native: true,
+                slotProps={{
+                  select: {
+                    native: true,
+                  },
                 }}
               >
                 <option value="all">All Types</option>
-                {dataTypes.map(type => (
-                  <option key={type} value={type}>{type}</option>
+                {dataTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
                 ))}
               </TextField>
             </Box>
@@ -249,9 +251,7 @@ export default function UnmappedFieldsDialog({
 
             {/* All Fields */}
             <TabPanel value={selectedTab} index={0}>
-              <List dense>
-                {filteredFields.map(field => renderFieldItem(field))}
-              </List>
+              <List dense>{filteredFields.map((field) => renderFieldItem(field))}</List>
             </TabPanel>
 
             {/* Most Used */}
@@ -259,9 +259,7 @@ export default function UnmappedFieldsDialog({
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 Fields sorted by usage frequency across assets
               </Typography>
-              <List dense>
-                {mostUsedFields.map(field => renderFieldItem(field))}
-              </List>
+              <List dense>{mostUsedFields.map((field) => renderFieldItem(field))}</List>
             </TabPanel>
 
             {/* With Suggestions */}
@@ -269,9 +267,7 @@ export default function UnmappedFieldsDialog({
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 Fields with AI-powered mapping suggestions
               </Typography>
-              <List dense>
-                {fieldsWithSuggestions.map(field => renderFieldItem(field))}
-              </List>
+              <List dense>{fieldsWithSuggestions.map((field) => renderFieldItem(field))}</List>
             </TabPanel>
 
             {/* By Source */}
@@ -280,9 +276,7 @@ export default function UnmappedFieldsDialog({
                 <Box key={key} sx={{ mb: 3 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                     {getSourceIcon(source.sourceType)}
-                    <Typography variant="subtitle1">
-                      {source.sourceName}
-                    </Typography>
+                    <Typography variant="subtitle1">{source.sourceName}</Typography>
                     <Typography variant="caption" color="text.secondary">
                       ({source.fields.length} fields)
                     </Typography>

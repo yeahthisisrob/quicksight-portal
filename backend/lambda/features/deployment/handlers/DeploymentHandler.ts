@@ -1,17 +1,17 @@
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../../../shared/auth';
-import { STATUS_CODES, PAGINATION } from '../../../shared/constants';
-import { type AssetType } from '../../../shared/models/asset.model';
+import { PAGINATION, STATUS_CODES } from '../../../shared/constants';
+import type { AssetType } from '../../../shared/models/asset.model';
 import { S3Service } from '../../../shared/services/aws/S3Service';
 import { CacheService } from '../../../shared/services/cache/CacheService';
-import { jobFactory, type DeployJobConfig } from '../../../shared/services/jobs/JobFactory';
+import { type DeployJobConfig, jobFactory } from '../../../shared/services/jobs/JobFactory';
 import { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
-import { successResponse, errorResponse, createResponse } from '../../../shared/utils/cors';
+import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { DeployService } from '../services/deploy/DeployService';
-import { type DeploymentConfig } from '../services/deploy/types';
+import type { DeploymentConfig } from '../services/deploy/types';
 
 export class DeploymentHandler {
   private readonly accountId: string;
@@ -20,7 +20,7 @@ export class DeploymentHandler {
   private readonly jobStateService: JobStateService;
   private readonly s3Service: S3Service;
 
-  constructor() {
+  public constructor() {
     this.accountId = process.env.AWS_ACCOUNT_ID || '';
     this.bucketName = process.env.BUCKET_NAME || `quicksight-metadata-bucket-${this.accountId}`;
 

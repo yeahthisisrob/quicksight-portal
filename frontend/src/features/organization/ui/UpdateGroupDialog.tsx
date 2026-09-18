@@ -1,17 +1,17 @@
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Button,
-  Box,
-  Typography,
   Alert,
+  Box,
+  Button,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TextField,
+  Typography,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { groupsApi } from '@/shared/api';
 
@@ -56,9 +56,9 @@ export function UpdateGroupDialog({ open, onClose, onSuccess, group }: UpdateGro
       enqueueSnackbar(`Group "${group.name}" updated successfully`, { variant: 'success' });
       handleClose();
       onSuccess();
-    } catch (error: any) {
-      setError(error.message || 'Failed to update group');
-      enqueueSnackbar(error.message || 'Failed to update group', { variant: 'error' });
+    } catch (err: any) {
+      setError(err.message || 'Failed to update group');
+      enqueueSnackbar(err.message || 'Failed to update group', { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -67,19 +67,14 @@ export function UpdateGroupDialog({ open, onClose, onSuccess, group }: UpdateGro
   if (!group) return null;
 
   return (
-    <Dialog 
-      open={open} 
-      onClose={handleClose}
-      maxWidth="sm"
-      fullWidth
-    >
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>Update Group</DialogTitle>
       <DialogContent>
         <Box sx={{ pt: 2 }}>
           <Typography variant="body2" color="text.secondary" gutterBottom>
             Update the description for the group "{group.name}".
           </Typography>
-          
+
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}

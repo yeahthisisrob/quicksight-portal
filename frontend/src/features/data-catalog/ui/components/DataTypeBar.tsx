@@ -1,7 +1,7 @@
 /**
  * DataTypeBar component for displaying data type distribution
  */
-import { Box, Typography, LinearProgress, alpha } from '@mui/material';
+import { alpha, Box, LinearProgress, Typography } from '@mui/material';
 
 import { colors, spacing } from '@/shared/design-system/theme';
 
@@ -14,22 +14,22 @@ interface DataTypeBarProps {
 
 export function DataTypeBar({ dataType, count, total, color }: DataTypeBarProps) {
   const percentage = total > 0 ? (count / total) * 100 : 0;
-  
+
   return (
     <Box sx={{ mb: spacing.md / 8 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: spacing.xs / 8 }}>
-        <Typography 
-          variant="caption" 
-          sx={{ 
+        <Typography
+          variant="caption"
+          sx={{
             fontWeight: 600,
             color: colors.neutral[700],
           }}
         >
           {dataType}
         </Typography>
-        <Typography 
-          variant="caption" 
-          sx={{ 
+        <Typography
+          variant="caption"
+          sx={{
             color: colors.neutral[500],
             fontWeight: 500,
           }}

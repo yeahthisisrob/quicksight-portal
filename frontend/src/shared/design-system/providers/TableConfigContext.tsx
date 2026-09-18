@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 
-import { TABLE_CONFIG, TableDensity } from '../constants/table';
+import { TABLE_CONFIG, type TableDensity } from '../constants/table';
 
 export interface TableConfigContextValue {
   defaultDensity: TableDensity;

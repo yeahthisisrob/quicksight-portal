@@ -2,13 +2,13 @@ import pLimit from 'p-limit';
 
 import { EXPORT_CONFIG } from '../../config/exportConfig';
 import { FIELD_LIMITS } from '../../constants';
-import { type AssetType, type CacheEntry } from '../../models/asset.model';
+import type { AssetType, CacheEntry } from '../../models/asset.model';
 import { AssetStatusFilter } from '../../types/assetFilterTypes';
 import { ASSET_TYPES } from '../../types/assetTypes';
 import { findMatchingFlatFileDatasource } from '../../utils/flatFileDatasetMatcher';
 import { logger } from '../../utils/logger';
 import { S3Service } from '../aws/S3Service';
-import { type CacheService } from '../cache/CacheService';
+import type { CacheService } from '../cache/CacheService';
 
 export interface LineageRelationship {
   sourceAssetId: string;
@@ -89,7 +89,7 @@ export class LineageService {
   private lineageCache: Map<string, AssetLineage> | null = null;
   private readonly s3Service: S3Service;
 
-  constructor(cacheServiceInstance?: CacheService) {
+  public constructor(cacheServiceInstance?: CacheService) {
     this.s3Service = s3Service; // Use singleton
     const bucketName = process.env.BUCKET_NAME;
     if (!bucketName) {
@@ -457,7 +457,7 @@ export class LineageService {
   private async getCacheService(): Promise<CacheService> {
     if (!this.cacheService) {
       // Lazy load to avoid circular dependency
-      // eslint-disable-next-line import/no-cycle
+
       const { cacheService } = await import('../cache/CacheService');
       this.cacheService = cacheService;
     }
@@ -483,7 +483,7 @@ export class LineageService {
       const cacheKey = 'cache/lineage-cache.json';
       const cachedData = await this.s3Service.getObject(this.bucketName, cacheKey);
 
-      if (cachedData && cachedData.lineageMap) {
+      if (cachedData?.lineageMap) {
         // Convert array back to map with proper keys
         const lineageMap = new Map<string, AssetLineage>();
         for (const lineage of cachedData.lineageMap) {
@@ -756,7 +756,7 @@ export class LineageService {
     const lineageData = cacheEntry.metadata?.lineageData;
 
     // Process child dataset relationships (for composite datasets)
-    if (lineageData && lineageData.datasetIds && lineageData.datasetIds.length > 0) {
+    if (lineageData?.datasetIds && lineageData.datasetIds.length > 0) {
       for (const childDatasetId of lineageData.datasetIds) {
         const childDatasetLineage = lineageMap.get(childDatasetId);
         if (childDatasetLineage) {
@@ -807,7 +807,7 @@ export class LineageService {
     }
 
     // Process datasource relationships
-    if (lineageData && lineageData.datasourceIds && lineageData.datasourceIds.length > 0) {
+    if (lineageData?.datasourceIds && lineageData.datasourceIds.length > 0) {
       // Extract datasource usage from cached lineage data
       for (const datasourceId of lineageData.datasourceIds) {
         const datasourceLineage = lineageMap.get(datasourceId);

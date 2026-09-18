@@ -1,6 +1,9 @@
 /**
  * Create column handlers for GenericAssetPage
  */
+
+import type { AssetType } from '@/shared/types/asset';
+
 import type {
   AssetFoldersDialogState,
   DefinitionErrorsDialogState,
@@ -13,14 +16,12 @@ import type {
   NotifyInactiveAnalysesDialogState,
   NotifyInactiveDialogState,
   NotifyUnusedDatasetsDialogState,
-  RenameAssetDialogState,
   RefreshScheduleDialogState,
+  RenameAssetDialogState,
   UpdateGroupDialogState,
   UserAssetAccessDialogState,
   UserGroupsDialogState,
 } from './useDialogStates';
-import type { AssetType } from '@/shared/types/asset';
-
 
 interface DialogSetters {
   setJsonViewerDialog: (state: JsonViewerDialogState) => void;
@@ -71,12 +72,8 @@ export function createColumnHandlers(
     setNotifyInactiveAnalysesDialog,
     setNotifyUnusedDatasetsDialog,
   } = dialogSetters;
-  
-  const {
-    openPermissionsDialog,
-    openTagsDialog,
-    openRelatedAssetsDialog,
-  } = pageStateActions;
+
+  const { openPermissionsDialog, openTagsDialog, openRelatedAssetsDialog } = pageStateActions;
 
   return {
     onPermissionsClick: (asset: any) => {

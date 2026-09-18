@@ -1,4 +1,4 @@
-import { vi, type Mocked } from 'vitest';
+import { type Mocked, vi } from 'vitest';
 
 import type { AssetExportData } from '../../../../../../../shared/models/asset-export.model';
 import type { QuickSightService } from '../../../../../../../shared/services/aws/QuickSightService';

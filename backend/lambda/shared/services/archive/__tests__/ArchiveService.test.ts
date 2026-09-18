@@ -1,8 +1,8 @@
-import { vi, type Mocked, type MockedClass } from 'vitest';
+import { type Mocked, type MockedClass, vi } from 'vitest';
 
 import { logger } from '../../../utils/logger';
 import { S3Service } from '../../aws/S3Service';
-import { type CacheService } from '../../cache/CacheService';
+import type { CacheService } from '../../cache/CacheService';
 import { ArchiveService } from '../ArchiveService';
 
 // Mock dependencies
@@ -41,7 +41,9 @@ beforeEach(() => {
   } as any;
 
   // Mock S3Service constructor to return our mock
-  (S3Service as MockedClass<typeof S3Service>).mockImplementation(() => mockS3Service);
+  (S3Service as MockedClass<typeof S3Service>).mockImplementation(function () {
+    return mockS3Service;
+  });
 
   archiveService = new ArchiveService(TEST_BUCKET, mockCacheService);
 });

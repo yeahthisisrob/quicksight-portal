@@ -1,5 +1,5 @@
-import { Refresh, CloudDownload, Analytics } from '@mui/icons-material';
-import { Box, Typography, Button, Stack, alpha } from '@mui/material';
+import { Analytics, CloudDownload, Refresh } from '@mui/icons-material';
+import { alpha, Box, Button, Stack, Typography } from '@mui/material';
 
 import { colors, spacing } from '@/shared/design-system/theme';
 
@@ -9,12 +9,11 @@ interface ExportHeaderProps {
   loading?: boolean;
 }
 
-export default function ExportHeader({ 
-  lastExportDate, 
+export default function ExportHeader({
+  lastExportDate,
   onRefreshSummary,
-  loading = false 
+  loading = false,
 }: ExportHeaderProps) {
-
   return (
     <Box
       sx={{
@@ -29,7 +28,7 @@ export default function ExportHeader({
       }}
     >
       <Box>
-        <Stack direction="row" alignItems="center" spacing={spacing.sm / 8}>
+        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={spacing.sm / 8}>
           <CloudDownload sx={{ fontSize: 32, color: colors.primary.main }} />
           <Box>
             <Typography variant="h4" sx={{ fontWeight: 600, color: colors.primary.main }}>
@@ -40,9 +39,13 @@ export default function ExportHeader({
             </Typography>
           </Box>
         </Stack>
-        
+
         {lastExportDate && (
-          <Stack direction="row" alignItems="center" spacing={spacing.xs / 8} sx={{ mt: spacing.xs / 8 }}>
+          <Stack
+            direction="row"
+            spacing={spacing.xs / 8}
+            sx={{ alignItems: 'center', mt: spacing.xs / 8 }}
+          >
             <Analytics sx={{ fontSize: 14, color: colors.neutral[500] }} />
             <Typography variant="caption" color="text.secondary">
               Last sync: {new Date(lastExportDate).toLocaleString()}

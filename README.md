@@ -46,11 +46,12 @@ A self-hosted admin portal for AWS QuickSight: inventory, search, and govern eve
 
 ## Prerequisites
 
-- Node.js 22+ and npm
+- [mise](https://mise.jdx.dev) - installs everything else (Node, pnpm, just,
+  lefthook, gitleaks) at the versions pinned in `mise.toml`:
+  `curl https://mise.run | sh`
 - AWS account with QuickSight (Enterprise edition recommended for full API coverage)
 - AWS CLI configured with credentials
 - Docker Desktop *(only for local development with SAM Local)*
-- [Just](https://just.systems) command runner *(optional, for dev workflows)*
 
 ## Quick Start
 
@@ -58,8 +59,12 @@ A self-hosted admin portal for AWS QuickSight: inventory, search, and govern eve
    ```bash
    git clone https://github.com/yeahthisisrob/quicksight-portal.git
    cd quicksight-portal
-   npm run install:all
+   just install
    ```
+   `just install` uses [mise](https://mise.jdx.dev) to fetch the exact Node,
+   pnpm, lefthook and gitleaks versions pinned in `mise.toml`, installs the
+   workspace with pnpm, and registers the git hooks. If you do not have mise
+   or just yet: `curl https://mise.run | sh && mise install && mise exec -- just install`.
 
 2. **Point at your AWS account**
    ```bash
@@ -70,8 +75,9 @@ A self-hosted admin portal for AWS QuickSight: inventory, search, and govern eve
 
 3. **Deploy**
    ```bash
-   npm run cdk:bootstrap   # first time only
-   npm run deploy:prod     # builds backend + frontend, deploys the stack
+   just synth              # review what will be created
+   pnpm run cdk:bootstrap  # first time only
+   just deploy             # checks, builds, then deploys the stack
    ```
    The stack creates CloudFront + S3 (SPA), the API and worker Lambdas, Cognito, the SQS export queue + DLQ, and the DynamoDB jobs table. Outputs include the **SiteURL** — the portal is live there.
 
@@ -95,31 +101,51 @@ A self-hosted admin portal for AWS QuickSight: inventory, search, and govern eve
 
 ## Development
 
-### With Just (recommended)
+Everything runs through [just](https://just.systems) (`just --list` for the full
+set). Recipes go through `mise exec`, so the pinned toolchain is used whether or
+not mise is activated in your shell.
 
 ```bash
-just dev          # full dev environment with checks
-just dev-quick    # faster startup, skip checks
-just check        # lint + typecheck + tests (backend and frontend)
-just backend      # SAM Local API only
-just frontend     # Vite dev server only
+just install      # one-time: toolchain, dependencies, git hooks
+just dev          # SAM Local API (:3000) + Vite (:5173) + watchers
+just check        # what CI runs: lint, typecheck, tests, architecture rules
+just fix          # apply every safe formatting and lint fix
+just storybook    # component workshop (:6006)
 ```
 
-### Without Just
+Before first run, copy the local config templates and fill in your account
+details / CDK outputs:
 
 ```bash
-# One-time local config
 cp frontend/public/config.js.example frontend/public/config.js
 cp sam/template.yaml.example sam/template.yaml
 cp sam/env.example.json sam/env.json
-# edit each with your account details / CDK outputs
-
-npm run dev:api-only          # backend via SAM Local
-cd frontend && npm run dev    # frontend
-npm test                      # backend tests
-npm run test:frontend         # frontend tests
-cd frontend && npm run storybook   # component workshop
 ```
+
+### Toolchain
+
+| Concern | Tool | Config |
+| --- | --- | --- |
+| Tool versions | mise | `mise.toml`, `mise.lock` |
+| Packages | pnpm workspace | `pnpm-workspace.yaml`, one `pnpm-lock.yaml` |
+| Format + lint | Biome | `biome.jsonc` |
+| Tasks | just | `justfile` |
+| Git hooks | lefthook | `lefthook.yml` |
+| Secrets | gitleaks | `.gitleaksignore` |
+
+Biome replaced ESLint and Prettier: it formats and lints the whole repo in about
+150ms, and it also enforces the architecture. The backend's Vertical Slice rules
+(only the adapter layer may touch the QuickSight SDK) and the frontend's
+Feature-Sliced rules (a layer may import only from layers below it, through their
+public APIs) live in the `overrides` section of `biome.jsonc`.
+
+A linter that silently stops matching still reports success, so
+`scripts/verify-architecture-rules.mjs` writes deliberate violations at the real
+paths those rules target and asserts each one is caught. It runs in `just check`
+and in CI.
+
+Use `pnpm`, never `npm` - a stray `npm install` creates a second lockfile and
+reintroduces exactly the version drift the workspace removes.
 
 Local development talks to your real AWS account (S3, DynamoDB, QuickSight); the jobs table is created automatically on first use if it doesn't exist.
 

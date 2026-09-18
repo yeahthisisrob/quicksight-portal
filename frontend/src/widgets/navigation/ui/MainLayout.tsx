@@ -1,18 +1,15 @@
 import { Box } from '@mui/material';
 import { Outlet } from 'react-router-dom';
 
-import { Sidebar, DRAWER_WIDTH } from './Sidebar';
+import { DRAWER_WIDTH, Sidebar } from './Sidebar';
 
 export default function MainLayout() {
   return (
     <Box sx={{ display: 'flex', width: '100%' }}>
-      <Box
-        component="nav"
-        sx={{ width: DRAWER_WIDTH, flexShrink: 0 }}
-      >
+      <Box component="nav" sx={{ width: DRAWER_WIDTH, flexShrink: 0 }}>
         <Sidebar />
       </Box>
-      
+
       <Box
         component="main"
         sx={{

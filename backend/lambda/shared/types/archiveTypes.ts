@@ -1,7 +1,7 @@
 /**
  * Shared archive types for consistent archive handling across services
  */
-import { type AssetType } from '../models/asset.model';
+import type { AssetType } from '../models/asset.model';
 
 /**
  * Archive metadata that gets added to archived assets

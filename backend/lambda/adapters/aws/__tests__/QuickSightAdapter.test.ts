@@ -1,16 +1,16 @@
 import {
-  QuickSightClient,
-  DataSourceType,
-  ResourceStatus,
   DataSetImportMode,
+  DataSourceType,
+  QuickSightClient,
+  ResourceStatus,
 } from '@aws-sdk/client-quicksight';
 import { mockClient } from 'aws-sdk-client-mock';
-import { vi, type Mock } from 'vitest';
+import { type Mock, vi } from 'vitest';
 
 import { withRetry } from '../../../shared/utils/awsRetry';
 import {
-  quickSightRateLimiter,
   quickSightPermissionsRateLimiter,
+  quickSightRateLimiter,
 } from '../../../shared/utils/rateLimiter';
 import { QuickSightAdapter } from '../QuickSightAdapter';
 
@@ -503,7 +503,7 @@ describe('QuickSightAdapter - Async/await patterns', () => {
       let rateLimiterCalled = false;
       let operationCalled = false;
 
-      (quickSightRateLimiter.waitForToken as Mock).mockImplementation(() => {
+      (quickSightRateLimiter.waitForToken as Mock).mockImplementation(function () {
         rateLimiterCalled = true;
         return Promise.resolve();
       });

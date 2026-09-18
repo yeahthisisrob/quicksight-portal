@@ -1,5 +1,5 @@
-import { type APIGatewayProxyEvent } from 'aws-lambda';
-import { vi, type Mock, type Mocked, type MockedClass } from 'vitest';
+import type { APIGatewayProxyEvent } from 'aws-lambda';
+import { type Mock, type Mocked, type MockedClass, vi } from 'vitest';
 
 import * as auth from '../../auth';
 import { JobRepository } from '../../services/jobs/JobRepository';

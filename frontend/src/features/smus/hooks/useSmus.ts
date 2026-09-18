@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { smusApi, type SmusDatasetLink } from '@/shared/api/modules/smus';
+import { type SmusDatasetLink, smusApi } from '@/shared/api/modules/smus';
 
 /**
  * SMUS integration status. Config changes require a backend redeploy, so a

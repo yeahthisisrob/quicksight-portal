@@ -1,15 +1,9 @@
-import {
-  Add,
-  Remove,
-  Dashboard as DashboardIcon,
-  Folder as FolderIcon,
-} from '@mui/icons-material';
+import { Add, Dashboard as DashboardIcon, Folder as FolderIcon, Remove } from '@mui/icons-material';
 import { Box, Chip } from '@mui/material';
-import React from 'react';
+import type React from 'react';
 
+import type { AssetFilter, FolderFilter, TagFilter } from '../../lib/types';
 import { AssetChip, FilterSection } from './shared';
-
-import type { TagFilter, FolderFilter, AssetFilter } from '../../lib/types';
 
 // ============================================================================
 // Types

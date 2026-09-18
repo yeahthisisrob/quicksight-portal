@@ -1,4 +1,4 @@
-import { ThemeProvider, CssBaseline } from '@mui/material';
+import { CssBaseline, ThemeProvider } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { SnackbarProvider } from 'notistack';
@@ -15,12 +15,7 @@ import { theme } from './app/theme';
 const AppWrapper = <App />;
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <BrowserRouter
-    future={{
-      v7_startTransition: true,
-      v7_relativeSplatPath: true,
-    }}
-  >
+  <BrowserRouter>
     <ThemeProvider theme={theme}>
       <LocalizationProvider dateAdapter={AdapterDateFns}>
         <SnackbarProvider
@@ -36,5 +31,5 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         </SnackbarProvider>
       </LocalizationProvider>
     </ThemeProvider>
-  </BrowserRouter>,
+  </BrowserRouter>
 );

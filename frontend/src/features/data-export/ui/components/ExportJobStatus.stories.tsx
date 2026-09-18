@@ -1,6 +1,6 @@
-import ExportJobStatus from './ExportJobStatus';
-
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import ExportJobStatus from './ExportJobStatus';
 
 const meta: Meta<typeof ExportJobStatus> = {
   title: 'Features/DataExport/ExportJobStatus',

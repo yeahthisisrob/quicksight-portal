@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 
 import { AssetsProvider } from '@/entities/asset';
 
@@ -7,9 +7,5 @@ interface AuthenticatedAppProps {
 }
 
 export const AuthenticatedApp: React.FC<AuthenticatedAppProps> = ({ children }) => {
-  return (
-    <AssetsProvider>
-      {children}
-    </AssetsProvider>
-  );
+  return <AssetsProvider>{children}</AssetsProvider>;
 };

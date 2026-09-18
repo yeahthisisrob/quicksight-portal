@@ -15,9 +15,11 @@ describe('warmCollectionSnapshots', () => {
 
   it('delegates to AssetService.warmCollectionSnapshots', async () => {
     const warmSpy = vi.fn().mockResolvedValue(undefined);
-    (AssetService as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
-      warmCollectionSnapshots: warmSpy,
-    }));
+    (AssetService as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
+      return {
+        warmCollectionSnapshots: warmSpy,
+      };
+    });
 
     await warmCollectionSnapshots();
 
@@ -25,15 +27,17 @@ describe('warmCollectionSnapshots', () => {
   });
 
   it('never propagates errors — warming must not fail jobs', async () => {
-    (AssetService as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
-      warmCollectionSnapshots: vi.fn().mockRejectedValue(new Error('enrichment exploded')),
-    }));
+    (AssetService as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
+      return {
+        warmCollectionSnapshots: vi.fn().mockRejectedValue(new Error('enrichment exploded')),
+      };
+    });
 
     await expect(warmCollectionSnapshots()).resolves.toBeUndefined();
   });
 
   it('never propagates constructor failures', async () => {
-    (AssetService as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => {
+    (AssetService as unknown as ReturnType<typeof vi.fn>).mockImplementation(function () {
       throw new Error('constructor exploded');
     });
 

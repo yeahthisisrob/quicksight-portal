@@ -1,4 +1,4 @@
-import { type APIGatewayProxyEvent } from 'aws-lambda';
+import type { APIGatewayProxyEvent } from 'aws-lambda';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { STATUS_CODES } from '../../../../shared/constants';
@@ -9,27 +9,29 @@ vi.mock('../../../../shared/auth', () => ({
 }));
 
 vi.mock('../../services/GroupService', () => ({
-  GroupService: vi.fn().mockImplementation(() => ({
-    createGroup: vi.fn().mockResolvedValue({
-      success: true,
-      data: { groupId: 'group-123', groupName: 'New Group' },
-    }),
-    updateGroup: vi.fn().mockResolvedValue({
-      success: true,
-      data: { groupId: 'group-123', groupName: 'Updated Group' },
-    }),
-    deleteGroup: vi.fn().mockResolvedValue({
-      success: true,
-      data: { message: 'Group deleted successfully' },
-    }),
-    getGroupAssets: vi.fn().mockResolvedValue({
-      success: true,
-      data: {
-        dashboards: [{ id: 'dash-1', name: 'Dashboard 1' }],
-        datasets: [{ id: 'data-1', name: 'Dataset 1' }],
-      },
-    }),
-  })),
+  GroupService: vi.fn().mockImplementation(function () {
+    return {
+      createGroup: vi.fn().mockResolvedValue({
+        success: true,
+        data: { groupId: 'group-123', groupName: 'New Group' },
+      }),
+      updateGroup: vi.fn().mockResolvedValue({
+        success: true,
+        data: { groupId: 'group-123', groupName: 'Updated Group' },
+      }),
+      deleteGroup: vi.fn().mockResolvedValue({
+        success: true,
+        data: { message: 'Group deleted successfully' },
+      }),
+      getGroupAssets: vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          dashboards: [{ id: 'dash-1', name: 'Dashboard 1' }],
+          datasets: [{ id: 'data-1', name: 'Dataset 1' }],
+        },
+      }),
+    };
+  }),
 }));
 
 vi.mock('../../../../shared/services/cache/CacheService', () => ({
@@ -105,9 +107,11 @@ describe('GroupHandler', () => {
 
     it('should handle creation errors', async () => {
       const { GroupService } = await import('../../services/GroupService');
-      (GroupService as any).mockImplementationOnce(() => ({
-        createGroup: vi.fn().mockRejectedValue(new Error('Creation failed')),
-      }));
+      (GroupService as any).mockImplementationOnce(function () {
+        return {
+          createGroup: vi.fn().mockRejectedValue(new Error('Creation failed')),
+        };
+      });
 
       mockEvent.body = JSON.stringify({ groupName: 'Test Group' });
       const newHandler = new GroupHandler();

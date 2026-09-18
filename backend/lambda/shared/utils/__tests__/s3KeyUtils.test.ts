@@ -1,4 +1,4 @@
-import { sanitizeS3Key, buildAssetCacheKey } from '../s3KeyUtils';
+import { buildAssetCacheKey, sanitizeS3Key } from '../s3KeyUtils';
 
 describe('s3KeyUtils', () => {
   describe('sanitizeS3Key', () => {

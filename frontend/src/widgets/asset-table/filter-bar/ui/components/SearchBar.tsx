@@ -1,6 +1,6 @@
 import { Search as SearchIcon } from '@mui/icons-material';
-import { Box, TextField, Chip, Stack, Typography, InputAdornment } from '@mui/material';
-import React from 'react';
+import { Box, Chip, InputAdornment, Stack, TextField, Typography } from '@mui/material';
+import type React from 'react';
 
 import { colors } from '@/shared/design-system/theme';
 
@@ -24,12 +24,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       placeholder="Search assets..."
       value={searchTerm || ''}
       onChange={(e) => onSearchChange(e.target.value)}
-      InputProps={{
-        startAdornment: (
-          <InputAdornment position="start">
-            <SearchIcon sx={{ color: colors.neutral[400] }} />
-          </InputAdornment>
-        ),
+      slotProps={{
+        input: {
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon sx={{ color: colors.neutral[400] }} />
+            </InputAdornment>
+          ),
+        },
       }}
     />
     {matchReasonSummary && matchReasonSummary.length > 0 && (

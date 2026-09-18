@@ -1,8 +1,4 @@
-import {
-  Close as CloseIcon,
-  Email as EmailIcon,
-  Person as PersonIcon,
-} from '@mui/icons-material';
+import { Close as CloseIcon, Email as EmailIcon, Person as PersonIcon } from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -33,11 +29,7 @@ interface UserInactiveMailtoDialogProps {
   user: { name: string; email: string };
 }
 
-export function UserInactiveMailtoDialog({
-  open,
-  onClose,
-  user,
-}: UserInactiveMailtoDialogProps) {
+export function UserInactiveMailtoDialog({ open, onClose, user }: UserInactiveMailtoDialogProps) {
   const {
     loading,
     error,
@@ -69,10 +61,7 @@ export function UserInactiveMailtoDialog({
         <EmailIcon color="action" />
         Notify Inactive Analyses
         <Chip label={user.name} size="small" variant="outlined" />
-        <IconButton
-          onClick={onClose}
-          sx={{ position: 'absolute', right: 8, top: 8 }}
-        >
+        <IconButton onClick={onClose} sx={{ position: 'absolute', right: 8, top: 8 }}>
           <CloseIcon />
         </IconButton>
       </DialogTitle>
@@ -80,16 +69,13 @@ export function UserInactiveMailtoDialog({
       <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
         {/* Summary Banner */}
         {!loading && (
-          <Alert
-            severity={analyses.length > 0 ? 'warning' : 'info'}
-            variant="outlined"
-          >
+          <Alert severity={analyses.length > 0 ? 'warning' : 'info'} variant="outlined">
             <Typography variant="body2">
               {analyses.length > 0 ? (
                 <>
                   Found <strong>{analyses.length}</strong> inactive analysis
-                  {analyses.length !== 1 ? 'es' : ''} owned by{' '}
-                  <strong>{user.name}</strong> with fewer than 10 views.
+                  {analyses.length !== 1 ? 'es' : ''} owned by <strong>{user.name}</strong> with
+                  fewer than 10 views.
                 </>
               ) : (
                 error || 'No inactive analyses found for this user.'
@@ -118,11 +104,7 @@ export function UserInactiveMailtoDialog({
               borderRadius: 1,
             }}
           >
-            <ListItemButton
-              onClick={() => toggleEmail(user.email)}
-              dense
-              sx={{ py: 0.25 }}
-            >
+            <ListItemButton onClick={() => toggleEmail(user.email)} dense sx={{ py: 0.25 }}>
               <ListItemIcon sx={{ minWidth: 32 }}>
                 <Checkbox
                   edge="start"
@@ -136,8 +118,10 @@ export function UserInactiveMailtoDialog({
               <ListItemText
                 primary={user.name}
                 secondary={user.email}
-                primaryTypographyProps={{ variant: 'body2' }}
-                secondaryTypographyProps={{ variant: 'caption' }}
+                slotProps={{
+                  primary: { variant: 'body2' },
+                  secondary: { variant: 'caption' },
+                }}
               />
             </ListItemButton>
           </List>
@@ -200,9 +184,11 @@ export function UserInactiveMailtoDialog({
             minRows={4}
             maxRows={8}
             value={body}
-            InputProps={{ readOnly: true }}
             helperText="Auto-generated from activity data"
             sx={{ '& .MuiInputBase-input': { fontFamily: 'monospace', fontSize: 12 } }}
+            slotProps={{
+              input: { readOnly: true },
+            }}
           />
         </Box>
       </DialogContent>

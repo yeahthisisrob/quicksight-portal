@@ -1,24 +1,24 @@
-import { type APIGatewayProxyEvent, type APIGatewayProxyResult } from 'aws-lambda';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { IngestionRefreshService } from '../../../shared/services/ingestions/IngestionRefreshService';
-import { successResponse, errorResponse } from '../../../shared/utils/cors';
+import { errorResponse, successResponse } from '../../../shared/utils/cors';
 import { countByField, resolveSourceTypeFromArns } from '../../../shared/utils/filterUtils';
 import { logger } from '../../../shared/utils/logger';
 import {
   applyDateFilter,
-  processPaginatedData,
   type DateRange,
+  processPaginatedData,
 } from '../../../shared/utils/paginationUtils';
 
 export class IngestionHandler {
   private readonly ingestionService: IngestionRefreshService;
   private readonly quickSightService: QuickSightService;
 
-  constructor() {
+  public constructor() {
     const accountId = process.env.AWS_ACCOUNT_ID || '';
     this.quickSightService = new QuickSightService(accountId);
     this.ingestionService = new IngestionRefreshService(this.quickSightService, cacheService);
@@ -33,7 +33,7 @@ export class IngestionHandler {
 
       // Extract path parameters from the URL
       const path = event.path.replace('/api', '');
-      const match = path.match(new RegExp('^/ingestions/([^/]+)/([^/]+)$'));
+      const match = path.match(/^\/ingestions\/([^/]+)\/([^/]+)$/);
 
       if (!match) {
         return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Invalid path parameters');
@@ -81,7 +81,7 @@ export class IngestionHandler {
 
       // Extract path parameters from the URL
       const path = event.path.replace('/api', '');
-      const match = path.match(new RegExp('^/ingestions/([^/]+)/([^/]+)$'));
+      const match = path.match(/^\/ingestions\/([^/]+)\/([^/]+)$/);
 
       if (!match) {
         return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Invalid path parameters');
@@ -138,7 +138,7 @@ export class IngestionHandler {
       // Get cached ingestions
       const cachedData = await cacheService.getIngestions();
 
-      if (!cachedData || !cachedData.ingestions) {
+      if (!cachedData?.ingestions) {
         return successResponse(event, {
           success: true,
           data: {

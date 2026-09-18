@@ -1,15 +1,16 @@
 import {
-  PlayArrow,
-  Stop,
-  Autorenew,
-  Security,
-  Label,
-  Cached,
-  BuildCircle,
   Analytics,
+  Autorenew,
+  BuildCircle,
+  Cached,
+  Label,
+  PlayArrow,
+  Security,
+  Stop,
 } from '@mui/icons-material';
 import {
   Alert,
+  alpha,
   Box,
   Button,
   Stack,
@@ -17,12 +18,11 @@ import {
   ToggleButtonGroup,
   Tooltip,
   Typography,
-  alpha,
 } from '@mui/material';
 
 import { colors, spacing } from '@/shared/design-system/theme';
 
-import { ExportMode } from '../../model/types';
+import type { ExportMode } from '../../model/types';
 
 interface ExportControlsProps {
   exportMode: ExportMode;
@@ -180,9 +180,9 @@ export default function ExportControls({
       )}
       {exportMode === 'rebuild' && (
         <Alert severity="info" sx={{ py: 0.5 }}>
-          Rebuilds all caches by re-parsing the existing S3 export files — no QuickSight API
-          calls are made, and job history / activity data are preserved. Asset type selection is
-          ignored. Progress appears in the log pane below; large accounts can take a few minutes.
+          Rebuilds all caches by re-parsing the existing S3 export files — no QuickSight API calls
+          are made, and job history / activity data are preserved. Asset type selection is ignored.
+          Progress appears in the log pane below; large accounts can take a few minutes.
         </Alert>
       )}
 
@@ -190,7 +190,7 @@ export default function ExportControls({
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={1.5}
-        alignItems={{ xs: 'stretch', sm: 'center' }}
+        sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}
       >
         {isRunning ? (
           <Button

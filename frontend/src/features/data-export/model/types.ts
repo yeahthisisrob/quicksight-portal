@@ -1,4 +1,12 @@
-export type AssetType = 'dashboards' | 'datasets' | 'analyses' | 'datasources' | 'folders' | 'users' | 'groups' | 'themes';
+export type AssetType =
+  | 'dashboards'
+  | 'datasets'
+  | 'analyses'
+  | 'datasources'
+  | 'folders'
+  | 'users'
+  | 'groups'
+  | 'themes';
 
 export type ExportMode = 'smart' | 'force' | 'permissions' | 'tags' | 'rebuild';
 
@@ -39,12 +47,15 @@ export interface InventoryPhaseResult {
   phase: 'inventory';
   data: {
     totalAssets: number;
-    assetsByType: Record<string, {
-      total: number;
-      listed: number;
-      needsEnrichment: number;
-      error?: string;
-    }>;
+    assetsByType: Record<
+      string,
+      {
+        total: number;
+        listed: number;
+        needsEnrichment: number;
+        error?: string;
+      }
+    >;
     enrichment: {
       assetsNeedingEnrichment: number;
       estimatedBatches: number;

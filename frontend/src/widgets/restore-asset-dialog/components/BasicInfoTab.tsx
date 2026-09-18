@@ -5,7 +5,7 @@ import { Divider, Paper, Stack, TextField, Typography } from '@mui/material';
 
 import { colors } from '@/shared/design-system/theme';
 
-import type { AssetMetadata, ArchivedAssetItem, RestoreFormData } from '../types';
+import type { ArchivedAssetItem, AssetMetadata, RestoreFormData } from '../types';
 
 interface BasicInfoTabProps {
   asset: ArchivedAssetItem;
@@ -15,7 +15,7 @@ interface BasicInfoTabProps {
 }
 
 function formatBytes(bytes: number): string {
-  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 function formatDate(date: string | undefined): string {
@@ -33,7 +33,7 @@ export function BasicInfoTab({ asset, metadata, formData, onChange }: BasicInfoT
         required
         helperText="The ID to restore the asset with"
       />
-      
+
       <TextField
         label="Asset Name"
         value={formData.assetName}
@@ -42,7 +42,7 @@ export function BasicInfoTab({ asset, metadata, formData, onChange }: BasicInfoT
         required
         helperText="The display name for the restored asset"
       />
-      
+
       <TextField
         label="Description"
         value={formData.description}
@@ -78,7 +78,7 @@ export function BasicInfoTab({ asset, metadata, formData, onChange }: BasicInfoT
               <strong>Archive Reason:</strong> {asset.archiveReason}
             </Typography>
           )}
-          
+
           {/* Dataset-specific info */}
           {asset.type === 'dataset' && metadata && (
             <>

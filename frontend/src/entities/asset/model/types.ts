@@ -1,10 +1,10 @@
 // Asset entity types
 import type {
-  AssetType as GeneratedAssetType,
   AssetListItem,
   DashboardListItem,
   DatasetListItem,
-  Tag
+  AssetType as GeneratedAssetType,
+  Tag,
 } from '@shared/generated';
 
 // Extend asset type to include frontend-specific types
@@ -20,13 +20,13 @@ export interface BaseAsset extends Omit<AssetListItem, 'type'> {
   folderPath?: string;
   // Custom metadata stored in S3
   metadata?: AssetMetadata;
-  
+
   // Archive tracking
   assetStatus?: 'active' | 'archived';
   archivedDate?: string;
   archivedBy?: string;
   archiveReason?: string;
-  
+
   // View stats (dashboards and analyses only)
   viewStats?: {
     totalViews: number;

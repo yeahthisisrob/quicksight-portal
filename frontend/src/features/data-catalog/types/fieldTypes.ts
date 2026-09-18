@@ -123,11 +123,7 @@ export interface PhysicalColumnsCallbacks {
   onShowDetails: FieldCallback<PhysicalFieldRow>;
   onShowVariants: FieldCallback<PhysicalFieldRow>;
   onMapField?: FieldCallback<PhysicalFieldRow>;
-  onShowAssets?: (
-    field: PhysicalFieldRow,
-    assetType: string,
-    assets: AssetReference[]
-  ) => void;
+  onShowAssets?: (field: PhysicalFieldRow, assetType: string, assets: AssetReference[]) => void;
 }
 
 /**

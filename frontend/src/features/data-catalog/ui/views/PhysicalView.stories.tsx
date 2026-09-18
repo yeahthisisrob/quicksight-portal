@@ -1,9 +1,8 @@
+import type { GridSortModel } from '@mui/x-data-grid';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 
 import PhysicalView from './PhysicalView';
-
-import type { GridSortModel } from '@mui/x-data-grid';
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta = {
   title: 'Features/DataCatalog/Views/PhysicalView',
@@ -12,7 +11,8 @@ const meta = {
     layout: 'padded',
     docs: {
       description: {
-        component: 'Physical fields view for the data catalog, displaying all fields from datasets and analyses with their properties, mapping status, and usage information.',
+        component:
+          'Physical fields view for the data catalog, displaying all fields from datasets and analyses with their properties, mapping status, and usage information.',
       },
     },
   },
@@ -26,10 +26,13 @@ const sampleFields = Array.from({ length: 50 }, (_, i) => ({
   id: `field-${i + 1}`,
   fieldName: `customer_field_${i + 1}`,
   dataType: ['STRING', 'INTEGER', 'DECIMAL', 'DATETIME', 'BOOLEAN'][i % 5],
-  mapping: i % 3 === 0 ? {
-    termName: `Business Term ${i}`,
-    confidence: 0.85 + (i % 15) / 100,
-  } : null,
+  mapping:
+    i % 3 === 0
+      ? {
+          termName: `Business Term ${i}`,
+          confidence: 0.85 + (i % 15) / 100,
+        }
+      : null,
   datasetsCount: Math.floor(Math.random() * 10),
   analysesCount: Math.floor(Math.random() * 5),
   dashboardsCount: Math.floor(Math.random() * 15),
@@ -43,15 +46,21 @@ const sampleFields = Array.from({ length: 50 }, (_, i) => ({
   usageCount: Math.floor(Math.random() * 1000),
   isCalculated: i % 3 === 0,
   hasVariants: i % 7 === 0,
-  variants: i % 7 === 0 ? [
-    { dataType: 'STRING', count: 3 },
-    { dataType: 'INTEGER', count: 2 },
-  ] : [],
+  variants:
+    i % 7 === 0
+      ? [
+          { dataType: 'STRING', count: 3 },
+          { dataType: 'INTEGER', count: 2 },
+        ]
+      : [],
   expression: i % 3 === 0 ? `sum({field_${i}}) / count({field_${i}})` : undefined,
-  expressions: i % 3 === 0 && i % 7 === 0 ? [
-    { expression: `sum({field_${i}})`, assetId: 'asset-1' },
-    { expression: `avg({field_${i}})`, assetId: 'asset-2' },
-  ] : [],
+  expressions:
+    i % 3 === 0 && i % 7 === 0
+      ? [
+          { expression: `sum({field_${i}})`, assetId: 'asset-1' },
+          { expression: `avg({field_${i}})`, assetId: 'asset-2' },
+        ]
+      : [],
   semanticFieldId: `field:${i}`,
 }));
 
@@ -148,7 +157,7 @@ export const Empty: Story = {
 
 export const WithCalculatedFields: Story = {
   render: () => {
-    const calculatedFields = sampleFields.filter(f => f.isCalculated);
+    const calculatedFields = sampleFields.filter((f) => f.isCalculated);
     return (
       <PhysicalView
         data={calculatedFields}
@@ -181,7 +190,7 @@ export const WithCalculatedFields: Story = {
 
 export const WithVariants: Story = {
   render: () => {
-    const variantFields = sampleFields.filter(f => f.hasVariants);
+    const variantFields = sampleFields.filter((f) => f.hasVariants);
     return (
       <PhysicalView
         data={variantFields}

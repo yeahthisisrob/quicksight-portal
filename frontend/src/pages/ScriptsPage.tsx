@@ -1,44 +1,44 @@
-import { 
-  CleaningServices as CleanupIcon,
-  Warning as WarningIcon,
+import {
+  Analytics as AnalyticsIcon,
   CheckCircle as CheckIcon,
+  CleaningServices as CleanupIcon,
+  Dataset as DatasetIcon,
   ExpandMore as ExpandMoreIcon,
   Storage as StorageIcon,
-  Dataset as DatasetIcon,
-  Analytics as AnalyticsIcon
+  Warning as WarningIcon,
 } from '@mui/icons-material';
-import { 
-  Box, 
-  Typography, 
-  Button, 
-  Card, 
-  CardContent, 
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
+  Badge,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Divider,
   List,
   ListItem,
   ListItemText,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-  Divider,
-  Stack,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   Paper,
-  Badge
+  Stack,
+  Typography,
 } from '@mui/material';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
-import React, { useState } from 'react';
+import type React from 'react';
+import { useState } from 'react';
 
 import { scriptsApi } from '@/shared/api';
 import { PageLayout } from '@/shared/ui';
-
 
 export const ScriptsPage: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
@@ -47,7 +47,11 @@ export const ScriptsPage: React.FC = () => {
   const [expandedPanel, setExpandedPanel] = useState<string | false>('demo-cleanup');
 
   // Query to preview demo assets
-  const { data: previewData, isLoading: isLoadingPreview, refetch: refetchPreview } = useQuery({
+  const {
+    data: previewData,
+    isLoading: isLoadingPreview,
+    refetch: refetchPreview,
+  } = useQuery({
     queryKey: ['demo-cleanup-preview'],
     queryFn: () => scriptsApi.previewDemoCleanup(),
     retry: false,
@@ -76,19 +80,19 @@ export const ScriptsPage: React.FC = () => {
     executeCleanup();
   };
 
-  const handleAccordionChange = (panel: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
-    setExpandedPanel(isExpanded ? panel : false);
-  };
+  const handleAccordionChange =
+    (panel: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
+      setExpandedPanel(isExpanded ? panel : false);
+    };
 
-  const totalAssets = previewData ? 
-    previewData.datasources.length + 
-    previewData.datasets.length + 
-    previewData.analyses.length : 0;
+  const totalAssets = previewData
+    ? previewData.datasources.length + previewData.datasets.length + previewData.analyses.length
+    : 0;
 
   return (
     <PageLayout title="Scripts">
       <Accordion
-        expanded={expandedPanel === 'demo-cleanup'} 
+        expanded={expandedPanel === 'demo-cleanup'}
         onChange={handleAccordionChange('demo-cleanup')}
         sx={{ mb: 2 }}
       >
@@ -96,9 +100,7 @@ export const ScriptsPage: React.FC = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
             <CleanupIcon sx={{ fontSize: 28, mr: 2, color: 'warning.main' }} />
             <Box sx={{ flexGrow: 1 }}>
-              <Typography variant="h6">
-                Delete All QuickSight Demo Assets
-              </Typography>
+              <Typography variant="h6">Delete All QuickSight Demo Assets</Typography>
               <Typography variant="body2" color="text.secondary">
                 Remove all demo datasources, datasets, and analyses
               </Typography>
@@ -111,14 +113,16 @@ export const ScriptsPage: React.FC = () => {
           </Box>
         </AccordionSummary>
         <AccordionDetails>
-
           <Alert severity="info" sx={{ mb: 2 }}>
-            This script identifies and deletes all assets that use the AWS QuickSight sample data 
+            This script identifies and deletes all assets that use the AWS QuickSight sample data
             (spaceneedle-samplefiles bucket) including:
             <ul>
               <li>Demo datasources connected to spaceneedle-samplefiles</li>
               <li>All datasets using those datasources</li>
-              <li>Demo analyses: People Overview, Business Review, Sales Pipeline, Web and Social Media Analytics</li>
+              <li>
+                Demo analyses: People Overview, Business Review, Sales Pipeline, Web and Social
+                Media Analytics
+              </li>
             </ul>
             Deleted assets will be archived for recovery if needed.
           </Alert>
@@ -133,9 +137,7 @@ export const ScriptsPage: React.FC = () => {
                 <Paper variant="outlined" sx={{ p: 2, flex: 1 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                     <StorageIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                    <Typography variant="subtitle1">
-                      Datasources
-                    </Typography>
+                    <Typography variant="subtitle1">Datasources</Typography>
                   </Box>
                   <Typography variant="h4" color="warning.main">
                     {previewData.datasources.length}
@@ -144,9 +146,7 @@ export const ScriptsPage: React.FC = () => {
                 <Paper variant="outlined" sx={{ p: 2, flex: 1 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                     <DatasetIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                    <Typography variant="subtitle1">
-                      Datasets
-                    </Typography>
+                    <Typography variant="subtitle1">Datasets</Typography>
                   </Box>
                   <Typography variant="h4" color="warning.main">
                     {previewData.datasets.length}
@@ -155,16 +155,14 @@ export const ScriptsPage: React.FC = () => {
                 <Paper variant="outlined" sx={{ p: 2, flex: 1 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                     <AnalyticsIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                    <Typography variant="subtitle1">
-                      Analyses
-                    </Typography>
+                    <Typography variant="subtitle1">Analyses</Typography>
                   </Box>
                   <Typography variant="h4" color="warning.main">
                     {previewData.analyses.length}
                   </Typography>
                 </Paper>
               </Stack>
-              
+
               {previewData.datasources.length > 0 && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" color="text.secondary" gutterBottom>
@@ -175,7 +173,7 @@ export const ScriptsPage: React.FC = () => {
                     <List dense>
                       {previewData.datasources.map((ds: any) => (
                         <ListItem key={ds.id}>
-                          <ListItemText 
+                          <ListItemText
                             primary={ds.name}
                             secondary={`ID: ${ds.id} | Bucket: ${ds.bucket}`}
                           />
@@ -196,10 +194,7 @@ export const ScriptsPage: React.FC = () => {
                     <List dense>
                       {previewData.datasets.map((dataset: any) => (
                         <ListItem key={dataset.id}>
-                          <ListItemText 
-                            primary={dataset.name}
-                            secondary={`ID: ${dataset.id}`}
-                          />
+                          <ListItemText primary={dataset.name} secondary={`ID: ${dataset.id}`} />
                         </ListItem>
                       ))}
                     </List>
@@ -217,10 +212,7 @@ export const ScriptsPage: React.FC = () => {
                     <List dense>
                       {previewData.analyses.map((analysis: any) => (
                         <ListItem key={analysis.id}>
-                          <ListItemText 
-                            primary={analysis.name}
-                            secondary={`ID: ${analysis.id}`}
-                          />
+                          <ListItemText primary={analysis.name} secondary={`ID: ${analysis.id}`} />
                         </ListItem>
                       ))}
                     </List>
@@ -244,11 +236,7 @@ export const ScriptsPage: React.FC = () => {
             >
               {isExecuting ? 'Cleaning up...' : 'Execute Cleanup'}
             </Button>
-            <Button
-              variant="outlined"
-              onClick={() => refetchPreview()}
-              disabled={isLoadingPreview}
-            >
+            <Button variant="outlined" onClick={() => refetchPreview()} disabled={isLoadingPreview}>
               Refresh
             </Button>
           </Box>
@@ -261,18 +249,21 @@ export const ScriptsPage: React.FC = () => {
             <Typography variant="h6" gutterBottom>
               Cleanup Results
             </Typography>
-            
+
             <Stack spacing={2}>
               <Alert severity="success">
                 Successfully deleted {executionResult.deleted.total} assets
               </Alert>
-              
+
               <Box>
                 <Typography variant="subtitle2" gutterBottom>
                   Deleted:
                 </Typography>
                 <Stack direction="row" spacing={1}>
-                  <Chip label={`Datasources: ${executionResult.deleted.datasources}`} size="small" />
+                  <Chip
+                    label={`Datasources: ${executionResult.deleted.datasources}`}
+                    size="small"
+                  />
                   <Chip label={`Datasets: ${executionResult.deleted.datasets}`} size="small" />
                   <Chip label={`Analyses: ${executionResult.deleted.analyses}`} size="small" />
                 </Stack>
@@ -283,7 +274,10 @@ export const ScriptsPage: React.FC = () => {
                   Archived:
                 </Typography>
                 <Stack direction="row" spacing={1}>
-                  <Chip label={`Datasources: ${executionResult.archived.datasources}`} size="small" />
+                  <Chip
+                    label={`Datasources: ${executionResult.archived.datasources}`}
+                    size="small"
+                  />
                   <Chip label={`Datasets: ${executionResult.archived.datasets}`} size="small" />
                   <Chip label={`Analyses: ${executionResult.archived.analyses}`} size="small" />
                 </Stack>
@@ -297,7 +291,7 @@ export const ScriptsPage: React.FC = () => {
                   <List dense>
                     {executionResult.errors.map((error: any, index: number) => (
                       <ListItem key={index}>
-                        <ListItemText 
+                        <ListItemText
                           primary={`${error.assetType}: ${error.assetId}`}
                           secondary={error.error}
                         />
@@ -311,10 +305,7 @@ export const ScriptsPage: React.FC = () => {
         </Card>
       )}
 
-      <Dialog
-        open={confirmDialogOpen}
-        onClose={() => setConfirmDialogOpen(false)}
-      >
+      <Dialog open={confirmDialogOpen} onClose={() => setConfirmDialogOpen(false)}>
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <WarningIcon sx={{ mr: 1, color: 'warning.main' }} />
@@ -323,21 +314,17 @@ export const ScriptsPage: React.FC = () => {
         </DialogTitle>
         <DialogContent>
           <DialogContentText>
-            This action will permanently delete {totalAssets} demo assets from your QuickSight account.
-            The assets will be archived and can be recovered if needed, but they will no longer be 
-            available in QuickSight.
+            This action will permanently delete {totalAssets} demo assets from your QuickSight
+            account. The assets will be archived and can be recovered if needed, but they will no
+            longer be available in QuickSight.
           </DialogContentText>
-          <DialogContentText sx={{ mt: 2 }}>
-            Are you sure you want to continue?
-          </DialogContentText>
+          <DialogContentText sx={{ mt: 2 }}>Are you sure you want to continue?</DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmDialogOpen(false)}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleConfirmCleanup} 
-            color="warning" 
+          <Button onClick={() => setConfirmDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handleConfirmCleanup}
+            color="warning"
             variant="contained"
             disabled={isExecuting}
           >

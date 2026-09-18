@@ -1,32 +1,31 @@
-import { collectionListSnapshotCache } from './CollectionListSnapshotCache';
 import { DataZoneAdapter } from '../../../adapters/aws/DataZoneAdapter';
 import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { DEBUG_CONFIG, QUICKSIGHT_LIMITS } from '../../../shared/constants';
-import { type CacheEntry, type MasterCache } from '../../../shared/models/asset.model';
+import type { CacheEntry, MasterCache } from '../../../shared/models/asset.model';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { LineageService } from '../../../shared/services/lineage';
-import { type ActivityData } from '../../../shared/types/activityTypes';
+import type { ActivityData } from '../../../shared/types/activityTypes';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import {
   ASSET_TYPES,
-  COLLECTION_ASSET_TYPES,
   type AssetType,
   type CacheData,
+  COLLECTION_ASSET_TYPES,
 } from '../../../shared/types/assetTypes';
 import {
-  type TagFilter,
-  matchesIncludeTags,
   matchesExcludeTags,
+  matchesIncludeTags,
+  type TagFilter,
 } from '../../../shared/types/filterTypes';
-import { type LineageData } from '../../../shared/types/lineage.types';
+import type { LineageData } from '../../../shared/types/lineage.types';
 import { mapCacheEntryToAsset } from '../../../shared/utils/assetMapping';
 import { countByField, type FilterOption } from '../../../shared/utils/filterUtils';
 import { findMatchingFlatFileDatasource } from '../../../shared/utils/flatFileDatasetMatcher';
 import { logger } from '../../../shared/utils/logger';
 import {
   applyDateFilter,
-  processPaginatedData,
   type DateRange,
+  processPaginatedData,
   type SearchFieldConfig,
   type SortConfig,
 } from '../../../shared/utils/paginationUtils';
@@ -35,14 +34,15 @@ import { GroupService } from '../../organization/services/GroupService';
 import { PermissionsService } from '../../organization/services/PermissionsService';
 import { TagService } from '../../organization/services/TagService';
 import { SmusService } from '../../smus/services/SmusService';
-import {
-  type Asset,
-  type AssetListRequest,
-  type AssetListResponse,
-  type ArchivedAssetsResponse,
-  type ArchivedAssetItem,
-  type MappedAsset,
+import type {
+  ArchivedAssetItem,
+  ArchivedAssetsResponse,
+  Asset,
+  AssetListRequest,
+  AssetListResponse,
+  MappedAsset,
 } from '../types';
+import { collectionListSnapshotCache } from './CollectionListSnapshotCache';
 
 /**
  * Context object for asset enrichment to reduce parameter count
@@ -67,7 +67,7 @@ export class AssetService {
   private readonly permissionsService: PermissionsService;
   private readonly tagService: TagService;
 
-  constructor(accountId: string) {
+  public constructor(accountId: string) {
     this.tagService = new TagService(accountId);
     this.lineageService = new LineageService();
     this.groupService = new GroupService();
@@ -174,7 +174,7 @@ export class AssetService {
         statusFilter: AssetStatusFilter.ACTIVE,
       });
 
-      if (!cache || !cache.entries) {
+      if (!cache?.entries) {
         logger.warn('No cached data found, returning empty results');
         return { items: [], nextToken: undefined };
       }
@@ -454,7 +454,7 @@ export class AssetService {
       const groupFilter = request.groupFilter;
       filteredItems = filteredItems.filter((item) => {
         const groups = (item as any).groups as string[] | undefined;
-        return groups && groups.some((g) => groupFilter.includes(g));
+        return groups?.some((g) => groupFilter.includes(g));
       });
     }
 
@@ -1085,7 +1085,7 @@ export class AssetService {
   private getRefreshAlertSortValue(asset: any): number {
     const refreshProperties = asset.refreshProperties || asset.DataSetRefreshProperties;
     const emailAlert = refreshProperties?.RefreshConfiguration?.ScheduleRefreshOnEntity?.EmailAlert;
-    const alertStatus = emailAlert?.alertStatus || emailAlert?.['AlertStatus'];
+    const alertStatus = emailAlert?.alertStatus || emailAlert?.AlertStatus;
     return alertStatus === 'ENABLED' ? 1 : 0;
   }
 
@@ -1353,7 +1353,7 @@ export class AssetService {
     // Range filters
     if ('min' in filterValue || 'max' in filterValue) {
       const numValue = typeof itemValue === 'number' ? itemValue : parseFloat(itemValue);
-      if (isNaN(numValue)) {
+      if (Number.isNaN(numValue)) {
         return false;
       }
       if ('min' in filterValue && numValue < filterValue.min) {
@@ -1368,7 +1368,7 @@ export class AssetService {
     // Date range filters
     if ('startDate' in filterValue || 'endDate' in filterValue) {
       const dateValue = new Date(itemValue);
-      if (isNaN(dateValue.getTime())) {
+      if (Number.isNaN(dateValue.getTime())) {
         return false;
       }
       if ('startDate' in filterValue && dateValue < new Date(filterValue.startDate)) {
@@ -1392,8 +1392,7 @@ export class AssetService {
       const searchStr = String(filterValue).toLowerCase();
       const hasMatch = item.tags.some(
         (tag: any) =>
-          (tag.key && tag.key.toLowerCase().includes(searchStr)) ||
-          (tag.value && tag.value.toLowerCase().includes(searchStr))
+          tag.key?.toLowerCase().includes(searchStr) || tag.value?.toLowerCase().includes(searchStr)
       );
 
       return hasMatch;

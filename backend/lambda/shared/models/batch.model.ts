@@ -2,7 +2,7 @@
  * Batch processing models and types
  */
 
-import { type EnhancedProcessingResult } from '../../features/data-export/processors/BaseAssetProcessor';
+import type { EnhancedProcessingResult } from '../../features/data-export/processors/BaseAssetProcessor';
 
 /**
  * Context for processing a single batch

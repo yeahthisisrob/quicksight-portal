@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { activityApi, type RecipientsData } from '@/shared/api/modules/activity';
 import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
@@ -67,7 +67,11 @@ export function useInactivityMailto({ open, asset }: UseInactivityMailtoProps) {
   // Filtered viewers + totals after excluding groups
   const filteredActivity = useMemo(() => {
     if (!activityData?.viewers) {
-      return { totalViews: asset.activityCount ?? 0, uniqueViewers: 0, viewers: [] as ActivityData['viewers'] };
+      return {
+        totalViews: asset.activityCount ?? 0,
+        uniqueViewers: 0,
+        viewers: [] as ActivityData['viewers'],
+      };
     }
 
     const includedViewers = activityData.viewers.filter((v) => {
@@ -107,7 +111,9 @@ export function useInactivityMailto({ open, asset }: UseInactivityMailtoProps) {
 
     if (filteredActivity.viewers.length > 0) {
       lines.push('');
-      lines.push(`Activity (${filteredActivity.totalViews} views, ${filteredActivity.uniqueViewers} users):`);
+      lines.push(
+        `Activity (${filteredActivity.totalViews} views, ${filteredActivity.uniqueViewers} users):`
+      );
 
       const sorted = [...filteredActivity.viewers].sort((a, b) => b.viewCount - a.viewCount);
       for (const viewer of sorted) {
@@ -142,12 +148,10 @@ export function useInactivityMailto({ open, asset }: UseInactivityMailtoProps) {
     setLoading(true);
     setError(null);
 
-    const recipientsPromise = activityApi
-      .resolveRecipients(asset.type, asset.id)
-      .catch((err) => {
-        console.error('[InactivityMailto] Failed to resolve recipients:', err);
-        return { users: [], groups: [] } as RecipientsData;
-      });
+    const recipientsPromise = activityApi.resolveRecipients(asset.type, asset.id).catch((err) => {
+      console.error('[InactivityMailto] Failed to resolve recipients:', err);
+      return { users: [], groups: [] } as RecipientsData;
+    });
 
     const activityPromise = activityApi
       .getActivityData(asset.type, asset.id)
@@ -168,7 +172,9 @@ export function useInactivityMailto({ open, asset }: UseInactivityMailtoProps) {
       setSelectedEmails(directEmails);
 
       if (recipientsData.users.length === 0 && recipientsData.groups.length === 0) {
-        setError('Could not resolve recipients from asset permissions. You can still compose and send the email manually.');
+        setError(
+          'Could not resolve recipients from asset permissions. You can still compose and send the email manually.'
+        );
       }
 
       setLoading(false);

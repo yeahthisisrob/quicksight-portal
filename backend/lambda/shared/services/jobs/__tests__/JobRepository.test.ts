@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-import { JobRepository, type JobMetadata, type JobLog } from '../JobRepository';
+import { type JobLog, type JobMetadata, JobRepository } from '../JobRepository';
 
 const HOUR_MS = 3600000;
 const MEDIUM_BATCH = 10;
@@ -23,7 +23,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../../aws/DynamoDBService', () => ({
-  DynamoDBService: vi.fn(() => mocks.dynamo),
+  DynamoDBService: vi.fn(function () {
+    return mocks.dynamo;
+  }),
   isConditionalCheckFailed: (error: any) => error?.name === 'ConditionalCheckFailedException',
 }));
 vi.mock('../../../utils/logger');

@@ -18,7 +18,11 @@ export default function ActivityTimelinePage() {
     refreshActivity({ assetTypes: ['all'], days: 90 });
   };
 
-  const showProgress = refreshing || jobStatus?.status === 'completed' || jobStatus?.status === 'failed' || jobStatus?.status === 'stopped';
+  const showProgress =
+    refreshing ||
+    jobStatus?.status === 'completed' ||
+    jobStatus?.status === 'failed' ||
+    jobStatus?.status === 'stopped';
 
   return (
     <PageLayout title="Activity Timeline">
@@ -37,9 +41,9 @@ export default function ActivityTimelinePage() {
           renderHeader={({ cacheLastUpdated }) => (
             <Stack
               direction="row"
-              alignItems="center"
-              justifyContent="space-between"
               sx={{
+                alignItems: 'center',
+                justifyContent: 'space-between',
                 px: 2,
                 py: 1.25,
                 borderBottom: '1px solid',
@@ -51,8 +55,10 @@ export default function ActivityTimelinePage() {
                 {cacheLastUpdated ? (
                   <>
                     Last refreshed{' '}
-                    <strong>{formatDistanceToNow(new Date(cacheLastUpdated), { addSuffix: true })}</strong>
-                    {' '}· CloudTrail has a 5–15 min propagation delay
+                    <strong>
+                      {formatDistanceToNow(new Date(cacheLastUpdated), { addSuffix: true })}
+                    </strong>{' '}
+                    · CloudTrail has a 5–15 min propagation delay
                   </>
                 ) : (
                   'No activity cached yet — refresh to populate the timeline'
@@ -62,11 +68,7 @@ export default function ActivityTimelinePage() {
                 size="small"
                 variant="outlined"
                 startIcon={
-                  refreshing ? (
-                    <CircularProgress size={14} color="inherit" />
-                  ) : (
-                    <RefreshIcon />
-                  )
+                  refreshing ? <CircularProgress size={14} color="inherit" /> : <RefreshIcon />
                 }
                 onClick={handleRefresh}
                 disabled={refreshing}

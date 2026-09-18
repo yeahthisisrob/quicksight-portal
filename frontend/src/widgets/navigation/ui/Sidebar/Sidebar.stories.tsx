@@ -1,8 +1,7 @@
 import { Box } from '@mui/material';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { Sidebar } from './Sidebar';
-
-import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta = {
   title: 'Widgets/Navigation/Sidebar',
@@ -11,7 +10,8 @@ const meta = {
     layout: 'fullscreen',
     docs: {
       description: {
-        component: 'A permanent navigation sidebar with colorful active states and a user section at the bottom for profile info and logout.',
+        component:
+          'A permanent navigation sidebar with colorful active states and a user section at the bottom for profile info and logout.',
       },
     },
   },
