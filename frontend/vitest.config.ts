@@ -1,8 +1,9 @@
-/// <reference types="vitest" />
 import path from 'node:path';
 
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+// From vitest/config, not vite: since Vite 8 the `test` key is not part of
+// Vite's own config type, so `defineConfig` imported from 'vite' rejects it.
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [react()],

@@ -28,6 +28,7 @@ import { BulkTagDialog } from '@/entities/tag';
 
 import { assetsApi } from '@/shared/api';
 import { useDebounce } from '@/shared/lib';
+import { EMPTY_SELECTION, isRowSelected, selectionCount } from '@/shared/lib/gridSelection';
 
 interface AssetListPageProps {
   title: string;
@@ -68,7 +69,7 @@ export default function AssetListPage({
   const { enqueueSnackbar } = useSnackbar();
   const [refreshing, setRefreshing] = useState(false);
   const [refreshingTags, setRefreshingTags] = useState(false);
-  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
+  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>(EMPTY_SELECTION);
   const [addToFolderOpen, setAddToFolderOpen] = useState(false);
   const [bulkTagOpen, setBulkTagOpen] = useState(false);
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: defaultPageSize });
@@ -93,10 +94,10 @@ export default function AssetListPage({
     setRefreshing(false);
   };
 
-  const selectedAssets = assets.filter((asset: any) => selectedRows.includes(asset.id));
+  const selectedAssets = assets.filter((asset: any) => isRowSelected(selectedRows, asset.id));
 
   const handleBulkComplete = () => {
-    setSelectedRows([]);
+    setSelectedRows(EMPTY_SELECTION);
     handleRefresh();
   };
 
@@ -177,11 +178,12 @@ export default function AssetListPage({
       </Box>
 
       {/* Bulk Actions Toolbar */}
-      {enableBulkActions && selectedRows.length > 0 && (
+      {enableBulkActions && selectionCount(selectedRows, assets.length) > 0 && (
         <Paper sx={{ mb: 2, p: 2, backgroundColor: 'primary.main', color: 'primary.contrastText' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Typography variant="body1">
-              {selectedRows.length} item{selectedRows.length !== 1 ? 's' : ''} selected
+              {selectionCount(selectedRows, assets.length)} item
+              {selectionCount(selectedRows, assets.length) !== 1 ? 's' : ''} selected
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <IconButton
@@ -214,12 +216,14 @@ export default function AssetListPage({
             // Reset to first page when searching
             setPaginationModel((prev) => ({ ...prev, page: 0 }));
           }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            },
           }}
         />
       </Paper>

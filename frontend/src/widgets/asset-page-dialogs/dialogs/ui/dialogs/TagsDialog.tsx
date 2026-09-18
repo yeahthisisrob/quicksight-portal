@@ -99,8 +99,8 @@ const TagRow = ({
           <Box sx={{ flex: '0 0 35%', minWidth: 0 }}>
             <Typography
               variant="body2"
-              fontWeight={typography.fontWeight.medium}
               sx={{
+                fontWeight: typography.fontWeight.medium,
                 color: isPortalTag ? colors.status.warning : 'text.primary',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -170,7 +170,7 @@ const PortalVisibilityControls = ({
         Portal Visibility Controls
       </Typography>
       <Grid container spacing={2}>
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <Box
             sx={{
               p: 1.5,
@@ -189,7 +189,7 @@ const PortalVisibilityControls = ({
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
               <HiddenIcon sx={{ fontSize: 20, color: colors.status.warning }} />
-              <Typography variant="body2" fontWeight={typography.fontWeight.medium}>
+              <Typography sx={{ fontWeight: typography.fontWeight.medium }} variant="body2">
                 {hasCatalogExclusion ? 'Hidden from Catalog' : 'Hide from Catalog'}
               </Typography>
             </Box>
@@ -198,7 +198,7 @@ const PortalVisibilityControls = ({
             </Typography>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <Box
             sx={{
               p: 1.5,
@@ -217,7 +217,7 @@ const PortalVisibilityControls = ({
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
               <HiddenIcon sx={{ fontSize: 20, color: colors.status.error }} />
-              <Typography variant="body2" fontWeight={typography.fontWeight.medium}>
+              <Typography sx={{ fontWeight: typography.fontWeight.medium }} variant="body2">
                 {hasPortalExclusion ? 'Hidden from Portal' : 'Hide from Portal'}
               </Typography>
             </Box>
@@ -322,17 +322,23 @@ export default function TagsDialog({
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: `${borderRadius.lg}px`,
-          maxHeight: '80vh',
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: `${borderRadius.lg}px`,
+            maxHeight: '80vh',
+          },
         },
       }}
     >
       <DialogTitle sx={{ pb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box>
-            <Typography variant="h5" fontWeight={typography.fontWeight.semibold} gutterBottom>
+            <Typography
+              sx={{ fontWeight: typography.fontWeight.semibold }}
+              variant="h5"
+              gutterBottom
+            >
               Tags
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -390,8 +396,8 @@ export default function TagsDialog({
               sx={{ fontSize: 20, color: tags.length > 0 ? colors.primary.main : 'text.disabled' }}
             />
             <Typography
+              sx={{ fontWeight: typography.fontWeight.semibold }}
               variant="subtitle1"
-              fontWeight={typography.fontWeight.semibold}
               color={tags.length > 0 ? 'text.primary' : 'text.disabled'}
             >
               Tags
@@ -421,9 +427,12 @@ export default function TagsDialog({
                 <Box sx={{ flex: '0 0 35%' }}>
                   <Typography
                     variant="caption"
-                    fontWeight={typography.fontWeight.semibold}
                     color="text.secondary"
-                    sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}
+                    sx={{
+                      fontWeight: typography.fontWeight.semibold,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                    }}
                   >
                     Key
                   </Typography>
@@ -431,9 +440,12 @@ export default function TagsDialog({
                 <Box sx={{ flex: 1 }}>
                   <Typography
                     variant="caption"
-                    fontWeight={typography.fontWeight.semibold}
                     color="text.secondary"
-                    sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}
+                    sx={{
+                      fontWeight: typography.fontWeight.semibold,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                    }}
                   >
                     Value
                   </Typography>
@@ -464,8 +476,8 @@ export default function TagsDialog({
             >
               Add New Tag
             </Typography>
-            <Grid container spacing={2} alignItems="flex-end">
-              <Grid item xs={5}>
+            <Grid sx={{ alignItems: 'flex-end' }} container spacing={2}>
+              <Grid size={{ xs: 5 }}>
                 <Autocomplete
                   freeSolo
                   options={commonTagKeys}
@@ -483,7 +495,7 @@ export default function TagsDialog({
                   )}
                 />
               </Grid>
-              <Grid item xs={5}>
+              <Grid size={{ xs: 5 }}>
                 <TextField
                   label="Value"
                   size="small"
@@ -493,7 +505,7 @@ export default function TagsDialog({
                   onKeyPress={handleKeyPress}
                 />
               </Grid>
-              <Grid item xs={2}>
+              <Grid size={{ xs: 2 }}>
                 <IconButton
                   color="primary"
                   onClick={handleAddTag}

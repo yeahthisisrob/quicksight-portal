@@ -156,8 +156,10 @@ export function UserUnusedDatasetsDialog({ open, onClose, user }: UserUnusedData
               <ListItemText
                 primary={user.name}
                 secondary={user.email}
-                primaryTypographyProps={{ variant: 'body2' }}
-                secondaryTypographyProps={{ variant: 'caption' }}
+                slotProps={{
+                  primary: { variant: 'body2' },
+                  secondary: { variant: 'caption' },
+                }}
               />
             </ListItemButton>
           </List>
@@ -220,9 +222,11 @@ export function UserUnusedDatasetsDialog({ open, onClose, user }: UserUnusedData
             minRows={4}
             maxRows={8}
             value={body}
-            InputProps={{ readOnly: true }}
             helperText="Auto-generated from lineage data"
             sx={{ '& .MuiInputBase-input': { fontFamily: 'monospace', fontSize: 12 } }}
+            slotProps={{
+              input: { readOnly: true },
+            }}
           />
         </Box>
       </DialogContent>

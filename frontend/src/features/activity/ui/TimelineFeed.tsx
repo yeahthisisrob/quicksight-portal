@@ -100,7 +100,7 @@ export function TimelineFeed({ assetPin, renderHeader }: TimelineFeedProps) {
       {query.isLoading && (
         <Stack spacing={1} sx={{ p: 2 }}>
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} variant="rectangular" height={48} sx={{ borderRadius: 1 }} />
+            <Skeleton key={i} variant="rectangular" sx={{ height: 48, borderRadius: 1 }} />
           ))}
         </Stack>
       )}

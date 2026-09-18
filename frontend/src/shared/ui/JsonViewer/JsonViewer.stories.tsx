@@ -357,7 +357,7 @@ export const WithIconButton: Story = {
     const mockAsset = mockAssets.dashboards[0];
 
     return (
-      <Stack spacing={2} alignItems="center">
+      <Stack sx={{ alignItems: 'center' }} spacing={2}>
         <Typography variant="h6">JSON Viewer Icon Button</Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography>Click to view JSON:</Typography>

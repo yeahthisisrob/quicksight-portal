@@ -110,12 +110,12 @@ describe('S3Adapter', () => {
       let rateLimiterCalled = false;
       let s3OperationCalled = false;
 
-      (s3RateLimiter.waitForToken as Mock).mockImplementation(() => {
+      (s3RateLimiter.waitForToken as Mock).mockImplementation(function () {
         rateLimiterCalled = true;
         return Promise.resolve();
       });
 
-      s3Client.send = vi.fn().mockImplementation(() => {
+      s3Client.send = vi.fn().mockImplementation(function () {
         // Rate limiter should be called before S3 operation
         expect(rateLimiterCalled).toBe(true);
         s3OperationCalled = true;

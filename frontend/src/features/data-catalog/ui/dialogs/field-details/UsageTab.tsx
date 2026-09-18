@@ -82,9 +82,9 @@ export function UsageTab({ groupedSources }: UsageTabProps) {
 
         return (
           <Paper key={type} variant="outlined" sx={{ p: 3 }}>
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 2 }}>
               <config.icon sx={{ color: config.color }} />
-              <Typography variant="subtitle2" fontWeight={600}>
+              <Typography sx={{ fontWeight: 600 }} variant="subtitle2">
                 {config.pluralLabel} ({sources.length})
               </Typography>
             </Stack>

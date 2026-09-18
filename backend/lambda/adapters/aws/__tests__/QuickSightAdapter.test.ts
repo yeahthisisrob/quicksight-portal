@@ -503,7 +503,7 @@ describe('QuickSightAdapter - Async/await patterns', () => {
       let rateLimiterCalled = false;
       let operationCalled = false;
 
-      (quickSightRateLimiter.waitForToken as Mock).mockImplementation(() => {
+      (quickSightRateLimiter.waitForToken as Mock).mockImplementation(function () {
         rateLimiterCalled = true;
         return Promise.resolve();
       });

@@ -26,7 +26,12 @@ const MockContent = () => (
     <Typography variant="h4" gutterBottom>
       Dashboard Assets
     </Typography>
-    <Typography variant="body1" paragraph>
+    <Typography
+      variant="body1"
+      sx={{
+        marginBottom: '16px',
+      }}
+    >
       This is the main content area. The sidebar navigation is permanently visible on the left, and
       the user profile with logout functionality is located at the bottom of the sidebar.
     </Typography>

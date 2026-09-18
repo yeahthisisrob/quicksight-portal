@@ -25,32 +25,8 @@ export function TableToolbar({ onExportCSV, exportLabel, exporting }: TableToolb
         gap: spacing.sm / 8,
       }}
     >
-      <GridToolbarColumnsButton
-        slotProps={{
-          button: {
-            sx: {
-              color: colors.neutral[700],
-              '&:hover': {
-                bgcolor: alpha(colors.primary.main, 0.08),
-                color: colors.primary.main,
-              },
-            },
-          },
-        }}
-      />
-      <GridToolbarDensitySelector
-        slotProps={{
-          button: {
-            sx: {
-              color: colors.neutral[700],
-              '&:hover': {
-                bgcolor: alpha(colors.primary.main, 0.08),
-                color: colors.primary.main,
-              },
-            },
-          },
-        }}
-      />
+      <GridToolbarColumnsButton />
+      <GridToolbarDensitySelector />
 
       {onExportCSV && (
         <Button

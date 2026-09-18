@@ -178,7 +178,7 @@ export function GroupAssetsDialog({ open, onClose, group }: GroupAssetsDialogPro
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
+        <Box sx={{ alignItems: 'center', display: 'flex', justifyContent: 'space-between' }}>
           <Typography variant="h6">Assets for Group: {group.name}</Typography>
           {!loading && <Chip label={`${totalAssets} total assets`} color="primary" size="small" />}
         </Box>
@@ -186,7 +186,7 @@ export function GroupAssetsDialog({ open, onClose, group }: GroupAssetsDialogPro
 
       <DialogContent dividers>
         {loading ? (
-          <Box display="flex" justifyContent="center" p={4}>
+          <Box sx={{ p: 4, display: 'flex', justifyContent: 'center' }}>
             <CircularProgress />
           </Box>
         ) : error ? (
@@ -200,14 +200,16 @@ export function GroupAssetsDialog({ open, onClose, group }: GroupAssetsDialogPro
               placeholder="Search assets..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
               sx={{ mb: 2 }}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
+              }}
             />
 
             <Tabs
@@ -239,7 +241,7 @@ export function GroupAssetsDialog({ open, onClose, group }: GroupAssetsDialogPro
             </Tabs>
 
             {filteredAssets.length === 0 ? (
-              <Typography color="textSecondary" align="center" py={4}>
+              <Typography sx={{ py: 4 }} color="textSecondary" align="center">
                 {searchTerm || selectedType !== 'all'
                   ? 'No assets match your filters'
                   : 'This group has no asset permissions'}
@@ -250,9 +252,10 @@ export function GroupAssetsDialog({ open, onClose, group }: GroupAssetsDialogPro
                   <ListItem key={`${asset.assetType}-${asset.assetId}`}>
                     <ListItemIcon>{assetTypeIcons[asset.assetType] || <FolderIcon />}</ListItemIcon>
                     <ListItemText
+                      sx={{ display: 'flex', gap: 1, alignItems: 'center' }}
                       disableTypography
                       primary={
-                        <Box display="flex" alignItems="center" gap={1}>
+                        <Box>
                           <Typography variant="body1">{asset.assetName}</Typography>
                           <Chip
                             label={asset.accessType === 'folder_inherited' ? 'Inherited' : 'Direct'}
@@ -276,7 +279,7 @@ export function GroupAssetsDialog({ open, onClose, group }: GroupAssetsDialogPro
                             {asset.assetType} • {asset.assetId}
                           </Typography>
                           {asset.folderPath && (
-                            <Typography variant="caption" display="block" color="textSecondary">
+                            <Typography variant="caption" color="textSecondary">
                               Via folder: {asset.folderPath}
                             </Typography>
                           )}

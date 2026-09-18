@@ -36,7 +36,7 @@ function StatItem({ label, value, subtitle, icon: Icon, color, loading }: StatIt
         </Box>
         <Box sx={{ minWidth: 0 }}>
           {loading ? (
-            <Skeleton variant="text" width={60} height={24} />
+            <Skeleton sx={{ height: 24, width: 60 }} variant="text" />
           ) : (
             <Typography variant="subtitle1" sx={{ fontWeight: 600, color, lineHeight: 1.2 }}>
               {typeof value === 'number' ? value.toLocaleString() : value}

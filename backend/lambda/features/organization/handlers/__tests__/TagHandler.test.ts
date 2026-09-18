@@ -9,26 +9,30 @@ vi.mock('../../../../shared/auth', () => ({
 }));
 
 vi.mock('../../services/TagService', () => ({
-  TagService: vi.fn().mockImplementation(() => ({
-    tagResource: vi.fn().mockResolvedValue(undefined),
-    getResourceTags: vi.fn().mockResolvedValue([
-      { key: 'Environment', value: 'Production' },
-      { key: 'Owner', value: 'Team A' },
-    ]),
-    updateResourceTags: vi.fn().mockResolvedValue(undefined),
-    removeResourceTags: vi.fn().mockResolvedValue(undefined),
-  })),
+  TagService: vi.fn().mockImplementation(function () {
+    return {
+      tagResource: vi.fn().mockResolvedValue(undefined),
+      getResourceTags: vi.fn().mockResolvedValue([
+        { key: 'Environment', value: 'Production' },
+        { key: 'Owner', value: 'Team A' },
+      ]),
+      updateResourceTags: vi.fn().mockResolvedValue(undefined),
+      removeResourceTags: vi.fn().mockResolvedValue(undefined),
+    };
+  }),
 }));
 
 vi.mock('../../../../shared/services/bulk/BulkOperationsService', () => ({
-  BulkOperationsService: vi.fn().mockImplementation(() => ({
-    bulkUpdateTags: vi.fn().mockResolvedValue({
-      jobId: 'job-123',
-      status: 'pending',
-      message: 'Bulk tag update started',
-      estimatedOperations: 10,
-    }),
-  })),
+  BulkOperationsService: vi.fn().mockImplementation(function () {
+    return {
+      bulkUpdateTags: vi.fn().mockResolvedValue({
+        jobId: 'job-123',
+        status: 'pending',
+        message: 'Bulk tag update started',
+        estimatedOperations: 10,
+      }),
+    };
+  }),
 }));
 
 vi.mock('../../../../shared/services/cache/CacheService', () => ({

@@ -66,8 +66,10 @@ export function DefinitionErrorsDialog({
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{
-        sx: { borderRadius: 2 },
+      slotProps={{
+        paper: {
+          sx: { borderRadius: 2 },
+        },
       }}
     >
       <DialogTitle
@@ -117,7 +119,7 @@ export function DefinitionErrorsDialog({
             >
               {errorList.map((error, idx) => (
                 <div key={idx}>
-                  <ListItem alignItems="flex-start" sx={{ py: 2 }}>
+                  <ListItem sx={{ alignItems: 'flex-start', py: 2 }}>
                     <ListItemText
                       primary={
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>

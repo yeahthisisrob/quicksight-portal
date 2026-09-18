@@ -134,10 +134,10 @@ export function createSemanticColumns({
             value={count}
             tooltipContent={
               <Box>
-                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                <Typography variant="body2" sx={{ display: 'block', fontWeight: 'bold', mb: 0.5 }}>
                   Visual Usage Count: {count}
                 </Typography>
-                <Typography variant="caption" display="block">
+                <Typography variant="caption">
                   Times used in visuals across all dashboards/analyses
                 </Typography>
               </Box>

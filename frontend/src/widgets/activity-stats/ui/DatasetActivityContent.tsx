@@ -87,21 +87,21 @@ export function DatasetActivityContent({ activity }: DatasetActivityContentProps
     <>
       {/* Summary Stats */}
       <Grid container spacing={2} sx={{ mb: spacing.md / 8 }}>
-        <Grid item xs={12} sm={3}>
+        <Grid size={{ xs: 12, sm: 3 }}>
           <SummaryTile
             icon={<TrendingUpIcon color="primary" sx={iconSx} />}
             primary={activity.totalViews.toLocaleString()}
             label="Views (via usage)"
           />
         </Grid>
-        <Grid item xs={12} sm={3}>
+        <Grid size={{ xs: 12, sm: 3 }}>
           <SummaryTile
             icon={<PeopleIcon color="primary" sx={iconSx} />}
             primary={activity.uniqueViewers.toLocaleString()}
             label="Unique Viewers"
           />
         </Grid>
-        <Grid item xs={12} sm={3}>
+        <Grid size={{ xs: 12, sm: 3 }}>
           <SummaryTile
             icon={<AccessTimeIcon color="primary" sx={iconSx} />}
             primary={
@@ -112,7 +112,7 @@ export function DatasetActivityContent({ activity }: DatasetActivityContentProps
             label="Last Viewed"
           />
         </Grid>
-        <Grid item xs={12} sm={3}>
+        <Grid size={{ xs: 12, sm: 3 }}>
           <SummaryTile
             icon={<AutorenewIcon color="primary" sx={iconSx} />}
             primary={
@@ -229,7 +229,7 @@ export function DatasetActivityContent({ activity }: DatasetActivityContentProps
               {usedBy.map((dependent, index) => (
                 <TableRow key={`${dependent.assetType}:${dependent.assetId}`}>
                   <TableCell>
-                    <Typography variant="body2" fontWeight="medium">
+                    <Typography sx={{ fontWeight: 'medium' }} variant="body2">
                       {dependent.assetName || dependent.assetId}
                     </Typography>
                   </TableCell>

@@ -63,7 +63,7 @@ import {
   CheckCircle as SuccessIcon,
   LocalOffer as TagIcon,
   Timeline as TimelineNavIcon,
-  HelpOutline as UnknownIcon,
+  HelpOutlined as UnknownIcon,
   Person as UserIcon,
   Visibility as ViewsIcon,
   TableChart as VisualFieldIcon,

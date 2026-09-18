@@ -190,10 +190,12 @@ export function BulkDeleteDialog({ open, onClose, assets, onComplete }: BulkDele
       onClose={!processing && !isPolling ? onClose : undefined}
       maxWidth="md"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: spacing.sm / 8,
-          boxShadow: theme.shadows[24],
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: spacing.sm / 8,
+            boxShadow: theme.shadows[24],
+          },
         },
       }}
     >
@@ -206,7 +208,7 @@ export function BulkDeleteDialog({ open, onClose, assets, onComplete }: BulkDele
         }}
       >
         <DeleteIcon sx={{ color: theme.palette.error.main }} />
-        <Typography variant="h6" component="span" fontWeight={600}>
+        <Typography sx={{ fontWeight: 600 }} variant="h6" component="span">
           Confirm Bulk Delete
         </Typography>
         <Chip

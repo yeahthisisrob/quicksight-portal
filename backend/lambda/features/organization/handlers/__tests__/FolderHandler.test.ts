@@ -29,7 +29,9 @@ describe('FolderHandler', () => {
       list: vi.fn().mockResolvedValue([]),
     };
 
-    (FolderService as any).mockImplementation(() => mockFolderService);
+    (FolderService as any).mockImplementation(function () {
+      return mockFolderService;
+    });
     (requireAuth as any).mockResolvedValue({ userId: 'test-user' });
 
     folderHandler = new FolderHandler();

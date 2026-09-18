@@ -161,7 +161,12 @@ export function Sidebar() {
             <ListItemIcon sx={{ minWidth: 32 }}>
               <navigationIcons.logout />
             </ListItemIcon>
-            <ListItemText primary="Logout" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+            <ListItemText
+              primary="Logout"
+              slotProps={{
+                primary: { sx: { fontSize: '0.875rem' } },
+              }}
+            />
           </ListItemButton>
         </Box>
       </Box>

@@ -41,9 +41,9 @@ export default function ActivityTimelinePage() {
           renderHeader={({ cacheLastUpdated }) => (
             <Stack
               direction="row"
-              alignItems="center"
-              justifyContent="space-between"
               sx={{
+                alignItems: 'center',
+                justifyContent: 'space-between',
                 px: 2,
                 py: 1.25,
                 borderBottom: '1px solid',

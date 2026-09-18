@@ -106,8 +106,10 @@ export function RefreshScheduleDialog({
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{
-        sx: { borderRadius: 2 },
+      slotProps={{
+        paper: {
+          sx: { borderRadius: 2 },
+        },
       }}
     >
       <DialogTitle

@@ -82,7 +82,7 @@ export default function BulkActionsToolbar({
           },
         }}
       >
-        <Stack direction="row" spacing={2} alignItems="center">
+        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
           <Chip
             label={`${selectedCount} selected`}
             sx={{

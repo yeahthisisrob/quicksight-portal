@@ -7,7 +7,7 @@ import {
   DataObject as JsonIcon,
   GroupAdd as MemberIcon,
   OpenInNew as OpenInNewIcon,
-  HelpOutline as OtherIcon,
+  HelpOutlined as OtherIcon,
   Publish as PublishIcon,
   LockOpen as RevokeIcon,
   type SvgIconComponent,
@@ -144,8 +144,8 @@ export function TimelineRow({ event }: TimelineRowProps) {
     <Stack
       direction="row"
       spacing={1.5}
-      alignItems="center"
       sx={{
+        alignItems: 'center',
         py: 1.25,
         px: 2,
         borderBottom: '1px solid',

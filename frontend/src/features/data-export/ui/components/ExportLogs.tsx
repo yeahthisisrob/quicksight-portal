@@ -134,7 +134,7 @@ export function ExportLogs({
           borderRadius: '12px',
         }}
       >
-        <Box display="flex" alignItems="center" justifyContent="center" py={4}>
+        <Box sx={{ alignItems: 'center', display: 'flex', justifyContent: 'center', py: 4 }}>
           <Typography variant="body2" color="text.secondary">
             No export logs available
           </Typography>
@@ -164,9 +164,9 @@ export function ExportLogs({
           justifyContent: 'space-between',
         }}
       >
-        <Box display="flex" alignItems="center" gap={1}>
+        <Box sx={{ gap: 1, alignItems: 'center', display: 'flex' }}>
           <TimeIcon sx={{ fontSize: 18, color: colors.primary.main }} />
-          <Typography variant="subtitle2" fontWeight={600}>
+          <Typography sx={{ fontWeight: 600 }} variant="subtitle2">
             Export Progress & Activity
           </Typography>
           <Chip
@@ -180,7 +180,7 @@ export function ExportLogs({
             }}
           />
         </Box>
-        <Box display="flex" alignItems="center" gap={1}>
+        <Box sx={{ gap: 1, alignItems: 'center', display: 'flex' }}>
           {availableTypes.length > 0 && (
             <Tooltip title="Filter by asset type">
               <IconButton
@@ -224,7 +224,7 @@ export function ExportLogs({
             backgroundColor: alpha(colors.primary.light, 0.01),
           }}
         >
-          <Typography variant="caption" fontWeight={600} sx={{ mb: 1, display: 'block' }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
             Filter by asset type:
           </Typography>
           <ToggleButtonGroup
@@ -306,9 +306,9 @@ export function ExportLogs({
               borderBottom: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
             }}
           >
-            <Box display="flex" alignItems="center" sx={{ minHeight: '40px' }}>
+            <Box sx={{ alignItems: 'center', display: 'flex', minHeight: '40px' }}>
               <Box sx={{ width: '24px', padding: '8px 4px', textAlign: 'center' }}>
-                <Typography variant="caption" fontWeight={600}></Typography>
+                <Typography sx={{ fontWeight: 600 }} variant="caption"></Typography>
               </Box>
               {showTimestamps && (
                 <Box
@@ -318,7 +318,7 @@ export function ExportLogs({
                     backgroundColor: alpha(colors.primary.light, 0.05),
                   }}
                 >
-                  <Typography variant="caption" fontWeight={600}>
+                  <Typography sx={{ fontWeight: 600 }} variant="caption">
                     Time
                   </Typography>
                 </Box>
@@ -330,7 +330,7 @@ export function ExportLogs({
                   backgroundColor: alpha(colors.primary.light, 0.05),
                 }}
               >
-                <Typography variant="caption" fontWeight={600}>
+                <Typography sx={{ fontWeight: 600 }} variant="caption">
                   Duration
                 </Typography>
               </Box>
@@ -341,7 +341,7 @@ export function ExportLogs({
                   backgroundColor: alpha(colors.primary.light, 0.05),
                 }}
               >
-                <Typography variant="caption" fontWeight={600}>
+                <Typography sx={{ fontWeight: 600 }} variant="caption">
                   API Calls
                 </Typography>
               </Box>
@@ -352,7 +352,7 @@ export function ExportLogs({
                   backgroundColor: alpha(colors.primary.light, 0.05),
                 }}
               >
-                <Typography variant="caption" fontWeight={600}>
+                <Typography sx={{ fontWeight: 600 }} variant="caption">
                   Type
                 </Typography>
               </Box>
@@ -363,7 +363,7 @@ export function ExportLogs({
                   backgroundColor: alpha(colors.primary.light, 0.05),
                 }}
               >
-                <Typography variant="caption" fontWeight={600}>
+                <Typography sx={{ fontWeight: 600 }} variant="caption">
                   Message
                 </Typography>
               </Box>
@@ -380,9 +380,9 @@ export function ExportLogs({
             return (
               <Box
                 key={`${log.ts}-${index}`}
-                display="flex"
-                alignItems="center"
                 sx={{
+                  alignItems: 'center',
+                  display: 'flex',
                   minHeight: '28px',
                   backgroundColor: assetColors.bg,
                   borderLeft: log.assetType ? `3px solid ${assetColors.border}` : 'none',

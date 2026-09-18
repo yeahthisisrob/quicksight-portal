@@ -152,7 +152,9 @@ export const RestoreAssetDialog: React.FC<RestoreAssetDialogProps> = ({
       onClose={handleClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{ sx: { minHeight: '600px' } }}
+      slotProps={{
+        paper: { sx: { minHeight: '600px' } },
+      }}
     >
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

@@ -28,7 +28,7 @@ export default function ExportHeader({
       }}
     >
       <Box>
-        <Stack direction="row" alignItems="center" spacing={spacing.sm / 8}>
+        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={spacing.sm / 8}>
           <CloudDownload sx={{ fontSize: 32, color: colors.primary.main }} />
           <Box>
             <Typography variant="h4" sx={{ fontWeight: 600, color: colors.primary.main }}>
@@ -43,9 +43,8 @@ export default function ExportHeader({
         {lastExportDate && (
           <Stack
             direction="row"
-            alignItems="center"
             spacing={spacing.xs / 8}
-            sx={{ mt: spacing.xs / 8 }}
+            sx={{ alignItems: 'center', mt: spacing.xs / 8 }}
           >
             <Analytics sx={{ fontSize: 14, color: colors.neutral[500] }} />
             <Typography variant="caption" color="text.secondary">

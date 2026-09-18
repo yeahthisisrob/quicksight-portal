@@ -23,7 +23,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../../aws/DynamoDBService', () => ({
-  DynamoDBService: vi.fn(() => mocks.dynamo),
+  DynamoDBService: vi.fn(function () {
+    return mocks.dynamo;
+  }),
   isConditionalCheckFailed: (error: any) => error?.name === 'ConditionalCheckFailedException',
 }));
 vi.mock('../../../utils/logger');

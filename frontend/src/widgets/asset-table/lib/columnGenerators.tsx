@@ -1,7 +1,7 @@
 /**
  * Column generators for different asset types
  */
-import { ErrorOutline as ErrorOutlineIcon } from '@mui/icons-material';
+import { ErrorOutlined as ErrorOutlineIcon } from '@mui/icons-material';
 import { alpha, Box, Chip, Tooltip, Typography } from '@mui/material';
 
 import { formatDatasourceType } from '@/entities/field';

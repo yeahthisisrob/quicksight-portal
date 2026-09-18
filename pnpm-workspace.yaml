@@ -5,6 +5,7 @@ packages:
   - frontend
   - infrastructure/cdk
   - shared
+  - tooling/*
 
 # pnpm blocks postinstall scripts by default. Allow only the ones that fetch or
 # compile a native binary the toolchain actually runs; everything else stays

@@ -228,9 +228,8 @@ const PermissionEntryRow = ({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography
             variant="body2"
-            fontWeight={typography.fontWeight.medium}
             noWrap
-            sx={{ flex: 1, minWidth: 0 }}
+            sx={{ fontWeight: typography.fontWeight.medium, flex: 1, minWidth: 0 }}
           >
             {entry.principalName}
           </Typography>
@@ -553,10 +552,12 @@ export default function PermissionsDialog({
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: `${borderRadius.lg}px`,
-          maxHeight: '85vh',
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: `${borderRadius.lg}px`,
+            maxHeight: '85vh',
+          },
         },
       }}
     >
@@ -587,8 +588,8 @@ export default function PermissionsDialog({
             </Box>
             <Box>
               <Typography
+                sx={{ fontWeight: typography.fontWeight.semibold }}
                 variant="h6"
-                fontWeight={typography.fontWeight.semibold}
                 color="text.primary"
               >
                 Permissions
@@ -754,17 +755,19 @@ export default function PermissionsDialog({
                 placeholder="Search principals..."
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon fontSize="small" sx={{ color: 'text.disabled' }} />
-                    </InputAdornment>
-                  ),
-                }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     fontSize: 13,
                     height: 34,
+                  },
+                }}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" sx={{ color: 'text.disabled' }} />
+                      </InputAdornment>
+                    ),
                   },
                 }}
               />

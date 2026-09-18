@@ -22,7 +22,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../../../../shared/services/aws/QuickSightService', () => ({
-  QuickSightService: vi.fn(() => mocks.qs),
+  QuickSightService: vi.fn(function () {
+    return mocks.qs;
+  }),
 }));
 vi.mock('../../../../shared/services/cache/CacheService', () => ({
   cacheService: mocks.cache,

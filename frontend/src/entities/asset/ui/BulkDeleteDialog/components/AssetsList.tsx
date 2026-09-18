@@ -75,7 +75,7 @@ function AssetDependencies({ asset }: { asset: Asset }) {
 export function AssetsList({ assets }: AssetsListProps) {
   return (
     <Box>
-      <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
         Assets to be deleted and their dependencies:
       </Typography>
       <Box
@@ -108,12 +108,15 @@ export function AssetsList({ assets }: AssetsListProps) {
                   <ListItemText
                     primary={asset.name}
                     secondary={asset.type}
-                    primaryTypographyProps={{
-                      variant: 'body2',
-                      fontWeight: hasDependencies ? 600 : 400,
-                    }}
-                    secondaryTypographyProps={{
-                      variant: 'caption',
+                    slotProps={{
+                      primary: {
+                        variant: 'body2',
+                        sx: { fontWeight: hasDependencies ? 600 : 400 },
+                      },
+
+                      secondary: {
+                        variant: 'caption',
+                      },
                     }}
                   />
                 </ListItem>

@@ -29,7 +29,7 @@ export function RestorationInfo({ assetsByType }: RestorationInfoProps) {
         }}
         onClick={() => setShowDetails(!showDetails)}
       >
-        <Typography variant="subtitle1" fontWeight={600}>
+        <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
           Restoration Capabilities by Asset Type
         </Typography>
         <IconButton size="small" sx={{ ml: 'auto' }}>
@@ -55,7 +55,7 @@ export function RestorationInfo({ assetsByType }: RestorationInfoProps) {
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                   <AssetIcon sx={{ fontSize: '1.2rem' }} />
-                  <Typography variant="subtitle2" fontWeight={600}>
+                  <Typography sx={{ fontWeight: 600 }} variant="subtitle2">
                     {type.charAt(0).toUpperCase() + type.slice(1)}s ({typeAssets.length})
                   </Typography>
                 </Box>

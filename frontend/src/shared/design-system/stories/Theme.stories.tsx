@@ -63,10 +63,10 @@ const AssetTypeIcon = ({
       >
         <Icon sx={{ fontSize: 32, color: config.main }} />
       </Box>
-      <Typography variant="h6" textTransform="capitalize" gutterBottom>
+      <Typography sx={{ textTransform: 'capitalize' }} variant="h6" gutterBottom>
         {type}
       </Typography>
-      <Stack spacing={1} alignItems="center">
+      <Stack sx={{ alignItems: 'center' }} spacing={1}>
         <Chip
           label="Main"
           size="small"
@@ -145,7 +145,7 @@ export const Colors: Story = {
                 mb: 2,
               }}
             />
-            <Typography variant="body2" textTransform="capitalize">
+            <Typography sx={{ textTransform: 'capitalize' }} variant="body2">
               {status}
             </Typography>
             <Typography variant="caption" color="text.secondary">
@@ -260,7 +260,7 @@ export const BorderRadius: Story = {
       >
         Border Radius
       </Typography>
-      <Stack direction="row" spacing={3} flexWrap="wrap">
+      <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={3}>
         {Object.entries(borderRadius).map(([size, value]) => (
           <Box key={size} sx={{ textAlign: 'center' }}>
             <Box
@@ -304,7 +304,7 @@ export const Shadows: Story = {
               borderRadius: `${borderRadius.md}px`,
             }}
           >
-            <Typography variant="h6" textTransform="capitalize">
+            <Typography sx={{ textTransform: 'capitalize' }} variant="h6">
               {size}
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>

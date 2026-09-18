@@ -141,8 +141,10 @@ export default function ViewStatsDialog({
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{
-        sx: { minHeight: '60vh' },
+      slotProps={{
+        paper: {
+          sx: { minHeight: '60vh' },
+        },
       }}
     >
       <DialogTitle>

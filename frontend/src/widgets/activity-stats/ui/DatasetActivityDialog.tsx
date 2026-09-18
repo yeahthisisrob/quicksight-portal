@@ -35,8 +35,8 @@ export function DatasetActivityDialog({
         <Box sx={{ pt: spacing.sm / 8 }}>
           {isLoading && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: spacing.md / 8 }}>
-              <Skeleton variant="rectangular" height={100} />
-              <Skeleton variant="rectangular" height={200} />
+              <Skeleton sx={{ height: 100 }} variant="rectangular" />
+              <Skeleton sx={{ height: 200 }} variant="rectangular" />
             </Box>
           )}
           {error && (

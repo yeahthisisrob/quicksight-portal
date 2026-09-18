@@ -11,10 +11,14 @@
     "exactOptionalPropertyTypes": false,
     "removeComments": true,
     "sourceMap": true,
-    "baseUrl": ".",
     "paths": {
       "@shared/*": ["../../shared/*"]
-    }
+    },
+    "moduleResolution": "bundler",
+    // Explicit under TypeScript 7: it no longer pulls every @types package
+    // into the global scope automatically, so without this every `process`
+    // and `node:*` import fails to resolve.
+    "types": ["node"]
   },
   "include": ["**/*.ts", "../../shared/**/*.ts"],
   "exclude": [

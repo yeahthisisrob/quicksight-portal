@@ -148,17 +148,23 @@ export default function RelatedAssetsDialog({
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: `${borderRadius.lg}px`,
-          maxHeight: '80vh',
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: `${borderRadius.lg}px`,
+            maxHeight: '80vh',
+          },
         },
       }}
     >
       <DialogTitle sx={{ pb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box>
-            <Typography variant="h5" fontWeight={typography.fontWeight.semibold} gutterBottom>
+            <Typography
+              sx={{ fontWeight: typography.fontWeight.semibold }}
+              variant="h5"
+              gutterBottom
+            >
               Asset Relationships
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -215,7 +221,7 @@ export default function RelatedAssetsDialog({
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
               <ArrowBackIcon sx={{ color: 'secondary.main' }} />
-              <Typography variant="h6" fontWeight={typography.fontWeight.semibold}>
+              <Typography sx={{ fontWeight: typography.fontWeight.semibold }} variant="h6">
                 Used By
               </Typography>
               <Chip
@@ -242,7 +248,7 @@ export default function RelatedAssetsDialog({
           <Box sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
               <ArrowForwardIcon sx={{ color: 'primary.main' }} />
-              <Typography variant="h6" fontWeight={typography.fontWeight.semibold}>
+              <Typography sx={{ fontWeight: typography.fontWeight.semibold }} variant="h6">
                 Uses
               </Typography>
               <Chip

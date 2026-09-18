@@ -82,21 +82,27 @@ vi.mock('../../../../shared/services/cache/CacheService', () => ({
   },
 }));
 vi.mock('../../../../shared/services/lineage', () => ({
-  LineageService: vi.fn().mockImplementation(() => ({
-    getLineage: vi.fn(),
-    getLineageMapForAssets: vi.fn().mockResolvedValue(new Map()),
-  })),
+  LineageService: vi.fn().mockImplementation(function () {
+    return {
+      getLineage: vi.fn(),
+      getLineageMapForAssets: vi.fn().mockResolvedValue(new Map()),
+    };
+  }),
 }));
 vi.mock('../../../activity/services/ActivityService', () => ({
-  ActivityService: vi.fn().mockImplementation(() => ({
-    getActivity: vi.fn(),
-    getUserActivityCounts: vi.fn().mockResolvedValue(new Map()),
-  })),
+  ActivityService: vi.fn().mockImplementation(function () {
+    return {
+      getActivity: vi.fn(),
+      getUserActivityCounts: vi.fn().mockResolvedValue(new Map()),
+    };
+  }),
 }));
 vi.mock('../../../organization/services/TagService', () => ({
-  TagService: vi.fn().mockImplementation(() => ({
-    getTags: vi.fn(),
-  })),
+  TagService: vi.fn().mockImplementation(function () {
+    return {
+      getTags: vi.fn(),
+    };
+  }),
 }));
 vi.mock('../../../../shared/utils/logger', () => ({
   logger: {

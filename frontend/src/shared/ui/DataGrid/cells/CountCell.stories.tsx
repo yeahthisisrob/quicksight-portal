@@ -61,13 +61,13 @@ export const WithTooltip: Story = {
         <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
           Total Usage: 42
         </Typography>
-        <Typography variant="caption" display="block">
+        <Typography sx={{ display: 'block' }} variant="caption">
           Count of actual usage in:
         </Typography>
-        <Typography variant="caption" display="block">
+        <Typography sx={{ display: 'block' }} variant="caption">
           Visuals (charts, tables, etc.)
         </Typography>
-        <Typography variant="caption" display="block">
+        <Typography sx={{ display: 'block' }} variant="caption">
           Calculated field expressions
         </Typography>
       </Box>
@@ -95,21 +95,21 @@ export const AllVariants: Story = {
   render: () => (
     <Stack spacing={3} sx={{ minWidth: 300 }}>
       <StorySection title="Count States">
-        <Stack direction="row" spacing={3} alignItems="center">
+        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={3}>
           <Box>
-            <Typography variant="caption" display="block">
+            <Typography sx={{ display: 'block' }} variant="caption">
               Zero
             </Typography>
             <CountCell value={0} />
           </Box>
           <Box>
-            <Typography variant="caption" display="block">
+            <Typography sx={{ display: 'block' }} variant="caption">
               Low
             </Typography>
             <CountCell value={5} />
           </Box>
           <Box>
-            <Typography variant="caption" display="block">
+            <Typography sx={{ display: 'block' }} variant="caption">
               High
             </Typography>
             <CountCell value={1234} />

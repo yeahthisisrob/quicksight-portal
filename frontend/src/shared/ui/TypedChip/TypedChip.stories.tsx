@@ -95,7 +95,7 @@ export const AllChipTypes: Story = {
   render: () => (
     <Stack spacing={4}>
       <StorySection title="Asset Types">
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
           <TypedChip type="DASHBOARD" />
           <TypedChip type="ANALYSIS" />
           <TypedChip type="DATASET" />
@@ -107,7 +107,7 @@ export const AllChipTypes: Story = {
       </StorySection>
 
       <StorySection title="JSON Viewer Types">
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
           <TypedChip type="FIELDS" />
           <TypedChip type="CALCULATED_FIELDS" />
           <TypedChip type="VISUALS" />
@@ -118,7 +118,7 @@ export const AllChipTypes: Story = {
       </StorySection>
 
       <StorySection title="Tag Types">
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
           <TypedChip type="TAG" />
           <TypedChip type="CATALOG_HIDDEN" />
           <TypedChip type="PORTAL_HIDDEN" />
@@ -128,7 +128,7 @@ export const AllChipTypes: Story = {
       </StorySection>
 
       <StorySection title="Status & Relationship Types">
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
           <TypedChip type="UNKNOWN" />
           <TypedChip type="RELATIONSHIP" count={0} />
           <TypedChip type="RELATIONSHIP" count={5} />
@@ -143,7 +143,7 @@ export const Variants: Story = {
   render: () => (
     <Stack spacing={4}>
       <StorySection title="Filled Variant">
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
           <TypedChip type="DASHBOARD" variant="filled" />
           <TypedChip type="ANALYSIS" variant="filled" />
           <TypedChip type="TAG" variant="filled" />
@@ -152,7 +152,7 @@ export const Variants: Story = {
       </StorySection>
 
       <StorySection title="Outlined Variant">
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
           <TypedChip type="DASHBOARD" variant="outlined" />
           <TypedChip type="ANALYSIS" variant="outlined" />
           <TypedChip type="TAG" variant="outlined" />
@@ -167,7 +167,12 @@ export const Sizes: Story = {
   render: () => (
     <Stack spacing={4}>
       <StorySection title="Small Size (Default)">
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Stack
+          sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+          direction="row"
+          spacing={1}
+          useFlexGap
+        >
           <TypedChip type="DASHBOARD" size="small" />
           <TypedChip type="ANALYSIS" size="small" />
           <TypedChip type="TAG" size="small" />
@@ -176,7 +181,12 @@ export const Sizes: Story = {
       </StorySection>
 
       <StorySection title="Medium Size">
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Stack
+          sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+          direction="row"
+          spacing={1}
+          useFlexGap
+        >
           <TypedChip type="DASHBOARD" size="medium" />
           <TypedChip type="ANALYSIS" size="medium" />
           <TypedChip type="TAG" size="medium" />
@@ -190,14 +200,14 @@ export const Sizes: Story = {
 export const WithCounts: Story = {
   render: () => (
     <Stack spacing={2}>
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+      <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
         <TypedChip type="DASHBOARD" count={12} />
         <TypedChip type="ANALYSIS" count={5} />
         <TypedChip type="DATASET" count={23} />
         <TypedChip type="DATASOURCE" count={3} />
         <TypedChip type="FOLDER" count={0} />
       </Stack>
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+      <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
         <TypedChip type="RELATIONSHIP" count={0} />
         <TypedChip type="RELATIONSHIP" count={1} />
         <TypedChip type="RELATIONSHIP" count={5} />
@@ -211,13 +221,13 @@ export const WithCounts: Story = {
 export const IconControl: Story = {
   render: () => (
     <Stack spacing={2}>
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+      <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
         <TypedChip type="DASHBOARD" showIcon={true} />
         <TypedChip type="ANALYSIS" showIcon={true} />
         <TypedChip type="TAG" showIcon={true} />
         <TypedChip type="RELATIONSHIP" showIcon={true} count={5} />
       </Stack>
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+      <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
         <TypedChip type="DASHBOARD" showIcon={false} />
         <TypedChip type="ANALYSIS" showIcon={false} />
         <TypedChip type="TAG" showIcon={false} />
@@ -231,7 +241,7 @@ export const ActiveState: Story = {
   render: () => (
     <Stack spacing={2}>
       <Typography variant="body2">For JSON Viewer highlight selection:</Typography>
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+      <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
         <TypedChip type="FIELDS" variant="outlined" />
         <TypedChip type="CALCULATED_FIELDS" variant="outlined" isActive />
         <TypedChip type="VISUALS" variant="outlined" />
@@ -246,14 +256,14 @@ export const TagExamples: Story = {
   render: () => (
     <Stack spacing={3}>
       <StorySection title="System Tags">
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
           <TypedChip type="CATALOG_HIDDEN" />
           <TypedChip type="PORTAL_HIDDEN" />
         </Stack>
       </StorySection>
 
       <StorySection title="Custom Tags">
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
           <TypedChip type="TAG" customLabel="Environment" variant="outlined" />
           <TypedChip type="TAG" customLabel="Production" variant="outlined" />
           <TypedChip type="TAG" customLabel="Cost Center" variant="outlined" />
@@ -262,7 +272,7 @@ export const TagExamples: Story = {
       </StorySection>
 
       <StorySection title="Tag Overflow">
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={1}>
           <TypedChip type="TAG" customLabel="Tag 1" variant="outlined" />
           <TypedChip type="TAG" customLabel="Tag 2" variant="outlined" />
           <TypedChip type="TAG" customLabel="+5" variant="filled" showIcon={false} />
@@ -317,7 +327,7 @@ export const RealWorldUsage: Story = {
   render: () => (
     <Stack spacing={4}>
       <StorySection title="Asset Type Selection (Export Page)">
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
           <TypedChip type="DASHBOARD" count={15} />
           <TypedChip type="ANALYSIS" count={8} />
           <TypedChip type="DATASET" count={42} />
@@ -351,7 +361,7 @@ export const RealWorldUsage: Story = {
       </StorySection>
 
       <StorySection title="Date Column with Unknown">
-        <Stack direction="row" spacing={2} alignItems="center">
+        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
           <Typography variant="body2">Last Modified:</Typography>
           <TypedChip type="UNKNOWN" size="small" />
         </Stack>

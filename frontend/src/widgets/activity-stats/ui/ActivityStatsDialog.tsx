@@ -88,8 +88,8 @@ export function ActivityStatsDialog({
         <Box sx={{ pt: spacing.sm / 8 }}>
           {loading && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: spacing.md / 8 }}>
-              <Skeleton variant="rectangular" height={100} />
-              <Skeleton variant="rectangular" height={200} />
+              <Skeleton sx={{ height: 100 }} variant="rectangular" />
+              <Skeleton sx={{ height: 200 }} variant="rectangular" />
             </Box>
           )}
           {error && (
@@ -101,7 +101,7 @@ export function ActivityStatsDialog({
             <>
               {/* Summary Stats */}
               <Grid container spacing={2} sx={{ mb: spacing.md / 8 }}>
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <Paper sx={{ p: spacing.md / 8, textAlign: 'center' }}>
                     <TrendingUpIcon color="primary" sx={{ fontSize: 40, mb: spacing.xs / 8 }} />
                     <Typography variant="h4">{activity.totalViews}</Typography>
@@ -110,7 +110,7 @@ export function ActivityStatsDialog({
                     </Typography>
                   </Paper>
                 </Grid>
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <Paper sx={{ p: spacing.md / 8, textAlign: 'center' }}>
                     <PeopleIcon color="primary" sx={{ fontSize: 40, mb: spacing.xs / 8 }} />
                     <Typography variant="h4">{activity.uniqueViewers}</Typography>
@@ -119,7 +119,7 @@ export function ActivityStatsDialog({
                     </Typography>
                   </Paper>
                 </Grid>
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <Paper sx={{ p: spacing.md / 8, textAlign: 'center' }}>
                     <AccessTimeIcon color="primary" sx={{ fontSize: 40, mb: spacing.xs / 8 }} />
                     <Typography variant="body1">{formatDate(activity.lastViewed)}</Typography>

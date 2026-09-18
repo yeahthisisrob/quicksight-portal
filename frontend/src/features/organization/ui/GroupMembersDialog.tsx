@@ -326,10 +326,12 @@ export default function GroupMembersDialog({
         onClose={onClose}
         maxWidth="lg"
         fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: `${borderRadius.lg}px`,
-            maxHeight: '90vh',
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: `${borderRadius.lg}px`,
+              maxHeight: '90vh',
+            },
           },
         }}
       >
@@ -364,8 +366,8 @@ export default function GroupMembersDialog({
               </Box>
               <Box>
                 <Typography
+                  sx={{ fontWeight: typography.fontWeight.semibold }}
                   variant="h6"
-                  fontWeight={typography.fontWeight.semibold}
                   color="text.primary"
                 >
                   Group Members
@@ -469,12 +471,14 @@ export default function GroupMembersDialog({
                   placeholder="Filter members..."
                   value={filterText}
                   onChange={(e) => setFilterText(e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon fontSize="small" />
-                      </InputAdornment>
-                    ),
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon fontSize="small" />
+                        </InputAdornment>
+                      ),
+                    },
                   }}
                 />
               </Box>
@@ -552,7 +556,10 @@ export default function GroupMembersDialog({
                                 />
                               )}
                             </Box>
-                            <Typography variant="body2" fontWeight={typography.fontWeight.medium}>
+                            <Typography
+                              sx={{ fontWeight: typography.fontWeight.medium }}
+                              variant="body2"
+                            >
                               {member.name}
                             </Typography>
                           </Box>
@@ -636,15 +643,17 @@ export default function GroupMembersDialog({
         onClose={() => !isPolling && closeAddMembers()}
         maxWidth="sm"
         fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: `${borderRadius.lg}px`,
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: `${borderRadius.lg}px`,
+            },
           },
         }}
       >
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="h6" fontWeight={typography.fontWeight.semibold}>
+            <Typography sx={{ fontWeight: typography.fontWeight.semibold }} variant="h6">
               Add Members to {groupName}
             </Typography>
             <IconButton onClick={() => !isPolling && closeAddMembers()} disabled={isPolling}>
@@ -698,16 +707,20 @@ export default function GroupMembersDialog({
                     {...params}
                     label="Search and select users"
                     placeholder="Type to search users..."
-                    InputProps={{
-                      ...params.InputProps,
-                      startAdornment: (
-                        <>
-                          <InputAdornment position="start">
-                            <SearchIcon fontSize="small" />
-                          </InputAdornment>
-                          {params.InputProps.startAdornment}
-                        </>
-                      ),
+                    slotProps={{
+                      ...params.slotProps,
+
+                      input: {
+                        ...params.slotProps.input,
+                        startAdornment: (
+                          <>
+                            <InputAdornment position="start">
+                              <SearchIcon fontSize="small" />
+                            </InputAdornment>
+                            {params.slotProps.input.startAdornment}
+                          </>
+                        ),
+                      },
                     }}
                   />
                 )}

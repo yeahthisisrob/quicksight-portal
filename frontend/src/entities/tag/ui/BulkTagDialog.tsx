@@ -185,11 +185,11 @@ export default function BulkTagDialog({
             </Box>
             {errors.length > 0 && (
               <Alert severity="error" sx={{ mt: 2 }}>
-                <Typography variant="body2" fontWeight="bold">
+                <Typography sx={{ fontWeight: 'bold' }} variant="body2">
                   Errors occurred:
                 </Typography>
                 {errors.map((error, index) => (
-                  <Typography key={index} variant="caption" display="block">
+                  <Typography sx={{ display: 'block' }} key={index} variant="caption">
                     • {error}
                   </Typography>
                 ))}
@@ -245,7 +245,7 @@ export default function BulkTagDialog({
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Preview:
               </Typography>
-              <Stack direction="row" spacing={1} flexWrap="wrap">
+              <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1}>
                 {tags
                   .filter((tag) => tag.key && tag.value)
                   .map((tag, index) => (

@@ -36,10 +36,10 @@ export function RestoreSummary({ asset, metadata }: RestoreSummaryProps) {
 
   return (
     <Alert severity="info" sx={{ mb: 2 }}>
-      <Typography variant="body2" fontWeight="medium" gutterBottom>
+      <Typography sx={{ fontWeight: 'medium' }} variant="body2" gutterBottom>
         This restore will include:
       </Typography>
-      <Stack direction="row" spacing={3} flexWrap="wrap">
+      <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={3}>
         {components.map((component, index) => (
           <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <CheckCircleIcon color="success" fontSize="small" />

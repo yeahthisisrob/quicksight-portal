@@ -118,8 +118,10 @@ export function UserInactiveMailtoDialog({ open, onClose, user }: UserInactiveMa
               <ListItemText
                 primary={user.name}
                 secondary={user.email}
-                primaryTypographyProps={{ variant: 'body2' }}
-                secondaryTypographyProps={{ variant: 'caption' }}
+                slotProps={{
+                  primary: { variant: 'body2' },
+                  secondary: { variant: 'caption' },
+                }}
               />
             </ListItemButton>
           </List>
@@ -182,9 +184,11 @@ export function UserInactiveMailtoDialog({ open, onClose, user }: UserInactiveMa
             minRows={4}
             maxRows={8}
             value={body}
-            InputProps={{ readOnly: true }}
             helperText="Auto-generated from activity data"
             sx={{ '& .MuiInputBase-input': { fontFamily: 'monospace', fontSize: 12 } }}
+            slotProps={{
+              input: { readOnly: true },
+            }}
           />
         </Box>
       </DialogContent>

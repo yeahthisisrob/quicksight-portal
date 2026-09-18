@@ -44,10 +44,10 @@ export function PermissionsTab({ metadata, loadingMetadata }: PermissionsTabProp
                   <PersonIcon color="action" />
                 )}
                 <Box sx={{ flex: 1 }}>
-                  <Typography variant="body2" fontWeight="medium">
+                  <Typography sx={{ fontWeight: 'medium' }} variant="body2">
                     {permission.Principal}
                   </Typography>
-                  <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                  <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={0.5}>
                     {permission.Actions?.map((action: string, idx: number) => (
                       <Chip
                         key={idx}

@@ -265,7 +265,7 @@ export default function FieldMetadataContent({
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <InfoIcon color="primary" />
-              <Typography variant="subtitle1" fontWeight={600}>
+              <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
                 Basic Information
               </Typography>
             </Box>
@@ -317,7 +317,7 @@ export default function FieldMetadataContent({
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <TagIcon color="primary" />
-              <Typography variant="subtitle1" fontWeight={600}>
+              <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
                 Tags
               </Typography>
               {tags.length > 0 && (
@@ -366,7 +366,7 @@ export default function FieldMetadataContent({
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <LineageIcon color="primary" />
-              <Typography variant="subtitle1" fontWeight={600}>
+              <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
                 Lineage & Source Information
               </Typography>
             </Box>

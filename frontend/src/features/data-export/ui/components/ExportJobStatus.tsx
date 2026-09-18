@@ -1,9 +1,9 @@
 import {
-  ErrorOutline as ErrorIcon,
+  ErrorOutlined as ErrorIcon,
   HourglassEmpty as ProcessingIcon,
   Schedule as QueuedIcon,
-  PauseCircleOutline as StoppedIcon,
-  CheckCircleOutline as SuccessIcon,
+  PauseCircleOutlined as StoppedIcon,
+  CheckCircleOutlined as SuccessIcon,
 } from '@mui/icons-material';
 import { alpha, Box, Card, Chip, LinearProgress, Stack, Tooltip, Typography } from '@mui/material';
 
@@ -61,7 +61,7 @@ function HeartbeatIndicator({ lastUpdatedTime }: { lastUpdatedTime: string }) {
   }
 
   return (
-    <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mt: 1 }}>
+    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', mt: 1 }}>
       <Box
         sx={{
           width: 8,
@@ -96,9 +96,8 @@ function CheckpointProgress({
   return (
     <Stack
       direction="row"
-      alignItems="center"
       spacing={1}
-      sx={{ mt: 1, flexWrap: 'wrap', rowGap: 0.5 }}
+      sx={{ alignItems: 'center', mt: 1, flexWrap: 'wrap', rowGap: 0.5 }}
     >
       <Typography variant="caption" color="text.secondary">
         Asset types done:
@@ -203,7 +202,7 @@ export default function ExportJobStatus({
   return (
     <Card sx={{ border: `1px solid ${alpha(config.color, 0.3)}` }}>
       <Box sx={{ px: 2, py: 1.5 }}>
-        <Stack direction="row" alignItems="center" spacing={1.5}>
+        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={1.5}>
           <StatusIcon sx={{ fontSize: 20, color: config.color }} />
           <Tooltip title={jobId ? `Job ${jobId}` : ''}>
             <Chip

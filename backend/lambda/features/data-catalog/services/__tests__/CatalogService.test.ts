@@ -90,13 +90,15 @@ vi.mock('../../../../shared/services/cache/CacheService', () => {
 });
 
 vi.mock('../../../organization/services/FolderService', () => ({
-  FolderService: vi.fn().mockImplementation(() => ({
-    getFolderMemberships: vi.fn().mockResolvedValue({
-      'dash-1': ['folder-1', 'folder-2'],
-      'ds-1': ['folder-1'],
-    }),
-    getExcludedAssets: vi.fn().mockResolvedValue(new Set()),
-  })),
+  FolderService: vi.fn().mockImplementation(function () {
+    return {
+      getFolderMemberships: vi.fn().mockResolvedValue({
+        'dash-1': ['folder-1', 'folder-2'],
+        'ds-1': ['folder-1'],
+      }),
+      getExcludedAssets: vi.fn().mockResolvedValue(new Set()),
+    };
+  }),
 }));
 
 vi.mock('../../../../shared/utils/logger', () => ({

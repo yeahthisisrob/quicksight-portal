@@ -173,19 +173,21 @@ export default function UnifiedFieldDetailsDialog({
         onClose={onClose}
         maxWidth="lg"
         fullWidth
-        PaperProps={{
-          sx: { height: '90vh' },
+        slotProps={{
+          paper: {
+            sx: { height: '90vh' },
+          },
         }}
       >
         <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Stack sx={{ alignItems: 'center' }} direction="row" spacing={1.5}>
               {field?.isCalculated ? (
                 <FunctionIcon sx={{ fontSize: 24, color: 'primary.main' }} />
               ) : (
                 <FieldIcon sx={{ fontSize: 24, color: 'primary.main' }} />
               )}
-              <Typography variant="h6" fontWeight={600}>
+              <Typography sx={{ fontWeight: 600 }} variant="h6">
                 {field.fieldName}
               </Typography>
               {field?.isCalculated && (

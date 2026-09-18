@@ -107,7 +107,7 @@ const ChipGroup: React.FC<ChipGroupProps> = ({
   if (items.length === 0) return null;
 
   return (
-    <Stack direction="row" spacing={0.5} alignItems="center">
+    <Stack sx={{ alignItems: 'center' }} direction="row" spacing={0.5}>
       {icon}
       {items.slice(0, maxVisible).map((item, idx) => (
         <Chip
@@ -260,11 +260,11 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
 
   return (
     <Box sx={headerSx} onClick={onToggleExpand}>
-      <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap', gap: 1 }}>
+      <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
         <FilterList
           sx={{ color: totalFilters > 0 ? colors.primary.main : colors.neutral[500], fontSize: 20 }}
         />
-        <Typography variant="subtitle2" fontWeight={600}>
+        <Typography sx={{ fontWeight: 600 }} variant="subtitle2">
           Filters
         </Typography>
 
@@ -322,7 +322,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
 
         {/* Asset chips */}
         {selectedAssets.length > 0 && (
-          <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack sx={{ alignItems: 'center' }} direction="row" spacing={0.5}>
             {selectedAssets.slice(0, 2).map((asset, idx) => (
               <AssetChip
                 key={`asset-${idx}`}

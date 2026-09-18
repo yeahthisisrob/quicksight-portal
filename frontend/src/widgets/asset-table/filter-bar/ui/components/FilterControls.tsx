@@ -176,9 +176,9 @@ const DateFilterRow: React.FC<DateFilterRowProps> = ({
       : DATE_FIELD_OPTIONS.filter((opt) => opt.value !== 'lastActivity');
 
   return (
-    <Stack direction="row" spacing={2} alignItems="center">
+    <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
       <Schedule sx={{ color: colors.neutral[500], fontSize: 20 }} />
-      <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
+      <Typography variant="body2" sx={{ fontWeight: 500, minWidth: 80 }}>
         Date Range:
       </Typography>
       <Autocomplete
@@ -228,9 +228,9 @@ const ToggleFilterRow: React.FC<ToggleFilterRowProps> = ({
   onChange,
   options,
 }) => (
-  <Stack direction="row" spacing={2} alignItems="center">
+  <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
     {icon}
-    <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
+    <Typography variant="body2" sx={{ fontWeight: 500, minWidth: 80 }}>
       {label}:
     </Typography>
     <ToggleButtonGroup
@@ -268,9 +268,9 @@ const FolderFilterRow: React.FC<FolderFilterRowProps> = ({
   isLoadingFolders,
   onAddFolder,
 }) => (
-  <Stack direction="row" spacing={2} alignItems="center">
+  <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
     <FolderIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />
-    <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
+    <Typography variant="body2" sx={{ fontWeight: 500, minWidth: 80 }}>
       Folders:
     </Typography>
     <ToggleButtonGroup
@@ -289,7 +289,7 @@ const FolderFilterRow: React.FC<FolderFilterRowProps> = ({
       </ToggleButton>
     </ToggleButtonGroup>
     <Autocomplete
-      sx={{ minWidth: 250 }}
+      sx={{ alignItems: 'center', minWidth: 250 }}
       size="small"
       value={null}
       onChange={(_, newValue) => newValue && onAddFolder(newValue)}
@@ -310,7 +310,7 @@ const FolderFilterRow: React.FC<FolderFilterRowProps> = ({
         const isExcluded = excludeFolders.some((f) => f.id === option.id);
         return (
           <Box component="li" key={key} {...otherProps}>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+            <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
               <FolderIcon sx={{ fontSize: 18, color: colors.primary.main }} />
               <Typography variant="body2" sx={{ flex: 1 }}>
                 {option.name}
@@ -366,11 +366,11 @@ const TagAssetSelectionRow: React.FC<TagAssetSelectionRowProps> = ({
   const isAssetMode = selectedKey === ASSET_KEY;
 
   return (
-    <Stack direction="row" spacing={2} alignItems="center">
+    <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
       <FilterList sx={{ color: colors.neutral[500], fontSize: 20 }} />
 
       <Autocomplete
-        sx={{ minWidth: 200 }}
+        sx={{ alignItems: 'center', minWidth: 200 }}
         size="small"
         value={selectedKey}
         onChange={(_, newValue) => onSelectedKeyChange(newValue)}
@@ -385,7 +385,7 @@ const TagAssetSelectionRow: React.FC<TagAssetSelectionRowProps> = ({
           if (option === ASSET_KEY) {
             return (
               <Box component="li" key={key} {...otherProps}>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+                <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
                   <DashboardIcon sx={{ fontSize: 16, color: colors.primary.main }} />
                   <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }}>
                     Asset
@@ -397,7 +397,7 @@ const TagAssetSelectionRow: React.FC<TagAssetSelectionRowProps> = ({
           }
           return (
             <Box component="li" key={key} {...otherProps}>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+              <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
                 <Typography variant="body2" sx={{ flex: 1 }}>
                   {option}
                 </Typography>
@@ -455,7 +455,7 @@ const AssetAutocomplete: React.FC<AssetAutocompleteProps> = ({
   onAddAsset,
 }) => (
   <Autocomplete
-    sx={{ minWidth: 350 }}
+    sx={{ alignItems: 'center', minWidth: 350 }}
     size="small"
     value={null}
     onChange={(_, newValue) => newValue && onAddAsset(newValue)}
@@ -477,7 +477,7 @@ const AssetAutocomplete: React.FC<AssetAutocompleteProps> = ({
       const isSelected = selectedAssets.some((a) => a.id === option.id);
       return (
         <Box component="li" key={key} {...otherProps}>
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+          <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
             <Icon sx={{ fontSize: 18, color: config.color }} />
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography variant="body2" noWrap>
@@ -522,7 +522,7 @@ const TagValueAutocomplete: React.FC<TagValueAutocompleteProps> = ({
   onAddTag,
 }) => (
   <Autocomplete
-    sx={{ minWidth: 250 }}
+    sx={{ alignItems: 'center', minWidth: 250 }}
     size="small"
     value={null}
     onChange={(_, newValue) => newValue && onAddTag(newValue)}
@@ -539,7 +539,7 @@ const TagValueAutocomplete: React.FC<TagValueAutocompleteProps> = ({
       const isExcluded = excludeTags.some((t) => t.key === option.key && t.value === option.value);
       return (
         <Box component="li" key={key} {...otherProps}>
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+          <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
             <Typography variant="body2" sx={{ flex: 1 }}>
               {option.value}
             </Typography>
@@ -593,14 +593,14 @@ const UserFiltersSection: React.FC<UserFiltersSectionProps> = ({
   <>
     {/* Role Filter Row */}
     {enableRoleFiltering && availableRoles.length > 0 && onSelectedRolesChange && (
-      <Stack direction="row" spacing={2} alignItems="center">
+      <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
         <PersonIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />
-        <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
+        <Typography variant="body2" sx={{ fontWeight: 500, minWidth: 80 }}>
           Role:
         </Typography>
         <Autocomplete
           multiple
-          sx={{ minWidth: 300 }}
+          sx={{ alignItems: 'center', minWidth: 300 }}
           size="small"
           value={availableRoles.filter((r) => selectedRoles.includes(r.value))}
           onChange={(_, newValue) => onSelectedRolesChange(newValue.map((v) => v.value))}
@@ -619,7 +619,7 @@ const UserFiltersSection: React.FC<UserFiltersSectionProps> = ({
             const { key, ...otherProps } = props as any;
             return (
               <Box component="li" key={key} {...otherProps}>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+                <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
                   <Typography variant="body2" sx={{ flex: 1 }}>
                     {option.value}
                   </Typography>
@@ -680,14 +680,14 @@ const UserFiltersSection: React.FC<UserFiltersSectionProps> = ({
 
     {/* Group Filter Dropdown Row */}
     {enableGroupFiltering && availableGroups.length > 0 && onSelectedGroupsChange && (
-      <Stack direction="row" spacing={2} alignItems="center">
+      <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
         <GroupIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />
-        <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
+        <Typography variant="body2" sx={{ fontWeight: 500, minWidth: 80 }}>
           Group:
         </Typography>
         <Autocomplete
           multiple
-          sx={{ minWidth: 300 }}
+          sx={{ alignItems: 'center', minWidth: 300 }}
           size="small"
           value={availableGroups.filter((g) => selectedGroups.includes(g.value))}
           onChange={(_, newValue) => onSelectedGroupsChange(newValue.map((v) => v.value))}
@@ -706,7 +706,7 @@ const UserFiltersSection: React.FC<UserFiltersSectionProps> = ({
             const { key, ...otherProps } = props as any;
             return (
               <Box component="li" key={key} {...otherProps}>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+                <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
                   <Typography variant="body2" sx={{ flex: 1 }}>
                     {option.value}
                   </Typography>
@@ -920,9 +920,9 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
       {/* Source Type Filter Row */}
       {/* User-access filter: show only assets the selected users can access */}
       {enableUserAccessFiltering && onSelectedAccessUsersChange && (
-        <Stack direction="row" spacing={2} alignItems="center">
+        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
           <PersonIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />
-          <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
+          <Typography variant="body2" sx={{ fontWeight: 500, minWidth: 80 }}>
             User access:
           </Typography>
           <Autocomplete
@@ -950,14 +950,14 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
       {enableSourceTypeFiltering &&
         availableSourceTypes.length > 0 &&
         onSelectedSourceTypesChange && (
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
             <StorageIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />
-            <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
+            <Typography variant="body2" sx={{ fontWeight: 500, minWidth: 80 }}>
               Data Source Type:
             </Typography>
             <Autocomplete
               multiple
-              sx={{ minWidth: 300 }}
+              sx={{ alignItems: 'center', minWidth: 300 }}
               size="small"
               value={availableSourceTypes.filter((t) => selectedSourceTypes.includes(t.value))}
               onChange={(_, newValue) => onSelectedSourceTypesChange(newValue.map((v) => v.value))}
@@ -976,7 +976,7 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
                 const { key, ...otherProps } = props as any;
                 return (
                   <Box component="li" key={key} {...otherProps}>
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+                    <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
                       <Typography variant="body2" sx={{ flex: 1 }}>
                         {option.value}
                       </Typography>
@@ -1021,9 +1021,9 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
 
       {/* Tag Filter Mode Toggle */}
       {enableTagFiltering && !isAssetMode && (
-        <Stack direction="row" spacing={2} alignItems="center">
+        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
           <LocalOffer sx={{ color: colors.neutral[500], fontSize: 20 }} />
-          <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80 }}>
+          <Typography variant="body2" sx={{ fontWeight: 500, minWidth: 80 }}>
             Tag Mode:
           </Typography>
           <ToggleButtonGroup

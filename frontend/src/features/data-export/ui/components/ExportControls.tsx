@@ -190,7 +190,7 @@ export default function ExportControls({
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={1.5}
-        alignItems={{ xs: 'stretch', sm: 'center' }}
+        sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}
       >
         {isRunning ? (
           <Button

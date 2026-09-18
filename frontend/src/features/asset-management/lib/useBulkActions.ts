@@ -1,5 +1,6 @@
 import { GridRowSelectionModel } from '@mui/x-data-grid';
 import { useState, useMemo } from 'react';
+import { EMPTY_SELECTION, isRowSelected, selectionCount } from '@/shared/lib/gridSelection';
 
 interface Asset {
   id: string;
@@ -8,13 +9,13 @@ interface Asset {
 }
 
 export function useBulkActions<T extends Asset>(assets: T[], assetType: string) {
-  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
+  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>(EMPTY_SELECTION);
   const [addToFolderOpen, setAddToFolderOpen] = useState(false);
   const [bulkTagOpen, setBulkTagOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   const selectedAssets = useMemo(() => {
-    return assets.filter((asset) => selectedRows.includes(asset.id));
+    return assets.filter((asset) => isRowSelected(selectedRows, asset.id));
   }, [assets, selectedRows]);
 
   const selectedAssetsForDialog = useMemo(() => {
@@ -26,7 +27,7 @@ export function useBulkActions<T extends Asset>(assets: T[], assetType: string) 
   }, [selectedAssets, assetType]);
 
   const clearSelection = () => {
-    setSelectedRows([]);
+    setSelectedRows(EMPTY_SELECTION);
   };
 
   const handleBulkComplete = (onComplete?: () => void) => {
@@ -48,7 +49,7 @@ export function useBulkActions<T extends Asset>(assets: T[], assetType: string) 
     // Computed
     selectedAssets,
     selectedAssetsForDialog,
-    selectedCount: selectedRows.length,
+    selectedCount: selectionCount(selectedRows, assets.length),
     
     // Actions
     clearSelection,

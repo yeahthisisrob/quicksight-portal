@@ -51,8 +51,8 @@ export function StatCard({ title, value, icon, color, subtitle }: StatCardProps)
             <Typography
               color="text.secondary"
               variant="caption"
-              display="block"
               sx={{
+                display: 'block',
                 fontSize: '0.75rem',
                 fontWeight: 500,
                 textTransform: 'uppercase',

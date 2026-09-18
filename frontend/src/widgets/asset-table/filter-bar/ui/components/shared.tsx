@@ -80,13 +80,12 @@ export const FilterSection: React.FC<FilterSectionProps> = ({ title, icon, color
   <Box sx={{ mb: 1 }}>
     <Typography
       variant="caption"
-      fontWeight={600}
       color={color}
-      sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}
+      sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}
     >
       {icon} {title}
     </Typography>
-    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+    <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={0.5} useFlexGap>
       {children}
     </Stack>
   </Box>

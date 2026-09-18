@@ -1,0 +1,16 @@
+{
+  "name": "@quicksight-portal/openapi-codegen",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Validates the OpenAPI contract and generates shared/generated/types.ts",
+  "scripts": {
+    "contract": "pnpm run lint:schema && pnpm run generate",
+    "lint:schema": "redocly lint ../../shared/schemas/api.openapi.yaml --skip-rule operation-4xx-response",
+    "generate": "openapi-typescript ../../shared/schemas/api.openapi.yaml -o ../../shared/generated/types.ts"
+  },
+  "devDependencies": {
+    "@redocly/cli": "^2.53.2",
+    "openapi-typescript": "^7.13.0",
+    "typescript": "5.9.3"
+  }
+}

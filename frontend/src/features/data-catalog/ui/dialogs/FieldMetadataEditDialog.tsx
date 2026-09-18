@@ -33,10 +33,12 @@ export default function FieldMetadataEditDialog({
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{
-        sx: {
-          height: '90vh',
-          maxHeight: '90vh',
+      slotProps={{
+        paper: {
+          sx: {
+            height: '90vh',
+            maxHeight: '90vh',
+          },
         },
       }}
     >

@@ -1,4 +1,4 @@
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import { Box, Button, Paper, Typography } from '@mui/material';
 import type React from 'react';
 import { Component, type ReactNode } from 'react';

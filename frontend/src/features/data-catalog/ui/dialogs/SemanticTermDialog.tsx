@@ -173,7 +173,7 @@ export default function SemanticTermDialog({
 
       <DialogContent>
         <Grid container spacing={3} sx={{ mt: 0 }}>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               label="Technical Term"
@@ -184,7 +184,7 @@ export default function SemanticTermDialog({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               label="Business Name"
@@ -195,7 +195,7 @@ export default function SemanticTermDialog({
             />
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               fullWidth
               label="Description"
@@ -207,7 +207,7 @@ export default function SemanticTermDialog({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               select
@@ -224,7 +224,7 @@ export default function SemanticTermDialog({
             </TextField>
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               select
@@ -241,7 +241,7 @@ export default function SemanticTermDialog({
             </TextField>
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               label="Format/Pattern"
@@ -251,7 +251,7 @@ export default function SemanticTermDialog({
             />
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               label="Example Value"
@@ -261,23 +261,25 @@ export default function SemanticTermDialog({
             />
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               fullWidth
               label="Add Synonym"
               value={synonymInput}
               onChange={(e) => setSynonymInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleAddSynonym()}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton onClick={handleAddSynonym} edge="end">
-                      <AddIcon />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
               helperText="Alternative names for this term"
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton onClick={handleAddSynonym} edge="end">
+                        <AddIcon />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
             />
             <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
               {formData.synonyms.map((synonym) => (
@@ -291,23 +293,25 @@ export default function SemanticTermDialog({
             </Box>
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               fullWidth
               label="Add Tag"
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton onClick={handleAddTag} edge="end">
-                      <AddIcon />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
               helperText="Tags for categorization and search"
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton onClick={handleAddTag} edge="end">
+                        <AddIcon />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
             />
             <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
               {formData.tags.map((tag) => (
@@ -316,7 +320,7 @@ export default function SemanticTermDialog({
             </Box>
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               fullWidth
               label="Owner"

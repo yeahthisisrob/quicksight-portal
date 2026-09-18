@@ -70,8 +70,8 @@ function AssetTypeProgressCard({ assetType, progress }: AssetTypeProgressCardPro
       }}
     >
       <Box sx={{ p: spacing.sm / 8 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <Stack direction="row" alignItems="center" spacing={spacing.sm / 8}>
+        <Stack sx={{ alignItems: 'center', justifyContent: 'space-between' }} direction="row">
+          <Stack sx={{ alignItems: 'center' }} direction="row" spacing={spacing.sm / 8}>
             <Box
               sx={{
                 p: spacing.xs / 8,
@@ -92,7 +92,7 @@ function AssetTypeProgressCard({ assetType, progress }: AssetTypeProgressCardPro
             </Box>
           </Stack>
 
-          <Stack direction="row" alignItems="center" spacing={spacing.xs / 8}>
+          <Stack sx={{ alignItems: 'center' }} direction="row" spacing={spacing.xs / 8}>
             <Chip
               label={progress.phase}
               size="small"
@@ -142,7 +142,7 @@ function AssetTypeProgressCard({ assetType, progress }: AssetTypeProgressCardPro
             }}
           >
             <Grid container spacing={1}>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" color="text.secondary">
                   Listed
                 </Typography>
@@ -150,7 +150,7 @@ function AssetTypeProgressCard({ assetType, progress }: AssetTypeProgressCardPro
                   {progress.listed || 0}
                 </Typography>
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" color="text.secondary">
                   Need Processing
                 </Typography>
@@ -159,7 +159,7 @@ function AssetTypeProgressCard({ assetType, progress }: AssetTypeProgressCardPro
                 </Typography>
               </Grid>
               {progress.failed && progress.failed > 0 && (
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <Typography variant="caption" color="error">
                     Failed
                   </Typography>
@@ -190,7 +190,7 @@ export default function AssetTypeProgress({ assetTypes }: AssetTypeProgressProps
       </Typography>
       <Grid container spacing={2}>
         {Object.entries(assetTypes).map(([assetType, progress]) => (
-          <Grid item xs={12} md={6} key={assetType}>
+          <Grid size={{ xs: 12, md: 6 }} key={assetType}>
             <AssetTypeProgressCard assetType={assetType} progress={progress} />
           </Grid>
         ))}

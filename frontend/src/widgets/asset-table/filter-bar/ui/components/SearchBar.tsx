@@ -24,12 +24,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       placeholder="Search assets..."
       value={searchTerm || ''}
       onChange={(e) => onSearchChange(e.target.value)}
-      InputProps={{
-        startAdornment: (
-          <InputAdornment position="start">
-            <SearchIcon sx={{ color: colors.neutral[400] }} />
-          </InputAdornment>
-        ),
+      slotProps={{
+        input: {
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon sx={{ color: colors.neutral[400] }} />
+            </InputAdornment>
+          ),
+        },
       }}
     />
     {matchReasonSummary && matchReasonSummary.length > 0 && (

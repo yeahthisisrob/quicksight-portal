@@ -78,7 +78,9 @@ describe('S3Service - Basic Operations', () => {
     } as any;
 
     // Mock the S3Adapter constructor
-    (S3Adapter as MockedClass<typeof S3Adapter>).mockImplementation(() => mockS3Adapter);
+    (S3Adapter as MockedClass<typeof S3Adapter>).mockImplementation(function () {
+      return mockS3Adapter;
+    });
 
     // Mock withRetry to call the operation directly (no retries in tests)
     (withRetry as Mock).mockImplementation(async (operation) => {
@@ -157,7 +159,9 @@ describe('S3Service - Basic Operations', () => {
         const body = { test: 'data' };
 
         // Mock a delay to simulate S3 latency
-        mockS3Adapter.putObject.mockImplementation(() => delay(TEST_CONSTANTS.S3_DELAY_MS));
+        mockS3Adapter.putObject.mockImplementation(function () {
+          return delay(TEST_CONSTANTS.S3_DELAY_MS);
+        });
 
         const startTime = Date.now();
         await s3Service.putObject(bucket, key, body);
@@ -245,7 +249,9 @@ describe('S3Service - Delete and List', () => {
     } as any;
 
     // Mock the S3Adapter constructor
-    (S3Adapter as MockedClass<typeof S3Adapter>).mockImplementation(() => mockS3Adapter);
+    (S3Adapter as MockedClass<typeof S3Adapter>).mockImplementation(function () {
+      return mockS3Adapter;
+    });
 
     // Mock withRetry to call the operation directly (no retries in tests)
     (withRetry as Mock).mockImplementation(async (operation) => {
@@ -322,7 +328,9 @@ describe('S3Service - withRetry integration', () => {
       createBucket: vi.fn(),
       putBucketVersioning: vi.fn(),
     } as any;
-    (S3Adapter as MockedClass<typeof S3Adapter>).mockImplementation(() => mockS3Adapter);
+    (S3Adapter as MockedClass<typeof S3Adapter>).mockImplementation(function () {
+      return mockS3Adapter;
+    });
     (withRetry as Mock).mockImplementation(async (operation) => {
       return await operation();
     });
@@ -395,7 +403,9 @@ describe('S3Service - Performance and timing', () => {
       createBucket: vi.fn(),
       putBucketVersioning: vi.fn(),
     } as any;
-    (S3Adapter as MockedClass<typeof S3Adapter>).mockImplementation(() => mockS3Adapter);
+    (S3Adapter as MockedClass<typeof S3Adapter>).mockImplementation(function () {
+      return mockS3Adapter;
+    });
     (withRetry as Mock).mockImplementation(async (operation) => {
       return await operation();
     });
@@ -458,7 +468,9 @@ describe('S3Service - Async/await correctness', () => {
       createBucket: vi.fn(),
       putBucketVersioning: vi.fn(),
     } as any;
-    (S3Adapter as MockedClass<typeof S3Adapter>).mockImplementation(() => mockS3Adapter);
+    (S3Adapter as MockedClass<typeof S3Adapter>).mockImplementation(function () {
+      return mockS3Adapter;
+    });
     (withRetry as Mock).mockImplementation(async (operation) => {
       return await operation();
     });
@@ -471,7 +483,7 @@ describe('S3Service - Async/await correctness', () => {
       const key = 'test-key';
       const error = new Error('Async operation failed');
 
-      mockS3Adapter.putObject.mockImplementation(() => {
+      mockS3Adapter.putObject.mockImplementation(function () {
         return Promise.reject(error);
       });
 
@@ -548,7 +560,9 @@ describe('S3Service - Async operation validation', () => {
       createBucket: vi.fn(),
       putBucketVersioning: vi.fn(),
     } as any;
-    (S3Adapter as MockedClass<typeof S3Adapter>).mockImplementation(() => mockS3Adapter);
+    (S3Adapter as MockedClass<typeof S3Adapter>).mockImplementation(function () {
+      return mockS3Adapter;
+    });
     (withRetry as Mock).mockImplementation(async (operation) => {
       return await operation();
     });

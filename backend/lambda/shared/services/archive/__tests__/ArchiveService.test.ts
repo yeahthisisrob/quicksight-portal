@@ -41,7 +41,9 @@ beforeEach(() => {
   } as any;
 
   // Mock S3Service constructor to return our mock
-  (S3Service as MockedClass<typeof S3Service>).mockImplementation(() => mockS3Service);
+  (S3Service as MockedClass<typeof S3Service>).mockImplementation(function () {
+    return mockS3Service;
+  });
 
   archiveService = new ArchiveService(TEST_BUCKET, mockCacheService);
 });

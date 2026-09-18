@@ -1,12 +1,12 @@
 import {
-  ErrorOutline as ErrorIcon,
+  ErrorOutlined as ErrorIcon,
   HistoryOutlined as HistoryIcon,
   DescriptionOutlined as LogsIcon,
   HourglassEmpty as ProcessingIcon,
   Schedule as QueuedIcon,
   RefreshOutlined as RefreshIcon,
-  PauseCircleOutline as StoppedIcon,
-  CheckCircleOutline as SuccessIcon,
+  PauseCircleOutlined as StoppedIcon,
+  CheckCircleOutlined as SuccessIcon,
 } from '@mui/icons-material';
 import {
   alpha,
@@ -207,9 +207,9 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
           justifyContent: 'space-between',
         }}
       >
-        <Box display="flex" alignItems="center" gap={1}>
+        <Box sx={{ gap: 1, alignItems: 'center', display: 'flex' }}>
           <HistoryIcon sx={{ fontSize: 20, color: colors.primary.main }} />
-          <Typography variant="subtitle1" fontWeight={600}>
+          <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
             Job History
           </Typography>
           <Chip
@@ -224,7 +224,7 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
           />
         </Box>
 
-        <Stack direction="row" spacing={2} alignItems="center">
+        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>Type</InputLabel>
             <Select
@@ -311,7 +311,7 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
               Array.from({ length: 5 }).map((_, index) => (
                 <TableRow key={index}>
                   <TableCell colSpan={7}>
-                    <Skeleton height={40} />
+                    <Skeleton sx={{ height: 40 }} />
                   </TableCell>
                 </TableRow>
               ))
@@ -339,7 +339,7 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
                   onClick={() => onSelectJob(job.jobId)}
                 >
                   <TableCell>
-                    <Box display="flex" alignItems="center" gap={1}>
+                    <Box sx={{ gap: 1, alignItems: 'center', display: 'flex' }}>
                       {getStatusIcon(job.status)}
                       <Chip
                         label={job.status}

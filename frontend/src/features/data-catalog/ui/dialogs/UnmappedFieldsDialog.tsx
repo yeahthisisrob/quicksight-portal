@@ -205,12 +205,14 @@ export default function UnmappedFieldsDialog({
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 size="small"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  },
                 }}
               />
               <TextField
@@ -220,8 +222,10 @@ export default function UnmappedFieldsDialog({
                 onChange={(e) => setSelectedDataType(e.target.value)}
                 size="small"
                 sx={{ minWidth: 150 }}
-                SelectProps={{
-                  native: true,
+                slotProps={{
+                  select: {
+                    native: true,
+                  },
                 }}
               >
                 <option value="all">All Types</option>

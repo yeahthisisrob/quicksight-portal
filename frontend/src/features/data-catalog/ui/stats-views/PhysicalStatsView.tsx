@@ -81,7 +81,7 @@ export function PhysicalStatsView({ catalogSummary }: PhysicalStatsViewProps) {
     <Box sx={{ mb: spacing.lg / 8 }}>
       <Grid container spacing={spacing.md / 8}>
         {statCards.map((card, index) => (
-          <Grid item xs={12} sm={6} md={2} key={index}>
+          <Grid size={{ xs: 12, sm: 6, md: 2 }} key={index}>
             <StatCard {...card} />
           </Grid>
         ))}
@@ -119,7 +119,7 @@ export function PhysicalStatsView({ catalogSummary }: PhysicalStatsViewProps) {
               {Object.entries(fieldsByDataType)
                 .sort(([, a], [, b]) => (b as number) - (a as number))
                 .map(([dataType, count]) => (
-                  <Grid item xs={12} sm={6} md={4} key={dataType}>
+                  <Grid size={{ xs: 12, sm: 6, md: 4 }} key={dataType}>
                     <DataTypeBar
                       dataType={dataType}
                       count={count as number}

@@ -89,7 +89,7 @@ export default function ExportProgress({ exportState }: ExportProgressProps) {
           border: `1px solid ${alpha(colors.status.success, 0.1)}`,
         }}
       >
-        <Stack direction="row" alignItems="center" spacing={spacing.xs / 8}>
+        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={spacing.xs / 8}>
           <CheckCircle sx={{ color: colors.status.success, fontSize: 20 }} />
           <Typography variant="body2" color="success.main" sx={{ fontWeight: 600 }}>
             Export completed successfully

@@ -20,60 +20,62 @@ vi.mock('../../../../shared/auth', () => ({
 }));
 
 vi.mock('../../services/CatalogService', () => ({
-  CatalogService: vi.fn().mockImplementation(() => ({
-    getDataCatalog: vi.fn().mockResolvedValue({
-      fields: [
-        { fieldName: 'field1', sourceType: 'dataset', sourceId: 'ds-1', dataType: 'STRING' },
-        { fieldName: 'field2', sourceType: 'dataset', sourceId: 'ds-2', dataType: 'INTEGER' },
-      ],
-      fieldsBySource: new Map(),
-      summary: { totalFields: 2, totalSources: 2 },
-    }),
-    getCatalogSummary: vi.fn().mockResolvedValue({
-      totalFields: EXPECTED_TOTAL_FIELDS,
-      totalSources: EXPECTED_TOTAL_SOURCES,
-      fieldsByType: {
-        STRING: EXPECTED_STRING_FIELDS,
-        INTEGER: EXPECTED_INTEGER_FIELDS,
-        DECIMAL: EXPECTED_DECIMAL_FIELDS,
-      },
-    }),
-    getCatalogStats: vi.fn().mockResolvedValue({
-      totalFields: EXPECTED_TOTAL_FIELDS,
-      totalDatasets: EXPECTED_DATASETS,
-      totalDataSources: EXPECTED_DATA_SOURCES,
-      lastUpdated: '2024-01-01T00:00:00Z',
-    }),
-    getAvailableTags: vi.fn().mockResolvedValue(['finance', 'sales', 'marketing']),
-    getFieldsPaginated: vi.fn().mockResolvedValue({
-      fields: [
-        { fieldName: 'field1', dataType: 'STRING' },
-        { fieldName: 'field2', dataType: 'INTEGER' },
-      ],
-      pagination: {
-        page: 1,
-        pageSize: DEFAULT_PAGE_SIZE,
-        totalItems: EXPECTED_TOTAL_FIELDS,
-        totalPages: EXPECTED_TOTAL_PAGES,
-        hasMore: false,
-      },
-    }),
-    buildVisualFieldCatalog: vi.fn().mockResolvedValue({
-      visualFields: [],
-      summary: {
-        totalVisualFields: 0,
-        totalVisuals: 0,
-        totalSheets: 0,
-        totalDashboards: 0,
-        lastUpdated: new Date(),
-        processingTimeMs: 10,
-      },
-    }),
-  })),
+  CatalogService: vi.fn().mockImplementation(function () {
+    return {
+      getDataCatalog: vi.fn().mockResolvedValue({
+        fields: [
+          { fieldName: 'field1', sourceType: 'dataset', sourceId: 'ds-1', dataType: 'STRING' },
+          { fieldName: 'field2', sourceType: 'dataset', sourceId: 'ds-2', dataType: 'INTEGER' },
+        ],
+        fieldsBySource: new Map(),
+        summary: { totalFields: 2, totalSources: 2 },
+      }),
+      getCatalogSummary: vi.fn().mockResolvedValue({
+        totalFields: EXPECTED_TOTAL_FIELDS,
+        totalSources: EXPECTED_TOTAL_SOURCES,
+        fieldsByType: {
+          STRING: EXPECTED_STRING_FIELDS,
+          INTEGER: EXPECTED_INTEGER_FIELDS,
+          DECIMAL: EXPECTED_DECIMAL_FIELDS,
+        },
+      }),
+      getCatalogStats: vi.fn().mockResolvedValue({
+        totalFields: EXPECTED_TOTAL_FIELDS,
+        totalDatasets: EXPECTED_DATASETS,
+        totalDataSources: EXPECTED_DATA_SOURCES,
+        lastUpdated: '2024-01-01T00:00:00Z',
+      }),
+      getAvailableTags: vi.fn().mockResolvedValue(['finance', 'sales', 'marketing']),
+      getFieldsPaginated: vi.fn().mockResolvedValue({
+        fields: [
+          { fieldName: 'field1', dataType: 'STRING' },
+          { fieldName: 'field2', dataType: 'INTEGER' },
+        ],
+        pagination: {
+          page: 1,
+          pageSize: DEFAULT_PAGE_SIZE,
+          totalItems: EXPECTED_TOTAL_FIELDS,
+          totalPages: EXPECTED_TOTAL_PAGES,
+          hasMore: false,
+        },
+      }),
+      buildVisualFieldCatalog: vi.fn().mockResolvedValue({
+        visualFields: [],
+        summary: {
+          totalVisualFields: 0,
+          totalVisuals: 0,
+          totalSheets: 0,
+          totalDashboards: 0,
+          lastUpdated: new Date(),
+          processingTimeMs: 10,
+        },
+      }),
+    };
+  }),
 }));
 
 vi.mock('../../services/FieldMetadataService', () => ({
-  FieldMetadataService: vi.fn().mockImplementation(() => {
+  FieldMetadataService: vi.fn().mockImplementation(function () {
     let currentTags = ['tag1', 'tag2'];
     return {
       getFieldMetadata: vi.fn().mockImplementation(() =>
@@ -164,9 +166,11 @@ describe('DataCatalogHandler - Core Methods', () => {
 
     it('should handle errors when getting catalog summary', async () => {
       const { CatalogService } = await import('../../services/CatalogService');
-      (CatalogService as any).mockImplementationOnce(() => ({
-        getCatalogSummary: vi.fn().mockRejectedValue(new Error('Database error')),
-      }));
+      (CatalogService as any).mockImplementationOnce(function () {
+        return {
+          getCatalogSummary: vi.fn().mockRejectedValue(new Error('Database error')),
+        };
+      });
 
       const errorHandler = new DataCatalogHandler();
       const result = await errorHandler.getCatalogSummary(mockEvent);
@@ -437,9 +441,11 @@ describe('DataCatalogHandler - Pagination', () => {
 
     it('should handle empty catalog gracefully', async () => {
       const { CatalogService } = await import('../../services/CatalogService');
-      (CatalogService as any).mockImplementationOnce(() => ({
-        getDataCatalog: vi.fn().mockResolvedValue(null),
-      }));
+      (CatalogService as any).mockImplementationOnce(function () {
+        return {
+          getDataCatalog: vi.fn().mockResolvedValue(null),
+        };
+      });
 
       const emptyHandler = new DataCatalogHandler();
       mockEvent.queryStringParameters = {

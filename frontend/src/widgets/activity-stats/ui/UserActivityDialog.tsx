@@ -133,13 +133,11 @@ export function UserActivityDialog({ open, onClose, userName, userId }: UserActi
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Skeleton
                 variant="rectangular"
-                height={100}
-                sx={{ borderRadius: `${borderRadius.md}px` }}
+                sx={{ height: 100, borderRadius: `${borderRadius.md}px` }}
               />
               <Skeleton
                 variant="rectangular"
-                height={200}
-                sx={{ borderRadius: `${borderRadius.md}px` }}
+                sx={{ height: 200, borderRadius: `${borderRadius.md}px` }}
               />
             </Box>
           )}
@@ -152,7 +150,7 @@ export function UserActivityDialog({ open, onClose, userName, userId }: UserActi
             <>
               {/* Summary Stats */}
               <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <Paper
                     variant="outlined"
                     sx={{
@@ -179,7 +177,7 @@ export function UserActivityDialog({ open, onClose, userName, userId }: UserActi
                     </Typography>
                   </Paper>
                 </Grid>
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <Paper
                     variant="outlined"
                     sx={{
@@ -211,7 +209,7 @@ export function UserActivityDialog({ open, onClose, userName, userId }: UserActi
                     </Typography>
                   </Paper>
                 </Grid>
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <Paper
                     variant="outlined"
                     sx={{

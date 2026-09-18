@@ -136,12 +136,14 @@ export default function FolderMembersDialog({ open, onClose, folder }: FolderMem
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: `${borderRadius.lg}px`,
-          maxHeight: '90vh',
-          backgroundColor: 'background.paper',
-          backgroundImage: 'none',
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: `${borderRadius.lg}px`,
+            maxHeight: '90vh',
+            backgroundColor: 'background.paper',
+            backgroundImage: 'none',
+          },
         },
       }}
     >
@@ -176,8 +178,8 @@ export default function FolderMembersDialog({ open, onClose, folder }: FolderMem
             </Box>
             <Box>
               <Typography
+                sx={{ fontWeight: typography.fontWeight.semibold }}
                 variant="h6"
-                fontWeight={typography.fontWeight.semibold}
                 color="text.primary"
               >
                 Folder Members
@@ -345,8 +347,8 @@ export default function FolderMembersDialog({ open, onClose, folder }: FolderMem
                         }}
                       >
                         <Typography
+                          sx={{ fontWeight: typography.fontWeight.semibold }}
                           variant="subtitle2"
-                          fontWeight={typography.fontWeight.semibold}
                           color="text.primary"
                         >
                           {config.pluralLabel}
@@ -387,8 +389,8 @@ export default function FolderMembersDialog({ open, onClose, folder }: FolderMem
                             >
                               <Box sx={{ overflow: 'hidden', flex: 1 }}>
                                 <Typography
+                                  sx={{ fontWeight: typography.fontWeight.medium }}
                                   variant="body2"
-                                  fontWeight={typography.fontWeight.medium}
                                   noWrap
                                 >
                                   {member.MemberName || member.MemberId || 'Unknown'}

@@ -84,7 +84,10 @@ export function ExpressionTab({
 
       {/* Expression Content */}
       <Paper variant="outlined" sx={{ p: 3 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+        <Stack
+          direction="row"
+          sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 2 }}
+        >
           <Typography variant="subtitle2" color="text.secondary">
             Expression
           </Typography>

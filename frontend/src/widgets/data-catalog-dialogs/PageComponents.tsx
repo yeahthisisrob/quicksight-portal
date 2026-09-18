@@ -33,13 +33,6 @@ export function SearchBar({
         onChange={(e) => onSearchChange(e.target.value)}
         variant="outlined"
         size="medium"
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon />
-            </InputAdornment>
-          ),
-        }}
         sx={{
           backgroundColor: 'background.paper',
           borderRadius: 1,
@@ -47,6 +40,15 @@ export function SearchBar({
             '&:hover fieldset': {
               borderColor: colors.primary.main,
             },
+          },
+        }}
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
           },
         }}
       />

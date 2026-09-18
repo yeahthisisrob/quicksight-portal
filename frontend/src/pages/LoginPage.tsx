@@ -93,7 +93,9 @@ export function LoginPage() {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+      <Box
+        sx={{ height: '100vh', alignItems: 'center', display: 'flex', justifyContent: 'center' }}
+      >
         <CircularProgress />
       </Box>
     );

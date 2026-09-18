@@ -32,6 +32,7 @@ import { copyToClipboard, EnhancedAssetTable } from '@/widgets/asset-table';
 import { RestoreAssetDialog } from '@/widgets/restore-asset-dialog';
 
 import { assetsApi } from '@/shared/api';
+import { EMPTY_SELECTION } from '@/shared/lib/gridSelection';
 import { PageLayout } from '@/shared/ui';
 import { JsonViewerModal } from '@/shared/ui/JsonViewer';
 
@@ -115,7 +116,7 @@ export const ArchivedAssetsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [totalRows, setTotalRows] = useState(0);
   const [selectedType, setSelectedType] = useState<AssetType | 'all'>('all');
-  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
+  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>(EMPTY_SELECTION);
   const [jsonViewerOpen, setJsonViewerOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<ArchivedAssetItem | null>(null);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);

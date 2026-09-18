@@ -27,7 +27,7 @@ export function createMappingColumns({
       flex: 1,
       minWidth: 200,
       renderCell: (params) => (
-        <Typography variant="body2" fontWeight="medium">
+        <Typography sx={{ fontWeight: 'medium' }} variant="body2">
           {params.value}
         </Typography>
       ),

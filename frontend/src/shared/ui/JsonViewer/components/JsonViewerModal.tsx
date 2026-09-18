@@ -103,7 +103,9 @@ function useJsonViewer(open: boolean) {
  * Hook to handle scrolling to highlights
  */
 function useScrollToHighlight(
-  contentRef: React.RefObject<HTMLDivElement>,
+  // React 19 types: useRef<T>(null) yields RefObject<T | null>, so the
+  // parameter has to admit null too.
+  contentRef: React.RefObject<HTMLDivElement | null>,
   highlightType: HighlightType,
   searchTerm: string,
   activeTab: number,
@@ -225,12 +227,14 @@ export default function JsonViewerModal({
       onClose={onClose}
       maxWidth="lg"
       fullWidth
-      PaperProps={{
-        sx: {
-          height: '90vh',
-          backgroundColor: 'background.paper',
-          backgroundImage: 'none',
-          overflow: 'hidden',
+      slotProps={{
+        paper: {
+          sx: {
+            height: '90vh',
+            backgroundColor: 'background.paper',
+            backgroundImage: 'none',
+            overflow: 'hidden',
+          },
         },
       }}
     >

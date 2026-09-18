@@ -174,10 +174,10 @@ export function createPhysicalColumns({
           value={params.value || 0}
           tooltipContent={
             <Box>
-              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+              <Typography variant="body2" sx={{ display: 'block', fontWeight: 'bold', mb: 0.5 }}>
                 Total usage: {params.value || 0}
               </Typography>
-              <Typography variant="caption" display="block">
+              <Typography variant="caption">
                 Occurrences across datasets, dashboards{' '}
                 {(params.row.analysesCount || 0) > 0 ? 'and analyses' : ''}
               </Typography>

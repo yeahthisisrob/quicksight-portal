@@ -15,12 +15,7 @@ import { theme } from './app/theme';
 const AppWrapper = <App />;
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <BrowserRouter
-    future={{
-      v7_startTransition: true,
-      v7_relativeSplatPath: true,
-    }}
-  >
+  <BrowserRouter>
     <ThemeProvider theme={theme}>
       <LocalizationProvider dateAdapter={AdapterDateFns}>
         <SnackbarProvider

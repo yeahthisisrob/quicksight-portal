@@ -241,7 +241,7 @@ export function UserAssetAccessDialog({ open, onClose, user }: UserAssetAccessDi
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
+        <Box sx={{ alignItems: 'center', display: 'flex', justifyContent: 'space-between' }}>
           <Typography variant="h6">Asset Access: {user.name}</Typography>
           {!loading && <Chip label={`${totalAssets} assets`} color="primary" size="small" />}
         </Box>
@@ -249,7 +249,7 @@ export function UserAssetAccessDialog({ open, onClose, user }: UserAssetAccessDi
 
       <DialogContent dividers>
         {loading ? (
-          <Box display="flex" justifyContent="center" p={4}>
+          <Box sx={{ p: 4, display: 'flex', justifyContent: 'center' }}>
             <CircularProgress />
           </Box>
         ) : error ? (
@@ -263,14 +263,16 @@ export function UserAssetAccessDialog({ open, onClose, user }: UserAssetAccessDi
               placeholder="Search assets, groups, folders..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
               sx={{ mb: 2 }}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
+              }}
             />
 
             <Tabs
@@ -323,7 +325,7 @@ export function UserAssetAccessDialog({ open, onClose, user }: UserAssetAccessDi
             </Box>
 
             {filteredAssets.length === 0 ? (
-              <Typography color="textSecondary" align="center" py={4}>
+              <Typography sx={{ py: 4 }} color="textSecondary" align="center">
                 {searchTerm || selectedType !== 'all' || accessFilter !== 'all'
                   ? 'No assets match your filters'
                   : 'This user has no asset access'}
@@ -350,9 +352,10 @@ export function UserAssetAccessDialog({ open, onClose, user }: UserAssetAccessDi
                         {assetTypeIcons[asset.assetType] || <FolderIcon />}
                       </ListItemIcon>
                       <ListItemText
+                        sx={{ gap: 0.5, alignItems: 'center', display: 'flex', flexWrap: 'wrap' }}
                         disableTypography
                         primary={
-                          <Box display="flex" alignItems="center" gap={0.5} flexWrap="wrap">
+                          <Box>
                             <Typography variant="body2">{asset.assetName}</Typography>
                             {asset.sources.map((source, idx) => (
                               <AccessSourceChip key={idx} source={source} />

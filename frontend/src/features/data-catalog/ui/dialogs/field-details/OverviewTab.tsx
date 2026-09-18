@@ -61,19 +61,19 @@ export function OverviewTab({ field, hasVariants, groupedSources }: OverviewTabP
           Field Information
         </Typography>
         <Grid container spacing={2} sx={{ mt: 1 }}>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Typography variant="caption" color="text.secondary">
               Field Name
             </Typography>
-            <Typography variant="body1" fontWeight={500}>
+            <Typography sx={{ fontWeight: 500 }} variant="body1">
               {field.fieldName}
             </Typography>
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Typography variant="caption" color="text.secondary">
               Data Type
             </Typography>
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 0.5 }}>
               {hasVariants && field.variants?.length > 1 ? (
                 <>
                   <Chip
@@ -110,7 +110,7 @@ export function OverviewTab({ field, hasVariants, groupedSources }: OverviewTabP
             if (!config) return null;
 
             return (
-              <Grid item xs={12} sm={4} key={type}>
+              <Grid size={{ xs: 12, sm: 4 }} key={type}>
                 <Card
                   variant="outlined"
                   sx={{
@@ -126,7 +126,7 @@ export function OverviewTab({ field, hasVariants, groupedSources }: OverviewTabP
                 >
                   <CardContent sx={{ textAlign: 'center', py: 2 }}>
                     <config.icon sx={{ color: config.color, fontSize: 32, mb: 1 }} />
-                    <Typography variant="h4" fontWeight={600} color={config.color}>
+                    <Typography sx={{ fontWeight: 600 }} variant="h4" color={config.color}>
                       {sources.length}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
@@ -151,7 +151,7 @@ export function OverviewTab({ field, hasVariants, groupedSources }: OverviewTabP
           </Typography>
           <Stack spacing={1} sx={{ mt: 2 }}>
             {field.variants.map((variant: any, idx: number) => (
-              <Stack key={idx} direction="row" alignItems="center" spacing={2}>
+              <Stack sx={{ alignItems: 'center' }} key={idx} direction="row" spacing={2}>
                 <Chip
                   label={variant.dataType}
                   size="small"

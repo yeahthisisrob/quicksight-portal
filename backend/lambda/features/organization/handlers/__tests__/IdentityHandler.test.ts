@@ -17,24 +17,28 @@ vi.mock('../../../../shared/auth', () => ({
 }));
 
 vi.mock('../../services/IdentityService', () => ({
-  IdentityService: vi.fn().mockImplementation(() => ({})),
+  IdentityService: vi.fn().mockImplementation(function () {
+    return {};
+  }),
 }));
 
 vi.mock('../../../../shared/services/bulk/BulkOperationsService', () => ({
-  BulkOperationsService: vi.fn().mockImplementation(() => ({
-    bulkAddUsersToGroups: vi.fn().mockResolvedValue({
-      jobId: 'job-123',
-      status: 'pending',
-      message: 'Bulk add users to groups started',
-      estimatedOperations: 2,
-    }),
-    bulkRemoveUsersFromGroups: vi.fn().mockResolvedValue({
-      jobId: 'job-456',
-      status: 'pending',
-      message: 'Bulk remove users from groups started',
-      estimatedOperations: 1,
-    }),
-  })),
+  BulkOperationsService: vi.fn().mockImplementation(function () {
+    return {
+      bulkAddUsersToGroups: vi.fn().mockResolvedValue({
+        jobId: 'job-123',
+        status: 'pending',
+        message: 'Bulk add users to groups started',
+        estimatedOperations: 2,
+      }),
+      bulkRemoveUsersFromGroups: vi.fn().mockResolvedValue({
+        jobId: 'job-456',
+        status: 'pending',
+        message: 'Bulk remove users from groups started',
+        estimatedOperations: 1,
+      }),
+    };
+  }),
 }));
 
 vi.mock('../../../../shared/utils/logger', () => ({

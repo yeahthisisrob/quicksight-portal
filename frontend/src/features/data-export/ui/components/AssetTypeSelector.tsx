@@ -39,11 +39,9 @@ export default function AssetTypeSelector({
     <Box>
       <Stack
         direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{ mb: spacing.sm / 8 }}
+        sx={{ alignItems: 'center', justifyContent: 'space-between', mb: spacing.sm / 8 }}
       >
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={1}>
           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
             Asset Types
           </Typography>

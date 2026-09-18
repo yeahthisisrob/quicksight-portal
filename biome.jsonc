@@ -463,7 +463,13 @@
             // Tests read private/protected members via obj['name'] on purpose -
             // it is the only way TypeScript allows it. Rewriting those to dot
             // access (the rule's "fix") makes the test files stop compiling.
-            "useLiteralKeys": "off"
+            "useLiteralKeys": "off",
+            // A mocked constructor must be a function expression: arrows have
+            // no [[Construct]] slot, so `new Service()` throws
+            // "... is not a constructor" under vitest 4+. This rule rewrites
+            // those function expressions back into arrows on every format,
+            // silently breaking 177 tests.
+            "useArrowFunction": "off"
           },
           "suspicious": {
             "noConsole": "off",

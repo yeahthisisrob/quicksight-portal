@@ -49,7 +49,7 @@ export function SemanticStatsView({ stats }: SemanticStatsViewProps) {
   return (
     <Grid container spacing={spacing.md / 8} sx={{ mb: spacing.lg / 8 }}>
       {statCards.map((card, index) => (
-        <Grid item xs={12} sm={6} md={3} key={index}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
           <StatCard {...card} />
         </Grid>
       ))}

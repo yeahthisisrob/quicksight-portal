@@ -100,7 +100,7 @@ export default function MultipleExpressionsDisplay({
 
   return (
     <Box>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
         <WarningIcon color="warning" fontSize="small" />
         <Typography variant="subtitle2" color="warning.main">
           Multiple Expressions Found ({uniqueExpressions.length} variations)
@@ -117,7 +117,12 @@ export default function MultipleExpressionsDisplay({
           </AccordionSummary>
           <AccordionDetails>
             <Box>
-              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+              <Typography
+                sx={{ display: 'block' }}
+                variant="caption"
+                color="text.secondary"
+                gutterBottom
+              >
                 Used in: {expr.sources.map((s) => s.assetName).join(', ')}
               </Typography>
               <Paper sx={{ p: 2, bgcolor: 'grey.50', position: 'relative', mt: 1 }}>

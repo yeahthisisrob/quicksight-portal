@@ -119,7 +119,7 @@ const DependencyItem: React.FC<{ item: any; isLast: boolean }> = ({ item, isLast
         },
       }}
     >
-      <Typography variant="subtitle1" fontWeight="bold" color="primary.main" gutterBottom>
+      <Typography sx={{ fontWeight: 'bold' }} variant="subtitle1" color="primary.main" gutterBottom>
         {item.alias}
       </Typography>
       <Typography
@@ -152,12 +152,14 @@ const ExpressionGraphDialog: React.FC<ExpressionGraphDialogProps> = ({
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: '12px',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-          width: '100%',
-          maxWidth: '800px',
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: '12px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+            width: '100%',
+            maxWidth: '800px',
+          },
         },
       }}
     >

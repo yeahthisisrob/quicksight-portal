@@ -167,13 +167,12 @@ const FilterSection: React.FC<FilterSectionProps> = ({ title, icon, color, child
   <Box sx={{ mb: 1 }}>
     <Typography
       variant="caption"
-      fontWeight={600}
       color={color}
-      sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}
+      sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}
     >
       {icon} {title}
     </Typography>
-    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+    <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={0.5} useFlexGap>
       {children}
     </Stack>
   </Box>
@@ -194,7 +193,7 @@ const renderFilterTypeOption = (
   if (option === ASSET_KEY) {
     return (
       <Box component="li" key={key} {...otherProps}>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', width: '100%' }}>
           <DashboardIcon sx={{ fontSize: 16, color: colors.primary.main }} />
           <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }}>
             Asset
@@ -207,7 +206,7 @@ const renderFilterTypeOption = (
 
   return (
     <Box component="li" key={key} {...otherProps}>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', width: '100%' }}>
         <Typography variant="body2" sx={{ flex: 1 }}>
           {option}
         </Typography>
@@ -228,7 +227,7 @@ const renderAssetOption = (
 
   return (
     <Box component="li" key={key} {...otherProps}>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', width: '100%' }}>
         <Icon sx={{ fontSize: 18, color: config.color }} />
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography variant="body2" noWrap>
@@ -257,7 +256,7 @@ const renderTagValueOption = (
 
   return (
     <Box component="li" key={key} {...otherProps}>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', width: '100%' }}>
         <Typography variant="body2" sx={{ flex: 1 }}>
           {option.value}
         </Typography>
@@ -314,11 +313,11 @@ const FilterHeader: React.FC<FilterHeaderProps> = ({
 
   return (
     <Box sx={headerSx} onClick={onToggleExpand}>
-      <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap', gap: 1 }}>
+      <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
         <LocalOffer
           sx={{ color: totalFilters > 0 ? colors.primary.main : colors.neutral[500], fontSize: 20 }}
         />
-        <Typography variant="subtitle2" fontWeight={600}>
+        <Typography sx={{ fontWeight: 600 }} variant="subtitle2">
           Filters
         </Typography>
 
@@ -335,7 +334,7 @@ const FilterHeader: React.FC<FilterHeaderProps> = ({
         )}
 
         {selectedAssets.length > 0 && (
-          <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack sx={{ alignItems: 'center' }} direction="row" spacing={0.5}>
             {selectedAssets.slice(0, 2).map((asset, idx) => (
               <AssetChip
                 key={`asset-${idx}`}
@@ -353,7 +352,7 @@ const FilterHeader: React.FC<FilterHeaderProps> = ({
         )}
 
         {includeTags.length > 0 && (
-          <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack sx={{ alignItems: 'center' }} direction="row" spacing={0.5}>
             <Add sx={{ fontSize: 14, color: 'success.main' }} />
             {includeTags.slice(0, 2).map((tag, idx) => (
               <Chip
@@ -378,7 +377,7 @@ const FilterHeader: React.FC<FilterHeaderProps> = ({
         )}
 
         {excludeTags.length > 0 && (
-          <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack sx={{ alignItems: 'center' }} direction="row" spacing={0.5}>
             <Remove sx={{ fontSize: 14, color: 'error.main' }} />
             {excludeTags.slice(0, 2).map((tag, idx) => (
               <Chip
@@ -460,8 +459,8 @@ const FilterControls: React.FC<FilterControlsProps> = ({
   return (
     <>
       {!isAssetMode && (
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
-          <Typography variant="body2" fontWeight={500}>
+        <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 2 }}>
+          <Typography sx={{ fontWeight: 500 }} variant="body2">
             Tag Filter Mode:
           </Typography>
           <ToggleButtonGroup
@@ -487,7 +486,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({
         </Stack>
       )}
 
-      <Stack direction="row" spacing={2} alignItems="center">
+      <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
         <FilterList sx={{ color: colors.neutral[500] }} />
 
         <Autocomplete

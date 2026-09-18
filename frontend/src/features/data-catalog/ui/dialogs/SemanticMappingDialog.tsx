@@ -14,7 +14,7 @@ import {
   IconButton,
   InputLabel,
   List,
-  ListItem,
+  ListItemButton,
   ListItemText,
   MenuItem,
   Select,
@@ -197,9 +197,8 @@ export default function SemanticMappingDialog({
                       if (!term) return null;
 
                       return (
-                        <ListItem
+                        <ListItemButton
                           key={suggestion.termId}
-                          button
                           selected={selectedTermId === suggestion.termId}
                           onClick={() => handleSelectSuggestion(suggestion)}
                           sx={{
@@ -245,7 +244,7 @@ export default function SemanticMappingDialog({
                               </>
                             }
                           />
-                        </ListItem>
+                        </ListItemButton>
                       );
                     })}
                   </List>

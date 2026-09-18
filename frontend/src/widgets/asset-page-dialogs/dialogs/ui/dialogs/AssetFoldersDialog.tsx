@@ -51,17 +51,23 @@ export default function AssetFoldersDialog({
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: `${borderRadius.lg}px`,
-          maxHeight: '80vh',
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: `${borderRadius.lg}px`,
+            maxHeight: '80vh',
+          },
         },
       }}
     >
       <DialogTitle sx={{ pb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box>
-            <Typography variant="h5" fontWeight={typography.fontWeight.semibold} gutterBottom>
+            <Typography
+              sx={{ fontWeight: typography.fontWeight.semibold }}
+              variant="h5"
+              gutterBottom
+            >
               Folder Memberships
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -116,8 +122,8 @@ export default function AssetFoldersDialog({
               }}
             />
             <Typography
+              sx={{ fontWeight: typography.fontWeight.semibold }}
               variant="subtitle1"
-              fontWeight={typography.fontWeight.semibold}
               color={folders.length > 0 ? 'text.primary' : 'text.disabled'}
             >
               Folders
@@ -156,16 +162,13 @@ export default function AssetFoldersDialog({
                       <FolderIcon sx={{ color: colors.primary.main }} />
                     </ListItemIcon>
                     <ListItemText
-                      primary={
-                        <Typography variant="body1" fontWeight={typography.fontWeight.medium}>
-                          {folder.name}
-                        </Typography>
-                      }
+                      primary={<Typography variant="body1">{folder.name}</Typography>}
                       secondary={
                         <Typography
                           variant="caption"
                           color="text.secondary"
                           sx={{
+                            fontWeight: typography.fontWeight.medium,
                             fontFamily: 'monospace',
                             fontSize: '0.75rem',
                           }}

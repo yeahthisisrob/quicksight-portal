@@ -43,12 +43,17 @@ export default function JobFailureList({
               <ListItemText
                 primary={failure.item}
                 secondary={failure.error}
-                primaryTypographyProps={{
-                  variant: 'body2',
-                  fontWeight: typography.fontWeight.medium,
-                  fontFamily: typography.fontFamily.monospace,
+                slotProps={{
+                  primary: {
+                    variant: 'body2',
+                    sx: {
+                      fontWeight: typography.fontWeight.medium,
+                      fontFamily: typography.fontFamily.monospace,
+                    },
+                  },
+
+                  secondary: { variant: 'caption' },
                 }}
-                secondaryTypographyProps={{ variant: 'caption' }}
               />
             </ListItem>
           ))}

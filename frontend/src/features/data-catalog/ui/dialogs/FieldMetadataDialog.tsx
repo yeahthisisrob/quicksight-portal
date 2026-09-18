@@ -167,16 +167,18 @@ export default function FieldMetadataDialog({
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 2,
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: 2,
+          },
         },
       }}
     >
       <DialogTitle sx={{ pb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box>
-            <Typography variant="h6" fontWeight={600}>
+            <Typography sx={{ fontWeight: 600 }} variant="h6">
               Field Metadata
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
@@ -245,7 +247,7 @@ export default function FieldMetadataDialog({
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <InfoIcon color="primary" />
-                <Typography variant="subtitle1" fontWeight={600}>
+                <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
                   Basic Information
                 </Typography>
               </Box>
@@ -297,7 +299,7 @@ export default function FieldMetadataDialog({
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <TagIcon color="primary" />
-                <Typography variant="subtitle1" fontWeight={600}>
+                <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
                   Tags
                 </Typography>
                 {tags.length > 0 && (
@@ -346,7 +348,7 @@ export default function FieldMetadataDialog({
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <LineageIcon color="primary" />
-                <Typography variant="subtitle1" fontWeight={600}>
+                <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
                   Lineage & Source Information
                 </Typography>
               </Box>

@@ -35,7 +35,7 @@ export function TagsTab({ tags, onTagsChange }: TagsTabProps) {
         <Typography variant="subtitle2" gutterBottom>
           Tags
         </Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mb: 2 }}>
           {tags.map((tag, index) => (
             <Chip
               key={index}

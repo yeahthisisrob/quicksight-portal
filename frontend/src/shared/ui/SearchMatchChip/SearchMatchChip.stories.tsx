@@ -78,7 +78,7 @@ export const AllMatchReasons: Story = {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           These indicate the asset itself matched the search query
         </Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
           <SearchMatchChip reason="name" />
           <SearchMatchChip reason="id" />
           <SearchMatchChip reason="description" />
@@ -90,7 +90,7 @@ export const AllMatchReasons: Story = {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Matched in the asset&apos;s tags or permissions
         </Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
           <SearchMatchChip reason="tag_key" />
           <SearchMatchChip reason="tag_value" />
           <SearchMatchChip reason="permission" />
@@ -101,7 +101,7 @@ export const AllMatchReasons: Story = {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           The asset uses a dependency that matched the search query
         </Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
           <SearchMatchChip reason="dependency_dataset" />
           <SearchMatchChip reason="dependency_datasource" />
           <SearchMatchChip reason="dependency_analysis" />
@@ -116,7 +116,7 @@ export const CompactMode: Story = {
     <Stack spacing={3}>
       <StorySection title="Normal vs Compact">
         <Stack spacing={2}>
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack sx={{ alignItems: 'center' }} direction="row" spacing={1}>
             <Typography variant="body2" sx={{ minWidth: 80 }}>
               Normal:
             </Typography>
@@ -124,7 +124,7 @@ export const CompactMode: Story = {
             <SearchMatchChip reason="tag_key" />
             <SearchMatchChip reason="dependency_dataset" />
           </Stack>
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack sx={{ alignItems: 'center' }} direction="row" spacing={1}>
             <Typography variant="body2" sx={{ minWidth: 80 }}>
               Compact:
             </Typography>
@@ -137,7 +137,7 @@ export const CompactMode: Story = {
 
       <StorySection title="Compact in Table Row Context">
         <Paper sx={{ p: 2 }}>
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
             <Typography variant="body2" sx={{ flex: 1 }}>
               Sales Dashboard Q4
             </Typography>
@@ -160,19 +160,19 @@ export const ChipGroup: Story = {
           Groups multiple match reasons with automatic overflow handling
         </Typography>
         <Stack spacing={2}>
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
             <Typography variant="body2" sx={{ minWidth: 140 }}>
               Single match:
             </Typography>
             <SearchMatchChipGroup reasons={['name']} />
           </Stack>
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
             <Typography variant="body2" sx={{ minWidth: 140 }}>
               Multiple matches:
             </Typography>
             <SearchMatchChipGroup reasons={['name', 'tag_key', 'permission']} />
           </Stack>
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
             <Typography variant="body2" sx={{ minWidth: 140 }}>
               With overflow (5):
             </Typography>
@@ -181,7 +181,7 @@ export const ChipGroup: Story = {
               maxVisible={3}
             />
           </Stack>
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
             <Typography variant="body2" sx={{ minWidth: 140 }}>
               Compact group:
             </Typography>
@@ -258,8 +258,10 @@ export const RealWorldUsage: Story = {
             size="small"
             placeholder="Search assets..."
             value="sales"
-            InputProps={{ readOnly: true }}
             sx={{ mb: 2 }}
+            slotProps={{
+              input: { readOnly: true },
+            }}
           />
           <Stack spacing={1}>
             <Typography variant="caption" color="text.secondary">
@@ -301,19 +303,19 @@ export const RealWorldUsage: Story = {
             When searching for &quot;customer_data&quot; (a dataset):
           </Typography>
           <Stack spacing={1} sx={{ ml: 2 }}>
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack sx={{ alignItems: 'center' }} direction="row" spacing={1}>
               <SearchMatchChip reason="name" />
               <Typography variant="caption">
                 - Direct match: &quot;customer_data&quot; dataset
               </Typography>
             </Stack>
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack sx={{ alignItems: 'center' }} direction="row" spacing={1}>
               <SearchMatchChip reason="dependency_dataset" />
               <Typography variant="caption">
                 - Dashboard &quot;Customer Insights&quot; uses this dataset
               </Typography>
             </Stack>
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack sx={{ alignItems: 'center' }} direction="row" spacing={1}>
               <SearchMatchChip reason="dependency_dataset" />
               <Typography variant="caption">
                 - Analysis &quot;Churn Prediction&quot; uses this dataset
@@ -330,7 +332,7 @@ export const Sizes: Story = {
   render: () => (
     <Stack spacing={3}>
       <StorySection title="Small (Default)">
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
           <SearchMatchChip reason="name" size="small" />
           <SearchMatchChip reason="tag_key" size="small" />
           <SearchMatchChip reason="dependency_dataset" size="small" />
@@ -338,7 +340,7 @@ export const Sizes: Story = {
       </StorySection>
 
       <StorySection title="Medium">
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Stack sx={{ flexWrap: 'wrap' }} direction="row" spacing={1} useFlexGap>
           <SearchMatchChip reason="name" size="medium" />
           <SearchMatchChip reason="tag_key" size="medium" />
           <SearchMatchChip reason="dependency_dataset" size="medium" />

@@ -209,8 +209,10 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
                     <ListItemText
                       primary={user.userName}
                       secondary={user.email}
-                      primaryTypographyProps={{ variant: 'body2' }}
-                      secondaryTypographyProps={{ variant: 'caption' }}
+                      slotProps={{
+                        primary: { variant: 'body2' },
+                        secondary: { variant: 'caption' },
+                      }}
                     />
                   </ListItemButton>
                 );
@@ -265,7 +267,9 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
                             />
                           </Box>
                         }
-                        primaryTypographyProps={{ variant: 'body2' }}
+                        slotProps={{
+                          primary: { variant: 'body2' },
+                        }}
                       />
                       {isExpanded ? (
                         <ExpandLess fontSize="small" />
@@ -296,8 +300,10 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
                             <ListItemText
                               primary={member.userName}
                               secondary={member.email}
-                              primaryTypographyProps={{ variant: 'body2', fontSize: 13 }}
-                              secondaryTypographyProps={{ variant: 'caption', fontSize: 11 }}
+                              slotProps={{
+                                primary: { variant: 'body2', sx: { fontSize: 13 } },
+                                secondary: { variant: 'caption', sx: { fontSize: 11 } },
+                              }}
                             />
                           </ListItemButton>
                         );
@@ -330,9 +336,11 @@ export function InactivityMailtoDialog({ open, onClose, asset }: InactivityMailt
             minRows={4}
             maxRows={8}
             value={body}
-            InputProps={{ readOnly: true }}
             helperText="Auto-generated from activity data and group filters"
             sx={{ '& .MuiInputBase-input': { fontFamily: 'monospace', fontSize: 12 } }}
+            slotProps={{
+              input: { readOnly: true },
+            }}
           />
         </Box>
       </DialogContent>

@@ -10,7 +10,8 @@
     "experimentalDecorators": true,
     "strictPropertyInitialization": false,
     "typeRoots": ["./node_modules/@types"],
-    "outDir": "lib"
+    "outDir": "lib",
+    "moduleResolution": "bundler"
   },
   "exclude": ["node_modules", "cdk.out", "lib"]
 }

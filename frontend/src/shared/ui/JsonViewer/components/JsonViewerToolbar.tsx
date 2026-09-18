@@ -55,12 +55,14 @@ export function JsonViewerToolbar({
         value={searchTerm}
         onChange={(e) => onSearchChange(e.target.value)}
         sx={{ minWidth: 200 }}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon fontSize="small" />
-            </InputAdornment>
-          ),
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          },
         }}
       />
 

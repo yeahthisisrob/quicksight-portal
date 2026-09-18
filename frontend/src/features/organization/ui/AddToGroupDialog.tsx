@@ -132,9 +132,11 @@ export default function AddToGroupDialog({
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 2,
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: 2,
+          },
         },
       }}
     >
@@ -168,7 +170,7 @@ export default function AddToGroupDialog({
                 </Box>
               )}
               {jobStatus.message && (
-                <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
                   {jobStatus.message}
                 </Typography>
               )}

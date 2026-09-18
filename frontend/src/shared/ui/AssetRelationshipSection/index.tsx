@@ -74,8 +74,8 @@ export function AssetRelationshipSection({
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: hasAssets ? 1.5 : 0 }}>
         <Icon sx={{ fontSize: 20, color: hasAssets ? colorConfig.main : 'text.disabled' }} />
         <Typography
+          sx={{ fontWeight: typography.fontWeight.semibold }}
           variant="subtitle1"
-          fontWeight={typography.fontWeight.semibold}
           color={hasAssets ? 'text.primary' : 'text.disabled'}
         >
           {assetPluralLabels[type]}
@@ -118,8 +118,8 @@ export function AssetRelationshipSection({
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flexWrap: 'wrap' }}>
                   <Typography
                     variant="body2"
-                    fontWeight={typography.fontWeight.medium}
                     sx={{
+                      fontWeight: typography.fontWeight.medium,
                       textDecoration: asset.isArchived ? 'line-through' : 'none',
                       color: asset.isArchived ? 'text.secondary' : 'text.primary',
                       wordBreak: 'break-word',
@@ -232,10 +232,11 @@ export function AssetRelationshipSection({
                     ))}
                     {asset.tags.length > 2 && (
                       <Tooltip
+                        sx={{ display: 'block' }}
                         title={
                           <Box>
                             {asset.tags.slice(2).map((tag, idx) => (
-                              <Typography key={idx} variant="caption" display="block">
+                              <Typography key={idx} variant="caption">
                                 {tag.key}: {tag.value}
                               </Typography>
                             ))}

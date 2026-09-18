@@ -156,13 +156,13 @@ export function MappedFieldItem({ item, activeTab, index }: MappedFieldItemProps
         </Typography>
 
         {item.reason && (
-          <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
             Mapping reason: {item.reason}
           </Typography>
         )}
 
         {item.field?.usageCount !== undefined && (
-          <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
             Usage count: {item.field.usageCount} time{item.field.usageCount !== 1 ? 's' : ''}
           </Typography>
         )}

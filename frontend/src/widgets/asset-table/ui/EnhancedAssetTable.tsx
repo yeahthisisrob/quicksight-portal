@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { spacing } from '@/shared/design-system/theme';
 import { useDebounce, usePagination } from '@/shared/lib';
+import { EMPTY_SELECTION, selectionCount } from '@/shared/lib/gridSelection';
 
 import { BulkActionsToolbar } from '../bulk-actions';
 import {
@@ -319,11 +320,14 @@ function buildColumnsConfig(columns: ColumnConfig[]): {
           minWidth: col.minWidth,
           sortable: col.sortable !== false,
           hideable: col.hideable !== false,
+
           // v7 cells are block-level by default (fast text path). Columns with
           // custom renderers opt into the flex cell display so chips and
           // stacked content center vertically in every density.
           display: col.renderCell ? ('flex' as const) : undefined,
+
           renderCell: col.renderCell,
+
           // ColumnConfig valueGetters use the v6 `(params)` shape; adapt to the
           // v7 `(value, row)` signature in this single mapping point.
           valueGetter: col.valueGetter
@@ -350,7 +354,7 @@ export default function EnhancedAssetTable({
   totalRows,
   columns: initialColumns,
   onFetchAssets,
-  selectedRows = [],
+  selectedRows = EMPTY_SELECTION,
   onSelectionChange,
   enableBulkActions = true,
   defaultPageSize = 50,
@@ -569,15 +573,15 @@ export default function EnhancedAssetTable({
         <TableHeader title={title} totalRows={totalRows} extraActions={extraToolbarActions} />
       )}
 
-      {enableBulkActions && selectedRows.length > 0 && (
+      {enableBulkActions && selectionCount(selectedRows, assets.length) > 0 && (
         <Box sx={{ mb: spacing.md / 8 }}>
           <BulkActionsToolbar
-            selectedCount={selectedRows.length}
+            selectedCount={selectionCount(selectedRows, assets.length)}
             onAddToFolder={onAddToFolder}
             onBulkTag={handleBulkTag}
             onBulkDelete={onBulkDelete}
             showDeleteAction={showDeleteAction}
-            onClearSelection={() => onSelectionChange?.([])}
+            onClearSelection={() => onSelectionChange?.(EMPTY_SELECTION)}
             customActions={bulkActions?.filter(
               (a) => !['Add to Folder', 'Manage Tags'].includes(a.label)
             )}
