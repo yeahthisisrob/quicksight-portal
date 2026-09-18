@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.14.0...v1.14.1) (2026-08-29)
+
+
+### Bug Fixes
+
+* cdk-nag ARN acknowledgments match both env-less synth and real deploys ([#92](https://github.com/yeahthisisrob/quicksight-portal/issues/92)) ([8d55047](https://github.com/yeahthisisrob/quicksight-portal/commit/8d550470e93c096e38feebaa3c98e1ab91feab43))
+
 ## [1.14.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.13.1...v1.14.0) (2026-08-29)
 
 
