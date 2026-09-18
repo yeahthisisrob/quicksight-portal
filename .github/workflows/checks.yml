@@ -73,16 +73,6 @@ jobs:
   storybook:
     name: Storybook
     runs-on: ubuntu-latest
-    # Non-blocking, and honestly so. @storybook/test-runner drives its suites
-    # through jest 30, which refuses `module.register()` - the API Storybook's
-    # own module loader calls. Every story suite therefore fails to load, on
-    # Storybook 10.5.10 and 10.6.0 alike. It is not caused by anything in this
-    # branch: the previous workflow ran this step as `|| true`, so it could
-    # never fail and nobody saw it.
-    #
-    # Keeping the job visible but non-blocking turns a silent `|| true` into a
-    # tracked red mark. Remove this line once the test runner supports it.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
 
@@ -98,5 +88,9 @@ jobs:
       - name: Install Playwright browser
         run: pnpm --filter @quicksight-portal/frontend exec playwright install --with-deps chromium
 
+      # Renders all 365 stories in Chromium and fails on any render error or
+      # unexpected console error. Blocking: the previous workflow ran this with
+      # `|| true`, which is why three React bugs sat unnoticed in Sidebar and
+      # two dialogs.
       - name: Smoke-test stories
         run: pnpm --filter @quicksight-portal/frontend run test:storybook:ci

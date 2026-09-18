@@ -11,6 +11,7 @@ import {
   ListItemText,
   Typography,
 } from '@mui/material';
+import { Fragment } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { colors, spacing } from '@/shared/design-system/theme';
@@ -47,8 +48,14 @@ export function Sidebar() {
         </Typography>
       </Box>
       <List sx={{ pt: 0, flexGrow: 1 }}>
-        {navigationConfig.map((section) => (
-          <div key={section.title}>
+        {navigationConfig.map((section, index) => (
+          // Fragment, not a div: this is a direct child of <List>, which
+          // renders a <ul>, and only <li> may live there.
+          //
+          // `section.title` is optional and the first section has none, so it
+          // cannot be the key on its own - an undefined key reads as a missing
+          // one. The config is a static module constant, so the index is stable.
+          <Fragment key={section.title ?? `section-${index}`}>
             {section.divider && <Divider sx={{ my: spacing.sm / 8 }} />}
             {section.items.map((item) => {
               const Icon = navigationIcons[item.icon];
@@ -86,7 +93,7 @@ export function Sidebar() {
                 </ListItem>
               );
             })}
-          </div>
+          </Fragment>
         ))}
       </List>
 

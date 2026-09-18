@@ -127,7 +127,7 @@ coverage:
 architecture:
     {{x}} node scripts/verify-architecture-rules.mjs
 
-# Smoke-test every Storybook story
+# Render every Storybook story in Chromium and fail on console errors
 [group('check')]
 check-storybook:
     {{x}} pnpm --filter @quicksight-portal/frontend run test:storybook:ci

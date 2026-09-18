@@ -163,6 +163,9 @@ export function RefreshScheduleDialog({
                 <div key={schedule.scheduleId}>
                   <ListItem sx={{ py: 2 }}>
                     <ListItemText
+                      // `secondary` renders Typography (a <p>); the default <p>
+                      // wrapper cannot legally contain another <p>.
+                      slotProps={{ secondary: { component: 'div' } }}
                       primary={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>

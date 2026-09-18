@@ -121,6 +121,9 @@ export function DefinitionErrorsDialog({
                 <div key={idx}>
                   <ListItem sx={{ alignItems: 'flex-start', py: 2 }}>
                     <ListItemText
+                      // `secondary` below is a Box; the default <p> wrapper
+                      // cannot legally contain a div.
+                      slotProps={{ secondary: { component: 'div' } }}
                       primary={
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>
                           {error.message}

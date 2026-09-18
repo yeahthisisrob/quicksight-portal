@@ -167,6 +167,7 @@
       "includes": [
         "backend/lambda/build.js",
         "scripts/**",
+        "frontend/scripts/**",
         "frontend/.storybook/**",
         "**/*.stories.ts",
         "**/*.stories.tsx"
