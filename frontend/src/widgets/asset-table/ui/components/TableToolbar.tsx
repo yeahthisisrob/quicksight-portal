@@ -1,3 +1,4 @@
+import { Download as DownloadIcon } from '@mui/icons-material';
 import { alpha, Button, CircularProgress } from '@mui/material';
 import {
   GridToolbarColumnsButton,
@@ -6,9 +7,6 @@ import {
 } from '@mui/x-data-grid';
 
 import { colors, spacing } from '@/shared/design-system/theme';
-import { actionIcons } from '@/shared/ui/icons';
-
-const DownloadIcon = actionIcons.download;
 
 interface TableToolbarProps {
   onExportCSV?: () => Promise<void>;

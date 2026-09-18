@@ -1,17 +1,17 @@
+import {
+  CheckCircle as CheckCircleIcon,
+  Group as GroupIcon,
+  Info as InfoIcon,
+  Person as PersonIcon,
+} from '@mui/icons-material';
 /**
  * Permissions tab component for RestoreAssetDialog
  */
 import { Alert, Box, Chip, CircularProgress, Paper, Stack, Typography } from '@mui/material';
 
 import { colors } from '@/shared/design-system/theme';
-import { actionIcons, statusIcons } from '@/shared/ui/icons';
 
 import type { AssetMetadata } from '../types';
-
-const GroupIcon = actionIcons.group;
-const PersonIcon = actionIcons.user;
-const InfoIcon = statusIcons.info;
-const CheckCircleIcon = statusIcons.success;
 
 interface PermissionsTabProps {
   metadata: AssetMetadata | null;

@@ -1,3 +1,4 @@
+import { Group as GroupIcon, Person as UserIcon } from '@mui/icons-material';
 import {
   Alert,
   AlertTitle,
@@ -26,12 +27,8 @@ import { JobFailureList } from '@/entities/job';
 import { resolveUserName, type UserLike } from '@/entities/user';
 
 import { assetsApi } from '@/shared/api';
-import { assetIcons } from '@/shared/ui/icons';
 
 import { type MembershipOutcome, useGroupMembershipJob } from '../lib/useGroupMembershipJob';
-
-const GroupIcon = assetIcons.group;
-const UserIcon = assetIcons.user;
 
 const MAX_USER_CHIPS = 10;
 

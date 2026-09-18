@@ -1,12 +1,9 @@
+import { Add as AddIcon } from '@mui/icons-material';
 /**
  * Tags tab component for RestoreAssetDialog
  */
 import { Box, Button, Chip, Stack, TextField, Typography } from '@mui/material';
 import { useState } from 'react';
-
-import { actionIcons } from '@/shared/ui/icons';
-
-const AddIcon = actionIcons.add;
 
 interface TagsTabProps {
   tags: Array<{ key: string; value: string }>;

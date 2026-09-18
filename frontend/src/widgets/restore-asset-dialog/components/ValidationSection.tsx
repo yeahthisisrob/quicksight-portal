@@ -1,13 +1,10 @@
+import { Info as InfoIcon, Warning as WarningIcon } from '@mui/icons-material';
 /**
  * Validation section component for RestoreAssetDialog
  */
 import { Alert, Box, CircularProgress, Divider, Stack, Typography } from '@mui/material';
 
 import type { ValidationResult } from '@/shared/api/modules/deploy';
-import { statusIcons } from '@/shared/ui/icons';
-
-const WarningIcon = statusIcons.warning;
-const InfoIcon = statusIcons.info;
 
 interface ValidationSectionProps {
   validationResults: ValidationResult[];

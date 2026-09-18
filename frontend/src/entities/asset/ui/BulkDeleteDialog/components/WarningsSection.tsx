@@ -1,14 +1,10 @@
+import { Info as InfoIcon, Warning as WarningIcon } from '@mui/icons-material';
 /**
  * Warnings section component for BulkDeleteDialog
  */
 import { Alert, AlertTitle, Typography } from '@mui/material';
 
-import { statusIcons } from '@/shared/ui/icons';
-
 import type { Asset } from '../types';
-
-const WarningIcon = statusIcons.warning;
-const InfoIcon = statusIcons.info;
 
 interface WarningsSectionProps {
   hasNonRestorableAssets: boolean;

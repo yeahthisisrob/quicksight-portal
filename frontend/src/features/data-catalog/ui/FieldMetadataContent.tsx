@@ -1,4 +1,12 @@
 import {
+  Category as CategoryIcon,
+  ExpandMore as ExpandMoreIcon,
+  Info as InfoIcon,
+  AccountTree as LineageIcon,
+  Save as SaveIcon,
+  LocalOffer as TagIcon,
+} from '@mui/icons-material';
+import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
@@ -19,14 +27,6 @@ import { useEffect, useState } from 'react';
 import { ModernTagsInput } from '@/entities/tag';
 
 import { tagsApi } from '@/shared/api';
-import { actionIcons, specialIcons, statusIcons } from '@/shared/ui/icons';
-
-const ExpandMoreIcon = specialIcons.expandMore;
-const InfoIcon = statusIcons.info;
-const TagIcon = actionIcons.tag;
-const LineageIcon = specialIcons.lineage;
-const SaveIcon = specialIcons.save;
-const CategoryIcon = specialIcons.category;
 
 interface FieldMetadataContentProps {
   sourceType: 'dataset' | 'analysis' | 'dashboard';

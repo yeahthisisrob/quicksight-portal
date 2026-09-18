@@ -1,13 +1,10 @@
+import { CheckCircle as CheckCircleIcon } from '@mui/icons-material';
 /**
  * Summary component showing what will be restored
  */
 import { Alert, Box, Stack, Typography } from '@mui/material';
 
-import { statusIcons } from '@/shared/ui/icons';
-
 import type { ArchivedAssetItem, AssetMetadata } from '../types';
-
-const CheckCircleIcon = statusIcons.success;
 
 interface RestoreSummaryProps {
   asset: ArchivedAssetItem;

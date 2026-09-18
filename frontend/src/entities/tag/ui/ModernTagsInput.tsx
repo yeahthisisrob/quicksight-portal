@@ -1,3 +1,4 @@
+import { Add as AddIcon, Close as CloseIcon, LocalOffer as TagIcon } from '@mui/icons-material';
 import {
   Autocomplete,
   alpha,
@@ -12,12 +13,6 @@ import {
   useTheme,
 } from '@mui/material';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
-
-import { actionIcons } from '@/shared/ui/icons';
-
-const TagIcon = actionIcons.tag;
-const AddIcon = actionIcons.add;
-const CloseIcon = actionIcons.close;
 
 interface Tag {
   key: string;
