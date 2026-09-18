@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.14.4...v2.0.0) (2026-09-18)
+
+
+### Features
+
+* **authoring:** rebind dashboards and analyses to other datasets, with a planner and a wireframe viewer ([#123](https://github.com/yeahthisisrob/quicksight-portal/issues/123)) ([2a54b56](https://github.com/yeahthisisrob/quicksight-portal/commit/2a54b56b00c6fad1529b046bbe511ab643f7efe5))
+* **datasets:** edit where a dataset reads from — schema, table, custom SQL, data source ([#121](https://github.com/yeahthisisrob/quicksight-portal/issues/121)) ([332d43c](https://github.com/yeahthisisrob/quicksight-portal/commit/332d43c7abd4ea9325f578f436114181f7537cb3))
+
 ## [1.14.4](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.14.3...v1.14.4) (2026-09-18)
 
 
