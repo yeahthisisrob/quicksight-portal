@@ -21,6 +21,17 @@
 //      produced workarounds, so they are gone.
 {
   "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  // Respect .gitignore. Without this Biome formats generated and local-only
+  // files that no human owns - cdk.context.json is the one that bites: CDK
+  // rewrites it on every synth/deploy (it caches lookups like the SMUS domain
+  // id), so `just check` would fail on a file nobody edited and `just deploy`
+  // could not get past its own preflight.
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+
   "files": {
     "includes": [
       "**",
