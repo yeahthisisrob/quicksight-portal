@@ -1,4 +1,10 @@
 import {
+  Close as CloseIcon,
+  Delete as DeleteIcon,
+  Folder as FolderIcon,
+  LocalOffer as TagIcon,
+} from '@mui/icons-material';
+import {
   alpha,
   Box,
   Button,
@@ -11,12 +17,6 @@ import {
 } from '@mui/material';
 
 import { colors, spacing } from '@/shared/design-system/theme';
-import { actionIcons, assetIcons } from '@/shared/ui/icons';
-
-const FolderIcon = assetIcons.folder;
-const TagIcon = actionIcons.tag;
-const CloseIcon = actionIcons.close;
-const DeleteIcon = actionIcons.delete;
 
 interface BulkActionsToolbarProps {
   selectedCount: number;

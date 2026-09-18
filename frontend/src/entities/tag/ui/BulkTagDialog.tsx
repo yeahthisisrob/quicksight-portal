@@ -1,3 +1,4 @@
+import { Add as AddIcon, Close as CloseIcon, LocalOffer as TagIcon } from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -17,11 +18,6 @@ import { useSnackbar } from 'notistack';
 import { useState } from 'react';
 
 import { assetsApi } from '@/shared/api';
-import { actionIcons } from '@/shared/ui/icons';
-
-const TagIcon = actionIcons.tag;
-const AddIcon = actionIcons.add;
-const CloseIcon = actionIcons.close;
 
 interface BulkTagDialogProps {
   open: boolean;

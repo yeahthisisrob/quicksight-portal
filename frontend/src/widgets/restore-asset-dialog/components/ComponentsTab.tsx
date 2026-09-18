@@ -1,17 +1,17 @@
+import {
+  CheckCircle as CheckCircleIcon,
+  Folder as FolderIcon,
+  Refresh as RefreshIcon,
+  Schedule as ScheduleIcon,
+} from '@mui/icons-material';
 /**
  * Components tab showing what will be restored
  */
 import { Alert, Box, CircularProgress, Paper, Stack, Typography } from '@mui/material';
 
 import { colors } from '@/shared/design-system/theme';
-import { actionIcons, statusIcons } from '@/shared/ui/icons';
 
 import type { ArchivedAssetItem, AssetMetadata } from '../types';
-
-const ScheduleIcon = actionIcons.schedule;
-const RefreshIcon = actionIcons.refresh;
-const FolderIcon = actionIcons.folder;
-const CheckCircleIcon = statusIcons.success;
 
 interface ComponentsTabProps {
   asset: ArchivedAssetItem;

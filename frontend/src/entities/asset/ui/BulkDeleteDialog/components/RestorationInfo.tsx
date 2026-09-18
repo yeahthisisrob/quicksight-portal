@@ -1,15 +1,13 @@
+import { UnfoldLess as ExpandLessIcon, UnfoldMore as ExpandMoreIcon } from '@mui/icons-material';
 /**
  * Restoration info component for BulkDeleteDialog
  */
 import { Alert, Box, Collapse, IconButton, Stack, Typography } from '@mui/material';
 import { useState } from 'react';
 
-import { actionIcons, assetIcons } from '@/shared/ui/icons';
+import { assetIcons } from '@/shared/ui/icons';
 
 import { type Asset, RESTORATION_INFO } from '../types';
-
-const ExpandMoreIcon = actionIcons.expand;
-const ExpandLessIcon = actionIcons.collapse;
 
 interface RestorationInfoProps {
   assetsByType: Record<string, Asset[]>;

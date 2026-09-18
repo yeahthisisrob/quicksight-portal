@@ -1,3 +1,4 @@
+import { Delete as DeleteIcon } from '@mui/icons-material';
 /**
  * Refactored BulkDeleteDialog component with reduced complexity
  * Follows FSD architecture and DRY principles
@@ -22,7 +23,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { assetsApi } from '@/shared/api';
 import { spacing } from '@/shared/design-system/theme';
 import { useJobPolling } from '@/shared/hooks/useJobPolling';
-import { actionIcons } from '@/shared/ui/icons';
 
 // Import component parts
 import { useAssetsOptional } from '../../model';
@@ -32,8 +32,6 @@ import { ProgressSection } from './components/ProgressSection';
 import { RestorationInfo } from './components/RestorationInfo';
 import { WarningsSection } from './components/WarningsSection';
 import type { Asset, BulkDeleteDialogProps } from './types';
-
-const DeleteIcon = actionIcons.delete;
 
 // Helper functions
 function groupAssetsByType(assets: Asset[]): Record<string, Asset[]> {

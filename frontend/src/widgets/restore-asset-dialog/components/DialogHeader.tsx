@@ -1,12 +1,8 @@
+import { Close as CloseIcon, RestoreFromTrash as RestoreIcon } from '@mui/icons-material';
 /**
  * Dialog header component
  */
 import { Box, DialogTitle, IconButton, Typography } from '@mui/material';
-
-import { actionIcons } from '@/shared/ui/icons';
-
-const RestoreIcon = actionIcons.restore;
-const CloseIcon = actionIcons.close;
 
 interface DialogHeaderProps {
   assetType: string;

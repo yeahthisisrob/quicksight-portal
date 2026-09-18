@@ -1,12 +1,8 @@
+import { Close as CloseIcon, RestoreFromTrash as RestoreIcon } from '@mui/icons-material';
 /**
  * Dialog action buttons component
  */
 import { Button, CircularProgress, DialogActions } from '@mui/material';
-
-import { actionIcons } from '@/shared/ui/icons';
-
-const RestoreIcon = actionIcons.restore;
-const CloseIcon = actionIcons.close;
 
 interface DialogActionButtonsProps {
   loading: boolean;
