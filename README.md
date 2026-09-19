@@ -12,7 +12,7 @@ A self-hosted portal for Amazon QuickSight that goes past inventory: it can **au
 
 ### Author: the way dashboards get made
 
-Author is built for the people who make dashboards and analyses all day. Start from something that already works, change it with clicks or with words, see the result before it exists, then publish it into the right folder with the right audience.
+Author is built for the people who make dashboards and analyses all day. Start from something that already works, change it with clicks or with words, see the result before it exists, then publish it into the right folder with the right audience. Or start from nothing at all.
 
 1. **Source** - dashboards and analyses ranked by real use: templates first, then the most viewed, with views, viewers, last-viewed dates, and an insights card for the selected one. Dashboards with QuickSight CloudWatch metrics show their p90 load time, and visuals that are slow or erroring are flagged on the preview so nobody clones a broken one.
 2. **Repair** - when QuickSight refuses an asset (a column the dataset no longer has, a parameter never declared, a dataset that is gone), the plan lists every issue with a fix: rename to the column that took its place, remove every reference, declare or drop the parameter, choose another dataset. Accept the proposal or pick alternatives, see the result in the mockup, and publish in place. Broken assets stop being unpublishable as code.
@@ -22,6 +22,8 @@ Author is built for the people who make dashboards and analyses all day. Start f
 6. **Mockup and edit** - a before/after wireframe of the exact definition that would be written. Click any visual to retitle it, change its type (bar, column, line, pie, donut, table, pivot), move and resize it on the grid, duplicate or remove it, rename sheets. Every edit is a validated operation, listed in plain English, highlighted on the wireframe.
 7. **Publish** - a summary of every change, a folder to publish into, then create the copy (keeping the source's theme and permissions) or apply in place. "Open in QuickSight" to fine-tune, or start another from the result.
 
+**From nothing.** "Start from nothing" on the Source step swaps the flow for a shorter one: pick the datasets the new asset reads, then describe what you want and let the planner propose the visuals, or name the columns yourself. Proposed visuals land as cards you can change - type, title, dataset, category and granularity, values and aggregations, colour - and every edit redraws the mockup. From there it rejoins the same Standard, Mockup and Publish steps, so a dashboard made from scratch lands on the same layout standard, in the same folder, with the same audience as one that was cloned.
+
 ![Author: sources ranked by use, with insights and flagged visuals](docs/screenshots/author-source.png)
 
 ![Author: repairing a dashboard QuickSight refuses to write](docs/screenshots/author-repair.png)
@@ -29,6 +31,8 @@ Author is built for the people who make dashboards and analyses all day. Start f
 ![Author: choosing targets from published SMUS assets](docs/screenshots/author-targets.png)
 
 ![Author: the Standard step - a template dashboard and bulk type rules](docs/screenshots/author-standard.png)
+
+![Author: a dashboard from nothing - the planner's visuals, every one editable](docs/screenshots/author-new-visuals.png)
 
 ![Author: the mockup editor with the inspector and the change list](docs/screenshots/author-mockup.png)
 

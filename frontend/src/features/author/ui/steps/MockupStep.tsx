@@ -67,11 +67,14 @@ function DiffChips({ flow }: { flow: AuthorFlow }) {
 export function MockupStep({ flow }: { flow: AuthorFlow }) {
   const [view, setView] = useState<View>('after');
   const { preview, source, draft, state } = flow;
+  // From nothing there is no Before, nothing to diff, and the visuals are
+  // shaped on their own step rather than in the inspector.
+  const fromNothing = state.mode === 'new';
   const sum = totals(flow);
   const blockers = sum.suggested + sum.missing;
 
   const afterModel = preview.model ?? source.model;
-  const model = view === 'after' ? afterModel : source.model;
+  const model = view === 'after' || fromNothing ? afterModel : source.model;
   // The source outline names elements as they were, so the edits list reads
   // "Retitle 'Revenue by region'" rather than repeating the new title.
   const sourceOutline = useMemo(
@@ -81,7 +84,8 @@ export function MockupStep({ flow }: { flow: AuthorFlow }) {
   const outline = preview.outline ?? sourceOutline;
   const [sheetId, setSheetId] = useState<string | undefined>(undefined);
   const currentSheetId = sheetId ?? outline[0]?.sheetId ?? model?.sheets[0]?.id ?? '';
-  const editing = view === 'after' && model !== null;
+  const editing = view === 'after' && model !== null && !fromNothing;
+  const visualCount = fromNothing ? flow.fresh.visuals.filter((v) => v.title.trim()).length : 0;
 
   return (
     <Stack spacing={2.5}>
@@ -101,19 +105,25 @@ export function MockupStep({ flow }: { flow: AuthorFlow }) {
       )}
       <Panel
         title="Mockup"
-        description="Layout and fields only, drawn from the definition the publish step would write. On the After view, click any card to edit it."
+        description={
+          fromNothing
+            ? 'Layout and fields only, drawn from the definition the publish step would write. Change the visuals on the Visuals step, the layout on the Standard step.'
+            : 'Layout and fields only, drawn from the definition the publish step would write. On the After view, click any card to edit it.'
+        }
         actions={
           <>
-            <SegmentedControl<View>
-              size="small"
-              ariaLabel="Before or after"
-              value={view}
-              onChange={setView}
-              options={[
-                { value: 'before', label: 'Before' },
-                { value: 'after', label: 'After' },
-              ]}
-            />
+            {!fromNothing && (
+              <SegmentedControl<View>
+                size="small"
+                ariaLabel="Before or after"
+                value={view}
+                onChange={setView}
+                options={[
+                  { value: 'before', label: 'Before' },
+                  { value: 'after', label: 'After' },
+                ]}
+              />
+            )}
             <Button onClick={flow.back}>Back</Button>
             <Button
               variant="contained"
@@ -133,6 +143,11 @@ export function MockupStep({ flow }: { flow: AuthorFlow }) {
           >
             {preview.loading ? (
               <StatusIndicator kind="loading">Building the mockup</StatusIndicator>
+            ) : fromNothing ? (
+              <StatusIndicator kind={preview.error ? 'warning' : 'success'}>
+                {visualCount} visual{visualCount === 1 ? '' : 's'} on {flow.fresh.datasets.length}{' '}
+                dataset{flow.fresh.datasets.length === 1 ? '' : 's'}
+              </StatusIndicator>
             ) : blockers > 0 ? (
               <StatusIndicator kind="warning">
                 {blockers} column{blockers === 1 ? '' : 's'} still need a decision
@@ -184,14 +199,14 @@ export function MockupStep({ flow }: { flow: AuthorFlow }) {
 
           {preview.error && <Alert severity="error">{preview.error}</Alert>}
 
-          {!source.model && !source.loading && (
+          {!fromNothing && !source.model && !source.loading && (
             <Alert severity="info">
               No definition is cached for the source yet, so there is nothing to draw or edit. Run
               an export with definitions and come back; publishing still works.
             </Alert>
           )}
 
-          {view === 'after' && preview.loading && !model && (
+          {(view === 'after' || fromNothing) && preview.loading && !model && (
             <Box sx={{ py: 8, display: 'flex', justifyContent: 'center' }}>
               <CircularProgress />
             </Box>
@@ -253,50 +268,61 @@ export function MockupStep({ flow }: { flow: AuthorFlow }) {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
+          gridTemplateColumns: {
+            xs: '1fr',
+            md: fromNothing ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+          },
           gap: 2.5,
           alignItems: 'start',
         }}
       >
         <Panel
-          title="Changes"
-          description="Every change in plain language, in the order the publish step applies it."
+          title={fromNothing ? 'What gets built' : 'Changes'}
+          description={
+            fromNothing
+              ? 'Every visual and every piece of the standard, in plain language, as the server built it.'
+              : 'Every change in plain language, in the order the publish step applies it.'
+          }
         >
           <ChangesList
             changes={preview.changes}
             emptyText={
               preview.loading
                 ? 'Working out the changes…'
-                : 'Nothing changes yet. Choose datasets, add calculated fields or edit the mockup.'
+                : fromNothing
+                  ? 'Nothing built yet. Add a visual on the Visuals step.'
+                  : 'Nothing changes yet. Choose datasets, add calculated fields or edit the mockup.'
             }
           />
         </Panel>
-        <Panel
-          title="Edits"
-          description="What you and the planner changed on the mockup. Remove any one, or take them all back."
-          actions={
-            <>
-              <Button
-                size="small"
-                startIcon={<Undo />}
-                onClick={flow.undoOp}
-                disabled={state.ops.length === 0}
-              >
-                Undo last
-              </Button>
-              <Button
-                size="small"
-                startIcon={<Redo sx={{ transform: 'scaleX(-1)' }} />}
-                onClick={flow.clearOps}
-                disabled={state.ops.length === 0}
-              >
-                Clear all
-              </Button>
-            </>
-          }
-        >
-          <OpsList ops={state.ops} outline={sourceOutline} onRemove={flow.removeOp} />
-        </Panel>
+        {!fromNothing && (
+          <Panel
+            title="Edits"
+            description="What you and the planner changed on the mockup. Remove any one, or take them all back."
+            actions={
+              <>
+                <Button
+                  size="small"
+                  startIcon={<Undo />}
+                  onClick={flow.undoOp}
+                  disabled={state.ops.length === 0}
+                >
+                  Undo last
+                </Button>
+                <Button
+                  size="small"
+                  startIcon={<Redo sx={{ transform: 'scaleX(-1)' }} />}
+                  onClick={flow.clearOps}
+                  disabled={state.ops.length === 0}
+                >
+                  Clear all
+                </Button>
+              </>
+            }
+          >
+            <OpsList ops={state.ops} outline={sourceOutline} onRemove={flow.removeOp} />
+          </Panel>
+        )}
       </Box>
     </Stack>
   );

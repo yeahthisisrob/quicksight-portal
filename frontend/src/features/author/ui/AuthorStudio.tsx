@@ -7,31 +7,37 @@ import { type AuthorFlow, type AuthorFlowOptions, useAuthorFlow } from '../model
 import { HowItWorks } from './HowItWorks';
 import { StepsRail } from './StepsRail';
 import { MockupStep } from './steps/MockupStep';
+import { NewDatasetsStep } from './steps/NewDatasetsStep';
+import { NewPublishStep } from './steps/NewPublishStep';
 import { PublishStep } from './steps/PublishStep';
 import { RepairStep } from './steps/RepairStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { SourceStep } from './steps/SourceStep';
 import { StandardStep } from './steps/StandardStep';
 import { TargetsStep } from './steps/TargetsStep';
+import { VisualsStep } from './steps/VisualsStep';
 
 const RAIL_WIDTH = 264;
 
 function StepBody({ flow }: { flow: AuthorFlow }) {
+  const fromNothing = flow.state.mode === 'new';
   switch (flow.state.step) {
     case 'source':
       return <SourceStep flow={flow} />;
     case 'repair':
       return <RepairStep flow={flow} />;
     case 'targets':
-      return <TargetsStep flow={flow} />;
+      return fromNothing ? <NewDatasetsStep flow={flow} /> : <TargetsStep flow={flow} />;
     case 'review':
       return <ReviewStep flow={flow} />;
+    case 'visuals':
+      return <VisualsStep flow={flow} />;
     case 'standard':
       return <StandardStep flow={flow} />;
     case 'mockup':
       return <MockupStep flow={flow} />;
     case 'publish':
-      return <PublishStep flow={flow} />;
+      return fromNothing ? <NewPublishStep flow={flow} /> : <PublishStep flow={flow} />;
     default:
       return null;
   }
@@ -42,6 +48,7 @@ export function AuthorStudioView({ flow }: { flow: AuthorFlow }) {
   // The mockup is a dashboard drawing with an inspector beside it: it needs
   // every pixel of width, so the rail moves above it as a horizontal stepper.
   const wide = flow.state.step === 'mockup';
+  const fromNothing = flow.state.mode === 'new';
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0 }}>
       <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -50,11 +57,12 @@ export function AuthorStudioView({ flow }: { flow: AuthorFlow }) {
             Author
           </Typography>
           <Typography variant="body1" sx={{ color: 'text.secondary', mt: 0.5 }}>
-            Make a dashboard or analysis like an existing one, on different datasets, shape it, and
-            see it before it exists.
+            {fromNothing
+              ? 'Make a dashboard or analysis from nothing: pick datasets, describe it or name the columns, and see it before it exists.'
+              : 'Make a dashboard or analysis like an existing one, on different datasets, shape it, and see it before it exists.'}
           </Typography>
         </Box>
-        <HowItWorks defaultOpen={flow.state.source === null} />
+        <HowItWorks defaultOpen={flow.state.source === null && !fromNothing} />
       </Box>
       <Box
         sx={{

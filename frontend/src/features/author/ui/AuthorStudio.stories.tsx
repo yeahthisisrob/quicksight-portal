@@ -3,12 +3,16 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useEffect, useState } from 'react';
 
 import { type MockRoute, mockApi } from '../../../../.storybook/mocks/api';
+import { draftsFromSpecs, newVisual } from '../model/newAsset';
 import {
   authorRoutes,
   EDITOR_OPS,
+  FRESH_DATASETS,
+  FRESH_PROPOSAL,
   FULL_MAP,
   fakeFlow,
   PROPOSED_OPS,
+  PROPOSED_VISUALS,
   previewModelFor,
   REPAIR_PLAN,
   repairPlanRoute,
@@ -449,6 +453,176 @@ export const StepPublishRejected: Story = {
           draft: resolvedDraft(),
           publishError:
             'Column net_revenue in dataset sales has type DECIMAL but the visual expects DATETIME',
+        })}
+      />
+    </Mocked>
+  ),
+};
+
+// --- from nothing -----------------------------------------------------------
+
+/** The planner's five visuals as editable cards. */
+const proposedDrafts = () => draftsFromSpecs(PROPOSED_VISUALS);
+
+export const NewDatasets: Story = {
+  name: 'New · Datasets',
+  render: () => (
+    <Mocked routes={authorRoutes()}>
+      <AuthorStudioView flow={fakeFlow({ step: 'targets', fresh: { datasets: FRESH_DATASETS } })} />
+    </Mocked>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Two datasets chosen, each under the identifier its columns are addressed by, with the columns read from the export cache. A third can be added from SMUS or QuickSight below.',
+      },
+    },
+  },
+};
+
+export const NewVisualsProposed: Story = {
+  name: 'New · Visuals: proposed',
+  render: () => (
+    <Mocked routes={authorRoutes()}>
+      <AuthorStudioView
+        flow={fakeFlow({
+          step: 'visuals',
+          ask: 'revenue and orders this year, revenue by region and channel, a monthly trend, top customers',
+          freshProposal: FRESH_PROPOSAL,
+          fresh: { datasets: FRESH_DATASETS, visuals: proposedDrafts() },
+        })}
+      />
+    </Mocked>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The ask went to the planner and its five visuals came back as cards: two KPIs, a bar chart by region coloured by channel, a monthly trend on a date column with its granularity, and a table. Every field is editable and each edit re-previews.',
+      },
+    },
+  },
+};
+
+export const NewVisualsByHand: Story = {
+  name: 'New · Visuals: by hand',
+  render: () => (
+    <Mocked routes={authorRoutes()}>
+      <AuthorStudioView
+        flow={fakeFlow({
+          step: 'visuals',
+          fresh: {
+            datasets: FRESH_DATASETS,
+            visuals: [{ ...proposedDrafts()[2]!, color: undefined }, newVisual('targets')],
+          },
+        })}
+      />
+    </Mocked>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'One visual built by naming columns, and a fresh card that still needs a title and a value: it is outlined in warning until it is complete, and the Continue button waits for it.',
+      },
+    },
+  },
+};
+
+export const NewMockup: Story = {
+  name: 'New · Mockup',
+  render: () => (
+    <Mocked routes={authorRoutes()}>
+      <AuthorStudioView
+        flow={fakeFlow({
+          step: 'mockup',
+          fresh: { datasets: FRESH_DATASETS, visuals: proposedDrafts() },
+        })}
+      />
+    </Mocked>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The definition the publish step would write, drawn: KPIs first in their band, the rest in standard tiles. There is no Before view and no inspector, because there is nothing to compare it with.',
+      },
+    },
+  },
+};
+
+export const NewMockupOnStandard: Story = {
+  name: 'New · Mockup on a standard',
+  render: () => (
+    <Mocked routes={authorRoutes()}>
+      <AuthorStudioView
+        flow={fakeFlow({
+          step: 'mockup',
+          template: STANDARD_TEMPLATE,
+          fresh: { datasets: FRESH_DATASETS, visuals: proposedDrafts() },
+        })}
+      />
+    </Mocked>
+  ),
+};
+
+export const NewPublish: Story = {
+  name: 'New · Publish',
+  render: () => (
+    <Mocked routes={authorRoutes()}>
+      <AuthorStudioView
+        flow={fakeFlow({
+          step: 'publish',
+          template: STANDARD_TEMPLATE,
+          folder: { id: 'fld-sales-eu', name: 'EMEA', path: '/Sales/EMEA' },
+          fresh: {
+            datasets: FRESH_DATASETS,
+            visuals: proposedDrafts(),
+            name: 'Regional sales',
+            audience: { type: 'dashboard', id: 'exec-summary', name: 'Executive summary' },
+          },
+        })}
+      />
+    </Mocked>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Name it, say whose readers it gets, pick a folder. The summary names every dataset, visual and piece of the standard before anything is written.',
+      },
+    },
+  },
+};
+
+export const NewCreated: Story = {
+  name: 'New · Created',
+  render: () => (
+    <Mocked routes={authorRoutes()}>
+      <AuthorStudioView
+        flow={fakeFlow({
+          step: 'publish',
+          fresh: {
+            datasets: FRESH_DATASETS,
+            visuals: proposedDrafts(),
+            name: 'Regional sales',
+          },
+          result: {
+            assetType: 'dashboard',
+            assetId: 'regional-sales-new',
+            name: 'Regional sales',
+            mode: 'create',
+            versionNumber: 1,
+            changes: [
+              { kind: 'visual', description: 'Added KPI "Revenue": sum of net_revenue' },
+              {
+                kind: 'visual',
+                description:
+                  'Added Bar chart "Revenue by region": sum of net_revenue, by region, coloured by channel',
+              },
+            ],
+          },
         })}
       />
     </Mocked>

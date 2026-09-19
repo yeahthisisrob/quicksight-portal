@@ -62,6 +62,17 @@ export const MigrateOntoStandard: Story = {
   ),
 };
 
+/** /author?new=1 - the flow that starts from nothing, on the Datasets step. */
+export const StartedFromNothing: Story = {
+  name: 'Started from nothing',
+  parameters: { router: { initialEntries: ['/author?new=1'] } },
+  render: () => (
+    <AppShell path="author" routes={authorRoutes()}>
+      <AuthorPage />
+    </AppShell>
+  ),
+};
+
 export const Start: Story = {
   name: 'Fresh, nothing chosen',
   parameters: { router: { initialEntries: ['/author'] } },

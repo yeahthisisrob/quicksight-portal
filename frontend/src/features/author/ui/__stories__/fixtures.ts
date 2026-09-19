@@ -16,8 +16,10 @@ import type {
   DefinitionChange,
   DefinitionDataset,
   DefinitionOp,
+  NewAssetRequest,
   RebindPlan,
   RepairPlan,
+  VisualSpec,
 } from '@/shared/api/modules/authoring';
 import type { SmusAsset } from '@/shared/api/modules/smus';
 
@@ -29,9 +31,13 @@ import { outlineFromModel } from '../../lib/ops';
 import {
   type AuthorFlowState,
   authorSteps,
+  EMPTY_FRESH,
+  type FreshAsset,
   initialAuthorFlowState,
+  initialNewFlowState,
   stepStatus,
 } from '../../model/authorFlow';
+import { type DatasetColumn, isComplete, newAssetRequest } from '../../model/newAsset';
 import { defaultChoices, repairRequests, repairSummary } from '../../model/repair';
 import {
   defaultParts,
@@ -40,7 +46,8 @@ import {
   type StandardTemplate,
   type StandardTypeRules,
 } from '../../model/standard';
-import type { AuthorFlow, StandardCandidate } from '../../model/useAuthorFlow';
+import type { AuthorFlow, NewAssetFlow, StandardCandidate } from '../../model/useAuthorFlow';
+import { simulateNew } from './simulateNew';
 import { simulatePreview } from './simulateOps';
 
 /** Nothing wrong with the source: the Repair step stays hidden. */
@@ -350,6 +357,104 @@ export const SMUS_ASSETS: SmusAsset[] = [
 ];
 
 const TEMPLATE_TAG_ITEM = { key: 'quicksight-portal:template', value: 'true' };
+
+// ---------------------------------------------------------------------------
+// From nothing: the datasets a new dashboard can read and what the planner
+// proposes for them.
+// ---------------------------------------------------------------------------
+
+/** Output columns by dataset id, as the cached dataset exports carry them. */
+export const DATASET_COLUMNS: Record<string, DatasetColumn[]> = {
+  'sales-gold': GOLD_COLUMNS,
+  targets: [
+    { name: 'region', type: 'STRING' },
+    { name: 'target_revenue', type: 'DECIMAL' },
+    { name: 'target_month', type: 'DATETIME' },
+  ],
+  'sales-bronze': [],
+};
+
+const DATASET_NAMES: Record<string, string> = {
+  'sales-gold': 'sales_gold',
+  targets: 'targets',
+  'sales-bronze': 'sales_bronze',
+};
+
+/** A cached dataset export: the describe call with its output columns. */
+export function datasetExportFor(dataSetId: string) {
+  const columns = DATASET_COLUMNS[dataSetId] ?? [];
+  return {
+    apiResponses: {
+      list: { data: { DataSetId: dataSetId, Name: DATASET_NAMES[dataSetId] ?? dataSetId } },
+      describe: {
+        data: {
+          DataSetId: dataSetId,
+          Name: DATASET_NAMES[dataSetId] ?? dataSetId,
+          OutputColumns: columns.map((c) => ({ Name: c.name, Type: c.type })),
+        },
+      },
+    },
+  };
+}
+
+/** The datasets a from-nothing story starts with. */
+export const FRESH_DATASETS: FreshAsset['datasets'] = [
+  { identifier: 'sales_gold', dataSetId: 'sales-gold', name: 'sales_gold' },
+  { identifier: 'targets', dataSetId: 'targets', name: 'targets' },
+];
+
+/** What the planner proposes for "revenue, orders, by region, a trend, top customers". */
+export const PROPOSED_VISUALS: VisualSpec[] = [
+  {
+    type: 'KPI',
+    title: 'Revenue',
+    identifier: 'sales_gold',
+    values: [{ column: 'net_revenue', aggregation: 'SUM' }],
+  },
+  {
+    type: 'KPI',
+    title: 'Orders',
+    identifier: 'sales_gold',
+    values: [{ column: 'order_id', aggregation: 'DISTINCT_COUNT' }],
+  },
+  {
+    type: 'BarChart',
+    title: 'Revenue by region',
+    identifier: 'sales_gold',
+    category: 'region',
+    values: [{ column: 'net_revenue', aggregation: 'SUM' }],
+    color: 'channel',
+  },
+  {
+    type: 'LineChart',
+    title: 'Monthly trend',
+    identifier: 'sales_gold',
+    category: 'Order Date',
+    granularity: 'MONTH',
+    values: [{ column: 'net_revenue', aggregation: 'SUM' }],
+  },
+  {
+    type: 'Table',
+    title: 'Top customers',
+    identifier: 'sales_gold',
+    category: 'customer_name',
+    values: [
+      { column: 'net_revenue', aggregation: 'SUM' },
+      { column: 'margin', aggregation: 'SUM' },
+    ],
+  },
+];
+
+export const FRESH_PROPOSAL = {
+  reason:
+    'Revenue and orders lead as KPIs; region and channel are the only categorical columns worth splitting revenue by; Order Date gives the trend; customers make the table.',
+  model: { provider: 'bedrock', model: 'us.anthropic.claude-sonnet-4-6' },
+};
+
+/** The server's from-nothing preview for a request, with the story datasets' columns. */
+export function newAssetPreviewFor(request: NewAssetRequest) {
+  return simulateNew(request, DATASET_COLUMNS, { visuals: PROPOSED_VISUALS, ...FRESH_PROPOSAL });
+}
 
 /** Dashboards as the list endpoint returns them, with activity for ranking. */
 export const SOURCES = [
@@ -703,6 +808,45 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
     },
     {
       method: 'get',
+      url: /\/assets\/dataset\/[^/]+\/cached$/,
+      respond: (config) => {
+        const parts = String(config.url).split('/');
+        const id = parts[parts.length - 2] ?? '';
+        return { body: { success: true, data: datasetExportFor(id) } };
+      },
+    },
+    {
+      method: 'post',
+      url: /\/authoring\/new\/preview$/,
+      respond: (config) => ({
+        body: { success: true, data: newAssetPreviewFor(requestBody(config)) },
+      }),
+    },
+    {
+      method: 'post',
+      url: /\/authoring\/new$/,
+      respond: (config) => {
+        const request = requestBody<NewAssetRequest>(config);
+        const built = newAssetPreviewFor(request);
+        return {
+          body: {
+            success: true,
+            data: {
+              assetType: request.assetType,
+              assetId: 'regional-sales-new',
+              name: request.name,
+              arn: 'arn:x',
+              versionNumber: request.assetType === 'dashboard' ? 1 : undefined,
+              changes: built.changes,
+              warnings: built.warnings,
+              folderId: request.folderId,
+            },
+          },
+        };
+      },
+    },
+    {
+      method: 'get',
       url: /\/authoring\/.*\/datasets$/,
       respond: () => ({
         body: {
@@ -1011,9 +1155,18 @@ export interface FakeFlowOptions {
   /** The Standard step: a template dashboard and bulk type rules. */
   template?: StandardTemplate | null;
   typeRules?: StandardTypeRules;
+  /** From nothing: the flow in New mode with these datasets and visuals. */
+  fresh?: Partial<FreshAsset>;
+  /** Shown once on the Visuals step after a proposal. */
+  freshProposal?: NewAssetFlow['proposal'];
+  /** Text in the ask box. */
+  ask?: string;
 }
 
 export function fakeFlow(options: FakeFlowOptions = {}): AuthorFlow {
+  if (options.fresh) {
+    return fakeNewFlow(options);
+  }
   const draft = fakeDraft(options.draft);
   const sourceModel =
     options.sourceModel === undefined
@@ -1099,6 +1252,8 @@ export function fakeFlow(options: FakeFlowOptions = {}): AuthorFlow {
     insights: { loading: false, error: null, data: insights },
     healthBadges: healthBadges(insights),
     selectSource: noop,
+    startNew: noop,
+    fresh: fakeFresh(EMPTY_FRESH),
     goTo: noop,
     next: noop,
     back: noop,
@@ -1146,6 +1301,116 @@ export function fakeFlow(options: FakeFlowOptions = {}): AuthorFlow {
     setTemplateFieldIdentifier: () => {},
     reset: noop,
     startFromResult: noop,
+  };
+}
+
+function fakeFresh(fresh: FreshAsset, proposal: NewAssetFlow['proposal'] = null): NewAssetFlow {
+  const columns: NewAssetFlow['columns'] = {};
+  for (const dataset of fresh.datasets) {
+    columns[dataset.identifier] = {
+      loading: false,
+      columns: DATASET_COLUMNS[dataset.dataSetId] ?? [],
+    };
+  }
+  return {
+    assetType: fresh.assetType,
+    setAssetType: noop,
+    name: fresh.name,
+    setName: noop,
+    sheetName: fresh.sheetName,
+    setSheetName: noop,
+    datasets: fresh.datasets,
+    addDataset: noop,
+    removeDataset: noop,
+    setIdentifier: noop,
+    columns,
+    visuals: fresh.visuals,
+    addVisual: noop,
+    updateVisual: noop,
+    removeVisual: noop,
+    addValue: noop,
+    updateValue: noop,
+    removeValue: noop,
+    proposal,
+    audience: fresh.audience,
+    setAudience: noop,
+    ready: fresh.datasets.length > 0 && fresh.visuals.some(isComplete),
+  };
+}
+
+/** The flow in New mode: canned datasets and visuals, the preview simulated from them. */
+function fakeNewFlow(options: FakeFlowOptions): AuthorFlow {
+  const fresh: FreshAsset = { ...EMPTY_FRESH, ...options.fresh };
+  const template = options.template ?? null;
+  const typeRules = options.typeRules ?? NO_TYPE_RULES;
+  const standardActive = hasStandard(template, typeRules);
+  const request = newAssetRequest({
+    assetType: fresh.assetType,
+    name: fresh.name || 'Preview',
+    datasets: fresh.datasets,
+    visuals: fresh.visuals,
+    sheetName: fresh.sheetName,
+    template: template
+      ? { assetType: template.assetType, assetId: template.assetId, ...template.parts }
+      : undefined,
+    typeRules: hasStandard(null, typeRules) ? typeRules : undefined,
+  });
+  const ready = fresh.datasets.length > 0 && fresh.visuals.some(isComplete);
+  const built = ready ? newAssetPreviewFor(request) : null;
+  const standard = standardEffects(
+    template ? { assetId: template.assetId, ...template.parts } : undefined,
+    hasStandard(null, typeRules) ? typeRules : undefined
+  );
+  const state: AuthorFlowState = {
+    ...initialNewFlowState,
+    step: options.step ?? 'targets',
+    result: options.result ?? null,
+    visited: ['targets', 'visuals', 'standard', 'mockup', 'publish'],
+    folder: options.folder ?? null,
+    template,
+    typeRules,
+    fresh,
+  };
+  const previewModel = built ? buildWireframeModel(built.definition) : null;
+  const base = fakeFlow({ step: options.step, template, typeRules, result: options.result });
+  return {
+    ...base,
+    state,
+    status: stepStatus(state, {
+      hasTargets: false,
+      canApply: ready,
+      hasStandard: standardActive,
+      hasVisuals: ready,
+    }),
+    steps: authorSteps(false, 'new'),
+    draft: fakeDraft({ datasets: [], name: '', mode: 'clone' }),
+    source: {
+      loading: false,
+      error: null,
+      exportData: null,
+      model: null,
+      tags: [],
+      isTemplate: false,
+    },
+    insights: { loading: false, error: null, data: null },
+    healthBadges: new Map(),
+    fresh: fakeFresh(fresh, options.freshProposal ?? null),
+    ask: options.ask ?? '',
+    proposal: null,
+    preview: {
+      loading: options.previewLoading ?? false,
+      error: null,
+      plan: null,
+      model: previewModel,
+      diff: null,
+      changes: built
+        ? [...built.changes, ...standard.changes.filter((c) => c.kind !== 'template')]
+        : [],
+      outline: built?.outline ?? null,
+      warnings: built ? [...built.warnings, ...standard.warnings] : [],
+      themeArn: built?.themeArn ?? null,
+    },
+    publishError: options.publishError ?? null,
   };
 }
 

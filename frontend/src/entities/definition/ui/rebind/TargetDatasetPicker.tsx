@@ -10,9 +10,11 @@ import type { DatasetOption } from '../../lib/useRebindDraft';
 interface TargetDatasetPickerProps {
   value: DatasetOption | null;
   onChange: (value: DatasetOption | null) => void;
-  /** The dataset currently bound; shown as a hint and excluded from the options. */
-  currentId: string;
+  /** The dataset currently bound; shown as a hint and excluded from the options. Absent for a new asset. */
+  currentId?: string;
   disabled?: boolean;
+  /** Below the box; defaults to the current dataset when there is one. */
+  helperText?: string;
   /** Text in the box at first render, with the list open (stories). */
   initialInput?: string;
 }
@@ -37,8 +39,9 @@ interface SearchedOption extends DatasetOption {
 export function TargetDatasetPicker({
   value,
   onChange,
-  currentId,
+  currentId = '',
   disabled,
+  helperText,
   initialInput = '',
 }: TargetDatasetPickerProps) {
   const [input, setInput] = useState(initialInput);
@@ -62,7 +65,7 @@ export function TargetDatasetPicker({
         if (!cancelled) {
           setListed(
             result.datasets
-              .filter((d) => d.id !== currentId)
+              .filter((d) => !currentId || d.id !== currentId)
               .map((d) => ({ id: d.id, name: d.name }))
           );
         }
@@ -86,7 +89,7 @@ export function TargetDatasetPicker({
     () =>
       searching
         ? found.hits
-            .filter((h) => h.id !== currentId)
+            .filter((h) => !currentId || h.id !== currentId)
             .map((h) => ({ id: h.id, name: h.name, summary: h.summary, why: h.why }))
         : listed,
     [searching, found.hits, listed, currentId]
@@ -145,7 +148,7 @@ export function TargetDatasetPicker({
           {...params}
           label="Read from dataset"
           placeholder="Type a name, or describe it: gold orders with revenue by region"
-          helperText={`Currently ${currentId}`}
+          helperText={helperText ?? (currentId ? `Currently ${currentId}` : undefined)}
         />
       )}
     />
