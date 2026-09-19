@@ -91,6 +91,12 @@ const ROUTE_PATTERNS: readonly RoutePattern[] = [
     // Note: No minMatchLength - routes may have 1 param (paginated) or 2 params (cached)
   },
   {
+    // Literal, so it is read before the {assetType}/{assetId} shape below.
+    prefix: '/authoring/datasets/',
+    excludes: [],
+    params: ['dataSetId'],
+  },
+  {
     prefix: '/authoring/',
     excludes: [],
     params: ['assetType', 'assetId'],

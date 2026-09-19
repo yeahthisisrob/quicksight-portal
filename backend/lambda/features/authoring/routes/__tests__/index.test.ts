@@ -8,6 +8,7 @@ vi.mock('../../handlers/AuthoringHandler', () => ({
       applyRebind: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
       propose: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
       previewRebind: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
+      getDatasetColumns: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
     };
   }),
 }));
@@ -46,6 +47,17 @@ describe('authoringRoutes', () => {
     expect(find('POST', '/authoring/new/preview')).toBeDefined();
     expect(find('POST', '/authoring/new')).toBeDefined();
     expect(find('POST', '/authoring/new/rebind')).toBeUndefined();
+  });
+
+  it("serves a dataset's columns without an asset, and only for that path", () => {
+    const route = find('GET', '/authoring/datasets/ds-1/columns');
+    expect(route).toBeDefined();
+    expect(find('GET', '/authoring/datasets/ds-1/datasets')).toBeUndefined();
+    // No names passed, exactly as the router calls it: the path patterns must
+    // read this as a dataset id, not as an assetType/assetId pair.
+    expect(extractPathParams('/authoring/datasets/ds-1/columns', route?.path as RegExp)).toEqual({
+      dataSetId: 'ds-1',
+    });
   });
 
   it('exposes assetType and assetId as path parameters', () => {

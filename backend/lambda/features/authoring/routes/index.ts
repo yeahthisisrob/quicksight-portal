@@ -17,6 +17,11 @@ export const authoringRoutes: RouteHandler[] = [
   },
   {
     method: 'GET',
+    path: /^\/authoring\/datasets\/([^/]+)\/columns$/,
+    handler: (event) => handler.getDatasetColumns(event),
+  },
+  {
+    method: 'GET',
     path: /^\/authoring\/(analysis|dashboard)\/([^/]+)\/datasets$/,
     handler: (event) => handler.getDatasets(event),
   },

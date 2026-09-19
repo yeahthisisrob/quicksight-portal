@@ -10,7 +10,6 @@ import {
 } from '../authorFlow';
 import {
   addValue,
-  columnsFromExport,
   type DraftVisual,
   defaultAggregation,
   describeVisual,
@@ -147,34 +146,6 @@ describe('editing', () => {
     expect(isDateColumn('DATETIME')).toBe(true);
     expect(isDateColumn('STRING')).toBe(false);
     expect(isDateColumn(undefined)).toBe(false);
-  });
-});
-
-describe('columnsFromExport', () => {
-  it('reads the describe call output columns', () => {
-    expect(
-      columnsFromExport({
-        apiResponses: {
-          describe: {
-            data: {
-              OutputColumns: [
-                { Name: 'region', Type: 'STRING' },
-                { Name: 'revenue', Type: 'DECIMAL' },
-                { Type: 'STRING' },
-              ],
-            },
-          },
-        },
-      })
-    ).toEqual([
-      { name: 'region', type: 'STRING' },
-      { name: 'revenue', type: 'DECIMAL' },
-    ]);
-  });
-
-  it('is empty for an asset that is not cached', () => {
-    expect(columnsFromExport(undefined)).toEqual([]);
-    expect(columnsFromExport({ apiResponses: {} })).toEqual([]);
   });
 });
 

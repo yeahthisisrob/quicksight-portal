@@ -3425,6 +3425,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/authoring/datasets/{dataSetId}/columns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The columns a dataset exposes
+         * @description For building an asset that does not exist yet, and so has no definition
+         *     to read its columns from. Described live, falling back to the dataset's
+         *     export when QuickSight cannot describe it (flat files), exactly as a
+         *     rebind target is resolved.
+         */
+        get: operations["getAuthoringDatasetColumns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/authoring/new/preview": {
         parameters: {
             query?: never;
@@ -5229,6 +5252,14 @@ export interface components {
             kpi?: boolean;
             casts?: boolean;
         };
+        AuthoringDatasetColumns: {
+            dataSetId: string;
+            name: string;
+            columns: {
+                name: string;
+                type?: string;
+            }[];
+        };
         /**
          * @description Migrate onto a template dashboard's layout standard. The template's
          *     text boxes and title band come across at their positions, its
@@ -5237,21 +5268,24 @@ export interface components {
          *     order, into rows of the template's standard tile size below the
          *     furniture, KPIs first at the template's KPI size when it has a KPI
          *     band. Applied after rebinds and before added fields and ops.
+         *
+         *     Every part is optional and on by default, so a caller that wants the
+         *     whole standard sends only assetType and assetId.
          */
         TemplateRequest: {
             /** @enum {string} */
             assetType: "dashboard" | "analysis";
             assetId: string;
-            /** @default true */
-            textBoxes: boolean;
-            /** @default true */
-            controls: boolean;
-            /** @default true */
-            sheetNames: boolean;
-            /** @default true */
-            kpisFirst: boolean;
-            /** @default true */
-            theme: boolean;
+            /** @description Carry the template's text boxes and title band. Default true. */
+            textBoxes?: boolean;
+            /** @description Carry the template's controls where a source column matches. Default true. */
+            controls?: boolean;
+            /** @description Take the template's sheet names. Default true. */
+            sheetNames?: boolean;
+            /** @description KPIs first at the template's KPI size when it has a KPI band. Default true. */
+            kpisFirst?: boolean;
+            /** @description Write the template's theme. Default true. */
+            theme?: boolean;
         };
         /** @description Point one dataset identifier at a different dataset. */
         RebindRequest: {
@@ -6441,6 +6475,34 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getAuthoringDatasetColumns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataSetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The dataset's output columns */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["AuthoringDatasetColumns"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     addUsersToGroup: {
         parameters: {
             query?: never;

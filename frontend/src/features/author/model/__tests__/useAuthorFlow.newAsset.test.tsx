@@ -30,22 +30,19 @@ vi.mock('@/shared/api', async (importOriginal) => {
       applyRebind: vi.fn(),
       previewNew: vi.fn(),
       createNew: vi.fn(),
+      getDatasetColumns: vi.fn(),
     },
     tagsApi: { updateResourceTags: vi.fn(), removeResourceTags: vi.fn() },
   };
 });
 
-const DATASET_EXPORT = {
-  apiResponses: {
-    describe: {
-      data: {
-        OutputColumns: [
-          { Name: 'region', Type: 'STRING' },
-          { Name: 'revenue', Type: 'DECIMAL' },
-        ],
-      },
-    },
-  },
+const DATASET_COLUMNS = {
+  dataSetId: 'sales-gold',
+  name: 'sales gold',
+  columns: [
+    { name: 'region', type: 'STRING' },
+    { name: 'revenue', type: 'DECIMAL' },
+  ],
 };
 
 const PROPOSED = [
@@ -75,9 +72,7 @@ function lastBody(fn: ReturnType<typeof vi.fn>): Record<string, any> {
 /** A dataset with one complete visual on it: the mockup can open. */
 async function withVisual(result: { current: ReturnType<typeof useAuthorFlow> }) {
   act(() => result.current.fresh.addDataset({ id: 'sales-gold', name: 'sales gold' }));
-  await waitFor(() =>
-    expect(assetsApi.getCachedAsset).toHaveBeenCalledWith('dataset', 'sales-gold')
-  );
+  await waitFor(() => expect(authoringApi.getDatasetColumns).toHaveBeenCalledWith('sales-gold'));
   act(() => result.current.fresh.addVisual());
   const id = result.current.fresh.visuals[0]!.id;
   act(() => {
@@ -90,7 +85,7 @@ async function withVisual(result: { current: ReturnType<typeof useAuthorFlow> })
 describe('useAuthorFlow from nothing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(assetsApi.getCachedAsset).mockResolvedValue(DATASET_EXPORT as never);
+    vi.mocked(authoringApi.getDatasetColumns).mockResolvedValue(DATASET_COLUMNS as never);
     vi.mocked(assetsApi.getDashboardsPaginated).mockResolvedValue({ dashboards: [] } as never);
     vi.mocked(authoringApi.getInsights).mockRejectedValue(new Error('no insights'));
     vi.mocked(authoringApi.planRepair).mockRejectedValue(new Error('no plan'));

@@ -17,6 +17,7 @@ export type ColumnResolution = Schemas['ColumnResolution'];
 export type ColumnResolutionStatus = Schemas['ColumnResolutionStatus'];
 export type ApplyRebindRequest = Schemas['ApplyRebindRequest'];
 export type ApplyRebindResult = Schemas['ApplyRebindResult'];
+export type AuthoringDatasetColumns = Schemas['AuthoringDatasetColumns'];
 export type ProposeRequest = Schemas['ProposeRequest'];
 export type Proposal = Schemas['Proposal'];
 export type RebindPreview = Schemas['RebindPreview'];
@@ -147,6 +148,19 @@ export const authoringApi = {
     return unwrap(
       apiClient.get<ApiResponse<AssetInsights>>(`/authoring/${assetType}/${assetId}/insights`),
       'Failed to load insights'
+    );
+  },
+
+  /**
+   * The columns a dataset exposes. A new asset has no definition to read them
+   * from, so the server describes the dataset instead.
+   */
+  getDatasetColumns(dataSetId: string): Promise<AuthoringDatasetColumns> {
+    return unwrap(
+      apiClient.get<ApiResponse<AuthoringDatasetColumns>>(
+        `/authoring/datasets/${encodeURIComponent(dataSetId)}/columns`
+      ),
+      'Failed to read the dataset'
     );
   },
 
