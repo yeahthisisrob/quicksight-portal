@@ -35,6 +35,8 @@ Author is built for the people who make dashboards and analyses all day. Start f
 
 Cmd+K anywhere, or `GET /search?q=`. One ranked search over dashboards, analyses, datasets, data sources, folders, SMUS listings, calculated fields, visuals and the template library. Calculated fields match on their expressions, so the business rules buried in them are findable, and one hit per distinct expression lists every asset that defines it. Visuals match on title, chart type, sheet and the fields in their wells. Every hit says why it matched and carries a one-line summary that reads well for a person and drops straight into an agent's prompt. No model call: the index is built from the caches and reused until an export changes them. Author's source and dataset pickers and the catalog search are the same call.
 
+![Search: the command palette](docs/screenshots/search-palette.png)
+
 ### The planner: a model proposes, code decides
 
 The natural-language part is deliberately small. The model is asked up to three narrow questions, each answered as JSON against a flat schema:

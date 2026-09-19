@@ -2,6 +2,8 @@ import { Box } from '@mui/material';
 import { useCallback, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 
+import { CommandPalette, CommandPaletteProvider } from '@/features/search';
+
 import { config } from '@/shared/config';
 import { tokens } from '@/shared/design-system';
 
@@ -39,33 +41,36 @@ export default function MainLayout() {
   const { topBarHeight } = tokens.layout;
 
   return (
-    <Box sx={{ display: 'flex', width: '100%', minHeight: '100vh' }}>
-      <TopBar environment={config.ENVIRONMENT} onToggleNavigation={toggle} />
-      <Box
-        sx={{
-          position: 'fixed',
-          top: topBarHeight,
-          left: 0,
-          bottom: 0,
-          zIndex: (theme) => theme.zIndex.drawer,
-        }}
-      >
-        <Sidebar collapsed={collapsed} onToggleCollapsed={toggle} />
+    <CommandPaletteProvider>
+      <Box sx={{ display: 'flex', width: '100%', minHeight: '100vh' }}>
+        <CommandPalette />
+        <TopBar environment={config.ENVIRONMENT} onToggleNavigation={toggle} />
+        <Box
+          sx={{
+            position: 'fixed',
+            top: topBarHeight,
+            left: 0,
+            bottom: 0,
+            zIndex: (theme) => theme.zIndex.drawer,
+          }}
+        >
+          <Sidebar collapsed={collapsed} onToggleCollapsed={toggle} />
+        </Box>
+        <Box
+          component="main"
+          sx={(theme) => ({
+            flexGrow: 1,
+            minWidth: 0,
+            pt: `${topBarHeight + 24}px`,
+            px: 3,
+            pb: 3,
+            ml: `${collapsed ? tokens.layout.sidebarCollapsedWidth : tokens.layout.sidebarWidth}px`,
+            transition: theme.transitions.create('margin-left'),
+          })}
+        >
+          <Outlet />
+        </Box>
       </Box>
-      <Box
-        component="main"
-        sx={(theme) => ({
-          flexGrow: 1,
-          minWidth: 0,
-          pt: `${topBarHeight + 24}px`,
-          px: 3,
-          pb: 3,
-          ml: `${collapsed ? tokens.layout.sidebarCollapsedWidth : tokens.layout.sidebarWidth}px`,
-          transition: theme.transitions.create('margin-left'),
-        })}
-      >
-        <Outlet />
-      </Box>
-    </Box>
+    </CommandPaletteProvider>
   );
 }

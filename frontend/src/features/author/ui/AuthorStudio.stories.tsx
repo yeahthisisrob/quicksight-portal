@@ -1,3 +1,4 @@
+import { Box } from '@mui/material';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useEffect, useState } from 'react';
 
@@ -18,6 +19,7 @@ import {
   undecidedDraft,
 } from './__stories__/fixtures';
 import { AuthorStudio, AuthorStudioView } from './AuthorStudio';
+import { SourceStep } from './steps/SourceStep';
 
 /**
  * Two kinds of story. The step stories hand `AuthorStudioView` a canned flow
@@ -129,6 +131,25 @@ export const StepSource: Story = {
   render: () => (
     <Mocked routes={authorRoutes()}>
       <AuthorStudioView flow={fakeFlow({ step: 'source' })} />
+    </Mocked>
+  ),
+};
+
+export const StepSourceSearch: Story = {
+  name: '1 · Source, searched in plain words',
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Typing searches dashboards by name, column, calculated field, tag or folder through /search; each hit says why it matched.',
+      },
+    },
+  },
+  render: () => (
+    <Mocked routes={authorRoutes()}>
+      <Box sx={{ p: 3, maxWidth: 1200 }}>
+        <SourceStep flow={fakeFlow({ step: 'source' })} initialSearch="sales revenue" />
+      </Box>
     </Mocked>
   ),
 };

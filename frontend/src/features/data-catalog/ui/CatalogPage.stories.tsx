@@ -65,6 +65,19 @@ const meta: Meta<typeof CatalogPage> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** The left pane in "Everything" mode: rules by expression, visuals, listings across projects. */
+export const SearchEverything: Story = {
+  name: 'Search everything: "closed margin"',
+  render: () => (
+    <Mocked
+      routes={catalogRoutes()}
+      path="/data-catalog?project=proj-analytics-prod&q=closed%20margin"
+    >
+      <CatalogPage initialScope="everything" />
+    </Mocked>
+  ),
+};
+
 /** Two projects, the first selected, one asset open with two linked datasets. */
 export const Loaded: Story = {
   render: () => (

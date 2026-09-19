@@ -10,6 +10,7 @@ import {
 } from '@mui/x-data-grid';
 import type { SearchMatchReason } from '@shared/generated';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { spacing } from '@/shared/design-system/theme';
 import { useDebounce, usePagination } from '@/shared/lib';
@@ -402,7 +403,10 @@ export default function EnhancedAssetTable({
   isLoadingFolders = false,
   refreshKey = 0,
 }: EnhancedAssetTableProps) {
-  const [searchTerm, setSearchTerm] = useState('');
+  // A search hit deep-links to a list page as /<type>s?search=<name>; start
+  // from that so the row is already on screen.
+  const [searchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(() => searchParams.get('search') ?? '');
   const [sortModel, setSortModel] = useState<GridSortModel>(defaultSortModel);
   const [exporting, setExporting] = useState(false);
   const [dateFilter, setDateFilter] = useState<DateFilterState>(() => {

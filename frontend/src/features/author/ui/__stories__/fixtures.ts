@@ -22,6 +22,7 @@ import type { SmusAsset } from '@/shared/api/modules/smus';
 
 import type { MockRoute } from '../../../../../.storybook/mocks/api';
 import { requestBody } from '../../../../../.storybook/mocks/api';
+import { searchRoute } from '../../../../../.storybook/mocks/search';
 import { healthBadges } from '../../lib/insights';
 import { outlineFromModel } from '../../lib/ops';
 import {
@@ -473,6 +474,7 @@ function withTargetNames(
 export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
   return [
     ...overrides,
+    searchRoute(),
     settingsSnapshotRoute(
       'dzd_example',
       SMUS_PROJECTS.map((p) => p.id)
