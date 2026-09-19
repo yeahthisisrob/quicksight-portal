@@ -156,6 +156,8 @@ export class RenameService {
       rowLevelPermissionTagConfiguration: current.RowLevelPermissionTagConfiguration,
       columnLevelPermissionRules: current.ColumnLevelPermissionRules,
       dataSetUsageConfiguration: current.DataSetUsageConfiguration,
+      dataPrepConfiguration: current.DataPrepConfiguration,
+      semanticModelConfiguration: current.SemanticModelConfiguration,
     });
   }
 }

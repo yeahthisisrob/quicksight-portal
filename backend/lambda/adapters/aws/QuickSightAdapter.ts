@@ -1270,13 +1270,24 @@ export class QuickSightAdapter {
     rowLevelPermissionTagConfiguration?: any;
     columnLevelPermissionRules?: any[];
     dataSetUsageConfiguration?: any;
+    /** New data prep experience: the steps that replace LogicalTableMap. */
+    dataPrepConfiguration?: any;
+    /** New data prep experience: the semantic model written beside those steps. */
+    semanticModelConfiguration?: any;
   }): Promise<{ arn: string; dataSetId: string; ingestionArn?: string }> {
+    // A dataset belongs to one data prep experience or the other. Sending a
+    // logical table map alongside the new configuration asks QuickSight to
+    // write the dataset back as legacy, which it refuses, so the legacy map is
+    // dropped here rather than at each call site.
+    const newExperience = Boolean(params.dataPrepConfiguration);
     const command = new UpdateDataSetCommand({
       AwsAccountId: this.awsAccountId,
       DataSetId: params.dataSetId,
       Name: params.name,
       PhysicalTableMap: params.physicalTableMap,
-      LogicalTableMap: params.logicalTableMap,
+      LogicalTableMap: newExperience ? undefined : params.logicalTableMap,
+      DataPrepConfiguration: params.dataPrepConfiguration,
+      SemanticModelConfiguration: params.semanticModelConfiguration,
       ImportMode: params.importMode,
       ColumnGroups: params.columnGroups,
       FieldFolders: params.fieldFolders,

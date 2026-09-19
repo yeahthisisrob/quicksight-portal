@@ -240,6 +240,8 @@ export class DatasetRestoreStrategy extends BaseAssetRestoreStrategy {
             rowLevelPermissionTagConfiguration: dataSet.RowLevelPermissionTagConfiguration,
             columnLevelPermissionRules: dataSet.ColumnLevelPermissionRules,
             dataSetUsageConfiguration: dataSet.DataSetUsageConfiguration,
+            dataPrepConfiguration: dataSet.DataPrepConfiguration,
+            semanticModelConfiguration: dataSet.SemanticModelConfiguration,
           });
 
           logger.info(`Successfully refreshed child dataset ${childDatasetId}`);
