@@ -646,7 +646,6 @@ export class DataCatalogHandler {
     return new SmusCatalogService(
       smusService,
       cacheService,
-      this.catalogService,
       this.fieldMetadataService,
       this.templateStore
     );

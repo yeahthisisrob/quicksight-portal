@@ -615,7 +615,10 @@ export abstract class BaseAssetParser {
       if (sheet.Visuals) {
         sheet.Visuals.forEach((visual: any) => {
           const visualType = this.getVisualType(visual);
-          const visualId = visual.VisualId || '';
+          // The id lives inside the typed wrapper ({ BarChartVisual: { VisualId } }),
+          // not on the wrapper itself.
+          const visualId =
+            this.getVisualData(visual, visualType)?.VisualId || visual.VisualId || '';
 
           this.extractFieldMappingsFromVisual(
             visual,

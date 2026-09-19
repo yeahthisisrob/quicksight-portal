@@ -73,6 +73,15 @@ const FIELDS = [
     sourceAssetId: 'd1',
     sourceAssetName: 'Sales',
     datasetId: 'ds-1',
+    visuals: [
+      {
+        visualId: 'v1',
+        visualType: 'bar',
+        title: 'Revenue by month',
+        sheetId: 's',
+        sheetName: 'Overview',
+      },
+    ],
   }),
   field({
     fieldName: 'margin',
@@ -97,7 +106,6 @@ const FIELDS = [
 describe('SmusCatalogService', () => {
   const smus = { listAssets: vi.fn() };
   const cache = { searchFields: vi.fn() };
-  const catalog = { buildVisualFieldCatalog: vi.fn() };
   const notes = { getAllFieldMetadata: vi.fn() };
   const templates = { list: vi.fn() };
   let service: SmusCatalogService;
@@ -105,31 +113,12 @@ describe('SmusCatalogService', () => {
   beforeEach(() => {
     SmusCatalogService.invalidate();
     vi.clearAllMocks();
-    (SmusCatalogService as any).visualsCache = null;
     smus.listAssets.mockResolvedValue({
       configured: true,
       projectFilter: ['p-prod', 'p-dev'],
       assets: [ASSET, OTHER],
     });
     cache.searchFields.mockResolvedValue(FIELDS);
-    catalog.buildVisualFieldCatalog.mockResolvedValue({
-      visualFields: [
-        {
-          fieldId: 'v',
-          visualId: 'v1',
-          visualName: 'Revenue by month',
-          sheetId: 's',
-          sheetName: 'Overview',
-          dashboardId: 'd1',
-          dashboardName: 'Sales',
-          fieldName: 'revenue',
-          dataType: 'DECIMAL',
-          isCalculated: false,
-          lastUpdated: '',
-        },
-      ],
-      summary: {},
-    });
     notes.getAllFieldMetadata.mockResolvedValue([
       {
         sourceType: 'dataset',
@@ -148,13 +137,7 @@ describe('SmusCatalogService', () => {
         updatedAt: '',
       },
     ]);
-    service = new SmusCatalogService(
-      smus as any,
-      cache as any,
-      catalog as any,
-      notes as any,
-      templates as any
-    );
+    service = new SmusCatalogService(smus as any, cache as any, notes as any, templates as any);
   });
 
   it('lists assets with per-project and per-term counts and QuickSight rollups', async () => {
@@ -254,10 +237,12 @@ describe('SmusCatalogService', () => {
     await expect(service.get('nope')).rejects.toMatchObject({ statusCode: 404 });
   });
 
-  it('keeps working when notes, templates or the visual index are unavailable', async () => {
+  it('keeps working when notes and templates are unavailable, and without recorded visuals', async () => {
     notes.getAllFieldMetadata.mockRejectedValue(new Error('no metadata'));
     templates.list.mockRejectedValue(new Error('no table'));
-    catalog.buildVisualFieldCatalog.mockRejectedValue(new Error('no visuals'));
+    cache.searchFields.mockResolvedValue(
+      (FIELDS as any[]).map(({ visuals: _visuals, ...rest }) => rest)
+    );
     const asset = await service.get('l-orders');
     const margin = asset.datasets[0]!.fields.find((f) => f.name === 'margin')!;
     expect(margin.portal).toBeUndefined();

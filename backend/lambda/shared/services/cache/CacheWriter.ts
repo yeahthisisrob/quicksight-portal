@@ -915,6 +915,9 @@ export class CacheWriter {
                   dashboardCount: 0,
                   lastUpdated: asset.lastUpdatedTime.toISOString(),
                   tags: asset.tags || [],
+                  ...(Array.isArray((field as any).visuals) && (field as any).visuals.length > 0
+                    ? { visuals: (field as any).visuals }
+                    : {}),
                 };
 
                 const fieldKey = `${field.fieldId}:${asset.assetId}`;

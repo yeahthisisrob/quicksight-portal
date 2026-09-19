@@ -24,7 +24,6 @@ import {
   type CalculatedFieldTemplate,
   CalculatedFieldTemplateStore,
 } from './CalculatedFieldTemplateStore';
-import type { CatalogService } from './CatalogService';
 import type { FieldMetadata, FieldMetadataService } from './FieldMetadataService';
 
 export interface FieldUsedIn {
@@ -122,7 +121,7 @@ interface FieldIndex {
   templates: Map<string, string>;
 }
 
-const VISUALS_CACHE_TTL_MS = 60_000;
+const FIELD_INDEX_TTL_MS = 60_000;
 
 export class SmusCatalogService {
   private static fieldIndexCache: { expiresAt: number; promise: Promise<FieldIndex> } | null = null;
@@ -130,15 +129,11 @@ export class SmusCatalogService {
   /** Drop the container-scoped indexes (tests, and after a cache rebuild). */
   public static invalidate(): void {
     SmusCatalogService.fieldIndexCache = null;
-    SmusCatalogService.visualsCache = null;
   }
-  private static visualsCache: { expiresAt: number; promise: Promise<FieldVisualUsage[]> } | null =
-    null;
 
   public constructor(
     private readonly smusService: SmusService,
     private readonly cacheService: CacheService,
-    private readonly catalogService: CatalogService,
     private readonly fieldMetadataService: FieldMetadataService,
     private readonly templateStore: CalculatedFieldTemplateStore = new CalculatedFieldTemplateStore()
   ) {}
@@ -355,14 +350,14 @@ export class SmusCatalogService {
       throw error;
     });
     SmusCatalogService.fieldIndexCache = {
-      expiresAt: Date.now() + VISUALS_CACHE_TTL_MS,
+      expiresAt: Date.now() + FIELD_INDEX_TTL_MS,
       promise,
     };
     return promise;
   }
 
   private async buildFieldIndex(): Promise<FieldIndex> {
-    const [fields, notes, templates, visuals] = await Promise.all([
+    const [fields, notes, templates] = await Promise.all([
       this.cacheService.searchFields({}) as Promise<FieldInfo[]>,
       this.fieldMetadataService.getAllFieldMetadata({ sourceType: 'dataset' }).catch((error) => {
         logger.warn('Field notes unavailable', { error });
@@ -372,7 +367,6 @@ export class SmusCatalogService {
         logger.warn('Template library unavailable', { error });
         return [] as CalculatedFieldTemplate[];
       }),
-      this.loadVisuals(),
     ]);
 
     const byDataset = new Map<string, FieldInfo[]>();
@@ -388,21 +382,25 @@ export class SmusCatalogService {
       }
     }
 
-    // The visual-field catalog names the owning asset by id only; the field
-    // index says whether that id is a dashboard or an analysis.
-    const assetTypes = new Map<string, 'dashboard' | 'analysis'>();
-    for (const field of fields) {
-      if (field.sourceAssetType === 'dashboard' || field.sourceAssetType === 'analysis') {
-        assetTypes.set(field.sourceAssetId, field.sourceAssetType);
-      }
-    }
+    // Visual usage is recorded on the dashboard/analysis field entries at
+    // export time, so this is one pass over the field cache, nothing more.
     const visualsOf = new Map<string, FieldVisualUsage[]>();
-    for (const visual of visuals) {
-      const assetType = assetTypes.get(visual.assetId) ?? visual.assetType;
-      const typed = { ...visual, assetType };
-      for (const datasetId of visualDatasetIds(typed, fields)) {
-        const { fieldName: _fieldName, ...usage } = typed;
-        push(visualsOf, `${datasetId}::${visual.fieldName}`, usage);
+    for (const field of fields) {
+      if (
+        (field.sourceAssetType !== 'dashboard' && field.sourceAssetType !== 'analysis') ||
+        !field.datasetId
+      ) {
+        continue;
+      }
+      for (const visual of field.visuals ?? []) {
+        push(visualsOf, `${field.datasetId}::${field.fieldName}`, {
+          assetType: field.sourceAssetType,
+          assetId: field.sourceAssetId,
+          assetName: field.sourceAssetName,
+          sheetName: visual.sheetName,
+          visualId: visual.visualId,
+          visualName: visual.title || `Visual ${visual.visualId}`,
+        });
       }
     }
 
@@ -416,32 +414,6 @@ export class SmusCatalogService {
   }
 
   /** Visual-level usage from the visual-field catalog, cached per container. */
-  private loadVisuals(): Promise<Array<FieldVisualUsage & { fieldName: string }>> {
-    const cached = SmusCatalogService.visualsCache;
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.promise as Promise<Array<FieldVisualUsage & { fieldName: string }>>;
-    }
-    const promise = this.catalogService
-      .buildVisualFieldCatalog()
-      .then((catalog) =>
-        catalog.visualFields.map((v) => ({
-          assetType: 'dashboard' as const,
-          assetId: v.dashboardId,
-          assetName: v.dashboardName,
-          sheetName: v.sheetName,
-          visualId: v.visualId,
-          visualName: v.visualName,
-          fieldName: v.fieldName,
-        }))
-      )
-      .catch((error) => {
-        logger.warn('Visual-field catalog unavailable; visual usage omitted', { error });
-        SmusCatalogService.visualsCache = null;
-        return [] as Array<FieldVisualUsage & { fieldName: string }>;
-      });
-    SmusCatalogService.visualsCache = { expiresAt: Date.now() + VISUALS_CACHE_TTL_MS, promise };
-    return promise;
-  }
 }
 
 // -----------------------------------------------------------------------------
@@ -512,23 +484,6 @@ function conflictsFor(
  * The visual-field catalog knows the dashboard and field name but not the
  * dataset; resolve it through the dashboard's own field entries.
  */
-function visualDatasetIds(
-  visual: { assetId: string; assetType: string; fieldName: string },
-  fields: FieldInfo[]
-): string[] {
-  const ids = new Set<string>();
-  for (const f of fields) {
-    if (
-      f.sourceAssetType === visual.assetType &&
-      f.sourceAssetId === visual.assetId &&
-      f.fieldName === visual.fieldName &&
-      f.datasetId
-    ) {
-      ids.add(f.datasetId);
-    }
-  }
-  return [...ids];
-}
 
 function countBy<T>(
   items: T[],
