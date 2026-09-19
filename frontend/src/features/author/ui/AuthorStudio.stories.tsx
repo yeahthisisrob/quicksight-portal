@@ -16,6 +16,8 @@ import {
   SMUS_NOT_CONFIGURED,
   SMUS_NOT_EXPORTED,
   SOURCE,
+  STANDARD_RULES,
+  STANDARD_TEMPLATE,
   undecidedDraft,
 } from './__stories__/fixtures';
 import { AuthorStudio, AuthorStudioView } from './AuthorStudio';
@@ -251,8 +253,65 @@ export const StepReviewProposed: Story = {
   ),
 };
 
+export const StepStandardTemplate: Story = {
+  name: '4 · Standard: pick a template',
+  render: () => (
+    <AuthorStudioView
+      flow={fakeFlow({ step: 'standard', draft: resolvedDraft(), template: STANDARD_TEMPLATE })}
+    />
+  ),
+};
+
+export const StepStandardRules: Story = {
+  name: '4 · Standard: rules',
+  render: () => (
+    <AuthorStudioView
+      flow={fakeFlow({
+        step: 'standard',
+        draft: resolvedDraft(),
+        template: STANDARD_TEMPLATE,
+        typeRules: STANDARD_RULES,
+      })}
+    />
+  ),
+};
+
+export const StepStandardEmpty: Story = {
+  name: '4 · Standard: nothing chosen (skippable)',
+  render: () => <AuthorStudioView flow={fakeFlow({ step: 'standard', draft: resolvedDraft() })} />,
+};
+
+export const StepMockupMigrated: Story = {
+  name: '5 · Mockup: migrated with warnings',
+  render: () => (
+    <AuthorStudioView
+      flow={fakeFlow({
+        step: 'mockup',
+        draft: resolvedDraft(),
+        template: STANDARD_TEMPLATE,
+        typeRules: STANDARD_RULES,
+      })}
+    />
+  ),
+};
+
+export const StepPublishMigration: Story = {
+  name: '6 · Publish: migration summary',
+  render: () => (
+    <AuthorStudioView
+      flow={fakeFlow({
+        step: 'publish',
+        draft: resolvedDraft(),
+        template: STANDARD_TEMPLATE,
+        typeRules: STANDARD_RULES,
+        folder: { id: 'fld-sales-eu', name: 'EMEA', path: '/Sales/EMEA' },
+      })}
+    />
+  ),
+};
+
 export const StepMockup: Story = {
-  name: '4 · Mockup, renames highlighted',
+  name: '5 · Mockup, renames highlighted',
   render: () => (
     <AuthorStudioView
       flow={fakeFlow({
@@ -265,7 +324,7 @@ export const StepMockup: Story = {
 };
 
 export const StepMockupEditor: Story = {
-  name: '4 · Mockup editor, inspector open',
+  name: '5 · Mockup editor, inspector open',
   render: () => (
     <Mocked routes={authorRoutes()}>
       <AuthorStudioView
@@ -289,7 +348,7 @@ export const StepMockupEditor: Story = {
 };
 
 export const StepMockupChanges: Story = {
-  name: '4 · Mockup, every kind of change',
+  name: '5 · Mockup, every kind of change',
   render: () => (
     <Mocked routes={authorRoutes()}>
       <AuthorStudioView
@@ -320,7 +379,7 @@ export const StepMockupChanges: Story = {
 };
 
 export const StepMockupEditsOnly: Story = {
-  name: '4 · Mockup, edits without a rebind',
+  name: '5 · Mockup, edits without a rebind',
   render: () => (
     <Mocked routes={authorRoutes()}>
       <AuthorStudioView
@@ -335,7 +394,7 @@ export const StepMockupEditsOnly: Story = {
 };
 
 export const StepMockupBlocked: Story = {
-  name: '4 · Mockup, publishing blocked',
+  name: '5 · Mockup, publishing blocked',
   render: () => (
     <AuthorStudioView
       flow={fakeFlow({
@@ -348,7 +407,7 @@ export const StepMockupBlocked: Story = {
 };
 
 export const StepPublish: Story = {
-  name: '5 · Publish, ready',
+  name: '6 · Publish, ready',
   render: () => (
     <Mocked routes={authorRoutes()}>
       <AuthorStudioView flow={fakeFlow({ step: 'publish', draft: resolvedDraft() })} />
@@ -357,7 +416,7 @@ export const StepPublish: Story = {
 };
 
 export const StepPublishFolder: Story = {
-  name: '5 · Publish, into a folder with edits',
+  name: '6 · Publish, into a folder with edits',
   render: () => (
     <Mocked routes={authorRoutes()}>
       <AuthorStudioView
@@ -381,7 +440,7 @@ export const StepPublishFolder: Story = {
 };
 
 export const StepPublishRejected: Story = {
-  name: '5 · Publish, rejected by QuickSight',
+  name: '6 · Publish, rejected by QuickSight',
   render: () => (
     <Mocked routes={authorRoutes()}>
       <AuthorStudioView
@@ -397,7 +456,7 @@ export const StepPublishRejected: Story = {
 };
 
 export const StepPublished: Story = {
-  name: '5 · Published',
+  name: '6 · Published',
   render: () => (
     <AuthorStudioView
       flow={fakeFlow({

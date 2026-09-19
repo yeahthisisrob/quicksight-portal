@@ -13,6 +13,7 @@ import {
 
 import type {
   AssetInsights,
+  DefinitionChange,
   DefinitionDataset,
   DefinitionOp,
   RebindPlan,
@@ -32,7 +33,14 @@ import {
   stepStatus,
 } from '../../model/authorFlow';
 import { defaultChoices, repairRequests, repairSummary } from '../../model/repair';
-import type { AuthorFlow } from '../../model/useAuthorFlow';
+import {
+  defaultParts,
+  hasStandard,
+  NO_TYPE_RULES,
+  type StandardTemplate,
+  type StandardTypeRules,
+} from '../../model/standard';
+import type { AuthorFlow, StandardCandidate } from '../../model/useAuthorFlow';
 import { simulatePreview } from './simulateOps';
 
 /** Nothing wrong with the source: the Repair step stays hidden. */
@@ -471,6 +479,124 @@ function withTargetNames(
   }));
 }
 
+/** Dashboards tagged as templates, as the Standard step lists them. */
+export const STANDARD_CANDIDATES: StandardCandidate[] = SOURCES.filter((s) =>
+  s.tags.some((t) => t.key === 'quicksight-portal:template')
+).map((s) => ({ id: s.id, name: s.name, views: s.activity.totalViews }));
+
+/** A migration the stories can show: the executive summary as the standard, with rules. */
+export const STANDARD_TEMPLATE: StandardTemplate = {
+  assetType: 'dashboard',
+  assetId: 'exec-summary',
+  name: 'Executive summary',
+  parts: defaultParts(),
+};
+export const STANDARD_RULES: StandardTypeRules = {
+  chartFamily: [
+    { from: 'Table', to: 'PivotTable' },
+    { from: 'BarChart', to: 'ColumnChart' },
+  ],
+  kpi: true,
+  casts: true,
+};
+
+interface StandardEffects {
+  changes: DefinitionChange[];
+  warnings: string[];
+  themeArn?: string;
+}
+
+/**
+ * What the server would add to a preview for a template and type rules: the
+ * change list entries and the warnings. The layout itself is not simulated.
+ */
+export function standardEffects(template: unknown, typeRules: unknown): StandardEffects {
+  const changes: DefinitionChange[] = [];
+  const warnings: string[] = [];
+  const t = template as
+    | { assetId?: string; controls?: boolean; sheetNames?: boolean; theme?: boolean }
+    | undefined;
+  const r = typeRules as
+    | { chartFamily?: Array<{ from: string; to: string }>; kpi?: boolean; casts?: boolean }
+    | undefined;
+  if (t?.assetId) {
+    if (t.controls !== false) {
+      changes.push({
+        kind: 'template',
+        sheetId: 'sheet-overview',
+        description: "Replaced 2 controls on Overview with the template's",
+      });
+      warnings.push(
+        "Template control 'Segment' was dropped: no dataset here has the columns it filters."
+      );
+    }
+    if (t.sheetNames !== false) {
+      changes.push({
+        kind: 'sheet',
+        sheetId: 'sheet-overview',
+        description: "Renamed sheet 'Overview' to 'Standard overview'",
+      });
+    }
+    changes.push({
+      kind: 'template',
+      sheetId: 'sheet-overview',
+      description:
+        'Laid out 5 visuals on Standard overview in 18x12 tiles (KPIs 9x6 first), with 3 elements from the template',
+    });
+    if (t.theme !== false) {
+      changes.push({ kind: 'template', description: "Takes the template's theme" });
+    }
+  }
+  for (const rule of r?.chartFamily ?? []) {
+    if (rule.from === 'Table') {
+      changes.push({
+        kind: 'visual',
+        sheetId: 'sheet-overview',
+        elementId: 'table-detail',
+        description:
+          'Changed Top customers from a table to a pivot table; axis, legend and sort settings reset to defaults',
+      });
+    } else if (rule.from === 'BarChart') {
+      changes.push({
+        kind: 'visual',
+        sheetId: 'sheet-overview',
+        elementId: 'bar-region',
+        description:
+          'Changed Revenue by region from a bar chart to a column chart; axis, legend and sort settings reset to defaults',
+      });
+    } else {
+      warnings.push(`Monthly trend stayed a ${rule.from}: its fields do not fit a ${rule.to}`);
+    }
+  }
+  if (r?.kpi) {
+    changes.push({
+      kind: 'visual',
+      sheetId: 'sheet-overview',
+      elementId: 'kpi-revenue',
+      description: "Revenue takes the template's KPI options",
+    });
+    changes.push({
+      kind: 'visual',
+      sheetId: 'sheet-overview',
+      elementId: 'kpi-orders',
+      description: "Orders takes the template's KPI options",
+    });
+  }
+  if (r?.casts) {
+    changes.push({
+      kind: 'calculatedField',
+      description:
+        'sales: order_date is STRING now, so order_date_as_datetime = parseDate({order_date}) takes its place',
+    });
+    warnings.push(
+      'sales: discount was DECIMAL and is now DATETIME; no cast is known, visuals may fail.'
+    );
+  }
+  const themeArn =
+    t?.assetId && t.theme !== false ? 'arn:aws:quicksight:us-east-1:1:theme/standard' : undefined;
+  return { changes, warnings, ...(themeArn ? { themeArn } : {}) };
+}
+
 export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
   return [
     ...overrides,
@@ -625,21 +751,30 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
       method: 'post',
       url: '/rebind/preview',
       respond: (config) => {
-        const { rebinds = [], addCalculatedFields = [], ops = [] } = requestBody(config);
+        const {
+          rebinds = [],
+          addCalculatedFields = [],
+          ops = [],
+          template,
+          typeRules,
+        } = requestBody(config);
         const sim = simulatePreview(
           definitionFixtures.gridDashboardDefinition,
           withTargetNames(rebinds),
           addCalculatedFields,
           ops
         );
+        const standard = standardEffects(template, typeRules);
         return {
           body: {
             success: true,
             data: {
               plan: planFor(rebinds),
               definition: sim.definition,
-              changes: sim.changes,
+              changes: [...standard.changes, ...sim.changes],
               outline: sim.outline,
+              ...(standard.warnings.length ? { warnings: standard.warnings } : {}),
+              ...(standard.themeArn ? { themeArn: standard.themeArn } : {}),
             },
           },
         };
@@ -656,6 +791,8 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
           addCalculatedFields = [],
           ops = [],
           folderId,
+          template,
+          typeRules,
         } = requestBody(config);
         const sim = simulatePreview(
           definitionFixtures.gridDashboardDefinition,
@@ -663,6 +800,7 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
           addCalculatedFields,
           ops
         );
+        const standard = standardEffects(template, typeRules);
         return {
           body: {
             success: true,
@@ -674,8 +812,9 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
               mode,
               versionNumber: 2,
               plan: planFor(rebinds),
-              changes: sim.changes,
+              changes: [...standard.changes, ...sim.changes],
               folderId,
+              ...(standard.warnings.length ? { warnings: standard.warnings } : {}),
             },
           },
         };
@@ -869,6 +1008,9 @@ export interface FakeFlowOptions {
   previewLoading?: boolean;
   /** Defaults to a clean plan; REPAIR_PLAN shows the Repair step. */
   repairPlan?: RepairPlan | null;
+  /** The Standard step: a template dashboard and bulk type rules. */
+  template?: StandardTemplate | null;
+  typeRules?: StandardTypeRules;
 }
 
 export function fakeFlow(options: FakeFlowOptions = {}): AuthorFlow {
@@ -900,16 +1042,25 @@ export function fakeFlow(options: FakeFlowOptions = {}): AuthorFlow {
   const repairs = repairRequests(repairPlan, repairChoices);
   const summary = repairSummary(repairPlan, repairChoices, draft.targets);
   const repairIssues = repairPlan?.issues.length ?? 0;
+  const template = options.template ?? null;
+  const typeRules = options.typeRules ?? NO_TYPE_RULES;
+  const standard = standardEffects(
+    template ? { assetId: template.assetId, ...template.parts } : undefined,
+    hasStandard(null, typeRules) ? typeRules : undefined
+  );
   const state: AuthorFlowState = {
     ...initialAuthorFlowState,
     step: options.step ?? 'source',
     source: SOURCE,
     result: options.result ?? null,
-    visited: ['source', 'repair', 'targets', 'review', 'mockup', 'publish'],
+    visited: ['source', 'repair', 'targets', 'review', 'standard', 'mockup', 'publish'],
     ops,
     folder: options.folder ?? null,
     selectedElement: options.selectedElement ?? null,
+    template,
+    typeRules,
   };
+  const standardActive = hasStandard(template, typeRules);
   const canApply =
     draft.rebinds.length > 0 ? draft.canApply : draft.mode === 'update' || draft.name.length > 0;
   return {
@@ -923,6 +1074,7 @@ export function fakeFlow(options: FakeFlowOptions = {}): AuthorFlow {
       repairIssues,
       hasRepairs: repairs.repairs.length > 0 || Object.keys(repairs.columnMaps).length > 0,
       repairsSettled: summary.needsChoice === 0,
+      hasStandard: standardActive,
     }),
     steps: authorSteps(repairIssues > 0),
     draft,
@@ -963,8 +1115,21 @@ export function fakeFlow(options: FakeFlowOptions = {}): AuthorFlow {
       plan: draft.plan,
       model: previewModel,
       diff: sourceModel && previewModel ? diffWireframeModels(sourceModel, previewModel) : null,
-      changes: simulated?.changes ?? [],
+      changes: [...standard.changes, ...(simulated?.changes ?? [])],
       outline: simulated?.outline ?? (sourceModel ? outlineFromModel(sourceModel) : null),
+      warnings: standard.warnings,
+      themeArn: standard.themeArn ?? null,
+    },
+    standard: {
+      template,
+      typeRules,
+      candidates: { loading: false, items: STANDARD_CANDIDATES },
+      chooseTemplate: noop,
+      setTemplatePart: noop,
+      setTypeRules: noop,
+      addChartRule: noop,
+      removeChartRule: noop,
+      active: standardActive,
     },
     addOps: noop,
     removeOp: noop,

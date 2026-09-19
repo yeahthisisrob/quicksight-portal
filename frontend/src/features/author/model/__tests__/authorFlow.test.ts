@@ -118,6 +118,7 @@ describe('stepStatus', () => {
       source: 'current',
       targets: 'locked',
       review: 'locked',
+      standard: 'locked',
       mockup: 'locked',
       publish: 'locked',
     });
@@ -158,6 +159,7 @@ describe('stepStatus', () => {
       source: 'done',
       targets: 'done',
       review: 'done',
+      standard: 'available',
       mockup: 'done',
       publish: 'current',
     });
@@ -168,7 +170,9 @@ describe('stepStatus', () => {
     expect(nextStep('source')).toBe('targets');
     expect(nextStep('publish')).toBeNull();
     expect(previousStep('source')).toBeNull();
-    expect(previousStep('mockup')).toBe('review');
+    expect(previousStep('mockup')).toBe('standard');
+    expect(previousStep('standard')).toBe('review');
+    expect(nextStep('review')).toBe('standard');
   });
 });
 

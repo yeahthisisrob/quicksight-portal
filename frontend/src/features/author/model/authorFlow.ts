@@ -11,7 +11,25 @@ import type { RebindMode, RebindSource } from '@/entities/definition';
 
 import type { DefinitionChange, DefinitionOp } from '@/shared/api/modules/authoring';
 
-export type AuthorStep = 'source' | 'repair' | 'targets' | 'review' | 'mockup' | 'publish';
+import {
+  type ChartRule,
+  type EditableVisualType,
+  NO_TYPE_RULES,
+  type StandardTemplate,
+  type StandardTypeRules,
+  type TemplatePart,
+  withChartRule,
+  withoutChartRule,
+} from './standard';
+
+export type AuthorStep =
+  | 'source'
+  | 'repair'
+  | 'targets'
+  | 'review'
+  | 'standard'
+  | 'mockup'
+  | 'publish';
 
 export interface AuthorStepMeta {
   id: AuthorStep;
@@ -25,6 +43,7 @@ export const AUTHOR_STEPS: readonly AuthorStepMeta[] = [
   { id: 'repair', label: 'Repair', hint: 'Fix what stops QuickSight from writing it' },
   { id: 'targets', label: 'Datasets', hint: 'Where the copy should read from' },
   { id: 'review', label: 'Describe & review', hint: 'Say what you want, check the columns' },
+  { id: 'standard', label: 'Standard', hint: 'The template and the rules to migrate onto' },
   { id: 'mockup', label: 'Mockup', hint: 'See and edit the result before it exists' },
   { id: 'publish', label: 'Publish', hint: 'Create the copy or apply in place' },
 ];
@@ -69,6 +88,10 @@ export interface AuthorFlowState {
   ops: DefinitionOp[];
   folder: AuthorFolder | null;
   selectedElement: SelectedElement | null;
+  /** The template dashboard to migrate onto, when one is chosen. */
+  template: StandardTemplate | null;
+  /** Bulk conversions applied to every visual. */
+  typeRules: StandardTypeRules;
 }
 
 export type AuthorFlowAction =
@@ -81,6 +104,11 @@ export type AuthorFlowAction =
   | { type: 'clearOps' }
   | { type: 'setFolder'; folder: AuthorFolder | null }
   | { type: 'selectElement'; element: SelectedElement | null }
+  | { type: 'setTemplate'; template: StandardTemplate | null }
+  | { type: 'setTemplatePart'; part: TemplatePart; on: boolean }
+  | { type: 'setTypeRules'; rules: Partial<StandardTypeRules> }
+  | { type: 'addChartRule'; rule: ChartRule }
+  | { type: 'removeChartRule'; from: EditableVisualType }
   | { type: 'reset' };
 
 export const initialAuthorFlowState: AuthorFlowState = {
@@ -91,6 +119,8 @@ export const initialAuthorFlowState: AuthorFlowState = {
   ops: [],
   folder: null,
   selectedElement: null,
+  template: null,
+  typeRules: NO_TYPE_RULES,
 };
 
 function visit(visited: AuthorStep[], step: AuthorStep): AuthorStep[] {
@@ -151,6 +181,24 @@ export function authorFlowReducer(
       return { ...state, folder: action.folder };
     case 'selectElement':
       return { ...state, selectedElement: action.element };
+    case 'setTemplate':
+      return { ...state, template: action.template };
+    case 'setTemplatePart':
+      return state.template
+        ? {
+            ...state,
+            template: {
+              ...state.template,
+              parts: { ...state.template.parts, [action.part]: action.on },
+            },
+          }
+        : state;
+    case 'setTypeRules':
+      return { ...state, typeRules: { ...state.typeRules, ...action.rules } };
+    case 'addChartRule':
+      return { ...state, typeRules: withChartRule(state.typeRules, action.rule) };
+    case 'removeChartRule':
+      return { ...state, typeRules: withoutChartRule(state.typeRules, action.from) };
     case 'reset':
       return initialAuthorFlowState;
     default:
@@ -176,6 +224,8 @@ export interface DraftFacts {
   hasRepairs?: boolean;
   /** Every issue has been dealt with: accepted, or left on purpose. */
   repairsSettled?: boolean;
+  /** A template or a type rule was chosen in the Standard step. */
+  hasStandard?: boolean;
 }
 
 export type StepStatus = 'locked' | 'available' | 'current' | 'done';
@@ -183,7 +233,12 @@ export type StepStatus = 'locked' | 'available' | 'current' | 'done';
 /** Anything at all would be different in the written asset. */
 export function hasChanges(facts: DraftFacts): boolean {
   return Boolean(
-    facts.hasTargets || facts.hasOps || facts.hasAddedFields || facts.renamed || facts.hasRepairs
+    facts.hasTargets ||
+      facts.hasOps ||
+      facts.hasAddedFields ||
+      facts.renamed ||
+      facts.hasRepairs ||
+      facts.hasStandard
   );
 }
 
@@ -206,6 +261,7 @@ export function stepStatus(
     repair: hasSource && hasRepair,
     targets: hasSource,
     review: hasSource,
+    standard: hasSource,
     // The editor lives in the mockup, so a source with anything to write is enough.
     mockup: hasSource && changed,
     publish: hasSource && changed && facts.canApply,
@@ -215,6 +271,7 @@ export function stepStatus(
     repair: hasRepair && Boolean(facts.repairsSettled) && state.visited.includes('repair'),
     targets: facts.hasTargets,
     review: facts.hasTargets && facts.canApply,
+    standard: Boolean(facts.hasStandard),
     mockup: changed && facts.canApply && state.visited.includes('mockup'),
     publish: published,
   };

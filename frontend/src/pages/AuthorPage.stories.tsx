@@ -52,6 +52,16 @@ export const RepairFromErrors: Story = {
   ),
 };
 
+export const MigrateOntoStandard: Story = {
+  name: 'Opened to migrate onto a standard',
+  parameters: { router: { initialEntries: [`${sourceUrl}&standard=1`] } },
+  render: () => (
+    <AppShell path="author" routes={authorRoutes()}>
+      <AuthorPage />
+    </AppShell>
+  ),
+};
+
 export const Start: Story = {
   name: 'Fresh, nothing chosen',
   parameters: { router: { initialEntries: ['/author'] } },

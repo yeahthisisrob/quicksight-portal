@@ -18,14 +18,17 @@ Author is built for the people who make dashboards and analyses all day. Start f
 2. **Repair** - when QuickSight refuses an asset (a column the dataset no longer has, a parameter never declared, a dataset that is gone), the plan lists every issue with a fix: rename to the column that took its place, remove every reference, declare or drop the parameter, choose another dataset. Accept the proposal or pick alternatives, see the result in the mockup, and publish in place. Broken assets stop being unpublishable as code.
 3. **Datasets** - for each dataset the definition reads, choose what it should read instead, scoped by SMUS project: a **published SMUS asset** (with the QuickSight datasets already reading it, or create one in place through an existing data source), or any QuickSight dataset.
 4. **Describe & review** - type what you want, or fill the form by hand. Every referenced column is resolved against the target as matched, renamed, suggested or missing; suggestions are never applied silently. Add calculated fields from the template library.
-5. **Mockup and edit** - a before/after wireframe of the exact definition that would be written. Click any visual to retitle it, change its type (bar, column, line, pie, donut, table, pivot), move and resize it on the grid, duplicate or remove it, rename sheets. Every edit is a validated operation, listed in plain English, highlighted on the wireframe.
-6. **Publish** - a summary of every change, a folder to publish into, then create the copy (keeping the source's theme and permissions) or apply in place. "Open in QuickSight" to fine-tune, or start another from the result.
+5. **Standard** - migrate onto a template dashboard's layout standard: its title band, notes and links, its controls rebound by column name, its sheet names and theme, with the visuals reflowed into its tile size, KPIs first. Convert visual types in bulk (table to pivot, bar to column, pie to donut), standardise KPIs, and cast columns whose type changed in the new dataset. What could not be carried is listed on the mockup, never silently dropped.
+6. **Mockup and edit** - a before/after wireframe of the exact definition that would be written. Click any visual to retitle it, change its type (bar, column, line, pie, donut, table, pivot), move and resize it on the grid, duplicate or remove it, rename sheets. Every edit is a validated operation, listed in plain English, highlighted on the wireframe.
+7. **Publish** - a summary of every change, a folder to publish into, then create the copy (keeping the source's theme and permissions) or apply in place. "Open in QuickSight" to fine-tune, or start another from the result.
 
 ![Author: sources ranked by use, with insights and flagged visuals](docs/screenshots/author-source.png)
 
 ![Author: repairing a dashboard QuickSight refuses to write](docs/screenshots/author-repair.png)
 
 ![Author: choosing targets from published SMUS assets](docs/screenshots/author-targets.png)
+
+![Author: the Standard step - a template dashboard and bulk type rules](docs/screenshots/author-standard.png)
 
 ![Author: the mockup editor with the inspector and the change list](docs/screenshots/author-mockup.png)
 
