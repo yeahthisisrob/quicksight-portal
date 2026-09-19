@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.2.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.1.0...v2.2.0) (2026-09-19)
+
+
+### Features
+
+* **catalog:** SMUS-first catalog with lineage, conflicts and a calculated-field template library; whole-page stories ([#129](https://github.com/yeahthisisrob/quicksight-portal/issues/129)) ([93575a0](https://github.com/yeahthisisrob/quicksight-portal/commit/93575a00f684949f04e94ca5066d950171a9ed3d))
+
+
+### Bug Fixes
+
+* **smus:** discover projects from published listings, not only the role's memberships ([#127](https://github.com/yeahthisisrob/quicksight-portal/issues/127)) ([0e4feec](https://github.com/yeahthisisrob/quicksight-portal/commit/0e4feec074dab502fa177fa39568bbfe20bf2520))
+
 ## [2.1.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.0.0...v2.1.0) (2026-09-19)
 
 
