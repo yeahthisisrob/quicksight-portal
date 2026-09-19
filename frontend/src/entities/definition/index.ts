@@ -13,10 +13,18 @@ export {
   useRebindDraft,
 } from './lib/useRebindDraft';
 export {
+  type DiffSummary,
   diffWireframeModels,
+  type ElementChange,
+  type ElementChangeKind,
+  elementChanges,
+  elementKey,
   elementRenames,
+  emptyDiff,
   type FieldRename,
   fieldKey,
+  removedOnly,
+  summarizeDiff,
   type WireframeDiff,
 } from './lib/wireframeDiff';
 export { buildWireframeModel } from './lib/wireframeModel';

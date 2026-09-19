@@ -92,3 +92,12 @@ export interface WireframeModel {
   filterGroupCount: number;
   calculatedFieldCount: number;
 }
+
+/** A warning drawn on a wireframe card, e.g. from QuickSight's CloudWatch metrics. */
+export interface WireframeBadge {
+  kind: 'slow' | 'error';
+  label: string;
+}
+
+/** Badges keyed by element id. */
+export type WireframeBadges = Map<string, WireframeBadge>;

@@ -15,7 +15,10 @@ const sourceUrl = `/author?type=${SOURCE.type}&id=${SOURCE.id}&name=${encodeURIC
 
 /**
  * The Author page exactly as a user sees it: inside the top bar and sidebar,
- * at its real route, with the API stubbed. Click through the steps.
+ * at its real route, with the API stubbed. Click through the steps: the
+ * source list is ranked by use with insights on the preview, the planner
+ * proposes a dataset and an edit, the mockup is editable, and the copy can
+ * be published into a folder.
  */
 const meta: Meta<typeof AuthorPage> = {
   title: 'Pages/Author',

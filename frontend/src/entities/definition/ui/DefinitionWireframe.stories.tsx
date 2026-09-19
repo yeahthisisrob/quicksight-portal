@@ -1,5 +1,6 @@
 import { Box } from '@mui/material';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { useState } from 'react';
 
 import {
   emptyDefinition,
@@ -8,7 +9,9 @@ import {
   paginatedReportDefinition,
   twoSheetAnalysisDefinition,
 } from '../lib/__fixtures__/definitions';
+import { diffWireframeModels, removedOnly } from '../lib/wireframeDiff';
 import { buildWireframeModel } from '../lib/wireframeModel';
+import type { WireframeModel } from '../model/types';
 import { DefinitionWireframe } from './DefinitionWireframe';
 
 /**
@@ -64,6 +67,91 @@ export const PaginatedReport: Story = {
 /** A definition with no sheets. */
 export const Empty: Story = {
   args: { model: buildWireframeModel(emptyDefinition) },
+};
+
+const gridModel = buildWireframeModel(gridDashboardDefinition);
+
+/** Health from QuickSight metrics: a slow table and a line chart with load errors. */
+export const WithHealthBadges: Story = {
+  args: {
+    model: gridModel,
+    badges: new Map([
+      ['table-detail', { kind: 'slow', label: 'p90 load time 4.8s (over 3.0s)' }],
+      ['line-trend', { kind: 'error', label: '7 load errors in the last 14 days' }],
+    ]),
+  },
+};
+
+/** Editable: cards are clickable and the selected one is outlined. */
+export const Editable: Story = {
+  render: function EditableStory() {
+    const [selectedId, setSelectedId] = useState<string | undefined>('bar-region');
+    return (
+      <DefinitionWireframe model={gridModel} selectedId={selectedId} onSelect={setSelectedId} />
+    );
+  },
+};
+
+/** The diff a mockup carries: a retyped bar, a moved KPI, a resized KPI, a removed line, an added table, a renamed field. */
+export const WithElementChanges: Story = {
+  render: () => {
+    const after: WireframeModel = {
+      ...gridModel,
+      sheets: gridModel.sheets.map((sheet) => ({
+        ...sheet,
+        elements: [
+          ...sheet.elements
+            .filter((e) => e.id !== 'line-trend')
+            .map((e) => {
+              if (e.id === 'bar-region') {
+                return {
+                  ...e,
+                  visualType: 'LineChart',
+                  fieldWells: e.fieldWells.map((w) =>
+                    w.role === 'Values'
+                      ? { ...w, fields: w.fields.map((f) => ({ ...f, label: 'net_revenue' })) }
+                      : w
+                  ),
+                };
+              }
+              if (e.id === 'kpi-orders' && e.position.type === 'grid') {
+                return { ...e, position: { ...e.position, col: 27 } };
+              }
+              if (e.id === 'kpi-revenue' && e.position.type === 'grid') {
+                return { ...e, position: { ...e.position, colSpan: 18 } };
+              }
+              return e;
+            }),
+          {
+            ...sheet.elements.find((e) => e.id === 'table-detail')!,
+            id: 'table-detail-copy',
+            title: 'Top customers (EMEA)',
+            position: { type: 'grid', col: 0, row: 22, colSpan: 36, rowSpan: 8 },
+          },
+        ],
+      })),
+    };
+    return <DefinitionWireframe model={after} diff={diffWireframeModels(gridModel, after)} />;
+  },
+};
+
+/** The same diff on the "before" side: only the removed element, drawn as a ghost. */
+export const RemovedGhosts: Story = {
+  render: () => {
+    const after: WireframeModel = {
+      ...gridModel,
+      sheets: gridModel.sheets.map((sheet) => ({
+        ...sheet,
+        elements: sheet.elements.filter((e) => e.id !== 'line-trend'),
+      })),
+    };
+    return (
+      <DefinitionWireframe
+        model={gridModel}
+        diff={removedOnly(diffWireframeModels(gridModel, after))}
+      />
+    );
+  },
 };
 
 /** A sheet whose layout QuickSight did not return: cards flow in definition order. */

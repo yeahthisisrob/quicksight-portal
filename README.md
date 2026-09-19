@@ -20,9 +20,13 @@ Author is built for the people who make dashboards and analyses all day. Start f
 4. **Mockup and edit** - a before/after wireframe of the exact definition that would be written. Click any visual to retitle it, change its type (bar, column, line, pie, donut, table, pivot), move and resize it on the grid, duplicate or remove it, rename sheets. Every edit is a validated operation, listed in plain English, highlighted on the wireframe.
 5. **Publish** - a summary of every change, a folder to publish into, then create the copy (keeping the source's theme and permissions) or apply in place. "Open in QuickSight" to fine-tune, or start another from the result.
 
+![Author: sources ranked by use, with insights and flagged visuals](docs/screenshots/author-source.png)
+
 ![Author: choosing targets from published SMUS assets](docs/screenshots/author-targets.png)
 
-![Author: the mockup editor](docs/screenshots/author-mockup.png)
+![Author: the mockup editor with the inspector and the change list](docs/screenshots/author-mockup.png)
+
+![Author: publish with every change spelled out and a folder to land in](docs/screenshots/author-publish.png)
 
 ### The planner: a model proposes, code decides
 

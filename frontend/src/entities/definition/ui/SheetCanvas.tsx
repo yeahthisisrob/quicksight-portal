@@ -6,19 +6,23 @@
  * freeform  absolute pixels scaled from the designed canvas width to ours.
  * section   paginated report: one free-form band per header/body/footer section.
  * flow      no layout data; three cards to a row in definition order.
+ *
+ * Every card gets its extras (renames, changes, badge, selection) from one
+ * `decorate` lookup, so the canvases stay ignorant of what the host is doing.
  */
 import { alpha, Box, Typography } from '@mui/material';
 import { useMemo, useRef } from 'react';
 
 import { borderRadius } from '@/shared/design-system/theme';
 
-import { elementRenames, type WireframeDiff } from '../lib/wireframeDiff';
-import type { WireframeElement, WireframeSheet } from '../model/types';
+import { elementChanges, elementRenames, type WireframeDiff } from '../lib/wireframeDiff';
+import type { WireframeBadges, WireframeElement, WireframeSheet } from '../model/types';
 import { useElementWidth } from './useElementWidth';
-import { type ElementRenames, WireframeCard } from './WireframeCard';
+import { WireframeCard, type WireframeCardProps } from './WireframeCard';
 
-/** Looks up an element's renames; undefined when nothing on the sheet changed. */
-type RenamesFor = (elementId: string) => ElementRenames | undefined;
+/** Everything a card may carry besides its element. */
+export type CardExtras = Omit<WireframeCardProps, 'element' | 'dense'>;
+export type Decorate = (elementId: string) => CardExtras;
 
 const GRID_COLUMNS = 36;
 const GRID_GAP = 6;
@@ -33,11 +37,11 @@ const SECTION_BAND_INSET = 2 * 8 + 2;
 function GridCanvas({
   elements,
   width,
-  renamesFor,
+  decorate,
 }: {
   elements: WireframeElement[];
   width: number;
-  renamesFor: RenamesFor;
+  decorate: Decorate;
 }) {
   const rowUnit = Math.max(MIN_ROW_UNIT, (width - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS);
   let flowRow = elements.reduce(
@@ -79,7 +83,7 @@ function GridCanvas({
         }
         return (
           <Box key={element.id} sx={{ gridArea: area, minWidth: 0, minHeight: 0 }}>
-            <WireframeCard element={element} renames={renamesFor(element.id)} />
+            <WireframeCard element={element} {...decorate(element.id)} />
           </Box>
         );
       })}
@@ -91,12 +95,12 @@ function FreeFormCanvas({
   elements,
   width,
   canvasWidth,
-  renamesFor,
+  decorate,
 }: {
   elements: WireframeElement[];
   width: number;
   canvasWidth: number;
-  renamesFor: RenamesFor;
+  decorate: Decorate;
 }) {
   const { scale, height } = useMemo(() => {
     let maxX = 0;
@@ -125,7 +129,7 @@ function FreeFormCanvas({
               height: element.position.height * scale,
             }}
           >
-            <WireframeCard element={element} renames={renamesFor(element.id)} />
+            <WireframeCard element={element} {...decorate(element.id)} />
           </Box>
         ) : null
       )}
@@ -133,13 +137,7 @@ function FreeFormCanvas({
   );
 }
 
-function FlowCanvas({
-  elements,
-  renamesFor,
-}: {
-  elements: WireframeElement[];
-  renamesFor: RenamesFor;
-}) {
+function FlowCanvas({ elements, decorate }: { elements: WireframeElement[]; decorate: Decorate }) {
   return (
     <Box
       sx={{
@@ -150,7 +148,7 @@ function FlowCanvas({
       }}
     >
       {elements.map((element) => (
-        <WireframeCard key={element.id} element={element} renames={renamesFor(element.id)} />
+        <WireframeCard key={element.id} element={element} {...decorate(element.id)} />
       ))}
     </Box>
   );
@@ -159,11 +157,11 @@ function FlowCanvas({
 function SectionCanvas({
   elements,
   width,
-  renamesFor,
+  decorate,
 }: {
   elements: WireframeElement[];
   width: number;
-  renamesFor: RenamesFor;
+  decorate: Decorate;
 }) {
   const bands = useMemo(() => {
     const map = new Map<string, { role: string; elements: WireframeElement[] }>();
@@ -200,7 +198,7 @@ function SectionCanvas({
               elements={band.elements}
               width={Math.max(width - SECTION_BAND_INSET, 1)}
               canvasWidth={DEFAULT_PAGE_WIDTH}
-              renamesFor={renamesFor}
+              decorate={decorate}
             />
           </Box>
         </Box>
@@ -209,10 +207,32 @@ function SectionCanvas({
   );
 }
 
-export function SheetCanvas({ sheet, diff }: { sheet: WireframeSheet; diff?: WireframeDiff }) {
+export interface SheetCanvasProps {
+  sheet: WireframeSheet;
+  diff?: WireframeDiff;
+  badges?: WireframeBadges;
+  selectedId?: string;
+  onSelect?: (elementId: string) => void;
+}
+
+/** Build the per-card extras for one sheet from the host's diff, badges and selection. */
+export function decorateWith(
+  sheetId: string,
+  { diff, badges, selectedId, onSelect }: Omit<SheetCanvasProps, 'sheet'>
+): Decorate {
+  return (elementId) => ({
+    renames: elementRenames(diff, sheetId, elementId),
+    changes: elementChanges(diff, sheetId, elementId),
+    badge: badges?.get(elementId),
+    selected: selectedId === elementId,
+    onSelect: onSelect ? () => onSelect(elementId) : undefined,
+  });
+}
+
+export function SheetCanvas({ sheet, diff, badges, selectedId, onSelect }: SheetCanvasProps) {
   const ref = useRef<HTMLDivElement>(null);
   const width = useElementWidth(ref, FALLBACK_WIDTH);
-  const renamesFor: RenamesFor = (elementId) => elementRenames(diff, sheet.id, elementId);
+  const decorate = decorateWith(sheet.id, { diff, badges, selectedId, onSelect });
 
   let body: React.ReactNode;
   if (sheet.elements.length === 0) {
@@ -222,20 +242,20 @@ export function SheetCanvas({ sheet, diff }: { sheet: WireframeSheet; diff?: Wir
       </Typography>
     );
   } else if (sheet.layout === 'grid') {
-    body = <GridCanvas elements={sheet.elements} width={width} renamesFor={renamesFor} />;
+    body = <GridCanvas elements={sheet.elements} width={width} decorate={decorate} />;
   } else if (sheet.layout === 'freeform') {
     body = (
       <FreeFormCanvas
         elements={sheet.elements}
         width={width}
         canvasWidth={sheet.canvasWidth ?? DEFAULT_CANVAS_WIDTH}
-        renamesFor={renamesFor}
+        decorate={decorate}
       />
     );
   } else if (sheet.layout === 'section') {
-    body = <SectionCanvas elements={sheet.elements} width={width} renamesFor={renamesFor} />;
+    body = <SectionCanvas elements={sheet.elements} width={width} decorate={decorate} />;
   } else {
-    body = <FlowCanvas elements={sheet.elements} renamesFor={renamesFor} />;
+    body = <FlowCanvas elements={sheet.elements} decorate={decorate} />;
   }
 
   return (

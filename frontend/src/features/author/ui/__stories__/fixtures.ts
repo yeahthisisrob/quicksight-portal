@@ -11,17 +11,29 @@ import {
   type WireframeModel,
 } from '@/entities/definition';
 
-import type { DefinitionDataset, RebindPlan } from '@/shared/api/modules/authoring';
+import type {
+  AssetInsights,
+  DefinitionDataset,
+  DefinitionOp,
+  RebindPlan,
+} from '@/shared/api/modules/authoring';
 import type { SmusAsset } from '@/shared/api/modules/smus';
 
 import type { MockRoute } from '../../../../../.storybook/mocks/api';
 import { requestBody } from '../../../../../.storybook/mocks/api';
-import { initialAuthorFlowState, stepStatus } from '../../model/authorFlow';
+import { healthBadges } from '../../lib/insights';
+import { outlineFromModel } from '../../lib/ops';
+import { type AuthorFlowState, initialAuthorFlowState, stepStatus } from '../../model/authorFlow';
 import type { AuthorFlow } from '../../model/useAuthorFlow';
+import { simulatePreview } from './simulateOps';
 
 export const SOURCE = { type: 'dashboard' as const, id: 'sales-overview', name: 'Sales overview' };
 export const SILVER = 'arn:aws:quicksight:us-east-1:1:dataset/sales-silver';
 export const GOLD_ARN = 'arn:aws:quicksight:us-east-1:1:dataset/sales-gold';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** Relative to now, so "last viewed 2 days ago" stays true whenever the story runs. */
+export const daysAgo = (n: number) => new Date(Date.now() - n * DAY_MS).toISOString();
 
 const usage = (partial: Partial<Record<string, number>> = {}) => ({
   visual: 0,
@@ -217,22 +229,84 @@ export const SMUS_ASSETS: SmusAsset[] = [
   },
 ];
 
-const SOURCES = [
+const TEMPLATE_TAG_ITEM = { key: 'quicksight-portal:template', value: 'true' };
+
+/** Dashboards as the list endpoint returns them, with activity for ranking. */
+export const SOURCES = [
   {
     id: SOURCE.id,
     name: SOURCE.name,
-    tags: [
-      { key: 'quicksight-portal:template', value: 'true' },
-      { key: 'team', value: 'sales' },
-    ],
+    tags: [TEMPLATE_TAG_ITEM, { key: 'team', value: 'sales' }],
+    activity: { totalViews: 1840, uniqueViewers: 62, lastViewed: daysAgo(2) },
   },
   {
     id: 'exec-summary',
     name: 'Executive summary',
-    tags: [{ key: 'quicksight-portal:template', value: 'true' }],
+    tags: [TEMPLATE_TAG_ITEM],
+    activity: { totalViews: 420, uniqueViewers: 15, lastViewed: daysAgo(10) },
   },
-  { id: 'ops-daily', name: 'Ops daily', tags: [] },
-  { id: 'finance-close', name: 'Finance close', tags: [{ key: 'team', value: 'finance' }] },
+  {
+    id: 'ops-daily',
+    name: 'Ops daily',
+    tags: [],
+    activity: { totalViews: 3900, uniqueViewers: 120, lastViewed: daysAgo(1) },
+  },
+  {
+    id: 'marketing-funnel',
+    name: 'Marketing funnel',
+    tags: [{ key: 'team', value: 'marketing' }],
+    activity: { totalViews: 150, uniqueViewers: 20, lastViewed: daysAgo(30) },
+  },
+  {
+    id: 'finance-close',
+    name: 'Finance close',
+    tags: [{ key: 'team', value: 'finance' }],
+    activity: { totalViews: 12, uniqueViewers: 3, lastViewed: daysAgo(200) },
+  },
+  { id: 'churn-deep-dive', name: 'Churn deep dive', tags: [], activity: { totalViews: 0 } },
+];
+
+/** Views plus CloudWatch health: one slow visual, one that errors. */
+export const INSIGHTS: AssetInsights = {
+  assetType: 'dashboard',
+  assetId: SOURCE.id,
+  views: { total: 1840, last30d: 310, uniqueViewers: 62, lastViewedAt: daysAgo(2) },
+  health: {
+    windowDays: 14,
+    viewLoads: 412,
+    viewLoadTimeP90Ms: 2100,
+    visuals: [
+      { sheetId: 'sheet-overview', visualId: 'table-detail', loadTimeP90Ms: 4800, errors: 0 },
+      { sheetId: 'sheet-overview', visualId: 'line-trend', loadTimeP90Ms: 900, errors: 7 },
+      { sheetId: 'sheet-overview', visualId: 'bar-region', loadTimeP90Ms: 1200, errors: 0 },
+      { sheetId: 'sheet-overview', visualId: 'kpi-revenue', loadTimeP90Ms: 300, errors: 0 },
+    ],
+  },
+};
+
+export const FOLDERS = [
+  { id: 'fld-sales', name: 'Sales', path: '/Sales', memberCount: 12, arn: 'arn:x' },
+  {
+    id: 'fld-sales-eu',
+    name: 'EMEA',
+    path: '/Sales/EMEA',
+    memberCount: 4,
+    parentId: 'fld-sales',
+    arn: 'arn:x',
+  },
+  { id: 'fld-finance', name: 'Finance', path: '/Finance', memberCount: 9, arn: 'arn:x' },
+  {
+    id: 'fld-shared',
+    name: 'Shared templates',
+    path: '/Shared templates',
+    memberCount: 3,
+    arn: 'arn:x',
+  },
+];
+
+/** A planner proposal that also suggests an edit. */
+export const PROPOSED_OPS: DefinitionOp[] = [
+  { op: 'retype', sheetId: 'sheet-overview', elementId: 'bar-region', visualType: 'ColumnChart' },
 ];
 
 export function exportFor(definition: unknown, tags = SOURCES[0]!.tags) {
@@ -272,6 +346,19 @@ export const SMUS_PROJECTS = [
   { id: 'proj-published-dev', name: 'published_dev', description: 'Published layer, dev' },
 ];
 
+function withTargetNames(
+  rebinds: Array<{
+    identifier: string;
+    targetDataSetId: string;
+    columnMap?: Record<string, string>;
+  }>
+) {
+  return rebinds.map((r) => ({
+    ...r,
+    targetName: r.targetDataSetId === 'sales-gold' ? 'sales_gold' : r.targetDataSetId,
+  }));
+}
+
 export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
   return [
     ...overrides,
@@ -305,6 +392,23 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
             data: {
               [key]: items,
               pagination: { page: 1, pageSize: 25, totalItems: items.length, totalPages: 1 },
+            },
+          },
+        };
+      },
+    },
+    {
+      method: 'get',
+      url: /\/assets\/folders\/paginated/,
+      respond: (config) => {
+        const search = String(config.params?.search ?? '').toLowerCase();
+        const folders = FOLDERS.filter((f) => !search || f.name.toLowerCase().includes(search));
+        return {
+          body: {
+            success: true,
+            data: {
+              folders,
+              pagination: { page: 1, pageSize: 25, totalItems: folders.length, totalPages: 1 },
             },
           },
         };
@@ -370,6 +474,29 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
       }),
     },
     {
+      method: 'get',
+      url: /\/authoring\/.*\/insights$/,
+      respond: (config) => {
+        const parts = String(config.url).split('/');
+        const id = parts[parts.length - 2];
+        const source = SOURCES.find((s) => s.id === id);
+        const body: AssetInsights =
+          id === SOURCE.id
+            ? INSIGHTS
+            : {
+                assetType: 'dashboard',
+                assetId: id ?? '',
+                views: {
+                  total: source?.activity?.totalViews ?? 0,
+                  last30d: Math.round((source?.activity?.totalViews ?? 0) / 6),
+                  uniqueViewers: source?.activity?.uniqueViewers ?? 0,
+                  lastViewedAt: source?.activity?.lastViewed,
+                },
+              };
+        return { body: { success: true, data: body } };
+      },
+    },
+    {
       method: 'post',
       url: '/rebind/plan',
       respond: (config) => ({
@@ -380,20 +507,44 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
       method: 'post',
       url: '/rebind/preview',
       respond: (config) => {
-        const rebinds = requestBody(config).rebinds as Array<{
-          identifier: string;
-          columnMap?: Record<string, string>;
-        }>;
-        let definition: unknown = definitionFixtures.gridDashboardDefinition;
-        for (const r of rebinds) definition = rewrite(definition, r.identifier, r.columnMap ?? {});
-        return { body: { success: true, data: { plan: planFor(rebinds as any), definition } } };
+        const { rebinds = [], addCalculatedFields = [], ops = [] } = requestBody(config);
+        const sim = simulatePreview(
+          definitionFixtures.gridDashboardDefinition,
+          withTargetNames(rebinds),
+          addCalculatedFields,
+          ops
+        );
+        return {
+          body: {
+            success: true,
+            data: {
+              plan: planFor(rebinds),
+              definition: sim.definition,
+              changes: sim.changes,
+              outline: sim.outline,
+            },
+          },
+        };
       },
     },
     {
       method: 'post',
       url: /\/rebind$/,
       respond: (config) => {
-        const { mode, name, rebinds } = requestBody(config);
+        const {
+          mode,
+          name,
+          rebinds = [],
+          addCalculatedFields = [],
+          ops = [],
+          folderId,
+        } = requestBody(config);
+        const sim = simulatePreview(
+          definitionFixtures.gridDashboardDefinition,
+          withTargetNames(rebinds),
+          addCalculatedFields,
+          ops
+        );
         return {
           body: {
             success: true,
@@ -405,6 +556,8 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
               mode,
               versionNumber: 2,
               plan: planFor(rebinds),
+              changes: sim.changes,
+              folderId,
             },
           },
         };
@@ -431,10 +584,10 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
               mode: 'clone',
               name: 'Sales overview (gold)',
               reason:
-                'The ask names the gold sales table; every column resolves after two renames.',
+                'The ask names the gold sales table; every column resolves after two renames. Revenue by region reads better as columns.',
               rebinds,
               unmapped: [],
-              ops: [],
+              ops: PROPOSED_OPS,
               plan: planFor(rebinds),
               model: { provider: 'bedrock', model: 'us.anthropic.claude-sonnet-4-6' },
             },
@@ -547,10 +700,18 @@ export interface FakeFlowOptions {
   step?: AuthorFlow['state']['step'];
   draft?: Partial<RebindDraft>;
   sourceModel?: WireframeModel | null;
+  /** Overrides the simulated preview. */
   previewModel?: WireframeModel | null;
   proposal?: AuthorFlow['proposal'];
   result?: AuthorFlow['state']['result'];
   publishError?: string | null;
+  /** Edits on the mockup; the preview, changes and outline follow from them. */
+  ops?: DefinitionOp[];
+  selectedElement?: AuthorFlowState['selectedElement'];
+  folder?: AuthorFlowState['folder'];
+  /** Defaults to INSIGHTS; null for an asset without any. */
+  insights?: AssetInsights | null;
+  previewLoading?: boolean;
 }
 
 export function fakeFlow(options: FakeFlowOptions = {}): AuthorFlow {
@@ -559,17 +720,45 @@ export function fakeFlow(options: FakeFlowOptions = {}): AuthorFlow {
     options.sourceModel === undefined
       ? buildWireframeModel(definitionFixtures.gridDashboardDefinition)
       : options.sourceModel;
-  const previewModel = options.previewModel ?? null;
-  const state = {
+  const ops = options.ops ?? [];
+  const addedFields = options.addedFields ?? [];
+  const simulated =
+    draft.rebinds.length > 0 || ops.length > 0 || addedFields.length > 0
+      ? simulatePreview(
+          definitionFixtures.gridDashboardDefinition,
+          withTargetNames(draft.rebinds),
+          addedFields,
+          ops
+        )
+      : null;
+  const previewModel =
+    options.previewModel !== undefined
+      ? options.previewModel
+      : simulated
+        ? buildWireframeModel(simulated.definition)
+        : null;
+  const insights = options.insights === undefined ? INSIGHTS : options.insights;
+  const state: AuthorFlowState = {
     ...initialAuthorFlowState,
     step: options.step ?? 'source',
     source: SOURCE,
     result: options.result ?? null,
-    visited: ['source', 'targets', 'review', 'mockup', 'publish'] as AuthorFlow['state']['visited'],
+    visited: ['source', 'targets', 'review', 'mockup', 'publish'],
+    ops,
+    folder: options.folder ?? null,
+    selectedElement: options.selectedElement ?? null,
   };
+  const canApply =
+    draft.rebinds.length > 0 ? draft.canApply : draft.mode === 'update' || draft.name.length > 0;
   return {
     state,
-    status: stepStatus(state, { hasTargets: draft.rebinds.length > 0, canApply: draft.canApply }),
+    status: stepStatus(state, {
+      hasTargets: draft.rebinds.length > 0,
+      canApply,
+      hasOps: ops.length > 0,
+      hasAddedFields: addedFields.length > 0,
+      renamed: draft.mode === 'clone' ? draft.name.length > 0 : draft.name !== SOURCE.name,
+    }),
     draft,
     source: {
       loading: false,
@@ -579,6 +768,8 @@ export function fakeFlow(options: FakeFlowOptions = {}): AuthorFlow {
       tags: SOURCES[0]!.tags,
       isTemplate: true,
     },
+    insights: { loading: false, error: null, data: insights },
+    healthBadges: healthBadges(insights),
     selectSource: noop,
     goTo: noop,
     next: noop,
@@ -591,20 +782,29 @@ export function fakeFlow(options: FakeFlowOptions = {}): AuthorFlow {
     proposeError: null,
     propose: noopAsync,
     preview: {
-      loading: false,
+      loading: options.previewLoading ?? false,
       error: null,
       plan: draft.plan,
       model: previewModel,
       diff: sourceModel && previewModel ? diffWireframeModels(sourceModel, previewModel) : null,
+      changes: simulated?.changes ?? [],
+      outline: simulated?.outline ?? (sourceModel ? outlineFromModel(sourceModel) : null),
     },
+    addOps: noop,
+    removeOp: noop,
+    undoOp: noop,
+    clearOps: noop,
+    selectElement: noop,
+    setFolder: noop,
     publishing: false,
     publishError: options.publishError ?? null,
     publish: noopAsync,
-    addedFields: options.addedFields ?? [],
+    addedFields,
     addTemplateField: () => {},
     removeTemplateField: () => {},
     setTemplateFieldIdentifier: () => {},
     reset: noop,
+    startFromResult: noop,
   };
 }
 
@@ -634,3 +834,26 @@ export function undecidedDraft(): Partial<RebindDraft> {
 export function previewModelFor(map: Record<string, string>): WireframeModel {
   return buildWireframeModel(rewrite(definitionFixtures.gridDashboardDefinition, 'sales', map));
 }
+
+/** A handful of edits that exercise every highlight the mockup can draw. */
+export const EDITOR_OPS: DefinitionOp[] = [
+  {
+    op: 'retitle',
+    sheetId: 'sheet-overview',
+    elementId: 'bar-region',
+    title: 'Net revenue by region',
+  },
+  { op: 'retype', sheetId: 'sheet-overview', elementId: 'bar-region', visualType: 'LineChart' },
+  { op: 'move', sheetId: 'sheet-overview', elementId: 'kpi-orders', col: 0, row: 6 },
+  { op: 'resize', sheetId: 'sheet-overview', elementId: 'kpi-revenue', colSpan: 18, rowSpan: 4 },
+  { op: 'remove', sheetId: 'sheet-overview', elementId: 'line-trend' },
+  {
+    op: 'duplicate',
+    sheetId: 'sheet-overview',
+    elementId: 'table-detail',
+    title: 'Top customers (EMEA)',
+    col: 0,
+    row: 22,
+  },
+  { op: 'renameSheet', sheetId: 'sheet-overview', name: 'Overview (gold)' },
+];

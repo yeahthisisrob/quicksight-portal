@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import { type MockRoute, mockApi } from '../../../../.storybook/mocks/api';
 import {
   authorRoutes,
+  EDITOR_OPS,
   FULL_MAP,
   fakeFlow,
+  PROPOSED_OPS,
   previewModelFor,
   resolvedDraft,
   SMUS_NOT_CONFIGURED,
@@ -19,7 +21,7 @@ import { AuthorStudio, AuthorStudioView } from './AuthorStudio';
  * so each step can be looked at in a known state. The full-page stories run
  * the real hook against stubbed HTTP, so the whole flow can be clicked
  * through: pick "Sales overview", choose sales_gold, type an ask, accept the
- * proposal, view the mockup, create the copy.
+ * proposal, edit the mockup, pick a folder, create the copy.
  */
 
 /** Installed during render: the page's own effects fire before ours would. */
@@ -37,7 +39,7 @@ const meta: Meta<typeof AuthorStudioView> = {
     docs: {
       description: {
         component:
-          'The Author page: pick a source, choose datasets (SMUS published assets first), describe the change and review the columns, see a before/after mockup, publish.',
+          'The Author page: pick a source ranked by use, choose datasets (SMUS published assets first), describe the change and review the columns, see and edit a before/after mockup, publish into a folder.',
       },
     },
   },
@@ -78,10 +80,36 @@ export const FullPageSmusNotConfigured: Story = {
 // --- steps, canned flow -----------------------------------------------------
 
 export const StepSource: Story = {
-  name: '1 · Source',
+  name: '1 · Source, ranked with badges',
   render: () => (
     <Mocked routes={authorRoutes()}>
       <AuthorStudioView flow={fakeFlow({ step: 'source' })} />
+    </Mocked>
+  ),
+};
+
+export const StepSourceInsights: Story = {
+  name: '1 · Source, insights and health on the preview',
+  render: () => (
+    <Mocked routes={authorRoutes()}>
+      <AuthorStudioView flow={fakeFlow({ step: 'source' })} />
+    </Mocked>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The selected dashboard shows its views, viewers and p90 load time; the table is flagged slow and the line chart flagged for load errors.',
+      },
+    },
+  },
+};
+
+export const StepSourceNoInsights: Story = {
+  name: '1 · Source, no insights available',
+  render: () => (
+    <Mocked routes={authorRoutes()}>
+      <AuthorStudioView flow={fakeFlow({ step: 'source', insights: null })} />
     </Mocked>
   ),
 };
@@ -121,12 +149,14 @@ export const StepReviewProposed: Story = {
         flow={fakeFlow({
           step: 'review',
           draft: resolvedDraft(),
+          ops: PROPOSED_OPS,
           proposal: {
             ask: 'copy this onto sales gold',
             intent: 'rebind',
             mode: 'clone',
             name: 'Sales overview (gold)',
-            reason: 'The ask names the gold sales table; every column resolves after two renames.',
+            reason:
+              'The ask names the gold sales table; every column resolves after two renames. Revenue by region reads better as columns.',
             rebinds: [
               {
                 identifier: 'sales',
@@ -136,7 +166,7 @@ export const StepReviewProposed: Story = {
               },
             ],
             unmapped: [],
-            ops: [],
+            ops: PROPOSED_OPS,
             plan: resolvedDraft().plan ?? null,
             model: { provider: 'bedrock', model: 'us.anthropic.claude-sonnet-4-6' },
           },
@@ -159,6 +189,76 @@ export const StepMockup: Story = {
   ),
 };
 
+export const StepMockupEditor: Story = {
+  name: '4 · Mockup editor, inspector open',
+  render: () => (
+    <Mocked routes={authorRoutes()}>
+      <AuthorStudioView
+        flow={fakeFlow({
+          step: 'mockup',
+          draft: resolvedDraft(),
+          ops: EDITOR_OPS.slice(0, 2),
+          selectedElement: { sheetId: 'sheet-overview', elementId: 'bar-region' },
+        })}
+      />
+    </Mocked>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The bar chart is selected: the inspector shows its title, type, position and size. It has already been retitled and retyped, so the card carries a "bar chart → line chart" chip.',
+      },
+    },
+  },
+};
+
+export const StepMockupChanges: Story = {
+  name: '4 · Mockup, every kind of change',
+  render: () => (
+    <Mocked routes={authorRoutes()}>
+      <AuthorStudioView
+        flow={fakeFlow({
+          step: 'mockup',
+          draft: resolvedDraft(),
+          ops: EDITOR_OPS,
+          addedFields: [
+            {
+              templateId: 't-net-margin',
+              identifier: 'sales',
+              name: 'net_margin',
+              expression: '{revenue} - {cost} - {returns}',
+            },
+          ],
+        })}
+      />
+    </Mocked>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Renamed fields, a retyped chart, a moved KPI, a resized KPI, a removed line chart (a ghost on the Before view), a duplicated table and a renamed sheet: the change list and the diff chips say it all.',
+      },
+    },
+  },
+};
+
+export const StepMockupEditsOnly: Story = {
+  name: '4 · Mockup, edits without a rebind',
+  render: () => (
+    <Mocked routes={authorRoutes()}>
+      <AuthorStudioView
+        flow={fakeFlow({
+          step: 'mockup',
+          ops: EDITOR_OPS.slice(2, 5),
+          selectedElement: { sheetId: 'sheet-overview', elementId: 'kpi-orders' },
+        })}
+      />
+    </Mocked>
+  ),
+};
+
 export const StepMockupBlocked: Story = {
   name: '4 · Mockup, publishing blocked',
   render: () => (
@@ -174,20 +274,50 @@ export const StepMockupBlocked: Story = {
 
 export const StepPublish: Story = {
   name: '5 · Publish, ready',
-  render: () => <AuthorStudioView flow={fakeFlow({ step: 'publish', draft: resolvedDraft() })} />,
+  render: () => (
+    <Mocked routes={authorRoutes()}>
+      <AuthorStudioView flow={fakeFlow({ step: 'publish', draft: resolvedDraft() })} />
+    </Mocked>
+  ),
+};
+
+export const StepPublishFolder: Story = {
+  name: '5 · Publish, into a folder with edits',
+  render: () => (
+    <Mocked routes={authorRoutes()}>
+      <AuthorStudioView
+        flow={fakeFlow({
+          step: 'publish',
+          draft: resolvedDraft(),
+          ops: EDITOR_OPS.slice(0, 3),
+          folder: { id: 'fld-sales-eu', name: 'EMEA', path: '/Sales/EMEA' },
+          addedFields: [
+            {
+              templateId: 't-net-margin',
+              identifier: 'sales',
+              name: 'net_margin',
+              expression: '{revenue} - {cost} - {returns}',
+            },
+          ],
+        })}
+      />
+    </Mocked>
+  ),
 };
 
 export const StepPublishRejected: Story = {
   name: '5 · Publish, rejected by QuickSight',
   render: () => (
-    <AuthorStudioView
-      flow={fakeFlow({
-        step: 'publish',
-        draft: resolvedDraft(),
-        publishError:
-          'Column net_revenue in dataset sales has type DECIMAL but the visual expects DATETIME',
-      })}
-    />
+    <Mocked routes={authorRoutes()}>
+      <AuthorStudioView
+        flow={fakeFlow({
+          step: 'publish',
+          draft: resolvedDraft(),
+          publishError:
+            'Column net_revenue in dataset sales has type DECIMAL but the visual expects DATETIME',
+        })}
+      />
+    </Mocked>
   ),
 };
 
@@ -198,12 +328,23 @@ export const StepPublished: Story = {
       flow={fakeFlow({
         step: 'publish',
         draft: resolvedDraft(),
+        folder: { id: 'fld-sales-eu', name: 'EMEA', path: '/Sales/EMEA' },
         result: {
           assetType: 'dashboard',
           assetId: 'sales-overview-gold',
           name: 'Sales overview (gold)',
           mode: 'clone',
           versionNumber: 1,
+          folderId: 'fld-sales-eu',
+          changes: [
+            { kind: 'rebind', description: 'Dataset "sales" now reads sales_gold' },
+            { kind: 'rename', description: 'Column revenue renamed to net_revenue in "sales"' },
+            { kind: 'rename', description: 'Column order_date renamed to Order Date in "sales"' },
+            {
+              kind: 'visual',
+              description: '"Revenue by region" changed from bar chart to line chart',
+            },
+          ],
         },
       })}
     />

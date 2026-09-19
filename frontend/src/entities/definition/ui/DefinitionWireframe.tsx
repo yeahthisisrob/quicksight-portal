@@ -1,19 +1,24 @@
 /**
- * DefinitionWireframe - a read-only sketch of a dashboard or analysis.
+ * DefinitionWireframe - a sketch of a dashboard or analysis.
  *
  * Sheet tabs top-left as QuickSight draws them, a summary of what the
  * definition contains, the sheet's control strip, then the canvas. Nothing
  * here touches data: it is layout, visual types and field names only, which
  * is exactly what you need to compare a proposed clone against its source.
+ *
+ * Read-only by default. Given `onSelect` it becomes the editor's surface:
+ * cards are clickable and the selected one is outlined. Given `diff` it
+ * highlights renamed fields and moved, resized, retyped, added and removed
+ * elements; given `badges` it flags slow or failing visuals.
  */
 import { alpha, Box, Chip, Tab, Tabs, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 
 import { borderRadius, typography } from '@/shared/design-system/theme';
 
-import { elementRenames, type WireframeDiff } from '../lib/wireframeDiff';
-import type { WireframeModel } from '../model/types';
-import { SheetCanvas } from './SheetCanvas';
+import type { WireframeDiff } from '../lib/wireframeDiff';
+import type { WireframeBadges, WireframeModel } from '../model/types';
+import { decorateWith, SheetCanvas } from './SheetCanvas';
 import { WireframeCard } from './WireframeCard';
 
 const CONTROL_CARD_WIDTH = 200;
@@ -49,41 +54,64 @@ function Summary({ model }: { model: WireframeModel }) {
   );
 }
 
-interface DefinitionWireframeProps {
+export interface DefinitionWireframeProps {
   model: WireframeModel;
   /** Which sheet to show first; defaults to the first sheet. */
   initialSheetId?: string;
+  /** Controlled sheet selection, for hosts that keep it (the editor). */
+  sheetId?: string;
+  onSheetChange?: (sheetId: string) => void;
   /** Hide the summary strip (when the host already shows it). */
   hideSummary?: boolean;
   /**
-   * Renamed fields to highlight (from diffWireframeModels against the model
-   * this one was derived from). Chips in the diff render in the info colour
-   * with an old → new tooltip.
+   * Changes to highlight (from diffWireframeModels against the model this one
+   * was derived from): renamed fields, and moved/resized/retyped/added/removed
+   * elements.
    */
   diff?: WireframeDiff;
+  /** Health warnings keyed by element id (slow, errors). */
+  badges?: WireframeBadges;
+  /** Editor selection: the outlined card. */
+  selectedId?: string;
+  /** Makes cards clickable. */
+  onSelect?: (elementId: string) => void;
 }
 
 export function DefinitionWireframe({
   model,
   initialSheetId,
+  sheetId: controlledSheetId,
+  onSheetChange,
   hideSummary = false,
   diff,
+  badges,
+  selectedId,
+  onSelect,
 }: DefinitionWireframeProps) {
-  const [sheetId, setSheetId] = useState(initialSheetId ?? model.sheets[0]?.id);
+  const [ownSheetId, setOwnSheetId] = useState(initialSheetId ?? model.sheets[0]?.id);
+  const sheetId = controlledSheetId ?? ownSheetId;
+  const setSheetId = (id: string) => {
+    setOwnSheetId(id);
+    onSheetChange?.(id);
+  };
 
   // A new model (different asset) may not contain the selected sheet.
   useEffect(() => {
     if (!model.sheets.some((s) => s.id === sheetId)) {
-      setSheetId(initialSheetId ?? model.sheets[0]?.id);
+      const fallback = initialSheetId ?? model.sheets[0]?.id;
+      if (fallback) {
+        setOwnSheetId(fallback);
+        onSheetChange?.(fallback);
+      }
     }
-  }, [model, sheetId, initialSheetId]);
+  }, [model, sheetId, initialSheetId, onSheetChange]);
 
   const sheet = useMemo(
     () => model.sheets.find((s) => s.id === sheetId) ?? model.sheets[0],
     [model, sheetId]
   );
 
-  if (model.sheets.length === 0) {
+  if (model.sheets.length === 0 || !sheet) {
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
         <Typography variant="body1" sx={{ color: 'text.secondary' }}>
@@ -92,6 +120,8 @@ export function DefinitionWireframe({
       </Box>
     );
   }
+
+  const decorate = decorateWith(sheet.id, { diff, badges, selectedId, onSelect });
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
@@ -140,17 +170,19 @@ export function DefinitionWireframe({
         >
           {sheet.controlBar.map((control) => (
             <Box key={control.id} sx={{ width: CONTROL_CARD_WIDTH, flexShrink: 0 }}>
-              <WireframeCard
-                element={control}
-                dense
-                renames={elementRenames(diff, sheet.id, control.id)}
-              />
+              <WireframeCard element={control} dense {...decorate(control.id)} />
             </Box>
           ))}
         </Box>
       )}
 
-      <SheetCanvas sheet={sheet} diff={diff} />
+      <SheetCanvas
+        sheet={sheet}
+        diff={diff}
+        badges={badges}
+        selectedId={selectedId}
+        onSelect={onSelect}
+      />
     </Box>
   );
 }
