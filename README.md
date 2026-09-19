@@ -94,6 +94,8 @@ Configuration lives in DynamoDB with a fallback to the Lambda's environment vari
 - **Data lineage** - dataset, data source and dashboard/analysis relationships, including composite datasets and transitive dependencies
 - **Activity analytics** - CloudTrail-derived view counts and viewer history, dataset refresh history, per-user activity
 - **Health from CloudWatch** - the Dashboards list shows 30-day views, p90 view load time and visual load errors; the Datasets list shows refresh runs, p90 ingestion latency and error rows. One batched CloudWatch read per page, from the metrics QuickSight publishes (Enterprise edition); accounts without them see "no metrics" rather than empty columns
+
+![Dashboards with health columns](docs/screenshots/health-dashboards.png)
 - **Tags & permissions** - browse and edit tags, inspect asset permissions, filter any asset page by a user's access
 
 ![Portal layout](docs/screenshots/layout.png)
