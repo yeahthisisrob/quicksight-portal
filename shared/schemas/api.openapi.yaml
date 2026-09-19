@@ -4691,6 +4691,15 @@ components:
           type: string
         listingsError:
           type: string
+        callerArn:
+          type: string
+          description: The principal DataZone saw (the Lambda's assumed-role session), from STS.
+        roleArn:
+          type: string
+          description: The IAM role behind that session - what smus-grant and the SMUS console register.
+        profileStatus:
+          type: string
+          description: The role's user profile status in the domain, or 'not found'.
 
     SmusProject:
       type: object

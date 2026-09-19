@@ -1,6 +1,7 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { DataZoneAdapter } from '../../../adapters/aws/DataZoneAdapter';
+import { StsAdapter } from '../../../adapters/aws/StsAdapter';
 import { requireAuth } from '../../../shared/auth';
 import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { STATUS_CODES } from '../../../shared/constants';
@@ -59,7 +60,9 @@ export class SettingsHandler {
       const service = new SmusService(
         CacheService.getInstance(),
         new DataZoneAdapter(config.region),
-        config
+        config,
+        null,
+        new StsAdapter(config.region)
       );
       const { projects, diagnostics } = await service.projectDiscovery();
       logger.info('SMUS project discovery', diagnostics);

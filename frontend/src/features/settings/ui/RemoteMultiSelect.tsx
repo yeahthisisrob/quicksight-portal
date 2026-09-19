@@ -32,6 +32,12 @@ const LOADERS: Record<string, () => Promise<RemoteOptions>> = {
           d.listings === 0 && !d.listingsError
             ? 'No published listings, so there is nothing to derive projects from: check the domain id and region, and that assets are published.'
             : '',
+          d.roleArn ? `Calling DataZone as ${d.roleArn} (domain profile: ${d.profileStatus}).` : '',
+          d.profileStatus === 'not found'
+            ? 'That role has no user profile in the domain, so it is a member of nothing: run `just smus-grant <domain>` or add the role in the SMUS console.'
+            : d.fromListProjects === 0 && !d.listProjectsError
+              ? 'The role is known to the domain but is a member of no project: add it to the projects it should read.'
+              : '',
         ]
           .filter(Boolean)
           .join(' ')

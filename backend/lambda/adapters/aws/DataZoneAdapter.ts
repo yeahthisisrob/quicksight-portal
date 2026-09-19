@@ -8,6 +8,7 @@
 import {
   DataZoneClient,
   GetProjectCommand,
+  GetUserProfileCommand,
   ListProjectsCommand,
   SearchListingsCommand,
   type SearchListingsCommandOutput,
@@ -195,6 +196,32 @@ export class DataZoneAdapter {
     }
 
     return listings;
+  }
+
+  /**
+   * The domain user profile behind an IAM role, or null when the role has
+   * none (then ListProjects cannot return anything for it).
+   */
+  public async getIamRoleProfile(
+    domainId: string,
+    roleArn: string
+  ): Promise<{ id: string; status: string } | null> {
+    try {
+      const response = await this.client.send(
+        new GetUserProfileCommand({
+          domainIdentifier: domainId,
+          userIdentifier: roleArn,
+          type: 'IAM',
+        })
+      );
+      return response.id ? { id: response.id, status: response.status ?? 'unknown' } : null;
+    } catch (error) {
+      logger.warn('GetUserProfile failed; the role may have no profile in the domain', {
+        roleArn,
+        error,
+      });
+      return null;
+    }
   }
 
   /** One project by id, for naming a publisher ListProjects did not return. */

@@ -4528,6 +4528,12 @@ export interface components {
             publishers: number;
             listProjectsError?: string;
             listingsError?: string;
+            /** @description The principal DataZone saw (the Lambda's assumed-role session), from STS. */
+            callerArn?: string;
+            /** @description The IAM role behind that session - what smus-grant and the SMUS console register. */
+            roleArn?: string;
+            /** @description The role's user profile status in the domain, or 'not found'. */
+            profileStatus?: string;
         };
         SmusProject: {
             id: string;
