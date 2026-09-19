@@ -33,6 +33,15 @@ export class CloudWatchAdapter {
     this.client = client ?? new CloudWatchClient({ region });
   }
 
+  /** Health for a page of dashboards or datasets in one batched read. */
+  public async getAssetHealthBatch(
+    kind: HealthKind,
+    ids: string[],
+    windowDays: number
+  ): Promise<AssetHealth[]> {
+    return await readAssetHealthBatch(this.client, kind, ids, windowDays);
+  }
+
   public async getDashboardHealth(
     dashboardId: string,
     visuals: Array<{ sheetId: string; visualId: string }>,
@@ -87,6 +96,86 @@ export class CloudWatchAdapter {
       })),
     };
   }
+}
+
+export type HealthKind = 'dashboard' | 'dataset';
+
+export interface AssetHealth {
+  id: string;
+  viewLoads?: number;
+  viewLoadTimeP90Ms?: number;
+  visualErrors?: number;
+  ingestionRuns?: number;
+  ingestionLatencyP90Ms?: number;
+  ingestionErrorRows?: number;
+}
+
+const QUERIES_PER_ASSET = 3;
+
+/** Metric-math SEARCH over every visual of a dashboard, summed. */
+function visualErrorSearch(dashboardId: string, period: number): string {
+  const escaped = dashboardId.replace(/"/g, '\\"');
+  return `SUM(SEARCH('{${NAMESPACE},DashboardId,SheetId,VisualId} MetricName="VisualLoadErrorCount" DashboardId="${escaped}"', 'Sum', ${period}))`;
+}
+
+/**
+ * One batched read for a page of assets. Dashboards: views, p90 view load
+ * time, and visual load errors summed across their visuals with a metric
+ * search, so no outline is needed. Datasets: refresh runs, p90 ingestion
+ * latency and error rows.
+ */
+export async function readAssetHealthBatch(
+  client: CloudWatchClient,
+  kind: HealthKind,
+  ids: string[],
+  windowDays: number
+): Promise<AssetHealth[]> {
+  if (ids.length === 0) {
+    return [];
+  }
+  const end = new Date();
+  const start = new Date(end.getTime() - windowDays * SECONDS_PER_DAY * MS_PER_SECOND);
+  const period = windowDays * SECONDS_PER_DAY;
+
+  const queries: MetricDataQuery[] = [];
+  ids.forEach((id, i) => {
+    if (kind === 'dashboard') {
+      queries.push(metric(`a${i}`, 'DashboardViewCount', { DashboardId: id }, 'Sum', period));
+      queries.push(metric(`b${i}`, 'DashboardViewLoadTime', { DashboardId: id }, 'p90', period));
+      queries.push({ Id: `c${i}`, Expression: visualErrorSearch(id, period), Period: period });
+    } else {
+      queries.push(metric(`a${i}`, 'IngestionInvocationCount', { DatasetId: id }, 'Sum', period));
+      queries.push(metric(`b${i}`, 'IngestionLatency', { DatasetId: id }, 'p90', period));
+      queries.push(metric(`c${i}`, 'IngestionErrorRowCount', { DatasetId: id }, 'Sum', period));
+    }
+  });
+
+  const values = new Map<string, number>();
+  const perCall = QUERIES_PER_CALL - (QUERIES_PER_CALL % QUERIES_PER_ASSET);
+  for (let i = 0; i < queries.length; i += perCall) {
+    const response = await client.send(
+      new GetMetricDataCommand({
+        StartTime: start,
+        EndTime: end,
+        MetricDataQueries: queries.slice(i, i + perCall),
+      })
+    );
+    for (const result of response.MetricDataResults ?? []) {
+      const value = result.Values?.[0];
+      if (result.Id && typeof value === 'number') {
+        values.set(result.Id, value);
+      }
+    }
+  }
+
+  return ids.map((id, i) => {
+    const a = values.get(`a${i}`);
+    const b = values.get(`b${i}`);
+    const c = values.get(`c${i}`);
+    return kind === 'dashboard'
+      ? { id, viewLoads: a, viewLoadTimeP90Ms: b, visualErrors: c }
+      : { id, ingestionRuns: a, ingestionLatencyP90Ms: b, ingestionErrorRows: c };
+  });
 }
 
 function metric(

@@ -2284,6 +2284,46 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/activity/health:
+    get:
+      summary: QuickSight CloudWatch health for a page of dashboards or datasets
+      description: |
+        One batched CloudWatch read for the ids given (up to 100): for
+        dashboards, views, p90 view load time and visual load errors over the
+        window; for datasets, refresh runs, p90 ingestion latency and error
+        rows. Ids without metrics come back with only their id. Cached per
+        Lambda container for a few minutes.
+      parameters:
+        - name: assetType
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [dashboard, dataset]
+        - name: ids
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Comma-separated asset ids, at most 100.
+      responses:
+        '200':
+          description: Health per asset
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/AssetHealthBatch'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/assets/{assetType}/{assetId}/rename:
     post:
       summary: Rename an asset live in QuickSight
@@ -5417,6 +5457,48 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/VisualHealth'
+
+    AssetHealth:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+        viewLoads:
+          type: integer
+          description: Dashboards. Views over the window.
+        viewLoadTimeP90Ms:
+          type: number
+          description: Dashboards.
+        visualErrors:
+          type: integer
+          description: Dashboards. Visual load errors over the window.
+        ingestionRuns:
+          type: integer
+          description: Datasets. Refreshes over the window.
+        ingestionLatencyP90Ms:
+          type: number
+          description: Datasets.
+        ingestionErrorRows:
+          type: integer
+          description: Datasets. Rows skipped for errors over the window.
+
+    AssetHealthBatch:
+      type: object
+      required: [assetType, windowDays, available, items]
+      properties:
+        assetType:
+          type: string
+          enum: [dashboard, dataset]
+        windowDays:
+          type: integer
+        available:
+          type: boolean
+          description: False when CloudWatch could not be read (no metrics or no permission); items are then empty.
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetHealth'
 
     BulkItemFailure:
       type: object

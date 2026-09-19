@@ -11,6 +11,7 @@ import {
   generateDashboardAnalysisColumns,
   generateUsedByColumn,
   generateUsesColumn,
+  generateHealthColumns,
 } from './columnGenerators';
 
 import type { ColumnConfig } from '@/features/asset-management';
@@ -240,7 +241,7 @@ function getSpecificColumnsForAssetType(
 ): ColumnConfig[] {
   switch (assetType) {
     case 'dataset':
-      return generateDatasetColumns(handlers);
+      return [...generateDatasetColumns(handlers), ...generateHealthColumns('dataset')];
     case 'folder':
       return generateFolderColumns(handlers);
     case 'user':
@@ -250,6 +251,7 @@ function getSpecificColumnsForAssetType(
     case 'datasource':
       return generateDatasourceColumns();
     case 'dashboard':
+      return [...generateDashboardAnalysisColumns(handlers), ...generateHealthColumns('dashboard')];
     case 'analysis':
       return generateDashboardAnalysisColumns(handlers);
     default:

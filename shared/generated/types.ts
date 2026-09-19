@@ -2991,6 +2991,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/activity/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * QuickSight CloudWatch health for a page of dashboards or datasets
+         * @description One batched CloudWatch read for the ids given (up to 100): for
+         *     dashboards, views, p90 view load time and visual load errors over the
+         *     window; for datasets, refresh runs, p90 ingestion latency and error
+         *     rows. Ids without metrics come back with only their id. Cached per
+         *     Lambda container for a few minutes.
+         */
+        get: {
+            parameters: {
+                query: {
+                    assetType: "dashboard" | "dataset";
+                    /** @description Comma-separated asset ids, at most 100. */
+                    ids: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Health per asset */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["AssetHealthBatch"];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assets/{assetType}/{assetId}/rename": {
         parameters: {
             query?: never;
@@ -4914,6 +4966,29 @@ export interface components {
                 viewLoadTimeP90Ms?: number;
                 visuals: components["schemas"]["VisualHealth"][];
             };
+        };
+        AssetHealth: {
+            id: string;
+            /** @description Dashboards. Views over the window. */
+            viewLoads?: number;
+            /** @description Dashboards. */
+            viewLoadTimeP90Ms?: number;
+            /** @description Dashboards. Visual load errors over the window. */
+            visualErrors?: number;
+            /** @description Datasets. Refreshes over the window. */
+            ingestionRuns?: number;
+            /** @description Datasets. */
+            ingestionLatencyP90Ms?: number;
+            /** @description Datasets. Rows skipped for errors over the window. */
+            ingestionErrorRows?: number;
+        };
+        AssetHealthBatch: {
+            /** @enum {string} */
+            assetType: "dashboard" | "dataset";
+            windowDays: number;
+            /** @description False when CloudWatch could not be read (no metrics or no permission); items are then empty. */
+            available: boolean;
+            items: components["schemas"]["AssetHealth"][];
         };
         BulkItemFailure: {
             /** @description Human-readable item label, e.g. "alice → analysts" */
