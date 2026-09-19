@@ -1,4 +1,6 @@
-import '@testing-library/jest-dom';
+// The vitest entry also augments vitest's `expect` types, which the plain
+// entry does not, so DOM matchers type-check as well as run.
+import '@testing-library/jest-dom/vitest';
 
 // The app's config module throws at import time when window.APP_CONFIG is
 // missing (it is injected by /config.js in the browser). Provide a default so

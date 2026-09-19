@@ -98,10 +98,13 @@ export function CatalogPage({
     [projects.data, url.project]
   );
 
-  // Keep the URL honest once a project is chosen for the user.
+  // Keep the URL honest once a project is chosen for the user - but never
+  // inside the tabbed catalog, where the same key scopes the field-first tabs.
+  // Pinning a project here silently narrowed those tabs to it, and a project
+  // whose datasets matched no listing left them empty.
   useEffect(() => {
-    if (project && project.id !== url.project) setUrl({ project: project.id });
-  }, [project, url.project, setUrl]);
+    if (!embedded && project && project.id !== url.project) setUrl({ project: project.id });
+  }, [embedded, project, url.project, setUrl]);
   useEffect(() => {
     if ((url.q ?? '') !== debouncedSearch) setUrl({ q: debouncedSearch });
   }, [debouncedSearch, url.q, setUrl]);

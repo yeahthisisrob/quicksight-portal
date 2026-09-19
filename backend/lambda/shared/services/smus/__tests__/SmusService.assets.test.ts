@@ -212,6 +212,47 @@ describe('SmusService assets', () => {
     ).rejects.toThrow("not one of this account's data sources");
     expect(qs.createDataSet).not.toHaveBeenCalled();
   });
+
+  it('ties a dataset to a listing that was renamed away from its table', async () => {
+    // The publisher called it something readable; the dataset only knows the
+    // Glue table it reads, which is how most datasets arrive.
+    cache.get.mockResolvedValue(
+      snapshot({
+        listings: [
+          {
+            listingId: 'l-renamed',
+            assetId: 'a-renamed',
+            name: 'Customers (gold)',
+            assetType: 'amazon.datazone.GlueTableAssetType',
+            owningProjectId: 'proj-published-prod',
+            table: { database: 'published_prod', name: 'dim_customer' },
+            columns: [{ name: 'customer_id', type: 'bigint' }],
+          },
+        ],
+      })
+    );
+
+    // Nothing in the dataset's name hints at the listing, so only the table
+    // it reads can tie the two together.
+    cache.getAllDatasets.mockResolvedValue([
+      {
+        assetId: 'ds-cust',
+        assetName: 'Prod customers v2',
+        metadata: {
+          lineageData: {
+            physicalTables: [
+              { type: 'RELATIONAL', schema: 'published_prod', name: 'dim_customer' },
+            ],
+          },
+        },
+      },
+    ]);
+
+    const result = await service().listAssets();
+    expect(result.assets[0]?.datasets).toEqual([
+      { id: 'ds-cust', name: 'Prod customers v2', matchType: 'source-table' },
+    ]);
+  });
 });
 
 describe('helpers', () => {
