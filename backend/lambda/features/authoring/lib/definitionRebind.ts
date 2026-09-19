@@ -14,6 +14,9 @@
  * unique within the definition, and renaming a column does not change that.
  */
 
+import { ValidationError } from '../../../shared/errors/ValidationError';
+import { canonicalExpression } from '../../data-catalog/lib/expressionAnalysis';
+import type { AddedCalculatedField } from '../types';
 import { expressionColumns, isColumnIdentifier } from './definitionColumns';
 
 export interface RebindSpec {
@@ -100,3 +103,57 @@ export function rebindDefinition<T extends object>(definition: T, specs: RebindS
 
   return out;
 }
+
+/**
+ * Add calculated fields (typically from the template library) to a
+ * definition. Each is declared against a dataset identifier the definition
+ * has; a name already declared there is refused rather than overwritten.
+ */
+export function withAddedCalculatedFields(
+  definition: Record<string, any>,
+  added: AddedCalculatedField[]
+): Record<string, any> {
+  if (added.length === 0) {
+    return definition;
+  }
+  const identifiers = new Set<string>(
+    (definition.DataSetIdentifierDeclarations ?? []).map((d: any) => d?.Identifier)
+  );
+  const existing = new Map<string, string>(
+    (definition.CalculatedFields ?? []).map((f: any) => [
+      `${f?.DataSetIdentifier}::${f?.Name}`,
+      canonicalExpression(f?.Expression),
+    ])
+  );
+  const fields = [...(definition.CalculatedFields ?? [])];
+  for (const field of added) {
+    if (!identifiers.has(field.identifier)) {
+      throw new ValidationError(
+        `Cannot add calculated field '${field.name}': no dataset identifier '${field.identifier}'`
+      );
+    }
+    // A field that is already there with the same expression is nothing to
+    // add; one with the same name and another expression gets a suffix, so a
+    // template never refuses a publish over a name.
+    let name = field.name;
+    const key = `${field.identifier}::${name}`;
+    if (existing.has(key)) {
+      if (existing.get(key) === canonicalExpression(field.expression)) {
+        continue;
+      }
+      let suffix = 2;
+      while (existing.has(`${field.identifier}::${field.name}_v${suffix}`)) {
+        suffix += 1;
+      }
+      name = `${field.name}_v${suffix}`;
+    }
+    existing.set(`${field.identifier}::${name}`, canonicalExpression(field.expression));
+    fields.push({
+      DataSetIdentifier: field.identifier,
+      Name: name,
+      Expression: field.expression,
+    });
+  }
+  return { ...definition, CalculatedFields: fields };
+}
+
