@@ -44,9 +44,12 @@ function gridElements(layout: any): PlacedElement[] {
       elementType: e.ElementType,
       position: {
         type: 'grid',
-        col: Number(e.ColumnIndex ?? 0),
+        // Absent indexes mean "flow after the previous tile", not (0, 0).
+        ...(e.ColumnIndex !== undefined && e.ColumnIndex !== null
+          ? { col: Number(e.ColumnIndex) }
+          : {}),
         colSpan: Math.max(1, Number(e.ColumnSpan ?? 1)),
-        row: Number(e.RowIndex ?? 0),
+        ...(e.RowIndex !== undefined && e.RowIndex !== null ? { row: Number(e.RowIndex) } : {}),
         rowSpan: Math.max(1, Number(e.RowSpan ?? 1)),
       },
     }));

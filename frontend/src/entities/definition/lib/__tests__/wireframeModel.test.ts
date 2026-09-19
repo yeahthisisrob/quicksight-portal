@@ -294,3 +294,79 @@ describe('buildWireframeModel', () => {
     });
   });
 });
+
+describe('grid tiles without indexes', () => {
+  it('leaves col and row unset so the renderer flows them after the previous tile', () => {
+    const model = buildWireframeModel({
+      Sheets: [
+        {
+          SheetId: 's',
+          Name: 'Flow',
+          Visuals: [
+            { KPIVisual: { VisualId: 'a', ChartConfiguration: {} } },
+            { KPIVisual: { VisualId: 'b', ChartConfiguration: {} } },
+          ],
+          TextBoxes: [{ SheetTextBoxId: 't', Content: '<p>Hello</p>' }],
+          Layouts: [
+            {
+              Configuration: {
+                GridLayout: {
+                  Elements: [
+                    { ElementId: 'a', ElementType: 'VISUAL', ColumnSpan: 12, RowSpan: 6 },
+                    { ElementId: 'b', ElementType: 'VISUAL', ColumnSpan: 12, RowSpan: 6 },
+                    { ElementId: 't', ElementType: 'TEXT_BOX', ColumnSpan: 12, RowSpan: 6 },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    });
+    const positions = model.sheets[0]!.elements.map((e) => e.position);
+    expect(positions).toEqual([
+      { type: 'grid', colSpan: 12, rowSpan: 6 },
+      { type: 'grid', colSpan: 12, rowSpan: 6 },
+      { type: 'grid', colSpan: 12, rowSpan: 6 },
+    ]);
+    expect(model.sheets[0]!.elements[2]).toMatchObject({ kind: 'textBox', title: 'Hello' });
+  });
+});
+
+describe('grid tiles without indexes', () => {
+  it('leaves col and row unset so the renderer flows them after the previous tile', () => {
+    const model = buildWireframeModel({
+      Sheets: [
+        {
+          SheetId: 's',
+          Name: 'Flow',
+          Visuals: [
+            { KPIVisual: { VisualId: 'a', ChartConfiguration: {} } },
+            { KPIVisual: { VisualId: 'b', ChartConfiguration: {} } },
+          ],
+          TextBoxes: [{ SheetTextBoxId: 't', Content: '<p>Hello</p>' }],
+          Layouts: [
+            {
+              Configuration: {
+                GridLayout: {
+                  Elements: [
+                    { ElementId: 'a', ElementType: 'VISUAL', ColumnSpan: 12, RowSpan: 6 },
+                    { ElementId: 'b', ElementType: 'VISUAL', ColumnSpan: 12, RowSpan: 6 },
+                    { ElementId: 't', ElementType: 'TEXT_BOX', ColumnSpan: 12, RowSpan: 6 },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    });
+    const positions = model.sheets[0]!.elements.map((e) => e.position);
+    expect(positions).toEqual([
+      { type: 'grid', colSpan: 12, rowSpan: 6 },
+      { type: 'grid', colSpan: 12, rowSpan: 6 },
+      { type: 'grid', colSpan: 12, rowSpan: 6 },
+    ]);
+    expect(model.sheets[0]!.elements[2]).toMatchObject({ kind: 'textBox', title: 'Hello' });
+  });
+});

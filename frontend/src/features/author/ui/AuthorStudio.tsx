@@ -32,6 +32,9 @@ function StepBody({ flow }: { flow: AuthorFlow }) {
 
 /** The page with its flow injected, so stories can drive it. */
 export function AuthorStudioView({ flow }: { flow: AuthorFlow }) {
+  // The mockup is a dashboard drawing: it needs every pixel of width, so the
+  // rail moves above it as a horizontal stepper on that step.
+  const wide = flow.state.step === 'mockup';
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0 }}>
       <Box sx={{ mb: 3 }}>
@@ -46,13 +49,17 @@ export function AuthorStudioView({ flow }: { flow: AuthorFlow }) {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: `${RAIL_WIDTH}px minmax(0, 1fr)` },
+          gridTemplateColumns: wide ? '1fr' : { xs: '1fr', md: `${RAIL_WIDTH}px minmax(0, 1fr)` },
           gap: 3,
           alignItems: 'start',
         }}
       >
-        <Box sx={{ position: { md: 'sticky' }, top: { md: 24 } }}>
-          <StepsRail status={flow.status} onSelect={flow.goTo} />
+        <Box sx={wide ? undefined : { position: { md: 'sticky' }, top: { md: 24 } }}>
+          <StepsRail
+            status={flow.status}
+            onSelect={flow.goTo}
+            orientation={wide ? 'horizontal' : undefined}
+          />
         </Box>
         <Box sx={{ minWidth: 0 }}>
           <StepBody flow={flow} />

@@ -4,37 +4,99 @@
 [![Build](https://github.com/yeahthisisrob/quicksight-portal/actions/workflows/build.yml/badge.svg)](https://github.com/yeahthisisrob/quicksight-portal/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A self-hosted admin portal for AWS QuickSight: inventory, search, and govern every dashboard, analysis, dataset, data source, folder, user, and group in your account — with data lineage, a field-level data catalog, activity analytics, and safe export/restore. Deploys into your own AWS account with a single CDK command.
+A self-hosted portal for Amazon QuickSight that goes past inventory: it can **author**. Describe a change in plain language, watch a hybrid planner turn it into a validated plan, see the result as a wireframe before anything is written, then publish a copy or an in-place update. Underneath sits the full admin toolset: every dashboard, analysis, dataset, data source, folder, user and group in the account, with lineage, activity analytics, safe export and restore, and a growing SageMaker Unified Studio integration. Deploys into your own AWS account with one CDK command.
+
+![Author: the mockup step](docs/screenshots/author-mockup.png)
 
 ## Features
 
+### Author: make one like this, on that dataset
+
+The Author page is a five-step flow for the two asks every BI team gets: *"create a dashboard like this one but on the new dataset"* and *"convert this analysis to the gold layer"*.
+
+1. **Source** - pick a dashboard or analysis. Assets tagged as templates sort first, and any asset can be marked as one from here.
+2. **Datasets** - for each dataset the definition reads, choose what it should read instead: a **published SMUS asset** (with the QuickSight datasets that already read it, so nothing gets duplicated; or create one in place), or any QuickSight dataset.
+3. **Describe & review** - type what you want, or fill the form by hand. Every referenced column is resolved against the target as matched, renamed, suggested or missing. Suggestions are never applied silently; a click turns one into a rename.
+4. **Mockup** - a before/after wireframe of the result, drawn from the exact definition the publish step would write, with every renamed field highlighted. No data is rendered.
+5. **Publish** - create the copy (keeping the source's theme and permissions) or apply in place (dashboards get a published version). QuickSight's own validation error, if any, is shown verbatim.
+
+![Author: choosing targets from published SMUS assets](docs/screenshots/author-targets.png)
+
+### The planner: a model proposes, code decides
+
+The natural-language part is deliberately small. The model is asked two narrow questions, each answered as JSON against a flat schema:
+
+- which candidate dataset each identifier should read from, and whether this is a copy or an in-place change;
+- only if the server's dry run leaves columns unresolved, which target column each unresolved source column means.
+
+Everything else is deterministic TypeScript: what the definition references, whether the target satisfies it, the rewrite itself. The planner's answer is validated, run through the same dry run the UI shows, and returned as a proposal. **Nothing is applied by the model.** A person, a CLI, or an agent reads the plan and calls apply.
+
+The model interface is one call, prompt in and JSON out, which keeps it model-agnostic:
+
+| Provider | Use |
+|---|---|
+| **Amazon Bedrock** (Converse API) | Production. Any Bedrock model with tool use; cross-region inference profiles by default. Your data never leaves your account. |
+| Local **Claude** or **Codex** CLI | Development. The planner runs through your own logged-in CLI with no cloud credentials. Never used inside Lambda. |
+| Any **OpenAI-compatible** endpoint | Grok, OpenAI, or a gateway, via `PLANNER_BASE_URL`. |
+
+The provider and model are settings, not a redeploy.
+
+### Wireframes
+
+Any dashboard or analysis renders as a wireframe from its cached definition: sheets, every visual as a card in its real grid, free-form or paginated position, the visual type, its title, and its field wells. Close to QuickSight's look without pretending to be it, and never showing data. The same renderer draws the Author mockup.
+
+![Wireframe of a dashboard](docs/screenshots/wireframe-dialog.png)
+
+### SageMaker Unified Studio
+
+The portal reads the published catalog of a SMUS (DataZone) domain: each listing with its owning project, its Glue table and columns from the listing's metadata forms, and the QuickSight datasets already reading it. Settings choose which projects count and, optionally, a database-name pattern for the published layer. From a listing with no dataset yet, the portal can create one through an existing data source, copying permissions from a reference dataset so it has an audience. This is the direction the portal is heading: more of what you do here will start from what SMUS publishes.
+
+### Settings
+
+Configuration lives in DynamoDB with a fallback to the Lambda's environment variables, so a fresh deployment works from env alone and values move over one at a time. Every setting shows where its value comes from. Secrets stay in the environment.
+
+![Settings](docs/screenshots/settings.png)
+
 ### Asset management
 - **Full inventory** of dashboards, analyses, datasets, data sources, folders, users, and groups with server-side search, sorting, and pagination
-- **Smart Sync export engine** — incremental exports that only touch assets that changed in QuickSight; if the cache is lost it self-heals by re-parsing existing S3 exports with zero API calls
-- **Resumable long runs** — exports checkpoint their progress and continue across Lambda invocations, so account size never hits the 15-minute wall; only one export runs at a time (enforced by an atomic DynamoDB lock)
-- **Live job telemetry** — real-time progress, per-asset-type checkpoint chips, worker heartbeat/liveness indicator, and streaming job logs in the UI
-- **Bulk operations** — tag, folder-membership, and delete operations across selections, with per-item results
-- **Archive & restore** — deleted QuickSight assets are detected, archived with their full definitions, and restorable
+- **Change datasets** from any dashboard or analysis row, with the same plan-then-apply flow as Author
+- **Edit dataset sources** in place: schema, table, custom SQL, data source
+- **Smart Sync export engine** - incremental exports that only touch assets that changed in QuickSight; if the cache is lost it self-heals by re-parsing existing S3 exports with zero API calls
+- **Resumable long runs** - exports checkpoint their progress and continue across Lambda invocations; only one export runs at a time (enforced by an atomic DynamoDB lock)
+- **Operations** - export console, archived assets with restore, and maintenance scripts on one page
+- **Bulk operations** - tag, folder-membership, and delete operations across selections, with per-item results
 - **CSV export** of any asset listing
 
 ### Insight & governance
-- **Data lineage** — dataset ↔ data source ↔ dashboard/analysis relationships, including composite (dataset-of-datasets) lineage and transitive dependencies
-- **Data catalog** — pre-computed, field-level catalog across datasets, analyses, and dashboards: physical/calculated fields, expressions, SQL table references, visual-field usage
-- **Activity analytics** — CloudTrail-derived view counts and viewer history for dashboards/analyses, dataset refresh (ingestion) history, and per-user activity
-- **SMUS / DataZone integration** *(optional)* — live catalog links from datasets to SageMaker Unified Studio listings via table-identity matching
-- **Tags & permissions** — browse and edit tags, inspect asset permissions, filter any asset page by a user's access
+- **Data lineage** - dataset, data source and dashboard/analysis relationships, including composite datasets and transitive dependencies
+- **Activity analytics** - CloudTrail-derived view counts and viewer history, dataset refresh history, per-user activity
+- **Tags & permissions** - browse and edit tags, inspect asset permissions, filter any asset page by a user's access
+- **Data catalog** - a field-level index across datasets and dashboards (early; the SMUS catalog is where this is going)
+
+![Portal layout](docs/screenshots/layout.png)
 
 ## Architecture
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18 + TypeScript + MUI, organized by [Feature-Sliced Design](https://feature-sliced.design/) |
+| Frontend | React + TypeScript + MUI on a token-based design system (Cloudscape-inspired, light and dark), organized by [Feature-Sliced Design](https://feature-sliced.design/), every component in Storybook |
+| Planner | Amazon Bedrock (Converse, forced tool call for structured output) by default; local Claude/Codex CLI or any OpenAI-compatible endpoint behind the same one-call interface |
 | Backend | Node.js 22 Lambda (TypeScript), organized by Vertical Slice Architecture |
 | API | HTTP API (API Gateway v2) behind CloudFront (same-origin), contract-first via OpenAPI |
 | Auth | Cognito user pool; JWT verified in-Lambda on every route; optional WAF + IP allowlist at the edge |
 | Jobs | **DynamoDB** — per-job records, item-per-line logs, atomic heartbeats, TTL retention, conditional-write export lock; SQS + worker Lambda with a self-requeuing continuation pattern for long runs |
 | Asset data | **S3** — exported asset definitions (source of truth), per-type caches with ETag-revalidated in-memory reads, pre-computed catalog/lineage/field indexes |
 | Infrastructure | AWS CDK with [cdk-nag](https://github.com/cdklabs/cdk-nag) (AWS Solutions rules) enforced on every synth |
+
+### How authoring works
+
+1. `GET /api/authoring/{type}/{id}/datasets` reads the definition live and lists every column it takes from each dataset identifier (field wells, filters, parameters, controls, formatting, calculated-field expressions).
+2. `POST .../rebind/plan` resolves those columns against the target dataset's output columns. Nothing is written.
+3. `POST .../propose` is the planner: the ask plus the candidates in, a validated proposal plus the same plan out.
+4. `POST .../rebind/preview` returns the rewritten definition for the mockup.
+5. `POST .../rebind` re-plans, refuses unless every column resolves, then creates the copy or updates in place.
+
+Every step is an ordinary authenticated API call, so the same flow is available to the UI, a script, or an agent.
 
 ### How an export works
 
@@ -169,6 +231,9 @@ Local development talks to your real AWS account (S3, DynamoDB, QuickSight); the
 
 Contract-first via OpenAPI: `shared/schemas/api.openapi.yaml` defines every endpoint; frontend types are generated from it (`shared/generated/types.ts`). Highlights:
 
+- `/api/authoring/*` - definition datasets, plan, preview, propose (planner), apply
+- `/api/smus/assets` - published SMUS assets with their linked datasets; create a dataset from one
+- `/api/settings` - stored settings with their sources; the SMUS project list
 - `/api/assets`, `/api/export/{assetType}/{assetId}` — asset listings and raw definitions
 - `/api/export`, `/api/jobs/*` — export jobs, status, logs, results, stop
 - `/api/lineage`, `/api/catalog` — lineage graph and field catalog
@@ -182,6 +247,7 @@ Contract-first via OpenAPI: `shared/schemas/api.openapi.yaml` defines every endp
 - Least-privilege IAM scoped to the metadata bucket, jobs table, and QuickSight; encrypted S3/SQS/DynamoDB
 - **cdk-nag (AWS Solutions pack) fails synth on unreviewed findings** — every accepted deviation is acknowledged in the stack with a written reason
 - CloudTrail-based activity auditing surfaced in the portal
+- The planner never writes to QuickSight: model output is validated as untrusted data and only reaches the apply step through the same plan a person reviews; Bedrock keeps prompts and definitions inside your account
 
 ## Troubleshooting
 

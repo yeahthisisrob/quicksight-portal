@@ -42,7 +42,9 @@ function GridCanvas({
   const rowUnit = Math.max(MIN_ROW_UNIT, (width - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS);
   let flowRow = elements.reduce(
     (max, e) =>
-      e.position.type === 'grid' ? Math.max(max, e.position.row + e.position.rowSpan) : max,
+      e.position.type === 'grid' && e.position.row !== undefined
+        ? Math.max(max, e.position.row + e.position.rowSpan)
+        : max,
     0
   );
   let flowCol = 0;
@@ -60,7 +62,12 @@ function GridCanvas({
         let area: string;
         if (element.position.type === 'grid') {
           const { col, colSpan, row, rowSpan } = element.position;
-          area = `${row + 1} / ${col + 1} / span ${rowSpan} / span ${colSpan}`;
+          // Tiles without indexes flow: CSS auto-placement puts each after the
+          // previous one and wraps at the 36th column, as QuickSight does.
+          area =
+            col !== undefined && row !== undefined
+              ? `${row + 1} / ${col + 1} / span ${rowSpan} / span ${colSpan}`
+              : `auto / auto / span ${rowSpan} / span ${colSpan}`;
         } else {
           // Unplaced: append below the laid-out rows, three to a row.
           if (flowCol + FLOW_SPAN > GRID_COLUMNS) {

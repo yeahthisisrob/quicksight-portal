@@ -1,14 +1,4 @@
-import {
-  Analytics,
-  ContentCopy as CopyIcon,
-  Dashboard,
-  Dataset,
-  Folder,
-  Group,
-  MoreVert as MoreVertIcon,
-  Person,
-  Storage,
-} from '@mui/icons-material';
+import { ContentCopy as CopyIcon, MoreVert as MoreVertIcon } from '@mui/icons-material';
 import {
   Box,
   Chip,
@@ -25,39 +15,23 @@ import {
 import type { GridRowSelectionModel } from '@mui/x-data-grid';
 import type { components } from '@shared/generated/types';
 import { format } from 'date-fns';
-import React, { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import type { ArchivedAssetItem as LocalArchivedAssetItem } from '@/features/asset-management';
 import { copyToClipboard, EnhancedAssetTable } from '@/widgets/asset-table';
 import { RestoreAssetDialog } from '@/widgets/restore-asset-dialog';
 
 import { assetsApi } from '@/shared/api';
+import { pal } from '@/shared/design-system';
 import { EMPTY_SELECTION } from '@/shared/lib/gridSelection';
-import { PageLayout } from '@/shared/ui';
+import { assetIcons } from '@/shared/ui/icons';
 import { JsonViewerModal } from '@/shared/ui/JsonViewer';
 
 type ArchivedAssetItem = components['schemas']['ArchivedAssetItem'];
 type AssetType = components['schemas']['AssetType'];
 
-const ASSET_TYPE_ICONS: Record<AssetType, React.ReactNode> = {
-  dashboard: <Dashboard sx={{ fontSize: 16 }} />,
-  analysis: <Analytics sx={{ fontSize: 16 }} />,
-  dataset: <Dataset sx={{ fontSize: 16 }} />,
-  datasource: <Storage sx={{ fontSize: 16 }} />,
-  folder: <Folder sx={{ fontSize: 16 }} />,
-  user: <Person sx={{ fontSize: 16 }} />,
-  group: <Group sx={{ fontSize: 16 }} />,
-};
-
-const ASSET_TYPE_COLORS: Record<AssetType, string> = {
-  dashboard: '#1976d2',
-  analysis: '#9c27b0',
-  dataset: '#ed6c02',
-  datasource: '#2e7d32',
-  folder: '#757575',
-  user: '#0288d1',
-  group: '#7b1fa2',
-};
+const DATE_FORMAT = 'MMM dd, yyyy HH:mm';
+const formatDate = (value?: string | null) => (value ? format(new Date(value), DATE_FORMAT) : '-');
 
 function ArchivedActionsMenu({
   asset,
@@ -68,13 +42,14 @@ function ArchivedActionsMenu({
   onRestore: (a: ArchivedAssetItem) => void;
   onViewJson: (a: ArchivedAssetItem) => void;
 }) {
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
   return (
     <>
       <IconButton
         size="small"
+        aria-label="Actions"
         onClick={(e) => {
           e.stopPropagation();
           setAnchorEl(e.currentTarget);
@@ -111,7 +86,32 @@ function ArchivedActionsMenu({
   );
 }
 
-export const ArchivedAssetsPage: React.FC = () => {
+/** A type chip coloured from the theme's asset palette. */
+function AssetTypeChip({ type }: { type: AssetType }) {
+  const Icon = assetIcons[type];
+  return (
+    <Chip
+      icon={<Icon sx={{ fontSize: 16 }} />}
+      label={type}
+      size="small"
+      sx={(theme) => ({
+        backgroundColor: pal(theme).asset[type].subtle,
+        color: pal(theme).asset[type].strong,
+        '& .MuiChip-icon': { color: pal(theme).asset[type].main },
+      })}
+    />
+  );
+}
+
+export interface ArchivedAssetsPanelProps {
+  /** Called with the total after each fetch, so a host can show a count. */
+  onTotalChange?: (total: number) => void;
+}
+
+/**
+ * Deleted assets the portal kept a copy of, with restore and JSON viewing.
+ */
+export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps) {
   const [assets, setAssets] = useState<ArchivedAssetItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [totalRows, setTotalRows] = useState(0);
@@ -145,13 +145,14 @@ export const ArchivedAssetsPage: React.FC = () => {
         });
         setAssets(response.items);
         setTotalRows(response.totalCount);
+        onTotalChange?.(response.totalCount);
       } catch (error) {
         console.error('Failed to fetch archived assets:', error);
       } finally {
         setLoading(false);
       }
     },
-    [selectedType]
+    [selectedType, onTotalChange]
   );
 
   const handleViewJson = (asset: ArchivedAssetItem) => {
@@ -165,8 +166,7 @@ export const ArchivedAssetsPage: React.FC = () => {
   };
 
   const handleRestoreSuccess = () => {
-    // Refresh the archived assets list (restore preserves the archive copy).
-    // The restore dialog also invalidates the active asset lists on success.
+    // Restore keeps the archive copy; the dialog invalidates the active lists.
     fetchAssets({ page: 1, pageSize: 50 });
   };
 
@@ -185,13 +185,7 @@ export const ArchivedAssetsPage: React.FC = () => {
         />
       ),
     },
-    {
-      id: 'name',
-      label: 'Name',
-      flex: 1,
-      minWidth: 200,
-      required: true,
-    },
+    { id: 'name', label: 'Name', flex: 1, minWidth: 200, required: true },
     {
       id: 'id',
       label: 'Asset ID',
@@ -207,7 +201,6 @@ export const ArchivedAssetsPage: React.FC = () => {
                 variant="body2"
                 sx={{
                   fontFamily: 'monospace',
-                  fontSize: '0.875rem',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
@@ -218,6 +211,7 @@ export const ArchivedAssetsPage: React.FC = () => {
             </Tooltip>
             <IconButton
               size="small"
+              aria-label="Copy id"
               onClick={() => copyToClipboard(fullId)}
               sx={{ padding: '2px' }}
             >
@@ -230,70 +224,41 @@ export const ArchivedAssetsPage: React.FC = () => {
     {
       id: 'type',
       label: 'Type',
-      width: 120,
+      width: 130,
       required: true,
-      renderCell: (params: any) => {
-        const type = params.row.type;
-        return (
-          <Chip
-            icon={ASSET_TYPE_ICONS[type] as any}
-            label={type}
-            size="small"
-            sx={{
-              backgroundColor: `${ASSET_TYPE_COLORS[type]}20`,
-              color: ASSET_TYPE_COLORS[type],
-              fontWeight: 500,
-            }}
-          />
-        );
-      },
+      renderCell: (params: any) => <AssetTypeChip type={params.row.type} />,
     },
     {
       id: 'createdTime',
       label: 'Created',
       width: 180,
-      valueGetter: (params: any) =>
-        params.row.createdTime
-          ? format(new Date(params.row.createdTime), 'MMM dd, yyyy HH:mm')
-          : '-',
+      valueGetter: (params: any) => formatDate(params.row.createdTime),
     },
     {
       id: 'lastUpdatedTime',
       label: 'Last Updated',
       width: 180,
-      valueGetter: (params: any) =>
-        params.row.lastUpdatedTime
-          ? format(new Date(params.row.lastUpdatedTime), 'MMM dd, yyyy HH:mm')
-          : '-',
+      valueGetter: (params: any) => formatDate(params.row.lastUpdatedTime),
     },
     {
       id: 'lastExportTime',
       label: 'Last Exported',
       width: 180,
       visible: false,
-      valueGetter: (params: any) =>
-        params.row.lastExportTime
-          ? format(new Date(params.row.lastExportTime), 'MMM dd, yyyy HH:mm')
-          : '-',
+      valueGetter: (params: any) => formatDate(params.row.lastExportTime),
     },
     {
       id: 'lastActivity',
       label: 'Last Activity',
       width: 180,
-      valueGetter: (params: any) =>
-        params.row.lastActivity
-          ? format(new Date(params.row.lastActivity), 'MMM dd, yyyy HH:mm')
-          : '-',
+      valueGetter: (params: any) => formatDate(params.row.lastActivity),
     },
     {
       id: 'archivedDate',
       label: 'Archived',
       width: 180,
       required: true,
-      valueGetter: (params: any) =>
-        params.row.archivedDate
-          ? format(new Date(params.row.archivedDate), 'MMM dd, yyyy HH:mm')
-          : '-',
+      valueGetter: (params: any) => formatDate(params.row.archivedDate),
     },
     {
       id: 'archiveReason',
@@ -308,11 +273,7 @@ export const ArchivedAssetsPage: React.FC = () => {
         </Tooltip>
       ),
     },
-    {
-      id: 'archivedBy',
-      label: 'Archived By',
-      width: 120,
-    },
+    { id: 'archivedBy', label: 'Archived By', width: 120 },
   ];
 
   const extraToolbarActions = (
@@ -336,7 +297,7 @@ export const ArchivedAssetsPage: React.FC = () => {
   );
 
   return (
-    <PageLayout title="Archived Assets" totalRows={totalRows}>
+    <>
       <EnhancedAssetTable
         assets={assets}
         loading={loading}
@@ -374,6 +335,8 @@ export const ArchivedAssetsPage: React.FC = () => {
         onSuccess={handleRestoreSuccess}
         asset={assetToRestore}
       />
-    </PageLayout>
+    </>
   );
-};
+}
+
+export default ArchivedAssetsPanel;

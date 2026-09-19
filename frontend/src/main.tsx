@@ -16,7 +16,9 @@ const AppWrapper = <App />;
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <BrowserRouter>
-    <ThemeProvider theme={theme}>
+    {/* Light by default; the top bar's toggle switches schemes and MUI
+        remembers the choice in localStorage. */}
+    <ThemeProvider theme={theme} defaultMode="light">
       <LocalizationProvider dateAdapter={AdapterDateFns}>
         <SnackbarProvider
           maxSnack={3}

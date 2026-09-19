@@ -1,7 +1,9 @@
 import { CssBaseline, ThemeProvider } from '@mui/material';
+import { useColorScheme } from '@mui/material/styles';
 import type { Preview } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SnackbarProvider } from 'notistack';
+import { useEffect } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
 import { theme } from '../src/app/theme';
@@ -43,6 +45,24 @@ const queryClient = new QueryClient({
   },
 });
 
+type Scheme = 'light' | 'dark';
+
+/**
+ * The theme's colour scheme is owned by MUI's provider (it writes
+ * `data-mui-color-scheme` on <html>), so the toolbar's choice is applied
+ * through the same hook the app's top bar uses rather than by poking the
+ * attribute from outside.
+ */
+function SchemeSync({ scheme }: { scheme: Scheme }) {
+  const { mode, setMode } = useColorScheme();
+  useEffect(() => {
+    if (mode !== scheme) {
+      setMode(scheme);
+    }
+  }, [scheme, mode, setMode]);
+  return null;
+}
+
 const preview: Preview = {
   parameters: {
     controls: {
@@ -54,22 +74,42 @@ const preview: Preview = {
     docs: {
       toc: true,
     },
+    backgrounds: { disable: true },
   },
+  globalTypes: {
+    theme: {
+      description: 'Colour scheme',
+      toolbar: {
+        title: 'Theme',
+        icon: 'mirror',
+        items: [
+          { value: 'light', title: 'Light', icon: 'sun' },
+          { value: 'dark', title: 'Dark', icon: 'moon' },
+        ],
+        dynamicTitle: true,
+      },
+    },
+  },
+  initialGlobals: { theme: 'light' },
   decorators: [
-    (Story) => (
-      <MemoryRouter initialEntries={['/']}>
-        <AuthProvider>
-          <QueryClientProvider client={queryClient}>
-            <ThemeProvider theme={theme}>
-              <CssBaseline />
-              <SnackbarProvider maxSnack={3}>
-                <Story />
-              </SnackbarProvider>
-            </ThemeProvider>
-          </QueryClientProvider>
-        </AuthProvider>
-      </MemoryRouter>
-    ),
+    (Story, context) => {
+      const scheme: Scheme = context.globals.theme === 'dark' ? 'dark' : 'light';
+      return (
+        <MemoryRouter initialEntries={['/']}>
+          <AuthProvider>
+            <QueryClientProvider client={queryClient}>
+              <ThemeProvider theme={theme} defaultMode={scheme} modeStorageKey="sb-mui-mode">
+                <SchemeSync scheme={scheme} />
+                <CssBaseline />
+                <SnackbarProvider maxSnack={3}>
+                  <Story />
+                </SnackbarProvider>
+              </ThemeProvider>
+            </QueryClientProvider>
+          </AuthProvider>
+        </MemoryRouter>
+      );
+    },
   ],
 };
 

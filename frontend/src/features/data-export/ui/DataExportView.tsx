@@ -95,7 +95,22 @@ function ExportTabBody({
   );
 }
 
-export default function DataExportView({ timelineFeed }: { timelineFeed?: ReactNode }) {
+/** With `embedded`, the host page owns the header (the Operations page does). */
+function Frame({ embedded, children }: { embedded: boolean; children: ReactNode }) {
+  return embedded ? (
+    <Box>{children}</Box>
+  ) : (
+    <PageLayout title="Export Assets">{children}</PageLayout>
+  );
+}
+
+export default function DataExportView({
+  timelineFeed,
+  embedded = false,
+}: {
+  timelineFeed?: ReactNode;
+  embedded?: boolean;
+}) {
   const [selectedAssetTypes, setSelectedAssetTypes] = useState<AssetType[]>(ALL_SELECTABLE_TYPES);
   const [exportMode, setExportMode] = useState<ExportMode>('smart');
   const [activeTab, setActiveTab] = useState<ExportTab>('current');
@@ -133,7 +148,7 @@ export default function DataExportView({ timelineFeed }: { timelineFeed?: ReactN
   };
 
   return (
-    <PageLayout title="Export Assets">
+    <Frame embedded={embedded}>
       {/* Initial Export Prompt */}
       {showInitialExportPrompt && (
         <Alert
@@ -247,6 +262,6 @@ export default function DataExportView({ timelineFeed }: { timelineFeed?: ReactN
           />
         </Card>
       </Stack>
-    </PageLayout>
+    </Frame>
   );
 }

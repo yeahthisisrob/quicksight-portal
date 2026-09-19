@@ -11,6 +11,8 @@ import { AUTHOR_STEPS, type AuthorStep, type StepStatus } from '../model/authorF
 interface StepsRailProps {
   status: Record<AuthorStep, StepStatus>;
   onSelect: (step: AuthorStep) => void;
+  /** Force a layout; by default vertical on md and up, horizontal below. */
+  orientation?: 'vertical' | 'horizontal';
 }
 
 const BADGE = 28;
@@ -45,9 +47,10 @@ function Badge({ index, status }: { index: number; status: StepStatus }) {
   );
 }
 
-export function StepsRail({ status, onSelect }: StepsRailProps) {
+export function StepsRail({ status, onSelect, orientation }: StepsRailProps) {
   const theme = useTheme();
-  const horizontal = useMediaQuery(theme.breakpoints.down('md'));
+  const narrow = useMediaQuery(theme.breakpoints.down('md'));
+  const horizontal = orientation ? orientation === 'horizontal' : narrow;
 
   return (
     <Box
