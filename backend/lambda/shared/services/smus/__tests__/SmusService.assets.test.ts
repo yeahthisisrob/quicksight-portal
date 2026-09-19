@@ -253,6 +253,88 @@ describe('SmusService assets', () => {
       { id: 'ds-cust', name: 'Prod customers v2', matchType: 'source-table' },
     ]);
   });
+
+  it('carries the listing up a chain of datasets built on the governed one', async () => {
+    // The shape people actually have: a raw dataset over the Glue table, a
+    // curated dataset joined off it, and the calculated fields sitting on the
+    // curated one. Only the raw dataset has table identity.
+    cache.getAllDatasets.mockResolvedValue([
+      {
+        assetId: 'ds-mart',
+        assetName: 'Customer mart',
+        metadata: { lineageData: { datasetIds: ['ds-curated'] } },
+      },
+      {
+        assetId: 'ds-curated',
+        assetName: 'Customers curated',
+        metadata: { lineageData: { datasetIds: ['ds-cust'] } },
+      },
+      {
+        assetId: 'ds-cust',
+        assetName: 'Prod customers v2',
+        metadata: {
+          lineageData: {
+            physicalTables: [
+              { type: 'RELATIONAL', schema: 'published_prod', name: 'dim_customer' },
+            ],
+          },
+        },
+      },
+    ]);
+
+    const result = await service().listAssets();
+    expect(result.assets.find((a) => a.listingId === 'l-cust')?.datasets).toEqual([
+      { id: 'ds-mart', name: 'Customer mart', matchType: 'lineage', via: expect.anything() },
+      {
+        id: 'ds-curated',
+        name: 'Customers curated',
+        matchType: 'lineage',
+        via: { datasetId: 'ds-cust', name: 'Prod customers v2' },
+      },
+      { id: 'ds-cust', name: 'Prod customers v2', matchType: 'source-table' },
+    ]);
+  });
+
+  it('inherits from the nearest matched ancestor and survives a cycle', async () => {
+    cache.getAllDatasets.mockResolvedValue([
+      // Two parents, one of them linked, and a cycle back to the child.
+      {
+        assetId: 'ds-join',
+        assetName: 'Joined',
+        metadata: { lineageData: { datasetIds: ['ds-loop', 'ds-raw'] } },
+      },
+      {
+        assetId: 'ds-loop',
+        assetName: 'Loop',
+        metadata: { lineageData: { datasetIds: ['ds-join'] } },
+      },
+      {
+        assetId: 'ds-raw',
+        assetName: 'raw_events',
+        metadata: { lineageData: { datasetIds: [] } },
+      },
+    ]);
+
+    const result = await service().listAssets();
+    const raw = result.assets.find((a) => a.listingId === 'l-raw');
+    expect(raw?.datasets).toEqual([
+      {
+        id: 'ds-join',
+        name: 'Joined',
+        matchType: 'lineage',
+        via: { datasetId: 'ds-raw', name: 'raw_events' },
+      },
+      {
+        id: 'ds-loop',
+        name: 'Loop',
+        matchType: 'lineage',
+        // Reached at depth two through the cycle, and still tied back to the
+        // dataset that matched directly rather than to its inherited child.
+        via: { datasetId: 'ds-raw', name: 'raw_events' },
+      },
+      { id: 'ds-raw', name: 'raw_events', matchType: 'name' },
+    ]);
+  });
 });
 
 describe('helpers', () => {

@@ -1,15 +1,27 @@
 /**
- * One calculated field: the expression, its lineage both ways, where it is
- * used down to the visual, and its variants side by side. The SMUS tie-back
- * is on the columns it reads: description and glossary terms come from the
- * listing column, the note from the portal.
+ * One calculated field: the expression, the whole dependency chain it sits
+ * in, its immediate lineage both ways, where it is used down to the visual,
+ * and its variants side by side. The SMUS tie-back is on the columns it
+ * reads: description and glossary terms come from the listing column, the
+ * note from the portal.
  */
-import { CollectionsBookmark, Edit, Notes, OpenInNew } from '@mui/icons-material';
+import {
+  AccountTree,
+  Close,
+  CollectionsBookmark,
+  Edit,
+  Notes,
+  OpenInFull,
+  OpenInNew,
+} from '@mui/icons-material';
 import {
   Alert,
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   IconButton,
   Link,
   Skeleton,
@@ -31,6 +43,9 @@ import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 import { prettyExpression } from '../../model/fieldCatalog';
 import FieldMetadataEditDialog from '../dialogs/FieldMetadataEditDialog';
 import { SaveTemplateDialog } from '../templates/SaveTemplateDialog';
+import { assetPath } from './assetPath';
+import { FieldLineageGraph } from './FieldLineageGraph';
+import { FieldUsagePanel } from './FieldUsagePanel';
 
 interface CalculatedFieldDetailProps {
   detail?: Detail;
@@ -42,14 +57,7 @@ interface CalculatedFieldDetailProps {
 }
 
 const SKELETON_LINES = 6;
-
-/** Where an asset lives in the portal: Author for dashboards and analyses, the list for datasets. */
-export function assetPath(ref: CalculatedFieldRef): string {
-  if (ref.type === 'dataset') {
-    return `/datasets?search=${encodeURIComponent(ref.name)}`;
-  }
-  return `/author?type=${ref.type}&id=${encodeURIComponent(ref.id)}&name=${encodeURIComponent(ref.name)}`;
-}
+const CHAIN_DIALOG_HEIGHT = 640;
 
 function AssetChip({ asset }: { asset: CalculatedFieldRef }) {
   const consoleUrl = getQuickSightConsoleUrl(asset.type, asset.id);
@@ -220,6 +228,7 @@ export function CalculatedFieldDetail({
 }: CalculatedFieldDetailProps) {
   const [editingNote, setEditingNote] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [chainOpen, setChainOpen] = useState(false);
 
   if (loading) {
     return (
@@ -248,12 +257,6 @@ export function CalculatedFieldDetail({
   }
 
   const noteSource = detail.definedIn.find((d) => d.type === 'dataset') ?? detail.definedIn[0];
-  const visualsByAsset = new Map<string, { name: string; visuals: typeof detail.visuals }>();
-  for (const visual of detail.visuals) {
-    const entry = visualsByAsset.get(visual.assetId) ?? { name: visual.assetName, visuals: [] };
-    entry.visuals.push(visual);
-    visualsByAsset.set(visual.assetId, entry);
-  }
 
   return (
     <Container
@@ -343,6 +346,38 @@ export function CalculatedFieldDetail({
           )}
         </Box>
 
+        <Box>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ alignItems: 'center', mb: 1, justifyContent: 'space-between' }}
+          >
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+              <AccountTree fontSize="small" sx={{ color: 'text.secondary' }} />
+              <Typography variant="subtitle2">Dependency chain</Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                the columns it comes from, and everything computed from it
+              </Typography>
+            </Stack>
+            {detail.lineage.nodes.length > 1 && (
+              <Tooltip title="Open the chain full screen">
+                <IconButton
+                  size="small"
+                  aria-label="Open the dependency chain full screen"
+                  onClick={() => setChainOpen(true)}
+                >
+                  <OpenInFull fontSize="inherit" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Stack>
+          <FieldLineageGraph
+            lineage={detail.lineage}
+            focusKey={detail.key}
+            onOpenField={onOpenField}
+          />
+        </Box>
+
         <Box
           sx={{
             display: 'grid',
@@ -420,43 +455,7 @@ export function CalculatedFieldDetail({
           <Typography variant="subtitle2" sx={{ mb: 1 }}>
             Used in
           </Typography>
-          {detail.usedIn.length === 0 && visualsByAsset.size === 0 ? (
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              No dashboard or analysis reads this field.
-            </Typography>
-          ) : (
-            <Stack spacing={1}>
-              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-                {detail.usedIn.map((asset) => (
-                  <AssetChip
-                    key={`${asset.assetType}:${asset.assetId}`}
-                    asset={{ type: asset.assetType, id: asset.assetId, name: asset.assetName }}
-                  />
-                ))}
-              </Stack>
-              {[...visualsByAsset.entries()].map(([assetId, entry]) => (
-                <Box key={assetId}>
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    Visuals in {entry.name}
-                  </Typography>
-                  <Stack
-                    direction="row"
-                    spacing={0.5}
-                    sx={{ flexWrap: 'wrap', gap: 0.5, mt: 0.25 }}
-                  >
-                    {entry.visuals.map((visual) => (
-                      <Chip
-                        key={visual.visualId}
-                        size="small"
-                        variant="outlined"
-                        label={`${visual.visualName}${visual.sheetName ? ` · ${visual.sheetName}` : ''}`}
-                      />
-                    ))}
-                  </Stack>
-                </Box>
-              ))}
-            </Stack>
-          )}
+          <FieldUsagePanel usedIn={detail.usedIn} visuals={detail.visuals} />
         </Box>
 
         {detail.variants.length > 1 && (
@@ -516,6 +515,36 @@ export function CalculatedFieldDetail({
         )}
       </Stack>
 
+      {chainOpen && detail && (
+        <Dialog open onClose={() => setChainOpen(false)} maxWidth="xl" fullWidth>
+          <DialogTitle sx={{ pr: 6 }}>
+            <Typography variant="h6" component="span" sx={{ fontFamily: 'monospace' }}>
+              {detail.name}
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              The whole dependency chain. Click any calculated field to open it.
+            </Typography>
+            <IconButton
+              aria-label="Close"
+              onClick={() => setChainOpen(false)}
+              sx={{ position: 'absolute', right: 8, top: 8 }}
+            >
+              <Close />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent dividers>
+            <FieldLineageGraph
+              lineage={detail.lineage}
+              focusKey={detail.key}
+              maxHeight={CHAIN_DIALOG_HEIGHT}
+              onOpenField={(key) => {
+                setChainOpen(false);
+                onOpenField(key);
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
       {savingTemplate && (
         <SaveTemplateDialog
           open

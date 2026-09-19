@@ -8,7 +8,7 @@
  */
 import { createHash } from 'node:crypto';
 
-import type { SmusAsset } from '../../../features/smus/types';
+import type { SmusAsset, SmusMatchType } from '../../../features/smus/types';
 import type { FieldInfo } from '../../../shared/services/cache/types';
 import type { SmusService } from '../../../shared/services/smus/SmusService';
 import { type ColumnMatchKind, matchListingColumn } from '../lib/columnIdentity';
@@ -23,6 +23,11 @@ import {
 
 const KEY_LENGTH = 12;
 
+/** How far the dependency chain is walked in each direction. */
+const MAX_LINEAGE_DEPTH = 6;
+/** And how big it is allowed to get, so one hub field cannot blow up a page. */
+const MAX_LINEAGE_NODES = 80;
+
 export interface CalculatedFieldRef {
   type: 'dashboard' | 'analysis' | 'dataset';
   id: string;
@@ -35,6 +40,10 @@ export interface CatalogListingRef {
   projectId?: string;
   projectName?: string;
   url?: string;
+  /** How the dataset was tied to this listing. */
+  matchType?: SmusMatchType;
+  /** For a `lineage` tie, the parent dataset it came through. */
+  via?: { datasetId: string; name?: string };
 }
 
 export interface CatalogDatasetRef {
@@ -107,6 +116,40 @@ export interface LineageRead {
   smus?: SmusColumnRef;
 }
 
+/**
+ * One field in the dependency chain. `depth` is signed: negative upstream
+ * (what the focused field is computed from), 0 for the field itself, positive
+ * downstream (what is computed from it). A field reachable at several depths
+ * keeps the nearest.
+ */
+export interface FieldLineageNode {
+  id: string;
+  name: string;
+  kind: 'column' | 'calculated';
+  depth: number;
+  /** Calculated fields only: their catalog key, so a node opens. */
+  key?: string;
+  expression?: string;
+  dataType?: string;
+  datasetId?: string;
+  datasetName?: string;
+  smus?: SmusColumnRef;
+  usedBy?: { dashboards: number; analyses: number; visuals: number };
+}
+
+/** Data flows from `from` to `to`: `to` reads `from`. */
+export interface FieldLineageEdge {
+  from: string;
+  to: string;
+}
+
+export interface FieldLineage {
+  nodes: FieldLineageNode[];
+  edges: FieldLineageEdge[];
+  /** True when the walk hit its depth or size bound, so the chain is partial. */
+  truncated: boolean;
+}
+
 export interface CalculatedFieldDetail extends CalculatedFieldSummary {
   /** Every distinct expression under this name, this one included. */
   variants: Array<{ key: string; expression: string; definedIn: CalculatedFieldRef[] }>;
@@ -114,6 +157,8 @@ export interface CalculatedFieldDetail extends CalculatedFieldSummary {
   readBy: Array<{ key: string; name: string; expression: string; definedIn: CalculatedFieldRef[] }>;
   usedIn: FieldUsedIn[];
   visuals: FieldVisualUsage[];
+  /** The whole dependency chain, both directions, not just the neighbours. */
+  lineage: FieldLineage;
   portal?: { description?: string; tags?: string[]; category?: string; sensitivity?: string };
 }
 
@@ -160,9 +205,19 @@ export interface FieldCatalogFilters {
   scope?: CatalogScope;
 }
 
-/** True when at least one of the datasets is tied to a SMUS listing. */
-function inSmus(datasets: Array<{ listing?: CatalogListingRef }>): boolean {
-  return datasets.some((d) => d.listing);
+/**
+ * Where a field sits relative to SMUS. A field on no dataset at all — one
+ * defined inside a dashboard against a field the dataset index has not seen —
+ * is `unplaced`: it cannot be said to fall outside the domain, and hiding it
+ * under every scope would make it unreachable.
+ */
+type Placement = 'in' | 'outside' | 'unplaced';
+
+function placementOf(datasets: Array<{ listing?: CatalogListingRef }>): Placement {
+  if (datasets.length === 0) {
+    return 'unplaced';
+  }
+  return datasets.some((d) => d.listing) ? 'in' : 'outside';
 }
 
 /** A project is itself a SMUS scope, so naming one implies it. */
@@ -181,7 +236,8 @@ function matchesScope(
   if (scope === 'all') {
     return true;
   }
-  return scope === 'outside' ? !inSmus(datasets) : inSmus(datasets);
+  const placement = placementOf(datasets);
+  return scope === 'outside' ? placement === 'outside' : placement !== 'outside';
 }
 
 interface Group {
@@ -261,7 +317,7 @@ export class FieldCatalogService {
         datasets: datasets.size,
         // Counted over every field, not the filtered ones, so a catalog scoped
         // to SMUS can still say how much sits outside it.
-        outsideSmus: all.filter((i) => !inSmus(i.datasets)).length,
+        outsideSmus: all.filter((i) => placementOf(i.datasets) === 'outside').length,
       },
       items,
     };
@@ -289,19 +345,12 @@ export class FieldCatalogService {
       reads.push(read);
     }
     // What reads it: other calculated fields whose expressions name it.
-    const readBy = [...groups.values()]
-      .filter(
-        (g) =>
-          g.key !== group.key &&
-          extractFieldReferences(g.expression).includes(group.name) &&
-          [...g.datasetIds].some((id) => group.datasetIds.has(id))
-      )
-      .map((g) => ({
-        key: g.key,
-        name: g.name,
-        expression: g.expression,
-        definedIn: [...g.definedIn.values()],
-      }));
+    const readBy = readersOf(group, groups).map((g) => ({
+      key: g.key,
+      name: g.name,
+      expression: g.expression,
+      definedIn: [...g.definedIn.values()],
+    }));
 
     const users = this.usersOf(group, index);
     const usedIn = dedupeUsers(users);
@@ -321,6 +370,7 @@ export class FieldCatalogService {
       readBy,
       usedIn,
       visuals,
+      lineage: this.lineageOf(group, index, groups, listingOf, datasetNames, assets),
       ...(note
         ? {
             portal: {
@@ -493,6 +543,150 @@ export class FieldCatalogService {
     return out;
   }
 
+  /**
+   * The whole dependency chain around one calculated field, not just its
+   * neighbours: upstream to the columns it ultimately reads, downstream to
+   * the calculated fields computed from it. Breadth-first in each direction,
+   * so a field reached twice keeps the shorter path, and bounded in both
+   * depth and size — a chain nobody can read is not worth the payload.
+   */
+  private lineageOf(
+    group: Group,
+    index: FieldIndex,
+    groups: Map<string, Group>,
+    listingOf: Map<string, CatalogListingRef>,
+    datasetNames: Map<string, string>,
+    assets: SmusAsset[]
+  ): FieldLineage {
+    const nodes = new Map<string, FieldLineageNode>();
+    const edges = new Map<string, FieldLineageEdge>();
+    let truncated = false;
+
+    const add = (node: FieldLineageNode): boolean => {
+      if (nodes.has(node.id)) {
+        return false;
+      }
+      if (nodes.size >= MAX_LINEAGE_NODES) {
+        truncated = true;
+        return false;
+      }
+      nodes.set(node.id, node);
+      return true;
+    };
+    const link = (from: string, to: string) => {
+      if (nodes.has(from) && nodes.has(to)) {
+        edges.set(`${from}->${to}`, { from, to });
+      }
+    };
+    const ofGroup = (g: Group, depth: number): FieldLineageNode => ({
+      id: `cf:${g.key}`,
+      name: g.name,
+      kind: 'calculated',
+      depth,
+      key: g.key,
+      expression: g.expression,
+      ...(g.dataType ? { dataType: g.dataType } : {}),
+      usedBy: this.countUsage(g, index),
+    });
+
+    add(ofGroup(group, 0));
+
+    // Upstream: what each field is computed from, down to plain columns.
+    let up: Group[] = [group];
+    for (let depth = 1; depth <= MAX_LINEAGE_DEPTH && up.length > 0; depth += 1) {
+      const next: Group[] = [];
+      for (const current of up) {
+        for (const name of extractFieldReferences(current.expression)) {
+          const read = this.resolveRead(
+            name,
+            current,
+            index,
+            groups,
+            listingOf,
+            datasetNames,
+            assets
+          );
+          const parent = read.key ? groups.get(read.key) : undefined;
+          const node: FieldLineageNode = parent
+            ? ofGroup(parent, -depth)
+            : {
+                id: `col:${read.datasetId ?? '-'}:${read.name.toLowerCase()}`,
+                name: read.name,
+                kind: read.kind,
+                depth: -depth,
+                ...(read.dataType ? { dataType: read.dataType } : {}),
+                ...(read.datasetId ? { datasetId: read.datasetId } : {}),
+                ...(read.datasetName ? { datasetName: read.datasetName } : {}),
+                ...(read.smus ? { smus: read.smus } : {}),
+              };
+          if (add(node) && parent) {
+            next.push(parent);
+          }
+          link(node.id, `cf:${current.key}`);
+        }
+      }
+      up = next;
+      if (up.length > 0 && depth === MAX_LINEAGE_DEPTH) {
+        truncated = true;
+      }
+    }
+
+    // Downstream: the calculated fields computed from each field in turn.
+    let down: Group[] = [group];
+    for (let depth = 1; depth <= MAX_LINEAGE_DEPTH && down.length > 0; depth += 1) {
+      const next: Group[] = [];
+      for (const current of down) {
+        for (const reader of readersOf(current, groups)) {
+          const node = ofGroup(reader, depth);
+          if (add(node)) {
+            next.push(reader);
+          }
+          link(`cf:${current.key}`, node.id);
+        }
+      }
+      down = next;
+      if (down.length > 0 && depth === MAX_LINEAGE_DEPTH) {
+        truncated = true;
+      }
+    }
+
+    // Close the picture: a field in the chain may read another field already
+    // in it without either walk having drawn that edge — a downstream reader's
+    // other inputs, most often. Nothing is added, only joined up.
+    for (const node of nodes.values()) {
+      const current = node.key ? groups.get(node.key) : undefined;
+      if (!current) {
+        continue;
+      }
+      for (const name of extractFieldReferences(current.expression)) {
+        const read = this.resolveRead(
+          name,
+          current,
+          index,
+          groups,
+          listingOf,
+          datasetNames,
+          assets
+        );
+        link(
+          read.key ? `cf:${read.key}` : `col:${read.datasetId ?? '-'}:${read.name.toLowerCase()}`,
+          node.id
+        );
+      }
+    }
+
+    return { nodes: [...nodes.values()], edges: [...edges.values()], truncated };
+  }
+
+  private countUsage(group: Group, index: FieldIndex): FieldLineageNode['usedBy'] {
+    const users = dedupeUsers(this.usersOf(group, index));
+    return {
+      dashboards: users.filter((u) => u.assetType === 'dashboard').length,
+      analyses: users.filter((u) => u.assetType === 'analysis').length,
+      visuals: this.visualsOf(group, index).length,
+    };
+  }
+
   private resolveRead(
     name: string,
     group: Group,
@@ -565,6 +759,21 @@ function groupCalculated(index: FieldIndex): Map<string, Group> {
   return groups;
 }
 
+/**
+ * The calculated fields that read this one: they name it, and they live on a
+ * dataset it lives on, so a field of the same name elsewhere is not a reader.
+ */
+function readersOf(group: Group, groups: Map<string, Group>): Group[] {
+  return [...groups.values()].filter(
+    (g) =>
+      g.key !== group.key &&
+      extractFieldReferences(g.expression).some(
+        (r) => r.toLowerCase() === group.name.toLowerCase()
+      ) &&
+      [...g.datasetIds].some((id) => group.datasetIds.has(id))
+  );
+}
+
 function countVariants(groups: Map<string, Group>): Map<string, number> {
   const byName = new Map<string, number>();
   for (const g of groups.values()) {
@@ -584,6 +793,8 @@ function listingByDataset(assets: SmusAsset[]): Map<string, CatalogListingRef> {
         projectId: asset.projectId,
         projectName: asset.projectName,
         url: asset.url,
+        matchType: dataset.matchType,
+        ...(dataset.via ? { via: dataset.via } : {}),
       });
     }
   }

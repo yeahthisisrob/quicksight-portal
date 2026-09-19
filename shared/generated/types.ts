@@ -5548,11 +5548,21 @@ export interface components {
             /** @description The source type as the catalog reports it, e.g. string, bigint, timestamp. */
             type: string;
         };
+        /**
+         * @description How a dataset was tied to a listing, in descending confidence — by a relational source table (schema.table), by a db.table reference parsed from custom SQL, by the dataset's display name, or through a parent dataset that matched, for a dataset built on another one and so carrying no table identity of its own.
+         * @enum {string}
+         */
+        SmusMatchType: "source-table" | "custom-sql" | "name" | "lineage";
+        /** @description The parent dataset a `lineage` tie came through. */
+        SmusLinkVia: {
+            datasetId: string;
+            name?: string;
+        };
         SmusLinkedDataset: {
             id: string;
             name: string;
-            /** @enum {string} */
-            matchType: "source-table" | "custom-sql" | "name";
+            matchType: components["schemas"]["SmusMatchType"];
+            via?: components["schemas"]["SmusLinkVia"];
         };
         SmusAsset: {
             listingId: string;
@@ -5713,8 +5723,7 @@ export interface components {
         CatalogDataset: {
             id: string;
             name: string;
-            /** @enum {string} */
-            matchType: "source-table" | "custom-sql" | "name";
+            matchType: components["schemas"]["SmusMatchType"];
             importMode?: string;
             calculatedFieldCount: number;
             fields: components["schemas"]["DatasetCatalogField"][];
@@ -5754,6 +5763,8 @@ export interface components {
             projectId?: string;
             projectName?: string;
             url?: string;
+            matchType?: components["schemas"]["SmusMatchType"];
+            via?: components["schemas"]["SmusLinkVia"];
         };
         CatalogDatasetRef: {
             id: string;
@@ -5782,6 +5793,11 @@ export interface components {
             description?: string;
             glossaryTerms: string[];
         };
+        FieldUsageCounts: {
+            dashboards: number;
+            analyses: number;
+            visuals: number;
+        };
         CalculatedFieldSummary: {
             /** @description Stable id for one distinct (name, expression). */
             key: string;
@@ -5791,11 +5807,7 @@ export interface components {
             definedIn: components["schemas"]["CalculatedFieldRef"][];
             datasets: components["schemas"]["CatalogDatasetRef"][];
             references: string[];
-            usedBy: {
-                dashboards: number;
-                analyses: number;
-                visuals: number;
-            };
+            usedBy: components["schemas"]["FieldUsageCounts"];
             /** @description Other expressions carrying the same name. */
             conflict?: {
                 variants: number;
@@ -5832,6 +5844,33 @@ export interface components {
             datasetName?: string;
             smus?: components["schemas"]["SmusColumnRef"];
         };
+        FieldLineageNode: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            kind: "column" | "calculated";
+            /** @description Signed — negative upstream (what the focused field is computed from), 0 for the field itself, positive downstream. A field reachable at several depths keeps the nearest. */
+            depth: number;
+            /** @description Calculated fields only — their catalog key, so a node opens. */
+            key?: string;
+            expression?: string;
+            dataType?: string;
+            datasetId?: string;
+            datasetName?: string;
+            smus?: components["schemas"]["SmusColumnRef"];
+            usedBy?: components["schemas"]["FieldUsageCounts"];
+        };
+        /** @description Data flows from `from` to `to` — `to` reads `from`. */
+        FieldLineageEdge: {
+            from: string;
+            to: string;
+        };
+        FieldLineage: {
+            nodes: components["schemas"]["FieldLineageNode"][];
+            edges: components["schemas"]["FieldLineageEdge"][];
+            /** @description True when the walk hit its depth or size bound, so the chain is partial. */
+            truncated: boolean;
+        };
         CalculatedFieldDetail: components["schemas"]["CalculatedFieldSummary"] & {
             /** @description Every distinct expression under this name, this one included. */
             variants: {
@@ -5848,6 +5887,7 @@ export interface components {
             }[];
             usedIn: components["schemas"]["FieldUsedIn"][];
             visuals: components["schemas"]["FieldVisualUsage"][];
+            lineage: components["schemas"]["FieldLineage"];
             portal?: components["schemas"]["PortalFieldMetadata"];
         };
         ColumnCatalogItem: {
@@ -5856,11 +5896,7 @@ export interface components {
             dataType?: string;
             datasets: components["schemas"]["CatalogDatasetRef"][];
             smus?: components["schemas"]["SmusColumnRef"];
-            usedBy: {
-                dashboards: number;
-                analyses: number;
-                visuals: number;
-            };
+            usedBy: components["schemas"]["FieldUsageCounts"];
             usedByCalculated: {
                 key: string;
                 name: string;
@@ -6244,11 +6280,8 @@ export interface components {
             datasetId: string;
             /** @description Whether a matching SMUS catalog listing was found */
             linked: boolean;
-            /**
-             * @description How the dataset was matched, in descending confidence — by a relational source table (schema.table), by a db.table reference parsed from custom SQL, or by the dataset's display name
-             * @enum {string}
-             */
-            matchType?: "source-table" | "custom-sql" | "name";
+            matchType?: components["schemas"]["SmusMatchType"];
+            via?: components["schemas"]["SmusLinkVia"];
             /** @description SMUS catalog listing identifier */
             listingId?: string;
             /** @description Underlying DataZone asset identifier */

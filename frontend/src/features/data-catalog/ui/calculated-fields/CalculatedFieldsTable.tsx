@@ -20,7 +20,7 @@ import {
 import type { CalculatedFieldSummary } from '@/shared/api/modules/data-catalog';
 import { pal } from '@/shared/design-system';
 
-import { describeDefinedIn, totalUsage } from '../../model/fieldCatalog';
+import { describeDefinedIn, describeSmusTie, totalUsage } from '../../model/fieldCatalog';
 
 interface CalculatedFieldsTableProps {
   items: CalculatedFieldSummary[];
@@ -155,14 +155,7 @@ export function CalculatedFieldsTable({
                 <TableCell>
                   <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
                     {item.datasets.map((dataset) => (
-                      <Tooltip
-                        key={dataset.id}
-                        title={
-                          dataset.listing
-                            ? `SMUS listing ${dataset.listing.name}${dataset.listing.projectName ? ` in ${dataset.listing.projectName}` : ''}`
-                            : 'Not tied to a SMUS listing'
-                        }
-                      >
+                      <Tooltip key={dataset.id} title={describeSmusTie(dataset)}>
                         <Chip
                           size="small"
                           variant="outlined"
