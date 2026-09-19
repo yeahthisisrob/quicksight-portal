@@ -106,36 +106,42 @@ export const StepTargetsSmusNotConfigured: Story = {
 
 export const StepReviewUndecided: Story = {
   name: '3 · Review, columns to decide',
-  render: () => <AuthorStudioView flow={fakeFlow({ step: 'review', draft: undecidedDraft() })} />,
+  render: () => (
+    <Mocked routes={authorRoutes()}>
+      <AuthorStudioView flow={fakeFlow({ step: 'review', draft: undecidedDraft() })} />
+    </Mocked>
+  ),
 };
 
 export const StepReviewProposed: Story = {
   name: '3 · Review, after a proposal',
   render: () => (
-    <AuthorStudioView
-      flow={fakeFlow({
-        step: 'review',
-        draft: resolvedDraft(),
-        proposal: {
-          ask: 'copy this onto sales gold',
-          intent: 'rebind',
-          mode: 'clone',
-          name: 'Sales overview (gold)',
-          reason: 'The ask names the gold sales table; every column resolves after two renames.',
-          rebinds: [
-            {
-              identifier: 'sales',
-              targetDataSetId: 'sales-gold',
-              columnMap: FULL_MAP,
-              reason: 'named',
-            },
-          ],
-          unmapped: [],
-          plan: resolvedDraft().plan ?? null,
-          model: { provider: 'bedrock', model: 'us.anthropic.claude-sonnet-4-6' },
-        },
-      })}
-    />
+    <Mocked routes={authorRoutes()}>
+      <AuthorStudioView
+        flow={fakeFlow({
+          step: 'review',
+          draft: resolvedDraft(),
+          proposal: {
+            ask: 'copy this onto sales gold',
+            intent: 'rebind',
+            mode: 'clone',
+            name: 'Sales overview (gold)',
+            reason: 'The ask names the gold sales table; every column resolves after two renames.',
+            rebinds: [
+              {
+                identifier: 'sales',
+                targetDataSetId: 'sales-gold',
+                columnMap: FULL_MAP,
+                reason: 'named',
+              },
+            ],
+            unmapped: [],
+            plan: resolvedDraft().plan ?? null,
+            model: { provider: 'bedrock', model: 'us.anthropic.claude-sonnet-4-6' },
+          },
+        })}
+      />
+    </Mocked>
   ),
 };
 
