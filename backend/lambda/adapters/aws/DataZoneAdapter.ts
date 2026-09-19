@@ -7,6 +7,7 @@
  */
 import {
   DataZoneClient,
+  ListProjectsCommand,
   SearchListingsCommand,
   type SearchListingsCommandOutput,
 } from '@aws-sdk/client-datazone';
@@ -22,6 +23,68 @@ export interface CatalogListing {
   /** DataZone asset type, e.g. amazon.datazone.GlueTableAssetType. */
   assetType: string;
   description?: string;
+  /** The project that published the listing. */
+  owningProjectId?: string;
+  /** The Glue table behind the listing, when its metadata forms say. */
+  table?: { catalog?: string; database: string; name: string };
+  /** Columns from the listing's relational table form, in source types. */
+  columns?: Array<{ name: string; type: string }>;
+}
+
+export interface CatalogProject {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+const PROJECTS_PAGE_SIZE = 50;
+
+/**
+ * Metadata forms ride along as one JSON string keyed by form name. The
+ * managed Glue data source attaches a GlueTableForm (table ARN, catalog) and
+ * a RelationalTableForm (columns). Field names differ across DataZone
+ * versions, so each is read defensively; anything missing simply leaves the
+ * listing without table identity.
+ */
+export function parseListingForms(
+  raw: string | undefined
+): Pick<CatalogListing, 'table' | 'columns'> {
+  if (!raw) {
+    return {};
+  }
+  let forms: Record<string, any>;
+  try {
+    forms = JSON.parse(raw);
+  } catch {
+    return {};
+  }
+  const entries = Object.entries(forms);
+  const find = (needle: string) =>
+    entries.find(([key]) => key.toLowerCase().includes(needle.toLowerCase()))?.[1];
+
+  const glue = find('GlueTable') ?? {};
+  const relational = find('RelationalTable') ?? {};
+
+  // arn:aws:glue:<region>:<account>:table/<database>/<table>
+  const arn: string | undefined = glue.tableArn ?? glue.TableArn;
+  const arnMatch = typeof arn === 'string' ? arn.match(/:table\/([^/]+)\/(.+)$/) : null;
+  const database: string | undefined =
+    glue.databaseName ?? glue.database ?? relational.databaseName ?? arnMatch?.[1];
+  const tableName: string | undefined = glue.tableName ?? relational.tableName ?? arnMatch?.[2];
+
+  const columnsRaw = Array.isArray(relational.columns) ? relational.columns : [];
+  const columns = columnsRaw
+    .map((c: any) => ({
+      name: String(c?.columnName ?? c?.name ?? ''),
+      type: String(c?.dataType ?? c?.type ?? ''),
+    }))
+    .filter((c: { name: string }) => c.name);
+
+  return {
+    table:
+      database && tableName ? { catalog: glue.catalogId, database, name: tableName } : undefined,
+    columns: columns.length > 0 ? columns : undefined,
+  };
 }
 
 const SEARCH_PAGE_SIZE = 50;
@@ -49,6 +112,8 @@ export class DataZoneAdapter {
           domainIdentifier: domainId,
           maxResults: SEARCH_PAGE_SIZE,
           nextToken,
+          // Forms carry the Glue table identity and columns.
+          additionalAttributes: ['FORMS'],
         })
       );
 
@@ -63,6 +128,8 @@ export class DataZoneAdapter {
           name: assetListing.name,
           assetType: assetListing.entityType || '',
           description: assetListing.description,
+          owningProjectId: assetListing.owningProjectId,
+          ...parseListingForms(assetListing.additionalAttributes?.forms),
         });
       }
 
@@ -74,5 +141,27 @@ export class DataZoneAdapter {
     }
 
     return listings;
+  }
+
+  /** Every project in the domain, for choosing which ones the portal reads from. */
+  public async listProjects(domainId: string): Promise<CatalogProject[]> {
+    const projects: CatalogProject[] = [];
+    let nextToken: string | undefined;
+    do {
+      const response = await this.client.send(
+        new ListProjectsCommand({
+          domainIdentifier: domainId,
+          maxResults: PROJECTS_PAGE_SIZE,
+          nextToken,
+        })
+      );
+      for (const item of response.items || []) {
+        if (item.id && item.name) {
+          projects.push({ id: item.id, name: item.name, description: item.description });
+        }
+      }
+      nextToken = response.nextToken;
+    } while (nextToken);
+    return projects.sort((a, b) => a.name.localeCompare(b.name));
   }
 }

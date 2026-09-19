@@ -16,6 +16,11 @@ export const authoringRoutes: RouteHandler[] = [
   },
   {
     method: 'POST',
+    path: /^\/authoring\/(analysis|dashboard)\/([^/]+)\/rebind\/preview$/,
+    handler: (event) => handler.previewRebind(event),
+  },
+  {
+    method: 'POST',
     path: /^\/authoring\/(analysis|dashboard)\/([^/]+)\/rebind$/,
     handler: (event) => handler.applyRebind(event),
   },

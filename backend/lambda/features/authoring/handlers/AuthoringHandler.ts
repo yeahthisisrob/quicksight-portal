@@ -56,6 +56,24 @@ export class AuthoringHandler {
     }
   }
 
+  /** POST /authoring/{assetType}/{assetId}/rebind/preview */
+  public async previewRebind(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const target = this.target(event);
+      const { rebinds } = this.parseBody(event);
+      const preview = await this.service().preview(
+        target.assetType,
+        target.assetId,
+        this.parseRebinds(rebinds)
+      );
+      return successResponse(event, { success: true, data: preview });
+    } catch (error: any) {
+      logger.error('Preview rebind failed', { error });
+      return this.failure(event, error, 'Failed to preview the rebind');
+    }
+  }
+
   /** POST /authoring/{assetType}/{assetId}/rebind */
   public async applyRebind(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {

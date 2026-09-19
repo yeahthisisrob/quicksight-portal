@@ -188,6 +188,28 @@ describe('RebindService', () => {
     });
   });
 
+  describe('preview', () => {
+    it('returns the plan and the definition as apply would write it', async () => {
+      const preview = await service.preview('analysis', 'a1', [
+        { identifier: 'orders', targetDataSetId: 'orders-gold', columnMap: FULL_MAP },
+      ]);
+      expect(preview.plan.canApply).toBe(true);
+      expect(preview.definition.DataSetIdentifierDeclarations[0].DataSetArn).toBe(GOLD_ARN);
+      expect(mocks.qs.updateAnalysis).not.toHaveBeenCalled();
+    });
+
+    it('never applies a suggestion the caller has not accepted', async () => {
+      const preview = await service.preview('analysis', 'a1', [
+        { identifier: 'orders', targetDataSetId: 'orders-gold' },
+      ]);
+      expect(preview.plan.canApply).toBe(false);
+      expect(
+        preview.definition.Sheets[0].Visuals[1].KPIVisual.ChartConfiguration.FieldWells
+          .TrendGroups[0].DateDimensionField.Column.ColumnName
+      ).toBe('order_date');
+    });
+  });
+
   describe('apply', () => {
     it('refuses while any column is unresolved and names them', async () => {
       await expect(

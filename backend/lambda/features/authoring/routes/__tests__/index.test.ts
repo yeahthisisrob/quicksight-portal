@@ -7,6 +7,7 @@ vi.mock('../../handlers/AuthoringHandler', () => ({
       planRebind: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
       applyRebind: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
       propose: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
+      previewRebind: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
     };
   }),
 }));
@@ -24,6 +25,7 @@ describe('authoringRoutes', () => {
     expect(find('POST', '/authoring/analysis/a1/rebind/plan')).toBeDefined();
     expect(find('POST', '/authoring/dashboard/d1/rebind')).toBeDefined();
     expect(find('POST', '/authoring/analysis/a1/propose')).toBeDefined();
+    expect(find('POST', '/authoring/analysis/a1/rebind/preview')).toBeDefined();
   });
 
   it('does not match other asset types', () => {

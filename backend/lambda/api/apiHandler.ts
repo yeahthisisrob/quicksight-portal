@@ -5,6 +5,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { getAuthContext, UnauthorizedError } from '../shared/auth';
 import { STATUS_CODES } from '../shared/constants/httpStatusCodes';
+import { settingsStore } from '../shared/services/settings/SettingsStore';
 import { createResponse, errorResponse, successResponse } from '../shared/utils/cors';
 import { logger } from '../shared/utils/logger';
 import { findRoute } from './router';
@@ -26,6 +27,9 @@ const handleRequest = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
     if (!authContext) {
       return errorResponse(event, STATUS_CODES.UNAUTHORIZED, 'Authentication required');
     }
+
+    // Stored settings win over env vars for the rest of this request.
+    await settingsStore.load();
 
     // Route to appropriate handler
     const path = event.path.replace('/api', '');

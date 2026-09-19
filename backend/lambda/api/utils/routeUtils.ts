@@ -86,6 +86,11 @@ const ROUTE_PATTERNS: readonly RoutePattern[] = [
     params: ['assetType', 'assetId'],
   },
   {
+    prefix: '/smus/assets/',
+    excludes: [],
+    params: ['listingId'],
+  },
+  {
     prefix: '/jobs/',
     excludes: [],
     params: ['jobId'],
