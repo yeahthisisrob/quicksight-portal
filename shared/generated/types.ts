@@ -2796,6 +2796,8 @@ export interface paths {
                     term?: string;
                     /** @description Only assets owned by this project (within the selected projects) */
                     projectId?: string;
+                    /** @description `projects` returns only the project list with counts, straight from the SMUS snapshot, without building the QuickSight field index. The page asks for this first; the per-project listing follows. */
+                    scope?: "projects" | "full";
                 };
                 header?: never;
                 path?: never;

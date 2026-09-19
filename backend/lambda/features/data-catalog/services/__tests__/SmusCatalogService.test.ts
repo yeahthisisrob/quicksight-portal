@@ -103,6 +103,7 @@ describe('SmusCatalogService', () => {
   let service: SmusCatalogService;
 
   beforeEach(() => {
+    SmusCatalogService.invalidate();
     vi.clearAllMocks();
     (SmusCatalogService as any).visualsCache = null;
     smus.listAssets.mockResolvedValue({
@@ -171,6 +172,17 @@ describe('SmusCatalogService', () => {
       calculatedFieldCount: 2,
       usage: { dashboards: 1, analyses: 0 },
     });
+  });
+
+  it("answers the project list without touching the field index when scope is 'projects'", async () => {
+    const result = await service.list({ scope: 'projects' });
+
+    expect(result.projects.map((p) => p.id).sort()).toEqual(
+      [...new Set([ASSET, OTHER].map((a) => a.projectId))].sort()
+    );
+    expect(result.assets).toEqual([]);
+    expect(result.glossaryTerms).toEqual([]);
+    expect(cache.searchFields).not.toHaveBeenCalled();
   });
 
   it('scopes to a project and a term', async () => {
