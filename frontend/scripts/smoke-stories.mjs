@@ -13,7 +13,11 @@
  * underneath, it is about 100 lines, and it has no opinion about which test
  * runner the rest of the repo uses.
  *
- *   node scripts/smoke-stories.mjs [--url http://localhost:6006] [--concurrency 6]
+ *   node scripts/smoke-stories.mjs [--url http://localhost:6006] [--concurrency 6] [--filter pages-]
+ *
+ * --filter keeps only story ids containing the text (comma-separated for
+ * several), which is how a change renders just the stories it touched
+ * locally; CI runs everything.
  */
 
 import { chromium } from 'playwright';
@@ -27,6 +31,14 @@ const getArg = (name, fallback) => {
 const BASE_URL = getArg('url', 'http://localhost:6006').replace(/\/$/, '');
 const CONCURRENCY = Number(getArg('concurrency', '6'));
 const RENDER_TIMEOUT_MS = 20_000;
+/** A dev-server compiles the app shell on the first page story; give that one time. */
+const WARMUP_TIMEOUT_MS = 180_000;
+/** A story that only timed out is retried once, slower: cold compiles are not bugs. */
+const RETRY_TIMEOUT_MS = 60_000;
+const FILTER = getArg('filter', '')
+  .split(',')
+  .map((f) => f.trim())
+  .filter(Boolean);
 /** Time to let async render work settle before reading the console. */
 const SETTLE_MS = 150;
 
@@ -79,7 +91,7 @@ async function fetchStoryIds() {
 }
 
 /** Render one story; resolves to an error string, or null when it is clean. */
-async function checkStory(context, id) {
+async function checkStory(context, id, renderTimeoutMs = RENDER_TIMEOUT_MS) {
   const page = await context.newPage();
   const consoleErrors = [];
   const pageErrors = [];
@@ -94,7 +106,7 @@ async function checkStory(context, id) {
   try {
     await page.goto(`${BASE_URL}/iframe.html?id=${encodeURIComponent(id)}&viewMode=story`, {
       waitUntil: 'domcontentloaded',
-      timeout: RENDER_TIMEOUT_MS,
+      timeout: renderTimeoutMs,
     });
 
     // Storybook puts its render state on <body>: sb-show-main once a story has
@@ -114,7 +126,7 @@ async function checkStory(context, id) {
         );
       },
       undefined,
-      { timeout: RENDER_TIMEOUT_MS }
+      { timeout: renderTimeoutMs }
     );
 
     if (await page.evaluate(() => document.body.classList.contains('sb-show-errordisplay'))) {
@@ -141,10 +153,17 @@ async function checkStory(context, id) {
   }
 }
 
+const isTimeout = (problem) => typeof problem === 'string' && problem.includes('Timeout');
+
 async function main() {
-  const ids = await fetchStoryIds();
+  const all = await fetchStoryIds();
+  const ids = FILTER.length ? all.filter((id) => FILTER.some((f) => id.includes(f))) : all;
   if (ids.length === 0) {
-    console.error('No stories found - is Storybook running?');
+    console.error(
+      all.length === 0
+        ? 'No stories found - is Storybook running?'
+        : `No stories match --filter ${FILTER.join(',')}`
+    );
     return 1;
   }
   console.log(`Smoke-testing ${ids.length} stories at ${BASE_URL}\n`);
@@ -154,11 +173,23 @@ async function main() {
   const failures = [];
   let done = 0;
 
+  // Warm the dev server on the heaviest kind of story (a whole page in the
+  // app shell) before fanning out, so the first workers do not race a cold
+  // compile and time out on stories that are fine.
+  const warmup = ids.find((id) => id.startsWith('pages-')) ?? ids[0];
+  const warmupProblem = await checkStory(context, warmup, WARMUP_TIMEOUT_MS);
+  if (warmupProblem && !isTimeout(warmupProblem)) {
+    console.log(`  warm-up story ${warmup} reported: ${warmupProblem}`);
+  }
+
   const queue = [...ids];
   const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length) }, async () => {
     while (queue.length) {
       const id = queue.shift();
-      const problem = await checkStory(context, id);
+      let problem = await checkStory(context, id);
+      if (isTimeout(problem)) {
+        problem = await checkStory(context, id, RETRY_TIMEOUT_MS);
+      }
       done += 1;
       if (problem) {
         failures.push({ id, problem });
