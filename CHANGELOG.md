@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.5.1...v2.6.0) (2026-09-19)
+
+
+### Features
+
+* **api:** API keys for machine callers, an API guide and just api; mockup arrows swap visuals ([#148](https://github.com/yeahthisisrob/quicksight-portal/issues/148)) ([589fc33](https://github.com/yeahthisisrob/quicksight-portal/commit/589fc33d9afd3ce4b58e3d3139331b8a799273ed))
+
 ## [2.5.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.5.0...v2.5.1) (2026-09-19)
 
 
