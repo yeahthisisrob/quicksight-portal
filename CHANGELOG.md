@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.5.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.5.0...v2.5.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* **catalog:** the catalog loads again - visual usage comes from the export, not a placeholder built per request ([#147](https://github.com/yeahthisisrob/quicksight-portal/issues/147)) ([73b5c4d](https://github.com/yeahthisisrob/quicksight-portal/commit/73b5c4d4ee70f9f930b68b9b54936d17a6082b3a))
+* **catalog:** the page's first request lists projects from the snapshot without building the field index ([#145](https://github.com/yeahthisisrob/quicksight-portal/issues/145)) ([4a5c2a4](https://github.com/yeahthisisrob/quicksight-portal/commit/4a5c2a44c441ea9d5ecc24755b4e1b7f8c13caef))
+
 ## [2.5.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.4.2...v2.5.0) (2026-09-19)
 
 
