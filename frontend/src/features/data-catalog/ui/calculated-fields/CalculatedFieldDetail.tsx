@@ -171,7 +171,7 @@ function ReadRow({
               variant="outlined"
               clickable
               onClick={() => onOpenListing(read.smus?.listingId ?? '')}
-              label={`SMUS: ${read.smus.name}.${read.smus.columnName}`}
+              label={`SMUS: ${read.smus.name}${read.smus.columnName ? `.${read.smus.columnName}` : ''}`}
             />
             {read.smus.glossaryTerms.map((term) => (
               <Chip key={term} size="small" label={term} />

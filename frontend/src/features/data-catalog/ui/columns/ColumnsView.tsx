@@ -41,18 +41,29 @@ export interface ColumnsViewProps {
 
 const SEARCH_DEBOUNCE_MS = 300;
 const SKELETON_ROWS = 6;
+/** A column in a hundred datasets must not push the row off the screen. */
+const DATASET_CHIPS = 2;
+const TOOLTIP_NAMES = 20;
 
-function Counts({ counts }: { counts: { columns: number; datasets: number; withSmus: number } }) {
+function Counts({
+  counts,
+}: {
+  counts: { columns: number; datasets: number; withSmus: number; withSmusColumn: number };
+}) {
+  // Two SMUS numbers, because they fail separately: a dataset that never
+  // matched a listing is a linking problem, a listing whose schema does not
+  // name the column is an export problem.
   const cells: Array<[string, number]> = [
     ['Columns', counts.columns],
     ['Datasets', counts.datasets],
-    ['Tied to a SMUS column', counts.withSmus],
+    ['From a SMUS table', counts.withSmus],
+    ['Matched to a SMUS column', counts.withSmusColumn],
   ];
   return (
     <Box
       sx={(theme) => ({
         display: 'grid',
-        gridTemplateColumns: { xs: 'repeat(3, 1fr)' },
+        gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' },
         border: `1px solid ${pal(theme).line.divider}`,
         borderRadius: `${theme.shape.borderRadius}px`,
         bgcolor: pal(theme).surface.container,
@@ -89,11 +100,14 @@ function SmusCell({
 }) {
   if (!item.smus) {
     return (
-      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-        Not tied to SMUS
-      </Typography>
+      <Tooltip title="No dataset holding this column matched a SMUS listing. Run the SMUS export, or check the dataset's source table.">
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          No SMUS listing
+        </Typography>
+      </Tooltip>
     );
   }
+  const { columnName, match, name } = item.smus;
   return (
     <Stack spacing={0.25}>
       <Stack
@@ -107,8 +121,13 @@ function SmusCell({
           variant="outlined"
           clickable
           onClick={() => onOpenListing(item.smus?.listingId ?? '')}
-          label={`${item.smus.name}.${item.smus.columnName}`}
+          label={columnName ? `${name}.${columnName}` : name}
         />
+        {match === 'normalized' && (
+          <Tooltip title={`The listing spells it ${columnName}.`}>
+            <Chip size="small" variant="outlined" label="renamed" />
+          </Tooltip>
+        )}
         {item.smus.glossaryTerms.map((term) => (
           <Chip key={term} size="small" label={term} />
         ))}
@@ -118,10 +137,46 @@ function SmusCell({
           </Link>
         )}
       </Stack>
+      {match === 'listing-only' && (
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          The listing's schema does not name this column
+        </Typography>
+      )}
       {item.smus.description && (
         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
           {item.smus.description}
         </Typography>
+      )}
+    </Stack>
+  );
+}
+
+/**
+ * One chip per dataset stops being readable once a column is in dozens of
+ * them, so past a couple the rest collapse into a count that names them on
+ * hover.
+ */
+function DatasetsCell({ datasets }: { datasets: ColumnCatalogItem['datasets'] }) {
+  const shown = datasets.slice(0, DATASET_CHIPS);
+  const rest = datasets.slice(DATASET_CHIPS);
+  return (
+    <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+      {shown.map((dataset) => (
+        <Chip key={dataset.id} size="small" variant="outlined" label={dataset.name} />
+      ))}
+      {rest.length > 0 && (
+        <Tooltip
+          title={
+            <Stack>
+              {rest.slice(0, TOOLTIP_NAMES).map((dataset) => (
+                <span key={dataset.id}>{dataset.name}</span>
+              ))}
+              {rest.length > TOOLTIP_NAMES && <span>and {rest.length - TOOLTIP_NAMES} more</span>}
+            </Stack>
+          }
+        >
+          <Chip size="small" label={`+${rest.length}`} />
+        </Tooltip>
       )}
     </Stack>
   );
@@ -227,16 +282,7 @@ export function ColumnsView({
                       )}
                     </TableCell>
                     <TableCell>
-                      <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
-                        {item.datasets.map((dataset) => (
-                          <Chip
-                            key={dataset.id}
-                            size="small"
-                            variant="outlined"
-                            label={dataset.name}
-                          />
-                        ))}
-                      </Stack>
+                      <DatasetsCell datasets={item.datasets} />
                     </TableCell>
                     <TableCell>
                       <SmusCell item={item} onOpenListing={onOpenListing} />
