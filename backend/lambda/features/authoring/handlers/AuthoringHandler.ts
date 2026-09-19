@@ -182,6 +182,35 @@ export class AuthoringHandler {
     }
   }
 
+  /**
+   * GET /authoring/datasets/{dataSetId}/columns
+   *
+   * The columns a dataset exposes, for building an asset that does not exist
+   * yet and so has no definition to read them from. Live first, falling back
+   * to the export, exactly as a rebind target is resolved.
+   */
+  public async getDatasetColumns(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const dataSetId = event.pathParameters?.dataSetId;
+      if (!dataSetId) {
+        throw badRequest('Dataset id is required');
+      }
+      const dataset = await this.service().describeTargetDataset(dataSetId);
+      return successResponse(event, {
+        success: true,
+        data: {
+          dataSetId: dataset.dataSetId,
+          name: dataset.name,
+          columns: dataset.columns,
+        },
+      });
+    } catch (error: any) {
+      logger.error('Describe dataset columns failed', { error });
+      return this.failure(event, error, 'Failed to read the dataset');
+    }
+  }
+
   /** POST /authoring/new/preview */
   public async previewNew(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {

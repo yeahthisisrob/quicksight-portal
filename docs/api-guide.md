@@ -169,9 +169,11 @@ points the visuals at it.
 ## 6. Make a dashboard from nothing
 
 Name the datasets and either the visuals, by column names, or an ask and
-let the planner propose them:
+let the planner propose them. A new asset has no definition to read columns
+from, so ask the dataset what it has:
 
 ```bash
+just api GET /authoring/datasets/<dataset-id>/columns
 just api POST /authoring/new/preview '{"assetType":"dashboard","name":"Sales by region","datasets":[{"identifier":"orders","dataSetId":"<dataset-id>"}],"ask":"revenue and orders by region over the last year, with a monthly trend"}'
 just api POST /authoring/new '{"assetType":"dashboard","name":"Sales by region","datasets":[...],"visuals":[...],"template":{"assetType":"dashboard","assetId":"<template-id>"},"permissionsFrom":{"assetType":"dashboard","assetId":"<existing-id>"},"folderId":"<folder-id>"}'
 ```
@@ -180,7 +182,9 @@ A visual is `{ type, title, identifier, category?, granularity?, values:
 [{ column, aggregation? }], color? }`; the builder decides the field wells
 from the columns' types (dates become date dimensions, numbers measures,
 text categories or counts) and leaves out what does not exist, saying so in
-`warnings`. The preview returns the definition, its outline and the visuals
+`warnings`. Naming a column the dataset does not have is the most common
+reason a visual comes back empty, which is what the columns call above is
+for. The preview returns the definition, its outline and the visuals
 that were built or proposed; `template` and `typeRules` work here too. On
 create, the asset inherits the audience of `permissionsFrom` (or of the
 template), lands in `folderId`, and is recorded and tagged like every other

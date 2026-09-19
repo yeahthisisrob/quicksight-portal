@@ -2653,6 +2653,42 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /api/authoring/datasets/{dataSetId}/columns:
+    get:
+      operationId: getAuthoringDatasetColumns
+      summary: The columns a dataset exposes
+      description: |
+        For building an asset that does not exist yet, and so has no definition
+        to read its columns from. Described live, falling back to the dataset's
+        export when QuickSight cannot describe it (flat files), exactly as a
+        rebind target is resolved.
+      tags: [Authoring]
+      parameters:
+        - name: dataSetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The dataset's output columns
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/AuthoringDatasetColumns'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /api/authoring/new/preview:
     post:
       summary: A dashboard or analysis from nothing - preview
@@ -5223,6 +5259,25 @@ components:
         casts:
           type: boolean
 
+    AuthoringDatasetColumns:
+      type: object
+      required: [dataSetId, name, columns]
+      properties:
+        dataSetId:
+          type: string
+        name:
+          type: string
+        columns:
+          type: array
+          items:
+            type: object
+            required: [name]
+            properties:
+              name:
+                type: string
+              type:
+                type: string
+
     TemplateRequest:
       type: object
       description: |
@@ -5233,6 +5288,9 @@ components:
         order, into rows of the template's standard tile size below the
         furniture, KPIs first at the template's KPI size when it has a KPI
         band. Applied after rebinds and before added fields and ops.
+
+        Every part is optional and on by default, so a caller that wants the
+        whole standard sends only assetType and assetId.
       required: [assetType, assetId]
       properties:
         assetType:
@@ -5242,19 +5300,19 @@ components:
           type: string
         textBoxes:
           type: boolean
-          default: true
+          description: Carry the template's text boxes and title band. Default true.
         controls:
           type: boolean
-          default: true
+          description: Carry the template's controls where a source column matches. Default true.
         sheetNames:
           type: boolean
-          default: true
+          description: Take the template's sheet names. Default true.
         kpisFirst:
           type: boolean
-          default: true
+          description: KPIs first at the template's KPI size when it has a KPI band. Default true.
         theme:
           type: boolean
-          default: true
+          description: Write the template's theme. Default true.
 
     RebindRequest:
       type: object

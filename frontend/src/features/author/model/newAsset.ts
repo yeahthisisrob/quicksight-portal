@@ -62,11 +62,14 @@ export interface NewAssetDataset {
   name: string;
 }
 
-/** One output column of a dataset, as the cached export lists it. */
+/** One output column of a dataset, as the authoring columns endpoint lists it. */
 export interface DatasetColumn {
   name: string;
-  /** STRING, INTEGER, DECIMAL, DATETIME - QuickSight's output column types. */
-  type: string;
+  /**
+   * STRING, INTEGER, DECIMAL, DATETIME - QuickSight's output column types.
+   * Absent when QuickSight did not say, the same gap the catalog tolerates.
+   */
+  type?: string;
 }
 
 export interface DraftValue {
@@ -233,22 +236,6 @@ export function removeValue(visuals: DraftVisual[], id: string, index: number): 
 /** Sum for numbers, a count for anything else, so a fresh row does something sensible. */
 export function defaultAggregation(columnType: string | undefined): Aggregation {
   return isNumericColumn(columnType) ? 'SUM' : 'COUNT';
-}
-
-/** The output columns of a dataset from its cached export; empty when not cached. */
-export function columnsFromExport(exportData: unknown): DatasetColumn[] {
-  const describe = (exportData as { apiResponses?: { describe?: { data?: unknown } } } | null)
-    ?.apiResponses?.describe?.data as { OutputColumns?: unknown } | undefined;
-  const raw = Array.isArray(describe?.OutputColumns) ? describe.OutputColumns : [];
-  return raw
-    .map((c) => {
-      const column = c as { Name?: unknown; Type?: unknown };
-      return {
-        name: typeof column.Name === 'string' ? column.Name : '',
-        type: typeof column.Type === 'string' ? column.Type : 'STRING',
-      };
-    })
-    .filter((c) => c.name.length > 0);
 }
 
 /**

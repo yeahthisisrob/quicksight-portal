@@ -380,20 +380,12 @@ const DATASET_NAMES: Record<string, string> = {
   'sales-bronze': 'sales_bronze',
 };
 
-/** A cached dataset export: the describe call with its output columns. */
-export function datasetExportFor(dataSetId: string) {
-  const columns = DATASET_COLUMNS[dataSetId] ?? [];
+/** What the authoring columns endpoint answers for a dataset. */
+export function datasetColumnsFor(dataSetId: string) {
   return {
-    apiResponses: {
-      list: { data: { DataSetId: dataSetId, Name: DATASET_NAMES[dataSetId] ?? dataSetId } },
-      describe: {
-        data: {
-          DataSetId: dataSetId,
-          Name: DATASET_NAMES[dataSetId] ?? dataSetId,
-          OutputColumns: columns.map((c) => ({ Name: c.name, Type: c.type })),
-        },
-      },
-    },
+    dataSetId,
+    name: DATASET_NAMES[dataSetId] ?? dataSetId,
+    columns: DATASET_COLUMNS[dataSetId] ?? [],
   };
 }
 
@@ -808,11 +800,11 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
     },
     {
       method: 'get',
-      url: /\/assets\/dataset\/[^/]+\/cached$/,
+      url: /\/authoring\/datasets\/[^/]+\/columns$/,
       respond: (config) => {
         const parts = String(config.url).split('/');
         const id = parts[parts.length - 2] ?? '';
-        return { body: { success: true, data: datasetExportFor(id) } };
+        return { body: { success: true, data: datasetColumnsFor(id) } };
       },
     },
     {

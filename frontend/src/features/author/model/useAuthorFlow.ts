@@ -60,7 +60,6 @@ import {
   stepStatus,
 } from './authorFlow';
 import {
-  columnsFromExport,
   type DatasetColumn,
   type DraftValue,
   type DraftVisual,
@@ -509,8 +508,8 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
   const fresh = state.fresh;
   const columnQueries = useQueries({
     queries: fresh.datasets.map((dataset) => ({
-      queryKey: ['asset-json', 'dataset', dataset.dataSetId],
-      queryFn: () => assetsApi.getCachedAsset('dataset', dataset.dataSetId),
+      queryKey: ['authoring-dataset-columns', dataset.dataSetId],
+      queryFn: () => authoringApi.getDatasetColumns(dataset.dataSetId),
       enabled: isNew,
       staleTime: DATASET_EXPORT_STALE_MS,
       retry: false,
@@ -522,7 +521,7 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
       const query = columnQueries[index];
       out[dataset.identifier] = {
         loading: query?.isLoading ?? false,
-        columns: columnsFromExport(query?.data),
+        columns: query?.data?.columns ?? [],
       };
     });
     return out;
