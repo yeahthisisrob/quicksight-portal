@@ -23,3 +23,6 @@ export const ScriptsPage = lazy(() =>
   import('./ScriptsPage').then((m) => ({ default: m.ScriptsPage }))
 );
 export const IngestionsPage = lazy(() => import('./IngestionsPage'));
+export const AuthorPage = lazy(() => import('./AuthorPage'));
+export const SettingsPage = lazy(() => import('./SettingsPage'));
+export const OperationsPage = lazy(() => import('./OperationsPage'));

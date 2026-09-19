@@ -19,6 +19,7 @@ export type ApplyRebindRequest = Schemas['ApplyRebindRequest'];
 export type ApplyRebindResult = Schemas['ApplyRebindResult'];
 export type ProposeRequest = Schemas['ProposeRequest'];
 export type Proposal = Schemas['Proposal'];
+export type RebindPreview = Schemas['RebindPreview'];
 
 async function unwrap<T>(promise: Promise<{ data: ApiResponse<T> }>, fallback: string): Promise<T> {
   const response = await promise;
@@ -69,6 +70,21 @@ export const authoringApi = {
         request
       ),
       'Failed to apply the rebind'
+    );
+  },
+
+  /** The plan plus the definition as apply would write it, for mockups. */
+  previewRebind(
+    assetType: AuthorableAssetType,
+    assetId: string,
+    rebinds: RebindRequest[]
+  ): Promise<RebindPreview> {
+    return unwrap(
+      apiClient.post<ApiResponse<RebindPreview>>(
+        `/authoring/${assetType}/${assetId}/rebind/preview`,
+        { rebinds }
+      ),
+      'Failed to preview the rebind'
     );
   },
 

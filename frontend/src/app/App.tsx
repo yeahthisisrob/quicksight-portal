@@ -8,11 +8,14 @@ import {
   AssetsPage,
   AssetTimelinePage,
   AuthCallbackPage,
+  AuthorPage,
   DataCatalogPage,
   ExportPage,
   IngestionsPage,
   LoginPage,
+  OperationsPage,
   ScriptsPage,
+  SettingsPage,
 } from '../pages';
 import { ErrorBoundary, PageLoader } from '../shared/ui';
 import { MainLayout } from '../widgets';
@@ -75,6 +78,36 @@ function App() {
                     <ErrorBoundary>
                       <Suspense fallback={<PageLoader />}>
                         <DataCatalogPage />
+                      </Suspense>
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="author"
+                  element={
+                    <ErrorBoundary>
+                      <Suspense fallback={<PageLoader />}>
+                        <AuthorPage />
+                      </Suspense>
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="settings"
+                  element={
+                    <ErrorBoundary>
+                      <Suspense fallback={<PageLoader />}>
+                        <SettingsPage />
+                      </Suspense>
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="operations"
+                  element={
+                    <ErrorBoundary>
+                      <Suspense fallback={<PageLoader />}>
+                        <OperationsPage />
                       </Suspense>
                     </ErrorBoundary>
                   }
