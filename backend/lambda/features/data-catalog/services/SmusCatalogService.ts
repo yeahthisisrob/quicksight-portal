@@ -19,6 +19,7 @@ import type { CacheService } from '../../../shared/services/cache/CacheService';
 import type { FieldInfo } from '../../../shared/services/cache/types';
 import type { SmusService } from '../../../shared/services/smus/SmusService';
 import { logger } from '../../../shared/utils/logger';
+import { matchListingColumn } from '../lib/columnIdentity';
 import { canonicalExpression, extractFieldReferences } from '../lib/expressionAnalysis';
 import {
   type CalculatedFieldTemplate,
@@ -260,9 +261,7 @@ export class SmusCatalogService {
     for (const [name, field] of calculatedByName) {
       referencesOf.set(name, extractFieldReferences(field.expression ?? ''));
     }
-    const columnsByName = new Map(
-      (asset.columns ?? []).map((c) => [(c.name ?? '').toLowerCase(), c] as const)
-    );
+    const listingColumns = asset.columns ?? [];
 
     const fields = own
       .map<DatasetCatalogField>((field) => {
@@ -310,9 +309,10 @@ export class SmusCatalogService {
             out.template = { id: templateId };
           }
         } else {
-          const column = columnsByName.get(
-            (field.columnName ?? field.fieldName ?? '').toLowerCase()
-          );
+          const column = matchListingColumn(
+            field.columnName ?? field.fieldName ?? '',
+            listingColumns
+          )?.column;
           if (column) {
             out.smus = {
               listingId: asset.listingId,

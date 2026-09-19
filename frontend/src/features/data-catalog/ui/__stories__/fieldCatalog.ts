@@ -33,6 +33,12 @@ const TARGETS_LISTING = {
 const DS_GOLD = { id: 'ds-sales-gold', name: 'Sales (gold)', listing: SALES_LISTING };
 const DS_EXEC = { id: 'ds-sales-exec', name: 'Sales for executives', listing: SALES_LISTING };
 const DS_TARGETS = { id: 'ds-targets', name: 'Targets', listing: TARGETS_LISTING };
+/** A column every mart repeats: the cell has to stay one line. */
+const DS_MANY = Array.from({ length: 9 }, (_, i) => ({
+  id: `ds-mart-${i}`,
+  name: `Mart ${i + 1} (${['orders', 'refunds', 'shipping', 'tax'][i % 4]})`,
+  listing: SALES_LISTING,
+}));
 
 const OVERVIEW = { type: 'dashboard' as const, id: 'dash-overview', name: 'Sales overview' };
 const REGION = { type: 'dashboard' as const, id: 'dash-region', name: 'Regional performance' };
@@ -191,8 +197,16 @@ export const NO_EXPORT_CALCULATED_FIELDS: CalculatedFieldCatalog = {
 const smusColumn = (columnName: string, description: string, glossaryTerms: string[] = []) => ({
   ...SALES_LISTING,
   columnName,
+  match: 'exact' as const,
   description,
   glossaryTerms,
+});
+
+/** The dataset is tied to the listing, but the listing's schema stops short of the column. */
+const smusListingOnly = () => ({
+  ...SALES_LISTING,
+  match: 'listing-only' as const,
+  glossaryTerms: [],
 });
 
 const OVERVIEW_USE = {
@@ -446,6 +460,21 @@ const column = (
 export const COLUMN_ITEMS: ColumnCatalogItem[] = [
   // A column the export could not type: QuickSight leaves OutputColumns.Type out.
   column({ name: 'geo_point', dataType: undefined, datasets: [DS_GOLD] }),
+  // In every mart: the datasets cell collapses past the first couple.
+  column({
+    name: 'order_id',
+    dataType: 'STRING',
+    datasets: [DS_GOLD, DS_EXEC, ...DS_MANY],
+    smus: smusColumn('order_id', 'Natural key of the order.'),
+    usedBy: { dashboards: 9, analyses: 3, visuals: 31 },
+  }),
+  // Computed in the dataset, so the listing's schema never names it.
+  column({
+    name: 'tenure_days',
+    dataType: 'INTEGER',
+    smus: smusListingOnly(),
+    usedBy: { dashboards: 1, analyses: 0, visuals: 2 },
+  }),
   column({
     name: 'revenue',
     datasets: [DS_GOLD, DS_EXEC],
@@ -499,6 +528,7 @@ export const COLUMN_ITEMS: ColumnCatalogItem[] = [
     smus: {
       ...TARGETS_LISTING,
       columnName: 'target_revenue',
+      match: 'exact' as const,
       description: 'Quarterly revenue target per region.',
       glossaryTerms: [],
     },
@@ -517,6 +547,7 @@ export function columnCatalog(params: { search?: string } = {}): ColumnCatalog {
       columns: items.length,
       datasets: new Set(items.flatMap((c) => c.datasets.map((d) => d.id))).size,
       withSmus: items.filter((c) => c.smus).length,
+      withSmusColumn: items.filter((c) => c.smus?.columnName).length,
     },
     items,
   };

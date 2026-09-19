@@ -5712,7 +5712,13 @@ export interface components {
             projectId?: string;
             projectName?: string;
             url?: string;
-            columnName: string;
+            /** @description Absent when the dataset is tied to the listing but the listing's schema does not name the column. */
+            columnName?: string;
+            /**
+             * @description How the column tied back - exact name, normalized name (case, separators, camel humps), or the listing alone.
+             * @enum {string}
+             */
+            match: "exact" | "normalized" | "listing-only";
             description?: string;
             glossaryTerms: string[];
         };
@@ -5805,7 +5811,10 @@ export interface components {
             counts: {
                 columns: number;
                 datasets: number;
+                /** @description Columns whose dataset is tied to a SMUS listing. */
                 withSmus: number;
+                /** @description Of those, the ones the listing's own schema names. */
+                withSmusColumn: number;
             };
             items: components["schemas"]["ColumnCatalogItem"][];
         };

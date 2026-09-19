@@ -11,6 +11,7 @@ import { createHash } from 'node:crypto';
 import type { SmusAsset } from '../../../features/smus/types';
 import type { FieldInfo } from '../../../shared/services/cache/types';
 import type { SmusService } from '../../../shared/services/smus/SmusService';
+import { type ColumnMatchKind, matchListingColumn } from '../lib/columnIdentity';
 import { canonicalExpression, extractFieldReferences } from '../lib/expressionAnalysis';
 import {
   dedupeUsers,
@@ -43,7 +44,14 @@ export interface CatalogDatasetRef {
 }
 
 export interface SmusColumnRef extends CatalogListingRef {
-  columnName: string;
+  /**
+   * The listing column this QuickSight column resolves to. Absent when the
+   * dataset is tied to a listing but the listing's schema does not name the
+   * column: still a SMUS table, just nothing to say about the column itself.
+   */
+  columnName?: string;
+  /** Exact name, normalized (case, separators, camel humps), or the listing alone. */
+  match: ColumnMatchKind;
   description?: string;
   glossaryTerms: string[];
 }
@@ -117,7 +125,14 @@ export interface ColumnCatalogItem {
 export interface ColumnCatalog {
   configured: boolean;
   exportedAt: string | null;
-  counts: { columns: number; datasets: number; withSmus: number };
+  counts: {
+    columns: number;
+    datasets: number;
+    /** Columns whose dataset is tied to a SMUS listing. */
+    withSmus: number;
+    /** Of those, the ones the listing's own schema names. */
+    withSmusColumn: number;
+  };
   items: ColumnCatalogItem[];
 }
 
@@ -337,6 +352,7 @@ export class FieldCatalogService {
         columns: items.length,
         datasets: new Set(items.flatMap((i) => i.datasets.map((d) => d.id))).size,
         withSmus: items.filter((i) => i.smus).length,
+        withSmusColumn: items.filter((i) => i.smus?.columnName).length,
       },
       items,
     };
@@ -545,15 +561,21 @@ function smusColumn(
 ): SmusColumnRef | undefined {
   if (!listing) return undefined;
   const asset = assets.find((a) => a.listingId === listing.listingId);
-  const column = asset?.columns?.find(
-    (c) => (c.name ?? '').toLowerCase() === columnName.toLowerCase()
-  );
-  if (!column) return undefined;
+  const glossaryTerms = (asset?.glossaryTerms ?? []).map((t) => t.name);
+  const hit = matchListingColumn(columnName, asset?.columns);
+  // The dataset is tied to this listing either way. When the listing's schema
+  // does not name the column - an older export, a listing published without a
+  // relational form, a column the dataset computed - say which table it came
+  // from rather than claiming it has nothing to do with SMUS.
+  if (!hit) {
+    return { ...listing, match: 'listing-only', glossaryTerms };
+  }
   return {
     ...listing,
-    columnName: column.name,
-    description: column.description,
-    glossaryTerms: (asset?.glossaryTerms ?? []).map((t) => t.name),
+    columnName: hit.column.name,
+    match: hit.match,
+    description: hit.column.description,
+    glossaryTerms,
   };
 }
 

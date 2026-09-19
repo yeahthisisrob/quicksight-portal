@@ -6186,7 +6186,7 @@ components:
 
     SmusColumnRef:
       type: object
-      required: [listingId, name, columnName, glossaryTerms]
+      required: [listingId, name, match, glossaryTerms]
       properties:
         listingId:
           type: string
@@ -6200,6 +6200,11 @@ components:
           type: string
         columnName:
           type: string
+          description: Absent when the dataset is tied to the listing but the listing's schema does not name the column.
+        match:
+          type: string
+          enum: [exact, normalized, listing-only]
+          description: How the column tied back - exact name, normalized name (case, separators, camel humps), or the listing alone.
         description:
           type: string
         glossaryTerms:
@@ -6413,7 +6418,7 @@ components:
           nullable: true
         counts:
           type: object
-          required: [columns, datasets, withSmus]
+          required: [columns, datasets, withSmus, withSmusColumn]
           properties:
             columns:
               type: integer
@@ -6421,6 +6426,10 @@ components:
               type: integer
             withSmus:
               type: integer
+              description: Columns whose dataset is tied to a SMUS listing.
+            withSmusColumn:
+              type: integer
+              description: Of those, the ones the listing's own schema names.
         items:
           type: array
           items:

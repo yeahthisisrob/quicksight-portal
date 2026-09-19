@@ -243,10 +243,16 @@ describe('FieldCatalogService', () => {
 
   it('lists columns across datasets with their SMUS column and the calculated fields that read them', async () => {
     const result = await service().columns();
-    expect(result.counts).toEqual({ columns: 3, datasets: 1, withSmus: 3 });
+    expect(result.counts).toEqual({
+      columns: 3,
+      datasets: 1,
+      withSmus: 3,
+      withSmusColumn: 3,
+    });
     const revenue = result.items.find((c) => c.name === 'revenue')!;
     expect(revenue.smus).toMatchObject({
       columnName: 'revenue',
+      match: 'exact',
       description: 'Recognised revenue',
     });
     expect(revenue.usedBy).toEqual({ dashboards: 1, analyses: 0, visuals: 1 });
@@ -256,6 +262,48 @@ describe('FieldCatalogService', () => {
       'margin_pct',
     ]);
     expect((await service().columns({ search: 'cos' })).items.map((c) => c.name)).toEqual(['cost']);
+  });
+
+  it('ties a renamed column back to its listing column, and a column the listing does not name back to the listing', async () => {
+    catalog.getFieldIndex.mockResolvedValue({
+      ...INDEX,
+      byDataset: new Map([
+        [
+          'ds-1',
+          [
+            // The dataset renamed it for readability; Glue still says customer_id.
+            field({ fieldName: 'Customer ID', dataType: 'STRING' }),
+            // Computed in the dataset, so the Glue table never had it.
+            field({ fieldName: 'tenure_days', dataType: 'INTEGER' }),
+          ],
+        ],
+      ]),
+    });
+    smus.listAssets.mockResolvedValue({
+      configured: true,
+      projectFilter: ['p-prod'],
+      assets: [
+        {
+          ...ASSETS[0],
+          columns: [{ name: 'customer_id', type: 'bigint', description: 'Surrogate key' }],
+        },
+      ],
+      exportedAt: '2026-09-19T00:00:00Z',
+    });
+
+    const items = (await service().columns()).items;
+    expect(items.find((c) => c.name === 'Customer ID')?.smus).toMatchObject({
+      columnName: 'customer_id',
+      match: 'normalized',
+      description: 'Surrogate key',
+      name: 'orders_gold',
+    });
+    expect(items.find((c) => c.name === 'tenure_days')?.smus).toMatchObject({
+      match: 'listing-only',
+      name: 'orders_gold',
+    });
+    expect(items.find((c) => c.name === 'tenure_days')?.smus?.columnName).toBeUndefined();
+    expect((await service().columns()).counts).toMatchObject({ withSmus: 2, withSmusColumn: 1 });
   });
 
   it('survives an export that left a column without a type, a field without a name, or a SMUS column without one', async () => {
