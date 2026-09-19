@@ -119,7 +119,7 @@ export class SearchIndex {
       if (matchedWords === 0) {
         continue;
       }
-      if (doc.name.trim().toLowerCase() === wholeQuery) {
+      if ((doc.name ?? '').trim().toLowerCase() === wholeQuery) {
         score += EXACT_NAME_BONUS;
         why.unshift('exact name');
       }
