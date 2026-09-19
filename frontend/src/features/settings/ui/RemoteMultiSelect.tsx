@@ -1,7 +1,7 @@
 import { Autocomplete, Chip, TextField, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 
-import { settingsApi } from '@/shared/api';
+import { getApiErrorMessage, settingsApi } from '@/shared/api';
 
 export interface RemoteOption {
   value: string;
@@ -111,12 +111,14 @@ export function RemoteMultiSelect({
           error={Boolean(query.error)}
           helperText={
             query.error
-              ? 'The options could not be loaded'
+              ? getApiErrorMessage(query.error, 'The options could not be loaded')
               : notConfigured
                 ? 'No SMUS domain is configured, so there are no projects to choose from.'
-                : value.length === 0
-                  ? emptyHint
-                  : undefined
+                : query.data && query.data.options.length === 0
+                  ? "No projects were found. Projects are discovered from published listings and from the portal role's own memberships; check the domain id, region and the role's DataZone access."
+                  : value.length === 0
+                    ? emptyHint
+                    : undefined
           }
         />
       )}

@@ -30,7 +30,7 @@ export const smusRoutes: RouteHandler[] = [
 ];
 
 // Export service
-export { SmusService } from './services/SmusService';
+export { SmusService } from '../../shared/services/smus/SmusService';
 // Export types
 export type * from './types';
 // Export handlers

@@ -209,7 +209,7 @@ export class QuicksightPortalStack extends Stack {
     // Harmless when no SMUS domain is configured.
     lambdaRole.addToPolicy(new PolicyStatement({
       effect: Effect.ALLOW,
-      actions: ['datazone:SearchListings', 'datazone:ListProjects'],
+      actions: ['datazone:SearchListings', 'datazone:ListProjects', 'datazone:GetProject'],
       resources: ['*'],
     }));
     lambdaRole.addToPolicy(new PolicyStatement({

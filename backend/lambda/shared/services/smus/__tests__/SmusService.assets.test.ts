@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { matchesGlob, SmusService, toQuickSightColumnType } from '../SmusService';
 
-vi.mock('../../../../shared/utils/logger', () => ({
+vi.mock('../../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-vi.mock('../../../../shared/services/settings/SettingsStore', () => ({
+vi.mock('../../../services/settings/SettingsStore', () => ({
   settingsStore: { getString: () => '', getList: () => [], stored: () => ({}) },
 }));
 
@@ -207,5 +207,30 @@ describe('helpers', () => {
       'STRING',
       'STRING',
     ]);
+  });
+});
+
+describe('SmusService projects', () => {
+  it('unions the projects ListProjects returns with every publisher seen in the catalog', async () => {
+    const adapter = {
+      listAllListings: vi.fn().mockResolvedValue(LISTINGS),
+      listProjects: vi.fn().mockResolvedValue([]),
+      getProject: vi.fn(async (_d: string, id: string) =>
+        id === 'proj-published-prod' ? { id, name: 'published_prod' } : null
+      ),
+    };
+    const cache = { getAllDatasets: vi.fn().mockResolvedValue([]), getCacheEntries: vi.fn() };
+    SmusService.invalidateLinkMap();
+    const service = new SmusService(cache as any, adapter as any, config(), null);
+
+    const projects = await service.listProjects();
+
+    // ListProjects gave nothing (service roles are members of no project),
+    // yet both publishers are offered, one named by GetProject, one by id.
+    expect(projects).toEqual([
+      { id: 'proj-medallion-prod', name: 'proj-medallion-prod' },
+      { id: 'proj-published-prod', name: 'published_prod' },
+    ]);
+    expect(adapter.getProject).toHaveBeenCalledTimes(2);
   });
 });

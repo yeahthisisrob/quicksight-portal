@@ -4,6 +4,7 @@ import { DEBUG_CONFIG, QUICKSIGHT_LIMITS } from '../../../shared/constants';
 import type { CacheEntry, MasterCache } from '../../../shared/models/asset.model';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { LineageService } from '../../../shared/services/lineage';
+import { SmusService } from '../../../shared/services/smus/SmusService';
 import type { ActivityData } from '../../../shared/types/activityTypes';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import {
@@ -33,7 +34,6 @@ import { ActivityService } from '../../activity/services/ActivityService';
 import { GroupService } from '../../organization/services/GroupService';
 import { PermissionsService } from '../../organization/services/PermissionsService';
 import { TagService } from '../../organization/services/TagService';
-import { SmusService } from '../../smus/services/SmusService';
 import type {
   ArchivedAssetItem,
   ArchivedAssetsResponse,
