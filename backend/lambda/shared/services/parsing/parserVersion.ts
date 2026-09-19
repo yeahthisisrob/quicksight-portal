@@ -18,5 +18,12 @@
  *     and parent datasets are read from DataPrepConfiguration as well as from
  *     LogicalTableMap. Datasets built there parsed as having no calculated
  *     fields at all until they are read again.
+ * v5: a dataset's calculated fields carry the full field shape (fieldId,
+ *     fieldName, dataType) instead of { name, expression }, and a dashboard
+ *     or analysis field carries the dataset's id instead of the definition's
+ *     DataSetIdentifier label. Without both, the field cache keyed every
+ *     dataset calculated field on `undefined` (so a dataset kept one of
+ *     them, nameless) and nothing an exploration computed could be joined to
+ *     the dataset it came from.
  */
-export const PARSER_METADATA_VERSION = 4;
+export const PARSER_METADATA_VERSION = 5;

@@ -154,7 +154,16 @@ describe('DatasetParser composite dataset lineage', () => {
       })
     );
 
-    expect(metadata.calculatedFields).toEqual([{ name: 'margin', expression: '{amt} * 0.3' }]);
+    // The full field shape, as the dashboard parser writes it: the field
+    // cache keys on fieldId and the catalog groups on fieldName.
+    expect(metadata.calculatedFields).toEqual([
+      expect.objectContaining({
+        fieldId: 'margin',
+        fieldName: 'margin',
+        name: 'margin',
+        expression: '{amt} * 0.3',
+      }),
+    ]);
     // The cast in the new step map still reaches the field it retypes.
     expect(metadata.fields?.find((f: any) => f.fieldName === 'amt')?.dataType).toBe('DECIMAL');
     expect(metadata.lineageData.datasetIds).toEqual(['source-a']);

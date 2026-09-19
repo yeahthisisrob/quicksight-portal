@@ -272,6 +272,28 @@ export abstract class ExplorationParser extends BaseAssetParser {
   }
 
   /**
+   * The dataset a field belongs to, as an id rather than a definition label.
+   *
+   * A definition refers to its datasets by `DataSetIdentifier`, which is a
+   * label declared alongside the ARN — usually the dataset's name, sometimes
+   * anything the author typed. Caching that label as `sourceDatasetId` meant
+   * every field index keyed on it could never meet the dataset ids everything
+   * else uses: a dashboard's calculated fields tied to no dataset, so to no
+   * SMUS listing, and the lineage between a dataset's fields and the ones
+   * computed from them in a dashboard never joined up.
+   */
+  private datasetIdOf(
+    identifier: string | undefined,
+    parsedInfo: ParsedAssetInfo
+  ): string | undefined {
+    if (!identifier) {
+      return undefined;
+    }
+    const arn = parsedInfo.dataSets?.find((ds) => ds.identifier === identifier)?.arn;
+    return arn?.split('/').pop() || identifier;
+  }
+
+  /**
    * Extract calculated fields in metadata format
    */
   private extractCalculatedFieldsForMetadata(parsedInfo: ParsedAssetInfo): any[] {
@@ -285,7 +307,7 @@ export abstract class ExplorationParser extends BaseAssetParser {
           displayName: calcField.name,
           dataType: 'STRING', // Default since not provided by parser
           expression: calcField.expression,
-          sourceDatasetId: calcField.dataSetIdentifier,
+          sourceDatasetId: this.datasetIdOf(calcField.dataSetIdentifier, parsedInfo),
           sourceDatasetName: parsedInfo.dataSets?.find(
             (ds) => ds.identifier === calcField.dataSetIdentifier
           )?.name,
@@ -337,7 +359,7 @@ export abstract class ExplorationParser extends BaseAssetParser {
           fieldName: field.fieldName,
           displayName: field.name || field.fieldName,
           dataType: field.dataType || field.type || 'STRING',
-          sourceDatasetId: field.dataSetIdentifier,
+          sourceDatasetId: this.datasetIdOf(field.dataSetIdentifier, parsedInfo),
           sourceDatasetName: parsedInfo.dataSets?.find(
             (ds) => ds.identifier === field.dataSetIdentifier
           )?.name,
