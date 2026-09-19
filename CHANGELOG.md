@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.4.1...v2.4.2) (2026-09-19)
+
+
+### Bug Fixes
+
+* **smus:** project discovery bounds every upstream call so the picker gets an answer ([#140](https://github.com/yeahthisisrob/quicksight-portal/issues/140)) ([577d4f7](https://github.com/yeahthisisrob/quicksight-portal/commit/577d4f7a5f6d1f02a942c7602555c57fb327d2b1))
+
 ## [2.4.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.4.0...v2.4.1) (2026-09-19)
 
 
