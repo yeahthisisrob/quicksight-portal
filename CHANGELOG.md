@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.4.0...v2.4.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* **settings:** the project picker never asked the API, and the SMUS gate reads the selection ([#138](https://github.com/yeahthisisrob/quicksight-portal/issues/138)) ([cb546bb](https://github.com/yeahthisisrob/quicksight-portal/commit/cb546bb024c7138d5c8da28d7c0442859d2fd2f7))
+
 ## [2.4.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.3.0...v2.4.0) (2026-09-19)
 
 
