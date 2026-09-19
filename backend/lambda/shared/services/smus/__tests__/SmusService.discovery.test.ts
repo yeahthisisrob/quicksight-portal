@@ -130,4 +130,21 @@ describe('SmusService.projectDiscovery', () => {
     ).projectDiscovery();
     expect(diagnostics.callerArn).toBeUndefined();
   });
+
+  it('reports a hung upstream call by name instead of hanging the request', async () => {
+    vi.useFakeTimers();
+    adapter.listProjects.mockReturnValue(new Promise(() => {}));
+    adapter.listAllListings.mockResolvedValue([]);
+    adapter.getIamRoleProfile.mockResolvedValue({ id: 'u-1', status: 'ACTIVATED' });
+
+    const pending = service().projectDiscovery();
+    await vi.advanceTimersByTimeAsync(12_001);
+    const { projects, diagnostics } = await pending;
+    vi.useRealTimers();
+
+    expect(projects).toEqual([]);
+    expect(diagnostics.listProjectsError).toBe(
+      'TimeoutError: ListProjects timed out after 12000ms'
+    );
+  });
 });
