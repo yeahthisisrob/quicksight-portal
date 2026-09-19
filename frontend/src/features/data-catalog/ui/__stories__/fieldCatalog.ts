@@ -194,10 +194,19 @@ export const NO_EXPORT_CALCULATED_FIELDS: CalculatedFieldCatalog = {
   exportedAt: null,
 };
 
-const smusColumn = (columnName: string, description: string, glossaryTerms: string[] = []) => ({
+const SALES_LISTING_COLUMNS = 14;
+
+const smusColumn = (
+  columnName: string,
+  description: string,
+  glossaryTerms: string[] = [],
+  columnType?: string
+) => ({
   ...SALES_LISTING,
   columnName,
+  ...(columnType ? { columnType } : {}),
   match: 'exact' as const,
+  listingColumnCount: SALES_LISTING_COLUMNS,
   description,
   glossaryTerms,
 });
@@ -206,6 +215,15 @@ const smusColumn = (columnName: string, description: string, glossaryTerms: stri
 const smusListingOnly = () => ({
   ...SALES_LISTING,
   match: 'listing-only' as const,
+  listingColumnCount: SALES_LISTING_COLUMNS,
+  glossaryTerms: [],
+});
+
+/** The listing publishes no column list at all, which is a different problem. */
+const smusNoSchema = () => ({
+  ...TARGETS_LISTING,
+  match: 'no-schema' as const,
+  listingColumnCount: 0,
   glossaryTerms: [],
 });
 
@@ -460,12 +478,21 @@ const column = (
 export const COLUMN_ITEMS: ColumnCatalogItem[] = [
   // A column the export could not type: QuickSight leaves OutputColumns.Type out.
   column({ name: 'geo_point', dataType: undefined, datasets: [DS_GOLD] }),
-  // In every mart: the datasets cell collapses past the first couple.
+  // A listing that publishes no schema at all, not a column it lacks.
+  column({
+    name: 'fiscal_period',
+    dataType: 'STRING',
+    datasets: [DS_TARGETS],
+    smus: smusNoSchema(),
+    usedBy: { dashboards: 1, analyses: 0, visuals: 1 },
+  }),
+  // In every mart: the datasets cell collapses past the first couple. SMUS
+  // spells the type its own way, which the row shows rather than hides.
   column({
     name: 'order_id',
     dataType: 'STRING',
     datasets: [DS_GOLD, DS_EXEC, ...DS_MANY],
-    smus: smusColumn('order_id', 'Natural key of the order.'),
+    smus: smusColumn('order_id', 'Natural key of the order.', [], 'varchar'),
     usedBy: { dashboards: 9, analyses: 3, visuals: 31 },
   }),
   // Computed in the dataset, so the listing's schema never names it.
@@ -529,6 +556,7 @@ export const COLUMN_ITEMS: ColumnCatalogItem[] = [
       ...TARGETS_LISTING,
       columnName: 'target_revenue',
       match: 'exact' as const,
+      listingColumnCount: 4,
       description: 'Quarterly revenue target per region.',
       glossaryTerms: [],
     },

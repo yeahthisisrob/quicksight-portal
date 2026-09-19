@@ -6244,7 +6244,7 @@ components:
 
     SmusColumnRef:
       type: object
-      required: [listingId, name, match, glossaryTerms]
+      required: [listingId, name, match, listingColumnCount, glossaryTerms]
       properties:
         listingId:
           type: string
@@ -6259,10 +6259,19 @@ components:
         columnName:
           type: string
           description: Absent when the dataset is tied to the listing but the listing's schema does not name the column.
+        columnType:
+          type: string
+          description: The type the listing gives the column, which is rarely spelled as QuickSight spells it.
         match:
           type: string
-          enum: [exact, normalized, listing-only]
-          description: How the column tied back - exact name, normalized name (case, separators, camel humps), or the listing alone.
+          enum: [exact, normalized, listing-only, no-schema]
+          description: |
+            How the column tied back - exact name, normalized name (case,
+            separators, camel humps), a listing whose schema does not have this
+            column, or a listing that published no column list at all.
+        listingColumnCount:
+          type: integer
+          description: How many columns the listing names, so an empty schema is legible as one.
         description:
           type: string
         glossaryTerms:
