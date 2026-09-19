@@ -218,6 +218,7 @@ export function SmusAssetPicker({ currentDataSetId, selected, onSelect }: SmusAs
           value={projectId}
           onChange={(e) => setProjectId(e.target.value)}
           sx={{ minWidth: 220 }}
+          slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
         >
           <MenuItem value="">All selected projects</MenuItem>
           {projects.map((project) => (
