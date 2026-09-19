@@ -51,6 +51,19 @@ Any dashboard or analysis renders as a wireframe from its cached definition: she
 
 The portal reads the published catalog of a SMUS (DataZone) domain: each listing with its owning project, its Glue table and columns from the listing's metadata forms, and the QuickSight datasets already reading it. Settings choose which projects count and, optionally, a database-name pattern for the published layer. From a listing with no dataset yet, the portal can create one through an existing data source, copying permissions from a reference dataset so it has an audience. This is the direction the portal is heading: more of what you do here will start from what SMUS publishes.
 
+### Catalog: SMUS first, QuickSight on top
+
+The catalog shows only assets published in the SMUS projects chosen in Settings, one project at a time, since everything in SMUS is per project. SMUS owns the business metadata and the portal shows it read-only: glossary terms, metadata forms, descriptions, the Glue table and its columns. The portal adds what only QuickSight knows:
+
+- the datasets reading each published asset, and their fields;
+- calculated fields with their expressions, lineage in both directions (what an expression reads, and which calculated fields read it), and a clickable lineage graph;
+- where every field is used, down to the visual;
+- **conflicts**: the same calculated field defined with different expressions across dashboards and analyses, with each variant's sources, so a person can decide which is canonical;
+- a link back to the SMUS column for plain fields, and a portal note only for calculated fields, because SMUS has no home for those;
+- a **template library** of calculated fields. Save one from the catalog and Author adds it to the copies it creates.
+
+![Catalog](docs/screenshots/catalog.png)
+
 ### Settings
 
 Configuration lives in DynamoDB with a fallback to the Lambda's environment variables, so a fresh deployment works from env alone and values move over one at a time. Every setting shows where its value comes from. Secrets stay in the environment.
@@ -71,7 +84,6 @@ Configuration lives in DynamoDB with a fallback to the Lambda's environment vari
 - **Data lineage** - dataset, data source and dashboard/analysis relationships, including composite datasets and transitive dependencies
 - **Activity analytics** - CloudTrail-derived view counts and viewer history, dataset refresh history, per-user activity
 - **Tags & permissions** - browse and edit tags, inspect asset permissions, filter any asset page by a user's access
-- **Data catalog** - a field-level index across datasets and dashboards (early; the SMUS catalog is where this is going)
 
 ![Portal layout](docs/screenshots/layout.png)
 
@@ -234,6 +246,7 @@ Contract-first via OpenAPI: `shared/schemas/api.openapi.yaml` defines every endp
 - `/api/authoring/*` - definition datasets, plan, preview, propose (planner), apply
 - `/api/smus/assets` - published SMUS assets with their linked datasets; create a dataset from one
 - `/api/settings` - stored settings with their sources; the SMUS project list
+- `/api/data-catalog/smus` - the SMUS-first catalog; `/api/data-catalog/templates/calculated-fields` - the template library
 - `/api/assets`, `/api/export/{assetType}/{assetId}` — asset listings and raw definitions
 - `/api/export`, `/api/jobs/*` — export jobs, status, logs, results, stop
 - `/api/lineage`, `/api/catalog` — lineage graph and field catalog
