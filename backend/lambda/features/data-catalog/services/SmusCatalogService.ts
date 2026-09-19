@@ -108,7 +108,7 @@ export interface CatalogFilters {
 }
 
 /** Everything QuickSight-side, indexed once per request. */
-interface FieldIndex {
+export interface FieldIndex {
   /** dataset id -> its own field entries */
   byDataset: Map<string, FieldInfo[]>;
   /** `${datasetId}::${fieldName}` -> dashboard/analysis entries that use it */
@@ -340,7 +340,7 @@ export class SmusCatalogService {
    * container builds it once per freshness window and every catalog request
    * in between reuses it. Failures are not cached.
    */
-  private getFieldIndex(): Promise<FieldIndex> {
+  public getFieldIndex(): Promise<FieldIndex> {
     const cached = SmusCatalogService.fieldIndexCache;
     if (cached && cached.expiresAt > Date.now()) {
       return cached.promise;
@@ -427,7 +427,7 @@ function push<T>(map: Map<string, T[]>, key: string, value: T): void {
   }
 }
 
-function dedupeUsers(users: FieldInfo[]): FieldUsedIn[] {
+export function dedupeUsers(users: FieldInfo[]): FieldUsedIn[] {
   const seen = new Set<string>();
   const out: FieldUsedIn[] = [];
   for (const u of users) {

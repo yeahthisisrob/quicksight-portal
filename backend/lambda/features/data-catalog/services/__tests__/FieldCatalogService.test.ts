@@ -1,0 +1,260 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { calculatedFieldKey, FieldCatalogService } from '../FieldCatalogService';
+
+const field = (over: Record<string, unknown>) => ({
+  fieldId: 'x',
+  fieldName: 'f',
+  dataType: 'STRING',
+  isCalculated: false,
+  sourceAssetType: 'dataset',
+  sourceAssetId: 'ds-1',
+  sourceAssetName: 'Orders (gold)',
+  usageCount: 0,
+  analysisCount: 0,
+  dashboardCount: 0,
+  lastUpdated: '',
+  ...over,
+});
+
+// Dataset ds-1: revenue, cost, status, margin = revenue - cost, margin_pct.
+// Dashboard d-1 reads revenue and margin (same expression) and defines its own
+// margin_pct differently (a conflict). Analysis a-1 defines margin with spaces
+// (same canonical expression) and a brand-new field nobody else has.
+const DS1 = [
+  field({ fieldName: 'revenue', dataType: 'DECIMAL', columnName: 'revenue' }),
+  field({ fieldName: 'cost', dataType: 'DECIMAL', columnName: 'cost' }),
+  field({ fieldName: 'status', columnName: 'status' }),
+  field({
+    fieldName: 'margin',
+    dataType: 'DECIMAL',
+    isCalculated: true,
+    expression: '{revenue} - {cost}',
+  }),
+  field({
+    fieldName: 'margin_pct',
+    dataType: 'DECIMAL',
+    isCalculated: true,
+    expression: '{margin} / {revenue}',
+  }),
+];
+const D1 = (over: Record<string, unknown>) =>
+  field({
+    sourceAssetType: 'dashboard',
+    sourceAssetId: 'd-1',
+    sourceAssetName: 'Sales',
+    datasetId: 'ds-1',
+    ...over,
+  });
+const A1 = (over: Record<string, unknown>) =>
+  field({
+    sourceAssetType: 'analysis',
+    sourceAssetId: 'a-1',
+    sourceAssetName: 'Draft',
+    datasetId: 'ds-1',
+    ...over,
+  });
+
+const USERS = {
+  'ds-1::revenue': [
+    D1({
+      fieldName: 'revenue',
+      visuals: [
+        {
+          visualId: 'v1',
+          visualType: 'BarChartVisual',
+          title: 'Revenue',
+          sheetId: 's',
+          sheetName: 'Overview',
+        },
+      ],
+    }),
+  ],
+  'ds-1::margin': [
+    D1({ fieldName: 'margin', isCalculated: true, expression: '{revenue} - {cost}' }),
+    A1({ fieldName: 'margin', isCalculated: true, expression: '{revenue}-{cost}' }),
+  ],
+  'ds-1::margin_pct': [
+    D1({
+      fieldName: 'margin_pct',
+      isCalculated: true,
+      expression: 'ifelse({revenue} = 0, 0, {margin} / {revenue})',
+    }),
+  ],
+  'ds-1::runway': [A1({ fieldName: 'runway', isCalculated: true, expression: '{cost} * 12' })],
+};
+
+const INDEX = {
+  byDataset: new Map([['ds-1', DS1]]),
+  usersOf: new Map(Object.entries(USERS)),
+  visualsOf: new Map([
+    [
+      'ds-1::revenue',
+      [
+        {
+          assetType: 'dashboard',
+          assetId: 'd-1',
+          assetName: 'Sales',
+          sheetName: 'Overview',
+          visualId: 'v1',
+          visualName: 'Revenue',
+        },
+      ],
+    ],
+  ]),
+  notes: new Map([
+    [
+      'ds-1::margin',
+      {
+        sourceType: 'dataset',
+        sourceId: 'ds-1',
+        fieldName: 'margin',
+        description: 'Gross margin before returns',
+      },
+    ],
+  ]),
+  templates: new Map([['{revenue}-{cost}', 't-margin']]),
+};
+
+const ASSETS = [
+  {
+    listingId: 'l-orders',
+    assetId: 'a-orders',
+    name: 'orders_gold',
+    projectId: 'p-prod',
+    projectName: 'analytics_prod',
+    url: 'https://smus/catalog/assets/l-orders',
+    columns: [
+      { name: 'revenue', type: 'decimal', description: 'Recognised revenue' },
+      { name: 'cost', type: 'decimal' },
+      { name: 'status', type: 'string' },
+    ],
+    glossaryTerms: [{ name: 'Revenue' }],
+    forms: [],
+    datasets: [{ id: 'ds-1', name: 'Orders (gold)', matchType: 'source-table' }],
+  },
+];
+
+describe('FieldCatalogService', () => {
+  const smus = { listAssets: vi.fn() };
+  const catalog = { getFieldIndex: vi.fn() };
+  const service = () => new FieldCatalogService(smus as any, catalog as any);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    smus.listAssets.mockResolvedValue({
+      configured: true,
+      projectFilter: ['p-prod'],
+      assets: ASSETS,
+      exportedAt: '2026-09-19T00:00:00Z',
+    });
+    catalog.getFieldIndex.mockResolvedValue(INDEX);
+  });
+
+  it('lists every calculated field once per distinct expression, with definers, usage, conflicts and templates', async () => {
+    const result = await service().calculatedFields();
+
+    expect(result.counts).toEqual({
+      fields: 4,
+      names: 3,
+      conflicts: 1,
+      templated: 1,
+      unused: 0,
+      datasets: 1,
+    });
+    const byName = Object.fromEntries(result.items.map((i) => [`${i.name}:${i.expression}`, i]));
+
+    const margin = byName['margin:{revenue} - {cost}']!;
+    expect(margin.definedIn.map((d) => `${d.type}:${d.id}`).sort()).toEqual([
+      'analysis:a-1',
+      'dashboard:d-1',
+      'dataset:ds-1',
+    ]);
+    expect(margin.datasets[0]).toMatchObject({
+      id: 'ds-1',
+      name: 'Orders (gold)',
+      listing: { listingId: 'l-orders', projectName: 'analytics_prod' },
+    });
+    expect(margin.usedBy).toEqual({ dashboards: 1, analyses: 1, visuals: 0 });
+    expect(margin.template).toEqual({ id: 't-margin' });
+    expect(margin.hasNote).toBe(true);
+    expect(margin.conflict).toBeUndefined();
+
+    const pct = result.items.filter((i) => i.name === 'margin_pct');
+    expect(pct).toHaveLength(2);
+    expect(pct.every((i) => i.conflict?.variants === 1)).toBe(true);
+
+    const runway = byName['runway:{cost} * 12']!;
+    expect(runway.usedBy).toEqual({ dashboards: 0, analyses: 1, visuals: 0 });
+    expect(runway.definedIn).toEqual([{ type: 'analysis', id: 'a-1', name: 'Draft' }]);
+  });
+
+  it('filters by conflicts, search, dataset and project', async () => {
+    expect(
+      (await service().calculatedFields({ conflictsOnly: true })).items.every(
+        (i) => i.name === 'margin_pct'
+      )
+    ).toBe(true);
+    expect(
+      (await service().calculatedFields({ search: 'ifelse' })).items.map((i) => i.name)
+    ).toEqual(['margin_pct']);
+    expect((await service().calculatedFields({ datasetId: 'ds-9' })).items).toEqual([]);
+    expect((await service().calculatedFields({ projectId: 'p-dev' })).items).toEqual([]);
+    expect((await service().calculatedFields({ projectId: 'p-prod' })).items.length).toBe(4);
+  });
+
+  it('describes one field: lineage both ways, variants side by side, SMUS tie-back on the columns it reads', async () => {
+    const key = calculatedFieldKey('margin_pct', '{margin} / {revenue}');
+    const detail = (await service().calculatedField(key))!;
+
+    expect(detail.name).toBe('margin_pct');
+    expect(detail.variants.map((v) => v.expression)).toEqual(
+      expect.arrayContaining([
+        '{margin} / {revenue}',
+        'ifelse({revenue} = 0, 0, {margin} / {revenue})',
+      ])
+    );
+    expect(detail.reads).toEqual([
+      expect.objectContaining({
+        name: 'margin',
+        kind: 'calculated',
+        key: calculatedFieldKey('margin', '{revenue} - {cost}'),
+      }),
+      expect.objectContaining({
+        name: 'revenue',
+        kind: 'column',
+        smus: expect.objectContaining({
+          listingId: 'l-orders',
+          columnName: 'revenue',
+          description: 'Recognised revenue',
+          glossaryTerms: ['Revenue'],
+        }),
+      }),
+    ]);
+    expect(detail.readBy).toEqual([]);
+
+    const margin = (await service().calculatedField(
+      calculatedFieldKey('margin', '{revenue}-{cost}')
+    ))!;
+    expect(margin.readBy.map((r) => r.name).sort()).toEqual(['margin_pct', 'margin_pct']);
+    expect(margin.portal).toMatchObject({ description: 'Gross margin before returns' });
+    expect(await service().calculatedField('cf_nope')).toBeNull();
+  });
+
+  it('lists columns across datasets with their SMUS column and the calculated fields that read them', async () => {
+    const result = await service().columns();
+    expect(result.counts).toEqual({ columns: 3, datasets: 1, withSmus: 3 });
+    const revenue = result.items.find((c) => c.name === 'revenue')!;
+    expect(revenue.smus).toMatchObject({
+      columnName: 'revenue',
+      description: 'Recognised revenue',
+    });
+    expect(revenue.usedBy).toEqual({ dashboards: 1, analyses: 0, visuals: 1 });
+    expect(revenue.usedByCalculated.map((c) => c.name).sort()).toEqual([
+      'margin',
+      'margin_pct',
+      'margin_pct',
+    ]);
+    expect((await service().columns({ search: 'cos' })).items.map((c) => c.name)).toEqual(['cost']);
+  });
+});

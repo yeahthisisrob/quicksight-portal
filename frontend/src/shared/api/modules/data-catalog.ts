@@ -162,6 +162,72 @@ export type FieldVisualUsage = CatalogSchemas['FieldVisualUsage'];
 export type FieldConflict = CatalogSchemas['FieldConflict'];
 export type ExpressionVariant = CatalogSchemas['ExpressionVariant'];
 export type SmusColumnLink = CatalogSchemas['SmusColumnLink'];
+export type CalculatedFieldCatalog = CatalogSchemas['CalculatedFieldCatalog'];
+export type CalculatedFieldSummary = CatalogSchemas['CalculatedFieldSummary'];
+export type CalculatedFieldDetail = CatalogSchemas['CalculatedFieldDetail'];
+export type CalculatedFieldRef = CatalogSchemas['CalculatedFieldRef'];
+export type CatalogDatasetRef = CatalogSchemas['CatalogDatasetRef'];
+export type CatalogListingRef = CatalogSchemas['CatalogListingRef'];
+export type SmusColumnRef = CatalogSchemas['SmusColumnRef'];
+export type LineageRead = CatalogSchemas['LineageRead'];
+export type ColumnCatalog = CatalogSchemas['ColumnCatalog'];
+export type ColumnCatalogItem = CatalogSchemas['ColumnCatalogItem'];
+export type FieldUsedIn = CatalogSchemas['FieldUsedIn'];
+
+export interface FieldCatalogParams {
+  projectId?: string;
+  datasetId?: string;
+  search?: string;
+  conflictsOnly?: boolean;
+}
+
+/**
+ * The catalog field-first: every calculated field in the account grouped by
+ * what it computes, its lineage, and the plain columns tied to SMUS.
+ */
+export const fieldCatalogApi = {
+  async calculatedFields(params: FieldCatalogParams = {}): Promise<CalculatedFieldCatalog> {
+    const response = await apiClient.get<ApiResponse<CalculatedFieldCatalog>>(
+      '/data-catalog/calculated-fields',
+      {
+        params: {
+          projectId: params.projectId || undefined,
+          datasetId: params.datasetId || undefined,
+          search: params.search || undefined,
+          conflictsOnly: params.conflictsOnly ? 'true' : undefined,
+        },
+      }
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to load calculated fields');
+    }
+    return response.data.data;
+  },
+
+  async calculatedField(key: string): Promise<CalculatedFieldDetail> {
+    const response = await apiClient.get<ApiResponse<CalculatedFieldDetail>>(
+      `/data-catalog/calculated-fields/${encodeURIComponent(key)}`
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to load the calculated field');
+    }
+    return response.data.data;
+  },
+
+  async columns(params: FieldCatalogParams = {}): Promise<ColumnCatalog> {
+    const response = await apiClient.get<ApiResponse<ColumnCatalog>>('/data-catalog/columns', {
+      params: {
+        projectId: params.projectId || undefined,
+        datasetId: params.datasetId || undefined,
+        search: params.search || undefined,
+      },
+    });
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to load columns');
+    }
+    return response.data.data;
+  },
+};
 
 /**
  * The calculated-field template library: expressions worth reusing across

@@ -8,15 +8,36 @@ import type {
   SmusCatalogAssetSummary,
 } from '@/shared/api/modules/data-catalog';
 
+export type CatalogTab = 'calculated-fields' | 'columns' | 'smus';
+
+export const CATALOG_TABS: readonly CatalogTab[] = ['calculated-fields', 'columns', 'smus'];
+export const DEFAULT_CATALOG_TAB: CatalogTab = 'calculated-fields';
+
 export interface CatalogUrlState {
+  /** Which view: calculated fields (default), columns, or the per-project SMUS assets. */
+  tab?: CatalogTab;
   /** Owning project the page is scoped to. */
   project?: string;
-  /** Selected listing id. */
+  /** Selected listing id (SMUS assets tab). */
   asset?: string;
+  /** Selected calculated field key (calculated fields tab). */
+  field?: string;
+  /** Only calculated fields with conflicting variants. */
+  conflicts?: string;
+  /** Dataset id filter (calculated fields and columns tabs). */
+  dataset?: string;
   /** Glossary term filter. */
   term?: string;
   /** Search text. */
   q?: string;
+  /** '1' opens the template library. */
+  templates?: string;
+}
+
+function readTab(value: string | undefined): CatalogTab | undefined {
+  return value && (CATALOG_TABS as readonly string[]).includes(value)
+    ? (value as CatalogTab)
+    : undefined;
 }
 
 export function readCatalogState(params: URLSearchParams): CatalogUrlState {
@@ -25,10 +46,15 @@ export function readCatalogState(params: URLSearchParams): CatalogUrlState {
     return value ? value : undefined;
   };
   return {
+    tab: readTab(read('tab')),
     project: read('project'),
     asset: read('asset'),
+    field: read('field'),
+    conflicts: read('conflicts'),
+    dataset: read('dataset'),
     term: read('term'),
     q: read('q'),
+    templates: read('templates'),
   };
 }
 

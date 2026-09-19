@@ -55,6 +55,11 @@ interface RoutePattern {
  */
 const ROUTE_PATTERNS: readonly RoutePattern[] = [
   {
+    prefix: '/data-catalog/calculated-fields/',
+    excludes: [],
+    params: ['key'],
+  },
+  {
     prefix: '/settings/api-keys/',
     excludes: [],
     params: ['id'],

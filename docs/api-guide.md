@@ -188,9 +188,18 @@ off), so "made by an agent" is a tag filter anywhere tags are.
 
 - `POST /smus/export` then `GET /settings/smus/projects`: refresh what the
   portal knows about SageMaker Unified Studio.
+- `GET /data-catalog/calculated-fields?projectId=&search=&conflictsOnly=`:
+  every calculated field in the account, one row per distinct expression,
+  with where it is defined, the datasets and SMUS listings it lives on, usage
+  down to visuals, conflicts and templates. `GET
+  /data-catalog/calculated-fields/{key}` adds lineage both ways (the columns
+  it reads with their SMUS descriptions and glossary terms, the calculated
+  fields it builds on, and everything that reads it) and the variants side
+  by side. `GET /data-catalog/columns` lists plain columns tied to their SMUS
+  column. This is the semantic layer for calculated fields: SMUS owns the
+  columns and their meaning, the portal owns the expressions.
 - `GET /data-catalog/smus?projectId=...` and
-  `GET /data-catalog/smus/{listingId}`: the catalog with calculated fields,
-  lineage, usage down to visuals and conflicts.
+  `GET /data-catalog/smus/{listingId}`: the per-listing view of the same.
 - `GET /data-catalog/templates/calculated-fields`: the template library that
   `addCalculatedFields` draws from.
 - `POST /export` and `POST /activity/refresh`: the QuickSight export and the

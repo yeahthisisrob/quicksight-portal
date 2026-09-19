@@ -100,3 +100,18 @@ export function describeIndexed(indexed: Partial<Record<string, number>>): strin
   }
   return parts.join(', ');
 }
+
+/**
+ * Where a hit opens. The API's path is right for most types; a calculated
+ * field lands on the catalog's calculated-fields tab with its name searched,
+ * which opens it when the name is unique.
+ */
+export function hitPath(hit: Pick<SearchHit, 'type' | 'name' | 'path'>): string {
+  if (hit.type === 'calculated-field') {
+    return `/data-catalog?tab=calculated-fields&q=${encodeURIComponent(hit.name)}`;
+  }
+  if (hit.type === 'template') {
+    return '/data-catalog?tab=calculated-fields&templates=1';
+  }
+  return hit.path;
+}

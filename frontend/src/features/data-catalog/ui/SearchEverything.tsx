@@ -12,7 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { getApiErrorMessage } from '@/shared/api';
 import type { SearchableType, SearchHit } from '@/shared/api/modules/search';
 import { EmptyState, SegmentedControl } from '@/shared/design-system';
-import { describeIndexed, SEARCH_MIN_LENGTH, useSearchHits } from '@/shared/lib/search';
+import { describeIndexed, hitPath, SEARCH_MIN_LENGTH, useSearchHits } from '@/shared/lib/search';
 import { SearchHitList } from '@/shared/ui';
 
 export type CatalogSearchScope = 'project' | 'everything';
@@ -49,7 +49,7 @@ export function SearchEverything({
     if (hit.type === 'smus-listing') {
       onOpenListing(hit.id);
     } else {
-      navigate(hit.path);
+      navigate(hitPath(hit));
     }
   };
 

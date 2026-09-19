@@ -1,0 +1,276 @@
+/**
+ * The columns tab: plain dataset columns across the selected projects, each
+ * tied back to its SMUS listing column (description, glossary terms), with
+ * how much it is used and which calculated fields read it.
+ */
+import { Search } from '@mui/icons-material';
+import {
+  Alert,
+  AlertTitle,
+  Box,
+  Chip,
+  InputAdornment,
+  Link,
+  Skeleton,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TextField,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+
+import { getApiErrorMessage } from '@/shared/api';
+import type { ColumnCatalogItem } from '@/shared/api/modules/data-catalog';
+import { Container, EmptyState, pal } from '@/shared/design-system';
+import { useDebounce } from '@/shared/lib/useDebounce';
+
+import { useColumns } from '../../lib/useFieldCatalog';
+
+export interface ColumnsViewProps {
+  projectId?: string;
+  search: string;
+  onSearch: (search: string) => void;
+  onOpenField: (key: string) => void;
+  onOpenListing: (listingId: string) => void;
+  noExport: React.ReactNode;
+}
+
+const SEARCH_DEBOUNCE_MS = 300;
+const SKELETON_ROWS = 6;
+
+function Counts({ counts }: { counts: { columns: number; datasets: number; withSmus: number } }) {
+  const cells: Array<[string, number]> = [
+    ['Columns', counts.columns],
+    ['Datasets', counts.datasets],
+    ['Tied to a SMUS column', counts.withSmus],
+  ];
+  return (
+    <Box
+      sx={(theme) => ({
+        display: 'grid',
+        gridTemplateColumns: { xs: 'repeat(3, 1fr)' },
+        border: `1px solid ${pal(theme).line.divider}`,
+        borderRadius: `${theme.shape.borderRadius}px`,
+        bgcolor: pal(theme).surface.container,
+        overflow: 'hidden',
+      })}
+    >
+      {cells.map(([label, value], index) => (
+        <Box
+          key={label}
+          sx={(theme) => ({
+            px: 2,
+            py: 1.5,
+            borderLeft: index === 0 ? 'none' : `1px solid ${pal(theme).line.divider}`,
+          })}
+        >
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+            {label}
+          </Typography>
+          <Typography variant="h3" component="span" sx={{ fontWeight: 700 }}>
+            {value}
+          </Typography>
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+function SmusCell({
+  item,
+  onOpenListing,
+}: {
+  item: ColumnCatalogItem;
+  onOpenListing: (id: string) => void;
+}) {
+  if (!item.smus) {
+    return (
+      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+        Not tied to SMUS
+      </Typography>
+    );
+  }
+  return (
+    <Stack spacing={0.25}>
+      <Stack
+        direction="row"
+        spacing={0.5}
+        sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}
+      >
+        <Chip
+          size="small"
+          color="primary"
+          variant="outlined"
+          clickable
+          onClick={() => onOpenListing(item.smus?.listingId ?? '')}
+          label={`${item.smus.name}.${item.smus.columnName}`}
+        />
+        {item.smus.glossaryTerms.map((term) => (
+          <Chip key={term} size="small" label={term} />
+        ))}
+        {item.smus.url && (
+          <Link href={item.smus.url} target="_blank" rel="noreferrer" variant="caption">
+            SMUS
+          </Link>
+        )}
+      </Stack>
+      {item.smus.description && (
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          {item.smus.description}
+        </Typography>
+      )}
+    </Stack>
+  );
+}
+
+export function ColumnsView({
+  projectId,
+  search,
+  onSearch,
+  onOpenField,
+  onOpenListing,
+  noExport,
+}: ColumnsViewProps) {
+  const debounced = useDebounce(search, SEARCH_DEBOUNCE_MS);
+  const list = useColumns({ projectId, search: debounced || undefined });
+
+  if (list.isError) {
+    return (
+      <Alert severity="error">
+        <AlertTitle>Columns could not be loaded</AlertTitle>
+        {getApiErrorMessage(list.error, 'Unknown error')}
+      </Alert>
+    );
+  }
+  if (list.data && !list.data.exportedAt) {
+    return <>{noExport}</>;
+  }
+  const items = list.data?.items ?? [];
+
+  return (
+    <Stack spacing={2}>
+      {list.data ? (
+        <Counts counts={list.data.counts} />
+      ) : (
+        <Skeleton variant="rectangular" height={72} />
+      )}
+      <Container
+        header="Columns"
+        description="Every plain column the selected projects' datasets expose, with what SMUS says about it."
+        actions={
+          <TextField
+            size="small"
+            placeholder="Column name"
+            value={search}
+            onChange={(e) => onSearch(e.target.value)}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+              htmlInput: { 'aria-label': 'Search columns' },
+            }}
+          />
+        }
+        disableContentPadding
+      >
+        {list.isPending ? (
+          <Stack spacing={1} sx={{ p: 2 }}>
+            {Array.from({ length: SKELETON_ROWS }, (_, i) => (
+              <Skeleton key={i} variant="text" />
+            ))}
+          </Stack>
+        ) : items.length === 0 ? (
+          <EmptyState
+            compact
+            title={debounced ? 'Nothing matches' : 'No columns in the selected projects'}
+            description={
+              debounced
+                ? 'Clear the search to see every column.'
+                : 'Columns come from the QuickSight export of the datasets that read the selected projects.'
+            }
+          />
+        ) : (
+          <Box sx={{ overflowX: 'auto' }}>
+            <Table size="small" stickyHeader aria-label="Columns">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Column</TableCell>
+                  <TableCell>Datasets</TableCell>
+                  <TableCell>SMUS column</TableCell>
+                  <TableCell align="right">
+                    <Tooltip title="dashboards / analyses / visuals">
+                      <span>Used by</span>
+                    </Tooltip>
+                  </TableCell>
+                  <TableCell>Read by calculated fields</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {items.map((item) => (
+                  <TableRow key={item.name} hover>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'monospace' }}>
+                        {item.name}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        {item.dataType.toLowerCase()}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+                        {item.datasets.map((dataset) => (
+                          <Chip
+                            key={dataset.id}
+                            size="small"
+                            variant="outlined"
+                            label={dataset.name}
+                          />
+                        ))}
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      <SmusCell item={item} onOpenListing={onOpenListing} />
+                    </TableCell>
+                    <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                      <Typography variant="body2" component="span">
+                        {item.usedBy.dashboards} / {item.usedBy.analyses} / {item.usedBy.visuals}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+                        {item.usedByCalculated.length === 0 ? (
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            none
+                          </Typography>
+                        ) : (
+                          item.usedByCalculated.map((calc) => (
+                            <Chip
+                              key={calc.key}
+                              size="small"
+                              clickable
+                              onClick={() => onOpenField(calc.key)}
+                              label={calc.name}
+                              sx={{ fontFamily: 'monospace' }}
+                            />
+                          ))
+                        )}
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
+        )}
+      </Container>
+    </Stack>
+  );
+}
