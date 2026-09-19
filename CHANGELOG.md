@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.10.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.9.0...v2.10.0) (2026-09-19)
+
+
+### Features
+
+* **authoring:** type rules - chart family swaps, KPI standardisation and column casts across a whole definition ([#160](https://github.com/yeahthisisrob/quicksight-portal/issues/160)) ([abb49b2](https://github.com/yeahthisisrob/quicksight-portal/commit/abb49b246e615d9fd82b9833defe6502c2ee2b20))
+
+
+### Bug Fixes
+
+* **authoring:** a template field never refuses a publish over a name, and its test no longer imports the AWS SDK mid-test ([#162](https://github.com/yeahthisisrob/quicksight-portal/issues/162)) ([0952f5e](https://github.com/yeahthisisrob/quicksight-portal/commit/0952f5ebdcc4ee577eaae30506219493be2d398b))
+
 ## [2.9.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.8.0...v2.9.0) (2026-09-19)
 
 
