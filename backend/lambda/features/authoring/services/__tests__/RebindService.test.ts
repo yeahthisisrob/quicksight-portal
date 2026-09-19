@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { GOLD_COLUMNS, ORDERS_ARN, sampleDefinition } from '../../lib/__tests__/fixtures';
+import {
+  GOLD_COLUMNS,
+  ORDERS_ARN,
+  REGIONS_ARN,
+  sampleDefinition,
+} from '../../lib/__tests__/fixtures';
 import { RebindService } from '../RebindService';
 
 const mocks = vi.hoisted(() => ({
@@ -205,6 +210,22 @@ describe('RebindService', () => {
         'c2',
       ]);
       expect(mocks.qs.updateAnalysis).not.toHaveBeenCalled();
+    });
+
+    it('says which datasets a cross-dataset filter cannot reach', async () => {
+      mocks.qs.describeDataset.mockImplementation(async (id: string) =>
+        id.includes('regions')
+          ? {
+              Arn: REGIONS_ARN,
+              Name: 'regions',
+              OutputColumns: [{ Name: 'region_name', Type: 'STRING' }],
+            }
+          : { Arn: GOLD_ARN, Name: 'orders_gold', OutputColumns: GOLD_COLUMNS }
+      );
+      const preview = await service.preview('analysis', 'a1', { rebinds: [] });
+      expect(preview.warnings).toEqual([
+        expect.stringContaining("'regions' has no column 'status', so it will not be filtered"),
+      ]);
     });
 
     it('never applies a suggestion the caller has not accepted', async () => {
