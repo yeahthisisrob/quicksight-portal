@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.11.0...v2.11.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* **data-catalog:** the Columns tab no longer crashes on a column the export could not type ([#167](https://github.com/yeahthisisrob/quicksight-portal/issues/167)) ([fdb4a5a](https://github.com/yeahthisisrob/quicksight-portal/commit/fdb4a5a8ec7f38cc6b370ba52758e37a4196fd5e))
+
 ## [2.11.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.10.0...v2.11.0) (2026-09-19)
 
 
