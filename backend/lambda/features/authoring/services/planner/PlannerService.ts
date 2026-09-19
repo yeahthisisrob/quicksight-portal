@@ -28,6 +28,11 @@ import { AssetStatusFilter } from '../../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES } from '../../../../shared/types/assetTypes';
 import { logger } from '../../../../shared/utils/logger';
 import {
+  BUILDABLE_VISUAL_TYPES,
+  type BuilderDataset,
+  type VisualSpec,
+} from '../../lib/definitionBuilder';
+import {
   applyOps,
   type DefinitionOp,
   EDITABLE_VISUAL_TYPES,
@@ -148,6 +153,75 @@ interface Choice {
 }
 
 /** Flat on purpose: every field required, '' or -1 meaning "not used". */
+const VISUALS_MAX_TOKENS = 4096;
+const MAX_PLANNED_VISUALS = 24;
+const MAX_COLUMNS_PER_DATASET = 150;
+
+const VISUALS_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['visuals', 'reason'],
+  properties: {
+    reason: { type: 'string', description: 'One sentence on the choices, or why nothing fits.' },
+    visuals: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['type', 'title', 'identifier', 'category', 'granularity', 'values', 'color'],
+        properties: {
+          type: {
+            type: 'string',
+            enum: [
+              'KPI',
+              'BarChart',
+              'ColumnChart',
+              'LineChart',
+              'PieChart',
+              'DonutChart',
+              'Table',
+              'PivotTable',
+            ],
+          },
+          title: { type: 'string', description: 'Short, in the words of the ask.' },
+          identifier: {
+            type: 'string',
+            description: 'The dataset identifier every column belongs to.',
+          },
+          category: {
+            type: 'string',
+            description: 'The dimension column (x axis, group-by, rows); "" for a KPI.',
+          },
+          granularity: {
+            type: 'string',
+            enum: ['', 'DAY', 'WEEK', 'MONTH', 'QUARTER', 'YEAR'],
+            description: 'When the category is a date; else "".',
+          },
+          values: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['column', 'aggregation'],
+              properties: {
+                column: { type: 'string' },
+                aggregation: {
+                  type: 'string',
+                  enum: ['SUM', 'AVERAGE', 'COUNT', 'DISTINCT_COUNT', 'MIN', 'MAX'],
+                },
+              },
+            },
+          },
+          color: {
+            type: 'string',
+            description: 'A second dimension (colours, pivot columns) or "".',
+          },
+        },
+      },
+    },
+  },
+} as const;
+
 const EDITS_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -362,6 +436,57 @@ export class PlannerService {
     return this.validateOps(assetType, assetId, ops);
   }
 
+  /**
+   * From nothing: the visuals a dashboard on these datasets should show,
+   * given an ask. The model names columns only; the builder decides the
+   * field wells from the columns' types and leaves out what does not exist.
+   */
+  public async planVisuals(
+    ask: string,
+    datasets: BuilderDataset[]
+  ): Promise<{
+    visuals: VisualSpec[];
+    reason: string;
+    model: { provider: string; model: string };
+  }> {
+    const trimmed = ask.trim();
+    if (!trimmed) {
+      throw new ValidationError('An ask is required');
+    }
+    if (trimmed.length > MAX_ASK_LENGTH) {
+      throw new ValidationError(`The ask must be at most ${MAX_ASK_LENGTH} characters`);
+    }
+    const listing = datasets.map((d) => ({
+      identifier: d.identifier,
+      columns: d.columns
+        .slice(0, MAX_COLUMNS_PER_DATASET)
+        .map((c) => `${c.name} (${c.type ?? 'STRING'})`),
+    }));
+    const user = [
+      'The datasets the dashboard reads, by identifier, with their columns and types:',
+      JSON.stringify(listing),
+      '',
+      `The ask: ${JSON.stringify(trimmed)}`,
+      '',
+      'Propose the visuals a dashboard for this ask should show, most important first. Use only these identifiers and column names, exactly. KPIs for single numbers, line charts over dates, bar or column charts by a category, tables for detail. Aggregate numeric columns with SUM unless the ask says otherwise; count or distinct-count text columns. Keep it to what the ask needs.',
+    ].join('\n');
+
+    const result = await this.model.complete({
+      label: 'plan-visuals',
+      system: PREAMBLE,
+      user,
+      schemaName: 'plan_visuals',
+      schemaDescription: 'The visuals to build, by column names.',
+      schema: VISUALS_SCHEMA as unknown as Record<string, unknown>,
+      maxTokens: VISUALS_MAX_TOKENS,
+    });
+    return {
+      visuals: parseVisualSpecs(result.output, datasets),
+      reason: reasonOf(result.output),
+      model: { provider: result.provider, model: result.model },
+    };
+  }
+
   /** Keep only ops the definition accepts, in order; log the rest. */
   private async validateOps(
     assetType: AuthorableAssetType,
@@ -541,6 +666,52 @@ export function parseChoice(
 }
 
 /** Turn the flat, sentinel-laden edit answer into typed ops the library validates. */
+function reasonOf(output: unknown): string {
+  return isRecord(output) && typeof output.reason === 'string' ? output.reason : '';
+}
+
+/** Model output to visual specs: drop anything not naming a known identifier; the builder checks columns. */
+export function parseVisualSpecs(output: unknown, datasets: BuilderDataset[]): VisualSpec[] {
+  if (!isRecord(output) || !Array.isArray(output.visuals)) {
+    return [];
+  }
+  const identifiers = new Set(datasets.map((d) => d.identifier));
+  const specs: VisualSpec[] = [];
+  for (const item of output.visuals.slice(0, MAX_PLANNED_VISUALS)) {
+    if (!isRecord(item)) continue;
+    const type = str(item, 'type') as VisualSpec['type'];
+    const identifier = str(item, 'identifier');
+    if (!BUILDABLE_VISUAL_TYPES.includes(type) || !identifiers.has(identifier)) continue;
+    const values = Array.isArray(item.values)
+      ? item.values
+          .filter(
+            (v): v is Record<string, unknown> =>
+              isRecord(v) && typeof v.column === 'string' && v.column.length > 0
+          )
+          .map((v) => ({
+            column: v.column as string,
+            ...(typeof v.aggregation === 'string' && v.aggregation
+              ? { aggregation: v.aggregation as VisualSpec['values'][number]['aggregation'] }
+              : {}),
+          }))
+      : [];
+    if (values.length === 0) continue;
+    const category = str(item, 'category');
+    const granularity = str(item, 'granularity');
+    const color = str(item, 'color');
+    specs.push({
+      type,
+      title: str(item, 'title') || `${type} of ${values[0]!.column}`,
+      identifier,
+      ...(category && type !== 'KPI' ? { category } : {}),
+      ...(granularity ? { granularity: granularity as VisualSpec['granularity'] } : {}),
+      values,
+      ...(color ? { color } : {}),
+    });
+  }
+  return specs;
+}
+
 export function parseEditOps(output: unknown, outline: SheetOutline[]): DefinitionOp[] {
   if (!isRecord(output) || !Array.isArray(output.ops)) {
     return [];

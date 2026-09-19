@@ -15,8 +15,10 @@ vi.mock('../../handlers/AuthoringHandler', () => ({
 import { extractPathParams } from '../../../../api/utils/routeUtils';
 import { authoringRoutes } from '../index';
 
+const matches = (route: (typeof authoringRoutes)[number], path: string) =>
+  typeof route.path === 'string' ? route.path === path : route.path.test(path);
 const find = (method: string, path: string) =>
-  authoringRoutes.find((r) => r.method === method && (r.path as RegExp).test(path));
+  authoringRoutes.find((r) => r.method === method && matches(r, path));
 
 describe('authoringRoutes', () => {
   it('routes datasets, plan and apply for analyses and dashboards', () => {
@@ -38,6 +40,12 @@ describe('authoringRoutes', () => {
     const apply = find('POST', '/authoring/analysis/a1/rebind');
     expect(plan).not.toBe(apply);
     expect((apply?.path as RegExp).test('/authoring/analysis/a1/rebind/plan')).toBe(false);
+  });
+
+  it('serves the from-nothing paths literally, ahead of the asset routes', () => {
+    expect(find('POST', '/authoring/new/preview')).toBeDefined();
+    expect(find('POST', '/authoring/new')).toBeDefined();
+    expect(find('POST', '/authoring/new/rebind')).toBeUndefined();
   });
 
   it('exposes assetType and assetId as path parameters', () => {

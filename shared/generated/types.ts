@@ -3425,6 +3425,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/authoring/new/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A dashboard or analysis from nothing - preview
+         * @description The datasets it should read and the visuals it should show, described
+         *     by column names; when `visuals` is absent and `ask` is given, the
+         *     planner proposes them from the datasets' columns. Field wells follow
+         *     each column's type. Optionally laid out on a template standard and
+         *     passed through type rules. Nothing is written; the response is the
+         *     definition, its outline, the visuals that were built (or proposed),
+         *     and what could not be built.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["NewAssetRequest"];
+                };
+            };
+            responses: {
+                /** @description The definition as create would write it */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["NewAssetPreview"];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/authoring/new": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A dashboard or analysis from nothing - create
+         * @description Same body as the preview. Creates the asset with the audience of
+         *     `permissionsFrom` (or the template's), puts it in `folderId` when
+         *     given, records the write and tags the asset with provenance.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["NewAssetRequest"];
+                };
+            };
+            responses: {
+                /** @description The created asset */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["NewAssetResult"];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/authoring/{assetType}/{assetId}/insights": {
         parameters: {
             query?: never;
@@ -5028,6 +5132,81 @@ export interface components {
                 repairs: components["schemas"]["RepairOp"][];
                 rebinds: components["schemas"]["RebindRequest"][];
             };
+        };
+        /** @description One visual by column names; the builder decides the field wells from the columns' types. */
+        VisualSpec: {
+            /** @enum {string} */
+            type: "KPI" | "BarChart" | "ColumnChart" | "LineChart" | "PieChart" | "DonutChart" | "Table" | "PivotTable";
+            title: string;
+            /** @description The dataset identifier every column belongs to. */
+            identifier: string;
+            /** @description The dimension (x axis, group-by, pivot rows). Not for KPI. */
+            category?: string;
+            /**
+             * @description When the category is a date.
+             * @enum {string}
+             */
+            granularity?: "DAY" | "WEEK" | "MONTH" | "QUARTER" | "YEAR";
+            values: {
+                column: string;
+                /** @enum {string} */
+                aggregation?: "SUM" | "AVERAGE" | "COUNT" | "DISTINCT_COUNT" | "MIN" | "MAX";
+            }[];
+            /** @description A second dimension (colours, pivot columns). */
+            color?: string;
+        };
+        NewAssetRequest: {
+            /** @enum {string} */
+            assetType: "dashboard" | "analysis";
+            name: string;
+            datasets: {
+                identifier: string;
+                dataSetId: string;
+            }[];
+            visuals?: components["schemas"]["VisualSpec"][];
+            /** @description When visuals are absent, the planner proposes them from this. */
+            ask?: string;
+            sheetName?: string;
+            addCalculatedFields?: components["schemas"]["AddedCalculatedField"][];
+            template?: components["schemas"]["TemplateRequest"];
+            typeRules?: components["schemas"]["TypeRules"];
+            /** @description Inherit this asset's audience; defaults to the template's when one is given. */
+            permissionsFrom?: {
+                /** @enum {string} */
+                assetType: "dashboard" | "analysis";
+                assetId: string;
+            };
+            folderId?: string;
+            newAssetId?: string;
+        };
+        NewAssetPreview: {
+            definition: {
+                [key: string]: unknown;
+            };
+            outline: components["schemas"]["SheetOutline"][];
+            changes: components["schemas"]["DefinitionChange"][];
+            warnings: string[];
+            /** @description The visuals that were built, given or proposed. */
+            visuals: components["schemas"]["VisualSpec"][];
+            proposal?: {
+                reason: string;
+                model: {
+                    provider: string;
+                    model: string;
+                };
+            };
+            themeArn?: string;
+        };
+        NewAssetResult: {
+            /** @enum {string} */
+            assetType: "dashboard" | "analysis";
+            assetId: string;
+            name: string;
+            arn: string;
+            versionNumber?: number;
+            changes: components["schemas"]["DefinitionChange"][];
+            warnings: string[];
+            folderId?: string;
         };
         /**
          * @description Conversions applied to every visual at once. chartFamily: retypes

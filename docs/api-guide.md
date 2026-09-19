@@ -161,7 +161,27 @@ KPI options; `casts` adds a calculated field with the cast wherever the new
 dataset's column type differs from what the definition was built for, and
 points the visuals at it.
 
-## 6. Repair an asset QuickSight refuses to write
+## 6. Make a dashboard from nothing
+
+Name the datasets and either the visuals, by column names, or an ask and
+let the planner propose them:
+
+```bash
+just api POST /authoring/new/preview '{"assetType":"dashboard","name":"Sales by region","datasets":[{"identifier":"orders","dataSetId":"<dataset-id>"}],"ask":"revenue and orders by region over the last year, with a monthly trend"}'
+just api POST /authoring/new '{"assetType":"dashboard","name":"Sales by region","datasets":[...],"visuals":[...],"template":{"assetType":"dashboard","assetId":"<template-id>"},"permissionsFrom":{"assetType":"dashboard","assetId":"<existing-id>"},"folderId":"<folder-id>"}'
+```
+
+A visual is `{ type, title, identifier, category?, granularity?, values:
+[{ column, aggregation? }], color? }`; the builder decides the field wells
+from the columns' types (dates become date dimensions, numbers measures,
+text categories or counts) and leaves out what does not exist, saying so in
+`warnings`. The preview returns the definition, its outline and the visuals
+that were built or proposed; `template` and `typeRules` work here too. On
+create, the asset inherits the audience of `permissionsFrom` (or of the
+template), lands in `folderId`, and is recorded and tagged like every other
+portal write.
+
+## 7. Repair an asset QuickSight refuses to write
 
 Assets with definition errors cannot be updated as code. Ask what is wrong
 and what would fix it:
@@ -187,7 +207,7 @@ just api POST /authoring/dashboard/<id>/rebind '{"mode":"update","repairs":[...]
 Repairs run before the rebind plan, so the plan checks the repaired
 definition; `mode: "clone"` fixes a copy instead of the original.
 
-## 7. Your writes are attributed
+## 8. Your writes are attributed
 
 Everything an API key writes is recorded by the portal (who, through what,
 which asset, which job) and shows on the timeline as "Portal · API key
@@ -201,7 +221,7 @@ Assets the portal writes also carry the tags `portal:authored-by`,
 `portal:channel` and `portal:at` (Settings → Provenance to turn tagging
 off), so "made by an agent" is a tag filter anywhere tags are.
 
-## 8. Other useful calls
+## 9. Other useful calls
 
 - `POST /smus/export` then `GET /settings/smus/projects`: refresh what the
   portal knows about SageMaker Unified Studio.

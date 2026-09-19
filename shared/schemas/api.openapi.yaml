@@ -2653,6 +2653,72 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /api/authoring/new/preview:
+    post:
+      summary: A dashboard or analysis from nothing - preview
+      description: |
+        The datasets it should read and the visuals it should show, described
+        by column names; when `visuals` is absent and `ask` is given, the
+        planner proposes them from the datasets' columns. Field wells follow
+        each column's type. Optionally laid out on a template standard and
+        passed through type rules. Nothing is written; the response is the
+        definition, its outline, the visuals that were built (or proposed),
+        and what could not be built.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewAssetRequest'
+      responses:
+        '200':
+          description: The definition as create would write it
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/NewAssetPreview'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/authoring/new:
+    post:
+      summary: A dashboard or analysis from nothing - create
+      description: |
+        Same body as the preview. Creates the asset with the audience of
+        `permissionsFrom` (or the template's), puts it in `folderId` when
+        given, records the write and tags the asset with provenance.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewAssetRequest'
+      responses:
+        '200':
+          description: The created asset
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/NewAssetResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/authoring/{assetType}/{assetId}/insights:
     get:
       summary: How an asset is used and how healthy it is, for choosing what to start from
@@ -4972,6 +5038,160 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/RebindRequest'
+
+    VisualSpec:
+      type: object
+      description: One visual by column names; the builder decides the field wells from the columns' types.
+      required: [type, title, identifier, values]
+      properties:
+        type:
+          type: string
+          enum: [KPI, BarChart, ColumnChart, LineChart, PieChart, DonutChart, Table, PivotTable]
+        title:
+          type: string
+        identifier:
+          type: string
+          description: The dataset identifier every column belongs to.
+        category:
+          type: string
+          description: The dimension (x axis, group-by, pivot rows). Not for KPI.
+        granularity:
+          type: string
+          enum: [DAY, WEEK, MONTH, QUARTER, YEAR]
+          description: When the category is a date.
+        values:
+          type: array
+          items:
+            type: object
+            required: [column]
+            properties:
+              column:
+                type: string
+              aggregation:
+                type: string
+                enum: [SUM, AVERAGE, COUNT, DISTINCT_COUNT, MIN, MAX]
+        color:
+          type: string
+          description: A second dimension (colours, pivot columns).
+
+    NewAssetRequest:
+      type: object
+      required: [assetType, name, datasets]
+      properties:
+        assetType:
+          type: string
+          enum: [dashboard, analysis]
+        name:
+          type: string
+        datasets:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [identifier, dataSetId]
+            properties:
+              identifier:
+                type: string
+              dataSetId:
+                type: string
+        visuals:
+          type: array
+          items:
+            $ref: '#/components/schemas/VisualSpec'
+        ask:
+          type: string
+          description: When visuals are absent, the planner proposes them from this.
+        sheetName:
+          type: string
+        addCalculatedFields:
+          type: array
+          items:
+            $ref: '#/components/schemas/AddedCalculatedField'
+        template:
+          $ref: '#/components/schemas/TemplateRequest'
+        typeRules:
+          $ref: '#/components/schemas/TypeRules'
+        permissionsFrom:
+          type: object
+          description: Inherit this asset's audience; defaults to the template's when one is given.
+          required: [assetType, assetId]
+          properties:
+            assetType:
+              type: string
+              enum: [dashboard, analysis]
+            assetId:
+              type: string
+        folderId:
+          type: string
+        newAssetId:
+          type: string
+
+    NewAssetPreview:
+      type: object
+      required: [definition, outline, changes, warnings, visuals]
+      properties:
+        definition:
+          type: object
+          additionalProperties: true
+        outline:
+          type: array
+          items:
+            $ref: '#/components/schemas/SheetOutline'
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DefinitionChange'
+        warnings:
+          type: array
+          items:
+            type: string
+        visuals:
+          type: array
+          description: The visuals that were built, given or proposed.
+          items:
+            $ref: '#/components/schemas/VisualSpec'
+        proposal:
+          type: object
+          required: [reason, model]
+          properties:
+            reason:
+              type: string
+            model:
+              type: object
+              required: [provider, model]
+              properties:
+                provider:
+                  type: string
+                model:
+                  type: string
+        themeArn:
+          type: string
+
+    NewAssetResult:
+      type: object
+      required: [assetType, assetId, name, arn, changes, warnings]
+      properties:
+        assetType:
+          type: string
+          enum: [dashboard, analysis]
+        assetId:
+          type: string
+        name:
+          type: string
+        arn:
+          type: string
+        versionNumber:
+          type: integer
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DefinitionChange'
+        warnings:
+          type: array
+          items:
+            type: string
+        folderId:
+          type: string
 
     TypeRules:
       type: object

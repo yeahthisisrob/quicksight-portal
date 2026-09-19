@@ -13,6 +13,7 @@ import { GroupService } from '../../organization/services/GroupService';
 import { parseOps } from '../lib/definitionOps';
 import { parseRepairs } from '../lib/definitionRepairs';
 import { InsightsService } from '../services/InsightsService';
+import { type NewAssetRequest, NewAssetService } from '../services/NewAssetService';
 import { createPlannerModel } from '../services/planner/createPlannerModel';
 import { PlannerService } from '../services/planner/PlannerService';
 import { RebindService } from '../services/RebindService';
@@ -179,6 +180,108 @@ export class AuthoringHandler {
       logger.error('Propose failed', { error });
       return this.failure(event, error, 'Failed to build a proposal');
     }
+  }
+
+  /** POST /authoring/new/preview */
+  public async previewNew(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const request = this.parseNewAssetRequest(this.parseBody(event));
+      const preview = await this.newAssetService(request).preview(request);
+      return successResponse(event, { success: true, data: preview });
+    } catch (error: any) {
+      logger.error('Preview new asset failed', { error });
+      return this.failure(event, error, 'Failed to preview the new asset');
+    }
+  }
+
+  /** POST /authoring/new */
+  public async createNew(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const request = this.parseNewAssetRequest(this.parseBody(event));
+      logger.info('Create from scratch requested', {
+        user: user.email,
+        assetType: request.assetType,
+      });
+      const result = await this.newAssetService(request).create(request, user);
+      return successResponse(event, { success: true, data: result });
+    } catch (error: any) {
+      logger.error('Create new asset failed', { error });
+      return this.failure(event, error, 'Failed to create the asset');
+    }
+  }
+
+  private newAssetService(request: NewAssetRequest): NewAssetService {
+    const rebind = this.service();
+    const planner = request.ask ? new PlannerService(rebind, createPlannerModel()) : undefined;
+    return new NewAssetService(this.accountId, rebind, planner);
+  }
+
+  private parseNewAssetRequest(body: Record<string, unknown>): NewAssetRequest {
+    if (typeof body.assetType !== 'string' || !isAuthorableAssetType(body.assetType)) {
+      throw badRequest("assetType must be 'dashboard' or 'analysis'");
+    }
+    if (typeof body.name !== 'string' || !body.name.trim()) {
+      throw badRequest('name is required');
+    }
+    const datasets = body.datasets;
+    if (
+      !Array.isArray(datasets) ||
+      datasets.length === 0 ||
+      datasets.some(
+        (d) =>
+          typeof d !== 'object' ||
+          d === null ||
+          typeof d.identifier !== 'string' ||
+          typeof d.dataSetId !== 'string'
+      )
+    ) {
+      throw badRequest('datasets must be a non-empty array of { identifier, dataSetId }');
+    }
+    const visuals = body.visuals;
+    if (
+      visuals !== undefined &&
+      (!Array.isArray(visuals) ||
+        visuals.some(
+          (v) =>
+            typeof v !== 'object' ||
+            v === null ||
+            typeof v.type !== 'string' ||
+            typeof v.identifier !== 'string' ||
+            !Array.isArray(v.values)
+        ))
+    ) {
+      throw badRequest('visuals must be an array of { type, title, identifier, values[] }');
+    }
+    if (body.ask !== undefined && typeof body.ask !== 'string') {
+      throw badRequest('ask must be a string');
+    }
+    const permissionsFrom = body.permissionsFrom as Record<string, unknown> | undefined;
+    if (
+      permissionsFrom !== undefined &&
+      (typeof permissionsFrom !== 'object' ||
+        permissionsFrom === null ||
+        typeof permissionsFrom.assetType !== 'string' ||
+        !isAuthorableAssetType(permissionsFrom.assetType) ||
+        typeof permissionsFrom.assetId !== 'string')
+    ) {
+      throw badRequest('permissionsFrom needs assetType and assetId');
+    }
+    return {
+      assetType: body.assetType,
+      name: body.name,
+      datasets: datasets as NewAssetRequest['datasets'],
+      visuals: visuals as NewAssetRequest['visuals'],
+      ask: body.ask as string | undefined,
+      sheetName: typeof body.sheetName === 'string' ? body.sheetName : undefined,
+      addCalculatedFields: this.parseAddedFields(body.addCalculatedFields),
+      template: this.parseTemplate(body.template),
+      typeRules: this.parseTypeRules(body.typeRules),
+      permissionsFrom: permissionsFrom as NewAssetRequest['permissionsFrom'],
+      folderId: typeof body.folderId === 'string' ? body.folderId.trim() || undefined : undefined,
+      newAssetId: typeof body.newAssetId === 'string' ? body.newAssetId : undefined,
+    };
   }
 
   private service(): RebindService {
