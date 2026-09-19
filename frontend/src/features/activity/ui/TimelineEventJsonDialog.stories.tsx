@@ -31,6 +31,8 @@ export const ConsoleUpdateAnalysis: Story = {
       kind: 'mutation',
       action: 'update',
       user: 'jane.doe',
+      actor: { kind: 'user', label: 'jane.doe', raw: 'jane.doe' },
+      origin: 'console',
       resourceType: 'analysis',
       assetType: 'analysis',
       assetId: 'abc-123',
@@ -69,6 +71,8 @@ export const NameMissDebugging: Story = {
       kind: 'mutation',
       action: 'update',
       user: 'john.doe',
+      actor: { kind: 'user', label: 'john.doe', raw: 'john.doe' },
+      origin: 'console',
       resourceType: 'analysis',
       assetType: 'analysis',
       raw: {

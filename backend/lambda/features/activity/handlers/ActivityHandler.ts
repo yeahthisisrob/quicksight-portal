@@ -213,6 +213,7 @@ function buildTimelineQuery(event: APIGatewayProxyEvent): TimelineQuery {
     limit: Number.isFinite(rawLimit) ? rawLimit : undefined,
     resourceTypes: parseResourceTypes(qs.resourceTypes),
     users: splitCsv(qs.users),
+    origins: splitCsv(qs.origins) as TimelineQuery['origins'],
     eventNames: splitCsv(qs.eventNames),
     excludeEventNames: splitCsv(qs.excludeEventNames),
     actions: parseActions(qs.actions),

@@ -2,6 +2,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
+import { actorFromAuth, auditLog } from '../../../shared/services/audit/AuditLog';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { type AssetType, getSingularForm } from '../../../shared/types/assetTypes';
@@ -265,7 +266,7 @@ export class TagHandler {
 
   public async updateTags(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
-      await requireAuth(event);
+      const user = await requireAuth(event);
       const { assetType, assetId } = event.pathParameters || {};
       const { tags } = JSON.parse(event.body || '{}');
 
@@ -283,6 +284,15 @@ export class TagHandler {
       }));
 
       await this.tagService.updateResourceTags(assetType as AssetType, assetId, convertedTags);
+      const { actor, channel } = actorFromAuth(user);
+      await auditLog.record({
+        actor,
+        channel,
+        action: 'asset.tags',
+        assetType,
+        assetId,
+        details: { tags: convertedTags.length },
+      });
 
       await cacheService.updateAssetTags(assetType as AssetType, assetId, convertedTags);
 

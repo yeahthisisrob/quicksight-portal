@@ -20,13 +20,21 @@ interface TimelinePredicate {
   excludeEventNames: Set<string> | null;
   actions: Set<string> | null;
   users: Set<string> | null;
+  origins: Set<string> | null;
+  /** Supplied by the service: the origin of an event, used only when `origins` is set. */
+  originFor?: (evt: MinimalEvent) => string;
   pinnedAssetType: string | undefined;
   pinnedAssetId: string | undefined;
 }
 
 /** Build an immutable predicate bundle from a TimelineQuery. */
-export function buildTimelinePredicate(query: TimelineQuery): TimelinePredicate {
+export function buildTimelinePredicate(
+  query: TimelineQuery,
+  originFor?: (evt: MinimalEvent) => string
+): TimelinePredicate {
   return {
+    origins: query.origins && query.origins.length > 0 ? new Set(query.origins) : null,
+    originFor,
     cursorMs: query.cursor ? Date.parse(query.cursor) : null,
     startMs: query.startDate ? Date.parse(query.startDate) : null,
     endMs: query.endDate ? Date.parse(query.endDate) : null,
@@ -75,6 +83,9 @@ function eventMatchesPredicate(evt: MinimalEvent, p: TimelinePredicate): boolean
     return false;
   }
   if (p.excludeEventNames && p.excludeEventNames.has(evt.eventName)) {
+    return false;
+  }
+  if (p.origins && p.originFor && !p.origins.has(p.originFor(evt))) {
     return false;
   }
   if (p.actions && (!evt.action || !p.actions.has(evt.action))) {

@@ -23,6 +23,7 @@ export interface TimelineFilters {
   eventNames?: string[];
   excludeEventNames?: string[];
   actions?: string[];
+  origins?: string[];
   startDate?: string;
   endDate?: string;
 }

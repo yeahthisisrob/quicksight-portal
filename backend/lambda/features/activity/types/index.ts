@@ -1,4 +1,5 @@
 import type { AssetType } from '../../../shared/types/assetTypes';
+import type { ActorDescription, EventOrigin, Provenance } from '../lib/actors';
 
 // Keep original types for backward compatibility but map to new types
 export type ActivityData = AssetActivityData;
@@ -255,6 +256,8 @@ export interface UserActivityData {
  * One entry in the activity timeline — wire format returned to the frontend.
  * Hydrated from MinimalEvent + catalog lookup on the backend.
  */
+export type { ActorDescription, EventOrigin, Provenance } from '../lib/actors';
+
 export interface TimelineEvent {
   id: string; // stable — hash of `${t}_${e}_${r}_${u}`
   timestamp: string; // ISO
@@ -262,6 +265,12 @@ export interface TimelineEvent {
   kind: 'view' | 'mutation';
   action?: ActionCategory;
   user: string;
+  /** The actor in words: "Portal", an email, "AdminRole / rob". */
+  actor: ActorDescription;
+  /** Where the change came from: the portal (UI or API), the console, automation. */
+  origin: EventOrigin;
+  /** For portal events: who was behind it, from the portal's audit log. */
+  provenance?: Provenance;
   resourceType?: TimelineResourceType; // catalog asset type, 'other', or undefined
   assetType?: AssetType; // set only when resourceType is a catalog asset (for navigation)
   assetId?: string;
@@ -281,6 +290,7 @@ export interface TimelineQuery {
   limit?: number; // default 50, max 200
   resourceTypes?: TimelineResourceType[]; // filter by catalog asset type or 'other'
   users?: string[];
+  origins?: EventOrigin[];
   eventNames?: string[]; // include — when set, only these events match
   excludeEventNames?: string[]; // exclude — events in this list are dropped
   actions?: ActionCategory[];

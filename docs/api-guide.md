@@ -123,7 +123,21 @@ just api POST /authoring/dashboard/<id>/rebind '{"mode":"update","repairs":[...]
 Repairs run before the rebind plan, so the plan checks the repaired
 definition; `mode: "clone"` fixes a copy instead of the original.
 
-## 6. Other useful calls
+## 6. Your writes are attributed
+
+Everything an API key writes is recorded by the portal (who, through what,
+which asset, which job) and shows on the timeline as "Portal · API key
+<label>", filterable with `origins=portal-api`:
+
+```bash
+just api GET '/activity/timeline?origins=portal-api&limit=50'
+```
+
+Assets the portal writes also carry the tags `portal:authored-by`,
+`portal:channel` and `portal:at` (Settings → Provenance to turn tagging
+off), so "made by an agent" is a tag filter anywhere tags are.
+
+## 7. Other useful calls
 
 - `POST /smus/export` then `GET /settings/smus/projects`: refresh what the
   portal knows about SageMaker Unified Studio.

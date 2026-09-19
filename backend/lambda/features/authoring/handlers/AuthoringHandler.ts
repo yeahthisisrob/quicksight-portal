@@ -136,7 +136,7 @@ export class AuthoringHandler {
         mode: request.mode,
         rebinds: request.rebinds.length,
       });
-      const result = await this.service().apply(target.assetType, target.assetId, request);
+      const result = await this.service().apply(target.assetType, target.assetId, request, user);
       return successResponse(event, { success: true, data: result });
     } catch (error: any) {
       logger.error('Apply rebind failed', { error });
