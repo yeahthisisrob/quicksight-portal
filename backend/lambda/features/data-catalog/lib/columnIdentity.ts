@@ -20,8 +20,12 @@ export function normalizeColumnName(value: string): string {
     .replace(/[\s_-]+/g, '_');
 }
 
-/** How a QuickSight column found its listing column. */
-export type ColumnMatchKind = 'exact' | 'normalized' | 'listing-only';
+/**
+ * How a QuickSight column found its listing column. The two failures are kept
+ * apart on purpose: `listing-only` is a listing whose schema does not have this
+ * column, `no-schema` is a listing that published no column list at all.
+ */
+export type ColumnMatchKind = 'exact' | 'normalized' | 'listing-only' | 'no-schema';
 
 export interface ListingColumn {
   name: string;
@@ -31,7 +35,7 @@ export interface ListingColumn {
 
 export interface ColumnMatch {
   column: ListingColumn;
-  match: Exclude<ColumnMatchKind, 'listing-only'>;
+  match: 'exact' | 'normalized';
 }
 
 /**

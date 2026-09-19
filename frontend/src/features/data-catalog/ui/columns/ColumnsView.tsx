@@ -107,7 +107,11 @@ function SmusCell({
       </Tooltip>
     );
   }
-  const { columnName, match, name } = item.smus;
+  const { columnName, columnType, match, name, listingColumnCount } = item.smus;
+  // QuickSight and Glue rarely spell a type the same way, so show both rather
+  // than leaving someone to wonder which one is right.
+  const typesDiffer =
+    Boolean(columnType) && columnType?.toLowerCase() !== item.dataType?.toLowerCase();
   return (
     <Stack spacing={0.25}>
       <Stack
@@ -139,7 +143,17 @@ function SmusCell({
       </Stack>
       {match === 'listing-only' && (
         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-          The listing's schema does not name this column
+          Not one of the {listingColumnCount} columns this listing names
+        </Typography>
+      )}
+      {match === 'no-schema' && (
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          This listing publishes no column list
+        </Typography>
+      )}
+      {typesDiffer && (
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          SMUS types it {columnType}
         </Typography>
       )}
       {item.smus.description && (

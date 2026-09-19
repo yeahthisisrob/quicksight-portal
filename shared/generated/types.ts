@@ -5748,11 +5748,17 @@ export interface components {
             url?: string;
             /** @description Absent when the dataset is tied to the listing but the listing's schema does not name the column. */
             columnName?: string;
+            /** @description The type the listing gives the column, which is rarely spelled as QuickSight spells it. */
+            columnType?: string;
             /**
-             * @description How the column tied back - exact name, normalized name (case, separators, camel humps), or the listing alone.
+             * @description How the column tied back - exact name, normalized name (case,
+             *     separators, camel humps), a listing whose schema does not have this
+             *     column, or a listing that published no column list at all.
              * @enum {string}
              */
-            match: "exact" | "normalized" | "listing-only";
+            match: "exact" | "normalized" | "listing-only" | "no-schema";
+            /** @description How many columns the listing names, so an empty schema is legible as one. */
+            listingColumnCount: number;
             description?: string;
             glossaryTerms: string[];
         };

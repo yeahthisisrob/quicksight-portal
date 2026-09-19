@@ -50,8 +50,12 @@ export interface SmusColumnRef extends CatalogListingRef {
    * column: still a SMUS table, just nothing to say about the column itself.
    */
   columnName?: string;
-  /** Exact name, normalized (case, separators, camel humps), or the listing alone. */
+  /** The type the listing gives it, which is rarely spelled as QuickSight spells it. */
+  columnType?: string;
+  /** Exact name, normalized, the listing alone, or a listing with no schema at all. */
   match: ColumnMatchKind;
+  /** How many columns the listing names, so an empty schema is legible as one. */
+  listingColumnCount: number;
   description?: string;
   glossaryTerms: string[];
 }
@@ -324,9 +328,10 @@ export class FieldCatalogService {
         item.usedBy.visuals += (
           index.visualsOf.get(`${datasetId}::${field.fieldName}`) ?? []
         ).length;
-        if (!item.smus) {
-          item.smus = smusColumn(field.columnName ?? field.fieldName, listing, assets);
-        }
+        item.smus = betterTie(
+          item.smus,
+          smusColumn(field.columnName ?? field.fieldName, listing, assets)
+        );
         byName.set(key, item);
       }
     }
@@ -562,21 +567,44 @@ function smusColumn(
   if (!listing) return undefined;
   const asset = assets.find((a) => a.listingId === listing.listingId);
   const glossaryTerms = (asset?.glossaryTerms ?? []).map((t) => t.name);
-  const hit = matchListingColumn(columnName, asset?.columns);
-  // The dataset is tied to this listing either way. When the listing's schema
-  // does not name the column - an older export, a listing published without a
-  // relational form, a column the dataset computed - say which table it came
-  // from rather than claiming it has nothing to do with SMUS.
+  const columns = asset?.columns ?? [];
+  const base = { ...listing, listingColumnCount: columns.length, glossaryTerms };
+  const hit = matchListingColumn(columnName, columns);
+  // The dataset is tied to this listing either way. Separate the two reasons a
+  // column is not named: a listing that publishes a schema this column is not
+  // in, and a listing that publishes no schema at all. They are fixed in
+  // different places, so the UI must be able to tell them apart.
   if (!hit) {
-    return { ...listing, match: 'listing-only', glossaryTerms };
+    return { ...base, match: columns.length > 0 ? 'listing-only' : 'no-schema' };
   }
   return {
-    ...listing,
+    ...base,
     columnName: hit.column.name,
+    columnType: hit.column.type,
     match: hit.match,
     description: hit.column.description,
-    glossaryTerms,
   };
+}
+
+const MATCH_RANK: Record<ColumnMatchKind, number> = {
+  exact: 3,
+  normalized: 2,
+  'listing-only': 1,
+  'no-schema': 0,
+};
+
+/**
+ * A column usually sits in several datasets, each tied to its own listing. Take
+ * the best tie-back of them: a listing that names the column beats one that
+ * only knows the table, whatever order the datasets came in.
+ */
+function betterTie(
+  current: SmusColumnRef | undefined,
+  candidate: SmusColumnRef | undefined
+): SmusColumnRef | undefined {
+  if (!candidate) return current;
+  if (!current) return candidate;
+  return MATCH_RANK[candidate.match] > MATCH_RANK[current.match] ? candidate : current;
 }
 
 function matches(item: CalculatedFieldSummary, filters: FieldCatalogFilters): boolean {

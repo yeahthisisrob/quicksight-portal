@@ -252,7 +252,9 @@ describe('FieldCatalogService', () => {
     const revenue = result.items.find((c) => c.name === 'revenue')!;
     expect(revenue.smus).toMatchObject({
       columnName: 'revenue',
+      columnType: 'decimal',
       match: 'exact',
+      listingColumnCount: 3,
       description: 'Recognised revenue',
     });
     expect(revenue.usedBy).toEqual({ dashboards: 1, analyses: 0, visuals: 1 });
@@ -304,6 +306,70 @@ describe('FieldCatalogService', () => {
     });
     expect(items.find((c) => c.name === 'tenure_days')?.smus?.columnName).toBeUndefined();
     expect((await service().columns()).counts).toMatchObject({ withSmus: 2, withSmusColumn: 1 });
+  });
+
+  it('takes the best tie-back when a column sits in several datasets, whatever order they come in', async () => {
+    // order_id is in both datasets. ds-2's listing names it; ds-1's does not.
+    const orderId = { fieldName: 'order_id', dataType: 'STRING' };
+    catalog.getFieldIndex.mockResolvedValue({
+      ...INDEX,
+      byDataset: new Map([
+        ['ds-1', [field(orderId)]],
+        ['ds-2', [field({ ...orderId, sourceAssetId: 'ds-2' })]],
+      ]),
+    });
+    smus.listAssets.mockResolvedValue({
+      configured: true,
+      projectFilter: ['p-prod'],
+      assets: [
+        // No column list at all: the reason a tie-back is unnamed matters.
+        { ...ASSETS[0], columns: [], datasets: [{ id: 'ds-1', name: 'One' }] },
+        {
+          ...ASSETS[0],
+          listingId: 'l-orders-2',
+          name: 'orders_silver',
+          columns: [{ name: 'order_id', type: 'varchar' }],
+          datasets: [{ id: 'ds-2', name: 'Two' }],
+        },
+      ],
+      exportedAt: '2026-09-19T00:00:00Z',
+    });
+
+    const tie = (await service().columns()).items[0]?.smus;
+    expect(tie).toMatchObject({
+      columnName: 'order_id',
+      columnType: 'varchar',
+      match: 'exact',
+      name: 'orders_silver',
+    });
+  });
+
+  it('separates a listing that does not have the column from one with no column list', async () => {
+    catalog.getFieldIndex.mockResolvedValue({
+      ...INDEX,
+      byDataset: new Map([['ds-1', [field({ fieldName: 'tenure_days' })]]]),
+    });
+    smus.listAssets.mockResolvedValue({
+      configured: true,
+      projectFilter: ['p-prod'],
+      assets: [{ ...ASSETS[0], columns: [] }],
+      exportedAt: '2026-09-19T00:00:00Z',
+    });
+    expect((await service().columns()).items[0]?.smus).toMatchObject({
+      match: 'no-schema',
+      listingColumnCount: 0,
+    });
+
+    smus.listAssets.mockResolvedValue({
+      configured: true,
+      projectFilter: ['p-prod'],
+      assets: [ASSETS[0]],
+      exportedAt: '2026-09-19T00:00:00Z',
+    });
+    expect((await service().columns()).items[0]?.smus).toMatchObject({
+      match: 'listing-only',
+      listingColumnCount: 3,
+    });
   });
 
   it('survives an export that left a column without a type, a field without a name, or a SMUS column without one', async () => {
