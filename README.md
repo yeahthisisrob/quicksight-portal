@@ -115,6 +115,12 @@ Configuration lives in DynamoDB with a fallback to the Lambda's environment vari
 - **Bulk operations** - tag, folder-membership, and delete operations across selections, with per-item results
 - **CSV export** of any asset listing
 
+### Activity timeline: who changed what, including the agents
+
+Every mutation in the account, from CloudTrail, on one timeline with day headers and bursts collapsed. Actors are shown as people recognise them: SSO sessions as role and person, and the portal's own Lambda role simply as **Portal**, attributed further from the portal's audit log to the person in the UI or the API key behind it, so a change made by an agent reads "Portal · API key claude cli" and filters as *made by agents*. Assets the portal writes are also tagged `portal:authored-by`, `portal:channel` and `portal:at`, so the same fact is a tag filter anywhere tags are, and survives outside the portal. The origin (portal UI, agent, console, automation) comes back from the timeline API too.
+
+![Activity timeline](docs/screenshots/timeline.png)
+
 ### Insight & governance
 - **Data lineage** - dataset, data source and dashboard/analysis relationships, including composite datasets and transitive dependencies
 - **Activity analytics** - CloudTrail-derived view counts and viewer history, dataset refresh history, per-user activity
