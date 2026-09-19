@@ -80,21 +80,4 @@ export const dataCatalogRoutes: RouteHandler[] = [
     path: '/data-catalog/fields/search-by-tags',
     handler: (event) => handler.searchFieldsByTags(event),
   },
-
-  // Semantic endpoints
-  {
-    method: 'GET',
-    path: '/semantic/terms',
-    handler: (event) => handler.getSemanticTerms(event),
-  },
-  {
-    method: 'GET',
-    path: '/semantic/mappings',
-    handler: (event) => handler.getSemanticMappings(event),
-  },
-  {
-    method: 'GET',
-    path: '/semantic/stats',
-    handler: (event) => handler.getSemanticStats(event),
-  },
 ];

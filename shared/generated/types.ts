@@ -2794,6 +2794,156 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data-catalog/templates/calculated-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The calculated-field template library
+         * @description Calculated fields saved for reuse, stored by the portal because SMUS
+         *     has no home for them. Author offers them when creating a copy; the
+         *     catalog marks fields that match one.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The library */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                templates: components["schemas"]["CalculatedFieldTemplate"][];
+                            };
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        /** Save a calculated field as a template */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CalculatedFieldTemplateInput"];
+                };
+            };
+            responses: {
+                /** @description The saved template */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["CalculatedFieldTemplate"];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data-catalog/templates/calculated-fields/{templateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update a template */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    templateId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CalculatedFieldTemplateInput"];
+                };
+            };
+            responses: {
+                /** @description The updated template */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["CalculatedFieldTemplate"];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        post?: never;
+        /** Delete a template */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    templateId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assets/{assetType}/{assetId}/rename": {
         parameters: {
             query?: never;
@@ -4255,6 +4405,17 @@ export interface components {
             name?: string;
             /** @description Clone only. Generated when omitted. */
             newAssetId?: string;
+            /**
+             * @description Calculated fields to add to the written definition, typically from
+             *     the template library. Each is declared against a dataset
+             *     identifier; a name that already exists there is rejected.
+             */
+            addCalculatedFields?: {
+                identifier: string;
+                name: string;
+                expression: string;
+                templateId?: string;
+            }[];
         };
         ApplyRebindResult: {
             assetType: components["schemas"]["AuthorableAssetType"];
@@ -4436,17 +4597,95 @@ export interface components {
             /** @enum {string} */
             sensitivity?: "public" | "internal" | "confidential" | "restricted";
         };
+        /** @description One visual that reads the field. */
+        FieldVisualUsage: {
+            /** @enum {string} */
+            assetType: "dashboard" | "analysis";
+            assetId: string;
+            assetName: string;
+            sheetName?: string;
+            visualId: string;
+            visualName: string;
+        };
+        /** @description One distinct expression a calculated field has somewhere. */
+        ExpressionVariant: {
+            expression: string;
+            sources: components["schemas"]["FieldUsedIn"][];
+        };
+        /**
+         * @description The same calculated field name defined with different expressions
+         *     across assets. The dataset's own expression is the reference; the
+         *     variants are what dashboards and analyses redefined it as.
+         */
+        FieldConflict: {
+            /** @description Number of distinct expressions, including the dataset's own. */
+            count: number;
+            variants: components["schemas"]["ExpressionVariant"][];
+        };
+        /** @description Where a plain column comes from in SMUS. */
+        SmusColumnLink: {
+            listingId: string;
+            columnName: string;
+            description?: string;
+            url?: string;
+        };
         DatasetCatalogField: {
             name: string;
             dataType: string;
             isCalculated: boolean;
             /** @description Calculated fields only. */
             expression?: string;
+            /** @description Fields this expression reads (calculated fields only). Lineage downwards. */
+            references: string[];
+            /** @description Calculated fields in the same dataset whose expressions read this field. Lineage upwards. */
+            usedBy: string[];
             usage: components["schemas"]["FieldUsage"];
+            /** @description Dashboards and analyses that use the field. */
             usedIn: components["schemas"]["FieldUsedIn"][];
-            /** @description Calculated fields in the same dataset that reference this field. */
-            usedBy?: string[];
+            /** @description The visuals that read the field, when the visual-field index has them. */
+            visuals?: components["schemas"]["FieldVisualUsage"][];
+            conflict?: components["schemas"]["FieldConflict"];
+            smus?: components["schemas"]["SmusColumnLink"];
             portal?: components["schemas"]["PortalFieldMetadata"];
+            /** @description Present when this field is saved in the template library. */
+            template?: {
+                id: string;
+            };
+        };
+        /**
+         * @description A calculated field saved for reuse. Author can add it to a copy it
+         *     creates; the catalog shows which fields already match it.
+         */
+        CalculatedFieldTemplate: {
+            id: string;
+            name: string;
+            expression: string;
+            dataType?: string;
+            description?: string;
+            tags?: string[];
+            /** @description Where it was saved from, when saved from the catalog. */
+            source?: {
+                datasetId?: string;
+                datasetName?: string;
+                listingId?: string;
+            };
+            createdBy?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CalculatedFieldTemplateInput: {
+            name: string;
+            expression: string;
+            dataType?: string;
+            description?: string;
+            tags?: string[];
+            source?: {
+                datasetId?: string;
+                datasetName?: string;
+                listingId?: string;
+            };
         };
         CatalogDataset: {
             id: string;

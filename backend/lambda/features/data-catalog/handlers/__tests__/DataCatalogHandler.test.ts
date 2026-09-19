@@ -493,7 +493,7 @@ describe('DataCatalogHandler - Pagination', () => {
   });
 });
 
-describe('DataCatalogHandler - Semantic and Visual', () => {
+describe('DataCatalogHandler - Visual', () => {
   let handler: DataCatalogHandler;
   let mockEvent: APIGatewayProxyEvent;
 
@@ -514,44 +514,6 @@ describe('DataCatalogHandler - Semantic and Visual', () => {
       requestContext: {} as any,
       resource: '',
     };
-  });
-
-  describe('getSemanticMappings', () => {
-    it('should get semantic mappings successfully', async () => {
-      mockEvent.queryStringParameters = {
-        fieldId: 'field-123',
-        status: 'mapped',
-        type: 'automatic',
-      };
-
-      const result = await handler.getSemanticMappings(mockEvent);
-      const body = JSON.parse(result.body);
-
-      expect(result.statusCode).toBe(STATUS_CODES.OK);
-      expect(Array.isArray(body)).toBe(true);
-    });
-  });
-
-  describe('getSemanticStats', () => {
-    it('should get semantic stats successfully', async () => {
-      const result = await handler.getSemanticStats(mockEvent);
-      const body = JSON.parse(result.body);
-
-      expect(result.statusCode).toBe(STATUS_CODES.OK);
-      expect(body.totalFields).toBeDefined();
-      expect(body.mappedFields).toBeDefined();
-      expect(body.unmappedFields).toBeDefined();
-    });
-  });
-
-  describe('getSemanticTerms', () => {
-    it('should get semantic terms successfully', async () => {
-      const result = await handler.getSemanticTerms(mockEvent);
-      const body = JSON.parse(result.body);
-
-      expect(result.statusCode).toBe(STATUS_CODES.OK);
-      expect(Array.isArray(body)).toBe(true);
-    });
   });
 
   describe('getVisualFieldsPaginated', () => {

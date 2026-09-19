@@ -2139,6 +2139,118 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /api/data-catalog/templates/calculated-fields:
+    get:
+      summary: The calculated-field template library
+      description: |
+        Calculated fields saved for reuse, stored by the portal because SMUS
+        has no home for them. Author offers them when creating a copy; the
+        catalog marks fields that match one.
+      responses:
+        '200':
+          description: The library
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [templates]
+                    properties:
+                      templates:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CalculatedFieldTemplate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      summary: Save a calculated field as a template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CalculatedFieldTemplateInput'
+      responses:
+        '200':
+          description: The saved template
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/CalculatedFieldTemplate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/data-catalog/templates/calculated-fields/{templateId}:
+    put:
+      summary: Update a template
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CalculatedFieldTemplateInput'
+      responses:
+        '200':
+          description: The updated template
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/CalculatedFieldTemplate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete a template
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /api/assets/{assetType}/{assetId}/rename:
     post:
       summary: Rename an asset live in QuickSight
@@ -4331,6 +4443,24 @@ components:
         newAssetId:
           type: string
           description: Clone only. Generated when omitted.
+        addCalculatedFields:
+          type: array
+          description: |
+            Calculated fields to add to the written definition, typically from
+            the template library. Each is declared against a dataset
+            identifier; a name that already exists there is rejected.
+          items:
+            type: object
+            required: [identifier, name, expression]
+            properties:
+              identifier:
+                type: string
+              name:
+                type: string
+              expression:
+                type: string
+              templateId:
+                type: string
 
     ApplyRebindResult:
       type: object
@@ -4707,9 +4837,70 @@ components:
           type: string
           enum: [public, internal, confidential, restricted]
 
+    FieldVisualUsage:
+      type: object
+      description: One visual that reads the field.
+      required: [assetType, assetId, assetName, visualId, visualName]
+      properties:
+        assetType:
+          type: string
+          enum: [dashboard, analysis]
+        assetId:
+          type: string
+        assetName:
+          type: string
+        sheetName:
+          type: string
+        visualId:
+          type: string
+        visualName:
+          type: string
+
+    ExpressionVariant:
+      type: object
+      description: One distinct expression a calculated field has somewhere.
+      required: [expression, sources]
+      properties:
+        expression:
+          type: string
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldUsedIn'
+
+    FieldConflict:
+      type: object
+      description: |
+        The same calculated field name defined with different expressions
+        across assets. The dataset's own expression is the reference; the
+        variants are what dashboards and analyses redefined it as.
+      required: [count, variants]
+      properties:
+        count:
+          type: integer
+          description: Number of distinct expressions, including the dataset's own.
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExpressionVariant'
+
+    SmusColumnLink:
+      type: object
+      description: Where a plain column comes from in SMUS.
+      required: [listingId, columnName]
+      properties:
+        listingId:
+          type: string
+        columnName:
+          type: string
+        description:
+          type: string
+        url:
+          type: string
+
     DatasetCatalogField:
       type: object
-      required: [name, dataType, isCalculated, usage, usedIn]
+      required: [name, dataType, isCalculated, usage, usedIn, references, usedBy]
       properties:
         name:
           type: string
@@ -4720,19 +4911,110 @@ components:
         expression:
           type: string
           description: Calculated fields only.
+        references:
+          type: array
+          description: Fields this expression reads (calculated fields only). Lineage downwards.
+          items:
+            type: string
+        usedBy:
+          type: array
+          description: Calculated fields in the same dataset whose expressions read this field. Lineage upwards.
+          items:
+            type: string
         usage:
           $ref: '#/components/schemas/FieldUsage'
         usedIn:
           type: array
+          description: Dashboards and analyses that use the field.
           items:
             $ref: '#/components/schemas/FieldUsedIn'
-        usedBy:
+        visuals:
           type: array
-          description: Calculated fields in the same dataset that reference this field.
+          description: The visuals that read the field, when the visual-field index has them.
           items:
-            type: string
+            $ref: '#/components/schemas/FieldVisualUsage'
+        conflict:
+          $ref: '#/components/schemas/FieldConflict'
+        smus:
+          $ref: '#/components/schemas/SmusColumnLink'
         portal:
           $ref: '#/components/schemas/PortalFieldMetadata'
+        template:
+          type: object
+          description: Present when this field is saved in the template library.
+          required: [id]
+          properties:
+            id:
+              type: string
+
+    CalculatedFieldTemplate:
+      type: object
+      description: |
+        A calculated field saved for reuse. Author can add it to a copy it
+        creates; the catalog shows which fields already match it.
+      required: [id, name, expression, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        expression:
+          type: string
+        dataType:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        source:
+          type: object
+          description: Where it was saved from, when saved from the catalog.
+          properties:
+            datasetId:
+              type: string
+            datasetName:
+              type: string
+            listingId:
+              type: string
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CalculatedFieldTemplateInput:
+      type: object
+      required: [name, expression]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        expression:
+          type: string
+          minLength: 1
+        dataType:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        source:
+          type: object
+          properties:
+            datasetId:
+              type: string
+            datasetName:
+              type: string
+            listingId:
+              type: string
 
     CatalogDataset:
       type: object

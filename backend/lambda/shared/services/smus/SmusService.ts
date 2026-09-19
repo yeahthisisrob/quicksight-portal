@@ -177,6 +177,9 @@ export class SmusService {
         url: this.buildListingUrl(l),
         table: l.table,
         columns: l.columns,
+        glossaryTerms: l.glossaryTerms ?? [],
+        forms: l.forms ?? [],
+        createdAt: l.createdAt,
         datasets: datasetsByListing.get(l.listingId) ?? [],
       }))
       .sort((a, b) => a.name.localeCompare(b.name));

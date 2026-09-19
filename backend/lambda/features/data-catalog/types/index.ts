@@ -20,13 +20,6 @@ export interface FieldTag {
   tags: string[];
 }
 
-export interface SemanticType {
-  id: string;
-  name: string;
-  description?: string;
-  rules: any[];
-}
-
 // Data catalog types - moved from old services
 export interface CatalogField {
   fieldId: string;
