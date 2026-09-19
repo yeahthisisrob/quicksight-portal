@@ -45,7 +45,33 @@ is `completed` or `failed`.
 The full contract is `shared/schemas/api.openapi.yaml`. Every path in it is
 callable with a key.
 
-## 3. Author a dashboard from the API
+## 3. Find things first: search in plain words
+
+One call finds anything the portal knows, ranked, with the reason it matched
+and a one-line summary written to be read by a person or dropped into a
+prompt:
+
+```bash
+just api GET '/search?q=gold%20orders%20dataset%20with%20revenue%20by%20region'
+just api GET '/search?q=closed%20status%20margin&types=calculated-field,template'
+just api GET '/search?q=bar%20chart%20revenue%20region&types=visual&limit=5'
+```
+
+It covers dashboards, analyses, datasets, data sources, folders, SMUS
+listings, calculated fields (matched on the expression too, so business
+rules are findable; one hit per distinct expression listing every asset that
+defines it), visuals (title, chart type, sheet, fields in the wells) and the
+template library. No model is involved: the index is built from the caches
+once per container and reused until an export changes them.
+
+**Token discipline for agents.** Search before you load anything: a hit's
+`summary`, `why` and `path` are usually enough to decide, and `types` plus
+`limit` keep the response small. Load a definition or a catalog entry only
+for the one or two hits you are going to act on. The authoring endpoints
+below are built the same way: `datasets` and the plan are short, and the
+`preview` outline gives element ids without the full definition.
+
+## 4. Author a dashboard from the API
 
 The authoring endpoints are the same ones the Author page uses, in the same
 order. Nothing is written until `apply`.
@@ -71,7 +97,7 @@ A typical agent loop: `datasets` → `propose` → read the plan → adjust
 `rebinds`/`ops` → `preview` until the outline looks right → `apply` with
 `mode: "clone"` → open the result in QuickSight.
 
-## 4. Repair an asset QuickSight refuses to write
+## 5. Repair an asset QuickSight refuses to write
 
 Assets with definition errors cannot be updated as code. Ask what is wrong
 and what would fix it:
@@ -97,7 +123,7 @@ just api POST /authoring/dashboard/<id>/rebind '{"mode":"update","repairs":[...]
 Repairs run before the rebind plan, so the plan checks the repaired
 definition; `mode: "clone"` fixes a copy instead of the original.
 
-## 5. Other useful calls
+## 6. Other useful calls
 
 - `POST /smus/export` then `GET /settings/smus/projects`: refresh what the
   portal knows about SageMaker Unified Studio.
