@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.9.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.8.0...v2.9.0) (2026-09-19)
+
+
+### Features
+
+* **authoring:** migrate onto a template dashboard's layout standard through the same preview and apply ([#158](https://github.com/yeahthisisrob/quicksight-portal/issues/158)) ([6158b4b](https://github.com/yeahthisisrob/quicksight-portal/commit/6158b4bd7a231baeb14b582343922a02475960b3))
+* **catalog:** field-first catalog - every calculated field, its usage, its conflicts and its lineage tied to SMUS ([#159](https://github.com/yeahthisisrob/quicksight-portal/issues/159)) ([5677f91](https://github.com/yeahthisisrob/quicksight-portal/commit/5677f91010de2bc2c0b47bdc00c5d9ff661ffb5b))
+
+
+### Bug Fixes
+
+* **search:** the index skips entries without a name instead of failing the whole search ([#156](https://github.com/yeahthisisrob/quicksight-portal/issues/156)) ([6040b3c](https://github.com/yeahthisisrob/quicksight-portal/commit/6040b3c4b61a9dbdf9c5500b6b9080989378a234))
+
 ## [2.8.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.7.0...v2.8.0) (2026-09-19)
 
 
