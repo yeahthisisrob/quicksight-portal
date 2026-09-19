@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.14.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.14.0...v2.14.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* **data-catalog:** a dataset built on a governed one keeps its listing, and the chain is drawn again ([#185](https://github.com/yeahthisisrob/quicksight-portal/issues/185)) ([34dfcfb](https://github.com/yeahthisisrob/quicksight-portal/commit/34dfcfb3f6b3165501f58172a0c01f8770f37f48))
+
 ## [2.14.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.13.2...v2.14.0) (2026-09-19)
 
 
