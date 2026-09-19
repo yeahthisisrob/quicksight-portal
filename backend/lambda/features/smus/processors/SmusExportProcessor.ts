@@ -4,7 +4,7 @@
  */
 import { DataZoneAdapter } from '../../../adapters/aws/DataZoneAdapter';
 import { StsAdapter } from '../../../adapters/aws/StsAdapter';
-import { getSmusConfig } from '../../../shared/config/smusConfig';
+import { getSmusConfig, type SmusConfig } from '../../../shared/config/smusConfig';
 import { CacheService } from '../../../shared/services/cache/CacheService';
 import type { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { settingsStore } from '../../../shared/services/settings/SettingsStore';
@@ -20,14 +20,22 @@ export class SmusExportProcessor {
     private readonly jobId: string
   ) {}
 
-  public async run(): Promise<void> {
-    // The worker has no request to warm the store for; read settings now so
-    // a domain chosen in the UI is the one that gets swept.
-    await settingsStore.load(true);
-    const config = getSmusConfig();
+  public async run(fromMessage?: SmusConfig): Promise<void> {
+    // The API resolved the config against warmed settings when it queued the
+    // job; prefer that over re-reading the store from the worker, which has
+    // no request to warm it for.
+    const config = fromMessage?.enabled ? fromMessage : await this.loadConfig();
     if (!config.enabled) {
-      throw new Error('SMUS is not configured: set the domain id in Settings first');
+      throw new Error(
+        'SMUS is not configured: the job carried no domain and the worker read none from Settings'
+      );
     }
+    logger.info('SMUS export config', {
+      source: fromMessage?.enabled ? 'job message' : 'settings store',
+      domainId: config.domainId,
+      region: config.region,
+      projectIds: config.projectIds,
+    });
 
     await this.jobStateService.updateJobStatus(this.jobId, {
       status: 'processing',
@@ -71,5 +79,10 @@ export class SmusExportProcessor {
       message: problems.length > 0 ? `Exported with errors: ${summary}` : `Exported ${summary}`,
       progress: PROGRESS.written,
     });
+  }
+
+  private async loadConfig(): Promise<SmusConfig> {
+    await settingsStore.load(true);
+    return getSmusConfig();
   }
 }

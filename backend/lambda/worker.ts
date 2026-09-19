@@ -6,6 +6,7 @@ import { warmCollectionSnapshots } from './features/asset-management/services/co
 import { ExportOrchestrator } from './features/data-export/services/ExportOrchestrator';
 import type { DeploymentConfig } from './features/deployment/services/deploy/types';
 import { SmusExportProcessor } from './features/smus/processors/SmusExportProcessor';
+import type { SmusConfig } from './shared/config/smusConfig';
 import { JOB_CONFIG, STORAGE_LIMITS, TIME_UNITS, WORKER_CONFIG } from './shared/constants';
 import type { AssetType } from './shared/models/asset.model';
 import { S3Service } from './shared/services/aws/S3Service';
@@ -77,6 +78,7 @@ interface SmusExportMessage {
   jobType: 'smus-export';
   accountId: string;
   userId?: string;
+  options?: { smus?: SmusConfig };
 }
 
 interface BulkOperationMessage {
@@ -406,7 +408,7 @@ async function processSmusExportJob(message: SmusExportMessage, record: any): Pr
         startTime: new Date().toISOString(),
       });
     }
-    await new SmusExportProcessor(jobStateService, jobId).run();
+    await new SmusExportProcessor(jobStateService, jobId).run(message.options?.smus);
   } catch (error) {
     logger.error('SMUS export job failed', {
       jobId,

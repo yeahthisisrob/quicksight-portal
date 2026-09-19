@@ -60,6 +60,7 @@ export async function startSmusExport(event: APIGatewayProxyEvent): Promise<APIG
       accountId,
       bucketName: process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`,
       userId: user.userId,
+      options: { smus: config },
     };
     const result = await jobFactory.createJob(jobConfig);
     return createResponse(event, STATUS_CODES.ACCEPTED, {

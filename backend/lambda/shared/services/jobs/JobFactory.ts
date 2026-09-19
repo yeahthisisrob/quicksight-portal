@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 
+import type { SmusConfig } from '../../config/smusConfig';
 import type { AssetType } from '../../models/asset.model';
 import { executeJobLocallyAsync, isLocalDevelopment } from '../../utils/localDevelopment';
 import { logger } from '../../utils/logger';
@@ -54,6 +55,8 @@ export interface ActivityRefreshJobConfig extends BaseJobConfig {
 
 export interface SmusExportJobConfig extends BaseJobConfig {
   jobType: 'smus-export';
+  /** The SMUS config as the API resolved it (stored settings win over env). */
+  options: { smus: SmusConfig };
 }
 
 export interface BulkOperationJobConfig extends BaseJobConfig {
@@ -248,6 +251,8 @@ export class JobFactory {
         deploymentConfig: config.deploymentConfig,
       };
     } else if (config.jobType === 'activity-refresh') {
+      return { options: config.options };
+    } else if (config.jobType === 'smus-export') {
       return { options: config.options };
     } else if (config.jobType === 'bulk-operation') {
       return {
