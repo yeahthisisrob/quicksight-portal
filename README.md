@@ -73,7 +73,7 @@ The portal reads the published catalog of a SMUS (DataZone) domain: each listing
 
 ### Catalog: SMUS first, QuickSight on top
 
-The catalog shows only assets published in the SMUS projects chosen in Settings, one project at a time, since everything in SMUS is per project. SMUS owns the business metadata and the portal shows it read-only: glossary terms, metadata forms, descriptions, the Glue table and its columns. The portal adds what only QuickSight knows:
+The catalog leads with what SMUS does not have: **every calculated field in the account**, one row per distinct expression, with where it is defined, the datasets and SMUS listings it lives on, how many dashboards, analyses and visuals use it, and a conflict badge wherever one name carries several expressions. One click opens the lineage both ways: the columns it reads, each tied to its SMUS column with description and glossary terms, the calculated fields it builds on, and everything that reads it down to the visual, with the variants side by side. A columns tab ties plain columns to their SMUS column, and the SMUS assets tab shows the published listings per project. SMUS owns the business metadata and the portal shows it read-only: glossary terms, metadata forms, descriptions, the Glue table and its columns. The portal adds what only QuickSight knows:
 
 - the datasets reading each published asset, and their fields;
 - calculated fields with their expressions, lineage in both directions (what an expression reads, and which calculated fields read it), and a clickable lineage graph;
