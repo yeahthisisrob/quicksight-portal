@@ -61,8 +61,12 @@ export class SettingsHandler {
         new DataZoneAdapter(config.region),
         config
       );
-      const projects = await service.listProjects();
-      return successResponse(event, { success: true, data: { configured: true, projects } });
+      const { projects, diagnostics } = await service.projectDiscovery();
+      logger.info('SMUS project discovery', diagnostics);
+      return successResponse(event, {
+        success: true,
+        data: { configured: true, projects, diagnostics },
+      });
     } catch (error: any) {
       logger.error('List SMUS projects failed', { error });
       return errorResponse(

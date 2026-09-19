@@ -12,6 +12,8 @@ export interface RemoteOption {
 interface RemoteOptions {
   configured: boolean;
   options: RemoteOption[];
+  /** Shown when the list is empty: how the options were looked for. */
+  emptyDetail?: string;
 }
 
 /**
@@ -21,8 +23,22 @@ interface RemoteOptions {
 const LOADERS: Record<string, () => Promise<RemoteOptions>> = {
   '/settings/smus/projects': async () => {
     const result = await settingsApi.listSmusProjects();
+    const d = result.diagnostics;
+    const emptyDetail = d
+      ? [
+          `Looked in domain ${d.domainId} (${d.region}): ${d.fromListProjects} from ListProjects, ${d.listings} published listings, ${d.publishers} publishers.`,
+          d.listProjectsError ? `ListProjects failed: ${d.listProjectsError}` : '',
+          d.listingsError ? `SearchListings failed: ${d.listingsError}` : '',
+          d.listings === 0 && !d.listingsError
+            ? 'No published listings, so there is nothing to derive projects from: check the domain id and region, and that assets are published.'
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' ')
+      : undefined;
     return {
       configured: result.configured,
+      emptyDetail,
       options: result.projects.map((p) => ({
         value: p.id,
         label: p.name,
@@ -115,7 +131,8 @@ export function RemoteMultiSelect({
               : notConfigured
                 ? 'No SMUS domain is configured, so there are no projects to choose from.'
                 : query.data && query.data.options.length === 0
-                  ? "No projects were found. Projects are discovered from published listings and from the portal role's own memberships; check the domain id, region and the role's DataZone access."
+                  ? (query.data.emptyDetail ??
+                    "No projects were found. Check the domain id, region and the portal role's DataZone access.")
                   : value.length === 0
                     ? emptyHint
                     : undefined

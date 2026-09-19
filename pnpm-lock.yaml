@@ -187,6 +187,9 @@ importers:
       '@aws-sdk/client-cloudtrail':
         specifier: ^3.1134.0
         version: 3.1134.0
+      '@aws-sdk/client-cloudwatch':
+        specifier: ^3.1135.0
+        version: 3.1135.0
       '@aws-sdk/client-cloudwatch-logs':
         specifier: ^3.1134.0
         version: 3.1134.0
@@ -508,6 +511,10 @@ packages:
 
   '@aws-sdk/client-cloudwatch-logs@3.1134.0':
     resolution: {integrity: sha512-ZyMDF3uh/5njAeOKVOy2gNX966vx+yilHAllSUuLv4qwAJKFgXoObOqba5b511KkQsUsYbkZYnCzmJV3Ql9j0w==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-cloudwatch@3.1135.0':
+    resolution: {integrity: sha512-UqXYanWwsyBMNOu7kM5uPl8Z8HqqJkniMY90wGIfrUvQg0auj3qCfhO0RN7MGrARjwxXlcsZIkj4VyJodoGu5w==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-datazone@3.1134.0':
@@ -1944,6 +1951,10 @@ packages:
 
   '@smithy/fetch-http-handler@5.8.0':
     resolution: {integrity: sha512-ycSJu3tFAQ4v04CBB0agqFMVsSQ1iG3yw+SpgxRqKfaURpQD4CZ8Wn0zPMmSnOuTpTh65Vz+EA0rMrw089wvkA==}
+    engines: {node: '>=18.0.0'}
+
+  '@smithy/middleware-compression@4.6.2':
+    resolution: {integrity: sha512-Q9d+luiRjyHT6kCL/9NyGpdZJgodh4vtvfHC6H8SqoVKrV2k9RoyI9/IloVfdCYks3/2DIi7BsYYLcda5KZS0A==}
     engines: {node: '>=18.0.0'}
 
   '@smithy/node-http-handler@4.12.1':
@@ -4477,6 +4488,18 @@ snapshots:
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
+  '@aws-sdk/client-cloudwatch@3.1135.0':
+    dependencies:
+      '@aws-sdk/core': 3.978.0
+      '@aws-sdk/credential-provider-node': 3.972.83
+      '@aws-sdk/types': 3.974.5
+      '@smithy/core': 3.34.1
+      '@smithy/fetch-http-handler': 5.8.0
+      '@smithy/middleware-compression': 4.6.2
+      '@smithy/node-http-handler': 4.12.1
+      '@smithy/types': 4.18.0
+      tslib: 2.8.1
+
   '@aws-sdk/client-datazone@3.1134.0':
     dependencies:
       '@aws-sdk/core': 3.978.0
@@ -5868,6 +5891,13 @@ snapshots:
     dependencies:
       '@smithy/core': 3.34.1
       '@smithy/types': 4.18.0
+      tslib: 2.8.1
+
+  '@smithy/middleware-compression@4.6.2':
+    dependencies:
+      '@smithy/core': 3.34.1
+      '@smithy/types': 4.18.0
+      fflate: 0.8.3
       tslib: 2.8.1
 
   '@smithy/node-http-handler@4.12.1':
