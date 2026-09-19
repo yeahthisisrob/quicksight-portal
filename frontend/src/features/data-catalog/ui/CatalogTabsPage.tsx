@@ -58,13 +58,16 @@ export function CatalogTabsPage({
   const [libraryOpen, setLibraryOpen] = useState(url.templates === '1');
 
   const projects = useCatalogProjects();
+  // Calculated fields and columns are QuickSight's own; only the SMUS tab is
+  // bound to one project, so the others span every project by default.
+  const spansProjects = tab !== 'smus';
   const project = useMemo(
-    () => pickProject(projects.data?.projects ?? [], url.project),
-    [projects.data, url.project]
+    () => pickProject(projects.data?.projects ?? [], url.project, spansProjects),
+    [projects.data, url.project, spansProjects]
   );
   useEffect(() => {
-    if (project && project.id !== url.project) setUrl({ project: project.id });
-  }, [project, url.project, setUrl]);
+    if (!spansProjects && project && project.id !== url.project) setUrl({ project: project.id });
+  }, [spansProjects, project, url.project, setUrl]);
   useEffect(() => {
     if ((url.q ?? '') !== search) setUrl({ q: search });
     // The URL follows the box, not the other way round, so typing stays smooth.
@@ -86,11 +89,11 @@ export function CatalogTabsPage({
         {getApiErrorMessage(projects.error, 'Unknown error')}
       </Alert>
     );
-  } else if (projects.data && !configured) {
+  } else if (projects.data && !configured && tab === 'smus') {
     body = (
       <EmptyState
         title="SageMaker Unified Studio is not configured"
-        description="The catalog is built from the assets published in your SMUS domain. Set the domain id, region and the projects to read from in Settings."
+        description="The SMUS assets tab is built from the assets published in your SMUS domain. Set the domain id, region and the projects to read from in Settings. Calculated fields and columns come from the QuickSight export and are on the other tabs either way."
         action={
           <Button component={RouterLink} to="/settings" variant="contained">
             Open Settings
@@ -98,7 +101,7 @@ export function CatalogTabsPage({
         }
       />
     );
-  } else if (projects.data && !projects.data.exportedAt) {
+  } else if (projects.data && !projects.data.exportedAt && tab === 'smus') {
     body = <NoExport />;
   } else if (tab === 'smus') {
     body = <CatalogPage embedded />;
@@ -110,7 +113,6 @@ export function CatalogTabsPage({
         onSearch={setSearch}
         onOpenField={(key) => openField(key)}
         onOpenListing={openListing}
-        noExport={<NoExport />}
       />
     );
   } else {
@@ -124,7 +126,6 @@ export function CatalogTabsPage({
         selectedKey={url.field}
         onSelect={(key) => setUrl({ field: key })}
         onOpenListing={openListing}
-        noExport={<NoExport />}
       />
     );
   }
@@ -146,6 +147,7 @@ export function CatalogTabsPage({
             {configured && projectOptions.length > 0 && (
               <ProjectSelect
                 projects={projectOptions}
+                allowAll={spansProjects}
                 value={project?.id}
                 onChange={(id) =>
                   setUrl({ project: id, asset: undefined, term: undefined, field: undefined })

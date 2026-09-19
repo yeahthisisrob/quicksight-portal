@@ -14,5 +14,9 @@
  * v3: composite dataset support - dataset lineage carries datasetIds/
  *     datasetArns extracted from LogicalTableMap Source.DataSetArn and
  *     PhysicalTableMap DataSetArn, powering dataset->dataset uses/used_by.
+ * v4: the new data prep experience - calculated fields, renames, type casts
+ *     and parent datasets are read from DataPrepConfiguration as well as from
+ *     LogicalTableMap. Datasets built there parsed as having no calculated
+ *     fields at all until they are read again.
  */
-export const PARSER_METADATA_VERSION = 3;
+export const PARSER_METADATA_VERSION = 4;

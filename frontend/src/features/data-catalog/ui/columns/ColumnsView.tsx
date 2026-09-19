@@ -36,7 +36,6 @@ export interface ColumnsViewProps {
   onSearch: (search: string) => void;
   onOpenField: (key: string) => void;
   onOpenListing: (listingId: string) => void;
-  noExport: React.ReactNode;
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -202,7 +201,6 @@ export function ColumnsView({
   onSearch,
   onOpenField,
   onOpenListing,
-  noExport,
 }: ColumnsViewProps) {
   const debounced = useDebounce(search, SEARCH_DEBOUNCE_MS);
   const list = useColumns({ projectId, search: debounced || undefined });
@@ -215,9 +213,8 @@ export function ColumnsView({
       </Alert>
     );
   }
-  if (list.data && !list.data.exportedAt) {
-    return <>{noExport}</>;
-  }
+  // Columns come from the QuickSight export; a missing SMUS export costs the
+  // tie-back and nothing else, so it is a note rather than an empty page.
   const items = list.data?.items ?? [];
 
   return (

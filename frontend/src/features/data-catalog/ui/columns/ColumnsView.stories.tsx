@@ -17,7 +17,6 @@ function Harness({ routes, initialSearch = '' }: { routes: MockRoute[]; initialS
       onSearch={setSearch}
       onOpenField={() => {}}
       onOpenListing={() => {}}
-      noExport={<div>No SMUS export yet</div>}
     />
   );
 }
