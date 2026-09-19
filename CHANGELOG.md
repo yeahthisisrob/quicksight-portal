@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.14.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.13.2...v2.14.0) (2026-09-19)
+
+
+### Features
+
+* **data-catalog:** the field tabs read the SMUS projects, with what falls outside one click away ([#183](https://github.com/yeahthisisrob/quicksight-portal/issues/183)) ([35d49e5](https://github.com/yeahthisisrob/quicksight-portal/commit/35d49e502e1ba4b28d97c50395fcfd3a2b8c37e5))
+
 ## [2.13.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.13.1...v2.13.2) (2026-09-19)
 
 
