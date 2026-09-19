@@ -68,7 +68,7 @@ The catalog shows only assets published in the SMUS projects chosen in Settings,
 
 - the datasets reading each published asset, and their fields;
 - calculated fields with their expressions, lineage in both directions (what an expression reads, and which calculated fields read it), and a clickable lineage graph;
-- where every field is used, down to the visual;
+- where every field is used, down to the visual (recorded by the QuickSight export as it parses each definition, so after upgrading run a cache rebuild once to fill it in);
 - **conflicts**: the same calculated field defined with different expressions across dashboards and analyses, with each variant's sources, so a person can decide which is canonical;
 - a link back to the SMUS column for plain fields, and a portal note only for calculated fields, because SMUS has no home for those;
 - a **template library** of calculated fields. Save one from the catalog and Author adds it to the copies it creates.

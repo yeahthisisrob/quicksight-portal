@@ -5,6 +5,7 @@
 
 import type { AssetType } from '../../../types/assetTypes';
 import { logger } from '../../../utils/logger';
+import type { FieldVisualRef } from '../../cache/types';
 import {
   BaseAssetParser,
   type CalculatedField,
@@ -106,9 +107,14 @@ export abstract class ExplorationParser extends BaseAssetParser {
         })),
       }));
 
-      // Extract fields and calculated fields
-      const fields = this.extractFieldsForMetadata(parsedInfo);
-      const calculatedFields = this.extractCalculatedFieldsForMetadata(parsedInfo);
+      // Extract fields and calculated fields, each with the visuals that read it
+      const visualsByField = this.visualsByField(parsedInfo);
+      const fields = this.extractFieldsForMetadata(parsedInfo).map((field) =>
+        withVisuals(field, visualsByField)
+      );
+      const calculatedFields = this.extractCalculatedFieldsForMetadata(parsedInfo).map((field) =>
+        withVisuals(field, visualsByField)
+      );
 
       // Extract lineage data
       const lineageData = this.extractLineageData(definitionData, describeData);
@@ -234,6 +240,38 @@ export abstract class ExplorationParser extends BaseAssetParser {
   }
 
   /**
+   * Which visuals read each field, keyed by field id and by field name, so
+   * the cache can answer "where is this used, down to the visual" without
+   * re-reading definitions. Deduplicated per visual.
+   */
+  private visualsByField(parsedInfo: ParsedAssetInfo): Map<string, FieldVisualRef[]> {
+    const titles = new Map<string, string | undefined>();
+    for (const sheet of parsedInfo.sheets ?? []) {
+      for (const visual of sheet.visuals ?? []) {
+        titles.set(visual.visualId, visual.title);
+      }
+    }
+    const byField = new Map<string, FieldVisualRef[]>();
+    for (const mapping of parsedInfo.visualFieldMappings ?? []) {
+      const ref: FieldVisualRef = {
+        visualId: mapping.visualId,
+        visualType: mapping.visualType,
+        title: titles.get(mapping.visualId),
+        sheetId: mapping.sheetId,
+        sheetName: mapping.sheetName,
+      };
+      for (const key of new Set([mapping.fieldId, mapping.fieldName].filter(Boolean))) {
+        const list = byField.get(key) ?? [];
+        if (!list.some((v) => v.visualId === ref.visualId)) {
+          list.push(ref);
+        }
+        byField.set(key, list);
+      }
+    }
+    return byField;
+  }
+
+  /**
    * Extract calculated fields in metadata format
    */
   private extractCalculatedFieldsForMetadata(parsedInfo: ParsedAssetInfo): any[] {
@@ -343,4 +381,13 @@ export abstract class ExplorationParser extends BaseAssetParser {
 
     return lineageData;
   }
+}
+
+/** Attach the visuals that read a metadata field; nothing when none does. */
+function withVisuals<T extends { fieldId: string; fieldName: string }>(
+  field: T,
+  byField: Map<string, FieldVisualRef[]>
+): T & { visuals?: FieldVisualRef[] } {
+  const visuals = byField.get(field.fieldId) ?? byField.get(field.fieldName);
+  return visuals && visuals.length > 0 ? { ...field, visuals } : field;
 }
