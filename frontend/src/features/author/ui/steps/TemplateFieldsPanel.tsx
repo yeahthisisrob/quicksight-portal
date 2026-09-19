@@ -113,8 +113,9 @@ export function TemplateFieldsPanel({ flow }: { flow: AuthorFlow }) {
                   </Typography>
                   {clash && (
                     <Alert severity="warning" sx={{ mt: 1 }}>
-                      A calculated field named {field.name} already exists on {field.identifier}.
-                      Publishing will be refused; pick another dataset or rename the template.
+                      A calculated field named {field.name} already exists on {field.identifier}. If
+                      it has the same expression nothing is added; otherwise this one is published
+                      as {field.name}_v2.
                     </Alert>
                   )}
                 </Box>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { walkColumnIdentifiers } from '../definitionColumns';
-import { rebindDefinition, rewriteExpression } from '../definitionRebind';
+import { rebindDefinition, rewriteExpression, withAddedCalculatedFields } from '../definitionRebind';
 import { ORDERS_ARN, REGIONS_ARN, sampleDefinition } from './fixtures';
 
 const GOLD_ARN = 'arn:aws:quicksight:us-east-1:1:dataset/orders-gold';
@@ -117,8 +117,7 @@ describe('rebindDefinition', () => {
 });
 
 describe('withAddedCalculatedFields', () => {
-  it('appends template fields to the right identifier and refuses duplicates or unknown identifiers', async () => {
-    const { withAddedCalculatedFields } = await import('../../services/RebindService');
+  it('appends template fields to the right identifier and refuses unknown identifiers', () => {
     const out = withAddedCalculatedFields(sampleDefinition(), [
       { identifier: 'orders', name: 'net_margin', expression: '{revenue} - {cost} - {tax}' },
     ]);
@@ -129,10 +128,20 @@ describe('withAddedCalculatedFields', () => {
     });
     expect(sampleDefinition().CalculatedFields).toHaveLength(2);
     expect(() =>
-      withAddedCalculatedFields(sampleDefinition(), [{ identifier: 'orders', name: 'margin', expression: 'x' }])
-    ).toThrow("already exists on 'orders'");
-    expect(() =>
       withAddedCalculatedFields(sampleDefinition(), [{ identifier: 'ghost', name: 'a', expression: 'x' }])
     ).toThrow("no dataset identifier 'ghost'");
+  });
+
+  it('never refuses over a name: a same-expression duplicate is skipped, a different one gets a suffix', () => {
+    const same = withAddedCalculatedFields(sampleDefinition(), [
+      { identifier: 'orders', name: 'margin', expression: '{revenue}-{cost}' },
+    ]);
+    expect(same.CalculatedFields).toHaveLength(2);
+
+    const different = withAddedCalculatedFields(sampleDefinition(), [
+      { identifier: 'orders', name: 'margin', expression: '{revenue} - {cost} - {tax}' },
+      { identifier: 'orders', name: 'margin', expression: '{revenue} - {cost} - {tax} - {fees}' },
+    ]);
+    expect(different.CalculatedFields.slice(2).map((f: any) => f.Name)).toEqual(['margin_v2', 'margin_v3']);
   });
 });
