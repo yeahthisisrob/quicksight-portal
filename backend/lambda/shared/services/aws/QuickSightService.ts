@@ -1386,6 +1386,10 @@ export class QuickSightService {
     rowLevelPermissionTagConfiguration?: any;
     columnLevelPermissionRules?: any[];
     dataSetUsageConfiguration?: any;
+    /** New data prep experience: the steps that replace LogicalTableMap. */
+    dataPrepConfiguration?: any;
+    /** New data prep experience: the semantic model written beside those steps. */
+    semanticModelConfiguration?: any;
   }): Promise<any> {
     return await this.executeWithTracking(
       () => this.adapter.updateDataSet(params),

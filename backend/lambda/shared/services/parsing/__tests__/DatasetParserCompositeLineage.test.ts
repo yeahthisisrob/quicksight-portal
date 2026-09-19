@@ -113,4 +113,51 @@ describe('DatasetParser composite dataset lineage', () => {
     expect(metadata.lineageData.datasourceIds).toEqual(['ds-1']);
     expect(metadata.lineageData.datasetIds).toEqual([]);
   });
+
+  it('reads a dataset built in the new data prep experience: its fields, its calculated fields and its parents', () => {
+    const metadata = parser.extractMetadata(
+      assetDataWithDescribe({
+        DataSetId: 'new-prep-1',
+        Name: 'Built in the new experience',
+        ImportMode: 'SPICE',
+        PhysicalTableMap: {
+          'p-1': {
+            RelationalTable: {
+              DataSourceArn: `${ACCOUNT_ARN_PREFIX}:datasource/athena-1`,
+              Schema: 'published_prod',
+              Name: 'fct_orders',
+              // Read as the parser reads a physical table, with no
+              // OutputColumns, so the steps below are what shape the fields.
+              Columns: [{ Name: 'amt', Type: 'STRING' }],
+            },
+          },
+        },
+        // No LogicalTableMap at all: the new experience replaces it.
+        DataPrepConfiguration: {
+          SourceTableMap: {
+            's-1': { PhysicalTableId: 'p-1' },
+            's-2': { DataSet: { DataSetArn: `${ACCOUNT_ARN_PREFIX}:dataset/source-a` } },
+          },
+          TransformStepMap: {
+            't-1': {
+              CreateColumnsStep: {
+                Columns: [{ ColumnName: 'margin', ColumnId: 'c1', Expression: '{amt} * 0.3' }],
+              },
+            },
+            't-2': {
+              CastColumnTypesStep: {
+                CastColumnTypeOperations: [{ ColumnName: 'amt', NewColumnType: 'DECIMAL' }],
+              },
+            },
+          },
+        },
+      })
+    );
+
+    expect(metadata.calculatedFields).toEqual([{ name: 'margin', expression: '{amt} * 0.3' }]);
+    // The cast in the new step map still reaches the field it retypes.
+    expect(metadata.fields?.find((f: any) => f.fieldName === 'amt')?.dataType).toBe('DECIMAL');
+    expect(metadata.lineageData.datasetIds).toEqual(['source-a']);
+    expect(metadata.lineageData.datasourceIds).toEqual(['athena-1']);
+  });
 });

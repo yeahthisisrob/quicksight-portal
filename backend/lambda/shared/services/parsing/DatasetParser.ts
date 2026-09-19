@@ -6,6 +6,7 @@ import {
   type Field,
   type ParserCapabilities,
 } from './BaseAssetParser';
+import { dataTransformsOf, parentDataSetArnsOf } from './dataPrepTransforms';
 
 /**
  * Dataset metadata extracted from API responses
@@ -161,27 +162,18 @@ export class DatasetParser extends BaseAssetParser {
    * Parse calculated fields from dataset definition
    */
   protected override parseCalculatedFields(definition: any): CalculatedField[] {
-    if (!definition.LogicalTableMap) {
-      return [];
-    }
-
     const calculatedFields: CalculatedField[] = [];
 
-    Object.values(definition.LogicalTableMap).forEach((logicalTable: any) => {
-      if (logicalTable.DataTransforms) {
-        logicalTable.DataTransforms.forEach((transform: any) => {
-          if (transform.CreateColumnsOperation?.Columns) {
-            transform.CreateColumnsOperation.Columns.forEach((col: any) => {
-              if (this.isValidFieldName(col.ColumnName) && col.Expression) {
-                calculatedFields.push({
-                  name: col.ColumnName,
-                  expression: col.Expression,
-                });
-              }
-            });
-          }
-        });
-      }
+    // Legacy logical tables and new data prep steps both land here.
+    dataTransformsOf(definition).forEach((transform) => {
+      (transform.CreateColumnsOperation?.Columns ?? []).forEach((col: any) => {
+        if (this.isValidFieldName(col.ColumnName) && col.Expression) {
+          calculatedFields.push({
+            name: col.ColumnName,
+            expression: col.Expression,
+          });
+        }
+      });
     });
 
     return calculatedFields;
@@ -258,54 +250,35 @@ export class DatasetParser extends BaseAssetParser {
       });
     }
 
-    // Extract logical table fields (transformed columns)
-    if (definition.LogicalTableMap) {
-      Object.values(definition.LogicalTableMap).forEach((logicalTable: any) => {
-        if (logicalTable.DataTransforms) {
-          logicalTable.DataTransforms.forEach((transform: any) => {
-            // Cast operations
-            if (transform.CastColumnTypeOperation) {
-              const col = transform.CastColumnTypeOperation;
-              if (this.isValidFieldName(col.ColumnName)) {
-                // Find existing field and update its type
-                const existingField = fields.find((f) => f.fieldName === col.ColumnName);
-                if (existingField) {
-                  existingField.dataType = col.NewColumnType;
-                  existingField.type = col.NewColumnType;
-                }
-              }
-            }
-
-            // Rename operations
-            if (transform.RenameColumnOperation) {
-              const col = transform.RenameColumnOperation;
-              if (
-                this.isValidFieldName(col.ColumnName) &&
-                this.isValidFieldName(col.NewColumnName)
-              ) {
-                const existingField = fields.find((f) => f.fieldName === col.ColumnName);
-                if (existingField) {
-                  existingField.fieldName = col.NewColumnName;
-                  existingField.name = col.NewColumnName;
-                  existingField.fieldId = col.NewColumnName;
-                }
-              }
-            }
-
-            // Tag operations (for field metadata)
-            if (transform.TagColumnOperation) {
-              const col = transform.TagColumnOperation;
-              if (this.isValidFieldName(col.ColumnName)) {
-                const existingField = fields.find((f) => f.fieldName === col.ColumnName);
-                if (existingField) {
-                  // Could add tag information to field metadata here
-                }
-              }
-            }
-          });
+    // Transformed columns, from whichever experience the dataset was built in.
+    dataTransformsOf(definition).forEach((transform) => {
+      // Cast operations
+      if (transform.CastColumnTypeOperation) {
+        const col = transform.CastColumnTypeOperation;
+        if (this.isValidFieldName(col.ColumnName)) {
+          // Find existing field and update its type
+          const existingField = fields.find((f) => f.fieldName === col.ColumnName);
+          if (existingField) {
+            existingField.dataType = col.NewColumnType;
+            existingField.type = col.NewColumnType;
+          }
         }
-      });
-    }
+      }
+
+      // Rename operations
+      if (transform.RenameColumnOperation) {
+        const col = transform.RenameColumnOperation;
+        const renamed = col.NewColumnName;
+        if (renamed && this.isValidFieldName(col.ColumnName) && this.isValidFieldName(renamed)) {
+          const existingField = fields.find((f) => f.fieldName === col.ColumnName);
+          if (existingField) {
+            existingField.fieldName = renamed;
+            existingField.name = renamed;
+            existingField.fieldId = renamed;
+          }
+        }
+      }
+    });
 
     // Parsing completed - found fields from table maps
 
@@ -472,6 +445,12 @@ export class DatasetParser extends BaseAssetParser {
       for (const table of Object.values(definition.PhysicalTableMap) as any[]) {
         this.collectDatasetArn(table?.DataSetArn, datasetArns, datasetIds);
       }
+    }
+
+    // A composite built in the new data prep experience names its parents on
+    // the source tables instead of the logical ones.
+    for (const arn of parentDataSetArnsOf(definition)) {
+      this.collectDatasetArn(arn, datasetArns, datasetIds);
     }
 
     // Extract logical table information. Composite datasets (built by joining

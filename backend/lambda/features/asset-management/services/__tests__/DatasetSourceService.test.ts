@@ -137,6 +137,30 @@ describe('DatasetSourceService', () => {
       expect(sent.name).toBe('orders_fact');
     });
 
+    it("carries a new data prep dataset's configuration back, so the edit is not a downgrade", async () => {
+      const dataPrep = {
+        SourceTableMap: { 's-1': { PhysicalTableId: 't-rel' } },
+        TransformStepMap: { 'st-1': { CreateColumnsStep: { Columns: [] } } },
+      };
+      mocks.qs.describeDataset.mockResolvedValue({
+        ...describeResponse(),
+        LogicalTableMap: undefined,
+        DataPrepConfiguration: dataPrep,
+        SemanticModelConfiguration: { TableMap: { 'sm-1': { Alias: 'orders' } } },
+      });
+
+      await service.updateSource('ds-1', {
+        tables: [{ id: 't-rel', schema: 'analytics_prod' }],
+      });
+
+      const sent = mocks.qs.updateDataSet.mock.calls[0]![0];
+      expect(sent.dataPrepConfiguration).toEqual(dataPrep);
+      expect(sent.semanticModelConfiguration).toEqual({
+        TableMap: { 'sm-1': { Alias: 'orders' } },
+      });
+      expect(sent.physicalTableMap['t-rel'].RelationalTable.Schema).toBe('analytics_prod');
+    });
+
     it('edits custom SQL without touching its columns', async () => {
       await service.updateSource('ds-1', {
         tables: [{ id: 't-sql', sqlQuery: '  SELECT 2  ' }],

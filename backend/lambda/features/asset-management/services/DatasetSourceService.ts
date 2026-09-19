@@ -189,6 +189,8 @@ export class DatasetSourceService {
       rowLevelPermissionTagConfiguration: current.RowLevelPermissionTagConfiguration,
       columnLevelPermissionRules: current.ColumnLevelPermissionRules,
       dataSetUsageConfiguration: current.DataSetUsageConfiguration,
+      dataPrepConfiguration: current.DataPrepConfiguration,
+      semanticModelConfiguration: current.SemanticModelConfiguration,
     });
 
     // Reflect the rename in listings straight away. QuickSight bumps

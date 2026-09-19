@@ -89,6 +89,8 @@ The catalog leads with what SMUS does not have: **every calculated field in the 
 - a link back to the SMUS column for plain fields, and a portal note only for calculated fields, because SMUS has no home for those;
 - a **template library** of calculated fields. Save one from the catalog and Author adds it to the copies it creates.
 
+Both QuickSight data prep experiences are read and written. A dataset built in the new experience keeps its steps in a data prep configuration rather than the legacy logical tables, and cannot be written back as legacy, so the portal reads calculated fields, renames, type casts and parent datasets from either shape, and carries the new configuration through every edit instead of dropping it. Without that, such a dataset reads as one with no calculated fields at all, and renaming it or changing its source fails.
+
 ![Catalog: every calculated field, its usage and its conflicts](docs/screenshots/catalog-calculated-fields.png)
 
 ![Catalog: a calculated field's lineage both ways, tied to SMUS](docs/screenshots/catalog-calculated-field-detail.png)
