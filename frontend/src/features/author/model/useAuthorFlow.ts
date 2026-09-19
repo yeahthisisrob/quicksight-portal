@@ -6,15 +6,16 @@
  * server dry run) and the server calls that are specific to authoring: the
  * planner, insights, the mockup preview and the final apply. The source
  * lives in the URL (?type=&id=) so a row menu can deep-link and a reload
- * keeps its place.
+ * keeps its place; ?new=1 opens the flow that starts from nothing.
  */
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import {
   buildWireframeModel,
+  type DatasetOption,
   definitionFromExport,
   diffWireframeModels,
   type RebindDraft,
@@ -28,8 +29,10 @@ import {
 import { assetsApi, authoringApi, getApiErrorMessage, tagsApi } from '@/shared/api';
 import type {
   AssetInsights,
+  AuthorableAssetType,
   DefinitionChange,
   DefinitionOp,
+  NewAssetPreview,
   Proposal,
   RebindPlan,
   RepairFix,
@@ -49,12 +52,23 @@ import {
   authorFlowReducer,
   authorSteps,
   initialAuthorFlowState,
+  initialNewFlowState,
   nextStep,
   previousStep,
   type SelectedElement,
   type StepStatus,
   stepStatus,
 } from './authorFlow';
+import {
+  columnsFromExport,
+  type DatasetColumn,
+  type DraftValue,
+  type DraftVisual,
+  draftsFromSpecs,
+  isComplete,
+  type NewAssetDataset,
+  newAssetRequest,
+} from './newAsset';
 import {
   defaultChoices,
   mergeRepairRebinds,
@@ -130,6 +144,43 @@ export interface StandardChoice {
   active: boolean;
 }
 
+/** The output columns of a chosen dataset, from its cached export. */
+export interface DatasetColumns {
+  loading: boolean;
+  columns: DatasetColumn[];
+}
+
+/** New mode: a dashboard or analysis from nothing. */
+export interface NewAssetFlow {
+  assetType: AuthorableAssetType;
+  setAssetType: (assetType: AuthorableAssetType) => void;
+  name: string;
+  setName: (name: string) => void;
+  sheetName: string;
+  setSheetName: (sheetName: string) => void;
+  /** The datasets it reads, each under an identifier its columns are named by. */
+  datasets: NewAssetDataset[];
+  addDataset: (option: DatasetOption) => void;
+  removeDataset: (identifier: string) => void;
+  setIdentifier: (identifier: string, next: string) => void;
+  /** Columns by identifier, from the cached dataset exports. */
+  columns: Record<string, DatasetColumns>;
+  visuals: DraftVisual[];
+  addVisual: () => void;
+  updateVisual: (id: string, patch: Partial<Omit<DraftVisual, 'id'>>) => void;
+  removeVisual: (id: string) => void;
+  addValue: (id: string) => void;
+  updateValue: (id: string, index: number, patch: Partial<DraftValue>) => void;
+  removeValue: (id: string, index: number) => void;
+  /** Why the planner proposed what it did, from the last ask. */
+  proposal: NonNullable<NewAssetPreview['proposal']> | null;
+  /** The asset whose audience the new one inherits. */
+  audience: RebindSource | null;
+  setAudience: (audience: RebindSource | null) => void;
+  /** At least one visual is complete: the mockup can be built. */
+  ready: boolean;
+}
+
 /** The server's repair plan for the source and what the person decided about it. */
 export interface SourceRepair {
   loading: boolean;
@@ -156,6 +207,9 @@ export interface AuthorFlow {
   /** Slow or failing visuals of the source, keyed by visual id. */
   healthBadges: WireframeBadges;
   selectSource: (source: RebindSource | null) => void;
+  /** Leave the source behind and make one from nothing. */
+  startNew: () => void;
+  fresh: NewAssetFlow;
   goTo: (step: AuthorStep) => void;
   next: () => void;
   back: () => void;
@@ -199,6 +253,8 @@ export interface AddedTemplateField {
 }
 
 const PREVIEW_DEBOUNCE_MS = 400;
+const PREVIEW_STALE_MS = 60_000;
+const DATASET_EXPORT_STALE_MS = 5 * 60_000;
 const REPAIR_PLAN_STALE_MS = 60_000;
 const TEMPLATES_STALE_MS = 5 * 60_000;
 const TEMPLATES_PAGE_SIZE = 50;
@@ -234,10 +290,12 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
 
-  const [state, dispatch] = useReducer(authorFlowReducer, initialAuthorFlowState, (initial) => ({
-    ...initial,
-    source: sourceFromParams(params) ?? options.initialSource ?? null,
-  }));
+  const [state, dispatch] = useReducer(authorFlowReducer, initialAuthorFlowState, (initial) =>
+    params.get('new') === '1'
+      ? initialNewFlowState
+      : { ...initial, source: sourceFromParams(params) ?? options.initialSource ?? null }
+  );
+  const isNew = state.mode === 'new';
 
   const draft = useRebindDraft(state.source);
 
@@ -439,6 +497,79 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
     [setParams]
   );
 
+  // --- from nothing ----------------------------------------------------------
+  const [freshProposal, setFreshProposal] = useState<NewAssetFlow['proposal']>(null);
+  const startNew = useCallback(() => {
+    dispatch({ type: 'startNew' });
+    setAddedFields([]);
+    setRepairChoices({});
+    setFreshProposal(null);
+    setParams({ new: '1' }, { replace: true });
+  }, [setParams]);
+  const fresh = state.fresh;
+  const columnQueries = useQueries({
+    queries: fresh.datasets.map((dataset) => ({
+      queryKey: ['asset-json', 'dataset', dataset.dataSetId],
+      queryFn: () => assetsApi.getCachedAsset('dataset', dataset.dataSetId),
+      enabled: isNew,
+      staleTime: DATASET_EXPORT_STALE_MS,
+      retry: false,
+    })),
+  });
+  const columnsByIdentifier = useMemo(() => {
+    const out: Record<string, DatasetColumns> = {};
+    fresh.datasets.forEach((dataset, index) => {
+      const query = columnQueries[index];
+      out[dataset.identifier] = {
+        loading: query?.isLoading ?? false,
+        columns: columnsFromExport(query?.data),
+      };
+    });
+    return out;
+  }, [fresh.datasets, columnQueries]);
+  const freshReady = fresh.datasets.length > 0 && fresh.visuals.some(isComplete);
+  const freshRequest = useMemo(
+    () =>
+      newAssetRequest({
+        assetType: fresh.assetType,
+        // The preview does not care what it is called; the name is typed last.
+        name: 'Preview',
+        datasets: fresh.datasets,
+        visuals: fresh.visuals,
+        sheetName: fresh.sheetName,
+        addCalculatedFields: addedFields.length > 0 ? addedFields : undefined,
+        template: standardRequest.template,
+        typeRules: standardRequest.typeRules,
+      }),
+    [fresh, addedFields, standardRequest]
+  );
+  const freshActions = useMemo<Omit<NewAssetFlow, 'columns' | 'proposal' | 'ready'>>(
+    () => ({
+      assetType: fresh.assetType,
+      setAssetType: (assetType) => dispatch({ type: 'setFreshAssetType', assetType }),
+      name: fresh.name,
+      setName: (name) => dispatch({ type: 'setFreshName', name }),
+      sheetName: fresh.sheetName,
+      setSheetName: (sheetName) => dispatch({ type: 'setFreshSheetName', sheetName }),
+      datasets: fresh.datasets,
+      addDataset: (option) =>
+        dispatch({ type: 'addFreshDataset', dataSetId: option.id, name: option.name }),
+      removeDataset: (identifier) => dispatch({ type: 'removeFreshDataset', identifier }),
+      setIdentifier: (identifier, replacement) =>
+        dispatch({ type: 'setFreshIdentifier', identifier, next: replacement }),
+      visuals: fresh.visuals,
+      addVisual: () => dispatch({ type: 'addVisual' }),
+      updateVisual: (id, patch) => dispatch({ type: 'updateVisual', id, patch }),
+      removeVisual: (id) => dispatch({ type: 'removeVisual', id }),
+      addValue: (id) => dispatch({ type: 'addValue', id }),
+      updateValue: (id, index, patch) => dispatch({ type: 'updateValue', id, index, patch }),
+      removeValue: (id, index) => dispatch({ type: 'removeValue', id, index }),
+      audience: fresh.audience,
+      setAudience: (audience) => dispatch({ type: 'setAudience', audience }),
+    }),
+    [fresh]
+  );
+
   // --- edits (ops), folder, selection ----------------------------------------
   const addOps = useCallback((ops: DefinitionOp[]) => dispatch({ type: 'addOps', ops }), []);
   const removeOp = useCallback((index: number) => dispatch({ type: 'removeOp', index }), []);
@@ -459,27 +590,41 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [proposeError, setProposeError] = useState<string | null>(null);
 
+  // From nothing: the planner proposes visuals from the ask and the datasets'
+  // columns; they land as editable cards and the preview follows them.
+  const proposeVisuals = useCallback(async () => {
+    const request = { ...freshRequest, ask: ask.trim() };
+    delete request.visuals;
+    const result = await authoringApi.previewNew(request);
+    dispatch({ type: 'setVisuals', visuals: draftsFromSpecs(result.visuals) });
+    setFreshProposal(result.proposal ?? null);
+  }, [freshRequest, ask]);
+
   const propose = useCallback(async () => {
     const source = state.source;
-    if (!source || !ask.trim()) {
+    if (!ask.trim() || (!isNew && !source) || (isNew && fresh.datasets.length === 0)) {
       return;
     }
     setProposing(true);
     setProposeError(null);
     setProposal(null);
     try {
-      const result = await authoringApi.propose(source.type, source.id, { ask: ask.trim() });
-      setProposal(result);
-      draft.applyProposal(result);
-      if (result.intent !== 'unclear' && result.ops.length > 0) {
-        dispatch({ type: 'addOps', ops: result.ops });
+      if (isNew) {
+        await proposeVisuals();
+      } else if (source) {
+        const result = await authoringApi.propose(source.type, source.id, { ask: ask.trim() });
+        setProposal(result);
+        draft.applyProposal(result);
+        if (result.intent !== 'unclear' && result.ops.length > 0) {
+          dispatch({ type: 'addOps', ops: result.ops });
+        }
       }
     } catch (error) {
       setProposeError(getApiErrorMessage(error, 'The planner could not build a proposal'));
     } finally {
       setProposing(false);
     }
-  }, [state.source, ask, draft.applyProposal]);
+  }, [state.source, ask, draft.applyProposal, isNew, fresh.datasets.length, proposeVisuals]);
 
   // --- mockup preview --------------------------------------------------------
   // Edits come in bursts (a nudge, another nudge); wait for the burst to end.
@@ -505,13 +650,24 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
     queryKey: ['rebind-preview', state.source?.type, state.source?.id, previewKey],
     queryFn: () =>
       authoringApi.previewRebind(state.source!.type, state.source!.id, JSON.parse(previewKey)),
-    enabled: state.step === 'mockup' && state.source !== null && hasAnything,
-    staleTime: 60_000,
+    enabled: !isNew && state.step === 'mockup' && state.source !== null && hasAnything,
+    staleTime: PREVIEW_STALE_MS,
     placeholderData: keepPreviousData,
   });
+  // From nothing: every edit to the visuals re-previews, on the steps that show it.
+  const freshKey = useDebounce(JSON.stringify(freshRequest), PREVIEW_DEBOUNCE_MS);
+  const freshPreviewQuery = useQuery({
+    queryKey: ['new-asset-preview', freshKey],
+    queryFn: () => authoringApi.previewNew(JSON.parse(freshKey)),
+    enabled: isNew && freshReady && state.step !== 'targets',
+    staleTime: PREVIEW_STALE_MS,
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+  const previewData = isNew ? freshPreviewQuery.data : previewQuery.data;
   const previewModel = useMemo(
-    () => (previewQuery.data ? buildWireframeModel(previewQuery.data.definition) : null),
-    [previewQuery.data]
+    () => (previewData ? buildWireframeModel(previewData.definition) : null),
+    [previewData]
   );
   const previewDiff = useMemo(
     () => (sourceModel && previewModel ? diffWireframeModels(sourceModel, previewModel) : null),
@@ -522,8 +678,45 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
 
+  const createNew = useCallback(async () => {
+    const result = await authoringApi.createNew({
+      ...freshRequest,
+      name: fresh.name.trim(),
+      ...(fresh.audience
+        ? { permissionsFrom: { assetType: fresh.audience.type, assetId: fresh.audience.id } }
+        : {}),
+      ...(state.folder ? { folderId: state.folder.id } : {}),
+    });
+    const published: AuthorResult = {
+      assetType: result.assetType,
+      assetId: result.assetId,
+      name: result.name,
+      mode: 'create',
+      versionNumber: result.versionNumber,
+      folderId: result.folderId ?? state.folder?.id,
+      changes: result.changes,
+    };
+    dispatch({ type: 'published', result: published });
+    enqueueSnackbar(`Created "${result.name}"`, { variant: 'success' });
+  }, [freshRequest, fresh.name, fresh.audience, state.folder, enqueueSnackbar]);
+
   const publish = useCallback(async () => {
     const source = state.source;
+    if (isNew) {
+      if (!fresh.name.trim() || !freshReady) {
+        return;
+      }
+      setPublishing(true);
+      setPublishError(null);
+      try {
+        await createNew();
+      } catch (error) {
+        setPublishError(getApiErrorMessage(error, 'QuickSight rejected the new asset'));
+      } finally {
+        setPublishing(false);
+      }
+      return;
+    }
     if (!source) {
       return;
     }
@@ -571,6 +764,10 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
     draft.name,
     addedFields,
     enqueueSnackbar,
+    isNew,
+    fresh.name,
+    freshReady,
+    createNew,
   ]);
 
   // --- templates -------------------------------------------------------------
@@ -606,10 +803,13 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
   const editsOnly =
     draft.rebinds.length === 0 &&
     (state.ops.length > 0 || addedFields.length > 0 || hasRepairs || standardActive);
-  const canApply =
-    !draft.planning &&
-    summary.needsChoice === 0 &&
-    (editsOnly ? draft.mode === 'update' || trimmedName.length > 0 : draft.canApply);
+  // From nothing, the name is typed on the Publish step itself, so a complete
+  // visual is all the mockup and the publish step need to open.
+  const canApply = isNew
+    ? freshReady
+    : !draft.planning &&
+      summary.needsChoice === 0 &&
+      (editsOnly ? draft.mode === 'update' || trimmedName.length > 0 : draft.canApply);
   const status = stepStatus(state, {
     hasTargets: draft.rebinds.length > 0,
     canApply,
@@ -620,8 +820,12 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
     hasRepairs,
     repairsSettled: summary.needsChoice === 0,
     hasStandard: standardActive,
+    hasVisuals: freshReady,
   });
-  const steps = useMemo(() => authorSteps(repairIssues > 0), [repairIssues]);
+  const steps = useMemo(
+    () => authorSteps(repairIssues > 0, state.mode),
+    [repairIssues, state.mode]
+  );
   const goTo = useCallback(
     (step: AuthorStep) => {
       if (step in status && status[step] !== 'locked') {
@@ -646,6 +850,7 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
   const clearLocal = useCallback(() => {
     setAsk('');
     setProposal(null);
+    setFreshProposal(null);
     setProposeError(null);
     setPublishError(null);
     setAddedFields([]);
@@ -703,6 +908,13 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
     },
     healthBadges: badges,
     selectSource,
+    startNew,
+    fresh: {
+      ...freshActions,
+      columns: columnsByIdentifier,
+      proposal: freshProposal,
+      ready: freshReady,
+    },
     goTo,
     next,
     back,
@@ -714,17 +926,21 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
     proposeError,
     propose,
     preview: {
-      loading: previewQuery.isFetching,
-      error: previewQuery.error
-        ? getApiErrorMessage(previewQuery.error, 'Could not build the mockup')
-        : null,
+      loading: isNew ? freshPreviewQuery.isFetching : previewQuery.isFetching,
+      error: isNew
+        ? freshPreviewQuery.error
+          ? getApiErrorMessage(freshPreviewQuery.error, 'Could not build the mockup')
+          : null
+        : previewQuery.error
+          ? getApiErrorMessage(previewQuery.error, 'Could not build the mockup')
+          : null,
       plan: previewQuery.data?.plan ?? null,
       model: previewModel,
-      diff: previewDiff,
-      changes: previewQuery.data?.changes ?? [],
-      outline: previewQuery.data?.outline ?? null,
-      warnings: previewQuery.data?.warnings ?? [],
-      themeArn: previewQuery.data?.themeArn ?? null,
+      diff: isNew ? null : previewDiff,
+      changes: previewData?.changes ?? [],
+      outline: previewData?.outline ?? null,
+      warnings: previewData?.warnings ?? [],
+      themeArn: previewData?.themeArn ?? null,
     },
     standard: {
       template: state.template,

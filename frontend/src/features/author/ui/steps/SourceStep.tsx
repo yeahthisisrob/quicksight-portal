@@ -4,7 +4,7 @@
  * The preview on the right shows the layout with slow or failing visuals
  * flagged, and an insights card above it.
  */
-import { Search, Star, StarBorder } from '@mui/icons-material';
+import { AddCircleOutlined, Search, Star, StarBorder } from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -322,6 +322,19 @@ export function SourceStep({
       <Panel
         title="Start from what works"
         description="Templates first, then the most viewed. Slow or failing visuals are flagged on the preview."
+        actions={
+          <Tooltip title="Pick datasets, describe the dashboard or name the columns, and build it from nothing">
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<AddCircleOutlined />}
+              onClick={flow.startNew}
+              data-testid="start-from-nothing"
+            >
+              Start from nothing
+            </Button>
+          </Tooltip>
+        }
       >
         <Stack spacing={2}>
           <Stack

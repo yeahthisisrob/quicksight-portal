@@ -32,13 +32,15 @@ import { KeyValueList } from '../primitives/KeyValue';
 import { Panel } from '../primitives/Panel';
 import { StatusIndicator } from '../primitives/StatusIndicator';
 
-function ResultPanel({ flow }: { flow: AuthorFlow }) {
+/** The card after a publish: what was written, and the ways to get at it. Shared with the New flow. */
+export function ResultPanel({ flow }: { flow: AuthorFlow }) {
   const result = flow.state.result!;
   const [wireframeOpen, setWireframeOpen] = useState(false);
   const [template, setTemplate] = useState(false);
   const consoleUrl = getQuickSightConsoleUrl(result.assetType, result.assetId);
   const noun = result.assetType === 'dashboard' ? 'Dashboard' : 'Analysis';
   const folder = flow.state.folder;
+  const created = result.mode !== 'update';
   const folderLabel = result.folderId
     ? folder && folder.id === result.folderId
       ? (folder.path ?? folder.name)
@@ -47,7 +49,7 @@ function ResultPanel({ flow }: { flow: AuthorFlow }) {
 
   return (
     <Panel
-      title={result.mode === 'clone' ? `${noun} created` : `${noun} updated`}
+      title={created ? `${noun} created` : `${noun} updated`}
       description={result.name}
       actions={<StatusIndicator kind="success">Published</StatusIndicator>}
     >
@@ -56,7 +58,7 @@ function ResultPanel({ flow }: { flow: AuthorFlow }) {
           items={[
             { label: 'Name', value: result.name },
             { label: 'Id', value: <code>{result.assetId}</code> },
-            ...(result.mode === 'clone'
+            ...(created
               ? [
                   {
                     label: 'Folder',

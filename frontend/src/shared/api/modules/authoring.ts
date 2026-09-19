@@ -33,6 +33,10 @@ export type RepairIssue = Schemas['RepairIssue'];
 export type RepairPlan = Schemas['RepairPlan'];
 export type TemplateRequest = Schemas['TemplateRequest'];
 export type TypeRules = Schemas['TypeRules'];
+export type NewAssetRequest = Schemas['NewAssetRequest'];
+export type NewAssetPreview = Schemas['NewAssetPreview'];
+export type NewAssetResult = Schemas['NewAssetResult'];
+export type VisualSpec = Schemas['VisualSpec'];
 
 export interface PreviewRequest {
   rebinds: RebindRequest[];
@@ -143,6 +147,26 @@ export const authoringApi = {
     return unwrap(
       apiClient.get<ApiResponse<AssetInsights>>(`/authoring/${assetType}/${assetId}/insights`),
       'Failed to load insights'
+    );
+  },
+
+  /**
+   * A dashboard or analysis from nothing: datasets and visuals by column
+   * names (or an ask the planner turns into visuals), built and drawn but not
+   * written. The same body creates it.
+   */
+  previewNew(request: NewAssetRequest): Promise<NewAssetPreview> {
+    return unwrap(
+      apiClient.post<ApiResponse<NewAssetPreview>>('/authoring/new/preview', request),
+      'Failed to build the new asset'
+    );
+  },
+
+  /** Writes to QuickSight: the asset the preview showed, in the folder asked for. */
+  createNew(request: NewAssetRequest): Promise<NewAssetResult> {
+    return unwrap(
+      apiClient.post<ApiResponse<NewAssetResult>>('/authoring/new', request),
+      'Failed to create the new asset'
     );
   },
 
