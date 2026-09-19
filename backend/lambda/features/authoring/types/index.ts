@@ -1,8 +1,8 @@
 /**
  * Authoring - programmatic edits to dashboard and analysis definitions.
  *
- * The vocabulary here is deliberately small and stable because it is the
- * contract three callers share: the portal UI, the CLI, and (later) an LLM
+ * The vocabulary here is deliberately small and stable because three
+ * callers share it: the portal UI, the CLI, and (later) an LLM
  * planner. A caller proposes a *rebind* (point a dataset identifier at another
  * dataset, optionally renaming columns), asks for a *plan* (what the
  * definition references and whether the target satisfies it), and only then

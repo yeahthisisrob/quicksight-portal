@@ -6,7 +6,7 @@ describe('parseListingForms', () => {
   it('reads table identity from the Glue table ARN and columns from the relational form', () => {
     const forms = JSON.stringify({
       GlueTableForm: {
-        tableArn: 'arn:aws:glue:us-east-1:123456789012:table/contract_prod/dim_customer',
+        tableArn: 'arn:aws:glue:us-east-1:123456789012:table/published_prod/dim_customer',
         catalogId: '123456789012',
         region: 'us-east-1',
       },
@@ -20,7 +20,7 @@ describe('parseListingForms', () => {
       },
     });
     expect(parseListingForms(forms)).toEqual({
-      table: { catalog: '123456789012', database: 'contract_prod', name: 'dim_customer' },
+      table: { catalog: '123456789012', database: 'published_prod', name: 'dim_customer' },
       columns: [
         { name: 'customer_id', type: 'bigint' },
         { name: 'name', type: 'string' },

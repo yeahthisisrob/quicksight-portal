@@ -16,8 +16,8 @@ const LISTINGS = [
     assetId: 'a-cust',
     name: 'dim_customer',
     assetType: 'amazon.datazone.GlueTableAssetType',
-    owningProjectId: 'proj-contract-prod',
-    table: { database: 'contract_prod', name: 'dim_customer' },
+    owningProjectId: 'proj-published-prod',
+    table: { database: 'published_prod', name: 'dim_customer' },
     columns: [
       { name: 'customer_id', type: 'bigint' },
       { name: 'signed_up', type: 'timestamp' },
@@ -37,7 +37,7 @@ const LISTINGS = [
     assetId: 'a-noform',
     name: 'mystery',
     assetType: 'x',
-    owningProjectId: 'proj-contract-prod',
+    owningProjectId: 'proj-published-prod',
   },
 ];
 
@@ -61,7 +61,7 @@ describe('SmusService assets', () => {
     SmusService.invalidateLinkMap();
     adapter.listAllListings.mockResolvedValue(LISTINGS);
     adapter.listProjects.mockResolvedValue([
-      { id: 'proj-contract-prod', name: 'contract_prod' },
+      { id: 'proj-published-prod', name: 'published_prod' },
       { id: 'proj-medallion-prod', name: 'medallion_prod' },
     ]);
     cache.getAllDatasets.mockResolvedValue([
@@ -70,7 +70,9 @@ describe('SmusService assets', () => {
         assetName: 'Customers (gold)',
         metadata: {
           lineageData: {
-            physicalTables: [{ type: 'RELATIONAL', schema: 'contract_prod', name: 'dim_customer' }],
+            physicalTables: [
+              { type: 'RELATIONAL', schema: 'published_prod', name: 'dim_customer' },
+            ],
           },
         },
       },
@@ -97,8 +99,8 @@ describe('SmusService assets', () => {
     expect(result.configured).toBe(true);
     expect(result.assets.map((a) => a.name)).toEqual(['dim_customer', 'mystery', 'raw_events']);
     expect(result.assets[0]).toMatchObject({
-      projectName: 'contract_prod',
-      table: { database: 'contract_prod', name: 'dim_customer' },
+      projectName: 'published_prod',
+      table: { database: 'published_prod', name: 'dim_customer' },
       url: 'https://smus.example/catalog/assets/l-cust',
       datasets: [{ id: 'ds-cust', name: 'Customers (gold)', matchType: 'source-table' }],
     });
@@ -107,12 +109,12 @@ describe('SmusService assets', () => {
   });
 
   it('limits to the selected projects and database patterns, and searches', async () => {
-    const byProject = await service({ projectIds: ['proj-contract-prod'] }).listAssets();
+    const byProject = await service({ projectIds: ['proj-published-prod'] }).listAssets();
     expect(byProject.assets.map((a) => a.listingId)).toEqual(['l-cust', 'l-noform']);
-    expect(byProject.projectFilter).toEqual(['proj-contract-prod']);
+    expect(byProject.projectFilter).toEqual(['proj-published-prod']);
 
     // A pattern needs table identity, so a listing without forms drops out
-    const byPattern = await service({ databasePatterns: ['contract_*'] }).listAssets();
+    const byPattern = await service({ databasePatterns: ['published_*'] }).listAssets();
     expect(byPattern.assets.map((a) => a.listingId)).toEqual(['l-cust']);
 
     const searched = await service().listAssets('bronze-prod.raw');
@@ -146,7 +148,7 @@ describe('SmusService assets', () => {
     expect(table.RelationalTable).toMatchObject({
       DataSourceArn: 'arn:aws:quicksight:us-east-1:1:datasource/athena-1',
       Catalog: 'AwsDataCatalog',
-      Schema: 'contract_prod',
+      Schema: 'published_prod',
       Name: 'dim_customer',
       InputColumns: [
         { Name: 'customer_id', Type: 'INTEGER' },
@@ -177,9 +179,9 @@ describe('SmusService assets', () => {
 
 describe('helpers', () => {
   it('matches globs case-insensitively', () => {
-    expect(matchesGlob('contract_prod', 'contract_*')).toBe(true);
-    expect(matchesGlob('CONTRACT_DEV', 'contract_*')).toBe(true);
-    expect(matchesGlob('gold-prod', 'contract_*')).toBe(false);
+    expect(matchesGlob('published_prod', 'published_*')).toBe(true);
+    expect(matchesGlob('PUBLISHED_DEV', 'published_*')).toBe(true);
+    expect(matchesGlob('gold-prod', 'published_*')).toBe(false);
     expect(matchesGlob('gold-prod', 'gold-????')).toBe(true);
   });
 

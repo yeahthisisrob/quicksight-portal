@@ -54,7 +54,7 @@ function normalizeForMatch(value: string): string {
     .replace(/[\s_-]+/g, '_');
 }
 
-/** `contract_*` style patterns, case-insensitive. */
+/** `published_*` style patterns, case-insensitive. */
 export function matchesGlob(value: string, pattern: string): boolean {
   const escaped = pattern
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')

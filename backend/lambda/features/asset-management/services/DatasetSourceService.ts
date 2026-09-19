@@ -27,7 +27,7 @@
  *
  * A table also cannot change kind: a relational table stays relational and
  * custom SQL stays custom SQL. Switching between them changes the column
- * contract, which is a different (and destructive) operation.
+ * shape, which is a different (and destructive) operation.
  */
 
 import { ValidationError } from '../../../shared/errors/ValidationError';

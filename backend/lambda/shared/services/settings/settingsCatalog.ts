@@ -89,7 +89,7 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
         key: 'smus.databasePatterns',
         label: 'Database patterns',
         description:
-          "Comma-separated glob patterns a listing's Glue database must match, e.g. contract_* or gold-*. Use this when a published layer is a database-name convention rather than a project. Empty means any database.",
+          "Comma-separated glob patterns a listing's Glue database must match, e.g. published_* or gold-*. Use this when a published layer is a database-name convention rather than a project. Empty means any database.",
         type: 'string',
         envVar: 'SMUS_DATABASE_PATTERNS',
       },

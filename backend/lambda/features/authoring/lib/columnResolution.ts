@@ -16,7 +16,7 @@ export interface TargetColumn {
   type?: string;
 }
 
-export interface ColumnContract {
+export interface ColumnResolutionResult {
   columns: ColumnResolution[];
   unusedTargetColumns: string[];
   summary: Record<ColumnResolutionStatus, number>;
@@ -36,7 +36,7 @@ export function resolveColumns(
   referenced: ReferencedColumn[],
   target: TargetColumn[],
   columnMap: Record<string, string> = {}
-): ColumnContract {
+): ColumnResolutionResult {
   const byName = new Map(target.map((c) => [c.name, c]));
   const byNormalized = new Map<string, TargetColumn[]>();
   for (const column of target) {
