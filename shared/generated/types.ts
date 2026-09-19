@@ -2622,6 +2622,7 @@ export interface paths {
                         ops?: components["schemas"]["DefinitionOp"][];
                         /** @description Applied first, before the rebind plan, so the plan sees the repaired definition. */
                         repairs?: components["schemas"]["RepairOp"][];
+                        template?: components["schemas"]["TemplateRequest"];
                     };
                 };
             };
@@ -4884,6 +4885,30 @@ export interface components {
                 rebinds: components["schemas"]["RebindRequest"][];
             };
         };
+        /**
+         * @description Migrate onto a template dashboard's layout standard. The template's
+         *     text boxes and title band come across at their positions, its
+         *     filter and parameter controls where a source dataset has the column,
+         *     its sheet names and its theme; the source's visuals reflow, in
+         *     order, into rows of the template's standard tile size below the
+         *     furniture, KPIs first at the template's KPI size when it has a KPI
+         *     band. Applied after rebinds and before added fields and ops.
+         */
+        TemplateRequest: {
+            /** @enum {string} */
+            assetType: "dashboard" | "analysis";
+            assetId: string;
+            /** @default true */
+            textBoxes: boolean;
+            /** @default true */
+            controls: boolean;
+            /** @default true */
+            sheetNames: boolean;
+            /** @default true */
+            kpisFirst: boolean;
+            /** @default true */
+            theme: boolean;
+        };
         /** @description Point one dataset identifier at a different dataset. */
         RebindRequest: {
             /** @description A DataSetIdentifierDeclarations entry of the definition. */
@@ -4955,6 +4980,7 @@ export interface components {
             ops?: components["schemas"]["DefinitionOp"][];
             /** @description Repairs applied first, before the rebind plan (see the repair plan endpoint). */
             repairs?: components["schemas"]["RepairOp"][];
+            template?: components["schemas"]["TemplateRequest"];
             /** @description Clone only. Put the new asset in this QuickSight folder. */
             folderId?: string;
         };
@@ -4978,6 +5004,7 @@ export interface components {
             changes?: components["schemas"]["DefinitionChange"][];
             /** @description The folder the clone was placed in, when requested. */
             folderId?: string;
+            warnings?: string[];
         };
         ProposeRequest: {
             /** @description What the person wants, in their words. */
@@ -5028,6 +5055,10 @@ export interface components {
             changes: components["schemas"]["DefinitionChange"][];
             /** @description The sheets of the resulting definition, with ids, for editing. */
             outline: components["schemas"]["SheetOutline"][];
+            /** @description What a template could not carry, and why. */
+            warnings?: string[];
+            /** @description The theme that would be written when a template is applied. */
+            themeArn?: string;
         };
         /** @enum {string} */
         SettingSource: "stored" | "env" | "default";
@@ -5374,7 +5405,7 @@ export interface components {
         /** @description One change in plain language, for review before publishing. */
         DefinitionChange: {
             /** @enum {string} */
-            kind: "repair" | "rebind" | "rename" | "calculatedField" | "layout" | "visual" | "sheet";
+            kind: "template" | "repair" | "rebind" | "rename" | "calculatedField" | "layout" | "visual" | "sheet";
             description: string;
             sheetId?: string;
             elementId?: string;

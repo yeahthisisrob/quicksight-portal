@@ -132,8 +132,26 @@ export interface ApplyRequest {
   ops?: DefinitionOp[];
   /** Repairs applied first, before the rebind plan (see the repair plan endpoint). */
   repairs?: RepairOp[];
+  /** Migrate onto a template's layout standard, after rebinds and before ops. */
+  template?: TemplateRequest;
   /** Clone only: put the new asset in this folder. */
   folderId?: string;
+}
+
+/** Migrate onto a template dashboard's layout standard (see definitionTemplate). */
+export interface TemplateRequest {
+  assetType: AuthorableAssetType;
+  assetId: string;
+  /** Carry the template's text boxes and title band. Default true. */
+  textBoxes?: boolean;
+  /** Carry the template's controls where a source column matches. Default true. */
+  controls?: boolean;
+  /** Take the template's sheet names. Default true. */
+  sheetNames?: boolean;
+  /** KPIs first at the template's KPI size when it has a KPI band. Default true. */
+  kpisFirst?: boolean;
+  /** Write the template's theme. Default true. */
+  theme?: boolean;
 }
 
 export interface PreviewRequest {
@@ -142,6 +160,8 @@ export interface PreviewRequest {
   ops?: DefinitionOp[];
   /** Applied first, before the rebind plan, so the plan sees the repaired definition. */
   repairs?: RepairOp[];
+  /** Applied after rebinds and before added fields and ops. */
+  template?: TemplateRequest;
 }
 
 export interface RepairPlanRequest {
@@ -154,6 +174,10 @@ export interface RebindPreview {
   definition: Record<string, any>;
   changes: DefinitionChange[];
   outline: SheetOutline[];
+  /** What the template could not carry, and why. */
+  warnings?: string[];
+  /** The theme that would be written when a template is applied. */
+  themeArn?: string;
 }
 
 export interface AddedCalculatedField {
@@ -174,6 +198,7 @@ export interface ApplyResult {
   plan: RebindPlan;
   changes: DefinitionChange[];
   folderId?: string;
+  warnings?: string[];
 }
 
 // ---------------------------------------------------------------------------
