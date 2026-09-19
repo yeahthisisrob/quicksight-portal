@@ -27,6 +27,13 @@ import { cacheService } from '../../../../shared/services/cache/CacheService';
 import { AssetStatusFilter } from '../../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES } from '../../../../shared/types/assetTypes';
 import { logger } from '../../../../shared/utils/logger';
+import {
+  applyOps,
+  type DefinitionOp,
+  EDITABLE_VISUAL_TYPES,
+  parseOps,
+} from '../../lib/definitionOps';
+import type { SheetOutline } from '../../lib/definitionOutline';
 import type {
   ApplyMode,
   AuthorableAssetType,
@@ -51,6 +58,8 @@ const MAX_CANDIDATES = 400;
 const MAX_ASK_LENGTH = 2000;
 const CHOICE_MAX_TOKENS = 1024;
 const MAPPING_MAX_TOKENS = 2048;
+const EDITS_MAX_TOKENS = 2048;
+const MAX_OPS = 40;
 
 const PREAMBLE = `You help an analyst re-point Amazon QuickSight dashboards and analyses at different datasets.
 A definition reads columns from one or more datasets, each declared under an identifier.
@@ -60,8 +69,12 @@ Be literal about names: pick datasets and columns only from the lists you are gi
 const CHOICE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['intent', 'mode', 'name', 'reason', 'rebinds'],
+  required: ['intent', 'mode', 'name', 'reason', 'rebinds', 'wantsEdits'],
   properties: {
+    wantsEdits: {
+      type: 'boolean',
+      description: 'true when the ask includes layout or visual changes beyond datasets.',
+    },
     intent: {
       type: 'string',
       enum: ['rebind', 'unclear'],
@@ -130,7 +143,59 @@ interface Choice {
   name: string;
   reason: string;
   rebinds: ProposedRebind[];
+  /** The ask also wants layout or visual changes, not only datasets. */
+  wantsEdits: boolean;
 }
+
+/** Flat on purpose: every field required, '' or -1 meaning "not used". */
+const EDITS_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['ops', 'reason'],
+  properties: {
+    reason: { type: 'string', description: 'One sentence, or why no edits apply.' },
+    ops: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'op',
+          'sheetId',
+          'elementId',
+          'col',
+          'row',
+          'colSpan',
+          'rowSpan',
+          'visualType',
+          'title',
+          'name',
+        ],
+        properties: {
+          op: {
+            type: 'string',
+            enum: ['move', 'resize', 'retype', 'retitle', 'remove', 'duplicate', 'renameSheet'],
+          },
+          sheetId: { type: 'string', description: 'A sheetId from the outline.' },
+          elementId: {
+            type: 'string',
+            description: 'An elementId from the outline; "" for renameSheet.',
+          },
+          col: { type: 'integer', description: 'move/duplicate: 0-35, else -1.' },
+          row: { type: 'integer', description: 'move/duplicate: 0 or more, else -1.' },
+          colSpan: { type: 'integer', description: 'resize: 1-36, else -1.' },
+          rowSpan: { type: 'integer', description: 'resize: 1 or more, else -1.' },
+          visualType: {
+            type: 'string',
+            description: `retype: one of ${EDITABLE_VISUAL_TYPES.join(', ')}; else "".`,
+          },
+          title: { type: 'string', description: 'retitle/duplicate: the new title; else "".' },
+          name: { type: 'string', description: 'renameSheet: the new name; else "".' },
+        },
+      },
+    },
+  },
+} as const;
 
 interface Mapping {
   identifier: string;
@@ -185,7 +250,12 @@ export class PlannerService {
     );
     const modelInfo = { provider: this.model.provider, model: '' };
 
-    if (choice.intent === 'unclear' || choice.rebinds.length === 0) {
+    // Layout and visual edits are planned against the definition's outline,
+    // then validated by applying them to a preview - an op that fails is
+    // dropped with its reason logged rather than failing the whole proposal.
+    const ops = choice.wantsEdits ? await this.planEdits(assetType, assetId, ask) : [];
+
+    if (choice.intent === 'unclear' || (choice.rebinds.length === 0 && ops.length === 0)) {
       return {
         ask,
         intent: 'unclear',
@@ -193,6 +263,21 @@ export class PlannerService {
         reason: choice.reason,
         rebinds: [],
         unmapped: [],
+        ops: [],
+        plan: null,
+        model: modelInfo,
+      };
+    }
+    if (choice.rebinds.length === 0) {
+      return {
+        ask,
+        intent: 'rebind',
+        mode: choice.mode,
+        name: choice.name.trim() || undefined,
+        reason: choice.reason,
+        rebinds: [],
+        unmapped: [],
+        ops,
         plan: null,
         model: modelInfo,
       };
@@ -238,9 +323,65 @@ export class PlannerService {
       reason: choice.reason,
       rebinds: choice.rebinds,
       unmapped,
+      ops,
       plan,
       model: modelInfo,
     };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Step 3: layout and visual edits, as ops against the outline
+  // ---------------------------------------------------------------------------
+
+  private async planEdits(
+    assetType: AuthorableAssetType,
+    assetId: string,
+    ask: string
+  ): Promise<DefinitionOp[]> {
+    const outline = await this.rebindService.loadDefinitionOutline(assetType, assetId);
+    const user = [
+      'The sheets of the definition, with the ids you must use:',
+      JSON.stringify(outline),
+      '',
+      `The ask: ${JSON.stringify(ask)}`,
+      '',
+      'Express the layout and visual changes the ask wants as ops. The grid is 36 columns wide; rows grow downward. Use only ids from the outline. Change a visual type only between BarChart, ColumnChart, LineChart, PieChart, DonutChart, Table and PivotTable. If the ask wants no such change, return an empty list.',
+    ].join('\n');
+
+    const result = await this.model.complete({
+      label: 'plan-edits',
+      system: PREAMBLE,
+      user,
+      schemaName: 'plan_edits',
+      schemaDescription: 'Layout and visual edits as ops.',
+      schema: EDITS_SCHEMA,
+      maxTokens: EDITS_MAX_TOKENS,
+    });
+
+    const ops = parseEditOps(result.output, outline);
+    return this.validateOps(assetType, assetId, ops);
+  }
+
+  /** Keep only ops the definition accepts, in order; log the rest. */
+  private async validateOps(
+    assetType: AuthorableAssetType,
+    assetId: string,
+    ops: DefinitionOp[]
+  ): Promise<DefinitionOp[]> {
+    if (ops.length === 0) {
+      return [];
+    }
+    const preview = await this.rebindService.preview(assetType, assetId, { rebinds: [] });
+    const kept: DefinitionOp[] = [];
+    for (const op of ops) {
+      try {
+        applyOps(preview.definition, [...kept, op]);
+        kept.push(op);
+      } catch (error) {
+        logger.warn('Planner op dropped', { op, error: (error as Error).message });
+      }
+    }
+    return kept;
   }
 
   private async candidates(restrictTo?: string[]): Promise<CandidateDataset[]> {
@@ -279,7 +420,7 @@ export class PlannerService {
       '',
       `The ask: """${ask}"""`,
       '',
-      'Decide which identifier(s) should read from which candidate dataset, and whether to make a copy or change it in place.',
+      'Decide which identifier(s) should read from which candidate dataset, and whether to make a copy or change it in place. Also say whether the ask wants layout or visual changes (moving, resizing, retitling, removing, duplicating or retyping visuals, renaming sheets); those are planned separately.',
     ].join('\n');
 
     const result = await this.model.complete({
@@ -389,7 +530,61 @@ export function parseChoice(
     rebinds.push({ identifier, targetDataSetId, reason: str(raw, 'reason') });
   }
 
-  return { intent, mode, name: str(output, 'name'), reason: str(output, 'reason'), rebinds };
+  return {
+    intent,
+    mode,
+    name: str(output, 'name'),
+    reason: str(output, 'reason'),
+    rebinds,
+    wantsEdits: output.wantsEdits === true,
+  };
+}
+
+/** Turn the flat, sentinel-laden edit answer into typed ops the library validates. */
+export function parseEditOps(output: unknown, outline: SheetOutline[]): DefinitionOp[] {
+  if (!isRecord(output) || !Array.isArray(output.ops)) {
+    return [];
+  }
+  const sheetIds = new Set(outline.map((s) => s.sheetId));
+  const raw: unknown[] = output.ops.slice(0, MAX_OPS).flatMap((item): unknown[] => {
+    if (!isRecord(item) || !sheetIds.has(str(item, 'sheetId'))) {
+      return [];
+    }
+    const num = (key: string) =>
+      typeof item[key] === 'number' && item[key] >= 0 ? item[key] : undefined;
+    const text = (key: string) => str(item, key) || undefined;
+    const base = {
+      op: str(item, 'op'),
+      sheetId: str(item, 'sheetId'),
+      elementId: text('elementId'),
+    };
+    switch (base.op) {
+      case 'move':
+        return [{ ...base, col: num('col'), row: num('row') }];
+      case 'resize':
+        return [{ ...base, colSpan: num('colSpan'), rowSpan: num('rowSpan') }];
+      case 'retype':
+        return [{ ...base, visualType: text('visualType') }];
+      case 'retitle':
+        return [{ ...base, title: text('title') }];
+      case 'duplicate':
+        return [{ ...base, title: text('title'), col: num('col'), row: num('row') }];
+      case 'remove':
+        return [base];
+      case 'renameSheet':
+        return [{ op: 'renameSheet', sheetId: base.sheetId, name: text('name') }];
+      default:
+        return [];
+    }
+  });
+  // One malformed op should not lose the others: parse them one at a time.
+  return raw.flatMap((r) => {
+    try {
+      return parseOps([r]);
+    } catch {
+      return [];
+    }
+  });
 }
 
 export function parseMappings(

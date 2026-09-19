@@ -29,4 +29,9 @@ export const authoringRoutes: RouteHandler[] = [
     path: /^\/authoring\/(analysis|dashboard)\/([^/]+)\/propose$/,
     handler: (event) => handler.propose(event),
   },
+  {
+    method: 'GET',
+    path: /^\/authoring\/(analysis|dashboard)\/([^/]+)\/insights$/,
+    handler: (event) => handler.getInsights(event),
+  },
 ];

@@ -29,6 +29,8 @@ import { logger } from '../../../shared/utils/logger';
 import { normalizePermissionsArray } from '../../../shared/utils/permissions';
 import { resolveColumns, type TargetColumn } from '../lib/columnResolution';
 import { collectDefinitionDatasets } from '../lib/definitionColumns';
+import { applyOps, type DefinitionChange, type DefinitionOp } from '../lib/definitionOps';
+import { buildOutline } from '../lib/definitionOutline';
 import { type RebindSpec, rebindDefinition } from '../lib/definitionRebind';
 import type {
   AddedCalculatedField,
@@ -37,7 +39,9 @@ import type {
   AuthorableAssetType,
   DatasetRebindPlan,
   DefinitionDataset,
+  PreviewRequest,
   RebindPlan,
+  RebindPreview,
   RebindRequest,
 } from '../types';
 
@@ -89,6 +93,12 @@ export class RebindService {
     };
   }
 
+  /** The sheets of the live definition, with ids, for editing and insights. */
+  public async loadDefinitionOutline(assetType: AuthorableAssetType, assetId: string) {
+    const loaded = await this.loadDefinition(assetType, assetId);
+    return buildOutline(loaded.definition);
+  }
+
   /** Read-only. What a rebind would change and whether it can be applied. */
   public async plan(
     assetType: AuthorableAssetType,
@@ -107,16 +117,50 @@ export class RebindService {
   public async preview(
     assetType: AuthorableAssetType,
     assetId: string,
-    rebinds: RebindRequest[]
-  ): Promise<{ plan: RebindPlan; definition: Record<string, any> }> {
+    request: PreviewRequest
+  ): Promise<RebindPreview> {
     const loaded = await this.loadDefinition(assetType, assetId);
-    const plan = await this.planAgainst(assetType, assetId, loaded, rebinds);
+    const plan = await this.planAgainst(assetType, assetId, loaded, request.rebinds);
+    const { definition, changes } = this.rewrite(loaded.definition, plan, request);
+    return { plan, definition, changes, outline: buildOutline(definition) };
+  }
+
+  /**
+   * The whole rewrite, in order: rebinds, added calculated fields, edit
+   * ops. Preview and apply share it so the mockup is exactly what gets
+   * written.
+   */
+  private rewrite(
+    source: Record<string, any>,
+    plan: RebindPlan,
+    request: { addCalculatedFields?: AddedCalculatedField[]; ops?: DefinitionOp[] }
+  ): { definition: Record<string, any>; changes: DefinitionChange[] } {
+    const changes: DefinitionChange[] = [];
     const specs: RebindSpec[] = plan.datasets.map((d) => ({
       identifier: d.identifier,
       targetDataSetArn: d.target.dataSetArn,
       columnMap: this.effectiveColumnMap(d),
     }));
-    return { plan, definition: rebindDefinition(loaded.definition, specs) };
+    for (const d of plan.datasets) {
+      changes.push({
+        kind: 'rebind',
+        description: `${d.identifier} reads ${d.target.name} instead of ${d.current.dataSetId}`,
+      });
+      for (const [from, to] of Object.entries(this.effectiveColumnMap(d))) {
+        changes.push({ kind: 'rename', description: `${d.identifier}: ${from} becomes ${to}` });
+      }
+    }
+    let definition = rebindDefinition(source, specs);
+    const added = request.addCalculatedFields ?? [];
+    definition = withAddedCalculatedFields(definition, added);
+    for (const field of added) {
+      changes.push({
+        kind: 'calculatedField',
+        description: `Added calculated field ${field.name} on ${field.identifier}`,
+      });
+    }
+    const edited = applyOps(definition, request.ops ?? []);
+    return { definition: edited.definition, changes: [...changes, ...edited.changes] };
   }
 
   /** Re-plan, refuse anything unresolved, then write to QuickSight. */
@@ -130,21 +174,17 @@ export class RebindService {
     this.assertApplicable(plan);
 
     const name = this.resolveName(request, loaded.name);
-    const specs: RebindSpec[] = plan.datasets.map((d) => ({
-      identifier: d.identifier,
-      targetDataSetArn: d.target.dataSetArn,
-      columnMap: this.effectiveColumnMap(d),
-    }));
-    const definition = withAddedCalculatedFields(
-      rebindDefinition(loaded.definition, specs),
-      request.addCalculatedFields ?? []
-    );
+    const { definition, changes } = this.rewrite(loaded.definition, plan, request);
+    if (request.folderId && request.mode !== 'clone') {
+      throw new ValidationError('A folder can only be chosen when creating a copy');
+    }
 
     logger.info('Applying rebind', {
       assetType,
       assetId,
       mode: request.mode,
-      rebinds: specs.length,
+      rebinds: plan.datasets.length,
+      ops: request.ops?.length ?? 0,
       renamed: name !== loaded.name,
     });
 
@@ -153,7 +193,17 @@ export class RebindService {
         ? await this.clone(assetType, assetId, request.newAssetId, name, definition, loaded)
         : await this.update(assetType, assetId, name, definition, loaded);
 
-    return { assetType, ...written, name, mode: request.mode, plan };
+    let folderId: string | undefined;
+    if (request.folderId && request.mode === 'clone') {
+      await this.quickSightService.createFolderMembership(
+        request.folderId,
+        written.assetId,
+        assetType === 'dashboard' ? 'DASHBOARD' : 'ANALYSIS'
+      );
+      folderId = request.folderId;
+    }
+
+    return { assetType, ...written, name, mode: request.mode, plan, changes, folderId };
   }
 
   private async planAgainst(
@@ -240,8 +290,12 @@ export class RebindService {
     if (request.mode === 'clone' && !name) {
       throw new ValidationError('A name is required to clone');
     }
-    if (request.mode === 'update' && !name && request.rebinds.length === 0) {
-      throw new ValidationError('Nothing to do: no rebinds and no new name');
+    const edits =
+      request.rebinds.length +
+      (request.ops?.length ?? 0) +
+      (request.addCalculatedFields?.length ?? 0);
+    if (request.mode === 'update' && !name && edits === 0) {
+      throw new ValidationError('Nothing to do: no rebinds, no edits and no new name');
     }
     if (name && name.length > NAME_MAX_LENGTH) {
       throw new ValidationError(`Name must be at most ${NAME_MAX_LENGTH} characters`);

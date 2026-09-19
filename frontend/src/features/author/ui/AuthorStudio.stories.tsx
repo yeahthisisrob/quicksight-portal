@@ -136,6 +136,7 @@ export const StepReviewProposed: Story = {
               },
             ],
             unmapped: [],
+            ops: [],
             plan: resolvedDraft().plan ?? null,
             model: { provider: 'bedrock', model: 'us.anthropic.claude-sonnet-4-6' },
           },

@@ -1,9 +1,17 @@
+import { CloudTrailClient } from '@aws-sdk/client-cloudtrail';
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
+import { CloudTrailAdapter } from '../../../adapters/aws/CloudTrailAdapter';
+import { CloudWatchAdapter } from '../../../adapters/aws/CloudWatchAdapter';
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
+import { CacheService } from '../../../shared/services/cache/CacheService';
 import { errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
+import { ActivityService } from '../../activity/services/ActivityService';
+import { GroupService } from '../../organization/services/GroupService';
+import { parseOps } from '../lib/definitionOps';
+import { InsightsService } from '../services/InsightsService';
 import { createPlannerModel } from '../services/planner/createPlannerModel';
 import { PlannerService } from '../services/planner/PlannerService';
 import { RebindService } from '../services/RebindService';
@@ -56,17 +64,38 @@ export class AuthoringHandler {
     }
   }
 
+  /** GET /authoring/{assetType}/{assetId}/insights */
+  public async getInsights(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const target = this.target(event);
+      const region = process.env.AWS_REGION || 'us-east-1';
+      const cacheService = CacheService.getInstance();
+      const activity = new ActivityService(
+        cacheService,
+        new CloudTrailAdapter(new CloudTrailClient({ region }), region),
+        new GroupService()
+      );
+      const service = new InsightsService(activity, this.service(), new CloudWatchAdapter(region));
+      const data = await service.get(target.assetType, target.assetId);
+      return successResponse(event, { success: true, data });
+    } catch (error: any) {
+      logger.error('Insights failed', { error });
+      return this.failure(event, error, 'Failed to load insights');
+    }
+  }
+
   /** POST /authoring/{assetType}/{assetId}/rebind/preview */
   public async previewRebind(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       await requireAuth(event);
       const target = this.target(event);
-      const { rebinds } = this.parseBody(event);
-      const preview = await this.service().preview(
-        target.assetType,
-        target.assetId,
-        this.parseRebinds(rebinds)
-      );
+      const body = this.parseBody(event);
+      const preview = await this.service().preview(target.assetType, target.assetId, {
+        rebinds: this.parseRebinds(body.rebinds ?? []),
+        addCalculatedFields: this.parseAddedFields(body.addCalculatedFields),
+        ops: parseOps(body.ops),
+      });
       return successResponse(event, { success: true, data: preview });
     } catch (error: any) {
       logger.error('Preview rebind failed', { error });
@@ -200,11 +229,25 @@ export class AuthoringHandler {
     if (body.newAssetId !== undefined && typeof body.newAssetId !== 'string') {
       throw badRequest('newAssetId must be a string');
     }
-    const added = body.addCalculatedFields;
+    if (body.folderId !== undefined && typeof body.folderId !== 'string') {
+      throw badRequest('folderId must be a string');
+    }
+    return {
+      mode: mode as ApplyRequest['mode'],
+      rebinds: this.parseRebinds(body.rebinds ?? []),
+      name: body.name as string | undefined,
+      newAssetId: body.newAssetId as string | undefined,
+      addCalculatedFields: this.parseAddedFields(body.addCalculatedFields),
+      ops: parseOps(body.ops),
+      folderId: (body.folderId as string | undefined)?.trim() || undefined,
+    };
+  }
+
+  private parseAddedFields(added: unknown) {
     if (added !== undefined && !Array.isArray(added)) {
       throw badRequest('addCalculatedFields must be an array');
     }
-    const addCalculatedFields = (added ?? []).map((item: unknown, index: number) => {
+    return (added ?? []).map((item: unknown, index: number) => {
       const entry = (item ?? {}) as Record<string, unknown>;
       for (const key of ['identifier', 'name', 'expression'] as const) {
         if (typeof entry[key] !== 'string' || !(entry[key] as string).trim()) {
@@ -218,13 +261,6 @@ export class AuthoringHandler {
         templateId: typeof entry.templateId === 'string' ? entry.templateId : undefined,
       };
     });
-    return {
-      mode: mode as ApplyRequest['mode'],
-      rebinds: this.parseRebinds(body.rebinds ?? []),
-      name: body.name as string | undefined,
-      newAssetId: body.newAssetId as string | undefined,
-      addCalculatedFields,
-    };
   }
 
   private failure(

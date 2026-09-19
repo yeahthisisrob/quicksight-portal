@@ -2404,10 +2404,11 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Dry-run a rebind and return the rewritten definition
+         * Dry-run a rebind and edits, and return the rewritten definition
          * @description The plan endpoint plus the definition as it would be written: the
-         *     same rewrite apply performs, returned instead of sent to QuickSight.
-         *     Meant for mockups - a wireframe of the result before anything changes.
+         *     same rewrite apply performs (rebinds, added calculated fields, edit
+         *     ops), returned instead of sent to QuickSight, with every change in
+         *     plain language and a sheet outline for editing. Meant for mockups.
          *     Renames that are only suggested are not applied, so the preview
          *     mirrors what apply would refuse or accept.
          */
@@ -2425,6 +2426,8 @@ export interface paths {
                 content: {
                     "application/json": {
                         rebinds: components["schemas"]["RebindRequest"][];
+                        addCalculatedFields?: components["schemas"]["AddedCalculatedField"][];
+                        ops?: components["schemas"]["DefinitionOp"][];
                     };
                 };
             };
@@ -2940,6 +2943,49 @@ export interface paths {
                 404: components["responses"]["NotFound"];
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/authoring/{assetType}/{assetId}/insights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How an asset is used and how healthy it is, for choosing what to start from */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assetType: components["parameters"]["AuthorableAssetType"];
+                    assetId: components["parameters"]["AuthoringAssetId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Views and, for dashboards with metrics, health */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["AssetInsights"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4411,12 +4457,17 @@ export interface components {
              *     the template library. Each is declared against a dataset
              *     identifier; a name that already exists there is rejected.
              */
-            addCalculatedFields?: {
-                identifier: string;
-                name: string;
-                expression: string;
-                templateId?: string;
-            }[];
+            addCalculatedFields?: components["schemas"]["AddedCalculatedField"][];
+            /** @description Edits applied after rebinds and added fields, in order. */
+            ops?: components["schemas"]["DefinitionOp"][];
+            /** @description Clone only. Put the new asset in this QuickSight folder. */
+            folderId?: string;
+        };
+        AddedCalculatedField: {
+            identifier: string;
+            name: string;
+            expression: string;
+            templateId?: string;
         };
         ApplyRebindResult: {
             assetType: components["schemas"]["AuthorableAssetType"];
@@ -4429,6 +4480,9 @@ export interface components {
             /** @description Dashboards only. The version created (and, for update, published). */
             versionNumber?: number;
             plan: components["schemas"]["RebindPlan"];
+            changes?: components["schemas"]["DefinitionChange"][];
+            /** @description The folder the clone was placed in, when requested. */
+            folderId?: string;
         };
         ProposeRequest: {
             /** @description What the person wants, in their words. */
@@ -4460,6 +4514,8 @@ export interface components {
             rebinds: components["schemas"]["ProposedRebind"][];
             /** @description Columns the planner looked at and could not map. */
             unmapped: components["schemas"]["UnmappedColumn"][];
+            /** @description Layout and visual edits the planner proposes, already validated against the definition. */
+            ops: components["schemas"]["DefinitionOp"][];
             /** @description The server's own dry run of the proposal. Null when the intent is unclear. */
             plan: components["schemas"]["RebindPlan"] | null;
             model: {
@@ -4473,6 +4529,10 @@ export interface components {
             definition: {
                 [key: string]: unknown;
             };
+            /** @description Every change in plain language, in the order it is applied. */
+            changes: components["schemas"]["DefinitionChange"][];
+            /** @description The sheets of the resulting definition, with ids, for editing. */
+            outline: components["schemas"]["SheetOutline"][];
         };
         /** @enum {string} */
         SettingSource: "stored" | "env" | "default";
@@ -4758,6 +4818,102 @@ export interface components {
                 count: number;
             })[];
             assets: components["schemas"]["SmusCatalogAssetSummary"][];
+        };
+        /**
+         * @description One edit to a definition, applied by deterministic code after
+         *     validation. Element and visual ids are the definition's own; a sheet
+         *     outline (see RebindPreview.outline) lists them. Changing a visual's
+         *     type keeps its field wells, title and subtitle and resets the rest of
+         *     the chart configuration to defaults; only conversions whose field
+         *     wells translate are allowed.
+         */
+        DefinitionOp: {
+            /** @enum {string} */
+            op: "move" | "resize" | "retype" | "retitle" | "remove" | "duplicate" | "renameSheet";
+            sheetId: string;
+            /** @description move, resize, remove, duplicate, retype, retitle. The layout element id (the visual id for visuals). */
+            elementId?: string;
+            /** @description move, duplicate. Grid column, 0-35. */
+            col?: number;
+            /** @description move, duplicate. Grid row. */
+            row?: number;
+            /** @description resize. */
+            colSpan?: number;
+            /** @description resize. */
+            rowSpan?: number;
+            /**
+             * @description retype. Column is a vertical bar chart; Donut is a pie with a hole.
+             * @enum {string}
+             */
+            visualType?: "BarChart" | "ColumnChart" | "LineChart" | "PieChart" | "DonutChart" | "Table" | "PivotTable";
+            /** @description retitle, duplicate. */
+            title?: string;
+            /** @description retitle. */
+            subtitle?: string;
+            /** @description renameSheet. */
+            name?: string;
+        };
+        /** @description One change in plain language, for review before publishing. */
+        DefinitionChange: {
+            /** @enum {string} */
+            kind: "rebind" | "rename" | "calculatedField" | "layout" | "visual" | "sheet";
+            description: string;
+            sheetId?: string;
+            elementId?: string;
+        };
+        SheetOutlineElement: {
+            elementId: string;
+            /** @enum {string} */
+            kind: "visual" | "filterControl" | "parameterControl" | "textBox" | "image" | "other";
+            visualType?: string;
+            title?: string;
+            col?: number;
+            row?: number;
+            colSpan?: number;
+            rowSpan?: number;
+            fieldWells?: {
+                role: string;
+                fields: string[];
+            }[];
+        };
+        /** @description A compact, id-bearing view of a sheet for editing and for the planner. */
+        SheetOutline: {
+            sheetId: string;
+            name: string;
+            /** @enum {string} */
+            layout: "grid" | "freeform" | "section" | "flow";
+            elements: components["schemas"]["SheetOutlineElement"][];
+        };
+        VisualHealth: {
+            sheetId: string;
+            visualId: string;
+            loadTimeP90Ms?: number;
+            /** @description Load errors over the window. */
+            errors?: number;
+        };
+        /**
+         * @description What the portal knows about how an asset is used, to rank sources and
+         *     flag problems before they are cloned. Views come from the portal's
+         *     activity data (CloudTrail); health comes from QuickSight's CloudWatch
+         *     metrics when the dashboard has them.
+         */
+        AssetInsights: {
+            assetType: components["schemas"]["AuthorableAssetType"];
+            assetId: string;
+            views: {
+                total: number;
+                last30d: number;
+                uniqueViewers: number;
+                /** Format: date-time */
+                lastViewedAt?: string;
+            };
+            /** @description Dashboards only. Absent when metrics are unavailable. */
+            health?: {
+                windowDays: number;
+                viewLoads: number;
+                viewLoadTimeP90Ms?: number;
+                visuals: components["schemas"]["VisualHealth"][];
+            };
         };
         BulkItemFailure: {
             /** @description Human-readable item label, e.g. "alice → analysts" */

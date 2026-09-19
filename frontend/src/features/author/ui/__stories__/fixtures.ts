@@ -422,6 +422,7 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
                 'The ask names the gold sales table; every column resolves after two renames.',
               rebinds,
               unmapped: [],
+              ops: [],
               plan: planFor(rebinds),
               model: { provider: 'bedrock', model: 'us.anthropic.claude-sonnet-4-6' },
             },
