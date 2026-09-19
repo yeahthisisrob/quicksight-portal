@@ -34,9 +34,17 @@ import { AssetStatusFilter } from '../../types/assetFilterTypes';
 import { ASSET_TYPES } from '../../types/assetTypes';
 import { logger } from '../../utils/logger';
 import { normalizePermissionsArray } from '../../utils/permissions';
+import { withTimeout } from '../../utils/withTimeout';
 
 /** Link map freshness window — catalog membership changes slowly. */
 const LINK_MAP_TTL_MS = CACHE_TTL.SHORT;
+/**
+ * Discovery runs behind a 30-second API gateway window. Each upstream call
+ * gets its own bound so a hung one is reported by name instead of the whole
+ * request dying with no body.
+ */
+const DISCOVERY_CALL_TIMEOUT_MS = 12_000;
+const CALLER_LOOKUP_TIMEOUT_MS = 6_000;
 
 interface LinkMapCacheEntry {
   expiresAt: number;
@@ -341,16 +349,31 @@ export class SmusService {
     }
     const adapter = this.dataZoneAdapter;
     SmusService.listingsCache = null;
+    logger.info('SMUS project discovery started', {
+      domainId: this.config.domainId,
+      region: this.config.region,
+    });
     const [listed, listings] = await Promise.all([
-      adapter.listProjects(this.config.domainId).catch((error) => {
+      withTimeout(
+        adapter.listProjects(this.config.domainId),
+        DISCOVERY_CALL_TIMEOUT_MS,
+        'ListProjects'
+      ).catch((error) => {
         diagnostics.listProjectsError = errorMessage(error);
         return [] as CatalogProject[];
       }),
-      this.getListings().catch((error) => {
-        diagnostics.listingsError = errorMessage(error);
-        return [] as CatalogListing[];
-      }),
-      this.describeCaller(diagnostics),
+      withTimeout(this.getListings(), DISCOVERY_CALL_TIMEOUT_MS, 'SearchListings').catch(
+        (error) => {
+          SmusService.listingsCache = null;
+          diagnostics.listingsError = errorMessage(error);
+          return [] as CatalogListing[];
+        }
+      ),
+      withTimeout(this.describeCaller(diagnostics), CALLER_LOOKUP_TIMEOUT_MS, 'caller').catch(
+        (error) => {
+          logger.warn('Could not describe the caller for SMUS diagnostics', { error });
+        }
+      ),
     ]);
     diagnostics.fromListProjects = listed.length;
     diagnostics.listings = listings.length;
