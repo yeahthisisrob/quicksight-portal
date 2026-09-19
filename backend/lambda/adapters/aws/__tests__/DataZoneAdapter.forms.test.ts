@@ -56,6 +56,72 @@ describe('parseListingForms', () => {
     });
   });
 
+  it('reads a form whose body is a JSON string, which is how SearchListings sends it', () => {
+    const forms = JSON.stringify({
+      GlueTableForm: JSON.stringify({
+        tableArn: 'arn:aws:glue:us-east-1:1:table/published_prod/fct_orders',
+      }),
+      RelationalTableForm: JSON.stringify({
+        columns: [
+          { columnName: 'order_id', dataType: 'bigint', columnDescription: 'Natural key' },
+          { columnName: 'amount', dataType: 'decimal' },
+        ],
+      }),
+    });
+    expect(parseListingForms(forms)).toMatchObject({
+      table: { database: 'published_prod', name: 'fct_orders' },
+      columns: [
+        { name: 'order_id', type: 'bigint', description: 'Natural key' },
+        { name: 'amount', type: 'decimal' },
+      ],
+    });
+  });
+
+  it('reads an array of form envelopes, content and all', () => {
+    const forms = JSON.stringify([
+      { formName: 'GlueTableForm', content: '{"databaseName":"gold","tableName":"dim_date"}' },
+      {
+        formName: 'RelationalTableForm',
+        typeName: 'amazon.datazone.RelationalTableFormType',
+        content: '{"columns":[{"columnName":"date_key","dataType":"date"}]}',
+      },
+    ]);
+    expect(parseListingForms(forms)).toMatchObject({
+      table: { database: 'gold', name: 'dim_date' },
+      columns: [{ name: 'date_key', type: 'date' }],
+    });
+  });
+
+  it('finds columns nested below the form body, and under other spellings', () => {
+    const forms = JSON.stringify({
+      SomeForm: {
+        schema: { columns: [{ name: 'region', dataTypeName: 'varchar', comment: 'Sales region' }] },
+      },
+    });
+    expect(parseListingForms(forms).columns).toEqual([
+      { name: 'region', type: 'varchar', description: 'Sales region' },
+    ]);
+  });
+
+  it('takes a form object that was never a string, and the longest column list it finds', () => {
+    expect(
+      parseListingForms({
+        A: { columns: [{ columnName: 'one' }] },
+        B: { columns: [{ columnName: 'one' }, { columnName: 'two' }] },
+      }).columns
+    ).toEqual([
+      { name: 'one', type: '' },
+      { name: 'two', type: '' },
+    ]);
+  });
+
+  it('does not mistake a list of untyped named things for a schema', () => {
+    const forms = JSON.stringify({
+      OwnershipForm: { stewards: [{ name: 'Data team' }, { name: 'Finance' }] },
+    });
+    expect(parseListingForms(forms).columns).toBeUndefined();
+  });
+
   it('returns nothing for missing or malformed forms', () => {
     expect(parseListingForms(undefined)).toEqual({});
     expect(parseListingForms('not json')).toEqual({});

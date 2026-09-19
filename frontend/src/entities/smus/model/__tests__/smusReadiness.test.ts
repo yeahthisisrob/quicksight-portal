@@ -89,6 +89,25 @@ describe('describeProjectDiagnostics', () => {
     expect(text).not.toContain('no user profile');
   });
 
+  it('says when no listing published a column list, and what they did publish', () => {
+    const text =
+      describeProjectDiagnostics({
+        ...diagnostics,
+        listings: 12,
+        listingsWithColumns: 0,
+        formNames: ['GlueTableForm', 'OwnershipForm'],
+      }) ?? '';
+    expect(text).toContain('No listing published a column list');
+    expect(text).toContain('GlueTableForm, OwnershipForm');
+  });
+
+  it('counts the listings that did publish one', () => {
+    const text =
+      describeProjectDiagnostics({ ...diagnostics, listings: 12, listingsWithColumns: 9 }) ?? '';
+    expect(text).toContain('9 of 12 listings published a column list');
+    expect(text).not.toContain('No listing published');
+  });
+
   it('says when the per-project filter was refused and the domain swept instead', () => {
     const text =
       describeProjectDiagnostics({ ...diagnostics, listingsFallback: 'ValidationException' }) ?? '';

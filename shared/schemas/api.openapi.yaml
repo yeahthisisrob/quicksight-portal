@@ -5781,6 +5781,17 @@ components:
         listingsFallback:
           type: string
           description: Set when the per-project listing filter was refused and the domain was swept instead.
+        listingsWithTable:
+          type: integer
+          description: Listings whose metadata forms named a Glue table.
+        listingsWithColumns:
+          type: integer
+          description: Listings whose metadata forms carried a column list. Without these there is no column tie-back.
+        formNames:
+          type: array
+          description: The metadata forms seen across the listings, so a domain that publishes no schema says what it does publish.
+          items:
+            type: string
 
     SmusProject:
       type: object

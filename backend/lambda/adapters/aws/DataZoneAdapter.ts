@@ -54,6 +54,161 @@ const PROJECTS_PAGE_SIZE = 50;
  * listing without table identity.
  */
 const MAX_FORM_VALUE_LENGTH = 500;
+/** Forms nest a few levels at most; the bounds stop a pathological payload. */
+const MAX_FORM_DEPTH = 8;
+const MAX_FORM_NODES = 2000;
+
+type ListingColumn = { name: string; type: string; description?: string };
+
+/**
+ * A form body arrives in more than one shape depending on the call and the
+ * domain's version: a nested object, a JSON string of one, or an envelope
+ * carrying its content as a JSON string beside a type name. Unwrap whichever
+ * turned up; anything else comes back untouched.
+ */
+function parseMaybeJson(value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return value;
+  }
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+    return value;
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
+function firstString(source: Record<string, any>, keys: readonly string[]): string | undefined {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
+const COLUMN_NAME_KEYS = ['columnName', 'ColumnName', 'columnname', 'name', 'Name'] as const;
+const COLUMN_TYPE_KEYS = [
+  'dataType',
+  'DataType',
+  'dataTypeName',
+  'columnType',
+  'type',
+  'Type',
+] as const;
+const COLUMN_DESCRIPTION_KEYS = [
+  'columnDescription',
+  'ColumnDescription',
+  'description',
+  'Description',
+  'comment',
+] as const;
+/** Keys a column list hides behind, across form types and DataZone versions. */
+const COLUMN_LIST_KEYS = /^(columns?|columndefinitions|schema|fields)$/i;
+const TABLE_ARN_KEYS = ['tableArn', 'TableArn', 'tableArnIdentifier'] as const;
+const DATABASE_KEYS = ['databaseName', 'DatabaseName', 'database', 'dbName', 'schemaName'] as const;
+const TABLE_NAME_KEYS = ['tableName', 'TableName', 'table'] as const;
+const CATALOG_KEYS = ['catalogId', 'CatalogId', 'catalog'] as const;
+
+function asListingColumn(raw: unknown): ListingColumn | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return undefined;
+  }
+  const source = raw as Record<string, any>;
+  const name = firstString(source, COLUMN_NAME_KEYS);
+  if (!name) {
+    return undefined;
+  }
+  const description = firstString(source, COLUMN_DESCRIPTION_KEYS);
+  return {
+    name,
+    type: firstString(source, COLUMN_TYPE_KEYS) ?? '',
+    ...(description ? { description } : {}),
+  };
+}
+
+/** An array is a column list when every entry is an object and some name a column. */
+function asColumnList(value: unknown): ListingColumn[] | undefined {
+  if (!Array.isArray(value) || value.length === 0) {
+    return undefined;
+  }
+  if (!value.every((v) => v !== null && typeof v === 'object' && !Array.isArray(v))) {
+    return undefined;
+  }
+  const columns = value.map(asListingColumn).filter((c): c is ListingColumn => c !== undefined);
+  return columns.length > 0 ? columns : undefined;
+}
+
+interface FormScan {
+  /** A list under a key that says it holds columns. Trusted first. */
+  keyed?: ListingColumn[];
+  /** Any list whose entries carry both a name and a type. A weaker signal. */
+  typed?: ListingColumn[];
+  tableArn?: string;
+  databaseName?: string;
+  tableName?: string;
+  catalogId?: string;
+}
+
+function longer(
+  current: ListingColumn[] | undefined,
+  candidate: ListingColumn[] | undefined
+): ListingColumn[] | undefined {
+  if (!candidate) {
+    return current;
+  }
+  return !current || candidate.length > current.length ? candidate : current;
+}
+
+/**
+ * Walk a form tree for the two things a listing is worth reading for: the
+ * table it stands for and the columns it names. Which form holds them, and
+ * how deep, varies by asset type and domain version, so this looks for the
+ * shape rather than for a form called something in particular.
+ */
+function scanForms(root: unknown, scan: FormScan): void {
+  const stack: Array<{ node: unknown; depth: number }> = [{ node: root, depth: 0 }];
+  let visited = 0;
+  while (stack.length > 0 && visited < MAX_FORM_NODES) {
+    const { node, depth } = stack.pop() as { node: unknown; depth: number };
+    visited += 1;
+    if (!node || typeof node !== 'object' || depth > MAX_FORM_DEPTH) {
+      continue;
+    }
+    if (Array.isArray(node)) {
+      for (const entry of node) {
+        stack.push({ node: parseMaybeJson(entry), depth: depth + 1 });
+      }
+      continue;
+    }
+    const source = node as Record<string, any>;
+    scan.tableArn ??= firstString(source, TABLE_ARN_KEYS);
+    scan.databaseName ??= firstString(source, DATABASE_KEYS);
+    scan.tableName ??= firstString(source, TABLE_NAME_KEYS);
+    scan.catalogId ??= firstString(source, CATALOG_KEYS);
+    for (const [key, rawValue] of Object.entries(source)) {
+      const value = parseMaybeJson(rawValue);
+      const columns = asColumnList(value);
+      if (columns) {
+        if (COLUMN_LIST_KEYS.test(key)) {
+          scan.keyed = longer(scan.keyed, columns);
+          continue;
+        }
+        // Unkeyed lists of objects are common (glossary terms, owners), so
+        // only a list that types its entries counts as a schema.
+        if (columns.every((c) => c.type)) {
+          scan.typed = longer(scan.typed, columns);
+          continue;
+        }
+      }
+      stack.push({ node: value, depth: depth + 1 });
+    }
+  }
+}
 
 /** A form field value as text: scalars as-is, arrays joined, objects as JSON. */
 function formValue(value: unknown): string {
@@ -71,7 +226,7 @@ function formValue(value: unknown): string {
   }
   const json = JSON.stringify(value);
   return json.length > MAX_FORM_VALUE_LENGTH
-    ? `${json.slice(0, MAX_FORM_VALUE_LENGTH - 1)}…`
+    ? `${json.slice(0, MAX_FORM_VALUE_LENGTH - 1)}\u2026`
     : json;
 }
 
@@ -80,12 +235,13 @@ export function flattenForms(
   forms: Record<string, any>
 ): Array<{ name: string; fields: Array<{ key: string; value: string }> }> {
   return Object.entries(forms)
-    .filter(([, body]) => typeof body === 'object' && body !== null)
-    .map(([name, body]) => ({
+    .map(([name, body]) => ({ name, body: parseMaybeJson(body) }))
+    .filter(({ body }) => typeof body === 'object' && body !== null && !Array.isArray(body))
+    .map(({ name, body }) => ({
       name,
       fields: Object.entries(body as Record<string, unknown>)
         // Column lists are rendered as a table elsewhere, not as a pair.
-        .filter(([key]) => key !== 'columns')
+        .filter(([, value]) => !asColumnList(parseMaybeJson(value)))
         .map(([key, value]) => ({ key, value: formValue(value) }))
         .filter((f) => f.value !== ''),
     }))
@@ -93,46 +249,39 @@ export function flattenForms(
 }
 
 export function parseListingForms(
-  raw: string | undefined
+  raw: string | Record<string, any> | undefined
 ): Pick<CatalogListing, 'table' | 'columns'> & { forms?: CatalogListing['forms'] } {
   if (!raw) {
     return {};
   }
-  let forms: Record<string, any>;
-  try {
-    forms = JSON.parse(raw);
-  } catch {
+  const parsed = parseMaybeJson(raw);
+  if (!parsed || typeof parsed !== 'object') {
     return {};
   }
-  const entries = Object.entries(forms);
-  const find = (needle: string) =>
-    entries.find(([key]) => key.toLowerCase().includes(needle.toLowerCase()))?.[1];
+  // An array of {formName, content} envelopes is keyed back by name so the
+  // display and the scan see the same thing either way.
+  const forms: Record<string, any> = Array.isArray(parsed)
+    ? Object.fromEntries(
+        parsed.map((entry: any, i: number) => [
+          String(entry?.formName ?? entry?.typeName ?? i),
+          parseMaybeJson(entry?.content ?? entry),
+        ])
+      )
+    : (parsed as Record<string, any>);
 
-  const glue = find('GlueTable') ?? {};
-  const relational = find('RelationalTable') ?? {};
+  const scan: FormScan = {};
+  scanForms(forms, scan);
 
   // arn:aws:glue:<region>:<account>:table/<database>/<table>
-  const arn: string | undefined = glue.tableArn ?? glue.TableArn;
-  const arnMatch = typeof arn === 'string' ? arn.match(/:table\/([^/]+)\/(.+)$/) : null;
-  const database: string | undefined =
-    glue.databaseName ?? glue.database ?? relational.databaseName ?? arnMatch?.[1];
-  const tableName: string | undefined = glue.tableName ?? relational.tableName ?? arnMatch?.[2];
-
-  const columnsRaw = Array.isArray(relational.columns) ? relational.columns : [];
-  const columns = columnsRaw
-    .map((c: any) => ({
-      name: String(c?.columnName ?? c?.name ?? ''),
-      type: String(c?.dataType ?? c?.type ?? ''),
-      ...(typeof c?.columnDescription === 'string' && c.columnDescription
-        ? { description: c.columnDescription as string }
-        : {}),
-    }))
-    .filter((c: { name: string }) => c.name);
+  const arnMatch = scan.tableArn?.match(/:table\/([^/]+)\/(.+)$/);
+  const database = arnMatch?.[1] ?? scan.databaseName;
+  const tableName = arnMatch?.[2] ?? scan.tableName;
+  const columns = scan.keyed ?? scan.typed;
 
   return {
     table:
-      database && tableName ? { catalog: glue.catalogId, database, name: tableName } : undefined,
-    columns: columns.length > 0 ? columns : undefined,
+      database && tableName ? { catalog: scan.catalogId, database, name: tableName } : undefined,
+    columns: columns && columns.length > 0 ? columns : undefined,
     forms: flattenForms(forms),
   };
 }
