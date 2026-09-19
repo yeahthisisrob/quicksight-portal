@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.12.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.11.2...v2.12.0) (2026-09-19)
+
+
+### Features
+
+* **author:** a dashboard from nothing - pick datasets, describe it or name the columns, publish it ([#171](https://github.com/yeahthisisrob/quicksight-portal/issues/171)) ([13647f6](https://github.com/yeahthisisrob/quicksight-portal/commit/13647f6c24482b52a143245615f495cb59482a86))
+* **authoring:** a dataset's columns as an endpoint, so building from nothing never reads an export's shape ([#173](https://github.com/yeahthisisrob/quicksight-portal/issues/173)) ([66b8792](https://github.com/yeahthisisrob/quicksight-portal/commit/66b8792472861b01a60692cb2e19f4347992ee9c))
+
 ## [2.11.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.11.1...v2.11.2) (2026-09-19)
 
 
