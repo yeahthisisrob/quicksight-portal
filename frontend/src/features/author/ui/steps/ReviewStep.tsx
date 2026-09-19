@@ -23,6 +23,7 @@ import { ColumnResolutionTable, type RebindMode } from '@/entities/definition';
 import type { AuthorFlow } from '../../model/useAuthorFlow';
 import { Panel } from '../primitives/Panel';
 import { StatusIndicator } from '../primitives/StatusIndicator';
+import { TemplateFieldsPanel } from './TemplateFieldsPanel';
 
 function AskPanel({ flow }: { flow: AuthorFlow }) {
   return (
@@ -213,6 +214,7 @@ export function ReviewStep({ flow }: { flow: AuthorFlow }) {
     <Stack spacing={2.5}>
       <AskPanel flow={flow} />
       <ReviewPanel flow={flow} />
+      <TemplateFieldsPanel flow={flow} />
     </Stack>
   );
 }

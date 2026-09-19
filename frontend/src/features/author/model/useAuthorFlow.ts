@@ -25,6 +25,7 @@ import {
 
 import { assetsApi, authoringApi, getApiErrorMessage, tagsApi } from '@/shared/api';
 import type { Proposal, RebindPlan } from '@/shared/api/modules/authoring';
+import type { CalculatedFieldTemplate } from '@/shared/api/modules/data-catalog';
 
 import {
   type AuthorFlowState,
@@ -75,11 +76,23 @@ export interface AuthorFlow {
   proposeError: string | null;
   propose: () => Promise<void>;
   preview: MockupPreview;
+  /** Calculated fields from the template library to add to the written definition. */
+  addedFields: AddedTemplateField[];
+  addTemplateField: (template: CalculatedFieldTemplate, identifier: string) => void;
+  removeTemplateField: (templateId: string) => void;
+  setTemplateFieldIdentifier: (templateId: string, identifier: string) => void;
   publishing: boolean;
   publishError: string | null;
   publish: () => Promise<void>;
   /** Start over with a different source. */
   reset: () => void;
+}
+
+export interface AddedTemplateField {
+  templateId: string;
+  identifier: string;
+  name: string;
+  expression: string;
 }
 
 function sourceFromParams(params: URLSearchParams): RebindSource | null {
@@ -144,9 +157,36 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
     }
   }, [sourceQuery.data, state.source]);
 
+  // --- template calculated fields ---------------------------------------------
+  const [addedFields, setAddedFields] = useState<AddedTemplateField[]>([]);
+  const addTemplateField = useCallback((template: CalculatedFieldTemplate, identifier: string) => {
+    setAddedFields((prev) =>
+      prev.some((f) => f.templateId === template.id)
+        ? prev
+        : [
+            ...prev,
+            {
+              templateId: template.id,
+              identifier,
+              name: template.name,
+              expression: template.expression,
+            },
+          ]
+    );
+  }, []);
+  const removeTemplateField = useCallback((templateId: string) => {
+    setAddedFields((prev) => prev.filter((f) => f.templateId !== templateId));
+  }, []);
+  const setTemplateFieldIdentifier = useCallback((templateId: string, identifier: string) => {
+    setAddedFields((prev) =>
+      prev.map((f) => (f.templateId === templateId ? { ...f, identifier } : f))
+    );
+  }, []);
+
   const selectSource = useCallback(
     (source: RebindSource | null) => {
       dispatch({ type: 'selectSource', source });
+      setAddedFields([]);
       setParams(source ? { type: source.type, id: source.id, name: source.name } : {}, {
         replace: true,
       });
@@ -212,6 +252,7 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
         mode: draft.mode,
         rebinds: draft.rebinds,
         name: draft.name.trim() || undefined,
+        addCalculatedFields: addedFields.length > 0 ? addedFields : undefined,
       });
       const published: AuthorResult = {
         assetType: result.assetType,
@@ -230,7 +271,7 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
     } finally {
       setPublishing(false);
     }
-  }, [state.source, draft.mode, draft.rebinds, draft.name, enqueueSnackbar]);
+  }, [state.source, draft.mode, draft.rebinds, draft.name, addedFields, enqueueSnackbar]);
 
   // --- templates -------------------------------------------------------------
   const setTemplate = useCallback(
@@ -285,6 +326,7 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
     setProposal(null);
     setProposeError(null);
     setPublishError(null);
+    setAddedFields([]);
   }, [setParams]);
 
   return {
@@ -321,6 +363,10 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
       model: previewModel,
       diff: previewDiff,
     },
+    addedFields,
+    addTemplateField,
+    removeTemplateField,
+    setTemplateFieldIdentifier,
     publishing,
     publishError,
     publish,

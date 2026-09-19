@@ -4696,7 +4696,7 @@ export interface components {
             calculatedFieldCount: number;
             fields: components["schemas"]["DatasetCatalogField"][];
         };
-        SmusCatalogAssetSummary: {
+        SmusCatalogAssetBase: {
             listingId: string;
             assetId: string;
             name: string;
@@ -4711,13 +4711,15 @@ export interface components {
             };
             glossaryTerms: components["schemas"]["GlossaryTerm"][];
             columnCount: number;
-            datasets: components["schemas"]["SmusLinkedDataset"][];
             calculatedFieldCount: number;
             usage: components["schemas"]["FieldUsage"];
             /** Format: date-time */
             updatedAt?: string;
         };
-        SmusCatalogAsset: components["schemas"]["SmusCatalogAssetSummary"] & {
+        SmusCatalogAssetSummary: components["schemas"]["SmusCatalogAssetBase"] & {
+            datasets: components["schemas"]["SmusLinkedDataset"][];
+        };
+        SmusCatalogAsset: components["schemas"]["SmusCatalogAssetBase"] & {
             forms: components["schemas"]["MetadataForm"][];
             columns: components["schemas"]["SmusCatalogColumn"][];
             datasets: components["schemas"]["CatalogDataset"][];

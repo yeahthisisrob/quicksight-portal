@@ -1,1 +1,1 @@
-export { DataCatalogProvider, useDataCatalog } from './DataCatalogContext';
+export * from './catalogState';

@@ -5036,9 +5036,9 @@ components:
           items:
             $ref: '#/components/schemas/DatasetCatalogField'
 
-    SmusCatalogAssetSummary:
+    SmusCatalogAssetBase:
       type: object
-      required: [listingId, assetId, name, glossaryTerms, columnCount, datasets, calculatedFieldCount, usage]
+      required: [listingId, assetId, name, glossaryTerms, columnCount, calculatedFieldCount, usage]
       properties:
         listingId:
           type: string
@@ -5070,10 +5070,6 @@ components:
             $ref: '#/components/schemas/GlossaryTerm'
         columnCount:
           type: integer
-        datasets:
-          type: array
-          items:
-            $ref: '#/components/schemas/SmusLinkedDataset'
         calculatedFieldCount:
           type: integer
         usage:
@@ -5082,9 +5078,20 @@ components:
           type: string
           format: date-time
 
+    SmusCatalogAssetSummary:
+      allOf:
+        - $ref: '#/components/schemas/SmusCatalogAssetBase'
+        - type: object
+          required: [datasets]
+          properties:
+            datasets:
+              type: array
+              items:
+                $ref: '#/components/schemas/SmusLinkedDataset'
+
     SmusCatalogAsset:
       allOf:
-        - $ref: '#/components/schemas/SmusCatalogAssetSummary'
+        - $ref: '#/components/schemas/SmusCatalogAssetBase'
         - type: object
           required: [forms, columns, datasets]
           properties:

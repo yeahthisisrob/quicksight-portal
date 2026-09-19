@@ -156,6 +156,62 @@ export type DatasetCatalogField = CatalogSchemas['DatasetCatalogField'];
 export type GlossaryTerm = CatalogSchemas['GlossaryTerm'];
 export type MetadataForm = CatalogSchemas['MetadataForm'];
 export type PortalFieldMetadata = CatalogSchemas['PortalFieldMetadata'];
+export type CalculatedFieldTemplate = CatalogSchemas['CalculatedFieldTemplate'];
+export type CalculatedFieldTemplateInput = CatalogSchemas['CalculatedFieldTemplateInput'];
+export type FieldVisualUsage = CatalogSchemas['FieldVisualUsage'];
+export type FieldConflict = CatalogSchemas['FieldConflict'];
+export type ExpressionVariant = CatalogSchemas['ExpressionVariant'];
+export type SmusColumnLink = CatalogSchemas['SmusColumnLink'];
+
+/**
+ * The calculated-field template library: expressions worth reusing across
+ * datasets, kept by the portal because SMUS has no home for them.
+ */
+export const calculatedFieldTemplatesApi = {
+  async list(): Promise<CalculatedFieldTemplate[]> {
+    const response = await apiClient.get<ApiResponse<{ templates: CalculatedFieldTemplate[] }>>(
+      '/data-catalog/templates/calculated-fields'
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to load the template library');
+    }
+    return response.data.data.templates;
+  },
+
+  async create(input: CalculatedFieldTemplateInput): Promise<CalculatedFieldTemplate> {
+    const response = await apiClient.post<ApiResponse<CalculatedFieldTemplate>>(
+      '/data-catalog/templates/calculated-fields',
+      input
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to save the template');
+    }
+    return response.data.data;
+  },
+
+  async update(
+    templateId: string,
+    input: CalculatedFieldTemplateInput
+  ): Promise<CalculatedFieldTemplate> {
+    const response = await apiClient.put<ApiResponse<CalculatedFieldTemplate>>(
+      `/data-catalog/templates/calculated-fields/${encodeURIComponent(templateId)}`,
+      input
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to update the template');
+    }
+    return response.data.data;
+  },
+
+  async remove(templateId: string): Promise<void> {
+    const response = await apiClient.delete<ApiResponse<unknown>>(
+      `/data-catalog/templates/calculated-fields/${encodeURIComponent(templateId)}`
+    );
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to delete the template');
+    }
+  },
+};
 
 /**
  * The SMUS-first catalog: published assets in the selected projects with
