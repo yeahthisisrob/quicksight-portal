@@ -78,9 +78,12 @@ function NoProjects() {
 
 export function CatalogPage({
   initialScope = 'project',
+  embedded = false,
 }: {
   /** Which search the left pane starts in (stories). */
   initialScope?: CatalogSearchScope;
+  /** Inside the tabbed catalog: no header or project select of its own. */
+  embedded?: boolean;
 }) {
   const [url, setUrl] = useCatalogUrlState();
   const [search, setSearch] = useState(url.q ?? '');
@@ -228,6 +231,10 @@ export function CatalogPage({
         </Box>
       </Stack>
     );
+  }
+
+  if (embedded) {
+    return <Box sx={{ minWidth: 0 }}>{body}</Box>;
   }
 
   return (

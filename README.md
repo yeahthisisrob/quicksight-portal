@@ -82,7 +82,9 @@ The catalog leads with what SMUS does not have: **every calculated field in the 
 - a link back to the SMUS column for plain fields, and a portal note only for calculated fields, because SMUS has no home for those;
 - a **template library** of calculated fields. Save one from the catalog and Author adds it to the copies it creates.
 
-![Catalog](docs/screenshots/catalog.png)
+![Catalog: every calculated field, its usage and its conflicts](docs/screenshots/catalog-calculated-fields.png)
+
+![Catalog: a calculated field's lineage both ways, tied to SMUS](docs/screenshots/catalog-calculated-field-detail.png)
 
 **Giving the portal a seat in the domain.** DataZone scopes project listing (and, in a locked-down domain, catalog reads) to principals that belong to the domain. Run this once with your admin credentials to register the portal's Lambda role and add it, read-only, to the projects it should read:
 

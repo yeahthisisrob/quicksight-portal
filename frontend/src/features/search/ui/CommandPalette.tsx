@@ -26,6 +26,7 @@ import {
   describeIndexed,
   flattenGroups,
   groupHits,
+  hitPath,
   moveSelection,
   SEARCH_FILTERS,
   SEARCH_MIN_LENGTH,
@@ -91,7 +92,7 @@ export function CommandPalette({
 
   const go = (hit: SearchHit) => {
     palette.hide();
-    navigate(hit.path);
+    navigate(hitPath(hit));
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {

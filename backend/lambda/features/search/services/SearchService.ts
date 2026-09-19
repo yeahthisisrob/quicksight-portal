@@ -12,8 +12,8 @@ import type { FieldInfo } from '../../../shared/services/cache/types';
 import { SmusService } from '../../../shared/services/smus/SmusService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { logger } from '../../../shared/utils/logger';
-import { canonicalExpression } from '../../data-catalog/lib/expressionAnalysis';
 import { CalculatedFieldTemplateStore } from '../../data-catalog/services/CalculatedFieldTemplateStore';
+import { calculatedFieldKey } from '../../data-catalog/services/FieldCatalogService';
 import { SearchIndex } from '../lib/searchIndex';
 import type { SearchDocument, SearchHit, SearchRequest, SearchResponse } from '../types';
 
@@ -179,7 +179,8 @@ export class SearchService {
       if (parentType !== 'dashboard' && parentType !== 'analysis' && parentType !== 'dataset') {
         continue;
       }
-      const key = `${field.fieldName.toLowerCase()}::${canonicalExpression(field.expression)}`;
+      // The catalog's own key, so a hit opens exactly this field there.
+      const key = calculatedFieldKey(field.fieldName, field.expression);
       const existing = byExpression.get(key);
       const definer = { type: parentType, id: field.sourceAssetId, name: field.sourceAssetName };
       if (existing) {
@@ -215,7 +216,7 @@ export class SearchService {
           .slice(0, SUMMARY_NAMES)
           .map((d) => d.name)
           .join(', ')}${calc.definedIn.length > SUMMARY_NAMES ? ', …' : ''})`,
-        path: `/data-catalog?q=${encodeURIComponent(calc.name)}`,
+        path: `/data-catalog?tab=calculated-fields&field=${encodeURIComponent(key)}`,
       });
     }
 

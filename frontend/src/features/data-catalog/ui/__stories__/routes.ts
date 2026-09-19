@@ -7,6 +7,7 @@ import type { MockRoute } from '../../../../../.storybook/mocks/api';
 import { requestBody } from '../../../../../.storybook/mocks/api';
 import { searchRoute } from '../../../../../.storybook/mocks/search';
 import { settingsSnapshotRoute } from '../../../author/ui/__stories__/fixtures';
+import { fieldCatalogRoutes } from './fieldCatalog';
 import { ASSETS_BY_ID, catalogFor, TEMPLATES } from './fixtures';
 
 const TAGS = [
@@ -18,6 +19,7 @@ export function catalogRoutes(overrides: MockRoute[] = []): MockRoute[] {
   let templates = [...TEMPLATES];
   return [
     ...overrides,
+    ...fieldCatalogRoutes(),
     searchRoute(),
     settingsSnapshotRoute(
       'dzd_example',
