@@ -51,6 +51,7 @@ export type DefinitionOp =
   | { op: 'renameSheet'; sheetId: string; name: string };
 
 export type ChangeKind =
+  | 'template'
   | 'repair'
   | 'rebind'
   | 'rename'
