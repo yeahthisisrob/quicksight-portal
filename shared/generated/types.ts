@@ -5784,7 +5784,8 @@ export interface components {
         };
         ColumnCatalogItem: {
             name: string;
-            dataType: string;
+            /** @description Absent when the dataset export did not say (QuickSight leaves OutputColumns.Type out for some columns). */
+            dataType?: string;
             datasets: components["schemas"]["CatalogDatasetRef"][];
             smus?: components["schemas"]["SmusColumnRef"];
             usedBy: {

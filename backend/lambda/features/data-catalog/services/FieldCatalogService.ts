@@ -105,7 +105,8 @@ export interface CalculatedFieldDetail extends CalculatedFieldSummary {
 
 export interface ColumnCatalogItem {
   name: string;
-  dataType: string;
+  /** Absent when the export did not say: QuickSight leaves OutputColumns.Type out for some columns. */
+  dataType?: string;
   datasets: CatalogDatasetRef[];
   smus?: SmusColumnRef;
   usedBy: { dashboards: number; analyses: number; visuals: number };
@@ -157,6 +158,8 @@ function refOf(field: FieldInfo): CalculatedFieldRef {
 function isCalculatedIn(field: FieldInfo): boolean {
   return (
     field.isCalculated &&
+    typeof field.fieldName === 'string' &&
+    field.fieldName.length > 0 &&
     typeof field.expression === 'string' &&
     field.expression.length > 0 &&
     (field.sourceAssetType === 'dataset' ||
@@ -283,11 +286,14 @@ export class FieldCatalogService {
       if (filters.datasetId && datasetId !== filters.datasetId) continue;
       if (filters.projectId && listing?.projectId !== filters.projectId) continue;
       for (const field of own) {
-        if (field.isCalculated) continue;
+        // The field cache mirrors the export: a column can arrive without a
+        // name (skipped) or without a type (QuickSight leaves OutputColumns.Type
+        // out for some columns), and the tab must not fall over on either.
+        if (field.isCalculated || !field.fieldName) continue;
         const key = field.fieldName.toLowerCase();
         const item = byName.get(key) ?? {
           name: field.fieldName,
-          dataType: field.dataType,
+          dataType: field.dataType || undefined,
           datasets: [],
           usedBy: { dashboards: 0, analyses: 0, visuals: 0 },
           usedByCalculated: [],
@@ -432,7 +438,7 @@ export class FieldCatalogService {
   ): LineageRead {
     for (const datasetId of group.datasetIds) {
       const own = index.byDataset.get(datasetId) ?? [];
-      const match = own.find((f) => f.fieldName.toLowerCase() === name.toLowerCase());
+      const match = own.find((f) => f.fieldName?.toLowerCase() === name.toLowerCase());
       if (!match) continue;
       if (match.isCalculated) {
         const target = [...groups.values()].find(
@@ -539,7 +545,9 @@ function smusColumn(
 ): SmusColumnRef | undefined {
   if (!listing) return undefined;
   const asset = assets.find((a) => a.listingId === listing.listingId);
-  const column = asset?.columns?.find((c) => c.name.toLowerCase() === columnName.toLowerCase());
+  const column = asset?.columns?.find(
+    (c) => (c.name ?? '').toLowerCase() === columnName.toLowerCase()
+  );
   if (!column) return undefined;
   return {
     ...listing,

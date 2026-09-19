@@ -444,6 +444,8 @@ const column = (
 });
 
 export const COLUMN_ITEMS: ColumnCatalogItem[] = [
+  // A column the export could not type: QuickSight leaves OutputColumns.Type out.
+  column({ name: 'geo_point', dataType: undefined, datasets: [DS_GOLD] }),
   column({
     name: 'revenue',
     datasets: [DS_GOLD, DS_EXEC],
