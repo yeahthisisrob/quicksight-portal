@@ -2427,6 +2427,118 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /api/data-catalog/calculated-fields:
+    get:
+      summary: Every calculated field in the account, grouped by what it computes
+      description: |
+        The catalog field-first. One row per distinct (name, expression):
+        where it is defined (datasets, dashboards, analyses), the datasets it
+        lives on with their SMUS listing, what it reads, how many dashboards,
+        analyses and visuals use it, whether other expressions carry the same
+        name (a conflict), whether a template matches it, and whether it has a
+        portal note. Counts across the top. This is what the portal knows and
+        SMUS does not.
+      parameters:
+        - name: projectId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Only fields on datasets whose SMUS listing belongs to this project.
+        - name: datasetId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Case-insensitive match on the name or the expression.
+        - name: conflictsOnly
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: The calculated field catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/CalculatedFieldCatalog'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/data-catalog/calculated-fields/{key}:
+    get:
+      summary: One calculated field, with its lineage both ways and its variants
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The calculated field
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/CalculatedFieldDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/data-catalog/columns:
+    get:
+      summary: Plain columns across datasets, tied back to their SMUS listing column
+      parameters:
+        - name: projectId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: datasetId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The column catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/ColumnCatalog'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/data-catalog/templates/calculated-fields:
     get:
       summary: The calculated-field template library
@@ -5779,6 +5891,285 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/SmusLinkedDataset'
+
+    CalculatedFieldRef:
+      type: object
+      required: [type, id, name]
+      properties:
+        type:
+          type: string
+          enum: [dashboard, analysis, dataset]
+        id:
+          type: string
+        name:
+          type: string
+
+    CatalogListingRef:
+      type: object
+      required: [listingId, name]
+      properties:
+        listingId:
+          type: string
+        name:
+          type: string
+        projectId:
+          type: string
+        projectName:
+          type: string
+        url:
+          type: string
+
+    CatalogDatasetRef:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        listing:
+          $ref: '#/components/schemas/CatalogListingRef'
+
+    SmusColumnRef:
+      type: object
+      required: [listingId, name, columnName, glossaryTerms]
+      properties:
+        listingId:
+          type: string
+        name:
+          type: string
+        projectId:
+          type: string
+        projectName:
+          type: string
+        url:
+          type: string
+        columnName:
+          type: string
+        description:
+          type: string
+        glossaryTerms:
+          type: array
+          items:
+            type: string
+
+    CalculatedFieldSummary:
+      type: object
+      required: [key, name, expression, definedIn, datasets, references, usedBy, hasNote]
+      properties:
+        key:
+          type: string
+          description: Stable id for one distinct (name, expression).
+        name:
+          type: string
+        expression:
+          type: string
+        dataType:
+          type: string
+        definedIn:
+          type: array
+          items:
+            $ref: '#/components/schemas/CalculatedFieldRef'
+        datasets:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogDatasetRef'
+        references:
+          type: array
+          items:
+            type: string
+        usedBy:
+          type: object
+          required: [dashboards, analyses, visuals]
+          properties:
+            dashboards:
+              type: integer
+            analyses:
+              type: integer
+            visuals:
+              type: integer
+        conflict:
+          type: object
+          description: Other expressions carrying the same name.
+          required: [variants]
+          properties:
+            variants:
+              type: integer
+        template:
+          type: object
+          required: [id]
+          properties:
+            id:
+              type: string
+        hasNote:
+          type: boolean
+
+    CalculatedFieldCatalog:
+      type: object
+      required: [configured, exportedAt, projectFilter, counts, items]
+      properties:
+        configured:
+          type: boolean
+        exportedAt:
+          type: string
+          format: date-time
+          nullable: true
+        projectFilter:
+          type: array
+          items:
+            type: string
+        counts:
+          type: object
+          required: [fields, names, conflicts, templated, unused, datasets]
+          properties:
+            fields:
+              type: integer
+            names:
+              type: integer
+            conflicts:
+              type: integer
+            templated:
+              type: integer
+            unused:
+              type: integer
+            datasets:
+              type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CalculatedFieldSummary'
+
+    LineageRead:
+      type: object
+      required: [name, kind]
+      properties:
+        name:
+          type: string
+        kind:
+          type: string
+          enum: [column, calculated]
+        key:
+          type: string
+        dataType:
+          type: string
+        datasetId:
+          type: string
+        datasetName:
+          type: string
+        smus:
+          $ref: '#/components/schemas/SmusColumnRef'
+
+    CalculatedFieldDetail:
+      allOf:
+        - $ref: '#/components/schemas/CalculatedFieldSummary'
+        - type: object
+          required: [variants, reads, readBy, usedIn, visuals]
+          properties:
+            variants:
+              type: array
+              description: Every distinct expression under this name, this one included.
+              items:
+                type: object
+                required: [key, expression, definedIn]
+                properties:
+                  key:
+                    type: string
+                  expression:
+                    type: string
+                  definedIn:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CalculatedFieldRef'
+            reads:
+              type: array
+              items:
+                $ref: '#/components/schemas/LineageRead'
+            readBy:
+              type: array
+              items:
+                type: object
+                required: [key, name, expression, definedIn]
+                properties:
+                  key:
+                    type: string
+                  name:
+                    type: string
+                  expression:
+                    type: string
+                  definedIn:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CalculatedFieldRef'
+            usedIn:
+              type: array
+              items:
+                $ref: '#/components/schemas/FieldUsedIn'
+            visuals:
+              type: array
+              items:
+                $ref: '#/components/schemas/FieldVisualUsage'
+            portal:
+              $ref: '#/components/schemas/PortalFieldMetadata'
+
+    ColumnCatalogItem:
+      type: object
+      required: [name, dataType, datasets, usedBy, usedByCalculated]
+      properties:
+        name:
+          type: string
+        dataType:
+          type: string
+        datasets:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogDatasetRef'
+        smus:
+          $ref: '#/components/schemas/SmusColumnRef'
+        usedBy:
+          type: object
+          required: [dashboards, analyses, visuals]
+          properties:
+            dashboards:
+              type: integer
+            analyses:
+              type: integer
+            visuals:
+              type: integer
+        usedByCalculated:
+          type: array
+          items:
+            type: object
+            required: [key, name]
+            properties:
+              key:
+                type: string
+              name:
+                type: string
+
+    ColumnCatalog:
+      type: object
+      required: [configured, exportedAt, counts, items]
+      properties:
+        configured:
+          type: boolean
+        exportedAt:
+          type: string
+          format: date-time
+          nullable: true
+        counts:
+          type: object
+          required: [columns, datasets, withSmus]
+          properties:
+            columns:
+              type: integer
+            datasets:
+              type: integer
+            withSmus:
+              type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ColumnCatalogItem'
 
     SmusCatalogAsset:
       allOf:

@@ -3131,6 +3131,149 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data-catalog/calculated-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every calculated field in the account, grouped by what it computes
+         * @description The catalog field-first. One row per distinct (name, expression):
+         *     where it is defined (datasets, dashboards, analyses), the datasets it
+         *     lives on with their SMUS listing, what it reads, how many dashboards,
+         *     analyses and visuals use it, whether other expressions carry the same
+         *     name (a conflict), whether a template matches it, and whether it has a
+         *     portal note. Counts across the top. This is what the portal knows and
+         *     SMUS does not.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Only fields on datasets whose SMUS listing belongs to this project. */
+                    projectId?: string;
+                    datasetId?: string;
+                    /** @description Case-insensitive match on the name or the expression. */
+                    search?: string;
+                    conflictsOnly?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The calculated field catalog */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["CalculatedFieldCatalog"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data-catalog/calculated-fields/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One calculated field, with its lineage both ways and its variants */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    key: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The calculated field */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["CalculatedFieldDetail"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data-catalog/columns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Plain columns across datasets, tied back to their SMUS listing column */
+        get: {
+            parameters: {
+                query?: {
+                    projectId?: string;
+                    datasetId?: string;
+                    search?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The column catalog */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["ColumnCatalog"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/data-catalog/templates/calculated-fields": {
         parameters: {
             query?: never;
@@ -5342,6 +5485,126 @@ export interface components {
         };
         SmusCatalogAssetSummary: components["schemas"]["SmusCatalogAssetBase"] & {
             datasets: components["schemas"]["SmusLinkedDataset"][];
+        };
+        CalculatedFieldRef: {
+            /** @enum {string} */
+            type: "dashboard" | "analysis" | "dataset";
+            id: string;
+            name: string;
+        };
+        CatalogListingRef: {
+            listingId: string;
+            name: string;
+            projectId?: string;
+            projectName?: string;
+            url?: string;
+        };
+        CatalogDatasetRef: {
+            id: string;
+            name: string;
+            listing?: components["schemas"]["CatalogListingRef"];
+        };
+        SmusColumnRef: {
+            listingId: string;
+            name: string;
+            projectId?: string;
+            projectName?: string;
+            url?: string;
+            columnName: string;
+            description?: string;
+            glossaryTerms: string[];
+        };
+        CalculatedFieldSummary: {
+            /** @description Stable id for one distinct (name, expression). */
+            key: string;
+            name: string;
+            expression: string;
+            dataType?: string;
+            definedIn: components["schemas"]["CalculatedFieldRef"][];
+            datasets: components["schemas"]["CatalogDatasetRef"][];
+            references: string[];
+            usedBy: {
+                dashboards: number;
+                analyses: number;
+                visuals: number;
+            };
+            /** @description Other expressions carrying the same name. */
+            conflict?: {
+                variants: number;
+            };
+            template?: {
+                id: string;
+            };
+            hasNote: boolean;
+        };
+        CalculatedFieldCatalog: {
+            configured: boolean;
+            /** Format: date-time */
+            exportedAt: string | null;
+            projectFilter: string[];
+            counts: {
+                fields: number;
+                names: number;
+                conflicts: number;
+                templated: number;
+                unused: number;
+                datasets: number;
+            };
+            items: components["schemas"]["CalculatedFieldSummary"][];
+        };
+        LineageRead: {
+            name: string;
+            /** @enum {string} */
+            kind: "column" | "calculated";
+            key?: string;
+            dataType?: string;
+            datasetId?: string;
+            datasetName?: string;
+            smus?: components["schemas"]["SmusColumnRef"];
+        };
+        CalculatedFieldDetail: components["schemas"]["CalculatedFieldSummary"] & {
+            /** @description Every distinct expression under this name, this one included. */
+            variants: {
+                key: string;
+                expression: string;
+                definedIn: components["schemas"]["CalculatedFieldRef"][];
+            }[];
+            reads: components["schemas"]["LineageRead"][];
+            readBy: {
+                key: string;
+                name: string;
+                expression: string;
+                definedIn: components["schemas"]["CalculatedFieldRef"][];
+            }[];
+            usedIn: components["schemas"]["FieldUsedIn"][];
+            visuals: components["schemas"]["FieldVisualUsage"][];
+            portal?: components["schemas"]["PortalFieldMetadata"];
+        };
+        ColumnCatalogItem: {
+            name: string;
+            dataType: string;
+            datasets: components["schemas"]["CatalogDatasetRef"][];
+            smus?: components["schemas"]["SmusColumnRef"];
+            usedBy: {
+                dashboards: number;
+                analyses: number;
+                visuals: number;
+            };
+            usedByCalculated: {
+                key: string;
+                name: string;
+            }[];
+        };
+        ColumnCatalog: {
+            configured: boolean;
+            /** Format: date-time */
+            exportedAt: string | null;
+            counts: {
+                columns: number;
+                datasets: number;
+                withSmus: number;
+            };
+            items: components["schemas"]["ColumnCatalogItem"][];
         };
         SmusCatalogAsset: components["schemas"]["SmusCatalogAssetBase"] & {
             forms: components["schemas"]["MetadataForm"][];

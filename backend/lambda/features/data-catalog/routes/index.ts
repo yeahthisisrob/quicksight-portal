@@ -93,6 +93,23 @@ export const dataCatalogRoutes: RouteHandler[] = [
     handler: (event) => handler.getSmusCatalogAsset(event),
   },
 
+  // Field-first catalog: calculated fields, their lineage, and columns
+  {
+    method: 'GET',
+    path: '/data-catalog/calculated-fields',
+    handler: (event) => handler.getCalculatedFields(event),
+  },
+  {
+    method: 'GET',
+    path: /^\/data-catalog\/calculated-fields\/([^/]+)$/,
+    handler: (event) => handler.getCalculatedField(event),
+  },
+  {
+    method: 'GET',
+    path: '/data-catalog/columns',
+    handler: (event) => handler.getColumns(event),
+  },
+
   // Calculated-field template library
   {
     method: 'GET',

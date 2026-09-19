@@ -20,6 +20,7 @@ import {
   validateTemplateInput,
 } from '../services/CalculatedFieldTemplateStore';
 import { CatalogService } from '../services/CatalogService';
+import { FieldCatalogService } from '../services/FieldCatalogService';
 import { FieldMetadataService } from '../services/FieldMetadataService';
 import { SmusCatalogService } from '../services/SmusCatalogService';
 import type { CatalogField, DataCatalogResult } from '../types';
@@ -634,6 +635,82 @@ export class DataCatalogHandler {
   // ---------------------------------------------------------------------------
   // SMUS-first catalog
   // ---------------------------------------------------------------------------
+
+  private fieldCatalog(): FieldCatalogService {
+    const config = getSmusConfig();
+    const smusService = new SmusService(
+      cacheService,
+      config,
+      ClientFactory.getQuickSightService(process.env.AWS_ACCOUNT_ID || '')
+    );
+    return new FieldCatalogService(smusService, this.smusCatalog());
+  }
+
+  /** GET /data-catalog/calculated-fields?projectId=&datasetId=&search=&conflictsOnly= */
+  public async getCalculatedFields(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const q = event.queryStringParameters || {};
+      const data = await this.fieldCatalog().calculatedFields({
+        projectId: q.projectId || undefined,
+        datasetId: q.datasetId || undefined,
+        search: q.search || undefined,
+        conflictsOnly: q.conflictsOnly === 'true' || q.conflictsOnly === '1',
+      });
+      return successResponse(event, { success: true, data });
+    } catch (error: any) {
+      logger.error('Calculated field catalog failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error?.message || 'Failed to load calculated fields'
+      );
+    }
+  }
+
+  /** GET /data-catalog/calculated-fields/{key} */
+  public async getCalculatedField(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const key = event.pathParameters?.key || '';
+      if (!key) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Key is required');
+      }
+      const data = await this.fieldCatalog().calculatedField(key);
+      if (!data) {
+        return errorResponse(event, STATUS_CODES.NOT_FOUND, `No calculated field '${key}'`);
+      }
+      return successResponse(event, { success: true, data });
+    } catch (error: any) {
+      logger.error('Calculated field detail failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error?.message || 'Failed to load the calculated field'
+      );
+    }
+  }
+
+  /** GET /data-catalog/columns?projectId=&datasetId=&search= */
+  public async getColumns(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const q = event.queryStringParameters || {};
+      const data = await this.fieldCatalog().columns({
+        projectId: q.projectId || undefined,
+        datasetId: q.datasetId || undefined,
+        search: q.search || undefined,
+      });
+      return successResponse(event, { success: true, data });
+    } catch (error: any) {
+      logger.error('Column catalog failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error?.message || 'Failed to load columns'
+      );
+    }
+  }
 
   /** Built per request: settings can change the SMUS scope at runtime. */
   private smusCatalog(): SmusCatalogService {
