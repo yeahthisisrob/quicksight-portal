@@ -9,6 +9,11 @@ import type {
   CalculatedFieldSummary,
   ColumnCatalog,
   ColumnCatalogItem,
+  FieldLineage,
+  FieldLineageNode,
+  FieldUsedIn,
+  FieldVisualUsage,
+  LineageRead,
 } from '@/shared/api/modules/data-catalog';
 
 import type { MockRoute } from '../../../../../.storybook/mocks/api';
@@ -55,6 +60,9 @@ export const KEYS = {
   runway: 'cf_runway000001',
   attainment: 'cf_attainment01',
   orderMonth: 'cf_ordermonth01',
+  landedCost: 'cf_landedcost1',
+  marginRank: 'cf_marginrank1',
+  marginBand: 'cf_marginband1',
 };
 
 const summary = (
@@ -270,7 +278,8 @@ const MARGIN_PCT_VARIANTS = [
 const byKey = (key: string) =>
   CALCULATED_FIELD_ITEMS.find((i) => i.key === key) as CalculatedFieldSummary;
 
-export const CALCULATED_FIELD_DETAILS: Record<string, CalculatedFieldDetail> = {
+/** The details as authored; the dependency chain is derived from them below. */
+const DETAIL_DRAFTS: Record<string, Omit<CalculatedFieldDetail, 'lineage'>> = {
   [KEYS.margin]: {
     ...byKey(KEYS.margin),
     variants: [
@@ -475,6 +484,98 @@ export const CALCULATED_FIELD_DETAILS: Record<string, CalculatedFieldDetail> = {
   },
 };
 
+const MAX_FIXTURE_DEPTH = 4;
+
+const readId = (read: LineageRead) =>
+  read.key ? `cf:${read.key}` : `col:${read.datasetId ?? '-'}:${read.name.toLowerCase()}`;
+
+const nodeOfDetail = (key: string, depth: number): FieldLineageNode => {
+  const detail = DETAIL_DRAFTS[key];
+  return {
+    id: `cf:${key}`,
+    name: detail?.name ?? key,
+    kind: 'calculated',
+    depth,
+    key,
+    expression: detail?.expression,
+    dataType: detail?.dataType,
+    usedBy: detail?.usedBy,
+  };
+};
+
+const nodeOfRead = (read: LineageRead, depth: number): FieldLineageNode => ({
+  id: readId(read),
+  name: read.name,
+  kind: read.kind,
+  depth,
+  dataType: read.dataType,
+  datasetId: read.datasetId,
+  datasetName: read.datasetName,
+  smus: read.smus,
+});
+
+/**
+ * The chain the endpoint would have walked, derived from the details already
+ * written here so the fixture cannot drift from them: upstream through
+ * `reads`, downstream through `readBy`, then the edges that join the two.
+ */
+function lineageFor(key: string): FieldLineage {
+  const nodes = new Map<string, FieldLineageNode>([[`cf:${key}`, nodeOfDetail(key, 0)]]);
+  const edges = new Map<string, { from: string; to: string }>();
+  const link = (from: string, to: string) => {
+    if (nodes.has(from) && nodes.has(to)) {
+      edges.set(`${from}->${to}`, { from, to });
+    }
+  };
+
+  let up = [key];
+  for (let depth = 1; depth <= MAX_FIXTURE_DEPTH && up.length > 0; depth += 1) {
+    const next: string[] = [];
+    for (const current of up) {
+      for (const read of DETAIL_DRAFTS[current]?.reads ?? []) {
+        const id = readId(read);
+        if (!nodes.has(id)) {
+          nodes.set(id, read.key ? nodeOfDetail(read.key, -depth) : nodeOfRead(read, -depth));
+          if (read.key) next.push(read.key);
+        }
+        link(id, `cf:${current}`);
+      }
+    }
+    up = next;
+  }
+
+  let down = [key];
+  for (let depth = 1; depth <= MAX_FIXTURE_DEPTH && down.length > 0; depth += 1) {
+    const next: string[] = [];
+    for (const current of down) {
+      for (const reader of DETAIL_DRAFTS[current]?.readBy ?? []) {
+        const id = `cf:${reader.key}`;
+        if (!nodes.has(id)) {
+          nodes.set(id, nodeOfDetail(reader.key, depth));
+          next.push(reader.key);
+        }
+        link(`cf:${current}`, id);
+      }
+    }
+    down = next;
+  }
+
+  for (const node of nodes.values()) {
+    for (const read of (node.key && DETAIL_DRAFTS[node.key]?.reads) || []) {
+      link(readId(read), node.id);
+    }
+  }
+
+  return { nodes: [...nodes.values()], edges: [...edges.values()], truncated: false };
+}
+
+export const CALCULATED_FIELD_DETAILS: Record<string, CalculatedFieldDetail> = Object.fromEntries(
+  Object.entries(DETAIL_DRAFTS).map(([key, detail]) => [
+    key,
+    { ...detail, lineage: lineageFor(key) },
+  ])
+);
+
 const column = (
   over: Partial<ColumnCatalogItem> & Pick<ColumnCatalogItem, 'name'>
 ): ColumnCatalogItem => ({
@@ -638,3 +739,130 @@ export function fieldCatalogRoutes(
     },
   ];
 }
+
+const HEAVY_ASSETS = 24;
+const HEAVY_VISUALS_PER_ASSET = 9;
+const HEAVY_SHEETS = ['Overview', 'By region', 'Detail', 'Appendix'];
+
+/**
+ * The shape that broke the chip list: one field every mart repeats, read by
+ * two dozen assets and a couple of hundred visuals. Stories use it to prove
+ * the usage table still opens instantly and stays legible.
+ */
+export function heavyUsage(): { usedIn: FieldUsedIn[]; visuals: FieldVisualUsage[] } {
+  const usedIn: FieldUsedIn[] = Array.from({ length: HEAVY_ASSETS }, (_, i) => ({
+    assetType: i % 4 === 3 ? ('analysis' as const) : ('dashboard' as const),
+    assetId: `asset-${i}`,
+    assetName: `${i % 4 === 3 ? 'Exploration' : 'Regional performance'} ${i + 1}`,
+  }));
+  const visuals: FieldVisualUsage[] = usedIn.flatMap((asset, i) =>
+    // One asset reads the field without the export naming a visual.
+    i === 5
+      ? []
+      : Array.from({ length: HEAVY_VISUALS_PER_ASSET }, (_, v) => ({
+          ...asset,
+          sheetName: HEAVY_SHEETS[v % HEAVY_SHEETS.length] as string,
+          visualId: `v-${i}-${v}`,
+          visualName: `${['Margin KPI', 'Trend', 'By segment', 'Table'][v % 4]} ${v + 1}`,
+        }))
+  );
+  return { usedIn, visuals };
+}
+
+const WIDE_SOURCES = 6;
+
+/** A chain wide enough to need the barycentre ordering and a scroll. */
+export const WIDE_CHAIN: FieldLineage = (() => {
+  const sources: FieldLineageNode[] = Array.from({ length: WIDE_SOURCES }, (_, i) => ({
+    id: `col:src-${i}`,
+    name: ['revenue', 'cost', 'discount', 'returns', 'tax', 'shipping'][i] as string,
+    kind: 'column',
+    depth: -2,
+    dataType: 'DECIMAL',
+    datasetName: 'Sales (gold)',
+    ...(i < 2
+      ? {
+          smus: smusColumn(
+            ['revenue', 'cost'][i] as string,
+            'From the governed table behind this dataset.'
+          ),
+        }
+      : {}),
+  }));
+  const mids: FieldLineageNode[] = [
+    {
+      id: 'cf:net',
+      name: 'net_revenue',
+      kind: 'calculated',
+      depth: -1,
+      key: KEYS.netRevenue,
+      expression: '{revenue} - {discount} - {returns}',
+      usedBy: { dashboards: 4, analyses: 2, visuals: 11 },
+    },
+    {
+      id: 'cf:landed',
+      name: 'landed_cost',
+      kind: 'calculated',
+      depth: -1,
+      key: KEYS.landedCost,
+      expression: '{cost} + {tax} + {shipping}',
+      usedBy: { dashboards: 1, analyses: 0, visuals: 2 },
+    },
+  ];
+  const focus: FieldLineageNode = {
+    id: `cf:${KEYS.margin}`,
+    name: 'margin',
+    kind: 'calculated',
+    depth: 0,
+    key: KEYS.margin,
+    expression: '{net_revenue} - {landed_cost}',
+    usedBy: { dashboards: 3, analyses: 1, visuals: 7 },
+  };
+  const readers: FieldLineageNode[] = [
+    {
+      id: `cf:${KEYS.marginPctDashboard}`,
+      name: 'margin_pct',
+      kind: 'calculated',
+      depth: 1,
+      key: KEYS.marginPctDashboard,
+      expression: '{margin} / {revenue}',
+      usedBy: { dashboards: 2, analyses: 0, visuals: 4 },
+    },
+    {
+      id: 'cf:margin_rank',
+      name: 'margin_rank',
+      kind: 'calculated',
+      depth: 1,
+      key: KEYS.marginRank,
+      expression: 'rank([{margin} DESC])',
+      usedBy: { dashboards: 1, analyses: 1, visuals: 3 },
+    },
+    {
+      id: 'cf:margin_band',
+      name: 'margin_band',
+      kind: 'calculated',
+      depth: 2,
+      key: KEYS.marginBand,
+      expression: "ifelse({margin_pct} > 0.4, 'high', 'low')",
+      usedBy: { dashboards: 2, analyses: 0, visuals: 2 },
+    },
+  ];
+  return {
+    nodes: [...sources, ...mids, focus, ...readers],
+    edges: [
+      { from: 'col:src-0', to: 'cf:net' },
+      { from: 'col:src-2', to: 'cf:net' },
+      { from: 'col:src-3', to: 'cf:net' },
+      { from: 'col:src-1', to: 'cf:landed' },
+      { from: 'col:src-4', to: 'cf:landed' },
+      { from: 'col:src-5', to: 'cf:landed' },
+      { from: 'cf:net', to: `cf:${KEYS.margin}` },
+      { from: 'cf:landed', to: `cf:${KEYS.margin}` },
+      { from: `cf:${KEYS.margin}`, to: `cf:${KEYS.marginPctDashboard}` },
+      { from: `cf:${KEYS.margin}`, to: 'cf:margin_rank' },
+      { from: 'col:src-0', to: `cf:${KEYS.marginPctDashboard}` },
+      { from: `cf:${KEYS.marginPctDashboard}`, to: 'cf:margin_band' },
+    ],
+    truncated: true,
+  };
+})();

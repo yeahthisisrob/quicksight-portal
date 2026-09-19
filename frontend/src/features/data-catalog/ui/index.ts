@@ -7,6 +7,8 @@ export { CalculatedFieldDetail } from './calculated-fields/CalculatedFieldDetail
 export { CalculatedFieldsTable } from './calculated-fields/CalculatedFieldsTable';
 export { CalculatedFieldsView } from './calculated-fields/CalculatedFieldsView';
 export { FieldCounts } from './calculated-fields/FieldCounts';
+export { FieldLineageGraph } from './calculated-fields/FieldLineageGraph';
+export { FieldUsagePanel } from './calculated-fields/FieldUsagePanel';
 export { ColumnsView } from './columns/ColumnsView';
 export { DatasetFieldsTable } from './DatasetFieldsTable';
 export { DatasetTagsFilter } from './DatasetTagsFilter';

@@ -289,6 +289,91 @@ describe('FieldCatalogService', () => {
     expect(await service().calculatedField('cf_nope')).toBeNull();
   });
 
+  it('walks the whole dependency chain, not just the neighbours, and says which way it flows', async () => {
+    const key = calculatedFieldKey('margin', '{revenue} - {cost}');
+    const { lineage } = (await service().calculatedField(key))!;
+
+    const byId = Object.fromEntries(lineage.nodes.map((n) => [n.id, n]));
+    const focus = `cf:${key}`;
+    expect(byId[focus]).toMatchObject({ depth: 0, kind: 'calculated', name: 'margin' });
+
+    // Upstream: the columns it is computed from, with their SMUS tie-back.
+    const revenue = lineage.nodes.find((n) => n.name === 'revenue')!;
+    expect(revenue).toMatchObject({ depth: -1, kind: 'column', datasetId: 'ds-1' });
+    expect(revenue.smus).toMatchObject({ columnName: 'revenue' });
+    expect(lineage.edges).toContainEqual({ from: revenue.id, to: focus });
+
+    // Downstream: both variants of margin_pct read it, one hop out.
+    const readers = lineage.nodes.filter((n) => n.name === 'margin_pct');
+    expect(readers.map((n) => n.depth)).toEqual([1, 1]);
+    expect(readers.every((n) => lineage.edges.some((e) => e.from === focus && e.to === n.id))).toBe(
+      true
+    );
+    // ... and they carry revenue two hops upstream of themselves, which is the
+    // chain the neighbour lists cannot show.
+    expect(lineage.edges).toContainEqual({ from: revenue.id, to: readers[0]!.id });
+    expect(lineage.truncated).toBe(false);
+    expect(byId[focus]?.usedBy).toEqual({ dashboards: 1, analyses: 1, visuals: 0 });
+  });
+
+  it('keeps a field defined against nothing the datasets know out of the outside-SMUS bucket', async () => {
+    // A dashboard-defined field the index cannot bind to a dataset has no
+    // datasets at all, so it is neither in SMUS nor outside it: hiding it
+    // under every scope would make it unreachable.
+    catalog.getFieldIndex.mockResolvedValue({
+      ...INDEX,
+      usersOf: new Map([
+        ...Object.entries(USERS),
+        [
+          '::orphan',
+          [
+            field({
+              sourceAssetType: 'dashboard',
+              sourceAssetId: 'd-2',
+              sourceAssetName: 'Loose',
+              fieldName: 'orphan',
+              isCalculated: true,
+              expression: '1 + 1',
+            }),
+          ],
+        ],
+      ]),
+    });
+
+    const scoped = await service().calculatedFields();
+    expect(scoped.items.some((i) => i.name === 'orphan')).toBe(true);
+    expect(scoped.counts.outsideSmus).toBe(0);
+    expect((await service().calculatedFields({ scope: 'outside' })).items).toEqual([]);
+  });
+
+  it('says how a dataset was tied to its listing, including through a parent', async () => {
+    smus.listAssets.mockResolvedValue({
+      configured: true,
+      projectFilter: ['p-prod'],
+      assets: [
+        {
+          ...ASSETS[0],
+          datasets: [
+            {
+              id: 'ds-1',
+              name: 'Orders (gold)',
+              matchType: 'lineage',
+              via: { datasetId: 'ds-raw', name: 'Orders (raw)' },
+            },
+          ],
+        },
+      ],
+      exportedAt: '2026-09-19T00:00:00Z',
+    });
+
+    const margin = (await service().calculatedFields()).items.find((i) => i.name === 'margin')!;
+    expect(margin.datasets[0]?.listing).toMatchObject({
+      listingId: 'l-orders',
+      matchType: 'lineage',
+      via: { datasetId: 'ds-raw', name: 'Orders (raw)' },
+    });
+  });
+
   it('lists columns across datasets with their SMUS column and the calculated fields that read them', async () => {
     const result = await service().columns();
     expect(result.counts).toEqual({

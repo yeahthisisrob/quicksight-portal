@@ -5836,6 +5836,26 @@ components:
           type: string
           description: The source type as the catalog reports it, e.g. string, bigint, timestamp.
 
+    SmusMatchType:
+      type: string
+      enum: [source-table, custom-sql, name, lineage]
+      description: >
+        How a dataset was tied to a listing, in descending confidence — by a
+        relational source table (schema.table), by a db.table reference parsed
+        from custom SQL, by the dataset's display name, or through a parent
+        dataset that matched, for a dataset built on another one and so
+        carrying no table identity of its own.
+
+    SmusLinkVia:
+      type: object
+      required: [datasetId]
+      description: The parent dataset a `lineage` tie came through.
+      properties:
+        datasetId:
+          type: string
+        name:
+          type: string
+
     SmusLinkedDataset:
       type: object
       required: [id, name, matchType]
@@ -5845,8 +5865,9 @@ components:
         name:
           type: string
         matchType:
-          type: string
-          enum: [source-table, custom-sql, name]
+          $ref: '#/components/schemas/SmusMatchType'
+        via:
+          $ref: '#/components/schemas/SmusLinkVia'
 
     SmusAsset:
       type: object
@@ -6173,8 +6194,7 @@ components:
         name:
           type: string
         matchType:
-          type: string
-          enum: [source-table, custom-sql, name]
+          $ref: '#/components/schemas/SmusMatchType'
         importMode:
           type: string
         calculatedFieldCount:
@@ -6263,6 +6283,10 @@ components:
           type: string
         url:
           type: string
+        matchType:
+          $ref: '#/components/schemas/SmusMatchType'
+        via:
+          $ref: '#/components/schemas/SmusLinkVia'
 
     CatalogDatasetRef:
       type: object
@@ -6312,6 +6336,17 @@ components:
           items:
             type: string
 
+    FieldUsageCounts:
+      type: object
+      required: [dashboards, analyses, visuals]
+      properties:
+        dashboards:
+          type: integer
+        analyses:
+          type: integer
+        visuals:
+          type: integer
+
     CalculatedFieldSummary:
       type: object
       required: [key, name, expression, definedIn, datasets, references, usedBy, hasNote]
@@ -6338,15 +6373,7 @@ components:
           items:
             type: string
         usedBy:
-          type: object
-          required: [dashboards, analyses, visuals]
-          properties:
-            dashboards:
-              type: integer
-            analyses:
-              type: integer
-            visuals:
-              type: integer
+          $ref: '#/components/schemas/FieldUsageCounts'
         conflict:
           type: object
           description: Other expressions carrying the same name.
@@ -6421,11 +6448,70 @@ components:
         smus:
           $ref: '#/components/schemas/SmusColumnRef'
 
+    FieldLineageNode:
+      type: object
+      required: [id, name, kind, depth]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          enum: [column, calculated]
+        depth:
+          type: integer
+          description: >
+            Signed — negative upstream (what the focused field is computed
+            from), 0 for the field itself, positive downstream. A field
+            reachable at several depths keeps the nearest.
+        key:
+          type: string
+          description: Calculated fields only — their catalog key, so a node opens.
+        expression:
+          type: string
+        dataType:
+          type: string
+        datasetId:
+          type: string
+        datasetName:
+          type: string
+        smus:
+          $ref: '#/components/schemas/SmusColumnRef'
+        usedBy:
+          $ref: '#/components/schemas/FieldUsageCounts'
+
+    FieldLineageEdge:
+      type: object
+      required: [from, to]
+      description: Data flows from `from` to `to` — `to` reads `from`.
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+
+    FieldLineage:
+      type: object
+      required: [nodes, edges, truncated]
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldLineageNode'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldLineageEdge'
+        truncated:
+          type: boolean
+          description: True when the walk hit its depth or size bound, so the chain is partial.
+
     CalculatedFieldDetail:
       allOf:
         - $ref: '#/components/schemas/CalculatedFieldSummary'
         - type: object
-          required: [variants, reads, readBy, usedIn, visuals]
+          required: [variants, reads, readBy, usedIn, visuals, lineage]
           properties:
             variants:
               type: array
@@ -6470,6 +6556,8 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/FieldVisualUsage'
+            lineage:
+              $ref: '#/components/schemas/FieldLineage'
             portal:
               $ref: '#/components/schemas/PortalFieldMetadata'
 
@@ -6489,15 +6577,7 @@ components:
         smus:
           $ref: '#/components/schemas/SmusColumnRef'
         usedBy:
-          type: object
-          required: [dashboards, analyses, visuals]
-          properties:
-            dashboards:
-              type: integer
-            analyses:
-              type: integer
-            visuals:
-              type: integer
+          $ref: '#/components/schemas/FieldUsageCounts'
         usedByCalculated:
           type: array
           items:
@@ -7189,12 +7269,9 @@ components:
           type: boolean
           description: Whether a matching SMUS catalog listing was found
         matchType:
-          type: string
-          enum: [source-table, custom-sql, name]
-          description: >
-            How the dataset was matched, in descending confidence — by a
-            relational source table (schema.table), by a db.table reference
-            parsed from custom SQL, or by the dataset's display name
+          $ref: '#/components/schemas/SmusMatchType'
+        via:
+          $ref: '#/components/schemas/SmusLinkVia'
         listingId:
           type: string
           description: SMUS catalog listing identifier

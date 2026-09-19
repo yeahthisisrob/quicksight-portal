@@ -95,6 +95,74 @@ export function toQuickSightColumnType(sourceType: string): string {
 /** Kept as a name for the settings handler; the export job produces it. */
 export type ProjectDiscoveryDiagnostics = SmusExportDiagnostics;
 
+/** A dataset built on another one is followed no further than this. */
+const MAX_LINEAGE_DEPTH = 10;
+
+/**
+ * A dataset built on other datasets reads the governed tables they read, but
+ * it has no table identity of its own: its physical tables are empty (or name
+ * the parent), and its display name is rarely the listing's. Direct matching
+ * therefore ties the leaf of a lineage to a listing and nothing above it, so
+ * every calculated field — which is exactly what people build on top of a
+ * governed table — looked ungoverned.
+ *
+ * This is the second pass: an unlinked dataset inherits the listing of the
+ * nearest ancestor that matched directly. Ancestors come from the parsed
+ * lineage (`lineageData.datasetIds`), breadth-first so the closest parent
+ * wins, and only direct matches are inherited from, so the result does not
+ * depend on the order datasets came in.
+ */
+export function inheritThroughLineage(
+  datasets: Array<{ assetId: string; assetName?: string; metadata?: any }>,
+  direct: Map<string, SmusDatasetLink>
+): Map<string, SmusDatasetLink> {
+  const parentsOf = new Map<string, string[]>();
+  const nameOf = new Map<string, string | undefined>();
+  for (const dataset of datasets) {
+    const parents: unknown[] = dataset.metadata?.lineageData?.datasetIds ?? [];
+    parentsOf.set(
+      dataset.assetId,
+      parents.filter((id): id is string => typeof id === 'string' && id !== dataset.assetId)
+    );
+    nameOf.set(dataset.assetId, dataset.assetName);
+  }
+
+  const inherited = new Map<string, SmusDatasetLink>();
+  for (const dataset of datasets) {
+    if (direct.get(dataset.assetId)?.linked) {
+      continue;
+    }
+    const seen = new Set<string>([dataset.assetId]);
+    let frontier = parentsOf.get(dataset.assetId) ?? [];
+    for (let depth = 0; depth < MAX_LINEAGE_DEPTH && frontier.length > 0; depth += 1) {
+      const next: string[] = [];
+      let found: { parentId: string; link: SmusDatasetLink } | undefined;
+      for (const parentId of frontier) {
+        if (seen.has(parentId)) {
+          continue;
+        }
+        seen.add(parentId);
+        const link = direct.get(parentId);
+        if (link?.linked) {
+          found ??= { parentId, link };
+        }
+        next.push(...(parentsOf.get(parentId) ?? []));
+      }
+      if (found) {
+        inherited.set(dataset.assetId, {
+          ...found.link,
+          datasetId: dataset.assetId,
+          matchType: 'lineage',
+          via: { datasetId: found.parentId, name: nameOf.get(found.parentId) },
+        });
+        break;
+      }
+      frontier = next;
+    }
+  }
+  return inherited;
+}
+
 export class SmusService {
   /** Container-scoped cache so warm Lambda invocations share one link map. */
   private static linkMapCache: LinkMapCacheEntry | null = null;
@@ -167,6 +235,7 @@ export class SmusService {
         id: link.datasetId,
         name: datasetNames.get(link.datasetId) ?? link.datasetId,
         matchType: link.matchType ?? 'name',
+        ...(link.via ? { via: link.via } : {}),
       });
       datasetsByListing.set(link.listingId, list);
     }
@@ -451,11 +520,16 @@ export class SmusService {
     for (const dataset of datasets) {
       linkMap.set(dataset.assetId, this.resolveDatasetLink(dataset, listingsByName));
     }
+    const inherited = inheritThroughLineage(datasets, linkMap);
+    for (const [datasetId, link] of inherited) {
+      linkMap.set(datasetId, link);
+    }
 
     logger.info('SMUS link map built', {
       listings: listings.length,
       datasets: datasets.length,
       linked: Array.from(linkMap.values()).filter((l) => l.linked).length,
+      throughLineage: inherited.size,
     });
 
     return linkMap;

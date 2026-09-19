@@ -3,10 +3,17 @@ import type { SmusSnapshotSummary } from '../../../shared/services/smus/SmusSnap
 /**
  * How a QuickSight dataset was matched to a SMUS catalog listing, in
  * descending confidence: a relational source table (schema.table from the
- * physical table map), a db.table reference parsed from custom SQL, or the
- * dataset's display name.
+ * physical table map), a db.table reference parsed from custom SQL, the
+ * dataset's display name, or — last — a parent dataset that matched, for a
+ * dataset built on another one and so carrying no table identity itself.
  */
-export type SmusMatchType = 'source-table' | 'custom-sql' | 'name';
+export type SmusMatchType = 'source-table' | 'custom-sql' | 'name' | 'lineage';
+
+/** The parent a `lineage` match came through. */
+export interface SmusLinkVia {
+  datasetId: string;
+  name?: string;
+}
 
 /** SMUS integration status exposed to the frontend. */
 export interface SmusStatus {
@@ -27,6 +34,8 @@ export interface SmusDatasetLink {
   assetId?: string;
   listingName?: string;
   url?: string;
+  /** Set on a `lineage` match: the parent dataset the listing came from. */
+  via?: SmusLinkVia;
 }
 
 /** One published listing with what the portal knows about it. */
@@ -45,7 +54,7 @@ export interface SmusAsset {
   forms: Array<{ name: string; fields: Array<{ key: string; value: string }> }>;
   createdAt?: string;
   /** QuickSight datasets the portal matched to this listing. */
-  datasets: Array<{ id: string; name: string; matchType: SmusMatchType }>;
+  datasets: Array<{ id: string; name: string; matchType: SmusMatchType; via?: SmusLinkVia }>;
 }
 
 export interface SmusAssetsResult {

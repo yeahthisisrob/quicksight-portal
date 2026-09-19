@@ -22,6 +22,7 @@ const MATCH_LABEL: Record<CatalogDataset['matchType'], string> = {
   'source-table': 'matched by source table',
   'custom-sql': 'matched by custom SQL',
   name: 'matched by name',
+  lineage: 'matched through a parent dataset',
 };
 
 type Open =
