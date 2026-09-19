@@ -48,7 +48,7 @@ describe('resolveSetting', () => {
 
   it('builds a grouped snapshot from the catalog', () => {
     const snapshot = buildSnapshot({}, {}, { updatedBy: 'rob' });
-    expect(snapshot.groups.map((g) => g.id)).toEqual(['smus', 'planner']);
+    expect(snapshot.groups.map((g) => g.id)).toEqual(['smus', 'planner', 'provenance']);
     expect(snapshot.updatedBy).toBe('rob');
     const spec = snapshot.groups[0]?.settings.find((s) => s.key === 'smus.projectIds');
     expect(spec?.optionsFrom).toBe('/settings/smus/projects');

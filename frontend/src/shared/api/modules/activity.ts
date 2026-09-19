@@ -22,6 +22,8 @@ export interface TimelineQueryParams {
   eventNames?: string[];
   excludeEventNames?: string[];
   actions?: string[];
+  /** Where changes came from: portal-ui, portal-api, portal, console, automation, unknown. */
+  origins?: string[];
   startDate?: string;
   endDate?: string;
 }
@@ -41,6 +43,7 @@ function buildTimelineQueryString(params: TimelineQueryParams): Record<string, s
       ? params.excludeEventNames.join(',')
       : undefined,
     actions: params.actions?.length ? params.actions.join(',') : undefined,
+    origins: params.origins?.length ? params.origins.join(',') : undefined,
     startDate: params.startDate,
     endDate: params.endDate,
   };

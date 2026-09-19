@@ -1,3 +1,9 @@
+/**
+ * The feed's controls: the window, what kind of thing, what kind of change,
+ * and where the change came from. "Made by agents" is the one-click answer
+ * to the question people ask most.
+ */
+import { SmartToy as AgentIcon } from '@mui/icons-material';
 import {
   Box,
   Chip,
@@ -12,25 +18,28 @@ import {
 } from '@mui/material';
 import { subDays } from 'date-fns';
 
-import type { TimelineFilters } from '../hooks/useActivityTimeline';
+import { pal, SegmentedControl } from '@/shared/design-system';
 
-/**
- * Timeline date range options — locally defined so this feature slice doesn't
- * import from `widgets/filter-bar` (FSD forbids features → widgets). Kept
- * compatible with the naming used in DATE_RANGE_OPTIONS elsewhere so a future
- * shared constant can drop in without a type change.
- */
+import type { TimelineFilters } from '../hooks/useActivityTimeline';
+import { AGENT_ORIGINS, ORIGIN_OPTIONS } from '../lib/actorDisplay';
+
 export type TimelineDateRange = '24h' | '7d' | '30d' | '90d' | 'all';
 
 const DATE_RANGE_OPTIONS: Array<{ value: TimelineDateRange; label: string }> = [
-  { value: 'all', label: 'All time' },
-  { value: '24h', label: 'Last 24 hours' },
-  { value: '7d', label: 'Last 7 days' },
-  { value: '30d', label: 'Last 30 days' },
-  { value: '90d', label: 'Last 90 days' },
+  { value: '24h', label: '24h' },
+  { value: '7d', label: '7d' },
+  { value: '30d', label: '30d' },
+  { value: '90d', label: '90d' },
+  { value: 'all', label: 'All' },
 ];
 
-/** Resource type options — matches backend TimelineResourceType. */
+const DAYS: Record<Exclude<TimelineDateRange, 'all'>, number> = {
+  '24h': 1,
+  '7d': 7,
+  '30d': 30,
+  '90d': 90,
+};
+
 const RESOURCE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'dashboard', label: 'Dashboard' },
   { value: 'analysis', label: 'Analysis' },
@@ -39,10 +48,9 @@ const RESOURCE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'folder', label: 'Folder' },
   { value: 'group', label: 'Group' },
   { value: 'user', label: 'User' },
-  { value: 'other', label: 'Other (settings, templates, themes...)' },
+  { value: 'other', label: 'Other (settings, templates, themes)' },
 ];
 
-/** Action category options — matches backend ActionCategory. */
 const ACTION_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'create', label: 'Create' },
   { value: 'update', label: 'Update' },
@@ -56,41 +64,72 @@ const ACTION_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'batch', label: 'Batch' },
 ];
 
+const SELECT_MIN_WIDTH = 180;
+
 /** Translate a TimelineDateRange into startDate ISO for the query. */
-function dateRangeToStartDate(range: TimelineDateRange): string | undefined {
-  const now = new Date();
-  switch (range) {
-    case '24h':
-      return subDays(now, 1).toISOString();
-    case '7d':
-      return subDays(now, 7).toISOString();
-    case '30d':
-      return subDays(now, 30).toISOString();
-    case '90d':
-      return subDays(now, 90).toISOString();
-    default:
-      return undefined;
-  }
+export function dateRangeToStartDate(range: TimelineDateRange): string | undefined {
+  return range === 'all' ? undefined : subDays(new Date(), DAYS[range]).toISOString();
+}
+
+function sameSet(a: string[] | undefined, b: string[]): boolean {
+  return a !== undefined && a.length === b.length && b.every((v) => a.includes(v));
 }
 
 export interface TimelineFilterBarProps {
   filters: TimelineFilters;
   onChange: (next: TimelineFilters) => void;
-  /** When true, hide the resource-type filter (used on per-asset drill-down pages). */
+  /** Per-asset pages: the resource type is fixed. */
   hideResourceTypes?: boolean;
-  /** Current date range selection (stored outside filters to keep filters serializable). */
   dateRange: TimelineDateRange;
   onDateRangeChange: (next: TimelineDateRange) => void;
-  /** Whether to show ingestion events (CreateIngestion / CancelIngestion). Default false. */
   showIngestions?: boolean;
   onShowIngestionsChange?: (next: boolean) => void;
 }
 
-/**
- * Lightweight filter bar for the activity timeline — lives alongside (not
- * extracted from) the main FilterControls widget on purpose. The main
- * FilterControls is DataGrid-coupled; this one is feed-coupled.
- */
+function MultiSelect({
+  id,
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  options: Array<{ value: string; label: string }>;
+  value: string[];
+  onChange: (next: string[] | undefined) => void;
+}) {
+  const handle = (e: SelectChangeEvent<string[]>) => {
+    const next = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value;
+    onChange(next.length > 0 ? next : undefined);
+  };
+  return (
+    <FormControl size="small" sx={{ minWidth: SELECT_MIN_WIDTH }}>
+      <InputLabel id={`${id}-label`}>{label}</InputLabel>
+      <Select
+        labelId={`${id}-label`}
+        label={label}
+        multiple
+        value={value}
+        onChange={handle}
+        renderValue={(selected) => (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+            {(selected as string[]).map((v) => (
+              <Chip key={v} size="small" label={options.find((o) => o.value === v)?.label ?? v} />
+            ))}
+          </Box>
+        )}
+      >
+        {options.map((opt) => (
+          <MenuItem key={opt.value} value={opt.value}>
+            {opt.label}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  );
+}
+
 export function TimelineFilterBar({
   filters,
   onChange,
@@ -100,105 +139,74 @@ export function TimelineFilterBar({
   showIngestions = false,
   onShowIngestionsChange,
 }: TimelineFilterBarProps) {
-  const handleResourceTypes = (e: SelectChangeEvent<string[]>) => {
-    const value = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value;
-    onChange({ ...filters, resourceTypes: value.length > 0 ? value : undefined });
-  };
-
-  const handleActions = (e: SelectChangeEvent<string[]>) => {
-    const value = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value;
-    onChange({ ...filters, actions: value.length > 0 ? value : undefined });
-  };
-
-  const handleDateRange = (e: SelectChangeEvent<string>) => {
-    const range = e.target.value as TimelineDateRange;
-    onDateRangeChange(range);
-    onChange({ ...filters, startDate: dateRangeToStartDate(range) });
-  };
+  const agentsOnly = sameSet(filters.origins, AGENT_ORIGINS);
 
   return (
     <Stack
       direction="row"
       spacing={1.5}
-      sx={{
+      useFlexGap
+      sx={(theme) => ({
         alignItems: 'center',
         flexWrap: 'wrap',
-        py: 1.5,
         px: 2,
-        borderBottom: '1px solid',
-        borderColor: 'divider',
-      }}
+        py: 1.5,
+        borderBottom: `1px solid ${pal(theme).line.divider}`,
+        backgroundColor: pal(theme).surface.container,
+      })}
     >
-      <FormControl size="small" sx={{ minWidth: 160 }}>
-        <InputLabel id="timeline-date-range-label">Date range</InputLabel>
-        <Select
-          labelId="timeline-date-range-label"
-          label="Date range"
-          value={dateRange}
-          onChange={handleDateRange}
-        >
-          {DATE_RANGE_OPTIONS.map((opt) => (
-            <MenuItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      <SegmentedControl
+        ariaLabel="Date range"
+        size="small"
+        options={DATE_RANGE_OPTIONS}
+        value={dateRange}
+        onChange={(range) => {
+          onDateRangeChange(range);
+          onChange({ ...filters, startDate: dateRangeToStartDate(range) });
+        }}
+      />
 
       {!hideResourceTypes && (
-        <FormControl size="small" sx={{ minWidth: 220 }}>
-          <InputLabel id="timeline-resource-types-label">Resource type</InputLabel>
-          <Select
-            labelId="timeline-resource-types-label"
-            label="Resource type"
-            multiple
-            value={filters.resourceTypes ?? []}
-            onChange={handleResourceTypes}
-            renderValue={(selected) => (
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {(selected as string[]).map((v) => {
-                  const opt = RESOURCE_TYPE_OPTIONS.find((o) => o.value === v);
-                  return <Chip key={v} size="small" label={opt?.label ?? v} />;
-                })}
-              </Box>
-            )}
-          >
-            {RESOURCE_TYPE_OPTIONS.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <MultiSelect
+          id="timeline-resource-types"
+          label="Resource type"
+          options={RESOURCE_TYPE_OPTIONS}
+          value={filters.resourceTypes ?? []}
+          onChange={(resourceTypes) => onChange({ ...filters, resourceTypes })}
+        />
       )}
 
-      <FormControl size="small" sx={{ minWidth: 200 }}>
-        <InputLabel id="timeline-actions-label">Action</InputLabel>
-        <Select
-          labelId="timeline-actions-label"
-          label="Action"
-          multiple
-          value={filters.actions ?? []}
-          onChange={handleActions}
-          renderValue={(selected) => (
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-              {(selected as string[]).map((v) => {
-                const opt = ACTION_OPTIONS.find((o) => o.value === v);
-                return <Chip key={v} size="small" label={opt?.label ?? v} />;
-              })}
-            </Box>
-          )}
-        >
-          {ACTION_OPTIONS.map((opt) => (
-            <MenuItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      <MultiSelect
+        id="timeline-actions"
+        label="Action"
+        options={ACTION_OPTIONS}
+        value={filters.actions ?? []}
+        onChange={(actions) => onChange({ ...filters, actions })}
+      />
+
+      <MultiSelect
+        id="timeline-origins"
+        label="Origin"
+        options={ORIGIN_OPTIONS}
+        value={filters.origins ?? []}
+        onChange={(origins) => onChange({ ...filters, origins })}
+      />
+
+      <Chip
+        icon={<AgentIcon />}
+        label="Made by agents"
+        size="small"
+        color={agentsOnly ? 'success' : 'default'}
+        variant={agentsOnly ? 'filled' : 'outlined'}
+        onClick={() =>
+          onChange({ ...filters, origins: agentsOnly ? undefined : [...AGENT_ORIGINS] })
+        }
+        aria-pressed={agentsOnly}
+      />
 
       {onShowIngestionsChange && (
         <FormControlLabel
+          sx={{ ml: 'auto', mr: 0 }}
           control={
             <Switch
               size="small"
@@ -207,7 +215,6 @@ export function TimelineFilterBar({
             />
           }
           label="Show ingestions"
-          sx={{ ml: 1 }}
         />
       )}
     </Stack>
