@@ -1,7 +1,12 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
+import { DataZoneAdapter } from '../../../adapters/aws/DataZoneAdapter';
 import { requireAuth } from '../../../shared/auth';
+import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { PAGINATION, STATUS_CODES } from '../../../shared/constants';
+import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
+import { cacheService } from '../../../shared/services/cache/CacheService';
+import { SmusService } from '../../../shared/services/smus/SmusService';
 import type { AssetType } from '../../../shared/types/assetTypes';
 import { errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
@@ -11,13 +16,20 @@ import {
   type SearchFieldConfig,
   type SortConfig,
 } from '../../../shared/utils/paginationUtils';
+import {
+  CalculatedFieldTemplateStore,
+  validateTemplateInput,
+} from '../services/CalculatedFieldTemplateStore';
 import { CatalogService } from '../services/CatalogService';
 import { FieldMetadataService } from '../services/FieldMetadataService';
+import { SmusCatalogService } from '../services/SmusCatalogService';
 import type { CatalogField, DataCatalogResult } from '../types';
 
 export class DataCatalogHandler {
   private readonly catalogService: CatalogService;
   private readonly fieldMetadataService: FieldMetadataService;
+
+  private readonly templateStore = new CalculatedFieldTemplateStore();
 
   public constructor() {
     this.fieldMetadataService = new FieldMetadataService();
@@ -259,75 +271,6 @@ export class DataCatalogHandler {
     }
   }
 
-  public async getSemanticMappings(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-    try {
-      await requireAuth(event); // Validate authentication
-      const { fieldId, status, type } = event.queryStringParameters || {};
-
-      logger.info('Getting semantic mappings', { fieldId, status, type });
-
-      // Stub implementation - return empty array for now
-      const mappings: any[] = [];
-
-      return successResponse(event, mappings);
-    } catch (error) {
-      logger.error('Failed to get semantic mappings', { error });
-      return errorResponse(
-        event,
-        STATUS_CODES.INTERNAL_SERVER_ERROR,
-        'Failed to get semantic mappings'
-      );
-    }
-  }
-
-  public async getSemanticStats(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-    try {
-      await requireAuth(event); // Validate authentication
-
-      logger.info('Getting semantic mapping stats');
-
-      // Stub implementation - return default stats
-      const stats = {
-        totalFields: 0,
-        mappedFields: 0,
-        unmappedFields: 0,
-        manualMappedFields: 0,
-        coveragePercentage: 0,
-      };
-
-      return successResponse(event, stats);
-    } catch (error) {
-      logger.error('Failed to get semantic stats', { error });
-      return errorResponse(
-        event,
-        STATUS_CODES.INTERNAL_SERVER_ERROR,
-        'Failed to get semantic stats'
-      );
-    }
-  }
-
-  // Semantic endpoints
-  public async getSemanticTerms(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-    try {
-      await requireAuth(event); // Validate authentication
-      const { search, category } = event.queryStringParameters || {};
-
-      logger.info('Getting semantic terms', { search, category });
-
-      // Stub implementation - return empty array for now
-      const terms: any[] = [];
-
-      return successResponse(event, terms);
-    } catch (error) {
-      logger.error('Failed to get semantic terms', { error });
-      return errorResponse(
-        event,
-        STATUS_CODES.INTERNAL_SERVER_ERROR,
-        'Failed to get semantic terms'
-      );
-    }
-  }
-
   public async getVisualFieldsPaginated(
     event: APIGatewayProxyEvent
   ): Promise<APIGatewayProxyResult> {
@@ -390,13 +333,11 @@ export class DataCatalogHandler {
       logger.info('Force rebuilding visual field catalog');
 
       // Rebuild the cache to refresh visual field data
-      const { cacheService } = await import('../../../shared/services/cache/CacheService');
       await cacheService.rebuildCache();
       logger.info('Rebuilt cache for visual field data');
 
       // Clear any cached visual field catalog
       try {
-        const { ClientFactory } = await import('../../../shared/services/aws/ClientFactory');
         const s3Service = ClientFactory.getS3Service();
         const bucketName = process.env.BUCKET_NAME;
         if (!bucketName) {
@@ -688,6 +629,151 @@ export class DataCatalogHandler {
         sourcesLength: firstItem.sources?.length,
         sourcesType: typeof firstItem.sources,
       });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // SMUS-first catalog
+  // ---------------------------------------------------------------------------
+
+  /** Built per request: settings can change the SMUS scope at runtime. */
+  private smusCatalog(): SmusCatalogService {
+    const config = getSmusConfig();
+    const smusService = new SmusService(
+      cacheService,
+      config.enabled ? new DataZoneAdapter(config.region) : null,
+      config,
+      ClientFactory.getQuickSightService(process.env.AWS_ACCOUNT_ID || '')
+    );
+    return new SmusCatalogService(
+      smusService,
+      cacheService,
+      this.catalogService,
+      this.fieldMetadataService,
+      this.templateStore
+    );
+  }
+
+  /** GET /data-catalog/smus?search=&term=&projectId= */
+  public async getSmusCatalog(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const q = event.queryStringParameters || {};
+      const data = await this.smusCatalog().list({
+        search: q.search || undefined,
+        term: q.term || undefined,
+        projectId: q.projectId || undefined,
+      });
+      return successResponse(event, { success: true, data });
+    } catch (error: any) {
+      logger.error('SMUS catalog failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error?.message || 'Failed to load the catalog'
+      );
+    }
+  }
+
+  /** GET /data-catalog/smus/{listingId} */
+  public async getSmusCatalogAsset(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const listingId = event.pathParameters?.listingId || '';
+      if (!listingId) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Listing id is required');
+      }
+      const data = await this.smusCatalog().get(listingId);
+      return successResponse(event, { success: true, data });
+    } catch (error: any) {
+      logger.error('SMUS catalog asset failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error?.message || 'Failed to load the asset'
+      );
+    }
+  }
+
+  /** GET /data-catalog/templates/calculated-fields */
+  public async listCalculatedFieldTemplates(
+    event: APIGatewayProxyEvent
+  ): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const templates = await this.templateStore.list();
+      return successResponse(event, { success: true, data: { templates } });
+    } catch (error: any) {
+      logger.error('List templates failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error?.message || 'Failed to list templates'
+      );
+    }
+  }
+
+  /** POST /data-catalog/templates/calculated-fields */
+  public async createCalculatedFieldTemplate(
+    event: APIGatewayProxyEvent
+  ): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const input = validateTemplateInput(JSON.parse(event.body || '{}'));
+      const template = await this.templateStore.create(input, user.email ?? 'unknown');
+      return successResponse(event, { success: true, data: template });
+    } catch (error: any) {
+      logger.error('Create template failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.BAD_REQUEST,
+        error?.message || 'Failed to save the template'
+      );
+    }
+  }
+
+  /** PUT /data-catalog/templates/calculated-fields/{templateId} */
+  public async updateCalculatedFieldTemplate(
+    event: APIGatewayProxyEvent
+  ): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const templateId = event.pathParameters?.templateId || '';
+      if (!templateId) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Template id is required');
+      }
+      const input = validateTemplateInput(JSON.parse(event.body || '{}'));
+      const template = await this.templateStore.update(templateId, input);
+      return successResponse(event, { success: true, data: template });
+    } catch (error: any) {
+      logger.error('Update template failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.BAD_REQUEST,
+        error?.message || 'Failed to update the template'
+      );
+    }
+  }
+
+  /** DELETE /data-catalog/templates/calculated-fields/{templateId} */
+  public async deleteCalculatedFieldTemplate(
+    event: APIGatewayProxyEvent
+  ): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const templateId = event.pathParameters?.templateId || '';
+      if (!templateId) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Template id is required');
+      }
+      await this.templateStore.delete(templateId);
+      return successResponse(event, { success: true });
+    } catch (error: any) {
+      logger.error('Delete template failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.BAD_REQUEST,
+        error?.message || 'Failed to delete the template'
+      );
     }
   }
 }

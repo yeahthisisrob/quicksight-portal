@@ -1,224 +1,272 @@
-import CloseIcon from '@mui/icons-material/Close';
+/**
+ * Field lineage, both directions, inside one dataset.
+ *
+ * Upstream: what the focused field's expression reads, recursively down to
+ * plain columns. Downstream: every calculated field that reads the focused
+ * field, recursively up to the visuals that show them. Any node is clickable
+ * and becomes the focus, so a person can walk the graph in either direction
+ * without leaving the dialog.
+ */
+import { ArrowDownward, ArrowUpward, Close } from '@mui/icons-material';
 import {
   Box,
+  Chip,
   Dialog,
   DialogContent,
   DialogTitle,
   IconButton,
-  Paper,
+  Stack,
   Typography,
 } from '@mui/material';
 import type React from 'react';
+import { useMemo, useState } from 'react';
 
+import type { CatalogDataset, DatasetCatalogField } from '@/shared/api/modules/data-catalog';
+import { pal } from '@/shared/design-system';
 import { functionCategories, getDocLink } from '@/shared/lib/functionCategories';
-import { type CalculatedFieldForGraph, getDependencyChain } from '@/shared/lib/graphUtils';
 
 interface ExpressionGraphDialogProps {
-  field: CalculatedFieldForGraph | null;
-  allFields: CalculatedFieldForGraph[];
   open: boolean;
   onClose: () => void;
+  dataset: CatalogDataset;
+  /** The field to start from; the user can move focus inside the dialog. */
+  fieldName: string;
 }
 
-const wrapFunctionsWithLinks = (expression: string): React.ReactNode[] => {
-  if (!expression || typeof expression !== 'string') {
-    return [];
-  }
+const MAX_DEPTH = 8;
 
-  const functionPattern = /\b(\w+)\s*(\()/g;
+/** Function names in an expression become links to the QuickSight docs. */
+export function expressionWithDocLinks(expression: string): React.ReactNode[] {
+  const pattern = /\b(\w+)\s*(\()/g;
   const parts: React.ReactNode[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = functionPattern.exec(expression)) !== null) {
-    const [, funcName, parenthesis] = match;
-    const index = match.index;
-
-    if (index > lastIndex) {
-      parts.push(expression.substring(lastIndex, index));
-    }
-
-    const funcKey = funcName.toUpperCase();
-    const standardFunction = functionCategories[funcKey]?.standardFunction;
-
-    if (standardFunction) {
-      const docLink = getDocLink(standardFunction);
-      if (docLink) {
-        parts.push(
-          <a
-            key={index}
-            href={docLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              color: '#0073bb',
-              textDecoration: 'none',
-              fontWeight: 'bold',
-            }}
-          >
-            {funcName}
-          </a>
-        );
-      } else {
-        parts.push(funcName);
-      }
-    } else {
-      parts.push(funcName);
-    }
-
-    parts.push(parenthesis);
-    lastIndex = functionPattern.lastIndex;
+  let last = 0;
+  let match: RegExpExecArray | null = pattern.exec(expression);
+  while (match !== null) {
+    const [, name, paren] = match;
+    if (match.index > last) parts.push(expression.slice(last, match.index));
+    const doc = functionCategories[(name ?? '').toUpperCase()]?.standardFunction;
+    const href = doc ? getDocLink(doc) : undefined;
+    parts.push(
+      href ? (
+        <a key={match.index} href={href} target="_blank" rel="noopener noreferrer">
+          {name}
+        </a>
+      ) : (
+        name
+      )
+    );
+    parts.push(paren);
+    last = pattern.lastIndex;
+    match = pattern.exec(expression);
   }
-
-  if (lastIndex < expression.length) {
-    parts.push(expression.substring(lastIndex));
-  }
-
+  if (last < expression.length) parts.push(expression.slice(last));
   return parts;
-};
+}
 
-const DependencyItem: React.FC<{ item: any; isLast: boolean }> = ({ item, isLast }) => (
-  <Box
-    sx={{
-      display: 'flex',
-      flexDirection: 'column',
-      ml: item.level * 3,
-      mb: isLast ? 0 : 2,
-      position: 'relative',
-      '&::before': {
-        content: '""',
-        position: 'absolute',
-        left: '-16px',
-        top: '50%',
-        width: '16px',
-        height: '1px',
-        bgcolor: 'primary.light',
-      },
-      '&::after': {
-        content: '""',
-        position: 'absolute',
-        left: '-16px',
-        top: '0',
-        bottom: isLast ? '50%' : '0',
-        width: '1px',
-        bgcolor: 'primary.light',
-      },
-    }}
-  >
-    <Paper
-      elevation={3}
-      sx={{
-        p: 2,
-        width: 'calc(100% - 16px)',
-        border: '1px solid',
-        borderColor: 'primary.light',
-        borderRadius: '8px',
-        transition: 'box-shadow 0.3s',
-        '&:hover': {
-          boxShadow: '0 0 10px rgba(0,0,0,0.1)',
-        },
-      }}
-    >
-      <Typography sx={{ fontWeight: 'bold' }} variant="subtitle1" color="primary.main" gutterBottom>
-        {item.alias}
-      </Typography>
-      <Typography
-        variant="body2"
-        sx={{
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-          overflowWrap: 'break-word',
-          fontFamily: 'monospace',
-          fontSize: '0.875rem',
-        }}
-      >
-        {item.expression ? wrapFunctionsWithLinks(item.expression) : 'No expression available'}
-      </Typography>
-    </Paper>
-  </Box>
-);
+interface LineageNode {
+  name: string;
+  field?: DatasetCatalogField;
+  depth: number;
+}
 
-const ExpressionGraphDialog: React.FC<ExpressionGraphDialogProps> = ({
-  field,
-  open,
-  onClose,
-  allFields,
-}) => {
-  const expressionChain = field?.expression ? getDependencyChain(field, allFields) : [];
+/** Walk one direction from `start`, breadth-first, never repeating a field. */
+export function walkLineage(
+  dataset: CatalogDataset,
+  start: string,
+  direction: 'up' | 'down'
+): LineageNode[] {
+  const byName = new Map(dataset.fields.map((f) => [f.name, f]));
+  const seen = new Set<string>([start]);
+  const out: LineageNode[] = [];
+  let frontier = [start];
+  for (let depth = 1; depth <= MAX_DEPTH && frontier.length > 0; depth += 1) {
+    const next: string[] = [];
+    for (const name of frontier) {
+      const field = byName.get(name);
+      const links = direction === 'up' ? (field?.references ?? []) : (field?.usedBy ?? []);
+      for (const link of links) {
+        if (seen.has(link)) continue;
+        seen.add(link);
+        out.push({ name: link, field: byName.get(link), depth });
+        next.push(link);
+      }
+    }
+    frontier = next;
+  }
+  return out;
+}
 
+function NodeCard({
+  node,
+  focused,
+  onFocus,
+}: {
+  node: LineageNode;
+  focused: boolean;
+  onFocus: () => void;
+}) {
+  const field = node.field;
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="md"
-      fullWidth
-      slotProps={{
-        paper: {
-          sx: {
-            borderRadius: '12px',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-            width: '100%',
-            maxWidth: '800px',
-          },
-        },
-      }}
+    <Box
+      role="button"
+      tabIndex={0}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+      sx={(theme) => ({
+        ml: (node.depth - 1) * 3,
+        p: 1.5,
+        cursor: 'pointer',
+        borderRadius: `${theme.shape.borderRadius}px`,
+        border: `1px solid ${focused ? pal(theme).brand.primary : pal(theme).line.default}`,
+        bgcolor: focused ? pal(theme).surface.selected : pal(theme).surface.container,
+        '&:hover': { borderColor: pal(theme).brand.primary },
+      })}
     >
-      <DialogTitle
-        sx={{
-          m: 0,
-          p: 3,
-          backgroundColor: 'primary.main',
-          color: 'white',
-          pr: '48px',
-        }}
-      >
-        Expression Dependency Chain: {field?.fieldName}
-        <IconButton
-          aria-label="close"
-          onClick={onClose}
-          sx={{
-            position: 'absolute',
-            right: 8,
-            top: 8,
-            color: 'white',
-            '&:hover': {
-              backgroundColor: 'rgba(255,255,255,0.1)',
-            },
-          }}
-        >
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent
-        dividers
-        sx={{
-          p: 4,
-          backgroundColor: '#f5f5f5',
-          overflowX: 'hidden',
-        }}
-      >
-        {field?.expression && expressionChain.length > 0 ? (
-          <Box sx={{ position: 'relative', pl: 3, pr: 1 }}>
-            {expressionChain.map((item, index) => (
-              <DependencyItem
-                key={`${item.alias}-${index}`}
-                item={item}
-                isLast={index === expressionChain.length - 1}
-              />
-            ))}
-          </Box>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+        <Typography variant="subtitle2" sx={{ fontFamily: 'monospace' }}>
+          {node.name}
+        </Typography>
+        {field ? (
+          <Chip
+            size="small"
+            variant="outlined"
+            label={field.isCalculated ? 'calculated' : field.dataType}
+          />
         ) : (
-          <Typography>
-            {!field
-              ? 'No field selected.'
-              : !field.expression
-                ? 'No expression available for this field.'
-                : 'No dependencies found for this calculated field.'}
+          <Chip size="small" variant="outlined" color="warning" label="not in this dataset" />
+        )}
+        {field && field.usage.dashboards + field.usage.analyses > 0 && (
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            {field.usage.dashboards} dashboards, {field.usage.analyses} analyses
           </Typography>
         )}
+      </Stack>
+      {field?.expression && (
+        <Typography
+          variant="body2"
+          sx={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 0.5 }}
+        >
+          {expressionWithDocLinks(field.expression)}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+export default function ExpressionGraphDialog({
+  open,
+  onClose,
+  dataset,
+  fieldName,
+}: ExpressionGraphDialogProps) {
+  const [focus, setFocus] = useState(fieldName);
+  const field = dataset.fields.find((f) => f.name === focus);
+  const upstream = useMemo(() => walkLineage(dataset, focus, 'up'), [dataset, focus]);
+  const downstream = useMemo(() => walkLineage(dataset, focus, 'down'), [dataset, focus]);
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle sx={{ pr: 6 }}>
+        <Typography variant="h6" component="span" sx={{ fontFamily: 'monospace' }}>
+          {focus}
+        </Typography>
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+          Lineage inside {dataset.name}. Click any field to move the focus.
+        </Typography>
+        <IconButton
+          aria-label="Close"
+          onClick={onClose}
+          sx={{ position: 'absolute', right: 8, top: 8 }}
+        >
+          <Close />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={3}>
+          {field?.expression && (
+            <Box
+              component="pre"
+              sx={(theme) => ({
+                m: 0,
+                p: 1.5,
+                fontFamily: 'monospace',
+                fontSize: '0.8125rem',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                bgcolor: pal(theme).surface.page,
+                border: `1px solid ${pal(theme).line.divider}`,
+                borderRadius: `${theme.shape.borderRadius}px`,
+              })}
+            >
+              {expressionWithDocLinks(field.expression)}
+            </Box>
+          )}
+
+          <Box>
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', mb: 1 }}>
+              <ArrowDownward fontSize="small" sx={{ color: 'text.secondary' }} />
+              <Typography variant="subtitle2">Reads from</Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {upstream.length === 0
+                  ? field?.isCalculated
+                    ? 'nothing in this dataset'
+                    : 'a plain column; nothing upstream'
+                  : `${upstream.length} field${upstream.length === 1 ? '' : 's'}, down to the columns`}
+              </Typography>
+            </Stack>
+            <Stack spacing={1}>
+              {upstream.map((node) => (
+                <NodeCard
+                  key={`up-${node.name}`}
+                  node={node}
+                  focused={false}
+                  onFocus={() => setFocus(node.name)}
+                />
+              ))}
+            </Stack>
+          </Box>
+
+          <Box>
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', mb: 1 }}>
+              <ArrowUpward fontSize="small" sx={{ color: 'text.secondary' }} />
+              <Typography variant="subtitle2">Read by</Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {downstream.length === 0
+                  ? 'no calculated field reads this one'
+                  : `${downstream.length} calculated field${downstream.length === 1 ? '' : 's'}`}
+              </Typography>
+            </Stack>
+            <Stack spacing={1}>
+              {downstream.map((node) => (
+                <NodeCard
+                  key={`down-${node.name}`}
+                  node={node}
+                  focused={false}
+                  onFocus={() => setFocus(node.name)}
+                />
+              ))}
+            </Stack>
+          </Box>
+
+          {field && (field.visuals?.length ?? 0) > 0 && (
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Shown in
+              </Typography>
+              <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+                {field.visuals?.map((v) => (
+                  <Chip
+                    key={`${v.assetId}/${v.visualId}`}
+                    size="small"
+                    variant="outlined"
+                    label={`${v.assetName}${v.sheetName ? ` › ${v.sheetName}` : ''} › ${v.visualName}`}
+                  />
+                ))}
+              </Stack>
+            </Box>
+          )}
+        </Stack>
       </DialogContent>
     </Dialog>
   );
-};
-
-export default ExpressionGraphDialog;
+}

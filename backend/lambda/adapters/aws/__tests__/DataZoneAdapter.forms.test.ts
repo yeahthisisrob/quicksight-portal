@@ -19,12 +19,19 @@ describe('parseListingForms', () => {
         ],
       },
     });
-    expect(parseListingForms(forms)).toEqual({
+    const parsed = parseListingForms(forms);
+    expect(parsed).toMatchObject({
       table: { catalog: '123456789012', database: 'published_prod', name: 'dim_customer' },
       columns: [
         { name: 'customer_id', type: 'bigint' },
         { name: 'name', type: 'string' },
       ],
+    });
+    // Every form is also flattened for display; the column list is left out.
+    expect(parsed.forms?.map((f) => f.name)).toEqual(['GlueTableForm', 'RelationalTableForm']);
+    expect(parsed.forms?.[1]).toEqual({
+      name: 'RelationalTableForm',
+      fields: [{ key: 'tableName', value: 'dim_customer' }],
     });
   });
 
@@ -33,9 +40,19 @@ describe('parseListingForms', () => {
       'amazon.datazone.GlueTableFormType': { databaseName: 'gold-dev', tableName: 'fct_orders' },
       SomethingElse: { x: 1 },
     });
-    expect(parseListingForms(forms)).toEqual({
+    expect(parseListingForms(forms)).toMatchObject({
       table: { catalog: undefined, database: 'gold-dev', name: 'fct_orders' },
       columns: undefined,
+      forms: [
+        {
+          name: 'amazon.datazone.GlueTableFormType',
+          fields: [
+            { key: 'databaseName', value: 'gold-dev' },
+            { key: 'tableName', value: 'fct_orders' },
+          ],
+        },
+        { name: 'SomethingElse', fields: [{ key: 'x', value: '1' }] },
+      ],
     });
   });
 
@@ -45,6 +62,7 @@ describe('parseListingForms', () => {
     expect(parseListingForms(JSON.stringify({ GlueTableForm: {} }))).toEqual({
       table: undefined,
       columns: undefined,
+      forms: [],
     });
   });
 });

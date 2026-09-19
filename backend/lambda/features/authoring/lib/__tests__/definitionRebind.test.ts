@@ -115,3 +115,24 @@ describe('rebindDefinition', () => {
     expect(out).toEqual(sampleDefinition());
   });
 });
+
+describe('withAddedCalculatedFields', () => {
+  it('appends template fields to the right identifier and refuses duplicates or unknown identifiers', async () => {
+    const { withAddedCalculatedFields } = await import('../../services/RebindService');
+    const out = withAddedCalculatedFields(sampleDefinition(), [
+      { identifier: 'orders', name: 'net_margin', expression: '{revenue} - {cost} - {tax}' },
+    ]);
+    expect(out.CalculatedFields.at(-1)).toEqual({
+      DataSetIdentifier: 'orders',
+      Name: 'net_margin',
+      Expression: '{revenue} - {cost} - {tax}',
+    });
+    expect(sampleDefinition().CalculatedFields).toHaveLength(2);
+    expect(() =>
+      withAddedCalculatedFields(sampleDefinition(), [{ identifier: 'orders', name: 'margin', expression: 'x' }])
+    ).toThrow("already exists on 'orders'");
+    expect(() =>
+      withAddedCalculatedFields(sampleDefinition(), [{ identifier: 'ghost', name: 'a', expression: 'x' }])
+    ).toThrow("no dataset identifier 'ghost'");
+  });
+});

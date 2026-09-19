@@ -286,7 +286,11 @@
     // FSD: pages may use widgets/features/entities/shared, never app or another page, and only
     // public APIs of lower slices.
     {
-      "includes": ["frontend/src/pages/**"],
+      "includes": [
+        "frontend/src/pages/**",
+        // Stories compose fixtures across layers; they are not app code.
+        "!**/*.stories.tsx"
+      ],
       "linter": {
         "rules": {
           "style": {
@@ -325,7 +329,11 @@
     },
     // FSD: widgets may use features/entities/shared.
     {
-      "includes": ["frontend/src/widgets/**"],
+      "includes": [
+        "frontend/src/widgets/**",
+        // Stories compose fixtures across layers; they are not app code.
+        "!**/*.stories.tsx"
+      ],
       "linter": {
         "rules": {
           "style": {
@@ -364,7 +372,11 @@
     },
     // FSD: features may use entities/shared.
     {
-      "includes": ["frontend/src/features/**"],
+      "includes": [
+        "frontend/src/features/**",
+        // Stories compose fixtures across layers; they are not app code.
+        "!**/*.stories.tsx"
+      ],
       "linter": {
         "rules": {
           "style": {
@@ -393,7 +405,11 @@
     },
     // FSD: entities may use shared only.
     {
-      "includes": ["frontend/src/entities/**"],
+      "includes": [
+        "frontend/src/entities/**",
+        // Stories compose fixtures across layers; they are not app code.
+        "!**/*.stories.tsx"
+      ],
       "linter": {
         "rules": {
           "style": {

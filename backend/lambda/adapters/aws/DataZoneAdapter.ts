@@ -29,7 +29,12 @@ export interface CatalogListing {
   /** The Glue table behind the listing, when its metadata forms say. */
   table?: { catalog?: string; database: string; name: string };
   /** Columns from the listing's relational table form, in source types. */
-  columns?: Array<{ name: string; type: string }>;
+  columns?: Array<{ name: string; type: string; description?: string }>;
+  /** Glossary terms attached to the listing. */
+  glossaryTerms: Array<{ name: string; shortDescription?: string }>;
+  /** Every metadata form on the listing, flattened to label/value pairs. */
+  forms: Array<{ name: string; fields: Array<{ key: string; value: string }> }>;
+  createdAt?: string;
 }
 
 export interface CatalogProject {
@@ -47,9 +52,48 @@ const PROJECTS_PAGE_SIZE = 50;
  * versions, so each is read defensively; anything missing simply leaves the
  * listing without table identity.
  */
+const MAX_FORM_VALUE_LENGTH = 500;
+
+/** A form field value as text: scalars as-is, arrays joined, objects as JSON. */
+function formValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value) && value.every((v) => typeof v !== 'object')) {
+    return value.map(String).join(', ');
+  }
+  const json = JSON.stringify(value);
+  return json.length > MAX_FORM_VALUE_LENGTH
+    ? `${json.slice(0, MAX_FORM_VALUE_LENGTH - 1)}…`
+    : json;
+}
+
+/** Every form as label/value pairs, in the order SMUS returns them. */
+export function flattenForms(
+  forms: Record<string, any>
+): Array<{ name: string; fields: Array<{ key: string; value: string }> }> {
+  return Object.entries(forms)
+    .filter(([, body]) => typeof body === 'object' && body !== null)
+    .map(([name, body]) => ({
+      name,
+      fields: Object.entries(body as Record<string, unknown>)
+        // Column lists are rendered as a table elsewhere, not as a pair.
+        .filter(([key]) => key !== 'columns')
+        .map(([key, value]) => ({ key, value: formValue(value) }))
+        .filter((f) => f.value !== ''),
+    }))
+    .filter((f) => f.fields.length > 0);
+}
+
 export function parseListingForms(
   raw: string | undefined
-): Pick<CatalogListing, 'table' | 'columns'> {
+): Pick<CatalogListing, 'table' | 'columns'> & { forms?: CatalogListing['forms'] } {
   if (!raw) {
     return {};
   }
@@ -78,6 +122,9 @@ export function parseListingForms(
     .map((c: any) => ({
       name: String(c?.columnName ?? c?.name ?? ''),
       type: String(c?.dataType ?? c?.type ?? ''),
+      ...(typeof c?.columnDescription === 'string' && c.columnDescription
+        ? { description: c.columnDescription as string }
+        : {}),
     }))
     .filter((c: { name: string }) => c.name);
 
@@ -85,6 +132,7 @@ export function parseListingForms(
     table:
       database && tableName ? { catalog: glue.catalogId, database, name: tableName } : undefined,
     columns: columns.length > 0 ? columns : undefined,
+    forms: flattenForms(forms),
   };
 }
 
@@ -130,6 +178,11 @@ export class DataZoneAdapter {
           assetType: assetListing.entityType || '',
           description: assetListing.description,
           owningProjectId: assetListing.owningProjectId,
+          glossaryTerms: (assetListing.glossaryTerms ?? [])
+            .filter((t) => typeof t.name === 'string' && t.name)
+            .map((t) => ({ name: t.name as string, shortDescription: t.shortDescription })),
+          forms: [],
+          createdAt: assetListing.createdAt?.toISOString(),
           ...parseListingForms(assetListing.additionalAttributes?.forms),
         });
       }

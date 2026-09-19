@@ -12,12 +12,13 @@ import {
   CircularProgress,
   InputAdornment,
   Link,
+  MenuItem,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 
 import type { DatasetOption } from '@/entities/definition';
@@ -157,11 +158,33 @@ function AssetRow({
 
 export function SmusAssetPicker({ currentDataSetId, selected, onSelect }: SmusAssetPickerProps) {
   const [search, setSearch] = useState('');
+  // '' means every selected project. Everything in SMUS is per project
+  // (listings, glossaries, environments), so this is the primary scope.
+  const [projectId, setProjectId] = useState('');
   const debounced = useDebounce(search, SEARCH_DEBOUNCE_MS);
   const assets = useQuery({
     queryKey: ['smus-assets', debounced],
     queryFn: () => smusApi.listAssets(debounced || undefined),
   });
+
+  const projects = useMemo(() => {
+    const byId = new Map<string, { id: string; name: string; count: number }>();
+    for (const asset of assets.data?.assets ?? []) {
+      if (!asset.projectId) continue;
+      const entry = byId.get(asset.projectId) ?? {
+        id: asset.projectId,
+        name: asset.projectName ?? asset.projectId,
+        count: 0,
+      };
+      entry.count += 1;
+      byId.set(asset.projectId, entry);
+    }
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [assets.data]);
+
+  const visible = (assets.data?.assets ?? []).filter(
+    (asset) => !projectId || asset.projectId === projectId
+  );
 
   if (assets.isLoading) {
     return (
@@ -187,33 +210,52 @@ export function SmusAssetPicker({ currentDataSetId, selected, onSelect }: SmusAs
 
   return (
     <Stack spacing={1.5}>
-      <TextField
-        size="small"
-        placeholder="Search published assets"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        slotProps={{
-          input: {
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search fontSize="small" />
-              </InputAdornment>
-            ),
-          },
-        }}
-      />
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+        <TextField
+          select
+          size="small"
+          label="Project"
+          value={projectId}
+          onChange={(e) => setProjectId(e.target.value)}
+          sx={{ minWidth: 220 }}
+          slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
+        >
+          <MenuItem value="">All selected projects</MenuItem>
+          {projects.map((project) => (
+            <MenuItem key={project.id} value={project.id}>
+              {project.name} ({project.count})
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          size="small"
+          placeholder="Search published assets"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          fullWidth
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search fontSize="small" />
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
+      </Stack>
       {assets.data?.projectFilter.length ? (
         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
           Showing {assets.data.projectFilter.length} selected project
           {assets.data.projectFilter.length === 1 ? '' : 's'}. Change this in Settings.
         </Typography>
       ) : null}
-      {assets.data?.assets.length === 0 && (
+      {visible.length === 0 && (
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           No published assets match.
         </Typography>
       )}
-      {assets.data?.assets.map((asset) => (
+      {visible.map((asset) => (
         <AssetRow
           key={asset.listingId}
           asset={asset}

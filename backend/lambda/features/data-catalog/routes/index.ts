@@ -81,20 +81,37 @@ export const dataCatalogRoutes: RouteHandler[] = [
     handler: (event) => handler.searchFieldsByTags(event),
   },
 
-  // Semantic endpoints
+  // SMUS-first catalog
   {
     method: 'GET',
-    path: '/semantic/terms',
-    handler: (event) => handler.getSemanticTerms(event),
+    path: '/data-catalog/smus',
+    handler: (event) => handler.getSmusCatalog(event),
   },
   {
     method: 'GET',
-    path: '/semantic/mappings',
-    handler: (event) => handler.getSemanticMappings(event),
+    path: /^\/data-catalog\/smus\/([^/]+)$/,
+    handler: (event) => handler.getSmusCatalogAsset(event),
   },
+
+  // Calculated-field template library
   {
     method: 'GET',
-    path: '/semantic/stats',
-    handler: (event) => handler.getSemanticStats(event),
+    path: '/data-catalog/templates/calculated-fields',
+    handler: (event) => handler.listCalculatedFieldTemplates(event),
+  },
+  {
+    method: 'POST',
+    path: '/data-catalog/templates/calculated-fields',
+    handler: (event) => handler.createCalculatedFieldTemplate(event),
+  },
+  {
+    method: 'PUT',
+    path: /^\/data-catalog\/templates\/calculated-fields\/([^/]+)$/,
+    handler: (event) => handler.updateCalculatedFieldTemplate(event),
+  },
+  {
+    method: 'DELETE',
+    path: /^\/data-catalog\/templates\/calculated-fields\/([^/]+)$/,
+    handler: (event) => handler.deleteCalculatedFieldTemplate(event),
   },
 ];

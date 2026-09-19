@@ -31,6 +31,7 @@ import { resolveColumns, type TargetColumn } from '../lib/columnResolution';
 import { collectDefinitionDatasets } from '../lib/definitionColumns';
 import { type RebindSpec, rebindDefinition } from '../lib/definitionRebind';
 import type {
+  AddedCalculatedField,
   ApplyRequest,
   ApplyResult,
   AuthorableAssetType,
@@ -134,7 +135,10 @@ export class RebindService {
       targetDataSetArn: d.target.dataSetArn,
       columnMap: this.effectiveColumnMap(d),
     }));
-    const definition = rebindDefinition(loaded.definition, specs);
+    const definition = withAddedCalculatedFields(
+      rebindDefinition(loaded.definition, specs),
+      request.addCalculatedFields ?? []
+    );
 
     logger.info('Applying rebind', {
       assetType,
@@ -403,6 +407,47 @@ export class RebindService {
     const permissions = normalizePermissionsArray(raw);
     return permissions.length > 0 ? permissions : undefined;
   }
+}
+
+/**
+ * Add calculated fields (typically from the template library) to a
+ * definition. Each is declared against a dataset identifier the definition
+ * has; a name already declared there is refused rather than overwritten.
+ */
+export function withAddedCalculatedFields(
+  definition: Record<string, any>,
+  added: AddedCalculatedField[]
+): Record<string, any> {
+  if (added.length === 0) {
+    return definition;
+  }
+  const identifiers = new Set<string>(
+    (definition.DataSetIdentifierDeclarations ?? []).map((d: any) => d?.Identifier)
+  );
+  const existing = new Set<string>(
+    (definition.CalculatedFields ?? []).map((f: any) => `${f?.DataSetIdentifier}::${f?.Name}`)
+  );
+  const fields = [...(definition.CalculatedFields ?? [])];
+  for (const field of added) {
+    if (!identifiers.has(field.identifier)) {
+      throw new ValidationError(
+        `Cannot add calculated field '${field.name}': no dataset identifier '${field.identifier}'`
+      );
+    }
+    const key = `${field.identifier}::${field.name}`;
+    if (existing.has(key)) {
+      throw new ValidationError(
+        `Calculated field '${field.name}' already exists on '${field.identifier}'`
+      );
+    }
+    existing.add(key);
+    fields.push({
+      DataSetIdentifier: field.identifier,
+      Name: field.name,
+      Expression: field.expression,
+    });
+  }
+  return { ...definition, CalculatedFields: fields };
 }
 
 function parseVersionNumber(versionArn?: string): number | null {

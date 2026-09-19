@@ -35,7 +35,10 @@ export interface SmusAsset {
   projectName?: string;
   url?: string;
   table?: { catalog?: string; database: string; name: string };
-  columns?: Array<{ name: string; type: string }>;
+  columns?: Array<{ name: string; type: string; description?: string }>;
+  glossaryTerms: Array<{ name: string; shortDescription?: string }>;
+  forms: Array<{ name: string; fields: Array<{ key: string; value: string }> }>;
+  createdAt?: string;
   /** QuickSight datasets the portal matched to this listing. */
   datasets: Array<{ id: string; name: string; matchType: SmusMatchType }>;
 }

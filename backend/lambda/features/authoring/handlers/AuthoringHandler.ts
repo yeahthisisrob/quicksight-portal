@@ -200,11 +200,30 @@ export class AuthoringHandler {
     if (body.newAssetId !== undefined && typeof body.newAssetId !== 'string') {
       throw badRequest('newAssetId must be a string');
     }
+    const added = body.addCalculatedFields;
+    if (added !== undefined && !Array.isArray(added)) {
+      throw badRequest('addCalculatedFields must be an array');
+    }
+    const addCalculatedFields = (added ?? []).map((item: unknown, index: number) => {
+      const entry = (item ?? {}) as Record<string, unknown>;
+      for (const key of ['identifier', 'name', 'expression'] as const) {
+        if (typeof entry[key] !== 'string' || !(entry[key] as string).trim()) {
+          throw badRequest(`addCalculatedFields[${index}].${key} is required`);
+        }
+      }
+      return {
+        identifier: (entry.identifier as string).trim(),
+        name: (entry.name as string).trim(),
+        expression: (entry.expression as string).trim(),
+        templateId: typeof entry.templateId === 'string' ? entry.templateId : undefined,
+      };
+    });
     return {
       mode: mode as ApplyRequest['mode'],
       rebinds: this.parseRebinds(body.rebinds ?? []),
       name: body.name as string | undefined,
       newAssetId: body.newAssetId as string | undefined,
+      addCalculatedFields,
     };
   }
 

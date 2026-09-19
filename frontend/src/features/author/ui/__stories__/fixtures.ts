@@ -246,9 +246,35 @@ export function exportFor(definition: unknown, tags = SOURCES[0]!.tags) {
 }
 
 /** Every route the page can hit, with realistic answers. */
+export const TEMPLATES = [
+  {
+    id: 't-net-margin',
+    name: 'net_margin',
+    expression: '{revenue} - {cost} - {returns}',
+    dataType: 'DECIMAL',
+    description: 'Margin after returns, the finance-approved definition.',
+    tags: ['finance'],
+    createdAt: '2026-09-01T00:00:00Z',
+    updatedAt: '2026-09-10T00:00:00Z',
+  },
+  {
+    id: 't-order-month',
+    name: 'order_month',
+    expression: 'truncDate("MM", {order_date})',
+    dataType: 'DATETIME',
+    createdAt: '2026-09-01T00:00:00Z',
+    updatedAt: '2026-09-01T00:00:00Z',
+  },
+];
+
 export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
   return [
     ...overrides,
+    {
+      method: 'get',
+      url: '/data-catalog/templates/calculated-fields',
+      respond: () => ({ body: { success: true, data: { templates: TEMPLATES } } }),
+    },
     {
       method: 'get',
       url: /\/assets\/(dashboards|analyses)\/paginated/,
@@ -475,6 +501,7 @@ export function fakeDraft(overrides: Partial<RebindDraft> = {}): RebindDraft {
 }
 
 export interface FakeFlowOptions {
+  addedFields?: AuthorFlow['addedFields'];
   step?: AuthorFlow['state']['step'];
   draft?: Partial<RebindDraft>;
   sourceModel?: WireframeModel | null;
@@ -531,6 +558,10 @@ export function fakeFlow(options: FakeFlowOptions = {}): AuthorFlow {
     publishing: false,
     publishError: options.publishError ?? null,
     publish: noopAsync,
+    addedFields: options.addedFields ?? [],
+    addTemplateField: () => {},
+    removeTemplateField: () => {},
+    setTemplateFieldIdentifier: () => {},
     reset: noop,
   };
 }

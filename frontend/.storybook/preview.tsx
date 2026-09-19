@@ -75,6 +75,11 @@ const preview: Preview = {
       toc: true,
     },
     backgrounds: { disable: true },
+    options: {
+      storySort: {
+        order: ['Pages', 'Design System', 'Widgets', 'Features', 'Entities', 'Shared'],
+      },
+    },
   },
   globalTypes: {
     theme: {
@@ -94,8 +99,11 @@ const preview: Preview = {
   decorators: [
     (Story, context) => {
       const scheme: Scheme = context.globals.theme === 'dark' ? 'dark' : 'light';
+      // A page story sets `parameters.router.initialEntries` so the sidebar
+      // highlights the right item and URL state (?tab=, ?type=) is honoured.
+      const initialEntries: string[] = context.parameters.router?.initialEntries ?? ['/'];
       return (
-        <MemoryRouter initialEntries={['/']}>
+        <MemoryRouter initialEntries={initialEntries}>
           <AuthProvider>
             <QueryClientProvider client={queryClient}>
               <ThemeProvider theme={theme} defaultMode={scheme} modeStorageKey="sb-mui-mode">
