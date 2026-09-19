@@ -12,9 +12,13 @@ import { useMemo, useRef } from 'react';
 
 import { borderRadius } from '@/shared/design-system/theme';
 
+import { elementRenames, type WireframeDiff } from '../lib/wireframeDiff';
 import type { WireframeElement, WireframeSheet } from '../model/types';
 import { useElementWidth } from './useElementWidth';
-import { WireframeCard } from './WireframeCard';
+import { type ElementRenames, WireframeCard } from './WireframeCard';
+
+/** Looks up an element's renames; undefined when nothing on the sheet changed. */
+type RenamesFor = (elementId: string) => ElementRenames | undefined;
 
 const GRID_COLUMNS = 36;
 const GRID_GAP = 6;
@@ -26,7 +30,15 @@ const MIN_ROW_UNIT = 14;
 /** Section bands: 8px padding each side plus a 1px border each side. */
 const SECTION_BAND_INSET = 2 * 8 + 2;
 
-function GridCanvas({ elements, width }: { elements: WireframeElement[]; width: number }) {
+function GridCanvas({
+  elements,
+  width,
+  renamesFor,
+}: {
+  elements: WireframeElement[];
+  width: number;
+  renamesFor: RenamesFor;
+}) {
   const rowUnit = Math.max(MIN_ROW_UNIT, (width - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS);
   let flowRow = elements.reduce(
     (max, e) =>
@@ -60,7 +72,7 @@ function GridCanvas({ elements, width }: { elements: WireframeElement[]; width: 
         }
         return (
           <Box key={element.id} sx={{ gridArea: area, minWidth: 0, minHeight: 0 }}>
-            <WireframeCard element={element} />
+            <WireframeCard element={element} renames={renamesFor(element.id)} />
           </Box>
         );
       })}
@@ -72,10 +84,12 @@ function FreeFormCanvas({
   elements,
   width,
   canvasWidth,
+  renamesFor,
 }: {
   elements: WireframeElement[];
   width: number;
   canvasWidth: number;
+  renamesFor: RenamesFor;
 }) {
   const { scale, height } = useMemo(() => {
     let maxX = 0;
@@ -104,7 +118,7 @@ function FreeFormCanvas({
               height: element.position.height * scale,
             }}
           >
-            <WireframeCard element={element} />
+            <WireframeCard element={element} renames={renamesFor(element.id)} />
           </Box>
         ) : null
       )}
@@ -112,7 +126,13 @@ function FreeFormCanvas({
   );
 }
 
-function FlowCanvas({ elements }: { elements: WireframeElement[] }) {
+function FlowCanvas({
+  elements,
+  renamesFor,
+}: {
+  elements: WireframeElement[];
+  renamesFor: RenamesFor;
+}) {
   return (
     <Box
       sx={{
@@ -123,13 +143,21 @@ function FlowCanvas({ elements }: { elements: WireframeElement[] }) {
       }}
     >
       {elements.map((element) => (
-        <WireframeCard key={element.id} element={element} />
+        <WireframeCard key={element.id} element={element} renames={renamesFor(element.id)} />
       ))}
     </Box>
   );
 }
 
-function SectionCanvas({ elements, width }: { elements: WireframeElement[]; width: number }) {
+function SectionCanvas({
+  elements,
+  width,
+  renamesFor,
+}: {
+  elements: WireframeElement[];
+  width: number;
+  renamesFor: RenamesFor;
+}) {
   const bands = useMemo(() => {
     const map = new Map<string, { role: string; elements: WireframeElement[] }>();
     for (const e of elements) {
@@ -165,6 +193,7 @@ function SectionCanvas({ elements, width }: { elements: WireframeElement[]; widt
               elements={band.elements}
               width={Math.max(width - SECTION_BAND_INSET, 1)}
               canvasWidth={DEFAULT_PAGE_WIDTH}
+              renamesFor={renamesFor}
             />
           </Box>
         </Box>
@@ -173,9 +202,10 @@ function SectionCanvas({ elements, width }: { elements: WireframeElement[]; widt
   );
 }
 
-export function SheetCanvas({ sheet }: { sheet: WireframeSheet }) {
+export function SheetCanvas({ sheet, diff }: { sheet: WireframeSheet; diff?: WireframeDiff }) {
   const ref = useRef<HTMLDivElement>(null);
   const width = useElementWidth(ref, FALLBACK_WIDTH);
+  const renamesFor: RenamesFor = (elementId) => elementRenames(diff, sheet.id, elementId);
 
   let body: React.ReactNode;
   if (sheet.elements.length === 0) {
@@ -185,19 +215,20 @@ export function SheetCanvas({ sheet }: { sheet: WireframeSheet }) {
       </Typography>
     );
   } else if (sheet.layout === 'grid') {
-    body = <GridCanvas elements={sheet.elements} width={width} />;
+    body = <GridCanvas elements={sheet.elements} width={width} renamesFor={renamesFor} />;
   } else if (sheet.layout === 'freeform') {
     body = (
       <FreeFormCanvas
         elements={sheet.elements}
         width={width}
         canvasWidth={sheet.canvasWidth ?? DEFAULT_CANVAS_WIDTH}
+        renamesFor={renamesFor}
       />
     );
   } else if (sheet.layout === 'section') {
-    body = <SectionCanvas elements={sheet.elements} width={width} />;
+    body = <SectionCanvas elements={sheet.elements} width={width} renamesFor={renamesFor} />;
   } else {
-    body = <FlowCanvas elements={sheet.elements} />;
+    body = <FlowCanvas elements={sheet.elements} renamesFor={renamesFor} />;
   }
 
   return (

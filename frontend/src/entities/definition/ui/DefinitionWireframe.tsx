@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { borderRadius, typography } from '@/shared/design-system/theme';
 
+import { elementRenames, type WireframeDiff } from '../lib/wireframeDiff';
 import type { WireframeModel } from '../model/types';
 import { SheetCanvas } from './SheetCanvas';
 import { WireframeCard } from './WireframeCard';
@@ -54,12 +55,19 @@ interface DefinitionWireframeProps {
   initialSheetId?: string;
   /** Hide the summary strip (when the host already shows it). */
   hideSummary?: boolean;
+  /**
+   * Renamed fields to highlight (from diffWireframeModels against the model
+   * this one was derived from). Chips in the diff render in the info colour
+   * with an old → new tooltip.
+   */
+  diff?: WireframeDiff;
 }
 
 export function DefinitionWireframe({
   model,
   initialSheetId,
   hideSummary = false,
+  diff,
 }: DefinitionWireframeProps) {
   const [sheetId, setSheetId] = useState(initialSheetId ?? model.sheets[0]?.id);
 
@@ -132,13 +140,17 @@ export function DefinitionWireframe({
         >
           {sheet.controlBar.map((control) => (
             <Box key={control.id} sx={{ width: CONTROL_CARD_WIDTH, flexShrink: 0 }}>
-              <WireframeCard element={control} dense />
+              <WireframeCard
+                element={control}
+                dense
+                renames={elementRenames(diff, sheet.id, control.id)}
+              />
             </Box>
           ))}
         </Box>
       )}
 
-      <SheetCanvas sheet={sheet} />
+      <SheetCanvas sheet={sheet} diff={diff} />
     </Box>
   );
 }

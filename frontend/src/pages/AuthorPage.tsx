@@ -1,6 +1,6 @@
-import { Typography } from '@mui/material';
+import { AuthorStudio } from '@/features/author';
 
-/** Placeholder - replaced by the author build. */
+/** /author?type=dashboard|analysis&id=<assetId> */
 export default function AuthorPage() {
-  return <Typography variant="h5">Author</Typography>;
+  return <AuthorStudio />;
 }
