@@ -241,19 +241,9 @@ export class SmusService {
     }
 
     const projectFilter = new Set(this.config.projectIds);
-    const patterns = this.config.databasePatterns;
     const needle = search?.trim().toLowerCase() ?? '';
 
-    const assets = listings
-      .filter(
-        (l) =>
-          projectFilter.size === 0 || (l.owningProjectId && projectFilter.has(l.owningProjectId))
-      )
-      .filter(
-        (l) =>
-          patterns.length === 0 ||
-          (l.table !== undefined && patterns.some((p) => matchesGlob(l.table!.database, p)))
-      )
+    const assets = this.scopedListings(listings)
       .filter(
         (l) =>
           !needle ||
@@ -483,12 +473,41 @@ export class SmusService {
     };
   }
 
+  /**
+   * The listings the portal considers: the projects selected in Settings, and
+   * the database patterns.
+   *
+   * One definition, used by the link map and by the asset list alike. They
+   * used to disagree — the link map read every listing in the snapshot while
+   * the asset list filtered — so a dataset could be tied to a listing the
+   * catalog then refused to show. It read as governed on the Datasets page and
+   * ungoverned in the catalog, and its calculated fields vanished from the
+   * SMUS scope. Worse, a custom-SQL dataset naming several tables could be
+   * claimed by an out-of-scope one before the governed table was ever tried.
+   */
+  private scopedListings(listings: CatalogListing[]): CatalogListing[] {
+    const projects = new Set(this.config.projectIds);
+    const patterns = this.config.databasePatterns;
+    return listings
+      .filter((l) => projects.size === 0 || (l.owningProjectId && projects.has(l.owningProjectId)))
+      .filter((l) => {
+        // A pattern is about the Glue database, so a listing with no table
+        // identity cannot satisfy one.
+        const database = l.table?.database;
+        return (
+          patterns.length === 0 ||
+          (database !== undefined && patterns.some((p) => matchesGlob(database, p)))
+        );
+      });
+  }
+
   private async buildLinkMap(): Promise<Map<string, SmusDatasetLink>> {
     const [snapshot, datasets] = await Promise.all([
       this.getSnapshot(),
       this.cacheService.getAllDatasets(),
     ]);
-    const listings = snapshot?.listings ?? [];
+    const all = snapshot?.listings ?? [];
+    const listings = this.scopedListings(all);
 
     // A listing is found by its own name and by the Glue table behind it.
     // Publishers rename listings for readability ("Orders (gold)" over
@@ -527,6 +546,7 @@ export class SmusService {
 
     logger.info('SMUS link map built', {
       listings: listings.length,
+      outOfScope: all.length - listings.length,
       datasets: datasets.length,
       linked: Array.from(linkMap.values()).filter((l) => l.linked).length,
       throughLineage: inherited.size,

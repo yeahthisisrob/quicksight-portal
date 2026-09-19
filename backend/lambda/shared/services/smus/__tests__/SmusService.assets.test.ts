@@ -295,6 +295,74 @@ describe('SmusService assets', () => {
     ]);
   });
 
+  it('ties a custom-SQL dataset to the governed table it reads, not the staging one beside it', async () => {
+    // The shape that emptied the catalog: the query joins a staging table and
+    // a published one. The staging table has a listing too, but the database
+    // patterns put it outside the catalog, so it must not claim the dataset
+    // before the governed table is even tried.
+    cache.get.mockResolvedValue(
+      snapshot({
+        listings: [
+          {
+            listingId: 'l-staging',
+            assetId: 'a-staging',
+            name: 'stg_customer',
+            assetType: 'amazon.datazone.GlueTableAssetType',
+            owningProjectId: 'proj-published-prod',
+            table: { database: 'staging_prod', name: 'stg_customer' },
+          },
+          ...LISTINGS,
+        ],
+      })
+    );
+    cache.getAllDatasets.mockResolvedValue([
+      {
+        assetId: 'ds-sql',
+        assetName: 'Customer mart',
+        metadata: {
+          lineageData: {
+            physicalTables: [
+              {
+                type: 'CUSTOM_SQL',
+                sqlTables: ['staging_prod.stg_customer', 'published_prod.dim_customer'],
+              },
+            ],
+          },
+        },
+      },
+    ]);
+
+    const scoped = await service({ databasePatterns: ['published_*'] }).listAssets();
+    expect(scoped.assets.find((a) => a.listingId === 'l-cust')?.datasets).toEqual([
+      { id: 'ds-sql', name: 'Customer mart', matchType: 'custom-sql' },
+    ]);
+
+    // And the link the Datasets page reads agrees with the catalog, rather
+    // than calling the dataset governed by a listing the catalog will not show.
+    SmusService.invalidateLinkMap();
+    const [link] = await service({ databasePatterns: ['published_*'] }).getDatasetLinks(['ds-sql']);
+    expect(link).toMatchObject({ linked: true, listingId: 'l-cust' });
+  });
+
+  it('does not tie a dataset to a listing outside the selected projects', async () => {
+    cache.getAllDatasets.mockResolvedValue([
+      {
+        assetId: 'ds-raw',
+        assetName: 'Raw events',
+        metadata: {
+          lineageData: {
+            physicalTables: [{ type: 'RELATIONAL', schema: 'bronze-prod', name: 'raw_events' }],
+          },
+        },
+      },
+    ]);
+
+    const [link] = await service({ projectIds: ['proj-published-prod'] }).getDatasetLinks([
+      'ds-raw',
+    ]);
+    expect(link).toEqual({ datasetId: 'ds-raw', linked: false });
+  });
+
   it('inherits from the nearest matched ancestor and survives a cycle', async () => {
     cache.getAllDatasets.mockResolvedValue([
       // Two parents, one of them linked, and a cycle back to the child.
