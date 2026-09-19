@@ -19,11 +19,14 @@
 
 import { randomUUID } from 'node:crypto';
 
+import type { AuthContext } from '../../../shared/auth';
 import { ValidationError } from '../../../shared/errors/ValidationError';
 import type { AssetExportData } from '../../../shared/models/asset-export.model';
+import { actorFromAuth, auditLog } from '../../../shared/services/audit/AuditLog';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import type { S3Service } from '../../../shared/services/aws/S3Service';
+import { settingsStore } from '../../../shared/services/settings/SettingsStore';
 import { ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
 import { normalizePermissionsArray } from '../../../shared/utils/permissions';
@@ -47,6 +50,8 @@ import type {
   RebindRequest,
 } from '../types';
 
+/** QuickSight tag values are capped at 256 characters. */
+const TAG_VALUE_MAX = 256;
 const NAME_MAX_LENGTH = 200;
 
 interface LoadedDefinition {
@@ -228,11 +233,63 @@ export class RebindService {
     return { definition: edited.definition, changes: [...changes, ...edited.changes] };
   }
 
+  /**
+   * The portal's own trace of a write: an audit record (who, through what),
+   * and tags on the asset so the fact survives outside the portal. Neither
+   * may fail the write they describe.
+   */
+  private async recordProvenance(
+    assetType: AuthorableAssetType,
+    written: { assetId: string; name: string },
+    request: ApplyRequest,
+    changeCount: number,
+    auth?: AuthContext
+  ): Promise<void> {
+    if (!auth) {
+      return;
+    }
+    const { actor, channel } = actorFromAuth(auth);
+    await auditLog.record({
+      actor,
+      channel,
+      action: request.mode === 'clone' ? 'authoring.clone' : 'authoring.update',
+      assetType,
+      assetId: written.assetId,
+      assetName: written.name,
+      details: {
+        rebinds: request.rebinds.length,
+        ops: request.ops?.length ?? 0,
+        repairs: request.repairs?.length ?? 0,
+        changes: changeCount,
+      },
+    });
+    if (settingsStore.get('provenance.tagAssets') === false) {
+      return;
+    }
+    try {
+      await this.quickSightService.tagResource(assetType, written.assetId, [
+        {
+          key: 'portal:authored-by',
+          value: `${actor.kind}:${actor.label}`.slice(0, TAG_VALUE_MAX),
+        },
+        { key: 'portal:channel', value: channel },
+        { key: 'portal:at', value: new Date().toISOString() },
+      ]);
+    } catch (error) {
+      logger.warn('Provenance tags could not be written', {
+        assetType,
+        assetId: written.assetId,
+        error,
+      });
+    }
+  }
+
   /** Re-plan, refuse anything unresolved, then write to QuickSight. */
   public async apply(
     assetType: AuthorableAssetType,
     assetId: string,
-    request: ApplyRequest
+    request: ApplyRequest,
+    auth?: AuthContext
   ): Promise<ApplyResult> {
     const original = await this.loadDefinition(assetType, assetId);
     const repaired = this.repair(original, request.repairs);
@@ -262,6 +319,14 @@ export class RebindService {
       request.mode === 'clone'
         ? await this.clone(assetType, assetId, request.newAssetId, name, definition, loaded)
         : await this.update(assetType, assetId, name, definition, loaded);
+
+    await this.recordProvenance(
+      assetType,
+      { assetId: written.assetId, name },
+      request,
+      changes.length,
+      auth
+    );
 
     let folderId: string | undefined;
     if (request.folderId && request.mode === 'clone') {

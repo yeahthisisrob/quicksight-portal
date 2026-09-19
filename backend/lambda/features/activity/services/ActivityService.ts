@@ -6,12 +6,21 @@ import {
   JobAbortedError,
 } from '../../../adapters/aws/CloudTrailAdapter';
 import { ACTIVITY_LIMITS } from '../../../shared/constants';
+import { TIME_UNITS } from '../../../shared/constants/timeConstants';
+import { type AuditLog, type AuditRecord, auditLog } from '../../../shared/services/audit/AuditLog';
 import type { CacheService } from '../../../shared/services/cache/CacheService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES, type AssetType } from '../../../shared/types/assetTypes';
 import { pLimit } from '../../../shared/utils/concurrency';
 import { logger } from '../../../shared/utils/logger';
 import type { GroupService } from '../../organization/services/GroupService';
+import {
+  describeActor,
+  matchProvenance,
+  originOf,
+  type PortalIdentity,
+  portalIdentityFromEnv,
+} from '../lib/actors';
 import {
   ALL_MUTATION_EVENT_NAMES,
   ASSET_EVENT_CONFIG,
@@ -123,6 +132,9 @@ function maxDate(a: string | null, b: string | null): string | null {
   return a > b ? a : b;
 }
 
+/** How far back the timeline looks for the portal's own audit records. */
+const AUDIT_LOOKBACK_DAYS = 400;
+
 export class ActivityService {
   private static readonly ANALYSIS_EVENTS = [...ASSET_EVENT_CONFIG.analysis.events];
   private static readonly DASHBOARD_EVENTS = [...ASSET_EVENT_CONFIG.dashboard.events];
@@ -156,7 +168,9 @@ export class ActivityService {
   public constructor(
     private readonly cacheService: CacheService,
     private readonly cloudTrailAdapter: CloudTrailAdapter,
-    private readonly groupService?: GroupService
+    private readonly groupService?: GroupService,
+    private readonly audit: AuditLog = auditLog,
+    private readonly portal: PortalIdentity = portalIdentityFromEnv()
   ) {}
 
   /**
@@ -385,7 +399,18 @@ export class ActivityService {
       Math.max(query.limit ?? TIMELINE_CONSTANTS.DEFAULT_LIMIT, 1),
       TIMELINE_CONSTANTS.MAX_LIMIT
     );
-    const predicate = buildTimelinePredicate(query);
+    // The portal's own writes show up under its Lambda role; the audit log
+    // says who was behind them. One query for the window, indexed by asset.
+    const auditByAsset = await this.loadAuditByAsset(query);
+    const originFor = (evt: MinimalEvent): string =>
+      originOf(
+        describeActor(evt.user, this.portal),
+        matchProvenance(
+          { timestamp: evt.timestamp, assetId: evt.resourceId, assetType: evt.resourceType },
+          auditByAsset.get(evt.resourceId ?? '') ?? []
+        )
+      );
+    const predicate = buildTimelinePredicate(query, originFor);
 
     const sorted = flattenMutations(cache);
     const { filtered, hasMore } = applyTimelinePredicate(sorted, predicate, limit);
@@ -400,7 +425,10 @@ export class ActivityService {
     }
     const nameMap = await this.buildAssetNameMap(assetTypesInPage);
 
-    const items: TimelineEvent[] = filtered.map((evt) => this.toTimelineEvent(evt, nameMap));
+    const used = new Set<string>();
+    const items: TimelineEvent[] = filtered.map((evt) =>
+      this.toTimelineEvent(evt, nameMap, auditByAsset, used)
+    );
     const lastEvent = filtered[filtered.length - 1];
     const nextCursor = hasMore && lastEvent ? lastEvent.timestamp : null;
 
@@ -1840,7 +1868,40 @@ export class ActivityService {
   }
 
   /** Convert a cached MinimalEvent to the wire-format TimelineEvent. */
-  private toTimelineEvent(evt: MinimalEvent, nameMap: Map<string, string>): TimelineEvent {
+  /** Audit records in the queried window, keyed by asset id. Never throws. */
+  private async loadAuditByAsset(query: TimelineQuery): Promise<Map<string, AuditRecord[]>> {
+    const byAsset = new Map<string, AuditRecord[]>();
+    try {
+      const since =
+        query.startDate ??
+        new Date(Date.now() - AUDIT_LOOKBACK_DAYS * TIME_UNITS.DAY).toISOString();
+      const records = await this.audit.list({ since, until: query.cursor ?? query.endDate });
+      for (const record of records) {
+        if (!record.assetId) continue;
+        byAsset.set(record.assetId, [...(byAsset.get(record.assetId) ?? []), record]);
+      }
+    } catch (error) {
+      logger.warn('Timeline: audit log unavailable; portal events stay unattributed', { error });
+    }
+    return byAsset;
+  }
+
+  private toTimelineEvent(
+    evt: MinimalEvent,
+    nameMap: Map<string, string>,
+    auditByAsset: Map<string, AuditRecord[]> = new Map(),
+    used: Set<string> = new Set()
+  ): TimelineEvent {
+    const actor = describeActor(evt.user, this.portal);
+    const provenance =
+      actor.kind === 'portal'
+        ? matchProvenance(
+            { timestamp: evt.timestamp, assetId: evt.resourceId, assetType: evt.resourceType },
+            auditByAsset.get(evt.resourceId ?? '') ?? [],
+            used
+          )
+        : null;
+    const origin = originOf(actor, provenance);
     const isCatalogAsset = evt.resourceType && evt.resourceType !== 'other';
     const assetType = isCatalogAsset ? (evt.resourceType as AssetType) : undefined;
 
@@ -1867,6 +1928,9 @@ export class ActivityService {
       kind: evt.kind === 'mutation' ? 'mutation' : 'view',
       action: evt.action,
       user: evt.user,
+      actor,
+      origin,
+      ...(provenance ? { provenance } : {}),
       resourceType: evt.resourceType,
       assetType,
       assetId: evt.resourceId,

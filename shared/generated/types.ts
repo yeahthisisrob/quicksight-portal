@@ -1387,6 +1387,8 @@ export interface paths {
                     excludeEventNames?: string;
                     /** @description Comma-separated list of action categories to include. */
                     actions?: string;
+                    /** @description Comma-separated origins to include (portal-ui, portal-api, portal, console, automation, unknown). */
+                    origins?: string;
                     /** @description ISO timestamp. Returns events at or after this time. */
                     startDate?: string;
                     /** @description ISO timestamp. Returns events at or before this time. */
@@ -4415,6 +4417,33 @@ export interface components {
              */
             lastUpdated?: string | null;
         };
+        /** @description The actor in words. The portal's own Lambda role shows as "Portal". */
+        TimelineActor: {
+            /** @enum {string} */
+            kind: "portal" | "user" | "role" | "root" | "service" | "unknown";
+            label: string;
+            raw: string;
+        };
+        /**
+         * @description Where a change came from. portal-ui and portal-api are portal writes attributed through the audit log (a person in the UI, or an API key such as an agent); portal is a portal write without a matching record; console is a person or role acting directly; automation is an AWS service.
+         * @enum {string}
+         */
+        TimelineOrigin: "portal-ui" | "portal-api" | "portal" | "console" | "automation" | "unknown";
+        TimelineProvenance: {
+            actor: {
+                /** @enum {string} */
+                kind: "user" | "api-key";
+                id: string;
+                label: string;
+            };
+            /** @enum {string} */
+            channel: "ui" | "api";
+            /** @description e.g. authoring.update, authoring.clone, asset.rename, asset.delete, asset.tags */
+            action: string;
+            jobId?: string;
+            /** @description How far the audit record was from the event; small means confident. */
+            distanceMs: number;
+        };
         TimelineEvent: {
             /** @description Stable identifier hash for the event (timestamp + name + resource + user). */
             id: string;
@@ -4437,6 +4466,10 @@ export interface components {
             action?: "create" | "update" | "delete" | "publish" | "grant" | "revoke" | "member" | "tag" | "job" | "batch";
             /** @description User name or ARN that performed the action. */
             user: string;
+            actor: components["schemas"]["TimelineActor"];
+            origin: components["schemas"]["TimelineOrigin"];
+            /** @description For portal events, who was behind it, from the portal's own audit log. */
+            provenance?: components["schemas"]["TimelineProvenance"];
             /**
              * @description Resource type the event targets. Catalog types (dashboard / analysis / dataset / datasource / folder / group / user) are hydrated with asset names; `other` covers templates, themes, brands, topics, action connectors, VPC connections, namespaces, and account-level settings.
              * @enum {string}

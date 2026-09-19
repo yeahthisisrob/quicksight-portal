@@ -150,6 +150,23 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
       },
     ],
   },
+  {
+    id: 'provenance',
+    title: 'Provenance',
+    description:
+      'What the portal records about its own writes, so the timeline can say who was behind a change the Lambda role made.',
+    settings: [
+      {
+        key: 'provenance.tagAssets',
+        label: 'Tag written assets',
+        description:
+          'Tag every dashboard and analysis the portal writes with portal:authored-by, portal:channel and portal:at, so "made by an agent" is a filter anywhere tags are.',
+        type: 'boolean',
+        envVar: 'PROVENANCE_TAG_ASSETS',
+        default: true,
+      },
+    ],
+  },
 ];
 
 const SPECS_BY_KEY = new Map(SETTINGS_CATALOG.flatMap((g) => g.settings.map((s) => [s.key, s])));

@@ -2,6 +2,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../../../shared/auth';
 import { PAGINATION, STATUS_CODES } from '../../../shared/constants';
+import { actorFromAuth, auditLog } from '../../../shared/services/audit/AuditLog';
 import { S3Service } from '../../../shared/services/aws/S3Service';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
 import { jobFactory } from '../../../shared/services/jobs/JobFactory';
@@ -60,6 +61,18 @@ export class AssetHandler {
       });
 
       // Always use job queue for bulk operations
+      const { actor: deleteActor, channel: deleteChannel } = actorFromAuth(user);
+      for (const asset of assets) {
+        await auditLog.record({
+          actor: deleteActor,
+          channel: deleteChannel,
+          action: 'asset.delete',
+          assetType: asset.type ?? asset.assetType,
+          assetId: asset.id ?? asset.assetId,
+          assetName: asset.name ?? asset.assetName,
+          details: { reason },
+        });
+      }
       const result = await this.bulkOperationsService.bulkDelete(
         assets,
         user.email || user.userId || 'unknown',
@@ -476,6 +489,15 @@ export class AssetHandler {
       logger.info('Rename requested', { user: user.email, assetType, assetId });
       const renameService = new RenameService(this.accountId);
       const result = await renameService.renameAsset(assetType, assetId, name);
+      const { actor, channel } = actorFromAuth(user);
+      await auditLog.record({
+        actor,
+        channel,
+        action: 'asset.rename',
+        assetType,
+        assetId,
+        assetName: name.trim(),
+      });
 
       return successResponse(event, { success: true, data: result });
     } catch (error: any) {

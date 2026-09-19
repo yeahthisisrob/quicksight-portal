@@ -1056,6 +1056,11 @@ paths:
           description: Comma-separated list of action categories to include.
           schema:
             type: string
+        - name: origins
+          in: query
+          description: Comma-separated origins to include (portal-ui, portal-api, portal, console, automation, unknown).
+          schema:
+            type: string
         - name: startDate
           in: query
           description: ISO timestamp. Returns events at or after this time.
@@ -4073,9 +4078,58 @@ components:
           nullable: true
           description: Most recent mutation (update/publish) of this dependent asset
 
+    TimelineActor:
+      type: object
+      description: The actor in words. The portal's own Lambda role shows as "Portal".
+      required: [kind, label, raw]
+      properties:
+        kind:
+          type: string
+          enum: [portal, user, role, root, service, unknown]
+        label:
+          type: string
+        raw:
+          type: string
+
+    TimelineOrigin:
+      type: string
+      description: >
+        Where a change came from. portal-ui and portal-api are portal writes attributed
+        through the audit log (a person in the UI, or an API key such as an agent);
+        portal is a portal write without a matching record; console is a person or
+        role acting directly; automation is an AWS service.
+      enum: [portal-ui, portal-api, portal, console, automation, unknown]
+
+    TimelineProvenance:
+      type: object
+      required: [actor, channel, action, distanceMs]
+      properties:
+        actor:
+          type: object
+          required: [kind, id, label]
+          properties:
+            kind:
+              type: string
+              enum: [user, api-key]
+            id:
+              type: string
+            label:
+              type: string
+        channel:
+          type: string
+          enum: [ui, api]
+        action:
+          type: string
+          description: e.g. authoring.update, authoring.clone, asset.rename, asset.delete, asset.tags
+        jobId:
+          type: string
+        distanceMs:
+          type: integer
+          description: How far the audit record was from the event; small means confident.
+
     TimelineEvent:
       type: object
-      required: [id, timestamp, eventName, kind, user]
+      required: [id, timestamp, eventName, kind, user, actor, origin]
       properties:
         id:
           type: string
@@ -4098,6 +4152,13 @@ components:
         user:
           type: string
           description: User name or ARN that performed the action.
+        actor:
+          $ref: '#/components/schemas/TimelineActor'
+        origin:
+          $ref: '#/components/schemas/TimelineOrigin'
+        provenance:
+          $ref: '#/components/schemas/TimelineProvenance'
+          description: For portal events, who was behind it, from the portal's own audit log.
         resourceType:
           type: string
           enum: [dashboard, analysis, dataset, datasource, folder, group, user, other]
