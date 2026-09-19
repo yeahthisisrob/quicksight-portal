@@ -377,3 +377,108 @@ describe('RebindService', () => {
     });
   });
 });
+
+describe('RebindService with a template', () => {
+  const template = () => ({
+    DataSetIdentifierDeclarations: [{ Identifier: 'tpl', DataSetArn: 'arn:tpl' }],
+    Sheets: [
+      {
+        SheetId: 'ts',
+        Name: 'Standard overview',
+        TextBoxes: [{ SheetTextBoxId: 'title', Content: 'Team dashboard' }],
+        Visuals: [{ BarChartVisual: { VisualId: 'tb1' } }],
+        Layouts: [
+          {
+            Configuration: {
+              GridLayout: {
+                Elements: [
+                  {
+                    ElementId: 'title',
+                    ElementType: 'TEXT_BOX',
+                    ColumnIndex: 0,
+                    ColumnSpan: 36,
+                    RowIndex: 0,
+                    RowSpan: 2,
+                  },
+                  {
+                    ElementId: 'tb1',
+                    ElementType: 'VISUAL',
+                    ColumnIndex: 0,
+                    ColumnSpan: 12,
+                    RowIndex: 2,
+                    RowSpan: 8,
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    ],
+  });
+
+  let service: RebindService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.qs.describeDashboardDefinition.mockImplementation(async (id: string) =>
+      id === 'tpl'
+        ? { Name: 'Template', Definition: template(), ThemeArn: 'arn:theme-tpl' }
+        : { Name: 'Sales', Definition: sampleDefinition(), ThemeArn: 'arn:theme' }
+    );
+    mocks.qs.describeDataset.mockResolvedValue({
+      Arn: GOLD_ARN,
+      Name: 'orders_gold',
+      OutputColumns: GOLD_COLUMNS,
+    });
+    mocks.qs.updateDashboard.mockResolvedValue({
+      arn: 'arn:dashboard/d1',
+      versionArn: 'arn:dashboard/d1/version/8',
+    });
+    service = new RebindService('1');
+  });
+
+  it('previews the source laid out on the template, with its sheet names and theme', async () => {
+    const preview = await service.preview('dashboard', 'd1', {
+      rebinds: [],
+      template: { assetType: 'dashboard', assetId: 'tpl' },
+    });
+
+    expect(preview.themeArn).toBe('arn:theme-tpl');
+    expect(preview.definition.Sheets[0].Name).toBe('Standard overview');
+    expect(preview.definition.Sheets[0].TextBoxes.map((t: any) => t.Content)).toEqual([
+      'Team dashboard',
+    ]);
+    const elements = preview.definition.Sheets[0].Layouts[0].Configuration.GridLayout.Elements;
+    expect(
+      elements
+        .filter((e: any) => e.ElementType === 'VISUAL')
+        .map((e: any) => [e.ColumnSpan, e.RowSpan])
+    ).toEqual([
+      [12, 8],
+      [12, 8],
+    ]);
+    expect(preview.changes.some((c) => c.kind === 'template')).toBe(true);
+    expect(preview.outline[0]?.elements.length).toBeGreaterThan(2);
+  });
+
+  it('writes the template theme on apply, or keeps the source theme when told not to', async () => {
+    await service.apply('dashboard', 'd1', {
+      mode: 'update',
+      rebinds: [],
+      template: { assetType: 'dashboard', assetId: 'tpl' },
+    });
+    expect(mocks.qs.updateDashboard).toHaveBeenLastCalledWith(
+      expect.objectContaining({ dashboardId: 'd1', themeArn: 'arn:theme-tpl' })
+    );
+
+    await service.apply('dashboard', 'd1', {
+      mode: 'update',
+      rebinds: [],
+      template: { assetType: 'dashboard', assetId: 'tpl', theme: false, sheetNames: false },
+    });
+    const last = mocks.qs.updateDashboard.mock.calls.at(-1)![0];
+    expect(last.themeArn).toBe('arn:theme');
+    expect(last.definition.Sheets[0].Name).toBe('Overview');
+  });
+});

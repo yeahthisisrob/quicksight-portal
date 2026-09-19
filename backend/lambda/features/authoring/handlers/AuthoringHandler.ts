@@ -21,6 +21,7 @@ import {
   type AuthorableAssetType,
   isAuthorableAssetType,
   type RebindRequest,
+  type TemplateRequest,
 } from '../types';
 
 const APPLY_MODES = new Set(['update', 'clone']);
@@ -115,6 +116,7 @@ export class AuthoringHandler {
         addCalculatedFields: this.parseAddedFields(body.addCalculatedFields),
         ops: parseOps(body.ops),
         repairs: parseRepairs(body.repairs),
+        template: this.parseTemplate(body.template),
       });
       return successResponse(event, { success: true, data: preview });
     } catch (error: any) {
@@ -260,7 +262,39 @@ export class AuthoringHandler {
       addCalculatedFields: this.parseAddedFields(body.addCalculatedFields),
       ops: parseOps(body.ops),
       repairs: parseRepairs(body.repairs),
+      template: this.parseTemplate(body.template),
       folderId: (body.folderId as string | undefined)?.trim() || undefined,
+    };
+  }
+
+  private parseTemplate(raw: unknown): TemplateRequest | undefined {
+    if (raw === undefined || raw === null) {
+      return undefined;
+    }
+    if (typeof raw !== 'object') {
+      throw badRequest('template must be an object');
+    }
+    const t = raw as Record<string, unknown>;
+    if (
+      (t.assetType !== 'dashboard' && t.assetType !== 'analysis') ||
+      typeof t.assetId !== 'string' ||
+      !t.assetId
+    ) {
+      throw badRequest("template needs assetType ('dashboard' or 'analysis') and assetId");
+    }
+    for (const flag of ['textBoxes', 'controls', 'sheetNames', 'kpisFirst', 'theme'] as const) {
+      if (t[flag] !== undefined && typeof t[flag] !== 'boolean') {
+        throw badRequest(`template.${flag} must be a boolean`);
+      }
+    }
+    return {
+      assetType: t.assetType,
+      assetId: t.assetId,
+      textBoxes: t.textBoxes as boolean | undefined,
+      controls: t.controls as boolean | undefined,
+      sheetNames: t.sheetNames as boolean | undefined,
+      kpisFirst: t.kpisFirst as boolean | undefined,
+      theme: t.theme as boolean | undefined,
     };
   }
 

@@ -36,6 +36,7 @@ import { applyOps, type DefinitionChange, type DefinitionOp } from '../lib/defin
 import { buildOutline } from '../lib/definitionOutline';
 import { type RebindSpec, rebindDefinition } from '../lib/definitionRebind';
 import { applyRepairs } from '../lib/definitionRepairs';
+import { applyTemplate } from '../lib/definitionTemplate';
 import { buildRepairPlan, type RepairPlan, type RepairTarget } from '../lib/repairPlan';
 import type {
   AddedCalculatedField,
@@ -61,6 +62,13 @@ interface LoadedDefinition {
   dashboardPublishOptions?: any;
   /** QuickSight's own errors on the asset, when it reports any. */
   errors?: Array<{ Type?: string; Message?: string; ViolatedEntities?: Array<{ Path?: string }> }>;
+}
+
+interface LoadedTemplate {
+  request: NonNullable<PreviewRequest['template']>;
+  definition: Record<string, any>;
+  themeArn?: string;
+  columnsByIdentifier: Map<string, Set<string>>;
 }
 
 interface TargetDataset {
@@ -131,12 +139,53 @@ export class RebindService {
     const loaded = await this.loadDefinition(assetType, assetId);
     const repaired = this.repair(loaded, request.repairs);
     const plan = await this.planAgainst(assetType, assetId, repaired.loaded, request.rebinds);
-    const { definition, changes } = this.rewrite(repaired.loaded.definition, plan, request);
+    const template = await this.loadTemplate(request.template, repaired.loaded.definition, plan);
+    const { definition, changes, warnings, themeArn } = this.rewrite(
+      repaired.loaded.definition,
+      plan,
+      request,
+      template
+    );
     return {
       plan,
       definition,
       changes: [...repaired.changes, ...changes],
       outline: buildOutline(definition),
+      ...(warnings.length ? { warnings } : {}),
+      ...(themeArn ? { themeArn } : {}),
+    };
+  }
+
+  /**
+   * The template to migrate onto, with the columns every source identifier
+   * has (after any rebind) so its controls can be rebound by column name.
+   */
+  private async loadTemplate(
+    request: PreviewRequest['template'],
+    definition: Record<string, any>,
+    plan: RebindPlan
+  ): Promise<LoadedTemplate | null> {
+    if (!request) {
+      return null;
+    }
+    const loaded = await this.loadDefinition(request.assetType, request.assetId);
+    const columnsByIdentifier = new Map<string, Set<string>>();
+    const rebound = new Map(plan.datasets.map((d) => [d.identifier, d.target.dataSetId]));
+    for (const dataset of collectDefinitionDatasets(definition)) {
+      const dataSetId = rebound.get(dataset.identifier) ?? dataset.dataSetId;
+      try {
+        const columns = await this.loadTargetDataset(dataSetId);
+        columnsByIdentifier.set(dataset.identifier, new Set(columns.columns.map((c) => c.name)));
+      } catch {
+        // Unreadable dataset: the columns the definition already reads are all we know.
+        columnsByIdentifier.set(dataset.identifier, new Set(dataset.columns.map((c) => c.name)));
+      }
+    }
+    return {
+      request,
+      definition: loaded.definition,
+      themeArn: loaded.themeArn,
+      columnsByIdentifier,
     };
   }
 
@@ -203,9 +252,17 @@ export class RebindService {
   private rewrite(
     source: Record<string, any>,
     plan: RebindPlan,
-    request: { addCalculatedFields?: AddedCalculatedField[]; ops?: DefinitionOp[] }
-  ): { definition: Record<string, any>; changes: DefinitionChange[] } {
+    request: { addCalculatedFields?: AddedCalculatedField[]; ops?: DefinitionOp[] },
+    template: LoadedTemplate | null = null
+  ): {
+    definition: Record<string, any>;
+    changes: DefinitionChange[];
+    warnings: string[];
+    themeArn?: string;
+  } {
     const changes: DefinitionChange[] = [];
+    const warnings: string[] = [];
+    let themeArn: string | undefined;
     const specs: RebindSpec[] = plan.datasets.map((d) => ({
       identifier: d.identifier,
       targetDataSetArn: d.target.dataSetArn,
@@ -221,6 +278,23 @@ export class RebindService {
       }
     }
     let definition = rebindDefinition(source, specs);
+    if (template) {
+      const migrated = applyTemplate(definition, template.definition, {
+        textBoxes: template.request.textBoxes,
+        controls: template.request.controls,
+        sheetNames: template.request.sheetNames,
+        kpisFirst: template.request.kpisFirst,
+        columnsByIdentifier: template.columnsByIdentifier,
+        themeArn: template.request.theme === false ? undefined : template.themeArn,
+      });
+      definition = migrated.definition;
+      changes.push(...migrated.changes);
+      warnings.push(...migrated.warnings);
+      themeArn = migrated.themeArn;
+      if (themeArn) {
+        changes.push({ kind: 'template', description: "Takes the template's theme" });
+      }
+    }
     const added = request.addCalculatedFields ?? [];
     definition = withAddedCalculatedFields(definition, added);
     for (const field of added) {
@@ -230,7 +304,12 @@ export class RebindService {
       });
     }
     const edited = applyOps(definition, request.ops ?? []);
-    return { definition: edited.definition, changes: [...changes, ...edited.changes] };
+    return {
+      definition: edited.definition,
+      changes: [...changes, ...edited.changes],
+      warnings,
+      themeArn,
+    };
   }
 
   /**
@@ -298,9 +377,13 @@ export class RebindService {
     this.assertApplicable(plan);
 
     const name = this.resolveName(request, loaded.name);
-    const rewritten = this.rewrite(loaded.definition, plan, request);
+    const template = await this.loadTemplate(request.template, loaded.definition, plan);
+    const rewritten = this.rewrite(loaded.definition, plan, request, template);
     const definition = rewritten.definition;
     const changes = [...repaired.changes, ...rewritten.changes];
+    const target: LoadedDefinition = rewritten.themeArn
+      ? { ...loaded, themeArn: rewritten.themeArn }
+      : loaded;
     if (request.folderId && request.mode !== 'clone') {
       throw new ValidationError('A folder can only be chosen when creating a copy');
     }
@@ -312,13 +395,14 @@ export class RebindService {
       rebinds: plan.datasets.length,
       ops: request.ops?.length ?? 0,
       repairs: request.repairs?.length ?? 0,
+      template: request.template?.assetId,
       renamed: name !== loaded.name,
     });
 
     const written =
       request.mode === 'clone'
-        ? await this.clone(assetType, assetId, request.newAssetId, name, definition, loaded)
-        : await this.update(assetType, assetId, name, definition, loaded);
+        ? await this.clone(assetType, assetId, request.newAssetId, name, definition, target)
+        : await this.update(assetType, assetId, name, definition, target);
 
     await this.recordProvenance(
       assetType,
@@ -338,7 +422,16 @@ export class RebindService {
       folderId = request.folderId;
     }
 
-    return { assetType, ...written, name, mode: request.mode, plan, changes, folderId };
+    return {
+      assetType,
+      ...written,
+      name,
+      mode: request.mode,
+      plan,
+      changes,
+      folderId,
+      ...(rewritten.warnings.length ? { warnings: rewritten.warnings } : {}),
+    };
   }
 
   private async planAgainst(
@@ -429,6 +522,7 @@ export class RebindService {
       request.rebinds.length +
       (request.ops?.length ?? 0) +
       (request.repairs?.length ?? 0) +
+      (request.template ? 1 : 0) +
       (request.addCalculatedFields?.length ?? 0);
     if (request.mode === 'update' && !name && edits === 0) {
       throw new ValidationError('Nothing to do: no rebinds, no edits and no new name');

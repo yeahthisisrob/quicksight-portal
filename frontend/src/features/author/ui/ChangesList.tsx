@@ -12,6 +12,7 @@ const KIND_COLOR: Record<
   DefinitionChange['kind'],
   'default' | 'primary' | 'secondary' | 'info' | 'success' | 'warning' | 'error'
 > = {
+  template: 'secondary',
   repair: 'error',
   rebind: 'primary',
   rename: 'info',

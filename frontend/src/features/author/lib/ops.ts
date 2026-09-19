@@ -145,6 +145,7 @@ export function opChangeKind(op: DefinitionOp): DefinitionChange['kind'] {
 }
 
 export const CHANGE_KIND_LABELS: Record<DefinitionChange['kind'], string> = {
+  template: 'Template',
   repair: 'Repair',
   rebind: 'Dataset',
   rename: 'Column',
@@ -155,6 +156,7 @@ export const CHANGE_KIND_LABELS: Record<DefinitionChange['kind'], string> = {
 };
 
 const CHANGE_KIND_ORDER: DefinitionChange['kind'][] = [
+  'template',
   'repair',
   'rebind',
   'rename',

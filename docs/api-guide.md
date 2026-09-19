@@ -97,7 +97,28 @@ A typical agent loop: `datasets` → `propose` → read the plan → adjust
 `rebinds`/`ops` → `preview` until the outline looks right → `apply` with
 `mode: "clone"` → open the result in QuickSight.
 
-## 5. Repair an asset QuickSight refuses to write
+## 5. Migrate onto a template's layout standard
+
+Tag a dashboard as the standard (its theme, title band, notes and SIM link,
+control bar and tile sizes) and migrate anything onto it in one call, in the
+same preview/apply pair:
+
+```bash
+just api POST /authoring/dashboard/<id>/rebind/preview '{"rebinds":[...],"template":{"assetType":"dashboard","assetId":"<template-id>"}}'
+just api POST /authoring/dashboard/<id>/rebind '{"mode":"clone","name":"...","rebinds":[...],"template":{"assetType":"dashboard","assetId":"<template-id>"}}'
+```
+
+The template's text boxes and title band come across at their positions,
+its filter and parameter controls where a source dataset has the column
+(otherwise `warnings` says which were dropped), its sheet names and its
+theme. The source's visuals reflow, in order, into rows of the template's
+standard tile size below the furniture, KPIs first at the template's KPI
+size when it has a KPI band. Each part can be switched off (`textBoxes`,
+`controls`, `sheetNames`, `kpisFirst`, `theme`). Rebinds run before the
+template, so a migration to new datasets and a new layout is one request;
+`ops` run after it, so the planner's edits still apply.
+
+## 6. Repair an asset QuickSight refuses to write
 
 Assets with definition errors cannot be updated as code. Ask what is wrong
 and what would fix it:
@@ -123,7 +144,7 @@ just api POST /authoring/dashboard/<id>/rebind '{"mode":"update","repairs":[...]
 Repairs run before the rebind plan, so the plan checks the repaired
 definition; `mode: "clone"` fixes a copy instead of the original.
 
-## 6. Your writes are attributed
+## 7. Your writes are attributed
 
 Everything an API key writes is recorded by the portal (who, through what,
 which asset, which job) and shows on the timeline as "Portal · API key
@@ -137,7 +158,7 @@ Assets the portal writes also carry the tags `portal:authored-by`,
 `portal:channel` and `portal:at` (Settings → Provenance to turn tagging
 off), so "made by an agent" is a tag filter anywhere tags are.
 
-## 7. Other useful calls
+## 8. Other useful calls
 
 - `POST /smus/export` then `GET /settings/smus/projects`: refresh what the
   portal knows about SageMaker Unified Studio.

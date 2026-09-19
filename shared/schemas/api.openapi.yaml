@@ -2046,6 +2046,8 @@ paths:
                   description: Applied first, before the rebind plan, so the plan sees the repaired definition.
                   items:
                     $ref: '#/components/schemas/RepairOp'
+                template:
+                  $ref: '#/components/schemas/TemplateRequest'
       responses:
         '200':
           description: The plan and the rewritten definition
@@ -4857,6 +4859,39 @@ components:
               items:
                 $ref: '#/components/schemas/RebindRequest'
 
+    TemplateRequest:
+      type: object
+      description: |
+        Migrate onto a template dashboard's layout standard. The template's
+        text boxes and title band come across at their positions, its
+        filter and parameter controls where a source dataset has the column,
+        its sheet names and its theme; the source's visuals reflow, in
+        order, into rows of the template's standard tile size below the
+        furniture, KPIs first at the template's KPI size when it has a KPI
+        band. Applied after rebinds and before added fields and ops.
+      required: [assetType, assetId]
+      properties:
+        assetType:
+          type: string
+          enum: [dashboard, analysis]
+        assetId:
+          type: string
+        textBoxes:
+          type: boolean
+          default: true
+        controls:
+          type: boolean
+          default: true
+        sheetNames:
+          type: boolean
+          default: true
+        kpisFirst:
+          type: boolean
+          default: true
+        theme:
+          type: boolean
+          default: true
+
     RebindRequest:
       type: object
       description: Point one dataset identifier at a different dataset.
@@ -5000,6 +5035,8 @@ components:
           description: Repairs applied first, before the rebind plan (see the repair plan endpoint).
           items:
             $ref: '#/components/schemas/RepairOp'
+        template:
+          $ref: '#/components/schemas/TemplateRequest'
         folderId:
           type: string
           description: Clone only. Put the new asset in this QuickSight folder.
@@ -5045,6 +5082,10 @@ components:
         folderId:
           type: string
           description: The folder the clone was placed in, when requested.
+        warnings:
+          type: array
+          items:
+            type: string
 
     ProposeRequest:
       type: object
@@ -5149,6 +5190,14 @@ components:
           description: The sheets of the resulting definition, with ids, for editing.
           items:
             $ref: '#/components/schemas/SheetOutline'
+        warnings:
+          type: array
+          description: What a template could not carry, and why.
+          items:
+            type: string
+        themeArn:
+          type: string
+          description: The theme that would be written when a template is applied.
 
     SettingSource:
       type: string
@@ -5852,7 +5901,7 @@ components:
       properties:
         kind:
           type: string
-          enum: [repair, rebind, rename, calculatedField, layout, visual, sheet]
+          enum: [template, repair, rebind, rename, calculatedField, layout, visual, sheet]
         description:
           type: string
         sheetId:
