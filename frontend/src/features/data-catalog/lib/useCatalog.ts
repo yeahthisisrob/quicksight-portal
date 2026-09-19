@@ -38,7 +38,9 @@ export function useCatalogUrlState(): [
 export function useCatalogProjects() {
   return useQuery<SmusCatalog>({
     queryKey: ['data-catalog', 'smus', 'projects'],
-    queryFn: () => smusCatalogApi.list(),
+    // Projects only: the snapshot answers this without the QuickSight field
+    // index, so the page opens before the heavier per-project list arrives.
+    queryFn: () => smusCatalogApi.list({ scope: 'projects' }),
     staleTime: PROJECTS_STALE_MS,
   });
 }

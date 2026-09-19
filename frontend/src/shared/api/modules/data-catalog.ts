@@ -223,6 +223,8 @@ export const smusCatalogApi = {
     search?: string;
     term?: string;
     projectId?: string;
+    /** 'projects' skips the field index: only the project list with counts. */
+    scope?: 'projects' | 'full';
   }): Promise<SmusCatalog> {
     const response = await apiClient.get<ApiResponse<SmusCatalog>>('/data-catalog/smus', {
       params,

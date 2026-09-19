@@ -101,6 +101,11 @@ export interface CatalogFilters {
   search?: string;
   term?: string;
   projectId?: string;
+  /**
+   * 'projects' answers only the project list (with counts) from the snapshot,
+   * without building the QuickSight field index: what the page needs first.
+   */
+  scope?: 'projects' | 'full';
 }
 
 /** Everything QuickSight-side, indexed once per request. */
@@ -120,6 +125,13 @@ interface FieldIndex {
 const VISUALS_CACHE_TTL_MS = 60_000;
 
 export class SmusCatalogService {
+  private static fieldIndexCache: { expiresAt: number; promise: Promise<FieldIndex> } | null = null;
+
+  /** Drop the container-scoped indexes (tests, and after a cache rebuild). */
+  public static invalidate(): void {
+    SmusCatalogService.fieldIndexCache = null;
+    SmusCatalogService.visualsCache = null;
+  }
   private static visualsCache: { expiresAt: number; promise: Promise<FieldVisualUsage[]> } | null =
     null;
 
@@ -144,7 +156,22 @@ export class SmusCatalogService {
       };
     }
 
-    const index = await this.buildFieldIndex();
+    if (filters.scope === 'projects') {
+      return {
+        configured: true,
+        projectFilter: result.projectFilter,
+        projects: countBy(
+          result.assets.filter((a) => a.projectId),
+          (a) => a.projectId as string,
+          (a) => a.projectName ?? (a.projectId as string)
+        ),
+        glossaryTerms: [],
+        assets: [],
+        exportedAt: result.exportedAt,
+      };
+    }
+
+    const index = await this.getFieldIndex();
     const all = result.assets.map((asset) => this.summarize(asset, index));
 
     const projects = countBy(
@@ -184,7 +211,7 @@ export class SmusCatalogService {
         }
       );
     }
-    const index = await this.buildFieldIndex();
+    const index = await this.getFieldIndex();
     return {
       ...this.summarize(asset, index),
       forms: asset.forms,
@@ -311,6 +338,27 @@ export class SmusCatalogService {
       calculatedFieldCount: fields.filter((f) => f.isCalculated).length,
       fields,
     };
+  }
+
+  /**
+   * The field index is derived from the QuickSight cache alone, so one
+   * container builds it once per freshness window and every catalog request
+   * in between reuses it. Failures are not cached.
+   */
+  private getFieldIndex(): Promise<FieldIndex> {
+    const cached = SmusCatalogService.fieldIndexCache;
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.promise;
+    }
+    const promise = this.buildFieldIndex().catch((error) => {
+      SmusCatalogService.fieldIndexCache = null;
+      throw error;
+    });
+    SmusCatalogService.fieldIndexCache = {
+      expiresAt: Date.now() + VISUALS_CACHE_TTL_MS,
+      promise,
+    };
+    return promise;
   }
 
   private async buildFieldIndex(): Promise<FieldIndex> {

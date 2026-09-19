@@ -661,6 +661,7 @@ export class DataCatalogHandler {
         search: q.search || undefined,
         term: q.term || undefined,
         projectId: q.projectId || undefined,
+        scope: q.scope === 'projects' ? 'projects' : undefined,
       });
       return successResponse(event, { success: true, data });
     } catch (error: any) {
