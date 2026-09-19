@@ -318,7 +318,7 @@ export class DatasetParser extends BaseAssetParser {
     metadata.datasourceArns = this.extractDatasourceArns(definition);
     // Include parsed fields for field extraction
     metadata.fields = this.transformFieldsForCache(fields);
-    metadata.calculatedFields = this.transformCalculatedFieldsForCache(calculatedFields);
+    metadata.calculatedFields = this.transformCalculatedFieldsForCache(calculatedFields, fields);
     // Extract lineage data
     metadata.lineageData = this.extractLineageData(definition);
   }
@@ -563,9 +563,23 @@ export class DatasetParser extends BaseAssetParser {
   /**
    * Transform calculated fields for cache storage
    */
-  private transformCalculatedFieldsForCache(calculatedFields: CalculatedField[]): any[] {
+  private transformCalculatedFieldsForCache(
+    calculatedFields: CalculatedField[],
+    fields: Field[]
+  ): any[] {
+    // The dashboard and analysis parsers have always cached the full field
+    // shape. Datasets cached only { name, expression }, so the field cache —
+    // which keys on fieldId and is grouped by fieldName — ended up with one
+    // nameless entry per dataset, whatever the dataset declared, and the
+    // catalog could group none of them. The type comes from OutputColumns,
+    // which is where QuickSight says what a computed column resolved to.
+    const typeOf = new Map(fields.map((f) => [f.fieldName, f.dataType]));
     return calculatedFields.map((field) => ({
+      fieldId: field.name,
+      fieldName: field.name,
+      displayName: field.name,
       name: field.name,
+      dataType: typeOf.get(field.name) ?? '',
       expression: field.expression,
     }));
   }

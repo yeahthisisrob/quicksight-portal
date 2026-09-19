@@ -364,3 +364,88 @@ describe('CacheWriter - processActiveAssetsWithMerge', () => {
     expect(result[0].permissions).toHaveLength(EXPECTED_PERMISSION_COUNT_TWO);
   });
 });
+
+/**
+ * A dataset's calculated fields reach the field cache through
+ * metadata.calculatedFields, which the dataset parser used to write as
+ * { name, expression } while the dashboard parser wrote the full field shape.
+ * The field cache keys on fieldId and the catalog groups on fieldName, so the
+ * short shape cost a dataset every calculated field it had.
+ */
+describe('CacheWriter - calculated fields reaching the field cache', () => {
+  let cacheWriter: CacheWriter;
+
+  const datasetEntry = (calculatedFields: unknown[]) => ({
+    assetId: 'ds-1',
+    assetName: 'Sales (gold)',
+    lastUpdatedTime: new Date('2026-09-19T00:00:00Z'),
+    tags: [],
+    metadata: {
+      fields: [
+        { fieldId: 'revenue', fieldName: 'revenue', dataType: 'DECIMAL' },
+        { fieldId: 'margin', fieldName: 'margin', dataType: 'DECIMAL' },
+      ],
+      calculatedFields,
+    },
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    cacheWriter = new CacheWriter(
+      mockS3Adapter as any,
+      mockMemoryAdapter as any,
+      mockS3Service,
+      'test-bucket'
+    );
+  });
+
+  const rebuild = async (calculatedFields: unknown[]) => {
+    vi.spyOn((cacheWriter as any).cacheReader, 'getCacheEntries').mockImplementation(
+      async (...args: unknown[]) =>
+        (args[0] as { assetType: string }).assetType === 'dataset'
+          ? [datasetEntry(calculatedFields)]
+          : []
+    );
+    await cacheWriter.updateFieldCache(null);
+    return (mockS3Adapter.saveFieldCache.mock.calls[0]?.[0] ?? []) as any[];
+  };
+
+  it('keeps every calculated field a dataset declares, named and keyed', async () => {
+    const fields = await rebuild([
+      { name: 'margin', expression: '{revenue} - {cost}' },
+      { name: 'margin_pct', expression: '{margin} / {revenue}' },
+      { name: 'runway', expression: '{cash} / {burn}' },
+    ]);
+
+    const calculated = fields.filter((f) => f.isCalculated);
+    expect(calculated.map((f) => f.fieldName).sort()).toEqual(['margin', 'margin_pct', 'runway']);
+    // Every one needs an expression and a name to be grouped by the catalog.
+    expect(calculated.every((f) => f.expression && f.fieldName)).toBe(true);
+    // ... and its own cache key, or they overwrite each other.
+    expect(new Set(calculated.map((f) => f.fieldId)).size).toBe(calculated.length);
+  });
+
+  it('reads the full field shape a dashboard writes just the same', async () => {
+    const fields = await rebuild([
+      {
+        fieldId: 'cf-1',
+        fieldName: 'margin',
+        displayName: 'Margin',
+        dataType: 'DECIMAL',
+        expression: '{revenue} - {cost}',
+      },
+    ]);
+
+    expect(fields.filter((f) => f.isCalculated)).toEqual([
+      expect.objectContaining({ fieldId: 'cf-1', fieldName: 'margin', dataType: 'DECIMAL' }),
+    ]);
+  });
+
+  it('drops a field with no name at all rather than letting it collide', async () => {
+    const fields = await rebuild([
+      { expression: '{a} + 1' },
+      { name: 'real', expression: '{b} + 1' },
+    ]);
+    expect(fields.filter((f) => f.isCalculated).map((f) => f.fieldName)).toEqual(['real']);
+  });
+});

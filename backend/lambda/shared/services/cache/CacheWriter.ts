@@ -889,11 +889,20 @@ export class CacheWriter {
 
               // Transform to FieldInfo format and add to map
               for (const field of allFields) {
-                // Handle the field based on whether it's calculated or not
+                // Parsers have not always agreed on the shape: a dataset's
+                // calculated fields arrive as { name, expression }, a
+                // dashboard's with the full field shape. Read either, and
+                // skip a field with no name at all rather than keying every
+                // one of them on `undefined` and overwriting the lot.
+                const fieldName = field.fieldName || (field as any).name;
+                if (!fieldName) {
+                  continue;
+                }
+                const fieldId = field.fieldId || fieldName;
                 const fieldInfo: FieldInfo = {
-                  fieldId: field.fieldId,
-                  fieldName: field.fieldName,
-                  displayName: field.displayName || field.fieldName,
+                  fieldId,
+                  fieldName,
+                  displayName: field.displayName || fieldName,
                   dataType: field.dataType,
                   description: field.isCalculated ? '' : (field as any).description || '',
                   isCalculated: field.isCalculated,
@@ -908,7 +917,7 @@ export class CacheWriter {
                     (assetType === 'dataset' ? asset.assetName : undefined),
                   columnName: field.isCalculated
                     ? undefined
-                    : (field as any).columnName || field.fieldName,
+                    : (field as any).columnName || fieldName,
                   dependencies: field.isCalculated ? (field as any).dependencies || [] : [],
                   usageCount: 0,
                   analysisCount: 0,
@@ -920,7 +929,7 @@ export class CacheWriter {
                     : {}),
                 };
 
-                const fieldKey = `${field.fieldId}:${asset.assetId}`;
+                const fieldKey = `${fieldId}:${asset.assetId}`;
                 fieldMap.set(fieldKey, fieldInfo);
               }
             }

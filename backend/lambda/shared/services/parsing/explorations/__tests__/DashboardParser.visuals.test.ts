@@ -109,3 +109,39 @@ describe('DashboardParser: visuals on fields', () => {
     expect(margin.visuals).toBeUndefined();
   });
 });
+
+/**
+ * A definition names its datasets by a label ("sales"), not by id. Everything
+ * downstream — the field index, the SMUS tie-back, the lineage between a
+ * dataset's fields and the ones a dashboard computes from them — joins on the
+ * dataset id, so the label has to be resolved through the declaration's ARN.
+ */
+describe('DashboardParser: fields carry a dataset id, not a definition label', () => {
+  it('resolves the DataSetIdentifier to the dataset the declaration points at', () => {
+    const metadata = new DashboardParser().extractMetadata(assetData) as any;
+
+    const margin = metadata.calculatedFields.find((f: any) => f.fieldName === 'margin');
+    expect(margin.sourceDatasetId).toBe('ds-1');
+    expect(metadata.fields.every((f: any) => f.sourceDatasetId === 'ds-1')).toBe(true);
+  });
+
+  it('keeps the label when no declaration claims it, rather than losing the field', () => {
+    const orphan = {
+      ...assetData,
+      apiResponses: {
+        ...assetData.apiResponses,
+        definition: {
+          ...assetData.apiResponses.definition,
+          data: {
+            DashboardId: 'd-1',
+            Name: 'Sales',
+            Definition: { ...DEFINITION, DataSetIdentifierDeclarations: [] },
+          },
+        },
+      },
+    };
+    const metadata = new DashboardParser().extractMetadata(orphan) as any;
+    const margin = metadata.calculatedFields.find((f: any) => f.fieldName === 'margin');
+    expect(margin.sourceDatasetId).toBe('sales');
+  });
+});
