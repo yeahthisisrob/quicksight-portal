@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.14.3](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.14.2...v2.14.3) (2026-09-19)
+
+
+### Bug Fixes
+
+* **catalog:** a dataset's calculated fields reach the field cache, and an exploration's know which dataset they belong to ([#189](https://github.com/yeahthisisrob/quicksight-portal/issues/189)) ([104f7ae](https://github.com/yeahthisisrob/quicksight-portal/commit/104f7aeed5dafa23bf2e5cce9386df63ba157b6e))
+
 ## [2.14.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.14.1...v2.14.2) (2026-09-19)
 
 
