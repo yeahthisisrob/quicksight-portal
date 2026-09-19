@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.11.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.10.0...v2.11.0) (2026-09-19)
+
+
+### Features
+
+* **authoring:** a dashboard or analysis from nothing - visuals by column names, planner-proposed from an ask, on a template standard ([#163](https://github.com/yeahthisisrob/quicksight-portal/issues/163)) ([adc7f4c](https://github.com/yeahthisisrob/quicksight-portal/commit/adc7f4c68aebb138dc0e3d7f15f932a39b7ff8b6))
+* **authoring:** cross-dataset filter checks - preview and apply say which datasets a filter cannot reach ([#165](https://github.com/yeahthisisrob/quicksight-portal/issues/165)) ([485fa5e](https://github.com/yeahthisisrob/quicksight-portal/commit/485fa5e35c7c12a220e0a303e3e725824cdf43af))
+* **author:** the Standard step - migrate onto a template dashboard and convert visual types in bulk ([#166](https://github.com/yeahthisisrob/quicksight-portal/issues/166)) ([45ee697](https://github.com/yeahthisisrob/quicksight-portal/commit/45ee6973b5baf313c2cf19ba75b0291d98c65e92))
+
 ## [2.10.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.9.0...v2.10.0) (2026-09-19)
 
 
