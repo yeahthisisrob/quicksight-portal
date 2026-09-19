@@ -272,12 +272,48 @@ describe('SmusService projects', () => {
     });
   });
 
-  it('has no projects, diagnostics or snapshot before the first export', async () => {
+  it('has no projects or snapshot before the first export, but still explains itself', async () => {
     cache.get.mockResolvedValue(null);
     const service = new SmusService(cache as any, config(), null);
 
     expect(await service.listProjects()).toEqual([]);
-    expect(await service.projectDiscovery()).toEqual({ projects: [], exportedAt: null });
+    const discovery = await service.projectDiscovery();
+    expect(discovery.projects).toEqual([]);
+    expect(discovery.exportedAt).toBeNull();
+    expect(discovery.diagnostics).toMatchObject({ domainId: 'dzd_1', fromListProjects: 0 });
     expect(await service.getStatus()).not.toHaveProperty('snapshot');
+  });
+
+  it('unions a live ListProjects with the snapshot so unselected projects can be chosen', async () => {
+    cache.get.mockResolvedValue(snapshot());
+    const live = {
+      listProjects: vi
+        .fn()
+        .mockResolvedValue([
+          { id: 'proj-new', name: 'brand_new', description: 'not exported yet' },
+        ]),
+    };
+    const service = new SmusService(cache as any, config(), null);
+
+    const discovery = await service.projectDiscovery(live as any);
+
+    expect(discovery.projects.map((p) => p.id)).toEqual([
+      'proj-new',
+      'proj-medallion-prod',
+      'proj-published-prod',
+    ]);
+    expect(discovery.diagnostics).toMatchObject({ fromListProjects: 1, publishers: 2 });
+    expect(discovery.exportedAt).toBe(EXPORTED_AT);
+  });
+
+  it('keeps the snapshot projects and names the error when the live call fails', async () => {
+    cache.get.mockResolvedValue(snapshot());
+    const live = { listProjects: vi.fn().mockRejectedValue(new Error('AccessDenied')) };
+    const service = new SmusService(cache as any, config(), null);
+
+    const discovery = await service.projectDiscovery(live as any);
+
+    expect(discovery.projects).toHaveLength(2);
+    expect(discovery.diagnostics?.listProjectsError).toBe('Error: AccessDenied');
   });
 });

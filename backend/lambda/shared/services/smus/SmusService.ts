@@ -10,7 +10,11 @@
  */
 import { randomUUID } from 'node:crypto';
 
-import type { CatalogListing, CatalogProject } from '../../../adapters/aws/DataZoneAdapter';
+import type {
+  CatalogListing,
+  CatalogProject,
+  DataZoneAdapter,
+} from '../../../adapters/aws/DataZoneAdapter';
 import type {
   CreateSmusDatasetRequest,
   SmusAsset,
@@ -28,6 +32,7 @@ import { AssetStatusFilter } from '../../types/assetFilterTypes';
 import { ASSET_TYPES } from '../../types/assetTypes';
 import { logger } from '../../utils/logger';
 import { normalizePermissionsArray } from '../../utils/permissions';
+import { withTimeout } from '../../utils/withTimeout';
 import {
   SMUS_SNAPSHOT_KEY,
   type SmusExportDiagnostics,
@@ -36,6 +41,9 @@ import {
   snapshotMatches,
   summarizeSnapshot,
 } from './SmusSnapshot';
+
+/** A live ListProjects for the Settings picker must answer inside the gateway window. */
+const LIVE_PROJECTS_TIMEOUT_MS = 20_000;
 
 /** Link map freshness window — catalog membership changes slowly. */
 const LINK_MAP_TTL_MS = CACHE_TTL.SHORT;
@@ -297,22 +305,48 @@ export class SmusService {
   }
 
   /**
-   * The project list plus how the export found it, so an empty picker can say
-   * why. Entirely from the snapshot: no DataZone call on a page request.
+   * The projects to choose from in Settings. The export is scoped to the
+   * chosen projects, so this list cannot come only from the export: it is a
+   * live, bounded ListProjects unioned with whatever the last export saw,
+   * plus that export's diagnostics so an empty list can say why.
    */
-  public async projectDiscovery(): Promise<{
+  public async projectDiscovery(live?: DataZoneAdapter): Promise<{
     projects: CatalogProject[];
     diagnostics?: ProjectDiscoveryDiagnostics;
     exportedAt: string | null;
   }> {
     const snapshot = await this.getSnapshot();
-    if (!snapshot) {
-      return { projects: [], exportedAt: null };
+    const byId = new Map((snapshot?.projects ?? []).map((p) => [p.id, p]));
+    const diagnostics: ProjectDiscoveryDiagnostics = snapshot
+      ? { ...snapshot.diagnostics }
+      : {
+          domainId: this.config.domainId,
+          region: this.config.region,
+          fromListProjects: 0,
+          listings: 0,
+          publishers: 0,
+        };
+    if (live) {
+      try {
+        const listed = await withTimeout(
+          live.listProjects(this.config.domainId),
+          LIVE_PROJECTS_TIMEOUT_MS,
+          'ListProjects'
+        );
+        diagnostics.fromListProjects = listed.length;
+        diagnostics.listProjectsError = undefined;
+        for (const project of listed) {
+          byId.set(project.id, project);
+        }
+      } catch (error) {
+        diagnostics.listProjectsError =
+          error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+      }
     }
     return {
-      projects: snapshot.projects,
-      diagnostics: snapshot.diagnostics,
-      exportedAt: snapshot.exportedAt,
+      projects: [...byId.values()].sort((a, b) => a.name.localeCompare(b.name)),
+      diagnostics,
+      exportedAt: snapshot?.exportedAt ?? null,
     };
   }
 

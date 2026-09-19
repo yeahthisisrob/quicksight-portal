@@ -51,24 +51,19 @@ export function loaderKey(optionsFrom: string): string {
 const LOADERS: Record<string, () => Promise<RemoteOptions>> = {
   '/settings/smus/projects': async () => {
     const result = await settingsApi.listSmusProjects();
-    if (result.configured && !result.exportedAt) {
-      return {
-        configured: true,
-        options: [],
-        emptyDetail: 'No SMUS export has run yet, so there are no projects to choose from.',
-        emptyAction: RUN_EXPORT_ACTION,
-      };
-    }
-    const exported = result.exportedAt
-      ? `From the SMUS export at ${format(new Date(result.exportedAt), EXPORT_DATE_FORMAT)}.`
-      : undefined;
+    // Projects come from a live ListProjects unioned with the last export, so
+    // the list works before any export has run; the export is what fills the
+    // catalog for the projects chosen here.
+    const source = result.exportedAt
+      ? `Live from DataZone, plus the SMUS export at ${format(new Date(result.exportedAt), EXPORT_DATE_FORMAT)}.`
+      : 'Live from DataZone. No SMUS export has run yet: pick projects, save, then run one.';
     return {
       configured: result.configured,
-      emptyDetail: [describeProjectDiagnostics(result.diagnostics), exported]
+      emptyDetail: [describeProjectDiagnostics(result.diagnostics), source]
         .filter(Boolean)
         .join(' '),
       emptyAction: RUN_EXPORT_ACTION,
-      sourceNote: exported,
+      sourceNote: source,
       options: result.projects.map((p) => ({
         value: p.id,
         label: p.name,

@@ -2605,10 +2605,11 @@ export interface paths {
         };
         /**
          * Projects in the configured SMUS domain
-         * @description From the last SMUS export, never live. Used by the settings page so
-         *     the projects the portal reads published assets from are chosen from a
-         *     list, never typed. Returns an empty list with `configured: false` when
-         *     no domain is set, and `exportedAt: null` when no export has run yet.
+         * @description The projects to choose from: a live, bounded ListProjects unioned with
+         *     the projects the last SMUS export saw (the export is scoped to the
+         *     chosen projects, so the choice cannot come from the export alone).
+         *     Returns an empty list with `configured: false` when no domain is set;
+         *     `exportedAt` is null when no export has run yet.
          */
         get: {
             parameters: {

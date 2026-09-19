@@ -1,5 +1,6 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
+import { DataZoneAdapter } from '../../../adapters/aws/DataZoneAdapter';
 import { requireAuth } from '../../../shared/auth';
 import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { STATUS_CODES } from '../../../shared/constants';
@@ -59,7 +60,9 @@ export class SettingsHandler {
         });
       }
       const service = new SmusService(CacheService.getInstance(), config);
-      const { projects, diagnostics, exportedAt } = await service.projectDiscovery();
+      const { projects, diagnostics, exportedAt } = await service.projectDiscovery(
+        new DataZoneAdapter(config.region)
+      );
       return successResponse(event, {
         success: true,
         data: { configured: true, projects, diagnostics, exportedAt },
