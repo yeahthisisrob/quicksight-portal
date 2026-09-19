@@ -1161,8 +1161,10 @@ paths:
     get:
       summary: SMUS (SageMaker Unified Studio) integration status
       description: >
-        Reports whether a SMUS domain is configured for this portal. When not
-        configured, all SMUS UI (link indicators, actions, filters) is hidden.
+        Reports whether a SMUS domain is configured for this portal and what
+        the last SMUS export captured. When not configured, all SMUS UI (link
+        indicators, actions, filters) is hidden. Everything SMUS-related the
+        portal shows comes from that export, never from a live DataZone call.
       responses:
         '200':
           description: SMUS integration status
@@ -1170,6 +1172,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmusStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/smus/export:
+    post:
+      summary: Start a SMUS export
+      description: |
+        Queues a job that sweeps the configured DataZone domain once (projects,
+        published listings with their forms and columns, the portal role's
+        standing in the domain) and stores the result as the SMUS snapshot in
+        the cache bucket. Settings, Author and the catalog read that snapshot.
+        Single-flight: if an export is already queued or running, its job id is
+        returned instead of a new one.
+      responses:
+        '202':
+          description: Export job queued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/SmusExportQueued'
+        '200':
+          description: An export is already in flight; its job is returned
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/SmusExportQueued'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -1953,10 +1995,10 @@ paths:
     get:
       summary: Projects in the configured SMUS domain
       description: |
-        Live from DataZone. Used by the settings page so the projects the
-        portal reads published assets from are chosen from a list, never
-        typed. Returns an empty list with `configured: false` when no domain
-        is set.
+        From the last SMUS export, never live. Used by the settings page so
+        the projects the portal reads published assets from are chosen from a
+        list, never typed. Returns an empty list with `configured: false` when
+        no domain is set, and `exportedAt: null` when no export has run yet.
       responses:
         '200':
           description: The domain's projects
@@ -1970,10 +2012,15 @@ paths:
                     type: boolean
                   data:
                     type: object
-                    required: [configured, projects]
+                    required: [configured, projects, exportedAt]
                     properties:
                       configured:
                         type: boolean
+                      exportedAt:
+                        type: string
+                        format: date-time
+                        nullable: true
+                        description: When the snapshot these projects come from was taken; null when no export has run.
                       projects:
                         type: array
                         items:
@@ -2012,10 +2059,15 @@ paths:
                     type: boolean
                   data:
                     type: object
-                    required: [configured, projectFilter, assets]
+                    required: [configured, projectFilter, assets, exportedAt]
                     properties:
                       configured:
                         type: boolean
+                      exportedAt:
+                        type: string
+                        format: date-time
+                        nullable: true
+                        description: When the snapshot was taken; null when no SMUS export has run.
                       projectFilter:
                         type: array
                         description: The project ids the sweep was limited to; empty means all.
@@ -5248,10 +5300,15 @@ components:
 
     SmusCatalog:
       type: object
-      required: [configured, projectFilter, projects, glossaryTerms, assets]
+      required: [configured, projectFilter, projects, glossaryTerms, assets, exportedAt]
       properties:
         configured:
           type: boolean
+        exportedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the SMUS snapshot was taken; null when no export has run.
         projectFilter:
           type: array
           items:
@@ -5730,9 +5787,52 @@ components:
         domainId:
           type: string
           description: DataZone domain identifier backing the SMUS domain
+        region:
+          type: string
         portalUrl:
           type: string
           description: Base URL of the SMUS portal used for deep links
+        snapshot:
+          $ref: '#/components/schemas/SmusSnapshotSummary'
+          description: The last SMUS export; absent when none has run.
+
+    SmusSnapshotSummary:
+      type: object
+      description: What the last SMUS export captured, for the Operations page and empty states.
+      required: [exportedAt, projects, listings, publishers]
+      properties:
+        exportedAt:
+          type: string
+          format: date-time
+        domainId:
+          type: string
+        region:
+          type: string
+        projects:
+          type: integer
+          description: Projects in the snapshot (ListProjects unioned with listing publishers).
+        listings:
+          type: integer
+          description: Published listings captured.
+        publishers:
+          type: integer
+          description: Distinct projects owning those listings.
+        jobId:
+          type: string
+          description: The export job that wrote the snapshot.
+        diagnostics:
+          $ref: '#/components/schemas/SmusProjectDiagnostics'
+
+    SmusExportQueued:
+      type: object
+      required: [jobId, status, message]
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+        message:
+          type: string
 
     SmusDatasetLink:
       type: object
