@@ -144,6 +144,23 @@ size when it has a KPI band. Each part can be switched off (`textBoxes`,
 template, so a migration to new datasets and a new layout is one request;
 `ops` run after it, so the planner's edits still apply.
 
+Type rules ride the same request, applied to every visual at once:
+
+```json
+"typeRules": {
+  "chartFamily": [{ "from": "Table", "to": "PivotTable" }, { "from": "BarChart", "to": "ColumnChart" }],
+  "kpi": true,
+  "casts": true
+}
+```
+
+`chartFamily` retypes every visual of one editable type to another wherever
+the field wells translate (the ones that do not fit are named in
+`warnings`); `kpi` turns gauges into KPIs and gives every KPI the template's
+KPI options; `casts` adds a calculated field with the cast wherever the new
+dataset's column type differs from what the definition was built for, and
+points the visuals at it.
+
 ## 6. Repair an asset QuickSight refuses to write
 
 Assets with definition errors cannot be updated as code. Ask what is wrong

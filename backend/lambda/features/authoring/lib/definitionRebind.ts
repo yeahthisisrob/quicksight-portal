@@ -36,7 +36,11 @@ export function rewriteExpression(expression: string, columnMap: Record<string, 
   });
 }
 
-function renameColumns(node: unknown, identifier: string, columnMap: Record<string, string>): void {
+export function renameColumns(
+  node: unknown,
+  identifier: string,
+  columnMap: Record<string, string>
+): void {
   if (Array.isArray(node)) {
     for (const item of node) {
       renameColumns(item, identifier, columnMap);

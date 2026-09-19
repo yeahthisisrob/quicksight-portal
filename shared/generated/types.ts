@@ -2623,6 +2623,7 @@ export interface paths {
                         /** @description Applied first, before the rebind plan, so the plan sees the repaired definition. */
                         repairs?: components["schemas"]["RepairOp"][];
                         template?: components["schemas"]["TemplateRequest"];
+                        typeRules?: components["schemas"]["TypeRules"];
                     };
                 };
             };
@@ -5029,6 +5030,27 @@ export interface components {
             };
         };
         /**
+         * @description Conversions applied to every visual at once. chartFamily: retypes
+         *     every visual of one editable type to another (table to pivot, bar to
+         *     column, pie to donut and the reverse) wherever the field wells
+         *     translate; a visual whose wells do not fit is left alone and named in
+         *     `warnings`. kpi: gauges become KPIs and every KPI takes the
+         *     template's KPI options when a template is given. casts: where the
+         *     dataset a definition now reads has a column of a different type than
+         *     the definition was built for, a calculated field with the cast is
+         *     added and the visuals read it instead.
+         */
+        TypeRules: {
+            chartFamily?: {
+                /** @enum {string} */
+                from: "BarChart" | "ColumnChart" | "LineChart" | "PieChart" | "DonutChart" | "Table" | "PivotTable";
+                /** @enum {string} */
+                to: "BarChart" | "ColumnChart" | "LineChart" | "PieChart" | "DonutChart" | "Table" | "PivotTable";
+            }[];
+            kpi?: boolean;
+            casts?: boolean;
+        };
+        /**
          * @description Migrate onto a template dashboard's layout standard. The template's
          *     text boxes and title band come across at their positions, its
          *     filter and parameter controls where a source dataset has the column,
@@ -5124,6 +5146,7 @@ export interface components {
             /** @description Repairs applied first, before the rebind plan (see the repair plan endpoint). */
             repairs?: components["schemas"]["RepairOp"][];
             template?: components["schemas"]["TemplateRequest"];
+            typeRules?: components["schemas"]["TypeRules"];
             /** @description Clone only. Put the new asset in this QuickSight folder. */
             folderId?: string;
         };
