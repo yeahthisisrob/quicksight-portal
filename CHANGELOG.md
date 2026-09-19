@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.13.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.12.1...v2.13.0) (2026-09-19)
+
+
+### Features
+
+* **datasets:** parity with the new data prep experience, on both the read and the write side ([#178](https://github.com/yeahthisisrob/quicksight-portal/issues/178)) ([f211c8e](https://github.com/yeahthisisrob/quicksight-portal/commit/f211c8eb9aebdeaf88a1fddb3808f07b1c57b9e2))
+
+
+### Bug Fixes
+
+* **smus:** read a listing's columns whatever shape the domain returns them in, and say when there are none ([#176](https://github.com/yeahthisisrob/quicksight-portal/issues/176)) ([867284c](https://github.com/yeahthisisrob/quicksight-portal/commit/867284cd7af6504bf38c321464e55e787dbc63a8))
+
 ## [2.12.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.12.0...v2.12.1) (2026-09-19)
 
 
