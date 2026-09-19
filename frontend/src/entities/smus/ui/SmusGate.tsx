@@ -1,7 +1,8 @@
 /**
- * SmusGate - renders its children only once SMUS has at least one reachable
- * project. Author and the catalog are built on SMUS projects; without one
- * there is nothing for them to show, so the page says what to fix instead.
+ * SmusGate - renders its children only once SMUS has a domain and at least
+ * one selected project. Author and the catalog are built on SMUS projects;
+ * without a selection there is nothing for them to show, so the page says
+ * what to do instead. Decided from the settings snapshot alone.
  */
 import { CloudOff, FolderOff } from '@mui/icons-material';
 import { Alert, AlertTitle, Box, Button, CircularProgress, Typography } from '@mui/material';
@@ -11,8 +12,8 @@ import { Link as RouterLink } from 'react-router-dom';
 import { getApiErrorMessage } from '@/shared/api';
 import { EmptyState } from '@/shared/design-system';
 
-import { describeProjectDiagnostics, smusReadiness } from '../model/smusReadiness';
-import { useSmusProjects } from '../model/useSmusProjects';
+import { smusReadiness } from '../model/smusReadiness';
+import { useSettingsSnapshot } from '../model/useSmusProjects';
 
 interface SmusGateProps {
   /** What the page does, for the empty state: "Author" or "The catalog". */
@@ -25,30 +26,39 @@ function Frame({ children }: { children: ReactNode }) {
 }
 
 export function SmusGate({ subject, children }: SmusGateProps) {
-  const projects = useSmusProjects();
+  const settings = useSettingsSnapshot();
 
-  if (projects.isLoading) {
+  if (settings.isPending) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-        <CircularProgress size={28} />
+      <Box
+        sx={{ display: 'flex', alignItems: 'center', gap: 1.5, justifyContent: 'center', py: 8 }}
+      >
+        <CircularProgress size={22} />
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+          Reading settings
+        </Typography>
       </Box>
     );
   }
-  if (projects.isError) {
+  if (settings.isError) {
     return (
       <Frame>
-        <Alert severity="error">
-          <AlertTitle>Could not reach SageMaker Unified Studio</AlertTitle>
-          {getApiErrorMessage(projects.error, 'Unknown error')}
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" size="small" onClick={() => void settings.refetch()}>
+              Retry
+            </Button>
+          }
+        >
+          <AlertTitle>Settings could not be read</AlertTitle>
+          {getApiErrorMessage(settings.error, 'Unknown error')}
         </Alert>
       </Frame>
     );
   }
-  if (!projects.data) {
-    return null;
-  }
 
-  const readiness = smusReadiness(projects.data);
+  const readiness = smusReadiness(settings.data);
   if (readiness === 'not-configured') {
     return (
       <Frame>
@@ -66,30 +76,15 @@ export function SmusGate({ subject, children }: SmusGateProps) {
     );
   }
   if (readiness === 'no-projects') {
-    const detail = describeProjectDiagnostics(projects.data.diagnostics);
     return (
       <Frame>
         <EmptyState
           icon={<FolderOff />}
-          title="No active SMUS projects"
-          description={
-            <>
-              {subject} has nothing to show until the portal can see at least one project in the
-              domain.
-              {detail && (
-                <Typography
-                  variant="body2"
-                  component="span"
-                  sx={{ display: 'block', mt: 1.5, color: 'text.secondary' }}
-                >
-                  {detail}
-                </Typography>
-              )}
-            </>
-          }
+          title="No projects selected"
+          description={`${subject} shows only what the selected SMUS projects publish. Choose at least one project under "Projects to read from" in Settings.`}
           action={
             <Button component={RouterLink} to="/settings" variant="contained">
-              Review project access
+              Choose projects
             </Button>
           }
         />

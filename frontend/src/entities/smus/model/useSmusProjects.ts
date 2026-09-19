@@ -1,16 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { type SmusProjectsResponse, settingsApi } from '@/shared/api/modules/settings';
+import { type SettingsSnapshot, settingsApi } from '@/shared/api/modules/settings';
 
-const PROJECTS_STALE_MS = 5 * 60 * 1000;
+/** Same key the Settings form uses, so a save there is seen here at once. */
+export const SETTINGS_SNAPSHOT_QUERY_KEY = ['settings'] as const;
 
-export const SMUS_PROJECTS_QUERY_KEY = ['settings', 'smus', 'projects'] as const;
-
-/** The projects the portal can reach in the configured SMUS domain. */
-export function useSmusProjects() {
-  return useQuery<SmusProjectsResponse>({
-    queryKey: SMUS_PROJECTS_QUERY_KEY,
-    queryFn: () => settingsApi.listSmusProjects(),
-    staleTime: PROJECTS_STALE_MS,
+/** The settings snapshot: one cheap read, no catalog sweep. */
+export function useSettingsSnapshot() {
+  return useQuery<SettingsSnapshot>({
+    queryKey: SETTINGS_SNAPSHOT_QUERY_KEY,
+    queryFn: () => settingsApi.get(),
+    retry: 1,
   });
 }

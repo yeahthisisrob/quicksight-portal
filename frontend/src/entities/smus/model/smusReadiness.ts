@@ -1,17 +1,38 @@
 /**
  * Whether SageMaker Unified Studio is usable from this portal. Author and the
- * catalog are built on SMUS projects, so there is nothing to show until the
- * domain is configured and at least one project is reachable.
+ * catalog are built on SMUS projects, so there is nothing to show until a
+ * domain is set and at least one project is selected in Settings. Both come
+ * from the settings snapshot, so no catalog sweep is needed to decide.
  */
-import type { SmusProjectDiagnostics, SmusProjectsResponse } from '@/shared/api/modules/settings';
+import type { SettingsSnapshot, SmusProjectDiagnostics } from '@/shared/api/modules/settings';
 
 export type SmusReadiness = 'not-configured' | 'no-projects' | 'ready';
 
-export function smusReadiness(response: SmusProjectsResponse): SmusReadiness {
-  if (!response.configured) {
+export const SMUS_DOMAIN_KEY = 'smus.domainId';
+export const SMUS_PROJECTS_KEY = 'smus.projectIds';
+
+function settingValue(snapshot: SettingsSnapshot, key: string): unknown {
+  for (const group of snapshot.groups) {
+    const found = group.settings.find((s) => s.key === key);
+    if (found) {
+      return found.value;
+    }
+  }
+  return undefined;
+}
+
+/** The project ids selected in Settings (env or stored). */
+export function selectedProjectIds(snapshot: SettingsSnapshot): string[] {
+  const value = settingValue(snapshot, SMUS_PROJECTS_KEY);
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+}
+
+export function smusReadiness(snapshot: SettingsSnapshot): SmusReadiness {
+  const domain = settingValue(snapshot, SMUS_DOMAIN_KEY);
+  if (typeof domain !== 'string' || !domain.trim()) {
     return 'not-configured';
   }
-  return response.projects.length > 0 ? 'ready' : 'no-projects';
+  return selectedProjectIds(snapshot).length > 0 ? 'ready' : 'no-projects';
 }
 
 /** One paragraph on why the project list came back empty, for an empty state. */

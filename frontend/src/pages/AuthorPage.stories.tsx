@@ -62,8 +62,8 @@ export const SmusNotConfigured: Story = {
   ),
 };
 
-export const NoActiveProjects: Story = {
-  name: 'Gated: no active projects',
+export const NoProjectsSelected: Story = {
+  name: 'Gated: no projects selected',
   parameters: { router: { initialEntries: [sourceUrl] } },
   render: () => (
     <AppShell path="author" routes={authorRoutes([SMUS_SETTINGS_NO_PROJECTS])}>

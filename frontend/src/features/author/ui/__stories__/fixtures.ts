@@ -362,6 +362,10 @@ function withTargetNames(
 export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
   return [
     ...overrides,
+    settingsSnapshotRoute(
+      'dzd_example',
+      SMUS_PROJECTS.map((p) => p.id)
+    ),
     {
       method: 'get',
       url: '/settings/smus/projects',
@@ -632,34 +636,51 @@ export const SMUS_NOT_CONFIGURED: MockRoute = {
   }),
 };
 
-/** The page-level gate: no domain configured at all. */
-export const SMUS_SETTINGS_NOT_CONFIGURED: MockRoute = {
-  method: 'get',
-  url: '/settings/smus/projects',
-  respond: () => ({ body: { success: true, data: { configured: false, projects: [] } } }),
-};
-
-/** The page-level gate: a domain, but the portal role sees no project in it. */
-export const SMUS_SETTINGS_NO_PROJECTS: MockRoute = {
-  method: 'get',
-  url: '/settings/smus/projects',
-  respond: () => ({
-    body: {
-      success: true,
-      data: {
-        configured: true,
-        projects: [],
-        diagnostics: {
-          domainId: 'dzd_example',
-          region: 'us-east-1',
-          fromListProjects: 0,
-          listings: 0,
-          publishers: 0,
+/** The settings snapshot the page gate reads: a domain and the selected projects. */
+export function settingsSnapshotRoute(domainId: string | null, projectIds: string[]): MockRoute {
+  const base = { description: '', source: 'stored' as const, sensitive: false };
+  return {
+    method: 'get',
+    url: /\/settings$/,
+    respond: () => ({
+      body: {
+        success: true,
+        data: {
+          groups: [
+            {
+              id: 'smus',
+              title: 'SageMaker Unified Studio',
+              description: '',
+              settings: [
+                {
+                  ...base,
+                  key: 'smus.domainId',
+                  label: 'Domain id',
+                  type: 'string',
+                  value: domainId ?? undefined,
+                },
+                {
+                  ...base,
+                  key: 'smus.projectIds',
+                  label: 'Projects to read from',
+                  type: 'multiselect',
+                  value: projectIds,
+                  optionsFrom: '/settings/smus/projects',
+                },
+              ],
+            },
+          ],
         },
       },
-    },
-  }),
-};
+    }),
+  };
+}
+
+/** The page-level gate: no domain configured at all. */
+export const SMUS_SETTINGS_NOT_CONFIGURED: MockRoute = settingsSnapshotRoute(null, []);
+
+/** The page-level gate: a domain, but no project selected yet. */
+export const SMUS_SETTINGS_NO_PROJECTS: MockRoute = settingsSnapshotRoute('dzd_example', []);
 
 // ---------------------------------------------------------------------------
 // A fake flow for the step stories: canned state, no-op actions.
