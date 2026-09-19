@@ -137,8 +137,8 @@ check-storybook:
 #   just smus-grant dzd_xxxx                     every project, read-only
 #   just smus-grant dzd_xxxx "analytics_prod,analytics_dev"
 [group('ops')]
-smus-grant domain projects='' region='us-east-1' stack='QuicksightPortalStack' designation='PROJECT_CATALOG_VIEWER':
-    {{x}} node scripts/smus-grant-portal-access.mjs --domain {{domain}} --region {{region}} --stack {{stack}} --designation {{designation}} {{ if projects != '' { "--projects " + projects } else { "" } }}
+smus-grant domain projects='' region='us-east-1' stack='QuicksightPortalStack' designation='PROJECT_CATALOG_VIEWER' role='':
+    {{x}} node scripts/smus-grant-portal-access.mjs --domain {{domain}} --region {{region}} --stack {{stack}} --designation {{designation}} {{ if projects != '' { "--projects " + projects } else { "" } }} {{ if role != '' { "--role-arn " + role } else { "" } }}
 
 # ============================================================================
 # BUILD
