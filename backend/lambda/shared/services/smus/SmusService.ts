@@ -16,6 +16,7 @@ import type {
   CatalogProject,
   DataZoneAdapter,
 } from '../../../adapters/aws/DataZoneAdapter';
+import type { StsAdapter } from '../../../adapters/aws/StsAdapter';
 import type {
   CreateSmusDatasetRequest,
   SmusAsset,
@@ -89,6 +90,18 @@ export interface ProjectDiscoveryDiagnostics {
   publishers: number;
   listProjectsError?: string;
   listingsError?: string;
+  /** The principal DataZone saw, from STS (an assumed-role session ARN in Lambda). */
+  callerArn?: string;
+  /** The IAM role behind that session: what smus-grant and the SMUS console register. */
+  roleArn?: string;
+  /** The role's domain user profile status, or 'not found' when DataZone has none for it. */
+  profileStatus?: string;
+}
+
+/** arn:aws:sts::123:assumed-role/Name/session -> arn:aws:iam::123:role/Name */
+export function roleArnFromCaller(callerArn: string): string {
+  const match = /^arn:([^:]+):sts::(\d+):assumed-role\/([^/]+)\//.exec(callerArn);
+  return match ? `arn:${match[1]}:iam::${match[2]}:role/${match[3]}` : callerArn;
 }
 
 function errorMessage(error: unknown): string {
@@ -119,7 +132,8 @@ export class SmusService {
     private readonly cacheService: CacheService,
     private readonly dataZoneAdapter: DataZoneAdapter | null,
     config?: SmusConfig,
-    private readonly quickSightService: QuickSightService | null = null
+    private readonly quickSightService: QuickSightService | null = null,
+    private readonly stsAdapter: StsAdapter | null = null
   ) {
     this.config = config ?? getSmusConfig();
   }
@@ -308,6 +322,8 @@ export class SmusService {
    * The project list plus how it was found, so an empty picker can say why:
    * a Lambda role that belongs to no project gets nothing from ListProjects,
    * and a domain with no published listings has no publishers to fall back on.
+   * Always a fresh sweep (this is the Settings diagnostics path), and it
+   * refreshes the container cache so the next catalog request agrees.
    */
   public async projectDiscovery(): Promise<{
     projects: CatalogProject[];
@@ -323,8 +339,10 @@ export class SmusService {
     if (!this.config.enabled || !this.dataZoneAdapter) {
       return { projects: [], diagnostics };
     }
+    const adapter = this.dataZoneAdapter;
+    SmusService.listingsCache = null;
     const [listed, listings] = await Promise.all([
-      this.dataZoneAdapter.listProjects(this.config.domainId).catch((error) => {
+      adapter.listProjects(this.config.domainId).catch((error) => {
         diagnostics.listProjectsError = errorMessage(error);
         return [] as CatalogProject[];
       }),
@@ -332,15 +350,36 @@ export class SmusService {
         diagnostics.listingsError = errorMessage(error);
         return [] as CatalogListing[];
       }),
+      this.describeCaller(diagnostics),
     ]);
     diagnostics.fromListProjects = listed.length;
     diagnostics.listings = listings.length;
     diagnostics.publishers = new Set(listings.map((l) => l.owningProjectId).filter(Boolean)).size;
-    const projects =
-      diagnostics.listProjectsError || diagnostics.listingsError
-        ? listed
-        : await this.getProjects();
-    return { projects, diagnostics };
+    if (diagnostics.listProjectsError || diagnostics.listingsError) {
+      return { projects: listed, diagnostics };
+    }
+    const promise = this.discoverProjects();
+    SmusService.projectsCache = { expiresAt: Date.now() + LINK_MAP_TTL_MS, promise };
+    return { projects: await promise, diagnostics };
+  }
+
+  /** Name the principal DataZone saw and whether the domain knows it. */
+  private async describeCaller(diagnostics: ProjectDiscoveryDiagnostics): Promise<void> {
+    if (!this.stsAdapter || !this.dataZoneAdapter) {
+      return;
+    }
+    try {
+      const identity = await this.stsAdapter.getCallerIdentity();
+      diagnostics.callerArn = identity.arn;
+      diagnostics.roleArn = roleArnFromCaller(identity.arn);
+      const profile = await this.dataZoneAdapter.getIamRoleProfile(
+        this.config.domainId,
+        diagnostics.roleArn
+      );
+      diagnostics.profileStatus = profile?.status ?? 'not found';
+    } catch (error) {
+      logger.warn('Could not describe the caller for SMUS diagnostics', { error });
+    }
   }
 
   private getProjects(): Promise<CatalogProject[]> {
