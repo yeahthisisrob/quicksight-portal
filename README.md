@@ -74,6 +74,8 @@ just smus-grant dzd_xxxx                          # every project
 just smus-grant dzd_xxxx "analytics_prod,analytics_dev"
 ```
 
+Author and the catalog are built on SMUS projects, so until the domain is configured and the portal can see at least one project, both pages show one thing: what to fix, with the discovery diagnostics (how many projects ListProjects returned, how many listings and publishers were found) and a link to Settings.
+
 ### Settings
 
 Configuration lives in DynamoDB with a fallback to the Lambda's environment variables, so a fresh deployment works from env alone and values move over one at a time. Every setting shows where its value comes from. Secrets stay in the environment.
