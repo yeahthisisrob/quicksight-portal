@@ -76,7 +76,7 @@ interface LoadedTemplate {
   columnsByIdentifier: Map<string, Set<string>>;
 }
 
-interface TargetDataset {
+export interface TargetDataset {
   dataSetId: string;
   dataSetArn: string;
   name: string;
@@ -362,6 +362,28 @@ export class RebindService {
       warnings,
       themeArn,
     };
+  }
+
+  /** A dataset's columns with their types, live or from its export. */
+  public describeTargetDataset(dataSetId: string): Promise<TargetDataset> {
+    return this.loadTargetDataset(dataSetId);
+  }
+
+  /** A dashboard or analysis definition with its theme, as authoring reads it. */
+  public async loadDefinitionWithTheme(
+    assetType: AuthorableAssetType,
+    assetId: string
+  ): Promise<{ name: string; definition: Record<string, any>; themeArn?: string }> {
+    const loaded = await this.loadDefinition(assetType, assetId);
+    return { name: loaded.name, definition: loaded.definition, themeArn: loaded.themeArn };
+  }
+
+  /** The audience of an existing asset, for a new asset to inherit. */
+  public permissionsOf(
+    assetType: AuthorableAssetType,
+    assetId: string
+  ): Promise<any[] | undefined> {
+    return this.sourcePermissions(assetType, assetId);
   }
 
   /**

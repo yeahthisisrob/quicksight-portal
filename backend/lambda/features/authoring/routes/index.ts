@@ -4,6 +4,17 @@ import { AuthoringHandler } from '../handlers/AuthoringHandler';
 const handler = new AuthoringHandler();
 
 export const authoringRoutes: RouteHandler[] = [
+  // From nothing: literal paths first so /authoring/new never matches the {assetType} regexes.
+  {
+    method: 'POST',
+    path: '/authoring/new/preview',
+    handler: (event) => handler.previewNew(event),
+  },
+  {
+    method: 'POST',
+    path: '/authoring/new',
+    handler: (event) => handler.createNew(event),
+  },
   {
     method: 'GET',
     path: /^\/authoring\/(analysis|dashboard)\/([^/]+)\/datasets$/,
