@@ -84,6 +84,10 @@ just smus-grant dzd_xxxx "analytics_prod,analytics_dev"
 
 Author and the catalog are built on SMUS projects, so until a domain is set, at least one project is selected under "Projects to read from", and an export has run, each page shows one thing: what to do next, with a link to Settings or Operations. The picker itself explains an empty list: which export it read, which role called DataZone, whether the domain knows it, and how many projects, listings and publishers were found.
 
+### API keys: the same API for people, scripts and agents
+
+Every page is a thin client over the REST API, and an API key gives a CLI, a CI job or an agent (Claude Code, for example) the same access a signed-in user has, except for managing keys. Create one under Settings → API keys, export it as `QSP_API_KEY`, and `just api GET /smus/status` works. The [API guide](docs/api-guide.md) walks through the authoring loop end to end: datasets → propose → plan → preview → apply.
+
 ### Settings
 
 Configuration lives in DynamoDB with a fallback to the Lambda's environment variables, so a fresh deployment works from env alone and values move over one at a time. Every setting shows where its value comes from. Secrets stay in the environment.

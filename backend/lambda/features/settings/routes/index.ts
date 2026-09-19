@@ -11,4 +11,11 @@ export const settingsRoutes: RouteHandler[] = [
     path: '/settings/smus/projects',
     handler: (event) => handler.listSmusProjects(event),
   },
+  { method: 'GET', path: '/settings/api-keys', handler: (event) => handler.listApiKeys(event) },
+  { method: 'POST', path: '/settings/api-keys', handler: (event) => handler.createApiKey(event) },
+  {
+    method: 'DELETE',
+    path: /^\/settings\/api-keys\/([^/]+)$/,
+    handler: (event) => handler.revokeApiKey(event),
+  },
 ];

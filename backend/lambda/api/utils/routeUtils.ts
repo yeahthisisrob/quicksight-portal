@@ -55,6 +55,11 @@ interface RoutePattern {
  */
 const ROUTE_PATTERNS: readonly RoutePattern[] = [
   {
+    prefix: '/settings/api-keys/',
+    excludes: [],
+    params: ['id'],
+  },
+  {
     prefix: '/folders/',
     excludes: [],
     params: ['id', 'memberId'],

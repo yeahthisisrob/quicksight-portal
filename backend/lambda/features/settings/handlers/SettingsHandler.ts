@@ -1,13 +1,14 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { DataZoneAdapter } from '../../../adapters/aws/DataZoneAdapter';
-import { requireAuth } from '../../../shared/auth';
+import { requireAuth, requireUser } from '../../../shared/auth';
 import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { STATUS_CODES } from '../../../shared/constants';
+import { apiKeyStore } from '../../../shared/services/auth/ApiKeyStore';
 import { CacheService } from '../../../shared/services/cache/CacheService';
 import { settingsStore } from '../../../shared/services/settings/SettingsStore';
 import { SmusService } from '../../../shared/services/smus/SmusService';
-import { errorResponse, successResponse } from '../../../shared/utils/cors';
+import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 
 export class SettingsHandler {
@@ -73,6 +74,63 @@ export class SettingsHandler {
         event,
         error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
         error?.message || 'Failed to list SMUS projects'
+      );
+    }
+  }
+
+  /** GET /settings/api-keys */
+  public async listApiKeys(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireUser(event);
+      return successResponse(event, { success: true, data: { keys: await apiKeyStore.list() } });
+    } catch (error: any) {
+      logger.error('List API keys failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error?.message || 'Failed to list API keys'
+      );
+    }
+  }
+
+  /** POST /settings/api-keys  body: { label } - the secret is in this response only. */
+  public async createApiKey(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireUser(event);
+      const body = JSON.parse(event.body || '{}');
+      if (typeof body.label !== 'string' || !body.label.trim()) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'A label is required');
+      }
+      const created = await apiKeyStore.create(body.label, user.email || user.userId);
+      logger.info('API key created', { id: created.key.id, label: created.key.label });
+      return createResponse(event, STATUS_CODES.CREATED, { success: true, data: created });
+    } catch (error: any) {
+      logger.error('Create API key failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error?.message || 'Failed to create the API key'
+      );
+    }
+  }
+
+  /** DELETE /settings/api-keys/{id} */
+  public async revokeApiKey(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireUser(event);
+      const id = event.pathParameters?.id || '';
+      if (!id) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Key id is required');
+      }
+      await apiKeyStore.revoke(id);
+      logger.info('API key revoked', { id });
+      return successResponse(event, { success: true, data: { id } });
+    } catch (error: any) {
+      logger.error('Revoke API key failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error?.message || 'Failed to revoke the API key'
       );
     }
   }

@@ -6,6 +6,9 @@ vi.mock('../handlers/SettingsHandler', () => ({
       get: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
       update: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
       listSmusProjects: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
+      listApiKeys: vi.fn(),
+      createApiKey: vi.fn(),
+      revokeApiKey: vi.fn(),
     };
   }),
 }));
@@ -15,10 +18,13 @@ import { settingsRoutes } from '../routes';
 
 describe('settingsRoutes', () => {
   it('exposes get, update and the SMUS project list', () => {
-    expect(settingsRoutes.map((r) => `${r.method} ${r.path}`)).toEqual([
+    expect(settingsRoutes.map((r) => `${r.method} ${String(r.path)}`)).toEqual([
       'GET /settings',
       'PUT /settings',
       'GET /settings/smus/projects',
+      'GET /settings/api-keys',
+      'POST /settings/api-keys',
+      'DELETE /^\\/settings\\/api-keys\\/([^/]+)$/',
     ]);
   });
 

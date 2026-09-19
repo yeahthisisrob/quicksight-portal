@@ -2652,6 +2652,131 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/settings/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * API keys for machine callers
+         * @description Long-lived credentials for a CLI, a script or an agent. A key is sent
+         *     as `Authorization: Bearer qsp_...` and grants the same access as a
+         *     signed-in user to every endpoint except key management itself, which
+         *     needs a person. Only the label, a display prefix and usage dates are
+         *     stored and listed; the secret is shown once, at creation.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The keys */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                keys: components["schemas"]["ApiKey"][];
+                            };
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        /**
+         * Create an API key
+         * @description The secret is in this response only and cannot be recovered later.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description What the key is for, e.g. "claude cli" or "nightly export". */
+                        label: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description The key and its one-time secret */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["ApiKeyCreated"];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/api-keys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke an API key */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Revoked */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/smus/assets": {
         parameters: {
             query?: never;
@@ -4695,6 +4820,22 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
             updatedBy?: string;
+        };
+        ApiKey: {
+            id: string;
+            label: string;
+            /** @description The first characters of the secret, to recognise it in a config file. */
+            prefix: string;
+            /** Format: date-time */
+            createdAt: string;
+            createdBy: string;
+            /** Format: date-time */
+            lastUsedAt?: string;
+        };
+        ApiKeyCreated: {
+            key: components["schemas"]["ApiKey"];
+            /** @description Shown once. Send it as `Authorization: Bearer <secret>`. */
+            secret: string;
         };
         SettingsUpdate: {
             /** @description Setting key to new value. null clears the stored value. */
