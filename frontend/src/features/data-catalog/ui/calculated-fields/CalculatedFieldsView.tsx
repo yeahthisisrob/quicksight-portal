@@ -44,7 +44,6 @@ export interface CalculatedFieldsViewProps {
   onSelect: (key: string | undefined) => void;
   onOpenListing: (listingId: string) => void;
   /** Rendered when no export has run: the page decides what to say. */
-  noExport: React.ReactNode;
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -64,7 +63,6 @@ export function CalculatedFieldsView({
   selectedKey,
   onSelect,
   onOpenListing,
-  noExport,
 }: CalculatedFieldsViewProps) {
   const debounced = useDebounce(search, SEARCH_DEBOUNCE_MS);
   const [sort, setSort] = useState<CalculatedFieldSort>('name');
@@ -114,9 +112,10 @@ export function CalculatedFieldsView({
       </Alert>
     );
   }
-  if (list.data && !list.data.exportedAt) {
-    return <>{noExport}</>;
-  }
+  // A missing SMUS export costs the tie-back to listings, nothing else: the
+  // calculated fields themselves are QuickSight's, and hiding them behind a
+  // SMUS export is what made the catalog look empty.
+  const smusMissing = Boolean(list.data && !list.data.exportedAt);
 
   const open = Boolean(selectedKey);
 
@@ -233,8 +232,11 @@ export function CalculatedFieldsView({
       </Box>
       {list.data && (
         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-          From the QuickSight export, tied to the SMUS export of{' '}
-          {new Date(list.data.exportedAt as string).toLocaleString()}.
+          {smusMissing
+            ? 'From the QuickSight export. No SMUS export yet, so nothing is tied back to a listing.'
+            : `From the QuickSight export, tied to the SMUS export of ${new Date(
+                list.data.exportedAt as string
+              ).toLocaleString()}.`}
         </Typography>
       )}
     </Stack>

@@ -47,7 +47,6 @@ function Harness({
         selectedKey={key}
         onSelect={setKey}
         onOpenListing={() => {}}
-        noExport={<div>No SMUS export yet</div>}
       />
     </>
   );

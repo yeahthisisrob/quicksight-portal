@@ -80,11 +80,25 @@ export type CatalogProjectOption = SmusCatalog['projects'][number];
  * The project to show: the requested one when it exists, else the first.
  * Undefined when there are no projects at all.
  */
+/** The project filter's "every project" value, which is no filter at all. */
+export const ALL_PROJECTS = 'all';
+
+/**
+ * Which project the catalog is showing. The SMUS tab is per project because
+ * everything in SMUS is, but the field-first tabs are QuickSight's own data,
+ * which SMUS only annotates, so they can span every project and default to it.
+ */
 export function pickProject(
   projects: CatalogProjectOption[],
-  requested?: string
+  requested?: string,
+  allowAll = false
 ): CatalogProjectOption | undefined {
   if (projects.length === 0) return undefined;
+  if (allowAll) {
+    return requested && requested !== ALL_PROJECTS
+      ? projects.find((p) => p.id === requested)
+      : undefined;
+  }
   return projects.find((p) => p.id === requested) ?? projects[0];
 }
 

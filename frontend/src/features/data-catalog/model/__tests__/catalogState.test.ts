@@ -8,6 +8,7 @@ import {
   TARGETS_SUMMARY,
 } from '../../ui/__stories__/fixtures';
 import {
+  ALL_PROJECTS,
   countCatalog,
   filterAssets,
   pickProject,
@@ -30,6 +31,16 @@ describe('URL state', () => {
 });
 
 describe('pickProject', () => {
+  it('spans every project when the tab allows it, which is no filter at all', () => {
+    // The field-first tabs are QuickSight's own data, so they default to all.
+    expect(pickProject(PROJECTS, undefined, true)).toBeUndefined();
+    expect(pickProject(PROJECTS, ALL_PROJECTS, true)).toBeUndefined();
+    expect(pickProject(PROJECTS, 'proj-analytics-dev', true)?.id).toBe('proj-analytics-dev');
+    // A project that is no longer selected in Settings falls back to all, not
+    // to some other project's data.
+    expect(pickProject(PROJECTS, 'gone', true)).toBeUndefined();
+  });
+
   it('prefers the requested project and falls back to the first', () => {
     expect(pickProject(PROJECTS, 'proj-analytics-dev')?.id).toBe('proj-analytics-dev');
     expect(pickProject(PROJECTS, 'nope')?.id).toBe('proj-analytics-prod');

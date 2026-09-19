@@ -1,13 +1,15 @@
 import { FormControl, InputLabel, Link, MenuItem, Select, Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 
-import type { CatalogProjectOption } from '../model/catalogState';
+import { ALL_PROJECTS, type CatalogProjectOption } from '../model/catalogState';
 
 interface ProjectSelectProps {
   projects: CatalogProjectOption[];
   value?: string;
   onChange: (projectId: string) => void;
   disabled?: boolean;
+  /** Field-first tabs can span every project; the SMUS tab cannot. */
+  allowAll?: boolean;
 }
 
 /**
@@ -15,17 +17,34 @@ interface ProjectSelectProps {
  * glossaries, form types, environments), so the catalog shows one project at
  * a time. The options are the projects selected in Settings.
  */
-export function ProjectSelect({ projects, value, onChange, disabled }: ProjectSelectProps) {
+export function ProjectSelect({
+  projects,
+  value,
+  onChange,
+  disabled,
+  allowAll,
+}: ProjectSelectProps) {
   return (
     <FormControl size="small" sx={{ minWidth: 280 }} disabled={disabled}>
       <InputLabel id="catalog-project-label">Project</InputLabel>
       <Select
         labelId="catalog-project-label"
         label="Project"
-        value={value ?? ''}
+        value={value ?? (allowAll ? ALL_PROJECTS : '')}
         onChange={(e) => onChange(String(e.target.value))}
-        renderValue={(selected) => projects.find((p) => p.id === selected)?.name ?? selected}
+        renderValue={(selected) =>
+          selected === ALL_PROJECTS
+            ? 'All projects'
+            : (projects.find((p) => p.id === selected)?.name ?? selected)
+        }
       >
+        {allowAll && (
+          <MenuItem value={ALL_PROJECTS}>
+            <Typography variant="body2" sx={{ flex: 1 }}>
+              All projects
+            </Typography>
+          </MenuItem>
+        )}
         {projects.map((project) => (
           <MenuItem key={project.id} value={project.id}>
             <Typography variant="body2" sx={{ flex: 1 }}>
