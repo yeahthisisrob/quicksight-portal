@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.3.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.2.0...v2.3.0) (2026-09-19)
+
+
+### Features
+
+* **smus:** just smus-grant registers the portal role in the domain and its projects ([#132](https://github.com/yeahthisisrob/quicksight-portal/issues/132)) ([6f56759](https://github.com/yeahthisisrob/quicksight-portal/commit/6f5675919b7d561d41416eba661c513226fef5db))
+
+
+### Bug Fixes
+
+* **smus:** say why the project picker is empty ([#130](https://github.com/yeahthisisrob/quicksight-portal/issues/130)) ([61a0d3b](https://github.com/yeahthisisrob/quicksight-portal/commit/61a0d3b6a298e78fc87be94bb3c6c5f20806f5ea))
+
 ## [2.2.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.1.0...v2.2.0) (2026-09-19)
 
 
