@@ -10,8 +10,9 @@ import { groupChanges } from '../lib/ops';
 
 const KIND_COLOR: Record<
   DefinitionChange['kind'],
-  'default' | 'primary' | 'secondary' | 'info' | 'success' | 'warning'
+  'default' | 'primary' | 'secondary' | 'info' | 'success' | 'warning' | 'error'
 > = {
+  repair: 'error',
   rebind: 'primary',
   rename: 'info',
   calculatedField: 'success',

@@ -145,6 +145,7 @@ export function opChangeKind(op: DefinitionOp): DefinitionChange['kind'] {
 }
 
 export const CHANGE_KIND_LABELS: Record<DefinitionChange['kind'], string> = {
+  repair: 'Repair',
   rebind: 'Dataset',
   rename: 'Column',
   calculatedField: 'Calculated field',
@@ -154,6 +155,7 @@ export const CHANGE_KIND_LABELS: Record<DefinitionChange['kind'], string> = {
 };
 
 const CHANGE_KIND_ORDER: DefinitionChange['kind'][] = [
+  'repair',
   'rebind',
   'rename',
   'calculatedField',
