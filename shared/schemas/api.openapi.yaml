@@ -2065,6 +2065,80 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/data-catalog/smus:
+    get:
+      summary: The catalog, SMUS first
+      description: |
+        Every published asset in the selected SMUS projects, carrying what
+        SMUS owns (glossary terms, metadata forms, descriptions, the Glue
+        table and its columns) and what only QuickSight knows: the datasets
+        reading the asset, their calculated fields, and which dashboards and
+        analyses use each field. Nothing outside the selected projects is
+        listed; that scope is the same one Author uses.
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Case-insensitive match on listing name, description, table or a column name
+        - name: term
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Only assets carrying this glossary term
+        - name: projectId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Only assets owned by this project (within the selected projects)
+      responses:
+        '200':
+          description: The catalog listing
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/SmusCatalog'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/data-catalog/smus/{listingId}:
+    get:
+      summary: One published asset with everything the portal knows about it
+      parameters:
+        - name: listingId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The asset
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/SmusCatalogAsset'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /api/assets/{assetType}/{assetId}/rename:
     post:
       summary: Rename an asset live in QuickSight
@@ -4556,6 +4630,233 @@ components:
         permissionsFromDataSetId:
           type: string
           description: Copy this dataset's permissions onto the new one, so it has the same audience.
+
+    GlossaryTerm:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        shortDescription:
+          type: string
+
+    MetadataForm:
+      type: object
+      description: One SMUS metadata form, flattened to label/value pairs.
+      required: [name, fields]
+      properties:
+        name:
+          type: string
+        fields:
+          type: array
+          items:
+            type: object
+            required: [key, value]
+            properties:
+              key:
+                type: string
+              value:
+                type: string
+
+    SmusCatalogColumn:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        description:
+          type: string
+          description: From the SMUS column metadata, when present.
+
+    FieldUsage:
+      type: object
+      required: [dashboards, analyses]
+      properties:
+        dashboards:
+          type: integer
+        analyses:
+          type: integer
+
+    FieldUsedIn:
+      type: object
+      required: [assetType, assetId, assetName]
+      properties:
+        assetType:
+          type: string
+          enum: [dashboard, analysis]
+        assetId:
+          type: string
+        assetName:
+          type: string
+
+    PortalFieldMetadata:
+      type: object
+      description: What the portal stores for a field because SMUS has no home for it.
+      properties:
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        category:
+          type: string
+        sensitivity:
+          type: string
+          enum: [public, internal, confidential, restricted]
+
+    DatasetCatalogField:
+      type: object
+      required: [name, dataType, isCalculated, usage, usedIn]
+      properties:
+        name:
+          type: string
+        dataType:
+          type: string
+        isCalculated:
+          type: boolean
+        expression:
+          type: string
+          description: Calculated fields only.
+        usage:
+          $ref: '#/components/schemas/FieldUsage'
+        usedIn:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldUsedIn'
+        usedBy:
+          type: array
+          description: Calculated fields in the same dataset that reference this field.
+          items:
+            type: string
+        portal:
+          $ref: '#/components/schemas/PortalFieldMetadata'
+
+    CatalogDataset:
+      type: object
+      required: [id, name, matchType, calculatedFieldCount, fields]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        matchType:
+          type: string
+          enum: [source-table, custom-sql, name]
+        importMode:
+          type: string
+        calculatedFieldCount:
+          type: integer
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/DatasetCatalogField'
+
+    SmusCatalogAssetSummary:
+      type: object
+      required: [listingId, assetId, name, glossaryTerms, columnCount, datasets, calculatedFieldCount, usage]
+      properties:
+        listingId:
+          type: string
+        assetId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        projectId:
+          type: string
+        projectName:
+          type: string
+        url:
+          type: string
+        table:
+          type: object
+          required: [database, name]
+          properties:
+            catalog:
+              type: string
+            database:
+              type: string
+            name:
+              type: string
+        glossaryTerms:
+          type: array
+          items:
+            $ref: '#/components/schemas/GlossaryTerm'
+        columnCount:
+          type: integer
+        datasets:
+          type: array
+          items:
+            $ref: '#/components/schemas/SmusLinkedDataset'
+        calculatedFieldCount:
+          type: integer
+        usage:
+          $ref: '#/components/schemas/FieldUsage'
+        updatedAt:
+          type: string
+          format: date-time
+
+    SmusCatalogAsset:
+      allOf:
+        - $ref: '#/components/schemas/SmusCatalogAssetSummary'
+        - type: object
+          required: [forms, columns, datasets]
+          properties:
+            forms:
+              type: array
+              items:
+                $ref: '#/components/schemas/MetadataForm'
+            columns:
+              type: array
+              items:
+                $ref: '#/components/schemas/SmusCatalogColumn'
+            datasets:
+              type: array
+              items:
+                $ref: '#/components/schemas/CatalogDataset'
+
+    SmusCatalog:
+      type: object
+      required: [configured, projectFilter, projects, glossaryTerms, assets]
+      properties:
+        configured:
+          type: boolean
+        projectFilter:
+          type: array
+          items:
+            type: string
+        projects:
+          type: array
+          description: Projects present in the result, with counts, for filtering.
+          items:
+            type: object
+            required: [id, name, count]
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              count:
+                type: integer
+        glossaryTerms:
+          type: array
+          description: Terms present in the result, with counts, for filtering.
+          items:
+            allOf:
+              - $ref: '#/components/schemas/GlossaryTerm'
+              - type: object
+                required: [count]
+                properties:
+                  count:
+                    type: integer
+        assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/SmusCatalogAssetSummary'
 
     BulkItemFailure:
       type: object

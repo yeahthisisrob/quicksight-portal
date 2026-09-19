@@ -2695,6 +2695,105 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data-catalog/smus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The catalog, SMUS first
+         * @description Every published asset in the selected SMUS projects, carrying what
+         *     SMUS owns (glossary terms, metadata forms, descriptions, the Glue
+         *     table and its columns) and what only QuickSight knows: the datasets
+         *     reading the asset, their calculated fields, and which dashboards and
+         *     analyses use each field. Nothing outside the selected projects is
+         *     listed; that scope is the same one Author uses.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Case-insensitive match on listing name, description, table or a column name */
+                    search?: string;
+                    /** @description Only assets carrying this glossary term */
+                    term?: string;
+                    /** @description Only assets owned by this project (within the selected projects) */
+                    projectId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The catalog listing */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["SmusCatalog"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data-catalog/smus/{listingId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One published asset with everything the portal knows about it */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    listingId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The asset */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["SmusCatalogAsset"];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assets/{assetType}/{assetId}/rename": {
         parameters: {
             query?: never;
@@ -4300,6 +4399,104 @@ export interface components {
             importMode: "DIRECT_QUERY" | "SPICE";
             /** @description Copy this dataset's permissions onto the new one, so it has the same audience. */
             permissionsFromDataSetId?: string;
+        };
+        GlossaryTerm: {
+            name: string;
+            shortDescription?: string;
+        };
+        /** @description One SMUS metadata form, flattened to label/value pairs. */
+        MetadataForm: {
+            name: string;
+            fields: {
+                key: string;
+                value: string;
+            }[];
+        };
+        SmusCatalogColumn: {
+            name: string;
+            type: string;
+            /** @description From the SMUS column metadata, when present. */
+            description?: string;
+        };
+        FieldUsage: {
+            dashboards: number;
+            analyses: number;
+        };
+        FieldUsedIn: {
+            /** @enum {string} */
+            assetType: "dashboard" | "analysis";
+            assetId: string;
+            assetName: string;
+        };
+        /** @description What the portal stores for a field because SMUS has no home for it. */
+        PortalFieldMetadata: {
+            description?: string;
+            tags?: string[];
+            category?: string;
+            /** @enum {string} */
+            sensitivity?: "public" | "internal" | "confidential" | "restricted";
+        };
+        DatasetCatalogField: {
+            name: string;
+            dataType: string;
+            isCalculated: boolean;
+            /** @description Calculated fields only. */
+            expression?: string;
+            usage: components["schemas"]["FieldUsage"];
+            usedIn: components["schemas"]["FieldUsedIn"][];
+            /** @description Calculated fields in the same dataset that reference this field. */
+            usedBy?: string[];
+            portal?: components["schemas"]["PortalFieldMetadata"];
+        };
+        CatalogDataset: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            matchType: "source-table" | "custom-sql" | "name";
+            importMode?: string;
+            calculatedFieldCount: number;
+            fields: components["schemas"]["DatasetCatalogField"][];
+        };
+        SmusCatalogAssetSummary: {
+            listingId: string;
+            assetId: string;
+            name: string;
+            description?: string;
+            projectId?: string;
+            projectName?: string;
+            url?: string;
+            table?: {
+                catalog?: string;
+                database: string;
+                name: string;
+            };
+            glossaryTerms: components["schemas"]["GlossaryTerm"][];
+            columnCount: number;
+            datasets: components["schemas"]["SmusLinkedDataset"][];
+            calculatedFieldCount: number;
+            usage: components["schemas"]["FieldUsage"];
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        SmusCatalogAsset: components["schemas"]["SmusCatalogAssetSummary"] & {
+            forms: components["schemas"]["MetadataForm"][];
+            columns: components["schemas"]["SmusCatalogColumn"][];
+            datasets: components["schemas"]["CatalogDataset"][];
+        };
+        SmusCatalog: {
+            configured: boolean;
+            projectFilter: string[];
+            /** @description Projects present in the result, with counts, for filtering. */
+            projects: {
+                id: string;
+                name: string;
+                count: number;
+            }[];
+            /** @description Terms present in the result, with counts, for filtering. */
+            glossaryTerms: (components["schemas"]["GlossaryTerm"] & {
+                count: number;
+            })[];
+            assets: components["schemas"]["SmusCatalogAssetSummary"][];
         };
         BulkItemFailure: {
             /** @description Human-readable item label, e.g. "alice → analysts" */
