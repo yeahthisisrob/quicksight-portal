@@ -71,7 +71,33 @@ A typical agent loop: `datasets` → `propose` → read the plan → adjust
 `rebinds`/`ops` → `preview` until the outline looks right → `apply` with
 `mode: "clone"` → open the result in QuickSight.
 
-## 4. Other useful calls
+## 4. Repair an asset QuickSight refuses to write
+
+Assets with definition errors cannot be updated as code. Ask what is wrong
+and what would fix it:
+
+```bash
+just api POST /authoring/dashboard/<id>/repair/plan
+```
+
+The plan lists every issue with a proposed fix: a column the dataset no
+longer has becomes a rename when one column clearly took the name (a
+`columnMap` entry on that identifier's rebind), otherwise `dropColumn`
+removes every reference; a parameter used but never declared becomes
+`declareParameter` (or `dropParameter`); a dataset that cannot be read asks
+you to choose one (send it as `rebinds` and call the plan again to check its
+columns); QuickSight's own errors are attached to those findings or listed
+as-is. `proposed` is the accepted set in request form:
+
+```bash
+just api POST /authoring/dashboard/<id>/rebind/preview '{"repairs":[...],"rebinds":[...]}'
+just api POST /authoring/dashboard/<id>/rebind '{"mode":"update","repairs":[...],"rebinds":[...]}'
+```
+
+Repairs run before the rebind plan, so the plan checks the repaired
+definition; `mode: "clone"` fixes a copy instead of the original.
+
+## 5. Other useful calls
 
 - `POST /smus/export` then `GET /settings/smus/projects`: refresh what the
   portal knows about SageMaker Unified Studio.
