@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.1.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.0.0...v2.1.0) (2026-09-19)
+
+
+### Features
+
+* **author:** Author page with planner, wireframe mockups, SMUS assets, settings, operations and a rebuilt design system ([#126](https://github.com/yeahthisisrob/quicksight-portal/issues/126)) ([7deefca](https://github.com/yeahthisisrob/quicksight-portal/commit/7deefca066a8484bc14e7b14cf239998fef5f327))
+
+
+### Bug Fixes
+
+* **cdk:** acknowledge the Bedrock wildcard ARNs so cdk-nag lets the stack deploy ([#124](https://github.com/yeahthisisrob/quicksight-portal/issues/124)) ([90dd15d](https://github.com/yeahthisisrob/quicksight-portal/commit/90dd15da4835c15703615c88a10dfc3df1b60bed))
+
 ## [2.0.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v1.14.4...v2.0.0) (2026-09-18)
 
 
