@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 
 import { getApiErrorMessage } from '@/shared/api';
-import { EmptyState, PageHeader, pal } from '@/shared/design-system';
+import { EmptyState, PageHeader, pal, SegmentedControl } from '@/shared/design-system';
 import { useDebounce } from '@/shared/lib/useDebounce';
 
 import {
@@ -27,6 +27,7 @@ import { AssetList } from './AssetList';
 import { CatalogStats } from './CatalogStats';
 import { DatasetTagsFilter } from './DatasetTagsFilter';
 import { ProjectSelect } from './ProjectSelect';
+import { CATALOG_SCOPES, type CatalogSearchScope, SearchEverything } from './SearchEverything';
 import { TemplateLibraryDialog } from './templates/TemplateLibraryDialog';
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -75,9 +76,15 @@ function NoProjects() {
   );
 }
 
-export function CatalogPage() {
+export function CatalogPage({
+  initialScope = 'project',
+}: {
+  /** Which search the left pane starts in (stories). */
+  initialScope?: CatalogSearchScope;
+}) {
   const [url, setUrl] = useCatalogUrlState();
   const [search, setSearch] = useState(url.q ?? '');
+  const [scope, setScope] = useState<CatalogSearchScope>(initialScope);
   const [tags, setTags] = useState<TagFilter[]>([]);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const debouncedSearch = useDebounce(search, SEARCH_DEBOUNCE_MS);
@@ -154,41 +161,63 @@ export function CatalogPage() {
             },
           })}
         >
-          <AssetList
-            assets={assets}
-            terms={terms}
-            selectedId={selectedId}
-            onSelect={(asset) => setUrl({ asset })}
-            search={search}
-            onSearch={setSearch}
-            term={url.term}
-            onTerm={(term) => setUrl({ term })}
-            loading={projects.isLoading || list.isLoading}
-            filters={
-              (availableTags.data?.length ?? 0) > 0 || tags.length > 0 ? (
-                <DatasetTagsFilter
-                  available={availableTags.data ?? []}
-                  value={tags}
-                  onChange={setTags}
-                  loading={availableTags.isLoading || tagged.isLoading}
-                />
-              ) : undefined
-            }
-            emptyTitle={
-              list.isError
-                ? 'The assets could not be loaded'
-                : url.term || tags.length || debouncedSearch
-                  ? 'Nothing matches'
-                  : 'This project has published nothing yet'
-            }
-            emptyDescription={
-              list.isError
-                ? getApiErrorMessage(list.error, 'Unknown error')
-                : url.term || tags.length || debouncedSearch
-                  ? 'Clear the search, term or tag filter to see every asset in the project.'
-                  : undefined
-            }
-          />
+          {scope === 'everything' ? (
+            <SearchEverything
+              search={search}
+              onSearch={setSearch}
+              scope={scope}
+              onScope={setScope}
+              onOpenListing={(asset) => {
+                setScope('project');
+                setUrl({ asset });
+              }}
+            />
+          ) : (
+            <AssetList
+              assets={assets}
+              terms={terms}
+              selectedId={selectedId}
+              onSelect={(asset) => setUrl({ asset })}
+              search={search}
+              onSearch={setSearch}
+              term={url.term}
+              onTerm={(term) => setUrl({ term })}
+              loading={projects.isLoading || list.isLoading}
+              filters={
+                <Stack spacing={1.5}>
+                  <SegmentedControl<CatalogSearchScope>
+                    size="small"
+                    ariaLabel="Search scope"
+                    value={scope}
+                    onChange={setScope}
+                    options={CATALOG_SCOPES}
+                  />
+                  {(availableTags.data?.length ?? 0) > 0 || tags.length > 0 ? (
+                    <DatasetTagsFilter
+                      available={availableTags.data ?? []}
+                      value={tags}
+                      onChange={setTags}
+                      loading={availableTags.isLoading || tagged.isLoading}
+                    />
+                  ) : null}
+                </Stack>
+              }
+              emptyTitle={
+                list.isError
+                  ? 'The assets could not be loaded'
+                  : url.term || tags.length || debouncedSearch
+                    ? 'Nothing matches'
+                    : 'This project has published nothing yet'
+              }
+              emptyDescription={
+                list.isError
+                  ? getApiErrorMessage(list.error, 'Unknown error')
+                  : url.term || tags.length || debouncedSearch
+                    ? 'Clear the search, term or tag filter to see every asset in the project.'
+                    : undefined
+              }
+            />
+          )}
           <Box sx={{ minWidth: 0 }}>
             <AssetDetail
               asset={selectedId ? detail.data : undefined}

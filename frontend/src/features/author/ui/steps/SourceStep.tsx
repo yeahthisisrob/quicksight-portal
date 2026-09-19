@@ -27,9 +27,11 @@ import { useMemo, useState } from 'react';
 
 import { DefinitionWireframe, type RebindSource } from '@/entities/definition';
 
-import { assetsApi } from '@/shared/api';
+import { assetsApi, getApiErrorMessage } from '@/shared/api';
+import type { SearchHit } from '@/shared/api/modules/search';
 import { SegmentedControl } from '@/shared/design-system';
-import { useDebounce } from '@/shared/lib/useDebounce';
+import { SEARCH_MIN_LENGTH, useSearchHits } from '@/shared/lib/search';
+import { SearchHitList } from '@/shared/ui';
 
 import {
   compactNumber,
@@ -55,7 +57,6 @@ type SourceType = RebindSource['type'];
 
 type SourceItem = RankableSource;
 
-const SEARCH_DEBOUNCE_MS = 300;
 const PAGE_SIZE = 50;
 const PREVIEW_MAX_HEIGHT = 440;
 const MAX_TAGS = 2;
@@ -212,6 +213,49 @@ function RankedList({
   );
 }
 
+/** Ranked hits from /search, each saying why it matched; a click makes it the source. */
+function SearchResults({
+  search,
+  selectedId,
+  onSelect,
+}: {
+  search: ReturnType<typeof useSearchHits>;
+  selectedId?: string;
+  onSelect: (hit: SearchHit) => void;
+}) {
+  if (search.error) {
+    return (
+      <Typography variant="body2" color="error" sx={{ py: 1 }}>
+        {getApiErrorMessage(search.error, 'Search failed')}
+      </Typography>
+    );
+  }
+  if (search.loading && search.hits.length === 0) {
+    return (
+      <Box sx={{ py: 2, display: 'flex', justifyContent: 'center' }}>
+        <CircularProgress size={20} />
+      </Box>
+    );
+  }
+  if (search.hits.length === 0) {
+    return (
+      <Typography variant="body2" sx={{ color: 'text.secondary', py: 1 }}>
+        Nothing matches "{search.query}". Names, columns, calculated fields, tags and folders all
+        count.
+      </Typography>
+    );
+  }
+  const selectedIndex = search.hits.findIndex((h) => h.id === selectedId);
+  return (
+    <SearchHitList
+      flat
+      hits={search.hits}
+      selectedIndex={selectedIndex}
+      onSelect={(hit) => onSelect(hit)}
+    />
+  );
+}
+
 /** One list from the templates call and the search call, without duplicates. */
 function merge(templates: SourceItem[] | undefined, results: SourceItem[] | undefined) {
   const seen = new Set<string>();
@@ -225,24 +269,37 @@ function merge(templates: SourceItem[] | undefined, results: SourceItem[] | unde
   return out;
 }
 
-export function SourceStep({ flow }: { flow: AuthorFlow }) {
+export function SourceStep({
+  flow,
+  initialSearch = '',
+}: {
+  flow: AuthorFlow;
+  /** Text in the search box at first render (stories). */
+  initialSearch?: string;
+}) {
   const [type, setType] = useState<SourceType>(flow.state.source?.type ?? 'dashboard');
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initialSearch);
   const [sort, setSort] = useState<SourceSort>('views');
-  const debounced = useDebounce(search, SEARCH_DEBOUNCE_MS);
+  // Typing searches everything the portal knows about this kind of asset, by
+  // name, column, calculated field, tag or folder; the ranked list is for
+  // browsing when the box is empty.
+  const searching = search.trim().length >= SEARCH_MIN_LENGTH;
+  const found = useSearchHits(search, { types: [type], enabled: searching });
 
   const templates = useQuery({
     queryKey: ['author-sources', type, 'templates'],
     queryFn: () => listSources(type, '', true),
+    enabled: !searching,
   });
   const results = useQuery({
-    queryKey: ['author-sources', type, 'search', debounced],
-    queryFn: () => listSources(type, debounced, false),
+    queryKey: ['author-sources', type, 'list'],
+    queryFn: () => listSources(type, '', false),
+    enabled: !searching,
   });
 
   const ranked = useMemo(
-    () => rankSources(merge(debounced ? undefined : templates.data, results.data), sort),
-    [templates.data, results.data, debounced, sort]
+    () => rankSources(merge(templates.data, results.data), sort),
+    [templates.data, results.data, sort]
   );
 
   const source = flow.state.source;
@@ -307,13 +364,21 @@ export function SourceStep({ flow }: { flow: AuthorFlow }) {
             }}
           />
 
-          <RankedList
-            ranked={ranked}
-            loading={results.isLoading || (!debounced && templates.isLoading)}
-            selectedId={source?.id}
-            onSelect={select}
-            emptyText={debounced ? 'Nothing matches.' : `No ${plural} yet.`}
-          />
+          {searching ? (
+            <SearchResults
+              search={found}
+              selectedId={source?.id}
+              onSelect={(hit) => flow.selectSource({ type, id: hit.id, name: hit.name })}
+            />
+          ) : (
+            <RankedList
+              ranked={ranked}
+              loading={results.isLoading || templates.isLoading}
+              selectedId={source?.id}
+              onSelect={select}
+              emptyText={`No ${plural} yet.`}
+            />
+          )}
         </Stack>
       </Panel>
 

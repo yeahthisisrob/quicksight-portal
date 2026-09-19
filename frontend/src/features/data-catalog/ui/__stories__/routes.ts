@@ -5,6 +5,7 @@
  */
 import type { MockRoute } from '../../../../../.storybook/mocks/api';
 import { requestBody } from '../../../../../.storybook/mocks/api';
+import { searchRoute } from '../../../../../.storybook/mocks/search';
 import { settingsSnapshotRoute } from '../../../author/ui/__stories__/fixtures';
 import { ASSETS_BY_ID, catalogFor, TEMPLATES } from './fixtures';
 
@@ -17,6 +18,7 @@ export function catalogRoutes(overrides: MockRoute[] = []): MockRoute[] {
   let templates = [...TEMPLATES];
   return [
     ...overrides,
+    searchRoute(),
     settingsSnapshotRoute(
       'dzd_example',
       catalogFor().projects.map((p) => p.id)

@@ -1157,6 +1157,61 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /api/search:
+    get:
+      summary: Find anything the portal knows, in plain words
+      description: |
+        One ranked search over everything in the caches: dashboards,
+        analyses, datasets, data sources, folders, SMUS listings, calculated
+        fields (matched on name and on the expression, where the business
+        rules live; one hit per distinct expression listing every asset that
+        defines it), visuals (title, chart type, sheet and the fields in their
+        wells) and the template library. Lexical, weighted by field (name over
+        column over description), scaled by how many words matched, boosted by
+        use. No model call; the index is built from the caches once per
+        container and reused until an export changes them.
+
+        Each hit carries `why` (which field matched which word), a one-line
+        `summary` written for a person or an agent, and a portal `path`.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 200
+          description: Plain words, e.g. "gold orders dataset with revenue by region".
+        - name: types
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated subset of dashboard, analysis, dataset, datasource, folder, smus-listing, calculated-field, visual, template.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Ranked hits
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/SearchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/smus/status:
     get:
       summary: SMUS (SageMaker Unified Studio) integration status
@@ -6113,6 +6168,83 @@ components:
               description: ID of queued ingestion
 
     # SMUS (SageMaker Unified Studio) schemas
+    SearchableType:
+      type: string
+      enum: [dashboard, analysis, dataset, datasource, folder, smus-listing, calculated-field, visual, template]
+
+    SearchAssetRef:
+      type: object
+      required: [type, id, name]
+      properties:
+        type:
+          type: string
+          enum: [dashboard, analysis, dataset]
+        id:
+          type: string
+        name:
+          type: string
+
+    SearchHit:
+      type: object
+      required: [type, id, name, score, why, summary, path]
+      properties:
+        type:
+          $ref: '#/components/schemas/SearchableType'
+        id:
+          type: string
+        name:
+          type: string
+        score:
+          type: number
+        why:
+          type: array
+          description: 'Which field matched which query word, e.g. "column: revenue".'
+          items:
+            type: string
+        summary:
+          type: string
+          description: One line for a person or an agent.
+        path:
+          type: string
+          description: Where to open it in the portal.
+        description:
+          type: string
+        views:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+        expression:
+          type: string
+          description: Calculated fields and templates - the expression.
+        parent:
+          $ref: '#/components/schemas/SearchAssetRef'
+          description: The asset a calculated field or visual belongs to.
+        definedIn:
+          type: array
+          description: Calculated fields - every asset that defines this exact expression.
+          items:
+            $ref: '#/components/schemas/SearchAssetRef'
+
+    SearchResponse:
+      type: object
+      required: [q, hits, indexed, indexedAt]
+      properties:
+        q:
+          type: string
+        hits:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchHit'
+        indexed:
+          type: object
+          description: Documents considered, by type.
+          additionalProperties:
+            type: integer
+        indexedAt:
+          type: string
+          format: date-time
+
     SmusStatus:
       type: object
       required: [configured]

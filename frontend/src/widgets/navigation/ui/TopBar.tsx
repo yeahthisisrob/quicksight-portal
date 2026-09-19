@@ -16,9 +16,11 @@ import { useColorScheme } from '@mui/material/styles';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { useCommandPalette } from '@/features/search';
+
 import { pal, tokens } from '@/shared/design-system';
 import { useAuth } from '@/shared/lib/auth';
-import { navigationIcons } from '@/shared/ui/icons';
+import { actionIcons, navigationIcons } from '@/shared/ui/icons';
 
 export interface TopBarProps {
   /** Shown as a chip so nobody edits production thinking it is dev. */
@@ -37,8 +39,11 @@ const ENVIRONMENT_TONE: Record<string, 'default' | 'warning' | 'error'> = {
  * settings and the signed-in user. Navigation lives in the sidebar; this bar
  * is for things that are true everywhere.
  */
+const SEARCH_BUTTON_WIDTH = 200;
+
 export function TopBar({ environment, onToggleNavigation }: TopBarProps) {
   const navigate = useNavigate();
+  const palette = useCommandPalette();
   const { user, logout } = useAuth();
   const { mode, setMode } = useColorScheme();
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
@@ -95,6 +100,41 @@ export function TopBar({ environment, onToggleNavigation }: TopBarProps) {
         )}
 
         <Box sx={{ flex: 1 }} />
+
+        <Tooltip title="Search everything (⌘K / Ctrl+K)">
+          <Box
+            component="button"
+            type="button"
+            aria-label="Search everything"
+            onClick={palette.show}
+            sx={(theme) => ({
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              minWidth: SEARCH_BUTTON_WIDTH,
+              mr: 1,
+              px: 1.25,
+              py: 0.5,
+              borderRadius: `${theme.shape.borderRadius}px`,
+              border: `1px solid ${pal(theme).line.strong}`,
+              bgcolor: 'transparent',
+              color: pal(theme).text.inverse,
+              opacity: 0.85,
+              cursor: 'pointer',
+              font: 'inherit',
+              fontSize: theme.typography.body2.fontSize,
+              '&:hover': { opacity: 1 },
+            })}
+          >
+            <actionIcons.search fontSize="small" />
+            <Box component="span" sx={{ flex: 1, textAlign: 'left', whiteSpace: 'nowrap' }}>
+              Search
+            </Box>
+            <Box component="kbd" sx={{ fontFamily: 'inherit', opacity: 0.7 }}>
+              ⌘K
+            </Box>
+          </Box>
+        </Tooltip>
 
         <Tooltip title={dark ? 'Switch to light' : 'Switch to dark'}>
           <IconButton

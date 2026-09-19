@@ -4,6 +4,7 @@ import { Route, Routes } from 'react-router-dom';
 
 import { MainLayout } from '../../src/widgets';
 import { type MockRoute, mockApi } from './api';
+import { searchRoute } from './search';
 
 interface AppShellProps {
   /** The route pattern the page is mounted at, e.g. 'author' or 'operations'. */
@@ -19,7 +20,9 @@ interface AppShellProps {
  * location (and any ?query state) matches `path`.
  */
 export function AppShell({ path, routes, children }: AppShellProps) {
-  const [restore] = useState(() => (routes ? mockApi(routes) : () => {}));
+  // The shell's Cmd+K palette answers from the story hits in every page story;
+  // a page's own routes come first so it can override that.
+  const [restore] = useState(() => mockApi([...(routes ?? []), searchRoute()]));
   useEffect(() => restore, [restore]);
   return (
     <Routes>

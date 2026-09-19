@@ -26,7 +26,7 @@ import type { DatasetOption } from '@/entities/definition';
 import { smusApi } from '@/shared/api';
 import type { SmusAsset } from '@/shared/api/modules/smus';
 import { EmptyState } from '@/shared/design-system';
-import { useDebounce } from '@/shared/lib/useDebounce';
+import { SEARCH_MIN_LENGTH, useSearchHits } from '@/shared/lib/search';
 
 import { CreateSmusDatasetForm } from './CreateSmusDatasetForm';
 
@@ -36,8 +36,6 @@ interface SmusAssetPickerProps {
   selected: DatasetOption | null;
   onSelect: (option: DatasetOption) => void;
 }
-
-const SEARCH_DEBOUNCE_MS = 300;
 
 function AssetRow({
   asset,
@@ -162,10 +160,13 @@ export function SmusAssetPicker({ currentDataSetId, selected, onSelect }: SmusAs
   // '' means every selected project. Everything in SMUS is per project
   // (listings, glossaries, environments), so this is the primary scope.
   const [projectId, setProjectId] = useState('');
-  const debounced = useDebounce(search, SEARCH_DEBOUNCE_MS);
+  // The listings come once; typing ranks them through /search (name, table,
+  // columns, glossary terms, project) and the rows are the same rows.
+  const searching = search.trim().length >= SEARCH_MIN_LENGTH;
+  const found = useSearchHits(search, { types: ['smus-listing'], enabled: searching });
   const assets = useQuery({
-    queryKey: ['smus-assets', debounced],
-    queryFn: () => smusApi.listAssets(debounced || undefined),
+    queryKey: ['smus-assets'],
+    queryFn: () => smusApi.listAssets(),
   });
 
   const projects = useMemo(() => {
@@ -183,9 +184,20 @@ export function SmusAssetPicker({ currentDataSetId, selected, onSelect }: SmusAs
     return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [assets.data]);
 
-  const visible = (assets.data?.assets ?? []).filter(
+  const inProject = (assets.data?.assets ?? []).filter(
     (asset) => !projectId || asset.projectId === projectId
   );
+  // Hits map back onto the listings by id, in the server's rank order; a
+  // listing the search did not return is not shown while a search is on.
+  const visible = useMemo(() => {
+    if (!searching) {
+      return inProject;
+    }
+    const byId = new Map(inProject.map((asset) => [asset.listingId, asset]));
+    return found.hits
+      .map((hit) => byId.get(hit.id))
+      .filter((asset): asset is SmusAsset => asset !== undefined);
+  }, [searching, inProject, found.hits]);
 
   if (assets.isLoading) {
     return (
@@ -266,11 +278,17 @@ export function SmusAssetPicker({ currentDataSetId, selected, onSelect }: SmusAs
           {assets.data.projectFilter.length === 1 ? '' : 's'}. Change this in Settings.
         </Typography>
       ) : null}
-      {visible.length === 0 && (
+      {searching && found.loading && visible.length === 0 ? (
+        <Box sx={{ py: 2, display: 'flex', justifyContent: 'center' }}>
+          <CircularProgress size={20} />
+        </Box>
+      ) : visible.length === 0 ? (
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          No published assets match.
+          {searching
+            ? `Nothing matches "${found.query}". Names, tables, columns, glossary terms and projects all count.`
+            : 'No published assets match.'}
         </Typography>
-      )}
+      ) : null}
       {visible.map((asset) => (
         <AssetRow
           key={asset.listingId}
