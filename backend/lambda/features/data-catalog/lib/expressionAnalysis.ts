@@ -106,3 +106,33 @@ export function detectConflict(expressions: Array<string | null | undefined>): C
     conflictCount: distinct.size,
   };
 }
+
+/**
+ * Equivalence key for "is this the same calculation": case-folded and with
+ * every run of whitespace outside string literals removed, so
+ * `{revenue} - {cost}` and `{revenue}-{cost}` compare equal while
+ * `'a b'` and `'ab'` do not.
+ */
+export function canonicalExpression(expression: string | null | undefined): string {
+  const text = normalizeExpression(expression);
+  let out = '';
+  let quote: string | null = null;
+  for (const ch of text) {
+    if (quote) {
+      out += ch;
+      if (ch === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      out += ch;
+      continue;
+    }
+    if (!/\s/.test(ch)) {
+      out += ch;
+    }
+  }
+  return out;
+}

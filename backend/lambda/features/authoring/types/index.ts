@@ -116,6 +116,15 @@ export interface ApplyRequest {
   name?: string;
   /** Clone only. Generated when omitted. */
   newAssetId?: string;
+  /** Calculated fields to add to the written definition, e.g. from the template library. */
+  addCalculatedFields?: AddedCalculatedField[];
+}
+
+export interface AddedCalculatedField {
+  identifier: string;
+  name: string;
+  expression: string;
+  templateId?: string;
 }
 
 export interface ApplyResult {

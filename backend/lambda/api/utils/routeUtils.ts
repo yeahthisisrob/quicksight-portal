@@ -111,6 +111,16 @@ const ROUTE_PATTERNS: readonly RoutePattern[] = [
     excludes: [],
     params: ['sourceType', 'sourceId', 'fieldName'],
   },
+  {
+    prefix: '/data-catalog/templates/calculated-fields/',
+    excludes: [],
+    params: ['templateId'],
+  },
+  {
+    prefix: '/data-catalog/smus/',
+    excludes: [],
+    params: ['listingId'],
+  },
 ] as const;
 
 /**
