@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.8.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.7.0...v2.8.0) (2026-09-19)
+
+
+### Features
+
+* **activity:** timeline redesign with provenance - who changed what, including the agents ([#155](https://github.com/yeahthisisrob/quicksight-portal/issues/155)) ([a9a1496](https://github.com/yeahthisisrob/quicksight-portal/commit/a9a149677a47698a4f7601f55e59f151d0f8ec39))
+* **search:** one ranked search over everything, in plain words - Cmd+K, Author pickers, catalog, API ([#153](https://github.com/yeahthisisrob/quicksight-portal/issues/153)) ([f758e9a](https://github.com/yeahthisisrob/quicksight-portal/commit/f758e9ada74ded49bf87cdd5068c6923061806c8))
+
 ## [2.7.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.6.0...v2.7.0) (2026-09-19)
 
 
