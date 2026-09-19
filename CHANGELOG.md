@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.4.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.3.0...v2.4.0) (2026-09-19)
+
+
+### Features
+
+* **author:** the full authoring studio - ranked sources with insights, mockup editor, change list, folder publish, health columns ([#137](https://github.com/yeahthisisrob/quicksight-portal/issues/137)) ([1584048](https://github.com/yeahthisisrob/quicksight-portal/commit/15840481b2cd448686f755cf8b1def5157153335))
+
+
+### Bug Fixes
+
+* **smus:** find the Lambda role by prefix - CDK suffixes the logical id ([#133](https://github.com/yeahthisisrob/quicksight-portal/issues/133)) ([71ebea3](https://github.com/yeahthisisrob/quicksight-portal/commit/71ebea381c2a392feb630699e8c440cc76e825ce))
+* **smus:** project discovery names the calling role and its domain profile ([#136](https://github.com/yeahthisisrob/quicksight-portal/issues/136)) ([a453eb9](https://github.com/yeahthisisrob/quicksight-portal/commit/a453eb91bbcca74c729fbe23df29e56e2147931c))
+* **smus:** smus-grant carries on when the role's domain profile already exists ([#135](https://github.com/yeahthisisrob/quicksight-portal/issues/135)) ([cc98b72](https://github.com/yeahthisisrob/quicksight-portal/commit/cc98b720b42e3dc66123ac21e376bd5ab68e8503))
+
 ## [2.3.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.2.0...v2.3.0) (2026-09-19)
 
 
