@@ -52,6 +52,41 @@ export const Dashboard: Story = {
   ),
 };
 
+/** A dashboard with CloudWatch metrics: every visual shows its p90 load time. */
+export const DashboardWithLoadTimes: Story = {
+  args: {
+    open: true,
+    onClose: () => {},
+    assetId: 'dash-1',
+    assetName: 'Sales Overview',
+    assetType: 'dashboard',
+  },
+  render: (args) => {
+    const client = withSeededCache([['dashboard', 'dash-1', asExport(gridDashboardDefinition)]]);
+    client.setQueryData(['asset-insights', 'dashboard', 'dash-1'], {
+      assetType: 'dashboard',
+      assetId: 'dash-1',
+      views: { total: 1840, last30d: 310, uniqueViewers: 62 },
+      health: {
+        windowDays: 14,
+        viewLoads: 412,
+        viewLoadTimeP90Ms: 2100,
+        visuals: [
+          { sheetId: 'sheet-overview', visualId: 'table-detail', loadTimeP90Ms: 4800, errors: 0 },
+          { sheetId: 'sheet-overview', visualId: 'line-trend', loadTimeP90Ms: 900, errors: 7 },
+          { sheetId: 'sheet-overview', visualId: 'bar-region', loadTimeP90Ms: 1200, errors: 0 },
+          { sheetId: 'sheet-overview', visualId: 'kpi-revenue', loadTimeP90Ms: 300, errors: 0 },
+        ],
+      },
+    });
+    return (
+      <QueryClientProvider client={client}>
+        <WireframeDialog {...args} />
+      </QueryClientProvider>
+    );
+  },
+};
+
 export const Analysis: Story = {
   args: {
     open: true,

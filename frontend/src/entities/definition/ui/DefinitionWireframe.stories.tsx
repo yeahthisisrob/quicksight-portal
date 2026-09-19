@@ -76,8 +76,10 @@ export const WithHealthBadges: Story = {
   args: {
     model: gridModel,
     badges: new Map([
-      ['table-detail', { kind: 'slow', label: 'p90 load time 4.8s (over 3.0s)' }],
-      ['line-trend', { kind: 'error', label: '7 load errors in the last 14 days' }],
+      ['table-detail', { kind: 'slow', value: '4.8s', label: 'p90 load time 4.8s (over 3.0s)' }],
+      ['line-trend', { kind: 'error', value: '0.9s', label: '7 load errors in the last 14 days' }],
+      ['bar-region', { kind: 'timing', value: '1.2s', label: 'p90 load time 1.2s' }],
+      ['kpi-revenue', { kind: 'timing', value: '0.3s', label: 'p90 load time 0.3s' }],
     ]),
   },
 };

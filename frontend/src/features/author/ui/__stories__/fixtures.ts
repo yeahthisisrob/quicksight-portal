@@ -16,6 +16,7 @@ import type {
   DefinitionDataset,
   DefinitionOp,
   RebindPlan,
+  RepairPlan,
 } from '@/shared/api/modules/authoring';
 import type { SmusAsset } from '@/shared/api/modules/smus';
 
@@ -23,9 +24,117 @@ import type { MockRoute } from '../../../../../.storybook/mocks/api';
 import { requestBody } from '../../../../../.storybook/mocks/api';
 import { healthBadges } from '../../lib/insights';
 import { outlineFromModel } from '../../lib/ops';
-import { type AuthorFlowState, initialAuthorFlowState, stepStatus } from '../../model/authorFlow';
+import {
+  type AuthorFlowState,
+  authorSteps,
+  initialAuthorFlowState,
+  stepStatus,
+} from '../../model/authorFlow';
+import { defaultChoices, repairRequests, repairSummary } from '../../model/repair';
 import type { AuthorFlow } from '../../model/useAuthorFlow';
 import { simulatePreview } from './simulateOps';
+
+/** Nothing wrong with the source: the Repair step stays hidden. */
+export const CLEAN_REPAIR_PLAN: RepairPlan = {
+  issues: [],
+  summary: { fixable: 0, needsChoice: 0, unfixable: 0 },
+  proposed: { repairs: [], rebinds: [] },
+};
+
+/**
+ * A source QuickSight refuses to write: a column that clearly got renamed,
+ * one that is simply gone, a parameter nobody declared, a dataset that
+ * cannot be read, and one error only QuickSight knows about.
+ */
+export const REPAIR_PLAN: RepairPlan = {
+  issues: [
+    {
+      id: 'column:sales:revenue',
+      kind: 'column-missing',
+      severity: 'error',
+      message:
+        'Column revenue is not in sales_silver; net_revenue looks like the same column. Used by 3 visuals, 1 calculated field.',
+      identifier: 'sales',
+      dataSetId: 'sales-silver',
+      columnName: 'revenue',
+      usage: { visual: 3, filter: 0, calculatedField: 1, parameter: 0, control: 0, other: 0 },
+      quickSight: {
+        type: 'COLUMN_NOT_FOUND',
+        message: "Column 'revenue' was not found",
+        paths: [
+          'sheets/sheet-overview/visuals/kpi-revenue',
+          'sheets/sheet-overview/visuals/bar-region',
+        ],
+      },
+      fix: { op: 'rename', identifier: 'sales', columnName: 'revenue', to: 'net_revenue' },
+      alternatives: [{ op: 'dropColumn', identifier: 'sales', columnName: 'revenue' }],
+    },
+    {
+      id: 'column:sales:promo_code',
+      kind: 'column-missing',
+      severity: 'error',
+      message:
+        'Column promo_code is not in sales_silver. Used by 1 filter; removing it takes those references out.',
+      identifier: 'sales',
+      dataSetId: 'sales-silver',
+      columnName: 'promo_code',
+      usage: { visual: 0, filter: 1, calculatedField: 0, parameter: 0, control: 0, other: 0 },
+      fix: { op: 'dropColumn', identifier: 'sales', columnName: 'promo_code' },
+      alternatives: [],
+    },
+    {
+      id: 'parameter:region',
+      kind: 'parameter-missing',
+      severity: 'error',
+      message:
+        'Parameter region is used but never declared. Declaring it as a string keeps the controls and filters that read it.',
+      parameterName: 'region',
+      fix: { op: 'declareParameter', name: 'region', type: 'STRING' },
+      alternatives: [{ op: 'dropParameter', name: 'region' }],
+    },
+    {
+      id: 'dataset:targets',
+      kind: 'dataset-missing',
+      severity: 'error',
+      message:
+        "Dataset targets-2024 behind 'targets' cannot be read; choose a dataset for it to read instead.",
+      identifier: 'targets',
+      dataSetId: 'targets-2024',
+      alternatives: [],
+    },
+    {
+      id: 'quicksight:ACCESS_DENIED:4',
+      kind: 'quicksight-error',
+      severity: 'warning',
+      message: 'The theme applied to this dashboard cannot be read.',
+      quickSight: { type: 'ACCESS_DENIED', message: 'The theme cannot be read', paths: [] },
+      alternatives: [],
+    },
+  ],
+  summary: { fixable: 3, needsChoice: 1, unfixable: 1 },
+  proposed: {
+    repairs: [
+      { op: 'dropColumn', identifier: 'sales', columnName: 'promo_code' },
+      { op: 'declareParameter', name: 'region', type: 'STRING' },
+    ],
+    rebinds: [
+      {
+        identifier: 'sales',
+        targetDataSetId: 'sales-silver',
+        columnMap: { revenue: 'net_revenue' },
+      },
+    ],
+  },
+};
+
+/** The route the full-page stories use; `plan` picks which source is broken. */
+export function repairPlanRoute(plan: RepairPlan = CLEAN_REPAIR_PLAN): MockRoute {
+  return {
+    method: 'post',
+    url: /\/repair\/plan$/,
+    respond: () => ({ body: { success: true, data: plan } }),
+  };
+}
 
 export const SOURCE = { type: 'dashboard' as const, id: 'sales-overview', name: 'Sales overview' };
 /** When the SMUS snapshot the stories read was taken. */
@@ -502,6 +611,7 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
         return { body: { success: true, data: body } };
       },
     },
+    repairPlanRoute(),
     {
       method: 'post',
       url: '/rebind/plan',
@@ -755,6 +865,8 @@ export interface FakeFlowOptions {
   /** Defaults to INSIGHTS; null for an asset without any. */
   insights?: AssetInsights | null;
   previewLoading?: boolean;
+  /** Defaults to a clean plan; REPAIR_PLAN shows the Repair step. */
+  repairPlan?: RepairPlan | null;
 }
 
 export function fakeFlow(options: FakeFlowOptions = {}): AuthorFlow {
@@ -781,12 +893,17 @@ export function fakeFlow(options: FakeFlowOptions = {}): AuthorFlow {
         ? buildWireframeModel(simulated.definition)
         : null;
   const insights = options.insights === undefined ? INSIGHTS : options.insights;
+  const repairPlan = options.repairPlan === undefined ? CLEAN_REPAIR_PLAN : options.repairPlan;
+  const repairChoices = defaultChoices(repairPlan);
+  const repairs = repairRequests(repairPlan, repairChoices);
+  const summary = repairSummary(repairPlan, repairChoices, draft.targets);
+  const repairIssues = repairPlan?.issues.length ?? 0;
   const state: AuthorFlowState = {
     ...initialAuthorFlowState,
     step: options.step ?? 'source',
     source: SOURCE,
     result: options.result ?? null,
-    visited: ['source', 'targets', 'review', 'mockup', 'publish'],
+    visited: ['source', 'repair', 'targets', 'review', 'mockup', 'publish'],
     ops,
     folder: options.folder ?? null,
     selectedElement: options.selectedElement ?? null,
@@ -801,8 +918,22 @@ export function fakeFlow(options: FakeFlowOptions = {}): AuthorFlow {
       hasOps: ops.length > 0,
       hasAddedFields: addedFields.length > 0,
       renamed: draft.mode === 'clone' ? draft.name.length > 0 : draft.name !== SOURCE.name,
+      repairIssues,
+      hasRepairs: repairs.repairs.length > 0 || Object.keys(repairs.columnMaps).length > 0,
+      repairsSettled: summary.needsChoice === 0,
     }),
+    steps: authorSteps(repairIssues > 0),
     draft,
+    repair: {
+      loading: false,
+      error: null,
+      plan: repairPlan,
+      choices: repairChoices,
+      summary,
+      repairs: repairs.repairs,
+      choose: noop,
+      acceptAll: noop,
+    },
     source: {
       loading: false,
       error: null,

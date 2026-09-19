@@ -7,7 +7,7 @@
  * drawing serves the read-only viewer, the before/after mockup and the
  * editor.
  */
-import { ErrorOutlined, VisibilityOff, WarningAmber } from '@mui/icons-material';
+import { ErrorOutlined, Speed, VisibilityOff, WarningAmber } from '@mui/icons-material';
 import { alpha, Box, Chip, Tooltip, Typography } from '@mui/material';
 import type { KeyboardEvent } from 'react';
 
@@ -18,6 +18,15 @@ import type { WireframeBadge, WireframeElement, WireframeField } from '../model/
 import { glyphFor, kindLabel } from './glyphs';
 
 const MAX_CHIPS_PER_WELL = 5;
+
+/** The short text on a badge: the p90 when there is one, the kind otherwise. */
+function badgeText(badge: WireframeBadge): string {
+  if (badge.kind === 'timing') {
+    return badge.value ?? '';
+  }
+  const word = badge.kind === 'error' ? 'errors' : 'slow';
+  return badge.value ? `${word} · ${badge.value}` : word;
+}
 
 export function fieldLabel(field: WireframeField): string {
   if (field.aggregation) return `${field.aggregation}(${field.label})`;
@@ -306,16 +315,25 @@ export function WireframeCard({
                 icon={
                   badge.kind === 'error' ? (
                     <ErrorOutlined sx={{ fontSize: 14 }} />
-                  ) : (
+                  ) : badge.kind === 'slow' ? (
                     <WarningAmber sx={{ fontSize: 14 }} />
+                  ) : (
+                    <Speed sx={{ fontSize: 14 }} />
                   )
                 }
-                label={badge.kind === 'error' ? 'errors' : 'slow'}
+                label={badgeText(badge)}
                 size="small"
-                color={badge.kind === 'error' ? 'error' : 'warning'}
+                color={
+                  badge.kind === 'error' ? 'error' : badge.kind === 'slow' ? 'warning' : 'default'
+                }
                 variant="outlined"
                 data-badge={badge.kind}
-                sx={{ height: 18, fontSize: '0.625rem', '& .MuiChip-label': { px: 0.5 } }}
+                sx={{
+                  height: 18,
+                  fontSize: '0.625rem',
+                  '& .MuiChip-label': { px: 0.5 },
+                  ...(badge.kind === 'timing' && { color: 'text.secondary' }),
+                }}
               />
             </Tooltip>
           )}

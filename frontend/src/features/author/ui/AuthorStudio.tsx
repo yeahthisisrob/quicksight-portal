@@ -8,6 +8,7 @@ import { HowItWorks } from './HowItWorks';
 import { StepsRail } from './StepsRail';
 import { MockupStep } from './steps/MockupStep';
 import { PublishStep } from './steps/PublishStep';
+import { RepairStep } from './steps/RepairStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { SourceStep } from './steps/SourceStep';
 import { TargetsStep } from './steps/TargetsStep';
@@ -18,6 +19,8 @@ function StepBody({ flow }: { flow: AuthorFlow }) {
   switch (flow.state.step) {
     case 'source':
       return <SourceStep flow={flow} />;
+    case 'repair':
+      return <RepairStep flow={flow} />;
     case 'targets':
       return <TargetsStep flow={flow} />;
     case 'review':
@@ -61,6 +64,7 @@ export function AuthorStudioView({ flow }: { flow: AuthorFlow }) {
         <Box sx={wide ? undefined : { position: { md: 'sticky' }, top: { md: 24 } }}>
           <StepsRail
             status={flow.status}
+            steps={flow.steps}
             onSelect={flow.goTo}
             orientation={wide ? 'horizontal' : undefined}
           />

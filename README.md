@@ -23,6 +23,8 @@ Author is built for the people who make dashboards and analyses all day. Start f
 
 ![Author: sources ranked by use, with insights and flagged visuals](docs/screenshots/author-source.png)
 
+![Author: repairing a dashboard QuickSight refuses to write](docs/screenshots/author-repair.png)
+
 ![Author: choosing targets from published SMUS assets](docs/screenshots/author-targets.png)
 
 ![Author: the mockup editor with the inspector and the change list](docs/screenshots/author-mockup.png)
@@ -51,7 +53,7 @@ The provider and model are settings, not a redeploy.
 
 ### Wireframes
 
-Any dashboard or analysis renders as a wireframe from its cached definition: sheets, every visual as a card in its real grid, free-form or paginated position, the visual type, its title, and its field wells. Close to QuickSight's look without pretending to be it, and never showing data. The same renderer draws the Author mockup.
+Any dashboard or analysis renders as a wireframe from its cached definition: sheets, every visual as a card in its real grid, free-form or paginated position, the visual type, its title, and its field wells. Dashboards with CloudWatch metrics show each visual's p90 load time on its card, with slow and failing visuals flagged. Close to QuickSight's look without pretending to be it, and never showing data. The same renderer draws the Author mockup.
 
 ![Wireframe of a dashboard](docs/screenshots/wireframe-dialog.png)
 

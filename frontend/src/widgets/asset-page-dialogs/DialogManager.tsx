@@ -485,6 +485,7 @@ export function DialogManager({
           onClose={() => setDefinitionErrorsDialog({ open: false, asset: null })}
           assetName={definitionErrorsDialog.asset.name}
           assetType={assetType as 'dashboard' | 'analysis'}
+          assetId={definitionErrorsDialog.asset.id}
           errors={definitionErrorsDialog.asset.definitionErrors || []}
         />
       )}

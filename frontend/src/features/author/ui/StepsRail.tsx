@@ -6,11 +6,18 @@
 import { Check } from '@mui/icons-material';
 import { alpha, Box, ButtonBase, Typography, useMediaQuery, useTheme } from '@mui/material';
 
-import { AUTHOR_STEPS, type AuthorStep, type StepStatus } from '../model/authorFlow';
+import {
+  AUTHOR_STEPS,
+  type AuthorStep,
+  type AuthorStepMeta,
+  type StepStatus,
+} from '../model/authorFlow';
 
 interface StepsRailProps {
   status: Record<AuthorStep, StepStatus>;
   onSelect: (step: AuthorStep) => void;
+  /** The steps to show; defaults to every step that has a status. */
+  steps?: readonly AuthorStepMeta[];
   /** Force a layout; by default vertical on md and up, horizontal below. */
   orientation?: 'vertical' | 'horizontal';
 }
@@ -47,10 +54,11 @@ function Badge({ index, status }: { index: number; status: StepStatus }) {
   );
 }
 
-export function StepsRail({ status, onSelect, orientation }: StepsRailProps) {
+export function StepsRail({ status, onSelect, orientation, steps }: StepsRailProps) {
   const theme = useTheme();
   const narrow = useMediaQuery(theme.breakpoints.down('md'));
   const horizontal = orientation ? orientation === 'horizontal' : narrow;
+  const shown = steps ?? AUTHOR_STEPS.filter((s) => s.id in status);
 
   return (
     <Box
@@ -64,7 +72,7 @@ export function StepsRail({ status, onSelect, orientation }: StepsRailProps) {
         pb: horizontal ? 1 : 0,
       }}
     >
-      {AUTHOR_STEPS.map((step, index) => {
+      {shown.map((step, index) => {
         const s = status[step.id];
         const locked = s === 'locked';
         return (

@@ -200,6 +200,13 @@ export function PublishStep({ flow }: { flow: AuthorFlow }) {
               },
               { label: 'Column renames', value: String(totalRenamed) },
               {
+                label: 'Repairs',
+                value:
+                  flow.repair.summary.total === 0
+                    ? 'None needed'
+                    : `${flow.repair.summary.accepted} of ${flow.repair.summary.total} accepted`,
+              },
+              {
                 label: 'Calculated fields added',
                 value:
                   flow.addedFields.length === 0

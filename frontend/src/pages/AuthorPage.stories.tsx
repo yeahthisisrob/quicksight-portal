@@ -2,6 +2,8 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import {
   authorRoutes,
+  REPAIR_PLAN,
+  repairPlanRoute,
   SMUS_NOT_CONFIGURED,
   SMUS_SETTINGS_NO_PROJECTS,
   SMUS_SETTINGS_NOT_CONFIGURED,
@@ -34,6 +36,17 @@ export const WithSource: Story = {
   parameters: { router: { initialEntries: [sourceUrl] } },
   render: () => (
     <AppShell path="author" routes={authorRoutes()}>
+      <AuthorPage />
+    </AppShell>
+  ),
+};
+
+/** Opened from the errors dialog or the row menu: lands on the Repair step. */
+export const RepairFromErrors: Story = {
+  name: 'Opened to repair a broken dashboard',
+  parameters: { router: { initialEntries: [`${sourceUrl}&repair=1`] } },
+  render: () => (
+    <AppShell path="author" routes={authorRoutes([repairPlanRoute(REPAIR_PLAN)])}>
       <AuthorPage />
     </AppShell>
   ),

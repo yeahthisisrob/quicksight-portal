@@ -10,7 +10,7 @@
  */
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import {
@@ -32,6 +32,8 @@ import type {
   DefinitionOp,
   Proposal,
   RebindPlan,
+  RepairFix,
+  RepairPlan,
   SheetOutline,
 } from '@/shared/api/modules/authoring';
 import type { CalculatedFieldTemplate } from '@/shared/api/modules/data-catalog';
@@ -43,7 +45,9 @@ import {
   type AuthorFolder,
   type AuthorResult,
   type AuthorStep,
+  type AuthorStepMeta,
   authorFlowReducer,
+  authorSteps,
   initialAuthorFlowState,
   nextStep,
   previousStep,
@@ -51,6 +55,14 @@ import {
   type StepStatus,
   stepStatus,
 } from './authorFlow';
+import {
+  defaultChoices,
+  mergeRepairRebinds,
+  type RepairChoices,
+  type RepairSummary,
+  repairRequests,
+  repairSummary,
+} from './repair';
 import { isTemplate, TEMPLATE_TAG } from './templateTag';
 
 export interface SourceDefinition {
@@ -81,12 +93,29 @@ export interface MockupPreview {
   outline: SheetOutline[] | null;
 }
 
+/** The server's repair plan for the source and what the person decided about it. */
+export interface SourceRepair {
+  loading: boolean;
+  error: string | null;
+  plan: RepairPlan | null;
+  /** issue id → accepted fix, or null to leave it. Unset means the proposal. */
+  choices: RepairChoices;
+  summary: RepairSummary;
+  /** Repair ops that will be sent, from the accepted fixes. */
+  repairs: RepairPlan['proposed']['repairs'];
+  choose: (issueId: string, fix: RepairFix | null) => void;
+  acceptAll: () => void;
+}
+
 export interface AuthorFlow {
   state: AuthorFlowState;
   status: Record<AuthorStep, StepStatus>;
+  /** The steps the rail shows for this source (repair only when it has issues). */
+  steps: AuthorStepMeta[];
   draft: RebindDraft;
   source: SourceDefinition;
   insights: SourceInsights;
+  repair: SourceRepair;
   /** Slow or failing visuals of the source, keyed by visual id. */
   healthBadges: WireframeBadges;
   selectSource: (source: RebindSource | null) => void;
@@ -132,6 +161,7 @@ export interface AddedTemplateField {
 }
 
 const PREVIEW_DEBOUNCE_MS = 400;
+const REPAIR_PLAN_STALE_MS = 60_000;
 
 function sourceFromParams(params: URLSearchParams): RebindSource | null {
   const type = params.get('type');
@@ -205,6 +235,65 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
   });
   const badges = useMemo(() => healthBadges(insightsQuery.data), [insightsQuery.data]);
 
+  // --- repair ---------------------------------------------------------------
+  // Re-planned whenever a dataset is chosen for an identifier, so the chosen
+  // dataset's columns get checked too.
+  const repairRebindsKey = JSON.stringify(
+    draft.rebinds.map((r) => ({ identifier: r.identifier, targetDataSetId: r.targetDataSetId }))
+  );
+  const repairQuery = useQuery({
+    queryKey: ['repair-plan', state.source?.type, state.source?.id, repairRebindsKey],
+    queryFn: () =>
+      authoringApi.planRepair(state.source!.type, state.source!.id, {
+        rebinds: JSON.parse(repairRebindsKey),
+      }),
+    enabled: state.source !== null,
+    staleTime: REPAIR_PLAN_STALE_MS,
+    retry: false,
+    placeholderData: keepPreviousData,
+  });
+  const repairPlan = repairQuery.data ?? null;
+  const [repairChoices, setRepairChoices] = useState<RepairChoices>({});
+  const chooseFix = useCallback(
+    (issueId: string, fix: RepairFix | null) =>
+      setRepairChoices((prev) => ({ ...prev, [issueId]: fix })),
+    []
+  );
+  const acceptAllFixes = useCallback(
+    () => setRepairChoices(defaultChoices(repairPlan)),
+    [repairPlan]
+  );
+  const repairRequest = useMemo(
+    () => repairRequests(repairPlan, repairChoices),
+    [repairPlan, repairChoices]
+  );
+  const repairIssues = repairPlan?.issues.length ?? 0;
+  const summary = useMemo(
+    () => repairSummary(repairPlan, repairChoices, draft.targets),
+    [repairPlan, repairChoices, draft.targets]
+  );
+  // The rebinds preview and apply send: the draft's, plus repair renames.
+  const effectiveRebinds = useMemo(
+    () => mergeRepairRebinds(draft.rebinds, draft.datasets, repairRequest.columnMaps),
+    [draft.rebinds, draft.datasets, repairRequest.columnMaps]
+  );
+  const hasRepairs =
+    repairRequest.repairs.length > 0 || Object.keys(repairRequest.columnMaps).length > 0;
+
+  // A source with issues is normally fixed in place; the person can still clone.
+  const repairedSourceRef = useRef<string | null>(null);
+  useEffect(() => {
+    const key = state.source ? `${state.source.type}/${state.source.id}` : null;
+    if (!key || repairIssues === 0 || repairedSourceRef.current === key) {
+      return;
+    }
+    repairedSourceRef.current = key;
+    draft.setMode('update');
+    if (params.get('repair') === '1' && state.step === 'source') {
+      dispatch({ type: 'goTo', step: 'repair' });
+    }
+  }, [state.source, state.step, repairIssues, draft.setMode, params]);
+
   // --- template calculated fields ---------------------------------------------
   const [addedFields, setAddedFields] = useState<AddedTemplateField[]>([]);
   const addTemplateField = useCallback((template: CalculatedFieldTemplate, identifier: string) => {
@@ -235,6 +324,7 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
     (source: RebindSource | null) => {
       dispatch({ type: 'selectSource', source });
       setAddedFields([]);
+      setRepairChoices({});
       setParams(source ? { type: source.type, id: source.id, name: source.name } : {}, {
         replace: true,
       });
@@ -288,14 +378,16 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
   // Edits come in bursts (a nudge, another nudge); wait for the burst to end.
   const previewRequest = useMemo(
     () => ({
-      rebinds: draft.rebinds,
+      rebinds: effectiveRebinds,
       addCalculatedFields: addedFields.length > 0 ? addedFields : undefined,
       ops: state.ops.length > 0 ? state.ops : undefined,
+      repairs: repairRequest.repairs.length > 0 ? repairRequest.repairs : undefined,
     }),
-    [draft.rebinds, addedFields, state.ops]
+    [effectiveRebinds, addedFields, state.ops, repairRequest.repairs]
   );
   const previewKey = useDebounce(JSON.stringify(previewRequest), PREVIEW_DEBOUNCE_MS);
-  const hasAnything = draft.rebinds.length > 0 || state.ops.length > 0 || addedFields.length > 0;
+  const hasAnything =
+    effectiveRebinds.length > 0 || state.ops.length > 0 || addedFields.length > 0 || hasRepairs;
   const previewQuery = useQuery({
     queryKey: ['rebind-preview', state.source?.type, state.source?.id, previewKey],
     queryFn: () =>
@@ -327,10 +419,11 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
     try {
       const result = await authoringApi.applyRebind(source.type, source.id, {
         mode: draft.mode,
-        rebinds: draft.rebinds,
+        rebinds: effectiveRebinds,
         name: draft.name.trim() || undefined,
         addCalculatedFields: addedFields.length > 0 ? addedFields : undefined,
         ops: state.ops.length > 0 ? state.ops : undefined,
+        repairs: repairRequest.repairs.length > 0 ? repairRequest.repairs : undefined,
         folderId: draft.mode === 'clone' && state.folder ? state.folder.id : undefined,
       });
       const published: AuthorResult = {
@@ -357,7 +450,8 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
     state.ops,
     state.folder,
     draft.mode,
-    draft.rebinds,
+    effectiveRebinds,
+    repairRequest.repairs,
     draft.name,
     addedFields,
     enqueueSnackbar,
@@ -391,9 +485,13 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
       : trimmedName.length > 0 && trimmedName !== state.source?.name;
   // The draft only knows about rebinds; an in-place edit with no new
   // datasets is still applicable when there is something else to write.
-  const editsOnly = draft.rebinds.length === 0 && (state.ops.length > 0 || addedFields.length > 0);
+  // Repair renames ride on rebinds to the same dataset, which the draft does
+  // not plan, so they count as edits here and the preview checks them.
+  const editsOnly =
+    draft.rebinds.length === 0 && (state.ops.length > 0 || addedFields.length > 0 || hasRepairs);
   const canApply =
     !draft.planning &&
+    summary.needsChoice === 0 &&
     (editsOnly ? draft.mode === 'update' || trimmedName.length > 0 : draft.canApply);
   const status = stepStatus(state, {
     hasTargets: draft.rebinds.length > 0,
@@ -401,27 +499,31 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
     hasOps: state.ops.length > 0,
     hasAddedFields: addedFields.length > 0,
     renamed,
+    repairIssues,
+    hasRepairs,
+    repairsSettled: summary.needsChoice === 0,
   });
+  const steps = useMemo(() => authorSteps(repairIssues > 0), [repairIssues]);
   const goTo = useCallback(
     (step: AuthorStep) => {
-      if (status[step] !== 'locked') {
+      if (step in status && status[step] !== 'locked') {
         dispatch({ type: 'goTo', step });
       }
     },
     [status]
   );
   const next = useCallback(() => {
-    const step = nextStep(state.step);
+    const step = nextStep(state.step, steps);
     if (step) {
       goTo(step);
     }
-  }, [state.step, goTo]);
+  }, [state.step, steps, goTo]);
   const back = useCallback(() => {
-    const step = previousStep(state.step);
+    const step = previousStep(state.step, steps);
     if (step) {
       goTo(step);
     }
-  }, [state.step, goTo]);
+  }, [state.step, steps, goTo]);
 
   const clearLocal = useCallback(() => {
     setAsk('');
@@ -429,6 +531,7 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
     setProposeError(null);
     setPublishError(null);
     setAddedFields([]);
+    setRepairChoices({});
   }, []);
 
   const reset = useCallback(() => {
@@ -449,7 +552,20 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
   return {
     state,
     status,
+    steps,
     draft,
+    repair: {
+      loading: repairQuery.isLoading,
+      error: repairQuery.error
+        ? getApiErrorMessage(repairQuery.error, 'Could not check the definition')
+        : null,
+      plan: repairPlan,
+      choices: repairChoices,
+      summary,
+      repairs: repairRequest.repairs,
+      choose: chooseFix,
+      acceptAll: acceptAllFixes,
+    },
     source: {
       loading: sourceQuery.isLoading,
       error: sourceQuery.error

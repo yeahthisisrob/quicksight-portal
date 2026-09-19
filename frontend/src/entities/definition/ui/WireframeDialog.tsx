@@ -1,11 +1,13 @@
 /**
  * WireframeDialog - opens the cached definition of a dashboard or analysis
- * and draws it as a wireframe.
+ * and draws it as a wireframe, with each visual's p90 load time on its card
+ * when QuickSight's CloudWatch metrics know it.
  *
  * Reads the same S3 export the JSON viewer shows (and shares its react-query
  * key, so opening one after the other costs nothing). A definition is only
  * present once the asset has been exported with enrichment; until then the
- * dialog says so rather than drawing an empty canvas.
+ * dialog says so rather than drawing an empty canvas. Load times come from
+ * the insights endpoint, which only dashboards have.
  */
 import { ViewQuilt as WireframeIcon } from '@mui/icons-material';
 import {
@@ -22,8 +24,9 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
-import { assetsApi, getApiErrorMessage } from '@/shared/api';
+import { assetsApi, authoringApi, getApiErrorMessage } from '@/shared/api';
 
+import { healthBadges } from '../lib/healthBadges';
 import { buildWireframeModel } from '../lib/wireframeModel';
 import { DefinitionWireframe } from './DefinitionWireframe';
 
@@ -36,6 +39,8 @@ interface WireframeDialogProps {
   assetName: string;
   assetType: WireframeAssetType;
 }
+
+const INSIGHTS_STALE_MS = 5 * 60 * 1000;
 
 /** The export stores the raw DescribeXDefinition response under apiResponses.definition. */
 export function definitionFromExport(exportData: any): unknown {
@@ -54,9 +59,19 @@ export function WireframeDialog({
     queryFn: () => assetsApi.getCachedAsset(assetType, assetId),
     enabled: open && Boolean(assetId),
   });
+  // Same key as the Author page, so a dashboard opened there is free here.
+  const insights = useQuery({
+    queryKey: ['asset-insights', assetType, assetId],
+    queryFn: () => authoringApi.getInsights(assetType, assetId),
+    enabled: open && Boolean(assetId) && assetType === 'dashboard',
+    staleTime: INSIGHTS_STALE_MS,
+    retry: false,
+  });
 
   const definition = definitionFromExport(data);
   const model = useMemo(() => (definition ? buildWireframeModel(definition) : null), [definition]);
+  const badges = useMemo(() => healthBadges(insights.data), [insights.data]);
+  const windowDays = insights.data?.health?.windowDays;
 
   let body: React.ReactNode;
   if (isLoading) {
@@ -79,7 +94,17 @@ export function WireframeDialog({
       </Alert>
     );
   } else {
-    body = <DefinitionWireframe model={model} />;
+    body = (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {badges.size > 0 && windowDays !== undefined && (
+          <Typography variant="caption" sx={{ color: 'text.secondary' }} data-testid="load-times">
+            Each visual shows its p90 load time over the last {windowDays} days, from CloudWatch.
+            Amber is slower than 3 seconds; red failed to load.
+          </Typography>
+        )}
+        <DefinitionWireframe model={model} badges={badges} />
+      </Box>
+    );
   }
 
   return (

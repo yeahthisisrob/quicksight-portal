@@ -1,4 +1,4 @@
-import { Close as CloseIcon, Error as ErrorIcon } from '@mui/icons-material';
+import { Build as BuildIcon, Close as CloseIcon, Error as ErrorIcon } from '@mui/icons-material';
 import {
   Box,
   Button,
@@ -15,6 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import type { components } from '@shared/generated';
+import { Link as RouterLink } from 'react-router-dom';
 
 type DefinitionError = components['schemas']['DefinitionError'];
 
@@ -23,7 +24,18 @@ interface DefinitionErrorsDialogProps {
   onClose: () => void;
   assetName: string;
   assetType: 'dashboard' | 'analysis';
+  /** The asset, so the dialog can send you to Author to repair it. */
+  assetId?: string;
   errors: DefinitionError[];
+}
+
+/** Author opens on its Repair step for this asset. */
+export function repairUrl(
+  assetType: 'dashboard' | 'analysis',
+  assetId: string | undefined,
+  assetName: string
+): string {
+  return `/author?type=${assetType}&id=${encodeURIComponent(assetId ?? '')}&name=${encodeURIComponent(assetName)}&repair=1`;
 }
 
 const getErrorSeverity = (errorType: string): 'error' | 'warning' => {
@@ -47,6 +59,7 @@ export function DefinitionErrorsDialog({
   onClose,
   assetName,
   assetType,
+  assetId,
   errors,
 }: DefinitionErrorsDialogProps) {
   const groupedErrors = errors.reduce(
@@ -169,8 +182,15 @@ export function DefinitionErrorsDialog({
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} variant="contained">
-          Close
+        <Button onClick={onClose}>Close</Button>
+        <Button
+          component={RouterLink}
+          to={repairUrl(assetType, assetId, assetName)}
+          variant="contained"
+          startIcon={<BuildIcon />}
+          onClick={onClose}
+        >
+          Repair in Author
         </Button>
       </DialogActions>
     </Dialog>
