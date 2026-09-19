@@ -90,6 +90,8 @@ export interface CalculatedFieldCatalog {
     templated: number;
     unused: number;
     datasets: number;
+    /** Fields on datasets that matched no listing, counted before the scope filter. */
+    outsideSmus: number;
   };
   items: CalculatedFieldSummary[];
 }
@@ -136,15 +138,50 @@ export interface ColumnCatalog {
     withSmus: number;
     /** Of those, the ones the listing's own schema names. */
     withSmusColumn: number;
+    /** Columns on datasets that matched no listing, counted before the scope filter. */
+    outsideSmus: number;
   };
   items: ColumnCatalogItem[];
 }
+
+/**
+ * Which datasets the field-first tabs look at. The catalog is a view of what
+ * the SMUS domain publishes, so it reads the selected projects by default;
+ * `outside` is the way to see the rest of the account without it being silently
+ * dropped, and `all` ignores the distinction.
+ */
+export type CatalogScope = 'smus' | 'outside' | 'all';
 
 export interface FieldCatalogFilters {
   projectId?: string;
   datasetId?: string;
   search?: string;
   conflictsOnly?: boolean;
+  scope?: CatalogScope;
+}
+
+/** True when at least one of the datasets is tied to a SMUS listing. */
+function inSmus(datasets: Array<{ listing?: CatalogListingRef }>): boolean {
+  return datasets.some((d) => d.listing);
+}
+
+/** A project is itself a SMUS scope, so naming one implies it. */
+function scopeOf(filters: FieldCatalogFilters): CatalogScope {
+  if (filters.projectId) {
+    return 'smus';
+  }
+  return filters.scope ?? 'smus';
+}
+
+function matchesScope(
+  datasets: Array<{ listing?: CatalogListingRef }>,
+  filters: FieldCatalogFilters
+): boolean {
+  const scope = scopeOf(filters);
+  if (scope === 'all') {
+    return true;
+  }
+  return scope === 'outside' ? !inSmus(datasets) : inSmus(datasets);
 }
 
 interface Group {
@@ -202,8 +239,10 @@ export class FieldCatalogService {
     const groups = groupCalculated(index);
     const variantsByName = countVariants(groups);
 
-    const items = [...groups.values()]
-      .map((g) => this.summarize(g, index, listingOf, datasetNames, variantsByName))
+    const all = [...groups.values()].map((g) =>
+      this.summarize(g, index, listingOf, datasetNames, variantsByName)
+    );
+    const items = all
       .filter((item) => matches(item, filters))
       .sort((a, b) => a.name.localeCompare(b.name) || b.definedIn.length - a.definedIn.length);
 
@@ -220,6 +259,9 @@ export class FieldCatalogService {
         templated: items.filter((i) => i.template).length,
         unused: items.filter((i) => isUnused(i)).length,
         datasets: datasets.size,
+        // Counted over every field, not the filtered ones, so a catalog scoped
+        // to SMUS can still say how much sits outside it.
+        outsideSmus: all.filter((i) => !inSmus(i.datasets)).length,
       },
       items,
     };
@@ -347,7 +389,9 @@ export class FieldCatalogService {
         )
         .map((g) => ({ key: g.key, name: g.name }));
     }
-    const items = [...byName.values()]
+    const all = [...byName.values()];
+    const items = all
+      .filter((i) => matchesScope(i.smus ? [{ listing: i.smus }] : [{}], filters))
       .filter((i) => !needle || i.name.toLowerCase().includes(needle))
       .sort((a, b) => a.name.localeCompare(b.name));
     return {
@@ -358,6 +402,7 @@ export class FieldCatalogService {
         datasets: new Set(items.flatMap((i) => i.datasets.map((d) => d.id))).size,
         withSmus: items.filter((i) => i.smus).length,
         withSmusColumn: items.filter((i) => i.smus?.columnName).length,
+        outsideSmus: all.filter((i) => !i.smus).length,
       },
       items,
     };
@@ -608,6 +653,9 @@ function betterTie(
 }
 
 function matches(item: CalculatedFieldSummary, filters: FieldCatalogFilters): boolean {
+  if (!matchesScope(item.datasets, filters)) {
+    return false;
+  }
   if (filters.projectId && !item.datasets.some((d) => d.listing?.projectId === filters.projectId)) {
     return false;
   }

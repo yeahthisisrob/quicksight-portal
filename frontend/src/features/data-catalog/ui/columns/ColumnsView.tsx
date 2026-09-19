@@ -22,9 +22,10 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { useEffect } from 'react';
 
 import { getApiErrorMessage } from '@/shared/api';
-import type { ColumnCatalogItem } from '@/shared/api/modules/data-catalog';
+import type { CatalogScope, ColumnCatalogItem } from '@/shared/api/modules/data-catalog';
 import { Container, EmptyState, pal } from '@/shared/design-system';
 import { useDebounce } from '@/shared/lib/useDebounce';
 
@@ -32,6 +33,10 @@ import { useColumns } from '../../lib/useFieldCatalog';
 
 export interface ColumnsViewProps {
   projectId?: string;
+  /** Which datasets to read: the selected projects, or the ones outside them. */
+  scope?: CatalogScope;
+  /** Reported up so the project picker can offer what sits outside SMUS. */
+  onOutsideCount?: (count: number | undefined) => void;
   search: string;
   onSearch: (search: string) => void;
   onOpenField: (key: string) => void;
@@ -197,13 +202,17 @@ function DatasetsCell({ datasets }: { datasets: ColumnCatalogItem['datasets'] })
 
 export function ColumnsView({
   projectId,
+  scope,
+  onOutsideCount,
   search,
   onSearch,
   onOpenField,
   onOpenListing,
 }: ColumnsViewProps) {
   const debounced = useDebounce(search, SEARCH_DEBOUNCE_MS);
-  const list = useColumns({ projectId, search: debounced || undefined });
+  const list = useColumns({ projectId, scope, search: debounced || undefined });
+  const outside = list.data?.counts.outsideSmus;
+  useEffect(() => onOutsideCount?.(outside), [outside, onOutsideCount]);
 
   if (list.isError) {
     return (
@@ -260,7 +269,9 @@ export function ColumnsView({
             description={
               debounced
                 ? 'Clear the search to see every column.'
-                : 'Columns come from the QuickSight export of the datasets that read the selected projects.'
+                : outside
+                  ? `${outside} ${outside === 1 ? 'column is' : 'columns are'} on datasets that matched no SMUS listing. Choose "Outside SMUS" in the project filter to see them.`
+                  : 'Columns come from the QuickSight export of the datasets that read the selected projects.'
             }
           />
         ) : (

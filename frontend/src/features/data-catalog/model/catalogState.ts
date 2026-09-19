@@ -80,8 +80,21 @@ export type CatalogProjectOption = SmusCatalog['projects'][number];
  * The project to show: the requested one when it exists, else the first.
  * Undefined when there are no projects at all.
  */
-/** The project filter's "every project" value, which is no filter at all. */
+/** The project filter's "every selected project" value. */
 export const ALL_PROJECTS = 'all';
+/** ... and the datasets no listing claimed, which are otherwise unreachable. */
+export const OUTSIDE_SMUS = 'outside';
+
+/** The scope a picker value asks for, and the project it narrows to. */
+export function scopeFor(value: string | undefined): {
+  scope: 'smus' | 'outside';
+  projectId?: string;
+} {
+  if (value === OUTSIDE_SMUS) {
+    return { scope: 'outside' };
+  }
+  return value && value !== ALL_PROJECTS ? { scope: 'smus', projectId: value } : { scope: 'smus' };
+}
 
 /**
  * Which project the catalog is showing. The SMUS tab is per project because

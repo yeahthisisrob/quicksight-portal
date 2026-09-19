@@ -18,7 +18,13 @@ import { getApiErrorMessage } from '@/shared/api';
 import { EmptyState, PageHeader, TabBar } from '@/shared/design-system';
 
 import { useCatalogProjects, useCatalogUrlState } from '../lib/useCatalog';
-import { type CatalogTab, DEFAULT_CATALOG_TAB, pickProject } from '../model/catalogState';
+import {
+  ALL_PROJECTS,
+  type CatalogTab,
+  DEFAULT_CATALOG_TAB,
+  pickProject,
+  scopeFor,
+} from '../model/catalogState';
 import { CatalogPage } from './CatalogPage';
 import { CalculatedFieldsView } from './calculated-fields/CalculatedFieldsView';
 import { ColumnsView } from './columns/ColumnsView';
@@ -56,17 +62,17 @@ export function CatalogTabsPage({
   const tab: CatalogTab = url.tab ?? initialTab ?? DEFAULT_CATALOG_TAB;
   const [search, setSearch] = useState(url.q ?? '');
   const [libraryOpen, setLibraryOpen] = useState(url.templates === '1');
+  const [outsideCount, setOutsideCount] = useState<number | undefined>();
 
   const projects = useCatalogProjects();
   // Calculated fields and columns are QuickSight's own; only the SMUS tab is
   // bound to one project, so the others span every project by default.
   const spansProjects = tab !== 'smus';
-  const project = useMemo(
-    () => pickProject(projects.data?.projects ?? [], url.project, spansProjects),
-    [projects.data, url.project, spansProjects]
-  );
   // The SMUS tab falls back to a project without writing it down, so leaving
   // that tab does not leave the field-first tabs scoped to it.
+  // The picker's value is a scope as much as a project: every selected
+  // project, one of them, or the datasets no listing claimed.
+  const { scope, projectId } = useMemo(() => scopeFor(url.project), [url.project]);
   const smusProject = useMemo(
     () => pickProject(projects.data?.projects ?? [], url.project),
     [projects.data, url.project]
@@ -111,7 +117,9 @@ export function CatalogTabsPage({
   } else if (tab === 'columns') {
     body = (
       <ColumnsView
-        projectId={project?.id}
+        projectId={projectId}
+        scope={scope}
+        onOutsideCount={setOutsideCount}
         search={search}
         onSearch={setSearch}
         onOpenField={(key) => openField(key)}
@@ -121,7 +129,9 @@ export function CatalogTabsPage({
   } else {
     body = (
       <CalculatedFieldsView
-        projectId={project?.id}
+        projectId={projectId}
+        scope={scope}
+        onOutsideCount={setOutsideCount}
         search={search}
         onSearch={setSearch}
         conflictsOnly={url.conflicts === '1'}
@@ -151,7 +161,8 @@ export function CatalogTabsPage({
               <ProjectSelect
                 projects={projectOptions}
                 allowAll={spansProjects}
-                value={spansProjects ? project?.id : smusProject?.id}
+                outsideCount={outsideCount}
+                value={spansProjects ? (url.project ?? ALL_PROJECTS) : smusProject?.id}
                 onChange={(id) =>
                   setUrl({ project: id, asset: undefined, term: undefined, field: undefined })
                 }

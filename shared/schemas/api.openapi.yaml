@@ -2463,6 +2463,17 @@ paths:
           required: false
           schema:
             type: boolean
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [smus, outside, all]
+          description: |
+            Which datasets to read. `smus` (the default) is the selected SMUS
+            projects; `outside` is the datasets that matched no listing, so they
+            are reachable rather than silently dropped; `all` ignores the
+            distinction. Naming a projectId implies `smus`.
       responses:
         '200':
           description: The calculated field catalog
@@ -2525,6 +2536,17 @@ paths:
           required: false
           schema:
             type: string
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [smus, outside, all]
+          description: |
+            Which datasets to read. `smus` (the default) is the selected SMUS
+            projects; `outside` is the datasets that matched no listing, so they
+            are reachable rather than silently dropped; `all` ignores the
+            distinction. Naming a projectId implies `smus`.
       responses:
         '200':
           description: The column catalog
@@ -6357,7 +6379,7 @@ components:
             type: string
         counts:
           type: object
-          required: [fields, names, conflicts, templated, unused, datasets]
+          required: [fields, names, conflicts, templated, unused, datasets, outsideSmus]
           properties:
             fields:
               type: integer
@@ -6371,6 +6393,9 @@ components:
               type: integer
             datasets:
               type: integer
+            outsideSmus:
+              type: integer
+              description: Fields on datasets that matched no listing, counted before the scope filter.
         items:
           type: array
           items:
@@ -6496,7 +6521,7 @@ components:
           nullable: true
         counts:
           type: object
-          required: [columns, datasets, withSmus, withSmusColumn]
+          required: [columns, datasets, withSmus, withSmusColumn, outsideSmus]
           properties:
             columns:
               type: integer
@@ -6508,6 +6533,9 @@ components:
             withSmusColumn:
               type: integer
               description: Of those, the ones the listing's own schema names.
+            outsideSmus:
+              type: integer
+              description: Columns on datasets that matched no listing, counted before the scope filter.
         items:
           type: array
           items:

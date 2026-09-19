@@ -161,6 +161,7 @@ describe('FieldCatalogService', () => {
       templated: 1,
       unused: 0,
       datasets: 1,
+      outsideSmus: 0,
     });
     const byName = Object.fromEntries(result.items.map((i) => [`${i.name}:${i.expression}`, i]));
 
@@ -187,6 +188,53 @@ describe('FieldCatalogService', () => {
     const runway = byName['runway:{cost} * 12']!;
     expect(runway.usedBy).toEqual({ dashboards: 0, analyses: 1, visuals: 0 });
     expect(runway.definedIn).toEqual([{ type: 'analysis', id: 'a-1', name: 'Draft' }]);
+  });
+
+  it('reads the selected projects by default, and says how much sits outside them', async () => {
+    // ds-2 matched no listing, so its fields are outside the SMUS scope.
+    catalog.getFieldIndex.mockResolvedValue({
+      ...INDEX,
+      byDataset: new Map([
+        ['ds-1', DS1],
+        [
+          'ds-2',
+          [
+            field({
+              sourceAssetId: 'ds-2',
+              fieldName: 'ungoverned',
+              isCalculated: true,
+              expression: '{x} + 1',
+            }),
+          ],
+        ],
+      ]),
+    });
+
+    const scoped = await service().calculatedFields();
+    expect(scoped.items.some((i) => i.name === 'ungoverned')).toBe(false);
+    // Counted over everything, so a scoped catalog never hides it silently.
+    expect(scoped.counts.outsideSmus).toBe(1);
+
+    const outside = await service().calculatedFields({ scope: 'outside' });
+    expect(outside.items.map((i) => i.name)).toEqual(['ungoverned']);
+
+    const all = await service().calculatedFields({ scope: 'all' });
+    expect(all.items.length).toBe(scoped.items.length + outside.items.length);
+  });
+
+  it('scopes columns the same way', async () => {
+    catalog.getFieldIndex.mockResolvedValue({
+      ...INDEX,
+      byDataset: new Map([
+        ['ds-1', DS1],
+        ['ds-2', [field({ sourceAssetId: 'ds-2', fieldName: 'loose_column' })]],
+      ]),
+    });
+    expect((await service().columns()).items.some((c) => c.name === 'loose_column')).toBe(false);
+    expect((await service().columns({ scope: 'outside' })).items.map((c) => c.name)).toEqual([
+      'loose_column',
+    ]);
+    expect((await service().columns()).counts.outsideSmus).toBe(1);
   });
 
   it('filters by conflicts, search, dataset and project', async () => {
@@ -248,6 +296,7 @@ describe('FieldCatalogService', () => {
       datasets: 1,
       withSmus: 3,
       withSmusColumn: 3,
+      outsideSmus: 0,
     });
     const revenue = result.items.find((c) => c.name === 'revenue')!;
     expect(revenue.smus).toMatchObject({
