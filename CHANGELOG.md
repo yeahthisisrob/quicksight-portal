@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.11.1...v2.11.2) (2026-09-19)
+
+
+### Bug Fixes
+
+* **data-catalog:** columns tie back to SMUS through a rename, and the datasets cell scales ([#169](https://github.com/yeahthisisrob/quicksight-portal/issues/169)) ([c9eb03c](https://github.com/yeahthisisrob/quicksight-portal/commit/c9eb03c9dc33963119357618691aa30e4c951753))
+
 ## [2.11.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.11.0...v2.11.1) (2026-09-19)
 
 
