@@ -106,22 +106,32 @@ console.log(`Domain:   ${domain} (${region})`);
 console.log(`Grant:    ${designation}${dryRun ? '  [dry run]' : ''}`);
 
 // 1. domain user profile for the role
-try {
-  const existing = aws(
-    'datazone',
-    'get-user-profile',
-    '--domain-identifier',
-    domain,
-    '--user-identifier',
-    arn,
-    '--type',
-    'IAM'
-  );
-  console.log(`Profile:  already registered (${existing.status ?? 'ok'})`);
-} catch {
+//
+// get-user-profile does not always find an IAM role profile (the lookup type
+// differs by how the role was registered), so a failed lookup falls through
+// to create-user-profile, and "already exists" there counts as registered.
+function registerProfile() {
+  try {
+    const existing = aws(
+      'datazone',
+      'get-user-profile',
+      '--domain-identifier',
+      domain,
+      '--user-identifier',
+      arn,
+      '--type',
+      'IAM'
+    );
+    console.log(`Profile:  already registered (${existing.status ?? 'ok'})`);
+    return;
+  } catch {
+    // not found under that type; try to create
+  }
   if (dryRun) {
     console.log('Profile:  would register the role as an IAM_ROLE domain user');
-  } else {
+    return;
+  }
+  try {
     aws(
       'datazone',
       'create-user-profile',
@@ -133,8 +143,16 @@ try {
       arn
     );
     console.log('Profile:  registered the role as an IAM_ROLE domain user');
+  } catch (error) {
+    const text = `${error.stderr ?? ''}${error.message ?? ''}`;
+    if (/already exists|ConflictException/i.test(text)) {
+      console.log('Profile:  already registered');
+      return;
+    }
+    throw error;
   }
 }
+registerProfile();
 
 // 2. project memberships
 const projects = listProjects();
