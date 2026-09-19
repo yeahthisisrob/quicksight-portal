@@ -144,6 +144,11 @@ size when it has a KPI band. Each part can be switched off (`textBoxes`,
 template, so a migration to new datasets and a new layout is one request;
 `ops` run after it, so the planner's edits still apply.
 
+Cross-dataset filters are checked on every preview and apply: a filter
+group scoped to all datasets applies by column name, so a dataset that
+lacks the column is skipped silently by QuickSight. The response's
+`warnings` names each such dataset, before anything is written.
+
 Type rules ride the same request, applied to every visual at once:
 
 ```json

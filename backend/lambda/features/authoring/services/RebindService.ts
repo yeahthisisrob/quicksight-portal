@@ -31,6 +31,7 @@ import { ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
 import { normalizePermissionsArray } from '../../../shared/utils/permissions';
 import { resolveColumns, type TargetColumn } from '../lib/columnResolution';
+import { crossDatasetFilterColumns, crossDatasetFilterWarnings } from '../lib/crossDatasetFilters';
 import { collectDefinitionDatasets } from '../lib/definitionColumns';
 import { applyOps, type DefinitionChange, type DefinitionOp } from '../lib/definitionOps';
 import { buildOutline } from '../lib/definitionOutline';
@@ -153,12 +154,13 @@ export class RebindService {
       template,
       currentColumns
     );
+    const allWarnings = [...warnings, ...(await this.crossDatasetWarnings(definition, plan))];
     return {
       plan,
       definition,
       changes: [...repaired.changes, ...changes],
       outline: buildOutline(definition),
-      ...(warnings.length ? { warnings } : {}),
+      ...(allWarnings.length ? { warnings: allWarnings } : {}),
       ...(themeArn ? { themeArn } : {}),
     };
   }
@@ -176,18 +178,7 @@ export class RebindService {
       return null;
     }
     const loaded = await this.loadDefinition(request.assetType, request.assetId);
-    const columnsByIdentifier = new Map<string, Set<string>>();
-    const rebound = new Map(plan.datasets.map((d) => [d.identifier, d.target.dataSetId]));
-    for (const dataset of collectDefinitionDatasets(definition)) {
-      const dataSetId = rebound.get(dataset.identifier) ?? dataset.dataSetId;
-      try {
-        const columns = await this.loadTargetDataset(dataSetId);
-        columnsByIdentifier.set(dataset.identifier, new Set(columns.columns.map((c) => c.name)));
-      } catch {
-        // Unreadable dataset: the columns the definition already reads are all we know.
-        columnsByIdentifier.set(dataset.identifier, new Set(dataset.columns.map((c) => c.name)));
-      }
-    }
+    const columnsByIdentifier = await this.columnsByIdentifier(definition, plan);
     return {
       request,
       definition: loaded.definition,
@@ -262,6 +253,40 @@ export class RebindService {
       }
     }
     return out;
+  }
+
+  /** What every declared dataset has after the plan's rebinds, by identifier. */
+  private async columnsByIdentifier(
+    definition: Record<string, any>,
+    plan: RebindPlan
+  ): Promise<Map<string, Set<string>>> {
+    const columnsByIdentifier = new Map<string, Set<string>>();
+    const rebound = new Map(plan.datasets.map((d) => [d.identifier, d.target.dataSetId]));
+    for (const dataset of collectDefinitionDatasets(definition)) {
+      const dataSetId = rebound.get(dataset.identifier) ?? dataset.dataSetId;
+      try {
+        const columns = await this.loadTargetDataset(dataSetId);
+        columnsByIdentifier.set(dataset.identifier, new Set(columns.columns.map((c) => c.name)));
+      } catch {
+        // Unreadable dataset: the columns the definition already reads are all we know.
+        columnsByIdentifier.set(dataset.identifier, new Set(dataset.columns.map((c) => c.name)));
+      }
+    }
+    return columnsByIdentifier;
+  }
+
+  /**
+   * Cross-dataset filters apply by column name and skip datasets without
+   * the column silently; say so whenever the result has any.
+   */
+  private async crossDatasetWarnings(
+    definition: Record<string, any>,
+    plan: RebindPlan
+  ): Promise<string[]> {
+    if (crossDatasetFilterColumns(definition).length === 0) {
+      return [];
+    }
+    return crossDatasetFilterWarnings(definition, await this.columnsByIdentifier(definition, plan));
   }
 
   /** Repairs run on the loaded definition, before anything is planned. */
@@ -456,6 +481,10 @@ export class RebindService {
     const rewritten = this.rewrite(loaded.definition, plan, request, template, currentColumns);
     const definition = rewritten.definition;
     const changes = [...repaired.changes, ...rewritten.changes];
+    const applyWarnings = [
+      ...rewritten.warnings,
+      ...(await this.crossDatasetWarnings(definition, plan)),
+    ];
     const target: LoadedDefinition = rewritten.themeArn
       ? { ...loaded, themeArn: rewritten.themeArn }
       : loaded;
@@ -505,7 +534,7 @@ export class RebindService {
       plan,
       changes,
       folderId,
-      ...(rewritten.warnings.length ? { warnings: rewritten.warnings } : {}),
+      ...(applyWarnings.length ? { warnings: applyWarnings } : {}),
     };
   }
 
