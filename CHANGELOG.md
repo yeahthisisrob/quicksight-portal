@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.5.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.4.2...v2.5.0) (2026-09-19)
+
+
+### Features
+
+* **smus:** SMUS export job and snapshot; Operations page on the design system; asset table column order ([#142](https://github.com/yeahthisisrob/quicksight-portal/issues/142)) ([40113cf](https://github.com/yeahthisisrob/quicksight-portal/commit/40113cf0d3f9c8d89d985e5fe52e780454b3119e))
+
+
+### Bug Fixes
+
+* **smus:** the export job carries the resolved SMUS config, and the projects picker is live again ([#144](https://github.com/yeahthisisrob/quicksight-portal/issues/144)) ([c3d4d45](https://github.com/yeahthisisrob/quicksight-portal/commit/c3d4d45d6a18676f4974d258990dbc0d625a50cd))
+
 ## [2.4.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.4.1...v2.4.2) (2026-09-19)
 
 
