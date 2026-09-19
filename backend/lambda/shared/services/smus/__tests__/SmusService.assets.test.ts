@@ -51,19 +51,38 @@ const config = (over: Partial<any> = {}) => ({
   ...over,
 });
 
+const EXPORTED_AT = '2026-09-18T12:00:00.000Z';
+
+/** The snapshot the export job would have written for dzd_1. */
+const snapshot = (over: Partial<any> = {}) => ({
+  version: 1,
+  domainId: 'dzd_1',
+  region: 'us-east-1',
+  exportedAt: EXPORTED_AT,
+  projectFilter: [],
+  projects: [
+    { id: 'proj-published-prod', name: 'published_prod' },
+    { id: 'proj-medallion-prod', name: 'medallion_prod' },
+  ],
+  listings: LISTINGS,
+  diagnostics: {
+    domainId: 'dzd_1',
+    region: 'us-east-1',
+    fromListProjects: 2,
+    listings: LISTINGS.length,
+    publishers: 2,
+  },
+  ...over,
+});
+
 describe('SmusService assets', () => {
-  const adapter = { listAllListings: vi.fn(), listProjects: vi.fn() };
-  const cache = { getAllDatasets: vi.fn(), getCacheEntries: vi.fn() };
+  const cache = { get: vi.fn(), getAllDatasets: vi.fn(), getCacheEntries: vi.fn() };
   const qs = { createDataSet: vi.fn(), describeDatasetPermissions: vi.fn() };
 
   beforeEach(() => {
     vi.clearAllMocks();
     SmusService.invalidateLinkMap();
-    adapter.listAllListings.mockResolvedValue(LISTINGS);
-    adapter.listProjects.mockResolvedValue([
-      { id: 'proj-published-prod', name: 'published_prod' },
-      { id: 'proj-medallion-prod', name: 'medallion_prod' },
-    ]);
+    cache.get.mockResolvedValue(snapshot());
     cache.getAllDatasets.mockResolvedValue([
       {
         assetId: 'ds-cust',
@@ -91,7 +110,7 @@ describe('SmusService assets', () => {
   });
 
   const service = (over: Partial<any> = {}) =>
-    new SmusService(cache as any, adapter as any, config(over), qs as any);
+    new SmusService(cache as any, config(over), qs as any);
 
   it('lists every published asset with its project, table and the datasets already reading it', async () => {
     const result = await service().listAssets();
@@ -105,7 +124,8 @@ describe('SmusService assets', () => {
       datasets: [{ id: 'ds-cust', name: 'Customers (gold)', matchType: 'source-table' }],
     });
     // One sweep shared by the listing and the link map
-    expect(adapter.listAllListings).toHaveBeenCalledTimes(1);
+    expect(result.exportedAt).toBe(EXPORTED_AT);
+    expect(cache.get).toHaveBeenCalledWith('cache/smus/snapshot.json');
   });
 
   it('limits to the selected projects and database patterns, and searches', async () => {
@@ -124,11 +144,28 @@ describe('SmusService assets', () => {
   it('reports not configured without a domain', async () => {
     const result = await new SmusService(
       cache as any,
-      null,
       config({ enabled: false }),
       qs as any
     ).listAssets();
-    expect(result).toEqual({ configured: false, projectFilter: [], assets: [] });
+    expect(result).toEqual({ configured: false, projectFilter: [], assets: [], exportedAt: null });
+  });
+
+  it('is empty with exportedAt null until an export has run', async () => {
+    cache.get.mockResolvedValue(null);
+    const result = await service({ projectIds: ['proj-published-prod'] }).listAssets();
+    expect(result).toEqual({
+      configured: true,
+      projectFilter: ['proj-published-prod'],
+      assets: [],
+      exportedAt: null,
+    });
+  });
+
+  it('ignores a snapshot taken for another domain', async () => {
+    cache.get.mockResolvedValue(snapshot({ domainId: 'dzd_other' }));
+    const result = await service().listAssets();
+    expect(result.assets).toEqual([]);
+    expect(result.exportedAt).toBeNull();
   });
 
   it('creates a relational dataset over the listing table with mapped column types and copied permissions', async () => {
@@ -211,26 +248,36 @@ describe('helpers', () => {
 });
 
 describe('SmusService projects', () => {
-  it('unions the projects ListProjects returns with every publisher seen in the catalog', async () => {
-    const adapter = {
-      listAllListings: vi.fn().mockResolvedValue(LISTINGS),
-      listProjects: vi.fn().mockResolvedValue([]),
-      getProject: vi.fn(async (_d: string, id: string) =>
-        id === 'proj-published-prod' ? { id, name: 'published_prod' } : null
-      ),
-    };
-    const cache = { getAllDatasets: vi.fn().mockResolvedValue([]), getCacheEntries: vi.fn() };
-    SmusService.invalidateLinkMap();
-    const service = new SmusService(cache as any, adapter as any, config(), null);
+  const cache = {
+    get: vi.fn(),
+    getAllDatasets: vi.fn().mockResolvedValue([]),
+    getCacheEntries: vi.fn(),
+  };
 
-    const projects = await service.listProjects();
+  it('serves the projects and diagnostics the export captured, with its timestamp', async () => {
+    cache.get.mockResolvedValue(snapshot());
+    const service = new SmusService(cache as any, config(), null);
 
-    // ListProjects gave nothing (service roles are members of no project),
-    // yet both publishers are offered, one named by GetProject, one by id.
-    expect(projects).toEqual([
-      { id: 'proj-medallion-prod', name: 'proj-medallion-prod' },
-      { id: 'proj-published-prod', name: 'published_prod' },
-    ]);
-    expect(adapter.getProject).toHaveBeenCalledTimes(2);
+    expect(await service.listProjects()).toEqual(snapshot().projects);
+    const discovery = await service.projectDiscovery();
+    expect(discovery.exportedAt).toBe(EXPORTED_AT);
+    expect(discovery.diagnostics).toMatchObject({ fromListProjects: 2, publishers: 2 });
+
+    const status = await service.getStatus();
+    expect(status).toMatchObject({
+      configured: true,
+      domainId: 'dzd_1',
+      region: 'us-east-1',
+      snapshot: { exportedAt: EXPORTED_AT, projects: 2, listings: LISTINGS.length, publishers: 2 },
+    });
+  });
+
+  it('has no projects, diagnostics or snapshot before the first export', async () => {
+    cache.get.mockResolvedValue(null);
+    const service = new SmusService(cache as any, config(), null);
+
+    expect(await service.listProjects()).toEqual([]);
+    expect(await service.projectDiscovery()).toEqual({ projects: [], exportedAt: null });
+    expect(await service.getStatus()).not.toHaveProperty('snapshot');
   });
 });

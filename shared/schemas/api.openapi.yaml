@@ -4856,6 +4856,9 @@ components:
         profileStatus:
           type: string
           description: The role's user profile status in the domain, or 'not found'.
+        listingsFallback:
+          type: string
+          description: Set when the per-project listing filter was refused and the domain was swept instead.
 
     SmusProject:
       type: object
@@ -5799,11 +5802,16 @@ components:
     SmusSnapshotSummary:
       type: object
       description: What the last SMUS export captured, for the Operations page and empty states.
-      required: [exportedAt, projects, listings, publishers]
+      required: [exportedAt, projectFilter, projects, listings, publishers]
       properties:
         exportedAt:
           type: string
           format: date-time
+        projectFilter:
+          type: array
+          description: The project ids the listings were limited to; empty means the whole domain.
+          items:
+            type: string
         domainId:
           type: string
         region:

@@ -4717,6 +4717,8 @@ export interface components {
             roleArn?: string;
             /** @description The role's user profile status in the domain, or 'not found'. */
             profileStatus?: string;
+            /** @description Set when the per-project listing filter was refused and the domain was swept instead. */
+            listingsFallback?: string;
         };
         SmusProject: {
             id: string;
@@ -5220,6 +5222,8 @@ export interface components {
         SmusSnapshotSummary: {
             /** Format: date-time */
             exportedAt: string;
+            /** @description The project ids the listings were limited to; empty means the whole domain. */
+            projectFilter: string[];
             domainId?: string;
             region?: string;
             /** @description Projects in the snapshot (ListProjects unioned with listing publishers). */

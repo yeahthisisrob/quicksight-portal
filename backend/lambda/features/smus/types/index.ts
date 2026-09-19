@@ -1,3 +1,5 @@
+import type { SmusSnapshotSummary } from '../../../shared/services/smus/SmusSnapshot';
+
 /**
  * How a QuickSight dataset was matched to a SMUS catalog listing, in
  * descending confidence: a relational source table (schema.table from the
@@ -10,7 +12,10 @@ export type SmusMatchType = 'source-table' | 'custom-sql' | 'name';
 export interface SmusStatus {
   configured: boolean;
   domainId?: string;
+  region?: string;
   portalUrl?: string;
+  /** The last SMUS export; absent when none has run. */
+  snapshot?: SmusSnapshotSummary;
 }
 
 /** Link resolution for one QuickSight dataset against the SMUS catalog. */
@@ -48,6 +53,8 @@ export interface SmusAssetsResult {
   /** Project ids the sweep was limited to; empty means all. */
   projectFilter: string[];
   assets: SmusAsset[];
+  /** When the snapshot was taken; null when no SMUS export has run. */
+  exportedAt: string | null;
 }
 
 export interface CreateSmusDatasetRequest {

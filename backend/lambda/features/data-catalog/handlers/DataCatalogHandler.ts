@@ -1,6 +1,5 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
-import { DataZoneAdapter } from '../../../adapters/aws/DataZoneAdapter';
 import { requireAuth } from '../../../shared/auth';
 import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { PAGINATION, STATUS_CODES } from '../../../shared/constants';
@@ -641,7 +640,6 @@ export class DataCatalogHandler {
     const config = getSmusConfig();
     const smusService = new SmusService(
       cacheService,
-      config.enabled ? new DataZoneAdapter(config.region) : null,
       config,
       ClientFactory.getQuickSightService(process.env.AWS_ACCOUNT_ID || '')
     );

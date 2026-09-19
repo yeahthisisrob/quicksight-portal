@@ -1,22 +1,16 @@
 /**
- * SmusService — resolves which QuickSight datasets have a corresponding
- * catalog item in the configured SMUS (SageMaker Unified Studio) domain.
+ * SmusService — what the portal knows about the configured SMUS (SageMaker
+ * Unified Studio) domain, and which QuickSight datasets read its listings.
  *
- * Design: SMUS catalog membership is owned by SMUS, so it is never persisted
- * to the portal's S3 cache — every resolution is computed from a live
- * DataZone catalog sweep matched against the *cached* QuickSight dataset
- * metadata (name + source table names from lineage). A short in-memory TTL
- * plus single-flight keeps page renders from hammering the API while staying
- * fresh enough to be truthful.
+ * Design: everything DataZone-side comes from the SMUS snapshot the export
+ * job wrote (see SmusExportService); no page request calls DataZone. The
+ * link map (dataset -> listing, matched on source tables from lineage, then
+ * custom SQL, then name) is derived from that snapshot plus the cached
+ * dataset metadata, with a short in-memory TTL and single-flight.
  */
 import { randomUUID } from 'node:crypto';
 
-import type {
-  CatalogListing,
-  CatalogProject,
-  DataZoneAdapter,
-} from '../../../adapters/aws/DataZoneAdapter';
-import type { StsAdapter } from '../../../adapters/aws/StsAdapter';
+import type { CatalogListing, CatalogProject } from '../../../adapters/aws/DataZoneAdapter';
 import type {
   CreateSmusDatasetRequest,
   SmusAsset,
@@ -34,17 +28,17 @@ import { AssetStatusFilter } from '../../types/assetFilterTypes';
 import { ASSET_TYPES } from '../../types/assetTypes';
 import { logger } from '../../utils/logger';
 import { normalizePermissionsArray } from '../../utils/permissions';
-import { withTimeout } from '../../utils/withTimeout';
+import {
+  SMUS_SNAPSHOT_KEY,
+  type SmusExportDiagnostics,
+  type SmusSnapshot,
+  type SmusSnapshotSummary,
+  snapshotMatches,
+  summarizeSnapshot,
+} from './SmusSnapshot';
 
 /** Link map freshness window — catalog membership changes slowly. */
 const LINK_MAP_TTL_MS = CACHE_TTL.SHORT;
-/**
- * Discovery runs behind a 30-second API gateway window. Each upstream call
- * gets its own bound so a hung one is reported by name instead of the whole
- * request dying with no body.
- */
-const DISCOVERY_CALL_TIMEOUT_MS = 12_000;
-const CALLER_LOOKUP_TIMEOUT_MS = 6_000;
 
 interface LinkMapCacheEntry {
   expiresAt: number;
@@ -90,60 +84,40 @@ export function toQuickSightColumnType(sourceType: string): string {
   return 'STRING';
 }
 
-export interface ProjectDiscoveryDiagnostics {
-  domainId: string;
-  region: string;
-  fromListProjects: number;
-  listings: number;
-  publishers: number;
-  listProjectsError?: string;
-  listingsError?: string;
-  /** The principal DataZone saw, from STS (an assumed-role session ARN in Lambda). */
-  callerArn?: string;
-  /** The IAM role behind that session: what smus-grant and the SMUS console register. */
-  roleArn?: string;
-  /** The role's domain user profile status, or 'not found' when DataZone has none for it. */
-  profileStatus?: string;
-}
-
-/** arn:aws:sts::123:assumed-role/Name/session -> arn:aws:iam::123:role/Name */
-export function roleArnFromCaller(callerArn: string): string {
-  const match = /^arn:([^:]+):sts::(\d+):assumed-role\/([^/]+)\//.exec(callerArn);
-  return match ? `arn:${match[1]}:iam::${match[2]}:role/${match[3]}` : callerArn;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-}
-
-interface SweepCacheEntry<T> {
-  expiresAt: number;
-  promise: Promise<T>;
-}
+/** Kept as a name for the settings handler; the export job produces it. */
+export type ProjectDiscoveryDiagnostics = SmusExportDiagnostics;
 
 export class SmusService {
-  /** Container-scoped cache so warm Lambda invocations share one sweep. */
+  /** Container-scoped cache so warm Lambda invocations share one link map. */
   private static linkMapCache: LinkMapCacheEntry | null = null;
-  private static listingsCache: SweepCacheEntry<CatalogListing[]> | null = null;
-  private static projectsCache: SweepCacheEntry<CatalogProject[]> | null = null;
 
-  /** Clear the container-scoped link map (test hook / forced refresh). */
+  /** Clear the container-scoped link map (test hook / after an export). */
   public static invalidateLinkMap(): void {
     SmusService.linkMapCache = null;
-    SmusService.listingsCache = null;
-    SmusService.projectsCache = null;
   }
 
   private readonly config: SmusConfig;
 
   public constructor(
     private readonly cacheService: CacheService,
-    private readonly dataZoneAdapter: DataZoneAdapter | null,
     config?: SmusConfig,
-    private readonly quickSightService: QuickSightService | null = null,
-    private readonly stsAdapter: StsAdapter | null = null
+    private readonly quickSightService: QuickSightService | null = null
   ) {
     this.config = config ?? getSmusConfig();
+  }
+
+  /** The last SMUS export for this domain, or null when none has run. */
+  public async getSnapshot(): Promise<SmusSnapshot | null> {
+    if (!this.config.enabled) {
+      return null;
+    }
+    const snapshot = await this.cacheService.get<SmusSnapshot>(SMUS_SNAPSHOT_KEY);
+    return snapshotMatches(snapshot, this.config.domainId) ? snapshot : null;
+  }
+
+  public async getSnapshotSummary(): Promise<SmusSnapshotSummary | null> {
+    const snapshot = await this.getSnapshot();
+    return snapshot ? summarizeSnapshot(snapshot) : null;
   }
 
   /**
@@ -152,16 +126,24 @@ export class SmusService {
    * picked, not recreated.
    */
   public async listAssets(search?: string): Promise<SmusAssetsResult> {
-    if (!this.config.enabled || !this.dataZoneAdapter) {
-      return { configured: false, projectFilter: [], assets: [] };
+    if (!this.config.enabled) {
+      return { configured: false, projectFilter: [], assets: [], exportedAt: null };
+    }
+    const snapshot = await this.getSnapshot();
+    if (!snapshot) {
+      return {
+        configured: true,
+        projectFilter: [...this.config.projectIds],
+        assets: [],
+        exportedAt: null,
+      };
     }
 
-    const [listings, projects, linkMap, datasets] = await Promise.all([
-      this.getListings(),
-      this.getProjects(),
+    const [linkMap, datasets] = await Promise.all([
       this.getLinkMap(),
       this.cacheService.getAllDatasets(),
     ]);
+    const { listings, projects } = snapshot;
 
     const projectNames = new Map(projects.map((p) => [p.id, p.name]));
     const datasetNames = new Map<string, string>(
@@ -220,7 +202,12 @@ export class SmusService {
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
-    return { configured: true, projectFilter: [...projectFilter], assets };
+    return {
+      configured: true,
+      projectFilter: [...projectFilter],
+      assets,
+      exportedAt: snapshot.exportedAt,
+    };
   }
 
   /**
@@ -232,10 +219,12 @@ export class SmusService {
     listingId: string,
     request: CreateSmusDatasetRequest
   ): Promise<{ dataSetId: string; name: string; arn: string }> {
-    if (!this.config.enabled || !this.dataZoneAdapter || !this.quickSightService) {
+    if (!this.config.enabled || !this.quickSightService) {
       throw new ValidationError('SMUS is not configured');
     }
-    const listing = (await this.getListings()).find((l) => l.listingId === listingId);
+    const listing = ((await this.getSnapshot())?.listings ?? []).find(
+      (l) => l.listingId === listingId
+    );
     if (!listing) {
       throw new ValidationError(`No published asset with listing id '${listingId}'`);
     }
@@ -302,160 +291,29 @@ export class SmusService {
     return { dataSetId: created.dataSetId, name, arn: created.arn };
   }
 
-  private getListings(): Promise<CatalogListing[]> {
-    return this.sweep(
-      () => SmusService.listingsCache,
-      (entry) => {
-        SmusService.listingsCache = entry;
-      },
-      () => this.dataZoneAdapter!.listAllListings(this.config.domainId)
-    );
-  }
-
-  /**
-   * The projects the portal can read from: the ones ListProjects returns for
-   * the portal's role, plus every project that has published a listing.
-   * ListProjects is scoped to the caller's memberships, so for a service role
-   * it is often empty while the catalog is not; the publishers are the set
-   * that matters for choosing datasets anyway.
-   */
+  /** Projects in the last export: ListProjects unioned with the listing publishers. */
   public async listProjects(): Promise<CatalogProject[]> {
-    if (!this.config.enabled || !this.dataZoneAdapter) {
-      return [];
-    }
-    return await this.getProjects();
+    return (await this.getSnapshot())?.projects ?? [];
   }
 
   /**
-   * The project list plus how it was found, so an empty picker can say why:
-   * a Lambda role that belongs to no project gets nothing from ListProjects,
-   * and a domain with no published listings has no publishers to fall back on.
-   * Always a fresh sweep (this is the Settings diagnostics path), and it
-   * refreshes the container cache so the next catalog request agrees.
+   * The project list plus how the export found it, so an empty picker can say
+   * why. Entirely from the snapshot: no DataZone call on a page request.
    */
   public async projectDiscovery(): Promise<{
     projects: CatalogProject[];
-    diagnostics: ProjectDiscoveryDiagnostics;
+    diagnostics?: ProjectDiscoveryDiagnostics;
+    exportedAt: string | null;
   }> {
-    const diagnostics: ProjectDiscoveryDiagnostics = {
-      domainId: this.config.domainId,
-      region: this.config.region,
-      fromListProjects: 0,
-      listings: 0,
-      publishers: 0,
+    const snapshot = await this.getSnapshot();
+    if (!snapshot) {
+      return { projects: [], exportedAt: null };
+    }
+    return {
+      projects: snapshot.projects,
+      diagnostics: snapshot.diagnostics,
+      exportedAt: snapshot.exportedAt,
     };
-    if (!this.config.enabled || !this.dataZoneAdapter) {
-      return { projects: [], diagnostics };
-    }
-    const adapter = this.dataZoneAdapter;
-    SmusService.listingsCache = null;
-    logger.info('SMUS project discovery started', {
-      domainId: this.config.domainId,
-      region: this.config.region,
-    });
-    const [listed, listings] = await Promise.all([
-      withTimeout(
-        adapter.listProjects(this.config.domainId),
-        DISCOVERY_CALL_TIMEOUT_MS,
-        'ListProjects'
-      ).catch((error) => {
-        diagnostics.listProjectsError = errorMessage(error);
-        return [] as CatalogProject[];
-      }),
-      withTimeout(this.getListings(), DISCOVERY_CALL_TIMEOUT_MS, 'SearchListings').catch(
-        (error) => {
-          SmusService.listingsCache = null;
-          diagnostics.listingsError = errorMessage(error);
-          return [] as CatalogListing[];
-        }
-      ),
-      withTimeout(this.describeCaller(diagnostics), CALLER_LOOKUP_TIMEOUT_MS, 'caller').catch(
-        (error) => {
-          logger.warn('Could not describe the caller for SMUS diagnostics', { error });
-        }
-      ),
-    ]);
-    diagnostics.fromListProjects = listed.length;
-    diagnostics.listings = listings.length;
-    diagnostics.publishers = new Set(listings.map((l) => l.owningProjectId).filter(Boolean)).size;
-    if (diagnostics.listProjectsError || diagnostics.listingsError) {
-      return { projects: listed, diagnostics };
-    }
-    const promise = this.discoverProjects();
-    SmusService.projectsCache = { expiresAt: Date.now() + LINK_MAP_TTL_MS, promise };
-    return { projects: await promise, diagnostics };
-  }
-
-  /** Name the principal DataZone saw and whether the domain knows it. */
-  private async describeCaller(diagnostics: ProjectDiscoveryDiagnostics): Promise<void> {
-    if (!this.stsAdapter || !this.dataZoneAdapter) {
-      return;
-    }
-    try {
-      const identity = await this.stsAdapter.getCallerIdentity();
-      diagnostics.callerArn = identity.arn;
-      diagnostics.roleArn = roleArnFromCaller(identity.arn);
-      const profile = await this.dataZoneAdapter.getIamRoleProfile(
-        this.config.domainId,
-        diagnostics.roleArn
-      );
-      diagnostics.profileStatus = profile?.status ?? 'not found';
-    } catch (error) {
-      logger.warn('Could not describe the caller for SMUS diagnostics', { error });
-    }
-  }
-
-  private getProjects(): Promise<CatalogProject[]> {
-    return this.sweep(
-      () => SmusService.projectsCache,
-      (entry) => {
-        SmusService.projectsCache = entry;
-      },
-      () => this.discoverProjects()
-    );
-  }
-
-  private async discoverProjects(): Promise<CatalogProject[]> {
-    const adapter = this.dataZoneAdapter!;
-    const [listed, listings] = await Promise.all([
-      adapter.listProjects(this.config.domainId),
-      this.getListings(),
-    ]);
-    const byId = new Map(listed.map((p) => [p.id, p]));
-    const publishers = [
-      ...new Set(listings.map((l) => l.owningProjectId).filter(Boolean)),
-    ] as string[];
-    const unnamed = publishers.filter((id) => !byId.has(id));
-    const fetched = await Promise.all(
-      unnamed.map((id) => adapter.getProject(this.config.domainId, id))
-    );
-    unnamed.forEach((id, i) => {
-      byId.set(id, fetched[i] ?? { id, name: id });
-    });
-    logger.info('SMUS projects discovered', {
-      fromListProjects: listed.length,
-      fromListings: publishers.length,
-      total: byId.size,
-    });
-    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }
-
-  /** TTL + single-flight for one catalog sweep; failures are not cached. */
-  private sweep<T>(
-    read: () => SweepCacheEntry<T> | null,
-    write: (entry: SweepCacheEntry<T> | null) => void,
-    run: () => Promise<T>
-  ): Promise<T> {
-    const cached = read();
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.promise;
-    }
-    const promise = run().catch((error) => {
-      write(null);
-      throw error;
-    });
-    write({ expiresAt: Date.now() + LINK_MAP_TTL_MS, promise });
-    return promise;
   }
 
   /**
@@ -492,14 +350,17 @@ export class SmusService {
     return promise;
   }
 
-  public getStatus(): SmusStatus {
+  public async getStatus(): Promise<SmusStatus> {
     if (!this.config.enabled) {
       return { configured: false };
     }
+    const snapshot = await this.getSnapshotSummary();
     return {
       configured: true,
       domainId: this.config.domainId,
+      region: this.config.region,
       portalUrl: this.config.portalUrl,
+      ...(snapshot ? { snapshot } : {}),
     };
   }
 
@@ -520,14 +381,11 @@ export class SmusService {
   }
 
   private async buildLinkMap(): Promise<Map<string, SmusDatasetLink>> {
-    if (!this.dataZoneAdapter) {
-      throw new Error('SMUS integration is not configured');
-    }
-
-    const [listings, datasets] = await Promise.all([
-      this.getListings(),
+    const [snapshot, datasets] = await Promise.all([
+      this.getSnapshot(),
       this.cacheService.getAllDatasets(),
     ]);
+    const listings = snapshot?.listings ?? [];
 
     const listingsByName = new Map<string, CatalogListing>();
     for (const listing of listings) {
