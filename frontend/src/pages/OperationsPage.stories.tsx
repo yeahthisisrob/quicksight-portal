@@ -1,10 +1,21 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
+import { exportRoutes } from '@/features/data-export/ui/__stories__/routes';
+import {
+  STATUS_EXPORTED,
+  STATUS_NEVER_EXPORTED,
+  STATUS_NOT_CONFIGURED,
+  smusExportRoutes,
+} from '@/features/smus/ui/__stories__/fixtures';
+
 import { AppShell } from '../../.storybook/mocks/AppShell';
 import OperationsPage from './OperationsPage';
 import { archivedRoutes, ITEMS } from './OperationsPage/__stories__/fixtures';
 
-/** The Operations page in the app shell: Export, Archived assets and Scripts as tabs. */
+/**
+ * The Operations page in the app shell, API stubbed: the QuickSight export,
+ * the SageMaker Unified Studio export, archived assets and scripts as tabs.
+ */
 const meta: Meta<typeof OperationsPage> = {
   title: 'Pages/Operations',
   component: OperationsPage,
@@ -13,6 +24,54 @@ const meta: Meta<typeof OperationsPage> = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+export const Export: Story = {
+  parameters: { router: { initialEntries: ['/operations'] } },
+  render: () => (
+    <AppShell path="operations" routes={exportRoutes()}>
+      <OperationsPage />
+    </AppShell>
+  ),
+};
+
+export const ExportRunning: Story = {
+  parameters: { router: { initialEntries: ['/operations'] } },
+  render: () => (
+    <AppShell path="operations" routes={exportRoutes({ running: true })}>
+      <OperationsPage />
+    </AppShell>
+  ),
+};
+
+export const Smus: Story = {
+  name: 'SMUS: exported',
+  parameters: { router: { initialEntries: ['/operations?tab=smus'] } },
+  render: () => (
+    <AppShell path="operations" routes={smusExportRoutes(STATUS_EXPORTED)}>
+      <OperationsPage />
+    </AppShell>
+  ),
+};
+
+export const SmusNeverExported: Story = {
+  name: 'SMUS: no export yet',
+  parameters: { router: { initialEntries: ['/operations?tab=smus'] } },
+  render: () => (
+    <AppShell path="operations" routes={smusExportRoutes(STATUS_NEVER_EXPORTED)}>
+      <OperationsPage />
+    </AppShell>
+  ),
+};
+
+export const SmusNotConfigured: Story = {
+  name: 'SMUS: not configured',
+  parameters: { router: { initialEntries: ['/operations?tab=smus'] } },
+  render: () => (
+    <AppShell path="operations" routes={smusExportRoutes(STATUS_NOT_CONFIGURED)}>
+      <OperationsPage />
+    </AppShell>
+  ),
+};
 
 export const ArchivedAssets: Story = {
   parameters: { router: { initialEntries: ['/operations?tab=archived'] } },

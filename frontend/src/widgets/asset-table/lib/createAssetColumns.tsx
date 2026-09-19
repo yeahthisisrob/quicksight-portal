@@ -2,6 +2,7 @@ import { Tooltip, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 
 import { generateBaseColumns } from './baseColumns';
+import { orderColumns } from './columnOrder';
 import {
   generateDatasetColumns,
   generateFolderColumns,
@@ -228,8 +229,8 @@ export const createAssetColumns = (
   // Add relationship columns if needed
   const relationshipColumns = getRelationshipColumns(assetType, handlers);
 
-  // Merge columns with proper ordering
-  return placeHealthAfterActivity(mergeColumns(baseColumns, specificColumns, relationshipColumns, assetType));
+  // One stated order per type; see columnOrder.ts.
+  return orderColumns(assetType, [...baseColumns, ...specificColumns, ...relationshipColumns]);
 };
 
 /**
@@ -281,105 +282,3 @@ function getRelationshipColumns(
   return columns;
 }
 
-/**
- * Merge columns with proper ordering
- */
-function mergeColumns(
-  baseColumns: ColumnConfig[],
-  specificColumns: ColumnConfig[],
-  relationshipColumns: ColumnConfig[],
-  assetType: string
-): ColumnConfig[] {
-  // Special handling for groups - insert description right after name
-  if (assetType === 'group') {
-    const nameIndex = baseColumns.findIndex(col => col.id === 'name');
-    if (nameIndex !== -1) {
-      const descriptionColumn = specificColumns.find(col => col.id === 'description');
-      const otherColumns = specificColumns.filter(col => col.id !== 'description');
-      
-      if (descriptionColumn) {
-        baseColumns.splice(nameIndex + 1, 0, descriptionColumn);
-      }
-      
-      // Add relationship columns
-      baseColumns.push(...relationshipColumns);
-      
-      // Add other group columns at the end
-      if (otherColumns.length > 0) {
-        baseColumns.push(...otherColumns);
-      }
-      
-      return baseColumns;
-    }
-  }
-
-  // For users, move tags to end (after role)
-  if (assetType === 'user') {
-    const tagsIndex = baseColumns.findIndex(col => col.id === 'tags');
-    const tagsColumn = tagsIndex !== -1 ? baseColumns.splice(tagsIndex, 1)[0] : null;
-
-    baseColumns.push(...relationshipColumns, ...specificColumns);
-
-    if (tagsColumn) {
-      baseColumns.push(tagsColumn);
-    }
-
-    return baseColumns;
-  }
-
-  // Find the position to insert specific columns
-  let insertIndex = -1;
-
-  // Find the position after 'tags' column
-  const tagsIndex = baseColumns.findIndex(col => col.id === 'tags');
-  if (tagsIndex !== -1) {
-    insertIndex = tagsIndex + 1;
-  }
-
-  // Activity leads the post-tags block: tags, activity, used by/uses, then
-  // the remaining type-specific columns.
-  const activityIndex = specificColumns.findIndex(col => col.id === 'activity');
-  const activityColumn = activityIndex !== -1 ? specificColumns.splice(activityIndex, 1)[0] : null;
-  if (activityColumn) {
-    if (insertIndex !== -1) {
-      baseColumns.splice(insertIndex, 0, activityColumn);
-      insertIndex += 1;
-    } else {
-      baseColumns.push(activityColumn);
-    }
-  }
-
-  // Then relationship columns
-  if (insertIndex !== -1 && relationshipColumns.length > 0) {
-    baseColumns.splice(insertIndex, 0, ...relationshipColumns);
-    insertIndex += relationshipColumns.length;
-  } else if (relationshipColumns.length > 0) {
-    baseColumns.push(...relationshipColumns);
-  }
-
-  // Then add specific columns
-  if (insertIndex !== -1 && specificColumns.length > 0) {
-    baseColumns.splice(insertIndex, 0, ...specificColumns);
-  } else if (specificColumns.length > 0) {
-    baseColumns.push(...specificColumns);
-  }
-
-  return baseColumns;
-}
-
-/**
- * Health belongs next to Activity, not at the far right: both answer "is
- * this thing used and does it work" at a glance.
- */
-function placeHealthAfterActivity(columns: ColumnConfig[]): ColumnConfig[] {
-  const health = columns.filter((c) => c.id.startsWith('health'));
-  if (health.length === 0) {
-    return columns;
-  }
-  const rest = columns.filter((c) => !c.id.startsWith('health'));
-  const at = rest.findIndex((c) => c.id === 'activity');
-  if (at === -1) {
-    return columns;
-  }
-  return [...rest.slice(0, at + 1), ...health, ...rest.slice(at + 1)];
-}

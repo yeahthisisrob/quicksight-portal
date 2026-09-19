@@ -89,6 +89,12 @@ describe('describeProjectDiagnostics', () => {
     expect(text).not.toContain('no user profile');
   });
 
+  it('says when the per-project filter was refused and the domain swept instead', () => {
+    const text =
+      describeProjectDiagnostics({ ...diagnostics, listingsFallback: 'ValidationException' }) ?? '';
+    expect(text).toContain('Per-project listing filter refused (ValidationException)');
+  });
+
   it('reports the API errors instead of guessing', () => {
     const text =
       describeProjectDiagnostics({

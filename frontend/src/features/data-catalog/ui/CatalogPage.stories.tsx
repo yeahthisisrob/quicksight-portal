@@ -16,7 +16,13 @@ import { TemplateLibraryDialog } from './templates/TemplateLibraryDialog';
  * stubs those at the HTTP layer and lets the real page logic run.
  */
 
-const EMPTY_CATALOG = { projectFilter: [], projects: [], glossaryTerms: [], assets: [] };
+const EMPTY_CATALOG = {
+  exportedAt: '2026-09-18T09:30:00Z',
+  projectFilter: [],
+  projects: [],
+  glossaryTerms: [],
+  assets: [],
+};
 
 /**
  * Installs the stub during render, before the page's own effects fire, and
@@ -102,6 +108,29 @@ export const NotConfigured: Story = {
           url: /\/data-catalog\/smus$/,
           respond: () => ({
             body: { success: true, data: { configured: false, ...EMPTY_CATALOG } },
+          }),
+        },
+      ])}
+      path="/data-catalog"
+    >
+      <CatalogPage />
+    </Mocked>
+  ),
+};
+
+/** Configured, but the SMUS export has never run: the page points at Operations. */
+export const NoExportYet: Story = {
+  render: () => (
+    <Mocked
+      routes={catalogRoutes([
+        {
+          method: 'get',
+          url: /\/data-catalog\/smus$/,
+          respond: () => ({
+            body: {
+              success: true,
+              data: { ...EMPTY_CATALOG, configured: true, exportedAt: null },
+            },
           }),
         },
       ])}

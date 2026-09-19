@@ -1,6 +1,6 @@
-import { alpha, Box, Button, Chip, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, Button, Chip, Stack, Tooltip, Typography } from '@mui/material';
 
-import { spacing } from '@/shared/design-system/theme';
+import { pal } from '@/shared/design-system';
 
 import type { AssetType } from '../../model/types';
 import { assetTypeConfig } from '../constants';
@@ -15,10 +15,9 @@ interface AssetTypeSelectorProps {
 }
 
 /**
- * Compact multi-select for export asset types. Each type renders as a
- * selectable chip (icon + label + optional cached count); the full
- * description lives in the tooltip. Disabled/coming-soon types stay
- * visible but inert.
+ * Which asset types an export covers. Each type is a chip in its asset hue
+ * (icon, label, cached count); the description lives in the tooltip.
+ * Types that cannot be exported yet stay visible but inert.
  */
 export default function AssetTypeSelector({
   selectedTypes,
@@ -28,37 +27,25 @@ export default function AssetTypeSelector({
   counts,
   disabled = false,
 }: AssetTypeSelectorProps) {
-  const selectableTypes = Object.entries(assetTypeConfig).filter(
-    ([, config]) => !(config as any).disabled
-  );
+  const selectableTypes = Object.entries(assetTypeConfig).filter(([, config]) => !config.disabled);
   const allSelected = selectableTypes.every(([assetType]) =>
     selectedTypes.includes(assetType as AssetType)
   );
 
   return (
     <Box>
-      <Stack
-        direction="row"
-        sx={{ alignItems: 'center', justifyContent: 'space-between', mb: spacing.sm / 8 }}
-      >
+      <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
         <Stack sx={{ alignItems: 'center' }} direction="row" spacing={1}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-            Asset Types
+          <Typography variant="subtitle2">Asset types</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {selectedTypes.length} of {selectableTypes.length} selected
           </Typography>
-          <Chip
-            label={`${selectedTypes.length} of ${selectableTypes.length} selected`}
-            size="small"
-            color={selectedTypes.length > 0 ? 'primary' : 'default'}
-            variant="outlined"
-            sx={{ height: 20, fontSize: '0.7rem' }}
-          />
         </Stack>
         <Stack direction="row" spacing={0.5}>
           <Button
             size="small"
             onClick={onSelectAll}
             disabled={disabled || !onSelectAll || allSelected}
-            sx={{ minWidth: 0, textTransform: 'none' }}
           >
             Select all
           </Button>
@@ -66,7 +53,6 @@ export default function AssetTypeSelector({
             size="small"
             onClick={onClearAll}
             disabled={disabled || !onClearAll || selectedTypes.length === 0}
-            sx={{ minWidth: 0, textTransform: 'none' }}
           >
             Clear
           </Button>
@@ -77,16 +63,15 @@ export default function AssetTypeSelector({
         {Object.entries(assetTypeConfig).map(([assetType, config]) => {
           const isSelected = selectedTypes.includes(assetType as AssetType);
           const count = counts?.[assetType as AssetType] || 0;
-          const isAssetDisabled = disabled || (config as any).disabled;
-          const comingSoon = Boolean((config as any).comingSoon);
+          const isAssetDisabled = disabled || Boolean(config.disabled);
           const Icon = config.icon;
 
           const chip = (
             <Chip
               key={assetType}
-              icon={<Icon sx={{ fontSize: 18 }} />}
+              icon={<Icon fontSize="small" />}
               label={
-                comingSoon
+                config.comingSoon
                   ? `${config.label} (soon)`
                   : count > 0
                     ? `${config.label} · ${count.toLocaleString()}`
@@ -96,20 +81,20 @@ export default function AssetTypeSelector({
               disabled={isAssetDisabled}
               onClick={() => !isAssetDisabled && onToggle(assetType as AssetType)}
               variant={isSelected && !isAssetDisabled ? 'filled' : 'outlined'}
-              sx={{
-                height: 32,
-                fontWeight: isSelected ? 600 : 400,
-                ...(isSelected && !isAssetDisabled
-                  ? {
-                      bgcolor: alpha(config.color, 0.12),
-                      color: config.color,
-                      border: `1px solid ${alpha(config.color, 0.5)}`,
-                      '& .MuiChip-icon': { color: config.color },
-                      '&:hover': { bgcolor: alpha(config.color, 0.2) },
-                    }
-                  : {
-                      '& .MuiChip-icon': { color: config.color },
-                    }),
+              sx={(theme) => {
+                const hue = pal(theme).asset[config.hue];
+                return {
+                  fontWeight: isSelected ? 600 : 400,
+                  '& .MuiChip-icon': { color: hue.main },
+                  ...(isSelected && !isAssetDisabled
+                    ? {
+                        bgcolor: hue.subtle,
+                        color: hue.strong,
+                        border: `1px solid ${hue.main}`,
+                        '&:hover': { bgcolor: hue.subtle },
+                      }
+                    : {}),
+                };
               }}
             />
           );

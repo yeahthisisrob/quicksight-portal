@@ -11,6 +11,7 @@ import {
   previewModelFor,
   resolvedDraft,
   SMUS_NOT_CONFIGURED,
+  SMUS_NOT_EXPORTED,
   SOURCE,
   undecidedDraft,
 } from './__stories__/fixtures';
@@ -127,6 +128,15 @@ export const StepTargetsSmusNotConfigured: Story = {
   name: '2 · Datasets, SMUS not configured',
   render: () => (
     <Mocked routes={authorRoutes([SMUS_NOT_CONFIGURED])}>
+      <AuthorStudioView flow={fakeFlow({ step: 'targets' })} />
+    </Mocked>
+  ),
+};
+
+export const StepTargetsSmusNotExported: Story = {
+  name: '2 · Datasets, no SMUS export yet',
+  render: () => (
+    <Mocked routes={authorRoutes([SMUS_NOT_EXPORTED])}>
       <AuthorStudioView flow={fakeFlow({ step: 'targets' })} />
     </Mocked>
   ),

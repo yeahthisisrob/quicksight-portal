@@ -84,7 +84,9 @@ export const SmusNotConfigured: Story = {
         {
           method: 'get',
           url: '/settings/smus/projects',
-          respond: () => ({ body: { success: true, data: { configured: false, projects: [] } } }),
+          respond: () => ({
+            body: { success: true, data: { configured: false, exportedAt: null, projects: [] } },
+          }),
         },
       ])}
     >

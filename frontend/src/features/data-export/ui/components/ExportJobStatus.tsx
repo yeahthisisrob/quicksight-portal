@@ -1,14 +1,7 @@
-import {
-  ErrorOutlined as ErrorIcon,
-  HourglassEmpty as ProcessingIcon,
-  Schedule as QueuedIcon,
-  PauseCircleOutlined as StoppedIcon,
-  CheckCircleOutlined as SuccessIcon,
-} from '@mui/icons-material';
-import { alpha, Box, Card, Chip, LinearProgress, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, Chip, LinearProgress, Stack, Tooltip, Typography } from '@mui/material';
 
 import type { JobStatus } from '@/shared/api/types/export.types';
-import { colors } from '@/shared/design-system/theme';
+import { Container, StatusIndicator, type StatusType } from '@/shared/design-system';
 
 interface ExportJobStatusProps {
   status: JobStatus;
@@ -20,9 +13,9 @@ interface ExportJobStatusProps {
     failedAssets?: number;
     apiCalls?: number;
   };
-  /** Job heartbeat - stamped on every worker write; drives the liveness dot */
+  /** Job heartbeat, stamped on every worker write; drives the liveness line. */
   lastUpdatedTime?: string;
-  /** Resumable-export progress - drives the per-asset-type chips */
+  /** Resumable-export progress, drives the per-asset-type chips. */
   checkpoint?: {
     completedAssetTypes?: string[];
     catalogPending?: boolean;
@@ -30,59 +23,59 @@ interface ExportJobStatusProps {
   jobId?: string | null;
 }
 
-const HEARTBEAT_QUIET_MS = 90 * 1000; // amber: worker hasn't written in a while
-const HEARTBEAT_STALLED_MS = 5 * 60 * 1000; // red: likely dead (auto-fails at 30m)
+const SECOND_MS = 1000;
+const MINUTE_S = 60;
+const HEARTBEAT_QUIET_MS = 90 * SECOND_MS;
+const HEARTBEAT_STALLED_MS = 5 * MINUTE_S * SECOND_MS;
+const PROGRESS_MAX = 100;
+
+const STATUS_TONE: Record<JobStatus, { type: StatusType; label: string }> = {
+  completed: { type: 'success', label: 'Completed' },
+  failed: { type: 'error', label: 'Failed' },
+  stopping: { type: 'warning', label: 'Stopping' },
+  stopped: { type: 'stopped', label: 'Stopped' },
+  processing: { type: 'in-progress', label: 'Processing' },
+  queued: { type: 'pending', label: 'Queued' },
+};
 
 function formatAge(ms: number): string {
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+  const seconds = Math.floor(ms / SECOND_MS);
+  if (seconds < MINUTE_S) return `${seconds}s`;
+  const minutes = Math.floor(seconds / MINUTE_S);
+  if (minutes < MINUTE_S) return `${minutes}m`;
+  return `${Math.floor(minutes / MINUTE_S)}h ${minutes % MINUTE_S}m`;
 }
 
 /**
- * Worker-liveness line for active jobs, derived from the job heartbeat
- * (lastUpdatedTime is stamped on every job write). Re-renders with each
- * status poll, so the age stays fresh at poll granularity.
+ * Whether the worker is still writing, from the job heartbeat. Re-renders
+ * with each status poll, so the age stays fresh at poll granularity.
  */
-function HeartbeatIndicator({ lastUpdatedTime }: { lastUpdatedTime: string }) {
+function Heartbeat({ lastUpdatedTime }: { lastUpdatedTime: string }) {
   const ageMs = Date.now() - new Date(lastUpdatedTime).getTime();
   if (Number.isNaN(ageMs) || ageMs < 0) return null;
 
-  let dotColor = colors.status.success;
-  let text = `Worker active ${formatAge(ageMs)} ago`;
   if (ageMs >= HEARTBEAT_STALLED_MS) {
-    dotColor = colors.status.error;
-    text = `No heartbeat for ${formatAge(ageMs)} — worker may have died (auto-fails after 30m)`;
-  } else if (ageMs >= HEARTBEAT_QUIET_MS) {
-    dotColor = colors.status.warning;
-    text = `Worker quiet for ${formatAge(ageMs)}`;
+    return (
+      <StatusIndicator type="error" size="small">
+        No heartbeat for {formatAge(ageMs)}; the worker may have died (auto-fails after 30m)
+      </StatusIndicator>
+    );
   }
-
+  if (ageMs >= HEARTBEAT_QUIET_MS) {
+    return (
+      <StatusIndicator type="warning" size="small">
+        Worker quiet for {formatAge(ageMs)}
+      </StatusIndicator>
+    );
+  }
   return (
-    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', mt: 1 }}>
-      <Box
-        sx={{
-          width: 8,
-          height: 8,
-          borderRadius: '50%',
-          bgcolor: dotColor,
-          flexShrink: 0,
-        }}
-      />
-      <Typography variant="caption" color="text.secondary">
-        {text}
-      </Typography>
-    </Stack>
+    <StatusIndicator type="success" size="small">
+      Worker active {formatAge(ageMs)} ago
+    </StatusIndicator>
   );
 }
 
-/**
- * Data-driven per-asset-type progress from the export checkpoint (written
- * after each type completes) - no log parsing required. Also surfaces the
- * deferred catalog-rebuild phase of a continuation run.
- */
+/** Per-asset-type progress from the export checkpoint, no log parsing. */
 function CheckpointProgress({
   checkpoint,
   isActive,
@@ -94,86 +87,23 @@ function CheckpointProgress({
   if (completed.length === 0 && !checkpoint.catalogPending) return null;
 
   return (
-    <Stack
-      direction="row"
-      spacing={1}
-      sx={{ alignItems: 'center', mt: 1, flexWrap: 'wrap', rowGap: 0.5 }}
-    >
+    <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 0.5 }}>
       <Typography variant="caption" color="text.secondary">
         Asset types done:
       </Typography>
       {completed.map((type) => (
-        <Chip
-          key={type}
-          icon={<SuccessIcon sx={{ fontSize: 14 }} />}
-          label={type}
-          size="small"
-          variant="outlined"
-          color="success"
-          sx={{ height: 20, fontSize: '0.65rem' }}
-        />
+        <Chip key={type} label={type} size="small" variant="outlined" color="success" />
       ))}
       {checkpoint.catalogPending && isActive && (
-        <Chip
-          label="catalog rebuild pending"
-          size="small"
-          variant="outlined"
-          color="info"
-          sx={{ height: 20, fontSize: '0.65rem' }}
-        />
+        <Chip label="catalog rebuild pending" size="small" variant="outlined" color="info" />
       )}
     </Stack>
   );
 }
 
-const STATUS_CONFIG: Record<
-  JobStatus,
-  {
-    label: string;
-    color: string;
-    chipColor: 'success' | 'error' | 'warning' | 'info' | 'default';
-    icon: React.ElementType;
-  }
-> = {
-  completed: {
-    label: 'Completed',
-    color: colors.status.success,
-    chipColor: 'success',
-    icon: SuccessIcon,
-  },
-  failed: { label: 'Failed', color: colors.status.error, chipColor: 'error', icon: ErrorIcon },
-  stopping: {
-    label: 'Stopping',
-    color: colors.status.warning,
-    chipColor: 'warning',
-    icon: StoppedIcon,
-  },
-  stopped: {
-    label: 'Stopped',
-    color: colors.status.warning,
-    chipColor: 'warning',
-    icon: StoppedIcon,
-  },
-  processing: {
-    label: 'Processing',
-    color: colors.status.info,
-    chipColor: 'info',
-    icon: ProcessingIcon,
-  },
-  queued: { label: 'Queued', color: colors.neutral[500], chipColor: 'default', icon: QueuedIcon },
-};
-
-function StatValue({
-  label,
-  value,
-  emphasize,
-}: {
-  label: string;
-  value: string;
-  emphasize?: boolean;
-}) {
+function Stat({ label, value, emphasize }: { label: string; value: string; emphasize?: boolean }) {
   return (
-    <Typography variant="caption" color={emphasize ? colors.status.error : 'text.secondary'}>
+    <Typography variant="caption" color={emphasize ? 'error' : 'text.secondary'}>
       <Box component="span" sx={{ fontWeight: 600, color: emphasize ? 'inherit' : 'text.primary' }}>
         {value}
       </Box>{' '}
@@ -183,8 +113,8 @@ function StatValue({
 }
 
 /**
- * Live status panel for the current (or a selected historical) export job:
- * status chip, progress bar, message, and processed/failed/API-call stats.
+ * The current (or a selected past) export job: status, progress, message,
+ * processed/failed/API-call counts, checkpoint and worker liveness.
  */
 export default function ExportJobStatus({
   status,
@@ -195,66 +125,52 @@ export default function ExportJobStatus({
   checkpoint,
   jobId,
 }: ExportJobStatusProps) {
-  const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.queued;
-  const StatusIcon = config.icon;
+  const tone = STATUS_TONE[status] ?? STATUS_TONE.queued;
   const isActive = status === 'queued' || status === 'processing' || status === 'stopping';
+  const value = Math.min(progress, PROGRESS_MAX);
 
   return (
-    <Card sx={{ border: `1px solid ${alpha(config.color, 0.3)}` }}>
-      <Box sx={{ px: 2, py: 1.5 }}>
-        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={1.5}>
-          <StatusIcon sx={{ fontSize: 20, color: config.color }} />
+    <Container>
+      <Stack spacing={1.5}>
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
           <Tooltip title={jobId ? `Job ${jobId}` : ''}>
-            <Chip
-              label={config.label}
-              size="small"
-              color={config.chipColor}
-              sx={{ height: 22, fontSize: '0.7rem' }}
-            />
+            <span>
+              <StatusIndicator type={tone.type}>{tone.label}</StatusIndicator>
+            </span>
           </Tooltip>
           <Typography variant="body2" color="text.secondary" noWrap sx={{ flex: 1, minWidth: 0 }}>
-            {message || '—'}
+            {message || ''}
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-            {Math.round(progress)}%
+            {Math.round(value)}%
           </Typography>
         </Stack>
 
         <LinearProgress
-          variant={isActive && progress === 0 ? 'indeterminate' : 'determinate'}
-          value={Math.min(progress, 100)}
-          sx={{
-            mt: 1,
-            height: 6,
-            borderRadius: 3,
-            bgcolor: alpha(config.color, 0.12),
-            '& .MuiLinearProgress-bar': { bgcolor: config.color, borderRadius: 3 },
-          }}
+          variant={isActive && value === 0 ? 'indeterminate' : 'determinate'}
+          value={value}
+          color={tone.type === 'error' ? 'error' : tone.type === 'success' ? 'success' : 'primary'}
         />
 
         {stats && (stats.totalAssets !== undefined || stats.processedAssets !== undefined) && (
-          <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
-            <StatValue
+          <Stack direction="row" spacing={2}>
+            <Stat
               label="assets processed"
               value={`${(stats.processedAssets || 0).toLocaleString()} / ${(stats.totalAssets || 0).toLocaleString()}`}
             />
             {(stats.failedAssets || 0) > 0 && (
-              <StatValue
-                label="failed"
-                value={(stats.failedAssets || 0).toLocaleString()}
-                emphasize
-              />
+              <Stat label="failed" value={(stats.failedAssets || 0).toLocaleString()} emphasize />
             )}
             {stats.apiCalls !== undefined && (
-              <StatValue label="API calls" value={stats.apiCalls.toLocaleString()} />
+              <Stat label="API calls" value={stats.apiCalls.toLocaleString()} />
             )}
           </Stack>
         )}
 
         {checkpoint && <CheckpointProgress checkpoint={checkpoint} isActive={isActive} />}
 
-        {isActive && lastUpdatedTime && <HeartbeatIndicator lastUpdatedTime={lastUpdatedTime} />}
-      </Box>
-    </Card>
+        {isActive && lastUpdatedTime && <Heartbeat lastUpdatedTime={lastUpdatedTime} />}
+      </Stack>
+    </Container>
   );
 }

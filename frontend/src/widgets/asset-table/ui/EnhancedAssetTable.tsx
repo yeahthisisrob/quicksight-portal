@@ -2,6 +2,7 @@ import { Box, Paper } from '@mui/material';
 import {
   DataGrid,
   type GridColDef,
+  type GridColumnVisibilityModel,
   type GridFilterModel,
   type GridPaginationModel,
   type GridRowSelectionModel,
@@ -452,10 +453,26 @@ export default function EnhancedAssetTable({
     return opts.length > 0 ? opts : undefined;
   }, [initialColumns]);
 
-  const { visible: visibleColumnsConfig, visibilityModel: initialColumnVisibilityModel } = useMemo(
+  const { visible: visibleColumnsConfig, visibilityModel: defaultVisibilityModel } = useMemo(
     () => buildColumnsConfig(initialColumns),
     [initialColumns]
   );
+
+  // The grid's initialState is read once, at mount, but a page's columns can
+  // arrive or change after that (handlers, health columns), which left
+  // hidden-by-default columns showing. The model is controlled instead and
+  // reseeded whenever the set of column ids changes; toggles made by the user
+  // survive re-renders that keep the same columns.
+  const [columnVisibilityModel, setColumnVisibilityModel] =
+    useState<GridColumnVisibilityModel>(defaultVisibilityModel);
+  const columnIds = initialColumns.map((col) => col.id).join('|');
+  const seededFor = useRef(columnIds);
+  useEffect(() => {
+    if (seededFor.current !== columnIds) {
+      seededFor.current = columnIds;
+      setColumnVisibilityModel(defaultVisibilityModel);
+    }
+  }, [columnIds, defaultVisibilityModel]);
 
   const mapSortField = mapFrontendSortField;
 
@@ -688,10 +705,9 @@ export default function EnhancedAssetTable({
               getRowId={resolvedGetRowId}
               slots={{ toolbar: TableToolbar as any }}
               slotProps={{ toolbar: toolbarSlotProps as any }}
+              columnVisibilityModel={columnVisibilityModel}
+              onColumnVisibilityModelChange={setColumnVisibilityModel}
               initialState={{
-                columns: {
-                  columnVisibilityModel: initialColumnVisibilityModel,
-                },
                 // Dense-by-default: data tables start compact; the toolbar
                 // density selector still lets users switch.
                 density: 'compact',

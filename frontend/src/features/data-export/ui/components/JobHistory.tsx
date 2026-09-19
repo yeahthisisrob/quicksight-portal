@@ -1,22 +1,13 @@
 import {
-  ErrorOutlined as ErrorIcon,
-  HistoryOutlined as HistoryIcon,
   DescriptionOutlined as LogsIcon,
-  HourglassEmpty as ProcessingIcon,
-  Schedule as QueuedIcon,
   RefreshOutlined as RefreshIcon,
-  PauseCircleOutlined as StoppedIcon,
-  CheckCircleOutlined as SuccessIcon,
 } from '@mui/icons-material';
 import {
-  alpha,
-  Box,
   Chip,
   FormControl,
   IconButton,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
   Skeleton,
   Stack,
@@ -28,13 +19,12 @@ import {
   TableRow,
   Tooltip,
   Typography,
-  useTheme,
 } from '@mui/material';
 import { format, formatDistanceToNow } from 'date-fns';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { exportApi } from '@/shared/api';
-import { colors, spacing } from '@/shared/design-system/theme';
+import { EmptyState, pal, StatusIndicator, type StatusType } from '@/shared/design-system';
 
 interface Job {
   jobId: string;
@@ -55,12 +45,21 @@ interface Job {
   error?: string;
 }
 
+const PAGE_SIZE = 50;
+const SKELETON_ROWS = 5;
+const COLUMN_COUNT = 7;
+const MAX_HEIGHT = 480;
+const MS_PER_S = 1000;
+const S_PER_MIN = 60;
+const MIN_PER_H = 60;
+
 /** Friendly labels for the job types the portal runs. */
 const JOB_TYPE_LABELS: Record<string, string> = {
   export: 'Export',
-  'activity-refresh': 'Activity Refresh',
-  'bulk-operation': 'Bulk Operation',
-  'csv-export': 'CSV Export',
+  'activity-refresh': 'Activity refresh',
+  'smus-export': 'SMUS export',
+  'bulk-operation': 'Bulk operation',
+  'csv-export': 'CSV export',
   deploy: 'Deploy',
   ingestion: 'Ingestion',
   rebuild: 'Rebuild',
@@ -70,13 +69,23 @@ const JOB_TYPE_LABELS: Record<string, string> = {
 const JOB_TYPE_FILTERS = [
   { value: 'all', label: 'All types' },
   { value: 'export', label: 'Export' },
-  { value: 'activity-refresh', label: 'Activity Refresh' },
-  { value: 'bulk-operation', label: 'Bulk Operation' },
-  { value: 'csv-export', label: 'CSV Export' },
+  { value: 'activity-refresh', label: 'Activity refresh' },
+  { value: 'smus-export', label: 'SMUS export' },
+  { value: 'bulk-operation', label: 'Bulk operation' },
+  { value: 'csv-export', label: 'CSV export' },
   { value: 'deploy', label: 'Deploy' },
 ];
 
-/** Ingestion exports run as jobType 'export' — distinguish them by their options. */
+const STATUS_TONE: Record<Job['status'], { type: StatusType; label: string }> = {
+  completed: { type: 'success', label: 'Completed' },
+  failed: { type: 'error', label: 'Failed' },
+  stopped: { type: 'stopped', label: 'Stopped' },
+  stopping: { type: 'warning', label: 'Stopping' },
+  processing: { type: 'in-progress', label: 'Processing' },
+  queued: { type: 'pending', label: 'Queued' },
+};
+
+/** Ingestion exports run as jobType 'export'; tell them apart by their options. */
 function jobTypeLabel(job: Job): string {
   if (job.jobType === 'export' && job.exportOptions?.exportIngestions) {
     return 'Export (ingestions)';
@@ -86,8 +95,8 @@ function jobTypeLabel(job: Job): string {
 
 /**
  * Sum QuickSight API calls from the tracked per-operation counts. Operations
- * are namespaced ('api.dashboard.describe', 's3.get', ...) — only api.* rows
- * are API calls. Returns null when the job tracked none (e.g. bulk ops).
+ * are namespaced ('api.dashboard.describe', 's3.get', ...); only api.* rows
+ * are API calls. Null when the job tracked none (bulk operations).
  */
 function sumApiCalls(job: Job): number | null {
   const ops = job.stats?.operations;
@@ -97,24 +106,34 @@ function sumApiCalls(job: Job): number | null {
   return apiEntries.reduce((sum, [, value]) => sum + value, 0);
 }
 
+function formatDuration(duration?: number): string {
+  if (!duration) return '-';
+  const seconds = Math.floor(duration / MS_PER_S);
+  const minutes = Math.floor(seconds / S_PER_MIN);
+  const hours = Math.floor(minutes / MIN_PER_H);
+  if (hours > 0) return `${hours}h ${minutes % MIN_PER_H}m`;
+  if (minutes > 0) return `${minutes}m ${seconds % S_PER_MIN}s`;
+  return `${seconds}s`;
+}
+
 interface JobHistoryProps {
   onSelectJob: (jobId: string) => void;
   currentJobId?: string | null;
 }
 
+/** Every job the portal ran, newest first; a row opens its log. */
 export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
-  const theme = useTheme();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
-  const loadJobs = async () => {
+  const loadJobs = useCallback(async () => {
     try {
       setLoading(true);
       const result = await exportApi.listJobs({
-        limit: 50,
+        limit: PAGE_SIZE,
         status: statusFilter === 'all' ? undefined : (statusFilter as any),
         type: typeFilter === 'all' ? undefined : typeFilter,
       });
@@ -124,7 +143,7 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter, typeFilter]);
 
   const refresh = async () => {
     setRefreshing(true);
@@ -133,106 +152,20 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
   };
 
   useEffect(() => {
-    loadJobs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, typeFilter]);
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <SuccessIcon sx={{ fontSize: 18, color: theme.palette.success.main }} />;
-      case 'failed':
-        return <ErrorIcon sx={{ fontSize: 18, color: theme.palette.error.main }} />;
-      case 'stopped':
-      case 'stopping':
-        return <StoppedIcon sx={{ fontSize: 18, color: theme.palette.warning.main }} />;
-      case 'processing':
-        return <ProcessingIcon sx={{ fontSize: 18, color: theme.palette.info.main }} />;
-      case 'queued':
-        return <QueuedIcon sx={{ fontSize: 18, color: theme.palette.text.secondary }} />;
-      default:
-        return null;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'success';
-      case 'failed':
-        return 'error';
-      case 'stopped':
-      case 'stopping':
-        return 'warning';
-      case 'processing':
-        return 'info';
-      default:
-        return 'default';
-    }
-  };
-
-  const formatDuration = (duration?: number) => {
-    if (!duration) return '-';
-    const seconds = Math.floor(duration / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-
-    if (hours > 0) {
-      return `${hours}h ${minutes % 60}m`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${seconds % 60}s`;
-    } else {
-      return `${seconds}s`;
-    }
-  };
+    void loadJobs();
+  }, [loadJobs]);
 
   return (
-    <Paper
-      sx={{
-        background: alpha(colors.primary.light, 0.02),
-        border: `1px solid ${alpha(colors.primary.main, 0.1)}`,
-        borderRadius: `${spacing.sm / 8}px`,
-        overflow: 'hidden',
-      }}
-    >
-      {/* Header */}
-      <Box
-        sx={{
-          px: 3,
-          py: 2,
-          borderBottom: `1px solid ${alpha(colors.primary.main, 0.08)}`,
-          background: alpha(colors.primary.light, 0.03),
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Box sx={{ gap: 1, alignItems: 'center', display: 'flex' }}>
-          <HistoryIcon sx={{ fontSize: 20, color: colors.primary.main }} />
-          <Typography sx={{ fontWeight: 600 }} variant="subtitle1">
-            Job History
-          </Typography>
-          <Chip
-            label={`${jobs.length} jobs`}
-            size="small"
-            sx={{
-              height: 20,
-              fontSize: '0.75rem',
-              backgroundColor: alpha(colors.primary.main, 0.1),
-              color: colors.primary.main,
-            }}
-          />
-        </Box>
-
-        <Stack sx={{ alignItems: 'center' }} direction="row" spacing={2}>
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+    <Stack spacing={1.5}>
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+        <Typography variant="subtitle2">Job history</Typography>
+        <Typography variant="caption" color="text.secondary">
+          {jobs.length} jobs
+        </Typography>
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', ml: 'auto' }}>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
             <InputLabel>Type</InputLabel>
-            <Select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              label="Type"
-              sx={{ height: 36 }}
-            >
+            <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} label="Type">
               {JOB_TYPE_FILTERS.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
                   {option.label}
@@ -240,14 +173,12 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
               ))}
             </Select>
           </FormControl>
-
-          <FormControl size="small" sx={{ minWidth: 120 }}>
+          <FormControl size="small" sx={{ minWidth: 130 }}>
             <InputLabel>Status</InputLabel>
             <Select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               label="Status"
-              sx={{ height: 36 }}
             >
               <MenuItem value="all">All</MenuItem>
               <MenuItem value="completed">Completed</MenuItem>
@@ -257,154 +188,116 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
               <MenuItem value="queued">Queued</MenuItem>
             </Select>
           </FormControl>
-
           <Tooltip title="Refresh">
-            <IconButton
-              onClick={refresh}
-              disabled={refreshing}
-              sx={{
-                color: colors.primary.main,
-                '&:hover': {
-                  backgroundColor: alpha(colors.primary.main, 0.08),
-                },
-              }}
-            >
-              <RefreshIcon
-                sx={{
-                  fontSize: 20,
-                  animation: refreshing ? 'spin 1s linear infinite' : 'none',
-                  '@keyframes spin': {
-                    '0%': { transform: 'rotate(0deg)' },
-                    '100%': { transform: 'rotate(360deg)' },
-                  },
-                }}
-              />
-            </IconButton>
+            <span>
+              <IconButton onClick={refresh} disabled={refreshing} size="small">
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+            </span>
           </Tooltip>
         </Stack>
-      </Box>
+      </Stack>
 
-      {/* Table */}
-      <TableContainer sx={{ maxHeight: 400 }}>
+      <TableContainer
+        sx={(theme) => ({
+          maxHeight: MAX_HEIGHT,
+          border: `1px solid ${pal(theme).line.divider}`,
+          borderRadius: `${theme.shape.borderRadius}px`,
+        })}
+      >
         <Table stickyHeader size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>Status</TableCell>
-              <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>Type</TableCell>
-              <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>
-                Started
-              </TableCell>
-              <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>
-                Duration
-              </TableCell>
-              <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>Assets</TableCell>
-              <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>
-                API Calls
-              </TableCell>
-              <TableCell sx={{ backgroundColor: theme.palette.background.paper }}>
-                Actions
-              </TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Type</TableCell>
+              <TableCell>Started</TableCell>
+              <TableCell>Duration</TableCell>
+              <TableCell>Assets</TableCell>
+              <TableCell>API calls</TableCell>
+              <TableCell align="right">Log</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
-              Array.from({ length: 5 }).map((_, index) => (
+              Array.from({ length: SKELETON_ROWS }).map((_, index) => (
                 <TableRow key={index}>
-                  <TableCell colSpan={7}>
-                    <Skeleton sx={{ height: 40 }} />
+                  <TableCell colSpan={COLUMN_COUNT}>
+                    <Skeleton variant="text" />
                   </TableCell>
                 </TableRow>
               ))
             ) : jobs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    No jobs found
-                  </Typography>
+                <TableCell colSpan={COLUMN_COUNT}>
+                  <EmptyState
+                    compact
+                    title="No jobs match"
+                    description="Nothing has run with this type and status yet."
+                  />
                 </TableCell>
               </TableRow>
             ) : (
-              jobs.map((job) => (
-                <TableRow
-                  key={job.jobId}
-                  hover
-                  sx={{
-                    cursor: 'pointer',
-                    backgroundColor:
-                      job.jobId === currentJobId ? alpha(colors.primary.main, 0.08) : 'transparent',
-                    '&:hover': {
-                      backgroundColor: alpha(colors.primary.main, 0.04),
-                    },
-                  }}
-                  onClick={() => onSelectJob(job.jobId)}
-                >
-                  <TableCell>
-                    <Box sx={{ gap: 1, alignItems: 'center', display: 'flex' }}>
-                      {getStatusIcon(job.status)}
-                      <Chip
-                        label={job.status}
-                        size="small"
-                        color={getStatusColor(job.status) as any}
-                        sx={{ height: 22, fontSize: '0.7rem' }}
-                      />
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={jobTypeLabel(job)}
-                      size="small"
-                      variant="outlined"
-                      sx={{ height: 22, fontSize: '0.7rem' }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Tooltip title={format(new Date(job.startTime), 'PPpp')}>
-                      <Typography variant="caption">
-                        {formatDistanceToNow(new Date(job.startTime), { addSuffix: true })}
+              jobs.map((job) => {
+                const tone = STATUS_TONE[job.status] ?? STATUS_TONE.queued;
+                return (
+                  <TableRow
+                    key={job.jobId}
+                    hover
+                    selected={job.jobId === currentJobId}
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => onSelectJob(job.jobId)}
+                  >
+                    <TableCell>
+                      <StatusIndicator type={tone.type} size="small">
+                        {tone.label}
+                      </StatusIndicator>
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={jobTypeLabel(job)} size="small" variant="outlined" />
+                    </TableCell>
+                    <TableCell>
+                      <Tooltip title={format(new Date(job.startTime), 'PPpp')}>
+                        <Typography variant="body2">
+                          {formatDistanceToNow(new Date(job.startTime), { addSuffix: true })}
+                        </Typography>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{formatDuration(job.duration)}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {job.stats?.totalAssets !== undefined ||
+                        job.stats?.processedAssets !== undefined
+                          ? `${job.stats?.processedAssets || 0} / ${job.stats?.totalAssets || 0}`
+                          : '-'}
                       </Typography>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="caption">{formatDuration(job.duration)}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="caption">
-                      {job.stats?.totalAssets !== undefined ||
-                      job.stats?.processedAssets !== undefined
-                        ? `${job.stats?.processedAssets || 0} / ${job.stats?.totalAssets || 0}`
-                        : '—'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="caption">
-                      {sumApiCalls(job)?.toLocaleString() ?? '—'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Tooltip title="View logs">
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelectJob(job.jobId);
-                        }}
-                        sx={{
-                          color: colors.primary.main,
-                          '&:hover': {
-                            backgroundColor: alpha(colors.primary.main, 0.08),
-                          },
-                        }}
-                      >
-                        <LogsIcon sx={{ fontSize: 18 }} />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {sumApiCalls(job)?.toLocaleString() ?? '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Tooltip title="View log">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectJob(job.jobId);
+                          }}
+                        >
+                          <LogsIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
       </TableContainer>
-    </Paper>
+    </Stack>
   );
 }

@@ -2,6 +2,7 @@ import { Box } from '@mui/material';
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import { SmusExportPanel } from '@/features/smus';
 import {
   ExportPanel,
   OPERATIONS_TAB_PARAM,
@@ -19,13 +20,15 @@ import { ArchivedAssetsPanel } from './ArchivedAssetsPanel';
 
 const TABS: Array<{ value: OperationsTab; label: string; icon: keyof typeof navigationIcons }> = [
   { value: 'export', label: 'Export', icon: 'exportManagement' },
+  { value: 'smus', label: 'SageMaker Unified Studio', icon: 'dataCatalog' },
   { value: 'archived', label: 'Archived assets', icon: 'archive' },
   { value: 'scripts', label: 'Scripts', icon: 'code' },
 ];
 
 /**
- * Exports, archived assets and maintenance scripts: the things an operator
- * does to the account rather than to one asset. The tab is in the URL.
+ * Exports, the SMUS export, archived assets and maintenance scripts: the
+ * things an operator does to the account rather than to one asset. The tab
+ * is in the URL.
  */
 export default function OperationsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -50,10 +53,10 @@ export default function OperationsPage() {
   );
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0 }}>
       <PageHeader
         title="Operations"
-        description="Exports, archived assets and maintenance scripts for the whole account."
+        description="Exports, the SageMaker Unified Studio snapshot, archived assets and maintenance scripts for the whole account."
       >
         <TabBar
           ariaLabel="Operations"
@@ -66,9 +69,12 @@ export default function OperationsPage() {
         />
       </PageHeader>
 
-      {tab === 'export' && <ExportPanel />}
-      {tab === 'archived' && <ArchivedAssetsPanel />}
-      {tab === 'scripts' && <ScriptsPanel />}
+      <Box sx={{ mt: 2 }}>
+        {tab === 'export' && <ExportPanel />}
+        {tab === 'smus' && <SmusExportPanel />}
+        {tab === 'archived' && <ArchivedAssetsPanel />}
+        {tab === 'scripts' && <ScriptsPanel />}
+      </Box>
     </Box>
   );
 }
