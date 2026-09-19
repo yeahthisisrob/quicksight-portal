@@ -85,6 +85,20 @@ export function MockupStep({ flow }: { flow: AuthorFlow }) {
 
   return (
     <Stack spacing={2.5}>
+      {preview.warnings.length > 0 && (
+        <Alert severity="warning" data-testid="mockup-warnings">
+          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+            Not everything could be carried over
+          </Typography>
+          <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+            {preview.warnings.map((warning) => (
+              <li key={warning}>
+                <Typography variant="body2">{warning}</Typography>
+              </li>
+            ))}
+          </Box>
+        </Alert>
+      )}
       <Panel
         title="Mockup"
         description="Layout and fields only, drawn from the definition the publish step would write. On the After view, click any card to edit it."

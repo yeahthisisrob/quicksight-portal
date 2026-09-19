@@ -63,7 +63,18 @@ import {
   repairRequests,
   repairSummary,
 } from './repair';
-import { isTemplate, TEMPLATE_TAG } from './templateTag';
+import {
+  type ChartRule,
+  defaultParts,
+  type EditableVisualType,
+  hasStandard,
+  type StandardTemplate,
+  type StandardTypeRules,
+  type TemplatePart,
+  templateRequest,
+  typeRulesRequest,
+} from './standard';
+import { isTemplate, TEMPLATE_TAG, templateIncludeTagsParam } from './templateTag';
 
 export interface SourceDefinition {
   loading: boolean;
@@ -91,6 +102,32 @@ export interface MockupPreview {
   changes: DefinitionChange[];
   /** The resulting sheets with ids and positions, for the editor. */
   outline: SheetOutline[] | null;
+  /** What the template or the type rules could not carry, and why. */
+  warnings: string[];
+  /** The theme the publish step would write, when a template gives one. */
+  themeArn: string | null;
+}
+
+/** A dashboard tagged as a template, offered as a layout standard. */
+export interface StandardCandidate {
+  id: string;
+  name: string;
+  views: number;
+}
+
+/** The Standard step: the template chosen and the bulk type rules. */
+export interface StandardChoice {
+  template: StandardTemplate | null;
+  typeRules: StandardTypeRules;
+  /** Dashboards tagged as templates. */
+  candidates: { loading: boolean; items: StandardCandidate[] };
+  chooseTemplate: (candidate: StandardCandidate | null) => void;
+  setTemplatePart: (part: TemplatePart, on: boolean) => void;
+  setTypeRules: (rules: Partial<StandardTypeRules>) => void;
+  addChartRule: (rule: ChartRule) => void;
+  removeChartRule: (from: EditableVisualType) => void;
+  /** A template or a rule is set: the mockup can open. */
+  active: boolean;
 }
 
 /** The server's repair plan for the source and what the person decided about it. */
@@ -139,6 +176,7 @@ export interface AuthorFlow {
   selectElement: (element: SelectedElement | null) => void;
   /** Where a copy goes. */
   setFolder: (folder: AuthorFolder | null) => void;
+  standard: StandardChoice;
   /** Calculated fields from the template library to add to the written definition. */
   addedFields: AddedTemplateField[];
   addTemplateField: (template: CalculatedFieldTemplate, identifier: string) => void;
@@ -162,6 +200,8 @@ export interface AddedTemplateField {
 
 const PREVIEW_DEBOUNCE_MS = 400;
 const REPAIR_PLAN_STALE_MS = 60_000;
+const TEMPLATES_STALE_MS = 5 * 60_000;
+const TEMPLATES_PAGE_SIZE = 50;
 
 function sourceFromParams(params: URLSearchParams): RebindSource | null {
   const type = params.get('type');
@@ -294,6 +334,73 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
     }
   }, [state.source, state.step, repairIssues, draft.setMode, params]);
 
+  // --- the standard (template + type rules) ---------------------------------
+  const candidatesQuery = useQuery({
+    queryKey: ['author-standard-templates'],
+    queryFn: async () => {
+      const page = await assetsApi.getDashboardsPaginated({
+        page: 1,
+        pageSize: TEMPLATES_PAGE_SIZE,
+        includeTags: templateIncludeTagsParam(),
+      });
+      return (
+        page.dashboards as Array<{ id: string; name: string; activity?: { totalViews?: number } }>
+      ).map((d) => ({ id: d.id, name: d.name, views: d.activity?.totalViews ?? 0 }));
+    },
+    staleTime: TEMPLATES_STALE_MS,
+    retry: false,
+  });
+  const chooseStandardTemplate = useCallback((candidate: StandardCandidate | null) => {
+    dispatch({
+      type: 'setTemplate',
+      template: candidate
+        ? {
+            assetType: 'dashboard',
+            assetId: candidate.id,
+            name: candidate.name,
+            parts: defaultParts(),
+          }
+        : null,
+    });
+  }, []);
+  const setTemplatePart = useCallback(
+    (part: TemplatePart, on: boolean) => dispatch({ type: 'setTemplatePart', part, on }),
+    []
+  );
+  const setTypeRules = useCallback(
+    (rules: Partial<StandardTypeRules>) => dispatch({ type: 'setTypeRules', rules }),
+    []
+  );
+  const addChartRule = useCallback(
+    (rule: ChartRule) => dispatch({ type: 'addChartRule', rule }),
+    []
+  );
+  const removeChartRule = useCallback(
+    (from: EditableVisualType) => dispatch({ type: 'removeChartRule', from }),
+    []
+  );
+  const standardActive = hasStandard(state.template, state.typeRules);
+  const standardRequest = useMemo(
+    () => ({
+      template: templateRequest(state.template),
+      typeRules: typeRulesRequest(state.typeRules),
+    }),
+    [state.template, state.typeRules]
+  );
+
+  // ?standard=1 opens the Standard step straight away (a migration deep link).
+  const standardLinkRef = useRef<string | null>(null);
+  useEffect(() => {
+    const key = state.source ? `${state.source.type}/${state.source.id}` : null;
+    if (!key || params.get('standard') !== '1' || standardLinkRef.current === key) {
+      return;
+    }
+    standardLinkRef.current = key;
+    if (state.step === 'source') {
+      dispatch({ type: 'goTo', step: 'standard' });
+    }
+  }, [state.source, state.step, params]);
+
   // --- template calculated fields ---------------------------------------------
   const [addedFields, setAddedFields] = useState<AddedTemplateField[]>([]);
   const addTemplateField = useCallback((template: CalculatedFieldTemplate, identifier: string) => {
@@ -382,12 +489,18 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
       addCalculatedFields: addedFields.length > 0 ? addedFields : undefined,
       ops: state.ops.length > 0 ? state.ops : undefined,
       repairs: repairRequest.repairs.length > 0 ? repairRequest.repairs : undefined,
+      template: standardRequest.template,
+      typeRules: standardRequest.typeRules,
     }),
-    [effectiveRebinds, addedFields, state.ops, repairRequest.repairs]
+    [effectiveRebinds, addedFields, state.ops, repairRequest.repairs, standardRequest]
   );
   const previewKey = useDebounce(JSON.stringify(previewRequest), PREVIEW_DEBOUNCE_MS);
   const hasAnything =
-    effectiveRebinds.length > 0 || state.ops.length > 0 || addedFields.length > 0 || hasRepairs;
+    effectiveRebinds.length > 0 ||
+    state.ops.length > 0 ||
+    addedFields.length > 0 ||
+    hasRepairs ||
+    standardActive;
   const previewQuery = useQuery({
     queryKey: ['rebind-preview', state.source?.type, state.source?.id, previewKey],
     queryFn: () =>
@@ -424,6 +537,8 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
         addCalculatedFields: addedFields.length > 0 ? addedFields : undefined,
         ops: state.ops.length > 0 ? state.ops : undefined,
         repairs: repairRequest.repairs.length > 0 ? repairRequest.repairs : undefined,
+        template: standardRequest.template,
+        typeRules: standardRequest.typeRules,
         folderId: draft.mode === 'clone' && state.folder ? state.folder.id : undefined,
       });
       const published: AuthorResult = {
@@ -452,6 +567,7 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
     draft.mode,
     effectiveRebinds,
     repairRequest.repairs,
+    standardRequest,
     draft.name,
     addedFields,
     enqueueSnackbar,
@@ -488,7 +604,8 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
   // Repair renames ride on rebinds to the same dataset, which the draft does
   // not plan, so they count as edits here and the preview checks them.
   const editsOnly =
-    draft.rebinds.length === 0 && (state.ops.length > 0 || addedFields.length > 0 || hasRepairs);
+    draft.rebinds.length === 0 &&
+    (state.ops.length > 0 || addedFields.length > 0 || hasRepairs || standardActive);
   const canApply =
     !draft.planning &&
     summary.needsChoice === 0 &&
@@ -502,6 +619,7 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
     repairIssues,
     hasRepairs,
     repairsSettled: summary.needsChoice === 0,
+    hasStandard: standardActive,
   });
   const steps = useMemo(() => authorSteps(repairIssues > 0), [repairIssues]);
   const goTo = useCallback(
@@ -605,6 +723,19 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
       diff: previewDiff,
       changes: previewQuery.data?.changes ?? [],
       outline: previewQuery.data?.outline ?? null,
+      warnings: previewQuery.data?.warnings ?? [],
+      themeArn: previewQuery.data?.themeArn ?? null,
+    },
+    standard: {
+      template: state.template,
+      typeRules: state.typeRules,
+      candidates: { loading: candidatesQuery.isLoading, items: candidatesQuery.data ?? [] },
+      chooseTemplate: chooseStandardTemplate,
+      setTemplatePart,
+      setTypeRules,
+      addChartRule,
+      removeChartRule,
+      active: standardActive,
     },
     addOps,
     removeOp,

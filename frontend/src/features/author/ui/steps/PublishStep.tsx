@@ -24,6 +24,7 @@ import { WireframeDialog } from '@/entities/definition';
 import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 
 import { describeOp, outlineFromModel } from '../../lib/ops';
+import { describeParts, describeTypeRules } from '../../model/standard';
 import type { AuthorFlow } from '../../model/useAuthorFlow';
 import { ChangesList } from '../ChangesList';
 import { FolderPicker } from '../FolderPicker';
@@ -156,7 +157,10 @@ export function PublishStep({ flow }: { flow: AuthorFlow }) {
     (draft.rebinds.length > 0
       ? draft.canApply
       : inPlace
-        ? state.ops.length > 0 || flow.addedFields.length > 0 || draft.canApply
+        ? state.ops.length > 0 ||
+          flow.addedFields.length > 0 ||
+          flow.standard.active ||
+          draft.canApply
         : draft.name.trim().length > 0);
 
   const run = () => {
@@ -214,6 +218,13 @@ export function PublishStep({ flow }: { flow: AuthorFlow }) {
                     : flow.addedFields.map((f) => `${f.name} (${f.identifier})`).join(', '),
               },
               {
+                label: 'Standard',
+                value: flow.standard.template
+                  ? `${flow.standard.template.name} (${describeParts(flow.standard.template.parts)})`
+                  : 'None (layout kept)',
+              },
+              { label: 'Type rules', value: describeTypeRules(flow.standard.typeRules) },
+              {
                 label: 'Mockup edits',
                 value:
                   state.ops.length === 0
@@ -232,6 +243,21 @@ export function PublishStep({ flow }: { flow: AuthorFlow }) {
               },
             ]}
           />
+
+          {flow.preview.warnings.length > 0 && (
+            <Alert severity="warning">
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                Carried with warnings
+              </Typography>
+              <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                {flow.preview.warnings.map((warning) => (
+                  <li key={warning}>
+                    <Typography variant="body2">{warning}</Typography>
+                  </li>
+                ))}
+              </Box>
+            </Alert>
+          )}
 
           {!inPlace && (
             <Box sx={{ maxWidth: 480 }}>

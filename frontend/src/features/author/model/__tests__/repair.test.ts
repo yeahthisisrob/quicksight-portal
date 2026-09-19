@@ -187,6 +187,7 @@ describe('the Repair step', () => {
       'source',
       'targets',
       'review',
+      'standard',
       'mockup',
       'publish',
     ]);

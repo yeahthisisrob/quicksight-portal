@@ -400,6 +400,13 @@ export function SourceStep({
               >
                 {flow.source.isTemplate ? 'Template' : 'Mark as template'}
               </Button>
+              {flow.standard.candidates.items.some((c) => c.id !== source.id) && (
+                <Tooltip title="Pick a template dashboard as the layout standard and convert visual types in bulk">
+                  <Button size="small" variant="outlined" onClick={() => flow.goTo('standard')}>
+                    Migrate onto a standard
+                  </Button>
+                </Tooltip>
+              )}
               <Button variant="contained" onClick={flow.next}>
                 Continue
               </Button>

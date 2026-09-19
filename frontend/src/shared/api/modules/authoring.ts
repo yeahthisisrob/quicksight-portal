@@ -31,6 +31,8 @@ export type RepairOp = Schemas['RepairOp'];
 export type RepairFix = Schemas['RepairFix'];
 export type RepairIssue = Schemas['RepairIssue'];
 export type RepairPlan = Schemas['RepairPlan'];
+export type TemplateRequest = Schemas['TemplateRequest'];
+export type TypeRules = Schemas['TypeRules'];
 
 export interface PreviewRequest {
   rebinds: RebindRequest[];
@@ -38,6 +40,10 @@ export interface PreviewRequest {
   ops?: DefinitionOp[];
   /** Applied first, before the rebind plan, so the plan sees the repaired definition. */
   repairs?: RepairOp[];
+  /** Migrate onto a template dashboard's layout standard, after rebinds and before ops. */
+  template?: TemplateRequest;
+  /** Bulk conversions: chart family swaps, KPI standardisation, column casts. */
+  typeRules?: TypeRules;
 }
 
 export interface RepairPlanRequest {

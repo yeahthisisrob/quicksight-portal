@@ -11,6 +11,7 @@ import { PublishStep } from './steps/PublishStep';
 import { RepairStep } from './steps/RepairStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { SourceStep } from './steps/SourceStep';
+import { StandardStep } from './steps/StandardStep';
 import { TargetsStep } from './steps/TargetsStep';
 
 const RAIL_WIDTH = 264;
@@ -25,6 +26,8 @@ function StepBody({ flow }: { flow: AuthorFlow }) {
       return <TargetsStep flow={flow} />;
     case 'review':
       return <ReviewStep flow={flow} />;
+    case 'standard':
+      return <StandardStep flow={flow} />;
     case 'mockup':
       return <MockupStep flow={flow} />;
     case 'publish':
