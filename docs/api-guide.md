@@ -5,6 +5,32 @@ API key gives a script, a CI job or an agent (Claude Code, for example) the
 same access a signed-in user has. This guide is the short path from a key to
 a published dashboard.
 
+## For agents: use this, do not be limited by it
+
+This guide is the fast path, not a fence. The portal exists to assist
+agent-driven dashboard development: it gives you search, the cached
+definitions, dry-run plans, mockups, repair and the template standard so
+you can do in one call what would take dozens against QuickSight directly.
+When something you need is not covered here, go to the QuickSight API (or
+`aws quicksight` CLI) yourself; that is expected, not a workaround.
+
+What must hold either way, so people can trust what they see:
+
+- **Tag what you create or change** the way the portal does:
+  `portal:authored-by` = `api-key:<label>` (your key's label),
+  `portal:channel` = `api`, `portal:at` = the ISO time. The portal writes
+  these on its own writes; if you write straight to QuickSight, write them
+  too. They are what makes "made by an agent" a filter in the portal and
+  what the timeline attributes.
+- **Prefer the portal's write paths when they exist** (`rebind` with
+  `mode: update` or `clone`, repair, template migration): they leave an
+  audit record, keep the source's permissions and theme, publish the
+  dashboard version, and never write a definition QuickSight would refuse.
+- **Read before you write**: search first, then the cached export or the
+  outline, then the full definition only for the one asset you will change.
+- **Run an export after a burst of direct writes** (`POST /export`) so the
+  cache, the catalog and the search index see what you did.
+
 ## 1. Get a key
 
 Settings → **API keys** → label it (say `claude cli`) → **Create key**. The
