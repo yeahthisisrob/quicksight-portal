@@ -2031,6 +2031,91 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/settings/api-keys:
+    get:
+      summary: API keys for machine callers
+      description: |
+        Long-lived credentials for a CLI, a script or an agent. A key is sent
+        as `Authorization: Bearer qsp_...` and grants the same access as a
+        signed-in user to every endpoint except key management itself, which
+        needs a person. Only the label, a display prefix and usage dates are
+        stored and listed; the secret is shown once, at creation.
+      responses:
+        '200':
+          description: The keys
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [keys]
+                    properties:
+                      keys:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ApiKey'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      summary: Create an API key
+      description: The secret is in this response only and cannot be recovered later.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label]
+              properties:
+                label:
+                  type: string
+                  description: What the key is for, e.g. "claude cli" or "nightly export".
+      responses:
+        '201':
+          description: The key and its one-time secret
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/ApiKeyCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/settings/api-keys/{id}:
+    delete:
+      summary: Revoke an API key
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/smus/assets:
     get:
       summary: Published SMUS assets and the QuickSight datasets that already read them
@@ -4819,6 +4904,36 @@ components:
           format: date-time
         updatedBy:
           type: string
+
+    ApiKey:
+      type: object
+      required: [id, label, prefix, createdAt, createdBy]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        prefix:
+          type: string
+          description: The first characters of the secret, to recognise it in a config file.
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        lastUsedAt:
+          type: string
+          format: date-time
+
+    ApiKeyCreated:
+      type: object
+      required: [key, secret]
+      properties:
+        key:
+          $ref: '#/components/schemas/ApiKey'
+        secret:
+          type: string
+          description: "Shown once. Send it as `Authorization: Bearer <secret>`."
 
     SettingsUpdate:
       type: object

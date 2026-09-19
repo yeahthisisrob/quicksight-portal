@@ -118,10 +118,62 @@ export const PROJECTS = [
   { id: 'proj-sandbox', name: 'sandbox' },
 ];
 
+export const API_KEYS = [
+  {
+    id: 'k-cli',
+    label: 'claude cli',
+    prefix: 'qsp_7Hq2mLp9',
+    createdAt: '2026-09-18T14:02:00.000Z',
+    createdBy: 'rob@example.com',
+    lastUsedAt: '2026-09-19T09:41:00.000Z',
+  },
+  {
+    id: 'k-ci',
+    label: 'nightly export',
+    prefix: 'qsp_Aa91xZ4k',
+    createdAt: '2026-09-01T08:00:00.000Z',
+    createdBy: 'rob@example.com',
+  },
+];
+
 export function settingsRoutes(overrides: MockRoute[] = []): MockRoute[] {
   let stored = SNAPSHOT;
+  let keys = [...API_KEYS];
   return [
     ...overrides,
+    {
+      method: 'get',
+      url: '/settings/api-keys',
+      respond: () => ({ body: { success: true, data: { keys } } }),
+    },
+    {
+      method: 'post',
+      url: '/settings/api-keys',
+      respond: (config) => {
+        const { label } = requestBody<{ label: string }>(config);
+        const key = {
+          id: `k-${keys.length + 1}`,
+          label,
+          prefix: 'qsp_NewKey12',
+          createdAt: new Date().toISOString(),
+          createdBy: 'rob@example.com',
+        };
+        keys = [key, ...keys];
+        return {
+          status: 201,
+          body: { success: true, data: { key, secret: 'qsp_example-secret-shown-once' } },
+        };
+      },
+    },
+    {
+      method: 'delete',
+      url: /\/settings\/api-keys\/[^/]+$/,
+      respond: (config) => {
+        const id = (config.url ?? '').split('/').pop();
+        keys = keys.filter((k) => k.id !== id);
+        return { body: { success: true, data: { id } } };
+      },
+    },
     {
       method: 'get',
       url: '/settings/smus/projects',

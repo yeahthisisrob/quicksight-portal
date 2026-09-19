@@ -43,6 +43,7 @@ import {
   RETYPABLE_TYPES,
   typeWords,
 } from '../../lib/ops';
+import { swapOps } from '../../lib/swap';
 import type { SelectedElement } from '../../model/authorFlow';
 
 const NUMBER_WIDTH = 104;
@@ -192,6 +193,10 @@ function ElementForm({
   };
   const move = (c: number, r: number) =>
     onOps([{ op: 'move', ...base, col: clampCol(c), row: clampRow(r) }]);
+  // Arrows trade places with the neighbour in that direction; a nudge only
+  // when there is nothing there, so visuals never slide onto each other.
+  const swap = (direction: 'up' | 'down' | 'left' | 'right') =>
+    onOps(swapOps(sheet, element.elementId, direction, { col: clampCol, row: clampRow }));
   const resize = (cs: number, rs: number) =>
     onOps([{ op: 'resize', ...base, colSpan: clampColSpan(cs, col), rowSpan: clampRowSpan(rs) }]);
 
@@ -279,25 +284,25 @@ function ElementForm({
           </Stack>
           <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
             <Typography variant="caption" sx={{ color: 'text.secondary', flex: 1 }}>
-              Nudge
+              Swap with neighbour
             </Typography>
-            <Tooltip title="Nudge left">
-              <IconButton size="small" aria-label="Nudge left" onClick={() => move(col - 1, row)}>
+            <Tooltip title="Swap left">
+              <IconButton size="small" aria-label="Swap left" onClick={() => swap('left')}>
                 <ArrowBack fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Nudge right">
-              <IconButton size="small" aria-label="Nudge right" onClick={() => move(col + 1, row)}>
+            <Tooltip title="Swap right">
+              <IconButton size="small" aria-label="Swap right" onClick={() => swap('right')}>
                 <ArrowForward fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Nudge up">
-              <IconButton size="small" aria-label="Nudge up" onClick={() => move(col, row - 1)}>
+            <Tooltip title="Swap up">
+              <IconButton size="small" aria-label="Swap up" onClick={() => swap('up')}>
                 <ArrowUpward fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Nudge down">
-              <IconButton size="small" aria-label="Nudge down" onClick={() => move(col, row + 1)}>
+            <Tooltip title="Swap down">
+              <IconButton size="small" aria-label="Swap down" onClick={() => swap('down')}>
                 <ArrowDownward fontSize="small" />
               </IconButton>
             </Tooltip>

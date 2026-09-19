@@ -1,6 +1,6 @@
-import { Box } from '@mui/material';
+import { Box, Stack } from '@mui/material';
 
-import { SettingsForm } from '@/features/settings';
+import { ApiKeysPanel, SettingsForm } from '@/features/settings';
 
 import { PageHeader } from '@/shared/design-system';
 
@@ -16,7 +16,10 @@ export default function SettingsPage() {
         title="Settings"
         description="Stored settings override the environment. Clear one to fall back to the environment variable it names."
       />
-      <SettingsForm />
+      <Stack spacing={3}>
+        <SettingsForm />
+        <ApiKeysPanel />
+      </Stack>
     </Box>
   );
 }

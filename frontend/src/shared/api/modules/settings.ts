@@ -12,6 +12,8 @@ export type SettingSource = Schemas['SettingSource'];
 export type SettingsUpdate = Schemas['SettingsUpdate'];
 export type SmusProject = Schemas['SmusProject'];
 export type SmusProjectDiagnostics = Schemas['SmusProjectDiagnostics'];
+export type ApiKey = Schemas['ApiKey'];
+export type ApiKeyCreated = Schemas['ApiKeyCreated'];
 
 export interface SmusProjectsResponse {
   configured: boolean;
@@ -47,6 +49,28 @@ export const settingsApi = {
       apiClient.put<ApiResponse<SettingsSnapshot>>('/settings', update),
       'Failed to save settings'
     );
+  },
+
+  listApiKeys(): Promise<ApiKey[]> {
+    return unwrap(
+      apiClient.get<ApiResponse<{ keys: ApiKey[] }>>('/settings/api-keys'),
+      'Failed to list API keys'
+    ).then((data) => data.keys);
+  },
+
+  /** The secret in the result is shown once and never stored in the browser. */
+  createApiKey(label: string): Promise<ApiKeyCreated> {
+    return unwrap(
+      apiClient.post<ApiResponse<ApiKeyCreated>>('/settings/api-keys', { label }),
+      'Failed to create the API key'
+    );
+  },
+
+  revokeApiKey(id: string): Promise<void> {
+    return unwrap(
+      apiClient.delete<ApiResponse<{ id: string }>>(`/settings/api-keys/${encodeURIComponent(id)}`),
+      'Failed to revoke the API key'
+    ).then(() => undefined);
   },
 
   /** Projects in the configured SMUS domain, from the last SMUS export. */

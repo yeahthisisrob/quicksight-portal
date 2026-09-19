@@ -80,6 +80,24 @@ kill:
 
 # ============================================================================
 # CHECK
+#   export QSP_API_URL=https://<SiteURL>  QSP_API_KEY=qsp_...
+#   just api GET /smus/status
+#   just api POST /authoring/dashboard/<id>/rebind/plan '{"rebinds":[...]}'
+# Call the portal API with an API key (docs/api-guide.md)
+[group('api')]
+api method path body='':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${QSP_API_URL:?set QSP_API_URL to the portal URL (the SiteURL stack output)}"
+    : "${QSP_API_KEY:?set QSP_API_KEY to a key from Settings > API keys}"
+    url="${QSP_API_URL%/}/api{{path}}"
+    if [ -n '{{body}}' ]; then
+      curl -sS -X {{method}} "$url" -H "Authorization: Bearer $QSP_API_KEY" -H 'Content-Type: application/json' --data '{{body}}'
+    else
+      curl -sS -X {{method}} "$url" -H "Authorization: Bearer $QSP_API_KEY"
+    fi
+    echo
+
 # ============================================================================
 
 # Everything CI runs. Do this before opening a PR.
