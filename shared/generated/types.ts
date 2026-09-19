@@ -1484,6 +1484,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find anything the portal knows, in plain words
+         * @description One ranked search over everything in the caches: dashboards,
+         *     analyses, datasets, data sources, folders, SMUS listings, calculated
+         *     fields (matched on name and on the expression, where the business
+         *     rules live; one hit per distinct expression listing every asset that
+         *     defines it), visuals (title, chart type, sheet and the fields in their
+         *     wells) and the template library. Lexical, weighted by field (name over
+         *     column over description), scaled by how many words matched, boosted by
+         *     use. No model call; the index is built from the caches once per
+         *     container and reused until an export changes them.
+         *
+         *     Each hit carries `why` (which field matched which word), a one-line
+         *     `summary` written for a person or an agent, and a portal `path`.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Plain words, e.g. "gold orders dataset with revenue by region". */
+                    q: string;
+                    /** @description Comma-separated subset of dashboard, analysis, dataset, datasource, folder, smus-listing, calculated-field, visual, template. */
+                    types?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ranked hits */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["SearchResponse"];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/smus/status": {
         parameters: {
             query?: never;
@@ -5500,6 +5561,46 @@ export interface components {
                 /** @description ID of queued ingestion */
                 queuedIngestion?: string;
             };
+        };
+        /** @enum {string} */
+        SearchableType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "smus-listing" | "calculated-field" | "visual" | "template";
+        SearchAssetRef: {
+            /** @enum {string} */
+            type: "dashboard" | "analysis" | "dataset";
+            id: string;
+            name: string;
+        };
+        SearchHit: {
+            type: components["schemas"]["SearchableType"];
+            id: string;
+            name: string;
+            score: number;
+            /** @description Which field matched which query word, e.g. "column: revenue". */
+            why: string[];
+            /** @description One line for a person or an agent. */
+            summary: string;
+            /** @description Where to open it in the portal. */
+            path: string;
+            description?: string;
+            views?: number;
+            /** Format: date-time */
+            updatedAt?: string;
+            /** @description Calculated fields and templates - the expression. */
+            expression?: string;
+            /** @description The asset a calculated field or visual belongs to. */
+            parent?: components["schemas"]["SearchAssetRef"];
+            /** @description Calculated fields - every asset that defines this exact expression. */
+            definedIn?: components["schemas"]["SearchAssetRef"][];
+        };
+        SearchResponse: {
+            q: string;
+            hits: components["schemas"]["SearchHit"][];
+            /** @description Documents considered, by type. */
+            indexed: {
+                [key: string]: number;
+            };
+            /** Format: date-time */
+            indexedAt: string;
         };
         SmusStatus: {
             /** @description Whether a SMUS domain is configured for this portal */
