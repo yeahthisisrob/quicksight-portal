@@ -257,4 +257,34 @@ describe('FieldCatalogService', () => {
     ]);
     expect((await service().columns({ search: 'cos' })).items.map((c) => c.name)).toEqual(['cost']);
   });
+
+  it('survives an export that left a column without a type, a field without a name, or a SMUS column without one', async () => {
+    catalog.getFieldIndex.mockResolvedValue({
+      ...INDEX,
+      byDataset: new Map([
+        [
+          'ds-1',
+          [
+            field({ fieldName: 'geo_point', dataType: undefined, columnName: 'geo_point' }),
+            field({ fieldName: undefined, dataType: 'STRING' }),
+            field({ fieldName: 'stub', isCalculated: true, expression: undefined }),
+            field({ fieldName: undefined, isCalculated: true, expression: '{a}' }),
+          ],
+        ],
+      ]),
+    });
+    smus.listAssets.mockResolvedValue({
+      configured: true,
+      projectFilter: ['p-prod'],
+      assets: [{ ...ASSETS[0], columns: [{ name: undefined, type: 'x' }, { name: 'GEO_POINT' }] }],
+      exportedAt: '2026-09-19T00:00:00Z',
+    });
+
+    const columns = await service().columns({ search: 'geo' });
+    expect(columns.items.map((c) => c.name)).toEqual(['geo_point']);
+    expect(columns.items[0]?.dataType).toBeUndefined();
+    expect(columns.items[0]?.smus?.columnName).toBe('GEO_POINT');
+    expect((await service().calculatedFields({ search: 'stub' })).items).toEqual([]);
+    expect((await service().calculatedFields({ search: '{a}' })).items).toEqual([]);
+  });
 });

@@ -261,7 +261,7 @@ export class SmusCatalogService {
       referencesOf.set(name, extractFieldReferences(field.expression ?? ''));
     }
     const columnsByName = new Map(
-      (asset.columns ?? []).map((c) => [c.name.toLowerCase(), c] as const)
+      (asset.columns ?? []).map((c) => [(c.name ?? '').toLowerCase(), c] as const)
     );
 
     const fields = own
@@ -310,7 +310,9 @@ export class SmusCatalogService {
             out.template = { id: templateId };
           }
         } else {
-          const column = columnsByName.get((field.columnName ?? field.fieldName).toLowerCase());
+          const column = columnsByName.get(
+            (field.columnName ?? field.fieldName ?? '').toLowerCase()
+          );
           if (column) {
             out.smus = {
               listingId: asset.listingId,

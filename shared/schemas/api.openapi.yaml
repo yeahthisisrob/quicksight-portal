@@ -6367,12 +6367,13 @@ components:
 
     ColumnCatalogItem:
       type: object
-      required: [name, dataType, datasets, usedBy, usedByCalculated]
+      required: [name, datasets, usedBy, usedByCalculated]
       properties:
         name:
           type: string
         dataType:
           type: string
+          description: Absent when the dataset export did not say (QuickSight leaves OutputColumns.Type out for some columns).
         datasets:
           type: array
           items:

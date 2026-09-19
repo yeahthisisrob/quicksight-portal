@@ -220,9 +220,11 @@ export function ColumnsView({
                       <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'monospace' }}>
                         {item.name}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        {item.dataType.toLowerCase()}
-                      </Typography>
+                      {item.dataType && (
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                          {item.dataType.toLowerCase()}
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>

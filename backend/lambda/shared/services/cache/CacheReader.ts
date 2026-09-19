@@ -218,7 +218,7 @@ export class CacheReader {
         const query = options.query.toLowerCase();
         filteredFields = filteredFields.filter(
           (field: FieldInfo) =>
-            field.fieldName.toLowerCase().includes(query) ||
+            (field.fieldName ?? '').toLowerCase().includes(query) ||
             field.displayName?.toLowerCase().includes(query) ||
             field.description?.toLowerCase().includes(query)
         );
