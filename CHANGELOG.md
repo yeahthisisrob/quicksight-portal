@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.14.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.14.1...v2.14.2) (2026-09-19)
+
+
+### Bug Fixes
+
+* **smus:** one definition of which listings count, so a dataset cannot be governed on one page and ungoverned on the next ([#187](https://github.com/yeahthisisrob/quicksight-portal/issues/187)) ([a62f802](https://github.com/yeahthisisrob/quicksight-portal/commit/a62f802d1651d1befba35692037e4445bf1ea1be))
+
 ## [2.14.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.14.0...v2.14.1) (2026-09-19)
 
 
