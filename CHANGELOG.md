@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.12.0...v2.12.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* **data-catalog:** take the best SMUS tie-back of a column's datasets, and say which of the two gaps it hit ([#174](https://github.com/yeahthisisrob/quicksight-portal/issues/174)) ([a9f4a37](https://github.com/yeahthisisrob/quicksight-portal/commit/a9f4a37f7f661ed1e5dd1a2f903a794a3a41db47))
+
 ## [2.12.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.11.2...v2.12.0) (2026-09-19)
 
 
