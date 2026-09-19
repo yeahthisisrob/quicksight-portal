@@ -193,6 +193,53 @@ describe('SearchService', () => {
     expect(listing).toMatchObject({ type: 'smus-listing', id: 'lst-1' });
   });
 
+  it('skips entries with no name instead of failing the whole index', async () => {
+    cache.searchFields.mockResolvedValue([
+      ...fields,
+      {
+        fieldId: 'ghost',
+        isCalculated: true,
+        expression: '{a}+{b}',
+        sourceAssetType: 'dataset',
+        sourceAssetId: 'ds-1',
+        sourceAssetName: 'orders_gold',
+      },
+      {
+        fieldId: 'nov',
+        fieldName: 'novis',
+        isCalculated: false,
+        sourceAssetType: 'dashboard',
+        sourceAssetId: 'd-1',
+        sourceAssetName: 'Sales',
+        datasetId: 'ds-1',
+        visuals: [{ visualId: 'v-x', sheetId: 's1' }],
+      },
+    ]);
+    smus.getSnapshot.mockResolvedValue({
+      exportedAt: '2026-09-18T00:00:00Z',
+      listings: [
+        { listingId: 'lst-noname' },
+        { listingId: 'lst-1', name: 'dim_customer', glossaryTerms: [] },
+      ],
+    });
+    cache.getMasterCacheWithVersion.mockResolvedValue({
+      cache: {
+        entries: {
+          ...entries,
+          datasource: [{ assetId: 'src-1', arn: 'arn:src', tags: [], metadata: {} }],
+        },
+      },
+      version: 'v9',
+    });
+
+    const result = await service().search({ q: 'novis untitled src-1 dim_customer' });
+
+    expect(result.indexed['smus-listing']).toBe(1);
+    expect(result.indexed.datasource).toBe(1);
+    expect(result.hits.some((h) => h.type === 'visual' && h.name === 'Untitled Visual')).toBe(true);
+    expect(result.hits.some((h) => h.type === 'datasource' && h.name === 'src-1')).toBe(true);
+  });
+
   it('builds the index once per cache version and snapshot', async () => {
     await service().search({ q: 'sales' });
     await service().search({ q: 'orders' });

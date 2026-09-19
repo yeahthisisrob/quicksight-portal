@@ -108,7 +108,11 @@ export class SearchService {
     // 1. Assets.
     for (const type of ['dashboard', 'analysis', 'dataset', 'datasource', 'folder'] as const) {
       for (const entry of entries[type] ?? []) {
-        assetNames.set(`${type}:${entry.assetId}`, entry.assetName);
+        const assetName = String(entry.assetName ?? entry.assetId ?? '');
+        if (!entry.assetId || !assetName) {
+          continue;
+        }
+        assetNames.set(`${type}:${entry.assetId}`, assetName);
         const meta = entry.metadata ?? {};
         const columns: string[] = [
           ...(meta.fields ?? []).map((f: any) => f.fieldName ?? f.name).filter(Boolean),
@@ -138,7 +142,7 @@ export class SearchService {
         docs.push({
           type,
           id: entry.assetId,
-          name: entry.assetName,
+          name: assetName,
           description: meta.description,
           columns,
           calculatedFields: calculated,
@@ -148,11 +152,11 @@ export class SearchService {
           updatedAt: entry.lastUpdatedTime
             ? new Date(entry.lastUpdatedTime).toISOString()
             : undefined,
-          summary: `${type}: ${entry.assetName}${facts.length ? ` (${facts.join(', ')})` : ''}`,
+          summary: `${type}: ${assetName}${facts.length ? ` (${facts.join(', ')})` : ''}`,
           path:
             type === 'dashboard' || type === 'analysis'
-              ? `/author?type=${type}&id=${encodeURIComponent(entry.assetId)}&name=${encodeURIComponent(entry.assetName)}`
-              : `/${type}s?search=${encodeURIComponent(entry.assetName)}`,
+              ? `/author?type=${type}&id=${encodeURIComponent(entry.assetId)}&name=${encodeURIComponent(assetName)}`
+              : `/${type}s?search=${encodeURIComponent(assetName)}`,
         });
       }
     }
@@ -168,7 +172,7 @@ export class SearchService {
       }
     >();
     for (const field of fields) {
-      if (!field.isCalculated || !field.expression) {
+      if (!field.isCalculated || !field.expression || !field.fieldName) {
         continue;
       }
       const parentType = field.sourceAssetType as ParentType;
@@ -232,7 +236,11 @@ export class SearchService {
     >();
     for (const field of fields) {
       const parentType = field.sourceAssetType as ParentType;
-      if ((parentType !== 'dashboard' && parentType !== 'analysis') || !field.visuals?.length) {
+      if (
+        (parentType !== 'dashboard' && parentType !== 'analysis') ||
+        !field.fieldName ||
+        !field.visuals?.length
+      ) {
         continue;
       }
       for (const visual of field.visuals) {
@@ -247,8 +255,9 @@ export class SearchService {
       }
     }
     for (const [id, v] of visualFields) {
-      const title = v.visual.title || `Untitled ${v.visual.visualType}`;
-      const chart = v.visual.visualType
+      const visualType = v.visual.visualType || 'Visual';
+      const title = v.visual.title || `Untitled ${visualType}`;
+      const chart = visualType
         .replace(/Visual$/, '')
         .replace(/([a-z])([A-Z])/g, '$1 $2')
         .toLowerCase();
@@ -268,6 +277,9 @@ export class SearchService {
 
     // 4. SMUS listings.
     for (const listing of listings) {
+      if (!listing.listingId || !listing.name) {
+        continue;
+      }
       const table = listing.table ? `${listing.table.database}.${listing.table.name}` : undefined;
       const columns = (listing.columns ?? []).map((c: any) => c.name).filter(Boolean);
       docs.push({
