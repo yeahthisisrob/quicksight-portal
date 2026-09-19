@@ -267,9 +267,21 @@ export const TEMPLATES = [
   },
 ];
 
+export const SMUS_PROJECTS = [
+  { id: 'proj-published-prod', name: 'published_prod', description: 'Published layer' },
+  { id: 'proj-published-dev', name: 'published_dev', description: 'Published layer, dev' },
+];
+
 export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
   return [
     ...overrides,
+    {
+      method: 'get',
+      url: '/settings/smus/projects',
+      respond: () => ({
+        body: { success: true, data: { configured: true, projects: SMUS_PROJECTS } },
+      }),
+    },
     {
       method: 'get',
       url: '/data-catalog/templates/calculated-fields',
@@ -464,6 +476,35 @@ export const SMUS_NOT_CONFIGURED: MockRoute = {
   url: '/smus/assets',
   respond: () => ({
     body: { success: true, data: { configured: false, projectFilter: [], assets: [] } },
+  }),
+};
+
+/** The page-level gate: no domain configured at all. */
+export const SMUS_SETTINGS_NOT_CONFIGURED: MockRoute = {
+  method: 'get',
+  url: '/settings/smus/projects',
+  respond: () => ({ body: { success: true, data: { configured: false, projects: [] } } }),
+};
+
+/** The page-level gate: a domain, but the portal role sees no project in it. */
+export const SMUS_SETTINGS_NO_PROJECTS: MockRoute = {
+  method: 'get',
+  url: '/settings/smus/projects',
+  respond: () => ({
+    body: {
+      success: true,
+      data: {
+        configured: true,
+        projects: [],
+        diagnostics: {
+          domainId: 'dzd_example',
+          region: 'us-east-1',
+          fromListProjects: 0,
+          listings: 0,
+          publishers: 0,
+        },
+      },
+    },
   }),
 };
 

@@ -1,5 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
+import {
+  SMUS_SETTINGS_NO_PROJECTS,
+  SMUS_SETTINGS_NOT_CONFIGURED,
+} from '@/features/author/ui/__stories__/fixtures';
 import { catalogRoutes } from '@/features/data-catalog/ui/__stories__/routes';
 
 import { AppShell } from '../../.storybook/mocks/AppShell';
@@ -27,11 +31,13 @@ export const Default: Story = {
 };
 
 export const NotConfigured: Story = {
+  name: 'Gated: SMUS not configured',
   parameters: { router: { initialEntries: ['/data-catalog'] } },
   render: () => (
     <AppShell
       path="data-catalog"
       routes={catalogRoutes([
+        SMUS_SETTINGS_NOT_CONFIGURED,
         {
           method: 'get',
           url: /\/data-catalog\/smus$/,
@@ -50,6 +56,16 @@ export const NotConfigured: Story = {
         },
       ])}
     >
+      <DataCatalogPage />
+    </AppShell>
+  ),
+};
+
+export const NoActiveProjects: Story = {
+  name: 'Gated: no active projects',
+  parameters: { router: { initialEntries: ['/data-catalog'] } },
+  render: () => (
+    <AppShell path="data-catalog" routes={catalogRoutes([SMUS_SETTINGS_NO_PROJECTS])}>
       <DataCatalogPage />
     </AppShell>
   ),
