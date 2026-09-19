@@ -60,17 +60,25 @@ function aws(...cli) {
 
 function roleArn() {
   if (args['role-arn']) return args['role-arn'];
-  const resources = aws(
-    'cloudformation',
-    'describe-stack-resources',
-    '--stack-name',
-    stack,
-    '--logical-resource-id',
-    'LambdaExecutionRole'
+  // CDK suffixes logical ids with a hash (LambdaExecutionRole7E2A4D6C), so
+  // match the prefix among the stack's IAM roles rather than the exact id.
+  const listed = aws('cloudformation', 'list-stack-resources', '--stack-name', stack);
+  const roles = (listed.StackResourceSummaries ?? []).filter(
+    (r) => r.ResourceType === 'AWS::IAM::Role'
   );
-  const name = resources.StackResources?.[0]?.PhysicalResourceId;
-  if (!name) throw new Error(`No LambdaExecutionRole in stack ${stack}; pass --role-arn`);
-  return aws('iam', 'get-role', '--role-name', name).Role.Arn;
+  const match =
+    roles.find((r) => r.LogicalResourceId.startsWith('LambdaExecutionRole')) ?? roles[0];
+  if (!match?.PhysicalResourceId) {
+    throw new Error(
+      `No IAM role found in stack ${stack} (roles: ${roles.map((r) => r.LogicalResourceId).join(', ') || 'none'}); pass --role-arn`
+    );
+  }
+  if (roles.length > 1) {
+    console.log(
+      `Roles in stack: ${roles.map((r) => r.LogicalResourceId).join(', ')} (using ${match.LogicalResourceId})`
+    );
+  }
+  return aws('iam', 'get-role', '--role-name', match.PhysicalResourceId).Role.Arn;
 }
 
 function listProjects() {
