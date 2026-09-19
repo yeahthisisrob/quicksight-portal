@@ -1,27 +1,28 @@
 /**
- * Step 4 - the result before it exists. The server rewrites the definition
- * exactly as publish would and we draw it, with renamed fields lit up.
+ * Step 4 - the result before it exists, and the place to shape it. The
+ * server rewrites the definition exactly as publish would and we draw it;
+ * on the After view every card is clickable and the inspector edits it.
+ * Every change is listed in plain language beneath the drawing.
  */
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Stack,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
-} from '@mui/material';
-import { useState } from 'react';
+import { Redo, Undo } from '@mui/icons-material';
+import { Alert, Box, Button, Chip, CircularProgress, Stack, Typography } from '@mui/material';
+import { useMemo, useState } from 'react';
 
-import { DefinitionWireframe } from '@/entities/definition';
+import { DefinitionWireframe, removedOnly, summarizeDiff } from '@/entities/definition';
 
+import { SegmentedControl } from '@/shared/design-system';
+
+import { outlineFromModel } from '../../lib/ops';
 import type { AuthorFlow } from '../../model/useAuthorFlow';
+import { ChangesList } from '../ChangesList';
+import { Inspector } from '../mockup/Inspector';
+import { OpsList } from '../mockup/OpsList';
 import { Panel } from '../primitives/Panel';
 import { StatusIndicator } from '../primitives/StatusIndicator';
 
 type View = 'before' | 'after';
+
+const INSPECTOR_WIDTH = 320;
 
 function totals(flow: AuthorFlow) {
   const plan = flow.preview.plan ?? flow.draft.plan;
@@ -35,31 +36,70 @@ function totals(flow: AuthorFlow) {
   return sum;
 }
 
+const SUMMARY_LABELS: Record<string, string> = {
+  renamed: 'field renamed',
+  moved: 'moved',
+  resized: 'resized',
+  retyped: 'retyped',
+  added: 'added',
+  removed: 'removed',
+};
+
+function DiffChips({ flow }: { flow: AuthorFlow }) {
+  const summary = summarizeDiff(flow.preview.diff ?? undefined);
+  return (
+    <>
+      {Object.entries(summary)
+        .filter(([, n]) => n > 0)
+        .map(([kind, n]) => (
+          <Chip
+            key={kind}
+            size="small"
+            color={kind === 'removed' ? 'error' : 'info'}
+            variant={kind === 'renamed' ? 'filled' : 'outlined'}
+            label={`${n} ${SUMMARY_LABELS[kind] ?? kind}${n === 1 || kind !== 'renamed' ? '' : 's'}`}
+          />
+        ))}
+    </>
+  );
+}
+
 export function MockupStep({ flow }: { flow: AuthorFlow }) {
   const [view, setView] = useState<View>('after');
-  const { preview, source, draft } = flow;
+  const { preview, source, draft, state } = flow;
   const sum = totals(flow);
   const blockers = sum.suggested + sum.missing;
-  const renamed = preview.diff?.size ?? 0;
 
-  const model = view === 'after' ? preview.model : source.model;
+  const afterModel = preview.model ?? source.model;
+  const model = view === 'after' ? afterModel : source.model;
+  // The source outline names elements as they were, so the edits list reads
+  // "Retitle 'Revenue by region'" rather than repeating the new title.
+  const sourceOutline = useMemo(
+    () => (source.model ? outlineFromModel(source.model) : []),
+    [source.model]
+  );
+  const outline = preview.outline ?? sourceOutline;
+  const [sheetId, setSheetId] = useState<string | undefined>(undefined);
+  const currentSheetId = sheetId ?? outline[0]?.sheetId ?? model?.sheets[0]?.id ?? '';
+  const editing = view === 'after' && model !== null;
 
   return (
     <Stack spacing={2.5}>
       <Panel
         title="Mockup"
-        description="Layout and fields only, drawn from the definition the publish step would write. No data is shown."
+        description="Layout and fields only, drawn from the definition the publish step would write. On the After view, click any card to edit it."
         actions={
           <>
-            <ToggleButtonGroup
-              exclusive
+            <SegmentedControl<View>
               size="small"
+              ariaLabel="Before or after"
               value={view}
-              onChange={(_, next: View | null) => next && setView(next)}
-            >
-              <ToggleButton value="before">Before</ToggleButton>
-              <ToggleButton value="after">After</ToggleButton>
-            </ToggleButtonGroup>
+              onChange={setView}
+              options={[
+                { value: 'before', label: 'Before' },
+                { value: 'after', label: 'After' },
+              ]}
+            />
             <Button onClick={flow.back}>Back</Button>
             <Button
               variant="contained"
@@ -85,15 +125,23 @@ export function MockupStep({ flow }: { flow: AuthorFlow }) {
               </StatusIndicator>
             ) : draft.rebinds.length > 0 ? (
               <StatusIndicator kind="success">Every column resolves</StatusIndicator>
-            ) : null}
-            <Chip size="small" variant="outlined" label={`${sum.matched} matched`} />
-            <Chip size="small" variant="outlined" color="info" label={`${sum.mapped} renamed`} />
-            {renamed > 0 && (
-              <Chip
-                size="small"
-                color="info"
-                label={`${renamed} field${renamed === 1 ? '' : 's'} highlighted`}
-              />
+            ) : state.ops.length > 0 ? (
+              <StatusIndicator kind="info">
+                {state.ops.length} edit{state.ops.length === 1 ? '' : 's'}
+              </StatusIndicator>
+            ) : (
+              <StatusIndicator kind="pending">Nothing changed yet</StatusIndicator>
+            )}
+            {draft.rebinds.length > 0 && (
+              <>
+                <Chip size="small" variant="outlined" label={`${sum.matched} matched`} />
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color="info"
+                  label={`${sum.mapped} renamed`}
+                />
+              </>
             )}
             {sum.missing > 0 && (
               <Chip
@@ -103,6 +151,7 @@ export function MockupStep({ flow }: { flow: AuthorFlow }) {
                 label={`${sum.missing} missing`}
               />
             )}
+            <DiffChips flow={flow} />
           </Stack>
 
           {blockers > 0 && (
@@ -123,33 +172,118 @@ export function MockupStep({ flow }: { flow: AuthorFlow }) {
 
           {!source.model && !source.loading && (
             <Alert severity="info">
-              No definition is cached for the source yet, so there is nothing to draw. Run an export
-              with definitions and come back; publishing still works.
+              No definition is cached for the source yet, so there is nothing to draw or edit. Run
+              an export with definitions and come back; publishing still works.
             </Alert>
           )}
 
-          {view === 'after' && preview.loading && !preview.model && (
+          {view === 'after' && preview.loading && !model && (
             <Box sx={{ py: 8, display: 'flex', justifyContent: 'center' }}>
               <CircularProgress />
             </Box>
           )}
 
           {model && (
-            <Box sx={{ opacity: view === 'after' && preview.loading ? 0.6 : 1 }}>
-              <DefinitionWireframe
-                model={model}
-                diff={view === 'after' ? (preview.diff ?? undefined) : undefined}
-              />
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: editing
+                  ? { xs: '1fr', lg: `minmax(0, 1fr) ${INSPECTOR_WIDTH}px` }
+                  : '1fr',
+                gap: 2,
+                alignItems: 'start',
+              }}
+            >
+              <Box sx={{ minWidth: 0, opacity: view === 'after' && preview.loading ? 0.6 : 1 }}>
+                <DefinitionWireframe
+                  model={model}
+                  sheetId={currentSheetId}
+                  onSheetChange={setSheetId}
+                  diff={
+                    view === 'after'
+                      ? (preview.diff ?? undefined)
+                      : removedOnly(preview.diff ?? undefined)
+                  }
+                  badges={view === 'before' ? flow.healthBadges : undefined}
+                  selectedId={editing ? state.selectedElement?.elementId : undefined}
+                  onSelect={
+                    editing
+                      ? (elementId) => flow.selectElement({ sheetId: currentSheetId, elementId })
+                      : undefined
+                  }
+                />
+                {view === 'before' && flow.healthBadges.size > 0 && (
+                  <Typography
+                    variant="caption"
+                    sx={{ color: 'text.secondary', mt: 1, display: 'block' }}
+                  >
+                    Flagged visuals are slow (p90 over 3 s) or failing to load in the source.
+                    Consider retyping or removing them before you publish.
+                  </Typography>
+                )}
+              </Box>
+              {editing && (
+                <Inspector
+                  outline={outline}
+                  sheetId={currentSheetId}
+                  selected={state.selectedElement}
+                  onOps={flow.addOps}
+                  onClearSelection={() => flow.selectElement(null)}
+                />
+              )}
             </Box>
-          )}
-
-          {view === 'after' && !preview.model && !preview.loading && source.model && (
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Choose at least one dataset to see the result.
-            </Typography>
           )}
         </Stack>
       </Panel>
+
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
+          gap: 2.5,
+          alignItems: 'start',
+        }}
+      >
+        <Panel
+          title="Changes"
+          description="Every change in plain language, in the order the publish step applies it."
+        >
+          <ChangesList
+            changes={preview.changes}
+            emptyText={
+              preview.loading
+                ? 'Working out the changes…'
+                : 'Nothing changes yet. Choose datasets, add calculated fields or edit the mockup.'
+            }
+          />
+        </Panel>
+        <Panel
+          title="Edits"
+          description="What you and the planner changed on the mockup. Remove any one, or take them all back."
+          actions={
+            <>
+              <Button
+                size="small"
+                startIcon={<Undo />}
+                onClick={flow.undoOp}
+                disabled={state.ops.length === 0}
+              >
+                Undo last
+              </Button>
+              <Button
+                size="small"
+                startIcon={<Redo sx={{ transform: 'scaleX(-1)' }} />}
+                onClick={flow.clearOps}
+                disabled={state.ops.length === 0}
+              >
+                Clear all
+              </Button>
+            </>
+          }
+        >
+          <OpsList ops={state.ops} outline={sourceOutline} onRemove={flow.removeOp} />
+        </Panel>
+      </Box>
     </Stack>
   );
 }

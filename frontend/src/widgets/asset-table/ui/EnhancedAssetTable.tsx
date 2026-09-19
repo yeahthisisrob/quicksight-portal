@@ -39,6 +39,7 @@ import {
   type TagOption,
 } from '../filter-bar';
 import { tableStyles } from '../lib/tableStyles';
+import { AssetHealthProvider } from '../model/assetHealth';
 import { TableHeader, TableToolbar } from './components';
 
 export interface ColumnConfig {
@@ -85,6 +86,8 @@ export interface FetchAssetsOptions {
 
 interface EnhancedAssetTableProps {
   title?: string;
+  /** Enables the CloudWatch health columns for dashboards and datasets. */
+  assetType?: string;
   assets: any[];
   loading: boolean;
   totalRows: number;
@@ -348,6 +351,7 @@ function buildColumnsConfig(columns: ColumnConfig[]): {
 
 // eslint-disable-next-line complexity
 export default function EnhancedAssetTable({
+  assetType,
   title,
   assets,
   loading,
@@ -568,135 +572,137 @@ export default function EnhancedAssetTable({
   }, [onFetchAssets, buildFetchOptions, refreshKey]);
 
   return (
-    <Box>
-      {title && (
-        <TableHeader title={title} totalRows={totalRows} extraActions={extraToolbarActions} />
-      )}
+    <AssetHealthProvider assetType={assetType ?? ''} assets={assets}>
+      <Box>
+        {title && (
+          <TableHeader title={title} totalRows={totalRows} extraActions={extraToolbarActions} />
+        )}
 
-      {enableBulkActions && selectionCount(selectedRows, assets.length) > 0 && (
-        <Box sx={{ mb: spacing.md / 8 }}>
-          <BulkActionsToolbar
-            selectedCount={selectionCount(selectedRows, assets.length)}
-            onAddToFolder={onAddToFolder}
-            onBulkTag={handleBulkTag}
-            onBulkDelete={onBulkDelete}
-            showDeleteAction={showDeleteAction}
-            onClearSelection={() => onSelectionChange?.(EMPTY_SELECTION)}
-            customActions={bulkActions?.filter(
-              (a) => !['Add to Folder', 'Manage Tags'].includes(a.label)
-            )}
-            folderActionLabel={folderActionLabel}
+        {enableBulkActions && selectionCount(selectedRows, assets.length) > 0 && (
+          <Box sx={{ mb: spacing.md / 8 }}>
+            <BulkActionsToolbar
+              selectedCount={selectionCount(selectedRows, assets.length)}
+              onAddToFolder={onAddToFolder}
+              onBulkTag={handleBulkTag}
+              onBulkDelete={onBulkDelete}
+              showDeleteAction={showDeleteAction}
+              onClearSelection={() => onSelectionChange?.(EMPTY_SELECTION)}
+              customActions={bulkActions?.filter(
+                (a) => !['Add to Folder', 'Manage Tags'].includes(a.label)
+              )}
+              folderActionLabel={folderActionLabel}
+            />
+          </Box>
+        )}
+
+        <Paper
+          ref={containerRef}
+          sx={{
+            ...tableStyles.container,
+            height: availableHeight,
+            maxHeight: availableHeight,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <FilterBar
+            showSearch
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            dateFilter={dateFilter}
+            onDateFilterChange={handleDateFilterChange}
+            dateFieldOptions={dateFieldOptions}
+            showActivityOption={showActivityOption}
+            matchReasonSummary={matchReasonSummary}
+            enableTagFiltering={enableTagFiltering}
+            availableTags={availableTags}
+            includeTags={includeTags}
+            excludeTags={excludeTags}
+            onIncludeTagsChange={setIncludeTags}
+            onExcludeTagsChange={setExcludeTags}
+            isLoadingTags={isLoadingTags}
+            enableErrorFiltering={enableErrorFiltering}
+            errorFilter={errorFilter}
+            onErrorFilterChange={setErrorFilter}
+            errorCount={errorCount}
+            enableActivityFiltering={enableActivityFiltering}
+            activityFilter={activityFilter}
+            onActivityFilterChange={setActivityFilter}
+            enableSmusFiltering={enableSmusFiltering}
+            smusFilter={smusFilter}
+            onSmusFilterChange={setSmusFilter}
+            enableImportModeFiltering={enableImportModeFiltering}
+            importModeFilter={importModeFilter}
+            onImportModeFilterChange={setImportModeFilter}
+            enableRoleFiltering={enableRoleFiltering}
+            availableRoles={availableRoles}
+            selectedRoles={selectedRoles}
+            onSelectedRolesChange={setSelectedRoles}
+            enablePermissionsFiltering={enablePermissionsFiltering}
+            permissionsFilter={permissionsFilter}
+            onPermissionsFilterChange={setPermissionsFilter}
+            enableGroupFiltering={enableGroupFiltering}
+            availableGroups={availableGroups}
+            groupMembershipFilter={groupMembershipFilter}
+            onGroupMembershipFilterChange={setGroupMembershipFilter}
+            selectedGroups={selectedGroups}
+            onSelectedGroupsChange={setSelectedGroups}
+            enableUserAccessFiltering={enableUserAccessFiltering}
+            availableAccessUsers={availableAccessUsers}
+            selectedAccessUsers={selectedAccessUsers}
+            onSelectedAccessUsersChange={setSelectedAccessUsers}
+            isLoadingAccessUsers={isLoadingAccessUsers}
+            enableSourceTypeFiltering={enableSourceTypeFiltering}
+            availableSourceTypes={availableSourceTypes}
+            selectedSourceTypes={selectedSourceTypes}
+            onSelectedSourceTypesChange={setSelectedSourceTypes}
+            enableFolderFiltering={enableFolderFiltering}
+            availableFolders={availableFolders}
+            includeFolders={includeFolders}
+            excludeFolders={excludeFolders}
+            onIncludeFoldersChange={setIncludeFolders}
+            onExcludeFoldersChange={setExcludeFolders}
+            isLoadingFolders={isLoadingFolders}
           />
-        </Box>
-      )}
 
-      <Paper
-        ref={containerRef}
-        sx={{
-          ...tableStyles.container,
-          height: availableHeight,
-          maxHeight: availableHeight,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        <FilterBar
-          showSearch
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          dateFilter={dateFilter}
-          onDateFilterChange={handleDateFilterChange}
-          dateFieldOptions={dateFieldOptions}
-          showActivityOption={showActivityOption}
-          matchReasonSummary={matchReasonSummary}
-          enableTagFiltering={enableTagFiltering}
-          availableTags={availableTags}
-          includeTags={includeTags}
-          excludeTags={excludeTags}
-          onIncludeTagsChange={setIncludeTags}
-          onExcludeTagsChange={setExcludeTags}
-          isLoadingTags={isLoadingTags}
-          enableErrorFiltering={enableErrorFiltering}
-          errorFilter={errorFilter}
-          onErrorFilterChange={setErrorFilter}
-          errorCount={errorCount}
-          enableActivityFiltering={enableActivityFiltering}
-          activityFilter={activityFilter}
-          onActivityFilterChange={setActivityFilter}
-          enableSmusFiltering={enableSmusFiltering}
-          smusFilter={smusFilter}
-          onSmusFilterChange={setSmusFilter}
-          enableImportModeFiltering={enableImportModeFiltering}
-          importModeFilter={importModeFilter}
-          onImportModeFilterChange={setImportModeFilter}
-          enableRoleFiltering={enableRoleFiltering}
-          availableRoles={availableRoles}
-          selectedRoles={selectedRoles}
-          onSelectedRolesChange={setSelectedRoles}
-          enablePermissionsFiltering={enablePermissionsFiltering}
-          permissionsFilter={permissionsFilter}
-          onPermissionsFilterChange={setPermissionsFilter}
-          enableGroupFiltering={enableGroupFiltering}
-          availableGroups={availableGroups}
-          groupMembershipFilter={groupMembershipFilter}
-          onGroupMembershipFilterChange={setGroupMembershipFilter}
-          selectedGroups={selectedGroups}
-          onSelectedGroupsChange={setSelectedGroups}
-          enableUserAccessFiltering={enableUserAccessFiltering}
-          availableAccessUsers={availableAccessUsers}
-          selectedAccessUsers={selectedAccessUsers}
-          onSelectedAccessUsersChange={setSelectedAccessUsers}
-          isLoadingAccessUsers={isLoadingAccessUsers}
-          enableSourceTypeFiltering={enableSourceTypeFiltering}
-          availableSourceTypes={availableSourceTypes}
-          selectedSourceTypes={selectedSourceTypes}
-          onSelectedSourceTypesChange={setSelectedSourceTypes}
-          enableFolderFiltering={enableFolderFiltering}
-          availableFolders={availableFolders}
-          includeFolders={includeFolders}
-          excludeFolders={excludeFolders}
-          onIncludeFoldersChange={setIncludeFolders}
-          onExcludeFoldersChange={setExcludeFolders}
-          isLoadingFolders={isLoadingFolders}
-        />
+          <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
+            <DataGrid
+              rows={rows}
+              columns={visibleColumnsConfig}
+              loading={loading}
+              paginationModel={paginationModel}
+              onPaginationModelChange={handlePaginationModelChange}
+              pageSizeOptions={[10, 25, 50, 100]}
+              rowCount={totalRows}
+              paginationMode="server"
+              sortingMode="server"
+              filterMode="server"
+              sortModel={sortModel}
+              onSortModelChange={setSortModel}
+              filterModel={filterModel}
+              onFilterModelChange={setFilterModel}
+              checkboxSelection={enableBulkActions}
+              rowSelectionModel={selectedRows}
+              onRowSelectionModelChange={onSelectionChange}
+              disableRowSelectionOnClick
+              getRowId={resolvedGetRowId}
+              slots={{ toolbar: TableToolbar as any }}
+              slotProps={{ toolbar: toolbarSlotProps as any }}
+              initialState={{
+                columns: {
+                  columnVisibilityModel: initialColumnVisibilityModel,
+                },
+                // Dense-by-default: data tables start compact; the toolbar
+                // density selector still lets users switch.
+                density: 'compact',
+              }}
+              sx={{ ...tableStyles.dataGrid, height: '100%' }}
+            />
+          </Box>
+        </Paper>
 
-        <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
-          <DataGrid
-            rows={rows}
-            columns={visibleColumnsConfig}
-            loading={loading}
-            paginationModel={paginationModel}
-            onPaginationModelChange={handlePaginationModelChange}
-            pageSizeOptions={[10, 25, 50, 100]}
-            rowCount={totalRows}
-            paginationMode="server"
-            sortingMode="server"
-            filterMode="server"
-            sortModel={sortModel}
-            onSortModelChange={setSortModel}
-            filterModel={filterModel}
-            onFilterModelChange={setFilterModel}
-            checkboxSelection={enableBulkActions}
-            rowSelectionModel={selectedRows}
-            onRowSelectionModelChange={onSelectionChange}
-            disableRowSelectionOnClick
-            getRowId={resolvedGetRowId}
-            slots={{ toolbar: TableToolbar as any }}
-            slotProps={{ toolbar: toolbarSlotProps as any }}
-            initialState={{
-              columns: {
-                columnVisibilityModel: initialColumnVisibilityModel,
-              },
-              // Dense-by-default: data tables start compact; the toolbar
-              // density selector still lets users switch.
-              density: 'compact',
-            }}
-            sx={{ ...tableStyles.dataGrid, height: '100%' }}
-          />
-        </Box>
-      </Paper>
-
-      {children}
-    </Box>
+        {children}
+      </Box>
+    </AssetHealthProvider>
   );
 }

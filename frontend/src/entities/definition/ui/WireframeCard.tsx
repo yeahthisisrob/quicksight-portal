@@ -1,14 +1,20 @@
 /**
  * One element on the wireframe canvas: a white card with a header, a dashed
  * placeholder where the chart would be, and the field wells as chips.
+ *
+ * The card can also carry what changed about it (moved, retyped, added,
+ * removed), a health badge (slow, errors) and a selected state, so the same
+ * drawing serves the read-only viewer, the before/after mockup and the
+ * editor.
  */
-import { VisibilityOff } from '@mui/icons-material';
+import { ErrorOutlined, VisibilityOff, WarningAmber } from '@mui/icons-material';
 import { alpha, Box, Chip, Tooltip, Typography } from '@mui/material';
+import type { KeyboardEvent } from 'react';
 
 import { borderRadius, typography } from '@/shared/design-system/theme';
 
-import type { FieldRename } from '../lib/wireframeDiff';
-import type { WireframeElement, WireframeField } from '../model/types';
+import type { ElementChange, FieldRename } from '../lib/wireframeDiff';
+import type { WireframeBadge, WireframeElement, WireframeField } from '../model/types';
 import { glyphFor, kindLabel } from './glyphs';
 
 const MAX_CHIPS_PER_WELL = 5;
@@ -21,6 +27,29 @@ export function fieldLabel(field: WireframeField): string {
 
 /** Renames for this element, keyed `role/index` (see elementRenames). */
 export type ElementRenames = Map<string, FieldRename>;
+
+/** "BarChart" -> "bar chart", for chips. */
+function typeWords(type: string | undefined): string {
+  return (type ?? 'visual').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+}
+
+function changeLabel(change: ElementChange): { label: string; title: string } {
+  switch (change.kind) {
+    case 'retyped':
+      return {
+        label: `${typeWords(change.from)} → ${typeWords(change.to)}`,
+        title: 'Visual type changed; axis, legend and sort settings reset',
+      };
+    case 'moved':
+      return { label: 'moved', title: `Moved from ${change.from ?? '?'} to ${change.to}` };
+    case 'resized':
+      return { label: 'resized', title: `Resized from ${change.from ?? '?'} to ${change.to}` };
+    case 'added':
+      return { label: 'added', title: 'New in this version' };
+    case 'removed':
+      return { label: 'removed', title: 'Not in the result' };
+  }
+}
 
 function Wells({ element, renames }: { element: WireframeElement; renames?: ElementRenames }) {
   if (element.fieldWells.length === 0) return null;
@@ -144,22 +173,53 @@ function Placeholder({ element }: { element: WireframeElement }) {
   );
 }
 
-interface WireframeCardProps {
+export interface WireframeCardProps {
   element: WireframeElement;
   /** Control-bar rendering: tighter, no placeholder area. */
   dense?: boolean;
   /** Fields to draw as renamed, keyed `role/index`. */
   renames?: ElementRenames;
+  /** What changed about this element versus the version it was derived from. */
+  changes?: ElementChange[];
+  /** A health warning from QuickSight metrics. */
+  badge?: WireframeBadge;
+  /** Editor selection. */
+  selected?: boolean;
+  /** Makes the card clickable (and keyboard-focusable). */
+  onSelect?: () => void;
 }
 
-export function WireframeCard({ element, dense = false, renames }: WireframeCardProps) {
+export function WireframeCard({
+  element,
+  dense = false,
+  renames,
+  changes,
+  badge,
+  selected = false,
+  onSelect,
+}: WireframeCardProps) {
   const Glyph = glyphFor(element);
   const isText = element.kind === 'textBox';
   const heading = isText ? undefined : (element.title ?? `Untitled ${kindLabel(element)}`);
+  const removed = changes?.some((c) => c.kind === 'removed') ?? false;
+  const emphasised = changes?.some((c) => c.kind !== 'removed') ?? false;
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (onSelect && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      onSelect();
+    }
+  };
 
   return (
     <Box
       data-testid={`wireframe-element-${element.id}`}
+      data-selected={selected ? 'true' : undefined}
+      role={onSelect ? 'button' : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      onClick={onSelect}
+      onKeyDown={onSelect ? onKeyDown : undefined}
+      aria-pressed={onSelect ? selected : undefined}
       sx={{
         display: 'flex',
         flexDirection: 'column',
@@ -167,14 +227,29 @@ export function WireframeCard({ element, dense = false, renames }: WireframeCard
         minWidth: 0,
         minHeight: 0,
         bgcolor: 'background.paper',
-        border: 1,
-        borderColor: 'divider',
+        border: selected ? 2 : 1,
+        borderStyle: removed ? 'dashed' : 'solid',
+        borderColor: selected
+          ? 'primary.main'
+          : removed
+            ? 'error.main'
+            : emphasised
+              ? 'info.main'
+              : 'divider',
         borderRadius: `${borderRadius.sm}px`,
         overflow: 'hidden',
-        boxShadow: (t) => `0 1px 2px ${alpha(t.palette.common.black, 0.04)}`,
+        opacity: removed ? 0.5 : 1,
+        cursor: onSelect ? 'pointer' : undefined,
+        boxShadow: (t) =>
+          selected
+            ? `0 0 0 3px ${alpha(t.palette.primary.main, 0.2)}`
+            : `0 1px 2px ${alpha(t.palette.common.black, 0.04)}`,
+        transition: 'border-color 120ms, box-shadow 120ms',
+        '&:hover': onSelect ? { borderColor: selected ? 'primary.main' : 'text.secondary' } : {},
+        '&:focus-visible': { outline: 'none', borderColor: 'primary.main' },
       }}
     >
-      {heading && (
+      {(heading || badge || changes) && (
         <Box
           sx={{
             display: 'flex',
@@ -187,22 +262,63 @@ export function WireframeCard({ element, dense = false, renames }: WireframeCard
             opacity: element.titleHidden ? 0.55 : 1,
           }}
         >
-          <Tooltip title={kindLabel(element)}>
-            <Glyph sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0 }} />
-          </Tooltip>
-          <Typography
-            variant="body2"
-            noWrap
-            sx={{
-              fontWeight: typography.fontWeight.medium,
-              fontStyle: element.title ? 'normal' : 'italic',
-              color: element.title ? 'text.primary' : 'text.secondary',
-              flex: 1,
-              minWidth: 0,
-            }}
-          >
-            {heading}
-          </Typography>
+          {heading && (
+            <>
+              <Tooltip title={kindLabel(element)}>
+                <Glyph sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0 }} />
+              </Tooltip>
+              <Typography
+                variant="body2"
+                noWrap
+                sx={{
+                  fontWeight: typography.fontWeight.medium,
+                  fontStyle: element.title ? 'normal' : 'italic',
+                  color: element.title ? 'text.primary' : 'text.secondary',
+                  flex: 1,
+                  minWidth: 0,
+                }}
+              >
+                {heading}
+              </Typography>
+            </>
+          )}
+          {!heading && <Box sx={{ flex: 1 }} />}
+          {changes?.map((change) => {
+            const { label, title } = changeLabel(change);
+            return (
+              <Tooltip key={change.kind} title={title}>
+                <Chip
+                  label={label}
+                  size="small"
+                  color={change.kind === 'removed' ? 'error' : 'info'}
+                  variant={
+                    change.kind === 'moved' || change.kind === 'resized' ? 'outlined' : 'filled'
+                  }
+                  data-change={change.kind}
+                  sx={{ height: 18, fontSize: '0.625rem', '& .MuiChip-label': { px: 0.75 } }}
+                />
+              </Tooltip>
+            );
+          })}
+          {badge && (
+            <Tooltip title={badge.label}>
+              <Chip
+                icon={
+                  badge.kind === 'error' ? (
+                    <ErrorOutlined sx={{ fontSize: 14 }} />
+                  ) : (
+                    <WarningAmber sx={{ fontSize: 14 }} />
+                  )
+                }
+                label={badge.kind === 'error' ? 'errors' : 'slow'}
+                size="small"
+                color={badge.kind === 'error' ? 'error' : 'warning'}
+                variant="outlined"
+                data-badge={badge.kind}
+                sx={{ height: 18, fontSize: '0.625rem', '& .MuiChip-label': { px: 0.5 } }}
+              />
+            </Tooltip>
+          )}
           {element.titleHidden && (
             <Tooltip title="Title hidden in QuickSight">
               <VisibilityOff sx={{ fontSize: 14, color: 'text.disabled' }} />

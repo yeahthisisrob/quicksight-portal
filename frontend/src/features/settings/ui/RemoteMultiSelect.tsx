@@ -1,6 +1,8 @@
 import { Autocomplete, Chip, TextField, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 
+import { describeProjectDiagnostics } from '@/entities/smus';
+
 import { getApiErrorMessage, settingsApi } from '@/shared/api';
 
 export interface RemoteOption {
@@ -23,25 +25,7 @@ interface RemoteOptions {
 const LOADERS: Record<string, () => Promise<RemoteOptions>> = {
   '/settings/smus/projects': async () => {
     const result = await settingsApi.listSmusProjects();
-    const d = result.diagnostics;
-    const emptyDetail = d
-      ? [
-          `Looked in domain ${d.domainId} (${d.region}): ${d.fromListProjects} from ListProjects, ${d.listings} published listings, ${d.publishers} publishers.`,
-          d.listProjectsError ? `ListProjects failed: ${d.listProjectsError}` : '',
-          d.listingsError ? `SearchListings failed: ${d.listingsError}` : '',
-          d.listings === 0 && !d.listingsError
-            ? 'No published listings, so there is nothing to derive projects from: check the domain id and region, and that assets are published.'
-            : '',
-          d.roleArn ? `Calling DataZone as ${d.roleArn} (domain profile: ${d.profileStatus}).` : '',
-          d.profileStatus === 'not found'
-            ? 'That role has no user profile in the domain, so it is a member of nothing: run `just smus-grant <domain>` or add the role in the SMUS console.'
-            : d.fromListProjects === 0 && !d.listProjectsError
-              ? 'The role is known to the domain but is a member of no project: add it to the projects it should read.'
-              : '',
-        ]
-          .filter(Boolean)
-          .join(' ')
-      : undefined;
+    const emptyDetail = describeProjectDiagnostics(result.diagnostics);
     return {
       configured: result.configured,
       emptyDetail,

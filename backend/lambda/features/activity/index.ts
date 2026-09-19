@@ -2,6 +2,7 @@ import type { RouteHandler } from '../../api/types';
 import {
   getActivityData,
   getActivitySummary,
+  getAssetHealth,
   getAssetTimeline,
   getTimeline,
   getUserInactiveAnalyses,
@@ -32,6 +33,11 @@ export const activityRoutes: RouteHandler[] = [
     path: /^\/activity\/(dashboard|analysis|dataset|user)\/(.+)$/,
     method: 'GET',
     handler: getActivityData,
+  },
+  {
+    path: '/activity/health',
+    method: 'GET',
+    handler: getAssetHealth,
   },
   {
     path: '/activity/summary',

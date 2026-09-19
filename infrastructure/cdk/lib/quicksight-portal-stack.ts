@@ -190,7 +190,9 @@ export class QuicksightPortalStack extends Stack {
     }));
     lambdaRole.addToPolicy(new PolicyStatement({
       effect: Effect.ALLOW,
-      actions: ['cloudtrail:LookupEvents'],
+      // Activity (CloudTrail) and QuickSight's CloudWatch metrics for Author's
+      // dashboard health; neither API supports resource-level scoping.
+      actions: ['cloudtrail:LookupEvents', 'cloudwatch:GetMetricData'],
       resources: ['*'],
     }));
     // Planner (natural-language rebind proposals) over the Bedrock Converse
@@ -673,8 +675,8 @@ export class QuicksightPortalStack extends Stack {
       {
         id: 'AwsSolutions-IAM5[Resource::*]',
         reason:
-          'cloudtrail:LookupEvents and datazone:SearchListings do not support ' +
-          'resource-level scoping.',
+          'cloudtrail:LookupEvents, cloudwatch:GetMetricData and the DataZone ' +
+          'catalog calls do not support resource-level scoping.',
       },
       ...nagAccounts.map((acct) => ({
         id: `AwsSolutions-IAM5[Resource::arn:aws:s3:::cdk-hnb659fds-assets-${acct}-${this.region}/*]`,

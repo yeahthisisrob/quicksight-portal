@@ -51,7 +51,27 @@ export interface RecipientsData {
   groups: Array<{ groupName: string; members: ResolvedRecipient[] }>;
 }
 
+export type AssetHealth = components['schemas']['AssetHealth'];
+export type AssetHealthBatch = components['schemas']['AssetHealthBatch'];
+
 export const activityApi = {
+  /**
+   * QuickSight CloudWatch health for a page of dashboards or datasets:
+   * one batched read, cached server-side for a few minutes.
+   */
+  async getAssetHealth(
+    assetType: 'dashboard' | 'dataset',
+    ids: string[]
+  ): Promise<AssetHealthBatch> {
+    const response = await api.get<ApiResponse<AssetHealthBatch>>('/activity/health', {
+      params: { assetType, ids: ids.join(',') },
+    });
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to read health');
+    }
+    return response.data.data;
+  },
+
   /**
    * Refresh activity data for specified asset types
    * Now returns a job that runs in the background

@@ -10,6 +10,7 @@ import { colors } from '@/shared/design-system/theme';
 import { TypedChip } from '@/shared/ui';
 import { SearchMatchChipGroup } from '@/shared/ui/SearchMatchChip';
 
+import { ActivityCountCell, ErrorsCell, LoadTimeCell } from '../ui/components/HealthCell';
 import { formatBytes, formatRelativeDate, type AssetRow } from './createAssetColumns';
 
 import type { ColumnConfig } from '@/features/asset-management';
@@ -972,4 +973,40 @@ export function generateSearchMatchReasonsColumn(): ColumnConfig {
       return reasons ? reasons.join(', ') : '';
     },
   };
+}
+
+/**
+ * QuickSight CloudWatch health over the last 30 days. Dashboards: views,
+ * p90 view load time, visual load errors. Datasets: refresh runs, p90
+ * ingestion latency, error rows. Values come from the table's health
+ * provider, one batched read per page; a column without metrics says so.
+ */
+export function generateHealthColumns(assetType: 'dashboard' | 'dataset'): ColumnConfig[] {
+  const dashboard = assetType === 'dashboard';
+  return [
+    {
+      id: 'healthCount',
+      label: dashboard ? 'Views (30d)' : 'Refreshes (30d)',
+      width: 120,
+      visible: dashboard,
+      sortable: false,
+      renderCell: (params: { row: AssetRow }) => <ActivityCountCell id={params.row.id} />,
+    },
+    {
+      id: 'healthLoad',
+      label: dashboard ? 'Load p90' : 'Refresh p90',
+      width: 120,
+      visible: true,
+      sortable: false,
+      renderCell: (params: { row: AssetRow }) => <LoadTimeCell id={params.row.id} />,
+    },
+    {
+      id: 'healthErrors',
+      label: dashboard ? 'Visual errors' : 'Error rows',
+      width: 120,
+      visible: true,
+      sortable: false,
+      renderCell: (params: { row: AssetRow }) => <ErrorsCell id={params.row.id} />,
+    },
+  ];
 }

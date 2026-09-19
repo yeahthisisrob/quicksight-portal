@@ -4,6 +4,7 @@
 import { Box, Typography } from '@mui/material';
 
 import { type AuthorFlow, type AuthorFlowOptions, useAuthorFlow } from '../model/useAuthorFlow';
+import { HowItWorks } from './HowItWorks';
 import { StepsRail } from './StepsRail';
 import { MockupStep } from './steps/MockupStep';
 import { PublishStep } from './steps/PublishStep';
@@ -32,19 +33,22 @@ function StepBody({ flow }: { flow: AuthorFlow }) {
 
 /** The page with its flow injected, so stories can drive it. */
 export function AuthorStudioView({ flow }: { flow: AuthorFlow }) {
-  // The mockup is a dashboard drawing: it needs every pixel of width, so the
-  // rail moves above it as a horizontal stepper on that step.
+  // The mockup is a dashboard drawing with an inspector beside it: it needs
+  // every pixel of width, so the rail moves above it as a horizontal stepper.
   const wide = flow.state.step === 'mockup';
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0 }}>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
-          Author
-        </Typography>
-        <Typography variant="body1" sx={{ color: 'text.secondary', mt: 0.5 }}>
-          Make a dashboard or analysis like an existing one, on different datasets, and see it
-          before it exists.
-        </Typography>
+      <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box>
+          <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
+            Author
+          </Typography>
+          <Typography variant="body1" sx={{ color: 'text.secondary', mt: 0.5 }}>
+            Make a dashboard or analysis like an existing one, on different datasets, shape it, and
+            see it before it exists.
+          </Typography>
+        </Box>
+        <HowItWorks defaultOpen={flow.state.source === null} />
       </Box>
       <Box
         sx={{

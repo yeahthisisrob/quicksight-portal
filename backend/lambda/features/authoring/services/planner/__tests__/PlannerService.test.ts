@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DefinitionDataset, RebindPlan } from '../../../types';
 import type { PlannerModel, StructuredRequest, StructuredResult } from '../PlannerModel';
-import { PlannerService, parseChoice, parseMappings } from '../PlannerService';
+import { PlannerService, parseChoice, parseEditOps, parseMappings } from '../PlannerService';
 
 vi.mock('../../../../../shared/utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -304,6 +304,7 @@ describe('parseChoice', () => {
       name: 'x',
       reason: '',
       rebinds: [],
+      wantsEdits: false,
     });
   });
 
@@ -366,5 +367,185 @@ describe('parseMappings', () => {
 
   it('rejects an answer with no mappings array', () => {
     expect(() => parseMappings({}, unresolved)).toThrow('no column mappings');
+  });
+});
+
+describe('parseEditOps', () => {
+  const outline = [
+    {
+      sheetId: 's1',
+      name: 'Overview',
+      layout: 'grid' as const,
+      elements: [{ elementId: 'v1', kind: 'visual' as const }],
+    },
+  ];
+
+  it('turns the flat answer into typed ops and drops what it cannot use', () => {
+    const ops = parseEditOps(
+      {
+        reason: 'x',
+        ops: [
+          {
+            op: 'move',
+            sheetId: 's1',
+            elementId: 'v1',
+            col: 18,
+            row: 0,
+            colSpan: -1,
+            rowSpan: -1,
+            visualType: '',
+            title: '',
+            name: '',
+          },
+          {
+            op: 'retype',
+            sheetId: 's1',
+            elementId: 'v1',
+            col: -1,
+            row: -1,
+            colSpan: -1,
+            rowSpan: -1,
+            visualType: 'LineChart',
+            title: '',
+            name: '',
+          },
+          {
+            op: 'renameSheet',
+            sheetId: 's1',
+            elementId: '',
+            col: -1,
+            row: -1,
+            colSpan: -1,
+            rowSpan: -1,
+            visualType: '',
+            title: '',
+            name: 'Sales',
+          },
+          { op: 'move', sheetId: 'ghost', elementId: 'v1', col: 0, row: 0 },
+          { op: 'explode', sheetId: 's1', elementId: 'v1' },
+          { op: 'resize', sheetId: 's1', elementId: '', colSpan: 3, rowSpan: 3 },
+        ],
+      },
+      outline
+    );
+    expect(ops).toEqual([
+      { op: 'move', sheetId: 's1', elementId: 'v1', col: 18, row: 0 },
+      { op: 'retype', sheetId: 's1', elementId: 'v1', visualType: 'LineChart' },
+      { op: 'renameSheet', sheetId: 's1', name: 'Sales' },
+    ]);
+  });
+
+  it('returns nothing for a malformed answer', () => {
+    expect(parseEditOps('nope', outline)).toEqual([]);
+    expect(parseEditOps({ ops: 'x' }, outline)).toEqual([]);
+  });
+});
+
+describe('PlannerService edits', () => {
+  it('asks for edits when the ask wants them, validates each op against a preview, and keeps only what applies', async () => {
+    const rebindService = {
+      describeDatasets: vi.fn().mockResolvedValue({
+        assetType: 'dashboard',
+        assetId: 'd1',
+        name: 'Sales',
+        datasets: DATASETS,
+      }),
+      plan: vi.fn(),
+      loadDefinitionOutline: vi.fn().mockResolvedValue([
+        {
+          sheetId: 's1',
+          name: 'Overview',
+          layout: 'grid',
+          elements: [{ elementId: 'v1', kind: 'visual', visualType: 'BarChart' }],
+        },
+      ]),
+      preview: vi.fn().mockResolvedValue({
+        plan: planFor(),
+        definition: {
+          Sheets: [
+            {
+              SheetId: 's1',
+              Name: 'Overview',
+              Visuals: [
+                {
+                  BarChartVisual: {
+                    VisualId: 'v1',
+                    ChartConfiguration: { FieldWells: { BarChartAggregatedFieldWells: {} } },
+                  },
+                },
+              ],
+              Layouts: [
+                {
+                  Configuration: {
+                    GridLayout: {
+                      Elements: [
+                        {
+                          ElementId: 'v1',
+                          ElementType: 'VISUAL',
+                          ColumnIndex: 0,
+                          ColumnSpan: 18,
+                          RowIndex: 0,
+                          RowSpan: 12,
+                        },
+                      ],
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+        changes: [],
+        outline: [],
+      }),
+    };
+    const model = new FakeModel([
+      { intent: 'rebind', mode: 'clone', name: '', reason: 'r', wantsEdits: true, rebinds: [] },
+      {
+        reason: 'move and retype',
+        ops: [
+          {
+            op: 'retype',
+            sheetId: 's1',
+            elementId: 'v1',
+            col: -1,
+            row: -1,
+            colSpan: -1,
+            rowSpan: -1,
+            visualType: 'LineChart',
+            title: '',
+            name: '',
+          },
+          {
+            op: 'move',
+            sheetId: 's1',
+            elementId: 'v1',
+            col: 30,
+            row: 0,
+            colSpan: -1,
+            rowSpan: -1,
+            visualType: '',
+            title: '',
+            name: '',
+          },
+        ],
+      },
+    ]);
+    const planner = new PlannerService(
+      rebindService as any,
+      model,
+      vi.fn().mockResolvedValue(CANDIDATES)
+    );
+
+    const proposal = await planner.propose('dashboard', 'd1', { ask: 'make the bar a line' });
+
+    expect(model.requests.map((r) => r.label)).toEqual(['choose-target', 'plan-edits']);
+    expect(model.requests[1]?.user).toContain('"elementId":"v1"');
+    // The retype applies; the move would leave the 36-column grid and is dropped
+    expect(proposal.ops).toEqual([
+      { op: 'retype', sheetId: 's1', elementId: 'v1', visualType: 'LineChart' },
+    ]);
+    expect(proposal.intent).toBe('rebind');
+    expect(proposal.plan).toBeNull();
   });
 });

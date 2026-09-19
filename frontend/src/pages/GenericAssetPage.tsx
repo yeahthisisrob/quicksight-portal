@@ -278,6 +278,7 @@ export default function GenericAssetPage({
 
   return (
     <EnhancedAssetTable
+      assetType={assetType}
       title={title}
       assets={assets}
       loading={loading}

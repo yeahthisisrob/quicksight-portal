@@ -2,6 +2,7 @@ import { CloudTrailClient } from '@aws-sdk/client-cloudtrail';
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { CloudTrailAdapter } from '../../../adapters/aws/CloudTrailAdapter';
+import { type AssetHealth, CloudWatchAdapter } from '../../../adapters/aws/CloudWatchAdapter';
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants/httpStatusCodes';
 import { ACTIVITY_LIMITS } from '../../../shared/constants/limits';
@@ -825,6 +826,99 @@ export async function getUserUnusedDatasets(
       event,
       STATUS_CODES.INTERNAL_SERVER_ERROR,
       error.message || 'Internal server error'
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// QuickSight CloudWatch health for a page of assets
+// ---------------------------------------------------------------------------
+
+const HEALTH_WINDOW_DAYS = 30;
+const HEALTH_MAX_IDS = 100;
+const HEALTH_CACHE_TTL_MINUTES = 5;
+const SECONDS_PER_MINUTE = 60;
+const MS_PER_SECOND = 1000;
+const HEALTH_CACHE_TTL_MS = HEALTH_CACHE_TTL_MINUTES * SECONDS_PER_MINUTE * MS_PER_SECOND;
+const healthCache = new Map<string, { expiresAt: number; value: AssetHealth }>();
+
+/**
+ * GET /api/activity/health?assetType=dashboard|dataset&ids=a,b,c
+ * One batched CloudWatch read per page; per-asset results cached briefly
+ * so paging back and forth does not re-read.
+ */
+export async function getAssetHealth(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  try {
+    await requireAuth(event);
+    const q = event.queryStringParameters || {};
+    const assetType = q.assetType;
+    if (assetType !== 'dashboard' && assetType !== 'dataset') {
+      return errorResponse(
+        event,
+        STATUS_CODES.BAD_REQUEST,
+        'assetType must be dashboard or dataset'
+      );
+    }
+    const ids = [
+      ...new Set(
+        (q.ids || '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      ),
+    ];
+    if (ids.length === 0 || ids.length > HEALTH_MAX_IDS) {
+      return errorResponse(
+        event,
+        STATUS_CODES.BAD_REQUEST,
+        `ids must list 1 to ${HEALTH_MAX_IDS} asset ids`
+      );
+    }
+
+    const now = Date.now();
+    const items: AssetHealth[] = [];
+    const missing: string[] = [];
+    for (const id of ids) {
+      const cached = healthCache.get(`${assetType}:${id}`);
+      if (cached && cached.expiresAt > now) {
+        items.push(cached.value);
+      } else {
+        missing.push(id);
+      }
+    }
+
+    let available = true;
+    if (missing.length > 0) {
+      try {
+        const region = process.env.AWS_REGION || 'us-east-1';
+        const fresh = await new CloudWatchAdapter(region).getAssetHealthBatch(
+          assetType,
+          missing,
+          HEALTH_WINDOW_DAYS
+        );
+        for (const value of fresh) {
+          healthCache.set(`${assetType}:${value.id}`, {
+            expiresAt: now + HEALTH_CACHE_TTL_MS,
+            value,
+          });
+          items.push(value);
+        }
+      } catch (error) {
+        logger.warn('CloudWatch health unavailable', { assetType, count: missing.length, error });
+        available = items.length > 0;
+      }
+    }
+
+    return successResponse(event, {
+      success: true,
+      data: { assetType, windowDays: HEALTH_WINDOW_DAYS, available, items },
+    });
+  } catch (error: any) {
+    logger.error('Asset health failed', { error });
+    return errorResponse(
+      event,
+      error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+      error?.message || 'Failed to read health'
     );
   }
 }

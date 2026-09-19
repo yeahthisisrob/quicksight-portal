@@ -11,6 +11,7 @@ import {
   generateDashboardAnalysisColumns,
   generateUsedByColumn,
   generateUsesColumn,
+  generateHealthColumns,
 } from './columnGenerators';
 
 import type { ColumnConfig } from '@/features/asset-management';
@@ -228,7 +229,7 @@ export const createAssetColumns = (
   const relationshipColumns = getRelationshipColumns(assetType, handlers);
 
   // Merge columns with proper ordering
-  return mergeColumns(baseColumns, specificColumns, relationshipColumns, assetType);
+  return placeHealthAfterActivity(mergeColumns(baseColumns, specificColumns, relationshipColumns, assetType));
 };
 
 /**
@@ -240,7 +241,7 @@ function getSpecificColumnsForAssetType(
 ): ColumnConfig[] {
   switch (assetType) {
     case 'dataset':
-      return generateDatasetColumns(handlers);
+      return [...generateDatasetColumns(handlers), ...generateHealthColumns('dataset')];
     case 'folder':
       return generateFolderColumns(handlers);
     case 'user':
@@ -250,6 +251,7 @@ function getSpecificColumnsForAssetType(
     case 'datasource':
       return generateDatasourceColumns();
     case 'dashboard':
+      return [...generateDashboardAnalysisColumns(handlers), ...generateHealthColumns('dashboard')];
     case 'analysis':
       return generateDashboardAnalysisColumns(handlers);
     default:
@@ -363,4 +365,21 @@ function mergeColumns(
   }
 
   return baseColumns;
+}
+
+/**
+ * Health belongs next to Activity, not at the far right: both answer "is
+ * this thing used and does it work" at a glance.
+ */
+function placeHealthAfterActivity(columns: ColumnConfig[]): ColumnConfig[] {
+  const health = columns.filter((c) => c.id.startsWith('health'));
+  if (health.length === 0) {
+    return columns;
+  }
+  const rest = columns.filter((c) => !c.id.startsWith('health'));
+  const at = rest.findIndex((c) => c.id === 'activity');
+  if (at === -1) {
+    return columns;
+  }
+  return [...rest.slice(0, at + 1), ...health, ...rest.slice(at + 1)];
 }

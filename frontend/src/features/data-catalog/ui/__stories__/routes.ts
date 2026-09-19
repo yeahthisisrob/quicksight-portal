@@ -18,6 +18,19 @@ export function catalogRoutes(overrides: MockRoute[] = []): MockRoute[] {
     ...overrides,
     {
       method: 'get',
+      url: '/settings/smus/projects',
+      respond: () => ({
+        body: {
+          success: true,
+          data: {
+            configured: true,
+            projects: catalogFor().projects.map((p) => ({ id: p.id, name: p.name })),
+          },
+        },
+      }),
+    },
+    {
+      method: 'get',
       url: /\/data-catalog\/templates\/calculated-fields$/,
       respond: () => ({ body: { success: true, data: { templates } } }),
     },

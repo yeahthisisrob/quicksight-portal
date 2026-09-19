@@ -20,6 +20,19 @@ export type ApplyRebindResult = Schemas['ApplyRebindResult'];
 export type ProposeRequest = Schemas['ProposeRequest'];
 export type Proposal = Schemas['Proposal'];
 export type RebindPreview = Schemas['RebindPreview'];
+export type DefinitionOp = Schemas['DefinitionOp'];
+export type DefinitionChange = Schemas['DefinitionChange'];
+export type SheetOutline = Schemas['SheetOutline'];
+export type SheetOutlineElement = Schemas['SheetOutlineElement'];
+export type AddedCalculatedField = Schemas['AddedCalculatedField'];
+export type AssetInsights = Schemas['AssetInsights'];
+export type VisualHealth = Schemas['VisualHealth'];
+
+export interface PreviewRequest {
+  rebinds: RebindRequest[];
+  addCalculatedFields?: AddedCalculatedField[];
+  ops?: DefinitionOp[];
+}
 
 async function unwrap<T>(promise: Promise<{ data: ApiResponse<T> }>, fallback: string): Promise<T> {
   const response = await promise;
@@ -77,14 +90,23 @@ export const authoringApi = {
   previewRebind(
     assetType: AuthorableAssetType,
     assetId: string,
-    rebinds: RebindRequest[]
+    request: RebindRequest[] | PreviewRequest
   ): Promise<RebindPreview> {
+    const body: PreviewRequest = Array.isArray(request) ? { rebinds: request } : request;
     return unwrap(
       apiClient.post<ApiResponse<RebindPreview>>(
         `/authoring/${assetType}/${assetId}/rebind/preview`,
-        { rebinds }
+        body
       ),
       'Failed to preview the rebind'
+    );
+  },
+
+  /** Views from the portal's activity data and, for dashboards, CloudWatch health. */
+  getInsights(assetType: AuthorableAssetType, assetId: string): Promise<AssetInsights> {
+    return unwrap(
+      apiClient.get<ApiResponse<AssetInsights>>(`/authoring/${assetType}/${assetId}/insights`),
+      'Failed to load insights'
     );
   },
 

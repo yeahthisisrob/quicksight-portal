@@ -9,6 +9,11 @@
  * *applies* it - in place, or as a clone.
  */
 
+import type { DefinitionChange, DefinitionOp } from '../lib/definitionOps';
+import type { SheetOutline } from '../lib/definitionOutline';
+
+export type { DefinitionChange, DefinitionOp, SheetOutline };
+
 export type AuthorableAssetType = 'analysis' | 'dashboard';
 
 export const AUTHORABLE_ASSET_TYPES: readonly AuthorableAssetType[] = ['analysis', 'dashboard'];
@@ -118,6 +123,23 @@ export interface ApplyRequest {
   newAssetId?: string;
   /** Calculated fields to add to the written definition, e.g. from the template library. */
   addCalculatedFields?: AddedCalculatedField[];
+  /** Edits applied after rebinds and added fields, in order. */
+  ops?: DefinitionOp[];
+  /** Clone only: put the new asset in this folder. */
+  folderId?: string;
+}
+
+export interface PreviewRequest {
+  rebinds: RebindRequest[];
+  addCalculatedFields?: AddedCalculatedField[];
+  ops?: DefinitionOp[];
+}
+
+export interface RebindPreview {
+  plan: RebindPlan;
+  definition: Record<string, any>;
+  changes: DefinitionChange[];
+  outline: SheetOutline[];
 }
 
 export interface AddedCalculatedField {
@@ -136,6 +158,8 @@ export interface ApplyResult {
   /** Dashboards: the version that was created (and, for update, published). */
   versionNumber?: number;
   plan: RebindPlan;
+  changes: DefinitionChange[];
+  folderId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -171,6 +195,8 @@ export interface Proposal {
   rebinds: ProposedRebind[];
   /** Columns the planner looked at and could not map. */
   unmapped: UnmappedColumn[];
+  /** Layout and visual edits the planner proposes, already validated. */
+  ops: DefinitionOp[];
   /** The server's own dry run of the proposal. Null when the intent is unclear. */
   plan: RebindPlan | null;
   model: { provider: string; model: string };

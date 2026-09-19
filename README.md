@@ -10,24 +10,31 @@ A self-hosted portal for Amazon QuickSight that goes past inventory: it can **au
 
 ## Features
 
-### Author: make one like this, on that dataset
+### Author: the way dashboards get made
 
-The Author page is a five-step flow for the two asks every BI team gets: *"create a dashboard like this one but on the new dataset"* and *"convert this analysis to the gold layer"*.
+Author is built for the people who make dashboards and analyses all day. Start from something that already works, change it with clicks or with words, see the result before it exists, then publish it into the right folder with the right audience.
 
-1. **Source** - pick a dashboard or analysis. Assets tagged as templates sort first, and any asset can be marked as one from here.
-2. **Datasets** - for each dataset the definition reads, choose what it should read instead: a **published SMUS asset** (with the QuickSight datasets that already read it, so nothing gets duplicated; or create one in place), or any QuickSight dataset.
-3. **Describe & review** - type what you want, or fill the form by hand. Every referenced column is resolved against the target as matched, renamed, suggested or missing. Suggestions are never applied silently; a click turns one into a rename.
-4. **Mockup** - a before/after wireframe of the result, drawn from the exact definition the publish step would write, with every renamed field highlighted. No data is rendered.
-5. **Publish** - create the copy (keeping the source's theme and permissions) or apply in place (dashboards get a published version). QuickSight's own validation error, if any, is shown verbatim.
+1. **Source** - dashboards and analyses ranked by real use: templates first, then the most viewed, with views, viewers, last-viewed dates, and an insights card for the selected one. Dashboards with QuickSight CloudWatch metrics show their p90 load time, and visuals that are slow or erroring are flagged on the preview so nobody clones a broken one.
+2. **Datasets** - for each dataset the definition reads, choose what it should read instead, scoped by SMUS project: a **published SMUS asset** (with the QuickSight datasets already reading it, or create one in place through an existing data source), or any QuickSight dataset.
+3. **Describe & review** - type what you want, or fill the form by hand. Every referenced column is resolved against the target as matched, renamed, suggested or missing; suggestions are never applied silently. Add calculated fields from the template library.
+4. **Mockup and edit** - a before/after wireframe of the exact definition that would be written. Click any visual to retitle it, change its type (bar, column, line, pie, donut, table, pivot), move and resize it on the grid, duplicate or remove it, rename sheets. Every edit is a validated operation, listed in plain English, highlighted on the wireframe.
+5. **Publish** - a summary of every change, a folder to publish into, then create the copy (keeping the source's theme and permissions) or apply in place. "Open in QuickSight" to fine-tune, or start another from the result.
+
+![Author: sources ranked by use, with insights and flagged visuals](docs/screenshots/author-source.png)
 
 ![Author: choosing targets from published SMUS assets](docs/screenshots/author-targets.png)
 
+![Author: the mockup editor with the inspector and the change list](docs/screenshots/author-mockup.png)
+
+![Author: publish with every change spelled out and a folder to land in](docs/screenshots/author-publish.png)
+
 ### The planner: a model proposes, code decides
 
-The natural-language part is deliberately small. The model is asked two narrow questions, each answered as JSON against a flat schema:
+The natural-language part is deliberately small. The model is asked up to three narrow questions, each answered as JSON against a flat schema:
 
 - which candidate dataset each identifier should read from, and whether this is a copy or an in-place change;
-- only if the server's dry run leaves columns unresolved, which target column each unresolved source column means.
+- only if the server's dry run leaves columns unresolved, which target column each unresolved source column means;
+- only if the ask mentions layout or visuals, which edit operations to make, expressed against a sheet outline with real ids. Each proposed operation is applied to a preview first; one that fails validation is dropped, never sent.
 
 Everything else is deterministic TypeScript: what the definition references, whether the target satisfies it, the rewrite itself. The planner's answer is validated, run through the same dry run the UI shows, and returned as a proposal. **Nothing is applied by the model.** A person, a CLI, or an agent reads the plan and calls apply.
 
@@ -71,6 +78,8 @@ just smus-grant dzd_xxxx                          # every project
 just smus-grant dzd_xxxx "analytics_prod,analytics_dev"
 ```
 
+Author and the catalog are built on SMUS projects, so until the domain is configured and the portal can see at least one project, both pages show one thing: what to fix, with the discovery diagnostics (how many projects ListProjects returned, how many listings and publishers were found) and a link to Settings.
+
 ### Settings
 
 Configuration lives in DynamoDB with a fallback to the Lambda's environment variables, so a fresh deployment works from env alone and values move over one at a time. Every setting shows where its value comes from. Secrets stay in the environment.
@@ -90,6 +99,9 @@ Configuration lives in DynamoDB with a fallback to the Lambda's environment vari
 ### Insight & governance
 - **Data lineage** - dataset, data source and dashboard/analysis relationships, including composite datasets and transitive dependencies
 - **Activity analytics** - CloudTrail-derived view counts and viewer history, dataset refresh history, per-user activity
+- **Health from CloudWatch** - the Dashboards list shows 30-day views, p90 view load time and visual load errors; the Datasets list shows refresh runs, p90 ingestion latency and error rows. One batched CloudWatch read per page, from the metrics QuickSight publishes (Enterprise edition); accounts without them see "no metrics" rather than empty columns
+
+![Dashboards with health columns](docs/screenshots/health-dashboards.png)
 - **Tags & permissions** - browse and edit tags, inspect asset permissions, filter any asset page by a user's access
 
 ![Portal layout](docs/screenshots/layout.png)
@@ -250,7 +262,7 @@ Local development talks to your real AWS account (S3, DynamoDB, QuickSight); the
 
 Contract-first via OpenAPI: `shared/schemas/api.openapi.yaml` defines every endpoint; frontend types are generated from it (`shared/generated/types.ts`). Highlights:
 
-- `/api/authoring/*` - definition datasets, plan, preview, propose (planner), apply
+- `/api/authoring/*` - definition datasets, plan, preview (with edit ops and plain-language changes), propose (planner), apply, insights
 - `/api/smus/assets` - published SMUS assets with their linked datasets; create a dataset from one
 - `/api/settings` - stored settings with their sources; the SMUS project list
 - `/api/data-catalog/smus` - the SMUS-first catalog; `/api/data-catalog/templates/calculated-fields` - the template library

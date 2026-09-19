@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
     updateDashboardPublishedVersion: vi.fn(),
     createAnalysis: vi.fn(),
     createDashboard: vi.fn(),
+    createFolderMembership: vi.fn(),
   },
   s3: { getObject: vi.fn() },
 }));
@@ -190,18 +191,26 @@ describe('RebindService', () => {
 
   describe('preview', () => {
     it('returns the plan and the definition as apply would write it', async () => {
-      const preview = await service.preview('analysis', 'a1', [
-        { identifier: 'orders', targetDataSetId: 'orders-gold', columnMap: FULL_MAP },
-      ]);
+      const preview = await service.preview('analysis', 'a1', {
+        rebinds: [{ identifier: 'orders', targetDataSetId: 'orders-gold', columnMap: FULL_MAP }],
+      });
       expect(preview.plan.canApply).toBe(true);
       expect(preview.definition.DataSetIdentifierDeclarations[0].DataSetArn).toBe(GOLD_ARN);
+      expect(preview.changes.map((c) => c.kind)).toEqual(['rebind', 'rename']);
+      // Placed visuals first, then controls the layout does not place
+      expect(preview.outline[0]?.elements.map((e) => e.elementId)).toEqual([
+        'v1',
+        'v2',
+        'c1',
+        'c2',
+      ]);
       expect(mocks.qs.updateAnalysis).not.toHaveBeenCalled();
     });
 
     it('never applies a suggestion the caller has not accepted', async () => {
-      const preview = await service.preview('analysis', 'a1', [
-        { identifier: 'orders', targetDataSetId: 'orders-gold' },
-      ]);
+      const preview = await service.preview('analysis', 'a1', {
+        rebinds: [{ identifier: 'orders', targetDataSetId: 'orders-gold' }],
+      });
       expect(preview.plan.canApply).toBe(false);
       expect(
         preview.definition.Sheets[0].Visuals[1].KPIVisual.ChartConfiguration.FieldWells
@@ -322,6 +331,37 @@ describe('RebindService', () => {
       ]);
       expect(call.definition).toEqual(sampleDefinition());
       expect(result.versionNumber).toBe(1);
+    });
+
+    it('applies edit ops after the rebind and places a clone in a folder', async () => {
+      mocks.qs.createFolderMembership.mockResolvedValue({});
+      const result = await service.apply('dashboard', 'd1', {
+        mode: 'clone',
+        name: 'Copy',
+        folderId: 'f-1',
+        rebinds: [{ identifier: 'orders', targetDataSetId: 'orders-gold', columnMap: FULL_MAP }],
+        ops: [
+          { op: 'retitle', sheetId: 's1', elementId: 'v1', title: 'Revenue by status (gold)' },
+          { op: 'move', sheetId: 's1', elementId: 'v2', col: 0, row: 12 },
+        ],
+      });
+      const call = mocks.qs.createDashboard.mock.calls[0]?.[0];
+      expect(call.definition.Sheets[0].Visuals[0].BarChartVisual.Title.FormatText.PlainText).toBe(
+        'Revenue by status (gold)'
+      );
+      const moved = call.definition.Sheets[0].Layouts[0].Configuration.GridLayout.Elements.find(
+        (e: any) => e.ElementId === 'v2'
+      );
+      expect(moved).toMatchObject({ ColumnIndex: 0, RowIndex: 12 });
+      expect(mocks.qs.createFolderMembership).toHaveBeenCalledWith('f-1', 'new', 'DASHBOARD');
+      expect(result.folderId).toBe('f-1');
+      expect(result.changes.map((c) => c.kind)).toEqual(['rebind', 'rename', 'visual', 'layout']);
+    });
+
+    it('refuses a folder for an in-place update', async () => {
+      await expect(
+        service.apply('analysis', 'a1', { mode: 'update', name: 'x', rebinds: [], folderId: 'f' })
+      ).rejects.toThrow('creating a copy');
     });
 
     it('requires a name to clone', async () => {

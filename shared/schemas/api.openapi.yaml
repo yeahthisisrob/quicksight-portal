@@ -1846,11 +1846,12 @@ paths:
 
   /api/authoring/{assetType}/{assetId}/rebind/preview:
     post:
-      summary: Dry-run a rebind and return the rewritten definition
+      summary: Dry-run a rebind and edits, and return the rewritten definition
       description: |
         The plan endpoint plus the definition as it would be written: the
-        same rewrite apply performs, returned instead of sent to QuickSight.
-        Meant for mockups - a wireframe of the result before anything changes.
+        same rewrite apply performs (rebinds, added calculated fields, edit
+        ops), returned instead of sent to QuickSight, with every change in
+        plain language and a sheet outline for editing. Meant for mockups.
         Renames that are only suggested are not applied, so the preview
         mirrors what apply would refuse or accept.
       parameters:
@@ -1868,6 +1869,14 @@ paths:
                   type: array
                   items:
                     $ref: '#/components/schemas/RebindRequest'
+                addCalculatedFields:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AddedCalculatedField'
+                ops:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/DefinitionOp'
       responses:
         '200':
           description: The plan and the rewritten definition
@@ -2252,6 +2261,68 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+
+  /api/authoring/{assetType}/{assetId}/insights:
+    get:
+      summary: How an asset is used and how healthy it is, for choosing what to start from
+      parameters:
+        - $ref: '#/components/parameters/AuthorableAssetType'
+        - $ref: '#/components/parameters/AuthoringAssetId'
+      responses:
+        '200':
+          description: Views and, for dashboards with metrics, health
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/AssetInsights'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/activity/health:
+    get:
+      summary: QuickSight CloudWatch health for a page of dashboards or datasets
+      description: |
+        One batched CloudWatch read for the ids given (up to 100): for
+        dashboards, views, p90 view load time and visual load errors over the
+        window; for datasets, refresh runs, p90 ingestion latency and error
+        rows. Ids without metrics come back with only their id. Cached per
+        Lambda container for a few minutes.
+      parameters:
+        - name: assetType
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [dashboard, dataset]
+        - name: ids
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Comma-separated asset ids, at most 100.
+      responses:
+        '200':
+          description: Health per asset
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/AssetHealthBatch'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /api/assets/{assetType}/{assetId}/rename:
     post:
@@ -4452,17 +4523,28 @@ components:
             the template library. Each is declared against a dataset
             identifier; a name that already exists there is rejected.
           items:
-            type: object
-            required: [identifier, name, expression]
-            properties:
-              identifier:
-                type: string
-              name:
-                type: string
-              expression:
-                type: string
-              templateId:
-                type: string
+            $ref: '#/components/schemas/AddedCalculatedField'
+        ops:
+          type: array
+          description: Edits applied after rebinds and added fields, in order.
+          items:
+            $ref: '#/components/schemas/DefinitionOp'
+        folderId:
+          type: string
+          description: Clone only. Put the new asset in this QuickSight folder.
+
+    AddedCalculatedField:
+      type: object
+      required: [identifier, name, expression]
+      properties:
+        identifier:
+          type: string
+        name:
+          type: string
+        expression:
+          type: string
+        templateId:
+          type: string
 
     ApplyRebindResult:
       type: object
@@ -4485,6 +4567,13 @@ components:
           description: Dashboards only. The version created (and, for update, published).
         plan:
           $ref: '#/components/schemas/RebindPlan'
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DefinitionChange'
+        folderId:
+          type: string
+          description: The folder the clone was placed in, when requested.
 
     ProposeRequest:
       type: object
@@ -4524,7 +4613,7 @@ components:
 
     Proposal:
       type: object
-      required: [ask, intent, mode, reason, rebinds, unmapped, plan, model]
+      required: [ask, intent, mode, reason, rebinds, unmapped, ops, plan, model]
       properties:
         ask:
           type: string
@@ -4549,6 +4638,11 @@ components:
           description: Columns the planner looked at and could not map.
           items:
             $ref: '#/components/schemas/UnmappedColumn'
+        ops:
+          type: array
+          description: Layout and visual edits the planner proposes, already validated against the definition.
+          items:
+            $ref: '#/components/schemas/DefinitionOp'
         plan:
           type: object
           nullable: true
@@ -4566,7 +4660,7 @@ components:
 
     RebindPreview:
       type: object
-      required: [plan, definition]
+      required: [plan, definition, changes, outline]
       properties:
         plan:
           $ref: '#/components/schemas/RebindPlan'
@@ -4574,6 +4668,16 @@ components:
           type: object
           additionalProperties: true
           description: The QuickSight Definition as apply would write it.
+        changes:
+          type: array
+          description: Every change in plain language, in the order it is applied.
+          items:
+            $ref: '#/components/schemas/DefinitionChange'
+        outline:
+          type: array
+          description: The sheets of the resulting definition, with ids, for editing.
+          items:
+            $ref: '#/components/schemas/SheetOutline'
 
     SettingSource:
       type: string
@@ -5180,6 +5284,221 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SmusCatalogAssetSummary'
+
+    DefinitionOp:
+      type: object
+      description: |
+        One edit to a definition, applied by deterministic code after
+        validation. Element and visual ids are the definition's own; a sheet
+        outline (see RebindPreview.outline) lists them. Changing a visual's
+        type keeps its field wells, title and subtitle and resets the rest of
+        the chart configuration to defaults; only conversions whose field
+        wells translate are allowed.
+      required: [op, sheetId]
+      properties:
+        op:
+          type: string
+          enum: [move, resize, retype, retitle, remove, duplicate, renameSheet]
+        sheetId:
+          type: string
+        elementId:
+          type: string
+          description: move, resize, remove, duplicate, retype, retitle. The layout element id (the visual id for visuals).
+        col:
+          type: integer
+          minimum: 0
+          maximum: 35
+          description: move, duplicate. Grid column, 0-35.
+        row:
+          type: integer
+          minimum: 0
+          description: move, duplicate. Grid row.
+        colSpan:
+          type: integer
+          minimum: 1
+          maximum: 36
+          description: resize.
+        rowSpan:
+          type: integer
+          minimum: 1
+          description: resize.
+        visualType:
+          type: string
+          enum: [BarChart, ColumnChart, LineChart, PieChart, DonutChart, Table, PivotTable]
+          description: retype. Column is a vertical bar chart; Donut is a pie with a hole.
+        title:
+          type: string
+          description: retitle, duplicate.
+        subtitle:
+          type: string
+          description: retitle.
+        name:
+          type: string
+          description: renameSheet.
+
+    DefinitionChange:
+      type: object
+      description: One change in plain language, for review before publishing.
+      required: [kind, description]
+      properties:
+        kind:
+          type: string
+          enum: [rebind, rename, calculatedField, layout, visual, sheet]
+        description:
+          type: string
+        sheetId:
+          type: string
+        elementId:
+          type: string
+
+    SheetOutlineElement:
+      type: object
+      required: [elementId, kind]
+      properties:
+        elementId:
+          type: string
+        kind:
+          type: string
+          enum: [visual, filterControl, parameterControl, textBox, image, other]
+        visualType:
+          type: string
+        title:
+          type: string
+        col:
+          type: integer
+        row:
+          type: integer
+        colSpan:
+          type: integer
+        rowSpan:
+          type: integer
+        fieldWells:
+          type: array
+          items:
+            type: object
+            required: [role, fields]
+            properties:
+              role:
+                type: string
+              fields:
+                type: array
+                items:
+                  type: string
+
+    SheetOutline:
+      type: object
+      description: A compact, id-bearing view of a sheet for editing and for the planner.
+      required: [sheetId, name, layout, elements]
+      properties:
+        sheetId:
+          type: string
+        name:
+          type: string
+        layout:
+          type: string
+          enum: [grid, freeform, section, flow]
+        elements:
+          type: array
+          items:
+            $ref: '#/components/schemas/SheetOutlineElement'
+
+    VisualHealth:
+      type: object
+      required: [sheetId, visualId]
+      properties:
+        sheetId:
+          type: string
+        visualId:
+          type: string
+        loadTimeP90Ms:
+          type: number
+        errors:
+          type: integer
+          description: Load errors over the window.
+
+    AssetInsights:
+      type: object
+      description: |
+        What the portal knows about how an asset is used, to rank sources and
+        flag problems before they are cloned. Views come from the portal's
+        activity data (CloudTrail); health comes from QuickSight's CloudWatch
+        metrics when the dashboard has them.
+      required: [assetType, assetId, views]
+      properties:
+        assetType:
+          $ref: '#/components/schemas/AuthorableAssetType'
+        assetId:
+          type: string
+        views:
+          type: object
+          required: [total, last30d, uniqueViewers]
+          properties:
+            total:
+              type: integer
+            last30d:
+              type: integer
+            uniqueViewers:
+              type: integer
+            lastViewedAt:
+              type: string
+              format: date-time
+        health:
+          type: object
+          description: Dashboards only. Absent when metrics are unavailable.
+          required: [windowDays, viewLoads, visuals]
+          properties:
+            windowDays:
+              type: integer
+            viewLoads:
+              type: integer
+            viewLoadTimeP90Ms:
+              type: number
+            visuals:
+              type: array
+              items:
+                $ref: '#/components/schemas/VisualHealth'
+
+    AssetHealth:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+        viewLoads:
+          type: integer
+          description: Dashboards. Views over the window.
+        viewLoadTimeP90Ms:
+          type: number
+          description: Dashboards.
+        visualErrors:
+          type: integer
+          description: Dashboards. Visual load errors over the window.
+        ingestionRuns:
+          type: integer
+          description: Datasets. Refreshes over the window.
+        ingestionLatencyP90Ms:
+          type: number
+          description: Datasets.
+        ingestionErrorRows:
+          type: integer
+          description: Datasets. Rows skipped for errors over the window.
+
+    AssetHealthBatch:
+      type: object
+      required: [assetType, windowDays, available, items]
+      properties:
+        assetType:
+          type: string
+          enum: [dashboard, dataset]
+        windowDays:
+          type: integer
+        available:
+          type: boolean
+          description: False when CloudWatch could not be read (no metrics or no permission); items are then empty.
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetHealth'
 
     BulkItemFailure:
       type: object
