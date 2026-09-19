@@ -132,6 +132,14 @@ architecture:
 check-storybook:
     {{x}} pnpm --filter @quicksight-portal/frontend run test:storybook:ci
 
+# Give the portal's Lambda role a seat in the SMUS (DataZone) domain, so it
+# can list projects and read the catalog. Runs with YOUR admin credentials.
+#   just smus-grant dzd_xxxx                     every project, read-only
+#   just smus-grant dzd_xxxx "analytics_prod,analytics_dev"
+[group('ops')]
+smus-grant domain projects='' region='us-east-1' stack='QuicksightPortalStack' designation='PROJECT_CATALOG_VIEWER':
+    {{x}} node scripts/smus-grant-portal-access.mjs --domain {{domain}} --region {{region}} --stack {{stack}} --designation {{designation}} {{ if projects != '' { "--projects " + projects } else { "" } }}
+
 # ============================================================================
 # BUILD
 # ============================================================================

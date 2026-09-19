@@ -64,6 +64,13 @@ The catalog shows only assets published in the SMUS projects chosen in Settings,
 
 ![Catalog](docs/screenshots/catalog.png)
 
+**Giving the portal a seat in the domain.** DataZone scopes project listing (and, in a locked-down domain, catalog reads) to principals that belong to the domain. Run this once with your admin credentials to register the portal's Lambda role and add it, read-only, to the projects it should read:
+
+```bash
+just smus-grant dzd_xxxx                          # every project
+just smus-grant dzd_xxxx "analytics_prod,analytics_dev"
+```
+
 ### Settings
 
 Configuration lives in DynamoDB with a fallback to the Lambda's environment variables, so a fresh deployment works from env alone and values move over one at a time. Every setting shows where its value comes from. Secrets stay in the environment.
