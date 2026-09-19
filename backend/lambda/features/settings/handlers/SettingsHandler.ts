@@ -4,7 +4,9 @@ import { DataZoneAdapter } from '../../../adapters/aws/DataZoneAdapter';
 import { requireAuth } from '../../../shared/auth';
 import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { STATUS_CODES } from '../../../shared/constants';
+import { CacheService } from '../../../shared/services/cache/CacheService';
 import { settingsStore } from '../../../shared/services/settings/SettingsStore';
+import { SmusService } from '../../../shared/services/smus/SmusService';
 import { errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 
@@ -54,7 +56,12 @@ export class SettingsHandler {
       if (!config.enabled) {
         return successResponse(event, { success: true, data: { configured: false, projects: [] } });
       }
-      const projects = await new DataZoneAdapter(config.region).listProjects(config.domainId);
+      const service = new SmusService(
+        CacheService.getInstance(),
+        new DataZoneAdapter(config.region),
+        config
+      );
+      const projects = await service.listProjects();
       return successResponse(event, { success: true, data: { configured: true, projects } });
     } catch (error: any) {
       logger.error('List SMUS projects failed', { error });

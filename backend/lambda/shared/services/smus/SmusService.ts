@@ -16,15 +16,6 @@ import type {
   CatalogProject,
   DataZoneAdapter,
 } from '../../../adapters/aws/DataZoneAdapter';
-import { getSmusConfig, type SmusConfig } from '../../../shared/config/smusConfig';
-import { CACHE_TTL } from '../../../shared/constants/timeConstants';
-import { ValidationError } from '../../../shared/errors/ValidationError';
-import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
-import type { CacheService } from '../../../shared/services/cache/CacheService';
-import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
-import { ASSET_TYPES } from '../../../shared/types/assetTypes';
-import { logger } from '../../../shared/utils/logger';
-import { normalizePermissionsArray } from '../../../shared/utils/permissions';
 import type {
   CreateSmusDatasetRequest,
   SmusAsset,
@@ -32,7 +23,16 @@ import type {
   SmusDatasetLink,
   SmusMatchType,
   SmusStatus,
-} from '../types';
+} from '../../../features/smus/types';
+import { getSmusConfig, type SmusConfig } from '../../config/smusConfig';
+import { CACHE_TTL } from '../../constants/timeConstants';
+import { ValidationError } from '../../errors/ValidationError';
+import type { QuickSightService } from '../../services/aws/QuickSightService';
+import type { CacheService } from '../../services/cache/CacheService';
+import { AssetStatusFilter } from '../../types/assetFilterTypes';
+import { ASSET_TYPES } from '../../types/assetTypes';
+import { logger } from '../../utils/logger';
+import { normalizePermissionsArray } from '../../utils/permissions';
 
 /** Link map freshness window — catalog membership changes slowly. */
 const LINK_MAP_TTL_MS = CACHE_TTL.SHORT;
@@ -273,14 +273,53 @@ export class SmusService {
     );
   }
 
+  /**
+   * The projects the portal can read from: the ones ListProjects returns for
+   * the portal's role, plus every project that has published a listing.
+   * ListProjects is scoped to the caller's memberships, so for a service role
+   * it is often empty while the catalog is not; the publishers are the set
+   * that matters for choosing datasets anyway.
+   */
+  public async listProjects(): Promise<CatalogProject[]> {
+    if (!this.config.enabled || !this.dataZoneAdapter) {
+      return [];
+    }
+    return await this.getProjects();
+  }
+
   private getProjects(): Promise<CatalogProject[]> {
     return this.sweep(
       () => SmusService.projectsCache,
       (entry) => {
         SmusService.projectsCache = entry;
       },
-      () => this.dataZoneAdapter!.listProjects(this.config.domainId)
+      () => this.discoverProjects()
     );
+  }
+
+  private async discoverProjects(): Promise<CatalogProject[]> {
+    const adapter = this.dataZoneAdapter!;
+    const [listed, listings] = await Promise.all([
+      adapter.listProjects(this.config.domainId),
+      this.getListings(),
+    ]);
+    const byId = new Map(listed.map((p) => [p.id, p]));
+    const publishers = [
+      ...new Set(listings.map((l) => l.owningProjectId).filter(Boolean)),
+    ] as string[];
+    const unnamed = publishers.filter((id) => !byId.has(id));
+    const fetched = await Promise.all(
+      unnamed.map((id) => adapter.getProject(this.config.domainId, id))
+    );
+    unnamed.forEach((id, i) => {
+      byId.set(id, fetched[i] ?? { id, name: id });
+    });
+    logger.info('SMUS projects discovered', {
+      fromListProjects: listed.length,
+      fromListings: publishers.length,
+      total: byId.size,
+    });
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
   }
 
   /** TTL + single-flight for one catalog sweep; failures are not cached. */

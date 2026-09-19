@@ -7,6 +7,7 @@
  */
 import {
   DataZoneClient,
+  GetProjectCommand,
   ListProjectsCommand,
   SearchListingsCommand,
   type SearchListingsCommandOutput,
@@ -143,7 +144,27 @@ export class DataZoneAdapter {
     return listings;
   }
 
-  /** Every project in the domain, for choosing which ones the portal reads from. */
+  /** One project by id, for naming a publisher ListProjects did not return. */
+  public async getProject(domainId: string, projectId: string): Promise<CatalogProject | null> {
+    try {
+      const response = await this.client.send(
+        new GetProjectCommand({ domainIdentifier: domainId, identifier: projectId })
+      );
+      return response.id && response.name
+        ? { id: response.id, name: response.name, description: response.description }
+        : null;
+    } catch (error) {
+      logger.warn('GetProject failed; the project will be shown by id', { projectId, error });
+      return null;
+    }
+  }
+
+  /**
+   * The projects ListProjects returns for the caller. Note: DataZone scopes
+   * this to projects the calling principal is a member of, so for a service
+   * role it is often empty; SmusService unions it with the publishers seen in
+   * the catalog sweep.
+   */
   public async listProjects(domainId: string): Promise<CatalogProject[]> {
     const projects: CatalogProject[] = [];
     let nextToken: string | undefined;

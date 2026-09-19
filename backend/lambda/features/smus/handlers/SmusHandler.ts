@@ -6,9 +6,9 @@ import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { STATUS_CODES } from '../../../shared/constants/httpStatusCodes';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import { CacheService } from '../../../shared/services/cache/CacheService';
+import { SmusService } from '../../../shared/services/smus/SmusService';
 import { errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
-import { SmusService } from '../services/SmusService';
 
 let smusService: SmusService;
 
