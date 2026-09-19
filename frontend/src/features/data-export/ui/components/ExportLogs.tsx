@@ -2,28 +2,15 @@ import {
   ErrorOutlineOutlined as ErrorIcon,
   ExpandLess as ExpandLessIcon,
   ExpandMore as ExpandMoreIcon,
-  FilterListOutlined as FilterIcon,
   InfoOutlined as InfoIcon,
-  AccessTime as TimeIcon,
   WarningAmberOutlined as WarningIcon,
 } from '@mui/icons-material';
-import {
-  alpha,
-  Box,
-  Chip,
-  Collapse,
-  IconButton,
-  Paper,
-  ToggleButton,
-  ToggleButtonGroup,
-  Tooltip,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { Box, Chip, Collapse, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import { format } from 'date-fns';
-import React from 'react';
+import { useMemo, useState } from 'react';
 
-import { colors } from '@/shared/design-system/theme';
+import { EmptyState, pal } from '@/shared/design-system';
+import type { AssetHueKey } from '@/shared/design-system/tokens';
 
 interface ExportLogEntry {
   ts: number;
@@ -41,436 +28,237 @@ interface ExportLogsProps {
   defaultExpanded?: boolean;
 }
 
+const DEFAULT_MAX_HEIGHT = 400;
+const TIME_FORMAT = 'MMM dd, HH:mm:ss.SSS';
+const MS_PER_S = 1000;
+const COLUMN = { icon: 28, time: 160, duration: 72, calls: 80, type: 110 } as const;
+
+const ASSET_HUES: Record<string, AssetHueKey> = {
+  dashboard: 'dashboard',
+  analysis: 'analysis',
+  dataset: 'dataset',
+  datasource: 'datasource',
+  folder: 'folder',
+  user: 'user',
+  group: 'group',
+};
+
+function LevelIcon({ level }: { level?: string }) {
+  switch (level) {
+    case 'error':
+      return <ErrorIcon fontSize="inherit" color="error" />;
+    case 'warn':
+      return <WarningIcon fontSize="inherit" color="warning" />;
+    default:
+      return <InfoIcon fontSize="inherit" color="info" />;
+  }
+}
+
+function HeaderCell({ width, children }: { width?: number; children?: string }) {
+  return (
+    <Box sx={{ width, flex: width ? undefined : 1, px: 1, py: 0.75 }}>
+      <Typography variant="caption" sx={{ fontWeight: 600 }}>
+        {children}
+      </Typography>
+    </Box>
+  );
+}
+
+function MonoCell({
+  width,
+  align,
+  children,
+}: {
+  width?: number;
+  align?: 'left' | 'right' | 'center';
+  children: React.ReactNode;
+}) {
+  return (
+    <Box
+      sx={{
+        width,
+        flex: width ? undefined : 1,
+        px: 1,
+        py: 0.5,
+        fontFamily: 'monospace',
+        fontSize: '0.75rem',
+        color: 'text.secondary',
+        textAlign: align,
+        wordBreak: 'break-word',
+      }}
+    >
+      {children}
+    </Box>
+  );
+}
+
+/**
+ * The worker's log for one export, newest first, filterable by asset type.
+ * Rows carry their asset's hue on the left edge so a scan finds a type.
+ */
 export function ExportLogs({
   logs,
-  maxHeight = 400,
+  maxHeight = DEFAULT_MAX_HEIGHT,
   showTimestamps = true,
   defaultExpanded = true,
 }: ExportLogsProps) {
-  const theme = useTheme();
-  const [expanded, setExpanded] = React.useState(defaultExpanded);
-  const [showFilters, setShowFilters] = React.useState(false);
-  const [selectedTypes, setSelectedTypes] = React.useState<string[]>([]);
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
 
-  // Get unique asset types from logs
-  const availableTypes = React.useMemo(() => {
-    const types = new Set<string>();
-    logs.forEach((log) => {
-      if (log.assetType) {
-        types.add(log.assetType);
-      }
-    });
-    return Array.from(types).sort();
-  }, [logs]);
+  const availableTypes = useMemo(
+    () => [...new Set(logs.map((log) => log.assetType).filter(Boolean) as string[])].sort(),
+    [logs]
+  );
 
-  // Filter logs based on selected types and sort by timestamp descending (newest first)
-  const filteredLogs = React.useMemo(() => {
-    let filtered = logs;
-    if (selectedTypes.length > 0) {
-      filtered = logs.filter((log) => !log.assetType || selectedTypes.includes(log.assetType));
-    }
-    // Sort by timestamp descending (newest first)
+  const filteredLogs = useMemo(() => {
+    const filtered =
+      selectedTypes.length > 0
+        ? logs.filter((log) => !log.assetType || selectedTypes.includes(log.assetType))
+        : logs;
     return [...filtered].sort((a, b) => b.ts - a.ts);
   }, [logs, selectedTypes]);
 
-  const handleTypeFilter = (_event: React.MouseEvent<HTMLElement>, newTypes: string[]) => {
-    setSelectedTypes(newTypes);
-  };
-
-  const getLogIcon = (level?: string) => {
-    switch (level) {
-      case 'error':
-        return <ErrorIcon sx={{ fontSize: 16, color: theme.palette.error.main }} />;
-      case 'warn':
-        return <WarningIcon sx={{ fontSize: 16, color: theme.palette.warning.main }} />;
-      default:
-        return <InfoIcon sx={{ fontSize: 16, color: theme.palette.info.main }} />;
-    }
-  };
-
-  const getLogColor = (level?: string) => {
-    switch (level) {
-      case 'error':
-        return theme.palette.error.main;
-      case 'warn':
-        return theme.palette.warning.main;
-      default:
-        return theme.palette.text.secondary;
-    }
-  };
-
-  const getAssetTypeColor = (assetType?: string) => {
-    switch (assetType) {
-      case 'dashboard':
-        return { bg: alpha('#1976d2', 0.08), border: alpha('#1976d2', 0.3) }; // Blue
-      case 'analysis':
-        return { bg: alpha('#388e3c', 0.08), border: alpha('#388e3c', 0.3) }; // Green
-      case 'dataset':
-        return { bg: alpha('#f57c00', 0.08), border: alpha('#f57c00', 0.3) }; // Orange
-      case 'datasource':
-        return { bg: alpha('#7b1fa2', 0.08), border: alpha('#7b1fa2', 0.3) }; // Purple
-      case 'folder':
-        return { bg: alpha('#616161', 0.08), border: alpha('#616161', 0.3) }; // Gray
-      case 'user':
-        return { bg: alpha('#00796b', 0.08), border: alpha('#00796b', 0.3) }; // Teal
-      case 'group':
-        return { bg: alpha('#c2185b', 0.08), border: alpha('#c2185b', 0.3) }; // Pink
-      default:
-        return { bg: 'transparent', border: 'transparent' };
-    }
-  };
-
-  const formatTimestamp = (ts: number) => {
-    return format(new Date(ts), 'MMM dd, HH:mm:ss.SSS');
-  };
+  const startTime = useMemo(() => Math.min(...logs.map((l) => l.ts)), [logs]);
 
   if (logs.length === 0) {
     return (
-      <Paper
-        sx={{
-          p: 3,
-          background: alpha(colors.primary.light, 0.02),
-          border: `1px solid ${alpha(colors.primary.main, 0.1)}`,
-          borderRadius: '12px',
-        }}
-      >
-        <Box sx={{ alignItems: 'center', display: 'flex', justifyContent: 'center', py: 4 }}>
-          <Typography variant="body2" color="text.secondary">
-            No export logs available
-          </Typography>
-        </Box>
-      </Paper>
+      <EmptyState
+        compact
+        title="No log entries"
+        description="The worker has not written anything for this job yet."
+      />
     );
   }
 
+  const toggleType = (type: string) =>
+    setSelectedTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    );
+
   return (
-    <Paper
-      sx={{
-        background: alpha(colors.primary.light, 0.02),
-        border: `1px solid ${alpha(colors.primary.main, 0.1)}`,
-        borderRadius: '12px',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Header */}
-      <Box
-        sx={{
-          px: 2,
-          py: 1.5,
-          borderBottom: `1px solid ${alpha(colors.primary.main, 0.08)}`,
-          background: alpha(colors.primary.light, 0.03),
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Box sx={{ gap: 1, alignItems: 'center', display: 'flex' }}>
-          <TimeIcon sx={{ fontSize: 18, color: colors.primary.main }} />
-          <Typography sx={{ fontWeight: 600 }} variant="subtitle2">
-            Export Progress & Activity
-          </Typography>
-          <Chip
-            label={`${filteredLogs.length} of ${logs.length} entries`}
-            size="small"
-            sx={{
-              height: 20,
-              fontSize: '0.75rem',
-              backgroundColor: alpha(colors.primary.main, 0.1),
-              color: colors.primary.main,
-            }}
-          />
-        </Box>
-        <Box sx={{ gap: 1, alignItems: 'center', display: 'flex' }}>
-          {availableTypes.length > 0 && (
-            <Tooltip title="Filter by asset type">
-              <IconButton
-                size="small"
-                onClick={() => setShowFilters(!showFilters)}
-                sx={{
-                  color: showFilters ? colors.primary.main : theme.palette.text.secondary,
-                  '&:hover': {
-                    backgroundColor: alpha(colors.primary.main, 0.08),
-                  },
-                }}
-              >
-                <FilterIcon />
-              </IconButton>
-            </Tooltip>
-          )}
-          <Tooltip title={expanded ? 'Collapse logs' : 'Expand logs'}>
-            <IconButton
+    <Box>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1, flexWrap: 'wrap' }}>
+        <Typography variant="subtitle2">Log</Typography>
+        <Typography variant="caption" color="text.secondary">
+          {filteredLogs.length} of {logs.length} entries
+        </Typography>
+        <Box sx={{ flex: 1 }} />
+        {availableTypes.map((type) => {
+          const hue = ASSET_HUES[type];
+          const selected = selectedTypes.includes(type);
+          return (
+            <Chip
+              key={type}
+              label={type}
               size="small"
-              onClick={() => setExpanded(!expanded)}
-              sx={{
-                color: colors.primary.main,
-                '&:hover': {
-                  backgroundColor: alpha(colors.primary.main, 0.08),
-                },
-              }}
-            >
-              {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </IconButton>
-          </Tooltip>
-        </Box>
-      </Box>
+              variant={selected ? 'filled' : 'outlined'}
+              onClick={() => toggleType(type)}
+              sx={(theme) =>
+                hue && selected
+                  ? {
+                      bgcolor: pal(theme).asset[hue].subtle,
+                      color: pal(theme).asset[hue].strong,
+                      border: `1px solid ${pal(theme).asset[hue].main}`,
+                    }
+                  : {}
+              }
+            />
+          );
+        })}
+        <Tooltip title={expanded ? 'Collapse' : 'Expand'}>
+          <IconButton size="small" onClick={() => setExpanded(!expanded)}>
+            {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+          </IconButton>
+        </Tooltip>
+      </Stack>
 
-      {/* Filter Controls */}
-      <Collapse in={showFilters && availableTypes.length > 0}>
-        <Box
-          sx={{
-            px: 2,
-            py: 1.5,
-            borderBottom: `1px solid ${alpha(colors.primary.main, 0.08)}`,
-            backgroundColor: alpha(colors.primary.light, 0.01),
-          }}
-        >
-          <Typography variant="caption" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
-            Filter by asset type:
-          </Typography>
-          <ToggleButtonGroup
-            value={selectedTypes}
-            onChange={handleTypeFilter}
-            size="small"
-            sx={{
-              '& .MuiToggleButton-root': {
-                fontSize: '0.7rem',
-                height: 24,
-                px: 1,
-                textTransform: 'none',
-                fontFamily: 'monospace',
-              },
-            }}
-          >
-            {availableTypes.map((type) => {
-              const assetColors = getAssetTypeColor(type);
-              return (
-                <ToggleButton
-                  key={type}
-                  value={type}
-                  sx={{
-                    backgroundColor: selectedTypes.includes(type) ? assetColors.bg : 'transparent',
-                    borderColor: assetColors.border,
-                    color: selectedTypes.includes(type)
-                      ? assetColors.border
-                      : theme.palette.text.secondary,
-                    '&:hover': {
-                      backgroundColor: assetColors.bg,
-                    },
-                    '&.Mui-selected': {
-                      backgroundColor: assetColors.bg,
-                      color: assetColors.border,
-                      '&:hover': {
-                        backgroundColor: alpha(assetColors.border, 0.15),
-                      },
-                    },
-                  }}
-                >
-                  {type}
-                </ToggleButton>
-              );
-            })}
-          </ToggleButtonGroup>
-        </Box>
-      </Collapse>
-
-      {/* Log Entries */}
       <Collapse in={expanded}>
         <Box
-          sx={{
+          sx={(theme) => ({
             maxHeight,
             overflowY: 'auto',
-            border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
-            borderRadius: '4px',
-            '&::-webkit-scrollbar': {
-              width: '8px',
-            },
-            '&::-webkit-scrollbar-track': {
-              backgroundColor: alpha(theme.palette.divider, 0.1),
-            },
-            '&::-webkit-scrollbar-thumb': {
-              backgroundColor: alpha(theme.palette.divider, 0.3),
-              borderRadius: '4px',
-              '&:hover': {
-                backgroundColor: alpha(theme.palette.divider, 0.5),
-              },
-            },
-          }}
+            border: `1px solid ${pal(theme).line.divider}`,
+            borderRadius: `${theme.shape.borderRadius}px`,
+          })}
         >
-          {/* Fixed Header */}
           <Box
-            sx={{
+            sx={(theme) => ({
               position: 'sticky',
               top: 0,
               zIndex: 1,
-              backgroundColor: theme.palette.background.paper,
-              borderBottom: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
-            }}
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: pal(theme).surface.hover,
+              borderBottom: `1px solid ${pal(theme).line.divider}`,
+            })}
           >
-            <Box sx={{ alignItems: 'center', display: 'flex', minHeight: '40px' }}>
-              <Box sx={{ width: '24px', padding: '8px 4px', textAlign: 'center' }}>
-                <Typography sx={{ fontWeight: 600 }} variant="caption"></Typography>
-              </Box>
-              {showTimestamps && (
-                <Box
-                  sx={{
-                    width: '160px',
-                    padding: '6px 8px',
-                    backgroundColor: alpha(colors.primary.light, 0.05),
-                  }}
-                >
-                  <Typography sx={{ fontWeight: 600 }} variant="caption">
-                    Time
-                  </Typography>
-                </Box>
-              )}
-              <Box
-                sx={{
-                  width: '70px',
-                  padding: '6px 8px',
-                  backgroundColor: alpha(colors.primary.light, 0.05),
-                }}
-              >
-                <Typography sx={{ fontWeight: 600 }} variant="caption">
-                  Duration
-                </Typography>
-              </Box>
-              <Box
-                sx={{
-                  width: '80px',
-                  padding: '6px 8px',
-                  backgroundColor: alpha(colors.primary.light, 0.05),
-                }}
-              >
-                <Typography sx={{ fontWeight: 600 }} variant="caption">
-                  API Calls
-                </Typography>
-              </Box>
-              <Box
-                sx={{
-                  width: '110px',
-                  padding: '6px 8px',
-                  backgroundColor: alpha(colors.primary.light, 0.05),
-                }}
-              >
-                <Typography sx={{ fontWeight: 600 }} variant="caption">
-                  Type
-                </Typography>
-              </Box>
-              <Box
-                sx={{
-                  flex: 1,
-                  padding: '6px 8px',
-                  backgroundColor: alpha(colors.primary.light, 0.05),
-                }}
-              >
-                <Typography sx={{ fontWeight: 600 }} variant="caption">
-                  Message
-                </Typography>
-              </Box>
-            </Box>
+            <HeaderCell width={COLUMN.icon} />
+            {showTimestamps && <HeaderCell width={COLUMN.time}>Time</HeaderCell>}
+            <HeaderCell width={COLUMN.duration}>Elapsed</HeaderCell>
+            <HeaderCell width={COLUMN.calls}>API calls</HeaderCell>
+            <HeaderCell width={COLUMN.type}>Type</HeaderCell>
+            <HeaderCell>Message</HeaderCell>
           </Box>
 
-          {/* Log Rows */}
           {filteredLogs.map((log, index) => {
-            // Find the earliest timestamp from the original logs array (not filtered/sorted)
-            const startTime = Math.min(...logs.map((l) => l.ts));
-            const runningDuration = ((log.ts - startTime) / 1000).toFixed(1);
-            const assetColors = getAssetTypeColor(log.assetType);
-
+            const hue = log.assetType ? ASSET_HUES[log.assetType] : undefined;
             return (
               <Box
                 key={`${log.ts}-${index}`}
-                sx={{
-                  alignItems: 'center',
+                sx={(theme) => ({
                   display: 'flex',
-                  minHeight: '28px',
-                  backgroundColor: assetColors.bg,
-                  borderLeft: log.assetType ? `3px solid ${assetColors.border}` : 'none',
-                  '&:hover': {
-                    backgroundColor: log.assetType
-                      ? alpha(assetColors.border, 0.12)
-                      : alpha(colors.primary.light, 0.03),
-                  },
+                  alignItems: 'center',
+                  borderLeft: `3px solid ${hue ? pal(theme).asset[hue].main : 'transparent'}`,
                   borderBottom:
                     index < filteredLogs.length - 1
-                      ? `1px solid ${alpha(theme.palette.divider, 0.1)}`
+                      ? `1px solid ${pal(theme).line.divider}`
                       : 'none',
-                }}
+                  '&:hover': { backgroundColor: pal(theme).surface.hover },
+                })}
               >
-                {/* Level Icon */}
-                <Box sx={{ width: '24px', padding: '4px 2px', textAlign: 'center' }}>
-                  {getLogIcon(log.level)}
+                <Box sx={{ width: COLUMN.icon, textAlign: 'center', fontSize: 16, lineHeight: 1 }}>
+                  <LevelIcon level={log.level} />
                 </Box>
-
-                {/* Timestamp */}
                 {showTimestamps && (
-                  <Box
-                    sx={{
-                      width: '160px',
-                      padding: '4px 6px',
-                      fontFamily: 'monospace',
-                      fontSize: '0.7rem',
-                      color: alpha(theme.palette.text.secondary, 0.8),
-                    }}
-                  >
-                    {formatTimestamp(log.ts)}
-                  </Box>
+                  <MonoCell width={COLUMN.time}>{format(new Date(log.ts), TIME_FORMAT)}</MonoCell>
                 )}
-
-                {/* Running Duration */}
-                <Box
-                  sx={{
-                    width: '70px',
-                    padding: '4px 6px',
-                    fontFamily: 'monospace',
-                    fontSize: '0.7rem',
-                    color: alpha(theme.palette.text.secondary, 0.8),
-                    textAlign: 'right',
-                  }}
-                >
-                  +{runningDuration}s
-                </Box>
-
-                {/* API Calls */}
-                <Box
-                  sx={{
-                    width: '80px',
-                    padding: '4px 6px',
-                    fontFamily: 'monospace',
-                    fontSize: '0.7rem',
-                    color: alpha(theme.palette.text.secondary, 0.8),
-                    textAlign: 'center',
-                  }}
-                >
+                <MonoCell width={COLUMN.duration} align="right">
+                  +{((log.ts - startTime) / MS_PER_S).toFixed(1)}s
+                </MonoCell>
+                <MonoCell width={COLUMN.calls} align="center">
                   {log.apiCalls || '-'}
-                </Box>
-
-                {/* Asset Type */}
-                <Box sx={{ width: '110px', padding: '4px 6px' }}>
+                </MonoCell>
+                <Box sx={{ width: COLUMN.type, px: 1 }}>
                   {log.assetType && (
                     <Chip
                       label={log.assetType}
                       size="small"
-                      sx={{
-                        height: 18,
-                        fontSize: '0.65rem',
-                        backgroundColor: alpha(colors.primary.main, 0.08),
-                        color: colors.primary.dark,
-                        fontFamily: 'monospace',
-                      }}
+                      variant="outlined"
+                      sx={(theme) =>
+                        hue
+                          ? {
+                              color: pal(theme).asset[hue].strong,
+                              borderColor: pal(theme).asset[hue].main,
+                            }
+                          : {}
+                      }
                     />
                   )}
                 </Box>
-
-                {/* Message */}
                 <Box
                   sx={{
                     flex: 1,
-                    padding: '4px 6px',
+                    px: 1,
+                    py: 0.5,
                     fontFamily: 'monospace',
                     fontSize: '0.8rem',
-                    color: getLogColor(log.level),
                     wordBreak: 'break-word',
+                    color:
+                      log.level === 'error'
+                        ? 'error.main'
+                        : log.level === 'warn'
+                          ? 'warning.main'
+                          : 'text.primary',
                   }}
                 >
                   {log.msg}
@@ -480,6 +268,6 @@ export function ExportLogs({
           })}
         </Box>
       </Collapse>
-    </Paper>
+    </Box>
   );
 }

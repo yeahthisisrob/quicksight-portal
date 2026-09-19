@@ -1,5 +1,8 @@
-import { Autocomplete, Chip, TextField, Typography } from '@mui/material';
+import { Autocomplete, Chip, Link, TextField, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
+import { format } from 'date-fns';
+import type { ReactNode } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 
 import { describeProjectDiagnostics } from '@/entities/smus';
 
@@ -11,12 +14,27 @@ export interface RemoteOption {
   description?: string;
 }
 
+/** Something to do about an empty list, rendered as a link in the helper text. */
+export interface RemoteEmptyAction {
+  label: string;
+  to: string;
+}
+
 interface RemoteOptions {
   configured: boolean;
   options: RemoteOption[];
   /** Shown when the list is empty: how the options were looked for. */
   emptyDetail?: string;
+  emptyAction?: RemoteEmptyAction;
+  /** Shown under a non-empty list: where the options came from. */
+  sourceNote?: string;
 }
+
+const EXPORT_DATE_FORMAT = 'MMM d, yyyy HH:mm';
+const RUN_EXPORT_ACTION: RemoteEmptyAction = {
+  label: 'Run one from Operations',
+  to: '/operations?tab=smus',
+};
 
 /**
  * The API client already prefixes `/api`, so a definition that names the
@@ -33,10 +51,24 @@ export function loaderKey(optionsFrom: string): string {
 const LOADERS: Record<string, () => Promise<RemoteOptions>> = {
   '/settings/smus/projects': async () => {
     const result = await settingsApi.listSmusProjects();
-    const emptyDetail = describeProjectDiagnostics(result.diagnostics);
+    if (result.configured && !result.exportedAt) {
+      return {
+        configured: true,
+        options: [],
+        emptyDetail: 'No SMUS export has run yet, so there are no projects to choose from.',
+        emptyAction: RUN_EXPORT_ACTION,
+      };
+    }
+    const exported = result.exportedAt
+      ? `From the SMUS export at ${format(new Date(result.exportedAt), EXPORT_DATE_FORMAT)}.`
+      : undefined;
     return {
       configured: result.configured,
-      emptyDetail,
+      emptyDetail: [describeProjectDiagnostics(result.diagnostics), exported]
+        .filter(Boolean)
+        .join(' '),
+      emptyAction: RUN_EXPORT_ACTION,
+      sourceNote: exported,
       options: result.projects.map((p) => ({
         value: p.id,
         label: p.name,
@@ -56,10 +88,47 @@ export interface RemoteMultiSelectProps {
   emptyHint?: string;
 }
 
+function helperText(
+  query: { error: unknown; data?: RemoteOptions },
+  value: string[],
+  emptyHint?: string
+): ReactNode {
+  if (query.error) {
+    return getApiErrorMessage(query.error, 'The options could not be loaded');
+  }
+  const data = query.data;
+  if (!data) {
+    return undefined;
+  }
+  if (!data.configured) {
+    return 'No SMUS domain is configured, so there are no projects to choose from.';
+  }
+  if (data.options.length === 0) {
+    return (
+      <>
+        {data.emptyDetail || 'No options were found.'}
+        {data.emptyAction && (
+          <>
+            {' '}
+            <Link component={RouterLink} to={data.emptyAction.to}>
+              {data.emptyAction.label}
+            </Link>
+            .
+          </>
+        )}
+      </>
+    );
+  }
+  if (value.length === 0) {
+    return [emptyHint, data.sourceNote].filter(Boolean).join(' ') || undefined;
+  }
+  return data.sourceNote;
+}
+
 /**
- * A multiselect whose options are fetched live (SMUS projects, for example).
- * Selected values that the list no longer contains are kept and shown by id,
- * so a stale selection is visible rather than silently dropped.
+ * A multiselect whose options come from the server (SMUS projects, for
+ * example). Selected values the list no longer contains are kept and shown
+ * by id, so a stale selection is visible rather than silently dropped.
  */
 export function RemoteMultiSelect({
   optionsFrom,
@@ -128,18 +197,7 @@ export function RemoteMultiSelect({
           label={label}
           placeholder={value.length === 0 ? 'Search' : undefined}
           error={Boolean(query.error)}
-          helperText={
-            query.error
-              ? getApiErrorMessage(query.error, 'The options could not be loaded')
-              : notConfigured
-                ? 'No SMUS domain is configured, so there are no projects to choose from.'
-                : query.data && query.data.options.length === 0
-                  ? (query.data.emptyDetail ??
-                    "No projects were found. Check the domain id, region and the portal role's DataZone access.")
-                  : value.length === 0
-                    ? emptyHint
-                    : undefined
-          }
+          helperText={helperText(query, value, emptyHint)}
         />
       )}
     />

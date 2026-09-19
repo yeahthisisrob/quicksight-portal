@@ -1,4 +1,4 @@
-export const OPERATIONS_TABS = ['export', 'archived', 'scripts'] as const;
+export const OPERATIONS_TABS = ['export', 'smus', 'archived', 'scripts'] as const;
 export type OperationsTab = (typeof OPERATIONS_TABS)[number];
 
 export const DEFAULT_OPERATIONS_TAB: OperationsTab = 'export';
@@ -26,6 +26,7 @@ export function operationsTabSearch(tab: OperationsTab): string {
 /** Where the old standalone routes go. */
 export const LEGACY_OPERATIONS_ROUTES: Record<string, OperationsTab> = {
   '/export': 'export',
+  '/smus': 'smus',
   '/archived-assets': 'archived',
   '/scripts': 'scripts',
 };

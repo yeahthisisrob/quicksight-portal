@@ -1,4 +1,3 @@
-import { DataZoneAdapter } from '../../../adapters/aws/DataZoneAdapter';
 import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { DEBUG_CONFIG, QUICKSIGHT_LIMITS } from '../../../shared/constants';
 import type { CacheEntry, MasterCache } from '../../../shared/models/asset.model';
@@ -566,7 +565,7 @@ export class AssetService {
       return items;
     }
     try {
-      const smusService = new SmusService(cacheService, new DataZoneAdapter(config.region), config);
+      const smusService = new SmusService(cacheService, config);
       const linkMap = await smusService.getLinkMap();
       return items.filter((item) => {
         const linked = linkMap.get((item as any).id)?.linked ?? false;

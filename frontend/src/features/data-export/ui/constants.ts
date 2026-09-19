@@ -9,55 +9,67 @@ import {
   Source,
 } from '@mui/icons-material';
 
-export const assetTypeConfig = {
+import type { AssetHueKey } from '@/shared/design-system/tokens';
+
+interface ExportAssetTypeConfig {
+  label: string;
+  /** The asset hue in the design tokens; the colour comes from the theme. */
+  hue: AssetHueKey;
+  description: string;
+  icon: typeof Dashboard;
+  disabled?: boolean;
+  comingSoon?: boolean;
+}
+
+export const assetTypeConfig: Record<string, ExportAssetTypeConfig> = {
   dashboards: {
     label: 'Dashboards',
-    color: '#1976d2',
+    hue: 'dashboard',
     description: 'Export all dashboard definitions and configurations',
     icon: Dashboard,
   },
   datasets: {
     label: 'Datasets',
-    color: '#388e3c',
+    hue: 'dataset',
     description: 'Export dataset definitions, schemas, and configurations',
     icon: Dataset,
   },
   analyses: {
     label: 'Analyses',
-    color: '#7b1fa2',
+    hue: 'analysis',
     description: 'Export all analysis definitions and configurations',
     icon: Analytics,
   },
   datasources: {
     label: 'Data Sources',
-    color: '#f57c00',
+    hue: 'datasource',
     description: 'Export data source connections and configurations',
     icon: Source,
   },
   folders: {
     label: 'Folders',
-    color: '#795548',
+    hue: 'folder',
     description: 'Export folder structure and permissions',
     icon: Folder,
   },
   groups: {
     label: 'Groups',
-    color: '#5d4037',
+    hue: 'group',
     description: 'Export user groups and permissions',
     icon: Group,
   },
   users: {
     label: 'Users',
-    color: '#00796b',
+    hue: 'user',
     description: 'Export user configurations and assignments',
     icon: Person,
   },
   themes: {
     label: 'Themes',
-    color: '#9e9e9e',
+    hue: 'namespace',
     description: 'Export custom theme definitions (Coming Soon)',
     icon: Palette,
     disabled: true,
     comingSoon: true,
   },
-} as const;
+};

@@ -93,6 +93,8 @@ export interface SmusCatalog {
   projects: Array<{ id: string; name: string; count: number }>;
   glossaryTerms: Array<{ name: string; shortDescription?: string; count: number }>;
   assets: SmusCatalogAssetSummary[];
+  /** When the SMUS snapshot was taken; null when no export has run. */
+  exportedAt: string | null;
 }
 
 export interface CatalogFilters {
@@ -132,7 +134,14 @@ export class SmusCatalogService {
   public async list(filters: CatalogFilters = {}): Promise<SmusCatalog> {
     const result = await this.smusService.listAssets(filters.search);
     if (!result.configured) {
-      return { configured: false, projectFilter: [], projects: [], glossaryTerms: [], assets: [] };
+      return {
+        configured: false,
+        projectFilter: [],
+        projects: [],
+        glossaryTerms: [],
+        assets: [],
+        exportedAt: null,
+      };
     }
 
     const index = await this.buildFieldIndex();
@@ -157,6 +166,7 @@ export class SmusCatalogService {
       projects,
       glossaryTerms,
       assets,
+      exportedAt: result.exportedAt,
     };
   }
 

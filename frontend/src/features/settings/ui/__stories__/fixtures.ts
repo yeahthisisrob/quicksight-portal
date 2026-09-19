@@ -125,7 +125,12 @@ export function settingsRoutes(overrides: MockRoute[] = []): MockRoute[] {
     {
       method: 'get',
       url: '/settings/smus/projects',
-      respond: () => ({ body: { success: true, data: { configured: true, projects: PROJECTS } } }),
+      respond: () => ({
+        body: {
+          success: true,
+          data: { configured: true, exportedAt: '2026-09-18T09:30:00Z', projects: PROJECTS },
+        },
+      }),
     },
     { method: 'get', url: '/settings', respond: () => ({ body: { success: true, data: stored } }) },
     {

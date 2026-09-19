@@ -9,19 +9,32 @@ export type SmusAsset = components['schemas']['SmusAsset'];
 export type SmusAssetColumn = components['schemas']['SmusAssetColumn'];
 export type SmusLinkedDataset = components['schemas']['SmusLinkedDataset'];
 export type CreateSmusDatasetRequest = components['schemas']['CreateSmusDatasetRequest'];
+export type SmusSnapshotSummary = components['schemas']['SmusSnapshotSummary'];
+export type SmusExportQueued = components['schemas']['SmusExportQueued'];
 
 export interface SmusAssetsResponse {
   configured: boolean;
+  /** When the snapshot was taken; null when no SMUS export has run. */
+  exportedAt: string | null;
   projectFilter: string[];
   assets: SmusAsset[];
 }
 
 /**
- * SMUS (SageMaker Unified Studio) integration API. Link resolutions are
- * computed live against the SMUS domain catalog on the backend — nothing is
- * persisted in the portal cache.
+ * SMUS (SageMaker Unified Studio) integration API. Everything here reads the
+ * SMUS snapshot the export job wrote to the cache bucket; nothing is fetched
+ * live from DataZone on a page load.
  */
 export const smusApi = {
+  /** Queue a SMUS export (single-flight: a running job's id comes back instead). */
+  async startExport(): Promise<SmusExportQueued> {
+    const response = await api.post<ApiResponse<SmusExportQueued>>('/smus/export');
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to start the SMUS export');
+    }
+    return response.data.data;
+  },
+
   /** Whether a SMUS domain is configured (drives all SMUS UI visibility). */
   async getStatus(): Promise<SmusStatus> {
     const response = await api.get<ApiResponse<SmusStatus>>('/smus/status');

@@ -3,7 +3,7 @@
  * read it. Reusing one of those is the primary action; creating a new
  * dataset is offered only when none exists, so nothing gets duplicated.
  */
-import { Search } from '@mui/icons-material';
+import { CloudSync, Search } from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -25,6 +25,7 @@ import type { DatasetOption } from '@/entities/definition';
 
 import { smusApi } from '@/shared/api';
 import type { SmusAsset } from '@/shared/api/modules/smus';
+import { EmptyState } from '@/shared/design-system';
 import { useDebounce } from '@/shared/lib/useDebounce';
 
 import { CreateSmusDatasetForm } from './CreateSmusDatasetForm';
@@ -205,6 +206,21 @@ export function SmusAssetPicker({ currentDataSetId, selected, onSelect }: SmusAs
         </Link>{' '}
         to pick from published assets.
       </Alert>
+    );
+  }
+  if (assets.data && !assets.data.exportedAt) {
+    return (
+      <EmptyState
+        compact
+        icon={<CloudSync />}
+        title="No SMUS export yet"
+        description="Published assets come from the SMUS export, and none has run. Run one from Operations, then pick a target here."
+        action={
+          <Button component={RouterLink} to="/operations?tab=smus" variant="contained">
+            Open Operations
+          </Button>
+        }
+      />
     );
   }
 

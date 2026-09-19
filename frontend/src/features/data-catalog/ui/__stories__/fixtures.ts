@@ -364,6 +364,7 @@ export function catalogFor(projectId?: string, search?: string, term?: string): 
   }
   return {
     configured: true,
+    exportedAt: '2026-09-18T09:30:00Z',
     projectFilter: PROJECTS.map((p) => p.id),
     projects: PROJECTS,
     glossaryTerms: [...termCounts.values()],

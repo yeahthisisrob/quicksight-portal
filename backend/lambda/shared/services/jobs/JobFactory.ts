@@ -52,6 +52,10 @@ export interface ActivityRefreshJobConfig extends BaseJobConfig {
   };
 }
 
+export interface SmusExportJobConfig extends BaseJobConfig {
+  jobType: 'smus-export';
+}
+
 export interface BulkOperationJobConfig extends BaseJobConfig {
   jobType: 'bulk-operation';
   operationConfig: any; // Will be BulkOperationConfig from bulkOperationTypes
@@ -76,7 +80,8 @@ export type JobConfig =
   | DeployJobConfig
   | ActivityRefreshJobConfig
   | BulkOperationJobConfig
-  | CSVExportJobConfig;
+  | CSVExportJobConfig
+  | SmusExportJobConfig;
 
 export class JobFactory {
   private static instance: JobFactory;
@@ -222,6 +227,8 @@ export class JobFactory {
       return `Deployment job for ${config.assetType} ${config.assetId}`;
     } else if (config.jobType === 'activity-refresh') {
       return 'Activity refresh job queued';
+    } else if (config.jobType === 'smus-export') {
+      return 'SMUS export queued';
     } else if (config.jobType === 'bulk-operation') {
       const opType = config.operationConfig?.operationType || 'bulk';
       return `Bulk ${opType} operation queued (${config.estimatedOperations} items)`;

@@ -46,6 +46,7 @@ export const NotConfigured: Story = {
               success: true,
               data: {
                 configured: false,
+                exportedAt: null,
                 projectFilter: [],
                 projects: [],
                 glossaryTerms: [],

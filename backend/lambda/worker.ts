@@ -5,6 +5,7 @@ import { ActivityRefreshProcessor } from './features/activity/processors/Activit
 import { warmCollectionSnapshots } from './features/asset-management/services/collectionSnapshotWarmer';
 import { ExportOrchestrator } from './features/data-export/services/ExportOrchestrator';
 import type { DeploymentConfig } from './features/deployment/services/deploy/types';
+import { SmusExportProcessor } from './features/smus/processors/SmusExportProcessor';
 import { JOB_CONFIG, STORAGE_LIMITS, TIME_UNITS, WORKER_CONFIG } from './shared/constants';
 import type { AssetType } from './shared/models/asset.model';
 import { S3Service } from './shared/services/aws/S3Service';
@@ -69,6 +70,13 @@ interface ActivityRefreshMessage {
     assetTypes: ('dashboard' | 'analysis' | 'user' | 'all')[];
     days?: number;
   };
+}
+
+interface SmusExportMessage {
+  jobId: string;
+  jobType: 'smus-export';
+  accountId: string;
+  userId?: string;
 }
 
 interface BulkOperationMessage {
@@ -182,6 +190,8 @@ async function processRecord(record: any, context: Context): Promise<void> {
       await processDeploymentJob(rawMessage as DeployMessage, record);
     } else if (rawMessage.jobType === 'activity-refresh') {
       await processActivityRefreshJob(rawMessage as ActivityRefreshMessage, record);
+    } else if (rawMessage.jobType === 'smus-export') {
+      await processSmusExportJob(rawMessage as SmusExportMessage, record);
     } else if (rawMessage.jobType === 'bulk-operation') {
       await processBulkOperationJob(rawMessage as BulkOperationMessage, record);
     } else if (rawMessage.jobType === 'csv-export') {
@@ -375,6 +385,40 @@ async function handleActivityRefreshError(
     message: `Activity refresh failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
     error: error instanceof Error ? error.message : 'Unknown error',
   });
+}
+
+/**
+ * Process a SMUS export job: one sweep of the DataZone domain into the
+ * SMUS snapshot that Settings, Author and the catalog read.
+ */
+async function processSmusExportJob(message: SmusExportMessage, record: any): Promise<void> {
+  const { jobId } = message;
+  logger.info('Processing SMUS export job', { jobId, messageId: record.messageId });
+
+  const jobStateService = new JobStateService('smus-export');
+  try {
+    await cleanupStuckJobs(jobStateService, 'smus-export');
+    const existing = await jobStateService.getJobStatus(jobId);
+    if (!existing) {
+      await jobStateService.createJob(jobId, {
+        status: 'processing',
+        message: 'SMUS export started',
+        startTime: new Date().toISOString(),
+      });
+    }
+    await new SmusExportProcessor(jobStateService, jobId).run();
+  } catch (error) {
+    logger.error('SMUS export job failed', {
+      jobId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    await jobStateService.updateJobStatus(jobId, {
+      status: 'failed',
+      endTime: new Date().toISOString(),
+      message: `SMUS export failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
 }
 
 /**

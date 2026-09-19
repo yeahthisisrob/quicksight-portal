@@ -58,6 +58,10 @@ Any dashboard or analysis renders as a wireframe from its cached definition: she
 
 The portal reads the published catalog of a SMUS (DataZone) domain: each listing with its owning project, its Glue table and columns from the listing's metadata forms, and the QuickSight datasets already reading it. Settings choose which projects count and, optionally, a database-name pattern for the published layer. From a listing with no dataset yet, the portal can create one through an existing data source, copying permissions from a reference dataset so it has an audience. This is the direction the portal is heading: more of what you do here will start from what SMUS publishes.
 
+**Exported, not live.** Like QuickSight, SMUS is read by an export job, never on a page request. The SMUS export (Operations page, or `POST /api/smus/export`) sweeps the domain once, scoped to the projects selected in Settings, and writes one snapshot to the cache bucket: projects, listings with their forms and columns, and how the sweep went, including which IAM role called DataZone and whether the domain knows it. Settings, Author and the catalog read that snapshot, so a page load costs one cached read rather than a DataZone sweep, and the export's own card says when it ran, what it captured and, when the project list is empty, exactly why. The snapshot is one S3 object rather than DynamoDB items because it is read whole and its size grows with listings times columns times forms; jobs and settings, which are small records with atomic updates, stay in DynamoDB.
+
+![Operations: the SMUS export](docs/screenshots/operations-smus.png)
+
 ### Catalog: SMUS first, QuickSight on top
 
 The catalog shows only assets published in the SMUS projects chosen in Settings, one project at a time, since everything in SMUS is per project. SMUS owns the business metadata and the portal shows it read-only: glossary terms, metadata forms, descriptions, the Glue table and its columns. The portal adds what only QuickSight knows:
@@ -78,7 +82,7 @@ just smus-grant dzd_xxxx                          # every project
 just smus-grant dzd_xxxx "analytics_prod,analytics_dev"
 ```
 
-Author and the catalog are built on SMUS projects, so until a domain is set and at least one project is selected under "Projects to read from", both pages show one thing: what to set, with a link to Settings. The picker itself explains an empty list: which role called DataZone, whether the domain knows it, and how many projects, listings and publishers were found.
+Author and the catalog are built on SMUS projects, so until a domain is set, at least one project is selected under "Projects to read from", and an export has run, each page shows one thing: what to do next, with a link to Settings or Operations. The picker itself explains an empty list: which export it read, which role called DataZone, whether the domain knows it, and how many projects, listings and publishers were found.
 
 ### Settings
 
@@ -92,7 +96,9 @@ Configuration lives in DynamoDB with a fallback to the Lambda's environment vari
 - **Edit dataset sources** in place: schema, table, custom SQL, data source
 - **Smart Sync export engine** - incremental exports that only touch assets that changed in QuickSight; if the cache is lost it self-heals by re-parsing existing S3 exports with zero API calls
 - **Resumable long runs** - exports checkpoint their progress and continue across Lambda invocations; only one export runs at a time (enforced by an atomic DynamoDB lock)
-- **Operations** - export console, archived assets with restore, and maintenance scripts on one page
+- **Operations** - the QuickSight export console, the SMUS export, archived assets with restore, and maintenance scripts on one page, in the same design system as the rest of the portal
+
+![Operations](docs/screenshots/operations.png)
 - **Bulk operations** - tag, folder-membership, and delete operations across selections, with per-item results
 - **CSV export** of any asset listing
 

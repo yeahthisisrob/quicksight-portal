@@ -1,29 +1,79 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
-import { DataZoneAdapter } from '../../../adapters/aws/DataZoneAdapter';
 import { requireAuth } from '../../../shared/auth';
 import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { STATUS_CODES } from '../../../shared/constants/httpStatusCodes';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import { CacheService } from '../../../shared/services/cache/CacheService';
+import { jobFactory, type SmusExportJobConfig } from '../../../shared/services/jobs/JobFactory';
+import { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { SmusService } from '../../../shared/services/smus/SmusService';
-import { errorResponse, successResponse } from '../../../shared/utils/cors';
+import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 
 let smusService: SmusService;
 
 /**
  * Built per request: settings can change the domain, projects or patterns at
- * runtime, and the expensive parts (catalog sweeps) are cached statically
- * inside SmusService anyway.
+ * runtime. Reads come from the SMUS snapshot in the cache, never DataZone.
  */
 function getSmusService(): SmusService {
   const config = getSmusConfig();
   const cacheService = CacheService.getInstance();
-  const dataZoneAdapter = config.enabled ? new DataZoneAdapter(config.region) : null;
   const quickSightService = ClientFactory.getQuickSightService(process.env.AWS_ACCOUNT_ID || '');
-  smusService = new SmusService(cacheService, dataZoneAdapter, config, quickSightService);
+  smusService = new SmusService(cacheService, config, quickSightService);
   return smusService;
+}
+
+/**
+ * Queue a SMUS export: one sweep of the domain into the snapshot. Single-flight.
+ * POST /api/smus/export
+ */
+export async function startSmusExport(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  try {
+    const user = await requireAuth(event);
+    const config = getSmusConfig();
+    if (!config.enabled) {
+      return errorResponse(
+        event,
+        STATUS_CODES.BAD_REQUEST,
+        'SMUS is not configured: set the domain id in Settings first'
+      );
+    }
+
+    const jobStateService = new JobStateService('smus-export');
+    const [existing] = await jobStateService.getActiveJobs();
+    if (existing) {
+      return createResponse(event, STATUS_CODES.OK, {
+        success: true,
+        data: {
+          jobId: existing.jobId,
+          status: existing.status,
+          message: 'A SMUS export is already running; returning the existing job.',
+        },
+      });
+    }
+
+    const accountId = process.env.AWS_ACCOUNT_ID || '';
+    const jobConfig: SmusExportJobConfig = {
+      jobType: 'smus-export',
+      accountId,
+      bucketName: process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`,
+      userId: user.userId,
+    };
+    const result = await jobFactory.createJob(jobConfig);
+    return createResponse(event, STATUS_CODES.ACCEPTED, {
+      success: true,
+      data: { jobId: result.jobId, status: result.status, message: 'SMUS export queued' },
+    });
+  } catch (error: any) {
+    logger.error('Failed to queue SMUS export', { error });
+    return errorResponse(
+      event,
+      error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+      error?.message || 'Failed to queue SMUS export'
+    );
+  }
 }
 
 /**
@@ -98,7 +148,7 @@ export async function createSmusDataset(
 export async function getSmusStatus(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   try {
     await requireAuth(event);
-    return successResponse(event, { success: true, data: getSmusService().getStatus() });
+    return successResponse(event, { success: true, data: await getSmusService().getStatus() });
   } catch (error: any) {
     logger.error('Failed to get SMUS status', { error });
     return errorResponse(
@@ -110,7 +160,7 @@ export async function getSmusStatus(event: APIGatewayProxyEvent): Promise<APIGat
 }
 
 /**
- * Resolve SMUS catalog links for datasets (live catalog sweep, TTL-cached).
+ * Resolve SMUS catalog links for datasets from the snapshot (TTL-cached link map).
  * POST /api/smus/dataset-links  body: { datasetIds?: string[] }
  */
 export async function getSmusDatasetLinks(
@@ -125,7 +175,7 @@ export async function getSmusDatasetLinks(
       : undefined;
 
     const service = getSmusService();
-    if (!service.getStatus().configured) {
+    if (!(await service.getStatus()).configured) {
       return successResponse(event, { success: true, data: { links: [] } });
     }
 

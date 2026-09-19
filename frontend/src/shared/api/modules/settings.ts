@@ -15,6 +15,8 @@ export type SmusProjectDiagnostics = Schemas['SmusProjectDiagnostics'];
 
 export interface SmusProjectsResponse {
   configured: boolean;
+  /** When the snapshot these projects come from was taken; null when no export has run. */
+  exportedAt: string | null;
   projects: SmusProject[];
   diagnostics?: SmusProjectDiagnostics;
 }
@@ -47,7 +49,7 @@ export const settingsApi = {
     );
   },
 
-  /** Live list of projects in the configured SMUS domain. */
+  /** Projects in the configured SMUS domain, from the last SMUS export. */
   listSmusProjects(): Promise<SmusProjectsResponse> {
     return unwrap(
       apiClient.get<ApiResponse<SmusProjectsResponse>>('/settings/smus/projects'),

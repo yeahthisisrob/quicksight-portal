@@ -1,54 +1,50 @@
 import { Archive, Functions, Schedule, Storage } from '@mui/icons-material';
-import { alpha, Box, Card, Skeleton, Typography } from '@mui/material';
+import { Box, Skeleton, Stack, Typography } from '@mui/material';
+import { format, formatDistanceToNow } from 'date-fns';
+import type { ReactNode } from 'react';
 
-import { colors, spacing } from '@/shared/design-system/theme';
+import { Container, StatusIndicator, type StatusType } from '@/shared/design-system';
 
-interface StatItemProps {
+const DATE_FORMAT = 'MMM d, yyyy HH:mm';
+const HOUR_MS = 60 * 60 * 1000;
+const FRESH_HOURS = 6;
+const STALE_DAYS = 7;
+const DAY_HOURS = 24;
+
+interface StatTileProps {
   label: string;
-  value: string | number;
-  subtitle?: string;
-  icon: React.ElementType;
-  color: string;
+  value: ReactNode;
+  detail?: ReactNode;
+  icon: ReactNode;
   loading?: boolean;
 }
 
-function StatItem({ label, value, subtitle, icon: Icon, color, loading }: StatItemProps) {
+function StatTile({ label, value, detail, icon, loading }: StatTileProps) {
   return (
-    <Card
-      sx={{
-        flex: 1,
-        minWidth: 0,
-        borderRadius: `${spacing.sm / 8}px`,
-        border: `1px solid ${alpha(color, 0.15)}`,
-      }}
-    >
-      <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <Box
-          sx={{
-            p: 0.75,
-            borderRadius: `${spacing.xs / 8}px`,
-            bgcolor: alpha(color, 0.1),
-            color,
-            display: 'flex',
-          }}
-        >
-          <Icon sx={{ fontSize: 20 }} />
-        </Box>
-        <Box sx={{ minWidth: 0 }}>
-          {loading ? (
-            <Skeleton sx={{ height: 24, width: 60 }} variant="text" />
-          ) : (
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, color, lineHeight: 1.2 }}>
-              {typeof value === 'number' ? value.toLocaleString() : value}
+    <Container variant="subtle" sx={{ flex: 1, minWidth: 180 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', color: 'text.secondary' }}>
+        {icon}
+        <Typography variant="subtitle2">{label}</Typography>
+      </Stack>
+      {loading ? (
+        <Skeleton variant="text" sx={{ width: 96, fontSize: '1.5rem', mt: 0.5 }} />
+      ) : (
+        <Typography variant="h3" sx={{ mt: 0.5 }}>
+          {value}
+        </Typography>
+      )}
+      {detail && !loading && (
+        <Box sx={{ mt: 0.5 }}>
+          {typeof detail === 'string' ? (
+            <Typography variant="caption" color="text.secondary">
+              {detail}
             </Typography>
+          ) : (
+            detail
           )}
-          <Typography variant="caption" color="text.secondary" noWrap>
-            {label}
-            {subtitle ? ` · ${subtitle}` : ''}
-          </Typography>
         </Box>
-      </Box>
-    </Card>
+      )}
+    </Container>
   );
 }
 
@@ -64,23 +60,25 @@ interface ExportStatsProps {
   loading?: boolean;
 }
 
-function formatLastUpdated(dateString: string | null | undefined): {
+/** How fresh the cache is, said with a status not just a time. */
+function freshness(lastUpdated: string | null | undefined): {
   value: string;
-  subtitle: string;
+  status: StatusType;
+  note: string;
 } {
-  if (!dateString) return { value: 'Never', subtitle: 'Run initial export' };
-
-  const diffMs = Date.now() - new Date(dateString).getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return { value: 'Just now', subtitle: 'Current' };
-  if (diffMins < 60) return { value: `${diffMins}m ago`, subtitle: 'Current' };
-  if (diffHours < 24)
-    return { value: `${diffHours}h ago`, subtitle: diffHours < 6 ? 'Current' : 'Consider refresh' };
-  if (diffDays < 7) return { value: `${diffDays}d ago`, subtitle: 'May need refresh' };
-  return { value: new Date(dateString).toLocaleDateString(), subtitle: 'Stale' };
+  if (!lastUpdated) {
+    return { value: 'Never', status: 'pending', note: 'Run the first export' };
+  }
+  const date = new Date(lastUpdated);
+  const ageHours = (Date.now() - date.getTime()) / HOUR_MS;
+  const value = formatDistanceToNow(date, { addSuffix: true });
+  if (ageHours < FRESH_HOURS) {
+    return { value, status: 'success', note: format(date, DATE_FORMAT) };
+  }
+  if (ageHours < STALE_DAYS * DAY_HOURS) {
+    return { value, status: 'warning', note: 'Consider a refresh' };
+  }
+  return { value, status: 'error', note: 'Stale' };
 }
 
 export default function ExportStats({
@@ -90,39 +88,38 @@ export default function ExportStats({
   fieldStats,
   loading = false,
 }: ExportStatsProps) {
-  const lastUpdatedInfo = formatLastUpdated(lastUpdated);
+  const fresh = freshness(lastUpdated);
 
   return (
     <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-      <StatItem
-        label="Total Assets"
-        value={totalAssets}
-        subtitle="Cached"
-        icon={Storage}
-        color={colors.primary.main}
+      <StatTile
+        label="Cached assets"
+        value={totalAssets.toLocaleString()}
+        icon={<Storage fontSize="small" />}
         loading={loading}
       />
-      <StatItem
-        label="Last Updated"
-        value={lastUpdatedInfo.value}
-        subtitle={lastUpdatedInfo.subtitle}
-        icon={Schedule}
-        color={lastUpdatedInfo.value === 'Never' ? colors.neutral[500] : colors.primary.main}
+      <StatTile
+        label="Last export"
+        value={fresh.value}
+        detail={
+          <StatusIndicator type={fresh.status} size="small">
+            {fresh.note}
+          </StatusIndicator>
+        }
+        icon={<Schedule fontSize="small" />}
         loading={loading}
       />
-      <StatItem
+      <StatTile
         label="Fields"
-        value={fieldStats?.total || 0}
-        subtitle={fieldStats ? `${fieldStats.calculated} calc` : undefined}
-        icon={Functions}
-        color={colors.primary.dark}
+        value={(fieldStats?.total ?? 0).toLocaleString()}
+        detail={fieldStats ? `${fieldStats.calculated.toLocaleString()} calculated` : undefined}
+        icon={<Functions fontSize="small" />}
         loading={loading}
       />
-      <StatItem
+      <StatTile
         label="Archived"
-        value={archivedAssets}
-        icon={Archive}
-        color={colors.status.warning}
+        value={archivedAssets.toLocaleString()}
+        icon={<Archive fontSize="small" />}
         loading={loading}
       />
     </Box>

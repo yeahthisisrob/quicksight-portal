@@ -1493,7 +1493,7 @@ export interface paths {
         };
         /**
          * SMUS (SageMaker Unified Studio) integration status
-         * @description Reports whether a SMUS domain is configured for this portal. When not configured, all SMUS UI (link indicators, actions, filters) is hidden.
+         * @description Reports whether a SMUS domain is configured for this portal and what the last SMUS export captured. When not configured, all SMUS UI (link indicators, actions, filters) is hidden. Everything SMUS-related the portal shows comes from that export, never from a live DataZone call.
          */
         get: {
             parameters: {
@@ -1518,6 +1518,67 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/smus/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a SMUS export
+         * @description Queues a job that sweeps the configured DataZone domain once (projects,
+         *     published listings with their forms and columns, the portal role's
+         *     standing in the domain) and stores the result as the SMUS snapshot in
+         *     the cache bucket. Settings, Author and the catalog read that snapshot.
+         *     Single-flight: if an export is already queued or running, its job id is
+         *     returned instead of a new one.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description An export is already in flight; its job is returned */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["SmusExportQueued"];
+                        };
+                    };
+                };
+                /** @description Export job queued */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["SmusExportQueued"];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -2544,10 +2605,10 @@ export interface paths {
         };
         /**
          * Projects in the configured SMUS domain
-         * @description Live from DataZone. Used by the settings page so the projects the
-         *     portal reads published assets from are chosen from a list, never
-         *     typed. Returns an empty list with `configured: false` when no domain
-         *     is set.
+         * @description From the last SMUS export, never live. Used by the settings page so
+         *     the projects the portal reads published assets from are chosen from a
+         *     list, never typed. Returns an empty list with `configured: false` when
+         *     no domain is set, and `exportedAt: null` when no export has run yet.
          */
         get: {
             parameters: {
@@ -2568,6 +2629,11 @@ export interface paths {
                             success: boolean;
                             data: {
                                 configured: boolean;
+                                /**
+                                 * Format: date-time
+                                 * @description When the snapshot these projects come from was taken; null when no export has run.
+                                 */
+                                exportedAt: string | null;
                                 projects: components["schemas"]["SmusProject"][];
                                 diagnostics?: components["schemas"]["SmusProjectDiagnostics"];
                             };
@@ -2622,6 +2688,11 @@ export interface paths {
                             success: boolean;
                             data: {
                                 configured: boolean;
+                                /**
+                                 * Format: date-time
+                                 * @description When the snapshot was taken; null when no SMUS export has run.
+                                 */
+                                exportedAt: string | null;
                                 /** @description The project ids the sweep was limited to; empty means all. */
                                 projectFilter: string[];
                                 assets: components["schemas"]["SmusAsset"][];
@@ -4646,6 +4717,8 @@ export interface components {
             roleArn?: string;
             /** @description The role's user profile status in the domain, or 'not found'. */
             profileStatus?: string;
+            /** @description Set when the per-project listing filter was refused and the domain was swept instead. */
+            listingsFallback?: string;
         };
         SmusProject: {
             id: string;
@@ -4858,6 +4931,11 @@ export interface components {
         };
         SmusCatalog: {
             configured: boolean;
+            /**
+             * Format: date-time
+             * @description When the SMUS snapshot was taken; null when no export has run.
+             */
+            exportedAt: string | null;
             projectFilter: string[];
             /** @description Projects present in the result, with counts, for filtering. */
             projects: {
@@ -5134,8 +5212,34 @@ export interface components {
             configured: boolean;
             /** @description DataZone domain identifier backing the SMUS domain */
             domainId?: string;
+            region?: string;
             /** @description Base URL of the SMUS portal used for deep links */
             portalUrl?: string;
+            /** @description The last SMUS export; absent when none has run. */
+            snapshot?: components["schemas"]["SmusSnapshotSummary"];
+        };
+        /** @description What the last SMUS export captured, for the Operations page and empty states. */
+        SmusSnapshotSummary: {
+            /** Format: date-time */
+            exportedAt: string;
+            /** @description The project ids the listings were limited to; empty means the whole domain. */
+            projectFilter: string[];
+            domainId?: string;
+            region?: string;
+            /** @description Projects in the snapshot (ListProjects unioned with listing publishers). */
+            projects: number;
+            /** @description Published listings captured. */
+            listings: number;
+            /** @description Distinct projects owning those listings. */
+            publishers: number;
+            /** @description The export job that wrote the snapshot. */
+            jobId?: string;
+            diagnostics?: components["schemas"]["SmusProjectDiagnostics"];
+        };
+        SmusExportQueued: {
+            jobId: string;
+            status: string;
+            message: string;
         };
         SmusDatasetLink: {
             /** @description QuickSight dataset identifier */

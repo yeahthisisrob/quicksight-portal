@@ -149,10 +149,14 @@ export class DataZoneAdapter {
   }
 
   /**
-   * Fetch all published listings in the domain (paged sweep). Returns a flat
-   * list; matching against QuickSight metadata happens in SmusService.
+   * Fetch published listings (paged sweep): the whole domain, or only one
+   * owning project's when `owningProjectId` is given. Returns a flat list;
+   * matching against QuickSight metadata happens in SmusService.
    */
-  public async listAllListings(domainId: string): Promise<CatalogListing[]> {
+  public async listAllListings(
+    domainId: string,
+    owningProjectId?: string
+  ): Promise<CatalogListing[]> {
     const listings: CatalogListing[] = [];
     let nextToken: string | undefined;
 
@@ -164,6 +168,9 @@ export class DataZoneAdapter {
           nextToken,
           // Forms carry the Glue table identity and columns.
           additionalAttributes: ['FORMS'],
+          ...(owningProjectId
+            ? { filters: { filter: { attribute: 'owningProjectId', value: owningProjectId } } }
+            : {}),
         })
       );
 

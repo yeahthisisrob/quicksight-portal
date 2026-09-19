@@ -11,6 +11,7 @@ export type JobType =
   | 'ingestion'
   | 'rebuild'
   | 'activity-refresh'
+  | 'smus-export'
   | 'bulk-operation'
   | 'csv-export';
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';

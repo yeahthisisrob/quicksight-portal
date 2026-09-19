@@ -3,7 +3,7 @@
  * project), its published assets on the left, one asset on the right with
  * what SMUS owns and what QuickSight adds.
  */
-import { CollectionsBookmark } from '@mui/icons-material';
+import { CloudSync, CollectionsBookmark } from '@mui/icons-material';
 import { Alert, AlertTitle, Box, Button, Stack } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
@@ -46,11 +46,26 @@ function NotConfigured() {
   );
 }
 
+function NoExport() {
+  return (
+    <EmptyState
+      icon={<CloudSync />}
+      title="No SMUS export yet"
+      description="The catalog is built from the SMUS export, and none has run. Run one from Operations; it sweeps the selected projects' published assets once and stores them."
+      action={
+        <Button component={RouterLink} to="/operations?tab=smus" variant="contained">
+          Open Operations
+        </Button>
+      }
+    />
+  );
+}
+
 function NoProjects() {
   return (
     <EmptyState
       title="No projects to show"
-      description="No project in the domain has published an asset yet, or the projects selected in Settings have none. An empty selection means every project."
+      description="The last SMUS export found no published asset in the selected projects. Check the selection in Settings, or run the export again from Operations once something is published."
       action={
         <Button component={RouterLink} to="/settings" variant="outlined">
           Review project selection
@@ -112,6 +127,8 @@ export function CatalogPage() {
     );
   } else if (projects.data && !configured) {
     body = <NotConfigured />;
+  } else if (projects.data && !projects.data.exportedAt) {
+    body = <NoExport />;
   } else if (projects.data && projectOptions.length === 0) {
     body = <NoProjects />;
   } else {

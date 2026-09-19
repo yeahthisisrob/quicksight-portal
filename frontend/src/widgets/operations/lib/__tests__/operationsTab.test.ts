@@ -26,7 +26,7 @@ describe('operations tab URL sync', () => {
   });
 
   it('round-trips every tab', () => {
-    for (const tab of ['export', 'archived', 'scripts'] as const) {
+    for (const tab of ['export', 'smus', 'archived', 'scripts'] as const) {
       const search = new URLSearchParams(operationsTabSearch(tab));
       expect(parseOperationsTab(search.get('tab'))).toBe(tab);
     }

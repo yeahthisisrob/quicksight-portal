@@ -1,26 +1,7 @@
-import {
-  Analytics,
-  Autorenew,
-  BuildCircle,
-  Cached,
-  Label,
-  PlayArrow,
-  Security,
-  Stop,
-} from '@mui/icons-material';
-import {
-  Alert,
-  alpha,
-  Box,
-  Button,
-  Stack,
-  ToggleButton,
-  ToggleButtonGroup,
-  Tooltip,
-  Typography,
-} from '@mui/material';
+import { Analytics, PlayArrow, Stop } from '@mui/icons-material';
+import { Alert, Box, Button, Stack, Tooltip, Typography } from '@mui/material';
 
-import { colors, spacing } from '@/shared/design-system/theme';
+import { SegmentedControl } from '@/shared/design-system';
 
 import type { ExportMode } from '../../model/types';
 
@@ -38,50 +19,40 @@ interface ExportControlsProps {
   selectedTypesCount: number;
 }
 
-const EXPORT_MODES = [
+const EXPORT_MODES: Array<{ value: ExportMode; label: string; description: string }> = [
   {
-    value: 'smart' as ExportMode,
-    label: 'Smart Sync',
+    value: 'smart',
+    label: 'Smart sync',
     description:
-      'Exports only assets that changed since the last run — skips unchanged ones. If the cache is missing, it is first restored from existing S3 files (no extra API calls).',
-    icon: Autorenew,
-    color: colors.primary.main,
+      'Exports only assets that changed since the last run. If the cache is missing it is first restored from the existing export files, with no extra API calls.',
   },
   {
-    value: 'force' as ExportMode,
-    label: 'Force Refresh',
+    value: 'force',
+    label: 'Force refresh',
     description:
-      'Re-exports every selected asset from QuickSight regardless of cache status — the most expensive mode.',
-    icon: Cached,
-    color: colors.status.warning,
+      'Re-exports every selected asset from QuickSight regardless of the cache. The most expensive mode.',
   },
   {
-    value: 'rebuild' as ExportMode,
-    label: 'Rebuild Cache',
+    value: 'rebuild',
+    label: 'Rebuild cache',
     description:
-      'Re-parses existing S3 export files into fresh caches for all asset types — zero QuickSight API calls. Job history and activity data are preserved.',
-    icon: BuildCircle,
-    color: colors.status.error,
+      'Re-parses the existing export files into fresh caches for every asset type. No QuickSight API calls; job history and activity data are kept.',
   },
   {
-    value: 'permissions' as ExportMode,
+    value: 'permissions',
     label: 'Permissions',
     description: 'Updates permissions only, leaving definitions and tags untouched.',
-    icon: Security,
-    color: colors.status.info,
   },
   {
-    value: 'tags' as ExportMode,
+    value: 'tags',
     label: 'Tags',
     description: 'Updates tags only, leaving definitions and permissions untouched.',
-    icon: Label,
-    color: colors.status.success,
   },
 ];
 
 function startButtonLabel(exportMode: ExportMode): string {
-  if (exportMode === 'rebuild') return 'Rebuild Cache';
-  return `Start ${exportMode === 'force' ? 'Force ' : ''}Export`;
+  if (exportMode === 'rebuild') return 'Rebuild cache';
+  return exportMode === 'force' ? 'Start force export' : 'Start export';
 }
 
 function selectionSummary(exportMode: ExportMode, selectedTypesCount: number): string {
@@ -96,8 +67,8 @@ function selectionSummary(exportMode: ExportMode, selectedTypesCount: number): s
 }
 
 /**
- * Export mode picker plus run/stop actions. Rendered inside the Export card
- * on the Export Assets page — layout only, all state lives in the parent.
+ * Export mode plus run/stop actions. Layout only: every piece of state lives
+ * in the export view.
  */
 export default function ExportControls({
   exportMode,
@@ -115,118 +86,70 @@ export default function ExportControls({
   const selectedMode = EXPORT_MODES.find((m) => m.value === exportMode);
 
   return (
-    <Stack spacing={spacing.md / 8}>
-      {/* Export Mode */}
+    <Stack spacing={2}>
       <Box>
-        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: spacing.sm / 8 }}>
-          Export Mode
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+          Mode
         </Typography>
-        <ToggleButtonGroup
+        <SegmentedControl
+          ariaLabel="Export mode"
           value={exportMode}
-          exclusive
-          onChange={(_, newMode) => newMode && onModeChange(newMode)}
-          size="small"
-          sx={{
-            flexWrap: 'wrap',
-            gap: 1,
-            '& .MuiToggleButtonGroup-grouped': {
-              border: `1px solid ${colors.neutral[300]} !important`,
-              borderRadius: `${spacing.md / 8}px !important`,
-              ml: '0 !important',
-            },
-            '& .MuiToggleButton-root': {
-              textTransform: 'none',
-              px: spacing.sm / 8 + 0.5,
-              py: 0.5,
-            },
-          }}
-        >
-          {EXPORT_MODES.map((mode) => (
-            <ToggleButton
-              key={mode.value}
-              value={mode.value}
-              disabled={isRunning}
-              sx={{
-                '&.Mui-selected': {
-                  borderColor: `${mode.color} !important`,
-                  background: alpha(mode.color, 0.08),
-                  color: mode.color,
-                  fontWeight: 600,
-                  '&:hover': { background: alpha(mode.color, 0.14) },
-                },
-              }}
-            >
-              <mode.icon sx={{ fontSize: 18, mr: 0.75, color: mode.color }} />
-              {mode.label}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
+          onChange={onModeChange}
+          options={EXPORT_MODES.map((mode) => ({
+            value: mode.value,
+            label: mode.label,
+            disabled: isRunning,
+          }))}
+        />
         {selectedMode && (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: 'block', mt: spacing.xs / 8 }}
-          >
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
             {selectedMode.description}
           </Typography>
         )}
       </Box>
 
-      {/* Mode-specific warnings */}
       {exportMode === 'force' && (
-        <Alert severity="warning" sx={{ py: 0.5 }}>
-          Force mode will re-export all selected assets regardless of cache status.
+        <Alert severity="warning">
+          Force mode re-exports every selected asset regardless of the cache.
         </Alert>
       )}
       {exportMode === 'rebuild' && (
-        <Alert severity="info" sx={{ py: 0.5 }}>
-          Rebuilds all caches by re-parsing the existing S3 export files — no QuickSight API calls
-          are made, and job history / activity data are preserved. Asset type selection is ignored.
-          Progress appears in the log pane below; large accounts can take a few minutes.
+        <Alert severity="info">
+          Rebuilds every cache from the existing export files. Asset type selection is ignored, and
+          large accounts can take a few minutes.
         </Alert>
       )}
 
-      {/* Actions */}
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={1.5}
         sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}
       >
         {isRunning ? (
-          <Button
-            variant="contained"
-            color="error"
-            size="medium"
-            startIcon={<Stop />}
-            onClick={onStopExport}
-            sx={{ minWidth: 180 }}
-          >
-            Stop Export
+          <Button variant="contained" color="error" startIcon={<Stop />} onClick={onStopExport}>
+            Stop export
           </Button>
         ) : (
           <>
             <Button
               variant="contained"
-              size="medium"
               startIcon={<PlayArrow />}
               onClick={onStartExport}
               disabled={selectedTypesCount === 0 && exportMode !== 'rebuild'}
-              sx={{ minWidth: 180 }}
             >
               {startButtonLabel(exportMode)}
             </Button>
 
             {canRefreshActivity && (
-              <Tooltip title="Fetch CloudTrail activity and dataset ingestion (refresh) history">
+              <Tooltip title="Fetch CloudTrail activity and dataset ingestion history">
                 <span>
                   <Button
                     variant="outlined"
-                    size="medium"
                     startIcon={<Analytics />}
                     onClick={onRefreshActivity}
                     disabled={refreshingActivity}
                   >
-                    {refreshingActivity ? 'Refreshing Activity...' : 'Refresh Activity'}
+                    {refreshingActivity ? 'Refreshing activity' : 'Refresh activity'}
                   </Button>
                 </span>
               </Tooltip>

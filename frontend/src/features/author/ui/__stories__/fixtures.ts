@@ -28,6 +28,8 @@ import type { AuthorFlow } from '../../model/useAuthorFlow';
 import { simulatePreview } from './simulateOps';
 
 export const SOURCE = { type: 'dashboard' as const, id: 'sales-overview', name: 'Sales overview' };
+/** When the SMUS snapshot the stories read was taken. */
+export const SMUS_EXPORTED_AT = '2026-09-18T09:30:00Z';
 export const SILVER = 'arn:aws:quicksight:us-east-1:1:dataset/sales-silver';
 export const GOLD_ARN = 'arn:aws:quicksight:us-east-1:1:dataset/sales-gold';
 
@@ -605,7 +607,12 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
       respond: () => ({
         body: {
           success: true,
-          data: { configured: true, projectFilter: ['prj-1', 'prj-2'], assets: SMUS_ASSETS },
+          data: {
+            configured: true,
+            exportedAt: SMUS_EXPORTED_AT,
+            projectFilter: ['prj-1', 'prj-2'],
+            assets: SMUS_ASSETS,
+          },
         },
       }),
     },
@@ -632,7 +639,22 @@ export const SMUS_NOT_CONFIGURED: MockRoute = {
   method: 'get',
   url: '/smus/assets',
   respond: () => ({
-    body: { success: true, data: { configured: false, projectFilter: [], assets: [] } },
+    body: {
+      success: true,
+      data: { configured: false, exportedAt: null, projectFilter: [], assets: [] },
+    },
+  }),
+};
+
+/** A configured domain that has never been exported: the picker points at Operations. */
+export const SMUS_NOT_EXPORTED: MockRoute = {
+  method: 'get',
+  url: '/smus/assets',
+  respond: () => ({
+    body: {
+      success: true,
+      data: { configured: true, exportedAt: null, projectFilter: ['prj-1'], assets: [] },
+    },
   }),
 };
 

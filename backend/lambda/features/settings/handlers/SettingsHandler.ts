@@ -1,7 +1,5 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
-import { DataZoneAdapter } from '../../../adapters/aws/DataZoneAdapter';
-import { StsAdapter } from '../../../adapters/aws/StsAdapter';
 import { requireAuth } from '../../../shared/auth';
 import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { STATUS_CODES } from '../../../shared/constants';
@@ -55,20 +53,16 @@ export class SettingsHandler {
       await requireAuth(event);
       const config = getSmusConfig();
       if (!config.enabled) {
-        return successResponse(event, { success: true, data: { configured: false, projects: [] } });
+        return successResponse(event, {
+          success: true,
+          data: { configured: false, projects: [], exportedAt: null },
+        });
       }
-      const service = new SmusService(
-        CacheService.getInstance(),
-        new DataZoneAdapter(config.region),
-        config,
-        null,
-        new StsAdapter(config.region)
-      );
-      const { projects, diagnostics } = await service.projectDiscovery();
-      logger.info('SMUS project discovery', diagnostics);
+      const service = new SmusService(CacheService.getInstance(), config);
+      const { projects, diagnostics, exportedAt } = await service.projectDiscovery();
       return successResponse(event, {
         success: true,
-        data: { configured: true, projects, diagnostics },
+        data: { configured: true, projects, diagnostics, exportedAt },
       });
     } catch (error: any) {
       logger.error('List SMUS projects failed', { error });
