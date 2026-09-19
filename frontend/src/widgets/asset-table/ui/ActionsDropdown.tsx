@@ -6,6 +6,7 @@ import {
   OpenInNew as OpenInNewIcon,
   SwapHoriz as RebindIcon,
   DriveFileRenameOutline as RenameIcon,
+  Build as RepairIcon,
   Timeline as TimelineIcon,
   ViewQuilt as WireframeIcon,
 } from '@mui/icons-material';
@@ -142,6 +143,23 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
             Change Datasets
           </MenuItem>
         )}
+        {(assetType === 'dashboard' || assetType === 'analysis') &&
+          Array.isArray(asset.definitionErrors) &&
+          asset.definitionErrors.length > 0 && (
+            <MenuItem
+              onClick={() =>
+                handleAction(() =>
+                  handlers.navigate(
+                    `/author?type=${assetType}&id=${encodeURIComponent(asset.id)}&name=${encodeURIComponent(asset.name ?? '')}&repair=1`
+                  )
+                )
+              }
+            >
+              <RepairIcon fontSize="small" sx={{ mr: 1 }} />
+              Repair ({asset.definitionErrors.length} error
+              {asset.definitionErrors.length === 1 ? '' : 's'})
+            </MenuItem>
+          )}
         {RENAMEABLE_TYPES.includes(assetType) && (
           <MenuItem onClick={() => handleAction(() => handlers.onRenameClick?.(asset))}>
             <RenameIcon fontSize="small" sx={{ mr: 1 }} />

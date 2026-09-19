@@ -15,12 +15,15 @@ A self-hosted portal for Amazon QuickSight that goes past inventory: it can **au
 Author is built for the people who make dashboards and analyses all day. Start from something that already works, change it with clicks or with words, see the result before it exists, then publish it into the right folder with the right audience.
 
 1. **Source** - dashboards and analyses ranked by real use: templates first, then the most viewed, with views, viewers, last-viewed dates, and an insights card for the selected one. Dashboards with QuickSight CloudWatch metrics show their p90 load time, and visuals that are slow or erroring are flagged on the preview so nobody clones a broken one.
-2. **Datasets** - for each dataset the definition reads, choose what it should read instead, scoped by SMUS project: a **published SMUS asset** (with the QuickSight datasets already reading it, or create one in place through an existing data source), or any QuickSight dataset.
-3. **Describe & review** - type what you want, or fill the form by hand. Every referenced column is resolved against the target as matched, renamed, suggested or missing; suggestions are never applied silently. Add calculated fields from the template library.
-4. **Mockup and edit** - a before/after wireframe of the exact definition that would be written. Click any visual to retitle it, change its type (bar, column, line, pie, donut, table, pivot), move and resize it on the grid, duplicate or remove it, rename sheets. Every edit is a validated operation, listed in plain English, highlighted on the wireframe.
-5. **Publish** - a summary of every change, a folder to publish into, then create the copy (keeping the source's theme and permissions) or apply in place. "Open in QuickSight" to fine-tune, or start another from the result.
+2. **Repair** - when QuickSight refuses an asset (a column the dataset no longer has, a parameter never declared, a dataset that is gone), the plan lists every issue with a fix: rename to the column that took its place, remove every reference, declare or drop the parameter, choose another dataset. Accept the proposal or pick alternatives, see the result in the mockup, and publish in place. Broken assets stop being unpublishable as code.
+3. **Datasets** - for each dataset the definition reads, choose what it should read instead, scoped by SMUS project: a **published SMUS asset** (with the QuickSight datasets already reading it, or create one in place through an existing data source), or any QuickSight dataset.
+4. **Describe & review** - type what you want, or fill the form by hand. Every referenced column is resolved against the target as matched, renamed, suggested or missing; suggestions are never applied silently. Add calculated fields from the template library.
+5. **Mockup and edit** - a before/after wireframe of the exact definition that would be written. Click any visual to retitle it, change its type (bar, column, line, pie, donut, table, pivot), move and resize it on the grid, duplicate or remove it, rename sheets. Every edit is a validated operation, listed in plain English, highlighted on the wireframe.
+6. **Publish** - a summary of every change, a folder to publish into, then create the copy (keeping the source's theme and permissions) or apply in place. "Open in QuickSight" to fine-tune, or start another from the result.
 
 ![Author: sources ranked by use, with insights and flagged visuals](docs/screenshots/author-source.png)
+
+![Author: repairing a dashboard QuickSight refuses to write](docs/screenshots/author-repair.png)
 
 ![Author: choosing targets from published SMUS assets](docs/screenshots/author-targets.png)
 
@@ -50,7 +53,7 @@ The provider and model are settings, not a redeploy.
 
 ### Wireframes
 
-Any dashboard or analysis renders as a wireframe from its cached definition: sheets, every visual as a card in its real grid, free-form or paginated position, the visual type, its title, and its field wells. Close to QuickSight's look without pretending to be it, and never showing data. The same renderer draws the Author mockup.
+Any dashboard or analysis renders as a wireframe from its cached definition: sheets, every visual as a card in its real grid, free-form or paginated position, the visual type, its title, and its field wells. Dashboards with CloudWatch metrics show each visual's p90 load time on its card, with slow and failing visuals flagged. Close to QuickSight's look without pretending to be it, and never showing data. The same renderer draws the Author mockup.
 
 ![Wireframe of a dashboard](docs/screenshots/wireframe-dialog.png)
 

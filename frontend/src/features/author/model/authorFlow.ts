@@ -11,7 +11,7 @@ import type { RebindMode, RebindSource } from '@/entities/definition';
 
 import type { DefinitionChange, DefinitionOp } from '@/shared/api/modules/authoring';
 
-export type AuthorStep = 'source' | 'targets' | 'review' | 'mockup' | 'publish';
+export type AuthorStep = 'source' | 'repair' | 'targets' | 'review' | 'mockup' | 'publish';
 
 export interface AuthorStepMeta {
   id: AuthorStep;
@@ -19,13 +19,20 @@ export interface AuthorStepMeta {
   hint: string;
 }
 
+/** Every step, in order. Repair only shows when the source has issues. */
 export const AUTHOR_STEPS: readonly AuthorStepMeta[] = [
   { id: 'source', label: 'Source', hint: 'A dashboard or analysis to start from' },
+  { id: 'repair', label: 'Repair', hint: 'Fix what stops QuickSight from writing it' },
   { id: 'targets', label: 'Datasets', hint: 'Where the copy should read from' },
   { id: 'review', label: 'Describe & review', hint: 'Say what you want, check the columns' },
   { id: 'mockup', label: 'Mockup', hint: 'See and edit the result before it exists' },
   { id: 'publish', label: 'Publish', hint: 'Create the copy or apply in place' },
 ];
+
+/** The steps the rail shows: repair only when there is something to repair. */
+export function authorSteps(hasRepair: boolean): AuthorStepMeta[] {
+  return AUTHOR_STEPS.filter((s) => s.id !== 'repair' || hasRepair);
+}
 
 export interface AuthorResult {
   assetType: RebindSource['type'];
@@ -163,15 +170,28 @@ export interface DraftFacts {
   hasAddedFields?: boolean;
   /** The result gets a name of its own (always true for a copy with a name). */
   renamed?: boolean;
+  /** The server's repair plan found issues; the Repair step is shown. */
+  repairIssues?: number;
+  /** Accepted repairs (repair ops or renames) will be written. */
+  hasRepairs?: boolean;
+  /** Every issue has been dealt with: accepted, or left on purpose. */
+  repairsSettled?: boolean;
 }
 
 export type StepStatus = 'locked' | 'available' | 'current' | 'done';
 
 /** Anything at all would be different in the written asset. */
 export function hasChanges(facts: DraftFacts): boolean {
-  return Boolean(facts.hasTargets || facts.hasOps || facts.hasAddedFields || facts.renamed);
+  return Boolean(
+    facts.hasTargets || facts.hasOps || facts.hasAddedFields || facts.renamed || facts.hasRepairs
+  );
 }
 
+/**
+ * The status of every step the rail shows. The record only carries the
+ * repair step when the plan found issues, so the rail and the reducer's
+ * callers never have to special-case a clean source.
+ */
 export function stepStatus(
   state: AuthorFlowState,
   facts: DraftFacts
@@ -179,9 +199,11 @@ export function stepStatus(
   const hasSource = state.source !== null;
   const published = state.result !== null;
   const changed = hasChanges(facts);
+  const hasRepair = (facts.repairIssues ?? 0) > 0;
 
   const available: Record<AuthorStep, boolean> = {
     source: true,
+    repair: hasSource && hasRepair,
     targets: hasSource,
     review: hasSource,
     // The editor lives in the mockup, so a source with anything to write is enough.
@@ -190,6 +212,7 @@ export function stepStatus(
   };
   const done: Record<AuthorStep, boolean> = {
     source: hasSource,
+    repair: hasRepair && Boolean(facts.repairsSettled) && state.visited.includes('repair'),
     targets: facts.hasTargets,
     review: facts.hasTargets && facts.canApply,
     mockup: changed && facts.canApply && state.visited.includes('mockup'),
@@ -197,7 +220,7 @@ export function stepStatus(
   };
 
   const out = {} as Record<AuthorStep, StepStatus>;
-  for (const { id } of AUTHOR_STEPS) {
+  for (const { id } of authorSteps(hasRepair)) {
     if (id === state.step) {
       out[id] = 'current';
     } else if (done[id]) {
@@ -211,12 +234,21 @@ export function stepStatus(
   return out;
 }
 
-export function nextStep(step: AuthorStep): AuthorStep | null {
-  const index = AUTHOR_STEPS.findIndex((s) => s.id === step);
-  return AUTHOR_STEPS[index + 1]?.id ?? null;
+/** Step walkers default to the clean list; the hook passes the list it shows. */
+const CLEAN_STEPS = authorSteps(false);
+
+export function nextStep(
+  step: AuthorStep,
+  steps: readonly AuthorStepMeta[] = CLEAN_STEPS
+): AuthorStep | null {
+  const index = steps.findIndex((s) => s.id === step);
+  return steps[index + 1]?.id ?? null;
 }
 
-export function previousStep(step: AuthorStep): AuthorStep | null {
-  const index = AUTHOR_STEPS.findIndex((s) => s.id === step);
-  return index > 0 ? (AUTHOR_STEPS[index - 1]?.id ?? null) : null;
+export function previousStep(
+  step: AuthorStep,
+  steps: readonly AuthorStepMeta[] = CLEAN_STEPS
+): AuthorStep | null {
+  const index = steps.findIndex((s) => s.id === step);
+  return index > 0 ? (steps[index - 1]?.id ?? null) : null;
 }

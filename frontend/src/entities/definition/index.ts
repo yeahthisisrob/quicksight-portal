@@ -6,6 +6,14 @@
 /** Synthetic definitions for stories and tests; tree-shaken out of the app. */
 export * as definitionFixtures from './lib/__fixtures__/definitions';
 export {
+  hasErrors,
+  healthBadges,
+  isSlow,
+  problemVisuals,
+  SLOW_VISUAL_MS,
+  seconds,
+} from './lib/healthBadges';
+export {
   type DatasetOption,
   type RebindDraft,
   type RebindMode,

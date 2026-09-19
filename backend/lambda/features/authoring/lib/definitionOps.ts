@@ -50,7 +50,14 @@ export type DefinitionOp =
     }
   | { op: 'renameSheet'; sheetId: string; name: string };
 
-export type ChangeKind = 'rebind' | 'rename' | 'calculatedField' | 'layout' | 'visual' | 'sheet';
+export type ChangeKind =
+  | 'repair'
+  | 'rebind'
+  | 'rename'
+  | 'calculatedField'
+  | 'layout'
+  | 'visual'
+  | 'sheet';
 
 export interface DefinitionChange {
   kind: ChangeKind;

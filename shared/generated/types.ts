@@ -2392,6 +2392,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/authoring/{assetType}/{assetId}/repair/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Everything that stops QuickSight from writing this definition, with a fix for each
+         * @description Assets with definition errors cannot be published or updated as code.
+         *     This reads the definition and the datasets it declares and lists the
+         *     problems: columns the datasets no longer have (with a rename when one
+         *     column clearly took its place, otherwise removal of every reference),
+         *     parameters used but never declared (declare, or remove the controls
+         *     and filters that read them), datasets that cannot be read (choose
+         *     another; send it as `rebinds` and call again to check its columns),
+         *     and the errors QuickSight itself reports, attached to those findings
+         *     or listed as-is when nothing can be computed.
+         *
+         *     Nothing is written. `proposed` is the accepted set in request form:
+         *     pass `repairs` and `rebinds` to the preview endpoint to see the
+         *     result, then to the rebind endpoint with `mode: update` to fix the
+         *     asset in place, or `mode: clone` to fix a copy.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assetType: "dashboard" | "analysis";
+                    assetId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @description Datasets already chosen for identifiers whose own dataset is gone. */
+                        rebinds?: components["schemas"]["RebindRequest"][];
+                    };
+                };
+            };
+            responses: {
+                /** @description The repair plan */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["RepairPlan"];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/authoring/{assetType}/{assetId}/propose": {
         parameters: {
             query?: never;
@@ -2489,6 +2557,8 @@ export interface paths {
                         rebinds: components["schemas"]["RebindRequest"][];
                         addCalculatedFields?: components["schemas"]["AddedCalculatedField"][];
                         ops?: components["schemas"]["DefinitionOp"][];
+                        /** @description Applied first, before the rebind plan, so the plan sees the repaired definition. */
+                        repairs?: components["schemas"]["RepairOp"][];
                     };
                 };
             };
@@ -4642,6 +4712,84 @@ export interface components {
         };
         /** @enum {string} */
         AuthorableAssetType: "analysis" | "dashboard";
+        /**
+         * @description One repair, applied by deterministic code before the rebind plan.
+         *     dropColumn removes every reference to a dataset column (field wells,
+         *     filters, sorts, hierarchies, calculated fields reading it; empty
+         *     filter groups go too). dropParameter removes a parameter's
+         *     declaration, controls and filters. declareParameter adds a
+         *     declaration for a parameter that is referenced but never declared.
+         */
+        RepairOp: {
+            /** @enum {string} */
+            op: "dropColumn" | "dropParameter" | "declareParameter";
+            /** @description dropColumn - the dataset identifier. */
+            identifier?: string;
+            /** @description dropColumn - the column. */
+            columnName?: string;
+            /** @description dropParameter / declareParameter - the parameter name. */
+            name?: string;
+            /**
+             * @description declareParameter - the value type.
+             * @enum {string}
+             */
+            type?: "STRING" | "INTEGER" | "DECIMAL" | "DATETIME";
+            /** @description declareParameter - an optional static default. */
+            defaultValue?: string;
+        };
+        /**
+         * @description A fix for one issue. Repair ops as above, plus `rename` (a column
+         *     map entry on the identifier's rebind) and `rebind` (the caller must
+         *     choose a dataset for the identifier).
+         */
+        RepairFix: {
+            /** @enum {string} */
+            op: "dropColumn" | "dropParameter" | "declareParameter" | "rename" | "rebind";
+            identifier?: string;
+            columnName?: string;
+            /** @description rename - the column in the target that takes its place. */
+            to?: string;
+            name?: string;
+            /** @enum {string} */
+            type?: "STRING" | "INTEGER" | "DECIMAL" | "DATETIME";
+            defaultValue?: string;
+        };
+        RepairIssue: {
+            id: string;
+            /** @enum {string} */
+            kind: "dataset-missing" | "column-missing" | "parameter-missing" | "quicksight-error";
+            /** @enum {string} */
+            severity: "error" | "warning";
+            message: string;
+            identifier?: string;
+            dataSetId?: string;
+            columnName?: string;
+            usage?: components["schemas"]["ColumnUsage"];
+            parameterName?: string;
+            /** @description QuickSight's own error, when it reported this. */
+            quickSight?: {
+                type: string;
+                message: string;
+                paths: string[];
+            };
+            /** @description The proposed fix; absent when the caller must choose or nothing can be done. */
+            fix?: components["schemas"]["RepairFix"];
+            alternatives: components["schemas"]["RepairFix"][];
+        };
+        RepairPlan: {
+            issues: components["schemas"]["RepairIssue"][];
+            summary: {
+                fixable: number;
+                /** @description Issues that need a dataset chosen before they can be fixed. */
+                needsChoice: number;
+                unfixable: number;
+            };
+            /** @description The proposed fixes in request form, ready for preview and apply. */
+            proposed: {
+                repairs: components["schemas"]["RepairOp"][];
+                rebinds: components["schemas"]["RebindRequest"][];
+            };
+        };
         /** @description Point one dataset identifier at a different dataset. */
         RebindRequest: {
             /** @description A DataSetIdentifierDeclarations entry of the definition. */
@@ -4711,6 +4859,8 @@ export interface components {
             addCalculatedFields?: components["schemas"]["AddedCalculatedField"][];
             /** @description Edits applied after rebinds and added fields, in order. */
             ops?: components["schemas"]["DefinitionOp"][];
+            /** @description Repairs applied first, before the rebind plan (see the repair plan endpoint). */
+            repairs?: components["schemas"]["RepairOp"][];
             /** @description Clone only. Put the new asset in this QuickSight folder. */
             folderId?: string;
         };
@@ -5130,7 +5280,7 @@ export interface components {
         /** @description One change in plain language, for review before publishing. */
         DefinitionChange: {
             /** @enum {string} */
-            kind: "rebind" | "rename" | "calculatedField" | "layout" | "visual" | "sheet";
+            kind: "repair" | "rebind" | "rename" | "calculatedField" | "layout" | "visual" | "sheet";
             description: string;
             sheetId?: string;
             elementId?: string;

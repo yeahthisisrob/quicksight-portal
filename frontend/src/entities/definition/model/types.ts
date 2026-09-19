@@ -93,10 +93,14 @@ export interface WireframeModel {
   calculatedFieldCount: number;
 }
 
-/** A warning drawn on a wireframe card, e.g. from QuickSight's CloudWatch metrics. */
+/** A health note drawn on a wireframe card, from QuickSight's CloudWatch metrics. */
 export interface WireframeBadge {
-  kind: 'slow' | 'error';
+  /** timing is neutral (a load time that is fine); slow and error are warnings. */
+  kind: 'timing' | 'slow' | 'error';
+  /** The tooltip. */
   label: string;
+  /** The short text on the card, e.g. "2.1s". */
+  value?: string;
 }
 
 /** Badges keyed by element id. */

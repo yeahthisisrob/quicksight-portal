@@ -11,6 +11,7 @@ import { logger } from '../../../shared/utils/logger';
 import { ActivityService } from '../../activity/services/ActivityService';
 import { GroupService } from '../../organization/services/GroupService';
 import { parseOps } from '../lib/definitionOps';
+import { parseRepairs } from '../lib/definitionRepairs';
 import { InsightsService } from '../services/InsightsService';
 import { createPlannerModel } from '../services/planner/createPlannerModel';
 import { PlannerService } from '../services/planner/PlannerService';
@@ -43,6 +44,24 @@ export class AuthoringHandler {
     } catch (error: any) {
       logger.error('Describe definition datasets failed', { error });
       return this.failure(event, error, 'Failed to read the definition');
+    }
+  }
+
+  /** POST /authoring/{assetType}/{assetId}/repair/plan */
+  public async planRepair(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const target = this.target(event);
+      const body = this.parseBody(event);
+      const plan = await this.service().repairPlan(
+        target.assetType,
+        target.assetId,
+        this.parseRebinds(body.rebinds ?? [])
+      );
+      return successResponse(event, { success: true, data: plan });
+    } catch (error: any) {
+      logger.error('Plan repair failed', { error });
+      return this.failure(event, error, 'Failed to plan the repair');
     }
   }
 
@@ -95,6 +114,7 @@ export class AuthoringHandler {
         rebinds: this.parseRebinds(body.rebinds ?? []),
         addCalculatedFields: this.parseAddedFields(body.addCalculatedFields),
         ops: parseOps(body.ops),
+        repairs: parseRepairs(body.repairs),
       });
       return successResponse(event, { success: true, data: preview });
     } catch (error: any) {
@@ -239,6 +259,7 @@ export class AuthoringHandler {
       newAssetId: body.newAssetId as string | undefined,
       addCalculatedFields: this.parseAddedFields(body.addCalculatedFields),
       ops: parseOps(body.ops),
+      repairs: parseRepairs(body.repairs),
       folderId: (body.folderId as string | undefined)?.trim() || undefined,
     };
   }

@@ -14,6 +14,11 @@ import type { SheetOutline } from '../lib/definitionOutline';
 
 export type { DefinitionChange, DefinitionOp, SheetOutline };
 
+import type { RepairOp } from '../lib/definitionRepairs';
+
+export type { RepairFix, RepairIssue, RepairIssueKind, RepairPlan } from '../lib/repairPlan';
+export type { RepairOp };
+
 export type AuthorableAssetType = 'analysis' | 'dashboard';
 
 export const AUTHORABLE_ASSET_TYPES: readonly AuthorableAssetType[] = ['analysis', 'dashboard'];
@@ -125,6 +130,8 @@ export interface ApplyRequest {
   addCalculatedFields?: AddedCalculatedField[];
   /** Edits applied after rebinds and added fields, in order. */
   ops?: DefinitionOp[];
+  /** Repairs applied first, before the rebind plan (see the repair plan endpoint). */
+  repairs?: RepairOp[];
   /** Clone only: put the new asset in this folder. */
   folderId?: string;
 }
@@ -133,6 +140,13 @@ export interface PreviewRequest {
   rebinds: RebindRequest[];
   addCalculatedFields?: AddedCalculatedField[];
   ops?: DefinitionOp[];
+  /** Applied first, before the rebind plan, so the plan sees the repaired definition. */
+  repairs?: RepairOp[];
+}
+
+export interface RepairPlanRequest {
+  /** Datasets already chosen for identifiers whose own dataset is gone. */
+  rebinds?: RebindRequest[];
 }
 
 export interface RebindPreview {

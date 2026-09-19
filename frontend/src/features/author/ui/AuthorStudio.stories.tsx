@@ -9,6 +9,8 @@ import {
   fakeFlow,
   PROPOSED_OPS,
   previewModelFor,
+  REPAIR_PLAN,
+  repairPlanRoute,
   resolvedDraft,
   SMUS_NOT_CONFIGURED,
   SMUS_NOT_EXPORTED,
@@ -78,7 +80,49 @@ export const FullPageSmusNotConfigured: Story = {
   ),
 };
 
+export const FullPageRepair: Story = {
+  name: 'Full page, source with errors (repair)',
+  render: () => (
+    <Mocked routes={authorRoutes([repairPlanRoute(REPAIR_PLAN)])}>
+      <AuthorStudio initialSource={SOURCE} />
+    </Mocked>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The source cannot be written as it is. A Repair step appears after Source with each issue and its proposed fix; the dataset that cannot be read needs a target chosen before the flow continues.',
+      },
+    },
+  },
+};
+
 // --- steps, canned flow -----------------------------------------------------
+
+export const StepRepair: Story = {
+  name: '1b · Repair: issues found',
+  render: () => (
+    <Mocked routes={authorRoutes([repairPlanRoute(REPAIR_PLAN)])}>
+      <AuthorStudioView flow={fakeFlow({ step: 'repair', repairPlan: REPAIR_PLAN })} />
+    </Mocked>
+  ),
+};
+
+export const StepRepairClean: Story = {
+  name: '1b · Repair: clean (step hidden)',
+  render: () => (
+    <Mocked routes={authorRoutes()}>
+      <AuthorStudioView flow={fakeFlow({ step: 'source' })} />
+    </Mocked>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story: 'With nothing to repair the rail goes straight from Source to Datasets.',
+      },
+    },
+  },
+};
 
 export const StepSource: Story = {
   name: '1 · Source, ranked with badges',

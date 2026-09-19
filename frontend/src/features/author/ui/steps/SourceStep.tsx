@@ -249,6 +249,8 @@ export function SourceStep({ flow }: { flow: AuthorFlow }) {
   const select = (item: SourceItem) => flow.selectSource({ type, id: item.id, name: item.name });
 
   const noun = type === 'dashboard' ? 'dashboard' : 'analysis';
+  // Every visual with metrics carries a badge; only slow and failing ones are flags.
+  const flagged = Array.from(flow.healthBadges.values()).filter((b) => b.kind !== 'timing').length;
   const plural = type === 'dashboard' ? 'dashboards' : 'analyses';
 
   return (
@@ -366,10 +368,20 @@ export function SourceStep({ flow }: { flow: AuthorFlow }) {
               <Stack spacing={1.5}>
                 <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                   <StatusIndicator kind="success">Definition cached</StatusIndicator>
-                  {flow.healthBadges.size > 0 && (
+                  {flow.repair.summary.total > 0 && (
+                    <Button
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                      onClick={() => flow.goTo('repair')}
+                    >
+                      {flow.repair.summary.total} issue
+                      {flow.repair.summary.total === 1 ? '' : 's'} to repair
+                    </Button>
+                  )}
+                  {flagged > 0 && (
                     <StatusIndicator kind="warning">
-                      {flow.healthBadges.size} visual{flow.healthBadges.size === 1 ? '' : 's'}{' '}
-                      flagged on the preview
+                      {flagged} visual{flagged === 1 ? '' : 's'} flagged on the preview
                     </StatusIndicator>
                   )}
                   {displayTags(flow.source.tags).map((t) => (

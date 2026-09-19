@@ -106,14 +106,23 @@ describe('insights', () => {
     },
   };
 
-  it('flags slow and erroring visuals, errors first', () => {
+  it('badges every visual with a load time: timing when fine, slow or error otherwise', () => {
     const badges = healthBadges(insights);
-    expect(badges.get('slow')).toEqual({ kind: 'slow', label: 'p90 load time 4.8s (over 3.0s)' });
+    expect(badges.get('slow')).toEqual({
+      kind: 'slow',
+      value: '4.8s',
+      label: 'p90 load time 4.8s over the last 14 days (over 3.0s)',
+    });
     expect(badges.get('broken')).toEqual({
       kind: 'error',
-      label: '3 load errors in the last 14 days',
+      value: '5.0s',
+      label: '3 load errors in the last 14 days, p90 load time 5.0s',
     });
-    expect(badges.has('fine')).toBe(false);
+    expect(badges.get('fine')).toEqual({
+      kind: 'timing',
+      value: '0.9s',
+      label: 'p90 load time 0.9s over the last 14 days',
+    });
     expect(problemVisuals(insights).map((v) => v.visualId)).toEqual(['slow', 'broken']);
     expect(healthBadges(null).size).toBe(0);
     expect(problemVisuals({ ...insights, health: undefined })).toEqual([]);

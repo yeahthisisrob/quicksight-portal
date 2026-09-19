@@ -27,11 +27,22 @@ export type SheetOutlineElement = Schemas['SheetOutlineElement'];
 export type AddedCalculatedField = Schemas['AddedCalculatedField'];
 export type AssetInsights = Schemas['AssetInsights'];
 export type VisualHealth = Schemas['VisualHealth'];
+export type RepairOp = Schemas['RepairOp'];
+export type RepairFix = Schemas['RepairFix'];
+export type RepairIssue = Schemas['RepairIssue'];
+export type RepairPlan = Schemas['RepairPlan'];
 
 export interface PreviewRequest {
   rebinds: RebindRequest[];
   addCalculatedFields?: AddedCalculatedField[];
   ops?: DefinitionOp[];
+  /** Applied first, before the rebind plan, so the plan sees the repaired definition. */
+  repairs?: RepairOp[];
+}
+
+export interface RepairPlanRequest {
+  /** Datasets already chosen for identifiers whose own dataset is gone. */
+  rebinds?: RebindRequest[];
 }
 
 async function unwrap<T>(promise: Promise<{ data: ApiResponse<T> }>, fallback: string): Promise<T> {
@@ -99,6 +110,25 @@ export const authoringApi = {
         body
       ),
       'Failed to preview the rebind'
+    );
+  },
+
+  /**
+   * Read-only. Everything that stops QuickSight from writing this definition,
+   * each with a fix. `rebinds` names datasets already chosen for identifiers
+   * whose own dataset is gone.
+   */
+  planRepair(
+    assetType: AuthorableAssetType,
+    assetId: string,
+    request: RepairPlanRequest = {}
+  ): Promise<RepairPlan> {
+    return unwrap(
+      apiClient.post<ApiResponse<RepairPlan>>(
+        `/authoring/${assetType}/${assetId}/repair/plan`,
+        request
+      ),
+      'Failed to plan the repair'
     );
   },
 

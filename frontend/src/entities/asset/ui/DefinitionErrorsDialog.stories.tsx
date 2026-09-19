@@ -67,11 +67,13 @@ const sampleErrors = [
   },
 ];
 
+/** The primary action sends you to Author's Repair step for this asset. */
 export const DashboardErrors: Story = {
   args: {
     open: true,
     assetName: 'Sales Dashboard',
     assetType: 'dashboard',
+    assetId: 'sales-dashboard',
     errors: sampleErrors,
     onClose: () => console.log('Dialog closed'),
   },
