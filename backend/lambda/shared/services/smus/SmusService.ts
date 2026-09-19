@@ -421,12 +421,30 @@ export class SmusService {
     ]);
     const listings = snapshot?.listings ?? [];
 
+    // A listing is found by its own name and by the Glue table behind it.
+    // Publishers rename listings for readability ("Orders (gold)" over
+    // fct_orders), and a dataset only knows the table it reads, so indexing the
+    // name alone left those datasets tied to nothing.
     const listingsByName = new Map<string, CatalogListing>();
-    for (const listing of listings) {
-      const key = normalizeForMatch(listing.name);
-      if (!listingsByName.has(key)) {
-        listingsByName.set(key, listing);
+    const index = (key: string | undefined, listing: CatalogListing) => {
+      if (!key) {
+        return;
       }
+      const normalized = normalizeForMatch(key);
+      if (normalized && !listingsByName.has(normalized)) {
+        listingsByName.set(normalized, listing);
+      }
+    };
+    // Names first across every listing, so a name never loses to another
+    // listing's table, then the qualified tables, then the bare ones.
+    for (const listing of listings) {
+      index(listing.name, listing);
+    }
+    for (const listing of listings) {
+      index(listing.table ? `${listing.table.database}.${listing.table.name}` : undefined, listing);
+    }
+    for (const listing of listings) {
+      index(listing.table?.name, listing);
     }
 
     const linkMap = new Map<string, SmusDatasetLink>();

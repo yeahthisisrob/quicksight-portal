@@ -65,9 +65,12 @@ export function CatalogTabsPage({
     () => pickProject(projects.data?.projects ?? [], url.project, spansProjects),
     [projects.data, url.project, spansProjects]
   );
-  useEffect(() => {
-    if (!spansProjects && project && project.id !== url.project) setUrl({ project: project.id });
-  }, [spansProjects, project, url.project, setUrl]);
+  // The SMUS tab falls back to a project without writing it down, so leaving
+  // that tab does not leave the field-first tabs scoped to it.
+  const smusProject = useMemo(
+    () => pickProject(projects.data?.projects ?? [], url.project),
+    [projects.data, url.project]
+  );
   useEffect(() => {
     if ((url.q ?? '') !== search) setUrl({ q: search });
     // The URL follows the box, not the other way round, so typing stays smooth.
@@ -148,7 +151,7 @@ export function CatalogTabsPage({
               <ProjectSelect
                 projects={projectOptions}
                 allowAll={spansProjects}
-                value={project?.id}
+                value={spansProjects ? project?.id : smusProject?.id}
                 onChange={(id) =>
                   setUrl({ project: id, asset: undefined, term: undefined, field: undefined })
                 }
