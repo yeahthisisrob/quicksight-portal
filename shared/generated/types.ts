@@ -5517,6 +5517,12 @@ export interface components {
             profileStatus?: string;
             /** @description Set when the per-project listing filter was refused and the domain was swept instead. */
             listingsFallback?: string;
+            /** @description Listings whose metadata forms named a Glue table. */
+            listingsWithTable?: number;
+            /** @description Listings whose metadata forms carried a column list. Without these there is no column tie-back. */
+            listingsWithColumns?: number;
+            /** @description The metadata forms seen across the listings, so a domain that publishes no schema says what it does publish. */
+            formNames?: string[];
         };
         SmusProject: {
             id: string;

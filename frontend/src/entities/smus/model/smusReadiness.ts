@@ -36,6 +36,22 @@ export function smusReadiness(snapshot: SettingsSnapshot): SmusReadiness {
 }
 
 /** One paragraph on why the project list came back empty, for an empty state. */
+/**
+ * The columns a listing publishes are what the catalog ties a QuickSight column
+ * back to, so a sweep that found none is worth saying out loud: it looks in the
+ * catalog like the columns have nothing to do with SMUS.
+ */
+function describeSchemas(d: SmusProjectDiagnostics): string {
+  if (d.listings === 0 || d.listingsWithColumns === undefined) {
+    return '';
+  }
+  if (d.listingsWithColumns > 0) {
+    return `${d.listingsWithColumns} of ${d.listings} listings published a column list.`;
+  }
+  const forms = d.formNames?.length ? ` They carry ${d.formNames.join(', ')}.` : '';
+  return `No listing published a column list, so no column can be tied back to SMUS.${forms}`;
+}
+
 export function describeProjectDiagnostics(
   d: SmusProjectDiagnostics | undefined
 ): string | undefined {
@@ -52,6 +68,7 @@ export function describeProjectDiagnostics(
     d.listingsFallback
       ? `Per-project listing filter refused (${d.listingsFallback}); the whole domain was swept instead.`
       : '',
+    describeSchemas(d),
     d.roleArn ? `Calling DataZone as ${d.roleArn} (domain profile: ${d.profileStatus}).` : '',
     d.profileStatus === 'not found'
       ? 'That role has no user profile in the domain, so it is a member of nothing: run `just smus-grant <domain>` or add the role in the SMUS console.'

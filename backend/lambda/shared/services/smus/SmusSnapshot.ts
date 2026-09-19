@@ -29,6 +29,12 @@ export interface SmusExportDiagnostics {
   profileStatus?: string;
   /** Set when the filtered listing search was refused and the domain was swept instead. */
   listingsFallback?: string;
+  /** Listings whose forms named a Glue table. */
+  listingsWithTable?: number;
+  /** Listings whose forms carried a column list: without these there is no tie-back. */
+  listingsWithColumns?: number;
+  /** The metadata forms seen, so a listing without columns says what it did publish. */
+  formNames?: string[];
 }
 
 export interface SmusSnapshot {

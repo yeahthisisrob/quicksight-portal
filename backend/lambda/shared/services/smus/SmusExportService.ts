@@ -40,6 +40,26 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
 }
 
+/** Names kept for the readout, so a domain with many form types stays legible. */
+const MAX_FORM_NAMES = 12;
+
+/**
+ * What the sweep got out of the listings' metadata forms. The columns are the
+ * whole basis of the catalog's tie-back, so when none come through the export
+ * says so, rather than leaving every column looking unrelated to SMUS.
+ */
+function describeSchemas(listings: CatalogListing[], diagnostics: SmusExportDiagnostics): void {
+  diagnostics.listingsWithTable = listings.filter((l) => l.table).length;
+  diagnostics.listingsWithColumns = listings.filter((l) => (l.columns?.length ?? 0) > 0).length;
+  const names = new Set<string>();
+  for (const listing of listings) {
+    for (const form of listing.forms ?? []) {
+      names.add(form.name);
+    }
+  }
+  diagnostics.formNames = [...names].sort().slice(0, MAX_FORM_NAMES);
+}
+
 export class SmusExportService {
   public constructor(
     private readonly cacheService: CacheService,
@@ -82,6 +102,7 @@ export class SmusExportService {
     ]);
     diagnostics.fromListProjects = listed.length;
     diagnostics.listings = listings.length;
+    describeSchemas(listings, diagnostics);
     const publishers = [
       ...new Set(listings.map((l) => l.owningProjectId).filter(Boolean)),
     ] as string[];
@@ -90,6 +111,8 @@ export class SmusExportService {
       fromListProjects: listed.length,
       listings: listings.length,
       publishers: publishers.length,
+      listingsWithColumns: diagnostics.listingsWithColumns,
+      formNames: diagnostics.formNames,
       roleArn: diagnostics.roleArn,
       profileStatus: diagnostics.profileStatus,
     });
