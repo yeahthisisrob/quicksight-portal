@@ -32,6 +32,8 @@ import { collectDefinitionDatasets } from '../lib/definitionColumns';
 import { applyOps, type DefinitionChange, type DefinitionOp } from '../lib/definitionOps';
 import { buildOutline } from '../lib/definitionOutline';
 import { type RebindSpec, rebindDefinition } from '../lib/definitionRebind';
+import { applyRepairs } from '../lib/definitionRepairs';
+import { buildRepairPlan, type RepairPlan, type RepairTarget } from '../lib/repairPlan';
 import type {
   AddedCalculatedField,
   ApplyRequest,
@@ -52,6 +54,8 @@ interface LoadedDefinition {
   definition: Record<string, any>;
   themeArn?: string;
   dashboardPublishOptions?: any;
+  /** QuickSight's own errors on the asset, when it reports any. */
+  errors?: Array<{ Type?: string; Message?: string; ViolatedEntities?: Array<{ Path?: string }> }>;
 }
 
 interface TargetDataset {
@@ -120,9 +124,70 @@ export class RebindService {
     request: PreviewRequest
   ): Promise<RebindPreview> {
     const loaded = await this.loadDefinition(assetType, assetId);
-    const plan = await this.planAgainst(assetType, assetId, loaded, request.rebinds);
-    const { definition, changes } = this.rewrite(loaded.definition, plan, request);
-    return { plan, definition, changes, outline: buildOutline(definition) };
+    const repaired = this.repair(loaded, request.repairs);
+    const plan = await this.planAgainst(assetType, assetId, repaired.loaded, request.rebinds);
+    const { definition, changes } = this.rewrite(repaired.loaded.definition, plan, request);
+    return {
+      plan,
+      definition,
+      changes: [...repaired.changes, ...changes],
+      outline: buildOutline(definition),
+    };
+  }
+
+  /**
+   * Everything that stops QuickSight from writing this definition, each with
+   * a fix. Read-only. `rebinds` names datasets already chosen for identifiers
+   * whose own dataset is gone, so their columns can be checked too.
+   */
+  public async repairPlan(
+    assetType: AuthorableAssetType,
+    assetId: string,
+    rebinds: RebindRequest[] = []
+  ): Promise<RepairPlan> {
+    const loaded = await this.loadDefinition(assetType, assetId);
+    const datasets = collectDefinitionDatasets(loaded.definition);
+    const chosen = new Map(rebinds.map((r) => [r.identifier, r.targetDataSetId]));
+    const targets = new Map<string, RepairTarget | null>();
+    await Promise.all(
+      datasets.map(async (dataset) => {
+        const dataSetId = chosen.get(dataset.identifier) ?? dataset.dataSetId;
+        try {
+          const target = await this.loadTargetDataset(dataSetId);
+          targets.set(dataset.identifier, {
+            dataSetId: target.dataSetId,
+            name: target.name,
+            columns: target.columns,
+          });
+        } catch (error) {
+          logger.warn('Repair plan: dataset cannot be read', {
+            assetType,
+            assetId,
+            dataSetId,
+            error,
+          });
+          targets.set(dataset.identifier, null);
+        }
+      })
+    );
+    return buildRepairPlan({
+      definition: loaded.definition,
+      datasets,
+      targets,
+      quickSightErrors: loaded.errors,
+    });
+  }
+
+  /** Repairs run on the loaded definition, before anything is planned. */
+  private repair(
+    loaded: LoadedDefinition,
+    repairs: PreviewRequest['repairs']
+  ): { loaded: LoadedDefinition; changes: DefinitionChange[] } {
+    if (!repairs || repairs.length === 0) {
+      return { loaded, changes: [] };
+    }
+    const result = applyRepairs(loaded.definition, repairs);
+    return { loaded: { ...loaded, definition: result.definition }, changes: result.changes };
   }
 
   /**
@@ -169,12 +234,16 @@ export class RebindService {
     assetId: string,
     request: ApplyRequest
   ): Promise<ApplyResult> {
-    const loaded = await this.loadDefinition(assetType, assetId);
+    const original = await this.loadDefinition(assetType, assetId);
+    const repaired = this.repair(original, request.repairs);
+    const loaded = repaired.loaded;
     const plan = await this.planAgainst(assetType, assetId, loaded, request.rebinds);
     this.assertApplicable(plan);
 
     const name = this.resolveName(request, loaded.name);
-    const { definition, changes } = this.rewrite(loaded.definition, plan, request);
+    const rewritten = this.rewrite(loaded.definition, plan, request);
+    const definition = rewritten.definition;
+    const changes = [...repaired.changes, ...rewritten.changes];
     if (request.folderId && request.mode !== 'clone') {
       throw new ValidationError('A folder can only be chosen when creating a copy');
     }
@@ -185,6 +254,7 @@ export class RebindService {
       mode: request.mode,
       rebinds: plan.datasets.length,
       ops: request.ops?.length ?? 0,
+      repairs: request.repairs?.length ?? 0,
       renamed: name !== loaded.name,
     });
 
@@ -293,6 +363,7 @@ export class RebindService {
     const edits =
       request.rebinds.length +
       (request.ops?.length ?? 0) +
+      (request.repairs?.length ?? 0) +
       (request.addCalculatedFields?.length ?? 0);
     if (request.mode === 'update' && !name && edits === 0) {
       throw new ValidationError('Nothing to do: no rebinds, no edits and no new name');
@@ -326,6 +397,7 @@ export class RebindService {
       definition: current.Definition,
       themeArn: current.ThemeArn,
       dashboardPublishOptions: current.DashboardPublishOptions,
+      errors: Array.isArray(current.Errors) ? current.Errors : undefined,
     };
   }
 

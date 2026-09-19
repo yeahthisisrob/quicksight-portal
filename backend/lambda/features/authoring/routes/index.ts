@@ -26,6 +26,11 @@ export const authoringRoutes: RouteHandler[] = [
   },
   {
     method: 'POST',
+    path: /^\/authoring\/(analysis|dashboard)\/([^/]+)\/repair\/plan$/,
+    handler: (event) => handler.planRepair(event),
+  },
+  {
+    method: 'POST',
     path: /^\/authoring\/(analysis|dashboard)\/([^/]+)\/propose$/,
     handler: (event) => handler.propose(event),
   },

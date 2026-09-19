@@ -1842,6 +1842,68 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/authoring/{assetType}/{assetId}/repair/plan:
+    post:
+      summary: Everything that stops QuickSight from writing this definition, with a fix for each
+      description: |
+        Assets with definition errors cannot be published or updated as code.
+        This reads the definition and the datasets it declares and lists the
+        problems: columns the datasets no longer have (with a rename when one
+        column clearly took its place, otherwise removal of every reference),
+        parameters used but never declared (declare, or remove the controls
+        and filters that read them), datasets that cannot be read (choose
+        another; send it as `rebinds` and call again to check its columns),
+        and the errors QuickSight itself reports, attached to those findings
+        or listed as-is when nothing can be computed.
+
+        Nothing is written. `proposed` is the accepted set in request form:
+        pass `repairs` and `rebinds` to the preview endpoint to see the
+        result, then to the rebind endpoint with `mode: update` to fix the
+        asset in place, or `mode: clone` to fix a copy.
+      parameters:
+        - name: assetType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [dashboard, analysis]
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rebinds:
+                  type: array
+                  description: Datasets already chosen for identifiers whose own dataset is gone.
+                  items:
+                    $ref: '#/components/schemas/RebindRequest'
+      responses:
+        '200':
+          description: The repair plan
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/RepairPlan'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /api/authoring/{assetType}/{assetId}/propose:
     post:
       summary: Turn a natural-language ask into a validated rebind proposal
@@ -1919,6 +1981,11 @@ paths:
                   type: array
                   items:
                     $ref: '#/components/schemas/DefinitionOp'
+                repairs:
+                  type: array
+                  description: Applied first, before the rebind plan, so the plan sees the repaired definition.
+                  items:
+                    $ref: '#/components/schemas/RepairOp'
       responses:
         '200':
           description: The plan and the rewritten definition
@@ -4539,6 +4606,141 @@ components:
       type: string
       enum: [analysis, dashboard]
 
+    RepairOp:
+      type: object
+      description: |
+        One repair, applied by deterministic code before the rebind plan.
+        dropColumn removes every reference to a dataset column (field wells,
+        filters, sorts, hierarchies, calculated fields reading it; empty
+        filter groups go too). dropParameter removes a parameter's
+        declaration, controls and filters. declareParameter adds a
+        declaration for a parameter that is referenced but never declared.
+      required: [op]
+      properties:
+        op:
+          type: string
+          enum: [dropColumn, dropParameter, declareParameter]
+        identifier:
+          type: string
+          description: dropColumn - the dataset identifier.
+        columnName:
+          type: string
+          description: dropColumn - the column.
+        name:
+          type: string
+          description: dropParameter / declareParameter - the parameter name.
+        type:
+          type: string
+          enum: [STRING, INTEGER, DECIMAL, DATETIME]
+          description: declareParameter - the value type.
+        defaultValue:
+          type: string
+          description: declareParameter - an optional static default.
+
+    RepairFix:
+      type: object
+      description: |
+        A fix for one issue. Repair ops as above, plus `rename` (a column
+        map entry on the identifier's rebind) and `rebind` (the caller must
+        choose a dataset for the identifier).
+      required: [op]
+      properties:
+        op:
+          type: string
+          enum: [dropColumn, dropParameter, declareParameter, rename, rebind]
+        identifier:
+          type: string
+        columnName:
+          type: string
+        to:
+          type: string
+          description: rename - the column in the target that takes its place.
+        name:
+          type: string
+        type:
+          type: string
+          enum: [STRING, INTEGER, DECIMAL, DATETIME]
+        defaultValue:
+          type: string
+
+    RepairIssue:
+      type: object
+      required: [id, kind, severity, message, alternatives]
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+          enum: [dataset-missing, column-missing, parameter-missing, quicksight-error]
+        severity:
+          type: string
+          enum: [error, warning]
+        message:
+          type: string
+        identifier:
+          type: string
+        dataSetId:
+          type: string
+        columnName:
+          type: string
+        usage:
+          $ref: '#/components/schemas/ColumnUsage'
+        parameterName:
+          type: string
+        quickSight:
+          type: object
+          description: QuickSight's own error, when it reported this.
+          required: [type, message, paths]
+          properties:
+            type:
+              type: string
+            message:
+              type: string
+            paths:
+              type: array
+              items:
+                type: string
+        fix:
+          $ref: '#/components/schemas/RepairFix'
+          description: The proposed fix; absent when the caller must choose or nothing can be done.
+        alternatives:
+          type: array
+          items:
+            $ref: '#/components/schemas/RepairFix'
+
+    RepairPlan:
+      type: object
+      required: [issues, summary, proposed]
+      properties:
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/RepairIssue'
+        summary:
+          type: object
+          required: [fixable, needsChoice, unfixable]
+          properties:
+            fixable:
+              type: integer
+            needsChoice:
+              type: integer
+              description: Issues that need a dataset chosen before they can be fixed.
+            unfixable:
+              type: integer
+        proposed:
+          type: object
+          description: The proposed fixes in request form, ready for preview and apply.
+          required: [repairs, rebinds]
+          properties:
+            repairs:
+              type: array
+              items:
+                $ref: '#/components/schemas/RepairOp'
+            rebinds:
+              type: array
+              items:
+                $ref: '#/components/schemas/RebindRequest'
+
     RebindRequest:
       type: object
       description: Point one dataset identifier at a different dataset.
@@ -4677,6 +4879,11 @@ components:
           description: Edits applied after rebinds and added fields, in order.
           items:
             $ref: '#/components/schemas/DefinitionOp'
+        repairs:
+          type: array
+          description: Repairs applied first, before the rebind plan (see the repair plan endpoint).
+          items:
+            $ref: '#/components/schemas/RepairOp'
         folderId:
           type: string
           description: Clone only. Put the new asset in this QuickSight folder.
@@ -5529,7 +5736,7 @@ components:
       properties:
         kind:
           type: string
-          enum: [rebind, rename, calculatedField, layout, visual, sheet]
+          enum: [repair, rebind, rename, calculatedField, layout, visual, sheet]
         description:
           type: string
         sheetId:
