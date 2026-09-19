@@ -3158,6 +3158,13 @@ export interface paths {
                     /** @description Case-insensitive match on the name or the expression. */
                     search?: string;
                     conflictsOnly?: boolean;
+                    /**
+                     * @description Which datasets to read. `smus` (the default) is the selected SMUS
+                     *     projects; `outside` is the datasets that matched no listing, so they
+                     *     are reachable rather than silently dropped; `all` ignores the
+                     *     distinction. Naming a projectId implies `smus`.
+                     */
+                    scope?: "smus" | "outside" | "all";
                 };
                 header?: never;
                 path?: never;
@@ -3245,6 +3252,13 @@ export interface paths {
                     projectId?: string;
                     datasetId?: string;
                     search?: string;
+                    /**
+                     * @description Which datasets to read. `smus` (the default) is the selected SMUS
+                     *     projects; `outside` is the datasets that matched no listing, so they
+                     *     are reachable rather than silently dropped; `all` ignores the
+                     *     distinction. Naming a projectId implies `smus`.
+                     */
+                    scope?: "smus" | "outside" | "all";
                 };
                 header?: never;
                 path?: never;
@@ -5803,6 +5817,8 @@ export interface components {
                 templated: number;
                 unused: number;
                 datasets: number;
+                /** @description Fields on datasets that matched no listing, counted before the scope filter. */
+                outsideSmus: number;
             };
             items: components["schemas"]["CalculatedFieldSummary"][];
         };
@@ -5861,6 +5877,8 @@ export interface components {
                 withSmus: number;
                 /** @description Of those, the ones the listing's own schema names. */
                 withSmusColumn: number;
+                /** @description Columns on datasets that matched no listing, counted before the scope filter. */
+                outsideSmus: number;
             };
             items: components["schemas"]["ColumnCatalogItem"][];
         };

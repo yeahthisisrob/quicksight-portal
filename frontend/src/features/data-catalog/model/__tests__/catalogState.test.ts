@@ -11,8 +11,10 @@ import {
   ALL_PROJECTS,
   countCatalog,
   filterAssets,
+  OUTSIDE_SMUS,
   pickProject,
   readCatalogState,
+  scopeFor,
   termsOf,
   writeCatalogState,
 } from '../catalogState';
@@ -27,6 +29,19 @@ describe('URL state', () => {
     const params = new URLSearchParams('project=p1&asset=a1&tab=x');
     const next = writeCatalogState(params, { asset: undefined, term: 'PII', q: '' });
     expect(next.toString()).toBe('project=p1&tab=x&term=PII');
+  });
+});
+
+describe('scopeFor', () => {
+  it('turns the picker value into a scope and a project', () => {
+    expect(scopeFor(undefined)).toEqual({ scope: 'smus' });
+    expect(scopeFor(ALL_PROJECTS)).toEqual({ scope: 'smus' });
+    expect(scopeFor('proj-analytics-dev')).toEqual({
+      scope: 'smus',
+      projectId: 'proj-analytics-dev',
+    });
+    // The datasets no listing claimed are a scope of their own, not a project.
+    expect(scopeFor(OUTSIDE_SMUS)).toEqual({ scope: 'outside' });
   });
 });
 

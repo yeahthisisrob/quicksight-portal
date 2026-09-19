@@ -20,10 +20,15 @@ import {
   validateTemplateInput,
 } from '../services/CalculatedFieldTemplateStore';
 import { CatalogService } from '../services/CatalogService';
-import { FieldCatalogService } from '../services/FieldCatalogService';
+import { type CatalogScope, FieldCatalogService } from '../services/FieldCatalogService';
 import { FieldMetadataService } from '../services/FieldMetadataService';
 import { SmusCatalogService } from '../services/SmusCatalogService';
 import type { CatalogField, DataCatalogResult } from '../types';
+
+/** An unknown scope reads as the default rather than as an error. */
+function catalogScope(value: string | undefined): CatalogScope | undefined {
+  return value === 'outside' || value === 'all' || value === 'smus' ? value : undefined;
+}
 
 export class DataCatalogHandler {
   private readonly catalogService: CatalogService;
@@ -646,7 +651,7 @@ export class DataCatalogHandler {
     return new FieldCatalogService(smusService, this.smusCatalog());
   }
 
-  /** GET /data-catalog/calculated-fields?projectId=&datasetId=&search=&conflictsOnly= */
+  /** GET /data-catalog/calculated-fields?projectId=&datasetId=&search=&conflictsOnly=&scope= */
   public async getCalculatedFields(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       await requireAuth(event);
@@ -656,6 +661,7 @@ export class DataCatalogHandler {
         datasetId: q.datasetId || undefined,
         search: q.search || undefined,
         conflictsOnly: q.conflictsOnly === 'true' || q.conflictsOnly === '1',
+        scope: catalogScope(q.scope),
       });
       return successResponse(event, { success: true, data });
     } catch (error: any) {
@@ -691,7 +697,7 @@ export class DataCatalogHandler {
     }
   }
 
-  /** GET /data-catalog/columns?projectId=&datasetId=&search= */
+  /** GET /data-catalog/columns?projectId=&datasetId=&search=&scope= */
   public async getColumns(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       await requireAuth(event);
@@ -700,6 +706,7 @@ export class DataCatalogHandler {
         projectId: q.projectId || undefined,
         datasetId: q.datasetId || undefined,
         search: q.search || undefined,
+        scope: catalogScope(q.scope),
       });
       return successResponse(event, { success: true, data });
     } catch (error: any) {

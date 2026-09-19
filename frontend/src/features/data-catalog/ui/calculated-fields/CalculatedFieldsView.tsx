@@ -20,6 +20,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 
 import { getApiErrorMessage } from '@/shared/api';
+import type { CatalogScope } from '@/shared/api/modules/data-catalog';
 import { Container, EmptyState, pal } from '@/shared/design-system';
 import { useDebounce } from '@/shared/lib/useDebounce';
 
@@ -36,6 +37,10 @@ import { type CountFilter, FieldCounts } from './FieldCounts';
 
 export interface CalculatedFieldsViewProps {
   projectId?: string;
+  /** Which datasets to read: the selected projects, or the ones outside them. */
+  scope?: CatalogScope;
+  /** Reported up so the project picker can offer what sits outside SMUS. */
+  onOutsideCount?: (count: number | undefined) => void;
   search: string;
   onSearch: (search: string) => void;
   conflictsOnly: boolean;
@@ -56,6 +61,8 @@ const SORT_WIDTH_COMPACT = 140;
 
 export function CalculatedFieldsView({
   projectId,
+  scope,
+  onOutsideCount,
   search,
   onSearch,
   conflictsOnly,
@@ -70,7 +77,14 @@ export function CalculatedFieldsView({
     conflictsOnly ? 'conflicts' : undefined
   );
 
-  const list = useCalculatedFields({ projectId, search: debounced || undefined, conflictsOnly });
+  const list = useCalculatedFields({
+    projectId,
+    scope,
+    search: debounced || undefined,
+    conflictsOnly,
+  });
+  const outside = list.data?.counts.outsideSmus;
+  useEffect(() => onOutsideCount?.(outside), [outside, onOutsideCount]);
   const detail = useCalculatedField(selectedKey);
 
   // The conflicts tile and the URL flag are the same switch.
@@ -198,7 +212,11 @@ export function CalculatedFieldsView({
               description={
                 debounced || countFilter
                   ? 'Clear the search or the count filter to see every calculated field.'
-                  : 'Calculated fields come from the QuickSight export: datasets, dashboards and analyses that declare one. Run an export from Operations if this looks wrong.'
+                  : outside
+                    ? // The scope is the likeliest reason, so say so rather than
+                      // leaving someone to conclude the portal knows nothing.
+                      `${outside} ${outside === 1 ? 'field is' : 'fields are'} on datasets that matched no SMUS listing. Choose "Outside SMUS" in the project filter to see them.`
+                    : 'Calculated fields come from the QuickSight export: datasets, dashboards and analyses that declare one. Run an export from Operations if this looks wrong.'
               }
             />
           ) : (

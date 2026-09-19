@@ -55,7 +55,7 @@ export const Empty: Story = {
           columns: {
             configured: true,
             exportedAt: '2026-09-18T09:30:00Z',
-            counts: { columns: 0, datasets: 0, withSmus: 0, withSmusColumn: 0 },
+            counts: { columns: 0, datasets: 0, withSmus: 0, withSmusColumn: 0, outsideSmus: 0 },
             items: [],
           },
         })

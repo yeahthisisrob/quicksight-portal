@@ -176,6 +176,8 @@ export function calculatedFieldCatalog(
       unused: items.filter((i) => i.usedBy.dashboards + i.usedBy.analyses + i.usedBy.visuals === 0)
         .length,
       datasets: new Set(items.flatMap((i) => i.datasets.map((d) => d.id))).size,
+      // Two fields in the fixture sit on datasets no listing claimed.
+      outsideSmus: 2,
     },
     items,
   };
@@ -185,7 +187,15 @@ export const EMPTY_CALCULATED_FIELDS: CalculatedFieldCatalog = {
   configured: true,
   exportedAt: EXPORTED_AT,
   projectFilter: [],
-  counts: { fields: 0, names: 0, conflicts: 0, templated: 0, unused: 0, datasets: 0 },
+  counts: {
+    fields: 0,
+    names: 0,
+    conflicts: 0,
+    templated: 0,
+    unused: 0,
+    datasets: 0,
+    outsideSmus: 2,
+  },
   items: [],
 };
 
@@ -576,6 +586,7 @@ export function columnCatalog(params: { search?: string } = {}): ColumnCatalog {
       datasets: new Set(items.flatMap((c) => c.datasets.map((d) => d.id))).size,
       withSmus: items.filter((c) => c.smus).length,
       withSmusColumn: items.filter((c) => c.smus?.columnName).length,
+      outsideSmus: items.filter((c) => !c.smus).length,
     },
     items,
   };

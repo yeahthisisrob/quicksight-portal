@@ -174,11 +174,15 @@ export type ColumnCatalog = CatalogSchemas['ColumnCatalog'];
 export type ColumnCatalogItem = CatalogSchemas['ColumnCatalogItem'];
 export type FieldUsedIn = CatalogSchemas['FieldUsedIn'];
 
+/** Which datasets the field-first tabs read: see the API's scope parameter. */
+export type CatalogScope = 'smus' | 'outside' | 'all';
+
 export interface FieldCatalogParams {
   projectId?: string;
   datasetId?: string;
   search?: string;
   conflictsOnly?: boolean;
+  scope?: CatalogScope;
 }
 
 /**
@@ -195,6 +199,7 @@ export const fieldCatalogApi = {
           datasetId: params.datasetId || undefined,
           search: params.search || undefined,
           conflictsOnly: params.conflictsOnly ? 'true' : undefined,
+          scope: params.scope || undefined,
         },
       }
     );
@@ -220,6 +225,7 @@ export const fieldCatalogApi = {
         projectId: params.projectId || undefined,
         datasetId: params.datasetId || undefined,
         search: params.search || undefined,
+        scope: params.scope || undefined,
       },
     });
     if (!response.data.success || !response.data.data) {
