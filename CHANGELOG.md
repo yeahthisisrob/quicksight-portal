@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.13.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.13.1...v2.13.2) (2026-09-19)
+
+
+### Bug Fixes
+
+* **data-catalog:** the SMUS tab stops pinning the project, and a listing is found by its table as well as its name ([#181](https://github.com/yeahthisisrob/quicksight-portal/issues/181)) ([67f695e](https://github.com/yeahthisisrob/quicksight-portal/commit/67f695e9adbbf1885a89d732b725856fda1e60c6))
+
 ## [2.13.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.13.0...v2.13.1) (2026-09-19)
 
 
