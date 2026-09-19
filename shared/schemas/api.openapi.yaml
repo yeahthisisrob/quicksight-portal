@@ -1969,6 +1969,8 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/SmusProject'
+                      diagnostics:
+                        $ref: '#/components/schemas/SmusProjectDiagnostics'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -4666,6 +4668,29 @@ components:
               - type: array
                 items:
                   type: string
+
+    SmusProjectDiagnostics:
+      type: object
+      description: How the project list was found, so an empty picker can explain itself.
+      required: [domainId, region, fromListProjects, listings, publishers]
+      properties:
+        domainId:
+          type: string
+        region:
+          type: string
+        fromListProjects:
+          type: integer
+          description: Projects DataZone ListProjects returned for the portal's role (member-scoped).
+        listings:
+          type: integer
+          description: Published listings the catalog sweep saw.
+        publishers:
+          type: integer
+          description: Distinct projects that own those listings.
+        listProjectsError:
+          type: string
+        listingsError:
+          type: string
 
     SmusProject:
       type: object

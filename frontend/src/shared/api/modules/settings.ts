@@ -11,6 +11,13 @@ export type SettingDefinition = Schemas['SettingDefinition'];
 export type SettingSource = Schemas['SettingSource'];
 export type SettingsUpdate = Schemas['SettingsUpdate'];
 export type SmusProject = Schemas['SmusProject'];
+export type SmusProjectDiagnostics = Schemas['SmusProjectDiagnostics'];
+
+export interface SmusProjectsResponse {
+  configured: boolean;
+  projects: SmusProject[];
+  diagnostics?: SmusProjectDiagnostics;
+}
 
 async function unwrap<T>(promise: Promise<{ data: ApiResponse<T> }>, fallback: string): Promise<T> {
   const response = await promise;
@@ -41,11 +48,9 @@ export const settingsApi = {
   },
 
   /** Live list of projects in the configured SMUS domain. */
-  listSmusProjects(): Promise<{ configured: boolean; projects: SmusProject[] }> {
+  listSmusProjects(): Promise<SmusProjectsResponse> {
     return unwrap(
-      apiClient.get<ApiResponse<{ configured: boolean; projects: SmusProject[] }>>(
-        '/settings/smus/projects'
-      ),
+      apiClient.get<ApiResponse<SmusProjectsResponse>>('/settings/smus/projects'),
       'Failed to list SMUS projects'
     );
   },

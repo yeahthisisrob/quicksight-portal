@@ -2566,6 +2566,7 @@ export interface paths {
                             data: {
                                 configured: boolean;
                                 projects: components["schemas"]["SmusProject"][];
+                                diagnostics?: components["schemas"]["SmusProjectDiagnostics"];
                             };
                         };
                     };
@@ -4514,6 +4515,19 @@ export interface components {
             values: {
                 [key: string]: (string | null) | boolean | string[];
             };
+        };
+        /** @description How the project list was found, so an empty picker can explain itself. */
+        SmusProjectDiagnostics: {
+            domainId: string;
+            region: string;
+            /** @description Projects DataZone ListProjects returned for the portal's role (member-scoped). */
+            fromListProjects: number;
+            /** @description Published listings the catalog sweep saw. */
+            listings: number;
+            /** @description Distinct projects that own those listings. */
+            publishers: number;
+            listProjectsError?: string;
+            listingsError?: string;
         };
         SmusProject: {
             id: string;

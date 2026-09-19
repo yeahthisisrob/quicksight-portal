@@ -81,6 +81,20 @@ export function toQuickSightColumnType(sourceType: string): string {
   return 'STRING';
 }
 
+export interface ProjectDiscoveryDiagnostics {
+  domainId: string;
+  region: string;
+  fromListProjects: number;
+  listings: number;
+  publishers: number;
+  listProjectsError?: string;
+  listingsError?: string;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+}
+
 interface SweepCacheEntry<T> {
   expiresAt: number;
   promise: Promise<T>;
@@ -288,6 +302,45 @@ export class SmusService {
       return [];
     }
     return await this.getProjects();
+  }
+
+  /**
+   * The project list plus how it was found, so an empty picker can say why:
+   * a Lambda role that belongs to no project gets nothing from ListProjects,
+   * and a domain with no published listings has no publishers to fall back on.
+   */
+  public async projectDiscovery(): Promise<{
+    projects: CatalogProject[];
+    diagnostics: ProjectDiscoveryDiagnostics;
+  }> {
+    const diagnostics: ProjectDiscoveryDiagnostics = {
+      domainId: this.config.domainId,
+      region: this.config.region,
+      fromListProjects: 0,
+      listings: 0,
+      publishers: 0,
+    };
+    if (!this.config.enabled || !this.dataZoneAdapter) {
+      return { projects: [], diagnostics };
+    }
+    const [listed, listings] = await Promise.all([
+      this.dataZoneAdapter.listProjects(this.config.domainId).catch((error) => {
+        diagnostics.listProjectsError = errorMessage(error);
+        return [] as CatalogProject[];
+      }),
+      this.getListings().catch((error) => {
+        diagnostics.listingsError = errorMessage(error);
+        return [] as CatalogListing[];
+      }),
+    ]);
+    diagnostics.fromListProjects = listed.length;
+    diagnostics.listings = listings.length;
+    diagnostics.publishers = new Set(listings.map((l) => l.owningProjectId).filter(Boolean)).size;
+    const projects =
+      diagnostics.listProjectsError || diagnostics.listingsError
+        ? listed
+        : await this.getProjects();
+    return { projects, diagnostics };
   }
 
   private getProjects(): Promise<CatalogProject[]> {
