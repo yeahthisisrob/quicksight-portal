@@ -22,6 +22,7 @@ import {
   isAuthorableAssetType,
   type RebindRequest,
   type TemplateRequest,
+  type TypeRules,
 } from '../types';
 
 const APPLY_MODES = new Set(['update', 'clone']);
@@ -117,6 +118,7 @@ export class AuthoringHandler {
         ops: parseOps(body.ops),
         repairs: parseRepairs(body.repairs),
         template: this.parseTemplate(body.template),
+        typeRules: this.parseTypeRules(body.typeRules),
       });
       return successResponse(event, { success: true, data: preview });
     } catch (error: any) {
@@ -263,7 +265,43 @@ export class AuthoringHandler {
       ops: parseOps(body.ops),
       repairs: parseRepairs(body.repairs),
       template: this.parseTemplate(body.template),
+      typeRules: this.parseTypeRules(body.typeRules),
       folderId: (body.folderId as string | undefined)?.trim() || undefined,
+    };
+  }
+
+  private parseTypeRules(raw: unknown): TypeRules | undefined {
+    if (raw === undefined || raw === null) {
+      return undefined;
+    }
+    if (typeof raw !== 'object') {
+      throw badRequest('typeRules must be an object');
+    }
+    const r = raw as Record<string, unknown>;
+    const chartFamily = r.chartFamily;
+    if (chartFamily !== undefined) {
+      if (
+        !Array.isArray(chartFamily) ||
+        chartFamily.some(
+          (x) =>
+            typeof x !== 'object' ||
+            x === null ||
+            typeof x.from !== 'string' ||
+            typeof x.to !== 'string'
+        )
+      ) {
+        throw badRequest('typeRules.chartFamily must be an array of { from, to }');
+      }
+    }
+    for (const flag of ['kpi', 'casts'] as const) {
+      if (r[flag] !== undefined && typeof r[flag] !== 'boolean') {
+        throw badRequest(`typeRules.${flag} must be a boolean`);
+      }
+    }
+    return {
+      chartFamily: chartFamily as TypeRules['chartFamily'],
+      kpi: r.kpi as boolean | undefined,
+      casts: r.casts as boolean | undefined,
     };
   }
 

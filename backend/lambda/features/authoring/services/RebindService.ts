@@ -37,6 +37,7 @@ import { buildOutline } from '../lib/definitionOutline';
 import { type RebindSpec, rebindDefinition } from '../lib/definitionRebind';
 import { applyRepairs } from '../lib/definitionRepairs';
 import { applyTemplate } from '../lib/definitionTemplate';
+import { applyCastRenames, applyTypeRules, castPlan } from '../lib/definitionTypeRules';
 import { buildRepairPlan, type RepairPlan, type RepairTarget } from '../lib/repairPlan';
 import type {
   AddedCalculatedField,
@@ -140,11 +141,13 @@ export class RebindService {
     const repaired = this.repair(loaded, request.repairs);
     const plan = await this.planAgainst(assetType, assetId, repaired.loaded, request.rebinds);
     const template = await this.loadTemplate(request.template, repaired.loaded.definition, plan);
+    const currentColumns = await this.currentColumnsFor(request, plan);
     const { definition, changes, warnings, themeArn } = this.rewrite(
       repaired.loaded.definition,
       plan,
       request,
-      template
+      template,
+      currentColumns
     );
     return {
       plan,
@@ -232,6 +235,31 @@ export class RebindService {
     });
   }
 
+  /** For column casts: the columns (with types) of the datasets being replaced. */
+  private async currentColumnsFor(
+    request: { typeRules?: PreviewRequest['typeRules'] },
+    plan: RebindPlan
+  ): Promise<Map<string, TargetColumn[]>> {
+    const out = new Map<string, TargetColumn[]>();
+    if (!request.typeRules?.casts) {
+      return out;
+    }
+    for (const dataset of plan.datasets) {
+      try {
+        out.set(
+          dataset.identifier,
+          (await this.loadTargetDataset(dataset.current.dataSetId)).columns
+        );
+      } catch (error) {
+        logger.warn('Casts: current dataset cannot be read', {
+          dataSetId: dataset.current.dataSetId,
+          error,
+        });
+      }
+    }
+    return out;
+  }
+
   /** Repairs run on the loaded definition, before anything is planned. */
   private repair(
     loaded: LoadedDefinition,
@@ -252,8 +280,13 @@ export class RebindService {
   private rewrite(
     source: Record<string, any>,
     plan: RebindPlan,
-    request: { addCalculatedFields?: AddedCalculatedField[]; ops?: DefinitionOp[] },
-    template: LoadedTemplate | null = null
+    request: {
+      addCalculatedFields?: AddedCalculatedField[];
+      ops?: DefinitionOp[];
+      typeRules?: PreviewRequest['typeRules'];
+    },
+    template: LoadedTemplate | null = null,
+    currentColumns: Map<string, TargetColumn[]> = new Map()
   ): {
     definition: Record<string, any>;
     changes: DefinitionChange[];
@@ -295,13 +328,28 @@ export class RebindService {
         changes.push({ kind: 'template', description: "Takes the template's theme" });
       }
     }
-    const added = request.addCalculatedFields ?? [];
+    let added = request.addCalculatedFields ?? [];
+    if (request.typeRules?.casts) {
+      const casts = castPlan(plan.datasets, currentColumns);
+      applyCastRenames(definition, casts.renames);
+      added = [...casts.addCalculatedFields, ...added];
+      changes.push(...casts.changes);
+      warnings.push(...casts.warnings);
+    }
     definition = withAddedCalculatedFields(definition, added);
-    for (const field of added) {
+    for (const field of request.addCalculatedFields ?? []) {
       changes.push({
         kind: 'calculatedField',
         description: `Added calculated field ${field.name} on ${field.identifier}`,
       });
+    }
+    if (request.typeRules && (request.typeRules.chartFamily?.length || request.typeRules.kpi)) {
+      const ruled = applyTypeRules(definition, request.typeRules, {
+        templateKpiOptions: template ? templateKpiOptions(template.definition) : undefined,
+      });
+      definition = ruled.definition;
+      changes.push(...ruled.changes);
+      warnings.push(...ruled.warnings);
     }
     const edited = applyOps(definition, request.ops ?? []);
     return {
@@ -378,7 +426,8 @@ export class RebindService {
 
     const name = this.resolveName(request, loaded.name);
     const template = await this.loadTemplate(request.template, loaded.definition, plan);
-    const rewritten = this.rewrite(loaded.definition, plan, request, template);
+    const currentColumns = await this.currentColumnsFor(request, plan);
+    const rewritten = this.rewrite(loaded.definition, plan, request, template, currentColumns);
     const definition = rewritten.definition;
     const changes = [...repaired.changes, ...rewritten.changes];
     const target: LoadedDefinition = rewritten.themeArn
@@ -523,6 +572,7 @@ export class RebindService {
       (request.ops?.length ?? 0) +
       (request.repairs?.length ?? 0) +
       (request.template ? 1 : 0) +
+      (request.typeRules ? 1 : 0) +
       (request.addCalculatedFields?.length ?? 0);
     if (request.mode === 'update' && !name && edits === 0) {
       throw new ValidationError('Nothing to do: no rebinds, no edits and no new name');
@@ -742,4 +792,17 @@ function parseVersionNumber(versionArn?: string): number | null {
   }
   const parsed = Number.parseInt(match[1], 10);
   return Number.isNaN(parsed) ? null : parsed;
+}
+
+/** The KPI options of the template's first KPI, the standard every KPI takes. */
+function templateKpiOptions(definition: Record<string, any>): Record<string, any> | undefined {
+  for (const sheet of definition.Sheets ?? []) {
+    for (const wrapper of sheet.Visuals ?? []) {
+      const options = wrapper?.KPIVisual?.ChartConfiguration?.KPIOptions;
+      if (options) {
+        return options;
+      }
+    }
+  }
+  return undefined;
 }

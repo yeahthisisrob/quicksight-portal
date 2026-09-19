@@ -15,7 +15,9 @@ import type { SheetOutline } from '../lib/definitionOutline';
 export type { DefinitionChange, DefinitionOp, SheetOutline };
 
 import type { RepairOp } from '../lib/definitionRepairs';
+import type { TypeRules } from '../lib/definitionTypeRules';
 
+export type { ChartFamilyRule, TypeRules } from '../lib/definitionTypeRules';
 export type { RepairFix, RepairIssue, RepairIssueKind, RepairPlan } from '../lib/repairPlan';
 export type { RepairOp };
 
@@ -134,6 +136,8 @@ export interface ApplyRequest {
   repairs?: RepairOp[];
   /** Migrate onto a template's layout standard, after rebinds and before ops. */
   template?: TemplateRequest;
+  /** Bulk conversions: chart family swaps, KPI standardisation, column casts. */
+  typeRules?: TypeRules;
   /** Clone only: put the new asset in this folder. */
   folderId?: string;
 }
@@ -162,6 +166,8 @@ export interface PreviewRequest {
   repairs?: RepairOp[];
   /** Applied after rebinds and before added fields and ops. */
   template?: TemplateRequest;
+  /** Bulk conversions: chart family swaps, KPI standardisation, column casts. */
+  typeRules?: TypeRules;
 }
 
 export interface RepairPlanRequest {

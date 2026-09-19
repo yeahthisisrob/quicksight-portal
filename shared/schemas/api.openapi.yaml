@@ -2048,6 +2048,8 @@ paths:
                     $ref: '#/components/schemas/RepairOp'
                 template:
                   $ref: '#/components/schemas/TemplateRequest'
+                typeRules:
+                  $ref: '#/components/schemas/TypeRules'
       responses:
         '200':
           description: The plan and the rewritten definition
@@ -4971,6 +4973,36 @@ components:
               items:
                 $ref: '#/components/schemas/RebindRequest'
 
+    TypeRules:
+      type: object
+      description: |
+        Conversions applied to every visual at once. chartFamily: retypes
+        every visual of one editable type to another (table to pivot, bar to
+        column, pie to donut and the reverse) wherever the field wells
+        translate; a visual whose wells do not fit is left alone and named in
+        `warnings`. kpi: gauges become KPIs and every KPI takes the
+        template's KPI options when a template is given. casts: where the
+        dataset a definition now reads has a column of a different type than
+        the definition was built for, a calculated field with the cast is
+        added and the visuals read it instead.
+      properties:
+        chartFamily:
+          type: array
+          items:
+            type: object
+            required: [from, to]
+            properties:
+              from:
+                type: string
+                enum: [BarChart, ColumnChart, LineChart, PieChart, DonutChart, Table, PivotTable]
+              to:
+                type: string
+                enum: [BarChart, ColumnChart, LineChart, PieChart, DonutChart, Table, PivotTable]
+        kpi:
+          type: boolean
+        casts:
+          type: boolean
+
     TemplateRequest:
       type: object
       description: |
@@ -5149,6 +5181,8 @@ components:
             $ref: '#/components/schemas/RepairOp'
         template:
           $ref: '#/components/schemas/TemplateRequest'
+        typeRules:
+          $ref: '#/components/schemas/TypeRules'
         folderId:
           type: string
           description: Clone only. Put the new asset in this QuickSight folder.
