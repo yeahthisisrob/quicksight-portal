@@ -27,7 +27,7 @@ import type { S3Service } from '../../../shared/services/aws/S3Service';
 import { ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
 import { normalizePermissionsArray } from '../../../shared/utils/permissions';
-import { resolveColumns, type TargetColumn } from '../lib/columnContract';
+import { resolveColumns, type TargetColumn } from '../lib/columnResolution';
 import { collectDefinitionDatasets } from '../lib/definitionColumns';
 import { type RebindSpec, rebindDefinition } from '../lib/definitionRebind';
 import type {
@@ -98,6 +98,26 @@ export class RebindService {
     return await this.planAgainst(assetType, assetId, loaded, rebinds);
   }
 
+  /**
+   * The plan plus the definition exactly as apply would write it, without
+   * writing. Only resolved renames are applied, so a preview never shows a
+   * result that apply would refuse.
+   */
+  public async preview(
+    assetType: AuthorableAssetType,
+    assetId: string,
+    rebinds: RebindRequest[]
+  ): Promise<{ plan: RebindPlan; definition: Record<string, any> }> {
+    const loaded = await this.loadDefinition(assetType, assetId);
+    const plan = await this.planAgainst(assetType, assetId, loaded, rebinds);
+    const specs: RebindSpec[] = plan.datasets.map((d) => ({
+      identifier: d.identifier,
+      targetDataSetArn: d.target.dataSetArn,
+      columnMap: this.effectiveColumnMap(d),
+    }));
+    return { plan, definition: rebindDefinition(loaded.definition, specs) };
+  }
+
   /** Re-plan, refuse anything unresolved, then write to QuickSight. */
   public async apply(
     assetType: AuthorableAssetType,
@@ -156,7 +176,7 @@ export class RebindService {
       seen.add(rebind.identifier);
 
       const target = await this.loadTargetDataset(rebind.targetDataSetId);
-      const contract = resolveColumns(current.columns, target.columns, rebind.columnMap ?? {});
+      const resolution = resolveColumns(current.columns, target.columns, rebind.columnMap ?? {});
       datasets.push({
         identifier: rebind.identifier,
         current: { dataSetId: current.dataSetId, dataSetArn: current.dataSetArn },
@@ -166,9 +186,9 @@ export class RebindService {
           name: target.name,
           columnCount: target.columns.length,
         },
-        columns: contract.columns,
-        unusedTargetColumns: contract.unusedTargetColumns,
-        summary: contract.summary,
+        columns: resolution.columns,
+        unusedTargetColumns: resolution.unusedTargetColumns,
+        summary: resolution.summary,
       });
     }
 

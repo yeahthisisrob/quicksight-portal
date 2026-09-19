@@ -5,8 +5,8 @@
 
 export const LAYOUT = {
   header: {
-    height: 64,
-    mobileHeight: 56,
+    height: 48,
+    mobileHeight: 48,
   },
   sidebar: {
     width: 240,
@@ -22,8 +22,9 @@ export const LAYOUT = {
   },
   table: {
     minHeight: 400,
-    maxHeightVh: 90, // Increased from 80
-    headerOffset: 160, // Reduced from 240 - accounts for header (64) + page margins + some padding
+    maxHeightVh: 90,
+    // Top bar (48) + page padding + page header + table toolbar.
+    headerOffset: 208,
     scrollbar: {
       width: 12,
       height: 12,

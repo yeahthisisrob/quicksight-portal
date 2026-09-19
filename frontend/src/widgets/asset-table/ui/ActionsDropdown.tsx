@@ -1,4 +1,5 @@
 import {
+  DesignServices as AuthorIcon,
   EditNote as EditSourceIcon,
   Hub as HubIcon,
   MoreVert as MoreVertIcon,
@@ -119,6 +120,20 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
           <MenuItem onClick={() => handleAction(() => handlers.onWireframeClick?.(asset))}>
             <WireframeIcon fontSize="small" sx={{ mr: 1 }} />
             View Wireframe
+          </MenuItem>
+        )}
+        {(assetType === 'dashboard' || assetType === 'analysis') && (
+          <MenuItem
+            onClick={() =>
+              handleAction(() =>
+                handlers.navigate(
+                  `/author?type=${assetType}&id=${encodeURIComponent(asset.id)}&name=${encodeURIComponent(asset.name ?? '')}`
+                )
+              )
+            }
+          >
+            <AuthorIcon fontSize="small" sx={{ mr: 1 }} />
+            Open in Author
           </MenuItem>
         )}
         {(assetType === 'dashboard' || assetType === 'analysis') && (

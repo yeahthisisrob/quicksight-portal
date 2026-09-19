@@ -1,127 +1,104 @@
 /**
- * Design System Theme Configuration
- * This file contains all the design tokens used across the application
+ * Compatibility aliases for the pre-token design system.
+ *
+ * Everything here is @deprecated. The values are now derived from the tokens
+ * in ./tokens so old call sites keep the new look, but they resolve to the
+ * LIGHT scheme only - a component still using them will not follow dark
+ * mode. Migrate to the MUI theme (`theme.vars.palette.*`, `theme.spacing()`,
+ * `theme.shape.borderRadius`) or, outside MUI, to `@/shared/design-system/tokens`.
+ * The README has the mapping.
  */
 import { alpha } from '@mui/material';
 
+import { assetHue } from './tokens/palette';
+import { elevation, fontFamily as fontFamilyTokens, motion, radius, space } from './tokens/scale';
+import { lightColors } from './tokens/semantic';
+
+const assetTriplet = (key: keyof typeof assetHue) => ({
+  main: assetHue[key].main,
+  light: assetHue[key].subtle,
+  dark: assetHue[key].strong,
+});
+
+/**
+ * @deprecated Use `theme.vars.palette` (brand, tone, asset, surface, line) or
+ * `@/shared/design-system/tokens`. Light scheme only.
+ */
 export const colors = {
-  // Primary Colors
   primary: {
-    main: '#3B82F6',
-    light: '#93C5FD',
-    dark: '#1E40AF',
+    main: lightColors.brand.primary,
+    light: '#89BDEE',
+    dark: lightColors.brand.hover,
   },
-
-  // Asset Type Colors (matching your existing config)
   assetTypes: {
-    dashboard: {
-      main: '#10B981', // Green
-      light: '#D1FAE5',
-      dark: '#047857',
-    },
-    analysis: {
-      main: '#8B5CF6', // Purple
-      light: '#EDE9FE',
-      dark: '#6D28D9',
-    },
-    dataset: {
-      main: '#3B82F6', // Blue
-      light: '#DBEAFE',
-      dark: '#1D4ED8',
-    },
-    datasource: {
-      main: '#F59E0B', // Amber
-      light: '#FEF3C7',
-      dark: '#D97706',
-    },
-    folder: {
-      main: '#6B7280', // Gray
-      light: '#F3F4F6',
-      dark: '#374151',
-    },
-    user: {
-      main: '#EC4899', // Pink
-      light: '#FCE7F3',
-      dark: '#BE185D',
-    },
-    group: {
-      main: '#14B8A6', // Teal
-      light: '#CCFBF1',
-      dark: '#0F766E',
-    },
-    namespace: {
-      main: '#9c27b0', // Purple
-      light: '#e1bee7',
-      dark: '#6a1b9a',
-    },
-    public: {
-      main: '#2196f3', // Blue
-      light: '#bbdefb',
-      dark: '#1565c0',
-    },
+    dashboard: assetTriplet('dashboard'),
+    analysis: assetTriplet('analysis'),
+    dataset: assetTriplet('dataset'),
+    datasource: assetTriplet('datasource'),
+    folder: assetTriplet('folder'),
+    user: assetTriplet('user'),
+    group: assetTriplet('group'),
+    namespace: assetTriplet('namespace'),
+    public: assetTriplet('public'),
   },
-
-  // Status Colors
   status: {
-    success: '#10B981',
-    successLight: '#86EFAC',
-    successDark: '#047857',
-    warning: '#F59E0B',
-    warningLight: '#FCD34D',
-    warningDark: '#92400E',
-    error: '#EF4444',
-    errorLight: '#FCA5A5',
-    errorDark: '#991B1B',
-    info: '#3B82F6',
-    infoLight: '#93C5FD',
-    infoDark: '#1E40AF',
+    success: lightColors.status.success.text,
+    successLight: '#8CEB9C',
+    successDark: '#00580E',
+    warning: lightColors.status.warning.text,
+    warningLight: '#FFE457',
+    warningDark: '#5F4404',
+    error: lightColors.status.error.text,
+    errorLight: '#FFB2B2',
+    errorDark: '#8C0F0F',
+    info: lightColors.status.info.text,
+    infoLight: '#89BDEE',
+    infoDark: lightColors.brand.hover,
   },
-
-  // Neutral Colors (grayscale)
   neutral: {
-    50: '#FAFAFA',
-    100: '#F5F5F5',
-    200: '#E5E5E5',
-    300: '#D4D4D4',
-    400: '#A3A3A3',
-    500: '#737373',
-    600: '#525252',
-    700: '#404040',
-    800: '#262626',
-    900: '#171717',
+    50: '#FBFBFB',
+    100: '#F2F3F3',
+    200: '#E9EBED',
+    300: '#C6C6CD',
+    400: '#8D99A8',
+    500: '#7D8998',
+    600: '#5F6B7A',
+    700: '#414D5C',
+    800: '#232F3E',
+    900: '#000716',
   },
-
-  // Background Colors
   background: {
-    default: '#FFFFFF',
-    paper: '#FAFAFA',
-    subtle: '#F5F5F5',
-    hover: '#E5E5E5',
+    default: lightColors.surface.container,
+    paper: lightColors.surface.hover,
+    subtle: lightColors.surface.page,
+    hover: '#E9EBED',
   },
 };
 
+/** @deprecated Use `theme.spacing(n)` in sx, or `space` from tokens for raw px. */
 export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
+  xs: space.xs,
+  sm: space.s,
+  md: space.l,
+  lg: space.xxl,
+  xl: space.xxxl,
   xxl: 48,
 };
 
+/** @deprecated Use `theme.typography` variants, or `typeScale` / `fontFamily` from tokens. */
 export const typography = {
   fontFamily: {
-    primary: '"Roboto", "Helvetica", "Arial", sans-serif',
-    monospace: '"Roboto Mono", "Courier New", monospace',
+    primary: fontFamilyTokens.body,
+    monospace: fontFamilyTokens.mono,
   },
   fontSize: {
-    xs: '0.75rem', // 12px
-    sm: '0.875rem', // 14px
-    base: '1rem', // 16px
-    lg: '1.125rem', // 18px
-    xl: '1.25rem', // 20px
-    '2xl': '1.5rem', // 24px
-    '3xl': '1.875rem', // 30px
+    xs: '0.75rem',
+    sm: '0.875rem',
+    base: '1rem',
+    lg: '1.125rem',
+    xl: '1.25rem',
+    '2xl': '1.5rem',
+    '3xl': '1.875rem',
   },
   fontWeight: {
     light: 300,
@@ -132,39 +109,41 @@ export const typography = {
   },
 };
 
+/** @deprecated Use `radius` from tokens (badge 4, input 8, container 16, pill 20). */
 export const borderRadius = {
-  sm: 4,
-  md: 8,
+  sm: radius.badge,
+  md: radius.input,
   lg: 12,
-  xl: 16,
+  xl: radius.container,
   full: '9999px',
 };
 
+/** @deprecated Use `elevation` from tokens. */
 export const shadows = {
-  sm: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-  md: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-  lg: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-  xl: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+  sm: elevation.container,
+  md: elevation.container,
+  lg: elevation.popover,
+  xl: elevation.dialog,
 };
 
+/** @deprecated Use `theme.transitions` or `motion` from tokens. */
 export const transitions = {
-  fast: '150ms',
-  normal: '250ms',
-  slow: '350ms',
+  fast: `${motion.duration.fast}ms`,
+  normal: `${motion.duration.normal}ms`,
+  slow: `${motion.duration.slow}ms`,
   easing: {
-    easeInOut: 'cubic-bezier(0.4, 0, 0.2, 1)',
-    easeOut: 'cubic-bezier(0.0, 0, 0.2, 1)',
-    easeIn: 'cubic-bezier(0.4, 0, 1, 1)',
+    easeInOut: motion.easing.standard,
+    easeOut: motion.easing.enter,
+    easeIn: motion.easing.exit,
   },
 };
 
-// Component-specific styles
+/** @deprecated The theme's component overrides apply these automatically. */
 export const components = {
   dialog: {
-    borderRadius: borderRadius.lg,
+    borderRadius: radius.container,
     maxHeight: '80vh',
   },
-
   chip: {
     height: {
       small: 20,
@@ -172,20 +151,18 @@ export const components = {
       large: 32,
     },
   },
-
   paper: {
     hover: {
       transform: 'translateX(4px)',
       transition: `all ${transitions.normal} ${transitions.easing.easeInOut}`,
     },
   },
-
-  /** Shared bordered container style used by page containers and asset tables */
+  /** Bordered container used by page containers and asset tables. */
   container: {
-    borderRadius: `${spacing.md / 8}px`,
+    borderRadius: `${radius.container}px`,
     overflow: 'hidden' as const,
     boxShadow: `0 1px 3px ${alpha(colors.neutral[900], 0.05)}, 0 1px 2px ${alpha(colors.neutral[900], 0.1)}`,
     border: `1px solid ${colors.neutral[200]}`,
-    bgcolor: 'white',
+    bgcolor: 'background.paper',
   },
 };

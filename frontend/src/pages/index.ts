@@ -15,11 +15,7 @@ export const AssetsPage = lazy(() => import('./AssetsPage'));
 export const AssetTimelinePage = lazy(() => import('./AssetTimelinePage'));
 export const ActivityTimelinePage = lazy(() => import('./ActivityTimelinePage'));
 export const DataCatalogPage = lazy(() => import('./DataCatalogPage'));
-export const ExportPage = lazy(() => import('./ExportPage'));
-export const ArchivedAssetsPage = lazy(() =>
-  import('./ArchivedAssetsPage').then((m) => ({ default: m.ArchivedAssetsPage }))
-);
-export const ScriptsPage = lazy(() =>
-  import('./ScriptsPage').then((m) => ({ default: m.ScriptsPage }))
-);
 export const IngestionsPage = lazy(() => import('./IngestionsPage'));
+export const AuthorPage = lazy(() => import('./AuthorPage'));
+export const SettingsPage = lazy(() => import('./SettingsPage'));
+export const OperationsPage = lazy(() => import('./OperationsPage'));

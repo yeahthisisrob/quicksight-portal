@@ -37,8 +37,12 @@ export interface WireframeFieldWell {
 }
 
 export type WireframePosition =
-  /** GridLayout: 36 columns wide, integer rows. */
-  | { type: 'grid'; col: number; colSpan: number; row: number; rowSpan: number }
+  /**
+   * GridLayout: 36 columns wide, integer rows. QuickSight leaves `col` and
+   * `row` out when tiles simply flow left to right; then only the spans are
+   * known and the renderer auto-places the tile after the previous one.
+   */
+  | { type: 'grid'; col?: number; colSpan: number; row?: number; rowSpan: number }
   /** FreeFormLayout and SectionBasedLayout: absolute pixels on the canvas. */
   | { type: 'freeform'; x: number; y: number; width: number; height: number }
   /** No layout information; render in order. */

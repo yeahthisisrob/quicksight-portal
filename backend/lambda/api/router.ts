@@ -6,6 +6,7 @@ import { dataExportRoutes } from '../features/data-export';
 import { deploymentRoutes } from '../features/deployment';
 import { organizationRoutes } from '../features/organization';
 import { scriptsRoutes } from '../features/scripts/routes';
+import { settingsRoutes } from '../features/settings';
 import { smusRoutes } from '../features/smus';
 import { jobRoutes } from '../shared/routes/jobRoutes';
 import type { RouteHandler } from './types';
@@ -20,6 +21,7 @@ export const featureRoutes: RouteHandler[] = [
   ...dataCatalogRoutes,
   ...activityRoutes,
   ...scriptsRoutes,
+  ...settingsRoutes,
   ...smusRoutes,
   ...jobRoutes, // Shared job management routes
 ];

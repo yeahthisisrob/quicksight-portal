@@ -2394,6 +2394,307 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/authoring/{assetType}/{assetId}/rebind/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dry-run a rebind and return the rewritten definition
+         * @description The plan endpoint plus the definition as it would be written: the
+         *     same rewrite apply performs, returned instead of sent to QuickSight.
+         *     Meant for mockups - a wireframe of the result before anything changes.
+         *     Renames that are only suggested are not applied, so the preview
+         *     mirrors what apply would refuse or accept.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assetType: components["parameters"]["AuthorableAssetType"];
+                    assetId: components["parameters"]["AuthoringAssetId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        rebinds: components["schemas"]["RebindRequest"][];
+                    };
+                };
+            };
+            responses: {
+                /** @description The plan and the rewritten definition */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["RebindPreview"];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Portal settings with their effective values and where each comes from
+         * @description Settings live in DynamoDB and fall back to the Lambda's environment,
+         *     then to a default, so a fresh deployment keeps working from env vars
+         *     alone and a migration can move values one at a time. Every setting
+         *     reports its `source`. Secrets are never stored here: a sensitive
+         *     setting is read-only and shows only whether its env var is set.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Grouped settings */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["SettingsSnapshot"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        /**
+         * Store settings
+         * @description Writes the given values to DynamoDB. A null value clears the stored
+         *     value, so the setting falls back to its env var or default again.
+         *     Unknown keys and sensitive keys are rejected.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SettingsUpdate"];
+                };
+            };
+            responses: {
+                /** @description The settings after the update */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["SettingsSnapshot"];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/smus/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Projects in the configured SMUS domain
+         * @description Live from DataZone. Used by the settings page so the projects the
+         *     portal reads published assets from are chosen from a list, never
+         *     typed. Returns an empty list with `configured: false` when no domain
+         *     is set.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The domain's projects */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                configured: boolean;
+                                projects: components["schemas"]["SmusProject"][];
+                            };
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/smus/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Published SMUS assets and the QuickSight datasets that already read them
+         * @description Every published listing in the selected projects (all projects when
+         *     none are selected in settings), with its table identity and columns
+         *     from the listing's metadata forms, and the QuickSight datasets the
+         *     portal has matched to it. The point is reuse: before creating a
+         *     dataset for a SMUS asset, see the ones that already exist.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Case-insensitive match on the listing name or description */
+                    search?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Published assets */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                configured: boolean;
+                                /** @description The project ids the sweep was limited to; empty means all. */
+                                projectFilter: string[];
+                                assets: components["schemas"]["SmusAsset"][];
+                            };
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/smus/assets/{listingId}/dataset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a QuickSight dataset that reads a published SMUS asset
+         * @description Creates a relational-table dataset over the listing's Glue table
+         *     (catalog, database, table and columns come from the listing's
+         *     metadata forms) through an existing data source chosen from the
+         *     account, never typed. Permissions are copied from a reference dataset
+         *     so the new one has an audience; without that, a created dataset is
+         *     visible to nobody.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    listingId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateSmusDatasetRequest"];
+                };
+            };
+            responses: {
+                /** @description The created dataset */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                dataSetId: string;
+                                name: string;
+                                arn: string;
+                            };
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assets/{assetType}/{assetId}/rename": {
         parameters: {
             query?: never;
@@ -3904,6 +4205,101 @@ export interface components {
                 provider: string;
                 model: string;
             };
+        };
+        RebindPreview: {
+            plan: components["schemas"]["RebindPlan"];
+            /** @description The QuickSight Definition as apply would write it. */
+            definition: {
+                [key: string]: unknown;
+            };
+        };
+        /** @enum {string} */
+        SettingSource: "stored" | "env" | "default";
+        SettingDefinition: {
+            /** @description Dotted key, e.g. smus.domainId */
+            key: string;
+            label: string;
+            description: string;
+            /** @enum {string} */
+            type: "string" | "select" | "multiselect" | "boolean";
+            /** @description The effective value. A string, a list of strings, or a boolean; absent when unset. */
+            value?: string | boolean | string[];
+            source: components["schemas"]["SettingSource"];
+            /** @description The environment variable the setting falls back to. */
+            envVar?: string;
+            /** @description Read-only here; only reports whether the env var is set. */
+            sensitive: boolean;
+            /** @description For select and multiselect, the fixed choices when they are static. */
+            options?: {
+                value: string;
+                label: string;
+            }[];
+            /** @description For multiselect choices fetched live, the endpoint that serves them. */
+            optionsFrom?: string;
+        };
+        SettingsGroup: {
+            id: string;
+            title: string;
+            description: string;
+            settings: components["schemas"]["SettingDefinition"][];
+        };
+        SettingsSnapshot: {
+            groups: components["schemas"]["SettingsGroup"][];
+            /** Format: date-time */
+            updatedAt?: string;
+            updatedBy?: string;
+        };
+        SettingsUpdate: {
+            /** @description Setting key to new value. null clears the stored value. */
+            values: {
+                [key: string]: (string | null) | boolean | string[];
+            };
+        };
+        SmusProject: {
+            id: string;
+            name: string;
+            description?: string;
+        };
+        SmusAssetColumn: {
+            name: string;
+            /** @description The source type as the catalog reports it, e.g. string, bigint, timestamp. */
+            type: string;
+        };
+        SmusLinkedDataset: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            matchType: "source-table" | "custom-sql" | "name";
+        };
+        SmusAsset: {
+            listingId: string;
+            assetId: string;
+            name: string;
+            assetType: string;
+            description?: string;
+            projectId?: string;
+            projectName?: string;
+            /** @description Deep link to the listing in the SMUS portal. */
+            url?: string;
+            /** @description The Glue table behind the listing, when its forms say. */
+            table?: {
+                catalog?: string;
+                database: string;
+                name: string;
+            };
+            columns?: components["schemas"]["SmusAssetColumn"][];
+            /** @description QuickSight datasets the portal matched to this listing. */
+            datasets: components["schemas"]["SmusLinkedDataset"][];
+        };
+        CreateSmusDatasetRequest: {
+            /** @description An existing QuickSight data source (Athena) chosen from the account. */
+            dataSourceId: string;
+            /** @description Defaults to the listing name. */
+            name?: string;
+            /** @enum {string} */
+            importMode: "DIRECT_QUERY" | "SPICE";
+            /** @description Copy this dataset's permissions onto the new one, so it has the same audience. */
+            permissionsFromDataSetId?: string;
         };
         BulkItemFailure: {
             /** @description Human-readable item label, e.g. "alice → analysts" */

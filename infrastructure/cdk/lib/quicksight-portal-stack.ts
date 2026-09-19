@@ -204,11 +204,12 @@ export class QuicksightPortalStack extends Stack {
         `arn:aws:bedrock:*:${this.account}:inference-profile/*`,
       ],
     }));
-    // SMUS (SageMaker Unified Studio) catalog lookups — the only DataZone
-    // call the portal makes. Harmless when SMUS_DOMAIN_ID is not configured.
+    // SMUS (SageMaker Unified Studio) catalog lookups: listings (with their
+    // metadata forms) and the project list the settings page chooses from.
+    // Harmless when no SMUS domain is configured.
     lambdaRole.addToPolicy(new PolicyStatement({
       effect: Effect.ALLOW,
-      actions: ['datazone:SearchListings'],
+      actions: ['datazone:SearchListings', 'datazone:ListProjects'],
       resources: ['*'],
     }));
     lambdaRole.addToPolicy(new PolicyStatement({

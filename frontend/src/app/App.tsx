@@ -4,15 +4,15 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 
 import {
   ActivityTimelinePage,
-  ArchivedAssetsPage,
   AssetsPage,
   AssetTimelinePage,
   AuthCallbackPage,
+  AuthorPage,
   DataCatalogPage,
-  ExportPage,
   IngestionsPage,
   LoginPage,
-  ScriptsPage,
+  OperationsPage,
+  SettingsPage,
 } from '../pages';
 import { ErrorBoundary, PageLoader } from '../shared/ui';
 import { MainLayout } from '../widgets';
@@ -80,41 +80,49 @@ function App() {
                   }
                 />
                 <Route
-                  path="export"
+                  path="author"
                   element={
                     <ErrorBoundary>
                       <Suspense fallback={<PageLoader />}>
-                        <ExportPage />
+                        <AuthorPage />
                       </Suspense>
                     </ErrorBoundary>
                   }
                 />
+                <Route
+                  path="settings"
+                  element={
+                    <ErrorBoundary>
+                      <Suspense fallback={<PageLoader />}>
+                        <SettingsPage />
+                      </Suspense>
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="operations"
+                  element={
+                    <ErrorBoundary>
+                      <Suspense fallback={<PageLoader />}>
+                        <OperationsPage />
+                      </Suspense>
+                    </ErrorBoundary>
+                  }
+                />
+                {/* Export, archived assets and scripts moved under Operations;
+                    old links keep working. */}
+                <Route path="export" element={<Navigate to="/operations" replace />} />
+                <Route
+                  path="archived-assets"
+                  element={<Navigate to="/operations?tab=archived" replace />}
+                />
+                <Route path="scripts" element={<Navigate to="/operations?tab=scripts" replace />} />
                 <Route
                   path="activity"
                   element={
                     <ErrorBoundary>
                       <Suspense fallback={<PageLoader />}>
                         <ActivityTimelinePage />
-                      </Suspense>
-                    </ErrorBoundary>
-                  }
-                />
-                <Route
-                  path="archived-assets"
-                  element={
-                    <ErrorBoundary>
-                      <Suspense fallback={<PageLoader />}>
-                        <ArchivedAssetsPage />
-                      </Suspense>
-                    </ErrorBoundary>
-                  }
-                />
-                <Route
-                  path="scripts"
-                  element={
-                    <ErrorBoundary>
-                      <Suspense fallback={<PageLoader />}>
-                        <ScriptsPage />
                       </Suspense>
                     </ErrorBoundary>
                   }

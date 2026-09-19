@@ -1,5 +1,8 @@
-import { Box, Typography } from '@mui/material';
+import { Button, Stack, Typography } from '@mui/material';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { Route, Routes } from 'react-router-dom';
+
+import { Container, KeyValuePairs, PageHeader, StatusIndicator } from '@/shared/design-system';
 
 import MainLayout from './MainLayout';
 
@@ -11,7 +14,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The main application layout with a permanent sidebar navigation and content area. The sidebar includes user profile and logout functionality at the bottom.',
+          'Top bar, side navigation and the page. The sidebar collapses to icons and remembers that per browser.',
       },
     },
   },
@@ -20,53 +23,48 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// Mock some content for the outlet
-const MockContent = () => (
-  <Box>
-    <Typography variant="h4" gutterBottom>
-      Dashboard Assets
-    </Typography>
-    <Typography
-      variant="body1"
-      sx={{
-        marginBottom: '16px',
-      }}
-    >
-      This is the main content area. The sidebar navigation is permanently visible on the left, and
-      the user profile with logout functionality is located at the bottom of the sidebar.
-    </Typography>
-    <Box
-      sx={{
-        mt: 3,
-        p: 3,
-        bgcolor: 'background.paper',
-        borderRadius: 1,
-        boxShadow: 1,
-      }}
-    >
-      <Typography variant="h6" gutterBottom>
-        Key Features
+function SamplePage() {
+  return (
+    <>
+      <PageHeader
+        title="Datasets"
+        counter={412}
+        description="Every dataset in the account, with where it reads from and who uses it."
+        actions={
+          <Stack direction="row" spacing={1}>
+            <Button variant="outlined" color="inherit">
+              Export
+            </Button>
+            <Button variant="contained">Refresh</Button>
+          </Stack>
+        }
+      />
+      <Container header="Summary" description="A container inside the standard layout.">
+        <KeyValuePairs
+          columns={3}
+          items={[
+            { label: 'SPICE', value: '318' },
+            { label: 'Direct query', value: '94' },
+            {
+              label: 'Last export',
+              value: <StatusIndicator type="success">2 min ago</StatusIndicator>,
+            },
+          ]}
+        />
+      </Container>
+      <Typography sx={{ mt: 2 }} color="text.secondary">
+        Page content continues below the fold.
       </Typography>
-      <ul>
-        <li>No mobile support - desktop only experience</li>
-        <li>Clean, minimal layout without a top app bar</li>
-        <li>User section integrated into sidebar</li>
-        <li>Colorful active states for navigation items</li>
-        <li>Gradient effects and modern styling</li>
-      </ul>
-    </Box>
-  </Box>
-);
+    </>
+  );
+}
 
 export const Default: Story = {
-  decorators: [
-    (Story) => (
-      <Box sx={{ display: 'flex', width: '100%', height: '100vh' }}>
-        <Story />
-        <Box sx={{ position: 'absolute', left: 240, top: 0, right: 0, p: 3 }}>
-          <MockContent />
-        </Box>
-      </Box>
-    ),
-  ],
+  render: () => (
+    <Routes>
+      <Route element={<MainLayout />}>
+        <Route path="*" element={<SamplePage />} />
+      </Route>
+    </Routes>
+  ),
 };

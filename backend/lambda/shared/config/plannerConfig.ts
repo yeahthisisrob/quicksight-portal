@@ -18,6 +18,8 @@
  * of hanging every call.
  */
 
+import { settingsStore } from '../services/settings/SettingsStore';
+
 export type PlannerProvider = 'bedrock' | 'claude-cli' | 'codex-cli' | 'openai-compatible';
 
 export interface PlannerConfig {
@@ -57,8 +59,22 @@ export function runningInLambda(env: NodeJS.ProcessEnv = process.env): boolean {
   return Boolean(env.AWS_LAMBDA_FUNCTION_NAME) && !env.AWS_SAM_LOCAL;
 }
 
-export function getPlannerConfig(env: NodeJS.ProcessEnv = process.env): PlannerConfig {
-  const requested = env.PLANNER_PROVIDER || 'bedrock';
+/** Only the stored layer: env and defaults are resolved here, against `env`. */
+function storedString(key: string): string {
+  const value = settingsStore.stored()[key];
+  return typeof value === 'string' ? value : '';
+}
+
+/**
+ * Stored settings win over env vars. `stored` is injectable for tests; by
+ * default it is the settings store, warmed per request by the API handler.
+ */
+export function getPlannerConfig(
+  env: NodeJS.ProcessEnv = process.env,
+  stored: (key: string) => string = storedString
+): PlannerConfig {
+  const pick = (key: string, envVar: string): string => stored(key) || env[envVar] || '';
+  const requested = pick('planner.provider', 'PLANNER_PROVIDER') || 'bedrock';
   let provider: PlannerProvider = isPlannerProvider(requested) ? requested : 'bedrock';
   if (provider.endsWith('-cli') && runningInLambda(env)) {
     provider = 'bedrock';
@@ -66,10 +82,11 @@ export function getPlannerConfig(env: NodeJS.ProcessEnv = process.env): PlannerC
 
   return {
     provider,
-    modelId: env.PLANNER_MODEL_ID || DEFAULT_MODEL_BY_PROVIDER[provider],
-    region: env.PLANNER_REGION || env.AWS_REGION || 'us-east-1',
+    modelId: pick('planner.modelId', 'PLANNER_MODEL_ID') || DEFAULT_MODEL_BY_PROVIDER[provider],
+    region: pick('planner.region', 'PLANNER_REGION') || env.AWS_REGION || 'us-east-1',
     openAi: {
-      baseUrl: (env.PLANNER_BASE_URL || '').replace(/\/$/, ''),
+      baseUrl: pick('planner.baseUrl', 'PLANNER_BASE_URL').replace(/\/$/, ''),
+      // Secrets never come from the store.
       apiKey: env.PLANNER_API_KEY || '',
     },
     cli: {

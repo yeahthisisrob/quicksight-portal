@@ -18,22 +18,19 @@ import {
   Typography,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+
+import {
+  ColumnResolutionTable,
+  type RebindMode,
+  type RebindSource,
+  TargetDatasetPicker,
+  useRebindDraft,
+} from '@/entities/definition';
 
 import { authoringApi, getApiErrorMessage } from '@/shared/api';
-import type {
-  ApplyRebindRequest,
-  AuthorableAssetType,
-  DefinitionDataset,
-  Proposal,
-  RebindPlan,
-  RebindRequest,
-} from '@/shared/api/modules/authoring';
-import { colors, typography } from '@/shared/design-system/theme';
-import { useDebounce } from '@/shared/lib/useDebounce';
-
-import { ColumnResolutionTable } from './ColumnResolutionTable';
-import { type DatasetOption, TargetDatasetPicker } from './TargetDatasetPicker';
+import type { AuthorableAssetType, Proposal } from '@/shared/api/modules/authoring';
+import { typography } from '@/shared/design-system/theme';
 
 interface RebindDialogProps {
   open: boolean;
@@ -41,18 +38,15 @@ interface RebindDialogProps {
   assetType: AuthorableAssetType;
   asset: { id: string; name: string } | null;
   /** Called with the written asset after a successful apply. */
-  onApplied?: (result: { assetId: string; name: string; mode: ApplyRebindRequest['mode'] }) => void;
+  onApplied?: (result: { assetId: string; name: string; mode: RebindMode }) => void;
 }
-
-const PLAN_DEBOUNCE_MS = 400;
 
 /**
  * Point a dashboard or analysis at different datasets, in place or as a copy.
  *
- * The flow is plan-then-apply. Every change to a target or a column rename
- * re-runs the server's dry run, and the apply button only lights up when the
- * server says every column resolves. Nothing here decides a rename on its own:
- * a near match is shown as a suggestion until someone picks it.
+ * The draft logic (targets, renames, the server dry run, the apply verdict)
+ * lives in useRebindDraft and is shared with the Author page; this dialog is
+ * the compact, row-menu form of it.
  */
 export default function RebindDialog({
   open,
@@ -63,143 +57,20 @@ export default function RebindDialog({
 }: RebindDialogProps) {
   const { enqueueSnackbar } = useSnackbar();
 
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [datasets, setDatasets] = useState<DefinitionDataset[]>([]);
+  const source = useMemo<RebindSource | null>(
+    () => (asset ? { type: assetType, id: asset.id, name: asset.name } : null),
+    [assetType, asset]
+  );
+  const draft = useRebindDraft(source, open);
 
-  const [targets, setTargets] = useState<Record<string, DatasetOption | null>>({});
-  const [columnMaps, setColumnMaps] = useState<Record<string, Record<string, string>>>({});
-
-  const [plan, setPlan] = useState<RebindPlan | null>(null);
-  const [planning, setPlanning] = useState(false);
-  const [planError, setPlanError] = useState<string | null>(null);
-
-  const [mode, setMode] = useState<ApplyRebindRequest['mode']>('clone');
-  const [name, setName] = useState('');
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
-
   const [ask, setAsk] = useState('');
   const [proposing, setProposing] = useState(false);
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [proposeError, setProposeError] = useState<string | null>(null);
 
   const noun = assetType === 'dashboard' ? 'dashboard' : 'analysis';
-
-  const load = useCallback(async () => {
-    if (!asset) {
-      return;
-    }
-    setLoading(true);
-    setLoadError(null);
-    setPlan(null);
-    setPlanError(null);
-    setApplyError(null);
-    setTargets({});
-    setColumnMaps({});
-    setMode('clone');
-    setName(`${asset.name} (copy)`);
-    setAsk('');
-    setProposal(null);
-    setProposeError(null);
-    try {
-      const result = await authoringApi.getDatasets(assetType, asset.id);
-      setDatasets(result.datasets);
-    } catch (error) {
-      setLoadError(getApiErrorMessage(error, `Failed to read the ${noun}`));
-    } finally {
-      setLoading(false);
-    }
-  }, [asset, assetType, noun]);
-
-  useEffect(() => {
-    if (open) {
-      void load();
-    }
-  }, [open, load]);
-
-  const rebinds = useMemo<RebindRequest[]>(
-    () =>
-      datasets
-        .filter((d) => targets[d.identifier])
-        .map((d) => ({
-          identifier: d.identifier,
-          targetDataSetId: targets[d.identifier]!.id,
-          columnMap: columnMaps[d.identifier],
-        })),
-    [datasets, targets, columnMaps]
-  );
-  const rebindKey = useDebounce(JSON.stringify(rebinds), PLAN_DEBOUNCE_MS);
-
-  useEffect(() => {
-    if (!open || !asset) {
-      return;
-    }
-    const current = JSON.parse(rebindKey) as RebindRequest[];
-    if (current.length === 0) {
-      setPlan(null);
-      setPlanError(null);
-      return;
-    }
-    let cancelled = false;
-    setPlanning(true);
-    setPlanError(null);
-    authoringApi
-      .planRebind(assetType, asset.id, current)
-      .then((next) => {
-        if (!cancelled) {
-          setPlan(next);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setPlan(null);
-          setPlanError(getApiErrorMessage(error, 'Could not check the new dataset'));
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setPlanning(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [rebindKey, open, asset, assetType]);
-
-  const setTarget = (identifier: string, target: DatasetOption | null) => {
-    setTargets((prev) => ({ ...prev, [identifier]: target }));
-    // A different target dataset makes the old renames meaningless.
-    setColumnMaps((prev) => ({ ...prev, [identifier]: {} }));
-  };
-
-  const mapColumn = (identifier: string, source: string, target: string | null) => {
-    setColumnMaps((prev) => {
-      const next = { ...(prev[identifier] ?? {}) };
-      if (target) {
-        next[source] = target;
-      } else {
-        delete next[source];
-      }
-      return { ...prev, [identifier]: next };
-    });
-  };
-
-  const acceptSuggestions = (identifier: string) => {
-    const dataset = plan?.datasets.find((d) => d.identifier === identifier);
-    if (!dataset) {
-      return;
-    }
-    setColumnMaps((prev) => {
-      const next = { ...(prev[identifier] ?? {}) };
-      for (const column of dataset.columns) {
-        if (column.status === 'suggested' && column.suggestion) {
-          next[column.name] = column.suggestion;
-        }
-      }
-      return { ...prev, [identifier]: next };
-    });
-  };
 
   /**
    * Ask the planner. Its answer only fills in the same controls a person
@@ -216,41 +87,13 @@ export default function RebindDialog({
     try {
       const result = await authoringApi.propose(assetType, asset.id, { ask: ask.trim() });
       setProposal(result);
-      if (result.intent === 'unclear' || !result.plan) {
-        return;
-      }
-      setMode(result.mode);
-      if (result.name) {
-        setName(result.name);
-      }
-      setTargets(
-        Object.fromEntries(
-          result.plan.datasets.map((d) => [
-            d.identifier,
-            { id: d.target.dataSetId, name: d.target.name },
-          ])
-        )
-      );
-      setColumnMaps(
-        Object.fromEntries(result.rebinds.map((r) => [r.identifier, r.columnMap ?? {}]))
-      );
+      draft.applyProposal(result);
     } catch (error) {
       setProposeError(getApiErrorMessage(error, 'The planner could not build a proposal'));
     } finally {
       setProposing(false);
     }
   };
-
-  const trimmedName = name.trim();
-  const renameOnly = rebinds.length === 0;
-  const canApply =
-    !applying &&
-    !planning &&
-    (renameOnly
-      ? mode === 'clone'
-        ? trimmedName.length > 0
-        : trimmedName.length > 0 && trimmedName !== asset?.name
-      : Boolean(plan?.canApply) && (mode === 'update' || trimmedName.length > 0));
 
   const handleApply = async () => {
     if (!asset) {
@@ -260,15 +103,17 @@ export default function RebindDialog({
     setApplyError(null);
     try {
       const result = await authoringApi.applyRebind(assetType, asset.id, {
-        mode,
-        rebinds,
-        name: trimmedName || undefined,
+        mode: draft.mode,
+        rebinds: draft.rebinds,
+        name: draft.name.trim() || undefined,
       });
       enqueueSnackbar(
-        mode === 'clone' ? `Created ${noun} "${result.name}"` : `Updated ${noun} "${result.name}"`,
+        draft.mode === 'clone'
+          ? `Created ${noun} "${result.name}"`
+          : `Updated ${noun} "${result.name}"`,
         { variant: 'success' }
       );
-      onApplied?.({ assetId: result.assetId, name: result.name, mode });
+      onApplied?.({ assetId: result.assetId, name: result.name, mode: draft.mode });
       onClose();
     } catch (error) {
       setApplyError(getApiErrorMessage(error, `Failed to update the ${noun}`));
@@ -276,6 +121,8 @@ export default function RebindDialog({
       setApplying(false);
     }
   };
+
+  const busy = applying || proposing;
 
   return (
     <Dialog open={open} onClose={applying ? undefined : onClose} maxWidth="md" fullWidth>
@@ -289,20 +136,20 @@ export default function RebindDialog({
       </DialogTitle>
 
       <DialogContent dividers>
-        {loading && (
+        {draft.loading && (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
             <CircularProgress />
           </Box>
         )}
 
-        {loadError && (
+        {draft.loadError && (
           <Alert severity="error">
             <AlertTitle>Cannot read this {noun}</AlertTitle>
-            {loadError}
+            {draft.loadError}
           </Alert>
         )}
 
-        {!loading && !loadError && (
+        {!draft.loading && !draft.loadError && (
           <Stack spacing={3}>
             <Box>
               <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
@@ -319,12 +166,12 @@ export default function RebindDialog({
                   }}
                   size="small"
                   fullWidth
-                  disabled={applying || proposing}
+                  disabled={busy}
                 />
                 <Button
                   variant="outlined"
                   onClick={handlePropose}
-                  disabled={applying || proposing || !ask.trim()}
+                  disabled={busy || !ask.trim()}
                   startIcon={proposing ? <CircularProgress size={16} color="inherit" /> : undefined}
                   sx={{ whiteSpace: 'nowrap' }}
                 >
@@ -358,8 +205,8 @@ export default function RebindDialog({
 
             <RadioGroup
               row
-              value={mode}
-              onChange={(e) => setMode(e.target.value as ApplyRebindRequest['mode'])}
+              value={draft.mode}
+              onChange={(e) => draft.setMode(e.target.value as RebindMode)}
             >
               <FormControlLabel
                 value="clone"
@@ -376,27 +223,31 @@ export default function RebindDialog({
             </RadioGroup>
 
             <TextField
-              label={mode === 'clone' ? 'Name for the copy' : 'Name'}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              label={draft.mode === 'clone' ? 'Name for the copy' : 'Name'}
+              value={draft.name}
+              onChange={(e) => draft.setName(e.target.value)}
               size="small"
               fullWidth
               disabled={applying}
-              helperText={mode === 'update' ? 'Leave as is to keep the current name' : undefined}
+              helperText={
+                draft.mode === 'update' ? 'Leave as is to keep the current name' : undefined
+              }
             />
 
-            {datasets.length === 0 && (
+            {draft.datasets.length === 0 && (
               <Alert severity="info">This {noun} declares no datasets.</Alert>
             )}
 
-            {datasets.map((dataset) => {
-              const datasetPlan = plan?.datasets.find((d) => d.identifier === dataset.identifier);
+            {draft.datasets.map((dataset) => {
+              const datasetPlan = draft.plan?.datasets.find(
+                (d) => d.identifier === dataset.identifier
+              );
               const suggestions =
                 datasetPlan?.columns.filter((c) => c.status === 'suggested').length ?? 0;
               return (
                 <Box
                   key={dataset.identifier}
-                  sx={{ border: `1px solid ${colors.neutral[200]}`, borderRadius: 1, p: 2 }}
+                  sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}
                 >
                   <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 2 }}>
                     <Typography
@@ -420,8 +271,8 @@ export default function RebindDialog({
                   </Stack>
 
                   <TargetDatasetPicker
-                    value={targets[dataset.identifier] ?? null}
-                    onChange={(next) => setTarget(dataset.identifier, next)}
+                    value={draft.targets[dataset.identifier] ?? null}
+                    onChange={(next) => draft.setTarget(dataset.identifier, next)}
                     currentId={dataset.dataSetId}
                     disabled={applying}
                   />
@@ -434,12 +285,12 @@ export default function RebindDialog({
                           renamed, {datasetPlan.summary.suggested} to decide,{' '}
                           {datasetPlan.summary.missing} missing
                         </Typography>
-                        {planning && <CircularProgress size={14} />}
+                        {draft.planning && <CircularProgress size={14} />}
                         <Box sx={{ flex: 1 }} />
                         {suggestions > 0 && (
                           <Button
                             size="small"
-                            onClick={() => acceptSuggestions(dataset.identifier)}
+                            onClick={() => draft.acceptSuggestions(dataset.identifier)}
                             disabled={applying}
                           >
                             Accept {suggestions} suggestion{suggestions === 1 ? '' : 's'}
@@ -449,8 +300,8 @@ export default function RebindDialog({
                       <Divider sx={{ mb: 1 }} />
                       <ColumnResolutionTable
                         plan={datasetPlan}
-                        columnMap={columnMaps[dataset.identifier] ?? {}}
-                        onMap={(source, target) => mapColumn(dataset.identifier, source, target)}
+                        columnMap={draft.columnMaps[dataset.identifier] ?? {}}
+                        onMap={(from, to) => draft.mapColumn(dataset.identifier, from, to)}
                         disabled={applying}
                       />
                     </Box>
@@ -459,7 +310,7 @@ export default function RebindDialog({
               );
             })}
 
-            {planError && <Alert severity="error">{planError}</Alert>}
+            {draft.planError && <Alert severity="error">{draft.planError}</Alert>}
             {applyError && (
               <Alert severity="error">
                 <AlertTitle>QuickSight rejected the change</AlertTitle>
@@ -467,7 +318,7 @@ export default function RebindDialog({
               </Alert>
             )}
 
-            {mode === 'update' && rebinds.length > 0 && (
+            {draft.mode === 'update' && draft.rebinds.length > 0 && (
               <Alert severity="warning">
                 This rewrites the {noun} in place
                 {assetType === 'dashboard' ? ' and publishes a new version' : ''}. Everyone who uses
@@ -485,10 +336,10 @@ export default function RebindDialog({
         <Button
           variant="contained"
           onClick={handleApply}
-          disabled={!canApply}
+          disabled={!draft.canApply || busy}
           startIcon={applying ? <CircularProgress size={16} color="inherit" /> : undefined}
         >
-          {mode === 'clone' ? 'Create copy' : 'Apply'}
+          {draft.mode === 'clone' ? 'Create copy' : 'Apply'}
         </Button>
       </DialogActions>
     </Dialog>

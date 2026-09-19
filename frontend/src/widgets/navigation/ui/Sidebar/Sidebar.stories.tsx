@@ -1,5 +1,6 @@
-import { Box } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { useState } from 'react';
 
 import { Sidebar } from './Sidebar';
 
@@ -11,7 +12,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'A permanent navigation sidebar with colorful active states and a user section at the bottom for profile info and logout.',
+          'The side navigation: sections with small headers, a blue (or asset-coloured) active indicator, Settings pinned to the bottom, and a collapsed icon-only mode with tooltips. The current page is announced through aria-current.',
       },
     },
   },
@@ -20,8 +21,10 @@ const meta = {
       <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'background.default' }}>
         <Story />
         <Box sx={{ flexGrow: 1, p: 3 }}>
-          <h2>Main Content Area</h2>
-          <p>The sidebar provides navigation between different sections of the application.</p>
+          <Typography variant="h2">Page content</Typography>
+          <Typography color="text.secondary" sx={{ mt: 1 }}>
+            The sidebar sits to the left of every page, under the top bar.
+          </Typography>
         </Box>
       </Box>
     ),
@@ -31,74 +34,43 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {};
+export const Expanded: Story = {
+  args: { currentPath: '/activity', onToggleCollapsed: () => {} },
+};
 
+export const Collapsed: Story = {
+  args: { currentPath: '/activity', collapsed: true, onToggleCollapsed: () => {} },
+};
+
+/** Asset pages tint the indicator with the asset's colour. */
 export const DashboardsActive: Story = {
-  decorators: [
-    (Story) => (
-      <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'background.default' }}>
-        <Story />
-        <Box sx={{ flexGrow: 1, p: 3 }}>
-          <h2>Dashboards Page</h2>
-          <p>The Dashboards menu item is highlighted with the dashboard color.</p>
-        </Box>
-      </Box>
-    ),
-  ],
+  args: { currentPath: '/assets/dashboards', onToggleCollapsed: () => {} },
 };
 
-export const AnalysesActive: Story = {
-  decorators: [
-    (Story) => (
-      <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'background.default' }}>
-        <Story />
-        <Box sx={{ flexGrow: 1, p: 3 }}>
-          <h2>Analyses Page</h2>
-          <p>The Analyses menu item is highlighted with the analysis color.</p>
-        </Box>
-      </Box>
-    ),
-  ],
+export const AuthorActive: Story = {
+  args: { currentPath: '/author', onToggleCollapsed: () => {} },
 };
 
-export const DatasetsActive: Story = {
-  decorators: [
-    (Story) => (
-      <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'background.default' }}>
-        <Story />
-        <Box sx={{ flexGrow: 1, p: 3 }}>
-          <h2>Datasets Page</h2>
-          <p>The Datasets menu item is highlighted with the dataset color.</p>
-        </Box>
-      </Box>
-    ),
-  ],
+/** Child routes keep the parent item active. */
+export const OperationsChildRouteActive: Story = {
+  args: { currentPath: '/operations/anything', onToggleCollapsed: () => {} },
 };
 
-export const UsersActive: Story = {
-  decorators: [
-    (Story) => (
-      <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'background.default' }}>
-        <Story />
-        <Box sx={{ flexGrow: 1, p: 3 }}>
-          <h2>Users Page</h2>
-          <p>The Users menu item is highlighted with the user color.</p>
-        </Box>
-      </Box>
-    ),
-  ],
+export const SettingsActive: Story = {
+  args: { currentPath: '/settings', onToggleCollapsed: () => {} },
 };
 
-export const DataCatalogActive: Story = {
-  decorators: [
-    (Story) => (
-      <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'background.default' }}>
-        <Story />
-        <Box sx={{ flexGrow: 1, p: 3 }}>
-          <h2>Data Catalog Page</h2>
-          <p>The Data Catalog menu item is highlighted.</p>
-        </Box>
-      </Box>
-    ),
-  ],
+function Toggling() {
+  const [collapsed, setCollapsed] = useState(false);
+  return (
+    <Sidebar
+      collapsed={collapsed}
+      onToggleCollapsed={() => setCollapsed((c) => !c)}
+      currentPath="/assets/datasets"
+    />
+  );
+}
+
+export const Interactive: Story = {
+  render: () => <Toggling />,
 };

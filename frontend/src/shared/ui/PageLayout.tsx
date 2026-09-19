@@ -1,22 +1,40 @@
 import { Box } from '@mui/material';
+import type { ReactNode } from 'react';
 
-import { PageHeader } from './PageHeader';
+import { PageHeader } from '@/shared/design-system/components/PageHeader';
 
 interface PageLayoutProps {
   title: string;
+  description?: ReactNode;
+  /** @deprecated Use `counter`. */
   totalRows?: number;
-  extraActions?: React.ReactNode;
-  children: React.ReactNode;
+  counter?: number;
+  /** @deprecated Use `actions`. */
+  extraActions?: ReactNode;
+  actions?: ReactNode;
+  children: ReactNode;
 }
 
 /**
- * Standard page layout used by all pages.
- * Renders a PageHeader followed by page content.
+ * Standard page layout: a PageHeader followed by page content.
  */
-export function PageLayout({ title, totalRows, extraActions, children }: PageLayoutProps) {
+export function PageLayout({
+  title,
+  description,
+  totalRows,
+  counter,
+  extraActions,
+  actions,
+  children,
+}: PageLayoutProps) {
   return (
     <Box>
-      <PageHeader title={title} totalRows={totalRows} extraActions={extraActions} />
+      <PageHeader
+        title={title}
+        description={description}
+        counter={counter ?? totalRows}
+        actions={actions ?? extraActions}
+      />
       {children}
     </Box>
   );

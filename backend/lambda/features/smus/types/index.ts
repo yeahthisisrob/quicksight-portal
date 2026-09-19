@@ -23,3 +23,33 @@ export interface SmusDatasetLink {
   listingName?: string;
   url?: string;
 }
+
+/** One published listing with what the portal knows about it. */
+export interface SmusAsset {
+  listingId: string;
+  assetId: string;
+  name: string;
+  assetType: string;
+  description?: string;
+  projectId?: string;
+  projectName?: string;
+  url?: string;
+  table?: { catalog?: string; database: string; name: string };
+  columns?: Array<{ name: string; type: string }>;
+  /** QuickSight datasets the portal matched to this listing. */
+  datasets: Array<{ id: string; name: string; matchType: SmusMatchType }>;
+}
+
+export interface SmusAssetsResult {
+  configured: boolean;
+  /** Project ids the sweep was limited to; empty means all. */
+  projectFilter: string[];
+  assets: SmusAsset[];
+}
+
+export interface CreateSmusDatasetRequest {
+  dataSourceId: string;
+  name?: string;
+  importMode: 'DIRECT_QUERY' | 'SPICE';
+  permissionsFromDataSetId?: string;
+}

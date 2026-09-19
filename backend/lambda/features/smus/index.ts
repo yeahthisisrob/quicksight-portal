@@ -1,5 +1,10 @@
 import type { RouteHandler } from '../../api/types';
-import { getSmusDatasetLinks, getSmusStatus } from './handlers/SmusHandler';
+import {
+  createSmusDataset,
+  getSmusDatasetLinks,
+  getSmusStatus,
+  listSmusAssets,
+} from './handlers/SmusHandler';
 
 export const smusRoutes: RouteHandler[] = [
   {
@@ -12,6 +17,16 @@ export const smusRoutes: RouteHandler[] = [
     method: 'POST',
     handler: getSmusDatasetLinks,
   },
+  {
+    path: '/smus/assets',
+    method: 'GET',
+    handler: listSmusAssets,
+  },
+  {
+    path: /^\/smus\/assets\/([^/]+)\/dataset$/,
+    method: 'POST',
+    handler: createSmusDataset,
+  },
 ];
 
 // Export service
@@ -19,4 +34,4 @@ export { SmusService } from './services/SmusService';
 // Export types
 export type * from './types';
 // Export handlers
-export { getSmusDatasetLinks, getSmusStatus };
+export { createSmusDataset, getSmusDatasetLinks, getSmusStatus, listSmusAssets };

@@ -1,6 +1,6 @@
 /**
  * The one thing a planner needs from a model: a prompt in, JSON that fits a
- * schema out. No tool loops, no streaming, no memory. Keeping the contract
+ * schema out. No tool loops, no streaming, no memory. Keeping the interface
  * this narrow is what lets Bedrock, a local `claude` or `codex` session, and
  * any OpenAI-compatible endpoint (Grok included) sit behind the same
  * interface.

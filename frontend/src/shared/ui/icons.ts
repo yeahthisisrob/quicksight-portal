@@ -3,9 +3,11 @@
  * This file maps all icon usage across the application for consistency
  */
 import {
+  AccountCircle as AccountIcon,
   Add as AddIcon,
   Analytics as AnalysisIcon,
   Archive as ArchiveIcon,
+  AutoAwesome as AuthorIcon,
   Block as BlockIcon,
   // JSON Viewer specific
   Functions as CalcFieldIcon,
@@ -14,7 +16,9 @@ import {
   Close as CloseIcon,
   Code as CodeIcon,
   UnfoldLess as CollapseIcon,
+  ChevronLeft as CollapseNavIcon,
   ContentCopy as CopyIcon,
+  DarkMode as DarkModeIcon,
   // Asset types
   Dashboard as DashboardIcon,
   TableChart as DataCatalogIcon,
@@ -26,6 +30,7 @@ import {
   Error as ErrorIcon,
   UnfoldMore as ExpandIcon,
   ExpandMore as ExpandMoreIcon,
+  ChevronRight as ExpandNavIcon,
   ImportExport as ExportManagementIcon,
   Calculate as ExpressionIcon,
   DataObject as FieldIcon,
@@ -35,6 +40,7 @@ import {
   Info as InfoIcon,
   // Actions
   Code as JsonIcon,
+  LightMode as LightModeIcon,
   AccountTree as LineageIcon,
   Lock as LockIcon,
   Logout as LogoutIcon,
@@ -43,6 +49,7 @@ import {
   MoreVert as MoreVertIcon,
   Language as NamespaceIcon,
   OpenInNew as OpenInNewIcon,
+  Build as OperationsIcon,
   // Catalog specific
   ViewList as PhysicalFieldIcon,
   Public as PublicIcon,
@@ -147,6 +154,14 @@ export const navigationIcons = {
   logout: LogoutIcon,
   storage: StorageIcon,
   timeline: TimelineNavIcon,
+  author: AuthorIcon,
+  operations: OperationsIcon,
+  settings: Settings,
+  account: AccountIcon,
+  collapse: CollapseNavIcon,
+  expand: ExpandNavIcon,
+  darkMode: DarkModeIcon,
+  lightMode: LightModeIcon,
 } as const;
 
 // Status icons

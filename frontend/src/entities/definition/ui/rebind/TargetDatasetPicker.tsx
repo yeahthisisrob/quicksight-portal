@@ -4,10 +4,7 @@ import { useEffect, useState } from 'react';
 import { assetsApi } from '@/shared/api';
 import { useDebounce } from '@/shared/lib/useDebounce';
 
-export interface DatasetOption {
-  id: string;
-  name: string;
-}
+import type { DatasetOption } from '../../lib/useRebindDraft';
 
 interface TargetDatasetPickerProps {
   value: DatasetOption | null;

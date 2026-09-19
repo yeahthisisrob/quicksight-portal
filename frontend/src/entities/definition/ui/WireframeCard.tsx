@@ -7,6 +7,7 @@ import { alpha, Box, Chip, Tooltip, Typography } from '@mui/material';
 
 import { borderRadius, typography } from '@/shared/design-system/theme';
 
+import type { FieldRename } from '../lib/wireframeDiff';
 import type { WireframeElement, WireframeField } from '../model/types';
 import { glyphFor, kindLabel } from './glyphs';
 
@@ -18,7 +19,10 @@ export function fieldLabel(field: WireframeField): string {
   return field.label;
 }
 
-function Wells({ element }: { element: WireframeElement }) {
+/** Renames for this element, keyed `role/index` (see elementRenames). */
+export type ElementRenames = Map<string, FieldRename>;
+
+function Wells({ element, renames }: { element: WireframeElement; renames?: ElementRenames }) {
   if (element.fieldWells.length === 0) return null;
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, px: 1, pb: 1 }}>
@@ -42,24 +46,33 @@ function Wells({ element }: { element: WireframeElement }) {
             >
               {well.role}
             </Typography>
-            {shown.map((field, i) => (
-              <Tooltip
-                key={`${field.label}-${i}`}
-                title={field.dataSetIdentifier ? `${field.dataSetIdentifier}.${field.label}` : ''}
-              >
-                <Chip
-                  label={fieldLabel(field)}
-                  size="small"
-                  variant="outlined"
-                  sx={{
-                    height: 18,
-                    fontSize: '0.6875rem',
-                    fontFamily: typography.fontFamily.monospace,
-                    '& .MuiChip-label': { px: 0.75 },
-                  }}
-                />
-              </Tooltip>
-            ))}
+            {shown.map((field, i) => {
+              const rename = renames?.get(`${well.role}/${i}`);
+              const qualified = field.dataSetIdentifier
+                ? `${field.dataSetIdentifier}.${field.label}`
+                : '';
+              return (
+                <Tooltip
+                  key={`${field.label}-${i}`}
+                  title={rename ? `Renamed: ${rename.from} → ${rename.to}` : qualified}
+                >
+                  <Chip
+                    label={fieldLabel(field)}
+                    size="small"
+                    variant={rename ? 'filled' : 'outlined'}
+                    color={rename ? 'info' : 'default'}
+                    data-renamed={rename ? 'true' : undefined}
+                    sx={{
+                      height: 18,
+                      fontSize: '0.6875rem',
+                      fontFamily: typography.fontFamily.monospace,
+                      fontWeight: rename ? typography.fontWeight.semibold : undefined,
+                      '& .MuiChip-label': { px: 0.75 },
+                    }}
+                  />
+                </Tooltip>
+              );
+            })}
             {overflow > 0 && (
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                 +{overflow}
@@ -135,9 +148,11 @@ interface WireframeCardProps {
   element: WireframeElement;
   /** Control-bar rendering: tighter, no placeholder area. */
   dense?: boolean;
+  /** Fields to draw as renamed, keyed `role/index`. */
+  renames?: ElementRenames;
 }
 
-export function WireframeCard({ element, dense = false }: WireframeCardProps) {
+export function WireframeCard({ element, dense = false, renames }: WireframeCardProps) {
   const Glyph = glyphFor(element);
   const isText = element.kind === 'textBox';
   const heading = isText ? undefined : (element.title ?? `Untitled ${kindLabel(element)}`);
@@ -201,7 +216,7 @@ export function WireframeCard({ element, dense = false }: WireframeCardProps) {
         </Typography>
       )}
       {!dense && <Placeholder element={element} />}
-      <Wells element={element} />
+      <Wells element={element} renames={renames} />
     </Box>
   );
 }
