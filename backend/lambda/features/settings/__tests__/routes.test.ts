@@ -10,6 +10,7 @@ vi.mock('../handlers/SettingsHandler', () => ({
   }),
 }));
 
+import { SETTINGS_CATALOG } from '../../../shared/services/settings/settingsCatalog';
 import { settingsRoutes } from '../routes';
 
 describe('settingsRoutes', () => {
@@ -19,5 +20,18 @@ describe('settingsRoutes', () => {
       'PUT /settings',
       'GET /settings/smus/projects',
     ]);
+  });
+
+  it('serves every optionsFrom endpoint the catalog hands to the UI', () => {
+    // The UI keys its option loaders by this exact path (see RemoteMultiSelect),
+    // so a mismatch means the picker never asks and shows nothing.
+    const served = settingsRoutes.filter((r) => r.method === 'GET').map((r) => r.path);
+    const wanted = SETTINGS_CATALOG.flatMap((g) => g.settings)
+      .map((s) => s.optionsFrom)
+      .filter((path): path is string => Boolean(path));
+    expect(wanted.length).toBeGreaterThan(0);
+    for (const path of wanted) {
+      expect(served).toContain(path);
+    }
   });
 });

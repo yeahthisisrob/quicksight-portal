@@ -19,6 +19,14 @@ interface RemoteOptions {
 }
 
 /**
+ * The API client already prefixes `/api`, so a definition that names the
+ * endpoint with it still resolves to the same loader.
+ */
+export function loaderKey(optionsFrom: string): string {
+  return optionsFrom.replace(/^\/api(?=\/)/, '');
+}
+
+/**
  * Where a multiselect's choices come from, keyed by the `optionsFrom`
  * endpoint the setting definition names. Adding a remote list is one entry.
  */
@@ -61,10 +69,15 @@ export function RemoteMultiSelect({
   disabled,
   emptyHint,
 }: RemoteMultiSelectProps) {
-  const loader = LOADERS[optionsFrom];
+  const loader = LOADERS[loaderKey(optionsFrom)];
   const query = useQuery({
     queryKey: ['settings-options', optionsFrom],
-    queryFn: () => (loader ? loader() : Promise.resolve({ configured: true, options: [] })),
+    queryFn: () =>
+      loader
+        ? loader()
+        : Promise.reject(
+            new Error(`No option loader for ${optionsFrom}; the UI is behind the API`)
+          ),
   });
 
   const options = query.data?.options ?? [];

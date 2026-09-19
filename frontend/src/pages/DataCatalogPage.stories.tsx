@@ -61,8 +61,8 @@ export const NotConfigured: Story = {
   ),
 };
 
-export const NoActiveProjects: Story = {
-  name: 'Gated: no active projects',
+export const NoProjectsSelected: Story = {
+  name: 'Gated: no projects selected',
   parameters: { router: { initialEntries: ['/data-catalog'] } },
   render: () => (
     <AppShell path="data-catalog" routes={catalogRoutes([SMUS_SETTINGS_NO_PROJECTS])}>

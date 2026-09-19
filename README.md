@@ -78,7 +78,7 @@ just smus-grant dzd_xxxx                          # every project
 just smus-grant dzd_xxxx "analytics_prod,analytics_dev"
 ```
 
-Author and the catalog are built on SMUS projects, so until the domain is configured and the portal can see at least one project, both pages show one thing: what to fix, with the discovery diagnostics (how many projects ListProjects returned, how many listings and publishers were found) and a link to Settings.
+Author and the catalog are built on SMUS projects, so until a domain is set and at least one project is selected under "Projects to read from", both pages show one thing: what to set, with a link to Settings. The picker itself explains an empty list: which role called DataZone, whether the domain knows it, and how many projects, listings and publishers were found.
 
 ### Settings
 

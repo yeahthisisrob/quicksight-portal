@@ -83,7 +83,7 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
           'Only listings owned by these projects are offered as dataset targets. Empty means every project in the domain.',
         type: 'multiselect',
         envVar: 'SMUS_PROJECT_IDS',
-        optionsFrom: '/api/settings/smus/projects',
+        optionsFrom: '/settings/smus/projects',
       },
       {
         key: 'smus.databasePatterns',

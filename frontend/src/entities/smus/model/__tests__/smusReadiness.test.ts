@@ -1,8 +1,29 @@
 import { describe, expect, it } from 'vitest';
 
-import { describeProjectDiagnostics, smusReadiness } from '../smusReadiness';
+import type { SettingsSnapshot } from '@/shared/api/modules/settings';
 
-const project = { id: 'proj-1', name: 'published_prod' };
+import { describeProjectDiagnostics, selectedProjectIds, smusReadiness } from '../smusReadiness';
+
+function snapshot(
+  domainId: string | undefined,
+  projectIds: string[] | undefined
+): SettingsSnapshot {
+  const base = { label: '', description: '', source: 'stored' as const, sensitive: false };
+  return {
+    groups: [
+      {
+        id: 'smus',
+        title: 'SMUS',
+        description: '',
+        settings: [
+          { ...base, key: 'smus.domainId', type: 'string', value: domainId },
+          { ...base, key: 'smus.projectIds', type: 'multiselect', value: projectIds },
+        ],
+      },
+    ],
+  } as SettingsSnapshot;
+}
+
 const diagnostics = {
   domainId: 'dzd_abc',
   region: 'us-east-1',
@@ -12,16 +33,23 @@ const diagnostics = {
 };
 
 describe('smusReadiness', () => {
-  it('is not-configured when the domain is missing, whatever else is there', () => {
-    expect(smusReadiness({ configured: false, projects: [project] })).toBe('not-configured');
+  it('is not-configured without a domain, whatever projects say', () => {
+    expect(smusReadiness(snapshot(undefined, ['p1']))).toBe('not-configured');
+    expect(smusReadiness(snapshot('  ', ['p1']))).toBe('not-configured');
   });
 
-  it('is no-projects when the domain is set but nothing is reachable', () => {
-    expect(smusReadiness({ configured: true, projects: [] })).toBe('no-projects');
+  it('is no-projects when a domain is set but nothing is selected', () => {
+    expect(smusReadiness(snapshot('dzd_1', []))).toBe('no-projects');
+    expect(smusReadiness(snapshot('dzd_1', undefined))).toBe('no-projects');
   });
 
-  it('is ready with one project', () => {
-    expect(smusReadiness({ configured: true, projects: [project] })).toBe('ready');
+  it('is ready with one selected project', () => {
+    expect(smusReadiness(snapshot('dzd_1', ['p1']))).toBe('ready');
+  });
+
+  it('reads the selected ids and ignores a malformed value', () => {
+    expect(selectedProjectIds(snapshot('dzd_1', ['p1', 'p2']))).toEqual(['p1', 'p2']);
+    expect(selectedProjectIds({ groups: [] })).toEqual([]);
   });
 });
 
