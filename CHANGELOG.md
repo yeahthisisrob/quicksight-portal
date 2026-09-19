@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.13.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.13.0...v2.13.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* **data-catalog:** stop hiding QuickSight's own fields behind SMUS, and read datasets again after the data prep change ([#179](https://github.com/yeahthisisrob/quicksight-portal/issues/179)) ([cf75ff9](https://github.com/yeahthisisrob/quicksight-portal/commit/cf75ff9b3ca6b98218fb559ed2be8fd50709e838))
+
 ## [2.13.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.12.1...v2.13.0) (2026-09-19)
 
 
