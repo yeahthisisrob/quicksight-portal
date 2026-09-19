@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.7.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.6.0...v2.7.0) (2026-09-19)
+
+
+### Features
+
+* **authoring:** repair assets QuickSight refuses to write, and per-visual load times on the wireframe ([#152](https://github.com/yeahthisisrob/quicksight-portal/issues/152)) ([93b4258](https://github.com/yeahthisisrob/quicksight-portal/commit/93b425852bbaa43925bb5acc4d80592c3ac545d5))
+
+
+### Bug Fixes
+
+* **ci:** the story smoke warms the dev server and retries a timeout, and can filter to touched stories ([#150](https://github.com/yeahthisisrob/quicksight-portal/issues/150)) ([205f70b](https://github.com/yeahthisisrob/quicksight-portal/commit/205f70b6590d85204feff6a542536344603bcf9f))
+
 ## [2.6.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.5.1...v2.6.0) (2026-09-19)
 
 
