@@ -206,6 +206,16 @@ export class QuicksightPortalStack extends Stack {
         `arn:aws:bedrock:*:${this.account}:inference-profile/*`,
       ],
     }));
+    // Bedrock gates a foundation model behind its Marketplace subscription, so
+    // the first invoke fails with AccessDenied unless the caller can read - and
+    // on first use accept - that subscription. Neither action supports
+    // resource-level scoping, and the product id is not known at synth time
+    // (the model comes from PLANNER_MODEL_ID), hence the wildcard.
+    lambdaRole.addToPolicy(new PolicyStatement({
+      effect: Effect.ALLOW,
+      actions: ['aws-marketplace:ViewSubscriptions', 'aws-marketplace:Subscribe'],
+      resources: ['*'],
+    }));
     // SMUS (SageMaker Unified Studio) catalog lookups: listings (with their
     // metadata forms) and the project list the settings page chooses from.
     // Harmless when no SMUS domain is configured.
@@ -675,8 +685,9 @@ export class QuicksightPortalStack extends Stack {
       {
         id: 'AwsSolutions-IAM5[Resource::*]',
         reason:
-          'cloudtrail:LookupEvents, cloudwatch:GetMetricData and the DataZone ' +
-          'catalog calls do not support resource-level scoping.',
+          'cloudtrail:LookupEvents, cloudwatch:GetMetricData, the DataZone ' +
+          'catalog calls and the aws-marketplace subscription checks Bedrock ' +
+          'makes before an invoke do not support resource-level scoping.',
       },
       ...nagAccounts.map((acct) => ({
         id: `AwsSolutions-IAM5[Resource::arn:aws:s3:::cdk-hnb659fds-assets-${acct}-${this.region}/*]`,
