@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.14.4](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.14.3...v2.14.4) (2026-09-21)
+
+
+### Bug Fixes
+
+* **planner:** let the Lambda read its Bedrock model's Marketplace subscription ([#193](https://github.com/yeahthisisrob/quicksight-portal/issues/193)) ([fad2ac4](https://github.com/yeahthisisrob/quicksight-portal/commit/fad2ac4f1e4dad05eb00f7dc320436e46b768557))
+
 ## [2.14.3](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.14.2...v2.14.3) (2026-09-19)
 
 
