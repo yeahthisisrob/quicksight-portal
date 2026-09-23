@@ -251,6 +251,27 @@ describe('RebindService', () => {
       expect(mocks.qs.updateAnalysis).not.toHaveBeenCalled();
     });
 
+    it('refuses an added calculated field that reads a column the target lacks, after warning in preview', async () => {
+      // QuickSight would fail the whole write over it and leave a broken
+      // asset; the preview says so and apply stops before writing.
+      const request = {
+        rebinds: [{ identifier: 'orders', targetDataSetId: 'orders-gold', columnMap: FULL_MAP }],
+        addCalculatedFields: [
+          { identifier: 'orders', name: 'net', expression: '{revenue} - {tax} - {margin}' },
+        ],
+      };
+      const preview = await service.preview('analysis', 'a1', request);
+      expect(preview.warnings).toEqual([
+        expect.stringContaining(
+          "Calculated field 'net' reads 'tax', which orders_gold does not have"
+        ),
+      ]);
+      await expect(service.apply('analysis', 'a1', { mode: 'update', ...request })).rejects.toThrow(
+        "Calculated field 'net' reads 'tax'"
+      );
+      expect(mocks.qs.updateAnalysis).not.toHaveBeenCalled();
+    });
+
     it('updates an analysis in place with the rewritten definition', async () => {
       const result = await service.apply('analysis', 'a1', {
         mode: 'update',

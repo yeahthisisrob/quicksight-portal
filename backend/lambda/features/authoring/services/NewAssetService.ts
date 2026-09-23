@@ -14,7 +14,9 @@ import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { settingsStore } from '../../../shared/services/settings/SettingsStore';
 import { logger } from '../../../shared/utils/logger';
+import { datasetPermissionsFor } from '../../../shared/utils/permissions';
 import { type BuilderDataset, buildDefinition, type VisualSpec } from '../lib/definitionBuilder';
+import { unresolvedCalculatedFieldColumns } from '../lib/definitionColumns';
 import type { DefinitionChange } from '../lib/definitionOps';
 import { buildOutline } from '../lib/definitionOutline';
 import { withAddedCalculatedFields } from '../lib/definitionRebind';
@@ -36,7 +38,15 @@ const TAG_VALUE_MAX = 256;
 export interface NewAssetRequest {
   assetType: AuthorableAssetType;
   name: string;
-  datasets: Array<{ identifier: string; dataSetId: string }>;
+  datasets: Array<{
+    identifier: string;
+    dataSetId: string;
+    /**
+     * Give the new asset's audience the same standing on this dataset. For
+     * a dataset created for this asset, which nobody can see yet.
+     */
+    shareWithAudience?: boolean;
+  }>;
   /** Visuals to build; when absent and `ask` is given, the planner proposes them. */
   visuals?: VisualSpec[];
   ask?: string;
@@ -82,8 +92,8 @@ export class NewAssetService {
     this.quickSightService = ClientFactory.getQuickSightService(accountId);
   }
 
-  public preview(request: NewAssetRequest): Promise<NewAssetPreview> {
-    return this.compose(request);
+  public async preview(request: NewAssetRequest): Promise<NewAssetPreview> {
+    return (await this.compose(request)).preview;
   }
 
   public async create(request: NewAssetRequest, auth?: AuthContext): Promise<NewAssetResult> {
@@ -94,9 +104,12 @@ export class NewAssetService {
     if (name.length > NAME_MAX_LENGTH) {
       throw new ValidationError(`Name must be at most ${NAME_MAX_LENGTH} characters`);
     }
-    const composed = await this.compose(request);
+    const { preview: composed, blocking } = await this.compose(request);
     if ((composed.definition.Sheets?.[0]?.Visuals?.length ?? 0) === 0) {
       throw new ValidationError('Nothing to create: no visual could be built');
+    }
+    if (blocking.length > 0) {
+      throw new ValidationError(blocking.join(' '));
     }
     const from = request.permissionsFrom ?? request.template;
     const permissions = from
@@ -107,6 +120,7 @@ export class NewAssetService {
         'No audience was given (permissionsFrom or a template), so only account admins will see this asset.'
       );
     }
+    await this.shareDatasets(request, permissions, composed.warnings);
     const newId = request.newAssetId?.trim() || randomUUID();
     logger.info('Creating asset from scratch', {
       assetType: request.assetType,
@@ -162,7 +176,51 @@ export class NewAssetService {
     };
   }
 
-  private async compose(request: NewAssetRequest): Promise<NewAssetPreview> {
+  /**
+   * A dataset created for this asset is visible to nobody until someone
+   * shares it. The audience the asset inherits gets the same standing on
+   * it (owners own, viewers read) before the asset is written, so the first
+   * person to open the asset finds its data. A failed grant is a warning:
+   * the asset is still worth creating.
+   */
+  private async shareDatasets(
+    request: NewAssetRequest,
+    permissions: any[] | undefined,
+    warnings: string[]
+  ): Promise<void> {
+    const toShare = request.datasets.filter((d) => d.shareWithAudience);
+    if (toShare.length === 0) {
+      return;
+    }
+    const grants = datasetPermissionsFor(permissions);
+    if (grants.length === 0) {
+      warnings.push(
+        `${toShare.length === 1 ? 'A dataset' : `${toShare.length} datasets`} created for this asset ${toShare.length === 1 ? 'has' : 'have'} no audience either; share ${toShare.length === 1 ? 'it' : 'them'} from Assets or give the asset an audience.`
+      );
+      return;
+    }
+    for (const dataset of toShare) {
+      try {
+        await this.quickSightService.updateDataSetPermissions(dataset.dataSetId, grants);
+      } catch (error) {
+        logger.warn('Dataset could not be shared with the audience', {
+          dataSetId: dataset.dataSetId,
+          error,
+        });
+        warnings.push(
+          `Dataset ${dataset.identifier} could not be shared with the audience, so they will not see its data until it is.`
+        );
+      }
+    }
+  }
+
+  /**
+   * The preview, plus what would stop a create: things QuickSight would
+   * refuse the whole asset over, which a preview only warns about.
+   */
+  private async compose(
+    request: NewAssetRequest
+  ): Promise<{ preview: NewAssetPreview; blocking: string[] }> {
     if (request.datasets.length === 0) {
       throw new ValidationError('At least one dataset is required');
     }
@@ -230,6 +288,18 @@ export class NewAssetService {
     }
 
     const added = request.addCalculatedFields ?? [];
+    // QuickSight checks every expression against the dataset when the asset
+    // is written and fails the whole write on one unknown column, so a
+    // field that reads what the dataset does not have blocks the create.
+    const blocking = unresolvedCalculatedFieldColumns(
+      added,
+      definition,
+      new Map([...targets].map(([id, t]) => [id, new Set(t.columns.map((c) => c.name))]))
+    ).map(
+      (u) =>
+        `Calculated field '${u.name}' reads ${u.columns.map((c) => `'${c}'`).join(', ')}, which ${targets.get(u.identifier)?.name ?? u.identifier} does not have.`
+    );
+    warnings.push(...blocking);
     definition = withAddedCalculatedFields(definition, added);
     for (const field of added) {
       changes.push({
@@ -245,13 +315,16 @@ export class NewAssetService {
     }
 
     return {
-      definition,
-      outline: buildOutline(definition),
-      changes,
-      warnings,
-      visuals,
-      ...(proposal ? { proposal } : {}),
-      ...(themeArn ? { themeArn } : {}),
+      preview: {
+        definition,
+        outline: buildOutline(definition),
+        changes,
+        warnings,
+        visuals,
+        ...(proposal ? { proposal } : {}),
+        ...(themeArn ? { themeArn } : {}),
+      },
+      blocking,
     };
   }
 

@@ -263,10 +263,13 @@ export class AuthoringHandler {
           typeof d !== 'object' ||
           d === null ||
           typeof d.identifier !== 'string' ||
-          typeof d.dataSetId !== 'string'
+          typeof d.dataSetId !== 'string' ||
+          (d.shareWithAudience !== undefined && typeof d.shareWithAudience !== 'boolean')
       )
     ) {
-      throw badRequest('datasets must be a non-empty array of { identifier, dataSetId }');
+      throw badRequest(
+        'datasets must be a non-empty array of { identifier, dataSetId, shareWithAudience? }'
+      );
     }
     const visuals = body.visuals;
     if (

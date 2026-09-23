@@ -5199,6 +5199,13 @@ export interface components {
             datasets: {
                 identifier: string;
                 dataSetId: string;
+                /**
+                 * @description Give the asset's audience (permissionsFrom or the template's)
+                 *     the same standing on this dataset: owners own it, viewers read
+                 *     it. For a dataset created for this asset, which nobody can see
+                 *     yet. A grant that fails is a warning, not a failed create.
+                 */
+                shareWithAudience?: boolean;
             }[];
             visuals?: components["schemas"]["VisualSpec"][];
             /** @description When visuals are absent, the planner proposes them from this. */

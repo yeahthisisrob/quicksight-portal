@@ -167,7 +167,12 @@ export function NewDatasetsStep({ flow }: { flow: AuthorFlow }) {
           <Tab value="quicksight" label="QuickSight datasets" />
         </Tabs>
         {tab === 'smus' ? (
-          <SmusAssetPicker currentDataSetId="" selected={null} onSelect={fresh.addDataset} />
+          <SmusAssetPicker
+            currentDataSetId=""
+            selected={null}
+            onSelect={fresh.addDataset}
+            onCreated={(option) => fresh.addDataset(option, true)}
+          />
         ) : (
           <TargetDatasetPicker
             value={null}

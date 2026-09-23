@@ -159,7 +159,8 @@ export interface NewAssetFlow {
   setSheetName: (sheetName: string) => void;
   /** The datasets it reads, each under an identifier its columns are named by. */
   datasets: NewAssetDataset[];
-  addDataset: (option: DatasetOption) => void;
+  /** `createdHere` marks a dataset made in this flow, which the audience is then given. */
+  addDataset: (option: DatasetOption, createdHere?: boolean) => void;
   removeDataset: (identifier: string) => void;
   setIdentifier: (identifier: string, next: string) => void;
   /** Columns by identifier, from the cached dataset exports. */
@@ -551,8 +552,13 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
       sheetName: fresh.sheetName,
       setSheetName: (sheetName) => dispatch({ type: 'setFreshSheetName', sheetName }),
       datasets: fresh.datasets,
-      addDataset: (option) =>
-        dispatch({ type: 'addFreshDataset', dataSetId: option.id, name: option.name }),
+      addDataset: (option, createdHere) =>
+        dispatch({
+          type: 'addFreshDataset',
+          dataSetId: option.id,
+          name: option.name,
+          ...(createdHere ? { createdHere } : {}),
+        }),
       removeDataset: (identifier) => dispatch({ type: 'removeFreshDataset', identifier }),
       setIdentifier: (identifier, replacement) =>
         dispatch({ type: 'setFreshIdentifier', identifier, next: replacement }),

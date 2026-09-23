@@ -32,7 +32,10 @@ import { logger } from '../../../shared/utils/logger';
 import { normalizePermissionsArray } from '../../../shared/utils/permissions';
 import { resolveColumns, type TargetColumn } from '../lib/columnResolution';
 import { crossDatasetFilterColumns, crossDatasetFilterWarnings } from '../lib/crossDatasetFilters';
-import { collectDefinitionDatasets } from '../lib/definitionColumns';
+import {
+  collectDefinitionDatasets,
+  unresolvedCalculatedFieldColumns,
+} from '../lib/definitionColumns';
 import { applyOps, type DefinitionChange, type DefinitionOp } from '../lib/definitionOps';
 import { buildOutline } from '../lib/definitionOutline';
 import {
@@ -154,7 +157,11 @@ export class RebindService {
       template,
       currentColumns
     );
-    const allWarnings = [...warnings, ...(await this.crossDatasetWarnings(definition, plan))];
+    const allWarnings = [
+      ...warnings,
+      ...(await this.addedFieldProblems(repaired.loaded.definition, plan, request)),
+      ...(await this.crossDatasetWarnings(definition, plan)),
+    ];
     return {
       plan,
       definition,
@@ -163,6 +170,31 @@ export class RebindService {
       ...(allWarnings.length ? { warnings: allWarnings } : {}),
       ...(themeArn ? { themeArn } : {}),
     };
+  }
+
+  /**
+   * Added calculated fields that read a column their dataset (after the
+   * rebind) does not have. QuickSight fails the whole write over one, so
+   * preview says so and apply refuses.
+   */
+  private async addedFieldProblems(
+    definition: Record<string, any>,
+    plan: RebindPlan,
+    request: { addCalculatedFields?: AddedCalculatedField[] }
+  ): Promise<string[]> {
+    const added = request.addCalculatedFields ?? [];
+    if (added.length === 0) {
+      return [];
+    }
+    const names = new Map(plan.datasets.map((d) => [d.identifier, d.target.name]));
+    return unresolvedCalculatedFieldColumns(
+      added,
+      definition,
+      await this.columnsByIdentifier(definition, plan)
+    ).map(
+      (u) =>
+        `Calculated field '${u.name}' reads ${u.columns.map((c) => `'${c}'`).join(', ')}, which ${names.get(u.identifier) ?? u.identifier} does not have.`
+    );
   }
 
   /**
@@ -474,6 +506,10 @@ export class RebindService {
     const loaded = repaired.loaded;
     const plan = await this.planAgainst(assetType, assetId, loaded, request.rebinds);
     this.assertApplicable(plan);
+    const fieldProblems = await this.addedFieldProblems(loaded.definition, plan, request);
+    if (fieldProblems.length > 0) {
+      throw new ValidationError(fieldProblems.join(' '));
+    }
 
     const name = this.resolveName(request, loaded.name);
     const template = await this.loadTemplate(request.template, loaded.definition, plan);

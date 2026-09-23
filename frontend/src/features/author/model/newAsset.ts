@@ -60,6 +60,11 @@ export interface NewAssetDataset {
   identifier: string;
   dataSetId: string;
   name: string;
+  /**
+   * Created in this flow for this asset, so nobody can see it yet; the
+   * server gives it the asset's audience on publish.
+   */
+  createdHere?: boolean;
 }
 
 /** One output column of a dataset, as the authoring columns endpoint lists it. */
@@ -248,7 +253,11 @@ export function newAssetRequest(draft: NewAssetDraft): NewAssetRequest {
   return {
     assetType: draft.assetType,
     name: draft.name.trim(),
-    datasets: draft.datasets.map((d) => ({ identifier: d.identifier, dataSetId: d.dataSetId })),
+    datasets: draft.datasets.map((d) => ({
+      identifier: d.identifier,
+      dataSetId: d.dataSetId,
+      ...(d.createdHere ? { shareWithAudience: true } : {}),
+    })),
     ...(visuals.length > 0 ? { visuals } : ask ? { ask } : {}),
     ...(draft.sheetName?.trim() ? { sheetName: draft.sheetName.trim() } : {}),
     ...(draft.addCalculatedFields?.length

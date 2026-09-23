@@ -35,6 +35,8 @@ interface SmusAssetPickerProps {
   currentDataSetId: string;
   selected: DatasetOption | null;
   onSelect: (option: DatasetOption) => void;
+  /** A dataset made here, just now, is chosen through this instead when given. */
+  onCreated?: (option: DatasetOption) => void;
 }
 
 function AssetRow({
@@ -42,11 +44,13 @@ function AssetRow({
   currentDataSetId,
   selected,
   onSelect,
+  onCreated,
 }: {
   asset: SmusAsset;
   currentDataSetId: string;
   selected: DatasetOption | null;
   onSelect: (option: DatasetOption) => void;
+  onCreated?: (option: DatasetOption) => void;
 }) {
   const [creating, setCreating] = useState(false);
   const table = asset.table ? `${asset.table.database}.${asset.table.name}` : null;
@@ -132,7 +136,7 @@ function AssetRow({
             onCancel={() => setCreating(false)}
             onCreated={(option) => {
               setCreating(false);
-              onSelect(option);
+              (onCreated ?? onSelect)(option);
             }}
           />
         ) : (
@@ -155,7 +159,12 @@ function AssetRow({
   );
 }
 
-export function SmusAssetPicker({ currentDataSetId, selected, onSelect }: SmusAssetPickerProps) {
+export function SmusAssetPicker({
+  currentDataSetId,
+  selected,
+  onSelect,
+  onCreated,
+}: SmusAssetPickerProps) {
   const [search, setSearch] = useState('');
   // '' means every selected project. Everything in SMUS is per project
   // (listings, glossaries, environments), so this is the primary scope.
@@ -296,6 +305,7 @@ export function SmusAssetPicker({ currentDataSetId, selected, onSelect }: SmusAs
           currentDataSetId={currentDataSetId}
           selected={selected}
           onSelect={onSelect}
+          onCreated={onCreated}
         />
       ))}
     </Stack>
