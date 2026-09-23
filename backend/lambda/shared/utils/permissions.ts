@@ -40,3 +40,51 @@ export function normalizePermissionsArray(raw: unknown): any[] {
   }
   return Array.isArray(p) ? p : [];
 }
+
+/** What QuickSight's console grants a dataset viewer. */
+export const DATASET_VIEWER_ACTIONS = [
+  'quicksight:DescribeDataSet',
+  'quicksight:DescribeDataSetPermissions',
+  'quicksight:PassDataSet',
+  'quicksight:DescribeIngestion',
+  'quicksight:ListIngestions',
+];
+
+/** What QuickSight's console grants a dataset owner. */
+export const DATASET_OWNER_ACTIONS = [
+  ...DATASET_VIEWER_ACTIONS,
+  'quicksight:UpdateDataSet',
+  'quicksight:DeleteDataSet',
+  'quicksight:CreateIngestion',
+  'quicksight:CancelIngestion',
+  'quicksight:UpdateDataSetPermissions',
+];
+
+export interface ResourcePermissionEntry {
+  Principal: string;
+  Actions: string[];
+}
+
+/**
+ * The same audience on a dataset as on a dashboard or analysis: whoever can
+ * change the asset owns the dataset, everyone else can read it. Link
+ * sharing (`*`) and malformed entries are left out; a dataset has no public
+ * link.
+ */
+export function datasetPermissionsFor(assetPermissions: unknown): ResourcePermissionEntry[] {
+  return normalizePermissionsArray(assetPermissions)
+    .filter(
+      (p): p is { Principal: string; Actions?: unknown } =>
+        typeof p?.Principal === 'string' && p.Principal !== '' && p.Principal !== '*'
+    )
+    .map((p) => {
+      const actions = Array.isArray(p.Actions)
+        ? p.Actions.filter((a) => typeof a === 'string')
+        : [];
+      const owner = actions.some((a: string) => /^quicksight:(Update|Delete)/.test(a));
+      return {
+        Principal: p.Principal,
+        Actions: owner ? [...DATASET_OWNER_ACTIONS] : [...DATASET_VIEWER_ACTIONS],
+      };
+    });
+}

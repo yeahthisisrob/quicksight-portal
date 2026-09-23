@@ -177,6 +177,21 @@ describe('newAssetRequest', () => {
     expect(request).not.toHaveProperty('template');
     expect(request).not.toHaveProperty('folderId');
     expect(request).not.toHaveProperty('permissionsFrom');
+    expect(request.datasets[0]).not.toHaveProperty('shareWithAudience');
+  });
+
+  it('asks the server to share a dataset made here with the audience', () => {
+    const request = newAssetRequest({
+      ...base,
+      datasets: [
+        { identifier: 'sales', dataSetId: 'sales-gold', name: 'sales_gold' },
+        { identifier: 'fresh', dataSetId: 'made-now', name: 'fresh', createdHere: true },
+      ],
+    });
+    expect(request.datasets).toEqual([
+      { identifier: 'sales', dataSetId: 'sales-gold' },
+      { identifier: 'fresh', dataSetId: 'made-now', shareWithAudience: true },
+    ]);
   });
 
   it('carries the audience, the folder and the standard through', () => {
@@ -254,6 +269,21 @@ describe('the flow in new mode', () => {
       name: 'sales gold',
     });
     expect(again).toBe(state);
+  });
+
+  it('remembers that a dataset was made here, so publish can share it', () => {
+    const state = authorFlowReducer(withDatasets(), {
+      type: 'addFreshDataset',
+      dataSetId: 'made-now',
+      name: 'Orders (fresh)',
+      createdHere: true,
+    });
+    expect(state.fresh.datasets[1]).toEqual({
+      identifier: 'orders_fresh',
+      dataSetId: 'made-now',
+      name: 'Orders (fresh)',
+      createdHere: true,
+    });
   });
 
   it('renaming an identifier follows into the visuals, and a clash is refused', () => {

@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
     createAnalysis: vi.fn(),
     createFolderMembership: vi.fn(),
     tagResource: vi.fn(),
+    updateDataSetPermissions: vi.fn(),
   },
   audit: { record: vi.fn() },
 }));
@@ -63,7 +64,102 @@ describe('NewAssetService', () => {
     mocks.qs.createAnalysis.mockResolvedValue({ analysisId: 'new-a', arn: 'arn:analysis/new-a' });
     mocks.qs.createFolderMembership.mockResolvedValue(undefined);
     mocks.qs.tagResource.mockResolvedValue(undefined);
+    mocks.qs.updateDataSetPermissions.mockResolvedValue({ Status: 200 });
     mocks.audit.record.mockResolvedValue(null);
+  });
+
+  const TABLE = {
+    type: 'Table' as const,
+    title: 'All',
+    identifier: 'orders',
+    category: 'region',
+    values: [{ column: 'revenue' }],
+  };
+
+  it('warns in preview and refuses to create when an added field reads a column the dataset lacks', async () => {
+    // QuickSight validates expressions when the asset is written and fails
+    // the whole write (CONTEXTUAL_UNKNOWN_SYMBOL), leaving a blank asset
+    // with no dataset bound; the check runs here instead.
+    const request = {
+      assetType: 'analysis' as const,
+      name: 'x',
+      datasets: [{ identifier: 'orders', dataSetId: 'ds-1' }],
+      visuals: [TABLE],
+      addCalculatedFields: [
+        { identifier: 'orders', name: 'net', expression: '{revenue} - {tax}' },
+        { identifier: 'orders', name: 'net_pct', expression: '{net} / {revenue}' },
+      ],
+    };
+    const preview = await service().preview(request);
+    expect(preview.warnings).toEqual([
+      "Calculated field 'net' reads 'tax', which orders_gold does not have.",
+    ]);
+    expect(preview.definition.CalculatedFields).toHaveLength(2);
+    await expect(service().create(request)).rejects.toThrow("Calculated field 'net' reads 'tax'");
+    expect(mocks.qs.createAnalysis).not.toHaveBeenCalled();
+  });
+
+  it('gives the audience the same standing on a dataset made for the asset', async () => {
+    rebind.permissionsOf.mockResolvedValue([
+      {
+        Principal: 'arn:user/rob',
+        Actions: ['quicksight:DescribeAnalysis', 'quicksight:UpdateAnalysis'],
+      },
+      { Principal: 'arn:group/readers', Actions: ['quicksight:DescribeAnalysis'] },
+    ]);
+    const result = await service().create({
+      assetType: 'analysis',
+      name: 'x',
+      datasets: [
+        { identifier: 'orders', dataSetId: 'ds-1' },
+        { identifier: 'fresh', dataSetId: 'ds-new', shareWithAudience: true },
+      ],
+      visuals: [TABLE],
+      permissionsFrom: { assetType: 'analysis', assetId: 'src' },
+    });
+    expect(mocks.qs.updateDataSetPermissions).toHaveBeenCalledTimes(1);
+    const [dataSetId, grants] = mocks.qs.updateDataSetPermissions.mock.calls[0]!;
+    expect(dataSetId).toBe('ds-new');
+    expect(grants).toEqual([
+      {
+        Principal: 'arn:user/rob',
+        Actions: expect.arrayContaining(['quicksight:PassDataSet', 'quicksight:UpdateDataSet']),
+      },
+      {
+        Principal: 'arn:group/readers',
+        Actions: expect.arrayContaining(['quicksight:PassDataSet']),
+      },
+    ]);
+    expect(grants[1].Actions).not.toContain('quicksight:UpdateDataSet');
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('warns rather than fails when the dataset cannot be shared, or there is no audience to share with', async () => {
+    mocks.qs.updateDataSetPermissions.mockRejectedValue(new Error('AccessDenied'));
+    const failed = await service().create({
+      assetType: 'analysis',
+      name: 'x',
+      datasets: [{ identifier: 'fresh', dataSetId: 'ds-new', shareWithAudience: true }],
+      visuals: [{ ...TABLE, identifier: 'fresh' }],
+      permissionsFrom: { assetType: 'analysis', assetId: 'src' },
+    });
+    expect(failed.warnings).toEqual([
+      expect.stringContaining('Dataset fresh could not be shared with the audience'),
+    ]);
+    expect(mocks.qs.createAnalysis).toHaveBeenCalledTimes(1);
+
+    rebind.permissionsOf.mockResolvedValue(undefined);
+    const nobody = await service().create({
+      assetType: 'analysis',
+      name: 'x',
+      datasets: [{ identifier: 'fresh', dataSetId: 'ds-new', shareWithAudience: true }],
+      visuals: [{ ...TABLE, identifier: 'fresh' }],
+    });
+    expect(nobody.warnings).toEqual([
+      expect.stringContaining('only account admins will see this asset'),
+      expect.stringContaining('A dataset created for this asset has no audience either'),
+    ]);
+    expect(mocks.qs.updateDataSetPermissions).toHaveBeenCalledTimes(1);
   });
 
   it('previews given visuals: builds the definition, outline and warnings without writing', async () => {

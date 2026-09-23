@@ -173,7 +173,7 @@ export type AuthorFlowAction =
   | { type: 'setFreshAssetType'; assetType: AuthorableAssetType }
   | { type: 'setFreshName'; name: string }
   | { type: 'setFreshSheetName'; sheetName: string }
-  | { type: 'addFreshDataset'; dataSetId: string; name: string }
+  | { type: 'addFreshDataset'; dataSetId: string; name: string; createdHere?: boolean }
   | { type: 'removeFreshDataset'; identifier: string }
   | { type: 'setFreshIdentifier'; identifier: string; next: string }
   | { type: 'setVisuals'; visuals: DraftVisual[] }
@@ -266,7 +266,12 @@ export function authorFlowReducer(
       return withFresh(state, {
         datasets: [
           ...state.fresh.datasets,
-          { identifier, dataSetId: action.dataSetId, name: action.name },
+          {
+            identifier,
+            dataSetId: action.dataSetId,
+            name: action.name,
+            ...(action.createdHere ? { createdHere: true } : {}),
+          },
         ],
       });
     }

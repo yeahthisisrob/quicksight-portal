@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   collectDefinitionDatasets,
   expressionColumns,
+  unresolvedCalculatedFieldColumns,
   walkColumnIdentifiers,
 } from '../definitionColumns';
 import { ORDERS_ARN, sampleDefinition } from './fixtures';
@@ -114,5 +115,46 @@ describe('collectDefinitionDatasets', () => {
   it('returns nothing when there are no declarations', () => {
     expect(collectDefinitionDatasets({})).toEqual([]);
     expect(collectDefinitionDatasets(null)).toEqual([]);
+  });
+});
+
+describe('unresolvedCalculatedFieldColumns', () => {
+  const columns = new Map([['orders', new Set(['revenue', 'cost', 'region'])]]);
+
+  it('names the columns an added field reads that the dataset does not have', () => {
+    const unresolved = unresolvedCalculatedFieldColumns(
+      [
+        { identifier: 'orders', name: 'profit', expression: '{revenue} - {cost}' },
+        { identifier: 'orders', name: 'per_unit', expression: '{revenue} / {units} - {tax}' },
+      ],
+      sampleDefinition(),
+      columns
+    );
+    expect(unresolved).toEqual([
+      { identifier: 'orders', name: 'per_unit', columns: ['units', 'tax'] },
+    ]);
+  });
+
+  it('lets a field read another calculated field, existing or in the same batch', () => {
+    const unresolved = unresolvedCalculatedFieldColumns(
+      [
+        { identifier: 'orders', name: 'margin_pct', expression: '{margin} / {revenue}' },
+        { identifier: 'orders', name: 'net', expression: '{revenue} - {tax}' },
+        { identifier: 'orders', name: 'net_pct', expression: '{net} / {revenue} * ${scale}' },
+      ],
+      sampleDefinition(),
+      columns
+    );
+    expect(unresolved).toEqual([{ identifier: 'orders', name: 'net', columns: ['tax'] }]);
+  });
+
+  it('skips a dataset whose columns are not known', () => {
+    expect(
+      unresolvedCalculatedFieldColumns(
+        [{ identifier: 'regions', name: 'x', expression: '{nothing}' }],
+        sampleDefinition(),
+        columns
+      )
+    ).toEqual([]);
   });
 });

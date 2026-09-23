@@ -216,3 +216,44 @@ export function collectDefinitionDatasets(definition: unknown): DefinitionDatase
       };
     });
 }
+
+export interface UnresolvedCalculatedField {
+  identifier: string;
+  name: string;
+  /** The `{column}` tokens neither the dataset nor another calculated field provides. */
+  columns: string[];
+}
+
+/**
+ * Calculated fields about to be added whose expressions name a column the
+ * dataset does not have. QuickSight checks expressions against the
+ * dataset's output columns when the asset is written; one miss fails the
+ * whole write (CONTEXTUAL_UNKNOWN_SYMBOL) and leaves a broken asset behind,
+ * so the check runs here first. A token may also name a calculated field
+ * already on the same identifier, or another field in the same batch.
+ * Identifiers whose columns are unknown are not checked.
+ */
+export function unresolvedCalculatedFieldColumns(
+  fields: Array<{ identifier: string; name: string; expression: string }>,
+  definition: unknown,
+  columnsByIdentifier: Map<string, Set<string>>
+): UnresolvedCalculatedField[] {
+  const existing = calculatedFieldsByDataset(definition);
+  const out: UnresolvedCalculatedField[] = [];
+  for (const field of fields) {
+    const columns = columnsByIdentifier.get(field.identifier);
+    if (!columns) {
+      continue;
+    }
+    const known = new Set<string>([
+      ...columns,
+      ...(existing.get(field.identifier) ?? []).map((f) => f.Name ?? ''),
+      ...fields.filter((f) => f.identifier === field.identifier).map((f) => f.name),
+    ]);
+    const missing = expressionColumns(field.expression).filter((name) => !known.has(name));
+    if (missing.length > 0) {
+      out.push({ identifier: field.identifier, name: field.name, columns: missing });
+    }
+  }
+  return out;
+}

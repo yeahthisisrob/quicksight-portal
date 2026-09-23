@@ -192,6 +192,15 @@ describe('SmusService assets', () => {
         { Name: 'signed_up', Type: 'DATETIME' },
       ],
     });
+    // An analysis reads the logical table, so every column is projected
+    // from the physical one; a dataset without it has no fields to bind.
+    const [physicalTableId] = Object.keys(call.physicalTableMap);
+    const logical = Object.values(call.logicalTableMap)[0] as any;
+    expect(logical).toEqual({
+      Alias: 'dim_customer',
+      Source: { PhysicalTableId: physicalTableId },
+      DataTransforms: [{ ProjectOperation: { ProjectedColumns: ['customer_id', 'signed_up'] } }],
+    });
   });
 
   it('refuses a listing without table identity, an unknown listing, and a foreign data source', async () => {

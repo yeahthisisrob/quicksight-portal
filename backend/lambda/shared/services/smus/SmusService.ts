@@ -324,6 +324,7 @@ export class SmusService {
 
     const dataSetId = randomUUID();
     const tableId = randomUUID();
+    const logicalTableId = randomUUID();
     logger.info('Creating dataset from SMUS listing', {
       listingId,
       dataSetId,
@@ -333,6 +334,11 @@ export class SmusService {
       permissions: permissions.length,
     });
 
+    // The physical table declares what the source has; the logical table is
+    // what an analysis reads. QuickSight's own console always writes both,
+    // projecting every column, and every other create path in this repo
+    // carries a logical table too. Datasets made here without one left the
+    // Author flow's analyses blank, with no dataset bound.
     const created = await this.quickSightService.createDataSet({
       dataSetId,
       name,
@@ -350,6 +356,15 @@ export class SmusService {
               Type: toQuickSightColumnType(c.type) as any,
             })),
           },
+        },
+      } as any,
+      logicalTableMap: {
+        [logicalTableId]: {
+          Alias: listing.table.name,
+          Source: { PhysicalTableId: tableId },
+          DataTransforms: [
+            { ProjectOperation: { ProjectedColumns: listing.columns.map((c) => c.name) } },
+          ],
         },
       } as any,
     });
