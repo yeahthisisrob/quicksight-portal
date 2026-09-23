@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.14.5](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.14.4...v2.14.5) (2026-09-23)
+
+
+### Bug Fixes
+
+* **author:** a dataset made inline gets a logical table and an audience, and an added field that reads a missing column is refused before publish ([#196](https://github.com/yeahthisisrob/quicksight-portal/issues/196)) ([7d4f707](https://github.com/yeahthisisrob/quicksight-portal/commit/7d4f707254fd648aef2eebd625df678d595f76eb))
+
 ## [2.14.4](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.14.3...v2.14.4) (2026-09-21)
 
 
