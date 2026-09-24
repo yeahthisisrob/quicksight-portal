@@ -228,6 +228,26 @@ function analyzeDependencies(metafile) {
   });
 }
 
+/**
+ * The dev and watch builds: same entry points, aliases, externals and
+ * plugins as the production build (a `?raw` import must resolve in every
+ * mode), only unminified with inline source maps.
+ */
+function devOptions(entry, outfile) {
+  return {
+    entryPoints: [entry],
+    bundle: true,
+    sourcemap: 'inline',
+    platform: 'node',
+    target: 'node22',
+    outfile,
+    alias: { '@shared': path.resolve(__dirname, '../../shared') },
+    external: [...awsSdkV3Externals, 'aws-lambda'],
+    plugins: [rawTextPlugin],
+    logLevel: 'info',
+  };
+}
+
 // Development build
 async function buildDev() {
   console.log('🔧 Starting development build...');
@@ -235,27 +255,8 @@ async function buildDev() {
   // Validate schema and generate types first
   await validateAndGenerateTypes();
 
-  await esbuild.build({
-    entryPoints: ['./index.ts'],
-    bundle: true,
-    sourcemap: 'inline',
-    platform: 'node',
-    target: 'node22',
-    outfile: 'dist/index.js',
-    external: [...awsSdkV3Externals, 'aws-lambda'],
-    logLevel: 'info',
-  });
-
-  await esbuild.build({
-    entryPoints: ['./worker.ts'],
-    bundle: true,
-    sourcemap: 'inline',
-    platform: 'node',
-    target: 'node22',
-    outfile: 'dist/worker.js',
-    external: [...awsSdkV3Externals, 'aws-lambda'],
-    logLevel: 'info',
-  });
+  await esbuild.build(devOptions('./index.ts', 'dist/index.js'));
+  await esbuild.build(devOptions('./worker.ts', 'dist/worker.js'));
 
   console.log('✅ Development build complete!');
 }
@@ -264,27 +265,8 @@ async function buildDev() {
 async function watch() {
   console.log('👀 Starting watch mode...');
 
-  const apiCtx = await esbuild.context({
-    entryPoints: ['./index.ts'],
-    bundle: true,
-    sourcemap: 'inline',
-    platform: 'node',
-    target: 'node22',
-    outfile: 'dist/index.js',
-    external: [...awsSdkV3Externals, 'aws-lambda'],
-    logLevel: 'info',
-  });
-
-  const workerCtx = await esbuild.context({
-    entryPoints: ['./worker.ts'],
-    bundle: true,
-    sourcemap: 'inline',
-    platform: 'node',
-    target: 'node22',
-    outfile: 'dist/worker.js',
-    external: [...awsSdkV3Externals, 'aws-lambda'],
-    logLevel: 'info',
-  });
+  const apiCtx = await esbuild.context(devOptions('./index.ts', 'dist/index.js'));
+  const workerCtx = await esbuild.context(devOptions('./worker.ts', 'dist/worker.js'));
 
   await apiCtx.watch();
   await workerCtx.watch();
