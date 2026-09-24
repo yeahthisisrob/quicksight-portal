@@ -60,6 +60,7 @@ const JOB_TYPE_LABELS: Record<string, string> = {
   'smus-export': 'SMUS export',
   'bulk-operation': 'Bulk operation',
   'csv-export': 'CSV export',
+  planner: 'Planner',
   deploy: 'Deploy',
   ingestion: 'Ingestion',
   rebuild: 'Rebuild',
@@ -73,6 +74,7 @@ const JOB_TYPE_FILTERS = [
   { value: 'smus-export', label: 'SMUS export' },
   { value: 'bulk-operation', label: 'Bulk operation' },
   { value: 'csv-export', label: 'CSV export' },
+  { value: 'planner', label: 'Planner' },
   { value: 'deploy', label: 'Deploy' },
 ];
 

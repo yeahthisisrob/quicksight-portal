@@ -9,6 +9,7 @@ import {
   SMUS_SETTINGS_NOT_CONFIGURED,
   SOURCE,
 } from '@/features/author/ui/__stories__/fixtures';
+import { settingsRoutes } from '@/features/settings/ui/__stories__/fixtures';
 
 import { AppShell } from '../../.storybook/mocks/AppShell';
 import AuthorPage from './AuthorPage';
@@ -68,6 +69,17 @@ export const StartedFromNothing: Story = {
   parameters: { router: { initialEntries: ['/author?new=1'] } },
   render: () => (
     <AppShell path="author" routes={authorRoutes()}>
+      <AuthorPage />
+    </AppShell>
+  ),
+};
+
+/** /author?tab=api - authoring by API: an agent with a key, the keys, every operation. */
+export const ApiTab: Story = {
+  name: 'API tab',
+  parameters: { router: { initialEntries: ['/author?tab=api'] } },
+  render: () => (
+    <AppShell path="author" routes={authorRoutes(settingsRoutes())}>
       <AuthorPage />
     </AppShell>
   ),

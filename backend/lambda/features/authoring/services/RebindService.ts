@@ -22,11 +22,9 @@ import { randomUUID } from 'node:crypto';
 import type { AuthContext } from '../../../shared/auth';
 import { ValidationError } from '../../../shared/errors/ValidationError';
 import type { AssetExportData } from '../../../shared/models/asset-export.model';
-import { actorFromAuth, auditLog } from '../../../shared/services/audit/AuditLog';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import type { S3Service } from '../../../shared/services/aws/S3Service';
-import { settingsStore } from '../../../shared/services/settings/SettingsStore';
 import { ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
 import { normalizePermissionsArray } from '../../../shared/utils/permissions';
@@ -59,9 +57,8 @@ import type {
   RebindPreview,
   RebindRequest,
 } from '../types';
+import { createAsset, recordProvenance, updateAsset } from './assetWriter';
 
-/** QuickSight tag values are capped at 256 characters. */
-const TAG_VALUE_MAX = 256;
 const NAME_MAX_LENGTH = 200;
 
 interface LoadedDefinition {
@@ -430,9 +427,19 @@ export class RebindService {
   public async loadDefinitionWithTheme(
     assetType: AuthorableAssetType,
     assetId: string
-  ): Promise<{ name: string; definition: Record<string, any>; themeArn?: string }> {
+  ): Promise<{
+    name: string;
+    definition: Record<string, any>;
+    themeArn?: string;
+    dashboardPublishOptions?: any;
+  }> {
     const loaded = await this.loadDefinition(assetType, assetId);
-    return { name: loaded.name, definition: loaded.definition, themeArn: loaded.themeArn };
+    return {
+      name: loaded.name,
+      definition: loaded.definition,
+      themeArn: loaded.themeArn,
+      dashboardPublishOptions: loaded.dashboardPublishOptions,
+    };
   }
 
   /** The audience of an existing asset, for a new asset to inherit. */
@@ -443,55 +450,29 @@ export class RebindService {
     return this.sourcePermissions(assetType, assetId);
   }
 
-  /**
-   * The portal's own trace of a write: an audit record (who, through what),
-   * and tags on the asset so the fact survives outside the portal. Neither
-   * may fail the write they describe.
-   */
-  private async recordProvenance(
+  private recordProvenance(
     assetType: AuthorableAssetType,
     written: { assetId: string; name: string },
     request: ApplyRequest,
     changeCount: number,
     auth?: AuthContext
   ): Promise<void> {
-    if (!auth) {
-      return;
-    }
-    const { actor, channel } = actorFromAuth(auth);
-    await auditLog.record({
-      actor,
-      channel,
-      action: request.mode === 'clone' ? 'authoring.clone' : 'authoring.update',
-      assetType,
-      assetId: written.assetId,
-      assetName: written.name,
-      details: {
-        rebinds: request.rebinds.length,
-        ops: request.ops?.length ?? 0,
-        repairs: request.repairs?.length ?? 0,
-        changes: changeCount,
-      },
-    });
-    if (settingsStore.get('provenance.tagAssets') === false) {
-      return;
-    }
-    try {
-      await this.quickSightService.tagResource(assetType, written.assetId, [
-        {
-          key: 'portal:authored-by',
-          value: `${actor.kind}:${actor.label}`.slice(0, TAG_VALUE_MAX),
-        },
-        { key: 'portal:channel', value: channel },
-        { key: 'portal:at', value: new Date().toISOString() },
-      ]);
-    } catch (error) {
-      logger.warn('Provenance tags could not be written', {
+    return recordProvenance(
+      this.quickSightService,
+      {
+        action: request.mode === 'clone' ? 'authoring.clone' : 'authoring.update',
         assetType,
         assetId: written.assetId,
-        error,
-      });
-    }
+        name: written.name,
+        details: {
+          rebinds: request.rebinds.length,
+          ops: request.ops?.length ?? 0,
+          repairs: request.repairs?.length ?? 0,
+          changes: changeCount,
+        },
+      },
+      auth
+    );
   }
 
   /** Re-plan, refuse anything unresolved, then write to QuickSight. */
@@ -748,37 +729,21 @@ export class RebindService {
   // QuickSight writes
   // ---------------------------------------------------------------------------
 
-  private async update(
+  private update(
     assetType: AuthorableAssetType,
     assetId: string,
     name: string,
     definition: Record<string, any>,
     loaded: LoadedDefinition
   ): Promise<{ assetId: string; arn: string; versionNumber?: number }> {
-    if (assetType === 'analysis') {
-      const result = await this.quickSightService.updateAnalysis({
-        analysisId: assetId,
-        name,
-        definition,
-        themeArn: loaded.themeArn,
-      });
-      return { assetId, arn: result?.arn ?? result?.Arn ?? '' };
-    }
-
-    const updated = await this.quickSightService.updateDashboard({
-      dashboardId: assetId,
+    return updateAsset(this.quickSightService, {
+      assetType,
+      assetId,
       name,
       definition,
       themeArn: loaded.themeArn,
       dashboardPublishOptions: loaded.dashboardPublishOptions,
     });
-    // UpdateDashboard only creates a draft; publish it or viewers see nothing new.
-    const versionNumber = parseVersionNumber(updated?.versionArn ?? updated?.VersionArn);
-    if (versionNumber === null) {
-      throw new Error('Dashboard was updated but the new version could not be determined');
-    }
-    await this.quickSightService.updateDashboardPublishedVersion(assetId, versionNumber);
-    return { assetId, arn: updated?.arn ?? updated?.Arn ?? '', versionNumber };
   }
 
   private async clone(
@@ -789,33 +754,15 @@ export class RebindService {
     definition: Record<string, any>,
     loaded: LoadedDefinition
   ): Promise<{ assetId: string; arn: string; versionNumber?: number }> {
-    const newId = requestedId?.trim() || randomUUID();
-    const permissions = await this.sourcePermissions(assetType, sourceId);
-
-    if (assetType === 'analysis') {
-      const created = await this.quickSightService.createAnalysis({
-        analysisId: newId,
-        name,
-        definition: definition as any,
-        permissions,
-        themeArn: loaded.themeArn,
-      });
-      return { assetId: created.analysisId, arn: created.arn };
-    }
-
-    const created = await this.quickSightService.createDashboard({
-      dashboardId: newId,
+    return createAsset(this.quickSightService, {
+      assetType,
+      assetId: requestedId?.trim() || randomUUID(),
       name,
-      definition: definition as any,
-      permissions,
+      definition,
+      permissions: await this.sourcePermissions(assetType, sourceId),
       themeArn: loaded.themeArn,
       dashboardPublishOptions: loaded.dashboardPublishOptions,
     });
-    return {
-      assetId: created.dashboardId,
-      arn: created.arn,
-      versionNumber: parseVersionNumber(created.versionArn) ?? undefined,
-    };
   }
 
   /**
@@ -833,15 +780,6 @@ export class RebindService {
     const permissions = normalizePermissionsArray(raw);
     return permissions.length > 0 ? permissions : undefined;
   }
-}
-
-function parseVersionNumber(versionArn?: string): number | null {
-  const match = versionArn?.match(/\/version\/(\d+)$/);
-  if (!match?.[1]) {
-    return null;
-  }
-  const parsed = Number.parseInt(match[1], 10);
-  return Number.isNaN(parsed) ? null : parsed;
 }
 
 /** The KPI options of the template's first KPI, the standard every KPI takes. */

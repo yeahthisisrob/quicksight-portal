@@ -110,6 +110,9 @@ export class BulkOperationsProcessor {
         case 'permission-revoke':
           result = await this.processBulkPermissionRevoke(config, batchSize, maxConcurrency);
           break;
+        case 'permission-grant':
+          result = await this.processBulkPermissionGrant(config, batchSize, maxConcurrency);
+          break;
         default:
           throw new Error(`Unsupported operation type: ${(config as any).operationType}`);
       }
@@ -490,6 +493,21 @@ export class BulkOperationsProcessor {
     );
   }
 
+  /** Update*Permissions per asset type: (id, grants, revocations). */
+  private permissionUpdaters(): Record<
+    string,
+    (id: string, grants: any[], revocations: any[]) => Promise<any>
+  > {
+    const quickSightService = new QuickSightService(process.env.AWS_ACCOUNT_ID || '');
+    return {
+      dashboard: (id, p, r) => quickSightService.updateDashboardPermissions(id, p, r),
+      analysis: (id, p, r) => quickSightService.updateAnalysisPermissions(id, p, r),
+      dataset: (id, p, r) => quickSightService.updateDataSetPermissions(id, p, r),
+      datasource: (id, p, r) => quickSightService.updateDataSourcePermissions(id, p, r),
+      folder: (id, p, r) => quickSightService.updateFolderPermissions(id, p, r),
+    };
+  }
+
   /**
    * Process bulk permission revoke operations
    */
@@ -502,20 +520,7 @@ export class BulkOperationsProcessor {
     batchSize: number,
     maxConcurrency: number
   ): Promise<BulkOperationResult> {
-    const quickSightService = new QuickSightService(process.env.AWS_ACCOUNT_ID || '');
-
-    const updateMethodMap: Record<
-      string,
-      (id: string, perms: any[], revocations: any[]) => Promise<any>
-    > = {
-      dashboard: (id, p, r) => quickSightService.updateDashboardPermissions(id, p, r),
-      analysis: (id, p, r) => quickSightService.updateAnalysisPermissions(id, p, r),
-      dataset: (id, p, r) => quickSightService.updateDataSetPermissions(id, p, r),
-      datasource: (id, p, r) => quickSightService.updateDataSourcePermissions(id, p, r),
-      folder: (id, p, r) => quickSightService.updateFolderPermissions(id, p, r),
-    };
-
-    const updateFn = updateMethodMap[config.assetType];
+    const updateFn = this.permissionUpdaters()[config.assetType];
     if (!updateFn) {
       throw new Error(`Unsupported asset type for permission revoke: ${config.assetType}`);
     }
@@ -564,6 +569,72 @@ export class BulkOperationsProcessor {
       }
     } catch (cacheError) {
       logger.warn('Failed to update cache after permission revoke', { cacheError });
+    }
+
+    return result;
+  }
+
+  /**
+   * Process bulk permission grant operations: the mirror of revoke, and the
+   * cache learns the new principals so the portal shows them at once.
+   */
+  private async processBulkPermissionGrant(
+    config: BulkOperationConfig & {
+      assetType: string;
+      assetId: string;
+      grants: Array<{ principal: string; actions: string[] }>;
+    },
+    batchSize: number,
+    maxConcurrency: number
+  ): Promise<BulkOperationResult> {
+    const updateFn = this.permissionUpdaters()[config.assetType];
+    if (!updateFn) {
+      throw new Error(`Unsupported asset type for permission grant: ${config.assetType}`);
+    }
+
+    const operations = config.grants.map((grant) => ({
+      principal: grant.principal,
+      actions: grant.actions,
+      assetType: config.assetType,
+      assetId: config.assetId,
+    }));
+
+    const result = await this.processBatchedOperations(
+      'permission-grant',
+      operations,
+      async (op) => {
+        await updateFn(op.assetId, [{ Principal: op.principal, Actions: op.actions }], []);
+        return `Granted permissions to ${op.principal.split('/').pop()}`;
+      },
+      batchSize,
+      maxConcurrency,
+      (op) => `${op.principal.split('/').pop()} on ${op.assetType}:${op.assetId}`
+    );
+
+    try {
+      const granted = result.results
+        .map((r, i) => (r.success ? config.grants[i] : undefined))
+        .filter((g): g is { principal: string; actions: string[] } => g !== undefined);
+      if (granted.length > 0) {
+        const cachedAsset = await cacheService.getAsset(config.assetType as any, config.assetId);
+        if (cachedAsset?.permissions) {
+          const byPrincipal = new Map<string, any>(
+            cachedAsset.permissions.map((p: any) => [p.principal, p])
+          );
+          for (const grant of granted) {
+            const existing = byPrincipal.get(grant.principal);
+            byPrincipal.set(grant.principal, {
+              ...(existing ?? { principal: grant.principal }),
+              actions: [...new Set([...(existing?.actions ?? []), ...grant.actions])],
+            });
+          }
+          await cacheService.updateAssetPermissions(config.assetType as any, config.assetId, [
+            ...byPrincipal.values(),
+          ]);
+        }
+      }
+    } catch (cacheError) {
+      logger.warn('Failed to update cache after permission grant', { cacheError });
     }
 
     return result;

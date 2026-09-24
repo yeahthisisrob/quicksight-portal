@@ -6,12 +6,14 @@ import { CloudWatchAdapter } from '../../../adapters/aws/CloudWatchAdapter';
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { CacheService } from '../../../shared/services/cache/CacheService';
-import { errorResponse, successResponse } from '../../../shared/utils/cors';
+import { jobFactory } from '../../../shared/services/jobs/JobFactory';
+import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { ActivityService } from '../../activity/services/ActivityService';
 import { GroupService } from '../../organization/services/GroupService';
 import { parseOps } from '../lib/definitionOps';
 import { parseRepairs } from '../lib/definitionRepairs';
+import { DefinitionService } from '../services/DefinitionService';
 import { InsightsService } from '../services/InsightsService';
 import { type NewAssetRequest, NewAssetService } from '../services/NewAssetService';
 import { createPlannerModel } from '../services/planner/createPlannerModel';
@@ -151,6 +153,90 @@ export class AuthoringHandler {
     }
   }
 
+  /**
+   * POST /authoring/definition/preview and
+   * POST /authoring/{assetType}/{assetId}/definition/preview
+   *
+   * The caller's own definition, checked the way the Author page checks
+   * everything: datasets read, columns resolved, issues with fixes.
+   */
+  public async previewDefinition(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const body = this.parseBody(event);
+      const preview = await this.definitionService().preview(body.definition);
+      return successResponse(event, { success: true, data: preview });
+    } catch (error: any) {
+      logger.error('Preview definition failed', { error });
+      return this.failure(event, error, 'Failed to check the definition');
+    }
+  }
+
+  /** POST /authoring/{assetType}/{assetId}/definition */
+  public async applyDefinition(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const target = this.target(event);
+      const body = this.parseBody(event);
+      const mode = body.mode;
+      if (typeof mode !== 'string' || !APPLY_MODES.has(mode)) {
+        throw badRequest("mode must be 'update' or 'clone'");
+      }
+      logger.info('Definition apply requested', { user: user.email, ...target, mode });
+      const result = await this.definitionService().apply(
+        target,
+        {
+          definition: body.definition as Record<string, any>,
+          mode: mode as 'update' | 'clone',
+          name: this.optionalString(body, 'name'),
+          newAssetId: this.optionalString(body, 'newAssetId'),
+          folderId: this.optionalString(body, 'folderId'),
+          themeArn: this.optionalString(body, 'themeArn'),
+          permissionsFrom: this.parsePermissionsFrom(body.permissionsFrom),
+        },
+        user
+      );
+      return successResponse(event, { success: true, data: result });
+    } catch (error: any) {
+      logger.error('Apply definition failed', { error });
+      return this.failure(event, error, 'Failed to write the definition');
+    }
+  }
+
+  /** POST /authoring/definition - a new asset from a definition alone. */
+  public async createFromDefinition(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const body = this.parseBody(event);
+      if (typeof body.assetType !== 'string' || !isAuthorableAssetType(body.assetType)) {
+        throw badRequest("assetType must be 'dashboard' or 'analysis'");
+      }
+      if (typeof body.name !== 'string' || !body.name.trim()) {
+        throw badRequest('name is required');
+      }
+      logger.info('Create from definition requested', {
+        user: user.email,
+        assetType: body.assetType,
+      });
+      const result = await this.definitionService().create(
+        {
+          assetType: body.assetType,
+          name: body.name,
+          definition: body.definition as Record<string, any>,
+          newAssetId: this.optionalString(body, 'newAssetId'),
+          folderId: this.optionalString(body, 'folderId'),
+          themeArn: this.optionalString(body, 'themeArn'),
+          permissionsFrom: this.parsePermissionsFrom(body.permissionsFrom),
+        },
+        user
+      );
+      return successResponse(event, { success: true, data: result });
+    } catch (error: any) {
+      logger.error('Create from definition failed', { error });
+      return this.failure(event, error, 'Failed to create the asset');
+    }
+  }
+
   /** POST /authoring/{assetType}/{assetId}/propose */
   public async propose(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
@@ -170,15 +256,59 @@ export class AuthoringHandler {
       }
 
       logger.info('Proposal requested', { user: user.email, ...target });
-      const planner = new PlannerService(this.service(), createPlannerModel());
-      const proposal = await planner.propose(target.assetType, target.assetId, {
-        ask: body.ask,
-        candidateDataSetIds: candidateDataSetIds as string[] | undefined,
+      // The model can think for longer than the API gateway allows, so the
+      // ask runs as a job and the proposal is its result.
+      const queued = await jobFactory.createJob({
+        jobType: 'planner',
+        accountId: this.accountId,
+        bucketName: process.env.BUCKET_NAME || `quicksight-metadata-bucket-${this.accountId}`,
+        userId: user.userId,
+        request: {
+          kind: 'propose',
+          ...target,
+          ask: body.ask,
+          candidateDataSetIds: candidateDataSetIds as string[] | undefined,
+        },
       });
-      return successResponse(event, { success: true, data: proposal });
+      return createResponse(event, STATUS_CODES.ACCEPTED, { success: true, data: queued });
     } catch (error: any) {
       logger.error('Propose failed', { error });
-      return this.failure(event, error, 'Failed to build a proposal');
+      return this.failure(event, error, 'Failed to queue the proposal');
+    }
+  }
+
+  /** POST /authoring/new/propose - the planner proposes visuals, as a job. */
+  public async proposeNew(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const request = this.parseNewAssetRequest(this.parseBody(event));
+      if (!request.ask?.trim()) {
+        throw badRequest('ask is required: what the visuals should show, in your words');
+      }
+      logger.info('Visual proposal requested', {
+        user: user.email,
+        datasets: request.datasets.length,
+      });
+      const queued = await jobFactory.createJob({
+        jobType: 'planner',
+        accountId: this.accountId,
+        bucketName: process.env.BUCKET_NAME || `quicksight-metadata-bucket-${this.accountId}`,
+        userId: user.userId,
+        request: { kind: 'new-visuals', newAsset: { ...request, visuals: undefined } },
+      });
+      return createResponse(event, STATUS_CODES.ACCEPTED, { success: true, data: queued });
+    } catch (error: any) {
+      logger.error('Propose visuals failed', { error });
+      return this.failure(event, error, 'Failed to queue the proposal');
+    }
+  }
+
+  /** An ask with no visuals means the planner, which only runs as a job. */
+  private assertNoAskInline(request: NewAssetRequest): void {
+    if ((request.visuals?.length ?? 0) === 0 && request.ask?.trim()) {
+      throw badRequest(
+        'An ask runs through the planner as a job: POST /authoring/new/propose, poll GET /jobs/{jobId}, then read GET /jobs/{jobId}/result and send its visuals here.'
+      );
     }
   }
 
@@ -216,6 +346,7 @@ export class AuthoringHandler {
     try {
       await requireAuth(event);
       const request = this.parseNewAssetRequest(this.parseBody(event));
+      this.assertNoAskInline(request);
       const preview = await this.newAssetService(request).preview(request);
       return successResponse(event, { success: true, data: preview });
     } catch (error: any) {
@@ -229,6 +360,7 @@ export class AuthoringHandler {
     try {
       const user = await requireAuth(event);
       const request = this.parseNewAssetRequest(this.parseBody(event));
+      this.assertNoAskInline(request);
       logger.info('Create from scratch requested', {
         user: user.email,
         assetType: request.assetType,
@@ -318,6 +450,39 @@ export class AuthoringHandler {
 
   private service(): RebindService {
     return new RebindService(this.accountId);
+  }
+
+  private definitionService(): DefinitionService {
+    return new DefinitionService(this.accountId, this.service());
+  }
+
+  private optionalString(body: Record<string, unknown>, key: string): string | undefined {
+    const value = body[key];
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+    if (typeof value !== 'string') {
+      throw badRequest(`${key} must be a string`);
+    }
+    return value;
+  }
+
+  private parsePermissionsFrom(
+    raw: unknown
+  ): { assetType: AuthorableAssetType; assetId: string } | undefined {
+    if (raw === undefined || raw === null) {
+      return undefined;
+    }
+    const from = raw as Record<string, unknown>;
+    if (
+      typeof from !== 'object' ||
+      typeof from.assetType !== 'string' ||
+      !isAuthorableAssetType(from.assetType) ||
+      typeof from.assetId !== 'string'
+    ) {
+      throw badRequest('permissionsFrom needs assetType and assetId');
+    }
+    return { assetType: from.assetType, assetId: from.assetId };
   }
 
   private target(event: APIGatewayProxyEvent): Target {

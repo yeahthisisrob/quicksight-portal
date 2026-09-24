@@ -4,6 +4,11 @@
     "types": ["vitest/globals", "node"],
     "noEmit": true
   },
-  "include": ["**/__tests__/**/*.ts", "**/*.test.ts", "**/*.spec.ts"],
+  "include": [
+    "**/__tests__/**/*.ts",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "shared/types/raw-imports.d.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

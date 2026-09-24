@@ -1,0 +1,1 @@
+export { apiDocsRoutes } from './routes';

@@ -78,13 +78,32 @@ export interface CSVExportJobConfig extends BaseJobConfig {
   };
 }
 
+/**
+ * A planner call (a model asked to propose rebinds or visuals) as a job: a
+ * long think would otherwise hit the API gateway's 30-second limit. The
+ * result is the proposal, read back from the job.
+ */
+export interface PlannerJobConfig extends BaseJobConfig {
+  jobType: 'planner';
+  request:
+    | {
+        kind: 'propose';
+        assetType: 'dashboard' | 'analysis';
+        assetId: string;
+        ask: string;
+        candidateDataSetIds?: string[];
+      }
+    | { kind: 'new-visuals'; newAsset: Record<string, unknown> };
+}
+
 export type JobConfig =
   | ExportJobConfig
   | DeployJobConfig
   | ActivityRefreshJobConfig
   | BulkOperationJobConfig
   | CSVExportJobConfig
-  | SmusExportJobConfig;
+  | SmusExportJobConfig
+  | PlannerJobConfig;
 
 export class JobFactory {
   private static instance: JobFactory;
@@ -144,6 +163,11 @@ export class JobFactory {
           assetType: config.assetType,
           exportOptions: config.options,
         }),
+        ...(config.jobType === 'planner' &&
+          config.request.kind === 'propose' && {
+            assetType: config.request.assetType,
+            assetId: config.request.assetId,
+          }),
       });
 
       logger.info('Job created in repository', {
@@ -237,6 +261,10 @@ export class JobFactory {
       return `Bulk ${opType} operation queued (${config.estimatedOperations} items)`;
     } else if (config.jobType === 'csv-export') {
       return `CSV export job for ${config.assetType} queued`;
+    } else if (config.jobType === 'planner') {
+      return config.request.kind === 'propose'
+        ? `Planner asked about ${config.request.assetType} ${config.request.assetId}`
+        : 'Planner asked to propose visuals';
     }
     return 'Job queued';
   }
@@ -266,6 +294,8 @@ export class JobFactory {
         assetType: config.assetType,
         options: config.options,
       };
+    } else if (config.jobType === 'planner') {
+      return { request: config.request };
     }
     return {};
   }

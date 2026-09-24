@@ -86,3 +86,23 @@ export function errorResponse(
 ): APIGatewayProxyResult {
   return createResponse(event, statusCode, { success: false, error: message });
 }
+
+/**
+ * A non-JSON body (a markdown guide, a spec) with the same CORS and cache
+ * headers as every other response.
+ */
+export function textResponse(
+  event: APIGatewayProxyEvent,
+  body: string,
+  contentType: string
+): APIGatewayProxyResult {
+  return {
+    statusCode: STATUS_CODES.OK,
+    headers: {
+      'Content-Type': contentType,
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      ...corsHeaders(event),
+    },
+    body,
+  };
+}
