@@ -13,7 +13,8 @@ export type JobType =
   | 'activity-refresh'
   | 'smus-export'
   | 'bulk-operation'
-  | 'csv-export';
+  | 'csv-export'
+  | 'planner';
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';
 export type JobPhaseStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';
 
@@ -87,6 +88,9 @@ export interface JobListOptions {
   beforeDate?: string;
 }
 
+const DEFAULT_AWAIT_INTERVAL_MS = 1500;
+const DEFAULT_AWAIT_TIMEOUT_MS = 10 * 60 * 1000;
+
 /**
  * Jobs API - unified job management for all job types
  */
@@ -147,6 +151,36 @@ export const jobsApi = {
     }
 
     return response.data.data || null;
+  },
+
+  /**
+   * Wait for a job to finish and return its result. For calls the API runs
+   * as jobs because they can outlive the gateway's limit (the planner).
+   * Throws with the job's own message when it fails or is stopped.
+   */
+  async awaitResult<T>(
+    jobId: string,
+    options: { intervalMs?: number; timeoutMs?: number } = {}
+  ): Promise<T> {
+    const interval = options.intervalMs ?? DEFAULT_AWAIT_INTERVAL_MS;
+    const deadline = Date.now() + (options.timeoutMs ?? DEFAULT_AWAIT_TIMEOUT_MS);
+    for (;;) {
+      const job = await jobsApi.getJob(jobId);
+      if (job?.status === 'completed') {
+        const result = await jobsApi.getJobResult<T>(jobId);
+        if (result === null) {
+          throw new Error('The job finished without a result');
+        }
+        return result;
+      }
+      if (job && (job.status === 'failed' || job.status === 'stopped')) {
+        throw new Error(job.error || job.message || 'The job failed');
+      }
+      if (Date.now() > deadline) {
+        throw new Error('Gave up waiting for the job; it is still listed under Operations');
+      }
+      await new Promise((resolve) => setTimeout(resolve, interval));
+    }
   },
 
   /**

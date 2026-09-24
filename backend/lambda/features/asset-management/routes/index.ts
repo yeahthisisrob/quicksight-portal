@@ -56,6 +56,12 @@ export const assetManagementRoutes: RouteHandler[] = [
 
   {
     method: 'POST',
+    path: /^\/assets\/(dashboard|analysis|dataset|datasource|folder)\/([^/]+)\/grant-permissions$/,
+    handler: (event) => handler.bulkGrantPermissions(event),
+  },
+
+  {
+    method: 'POST',
     path: /^\/assets\/(dashboard|analysis|dataset|folder)\/([^/]+)\/rename$/,
     handler: (event) => handler.renameAsset(event),
   },

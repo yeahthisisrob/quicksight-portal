@@ -94,6 +94,23 @@ interface BulkOperationMessage {
   maxConcurrency?: number;
 }
 
+interface PlannerMessage {
+  jobId: string;
+  jobType: 'planner';
+  accountId: string;
+  userId?: string;
+  initialMessage?: string;
+  request:
+    | {
+        kind: 'propose';
+        assetType: 'dashboard' | 'analysis';
+        assetId: string;
+        ask: string;
+        candidateDataSetIds?: string[];
+      }
+    | { kind: 'new-visuals'; newAsset: Record<string, unknown> };
+}
+
 interface CSVExportMessage {
   jobId: string;
   jobType: 'csv-export';
@@ -198,6 +215,8 @@ async function processRecord(record: any, context: Context): Promise<void> {
       await processBulkOperationJob(rawMessage as BulkOperationMessage, record);
     } else if (rawMessage.jobType === 'csv-export') {
       await processCSVExportJob(rawMessage as CSVExportMessage, record);
+    } else if (rawMessage.jobType === 'planner') {
+      await processPlannerJob(rawMessage as PlannerMessage, record);
     } else {
       await processExportJob(rawMessage as ExportMessage, record, context);
     }
@@ -572,6 +591,74 @@ async function handleBulkOperationError(
 /**
  * Process a CSV export job from SQS message
  */
+/**
+ * A planner call as a job: the model is asked, and its proposal is the
+ * job's result. Nothing is written to QuickSight here; the caller reviews
+ * the proposal and applies it through the authoring endpoints.
+ */
+async function processPlannerJob(message: PlannerMessage, record: any): Promise<void> {
+  const { jobId, accountId: msgAccountId, request } = message;
+  logger.info('Processing planner job', { jobId, messageId: record.messageId, kind: request.kind });
+  const jobStateService = new JobStateService('planner');
+
+  try {
+    const existing = await jobStateService.getJobStatus(jobId);
+    if (existing) {
+      await jobStateService.updateJobStatus(jobId, {
+        status: 'processing',
+        message: 'Asking the planner',
+        progress: 0,
+      });
+    } else {
+      await jobStateService.createJob(jobId, {
+        status: 'processing',
+        message: 'Asking the planner',
+        startTime: new Date().toISOString(),
+      });
+    }
+
+    const [{ RebindService }, { PlannerService }, { createPlannerModel }] = await Promise.all([
+      import('./features/authoring/services/RebindService'),
+      import('./features/authoring/services/planner/PlannerService'),
+      import('./features/authoring/services/planner/createPlannerModel'),
+    ]);
+    const rebind = new RebindService(msgAccountId);
+    const planner = new PlannerService(rebind, createPlannerModel());
+
+    let result: unknown;
+    if (request.kind === 'propose') {
+      result = await planner.propose(request.assetType, request.assetId, {
+        ask: request.ask,
+        candidateDataSetIds: request.candidateDataSetIds,
+      });
+    } else {
+      const { NewAssetService } = await import('./features/authoring/services/NewAssetService');
+      result = await new NewAssetService(msgAccountId, rebind, planner).preview(
+        request.newAsset as any
+      );
+    }
+
+    const { JobRepository } = await import('./shared/services/jobs/JobRepository');
+    await new JobRepository().saveJobResult(jobId, result);
+    await jobStateService.updateJobStatus(jobId, {
+      status: 'completed',
+      endTime: new Date().toISOString(),
+      message: 'The planner answered',
+      progress: 100,
+    });
+    logger.info('Planner job completed', { jobId, kind: request.kind });
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    logger.error('Planner job failed', { jobId, error: messageText });
+    await jobStateService.updateJobStatus(jobId, {
+      status: 'failed',
+      endTime: new Date().toISOString(),
+      message: messageText,
+      error: messageText,
+    });
+  }
+}
+
 async function processCSVExportJob(message: CSVExportMessage, record: any): Promise<void> {
   const { jobId, accountId: msgAccountId, assetType, options } = message;
 

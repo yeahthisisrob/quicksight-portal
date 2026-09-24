@@ -12,8 +12,23 @@ export const authoringRoutes: RouteHandler[] = [
   },
   {
     method: 'POST',
+    path: '/authoring/new/propose',
+    handler: (event) => handler.proposeNew(event),
+  },
+  {
+    method: 'POST',
     path: '/authoring/new',
     handler: (event) => handler.createNew(event),
+  },
+  {
+    method: 'POST',
+    path: '/authoring/definition/preview',
+    handler: (event) => handler.previewDefinition(event),
+  },
+  {
+    method: 'POST',
+    path: '/authoring/definition',
+    handler: (event) => handler.createFromDefinition(event),
   },
   {
     method: 'GET',
@@ -39,6 +54,16 @@ export const authoringRoutes: RouteHandler[] = [
     method: 'POST',
     path: /^\/authoring\/(analysis|dashboard)\/([^/]+)\/rebind$/,
     handler: (event) => handler.applyRebind(event),
+  },
+  {
+    method: 'POST',
+    path: /^\/authoring\/(analysis|dashboard)\/([^/]+)\/definition\/preview$/,
+    handler: (event) => handler.previewDefinition(event),
+  },
+  {
+    method: 'POST',
+    path: /^\/authoring\/(analysis|dashboard)\/([^/]+)\/definition$/,
+    handler: (event) => handler.applyDefinition(event),
   },
   {
     method: 'POST',

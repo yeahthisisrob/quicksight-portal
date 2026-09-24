@@ -153,6 +153,54 @@ export class AssetHandler {
   }
 
   /**
+   * POST /assets/{assetType}/{assetId}/grant-permissions - the mirror of
+   * revoke: give principals actions on one asset, as a bulk job.
+   */
+  public async bulkGrantPermissions(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const pathMatch = event.path.match(
+        /\/assets\/(dashboard|analysis|dataset|datasource|folder)\/([^/]+)\/grant-permissions/
+      );
+      const assetType = pathMatch?.[1];
+      const assetId = pathMatch?.[2];
+      if (!assetType || !assetId) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Asset type and ID are required');
+      }
+      const { grants } = JSON.parse(event.body || '{}');
+      if (!Array.isArray(grants) || grants.length === 0) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'grants array is required');
+      }
+      logger.info('Starting bulk permission grant', {
+        user: user.email,
+        assetType,
+        assetId,
+        count: grants.length,
+      });
+      const result = await this.bulkOperationsService.bulkGrantPermissions(
+        assetType,
+        assetId,
+        grants,
+        user.email || user.userId || 'unknown'
+      );
+      return createResponse(event, STATUS_CODES.ACCEPTED, {
+        success: true,
+        jobId: result.jobId,
+        status: result.status,
+        message: result.message,
+        estimatedOperations: result.estimatedOperations,
+      });
+    } catch (error: any) {
+      logger.error('Failed to bulk grant permissions', { error: error.message });
+      return errorResponse(
+        event,
+        error.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error.message || 'Failed to grant permissions'
+      );
+    }
+  }
+
+  /**
    * Export assets to CSV (queues a job)
    */
   public async exportAssets(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -227,7 +275,10 @@ export class AssetHandler {
     try {
       await requireAuth(event);
 
-      const { assetType, assetId } = event.queryStringParameters || {};
+      // The route carries both in the path; the query form is kept for
+      // callers that still send it that way.
+      const assetType = event.pathParameters?.assetType ?? event.queryStringParameters?.assetType;
+      const assetId = event.pathParameters?.assetId ?? event.queryStringParameters?.assetId;
 
       if (!assetType || !assetId) {
         return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Asset type and ID are required');

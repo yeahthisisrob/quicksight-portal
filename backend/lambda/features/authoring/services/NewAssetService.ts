@@ -9,10 +9,8 @@ import { randomUUID } from 'node:crypto';
 
 import type { AuthContext } from '../../../shared/auth';
 import { ValidationError } from '../../../shared/errors/ValidationError';
-import { actorFromAuth, auditLog } from '../../../shared/services/audit/AuditLog';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
-import { settingsStore } from '../../../shared/services/settings/SettingsStore';
 import { logger } from '../../../shared/utils/logger';
 import { datasetPermissionsFor } from '../../../shared/utils/permissions';
 import { type BuilderDataset, buildDefinition, type VisualSpec } from '../lib/definitionBuilder';
@@ -29,11 +27,11 @@ import type {
   TemplateRequest,
   TypeRules,
 } from '../types';
+import { createAsset, recordProvenance } from './assetWriter';
 import type { PlannerService } from './planner/PlannerService';
 import type { RebindService, TargetDataset } from './RebindService';
 
 const NAME_MAX_LENGTH = 200;
-const TAG_VALUE_MAX = 256;
 
 export interface NewAssetRequest {
   assetType: AuthorableAssetType;
@@ -130,31 +128,14 @@ export class NewAssetService {
       template: request.template?.assetId,
     });
 
-    let written: { assetId: string; arn: string; versionNumber?: number };
-    if (request.assetType === 'analysis') {
-      const created = await this.quickSightService.createAnalysis({
-        analysisId: newId,
-        name,
-        definition: composed.definition as any,
-        permissions,
-        themeArn: composed.themeArn,
-      });
-      written = { assetId: created.analysisId, arn: created.arn };
-    } else {
-      const created = await this.quickSightService.createDashboard({
-        dashboardId: newId,
-        name,
-        definition: composed.definition as any,
-        permissions,
-        themeArn: composed.themeArn,
-      });
-      const match = (created.versionArn as string | undefined)?.match(/\/version\/(\d+)$/);
-      written = {
-        assetId: created.dashboardId,
-        arn: created.arn,
-        versionNumber: match?.[1] ? Number.parseInt(match[1], 10) : undefined,
-      };
-    }
+    const written = await createAsset(this.quickSightService, {
+      assetType: request.assetType,
+      assetId: newId,
+      name,
+      definition: composed.definition,
+      permissions,
+      themeArn: composed.themeArn,
+    });
 
     let folderId: string | undefined;
     if (request.folderId) {
@@ -328,36 +309,23 @@ export class NewAssetService {
     };
   }
 
-  private async recordProvenance(
+  private recordProvenance(
     assetType: AuthorableAssetType,
     assetId: string,
     name: string,
     composed: NewAssetPreview,
     auth?: AuthContext
   ): Promise<void> {
-    if (!auth) return;
-    const { actor, channel } = actorFromAuth(auth);
-    await auditLog.record({
-      actor,
-      channel,
-      action: 'authoring.create',
-      assetType,
-      assetId,
-      assetName: name,
-      details: { visuals: composed.visuals.length, changes: composed.changes.length },
-    });
-    if (settingsStore.get('provenance.tagAssets') === false) return;
-    try {
-      await this.quickSightService.tagResource(assetType, assetId, [
-        {
-          key: 'portal:authored-by',
-          value: `${actor.kind}:${actor.label}`.slice(0, TAG_VALUE_MAX),
-        },
-        { key: 'portal:channel', value: channel },
-        { key: 'portal:at', value: new Date().toISOString() },
-      ]);
-    } catch (error) {
-      logger.warn('Provenance tags could not be written', { assetType, assetId, error });
-    }
+    return recordProvenance(
+      this.quickSightService,
+      {
+        action: 'authoring.create',
+        assetType,
+        assetId,
+        name,
+        details: { visuals: composed.visuals.length, changes: composed.changes.length },
+      },
+      auth
+    );
   }
 }

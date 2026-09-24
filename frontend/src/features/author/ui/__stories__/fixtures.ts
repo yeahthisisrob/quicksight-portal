@@ -448,6 +448,44 @@ export function newAssetPreviewFor(request: NewAssetRequest) {
   return simulateNew(request, DATASET_COLUMNS, { visuals: PROPOSED_VISUALS, ...FRESH_PROPOSAL });
 }
 
+/** The last from-nothing ask the stories queued, answered when its job result is read. */
+let pendingNewPropose: NewAssetRequest | null = null;
+const EMPTY_NEW_REQUEST: NewAssetRequest = {
+  assetType: 'dashboard',
+  name: '',
+  datasets: [],
+  ask: '',
+};
+
+function queuedJob(jobId: string) {
+  return { jobId, status: 'queued', message: 'Planner asked' };
+}
+
+/** What the planner answers for "copy this onto sales gold". */
+function rebindProposal() {
+  const rebinds = [
+    {
+      identifier: 'sales',
+      targetDataSetId: 'sales-gold',
+      columnMap: FULL_MAP,
+      reason: 'The ask names the gold sales table',
+    },
+  ];
+  return {
+    ask: 'copy this onto sales gold',
+    intent: 'rebind',
+    mode: 'clone',
+    name: 'Sales overview (gold)',
+    reason:
+      'The ask names the gold sales table; every column resolves after two renames. Revenue by region reads better as columns.',
+    rebinds,
+    unmapped: [],
+    ops: PROPOSED_OPS,
+    plan: planFor(rebinds),
+    model: { provider: 'bedrock', model: 'us.anthropic.claude-sonnet-4-6' },
+  };
+}
+
 /** Dashboards as the list endpoint returns them, with activity for ranking. */
 export const SOURCES = [
   {
@@ -814,6 +852,48 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
         body: { success: true, data: newAssetPreviewFor(requestBody(config)) },
       }),
     },
+    // The planner runs as a job: the ask is queued, the client polls the job,
+    // and the proposal is the job's result.
+    {
+      method: 'post',
+      url: /\/authoring\/new\/propose$/,
+      respond: (config) => {
+        pendingNewPropose = requestBody<NewAssetRequest>(config);
+        return { body: { success: true, data: queuedJob('planner-new') } };
+      },
+    },
+    {
+      method: 'get',
+      url: /\/jobs\/planner-[a-z]+\/result$/,
+      respond: (config) => ({
+        body: {
+          success: true,
+          data: (config.url ?? '').includes('planner-new')
+            ? newAssetPreviewFor(pendingNewPropose ?? EMPTY_NEW_REQUEST)
+            : rebindProposal(),
+        },
+      }),
+    },
+    {
+      method: 'get',
+      url: /\/jobs\/planner-[a-z]+$/,
+      respond: (config) => {
+        const jobId = (config.url ?? '').split('/').pop() ?? 'planner';
+        return {
+          body: {
+            success: true,
+            data: {
+              jobId,
+              jobType: 'planner',
+              status: 'completed',
+              message: 'The planner answered',
+              startTime: daysAgo(0),
+              endTime: daysAgo(0),
+            },
+          },
+        };
+      },
+    },
     {
       method: 'post',
       url: /\/authoring\/new$/,
@@ -959,34 +1039,7 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
     {
       method: 'post',
       url: '/propose',
-      respond: () => {
-        const rebinds = [
-          {
-            identifier: 'sales',
-            targetDataSetId: 'sales-gold',
-            columnMap: FULL_MAP,
-            reason: 'The ask names the gold sales table',
-          },
-        ];
-        return {
-          body: {
-            success: true,
-            data: {
-              ask: 'copy this onto sales gold',
-              intent: 'rebind',
-              mode: 'clone',
-              name: 'Sales overview (gold)',
-              reason:
-                'The ask names the gold sales table; every column resolves after two renames. Revenue by region reads better as columns.',
-              rebinds,
-              unmapped: [],
-              ops: PROPOSED_OPS,
-              plan: planFor(rebinds),
-              model: { provider: 'bedrock', model: 'us.anthropic.claude-sonnet-4-6' },
-            },
-          },
-        };
-      },
+      respond: () => ({ body: { success: true, data: queuedJob('planner-rebind') } }),
     },
     {
       method: 'get',

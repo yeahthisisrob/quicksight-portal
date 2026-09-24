@@ -297,6 +297,10 @@ export class QuicksightPortalStack extends Stack {
         AWS_ACCOUNT_ID: this.account,
         DEPLOYMENT_TIME: new Date().toISOString(),
         BUCKET_NAME: `quicksight-metadata-bucket-${this.account}`,
+        // Planner calls run here as jobs, so a long think never meets the
+        // API gateway's 30-second limit. Same model as the API Lambda.
+        PLANNER_PROVIDER: 'bedrock',
+        PLANNER_MODEL_ID: process.env.PLANNER_MODEL_ID || 'us.anthropic.claude-sonnet-4-6',
         // Continuation pattern: the worker requeues an export that would
         // outlive the 15-min Lambda ceiling so a fresh invocation resumes it
         EXPORT_QUEUE_URL: exportQueue.queueUrl,

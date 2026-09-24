@@ -15,6 +15,25 @@ const dependencies = Object.keys(packageJson.dependencies || {});
 const awsSdkV3Externals = dependencies.filter((dep) => dep.startsWith('@aws-sdk/'));
 
 /**
+ * `import text from './file.md?raw'` - the file's contents as a string, the
+ * way Vite and Vitest already read it, so the API guide ships inside the
+ * bundle without a copy step.
+ */
+const rawTextPlugin = {
+  name: 'raw-text',
+  setup(build) {
+    build.onResolve({ filter: /\?raw$/ }, (args) => ({
+      path: path.resolve(args.resolveDir, args.path.replace(/\?raw$/, '')),
+      namespace: 'raw-text',
+    }));
+    build.onLoad({ filter: /.*/, namespace: 'raw-text' }, (args) => ({
+      contents: fs.readFileSync(args.path, 'utf8'),
+      loader: 'text',
+    }));
+  },
+};
+
+/**
  * Validate OpenAPI schema and generate TypeScript types
  */
 async function validateAndGenerateTypes() {
@@ -82,6 +101,8 @@ async function build() {
         // Everything else (including aws-sdk v2 and powertools) will be bundled
       ],
 
+      plugins: [rawTextPlugin],
+
       // Tree shaking
       treeShaking: true,
 
@@ -128,6 +149,8 @@ async function build() {
         // Native modules
         'aws-lambda',
       ],
+
+      plugins: [rawTextPlugin],
 
       // Tree shaking
       treeShaking: true,

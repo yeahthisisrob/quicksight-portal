@@ -14,6 +14,7 @@ import type {
   BulkGroupAddConfig,
   BulkGroupRemoveConfig,
   BulkOperationConfig,
+  BulkPermissionGrantConfig,
   BulkPermissionRevokeConfig,
   BulkTagUpdateConfig,
 } from '../../types/bulkOperationTypes';
@@ -178,6 +179,33 @@ export class BulkOperationsService {
     };
 
     return await this.createBulkOperationJob(config, revocations.length);
+  }
+
+  /** The mirror of revoke: give principals actions on one asset, as a job. */
+  public async bulkGrantPermissions(
+    assetType: string,
+    assetId: string,
+    grants: Array<{ principal: string; actions: string[] }>,
+    requestedBy: string
+  ): Promise<BulkOperationJobResponse> {
+    if (!grants || grants.length === 0) {
+      throw new Error('Grants array is required and must not be empty');
+    }
+    for (const grant of grants) {
+      if (!grant.principal || !Array.isArray(grant.actions) || grant.actions.length === 0) {
+        throw new Error('Each grant needs a principal and at least one action');
+      }
+    }
+
+    const config: BulkPermissionGrantConfig = {
+      operationType: 'permission-grant',
+      assetType: assetType as any,
+      assetId,
+      grants,
+      requestedBy,
+    };
+
+    return await this.createBulkOperationJob(config, grants.length);
   }
 
   public async bulkUpdateTags(

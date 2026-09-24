@@ -31,7 +31,8 @@ export type JobType =
   | 'activity-refresh'
   | 'bulk-operation'
   | 'csv-export'
-  | 'smus-export';
+  | 'smus-export'
+  | 'planner';
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';
 
 export type JobPhaseStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';

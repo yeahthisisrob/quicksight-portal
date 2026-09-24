@@ -2,8 +2,10 @@ import type { components } from '@shared/generated/types';
 
 import { api as apiClient } from '../client';
 import type { ApiResponse } from '../types';
+import { jobsApi } from './jobs';
 
 type Schemas = components['schemas'];
+export type JobQueued = Schemas['JobQueued'];
 
 export type AuthorableAssetType = Schemas['AuthorableAssetType'];
 export type DefinitionDatasets = Schemas['DefinitionDatasets'];
@@ -184,15 +186,29 @@ export const authoringApi = {
     );
   },
 
-  /** Natural language in, a validated proposal out. Never applies anything. */
-  propose(
+  /**
+   * Natural language in, a validated proposal out. Never applies anything.
+   * The planner runs as a job (a long think would outlive the gateway), so
+   * this queues it and waits for the result.
+   */
+  async propose(
     assetType: AuthorableAssetType,
     assetId: string,
     request: ProposeRequest
   ): Promise<Proposal> {
-    return unwrap(
-      apiClient.post<ApiResponse<Proposal>>(`/authoring/${assetType}/${assetId}/propose`, request),
-      'Failed to build a proposal'
+    const queued = await unwrap(
+      apiClient.post<ApiResponse<JobQueued>>(`/authoring/${assetType}/${assetId}/propose`, request),
+      'Failed to queue the proposal'
     );
+    return jobsApi.awaitResult<Proposal>(queued.jobId);
+  },
+
+  /** From nothing: the planner proposes visuals from the ask, as a job; the preview is the result. */
+  async proposeNew(request: NewAssetRequest): Promise<NewAssetPreview> {
+    const queued = await unwrap(
+      apiClient.post<ApiResponse<JobQueued>>('/authoring/new/propose', request),
+      'Failed to queue the proposal'
+    );
+    return jobsApi.awaitResult<NewAssetPreview>(queued.jobId);
   },
 };

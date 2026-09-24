@@ -16,6 +16,7 @@ export type { DefinitionChange, DefinitionOp, SheetOutline };
 
 import type { RepairOp } from '../lib/definitionRepairs';
 import type { TypeRules } from '../lib/definitionTypeRules';
+import type { RepairIssue, RepairPlan } from '../lib/repairPlan';
 
 export type { ChartFamilyRule, TypeRules } from '../lib/definitionTypeRules';
 export type { RepairFix, RepairIssue, RepairIssueKind, RepairPlan } from '../lib/repairPlan';
@@ -245,4 +246,75 @@ export interface Proposal {
   /** The server's own dry run of the proposal. Null when the intent is unclear. */
   plan: RebindPlan | null;
   model: { provider: string; model: string };
+}
+
+// ---------------------------------------------------------------------------
+// A definition the caller built themselves - checked, then published through
+// the same write path as everything else.
+// ---------------------------------------------------------------------------
+
+export interface DefinitionRequest {
+  /** A full QuickSight AnalysisDefinition / DashboardVersionDefinition. */
+  definition: Record<string, any>;
+}
+
+export interface DefinitionApplyRequest extends DefinitionRequest {
+  /** Rewrite the asset in place, or create a copy with the source's audience. */
+  mode: ApplyMode;
+  /** Required for clone. Optional rename for update. */
+  name?: string;
+  /** Clone only. Generated when omitted. */
+  newAssetId?: string;
+  /** Clone only: put the new asset in this folder. */
+  folderId?: string;
+  /** Write this theme instead of keeping the asset's. */
+  themeArn?: string;
+  /** Clone only: inherit this asset's audience instead of the source's. */
+  permissionsFrom?: { assetType: AuthorableAssetType; assetId: string };
+}
+
+export interface NewDefinitionRequest extends DefinitionRequest {
+  assetType: AuthorableAssetType;
+  name: string;
+  newAssetId?: string;
+  folderId?: string;
+  themeArn?: string;
+  /** Inherit this asset's audience; without one only account admins see the asset. */
+  permissionsFrom?: { assetType: AuthorableAssetType; assetId: string };
+}
+
+export interface DefinitionDatasetCheck {
+  identifier: string;
+  dataSetId: string;
+  /** The dataset's name, when it could be read. */
+  name?: string;
+  /** False when QuickSight cannot describe the dataset and no export has it. */
+  readable: boolean;
+  /** Columns the definition reads from this identifier. */
+  referenced: number;
+  /** Referenced columns the dataset does not have. */
+  missing: string[];
+}
+
+export interface DefinitionPreview {
+  datasets: DefinitionDatasetCheck[];
+  /** Everything QuickSight would refuse the definition over, each with a fix where one is clear. */
+  issues: RepairIssue[];
+  summary: RepairPlan['summary'];
+  outline: SheetOutline[];
+  /** Things worth knowing that do not stop a write (cross-dataset filter reach). */
+  warnings: string[];
+  /** True when there are no issues. Apply refuses otherwise. */
+  canApply: boolean;
+}
+
+export interface DefinitionApplyResult {
+  assetType: AuthorableAssetType;
+  assetId: string;
+  name: string;
+  arn: string;
+  versionNumber?: number;
+  mode: ApplyMode | 'create';
+  folderId?: string;
+  warnings: string[];
 }

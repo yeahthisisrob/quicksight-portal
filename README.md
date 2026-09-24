@@ -108,7 +108,7 @@ Author and the catalog are built on SMUS projects, so until a domain is set, at 
 
 ### API keys: the same API for people, scripts and agents
 
-Every page is a thin client over the REST API, and an API key gives a CLI, a CI job or an agent (Claude Code, for example) the same access a signed-in user has, except for managing keys. Create one under Settings → API keys, export it as `QSP_API_KEY`, and `just api GET /smus/status` works. The [API guide](docs/api-guide.md) walks through the authoring loop end to end: datasets → propose → plan → preview → apply.
+Every page is a thin client over the REST API, and an API key gives a CLI, a CI job or an agent (Claude Code, for example) the same access a signed-in user has, except for managing keys. Create one under Settings → API keys or on the Author page's **API** tab, export it as `QSP_API_KEY`, and `just api GET /smus/status` works. A key holder needs nothing from this repository: the API serves its own contract at `GET /api/api-docs/openapi` and the [API guide](docs/api-guide.md) at `GET /api/api-docs/guide`, and the API tab shows every operation, searchable, with a curl for each. The guide walks the loop end to end: read what the portal knows, build the change (a definition you edited yourself, the transforms, or an ask the planner answers as a job), preview, publish.
 
 ### Settings
 

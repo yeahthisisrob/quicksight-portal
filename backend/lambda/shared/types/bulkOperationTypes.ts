@@ -13,7 +13,8 @@ export type BulkOperationType =
   | 'group-add'
   | 'group-remove'
   | 'tag-update'
-  | 'permission-revoke';
+  | 'permission-revoke'
+  | 'permission-grant';
 
 // Asset reference for bulk operations
 export interface BulkAssetReference {
@@ -73,6 +74,13 @@ export interface BulkPermissionRevokeConfig extends BaseBulkOperationConfig {
   revocations: Array<{ principal: string; actions: string[] }>;
 }
 
+export interface BulkPermissionGrantConfig extends BaseBulkOperationConfig {
+  operationType: 'permission-grant';
+  assetType: AssetType;
+  assetId: string;
+  grants: Array<{ principal: string; actions: string[] }>;
+}
+
 // Union type for all bulk operation configurations
 export type BulkOperationConfig =
   | BulkDeleteConfig
@@ -81,7 +89,8 @@ export type BulkOperationConfig =
   | BulkGroupAddConfig
   | BulkGroupRemoveConfig
   | BulkTagUpdateConfig
-  | BulkPermissionRevokeConfig;
+  | BulkPermissionRevokeConfig
+  | BulkPermissionGrantConfig;
 
 // Result types for bulk operations
 export interface BulkOperationItemResult {

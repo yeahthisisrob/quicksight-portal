@@ -16,32 +16,6 @@ security:
 
 paths:
   # Asset listing endpoints
-  /api/assets:
-    get:
-      summary: List all assets
-      parameters:
-        - name: type
-          in: query
-          schema:
-            $ref: '#/components/schemas/AssetType'
-        - name: status
-          in: query
-          schema:
-            $ref: '#/components/schemas/AssetStatus'
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 50
-      responses:
-        '200':
-          description: List of assets
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/AssetListItem'
 
   /api/assets/archived:
     get:
@@ -118,19 +92,6 @@ paths:
                         nullable: true
                       totalCount:
                         type: integer
-
-  /api/folders:
-    get:
-      summary: List folders
-      responses:
-        '200':
-          description: List of folders
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/FolderListItem'
 
   /api/folders/{folderId}:
     get:
@@ -250,32 +211,6 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
-  /api/dashboards:
-    get:
-      summary: List dashboards
-      responses:
-        '200':
-          description: List of dashboards
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DashboardListItem'
-
-  /api/datasets:
-    get:
-      summary: List datasets
-      responses:
-        '200':
-          description: List of datasets
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DatasetListItem'
 
   /api/assets/{assetType}/paginated:
     get:
@@ -410,19 +345,6 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /api/users:
-    get:
-      summary: List users
-      responses:
-        '200':
-          description: List of users
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/UserListItem'
-
   /api/users/{userName}:
     delete:
       summary: Delete a QuickSight user
@@ -457,29 +379,6 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 
   # Lineage endpoints
-  /api/lineage/{assetType}/{assetId}:
-    get:
-      summary: Get asset lineage
-      parameters:
-        - name: assetType
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/AssetType'
-        - name: assetId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Asset lineage
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AssetLineage'
-
-  # Cached asset endpoint (for JSON viewer)
   /api/assets/{assetType}/{assetId}/cached:
     get:
       summary: Get cached asset data from S3
@@ -514,195 +413,7 @@ paths:
           description: Asset not found
 
   # Tag management endpoints
-  /api/assets/{assetType}/{assetId}/tags:
-    put:
-      summary: Update asset tags
-      parameters:
-        - name: assetType
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/AssetType'
-        - name: assetId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [tags]
-              properties:
-                tags:
-                  type: array
-                  items:
-                    type: object
-                    required: [Key, Value]
-                    properties:
-                      Key:
-                        type: string
-                      Value:
-                        type: string
-      responses:
-        '200':
-          description: Tags updated successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  message:
-                    type: string
-
-  # Field catalog endpoints
-  /api/fields:
-    get:
-      summary: Search fields
-      parameters:
-        - name: query
-          in: query
-          schema:
-            type: string
-        - name: assetType
-          in: query
-          schema:
-            $ref: '#/components/schemas/AssetType'
-      responses:
-        '200':
-          description: Field search results
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/FieldInfo'
-
-  # Export endpoints
-  /api/export/jobs:
-    get:
-      summary: List export jobs
-      description: Returns a list of recent export jobs with their status
-      parameters:
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
-            description: Maximum number of jobs to return
-        - name: status
-          in: query
-          required: false
-          schema:
-            type: string
-            enum: ['queued', 'processing', 'completed', 'failed', 'stopped']
-            description: Filter by job status
-      responses:
-        '200':
-          description: List of export jobs
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExportJobList'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
           
-  /api/export/jobs/{jobId}:
-    get:
-      summary: Get export job status
-      description: Returns the current status and progress of an export job
-      parameters:
-        - name: jobId
-          in: path
-          required: true
-          schema:
-            type: string
-            description: Export job ID
-      responses:
-        '200':
-          description: Export job status
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExportJobStatus'
-        '404':
-          description: Job not found
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-          
-  /api/export/jobs/{jobId}/logs:
-    get:
-      summary: Get export job logs
-      description: Returns detailed logs for a completed export job
-      parameters:
-        - name: jobId
-          in: path
-          required: true
-          schema:
-            type: string
-            description: Export job ID
-      responses:
-        '200':
-          description: Export job logs
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExportJobLogs'
-        '404':
-          description: Job not found or logs not available
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /api/export/jobs/{jobId}/stop:
-    post:
-      summary: Stop an export job
-      description: Request to stop a running export job at the next checkpoint
-      parameters:
-        - name: jobId
-          in: path
-          required: true
-          schema:
-            type: string
-            description: Export job ID to stop
-      responses:
-        '200':
-          description: Stop request sent successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      jobId:
-                        type: string
-                      status:
-                        $ref: '#/components/schemas/JobStatus'
-                      message:
-                        type: string
-        '404':
-          description: Job not found
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
   /api/export/summary:
     get:
       summary: Get export summary statistics
@@ -760,30 +471,6 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 
   # Export file access (for JSON viewer)
-  /api/export/{assetType}/{assetId}:
-    get:
-      summary: Get full export data for asset
-      parameters:
-        - name: assetType
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/AssetType'
-        - name: assetId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Full asset export data
-          content:
-            application/json:
-              schema:
-                type: object
-                description: Raw export data (varies by asset type)
-
-  # Ingestion endpoints
   /api/ingestions:
     get:
       summary: Get cached ingestions
@@ -1162,6 +849,38 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /api/api-docs/openapi:
+    get:
+      summary: This API's contract, as OpenAPI JSON
+      description: |
+        The same document every endpoint is validated against, with
+        `servers` set to the portal that served it. A caller with only a
+        key and the portal's URL starts here: every path in it is callable
+        with the key. Also on the Author page's API tab, searchable.
+      tags: [API docs]
+      responses:
+        '200':
+          description: The OpenAPI 3 document
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/api-docs/guide:
+    get:
+      summary: The API guide, as markdown
+      description: |
+        Which calls to make in which order to read what the portal knows,
+        build a change, and publish it back. Written for a person or an
+        agent with a key and nothing else.
+      tags: [API docs]
+      responses:
+        '200':
+          description: Markdown
+          content:
+            text/markdown:
+              schema:
+                type: string
   /api/search:
     get:
       summary: Find anything the portal knows, in plain words
@@ -1978,9 +1697,15 @@ paths:
         Nothing is applied. The caller reviews the proposal and calls the
         rebind endpoint with its `rebinds`, `mode` and `name`.
 
+        The model can think for longer than the API gateway allows, so the
+        ask runs as a job: this returns `jobId` at once. Poll
+        `GET /api/jobs/{jobId}` until `status` is `completed` (or `failed`,
+        with the reason in `message`), then `GET /api/jobs/{jobId}/result`
+        is the `Proposal`.
+
         The model is chosen by deployment configuration (Bedrock by default;
         a local Claude or Codex CLI, or any OpenAI-compatible endpoint, in
-        development) and is reported in `model`.
+        development) and is reported in the proposal's `model`.
       parameters:
         - $ref: '#/components/parameters/AuthorableAssetType'
         - $ref: '#/components/parameters/AuthoringAssetId'
@@ -1991,8 +1716,8 @@ paths:
             schema:
               $ref: '#/components/schemas/ProposeRequest'
       responses:
-        '200':
-          description: The proposal and its dry run
+        '202':
+          description: The planner job was queued; its result is the Proposal
           content:
             application/json:
               schema:
@@ -2002,7 +1727,7 @@ paths:
                   success:
                     type: boolean
                   data:
-                    $ref: '#/components/schemas/Proposal'
+                    $ref: '#/components/schemas/JobQueued'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2711,17 +2436,51 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /api/authoring/new/propose:
+    post:
+      summary: A dashboard or analysis from nothing - the planner proposes the visuals
+      description: |
+        The same body as the preview, with `ask` and no `visuals`: the planner
+        proposes visuals from the datasets' columns. It runs as a job (a long
+        think would outlive the gateway): poll `GET /api/jobs/{jobId}` until
+        `completed`, then `GET /api/jobs/{jobId}/result` is a
+        `NewAssetPreview` whose `visuals` can be edited and sent to the
+        preview and create endpoints as they are.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewAssetRequest'
+      responses:
+        '202':
+          description: The planner job was queued; its result is a NewAssetPreview
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/JobQueued'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/authoring/new/preview:
     post:
       summary: A dashboard or analysis from nothing - preview
       description: |
         The datasets it should read and the visuals it should show, described
-        by column names; when `visuals` is absent and `ask` is given, the
-        planner proposes them from the datasets' columns. Field wells follow
-        each column's type. Optionally laid out on a template standard and
-        passed through type rules. Nothing is written; the response is the
-        definition, its outline, the visuals that were built (or proposed),
-        and what could not be built.
+        by column names. Field wells follow each column's type. Optionally
+        laid out on a template standard and passed through type rules.
+        Nothing is written; the response is the definition, its outline, the
+        visuals that were built, and what could not be built. An `ask` with
+        no `visuals` is refused here: it is the planner's job, see
+        `/api/authoring/new/propose`.
       requestBody:
         required: true
         content:
@@ -3274,6 +3033,1073 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  # ---------------------------------------------------------------------------
+  # Jobs - every call that runs in the background lands here
+  # ---------------------------------------------------------------------------
+  /api/jobs:
+    get:
+      summary: Recent jobs
+      description: |
+        Exports, activity refreshes, SMUS exports, bulk operations, CSV
+        exports, deployments and planner calls, newest first. Anything that
+        returned a `jobId` can be followed here.
+      tags: [Jobs]
+      parameters:
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/JobType'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/JobStatus'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: afterDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: beforeDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Job'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/jobs/{jobId}:
+    get:
+      summary: One job's status and progress
+      description: Poll this until `status` is `completed`, `failed` or `stopped`.
+      tags: [Jobs]
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: The job
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Job'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      summary: Delete a finished job's record
+      tags: [Jobs]
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Acknowledged'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/jobs/{jobId}/logs:
+    get:
+      summary: A job's log lines
+      tags: [Jobs]
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Logs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      jobId:
+                        type: string
+                      logs:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/JobLog'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/jobs/{jobId}/result:
+    get:
+      summary: What a job produced
+      description: |
+        The shape depends on the job: a `Proposal` for a planner asked about
+        an asset, a `NewAssetPreview` for a planner asked to propose visuals,
+        a download descriptor for a CSV export, a summary for a bulk
+        operation. 404 until the job completes, or when it produced nothing.
+      tags: [Jobs]
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: The result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    additionalProperties: true
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/jobs/{jobId}/stop:
+    post:
+      summary: Ask a running job to stop at its next checkpoint
+      tags: [Jobs]
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Acknowledged'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ---------------------------------------------------------------------------
+  # Authoring - a definition the caller built themselves
+  # ---------------------------------------------------------------------------
+  /api/authoring/definition/preview:
+    post:
+      summary: Check a definition you built, before writing it anywhere
+      description: |
+        For an agent that read a cached export, edited the JSON itself, and
+        wants to publish: every dataset the definition declares is read,
+        every referenced column resolved against it, and everything
+        QuickSight would refuse is listed with a fix where one is clear
+        (the same checks the Author page runs). Nothing is written.
+      tags: [Authoring]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DefinitionRequest'
+      responses:
+        '200':
+          description: What would stop a write, and the sheets as they would be
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/DefinitionPreview'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/authoring/definition:
+    post:
+      summary: A new dashboard or analysis from a definition you built
+      description: |
+        The preview's checks, then the write through the same path as every
+        other authoring call: the audience of `permissionsFrom` (without one
+        only account admins see it), a dashboard's first version published,
+        provenance recorded and tagged. Refused, with the issues, when the
+        preview would show any.
+      tags: [Authoring]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewDefinitionRequest'
+      responses:
+        '200':
+          description: The asset that was created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/DefinitionApplyResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/authoring/{assetType}/{assetId}/definition/preview:
+    post:
+      summary: Check a definition you built for an existing asset
+      description: Same as `/api/authoring/definition/preview`; the path names the asset it is for.
+      tags: [Authoring]
+      parameters:
+        - $ref: '#/components/parameters/AuthorableAssetType'
+        - $ref: '#/components/parameters/AuthoringAssetId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DefinitionRequest'
+      responses:
+        '200':
+          description: What would stop a write, and the sheets as they would be
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/DefinitionPreview'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/authoring/{assetType}/{assetId}/definition:
+    post:
+      summary: Write a definition you built onto an existing asset, in place or as a copy
+      description: |
+        `mode: update` rewrites the asset (name, theme and publish options
+        kept unless given; a dashboard's new version is published). `mode:
+        clone` creates a copy with the source's audience (or that of
+        `permissionsFrom`), optionally in a folder. Refused, with the
+        issues, when the preview would show any.
+      tags: [Authoring]
+      parameters:
+        - $ref: '#/components/parameters/AuthorableAssetType'
+        - $ref: '#/components/parameters/AuthoringAssetId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DefinitionApplyRequest'
+      responses:
+        '200':
+          description: The asset that was written
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/DefinitionApplyResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ---------------------------------------------------------------------------
+  # Assets - permissions, archive, index, bulk delete
+  # ---------------------------------------------------------------------------
+  /api/assets/{assetType}/{assetId}/grant-permissions:
+    post:
+      summary: Give principals actions on an asset (queues a job)
+      description: |
+        The mirror of revoke. Each grant is a QuickSight principal ARN (a
+        user or a group) and the actions to grant; the portal's cache learns
+        the new principals when the job completes.
+      tags: [Assets]
+      parameters:
+        - name: assetType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [dashboard, analysis, dataset, datasource, folder]
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [grants]
+              properties:
+                grants:
+                  type: array
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/PrincipalActions'
+      responses:
+        '202':
+          $ref: '#/components/responses/BulkJobQueued'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/assets/archive/{assetType}/{assetId}/metadata:
+    get:
+      summary: An archived asset's export, for a restore preview
+      tags: [Assets]
+      parameters:
+        - name: assetType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [dashboard, analysis, dataset, datasource, folder, user, group]
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The archived export
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    additionalProperties: true
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/assets/rebuild-index:
+    post:
+      summary: Rebuild the portal's asset index from the exports (queues a job)
+      tags: [Assets]
+      responses:
+        '200':
+          $ref: '#/components/responses/Acknowledged'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/assets/bulk-delete:
+    post:
+      summary: Delete assets and archive their exports (queues a job)
+      tags: [Assets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assets]
+              properties:
+                assets:
+                  type: array
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/AssetRef'
+                reason:
+                  type: string
+      responses:
+        '202':
+          $ref: '#/components/responses/BulkJobQueued'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/assets/bulk-delete/validate:
+    post:
+      summary: What still depends on these assets, before deleting them
+      tags: [Assets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assets]
+              properties:
+                assets:
+                  type: array
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/AssetRef'
+      responses:
+        '200':
+          description: Dependencies per asset
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ---------------------------------------------------------------------------
+  # Tags
+  # ---------------------------------------------------------------------------
+  /api/tags/{assetType}/{assetId}:
+    get:
+      summary: An asset's tags, live from QuickSight
+      tags: [Tags]
+      parameters:
+        - $ref: '#/components/parameters/TaggableAssetType'
+        - $ref: '#/components/parameters/TaggedAssetId'
+      responses:
+        '200':
+          description: Tags
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tag'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      summary: Replace an asset's tags
+      tags: [Tags]
+      parameters:
+        - $ref: '#/components/parameters/TaggableAssetType'
+        - $ref: '#/components/parameters/TaggedAssetId'
+      requestBody:
+        $ref: '#/components/requestBodies/Tags'
+      responses:
+        '200':
+          $ref: '#/components/responses/Acknowledged'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      summary: Add tags to an asset
+      tags: [Tags]
+      parameters:
+        - $ref: '#/components/parameters/TaggableAssetType'
+        - $ref: '#/components/parameters/TaggedAssetId'
+      requestBody:
+        $ref: '#/components/requestBodies/Tags'
+      responses:
+        '200':
+          $ref: '#/components/responses/Acknowledged'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      summary: Remove tags from an asset by key
+      tags: [Tags]
+      parameters:
+        - $ref: '#/components/parameters/TaggableAssetType'
+        - $ref: '#/components/parameters/TaggedAssetId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tagKeys]
+              properties:
+                tagKeys:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Acknowledged'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/tags/batch:
+    post:
+      summary: Tags for many assets in one call
+      tags: [Tags]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assets]
+              properties:
+                assets:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AssetRef'
+      responses:
+        '200':
+          description: Tags per asset
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/tags/bulk:
+    post:
+      summary: Add, replace or remove tags on many assets (queues a job)
+      tags: [Tags]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assetType, assetIds, operation]
+              properties:
+                assetType:
+                  type: string
+                assetIds:
+                  type: array
+                  items:
+                    type: string
+                operation:
+                  type: string
+                  enum: [add, update, remove]
+                tags:
+                  type: array
+                  description: For add and update.
+                  items:
+                    $ref: '#/components/schemas/Tag'
+                tagKeys:
+                  type: array
+                  description: For remove.
+                  items:
+                    type: string
+      responses:
+        '202':
+          $ref: '#/components/responses/BulkJobQueued'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/tags/refresh:
+    post:
+      summary: Re-read tags from QuickSight into the cache
+      tags: [Tags]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                assetType:
+                  type: string
+                assetIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Acknowledged'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ---------------------------------------------------------------------------
+  # Folders and groups
+  # ---------------------------------------------------------------------------
+  /api/folders/{folderId}/assets/bulk:
+    post:
+      summary: Add many assets to a folder (queues a job)
+      tags: [Folders]
+      parameters:
+        - name: folderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        $ref: '#/components/requestBodies/AssetRefs'
+      responses:
+        '202':
+          $ref: '#/components/responses/BulkJobQueued'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      summary: Remove many assets from a folder (queues a job)
+      tags: [Folders]
+      parameters:
+        - name: folderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        $ref: '#/components/requestBodies/AssetRefs'
+      responses:
+        '202':
+          $ref: '#/components/responses/BulkJobQueued'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/groups:
+    post:
+      summary: Create a QuickSight group
+      tags: [Groups]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [groupName]
+              properties:
+                groupName:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Acknowledged'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/groups/{groupName}:
+    put:
+      summary: Change a group's description
+      tags: [Groups]
+      parameters:
+        - name: groupName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [description]
+              properties:
+                description:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Acknowledged'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      summary: Delete a group
+      tags: [Groups]
+      parameters:
+        - name: groupName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Acknowledged'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ---------------------------------------------------------------------------
+  # Deployments - restore archived assets
+  # ---------------------------------------------------------------------------
+  /api/deployments:
+    post:
+      summary: Deploy (restore) an asset from its archived export (queues a job)
+      tags: [Deployments]
+      requestBody:
+        $ref: '#/components/requestBodies/Deployment'
+      responses:
+        '202':
+          $ref: '#/components/responses/BulkJobQueued'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/deployments/validate:
+    post:
+      summary: Check a deployment without running it
+      tags: [Deployments]
+      requestBody:
+        $ref: '#/components/requestBodies/Deployment'
+      responses:
+        '200':
+          description: Validation findings
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/deployments/history:
+    get:
+      summary: Past deployments
+      tags: [Deployments]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: assetType
+          in: query
+          schema:
+            type: string
+        - name: assetId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deployments, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/deployments/templates:
+    get:
+      summary: Manifest templates for common deployments
+      tags: [Deployments]
+      responses:
+        '200':
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/deployments/jobs/{jobId}:
+    get:
+      summary: A deployment job's status (same record as /api/jobs/{jobId})
+      tags: [Deployments]
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: The job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/deployments/jobs/{jobId}/stop:
+    post:
+      summary: Stop a deployment job
+      tags: [Deployments]
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Acknowledged'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ---------------------------------------------------------------------------
+  # Data catalog - the older field-level views and field tags
+  # ---------------------------------------------------------------------------
+  /api/data-catalog:
+    get:
+      summary: The field catalog, paginated (the older view; prefer /api/data-catalog/full)
+      tags: [Data catalog]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: viewMode
+          in: query
+          schema:
+            type: string
+        - name: forceRebuild
+          in: query
+          schema:
+            type: boolean
+        - name: tagFilter
+          in: query
+          schema:
+            type: string
+        - name: includeTags
+          in: query
+          schema:
+            type: string
+        - name: excludeTags
+          in: query
+          schema:
+            type: string
+        - name: assetIds
+          in: query
+          schema:
+            type: string
+        - name: includeAnalyses
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: A page of fields
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/data-catalog/fields:
+    get:
+      summary: Fields across datasets, analyses and dashboards, paginated
+      tags: [Data catalog]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: sourceType
+          in: query
+          schema:
+            type: string
+        - name: dataType
+          in: query
+          schema:
+            type: string
+        - name: isCalculated
+          in: query
+          schema:
+            type: boolean
+        - name: searchTerm
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A page of fields
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/data-catalog/visual-fields/rebuild:
+    post:
+      summary: Rebuild the cache behind the visual field catalog
+      tags: [Data catalog]
+      responses:
+        '200':
+          $ref: '#/components/responses/Acknowledged'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/data-catalog/field/{sourceType}/{sourceId}/{fieldName}:
+    get:
+      summary: One field's portal metadata (tags, notes)
+      tags: [Data catalog]
+      parameters:
+        - $ref: '#/components/parameters/FieldSourceType'
+        - $ref: '#/components/parameters/FieldSourceId'
+        - $ref: '#/components/parameters/FieldName'
+      responses:
+        '200':
+          description: The metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      summary: Replace a field's portal metadata
+      tags: [Data catalog]
+      parameters:
+        - $ref: '#/components/parameters/FieldSourceType'
+        - $ref: '#/components/parameters/FieldSourceId'
+        - $ref: '#/components/parameters/FieldName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Acknowledged'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      summary: Add tags to a field
+      tags: [Data catalog]
+      parameters:
+        - $ref: '#/components/parameters/FieldSourceType'
+        - $ref: '#/components/parameters/FieldSourceId'
+        - $ref: '#/components/parameters/FieldName'
+      requestBody:
+        $ref: '#/components/requestBodies/FieldTags'
+      responses:
+        '200':
+          $ref: '#/components/responses/Acknowledged'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      summary: Remove tags from a field
+      tags: [Data catalog]
+      parameters:
+        - $ref: '#/components/parameters/FieldSourceType'
+        - $ref: '#/components/parameters/FieldSourceId'
+        - $ref: '#/components/parameters/FieldName'
+      requestBody:
+        $ref: '#/components/requestBodies/FieldTags'
+      responses:
+        '200':
+          $ref: '#/components/responses/Acknowledged'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/data-catalog/fields/search-by-tags:
+    post:
+      summary: Fields carrying any of these tags
+      tags: [Data catalog]
+      requestBody:
+        $ref: '#/components/requestBodies/FieldTags'
+      responses:
+        '200':
+          description: Matching fields
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -3283,6 +4109,44 @@ components:
       description: JWT token for API authentication
   
   parameters:
+    JobId:
+      name: jobId
+      in: path
+      required: true
+      schema:
+        type: string
+    TaggableAssetType:
+      name: assetType
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [dashboard, analysis, dataset, datasource, folder, user, group]
+    TaggedAssetId:
+      name: assetId
+      in: path
+      required: true
+      schema:
+        type: string
+    FieldSourceType:
+      name: sourceType
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [dataset, analysis, dashboard]
+    FieldSourceId:
+      name: sourceId
+      in: path
+      required: true
+      schema:
+        type: string
+    FieldName:
+      name: fieldName
+      in: path
+      required: true
+      schema:
+        type: string
     AuthorableAssetType:
       name: assetType
       in: path
@@ -3297,6 +4161,220 @@ components:
         type: string
 
   schemas:
+    JobType:
+      type: string
+      enum: [export, deploy, ingestion, rebuild, activity-refresh, bulk-operation, csv-export, smus-export, planner]
+
+    Job:
+      type: object
+      description: One background job, as /api/jobs returns it.
+      required: [jobId, jobType, status, startTime]
+      additionalProperties: true
+      properties:
+        jobId:
+          type: string
+        jobType:
+          $ref: '#/components/schemas/JobType'
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        progress:
+          type: number
+        message:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        error:
+          type: string
+        userId:
+          type: string
+        assetType:
+          type: string
+        assetId:
+          type: string
+
+    JobLog:
+      type: object
+      required: [timestamp, level, message]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        level:
+          type: string
+          enum: [info, warn, error, debug]
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    AssetRef:
+      type: object
+      required: [type, id]
+      properties:
+        type:
+          type: string
+          enum: [dashboard, analysis, dataset, datasource, folder, user, group]
+        id:
+          type: string
+        name:
+          type: string
+
+    PrincipalActions:
+      type: object
+      required: [principal, actions]
+      properties:
+        principal:
+          type: string
+          description: A QuickSight user or group ARN.
+        actions:
+          type: array
+          items:
+            type: string
+
+    DefinitionRequest:
+      type: object
+      required: [definition]
+      properties:
+        definition:
+          type: object
+          additionalProperties: true
+          description: A full QuickSight AnalysisDefinition or DashboardVersionDefinition.
+
+    DefinitionApplyRequest:
+      allOf:
+        - $ref: '#/components/schemas/DefinitionRequest'
+        - type: object
+          required: [mode]
+          properties:
+            mode:
+              type: string
+              enum: [update, clone]
+            name:
+              type: string
+              description: Required for clone; an optional rename for update.
+            newAssetId:
+              type: string
+            folderId:
+              type: string
+              description: Clone only.
+            themeArn:
+              type: string
+            permissionsFrom:
+              type: object
+              description: Clone only; defaults to the source's audience.
+              required: [assetType, assetId]
+              properties:
+                assetType:
+                  $ref: '#/components/schemas/AuthorableAssetType'
+                assetId:
+                  type: string
+
+    NewDefinitionRequest:
+      allOf:
+        - $ref: '#/components/schemas/DefinitionRequest'
+        - type: object
+          required: [assetType, name]
+          properties:
+            assetType:
+              $ref: '#/components/schemas/AuthorableAssetType'
+            name:
+              type: string
+            newAssetId:
+              type: string
+            folderId:
+              type: string
+            themeArn:
+              type: string
+            permissionsFrom:
+              type: object
+              required: [assetType, assetId]
+              properties:
+                assetType:
+                  $ref: '#/components/schemas/AuthorableAssetType'
+                assetId:
+                  type: string
+
+    DefinitionDatasetCheck:
+      type: object
+      required: [identifier, dataSetId, readable, referenced, missing]
+      properties:
+        identifier:
+          type: string
+        dataSetId:
+          type: string
+        name:
+          type: string
+        readable:
+          type: boolean
+        referenced:
+          type: integer
+        missing:
+          type: array
+          items:
+            type: string
+
+    DefinitionPreview:
+      type: object
+      required: [datasets, issues, summary, outline, warnings, canApply]
+      properties:
+        datasets:
+          type: array
+          items:
+            $ref: '#/components/schemas/DefinitionDatasetCheck'
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/RepairIssue'
+        summary:
+          type: object
+          required: [fixable, needsChoice, unfixable]
+          properties:
+            fixable:
+              type: integer
+            needsChoice:
+              type: integer
+            unfixable:
+              type: integer
+        outline:
+          type: array
+          items:
+            $ref: '#/components/schemas/SheetOutline'
+        warnings:
+          type: array
+          items:
+            type: string
+        canApply:
+          type: boolean
+
+    DefinitionApplyResult:
+      type: object
+      required: [assetType, assetId, name, arn, mode, warnings]
+      properties:
+        assetType:
+          $ref: '#/components/schemas/AuthorableAssetType'
+        assetId:
+          type: string
+        name:
+          type: string
+        arn:
+          type: string
+        versionNumber:
+          type: integer
+        mode:
+          type: string
+          enum: [update, clone, create]
+        folderId:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+
     # Core types
     AssetType:
       type: string
@@ -7254,6 +8332,21 @@ components:
         diagnostics:
           $ref: '#/components/schemas/SmusProjectDiagnostics'
 
+    JobQueued:
+      type: object
+      description: |
+        A call that runs as a job. Poll `GET /api/jobs/{jobId}` until
+        `status` is `completed` or `failed`; a job that produces something
+        puts it under `GET /api/jobs/{jobId}/result`.
+      required: [jobId, status, message]
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+        message:
+          type: string
+
     SmusExportQueued:
       type: object
       required: [jobId, status, message]
@@ -7685,7 +8778,82 @@ components:
           type: object
           description: Additional error details
 
+  requestBodies:
+    Tags:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [tags]
+            properties:
+              tags:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tag'
+    FieldTags:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [tags]
+            properties:
+              tags:
+                type: array
+                items:
+                  type: string
+    AssetRefs:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [assets]
+            properties:
+              assets:
+                type: array
+                minItems: 1
+                items:
+                  $ref: '#/components/schemas/AssetRef'
+    Deployment:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [assetType, assetId, deploymentConfig]
+            properties:
+              assetType:
+                type: string
+                enum: [dashboard, analysis, dataset, datasource, folder]
+              assetId:
+                type: string
+              deploymentConfig:
+                type: object
+                description: deploymentType (restore), source (archive), target and options; see the Deploy page for the shape it sends.
+                additionalProperties: true
+
   responses:
+    Acknowledged:
+      description: Done
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [success]
+            properties:
+              success:
+                type: boolean
+              data:
+                type: object
+                additionalProperties: true
+    BulkJobQueued:
+      description: Queued; follow the job under /api/jobs/{jobId}
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/BulkJobAccepted'
     BadRequest:
       description: Bad request
       content:

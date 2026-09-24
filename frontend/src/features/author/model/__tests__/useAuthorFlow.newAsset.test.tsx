@@ -29,6 +29,7 @@ vi.mock('@/shared/api', async (importOriginal) => {
       previewRebind: vi.fn(),
       applyRebind: vi.fn(),
       previewNew: vi.fn(),
+      proposeNew: vi.fn(),
       createNew: vi.fn(),
       getDatasetColumns: vi.fn(),
     },
@@ -90,6 +91,10 @@ describe('useAuthorFlow from nothing', () => {
     vi.mocked(authoringApi.getInsights).mockRejectedValue(new Error('no insights'));
     vi.mocked(authoringApi.planRepair).mockRejectedValue(new Error('no plan'));
     vi.mocked(authoringApi.getDatasets).mockResolvedValue({ datasets: [] } as never);
+    // The planner runs as a job; the client waits for it and hands back a preview.
+    vi.mocked(authoringApi.proposeNew).mockImplementation((request) =>
+      vi.mocked(authoringApi.previewNew)(request)
+    );
     vi.mocked(authoringApi.previewNew).mockResolvedValue({
       definition: { DataSetIdentifierDeclarations: [], Sheets: [] },
       outline: [],
@@ -184,7 +189,7 @@ describe('useAuthorFlow from nothing', () => {
       await result.current.propose();
     });
 
-    const body = lastBody(vi.mocked(authoringApi.previewNew));
+    const body = lastBody(vi.mocked(authoringApi.proposeNew));
     expect(body.ask).toBe('revenue by region');
     expect(body.visuals).toBeUndefined();
     expect(authoringApi.propose).not.toHaveBeenCalled();

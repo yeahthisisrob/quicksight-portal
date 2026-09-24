@@ -600,7 +600,7 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
   const proposeVisuals = useCallback(async () => {
     const request = { ...freshRequest, ask: ask.trim() };
     delete request.visuals;
-    const result = await authoringApi.previewNew(request);
+    const result = await authoringApi.proposeNew(request);
     dispatch({ type: 'setVisuals', visuals: draftsFromSpecs(result.visuals) });
     setFreshProposal(result.proposal ?? null);
   }, [freshRequest, ask]);
