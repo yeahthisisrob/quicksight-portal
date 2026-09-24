@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.15.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.15.0...v2.15.1) (2026-09-24)
+
+
+### Bug Fixes
+
+* **build:** the dev and watch builds resolve the guide's ?raw import like the production build ([#201](https://github.com/yeahthisisrob/quicksight-portal/issues/201)) ([97c7cfe](https://github.com/yeahthisisrob/quicksight-portal/commit/97c7cfe349bb26b524bbf82b8af7adbc0a6237fe))
+
 ## [2.15.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.14.5...v2.15.0) (2026-09-24)
 
 
