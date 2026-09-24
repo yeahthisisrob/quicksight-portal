@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.15.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.15.1...v2.15.2) (2026-09-24)
+
+
+### Bug Fixes
+
+* **build:** the ?raw module declaration is a tracked .ts, not a git-ignored .d.ts ([#203](https://github.com/yeahthisisrob/quicksight-portal/issues/203)) ([a34655c](https://github.com/yeahthisisrob/quicksight-portal/commit/a34655c78db0945ade374cad278197b83e886868))
+
 ## [2.15.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.15.0...v2.15.1) (2026-09-24)
 
 
