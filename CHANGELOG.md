@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.15.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.14.5...v2.15.0) (2026-09-24)
+
+
+### Features
+
+* **api:** the portal as an API product - a served contract and guide, publish a definition you built, the planner as a job, and an API tab on Author ([#199](https://github.com/yeahthisisrob/quicksight-portal/issues/199)) ([4d235aa](https://github.com/yeahthisisrob/quicksight-portal/commit/4d235aaa8096ff2b3201b997ba3f6a090c899ad2))
+
 ## [2.14.5](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.14.4...v2.14.5) (2026-09-23)
 
 
