@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.16.3](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.16.2...v2.16.3) (2026-09-25)
+
+
+### Bug Fixes
+
+* **author:** the assistant knows the portal (SMUS projects, governed datasets, the catalog, templates), and the worker can see SMUS ([#213](https://github.com/yeahthisisrob/quicksight-portal/issues/213)) ([bfe37e9](https://github.com/yeahthisisrob/quicksight-portal/commit/bfe37e9b9391408efc805e1a593f0fa2929a4d73))
+
 ## [2.16.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.16.1...v2.16.2) (2026-09-25)
 
 
