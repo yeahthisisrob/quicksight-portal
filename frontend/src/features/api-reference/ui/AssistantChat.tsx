@@ -191,7 +191,6 @@ export function AssistantChat() {
             {entries.map((entry, index) =>
               entry.role === 'user' ? (
                 <Box
-                  // biome-ignore lint/suspicious/noArrayIndexKey: an append-only transcript
                   key={index}
                   sx={{
                     alignSelf: 'flex-end',
@@ -207,7 +206,6 @@ export function AssistantChat() {
                   </Typography>
                 </Box>
               ) : (
-                // biome-ignore lint/suspicious/noArrayIndexKey: an append-only transcript
                 <AnswerView key={index} result={entry.result} />
               )
             )}
