@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.16.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.16.0...v2.16.1) (2026-09-25)
+
+
+### Bug Fixes
+
+* **author:** the assistant says what it is doing, runs the planner itself and waits for it, follows the jobs its actions start, and keeps the conversation across reloads ([#209](https://github.com/yeahthisisrob/quicksight-portal/issues/209)) ([f2cec70](https://github.com/yeahthisisrob/quicksight-portal/commit/f2cec70128348cc13241d96e8ad889da3b2aa714))
+
 ## [2.16.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.15.2...v2.16.0) (2026-09-25)
 
 
