@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.16.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.15.2...v2.16.0) (2026-09-25)
+
+
+### Features
+
+* **author:** an assistant that reads, draws and prepares changes, and a choice of five models with rough costs ([#207](https://github.com/yeahthisisrob/quicksight-portal/issues/207)) ([d51d1f7](https://github.com/yeahthisisrob/quicksight-portal/commit/d51d1f7beb8ff1cbaedf90ce4853e15ba66f7df8))
+
 ## [2.15.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.15.1...v2.15.2) (2026-09-24)
 
 
