@@ -22,8 +22,11 @@
  * union-typed fields, and a rejected request is worse than a sentinel.
  */
 
+import { getSmusConfig } from '../../../../shared/config/smusConfig';
 import { ValidationError } from '../../../../shared/errors/ValidationError';
-import { cacheService } from '../../../../shared/services/cache/CacheService';
+import { ClientFactory } from '../../../../shared/services/aws/ClientFactory';
+import { CacheService, cacheService } from '../../../../shared/services/cache/CacheService';
+import { SmusService } from '../../../../shared/services/smus/SmusService';
 import { AssetStatusFilter } from '../../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES } from '../../../../shared/types/assetTypes';
 import { logger } from '../../../../shared/utils/logger';
@@ -55,6 +58,59 @@ import type { PlannerModel } from './PlannerModel';
 export interface CandidateDataset {
   id: string;
   name: string;
+  /** Set when the dataset reads a published SMUS listing (the Data Catalog's link). */
+  governed?: { listing: string; project?: string };
+}
+
+/**
+ * Which datasets read a published SMUS listing, and which listing and
+ * project: the same links the Data Catalog shows. Empty when SMUS is off
+ * or has not been exported; the planner then sees plain names.
+ */
+export async function governedDatasetIndex(): Promise<
+  Map<string, { listing: string; project?: string }>
+> {
+  const index = new Map<string, { listing: string; project?: string }>();
+  try {
+    const config = getSmusConfig();
+    if (!config.enabled) {
+      return index;
+    }
+    const smus = new SmusService(
+      CacheService.getInstance(),
+      config,
+      ClientFactory.getQuickSightService(process.env.AWS_ACCOUNT_ID || '')
+    );
+    for (const asset of (await smus.listAssets()).assets) {
+      for (const dataset of asset.datasets) {
+        if (!index.has(dataset.id)) {
+          index.set(dataset.id, {
+            listing: asset.name,
+            ...(asset.projectName ? { project: asset.projectName } : {}),
+          });
+        }
+      }
+    }
+  } catch (error) {
+    logger.warn('Planner: SMUS links unavailable, candidates go unlabelled', { error });
+  }
+  return index;
+}
+
+/** Governed datasets first, so a long account never truncates them away. */
+export function rankCandidates(
+  datasets: Array<{ id: string; name: string }>,
+  governed: Map<string, { listing: string; project?: string }>
+): CandidateDataset[] {
+  return datasets
+    .map((d): CandidateDataset => {
+      const link = governed.get(d.id);
+      return link ? { ...d, governed: link } : d;
+    })
+    .sort(
+      (a, b) =>
+        Number(Boolean(b.governed)) - Number(Boolean(a.governed)) || a.name.localeCompare(b.name)
+    );
 }
 
 export type CandidateLoader = () => Promise<CandidateDataset[]>;
@@ -279,13 +335,17 @@ interface Mapping {
 }
 
 export const defaultCandidateLoader: CandidateLoader = async () => {
-  const entries = await cacheService.getCacheEntries({
-    assetType: ASSET_TYPES.dataset,
-    statusFilter: AssetStatusFilter.ACTIVE,
-  });
-  return entries
-    .map((e) => ({ id: e.assetId, name: e.assetName }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const [entries, governed] = await Promise.all([
+    cacheService.getCacheEntries({
+      assetType: ASSET_TYPES.dataset,
+      statusFilter: AssetStatusFilter.ACTIVE,
+    }),
+    governedDatasetIndex(),
+  ]);
+  return rankCandidates(
+    entries.map((e) => ({ id: e.assetId, name: e.assetName })),
+    governed
+  );
 };
 
 export class PlannerService {
@@ -540,7 +600,7 @@ export class PlannerService {
         }))
       ),
       '',
-      'Datasets in the account (id and name):',
+      'Datasets in the account (id and name). Those with `governed` read a published SMUS listing, shown with its project; when the ask says SMUS, governed, published, a listing or a project, choose among those:',
       JSON.stringify(candidates),
       '',
       `The ask: """${ask}"""`,

@@ -769,6 +769,7 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
     };
     const started = Date.now();
     const result = await new AssistantService(chat, model, dispatch, {
+      brief: true,
       ...(message.authoringModel && isAiModelKey(message.authoringModel)
         ? { authoringModel: message.authoringModel }
         : {}),

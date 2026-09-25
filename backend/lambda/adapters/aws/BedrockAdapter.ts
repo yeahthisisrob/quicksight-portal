@@ -45,6 +45,8 @@ export interface StructuredOutputResult {
 export interface ConverseTurnRequest {
   modelId: string;
   system: string;
+  /** Changes per answer (the live brief), so it sits after the cache point. */
+  context?: string;
   messages: Message[];
   tools: Array<{ name: string; description: string; inputSchema: Record<string, unknown> }>;
   maxTokens: number;
@@ -125,6 +127,9 @@ export class BedrockAdapter {
     if (req.capabilities.promptCache) {
       // The system prompt (with the API index) is the same every turn.
       system.push({ cachePoint: { type: 'default' } } as SystemContentBlock);
+    }
+    if (req.context) {
+      system.push({ text: req.context });
     }
     const tools: Tool[] = req.tools.map((t) => ({
       toolSpec: {

@@ -10,6 +10,13 @@ import { randomUUID } from 'node:crypto';
 import spec from '../../../../../shared/generated/openapi.json';
 import { type AiModel, costOf } from '../../../shared/ai/modelCatalog';
 import { logger } from '../../../shared/utils/logger';
+import {
+  buildBrief,
+  findCalculatedFields,
+  findGovernedDatasets,
+  listTemplates,
+  PORTAL_CONCEPTS,
+} from '../lib/portalBrief';
 import { apiIndex, classifyCall, describeOperation } from '../lib/portalCalls';
 import type {
   AssistantAction,
@@ -18,7 +25,7 @@ import type {
   AssistantChatResult,
   ChatHistoryMessage,
 } from '../types';
-import type { ChatModel, ChatTool, ChatTurn, ToolResult } from './ChatModel';
+import type { ChatModel, ChatSystem, ChatTool, ChatTurn, ToolResult } from './ChatModel';
 
 const MAX_ROUNDS = 8;
 const MAX_RESULT_CHARS = 12_000;
@@ -61,6 +68,8 @@ export type ProgressReporter = (message: string) => Promise<void> | void;
 
 export interface AssistantOptions {
   onProgress?: ProgressReporter;
+  /** Read the account's SMUS, catalog and template state before answering. */
+  brief?: boolean;
   /** Sent as `model` on propose calls that do not name one. */
   authoringModel?: string;
   sleep?: (ms: number) => Promise<void>;
@@ -92,7 +101,46 @@ export type PortalDispatch = (request: {
   body?: unknown;
 }) => Promise<{ status: number; body: string }>;
 
+const PROJECT_ID = {
+  type: 'string',
+  description: 'A SMUS project id from the brief, to keep to one project.',
+};
+
 const TOOLS: ChatTool[] = [
+  {
+    name: 'find_governed_datasets',
+    description:
+      'Published SMUS listings and the QuickSight datasets already linked to each (the Data Catalog view): listing, project, table, and each linked dataset with its id and how it was linked. Use this whenever the person means a SMUS, governed, linked or published dataset.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        search: {
+          type: 'string',
+          description: 'Words from the listing, table, column or glossary term.',
+        },
+        projectId: PROJECT_ID,
+      },
+    },
+  },
+  {
+    name: 'find_calculated_fields',
+    description:
+      'Calculated fields across the account, one per distinct expression: the expression, the datasets it is on, conflicts and template matches, and the key to read its lineage with.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        search: { type: 'string', description: 'A name or words from the expression.' },
+        projectId: PROJECT_ID,
+        conflictsOnly: { type: 'boolean' },
+      },
+    },
+  },
+  {
+    name: 'list_templates',
+    description:
+      'The calculated-field template library and the dashboards tagged as layout standards, with their ids.',
+    inputSchema: { type: 'object', properties: {} },
+  },
   {
     name: 'call_portal_api',
     description:
@@ -162,12 +210,15 @@ const TOOLS: ChatTool[] = [
 ];
 
 let systemPrompt: string | null = null;
+/** The concepts and the operation index, identical for every answer (and so cached). */
 
 /** Built once per container: the rules, then the map of every operation. */
 function system(): string {
   if (!systemPrompt) {
     systemPrompt = [
       'You are the assistant inside a QuickSight Assets Portal. You help analysts find QuickSight assets, understand them, and build or change dashboards and analyses, using the portal API below as the person you are helping.',
+      '',
+      PORTAL_CONCEPTS,
       '',
       'How to work:',
       '- Read before you answer. Start with GET /api/search?q=... in plain words; it finds dashboards, analyses, datasets, SMUS listings, calculated fields and visuals. Use limit and types to keep responses small.',
@@ -273,11 +324,17 @@ export class AssistantService {
     let reply = '';
     let rounds = 0;
     let nudged = false;
+    let brief: string | undefined;
+    if (this.options.brief) {
+      await this.progress('Reading the portal');
+      brief = await buildBrief(this.dispatch).catch(() => undefined);
+    }
+    const prompt: ChatSystem = { stable: system(), ...(brief ? { context: brief } : {}) };
 
     while (rounds < MAX_ROUNDS) {
       rounds += 1;
       await this.progress(rounds === 1 ? 'Thinking' : 'Thinking about what it found');
-      const turn = await this.chat.turn(system(), turns, TOOLS);
+      const turn = await this.chat.turn(prompt, turns, TOOLS);
       usage.inputTokens += turn.usage.inputTokens;
       usage.outputTokens += turn.usage.outputTokens;
       turns.push({ role: 'assistant', text: turn.text, toolCalls: turn.toolCalls, raw: turn.raw });
@@ -366,6 +423,39 @@ export class AssistantService {
     const path = str(input, 'path');
     if (name === 'describe_operation') {
       return { id, content: describeOperation(spec as never, method, path) };
+    }
+    if (
+      name === 'find_governed_datasets' ||
+      name === 'find_calculated_fields' ||
+      name === 'list_templates'
+    ) {
+      const search = str(input, 'search') || undefined;
+      const projectId = str(input, 'projectId') || undefined;
+      await this.progress(
+        name === 'find_governed_datasets'
+          ? 'Finding governed datasets'
+          : name === 'find_calculated_fields'
+            ? 'Searching calculated fields'
+            : 'Reading the templates'
+      );
+      const content =
+        name === 'find_governed_datasets'
+          ? await findGovernedDatasets(this.dispatch, search, projectId)
+          : name === 'find_calculated_fields'
+            ? await findCalculatedFields(
+                this.dispatch,
+                search,
+                projectId,
+                input.conflictsOnly === true
+              )
+            : await listTemplates(this.dispatch);
+      calls.push({
+        method: 'GET',
+        path: `${name}${search ? ` "${search}"` : ''}${projectId ? ` in ${projectId}` : ''}`,
+        status: 200,
+        ok: true,
+      });
+      return { id, content };
     }
     if (name === 'show_to_person') {
       const kind = str(input, 'kind');

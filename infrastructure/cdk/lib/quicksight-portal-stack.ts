@@ -247,6 +247,27 @@ export class QuicksightPortalStack extends Stack {
     const smusDomainId = this.node.tryGetContext('smusDomainId') || process.env.SMUS_DOMAIN_ID || '';
     const smusPortalUrl = this.node.tryGetContext('smusPortalUrl') || process.env.SMUS_PORTAL_URL || '';
 
+    // What both Lambdas need to see the same portal. The worker runs the
+    // assistant's calls to the portal's own routes in-process, so anything
+    // those routes read from the environment (SMUS above all) has to be
+    // here too; keeping it in one object stops the two drifting apart.
+    const sharedEnvironment: Record<string, string> = {
+      NODE_ENV: 'production',
+      LOG_LEVEL: 'INFO',
+      LOG_SAMPLE_RATE: '0.1',
+      AWS_ACCOUNT_ID: this.account,
+      DEPLOYMENT_TIME: new Date().toISOString(),
+      BUCKET_NAME: `quicksight-metadata-bucket-${this.account}`,
+      // Planner: Bedrock in every deployed environment; the CLI providers
+      // are local-dev only. The worker runs planner and assistant jobs.
+      PLANNER_PROVIDER: 'bedrock',
+      PLANNER_MODEL_ID: process.env.PLANNER_MODEL_ID || 'us.anthropic.claude-sonnet-4-6',
+      EXPORT_QUEUE_URL: exportQueue.queueUrl,
+      JOBS_TABLE_NAME: jobsTable.tableName,
+      ...(smusDomainId ? { SMUS_DOMAIN_ID: smusDomainId } : {}),
+      ...(smusPortalUrl ? { SMUS_PORTAL_URL: smusPortalUrl } : {}),
+    };
+
     const apiLambda = new LambdaFunction(this, 'ApiLambda', {
       runtime: Runtime.NODEJS_22_X,
       handler: 'index.handler',
@@ -255,23 +276,10 @@ export class QuicksightPortalStack extends Stack {
       timeout: Duration.minutes(15),
       memorySize: 3008, // Maximum Lambda memory (3 GB)
       environment: {
-        NODE_ENV: 'production',
-        LOG_LEVEL: 'INFO',
-        LOG_SAMPLE_RATE: '0.1',
+        ...sharedEnvironment,
         SERVICE_NAME: 'quicksight-portal-api',
-        AWS_ACCOUNT_ID: this.account,
-        DEPLOYMENT_TIME: new Date().toISOString(),
         COGNITO_USER_POOL_ID: userPool.userPoolId,
         COGNITO_ISSUER: `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}`,
-        BUCKET_NAME: `quicksight-metadata-bucket-${this.account}`,
-        // Planner (natural-language rebind proposals). Bedrock in every
-        // deployed environment; the CLI providers are local-dev only.
-        PLANNER_PROVIDER: 'bedrock',
-        PLANNER_MODEL_ID: process.env.PLANNER_MODEL_ID || 'us.anthropic.claude-sonnet-4-6',
-        EXPORT_QUEUE_URL: exportQueue.queueUrl,
-        JOBS_TABLE_NAME: jobsTable.tableName,
-        ...(smusDomainId ? { SMUS_DOMAIN_ID: smusDomainId } : {}),
-        ...(smusPortalUrl ? { SMUS_PORTAL_URL: smusPortalUrl } : {}),
       },
     });
 
@@ -290,21 +298,8 @@ export class QuicksightPortalStack extends Stack {
       timeout: Duration.minutes(15),
       memorySize: 3008, // Maximum Lambda memory (3 GB)
       environment: {
-        NODE_ENV: 'production',
-        LOG_LEVEL: 'INFO',
-        LOG_SAMPLE_RATE: '0.1',
+        ...sharedEnvironment,
         SERVICE_NAME: 'quicksight-portal-worker',
-        AWS_ACCOUNT_ID: this.account,
-        DEPLOYMENT_TIME: new Date().toISOString(),
-        BUCKET_NAME: `quicksight-metadata-bucket-${this.account}`,
-        // Planner calls run here as jobs, so a long think never meets the
-        // API gateway's 30-second limit. Same model as the API Lambda.
-        PLANNER_PROVIDER: 'bedrock',
-        PLANNER_MODEL_ID: process.env.PLANNER_MODEL_ID || 'us.anthropic.claude-sonnet-4-6',
-        // Continuation pattern: the worker requeues an export that would
-        // outlive the 15-min Lambda ceiling so a fresh invocation resumes it
-        EXPORT_QUEUE_URL: exportQueue.queueUrl,
-        JOBS_TABLE_NAME: jobsTable.tableName,
       },
     });
 
