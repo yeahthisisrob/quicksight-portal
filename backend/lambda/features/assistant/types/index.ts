@@ -9,6 +9,8 @@ export interface ChatHistoryMessage {
 export interface AssistantChatRequest {
   messages: ChatHistoryMessage[];
   model?: AiModelKey;
+  /** The model the planner uses when the assistant asks it to propose. */
+  authoringModel?: AiModelKey;
 }
 
 /** A call the assistant made itself (reads and previews). */

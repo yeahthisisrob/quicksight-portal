@@ -206,6 +206,40 @@ export function assistantRoutes(): MockRoute[] {
       }),
     },
     {
+      method: 'get',
+      url: /\/jobs\/assistant-working$/,
+      respond: () => ({
+        body: {
+          success: true,
+          data: {
+            jobId: 'assistant-working',
+            jobType: 'assistant',
+            status: 'processing',
+            message: 'Asking the planner: waiting for it to answer',
+            startTime: '2026-09-25T10:00:00Z',
+          },
+        },
+      }),
+    },
+    // An action that queued a job, still going: the card follows it.
+    {
+      method: 'get',
+      url: /\/jobs\/grant-7$/,
+      respond: () => ({
+        body: {
+          success: true,
+          data: {
+            jobId: 'grant-7',
+            jobType: 'bulk-operation',
+            status: 'processing',
+            progress: 40,
+            message: 'Granting 2 of 5 principals',
+            startTime: '2026-09-25T10:00:00Z',
+          },
+        },
+      }),
+    },
+    {
       method: 'post',
       url: /\/rebind\/preview$/,
       respond: () => ({

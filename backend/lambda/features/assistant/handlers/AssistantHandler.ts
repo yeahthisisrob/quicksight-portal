@@ -95,6 +95,10 @@ export async function chat(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
         `${view?.label ?? model} is not available here. ${view?.unavailableReason ?? ''}`.trim()
       );
     }
+    const authoringModel = body.authoringModel;
+    if (authoringModel !== undefined && !isAiModelKey(authoringModel)) {
+      return badRequest(event, 'authoringModel must be a model key');
+    }
     const accountId = process.env.AWS_ACCOUNT_ID || '';
     const queued = await jobFactory.createJob({
       jobType: 'assistant',
@@ -102,6 +106,7 @@ export async function chat(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
       bucketName: process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`,
       userId: user.userId,
       model,
+      ...(authoringModel ? { authoringModel } : {}),
       messages: messages as ChatHistoryMessage[],
       // The identity the assistant's calls run as: the same person, with
       // the same groups, or the same API key.

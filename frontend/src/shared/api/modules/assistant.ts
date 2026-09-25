@@ -2,7 +2,7 @@ import type { components } from '@shared/generated/types';
 
 import { api as apiClient } from '../client';
 import type { ApiResponse } from '../types';
-import { jobsApi } from './jobs';
+import { type JobMetadata, jobsApi } from './jobs';
 
 type Schemas = components['schemas'];
 export type AiModelKey = Schemas['AiModelKey'];
@@ -28,15 +28,21 @@ export const assistantApi = {
     return response.data.data;
   },
 
-  /** One message; the assistant runs as a job, so this waits for its answer. */
-  async chat(request: AssistantChatRequest): Promise<AssistantChatResult> {
+  /** Send one message; the assistant answers as a job. Returns its id. */
+  async send(request: AssistantChatRequest): Promise<string> {
     const response = await apiClient.post<ApiResponse<JobQueued>>('/assistant/chat', request);
     if (!response.data.success || !response.data.data) {
       throw new Error(response.data.error || 'Failed to send the message');
     }
-    return jobsApi.awaitResult<AssistantChatResult>(response.data.data.jobId, {
-      intervalMs: 1000,
-    });
+    return response.data.data.jobId;
+  },
+
+  /** Wait for an answer, reporting each step; also resumes a wait after a page reload. */
+  waitForAnswer(
+    jobId: string,
+    onProgress?: (job: JobMetadata) => void
+  ): Promise<AssistantChatResult> {
+    return jobsApi.awaitResult<AssistantChatResult>(jobId, { intervalMs: 1000, onProgress });
   },
 
   /** Re-run a read-only preview the assistant ran, to draw it. */

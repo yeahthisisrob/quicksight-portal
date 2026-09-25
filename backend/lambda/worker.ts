@@ -118,6 +118,7 @@ interface AssistantMessage {
   jobType: 'assistant';
   accountId: string;
   model: string;
+  authoringModel?: string;
   messages: Array<{ role: 'user' | 'assistant'; text: string }>;
   auth: {
     userId: string;
@@ -687,6 +688,9 @@ async function processPlannerJob(message: PlannerMessage, record: any): Promise<
  * it gives the assistant a way to call the portal's own routes in-process,
  * as the person who asked, through the same handler the API Lambda runs.
  */
+const ASSISTANT_PROGRESS_CEILING = 95;
+const ASSISTANT_MS_PER_SECOND = 1_000;
+
 async function processAssistantJob(message: AssistantMessage, record: any): Promise<void> {
   const { jobId } = message;
   logger.info('Processing assistant job', {
@@ -763,7 +767,23 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       const response = await apiHandler(event);
       return { status: response.statusCode, body: response.body };
     };
-    const result = await new AssistantService(chat, model, dispatch).respond(message.messages);
+    const started = Date.now();
+    const result = await new AssistantService(chat, model, dispatch, {
+      ...(message.authoringModel && isAiModelKey(message.authoringModel)
+        ? { authoringModel: message.authoringModel }
+        : {}),
+      // Each step lands on the job, so the page can say what it is doing.
+      onProgress: (step) =>
+        jobStateService.updateJobStatus(jobId, {
+          status: 'processing',
+          message: step,
+          // Seconds elapsed, held short of done: there is no real percentage to show.
+          progress: Math.min(
+            ASSISTANT_PROGRESS_CEILING,
+            Math.round((Date.now() - started) / ASSISTANT_MS_PER_SECOND)
+          ),
+        }),
+    }).respond(message.messages);
     const { JobRepository } = await import('./shared/services/jobs/JobRepository');
     await new JobRepository().saveJobResult(jobId, result);
     await jobStateService.updateJobStatus(jobId, {
