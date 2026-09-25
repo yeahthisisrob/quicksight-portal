@@ -100,6 +100,8 @@ interface PlannerMessage {
   accountId: string;
   userId?: string;
   initialMessage?: string;
+  /** A catalog model key chosen by the caller. */
+  model?: string;
   request:
     | {
         kind: 'propose';
@@ -109,6 +111,21 @@ interface PlannerMessage {
         candidateDataSetIds?: string[];
       }
     | { kind: 'new-visuals'; newAsset: Record<string, unknown> };
+}
+
+interface AssistantMessage {
+  jobId: string;
+  jobType: 'assistant';
+  accountId: string;
+  model: string;
+  messages: Array<{ role: 'user' | 'assistant'; text: string }>;
+  auth: {
+    userId: string;
+    accountId: string;
+    email?: string;
+    groups?: string[];
+    apiKey?: { id: string; label: string };
+  };
 }
 
 interface CSVExportMessage {
@@ -217,6 +234,8 @@ async function processRecord(record: any, context: Context): Promise<void> {
       await processCSVExportJob(rawMessage as CSVExportMessage, record);
     } else if (rawMessage.jobType === 'planner') {
       await processPlannerJob(rawMessage as PlannerMessage, record);
+    } else if (rawMessage.jobType === 'assistant') {
+      await processAssistantJob(rawMessage as AssistantMessage, record);
     } else {
       await processExportJob(rawMessage as ExportMessage, record, context);
     }
@@ -623,7 +642,11 @@ async function processPlannerJob(message: PlannerMessage, record: any): Promise<
       import('./features/authoring/services/planner/createPlannerModel'),
     ]);
     const rebind = new RebindService(msgAccountId);
-    const planner = new PlannerService(rebind, createPlannerModel());
+    const { isAiModelKey } = await import('./shared/ai/modelCatalog');
+    const planner = new PlannerService(
+      rebind,
+      createPlannerModel(undefined, isAiModelKey(message.model) ? message.model : undefined)
+    );
 
     let result: unknown;
     if (request.kind === 'propose') {
@@ -655,6 +678,108 @@ async function processPlannerJob(message: PlannerMessage, record: any): Promise<
       endTime: new Date().toISOString(),
       message: messageText,
       error: messageText,
+    });
+  }
+}
+
+/**
+ * One message to the assistant. The worker is the composition root here:
+ * it gives the assistant a way to call the portal's own routes in-process,
+ * as the person who asked, through the same handler the API Lambda runs.
+ */
+async function processAssistantJob(message: AssistantMessage, record: any): Promise<void> {
+  const { jobId } = message;
+  logger.info('Processing assistant job', {
+    jobId,
+    messageId: record.messageId,
+    model: message.model,
+  });
+  const jobStateService = new JobStateService('assistant');
+  try {
+    if (await jobStateService.getJobStatus(jobId)) {
+      await jobStateService.updateJobStatus(jobId, {
+        status: 'processing',
+        message: 'Assistant thinking',
+        progress: 0,
+      });
+    } else {
+      await jobStateService.createJob(jobId, {
+        status: 'processing',
+        message: 'Assistant thinking',
+        startTime: new Date().toISOString(),
+      });
+    }
+    const [
+      { aiModel, isAiModelKey, openAiModelId },
+      { BedrockAdapter },
+      { getPlannerConfig },
+      chatModels,
+      { AssistantService },
+      { apiHandler },
+      { withInProcessAuth },
+    ] = await Promise.all([
+      import('./shared/ai/modelCatalog'),
+      import('./adapters/aws/BedrockAdapter'),
+      import('./shared/config/plannerConfig'),
+      import('./features/assistant/services/ChatModel'),
+      import('./features/assistant/services/AssistantService'),
+      import('./api/apiHandler'),
+      import('./shared/auth'),
+    ]);
+    if (!isAiModelKey(message.model)) {
+      throw new Error(`Unknown model '${message.model}'`);
+    }
+    const model = aiModel(message.model);
+    const config = getPlannerConfig();
+    const chat =
+      model.provider === 'openai'
+        ? new chatModels.OpenAiChatModel(
+            config.openAi.baseUrl,
+            config.openAi.apiKey,
+            openAiModelId(),
+            model
+          )
+        : new chatModels.BedrockChatModel(new BedrockAdapter(config.region), model);
+    const dispatch = async (req: { method: string; path: string; body?: unknown }) => {
+      const url = new URL(req.path, 'http://portal.internal');
+      const query = Object.fromEntries(url.searchParams.entries());
+      const event = withInProcessAuth(
+        {
+          httpMethod: req.method,
+          path: url.pathname,
+          resource: url.pathname,
+          headers: { 'Content-Type': 'application/json' },
+          multiValueHeaders: {},
+          queryStringParameters: Object.keys(query).length ? query : null,
+          multiValueQueryStringParameters: null,
+          pathParameters: null,
+          stageVariables: null,
+          requestContext: {} as any,
+          body: req.body === undefined ? null : JSON.stringify(req.body),
+          isBase64Encoded: false,
+        },
+        message.auth
+      );
+      const response = await apiHandler(event);
+      return { status: response.statusCode, body: response.body };
+    };
+    const result = await new AssistantService(chat, model, dispatch).respond(message.messages);
+    const { JobRepository } = await import('./shared/services/jobs/JobRepository');
+    await new JobRepository().saveJobResult(jobId, result);
+    await jobStateService.updateJobStatus(jobId, {
+      status: 'completed',
+      endTime: new Date().toISOString(),
+      message: `Answered in ${result.rounds} step${result.rounds === 1 ? '' : 's'}`,
+      progress: 100,
+    });
+  } catch (error) {
+    const text = error instanceof Error ? error.message : String(error);
+    logger.error('Assistant job failed', { jobId, error: text });
+    await jobStateService.updateJobStatus(jobId, {
+      status: 'failed',
+      endTime: new Date().toISOString(),
+      message: text,
+      error: text,
     });
   }
 }

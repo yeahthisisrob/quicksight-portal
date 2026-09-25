@@ -18,6 +18,21 @@ const LOGGED_PREFIX_LENGTH = 8;
 /** Group name carried by API-key callers; key management itself needs a person. */
 export const API_KEY_GROUP = 'api-key';
 
+/**
+ * An identity attached to an event built in-process (the assistant calling
+ * the portal's own routes on a person's behalf). A module-private Symbol:
+ * events off the wire are parsed JSON and cannot carry one, and object
+ * spread (which every handler does to add path parameters) keeps it.
+ */
+const IN_PROCESS_AUTH = Symbol('portal.inProcessAuth');
+
+export function withInProcessAuth<T extends APIGatewayProxyEvent>(
+  event: T,
+  context: AuthContext
+): T {
+  return Object.assign(event, { [IN_PROCESS_AUTH]: context });
+}
+
 function bearerToken(event: APIGatewayProxyEvent): string | null {
   const header = event.headers?.Authorization || event.headers?.authorization;
   return header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : null;
@@ -35,6 +50,10 @@ export class UnauthorizedError extends Error {
 }
 
 export async function getAuthContext(event: APIGatewayProxyEvent): Promise<AuthContext | null> {
+  const inProcess = (event as unknown as Record<symbol, AuthContext | undefined>)[IN_PROCESS_AUTH];
+  if (inProcess) {
+    return inProcess;
+  }
   try {
     // API keys first: a CLI, a script or an agent calling the same endpoints.
     const token = bearerToken(event);

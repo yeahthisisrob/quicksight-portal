@@ -18,7 +18,7 @@ import {
   NODE_HEIGHT,
   NODE_WIDTH,
   type PlacedNode,
-} from '../../model/fieldLineage';
+} from '../model/fieldLineage';
 
 interface FieldLineageGraphProps {
   lineage: FieldLineage;

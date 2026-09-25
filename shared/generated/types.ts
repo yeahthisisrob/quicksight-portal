@@ -933,6 +933,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assistant/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The models that can be picked for authoring and for the assistant, with rough costs
+         * @description Five: Claude Haiku 4.5 (the assistant's default), Claude Sonnet 4.6
+         *     (the authoring default), Claude Sonnet 5, Claude Opus 5, and OpenAI
+         *     when the stack has an endpoint and a key for it. Each carries list
+         *     prices per million tokens and a rough cost for a typical authoring
+         *     ask and a typical chat message. Send a model's `key` as `model` on
+         *     the planner calls and on `/api/assistant/chat`.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The catalog */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["AiModelCatalog"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One message to the assistant, which reads and previews through this API (a job)
+         * @description The assistant answers using this portal's API as the person who
+         *     asked: it runs reads and previews itself, shows previews as
+         *     wireframes and calculated fields as lineage (by reference, see
+         *     `artifacts`), and prepares writes as `actions` for the person to
+         *     run. It never writes. Returns 202 with a `jobId`; the job's result
+         *     is an `AssistantChatResult`. The client keeps the conversation and
+         *     sends it whole, text only.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AssistantChatRequest"];
+                };
+            };
+            responses: {
+                /** @description The assistant job was queued */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["JobQueued"];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/api-docs/openapi": {
         parameters: {
             query?: never;
@@ -5226,7 +5328,104 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /** @enum {string} */
-        JobType: "export" | "deploy" | "ingestion" | "rebuild" | "activity-refresh" | "bulk-operation" | "csv-export" | "smus-export" | "planner";
+        AiModelKey: "haiku-4-5" | "sonnet-4-6" | "sonnet-5" | "opus-5" | "openai";
+        AiModel: {
+            key: components["schemas"]["AiModelKey"];
+            label: string;
+            /** @enum {string} */
+            provider: "bedrock" | "openai";
+            modelId: string;
+            /** @description List dollars per million tokens. */
+            price: {
+                input: number;
+                output: number;
+            };
+            bestFor: string;
+            thinks: boolean;
+            available: boolean;
+            unavailableReason?: string;
+            /** @description Rough dollars for one typical call of each kind. */
+            typicalCost: {
+                authoring: number;
+                chat: number;
+            };
+        };
+        AiModelCatalog: {
+            models: components["schemas"]["AiModel"][];
+            defaults: {
+                authoring: components["schemas"]["AiModelKey"];
+                chat: components["schemas"]["AiModelKey"];
+            };
+            note: string;
+        };
+        AssistantChatRequest: {
+            messages: {
+                /** @enum {string} */
+                role: "user" | "assistant";
+                text: string;
+            }[];
+            model?: components["schemas"]["AiModelKey"];
+        };
+        /**
+         * @description Something to show, by reference. `preview`: re-run this read-only
+         *     preview call and draw its definition as a wireframe. `asset`: draw
+         *     the dashboard or analysis as it is. `lineage`: draw the calculated
+         *     field's lineage from GET /api/data-catalog/calculated-fields/{fieldKey}.
+         */
+        AssistantArtifact: {
+            id: string;
+            /** @enum {string} */
+            kind: "preview" | "asset" | "lineage";
+            title: string;
+            method?: string;
+            path?: string;
+            body?: {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            assetType?: "dashboard" | "analysis";
+            assetId?: string;
+            fieldKey?: string;
+        };
+        /** @description A write the assistant prepared; the person runs it with their own session. */
+        AssistantAction: {
+            id: string;
+            title: string;
+            why: string;
+            /** @enum {string} */
+            method: "POST" | "PUT" | "DELETE";
+            path: string;
+            body?: {
+                [key: string]: unknown;
+            };
+            /** @description The preview artifact this action publishes. */
+            previewId?: string;
+        };
+        AssistantChatResult: {
+            reply: string;
+            calls: {
+                method: string;
+                path: string;
+                status: number;
+                ok: boolean;
+            }[];
+            actions: components["schemas"]["AssistantAction"][];
+            artifacts: components["schemas"]["AssistantArtifact"][];
+            model: {
+                key: components["schemas"]["AiModelKey"];
+                label: string;
+                modelId: string;
+            };
+            usage: {
+                inputTokens: number;
+                outputTokens: number;
+            };
+            /** @description Dollars at list price; a rough guide. */
+            cost: number;
+            rounds: number;
+        };
+        /** @enum {string} */
+        JobType: "export" | "deploy" | "ingestion" | "rebuild" | "activity-refresh" | "bulk-operation" | "csv-export" | "smus-export" | "planner" | "assistant";
         /** @description One background job, as /api/jobs returns it. */
         Job: {
             jobId: string;
@@ -6440,6 +6639,7 @@ export interface components {
             };
             folderId?: string;
             newAssetId?: string;
+            model?: components["schemas"]["AiModelKey"];
         };
         NewAssetPreview: {
             definition: {
@@ -6629,6 +6829,7 @@ export interface components {
             ask: string;
             /** @description Restrict the datasets the planner may choose from. Defaults to every active dataset. */
             candidateDataSetIds?: string[];
+            model?: components["schemas"]["AiModelKey"];
         };
         ProposedRebind: components["schemas"]["RebindRequest"] & {
             /** @description Why the planner chose this dataset. */

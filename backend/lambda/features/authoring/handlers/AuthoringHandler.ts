@@ -3,6 +3,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { CloudTrailAdapter } from '../../../adapters/aws/CloudTrailAdapter';
 import { CloudWatchAdapter } from '../../../adapters/aws/CloudWatchAdapter';
+import { aiModelViews, isAiModelKey } from '../../../shared/ai/modelCatalog';
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { CacheService } from '../../../shared/services/cache/CacheService';
@@ -263,6 +264,7 @@ export class AuthoringHandler {
         accountId: this.accountId,
         bucketName: process.env.BUCKET_NAME || `quicksight-metadata-bucket-${this.accountId}`,
         userId: user.userId,
+        model: this.parseModel(body.model),
         request: {
           kind: 'propose',
           ...target,
@@ -281,7 +283,8 @@ export class AuthoringHandler {
   public async proposeNew(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       const user = await requireAuth(event);
-      const request = this.parseNewAssetRequest(this.parseBody(event));
+      const body = this.parseBody(event);
+      const request = this.parseNewAssetRequest(body);
       if (!request.ask?.trim()) {
         throw badRequest('ask is required: what the visuals should show, in your words');
       }
@@ -294,6 +297,7 @@ export class AuthoringHandler {
         accountId: this.accountId,
         bucketName: process.env.BUCKET_NAME || `quicksight-metadata-bucket-${this.accountId}`,
         userId: user.userId,
+        model: this.parseModel(body.model),
         request: { kind: 'new-visuals', newAsset: { ...request, visuals: undefined } },
       });
       return createResponse(event, STATUS_CODES.ACCEPTED, { success: true, data: queued });
@@ -450,6 +454,27 @@ export class AuthoringHandler {
 
   private service(): RebindService {
     return new RebindService(this.accountId);
+  }
+
+  /** A catalog model key the stack can serve, or undefined for the configured default. */
+  private parseModel(raw: unknown): string | undefined {
+    if (raw === undefined || raw === null || raw === '') {
+      return undefined;
+    }
+    if (!isAiModelKey(raw)) {
+      throw badRequest(
+        `model must be one of: ${aiModelViews()
+          .map((m) => m.key)
+          .join(', ')}`
+      );
+    }
+    const view = aiModelViews().find((m) => m.key === raw);
+    if (!view?.available) {
+      throw badRequest(
+        `${view?.label ?? raw} is not available here. ${view?.unavailableReason ?? ''}`.trim()
+      );
+    }
+    return raw;
   }
 
   private definitionService(): DefinitionService {

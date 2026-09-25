@@ -224,7 +224,26 @@ portal does, `portal:authored-by` = `api-key:<label>`, `portal:channel` =
 `api`, `portal:at` = the ISO time, so it is attributed like everything
 else.
 
-## 6. A typical agent loop
+## 6. Pick the model, or ask the assistant
+
+**The model.** `GET /api/assistant/models` lists the five that can do the
+thinking, with list prices and a rough cost for a typical call: Claude
+Haiku 4.5, Claude Sonnet 4.6 (the default for authoring), Claude Sonnet 5,
+Claude Opus 5, and OpenAI when the stack has an endpoint and key for it.
+Send a model's `key` as `model` on `.../propose` and
+`/api/authoring/new/propose`; without it the stack's configured planner
+answers.
+
+**The assistant.** `POST /api/assistant/chat` with `{ "messages": [{ "role":
+"user", "text": "..." }], "model": "haiku-4-5" }` is a job whose result is
+an answer from a model that used this API as you: it runs reads and
+previews itself, returns `artifacts` to draw (a preview to re-run and draw
+as a wireframe, an asset, a calculated field's lineage), and returns
+`actions` (writes it prepared, each tied to the preview it publishes). It
+never writes; you run an action with your own key when it looks right.
+Send the whole conversation, text only, each time.
+
+## 7. A typical agent loop
 
 1. `GET /api/search?q=...` to find the asset and the dataset.
 2. `GET /api/assets/dashboard/{id}/cached` for the definition, and
@@ -236,7 +255,7 @@ else.
 5. Apply with `mode: "clone"`, then open the result in QuickSight.
 6. `GET /api/activity/timeline?origins=portal-api` shows what the key did.
 
-## 7. Where this is heading
+## 8. Where this is heading
 
 AWS Context, announced in June 2026 and not yet available, is an
 identity-aware knowledge graph over an organisation's data that agents

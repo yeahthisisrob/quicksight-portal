@@ -40,6 +40,7 @@ import type {
   SheetOutline,
 } from '@/shared/api/modules/authoring';
 import type { CalculatedFieldTemplate } from '@/shared/api/modules/data-catalog';
+import { readAiModel } from '@/shared/lib';
 import { useDebounce } from '@/shared/lib/useDebounce';
 
 import { healthBadges } from '../lib/insights';
@@ -600,7 +601,7 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
   const proposeVisuals = useCallback(async () => {
     const request = { ...freshRequest, ask: ask.trim() };
     delete request.visuals;
-    const result = await authoringApi.proposeNew(request);
+    const result = await authoringApi.proposeNew({ ...request, model: readAiModel('authoring') });
     dispatch({ type: 'setVisuals', visuals: draftsFromSpecs(result.visuals) });
     setFreshProposal(result.proposal ?? null);
   }, [freshRequest, ask]);
@@ -617,7 +618,10 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
       if (isNew) {
         await proposeVisuals();
       } else if (source) {
-        const result = await authoringApi.propose(source.type, source.id, { ask: ask.trim() });
+        const result = await authoringApi.propose(source.type, source.id, {
+          ask: ask.trim(),
+          model: readAiModel('authoring'),
+        });
         setProposal(result);
         draft.applyProposal(result);
         if (result.intent !== 'unclear' && result.ops.length > 0) {
