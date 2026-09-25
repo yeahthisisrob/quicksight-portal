@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.16.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.16.1...v2.16.2) (2026-09-25)
+
+
+### Bug Fixes
+
+* **author:** the assistant finishes the work instead of ending on "let me check", and the chat says when nothing is running ([#211](https://github.com/yeahthisisrob/quicksight-portal/issues/211)) ([17bd910](https://github.com/yeahthisisrob/quicksight-portal/commit/17bd9102d1617018d8a36c4a927c6024d103a987))
+
 ## [2.16.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.16.0...v2.16.1) (2026-09-25)
 
 
