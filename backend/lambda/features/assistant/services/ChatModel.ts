@@ -40,8 +40,14 @@ export interface ChatTurnResult {
   usage: { inputTokens: number; outputTokens: number };
 }
 
+/** The rules (identical every turn, so cached) and the live brief of the account. */
+export interface ChatSystem {
+  stable: string;
+  context?: string;
+}
+
 export interface ChatModel {
-  turn(system: string, turns: ChatTurn[], tools: ChatTool[]): Promise<ChatTurnResult>;
+  turn(system: ChatSystem, turns: ChatTurn[], tools: ChatTool[]): Promise<ChatTurnResult>;
 }
 
 const THINKING_MAX_TOKENS = 16_000;
@@ -57,7 +63,11 @@ export class BedrockChatModel implements ChatModel {
     private readonly model: AiModel
   ) {}
 
-  public async turn(system: string, turns: ChatTurn[], tools: ChatTool[]): Promise<ChatTurnResult> {
+  public async turn(
+    system: ChatSystem,
+    turns: ChatTurn[],
+    tools: ChatTool[]
+  ): Promise<ChatTurnResult> {
     const messages: Message[] = turns.map((turn): Message => {
       if (turn.role === 'user') {
         return { role: 'user', content: [{ text: turn.text }] };
@@ -95,7 +105,8 @@ export class BedrockChatModel implements ChatModel {
 
     const result = await this.adapter.converseTurn({
       modelId: this.model.modelId,
-      system,
+      system: system.stable,
+      ...(system.context ? { context: system.context } : {}),
       messages,
       tools,
       maxTokens: maxTokensFor(this.model),
@@ -137,8 +148,17 @@ export class OpenAiChatModel implements ChatModel {
     }
   }
 
-  public async turn(system: string, turns: ChatTurn[], tools: ChatTool[]): Promise<ChatTurnResult> {
-    const messages: unknown[] = [{ role: 'system', content: system }];
+  public async turn(
+    system: ChatSystem,
+    turns: ChatTurn[],
+    tools: ChatTool[]
+  ): Promise<ChatTurnResult> {
+    const messages: unknown[] = [
+      {
+        role: 'system',
+        content: system.context ? `${system.stable}\n\n${system.context}` : system.stable,
+      },
+    ];
     for (const turn of turns) {
       if (turn.role === 'user') {
         messages.push({ role: 'user', content: turn.text });
