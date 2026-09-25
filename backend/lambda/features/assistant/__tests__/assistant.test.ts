@@ -8,7 +8,7 @@ import spec from '../../../../../shared/generated/openapi.json';
 import { aiModel, aiModelViews, costOf, typicalCost } from '../../../shared/ai/modelCatalog';
 import { getAuthContext, withInProcessAuth } from '../../../shared/auth';
 import { apiIndex, classifyCall, describeOperation } from '../lib/portalCalls';
-import { AssistantService } from '../services/AssistantService';
+import { AssistantService, describeStep } from '../services/AssistantService';
 import type { ChatModel, ChatTurnResult } from '../services/ChatModel';
 
 describe('classifyCall', () => {
@@ -17,6 +17,8 @@ describe('classifyCall', () => {
     expect(classifyCall('POST', '/api/authoring/dashboard/d1/rebind/preview')).toBe('read');
     expect(classifyCall('POST', '/api/authoring/dashboard/d1/repair/plan')).toBe('read');
     expect(classifyCall('POST', '/api/tags/batch')).toBe('read');
+    expect(classifyCall('POST', '/api/authoring/dashboard/d1/propose')).toBe('read');
+    expect(classifyCall('POST', '/api/authoring/new/propose')).toBe('read');
     expect(classifyCall('POST', '/api/authoring/dashboard/d1/rebind')).toBe('action');
     expect(classifyCall('DELETE', '/api/groups/g')).toBe('action');
     expect(classifyCall('GET', '/api/settings/api-keys')).toBe('blocked');
@@ -208,5 +210,129 @@ describe('AssistantService', () => {
     ]);
     expect(result.rounds).toBe(8);
     expect(result.reply).toContain('ran out of steps');
+  });
+
+  it('runs the planner itself, with the authoring model, waits for its job, and says what it is doing', async () => {
+    const statuses = ['queued', 'processing', 'completed'];
+    const dispatch = vi.fn(
+      async ({ method, path }: { method: string; path: string; body?: unknown }) => {
+        if (method === 'POST') {
+          return {
+            status: 202,
+            body: JSON.stringify({ success: true, data: { jobId: 'planner-1' } }),
+          };
+        }
+        if (path.endsWith('/result')) {
+          return {
+            status: 200,
+            body: JSON.stringify({ success: true, data: { reason: 'gold fits' } }),
+          };
+        }
+        return {
+          status: 200,
+          body: JSON.stringify({
+            success: true,
+            data: { status: statuses.shift() ?? 'completed' },
+          }),
+        };
+      }
+    );
+    const chat = scripted([
+      {
+        toolCalls: [
+          {
+            id: 'p',
+            name: 'call_portal_api',
+            input: {
+              method: 'POST',
+              path: '/api/authoring/dashboard/d1/propose',
+              body: { ask: 'onto gold' },
+            },
+          },
+        ],
+      },
+      { text: 'The planner says gold fits.' },
+    ]);
+    const steps: string[] = [];
+    const result = await new AssistantService(chat, model, dispatch, {
+      authoringModel: 'opus-5',
+      onProgress: (s) => {
+        steps.push(s);
+      },
+      sleep: async () => {},
+    }).respond([{ role: 'user', text: 'run the propose' }]);
+
+    expect(dispatch.mock.calls[0]![0]).toMatchObject({
+      method: 'POST',
+      body: { ask: 'onto gold', model: 'opus-5' },
+    });
+    expect(dispatch.mock.calls.at(-1)![0]).toMatchObject({ path: '/api/jobs/planner-1/result' });
+    expect(result.calls[0]).toMatchObject({ status: 200, ok: true });
+    expect(steps).toEqual([
+      'Thinking',
+      'Asking the planner',
+      'Asking the planner: waiting for it to answer',
+      'Thinking about what it found',
+    ]);
+    expect(result.reply).toBe('The planner says gold fits.');
+  });
+
+  it("hands the model a failed job's reason, and gives up waiting at the deadline", async () => {
+    let clock = 0;
+    const failing = vi.fn(async ({ method }: { method: string }) =>
+      method === 'POST'
+        ? { status: 202, body: JSON.stringify({ data: { jobId: 'j' } }) }
+        : {
+            status: 200,
+            body: JSON.stringify({ data: { status: 'failed', message: 'AccessDenied' } }),
+          }
+    );
+    const propose = {
+      toolCalls: [
+        {
+          id: 'p',
+          name: 'call_portal_api',
+          input: { method: 'POST', path: '/api/authoring/new/propose', body: {} },
+        },
+      ],
+    };
+    const failed = await new AssistantService(
+      scripted([propose, { text: 'It failed.' }]),
+      model,
+      failing,
+      {
+        sleep: async () => {},
+      }
+    ).respond([{ role: 'user', text: 'go' }]);
+    expect(failed.calls[0]).toMatchObject({ status: 500, ok: false });
+
+    const slow = vi.fn(async ({ method }: { method: string }) =>
+      method === 'POST'
+        ? { status: 202, body: JSON.stringify({ data: { jobId: 'j' } }) }
+        : { status: 200, body: JSON.stringify({ data: { status: 'processing' } }) }
+    );
+    const waited = await new AssistantService(
+      scripted([propose, { text: 'Still going.' }]),
+      model,
+      slow,
+      {
+        sleep: async (ms) => {
+          clock += ms;
+        },
+        now: () => clock,
+      }
+    ).respond([{ role: 'user', text: 'go' }]);
+    expect(waited.calls[0]).toMatchObject({ status: 202 });
+    expect(clock).toBeGreaterThanOrEqual(5 * 60 * 1000);
+  });
+
+  it('names each step in words', () => {
+    expect(describeStep('GET', '/api/search?q=x')).toBe('Searching');
+    expect(describeStep('POST', '/api/authoring/dashboard/d/rebind/preview')).toBe(
+      'Previewing the change'
+    );
+    expect(describeStep('GET', '/api/data-catalog/calculated-fields/k')).toBe(
+      'Tracing calculated fields'
+    );
   });
 });

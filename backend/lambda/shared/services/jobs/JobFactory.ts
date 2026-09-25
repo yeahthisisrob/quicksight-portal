@@ -102,6 +102,7 @@ export interface PlannerJobConfig extends BaseJobConfig {
 export interface AssistantJobConfig extends BaseJobConfig {
   jobType: 'assistant';
   model: string;
+  authoringModel?: string;
   messages: Array<{ role: 'user' | 'assistant'; text: string }>;
   /** The identity the assistant's own calls run as. */
   auth: {
@@ -317,7 +318,12 @@ export class JobFactory {
     } else if (config.jobType === 'planner') {
       return { request: config.request, model: config.model };
     } else if (config.jobType === 'assistant') {
-      return { model: config.model, messages: config.messages, auth: config.auth };
+      return {
+        model: config.model,
+        authoringModel: config.authoringModel,
+        messages: config.messages,
+        auth: config.auth,
+      };
     }
     return {};
   }

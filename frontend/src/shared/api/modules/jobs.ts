@@ -161,12 +161,20 @@ export const jobsApi = {
    */
   async awaitResult<T>(
     jobId: string,
-    options: { intervalMs?: number; timeoutMs?: number } = {}
+    options: {
+      intervalMs?: number;
+      timeoutMs?: number;
+      /** Called with every status read, so a caller can show what the job is doing. */
+      onProgress?: (job: JobMetadata) => void;
+    } = {}
   ): Promise<T> {
     const interval = options.intervalMs ?? DEFAULT_AWAIT_INTERVAL_MS;
     const deadline = Date.now() + (options.timeoutMs ?? DEFAULT_AWAIT_TIMEOUT_MS);
     for (;;) {
       const job = await jobsApi.getJob(jobId);
+      if (job) {
+        options.onProgress?.(job);
+      }
       if (job?.status === 'completed') {
         const result = await jobsApi.getJobResult<T>(jobId);
         if (result === null) {

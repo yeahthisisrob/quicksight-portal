@@ -26,6 +26,40 @@ const MAX_HISTORY = 20;
 const MAX_MESSAGE_CHARS = 8_000;
 const MAX_ARTIFACTS = 6;
 const HTTP_ERROR_MIN = 400;
+const HTTP_ACCEPTED = 202;
+/** A planner job usually answers in under a minute; give up well inside the worker's 15. */
+const MS_PER_MINUTE = 60_000;
+const MAX_JOB_WAIT_MINUTES = 5;
+const MAX_JOB_WAIT_MS = MAX_JOB_WAIT_MINUTES * MS_PER_MINUTE;
+const JOB_POLL_MS = 2_000;
+const PROPOSE = /\/propose$/;
+const TERMINAL = new Set(['completed', 'failed', 'stopped']);
+
+/** How far along the assistant is, for the person watching. */
+export type ProgressReporter = (message: string) => Promise<void> | void;
+
+export interface AssistantOptions {
+  onProgress?: ProgressReporter;
+  /** Sent as `model` on propose calls that do not name one. */
+  authoringModel?: string;
+  sleep?: (ms: number) => Promise<void>;
+  now?: () => number;
+}
+
+/** "GET /api/search?q=margin" -> "Searching", for the progress line. */
+export function describeStep(method: string, path: string): string {
+  const pathname = path.split('?')[0] ?? '';
+  if (pathname === '/api/search') return 'Searching';
+  if (PROPOSE.test(pathname)) return 'Asking the planner';
+  if (/\/preview$/.test(pathname)) return 'Previewing the change';
+  if (/\/plan$/.test(pathname)) return 'Checking columns';
+  if (/\/cached$/.test(pathname)) return 'Reading the definition';
+  if (/calculated-fields/.test(pathname)) return 'Tracing calculated fields';
+  if (/\/columns$/.test(pathname)) return 'Reading dataset columns';
+  if (pathname.startsWith('/api/data-catalog')) return 'Reading the catalog';
+  if (pathname.startsWith('/api/jobs')) return 'Checking a job';
+  return method === 'GET' ? 'Reading' : 'Working';
+}
 const CALCULATED_FIELD = /^\/api\/data-catalog\/calculated-fields\/([^/?]+)$/;
 const DRAWABLE_PREVIEW =
   /^\/api\/authoring\/(new|definition|(analysis|dashboard)\/[^/]+\/(rebind|definition))\/preview$/;
@@ -119,7 +153,8 @@ function system(): string {
       '- Never invent ids, column names or paths. Take them from responses. If a path takes a template ({assetId}), fill it with a real id.',
       '- For a change, preview it first (the .../preview endpoints) and say what the preview found. The person sees the preview drawn as a wireframe. Then prepare the write with propose_action; it is shown beside that wireframe so they can confirm and run it. You cannot run writes yourself.',
       '- For a calculated field, find its key with GET /api/data-catalog/calculated-fields?search=..., read GET /api/data-catalog/calculated-fields/{key}, and show its lineage with show_to_person. Do the same when a question is about where a number comes from.',
-      '- Calls that return a jobId run in the background; tell the person, and read GET /api/jobs/{jobId} once if it helps.',
+      '- To have the planner propose a rebind or visuals, call the propose endpoint yourself: you wait for it and get the proposal back. Then preview what it proposed so the person sees it drawn, and prepare the write.',
+      '- Other calls that return a jobId run in the background; tell the person.',
       '- Be brief. Answer in a few sentences or a short list. Name assets by name, with their id when the person will need it.',
       '',
       'Operations (method, path, summary):',
@@ -141,11 +176,64 @@ function str(input: Record<string, unknown>, key: string): string {
 }
 
 export class AssistantService {
+  private readonly sleep: (ms: number) => Promise<void>;
+  private readonly now: () => number;
+
   public constructor(
     private readonly chat: ChatModel,
     private readonly model: AiModel,
-    private readonly dispatch: PortalDispatch
-  ) {}
+    private readonly dispatch: PortalDispatch,
+    private readonly options: AssistantOptions = {}
+  ) {
+    this.sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+    this.now = options.now ?? (() => Date.now());
+  }
+
+  private async progress(message: string): Promise<void> {
+    try {
+      await this.options.onProgress?.(message);
+    } catch {
+      // Progress is a courtesy; never fail the answer over it.
+    }
+  }
+
+  /**
+   * A read that queued a job (the planner): wait for it, as the person
+   * would, and hand the model its result instead of a job id.
+   */
+  private async awaitJob(jobId: string): Promise<{ status: number; body: string }> {
+    const deadline = this.now() + MAX_JOB_WAIT_MS;
+    while (this.now() < deadline) {
+      await this.sleep(JOB_POLL_MS);
+      const job = await this.dispatch({
+        method: 'GET',
+        path: `/api/jobs/${encodeURIComponent(jobId)}`,
+      });
+      let status = '';
+      let message = '';
+      try {
+        const parsed = JSON.parse(job.body);
+        status = parsed?.data?.status ?? '';
+        message = parsed?.data?.message ?? parsed?.data?.error ?? '';
+      } catch {
+        // An unreadable status is retried until the deadline.
+      }
+      if (!TERMINAL.has(status)) {
+        continue;
+      }
+      if (status !== 'completed') {
+        return { status: 500, body: `The job ${status}: ${message}` };
+      }
+      return this.dispatch({
+        method: 'GET',
+        path: `/api/jobs/${encodeURIComponent(jobId)}/result`,
+      });
+    }
+    return {
+      status: HTTP_ACCEPTED,
+      body: `Job ${jobId} is still running after ${MAX_JOB_WAIT_MINUTES} minutes. Tell the person its id; it will appear under Operations.`,
+    };
+  }
 
   public async respond(history: ChatHistoryMessage[]): Promise<AssistantChatResult> {
     const turns: ChatTurn[] = history
@@ -164,6 +252,7 @@ export class AssistantService {
 
     while (rounds < MAX_ROUNDS) {
       rounds += 1;
+      await this.progress(rounds === 1 ? 'Thinking' : 'Thinking about what it found');
       const turn = await this.chat.turn(system(), turns, TOOLS);
       usage.inputTokens += turn.usage.inputTokens;
       usage.outputTokens += turn.usage.outputTokens;
@@ -316,11 +405,34 @@ export class AssistantService {
       };
     }
     try {
-      const response = await this.dispatch({ method, path, body: input.body });
+      const pathname = path.split('?')[0] ?? '';
+      const body =
+        PROPOSE.test(pathname) &&
+        this.options.authoringModel &&
+        input.body &&
+        typeof input.body === 'object' &&
+        !('model' in (input.body as Record<string, unknown>))
+          ? { ...(input.body as Record<string, unknown>), model: this.options.authoringModel }
+          : input.body;
+      await this.progress(describeStep(method, path));
+      let response = await this.dispatch({ method, path, body });
+      if (response.status === HTTP_ACCEPTED) {
+        const jobId = (() => {
+          try {
+            return JSON.parse(response.body)?.data?.jobId as string | undefined;
+          } catch {
+            return undefined;
+          }
+        })();
+        if (jobId) {
+          await this.progress(`${describeStep(method, path)}: waiting for it to answer`);
+          response = await this.awaitJob(jobId);
+        }
+      }
       const ok = response.status < HTTP_ERROR_MIN;
       calls.push({ method, path, status: response.status, ok });
       if (ok) {
-        this.capture(method, path, input.body, artifacts);
+        this.capture(method, path, body, artifacts);
       }
       return { id, content: clip(`HTTP ${response.status}\n${response.body}`), isError: !ok };
     } catch (error) {

@@ -2,39 +2,47 @@
  * Ask the portal. A conversation with the assistant, which reads and
  * previews through this API as the person, shows what it found (wireframes
  * of previews, lineage of calculated fields), and prepares writes the
- * person confirms against the wireframe and runs themselves. Each answer
- * says which model gave it and roughly what it cost.
+ * person confirms against the wireframe and runs themselves. While it
+ * works it says what it is doing; an action that starts a job is followed
+ * to the end and can be handed back to the assistant. The conversation is
+ * kept in the browser, so a reload picks it up where it was.
  */
-import { CheckCircle, PlayArrow, Send } from '@mui/icons-material';
+import {
+  AddComment,
+  CheckCircle,
+  ErrorOutlined,
+  PlayArrow,
+  Replay,
+  Send,
+} from '@mui/icons-material';
 import {
   Alert,
   Box,
   Button,
   Chip,
   CircularProgress,
+  Collapse,
+  LinearProgress,
   Stack,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
 
-import { assistantApi, getApiErrorMessage } from '@/shared/api';
+import { assistantApi, getApiErrorMessage, jobsApi } from '@/shared/api';
 import type {
   AssistantAction,
   AssistantArtifact,
   AssistantChatResult,
 } from '@/shared/api/modules/assistant';
 import { Container } from '@/shared/design-system';
-import { useAiModel } from '@/shared/lib';
 
+import { type ActionRun, followUpFor, jobIdOf } from '../model/conversation';
+import { useConversation } from '../model/useConversation';
 import { AssistantArtifactView } from './AssistantArtifactView';
 import { formatCost } from './costFormat';
-
-type Entry =
-  | { role: 'user'; text: string }
-  | { role: 'assistant'; text: string; result: AssistantChatResult };
 
 const SUGGESTIONS = [
   'Which dashboards read the orders gold dataset?',
@@ -42,20 +50,117 @@ const SUGGESTIONS = [
   'Copy the sales overview dashboard onto sales gold and show me before you publish',
 ];
 
-function ActionCard({ action, preview }: { action: AssistantAction; preview?: AssistantArtifact }) {
-  const run = useMutation({ mutationFn: () => assistantApi.runAction(action) });
-  const done = run.isSuccess;
-  const jobId = (run.data as any)?.jobId ?? (run.data as any)?.data?.jobId;
+const JOB_POLL_MS = 1_500;
+const TICK_MS = 1_000;
+const MS_PER_S = 1_000;
+const RESULT_PREVIEW_CHARS = 2_000;
+const TERMINAL = new Set(['completed', 'failed', 'stopped']);
+
+/** Seconds since `since`, ticking. */
+function useElapsed(since: number | undefined): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!since) {
+      return;
+    }
+    const timer = window.setInterval(() => setNow(Date.now()), TICK_MS);
+    return () => window.clearInterval(timer);
+  }, [since]);
+  return since ? Math.max(0, Math.round((now - since) / MS_PER_S)) : 0;
+}
+
+export interface ActionCallbacks {
+  runs: Record<string, ActionRun>;
+  onRun: (actionId: string, run: ActionRun) => void;
+  onFollowUp?: (text: string) => void;
+}
+
+/** Follows the job an action queued until it settles, and records how it ended. */
+function useFollowJob(
+  action: AssistantAction,
+  run: ActionRun | undefined,
+  onRun: ActionCallbacks['onRun']
+) {
+  const following = run?.status === 'running' && Boolean(run.jobId);
+  const settled = useRef<string | null>(null);
+  const job = useQuery({
+    queryKey: ['assistant-action-job', run?.jobId],
+    queryFn: () => jobsApi.getJob(run?.jobId ?? ''),
+    enabled: following,
+    refetchInterval: (query) =>
+      query.state.data && TERMINAL.has(query.state.data.status) ? false : JOB_POLL_MS,
+  });
+  useEffect(() => {
+    const data = job.data;
+    if (!following || !data || !TERMINAL.has(data.status) || !run?.jobId) {
+      return;
+    }
+    if (settled.current === run.jobId) {
+      return;
+    }
+    settled.current = run.jobId;
+    if (data.status !== 'completed') {
+      onRun(action.id, {
+        ...run,
+        status: 'failed',
+        error: data.error || data.message || data.status,
+      });
+      return;
+    }
+    jobsApi
+      .getJobResult(run.jobId)
+      .then((result) =>
+        onRun(action.id, { ...run, status: 'completed', message: data.message, result })
+      )
+      .catch(() => onRun(action.id, { ...run, status: 'completed', message: data.message }));
+  }, [job.data, following, run, action.id, onRun]);
+  return job.data;
+}
+
+function ActionCard({
+  action,
+  preview,
+  runs,
+  onRun,
+  onFollowUp,
+}: { action: AssistantAction; preview?: AssistantArtifact } & ActionCallbacks) {
+  const run = runs[action.id];
+  const [starting, setStarting] = useState(false);
+  const [showResult, setShowResult] = useState(false);
+  const job = useFollowJob(action, run, onRun);
+
+  const start = async () => {
+    setStarting(true);
+    try {
+      const response = await assistantApi.runAction(action);
+      const jobId = jobIdOf(response);
+      onRun(
+        action.id,
+        jobId
+          ? { status: 'running', jobId, message: 'Queued' }
+          : { status: 'completed', result: (response as any)?.data ?? response }
+      );
+    } catch (e) {
+      onRun(action.id, { status: 'failed', error: getApiErrorMessage(e, 'The action failed') });
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const running = run?.status === 'running';
+  const tone =
+    run?.status === 'completed'
+      ? 'success.main'
+      : run?.status === 'failed'
+        ? 'error.main'
+        : 'primary.main';
+  const resultText =
+    run?.result === undefined
+      ? ''
+      : JSON.stringify(run.result, null, 2).slice(0, RESULT_PREVIEW_CHARS);
+
   return (
-    <Box
-      sx={{
-        border: 1,
-        borderColor: done ? 'success.main' : 'primary.main',
-        borderRadius: 2,
-        p: 1.5,
-        minWidth: 0,
-      }}
-    >
+    <Box sx={{ border: 1, borderColor: tone, borderRadius: 2, p: 1.5, minWidth: 0 }}>
       <Stack spacing={1.25}>
         <Stack
           direction="row"
@@ -70,21 +175,22 @@ function ActionCard({ action, preview }: { action: AssistantAction; preview?: As
               {action.why}
             </Typography>
           </Box>
-          {done ? (
+          {run?.status === 'completed' ? (
+            <Chip color="success" icon={<CheckCircle />} label="Done" />
+          ) : run?.status === 'failed' ? (
+            <Chip color="error" icon={<ErrorOutlined />} label="Failed" />
+          ) : running ? (
             <Chip
-              color="success"
-              icon={<CheckCircle />}
-              label={jobId ? `Queued ${jobId}` : 'Done'}
+              icon={<CircularProgress size={12} />}
+              label={job?.message || run?.message || 'Running'}
             />
           ) : (
             <Button
               variant="contained"
               size="small"
-              startIcon={
-                run.isPending ? <CircularProgress size={14} color="inherit" /> : <PlayArrow />
-              }
-              disabled={run.isPending}
-              onClick={() => run.mutate()}
+              startIcon={starting ? <CircularProgress size={14} color="inherit" /> : <PlayArrow />}
+              disabled={starting}
+              onClick={() => void start()}
               sx={{ flexShrink: 0 }}
             >
               {preview ? 'Looks right, run it' : 'Run it'}
@@ -93,18 +199,63 @@ function ActionCard({ action, preview }: { action: AssistantAction; preview?: As
         </Stack>
         <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
           {action.method} {action.path}
+          {run?.jobId ? ` · job ${run.jobId}` : ''}
         </Typography>
-        {preview && <AssistantArtifactView artifact={preview} />}
-        {run.error && (
-          <Alert severity="error">{getApiErrorMessage(run.error, 'The action failed')}</Alert>
+        {running && (
+          <LinearProgress
+            variant={job?.progress ? 'determinate' : 'indeterminate'}
+            value={job?.progress ?? 0}
+          />
         )}
+        {preview && !run && <AssistantArtifactView artifact={preview} />}
+        {run?.status === 'failed' && <Alert severity="error">{run.error}</Alert>}
+        {(run?.status === 'completed' || run?.status === 'failed') && (
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+            {resultText && (
+              <Button size="small" onClick={() => setShowResult((v) => !v)}>
+                {showResult ? 'Hide the result' : 'Show the result'}
+              </Button>
+            )}
+            {onFollowUp && (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<AddComment />}
+                onClick={() => onFollowUp(followUpFor(action.title, run))}
+              >
+                Tell the assistant
+              </Button>
+            )}
+          </Stack>
+        )}
+        <Collapse in={showResult} unmountOnExit>
+          <Box
+            component="pre"
+            sx={{
+              m: 0,
+              p: 1,
+              fontSize: 12,
+              borderRadius: 1,
+              bgcolor: 'action.hover',
+              overflowX: 'auto',
+              maxHeight: 280,
+            }}
+          >
+            {resultText}
+          </Box>
+        </Collapse>
       </Stack>
     </Box>
   );
 }
 
 /** One answer: the reply, what it drew, the changes to confirm, and what it cost. */
-export function AnswerView({ result }: { result: AssistantChatResult }) {
+export function AnswerView({
+  result,
+  runs = {},
+  onRun = () => undefined,
+  onFollowUp,
+}: { result: AssistantChatResult } & Partial<ActionCallbacks>) {
   const linked = new Set(result.actions.map((a) => a.previewId).filter(Boolean));
   const loose = result.artifacts.filter((a) => !linked.has(a.id));
   return (
@@ -120,6 +271,9 @@ export function AnswerView({ result }: { result: AssistantChatResult }) {
           key={action.id}
           action={action}
           preview={result.artifacts.find((a) => a.id === action.previewId)}
+          runs={runs}
+          onRun={onRun}
+          onFollowUp={onFollowUp}
         />
       ))}
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
@@ -148,39 +302,51 @@ export function AnswerView({ result }: { result: AssistantChatResult }) {
   );
 }
 
+/** What the assistant is doing right now, and for how long. */
+function Working({ status, since }: { status: string; since?: number }) {
+  const seconds = useElapsed(since);
+  return (
+    <Stack spacing={0.75} data-testid="assistant-working">
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', color: 'text.secondary' }}>
+        <CircularProgress size={14} />
+        <Typography variant="body2">
+          {status}
+          {seconds > 0 ? ` · ${seconds}s` : ''}
+        </Typography>
+      </Stack>
+      <LinearProgress sx={{ maxWidth: 360 }} />
+    </Stack>
+  );
+}
+
 export function AssistantChat() {
-  const [model] = useAiModel('chat');
-  const [entries, setEntries] = useState<Entry[]>([]);
+  const { conversation, status, error, busy, ask, retry, recordRun, reset } = useConversation();
   const [draft, setDraft] = useState('');
-  const send = useMutation({
-    mutationFn: (history: Entry[]) =>
-      assistantApi.chat({
-        model,
-        messages: history.map((e) => ({ role: e.role, text: e.text })),
-      }),
-    onSuccess: (result) =>
-      setEntries((prev) => [...prev, { role: 'assistant', text: result.reply, result }]),
-  });
+  const entries = conversation.entries;
   const total = entries.reduce((sum, e) => sum + (e.role === 'assistant' ? e.result.cost : 0), 0);
 
   const submit = (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed || send.isPending) {
+    if (!text.trim() || busy) {
       return;
     }
-    const next: Entry[] = [...entries, { role: 'user', text: trimmed }];
-    setEntries(next);
+    ask(text);
     setDraft('');
-    send.mutate(next);
   };
 
   return (
     <Container
       header="Ask the portal"
-      description="It reads and previews through this API as you, draws what it found, and prepares changes for you to confirm and run. It never publishes by itself."
+      description="It reads and previews through this API as you, draws what it found, and prepares changes for you to confirm and run. It never publishes by itself. The conversation is kept in this browser."
+      actions={
+        entries.length > 0 ? (
+          <Button size="small" onClick={reset} disabled={busy}>
+            New conversation
+          </Button>
+        ) : undefined
+      }
     >
       <Stack spacing={2}>
-        {entries.length === 0 ? (
+        {entries.length === 0 && !busy ? (
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
             {SUGGESTIONS.map((s) => (
               <Chip key={s} label={s} onClick={() => submit(s)} variant="outlined" />
@@ -191,7 +357,7 @@ export function AssistantChat() {
             {entries.map((entry, index) =>
               entry.role === 'user' ? (
                 <Box
-                  key={index}
+                  key={`u-${index}-${entry.text.slice(0, 16)}`}
                   sx={{
                     alignSelf: 'flex-end',
                     maxWidth: '80%',
@@ -206,22 +372,28 @@ export function AssistantChat() {
                   </Typography>
                 </Box>
               ) : (
-                <AnswerView key={index} result={entry.result} />
+                <AnswerView
+                  key={`a-${index}-${entry.result.rounds}`}
+                  result={entry.result}
+                  runs={conversation.runs}
+                  onRun={recordRun}
+                  onFollowUp={busy ? undefined : submit}
+                />
               )
             )}
-            {send.isPending && (
-              <Stack
-                direction="row"
-                spacing={1}
-                sx={{ alignItems: 'center', color: 'text.secondary' }}
+            {busy && <Working status={status ?? 'Thinking'} since={conversation.pending?.since} />}
+            {error && (
+              <Alert
+                severity="error"
+                action={
+                  entries[entries.length - 1]?.role === 'user' ? (
+                    <Button color="inherit" size="small" startIcon={<Replay />} onClick={retry}>
+                      Try again
+                    </Button>
+                  ) : undefined
+                }
               >
-                <CircularProgress size={14} />
-                <Typography variant="caption">Looking…</Typography>
-              </Stack>
-            )}
-            {send.error && (
-              <Alert severity="error">
-                {getApiErrorMessage(send.error, 'The assistant did not answer')}
+                {error}
               </Alert>
             )}
           </Stack>
@@ -246,7 +418,7 @@ export function AssistantChat() {
           <Button
             variant="contained"
             onClick={() => submit(draft)}
-            disabled={!draft.trim() || send.isPending}
+            disabled={!draft.trim() || busy}
             startIcon={<Send />}
           >
             Send

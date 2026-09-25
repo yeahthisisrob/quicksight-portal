@@ -22,6 +22,12 @@ const meta: Meta<typeof AssistantChat> = {
   component: AssistantChat,
   parameters: { layout: 'padded' },
   decorators: [
+    // Stories share one origin: start each from an empty conversation (the
+    // Working story seeds its own inside this).
+    (Story) => {
+      window.localStorage.removeItem('qsp.assistant.conversation.v1');
+      return <Story />;
+    },
     (Story) => (
       <Mocked routes={assistantRoutes()}>
         <div style={{ maxWidth: 1100 }}>
@@ -41,6 +47,56 @@ export const Empty: Story = { name: 'Suggestions, before the first message' };
 export const Answered: Story = {
   name: 'An answer: lineage, a previewed copy, and Run to confirm',
   render: () => <AnswerView result={SCRIPTED_ANSWER as never} />,
+};
+
+/** The same answer after Run: the card follows the job it started, then says how it ended. */
+export const ActionRunning: Story = {
+  name: 'An action following its job',
+  render: () => (
+    <AnswerView
+      result={SCRIPTED_ANSWER as never}
+      runs={{ 'act-1': { status: 'running', jobId: 'grant-7', message: 'Queued' } }}
+      onRun={() => undefined}
+      onFollowUp={() => undefined}
+    />
+  ),
+};
+
+export const ActionDone: Story = {
+  name: 'An action that finished, ready to hand back',
+  render: () => (
+    <AnswerView
+      result={SCRIPTED_ANSWER as never}
+      runs={{
+        'act-1': {
+          status: 'completed',
+          jobId: 'grant-7',
+          result: { assetId: 'sales-overview-gold', granted: 5 },
+        },
+      }}
+      onRun={() => undefined}
+      onFollowUp={() => undefined}
+    />
+  ),
+};
+
+/** Waiting on an answer: what it is doing, and for how long. */
+export const Working: Story = {
+  name: 'Working: the assistant says what it is doing',
+  decorators: [
+    (Story) => {
+      window.localStorage.setItem(
+        'qsp.assistant.conversation.v1',
+        JSON.stringify({
+          version: 1,
+          entries: [{ role: 'user', text: 'Run the propose for sales overview onto gold' }],
+          pending: { jobId: 'assistant-working', since: Date.now() - 23_000 },
+          runs: {},
+        })
+      );
+      return <Story />;
+    },
+  ],
 };
 
 export const Models: Story = {

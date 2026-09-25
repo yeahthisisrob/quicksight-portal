@@ -996,7 +996,9 @@ export interface paths {
          *     asked: it runs reads and previews itself, shows previews as
          *     wireframes and calculated fields as lineage (by reference, see
          *     `artifacts`), and prepares writes as `actions` for the person to
-         *     run. It never writes. Returns 202 with a `jobId`; the job's result
+         *     run. It never writes. It runs the planner's propose calls itself
+         *     (with `authoringModel`) and waits for them. While it works, the
+         *     job's `message` says what it is doing. Returns 202 with a `jobId`; the job's result
          *     is an `AssistantChatResult`. The client keeps the conversation and
          *     sends it whole, text only.
          */
@@ -5365,6 +5367,7 @@ export interface components {
                 text: string;
             }[];
             model?: components["schemas"]["AiModelKey"];
+            authoringModel?: components["schemas"]["AiModelKey"];
         };
         /**
          * @description Something to show, by reference. `preview`: re-run this read-only

@@ -13,8 +13,13 @@ export type CallVerdict = 'read' | 'action' | 'blocked';
 
 const BLOCKED = [/^\/api\/settings(\/|$)/, /^\/api\/scripts(\/|$)/, /^\/api\/assistant(\/|$)/];
 
-/** POSTs that compute and write nothing. */
+/**
+ * POSTs that compute and write nothing. The planner's propose calls are
+ * among them: they queue a job, but the job only answers; applying its
+ * proposal is a separate write.
+ */
 const READ_ONLY_POSTS = [
+  /\/propose$/,
   /\/preview$/,
   /\/plan$/,
   /\/validate$/,
