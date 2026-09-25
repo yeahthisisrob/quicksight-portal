@@ -35,6 +35,27 @@ const JOB_POLL_MS = 2_000;
 const PROPOSE = /\/propose$/;
 const TERMINAL = new Set(['completed', 'failed', 'stopped']);
 
+/**
+ * An answer that ends by announcing more work ("let me check the column
+ * names and try again") instead of doing it. Nothing runs after an answer,
+ * so the person is left waiting on a promise.
+ */
+const ANNOUNCES_MORE =
+  /\b(let me(?! know)|i'll|i will|i am going to|i'm going to|next,? i|now i'll|i'll now|going to (check|try|look|run))\b[^.?!]*[.…:]?\s*$/i;
+
+/** Said to the model, once, when its answer ended on a promise. */
+export const CONTINUE_NUDGE =
+  'You ended by saying what you will do next, but nothing runs after your answer ends. Do it now with the tools, in this answer. If something is blocking you, say what it is and what the person can do.';
+
+export function announcesMore(text: string): boolean {
+  const lastSentences = text
+    .trim()
+    .split(/(?<=[.!?])\s+/)
+    .slice(-2)
+    .join(' ');
+  return ANNOUNCES_MORE.test(lastSentences);
+}
+
 /** How far along the assistant is, for the person watching. */
 export type ProgressReporter = (message: string) => Promise<void> | void;
 
@@ -156,6 +177,8 @@ function system(): string {
       '- To have the planner propose a rebind or visuals, call the propose endpoint yourself: you wait for it and get the proposal back. Then preview what it proposed so the person sees it drawn, and prepare the write.',
       '- Other calls that return a jobId run in the background; tell the person.',
       '- Be brief. Answer in a few sentences or a short list. Name assets by name, with their id when the person will need it.',
+      '- Finish the work in this answer. Nothing runs after you stop, so never end with what you will do next ("let me check...", "I will try..."): do it now with the tools, or say what is blocking you.',
+      '- When the planner fails (for example on column names), read the columns yourself (GET /api/authoring/datasets/{dataSetId}/columns and GET /api/authoring/{assetType}/{assetId}/datasets), then try again with a columnMap or build the preview yourself.',
       '',
       'Operations (method, path, summary):',
       apiIndex(spec as never),
@@ -249,6 +272,7 @@ export class AssistantService {
     const usage = { inputTokens: 0, outputTokens: 0 };
     let reply = '';
     let rounds = 0;
+    let nudged = false;
 
     while (rounds < MAX_ROUNDS) {
       rounds += 1;
@@ -261,6 +285,13 @@ export class AssistantService {
         reply = turn.text;
       }
       if (turn.toolCalls.length === 0) {
+        // Once per answer: an answer that ends on a promise is pushed to
+        // keep going instead of leaving the person waiting on nothing.
+        if (!nudged && rounds < MAX_ROUNDS && announcesMore(turn.text)) {
+          nudged = true;
+          turns.push({ role: 'user', text: CONTINUE_NUDGE });
+          continue;
+        }
         break;
       }
       const results: ToolResult[] = [];

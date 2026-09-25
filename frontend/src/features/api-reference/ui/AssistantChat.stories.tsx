@@ -99,6 +99,37 @@ export const Working: Story = {
   ],
 };
 
+/** An answer that stopped on what it would do next: the chat says nothing is running and offers to continue. */
+export const StoppedOnAPromise: Story = {
+  name: 'Stopped on a promise: nothing running, Continue',
+  decorators: [
+    (Story) => {
+      window.localStorage.setItem(
+        'qsp.assistant.conversation.v1',
+        JSON.stringify({
+          version: 1,
+          entries: [
+            { role: 'user', text: 'Run the propose for sales overview onto gold' },
+            {
+              role: 'assistant',
+              text: 'The planner could not map order_date. Let me check the exact column names and try a simpler approach.',
+              result: {
+                ...SCRIPTED_ANSWER,
+                reply:
+                  'The planner could not map order_date. Let me check the exact column names and try a simpler approach.',
+                artifacts: [],
+                actions: [],
+              },
+            },
+          ],
+          runs: {},
+        })
+      );
+      return <Story />;
+    },
+  ],
+};
+
 export const Models: Story = {
   name: 'The model picker',
   render: () => <ModelPicker />,

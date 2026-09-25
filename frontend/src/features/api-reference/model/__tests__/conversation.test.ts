@@ -6,6 +6,7 @@ import { assistantApi } from '@/shared/api';
 import {
   CONVERSATION_KEY,
   EMPTY_CONVERSATION,
+  endsOnAPromise,
   followUpFor,
   historyOf,
   jobIdOf,
@@ -86,6 +87,17 @@ describe('conversation model', () => {
     expect(followUpFor('Grant access', { status: 'failed', error: 'AccessDenied' })).toBe(
       '"Grant access" failed: AccessDenied. What next?'
     );
+  });
+});
+
+describe('endsOnAPromise', () => {
+  it('spots an answer that stops on what it will do next, not a question back', () => {
+    expect(
+      endsOnAPromise('The planner failed. Let me check the exact column names and try again.')
+    ).toBe(true);
+    expect(endsOnAPromise("I'll preview it next")).toBe(true);
+    expect(endsOnAPromise('Found 3. Let me know which one to copy.')).toBe(false);
+    expect(endsOnAPromise('margin is revenue minus cost.')).toBe(false);
   });
 });
 

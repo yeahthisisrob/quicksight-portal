@@ -8,7 +8,12 @@ import spec from '../../../../../shared/generated/openapi.json';
 import { aiModel, aiModelViews, costOf, typicalCost } from '../../../shared/ai/modelCatalog';
 import { getAuthContext, withInProcessAuth } from '../../../shared/auth';
 import { apiIndex, classifyCall, describeOperation } from '../lib/portalCalls';
-import { AssistantService, describeStep } from '../services/AssistantService';
+import {
+  AssistantService,
+  announcesMore,
+  CONTINUE_NUDGE,
+  describeStep,
+} from '../services/AssistantService';
 import type { ChatModel, ChatTurnResult } from '../services/ChatModel';
 
 describe('classifyCall', () => {
@@ -334,5 +339,47 @@ describe('AssistantService', () => {
     expect(describeStep('GET', '/api/data-catalog/calculated-fields/k')).toBe(
       'Tracing calculated fields'
     );
+  });
+
+  it('does not stop on a promise: pushes once to keep going, then accepts the answer', async () => {
+    const seen: string[][] = [];
+    const chat: ChatModel = {
+      async turn(_system, turns) {
+        seen.push(
+          turns.map((t) => (t.role === 'tool' ? 'tool' : `${t.role}:${'text' in t ? t.text : ''}`))
+        );
+        const texts = [
+          'The planner could not map the columns. Let me check the exact column names and try a simpler approach.',
+          'Order Date is spelled with a space; here is the mapping.',
+        ];
+        return {
+          text: texts[seen.length - 1] ?? 'Done.',
+          toolCalls: [],
+          raw: undefined,
+          usage: { inputTokens: 1, outputTokens: 1 },
+        };
+      },
+    };
+    const result = await new AssistantService(chat, model, vi.fn() as any).respond([
+      { role: 'user', text: 'run the propose' },
+    ]);
+    expect(seen).toHaveLength(2);
+    expect(seen[1]!.at(-1)).toBe(`user:${CONTINUE_NUDGE}`);
+    expect(result.reply).toBe('Order Date is spelled with a space; here is the mapping.');
+    expect(result.rounds).toBe(2);
+  });
+
+  it('pushes only once, and never for an answer that ends as an answer', async () => {
+    const promises = scripted([{ text: "I'll try again." }, { text: "I'll try again." }]);
+    const once = await new AssistantService(promises, model, vi.fn() as any).respond([
+      { role: 'user', text: 'x' },
+    ]);
+    expect(once.rounds).toBe(2);
+    expect(announcesMore('margin is revenue minus cost. It feeds margin_pct.')).toBe(false);
+    expect(announcesMore('Found 3 dashboards. Let me know which one to copy.')).toBe(false);
+    expect(
+      announcesMore('The planner failed. Let me check the exact column names and try again.')
+    ).toBe(true);
+    expect(announcesMore("Next, I'll preview the copy.")).toBe(true);
   });
 });
