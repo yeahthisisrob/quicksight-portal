@@ -849,6 +849,69 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /api/assistant/models:
+    get:
+      summary: The models that can be picked for authoring and for the assistant, with rough costs
+      description: |
+        Five: Claude Haiku 4.5 (the assistant's default), Claude Sonnet 4.6
+        (the authoring default), Claude Sonnet 5, Claude Opus 5, and OpenAI
+        when the stack has an endpoint and a key for it. Each carries list
+        prices per million tokens and a rough cost for a typical authoring
+        ask and a typical chat message. Send a model's `key` as `model` on
+        the planner calls and on `/api/assistant/chat`.
+      tags: [Assistant]
+      responses:
+        '200':
+          description: The catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/AiModelCatalog'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/assistant/chat:
+    post:
+      summary: One message to the assistant, which reads and previews through this API (a job)
+      description: |
+        The assistant answers using this portal's API as the person who
+        asked: it runs reads and previews itself, shows previews as
+        wireframes and calculated fields as lineage (by reference, see
+        `artifacts`), and prepares writes as `actions` for the person to
+        run. It never writes. Returns 202 with a `jobId`; the job's result
+        is an `AssistantChatResult`. The client keeps the conversation and
+        sends it whole, text only.
+      tags: [Assistant]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssistantChatRequest'
+      responses:
+        '202':
+          description: The assistant job was queued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/JobQueued'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/api-docs/openapi:
     get:
       summary: This API's contract, as OpenAPI JSON
@@ -4161,9 +4224,198 @@ components:
         type: string
 
   schemas:
+    AiModelKey:
+      type: string
+      enum: [haiku-4-5, sonnet-4-6, sonnet-5, opus-5, openai]
+
+    AiModel:
+      type: object
+      required: [key, label, provider, modelId, price, bestFor, thinks, available, typicalCost]
+      properties:
+        key:
+          $ref: '#/components/schemas/AiModelKey'
+        label:
+          type: string
+        provider:
+          type: string
+          enum: [bedrock, openai]
+        modelId:
+          type: string
+        price:
+          type: object
+          description: List dollars per million tokens.
+          required: [input, output]
+          properties:
+            input:
+              type: number
+            output:
+              type: number
+        bestFor:
+          type: string
+        thinks:
+          type: boolean
+        available:
+          type: boolean
+        unavailableReason:
+          type: string
+        typicalCost:
+          type: object
+          description: Rough dollars for one typical call of each kind.
+          required: [authoring, chat]
+          properties:
+            authoring:
+              type: number
+            chat:
+              type: number
+
+    AiModelCatalog:
+      type: object
+      required: [models, defaults, note]
+      properties:
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/AiModel'
+        defaults:
+          type: object
+          required: [authoring, chat]
+          properties:
+            authoring:
+              $ref: '#/components/schemas/AiModelKey'
+            chat:
+              $ref: '#/components/schemas/AiModelKey'
+        note:
+          type: string
+
+    AssistantChatRequest:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          minItems: 1
+          maxItems: 40
+          items:
+            type: object
+            required: [role, text]
+            properties:
+              role:
+                type: string
+                enum: [user, assistant]
+              text:
+                type: string
+        model:
+          $ref: '#/components/schemas/AiModelKey'
+
+    AssistantArtifact:
+      type: object
+      description: |
+        Something to show, by reference. `preview`: re-run this read-only
+        preview call and draw its definition as a wireframe. `asset`: draw
+        the dashboard or analysis as it is. `lineage`: draw the calculated
+        field's lineage from GET /api/data-catalog/calculated-fields/{fieldKey}.
+      required: [id, kind, title]
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+          enum: [preview, asset, lineage]
+        title:
+          type: string
+        method:
+          type: string
+        path:
+          type: string
+        body:
+          type: object
+          additionalProperties: true
+        assetType:
+          type: string
+          enum: [dashboard, analysis]
+        assetId:
+          type: string
+        fieldKey:
+          type: string
+
+    AssistantAction:
+      type: object
+      description: A write the assistant prepared; the person runs it with their own session.
+      required: [id, title, why, method, path]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        why:
+          type: string
+        method:
+          type: string
+          enum: [POST, PUT, DELETE]
+        path:
+          type: string
+        body:
+          type: object
+          additionalProperties: true
+        previewId:
+          type: string
+          description: The preview artifact this action publishes.
+
+    AssistantChatResult:
+      type: object
+      required: [reply, calls, actions, artifacts, model, usage, cost, rounds]
+      properties:
+        reply:
+          type: string
+        calls:
+          type: array
+          items:
+            type: object
+            required: [method, path, status, ok]
+            properties:
+              method:
+                type: string
+              path:
+                type: string
+              status:
+                type: integer
+              ok:
+                type: boolean
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantAction'
+        artifacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantArtifact'
+        model:
+          type: object
+          required: [key, label, modelId]
+          properties:
+            key:
+              $ref: '#/components/schemas/AiModelKey'
+            label:
+              type: string
+            modelId:
+              type: string
+        usage:
+          type: object
+          required: [inputTokens, outputTokens]
+          properties:
+            inputTokens:
+              type: integer
+            outputTokens:
+              type: integer
+        cost:
+          type: number
+          description: Dollars at list price; a rough guide.
+        rounds:
+          type: integer
+
     JobType:
       type: string
-      enum: [export, deploy, ingestion, rebuild, activity-refresh, bulk-operation, csv-export, smus-export, planner]
+      enum: [export, deploy, ingestion, rebuild, activity-refresh, bulk-operation, csv-export, smus-export, planner, assistant]
 
     Job:
       type: object
@@ -6268,6 +6520,8 @@ components:
           type: string
         newAssetId:
           type: string
+        model:
+          $ref: '#/components/schemas/AiModelKey'
 
     NewAssetPreview:
       type: object
@@ -6632,6 +6886,8 @@ components:
           description: Restrict the datasets the planner may choose from. Defaults to every active dataset.
           items:
             type: string
+        model:
+          $ref: '#/components/schemas/AiModelKey'
 
     ProposedRebind:
       allOf:

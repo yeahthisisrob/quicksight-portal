@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
+import { assistantRoutes } from '@/features/api-reference/ui/__stories__/assistant';
 import {
   authorRoutes,
   REPAIR_PLAN,
@@ -79,7 +80,7 @@ export const ApiTab: Story = {
   name: 'API tab',
   parameters: { router: { initialEntries: ['/author?tab=api'] } },
   render: () => (
-    <AppShell path="author" routes={authorRoutes(settingsRoutes())}>
+    <AppShell path="author" routes={authorRoutes([...assistantRoutes(), ...settingsRoutes()])}>
       <AuthorPage />
     </AppShell>
   ),

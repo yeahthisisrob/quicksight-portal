@@ -32,6 +32,8 @@ import {
 import { useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 
+import { FieldLineageGraph } from '@/entities/field';
+
 import type {
   CalculatedFieldRef,
   CalculatedFieldDetail as Detail,
@@ -44,7 +46,6 @@ import { prettyExpression } from '../../model/fieldCatalog';
 import FieldMetadataEditDialog from '../dialogs/FieldMetadataEditDialog';
 import { SaveTemplateDialog } from '../templates/SaveTemplateDialog';
 import { assetPath } from './assetPath';
-import { FieldLineageGraph } from './FieldLineageGraph';
 import { FieldUsagePanel } from './FieldUsagePanel';
 
 interface CalculatedFieldDetailProps {

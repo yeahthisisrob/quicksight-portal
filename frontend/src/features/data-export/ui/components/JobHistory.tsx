@@ -61,6 +61,7 @@ const JOB_TYPE_LABELS: Record<string, string> = {
   'bulk-operation': 'Bulk operation',
   'csv-export': 'CSV export',
   planner: 'Planner',
+  assistant: 'Assistant',
   deploy: 'Deploy',
   ingestion: 'Ingestion',
   rebuild: 'Rebuild',

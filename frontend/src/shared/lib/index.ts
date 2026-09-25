@@ -10,3 +10,4 @@ export * from './exportUtils';
 export { useExportCSV } from './useExportCSV';
 export { useFilters } from './useFilters';
 export type { UseFiltersOptions, UseFiltersReturn, TagFilter, AssetFilter } from './useFilters';export { AuthProvider, useAuth } from './auth';
+export { type AiWork, DEFAULT_AI_MODEL, readAiModel, useAiModel, writeAiModel } from './aiModelChoice';

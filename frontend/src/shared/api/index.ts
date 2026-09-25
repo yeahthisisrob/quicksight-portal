@@ -6,6 +6,7 @@ export * from './cognito';
 export * from './errors';
 export { activityApi } from './modules/activity';
 export { assetsApi } from './modules/assets';
+export { assistantApi } from './modules/assistant';
 export { authoringApi } from './modules/authoring';
 export {
   calculatedFieldTemplatesApi,

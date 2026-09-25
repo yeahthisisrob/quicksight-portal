@@ -85,6 +85,8 @@ export interface CSVExportJobConfig extends BaseJobConfig {
  */
 export interface PlannerJobConfig extends BaseJobConfig {
   jobType: 'planner';
+  /** A catalog model key; omitted means the stack's configured planner. */
+  model?: string;
   request:
     | {
         kind: 'propose';
@@ -96,6 +98,21 @@ export interface PlannerJobConfig extends BaseJobConfig {
     | { kind: 'new-visuals'; newAsset: Record<string, unknown> };
 }
 
+/** One message to the assistant; the result is its answer. */
+export interface AssistantJobConfig extends BaseJobConfig {
+  jobType: 'assistant';
+  model: string;
+  messages: Array<{ role: 'user' | 'assistant'; text: string }>;
+  /** The identity the assistant's own calls run as. */
+  auth: {
+    userId: string;
+    accountId: string;
+    email?: string;
+    groups?: string[];
+    apiKey?: { id: string; label: string };
+  };
+}
+
 export type JobConfig =
   | ExportJobConfig
   | DeployJobConfig
@@ -103,7 +120,8 @@ export type JobConfig =
   | BulkOperationJobConfig
   | CSVExportJobConfig
   | SmusExportJobConfig
-  | PlannerJobConfig;
+  | PlannerJobConfig
+  | AssistantJobConfig;
 
 export class JobFactory {
   private static instance: JobFactory;
@@ -261,6 +279,8 @@ export class JobFactory {
       return `Bulk ${opType} operation queued (${config.estimatedOperations} items)`;
     } else if (config.jobType === 'csv-export') {
       return `CSV export job for ${config.assetType} queued`;
+    } else if (config.jobType === 'assistant') {
+      return 'Assistant thinking';
     } else if (config.jobType === 'planner') {
       return config.request.kind === 'propose'
         ? `Planner asked about ${config.request.assetType} ${config.request.assetId}`
@@ -295,7 +315,9 @@ export class JobFactory {
         options: config.options,
       };
     } else if (config.jobType === 'planner') {
-      return { request: config.request };
+      return { request: config.request, model: config.model };
+    } else if (config.jobType === 'assistant') {
+      return { model: config.model, messages: config.messages, auth: config.auth };
     }
     return {};
   }

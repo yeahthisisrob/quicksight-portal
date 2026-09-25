@@ -160,6 +160,34 @@ describe('BedrockAdapter and BedrockPlannerModel', () => {
     expect(input.inferenceConfig).toEqual({ maxTokens: 100, temperature: 0 });
   });
 
+  it('asks newer models in words: no temperature, auto tool choice', async () => {
+    const newer = {
+      send: vi.fn().mockResolvedValue({
+        output: { message: { content: [{ toolUse: { name: 'answer', input: { ok: true } } }] } },
+        usage: { inputTokens: 1, outputTokens: 1 },
+      }),
+    };
+    const model = new BedrockPlannerModel(
+      new BedrockAdapter('us-east-1', newer as any),
+      'us.anthropic.claude-opus-5',
+      { temperature: false, forcedTool: false, promptCache: true }
+    );
+    const result = await model.complete({
+      label: 't',
+      system: 'sys',
+      user: 'u',
+      schemaName: 'answer',
+      schemaDescription: 'd',
+      schema: { type: 'object' },
+      maxTokens: 100,
+    });
+    expect(result.output).toEqual({ ok: true });
+    const input = newer.send.mock.calls[0]![0].input;
+    expect(input.toolConfig.toolChoice).toEqual({ auto: {} });
+    expect(input.inferenceConfig).toEqual({ maxTokens: 100 });
+    expect(input.system[0].text).toContain('Answer only by calling the answer tool');
+  });
+
   it('fails when the model did not call the tool', async () => {
     client.send.mockResolvedValue({
       stopReason: 'end_turn',

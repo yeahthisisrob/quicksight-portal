@@ -25,7 +25,12 @@ export class OpenAiCompatiblePlannerModel implements PlannerModel {
     baseUrl: string,
     private readonly apiKey: string,
     private readonly model: string,
-    private readonly fetchImpl: FetchLike = (input, init) => fetch(input, init)
+    private readonly fetchImpl: FetchLike = (input, init) => fetch(input, init),
+    /** OpenAI's newer models refuse `temperature` and want `max_completion_tokens`. */
+    private readonly options: {
+      temperature?: boolean;
+      maxTokensParam?: 'max_tokens' | 'max_completion_tokens';
+    } = {}
   ) {
     if (!baseUrl) {
       throw new Error('PLANNER_BASE_URL is required for the openai-compatible planner');
@@ -42,8 +47,8 @@ export class OpenAiCompatiblePlannerModel implements PlannerModel {
       },
       body: JSON.stringify({
         model: this.model,
-        temperature: 0,
-        max_tokens: request.maxTokens,
+        ...(this.options.temperature === false ? {} : { temperature: 0 }),
+        [this.options.maxTokensParam ?? 'max_tokens']: request.maxTokens,
         messages: [
           { role: 'system', content: request.system },
           { role: 'user', content: request.user },

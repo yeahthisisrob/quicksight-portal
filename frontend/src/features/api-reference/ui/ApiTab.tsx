@@ -11,7 +11,9 @@ import { type ReactNode, useMemo } from 'react';
 import { type OpenApiDocument, parseOperations } from '../model/operations';
 import { ApiQuickStart } from './ApiQuickStart';
 import { ApiReference } from './ApiReference';
+import { AssistantChat } from './AssistantChat';
 import { AwsContextNote } from './AwsContextNote';
+import { ModelPicker } from './ModelPicker';
 
 export interface ApiTabProps {
   /** The API keys panel, owned by Settings; the page passes it in. */
@@ -35,6 +37,8 @@ export default function ApiTab({ keysPanel, origin }: ApiTabProps) {
         </Typography>
       </Box>
       <Stack spacing={3}>
+        <AssistantChat />
+        <ModelPicker />
         <ApiQuickStart origin={base} />
         {keysPanel}
         <AwsContextNote />

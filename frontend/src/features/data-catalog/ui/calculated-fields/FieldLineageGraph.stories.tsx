@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
+import { FieldLineageGraph } from '@/entities/field';
+
 import { CALCULATED_FIELD_DETAILS, KEYS, WIDE_CHAIN } from '../__stories__/fieldCatalog';
-import { FieldLineageGraph } from './FieldLineageGraph';
 
 const meta: Meta<typeof FieldLineageGraph> = {
   title: 'Features/Data Catalog/FieldLineageGraph',
