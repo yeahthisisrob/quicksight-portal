@@ -113,6 +113,26 @@ export function jobIdOf(response: unknown): string | undefined {
   return typeof id === 'string' && id ? id : undefined;
 }
 
+/**
+ * An answer that ends by announcing more work. The server pushes the model
+ * once to do it; if the answer still ends that way the chat offers to
+ * continue, so it never looks busy when nothing is running. Mirrors
+ * `announcesMore` in the backend's AssistantService.
+ */
+const ANNOUNCES_MORE =
+  /\b(let me(?! know)|i'll|i will|i am going to|i'm going to|next,? i|now i'll|i'll now|going to (check|try|look|run))\b[^.?!]*[.…:]?\s*$/i;
+
+export function endsOnAPromise(text: string): boolean {
+  const lastSentences = text
+    .trim()
+    .split(/(?<=[.!?])\s+/)
+    .slice(-2)
+    .join(' ');
+  return ANNOUNCES_MORE.test(lastSentences);
+}
+
+export const CONTINUE_MESSAGE = 'Go ahead and do that now.';
+
 /** A finished action, told back to the assistant so it can carry on. */
 export function followUpFor(title: string, run: ActionRun): string {
   const outcome =

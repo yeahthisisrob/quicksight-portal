@@ -9,6 +9,7 @@
  */
 import {
   AddComment,
+  ArrowForward,
   CheckCircle,
   ErrorOutlined,
   PlayArrow,
@@ -39,7 +40,13 @@ import type {
 } from '@/shared/api/modules/assistant';
 import { Container } from '@/shared/design-system';
 
-import { type ActionRun, followUpFor, jobIdOf } from '../model/conversation';
+import {
+  type ActionRun,
+  CONTINUE_MESSAGE,
+  endsOnAPromise,
+  followUpFor,
+  jobIdOf,
+} from '../model/conversation';
 import { useConversation } from '../model/useConversation';
 import { AssistantArtifactView } from './AssistantArtifactView';
 import { formatCost } from './costFormat';
@@ -324,6 +331,8 @@ export function AssistantChat() {
   const [draft, setDraft] = useState('');
   const entries = conversation.entries;
   const total = entries.reduce((sum, e) => sum + (e.role === 'assistant' ? e.result.cost : 0), 0);
+  const last = entries[entries.length - 1];
+  const lastAnswerPromises = last?.role === 'assistant' && endsOnAPromise(last.text);
 
   const submit = (text: string) => {
     if (!text.trim() || busy) {
@@ -380,6 +389,23 @@ export function AssistantChat() {
                   onFollowUp={busy ? undefined : submit}
                 />
               )
+            )}
+            {!busy && lastAnswerPromises && (
+              <Alert
+                severity="info"
+                action={
+                  <Button
+                    color="inherit"
+                    size="small"
+                    startIcon={<ArrowForward />}
+                    onClick={() => submit(CONTINUE_MESSAGE)}
+                  >
+                    Continue
+                  </Button>
+                }
+              >
+                It stopped after saying what it would do next. Nothing is running.
+              </Alert>
             )}
             {busy && <Working status={status ?? 'Thinking'} since={conversation.pending?.since} />}
             {error && (
