@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.27.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.27.0...v2.27.1) (2026-09-26)
+
+
+### Bug Fixes
+
+* **studio,assistant,playbooks:** sweep - links that opened the wrong asset, gates custom playbooks ignored, runs that dropped rows ([#250](https://github.com/yeahthisisrob/quicksight-portal/issues/250)) ([e5c1e22](https://github.com/yeahthisisrob/quicksight-portal/commit/e5c1e2275b1386406d96633cd37c432f909bfb75))
+
 ## [2.27.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.26.0...v2.27.0) (2026-09-26)
 
 
