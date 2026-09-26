@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.22.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.21.0...v2.22.0) (2026-09-26)
+
+
+### Features
+
+* visual templates, filters in the plan, and writes checked against what was asked ([#227](https://github.com/yeahthisisrob/quicksight-portal/issues/227)) ([e9d72a1](https://github.com/yeahthisisrob/quicksight-portal/commit/e9d72a1d33baa8bf8e58644076778acf557f15d7))
+
 ## [2.21.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.20.0...v2.21.0) (2026-09-26)
 
 
