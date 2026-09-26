@@ -2635,6 +2635,17 @@ export interface components {
         };
         /** @enum {string} */
         JobType: "export" | "deploy" | "ingestion" | "rebuild" | "activity-refresh" | "bulk-operation" | "csv-export" | "smus-export" | "planner" | "assistant" | "asset-refresh";
+        /** @description Someone the portal names - who started a job, archived or restored an asset. */
+        Person: {
+            /** @description How to show them - an email, an API key's label, a user name. */
+            label: string;
+            /** @enum {string} */
+            kind: "person" | "api-key" | "portal";
+            email?: string;
+            /** @description Their QuickSight user, when one matches by email or user name. */
+            quickSightUserName?: string;
+            quickSightUserArn?: string;
+        };
         /** @description One background job, as /api/jobs returns it. */
         Job: {
             /**
@@ -2693,6 +2704,7 @@ export interface components {
             userId?: string;
             /** @description Who started it, in words - an email, or an API key's label. Absent when the portal started it itself. */
             startedBy?: string;
+            startedByPerson?: components["schemas"]["Person"];
             accountId?: string;
             /** @description Deploy jobs - the asset deployed. */
             assetType?: string;
@@ -2913,6 +2925,16 @@ export interface components {
             archiveReason: string;
             /** @description User or system that archived the asset */
             archivedBy?: string;
+            archivedByPerson?: components["schemas"]["Person"];
+            /** @description Each time it was restored from this archive - the ledger's other half. */
+            restorations?: {
+                /** Format: date-time */
+                restoredAt: string;
+                restoredBy: string;
+                /** @description The id it was restored under. */
+                restoredAs: string;
+                restoredByPerson?: components["schemas"]["Person"];
+            }[];
             /**
              * Format: date-time
              * @description Last time the asset was viewed/accessed before archiving

@@ -2,6 +2,7 @@ import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { DEBUG_CONFIG, QUICKSIGHT_LIMITS } from '../../../shared/constants';
 import type { CacheEntry, MasterCache } from '../../../shared/models/asset.model';
 import { cacheService } from '../../../shared/services/cache/CacheService';
+import { resolvePeople } from '../../../shared/services/identity/IdentityResolver';
 import { LineageService } from '../../../shared/services/lineage';
 import { SmusService } from '../../../shared/services/smus/SmusService';
 import type { ActivityData } from '../../../shared/types/activityTypes';
@@ -157,7 +158,7 @@ export class AssetService {
     );
 
     return {
-      items: result.items,
+      items: await this.withArchivePeople(result.items),
       nextToken: result.pagination.hasMore ? `${page + 1}` : undefined,
       totalCount: result.pagination.totalItems,
     };
@@ -1742,6 +1743,30 @@ export class AssetService {
   }
 
   /**
+   * The page's archivers and restorers resolved to people (a name, and their
+   * QuickSight user when one matches), for the archive ledger.
+   */
+  private async withArchivePeople(items: ArchivedAssetItem[]): Promise<ArchivedAssetItem[]> {
+    const refs = items.flatMap((item: any) => [
+      item.archivedBy,
+      ...((item.restorations ?? []) as any[]).map((r) => r.restoredBy),
+    ]);
+    const people = await resolvePeople(refs);
+    return items.map((item: any) => ({
+      ...item,
+      ...(people.get(item.archivedBy) ? { archivedByPerson: people.get(item.archivedBy) } : {}),
+      ...(item.restorations
+        ? {
+            restorations: (item.restorations as any[]).map((r) => ({
+              ...r,
+              ...(people.get(r.restoredBy) ? { restoredByPerson: people.get(r.restoredBy) } : {}),
+            })),
+          }
+        : {}),
+    }));
+  }
+
+  /**
    * Transform archived asset to ArchivedAssetItem format
    */
   private transformArchivedAsset(
@@ -1768,6 +1793,9 @@ export class AssetService {
       archivedDate: archivedMetadata.archivedAt || asset.lastUpdatedTime?.toISOString() || null,
       archivedBy: archivedMetadata.archivedBy || 'system',
       archiveReason: archivedMetadata.archiveReason || 'Asset archived',
+      ...(Array.isArray(archivedMetadata.restorations) && archivedMetadata.restorations.length > 0
+        ? { restorations: archivedMetadata.restorations }
+        : {}),
       lastActivity,
       canRestore: true,
     };

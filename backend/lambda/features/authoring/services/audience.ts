@@ -13,6 +13,7 @@
  */
 import type { AuthContext } from '../../../shared/auth';
 import { cacheService } from '../../../shared/services/cache/CacheService';
+import { quickSightUserFor } from '../../../shared/services/identity/IdentityResolver';
 import { settingsStore } from '../../../shared/services/settings/SettingsStore';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { logger } from '../../../shared/utils/logger';
@@ -46,32 +47,6 @@ interface Audience {
   /** The creator's QuickSight user, when their email matched one. */
   owner?: { userName: string; arn: string };
   warnings: string[];
-}
-
-/** The QuickSight user whose email is the signed-in person's, from the export cache. */
-export async function quickSightUserFor(
-  email: string | undefined
-): Promise<{ userName: string; arn: string } | undefined> {
-  const wanted = email?.trim().toLowerCase();
-  if (!wanted) return undefined;
-  try {
-    const users = await cacheService.getCacheEntries({
-      assetType: 'user',
-      statusFilter: AssetStatusFilter.ACTIVE,
-    });
-    const match = users.find(
-      (u: any) =>
-        String(u.metadata?.email ?? '')
-          .trim()
-          .toLowerCase() === wanted && u.arn
-    );
-    return match
-      ? { userName: String(match.assetName ?? match.assetId), arn: String(match.arn) }
-      : undefined;
-  } catch (error) {
-    logger.warn('Creator lookup failed', { error });
-    return undefined;
-  }
 }
 
 /** Permissions with this principal added as an owner (merged when it is already there). */

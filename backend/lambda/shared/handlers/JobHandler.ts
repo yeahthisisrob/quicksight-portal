@@ -7,7 +7,13 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../auth';
 import { PAGINATION, STATUS_CODES } from '../constants';
-import { type JobListOptions, JobRepository, type JobType } from '../services/jobs/JobRepository';
+import { resolvePeople } from '../services/identity/IdentityResolver';
+import {
+  type JobListOptions,
+  type JobMetadata,
+  JobRepository,
+  type JobType,
+} from '../services/jobs/JobRepository';
 import { errorResponse, successResponse } from '../utils/cors';
 import { logger } from '../utils/logger';
 
@@ -71,7 +77,7 @@ export class JobHandler {
 
       return successResponse(event, {
         success: true,
-        data: job,
+        data: (await withPeople([job]))[0],
       });
     } catch (error: any) {
       logger.error('Failed to get job', { error });
@@ -178,7 +184,7 @@ export class JobHandler {
 
       return successResponse(event, {
         success: true,
-        data: jobs,
+        data: await withPeople(jobs),
       });
     } catch (error: any) {
       logger.error('Failed to list jobs', { error });
@@ -218,4 +224,16 @@ export class JobHandler {
       );
     }
   }
+}
+
+/** Each job with who started it resolved: a name, and their QuickSight user when one matches. */
+async function withPeople(
+  jobs: JobMetadata[]
+): Promise<Array<JobMetadata & { startedByPerson?: unknown }>> {
+  const refOf = (job: JobMetadata) => job.startedBy ?? job.userId;
+  const people = await resolvePeople(jobs.map(refOf));
+  return jobs.map((job) => {
+    const person = people.get(refOf(job) ?? '');
+    return person ? { ...job, startedByPerson: person } : job;
+  });
 }

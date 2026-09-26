@@ -116,7 +116,10 @@ function App() {
                   path="archived-assets"
                   element={<Navigate to="/operations?tab=archived" replace />}
                 />
-                <Route path="scripts" element={<Navigate to="/operations?tab=scripts" replace />} />
+                <Route
+                  path="scripts"
+                  element={<Navigate to="/author?tab=studio&view=scripts" replace />}
+                />
                 <Route
                   path="activity"
                   element={

@@ -5660,6 +5660,25 @@ components:
       type: string
       enum: [export, deploy, ingestion, rebuild, activity-refresh, bulk-operation, csv-export, smus-export, planner, assistant, asset-refresh]
 
+    Person:
+      type: object
+      description: Someone the portal names - who started a job, archived or restored an asset.
+      required: [label, kind]
+      properties:
+        label:
+          type: string
+          description: How to show them - an email, an API key's label, a user name.
+        kind:
+          type: string
+          enum: [person, api-key, portal]
+        email:
+          type: string
+        quickSightUserName:
+          type: string
+          description: Their QuickSight user, when one matches by email or user name.
+        quickSightUserArn:
+          type: string
+
     Job:
       type: object
       description: One background job, as /api/jobs returns it.
@@ -5754,6 +5773,8 @@ components:
         startedBy:
           type: string
           description: Who started it, in words - an email, or an API key's label. Absent when the portal started it itself.
+        startedByPerson:
+          $ref: '#/components/schemas/Person'
         accountId:
           type: string
         assetType:
@@ -6160,6 +6181,25 @@ components:
             archivedBy:
               type: string
               description: User or system that archived the asset
+            archivedByPerson:
+              $ref: '#/components/schemas/Person'
+            restorations:
+              type: array
+              description: Each time it was restored from this archive - the ledger's other half.
+              items:
+                type: object
+                required: [restoredAt, restoredBy, restoredAs]
+                properties:
+                  restoredAt:
+                    type: string
+                    format: date-time
+                  restoredBy:
+                    type: string
+                  restoredAs:
+                    type: string
+                    description: The id it was restored under.
+                  restoredByPerson:
+                    $ref: '#/components/schemas/Person'
             lastActivity:
               type: string
               format: date-time

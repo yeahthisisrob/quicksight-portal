@@ -92,7 +92,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * kept an id, which is shown when it reads as one (an email, an API key)
  * and not when it is an opaque sign-in id.
  */
-export function startedByLabel(job: Pick<JobMetadata, 'startedBy' | 'userId'>): string {
+export function startedByLabel(
+  job: Pick<JobMetadata, 'startedBy' | 'userId' | 'startedByPerson'>
+): string {
+  if (job.startedByPerson) return job.startedByPerson.label;
   if (job.startedBy) return job.startedBy;
   if (!job.userId) return 'The portal';
   if (job.userId.startsWith('api-key:')) return `${job.userId.slice('api-key:'.length)} (API key)`;
