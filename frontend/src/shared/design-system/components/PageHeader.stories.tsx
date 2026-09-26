@@ -20,10 +20,6 @@ const meta: Meta<typeof PageHeader> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const TitleOnly: Story = {
-  args: { title: 'Dashboards' },
-};
-
 export const WithEverything: Story = {
   args: {
     title: 'Dashboards',
@@ -61,14 +57,5 @@ export const WithTabs: Story = {
         ]}
       />
     ),
-  },
-};
-
-/** The old prop names still work. */
-export const LegacyProps: Story = {
-  args: {
-    title: 'Datasets',
-    totalRows: 42,
-    extraActions: <Button variant="contained">New</Button>,
   },
 };

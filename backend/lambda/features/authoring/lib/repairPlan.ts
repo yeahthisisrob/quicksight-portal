@@ -8,15 +8,15 @@
  */
 import type { ColumnUsage, DefinitionDataset, RebindRequest } from '../types';
 import { normalizeColumnName, type TargetColumn } from './columnResolution';
-import { declaredParameters, referencedParameters, type RepairOp } from './definitionRepairs';
+import { declaredParameters, type RepairOp, referencedParameters } from './definitionRepairs';
 
-export type RepairIssueKind =
+type RepairIssueKind =
   | 'dataset-missing'
   | 'column-missing'
   | 'parameter-missing'
   | 'quicksight-error';
 
-export type RepairFix =
+type RepairFix =
   | RepairOp
   | { op: 'rename'; identifier: string; columnName: string; to: string }
   | { op: 'rebind'; identifier: string };
@@ -46,7 +46,7 @@ export interface RepairPlan {
   proposed: { repairs: RepairOp[]; rebinds: RebindRequest[] };
 }
 
-export interface QuickSightError {
+interface QuickSightError {
   Type?: string;
   Message?: string;
   ViolatedEntities?: Array<{ Path?: string }>;
@@ -95,8 +95,11 @@ function usageWords(usage: ColumnUsage): string {
   if (usage.visual) parts.push(`${usage.visual} visual${usage.visual === 1 ? '' : 's'}`);
   if (usage.filter) parts.push(`${usage.filter} filter${usage.filter === 1 ? '' : 's'}`);
   if (usage.calculatedField)
-    parts.push(`${usage.calculatedField} calculated field${usage.calculatedField === 1 ? '' : 's'}`);
-  if (usage.parameter) parts.push(`${usage.parameter} parameter default${usage.parameter === 1 ? '' : 's'}`);
+    parts.push(
+      `${usage.calculatedField} calculated field${usage.calculatedField === 1 ? '' : 's'}`
+    );
+  if (usage.parameter)
+    parts.push(`${usage.parameter} parameter default${usage.parameter === 1 ? '' : 's'}`);
   if (usage.control) parts.push(`${usage.control} control${usage.control === 1 ? '' : 's'}`);
   if (usage.other) parts.push(`${usage.other} other`);
   return parts.join(', ') || 'nothing visible';
@@ -134,7 +137,12 @@ export function buildRepairPlan(input: BuildInput): RepairPlan {
         columnName: column.name,
       };
       const rename: RepairFix | undefined = suggestion
-        ? { op: 'rename', identifier: dataset.identifier, columnName: column.name, to: suggestion.name }
+        ? {
+            op: 'rename',
+            identifier: dataset.identifier,
+            columnName: column.name,
+            to: suggestion.name,
+          }
         : undefined;
       const issue: RepairIssue = {
         id: `column:${dataset.identifier}:${column.name}`,
@@ -194,14 +202,18 @@ export function buildRepairPlan(input: BuildInput): RepairPlan {
       }
     }
     if (DATASET_ERROR_TYPES.has(type)) {
-      const matched = issues.find((i) => i.kind === 'dataset-missing' && names.includes(i.dataSetId ?? ''));
+      const matched = issues.find(
+        (i) => i.kind === 'dataset-missing' && names.includes(i.dataSetId ?? '')
+      );
       if (matched) {
         matched.quickSight = quickSight;
         continue;
       }
     }
     if (PARAMETER_ERROR_TYPES.has(type)) {
-      const matched = issues.find((i) => i.kind === 'parameter-missing' && names.includes(i.parameterName ?? ''));
+      const matched = issues.find(
+        (i) => i.kind === 'parameter-missing' && names.includes(i.parameterName ?? '')
+      );
       if (matched) {
         matched.quickSight = quickSight;
         continue;

@@ -14,7 +14,7 @@ const GOVERNANCE = ['permissions', 'tags', 'folders'] as const;
 const HEALTH = ['healthCount', 'healthLoad', 'healthErrors'] as const;
 const HIDDEN_LAST = ['status', 'enrichmentStatus'] as const;
 
-export const PREFERRED_COLUMN_ORDER: Record<string, readonly string[]> = {
+const PREFERRED_COLUMN_ORDER: Record<string, readonly string[]> = {
   dashboard: [
     ...IDENTITY,
     ...DATES,

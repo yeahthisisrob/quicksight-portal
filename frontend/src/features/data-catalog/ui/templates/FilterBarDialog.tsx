@@ -55,7 +55,7 @@ function toRows(controls: FilterBarControl[] | undefined): Row[] {
   }));
 }
 
-export function toControls(rows: Row[]): FilterBarControl[] {
+function toControls(rows: Row[]): FilterBarControl[] {
   return rows
     .filter((r) => r.column.trim())
     .map((r) => {

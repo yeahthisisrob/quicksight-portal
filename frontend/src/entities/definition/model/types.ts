@@ -79,7 +79,7 @@ export interface WireframeSheet {
   controlBar: WireframeElement[];
 }
 
-export interface WireframeDataset {
+interface WireframeDataset {
   identifier: string;
   dataSetId: string;
 }

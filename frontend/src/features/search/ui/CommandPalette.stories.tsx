@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
-import { type MockRoute, mockApi } from '../../../../.storybook/mocks/api';
+import { type MockRoute, useMockApi } from '../../../../.storybook/mocks/api';
 import { SEARCH_FAILING, SEARCH_PENDING, searchRoute } from '../../../../.storybook/mocks/search';
 import { CommandPaletteProvider, useCommandPalette } from '../model/commandPalette';
 import { CommandPalette } from './CommandPalette';
@@ -22,8 +22,7 @@ function Mocked({
   text?: string;
   children?: React.ReactNode;
 }) {
-  const [restore] = useState(() => mockApi(r));
-  useEffect(() => restore, [restore]);
+  useMockApi(r);
   return (
     <CommandPaletteProvider>
       <OpenOnMount />
@@ -53,11 +52,6 @@ type Story = StoryObj<typeof meta>;
 export const Results: Story = {
   name: 'Results for "sales revenue"',
   render: () => <Mocked routes={[searchRoute()]} text="sales revenue" />,
-};
-
-export const CalculatedFieldRule: Story = {
-  name: 'A business rule found by its expression',
-  render: () => <Mocked routes={[searchRoute()]} text="closed margin" />,
 };
 
 export const Empty: Story = {

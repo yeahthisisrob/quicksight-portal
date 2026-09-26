@@ -35,7 +35,7 @@ import { AssetChip } from './shared';
 // Types
 // ============================================================================
 
-export interface FilterHeaderProps {
+interface FilterHeaderProps {
   totalFilters: number;
   dateFilter?: DateFilterState;
   errorFilter?: ErrorFilterState;

@@ -88,30 +88,16 @@ export const Idle: Story = {
   },
 };
 
-/** First step active, mid-progress. */
-export const RunningEarly: Story = {
-  args: {
-    title: 'Export Progress',
-    steps: exportSteps,
-    currentStepIndex: 0,
-    phaseStatus: 'running',
-    progressPercent: 36,
-    progressDetails: { label: 'Processing assets', processed: 450, total: 1250 },
-    elapsedMs: 15_000,
-    statusLabel: 'inventory',
-  },
-};
-
-/** Middle step active with longer elapsed time. */
-export const RunningMid: Story = {
+/** Middle step active; large counts and an elapsed time past the hour boundary. */
+export const Running: Story = {
   args: {
     title: 'Export Progress',
     steps: exportSteps,
     currentStepIndex: 1,
     phaseStatus: 'running',
-    progressPercent: 71,
-    progressDetails: { label: 'Processing assets', processed: 890, total: 1250 },
-    elapsedMs: 90_000,
+    progressPercent: 79,
+    progressDetails: { label: 'Processing assets', processed: 98_765, total: 125_000 },
+    elapsedMs: 3_900_000,
     statusLabel: 'enrichment',
   },
 };
@@ -135,20 +121,6 @@ export const Errored: Story = {
     phaseStatus: 'error',
     elapsedMs: 55_000,
     statusLabel: 'Failed',
-  },
-};
-
-/** Activity-refresh shape: 4 phases, in the middle of fetching mutations. */
-export const ActivityFourPhase: Story = {
-  args: {
-    title: 'Activity Refresh',
-    steps: activitySteps,
-    currentStepIndex: 2,
-    phaseStatus: 'running',
-    progressPercent: 80,
-    progressDetails: { label: 'Mutation event types fetched', processed: 132, total: 200 },
-    elapsedMs: 32_000,
-    statusLabel: 'processing',
   },
 };
 
@@ -183,19 +155,5 @@ export const NoProgressBar: Story = {
     phaseStatus: 'running',
     elapsedMs: 2_000,
     statusLabel: 'processing',
-  },
-};
-
-/** Long-running case — elapsed crosses the hour boundary. */
-export const LongRunning: Story = {
-  args: {
-    title: 'Export Progress',
-    steps: exportSteps,
-    currentStepIndex: 1,
-    phaseStatus: 'running',
-    progressPercent: 79,
-    progressDetails: { label: 'Processing assets', processed: 98_765, total: 125_000 },
-    elapsedMs: 3_900_000,
-    statusLabel: 'enrichment',
   },
 };

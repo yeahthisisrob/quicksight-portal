@@ -6,7 +6,7 @@
  */
 import type { KnownColumn } from './planning';
 
-export type Dispatch = (request: {
+type Dispatch = (request: {
   method: string;
   path: string;
   body?: unknown;
@@ -15,6 +15,8 @@ export type Dispatch = (request: {
 const SEARCH_LIMIT = 15;
 const RELATED_LIMIT = 40;
 const ATTRIBUTE_LENGTH = 200;
+/** The first HTTP status a dispatched request counts as failed at. */
+const FIRST_ERROR_STATUS = 400;
 
 function query(params: Record<string, string | number | undefined>): string {
   const pairs = Object.entries(params).filter(([, v]) => v !== undefined && v !== '');
@@ -23,7 +25,10 @@ function query(params: Record<string, string | number | undefined>): string {
     : '';
 }
 
-async function data(dispatch: Dispatch, path: string): Promise<{ status: number; data: any; error?: string }> {
+async function data(
+  dispatch: Dispatch,
+  path: string
+): Promise<{ status: number; data: any; error?: string }> {
   const response = await dispatch({ method: 'GET', path });
   try {
     const parsed = JSON.parse(response.body);
@@ -53,24 +58,33 @@ export async function contextSearch(
       limit: Math.min(input.limit ?? SEARCH_LIMIT, SEARCH_LIMIT * 2),
     })}`
   );
-  if (result.status >= 400) {
+  if (result.status >= FIRST_ERROR_STATUS) {
     return { ok: false, text: result.error ?? `Search failed (${result.status})` };
   }
   const hits: any[] = result.data?.hits ?? [];
   if (hits.length === 0) {
-    return { ok: true, text: `Nothing matches "${input.query}". Try other words, a table name, or fewer types.` };
+    return {
+      ok: true,
+      text: `Nothing matches "${input.query}". Try other words, a table name, or fewer types.`,
+    };
   }
   return {
     ok: true,
     text: hits
-      .map((h) => `- ${h.entityId}: ${h.summary}${h.why?.length ? ` [matched ${h.why.join(', ')}]` : ''}`)
+      .map(
+        (h) =>
+          `- ${h.entityId}: ${h.summary}${h.why?.length ? ` [matched ${h.why.join(', ')}]` : ''}`
+      )
       .join('\n'),
   };
 }
 
-export async function contextGet(dispatch: Dispatch, entityId: string): Promise<{ ok: boolean; text: string }> {
+export async function contextGet(
+  dispatch: Dispatch,
+  entityId: string
+): Promise<{ ok: boolean; text: string }> {
   const result = await data(dispatch, `/api/context/entities/${encodeURIComponent(entityId)}`);
-  if (result.status >= 400 || !result.data?.entity) {
+  if (result.status >= FIRST_ERROR_STATUS || !result.data?.entity) {
     return { ok: false, text: result.error ?? `No entity ${entityId}` };
   }
   const { entity, relations } = result.data;
@@ -88,7 +102,14 @@ export async function contextGet(dispatch: Dispatch, entityId: string): Promise<
 
 export async function contextRelated(
   dispatch: Dispatch,
-  input: { entityId: string; relations?: string[]; direction?: string; depth?: number; types?: string[]; limit?: number }
+  input: {
+    entityId: string;
+    relations?: string[];
+    direction?: string;
+    depth?: number;
+    types?: string[];
+    limit?: number;
+  }
 ): Promise<{ ok: boolean; text: string }> {
   const result = await data(
     dispatch,
@@ -100,7 +121,7 @@ export async function contextRelated(
       limit: Math.min(input.limit ?? RELATED_LIMIT, RELATED_LIMIT * 2),
     })}`
   );
-  if (result.status >= 400) {
+  if (result.status >= FIRST_ERROR_STATUS) {
     return { ok: false, text: result.error ?? `Related failed (${result.status})` };
   }
   const hits: any[] = result.data?.hits ?? [];
@@ -113,7 +134,10 @@ export async function contextRelated(
       .map(
         (h) =>
           `- ${h.entityId}: ${h.summary}${attributes(h.attributes)} (via ${h.via
-            .map((v: any) => `${v.direction === 'in' ? '<-' : '->'}${v.relation}${v.note ? ` ${v.note}` : ''}`)
+            .map(
+              (v: any) =>
+                `${v.direction === 'in' ? '<-' : '->'}${v.relation}${v.note ? ` ${v.note}` : ''}`
+            )
             .join(' ')})`
       )
       .join('\n'),
@@ -125,7 +149,10 @@ export async function contextRelated(
  * exposes from a listing: its own column list (live) joined to the
  * listing columns the graph says it exposes.
  */
-export async function datasetColumns(dispatch: Dispatch, dataSetId: string): Promise<KnownColumn[]> {
+export async function datasetColumns(
+  dispatch: Dispatch,
+  dataSetId: string
+): Promise<KnownColumn[]> {
   const [own, exposed] = await Promise.all([
     data(dispatch, `/api/authoring/datasets/${encodeURIComponent(dataSetId)}/columns`),
     data(

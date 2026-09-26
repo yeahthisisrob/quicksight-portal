@@ -15,7 +15,7 @@ import { logger } from '../../utils/logger';
 import { JobFactory } from '../jobs/JobFactory';
 import { cacheService } from './CacheService';
 
-export interface WrittenAssetRef {
+interface WrittenAssetRef {
   assetType: AssetType;
   assetId: string;
   name?: string;

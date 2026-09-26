@@ -1,7 +1,7 @@
 import { RETRY_CONFIG, STATUS_CODES } from '../constants';
 import { logger } from './logger';
 
-export interface RetryOptions {
+interface RetryOptions {
   maxRetries?: number;
   baseDelay?: number;
   maxDelay?: number;
@@ -15,7 +15,7 @@ const DEFAULT_RETRY_OPTIONS: Required<RetryOptions> = {
   backoffMultiplier: RETRY_CONFIG.BACKOFF_MULTIPLIER,
 };
 
-export function isThrottlingError(error: any): boolean {
+function isThrottlingError(error: any): boolean {
   const errorCode = error.name || error.Code || '';
   const errorMessage = error.message || '';
 
@@ -30,7 +30,7 @@ export function isThrottlingError(error: any): boolean {
   );
 }
 
-export function isRetryableError(error: any): boolean {
+function isRetryableError(error: any): boolean {
   // AWS SDK retryable errors
   const retryableCodes = [
     'ServiceUnavailable',

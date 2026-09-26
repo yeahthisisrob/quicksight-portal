@@ -31,7 +31,7 @@ import { useDebounce } from '@/shared/lib/useDebounce';
 
 import { useColumns } from '../../lib/useFieldCatalog';
 
-export interface ColumnsViewProps {
+interface ColumnsViewProps {
   projectId?: string;
   /** Which datasets to read: the selected projects, or the ones outside them. */
   scope?: CatalogScope;

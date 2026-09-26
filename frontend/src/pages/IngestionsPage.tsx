@@ -35,6 +35,7 @@ import {
 } from '@/widgets/asset-table';
 
 import { ingestionsApi } from '@/shared/api';
+import type { IngestionListQuery } from '@/shared/api/modules/ingestions';
 import { colors } from '@/shared/design-system/theme';
 import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 import { PageLayout } from '@/shared/ui';
@@ -126,9 +127,9 @@ export default function IngestionsPage() {
           page: options.page,
           pageSize: options.pageSize,
           search: options.search,
-          sortBy: options.sortBy,
-          sortOrder: options.sortOrder as 'asc' | 'desc' | undefined,
-          dateRange: options.dateRange,
+          sortBy: options.sortBy as IngestionListQuery['sortBy'],
+          sortOrder: options.sortOrder as IngestionListQuery['sortOrder'],
+          dateRange: options.dateRange as IngestionListQuery['dateRange'],
           dateField: options.dateField,
           sourceTypeFilter: options.sourceTypeFilter,
         });

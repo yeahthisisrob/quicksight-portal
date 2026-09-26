@@ -15,7 +15,7 @@ import { useAiModel } from '@/shared/lib';
 
 import { formatCost } from './costFormat';
 
-export const AI_MODELS_QUERY_KEY = ['assistant-models'] as const;
+const AI_MODELS_QUERY_KEY = ['assistant-models'] as const;
 
 function ModelCard({
   model,

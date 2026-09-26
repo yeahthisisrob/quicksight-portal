@@ -1,9 +1,12 @@
 import { Box, Typography } from '@mui/material';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useState } from 'react';
 
 import { Sidebar } from './Sidebar';
 
+/**
+ * The expanded sidebar with a page highlighted renders in every Pages story
+ * (they run in the real app shell); these cover what those do not.
+ */
 const meta = {
   title: 'Widgets/Navigation/Sidebar',
   component: Sidebar,
@@ -22,55 +25,21 @@ const meta = {
         <Story />
         <Box sx={{ flexGrow: 1, p: 3 }}>
           <Typography variant="h2">Page content</Typography>
-          <Typography color="text.secondary" sx={{ mt: 1 }}>
-            The sidebar sits to the left of every page, under the top bar.
-          </Typography>
         </Box>
       </Box>
     ),
   ],
+  args: { onToggleCollapsed: () => {} },
 } satisfies Meta<typeof Sidebar>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Expanded: Story = {
-  args: { currentPath: '/activity', onToggleCollapsed: () => {} },
+/** Asset pages tint the indicator with the asset's colour. */
+export const DashboardsActive: Story = {
+  args: { currentPath: '/assets/dashboards' },
 };
 
 export const Collapsed: Story = {
-  args: { currentPath: '/activity', collapsed: true, onToggleCollapsed: () => {} },
-};
-
-/** Asset pages tint the indicator with the asset's colour. */
-export const DashboardsActive: Story = {
-  args: { currentPath: '/assets/dashboards', onToggleCollapsed: () => {} },
-};
-
-export const AuthorActive: Story = {
-  args: { currentPath: '/author', onToggleCollapsed: () => {} },
-};
-
-/** Child routes keep the parent item active. */
-export const OperationsChildRouteActive: Story = {
-  args: { currentPath: '/operations/anything', onToggleCollapsed: () => {} },
-};
-
-export const SettingsActive: Story = {
-  args: { currentPath: '/settings', onToggleCollapsed: () => {} },
-};
-
-function Toggling() {
-  const [collapsed, setCollapsed] = useState(false);
-  return (
-    <Sidebar
-      collapsed={collapsed}
-      onToggleCollapsed={() => setCollapsed((c) => !c)}
-      currentPath="/assets/datasets"
-    />
-  );
-}
-
-export const Interactive: Story = {
-  render: () => <Toggling />,
+  args: { currentPath: '/assets/dashboards', collapsed: true },
 };

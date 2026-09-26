@@ -24,26 +24,10 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { useCallback, useEffect, useState } from 'react';
 
 import { exportApi } from '@/shared/api';
+import type { JobMetadata, JobStatus, JobType } from '@/shared/api/modules/jobs';
 import { EmptyState, pal, StatusIndicator, type StatusType } from '@/shared/design-system';
 
-interface Job {
-  jobId: string;
-  jobType?: string;
-  status: 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';
-  progress?: number;
-  message?: string;
-  startTime: string;
-  endTime?: string;
-  duration?: number;
-  stats?: {
-    totalAssets?: number;
-    processedAssets?: number;
-    failedAssets?: number;
-    operations?: Record<string, number>;
-  };
-  exportOptions?: { exportIngestions?: boolean };
-  error?: string;
-}
+type Job = JobMetadata;
 
 const PAGE_SIZE = 50;
 const SKELETON_ROWS = 5;
@@ -129,15 +113,15 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<JobStatus | 'all'>('all');
+  const [typeFilter, setTypeFilter] = useState<JobType | 'all'>('all');
 
   const loadJobs = useCallback(async () => {
     try {
       setLoading(true);
       const result = await exportApi.listJobs({
         limit: PAGE_SIZE,
-        status: statusFilter === 'all' ? undefined : (statusFilter as any),
+        status: statusFilter === 'all' ? undefined : statusFilter,
         type: typeFilter === 'all' ? undefined : typeFilter,
       });
       setJobs(result?.jobs || []);
@@ -168,7 +152,11 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', ml: 'auto' }}>
           <FormControl size="small" sx={{ minWidth: 160 }}>
             <InputLabel>Type</InputLabel>
-            <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} label="Type">
+            <Select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as JobType | 'all')}
+              label="Type"
+            >
               {JOB_TYPE_FILTERS.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
                   {option.label}
@@ -266,7 +254,9 @@ export function JobHistory({ onSelectJob, currentJobId }: JobHistoryProps) {
                       </Tooltip>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">{formatDuration(job.duration)}</Typography>
+                      <Typography variant="body2">
+                        {formatDuration(job.duration ?? undefined)}
+                      </Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">

@@ -29,7 +29,8 @@ import {
 } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
 
-import { api } from '@/shared/api';
+import { getApiErrorMessage, groupsApi } from '@/shared/api';
+import type { GroupAsset } from '@/shared/api/modules/groups';
 import {
   dataToCSV,
   downloadCSV,
@@ -44,16 +45,6 @@ interface GroupAssetsDialogProps {
     id: string;
     name: string;
   };
-}
-
-interface GroupAsset {
-  assetId: string;
-  assetType: string;
-  assetName: string;
-  arn: string;
-  accessType: 'direct' | 'folder_inherited';
-  folderPath?: string;
-  permissions?: string[];
 }
 
 const assetTypeIcons: Record<string, React.ReactElement> = {
@@ -102,16 +93,13 @@ export function GroupAssetsDialog({ open, onClose, group }: GroupAssetsDialogPro
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get(`/groups/${encodeURIComponent(group.name)}/assets`);
-      // The API returns the data directly, not wrapped in success/data
-      if (response.data) {
-        setAssets(response.data.assets || []);
-        setAssetsByType(response.data.assetsByType || {});
-        setTotalAssets(response.data.totalAssets || 0);
-      }
-    } catch (err: any) {
+      const data = await groupsApi.getAssets(group.name);
+      setAssets(data.assets);
+      setAssetsByType(data.assetsByType ?? {});
+      setTotalAssets(data.totalAssets);
+    } catch (err) {
       console.error('Failed to fetch group assets:', err);
-      setError(err.response?.data?.error || 'Failed to fetch group assets');
+      setError(getApiErrorMessage(err, 'Failed to fetch group assets'));
     } finally {
       setLoading(false);
     }

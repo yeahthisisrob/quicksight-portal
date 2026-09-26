@@ -1,8 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { type MockRoute, mockApi } from '../../../../.storybook/mocks/api';
+import { type MockRoute, useMockApi } from '../../../../.storybook/mocks/api';
 import { createAssetColumns } from '../lib/createAssetColumns';
 import EnhancedAssetTable from './EnhancedAssetTable';
 
@@ -112,11 +111,10 @@ function Table({
   routes,
 }: {
   assetType: 'dashboard' | 'dataset';
-  rows: any[];
+  rows: object[];
   routes: MockRoute[];
 }) {
-  const [restore] = useState(() => mockApi(routes));
-  useEffect(() => restore, [restore]);
+  useMockApi(routes);
   const navigate = useNavigate();
   const columns = createAssetColumns(assetType, navigate, {});
   return (
@@ -141,13 +139,13 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Dashboards: Story = {
-  render: () => <Table assetType="dashboard" rows={DASHBOARDS} routes={healthRoutes()} />,
+  args: { assetType: 'dashboard', rows: DASHBOARDS, routes: healthRoutes() },
 };
 
 export const Datasets: Story = {
-  render: () => <Table assetType="dataset" rows={DATASETS} routes={healthRoutes()} />,
+  args: { assetType: 'dataset', rows: DATASETS, routes: healthRoutes() },
 };
 
 export const NoMetricsInAccount: Story = {
-  render: () => <Table assetType="dashboard" rows={DASHBOARDS} routes={healthRoutes(false)} />,
+  args: { assetType: 'dashboard', rows: DASHBOARDS, routes: healthRoutes(false) },
 };

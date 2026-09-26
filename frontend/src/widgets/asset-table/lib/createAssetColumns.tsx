@@ -1,22 +1,22 @@
 import { Tooltip, Typography } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
-
-import { generateBaseColumns } from './baseColumns';
-import { orderColumns } from './columnOrder';
-import {
-  generateDatasetColumns,
-  generateFolderColumns,
-  generateUserColumns,
-  generateGroupColumns,
-  generateDatasourceColumns,
-  generateDashboardAnalysisColumns,
-  generateUsedByColumn,
-  generateUsesColumn,
-  generateHealthColumns,
-} from './columnGenerators';
+import type { components } from '@shared/generated/types';
+import type { useNavigate } from 'react-router-dom';
 
 import type { ColumnConfig } from '@/features/asset-management';
-import type { components } from '@shared/generated/types';
+
+import { generateBaseColumns } from './baseColumns';
+import {
+  generateDashboardAnalysisColumns,
+  generateDatasetColumns,
+  generateDatasourceColumns,
+  generateFolderColumns,
+  generateGroupColumns,
+  generateHealthColumns,
+  generateUsedByColumn,
+  generateUserColumns,
+  generateUsesColumn,
+} from './columnGenerators';
+import { orderColumns } from './columnOrder';
 
 // Import the actual generated types
 type AssetListItem = components['schemas']['AssetListItem'];
@@ -28,10 +28,10 @@ type SearchMatchReason = components['schemas']['SearchMatchReason'];
 interface AssetRow extends Omit<AssetListItem, 'enrichmentStatus'> {
   // Type discriminator
   type: components['schemas']['AssetType'];
-  
+
   // Frontend-added properties
   relatedAssets?: any;
-  
+
   // Common properties for dashboards and analyses
   definitionErrors?: Array<{
     type: string;
@@ -40,17 +40,17 @@ interface AssetRow extends Omit<AssetListItem, 'enrichmentStatus'> {
       path: string;
     }>;
   }>;
-  
+
   // Dashboard-specific
   dashboardStatus?: string;
   visualCount?: number;
   sheetCount?: number;
   datasetCount?: number;
   publishedVersionNumber?: number;
-  
+
   // Analysis-specific
   analysisStatus?: string;
-  
+
   // Dataset-specific
   sourceType?: string;
   importMode?: string;
@@ -62,15 +62,15 @@ interface AssetRow extends Omit<AssetListItem, 'enrichmentStatus'> {
   dataSetRefreshProperties?: any;
   hasRefreshProperties?: boolean;
   DataSetRefreshProperties?: any;
-  
+
   // Datasource-specific
   datasourceStatus?: string;
   connectionMode?: string;
-  
+
   // Folder-specific
   path?: string;
   memberCount?: number;
-  
+
   // User-specific
   email?: string;
   Email?: string;
@@ -83,12 +83,12 @@ interface AssetRow extends Omit<AssetListItem, 'enrichmentStatus'> {
     uniqueViewers?: number;
   };
   groupCount?: number;
-  
+
   // Group-specific
   description?: string;
   Members?: any[];
   assetsCount?: number;
-  
+
   // Enrichment properties (override to make optional)
   enrichmentStatus?: components['schemas']['EnrichmentStatus'];
 
@@ -116,19 +116,24 @@ export const copyToClipboard = async (text: string) => {
  * Render date cell with relative time
  */
 export const renderDateCell = (date: string | null | undefined) => {
-  if (!date) return <Typography variant="body2" color="text.secondary">-</Typography>;
-  
+  if (!date)
+    return (
+      <Typography variant="body2" color="text.secondary">
+        -
+      </Typography>
+    );
+
   const dateObj = new Date(date);
   const now = new Date();
   const diffTime = Math.abs(now.getTime() - dateObj.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
+
   let displayText: string;
   if (diffDays === 0) {
     // Today - show time
-    displayText = dateObj.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    displayText = dateObj.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
     });
   } else if (diffDays === 1) {
     displayText = 'Yesterday';
@@ -144,7 +149,7 @@ export const renderDateCell = (date: string | null | undefined) => {
     const years = Math.floor(diffDays / 365);
     displayText = `${years} year${years > 1 ? 's' : ''} ago`;
   }
-  
+
   return (
     <Tooltip title={dateObj.toLocaleString()}>
       <Typography variant="body2" color="text.secondary">
@@ -164,7 +169,7 @@ export const formatRelativeDate = (date: string | Date): string => {
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
-  
+
   if (diffMins < 1) return 'Just now';
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
@@ -177,12 +182,12 @@ export const formatRelativeDate = (date: string | Date): string => {
  */
 export const formatBytes = (bytes: number): string => {
   if (bytes === 0) return '0 B';
-  
+
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  const size = bytes / Math.pow(k, i);
-  
+  const size = bytes / k ** i;
+
   // Format with appropriate decimal places
   if (size >= 100) {
     return `${Math.round(size)} ${sizes[i]}`;
@@ -236,10 +241,7 @@ export const createAssetColumns = (
 /**
  * Get specific columns for the asset type
  */
-function getSpecificColumnsForAssetType(
-  assetType: string,
-  handlers: any
-): ColumnConfig[] {
+function getSpecificColumnsForAssetType(assetType: string, handlers: any): ColumnConfig[] {
   switch (assetType) {
     case 'dataset':
       return [...generateDatasetColumns(handlers), ...generateHealthColumns('dataset')];
@@ -263,22 +265,18 @@ function getSpecificColumnsForAssetType(
 /**
  * Get relationship columns based on asset type
  */
-function getRelationshipColumns(
-  assetType: string,
-  handlers: any
-): ColumnConfig[] {
+function getRelationshipColumns(assetType: string, handlers: any): ColumnConfig[] {
   const columns: ColumnConfig[] = [];
-  
+
   // Add usedBy column for certain types
   if (!['dashboard', 'folder', 'user', 'group'].includes(assetType)) {
     columns.push(generateUsedByColumn(handlers));
   }
-  
+
   // Add uses column for certain types
   if (!['datasource', 'folder', 'user', 'group'].includes(assetType)) {
     columns.push(generateUsesColumn(handlers));
   }
-  
+
   return columns;
 }
-

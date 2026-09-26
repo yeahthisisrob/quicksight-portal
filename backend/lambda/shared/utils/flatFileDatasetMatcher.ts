@@ -16,7 +16,7 @@
 import { TIME_UNITS } from '../constants';
 import { logger } from './logger';
 
-export interface FlatFileMatchOptions {
+interface FlatFileMatchOptions {
   datasetName: string;
   datasetCreatedTime: Date;
   datasetUpdatedTime: Date;
@@ -29,7 +29,7 @@ export interface FlatFileMatchOptions {
   maxTimeDiffMs?: number; // Default 2 minutes
 }
 
-export interface FlatFileMatchResult {
+interface FlatFileMatchResult {
   datasourceId: string;
   timeDiffMs: number;
   matchedBy: 'creation' | 'update';
@@ -95,26 +95,4 @@ export function findMatchingFlatFileDatasource(
   }
 
   return bestMatch;
-}
-
-/**
- * Get revision number for a flat file datasource
- * based on creation time order among datasources with the same name
- */
-export function getFlatFileDatasourceRevision(
-  datasourceName: string,
-  datasourceCreatedTime: Date,
-  allDatasources: Array<{ name: string; createdTime: Date }>
-): number {
-  // Find all datasources with the same name
-  const sameName = allDatasources
-    .filter((ds) => ds.name === datasourceName)
-    .sort((a, b) => a.createdTime.getTime() - b.createdTime.getTime());
-
-  // Find the position of this datasource
-  const index = sameName.findIndex(
-    (ds) => ds.createdTime.getTime() === datasourceCreatedTime.getTime()
-  );
-
-  return index + 1; // 1-based revision number
 }

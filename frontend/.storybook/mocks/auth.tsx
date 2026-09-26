@@ -20,7 +20,7 @@ interface AuthContextType {
 }
 
 // Mock auth context value for Storybook
-export const mockAuthValue: AuthContextType = {
+const mockAuthValue: AuthContextType = {
   user: {
     sub: 'mock-user-id',
     email: 'user@example.com',
@@ -48,12 +48,5 @@ export const MockAuthProvider = ({ children }: { children: React.ReactNode }) =>
   return <AuthContext.Provider value={mockAuthValue}>{children}</AuthContext.Provider>;
 };
 
-// Mock useAuth hook that matches the real implementation
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    // In Storybook, we want to return the mock value instead of throwing
-    return mockAuthValue;
-  }
-  return context;
-};
+/** The real hook's contract, answering with the mock user. */
+export const useAuth = () => useContext(AuthContext) ?? mockAuthValue;

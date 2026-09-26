@@ -17,7 +17,7 @@
  * no calculated fields at all, which is quietly worse than an error.
  */
 
-export interface LegacyTransform {
+interface LegacyTransform {
   CreateColumnsOperation?: { Columns?: any[] };
   RenameColumnOperation?: { ColumnName?: string; NewColumnName?: string };
   CastColumnTypeOperation?: { ColumnName?: string; NewColumnType?: string };

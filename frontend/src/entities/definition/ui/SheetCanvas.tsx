@@ -21,8 +21,8 @@ import { useElementWidth } from './useElementWidth';
 import { WireframeCard, type WireframeCardProps } from './WireframeCard';
 
 /** Everything a card may carry besides its element. */
-export type CardExtras = Omit<WireframeCardProps, 'element' | 'dense'>;
-export type Decorate = (elementId: string) => CardExtras;
+type CardExtras = Omit<WireframeCardProps, 'element' | 'dense'>;
+type Decorate = (elementId: string) => CardExtras;
 
 const GRID_COLUMNS = 36;
 const GRID_GAP = 6;
@@ -207,7 +207,7 @@ function SectionCanvas({
   );
 }
 
-export interface SheetCanvasProps {
+interface SheetCanvasProps {
   sheet: WireframeSheet;
   diff?: WireframeDiff;
   badges?: WireframeBadges;

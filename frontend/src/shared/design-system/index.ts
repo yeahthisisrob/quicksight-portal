@@ -18,19 +18,12 @@ export * from './components/PageHeader';
 export * from './components/SegmentedControl';
 export * from './components/StatusIndicator';
 export * from './components/TabBar';
-export * from './components/TableContainer';
 // Constants
-export * from './constants/layout';
-export * from './constants/table';
 // Theme
-export { createAppTheme, pal, tint } from './createAppTheme';
-export * from './hooks/useAvailableHeight';
+export { pal } from './createAppTheme';
 // Hooks
-export * from './hooks/useTableStyles';
-export type { TableConfigContextValue } from './providers/TableConfigContext';
-export { useTableConfig } from './providers/TableConfigContext';
 // Providers
-export { TableConfigProvider } from './providers/TableConfigProvider';
+
 // Deprecated aliases (light scheme only) - see theme.ts
 export * from './theme';
 // Tokens

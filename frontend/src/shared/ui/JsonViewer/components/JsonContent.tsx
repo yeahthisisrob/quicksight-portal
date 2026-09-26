@@ -1,81 +1,101 @@
 /**
- * JSON content display component
+ * An asset's JSON in Monaco, read-only: syntax colours, line numbers,
+ * folding (Expand/Collapse all), and its own find (Ctrl/Cmd+F). The
+ * toolbar's search and highlight chips become Monaco decorations, and the
+ * first mark (or the chip's section) is scrolled into view.
  */
-import { alpha, Box } from '@mui/material';
-import { forwardRef } from 'react';
+import Editor, { type OnMount } from '@monaco-editor/react';
+import { alpha, Box, useTheme } from '@mui/material';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 
-import { borderRadius, colors, spacing, typography } from '@/shared/design-system/theme';
+import { type HighlightType, highlightConfigs } from '../utils/jsonHighlighter';
 
-import { getHighlightStyles, type HighlightType, highlightJson } from '../utils/jsonHighlighter';
+type MonacoEditor = Parameters<OnMount>[0];
+type Decorations = ReturnType<MonacoEditor['createDecorationsCollection']>;
+
+export interface JsonContentHandle {
+  foldAll: () => void;
+  unfoldAll: () => void;
+}
 
 interface JsonContentProps {
-  data: any;
+  data: unknown;
   highlightType: HighlightType;
   searchTerm: string;
 }
 
-/**
- * Format JSON with line numbers
- */
-function formatJsonWithLineNumbers(
-  jsonString: string,
-  highlightType: HighlightType,
-  searchTerm: string
-): string {
-  const lines = jsonString.split('\n');
+const MARK = 'json-viewer-mark';
+const SEARCH = 'json-viewer-search';
 
-  return lines
-    .map((line, index) => {
-      const lineNumber = (index + 1).toString().padStart(4, ' ');
-      const highlightedLine = highlightJson(line, highlightType, searchTerm);
-      return `<span style="color: ${colors.neutral[500]}; user-select: none; margin-right: 16px;">${lineNumber}</span>${highlightedLine}`;
-    })
-    .join('\n');
-}
+export const JsonContent = forwardRef<JsonContentHandle, JsonContentProps>(function JsonContentView(
+  { data, highlightType, searchTerm },
+  ref
+) {
+  const theme = useTheme();
+  const editorRef = useRef<MonacoEditor | null>(null);
+  const decorations = useRef<Decorations | null>(null);
+  const text = useMemo(() => JSON.stringify(data ?? {}, null, 2), [data]);
 
-export const JsonContent = forwardRef<HTMLDivElement, JsonContentProps>(
-  ({ data, highlightType, searchTerm }, ref) => {
-    const jsonString = JSON.stringify(data, null, 2);
-    const formattedContent = formatJsonWithLineNumbers(jsonString, highlightType, searchTerm);
-    const highlightStyles = getHighlightStyles();
+  useImperativeHandle(ref, () => ({
+    foldAll: () => void editorRef.current?.getAction('editor.foldAll')?.run(),
+    unfoldAll: () => void editorRef.current?.getAction('editor.unfoldAll')?.run(),
+  }));
 
-    return (
-      <Box
-        ref={ref}
-        sx={{
-          fontFamily: typography.fontFamily.monospace,
-          fontSize: '13px',
-          lineHeight: 1.6,
-          backgroundColor: colors.neutral[900],
-          color: colors.neutral[200],
-          borderRadius: `${borderRadius.md}px`,
-          border: `1px solid ${alpha(colors.neutral[700], 0.3)}`,
-          overflow: 'auto',
-          height: '100%',
-          boxShadow: `inset 0 2px 4px ${alpha(colors.neutral[900], 0.3)}`,
-          '& pre': {
-            margin: 0,
-            padding: `${spacing.sm}px ${spacing.md}px`,
-            display: 'block',
-            whiteSpace: 'pre',
-            overflowX: 'auto',
-          },
-          '& mark': {
-            padding: '1px 2px',
-            borderRadius: '2px',
-            fontWeight: 'inherit',
-            transition: 'background-color 0.2s',
-          },
-          ...highlightStyles,
-        }}
-      >
-        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: formattedContent is
-            produced by this component's own highlighter from JSON.stringify output,
-            with the source escaped before any markup is added. */}
-        <pre dangerouslySetInnerHTML={{ __html: formattedContent }} />
-      </Box>
+  const mark = () => {
+    const editor = editorRef.current;
+    const model = editor?.getModel();
+    if (!editor || !model) return;
+    const chip = highlightType ? highlightConfigs[highlightType] : null;
+    const chipMatches = (chip?.patterns ?? []).flatMap((p) =>
+      model.findMatches(p, false, false, false, null, false)
     );
-  }
-);
+    const search = searchTerm.trim();
+    const searchMatches = search ? model.findMatches(search, false, false, false, null, false) : [];
+    decorations.current ??= editor.createDecorationsCollection();
+    decorations.current.set([
+      ...chipMatches.map((m) => ({ range: m.range, options: { inlineClassName: MARK } })),
+      ...searchMatches.map((m) => ({ range: m.range, options: { inlineClassName: SEARCH } })),
+    ]);
+    const jump = chip?.jumpTo
+      ? model.findMatches(chip.jumpTo, false, false, true, null, false)[0]
+      : undefined;
+    const first = jump ?? searchMatches[0] ?? chipMatches[0];
+    if (first) editor.revealRangeInCenter(first.range);
+  };
 
-JsonContent.displayName = 'JsonContent';
+  useEffect(mark, [highlightType, searchTerm, text]);
+
+  return (
+    <Box
+      sx={{
+        height: '100%',
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: 1,
+        overflow: 'hidden',
+        [`& .${MARK}`]: { backgroundColor: alpha(theme.palette.primary.main, 0.25) },
+        [`& .${SEARCH}`]: { backgroundColor: alpha(theme.palette.warning.main, 0.4) },
+      }}
+    >
+      <Editor
+        height="100%"
+        language="json"
+        value={text}
+        theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
+        onMount={(editor) => {
+          editorRef.current = editor;
+          mark();
+        }}
+        options={{
+          readOnly: true,
+          minimap: { enabled: false },
+          folding: true,
+          wordWrap: 'on',
+          scrollBeyondLastLine: false,
+          fontSize: 12,
+          automaticLayout: true,
+        }}
+      />
+    </Box>
+  );
+});

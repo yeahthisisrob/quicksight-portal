@@ -12,7 +12,7 @@ const JOB_FACTORY_CONSTANTS = {
   UUID_SHORT_LENGTH: 8, // Length of UUID substring for job IDs
 } as const;
 
-export interface BaseJobConfig {
+interface BaseJobConfig {
   jobId?: string;
   accountId: string;
   bucketName: string;
@@ -59,7 +59,7 @@ export interface SmusExportJobConfig extends BaseJobConfig {
   options: { smus: SmusConfig };
 }
 
-export interface BulkOperationJobConfig extends BaseJobConfig {
+interface BulkOperationJobConfig extends BaseJobConfig {
   jobType: 'bulk-operation';
   operationConfig: any; // Will be BulkOperationConfig from bulkOperationTypes
   estimatedOperations: number;
@@ -67,7 +67,7 @@ export interface BulkOperationJobConfig extends BaseJobConfig {
   maxConcurrency?: number;
 }
 
-export interface CSVExportJobConfig extends BaseJobConfig {
+interface CSVExportJobConfig extends BaseJobConfig {
   jobType: 'csv-export';
   assetType: string;
   options?: {
@@ -83,7 +83,7 @@ export interface CSVExportJobConfig extends BaseJobConfig {
  * long think would otherwise hit the API gateway's 30-second limit. The
  * result is the proposal, read back from the job.
  */
-export interface PlannerJobConfig extends BaseJobConfig {
+interface PlannerJobConfig extends BaseJobConfig {
   jobType: 'planner';
   /** A catalog model key; omitted means the stack's configured planner. */
   model?: string;
@@ -99,7 +99,7 @@ export interface PlannerJobConfig extends BaseJobConfig {
 }
 
 /** One message to the assistant; the result is its answer. */
-export interface AssistantJobConfig extends BaseJobConfig {
+interface AssistantJobConfig extends BaseJobConfig {
   jobType: 'assistant';
   model: string;
   authoringModel?: string;
@@ -119,12 +119,12 @@ export interface AssistantJobConfig extends BaseJobConfig {
 }
 
 /** Re-export just these assets and upsert their cache entries (after the portal wrote them). */
-export interface AssetRefreshJobConfig extends BaseJobConfig {
+interface AssetRefreshJobConfig extends BaseJobConfig {
   jobType: 'asset-refresh';
   assets: Array<{ assetType: AssetType; assetId: string }>;
 }
 
-export type JobConfig =
+type JobConfig =
   | ExportJobConfig
   | DeployJobConfig
   | ActivityRefreshJobConfig

@@ -35,5 +35,3 @@ export function AppProviders({ children }: AppProvidersProps) {
     </AuthProvider>
   );
 }
-
-export { queryClient };

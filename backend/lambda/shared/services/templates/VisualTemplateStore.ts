@@ -23,11 +23,11 @@ export const VISUAL_TEMPLATE_TYPES = [
   'Table',
   'PivotTable',
 ] as const;
-export type VisualTemplateType = (typeof VISUAL_TEMPLATE_TYPES)[number];
+type VisualTemplateType = (typeof VISUAL_TEMPLATE_TYPES)[number];
 const AGGREGATIONS = ['SUM', 'AVERAGE', 'COUNT', 'DISTINCT_COUNT', 'MIN', 'MAX'] as const;
 const GRANULARITIES = ['DAY', 'WEEK', 'MONTH', 'QUARTER', 'YEAR'] as const;
 
-export interface TemplateVisual {
+interface TemplateVisual {
   type: VisualTemplateType;
   title?: string;
   category?: string;
@@ -36,11 +36,11 @@ export interface TemplateVisual {
   color?: string;
 }
 
-export interface VisualTemplate extends TemplateMeta {
+interface VisualTemplate extends TemplateMeta {
   visual: TemplateVisual;
 }
 
-export interface VisualTemplateInput {
+interface VisualTemplateInput {
   name: string;
   description?: string;
   visual: TemplateVisual;

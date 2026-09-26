@@ -14,16 +14,16 @@ import { randomUUID } from 'node:crypto';
 
 import { ValidationError } from '../../../shared/errors/ValidationError';
 import type { TargetColumn } from './columnResolution';
-import { type EditableVisualType, GRID_COLUMNS } from './definitionOps';
 import { controlBar } from './controlBar';
 import { buildFilters, type FilterSpec } from './definitionFilters';
+import { type EditableVisualType, GRID_COLUMNS } from './definitionOps';
 import { reflow } from './definitionTemplate';
 
 export type { FilterSpec } from './definitionFilters';
 
 export type BuildableVisualType = EditableVisualType | 'KPI';
-export type Aggregation = 'SUM' | 'AVERAGE' | 'COUNT' | 'DISTINCT_COUNT' | 'MIN' | 'MAX';
-export type DateGranularity = 'DAY' | 'WEEK' | 'MONTH' | 'QUARTER' | 'YEAR';
+type Aggregation = 'SUM' | 'AVERAGE' | 'COUNT' | 'DISTINCT_COUNT' | 'MIN' | 'MAX';
+type DateGranularity = 'DAY' | 'WEEK' | 'MONTH' | 'QUARTER' | 'YEAR';
 
 export interface BuilderDataset {
   identifier: string;
@@ -44,7 +44,7 @@ export interface VisualSpec {
   color?: string;
 }
 
-export interface BuildResult {
+interface BuildResult {
   definition: Record<string, any>;
   warnings: string[];
 }
@@ -66,14 +66,56 @@ const DETAIL_TYPES = new Set<BuildableVisualType>(['Table', 'PivotTable']);
 const MAX_VISUALS = 60;
 const NUMERIC = new Set(['INTEGER', 'DECIMAL']);
 
-const WRAPPER: Record<BuildableVisualType, { key: string; wells: string; dimension: string; values: string; color?: string }> = {
-  BarChart: { key: 'BarChartVisual', wells: 'BarChartAggregatedFieldWells', dimension: 'Category', values: 'Values', color: 'Colors' },
-  ColumnChart: { key: 'BarChartVisual', wells: 'BarChartAggregatedFieldWells', dimension: 'Category', values: 'Values', color: 'Colors' },
-  LineChart: { key: 'LineChartVisual', wells: 'LineChartAggregatedFieldWells', dimension: 'Category', values: 'Values', color: 'Colors' },
-  PieChart: { key: 'PieChartVisual', wells: 'PieChartAggregatedFieldWells', dimension: 'Category', values: 'Values' },
-  DonutChart: { key: 'PieChartVisual', wells: 'PieChartAggregatedFieldWells', dimension: 'Category', values: 'Values' },
-  Table: { key: 'TableVisual', wells: 'TableAggregatedFieldWells', dimension: 'GroupBy', values: 'Values' },
-  PivotTable: { key: 'PivotTableVisual', wells: 'PivotTableAggregatedFieldWells', dimension: 'Rows', values: 'Values', color: 'Columns' },
+const WRAPPER: Record<
+  BuildableVisualType,
+  { key: string; wells: string; dimension: string; values: string; color?: string }
+> = {
+  BarChart: {
+    key: 'BarChartVisual',
+    wells: 'BarChartAggregatedFieldWells',
+    dimension: 'Category',
+    values: 'Values',
+    color: 'Colors',
+  },
+  ColumnChart: {
+    key: 'BarChartVisual',
+    wells: 'BarChartAggregatedFieldWells',
+    dimension: 'Category',
+    values: 'Values',
+    color: 'Colors',
+  },
+  LineChart: {
+    key: 'LineChartVisual',
+    wells: 'LineChartAggregatedFieldWells',
+    dimension: 'Category',
+    values: 'Values',
+    color: 'Colors',
+  },
+  PieChart: {
+    key: 'PieChartVisual',
+    wells: 'PieChartAggregatedFieldWells',
+    dimension: 'Category',
+    values: 'Values',
+  },
+  DonutChart: {
+    key: 'PieChartVisual',
+    wells: 'PieChartAggregatedFieldWells',
+    dimension: 'Category',
+    values: 'Values',
+  },
+  Table: {
+    key: 'TableVisual',
+    wells: 'TableAggregatedFieldWells',
+    dimension: 'GroupBy',
+    values: 'Values',
+  },
+  PivotTable: {
+    key: 'PivotTableVisual',
+    wells: 'PivotTableAggregatedFieldWells',
+    dimension: 'Rows',
+    values: 'Values',
+    color: 'Columns',
+  },
   KPI: { key: 'KPIVisual', wells: '', dimension: '', values: 'Values' },
 };
 
@@ -83,28 +125,61 @@ function newId(prefix: string): string {
   return `${prefix}-${randomUUID().replace(/-/g, '').slice(0, ID_LENGTH)}`;
 }
 
-function dimensionField(visualId: string, identifier: string, column: TargetColumn, index: number, granularity?: DateGranularity) {
-  const base = { FieldId: `${visualId}.${column.name}.${index}`, Column: { DataSetIdentifier: identifier, ColumnName: column.name } };
+function dimensionField(
+  visualId: string,
+  identifier: string,
+  column: TargetColumn,
+  index: number,
+  granularity?: DateGranularity
+) {
+  const base = {
+    FieldId: `${visualId}.${column.name}.${index}`,
+    Column: { DataSetIdentifier: identifier, ColumnName: column.name },
+  };
   return column.type === 'DATETIME'
     ? { DateDimensionField: { ...base, DateGranularity: granularity ?? 'MONTH' } }
     : { CategoricalDimensionField: base };
 }
 
-function measureField(visualId: string, identifier: string, column: TargetColumn, index: number, aggregation?: Aggregation) {
-  const base = { FieldId: `${visualId}.${column.name}.${index}`, Column: { DataSetIdentifier: identifier, ColumnName: column.name } };
+function measureField(
+  visualId: string,
+  identifier: string,
+  column: TargetColumn,
+  index: number,
+  aggregation?: Aggregation
+) {
+  const base = {
+    FieldId: `${visualId}.${column.name}.${index}`,
+    Column: { DataSetIdentifier: identifier, ColumnName: column.name },
+  };
   if (NUMERIC.has(column.type ?? '')) {
-    return { NumericalMeasureField: { ...base, AggregationFunction: { SimpleNumericalAggregation: aggregation ?? 'SUM' } } };
+    return {
+      NumericalMeasureField: {
+        ...base,
+        AggregationFunction: { SimpleNumericalAggregation: aggregation ?? 'SUM' },
+      },
+    };
   }
   if (column.type === 'DATETIME') {
-    return { DateMeasureField: { ...base, AggregationFunction: aggregation === 'MIN' || aggregation === 'MAX' ? aggregation : 'COUNT' } };
+    return {
+      DateMeasureField: {
+        ...base,
+        AggregationFunction: aggregation === 'MIN' || aggregation === 'MAX' ? aggregation : 'COUNT',
+      },
+    };
   }
-  return { CategoricalMeasureField: { ...base, AggregationFunction: aggregation === 'DISTINCT_COUNT' ? 'DISTINCT_COUNT' : 'COUNT' } };
+  return {
+    CategoricalMeasureField: {
+      ...base,
+      AggregationFunction: aggregation === 'DISTINCT_COUNT' ? 'DISTINCT_COUNT' : 'COUNT',
+    },
+  };
 }
 
 type Tile = { colSpan: number; rowSpan: number };
 
 /** Place a sheet's visuals on the canvas by the rules above. */
-export function layoutSheet(visuals: Array<{ id: string; type: BuildableVisualType }>): any[] {
+function layoutSheet(visuals: Array<{ id: string; type: BuildableVisualType }>): any[] {
   const elements: any[] = [];
   let row = 0;
   const band = (items: Array<{ id: string; tile: Tile }>, type: string) => {
@@ -115,7 +190,10 @@ export function layoutSheet(visuals: Array<{ id: string; type: BuildableVisualTy
   };
   const kpis = visuals.filter((v) => v.type === 'KPI');
   const kpiWidth = Math.floor(GRID_COLUMNS / Math.min(Math.max(kpis.length, 1), KPIS_PER_ROW));
-  band(kpis.map((v) => ({ id: v.id, tile: { colSpan: kpiWidth, rowSpan: KPI_ROW_HEIGHT } })), 'VISUAL');
+  band(
+    kpis.map((v) => ({ id: v.id, tile: { colSpan: kpiWidth, rowSpan: KPI_ROW_HEIGHT } })),
+    'VISUAL'
+  );
   const charts = visuals.filter((v) => v.type !== 'KPI' && !DETAIL_TYPES.has(v.type));
   band(
     charts.map((v, i) => ({
@@ -125,7 +203,10 @@ export function layoutSheet(visuals: Array<{ id: string; type: BuildableVisualTy
     })),
     'VISUAL'
   );
-  band(visuals.filter((v) => DETAIL_TYPES.has(v.type)).map((v) => ({ id: v.id, tile: TABLE_TILE })), 'VISUAL');
+  band(
+    visuals.filter((v) => DETAIL_TYPES.has(v.type)).map((v) => ({ id: v.id, tile: TABLE_TILE })),
+    'VISUAL'
+  );
   return elements;
 }
 
@@ -161,16 +242,22 @@ export function buildDefinition(input: {
     if (spec.type !== 'KPI' && spec.category) {
       const column = columnOf(spec.identifier, spec.category);
       if (column) {
-        wells[wrapper.dimension] = [dimensionField(visualId, spec.identifier, column, fieldIndex++, spec.granularity)];
+        wells[wrapper.dimension] = [
+          dimensionField(visualId, spec.identifier, column, fieldIndex++, spec.granularity),
+        ];
       } else {
-        warnings.push(`'${spec.title}': column '${spec.category}' is not in '${spec.identifier}', so it has no category.`);
+        warnings.push(
+          `'${spec.title}': column '${spec.category}' is not in '${spec.identifier}', so it has no category.`
+        );
       }
     }
     const values: any[] = [];
     for (const value of spec.values) {
       const column = columnOf(spec.identifier, value.column);
       if (!column) {
-        warnings.push(`'${spec.title}': column '${value.column}' is not in '${spec.identifier}' and was left out.`);
+        warnings.push(
+          `'${spec.title}': column '${value.column}' is not in '${spec.identifier}' and was left out.`
+        );
         continue;
       }
       values.push(measureField(visualId, spec.identifier, column, fieldIndex++, value.aggregation));
@@ -185,7 +272,9 @@ export function buildDefinition(input: {
       if (column) {
         wells[wrapper.color] = [dimensionField(visualId, spec.identifier, column, fieldIndex++)];
       } else {
-        warnings.push(`'${spec.title}': colour column '${spec.color}' is not in '${spec.identifier}'.`);
+        warnings.push(
+          `'${spec.title}': colour column '${spec.color}' is not in '${spec.identifier}'.`
+        );
       }
     }
 
@@ -193,7 +282,8 @@ export function buildDefinition(input: {
       spec.type === 'KPI' ? { FieldWells: wells } : { FieldWells: { [wrapper.wells]: wells } };
     if (spec.type === 'ColumnChart') config.Orientation = 'VERTICAL';
     if (spec.type === 'BarChart') config.Orientation = 'HORIZONTAL';
-    if (spec.type === 'DonutChart') config.DonutOptions = { ArcOptions: { ArcThickness: 'MEDIUM' } };
+    if (spec.type === 'DonutChart')
+      config.DonutOptions = { ArcOptions: { ArcThickness: 'MEDIUM' } };
     if (spec.type === 'PieChart') config.DonutOptions = { ArcOptions: { ArcThickness: 'WHOLE' } };
 
     visuals.push({
@@ -223,7 +313,10 @@ export function buildDefinition(input: {
     );
   }
   const definition: Record<string, any> = {
-    DataSetIdentifierDeclarations: input.datasets.map((d) => ({ Identifier: d.identifier, DataSetArn: d.dataSetArn })),
+    DataSetIdentifierDeclarations: input.datasets.map((d) => ({
+      Identifier: d.identifier,
+      DataSetArn: d.dataSetArn,
+    })),
     Sheets: [sheet],
     AnalysisDefaults: { DefaultNewSheetConfiguration: { SheetContentType: 'INTERACTIVE' } },
   };
@@ -235,5 +328,3 @@ export function buildDefinition(input: {
   }
   return { definition, warnings };
 }
-
-export const BUILDER_GRID_COLUMNS = GRID_COLUMNS;

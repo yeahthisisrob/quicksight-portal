@@ -1,12 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { exportRoutes } from '@/features/data-export/ui/__stories__/routes';
-import {
-  STATUS_EXPORTED,
-  STATUS_NEVER_EXPORTED,
-  STATUS_NOT_CONFIGURED,
-  smusExportRoutes,
-} from '@/features/smus/ui/__stories__/fixtures';
+import { STATUS_EXPORTED, smusExportRoutes } from '@/features/smus/ui/__stories__/fixtures';
 
 import { AppShell } from '../../.storybook/mocks/AppShell';
 import OperationsPage from './OperationsPage';
@@ -34,40 +29,11 @@ export const Export: Story = {
   ),
 };
 
-export const ExportRunning: Story = {
-  parameters: { router: { initialEntries: ['/operations'] } },
-  render: () => (
-    <AppShell path="operations" routes={exportRoutes({ running: true })}>
-      <OperationsPage />
-    </AppShell>
-  ),
-};
-
 export const Smus: Story = {
   name: 'SMUS: exported',
   parameters: { router: { initialEntries: ['/operations?tab=smus'] } },
   render: () => (
     <AppShell path="operations" routes={smusExportRoutes(STATUS_EXPORTED)}>
-      <OperationsPage />
-    </AppShell>
-  ),
-};
-
-export const SmusNeverExported: Story = {
-  name: 'SMUS: no export yet',
-  parameters: { router: { initialEntries: ['/operations?tab=smus'] } },
-  render: () => (
-    <AppShell path="operations" routes={smusExportRoutes(STATUS_NEVER_EXPORTED)}>
-      <OperationsPage />
-    </AppShell>
-  ),
-};
-
-export const SmusNotConfigured: Story = {
-  name: 'SMUS: not configured',
-  parameters: { router: { initialEntries: ['/operations?tab=smus'] } },
-  render: () => (
-    <AppShell path="operations" routes={smusExportRoutes(STATUS_NOT_CONFIGURED)}>
       <OperationsPage />
     </AppShell>
   ),

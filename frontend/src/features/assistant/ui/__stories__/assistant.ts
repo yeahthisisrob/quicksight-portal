@@ -7,7 +7,7 @@ import { definitionFixtures } from '@/entities/definition';
 
 import type { MockRoute } from '../../../../../.storybook/mocks/api';
 
-export const MODEL_CATALOG = {
+const MODEL_CATALOG = {
   models: [
     {
       key: 'haiku-4-5',
@@ -72,7 +72,7 @@ export const MODEL_CATALOG = {
 
 const MARGIN_KEY = 'margin::abc123';
 
-export const MARGIN_DETAIL = {
+const MARGIN_DETAIL = {
   key: MARGIN_KEY,
   name: 'margin',
   expression: '{revenue} - {cost}',
@@ -178,7 +178,7 @@ export const SCRIPTED_ANSWER = {
 };
 
 /** A plan on the governed dataset: the listing, the linked dataset it reuses, and a new analysis. */
-export const PLAN_ON_GOVERNED = {
+const PLAN_ON_GOVERNED = {
   id: 'art-plan',
   kind: 'plan',
   title: 'Margin by region on orders_gold',
@@ -226,7 +226,7 @@ export const PLAN_WITHOUT_SMUS = {
 } as const;
 
 /** The verdicts for PLAN_ON_GOVERNED under a push-down-to-the-source strategy. */
-export const FIELD_VERDICTS = {
+const FIELD_VERDICTS = {
   id: 'art-fields',
   kind: 'fields',
   title: 'Calculated fields this adds',
@@ -283,7 +283,7 @@ export const PLANNED_ANSWER = {
 };
 
 /** A question (AG-UI interrupt): which of two governed datasets, drawn as cards. */
-export const DATASET_QUESTION = {
+const DATASET_QUESTION = {
   id: 'int-dataset',
   reason: 'input_required',
   message: 'Which dataset should the margin analysis read?',

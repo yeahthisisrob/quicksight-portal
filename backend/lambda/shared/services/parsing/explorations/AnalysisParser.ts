@@ -10,7 +10,7 @@ import { ExplorationParser } from './ExplorationParser';
 /**
  * Analysis metadata extracted from API responses
  */
-export interface AnalysisMetadata {
+interface AnalysisMetadata {
   assetId: string;
   name: string;
   arn: string;

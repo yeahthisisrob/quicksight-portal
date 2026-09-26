@@ -11,8 +11,6 @@ import {
   Block as BlockIcon,
   // JSON Viewer specific
   Functions as CalcFieldIcon,
-  Functions as CalculatedFieldIcon,
-  Category as CategoryIcon,
   Close as CloseIcon,
   Code as CodeIcon,
   UnfoldLess as CollapseIcon,
@@ -27,9 +25,7 @@ import {
   Delete as DeleteIcon,
   Download as DownloadIcon,
   Edit as EditIcon,
-  Error as ErrorIcon,
   UnfoldMore as ExpandIcon,
-  ExpandMore as ExpandMoreIcon,
   ChevronRight as ExpandNavIcon,
   ImportExport as ExportManagementIcon,
   Calculate as ExpressionIcon,
@@ -37,12 +33,10 @@ import {
   FilterList as FilterIcon,
   Folder as FolderIcon,
   Group as GroupIcon,
-  Info as InfoIcon,
   // Actions
   Code as JsonIcon,
   LightMode as LightModeIcon,
   AccountTree as LineageIcon,
-  Lock as LockIcon,
   Logout as LogoutIcon,
   // Navigation
   Menu as MenuIcon,
@@ -50,31 +44,22 @@ import {
   Language as NamespaceIcon,
   OpenInNew as OpenInNewIcon,
   Build as OperationsIcon,
-  // Catalog specific
-  ViewList as PhysicalFieldIcon,
   Public as PublicIcon,
   Refresh as RefreshIcon,
   Remove as RemoveIcon,
   RestoreFromTrash,
-  Save as SaveIcon,
   Schedule,
   Search as SearchIcon,
   Security,
-  Sell as SellIcon,
-  Category as SemanticLayerIcon,
   Settings,
   TableChart as SheetIcon,
   // Special
   Storage as StorageIcon,
-  // Status
-  CheckCircle as SuccessIcon,
   LocalOffer as TagIcon,
   Timeline as TimelineNavIcon,
   HelpOutlined as UnknownIcon,
   Person as UserIcon,
   Visibility as ViewsIcon,
-  TableChart as VisualFieldIcon,
-  Warning as WarningIcon,
 } from '@mui/icons-material';
 
 // Asset type icons mapping
@@ -101,7 +86,7 @@ export const assetIcons = {
 } as const;
 
 // JSON viewer highlight icons
-export const highlightIcons = {
+const highlightIcons = {
   FIELDS: FieldIcon,
   CALCULATED_FIELDS: CalcFieldIcon,
   VISUALS: DashboardIcon,
@@ -164,35 +149,6 @@ export const navigationIcons = {
   lightMode: LightModeIcon,
 } as const;
 
-// Status icons
-export const statusIcons = {
-  success: SuccessIcon,
-  error: ErrorIcon,
-  warning: WarningIcon,
-  info: InfoIcon,
-  unknown: UnknownIcon,
-} as const;
-
-// Special icons
-export const specialIcons = {
-  storage: StorageIcon,
-  block: BlockIcon,
-  sell: SellIcon,
-  expandMore: ExpandMoreIcon,
-  lineage: LineageIcon,
-  save: SaveIcon,
-  category: CategoryIcon,
-} as const;
-
-// Catalog specific icons
-export const catalogIcons = {
-  physical: PhysicalFieldIcon,
-  visual: VisualFieldIcon,
-  calculated: CalculatedFieldIcon,
-  semantic: SemanticLayerIcon,
-  lock: LockIcon,
-} as const;
-
 // Combined icons export for TypedChip
 export const chipIcons = {
   ...assetIcons,
@@ -204,11 +160,4 @@ export const chipIcons = {
   PORTAL_HIDDEN: BlockIcon,
   RELATIONSHIP: LineageIcon,
 } as const;
-
-// Type exports
-export type AssetIconType = keyof typeof assetIcons;
-export type HighlightIconType = keyof typeof highlightIcons;
-export type ActionIconType = keyof typeof actionIcons;
 export type NavigationIconType = keyof typeof navigationIcons;
-export type StatusIconType = keyof typeof statusIcons;
-export type ChipIconType = keyof typeof chipIcons;

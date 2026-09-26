@@ -32,14 +32,6 @@ export function selectionCount(model: GridRowSelectionModel, totalRows = 0): num
   return model.type === 'exclude' ? Math.max(0, totalRows - model.ids.size) : model.ids.size;
 }
 
-/** The selected subset of `rows`, correct in both modes. */
-export function selectedRowsOf<T extends { id: GridRowId }>(
-  model: GridRowSelectionModel,
-  rows: T[]
-): T[] {
-  return rows.filter((row) => isRowSelected(model, row.id));
-}
-
 /** Build an include-mode model from explicit ids. */
 export function selectionOf(ids: Iterable<GridRowId>): GridRowSelectionModel {
   return { type: 'include', ids: new Set(ids) };

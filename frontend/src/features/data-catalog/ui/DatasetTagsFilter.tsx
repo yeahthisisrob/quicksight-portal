@@ -2,7 +2,7 @@ import { Autocomplete, TextField } from '@mui/material';
 
 import type { TagFilter } from '../lib/useCatalog';
 
-export interface TagOption extends TagFilter {
+interface TagOption extends TagFilter {
   count: number;
 }
 

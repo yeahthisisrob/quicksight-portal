@@ -22,7 +22,7 @@ import { pal, tokens } from '@/shared/design-system';
 import { useAuth } from '@/shared/lib/auth';
 import { actionIcons, navigationIcons } from '@/shared/ui/icons';
 
-export interface TopBarProps {
+interface TopBarProps {
   /** Shown as a chip so nobody edits production thinking it is dev. */
   environment?: string;
   onToggleNavigation?: () => void;

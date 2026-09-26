@@ -13,12 +13,12 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { assetsApi } from '@/shared/api';
 
-import { type HighlightType, highlightConfigs } from '../utils/jsonHighlighter';
-import { JsonContent } from './JsonContent';
+import type { HighlightType } from '../utils/jsonHighlighter';
+import { JsonContent, type JsonContentHandle } from './JsonContent';
 import { JsonViewerToolbar } from './JsonViewerToolbar';
 
 interface JsonViewerModalProps {
@@ -47,11 +47,6 @@ function TabPanel(props: TabPanelProps) {
 /**
  * Map asset type to API parameter (singular form for /cached endpoint)
  */
-function getAssetTypeParam(assetType: string): string {
-  // The /cached endpoint expects singular form
-  return assetType;
-}
-
 /**
  * Extract data views from asset data
  */
@@ -77,7 +72,6 @@ function useJsonViewer(open: boolean) {
   const [activeTab, setActiveTab] = useState(0);
   const [highlightType, setHighlightType] = useState<HighlightType>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [, setExpandedPaths] = useState<Set<string>>(new Set());
 
   // Reset state when modal opens
   useEffect(() => {
@@ -95,60 +89,7 @@ function useJsonViewer(open: boolean) {
     setHighlightType,
     searchTerm,
     setSearchTerm,
-    expandedPaths: setExpandedPaths,
   };
-}
-
-/**
- * Hook to handle scrolling to highlights
- */
-function useScrollToHighlight(
-  // React 19 types: useRef<T>(null) yields RefObject<T | null>, so the
-  // parameter has to admit null too.
-  contentRef: React.RefObject<HTMLDivElement | null>,
-  highlightType: HighlightType,
-  searchTerm: string,
-  activeTab: number,
-  open: boolean
-) {
-  const scrollToFirstHighlight = useCallback(() => {
-    setTimeout(() => {
-      // If we have a jumpTo target for this highlight type, find it first
-      if (highlightType && highlightConfigs[highlightType].jumpTo) {
-        const jumpTarget = highlightConfigs[highlightType].jumpTo;
-        const content = contentRef.current?.textContent || '';
-        const targetIndex = content.indexOf(jumpTarget);
-
-        if (targetIndex !== -1) {
-          // Find the element containing this text
-          const walker = document.createTreeWalker(contentRef.current!, NodeFilter.SHOW_TEXT, null);
-
-          let node;
-          while ((node = walker.nextNode())) {
-            if (node.textContent?.includes(jumpTarget)) {
-              const element = node.parentElement;
-              if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                return;
-              }
-            }
-          }
-        }
-      }
-
-      // Fallback to first highlight
-      const firstHighlight = contentRef.current?.querySelector('mark');
-      if (firstHighlight) {
-        firstHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 100);
-  }, [contentRef, highlightType]);
-
-  useEffect(() => {
-    if ((highlightType || searchTerm) && open) {
-      scrollToFirstHighlight();
-    }
-  }, [highlightType, searchTerm, activeTab, open, scrollToFirstHighlight]);
 }
 
 export default function JsonViewerModal({
@@ -159,21 +100,11 @@ export default function JsonViewerModal({
   assetType,
 }: JsonViewerModalProps) {
   const { enqueueSnackbar } = useSnackbar();
-  const contentRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<JsonContentHandle>(null);
 
   // State management
-  const {
-    activeTab,
-    setActiveTab,
-    highlightType,
-    setHighlightType,
-    searchTerm,
-    setSearchTerm,
-    expandedPaths,
-  } = useJsonViewer(open);
-
-  // Scroll to highlights
-  useScrollToHighlight(contentRef, highlightType, searchTerm, activeTab, open);
+  const { activeTab, setActiveTab, highlightType, setHighlightType, searchTerm, setSearchTerm } =
+    useJsonViewer(open);
 
   // Fetch asset data
   const {
@@ -182,10 +113,7 @@ export default function JsonViewerModal({
     error,
   } = useQuery({
     queryKey: ['asset-json', assetType, assetId],
-    queryFn: async () => {
-      const assetTypeParam = getAssetTypeParam(assetType);
-      return await assetsApi.getCachedAsset(assetTypeParam, assetId);
-    },
+    queryFn: () => assetsApi.getCachedAsset(assetType, assetId),
     enabled: open && !!assetId,
   });
 
@@ -212,14 +140,8 @@ export default function JsonViewerModal({
     }
   };
 
-  const handleExpandAll = () => {
-    enqueueSnackbar('Expanded all nodes', { variant: 'info' });
-  };
-
-  const handleCollapseAll = () => {
-    expandedPaths(new Set());
-    enqueueSnackbar('Collapsed all nodes', { variant: 'info' });
-  };
+  const handleExpandAll = () => contentRef.current?.unfoldAll();
+  const handleCollapseAll = () => contentRef.current?.foldAll();
 
   return (
     <Dialog

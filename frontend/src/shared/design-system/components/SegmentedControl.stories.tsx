@@ -21,14 +21,13 @@ const meta: Meta<typeof SegmentedControl> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-function Demo({ size }: { size?: 'small' | 'medium' }) {
+function Demo() {
   const [mode, setMode] = useState<'clone' | 'update'>('clone');
   const [view, setView] = useState<'grid' | 'list' | 'map'>('grid');
   return (
     <Stack spacing={2} sx={{ alignItems: 'flex-start' }}>
       <SegmentedControl
         ariaLabel="How to apply"
-        size={size}
         value={mode}
         onChange={setMode}
         options={[
@@ -38,7 +37,6 @@ function Demo({ size }: { size?: 'small' | 'medium' }) {
       />
       <SegmentedControl
         ariaLabel="View"
-        size={size}
         value={view}
         onChange={setView}
         options={[
@@ -51,5 +49,4 @@ function Demo({ size }: { size?: 'small' | 'medium' }) {
   );
 }
 
-export const Medium: Story = { render: () => <Demo /> };
-export const Small: Story = { render: () => <Demo size="small" /> };
+export const Default: Story = { render: () => <Demo /> };

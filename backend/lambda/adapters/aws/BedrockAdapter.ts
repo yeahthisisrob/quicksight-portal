@@ -24,7 +24,7 @@ const LEGACY_CAPABILITIES: ConverseCapabilities = {
   promptCache: false,
 };
 
-export interface StructuredOutputRequest {
+interface StructuredOutputRequest {
   modelId: string;
   system: string;
   user: string;
@@ -36,13 +36,13 @@ export interface StructuredOutputRequest {
   capabilities?: ConverseCapabilities;
 }
 
-export interface StructuredOutputResult {
+interface StructuredOutputResult {
   output: unknown;
   usage: { inputTokens: number; outputTokens: number };
   modelId: string;
 }
 
-export interface ConverseTurnRequest {
+interface ConverseTurnRequest {
   modelId: string;
   system: string;
   /** Changes per answer (the live brief), so it sits after the cache point. */
@@ -53,7 +53,7 @@ export interface ConverseTurnRequest {
   capabilities: ConverseCapabilities;
 }
 
-export interface ConverseTurnResult {
+interface ConverseTurnResult {
   /** The assistant message exactly as returned, for replay within the tool loop. */
   message: Message;
   stopReason?: string;

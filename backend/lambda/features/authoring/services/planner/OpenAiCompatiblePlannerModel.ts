@@ -6,7 +6,7 @@ import {
   type StructuredResult,
 } from './PlannerModel';
 
-export type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
+type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
 
 const HTTP_OK_MAX = 299;
 

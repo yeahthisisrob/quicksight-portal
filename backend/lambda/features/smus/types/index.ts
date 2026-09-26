@@ -10,7 +10,7 @@ import type { SmusSnapshotSummary } from '../../../shared/services/smus/SmusSnap
 export type SmusMatchType = 'source-table' | 'custom-sql' | 'name' | 'lineage';
 
 /** The parent a `lineage` match came through. */
-export interface SmusLinkVia {
+interface SmusLinkVia {
   datasetId: string;
   name?: string;
 }

@@ -1,5 +1,7 @@
 import type { components } from '@shared/generated';
 
+import type { PaginatedListParams } from '@/shared/api/modules/assets';
+
 export interface ColumnConfig {
   id: string;
   label: string;
@@ -22,51 +24,7 @@ export interface ColumnConfig {
   renderHeader?: (params: any) => React.ReactNode;
   getActions?: (params: any) => any[];
   /** When set, this column appears as an option in the date filter dropdown. Value is the backend field name. */
-  dateFilterField?: string;
-}
-
-export interface AssetListPageProps {
-  title: string;
-  assetType: string;
-  columns: string[];
-  bulkActions?: boolean;
-  showRelatedAssets?: boolean;
-  defaultSort?: {
-    field: string;
-    sort: 'asc' | 'desc';
-  };
-}
-
-export interface MetadataFormProps {
-  metadata: any;
-  metadataFields?: string[];
-  title?: string;
-  hiddenFields?: string[];
-}
-
-export interface PermissionsDialogProps {
-  open: boolean;
-  onClose: () => void;
-  assetId: string;
-  assetName: string;
-  permissions: any[];
-}
-
-export interface RelatedAssetsDialogProps {
-  open: boolean;
-  onClose: () => void;
-  assetId: string;
-  assetName: string;
-  relatedAssets: any[];
-}
-
-export interface TagsDialogProps {
-  open: boolean;
-  onClose: () => void;
-  assetId: string;
-  assetName: string;
-  tags: string[];
-  onUpdateTags: (tags: string[]) => void;
+  dateFilterField?: NonNullable<PaginatedListParams['dateField']>;
 }
 
 // Archive and deployment types — grounded in the generated OpenAPI schema

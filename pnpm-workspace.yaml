@@ -14,6 +14,5 @@ allowBuilds:
   esbuild: true # Lambda + Vite bundler
   '@swc/core': true # Storybook transform
   '@parcel/watcher': true # Storybook/Vite file watching
-  unrs-resolver: true # eslint import resolver
   aws-sdk: false # deprecated v2, pulled in transitively; its build is not needed
-  vue-demi: set this to true or false
+  vue-demi: false # via Scalar; its postinstall only picks a Vue version, and the page is React

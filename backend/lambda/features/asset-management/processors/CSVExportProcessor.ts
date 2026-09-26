@@ -11,14 +11,14 @@ import { generateCSV } from '../../../shared/utils/csvExport';
 import { logger } from '../../../shared/utils/logger';
 import { AssetService } from '../services/AssetService';
 
-export interface CSVExportOptions {
+interface CSVExportOptions {
   search?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   filters?: Record<string, any>;
 }
 
-export interface CSVExportResult {
+interface CSVExportResult {
   csv: string;
   filename: string;
   count: number;

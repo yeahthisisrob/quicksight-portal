@@ -1,6 +1,7 @@
 import { Box } from '@mui/material';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
+import { MockedApi, type MockRoute } from '../../../../../.storybook/mocks/api';
 import { JobHistory } from './JobHistory';
 
 const meta = {
@@ -17,14 +18,13 @@ const meta = {
     ),
   ],
   args: {
-    onSelectJob: (jobId: string) => console.log('Selected job:', jobId),
+    onSelectJob: () => {},
   },
 } satisfies Meta<typeof JobHistory>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// Mock job data
 const mockJobs = [
   {
     jobId: 'job-001',
@@ -93,69 +93,36 @@ const mockJobs = [
   },
 ];
 
-// Override the API call in stories
-const withMockData = (jobs: any[]) => {
-  return {
-    beforeEach: async () => {
-      const exportApi = await import('@/shared/api/modules/export');
-      exportApi.exportApi.listJobs = async () => ({
-        jobs: jobs.map((job) => ({ ...job, jobType: 'export' })),
-      });
-    },
-  };
-};
+const listJobs = (respond: MockRoute['respond']): MockRoute[] => [
+  { method: 'get', url: /\/jobs$/, respond },
+];
 
+/** Every status, with the processing job highlighted as the current one. */
 export const Default: Story = {
-  ...withMockData(mockJobs),
+  args: { currentJobId: 'job-002' },
+  render: (args) => (
+    <MockedApi
+      routes={listJobs(() => ({
+        body: { success: true, data: mockJobs.map((job) => ({ ...job, jobType: 'export' })) },
+      }))}
+    >
+      <JobHistory {...args} />
+    </MockedApi>
+  ),
 };
 
 export const Empty: Story = {
-  ...withMockData([]),
+  render: (args) => (
+    <MockedApi routes={listJobs(() => ({ body: { success: true, data: [] } }))}>
+      <JobHistory {...args} />
+    </MockedApi>
+  ),
 };
 
 export const Loading: Story = {
-  beforeEach: async () => {
-    const exportApi = await import('@/shared/api/modules/export');
-    exportApi.exportApi.listJobs = () => new Promise(() => {}); // Never resolves
-  },
-};
-
-export const WithCurrentJob: Story = {
-  ...withMockData(mockJobs),
-  args: {
-    currentJobId: 'job-002',
-  },
-};
-
-export const OnlyCompleted: Story = {
-  ...withMockData(mockJobs.filter((job) => job.status === 'completed')),
-};
-
-export const OnlyFailed: Story = {
-  ...withMockData(mockJobs.filter((job) => job.status === 'failed')),
-};
-
-export const ManyJobs: Story = {
-  beforeEach: async () => {
-    const manyJobs = Array.from({ length: 50 }, (_, i) => ({
-      jobId: `job-${String(i + 1).padStart(3, '0')}`,
-      status: ['completed', 'failed', 'processing', 'stopped'][i % 4] as any,
-      progress: Math.floor(Math.random() * 100),
-      message: `Export job ${i + 1}`,
-      startTime: new Date(Date.now() - (i + 1) * 60 * 60 * 1000).toISOString(),
-      endTime: i % 4 !== 2 ? new Date(Date.now() - i * 60 * 60 * 1000).toISOString() : undefined,
-      duration: i % 4 !== 2 ? Math.floor(Math.random() * 60 * 60 * 1000) : undefined,
-      stats: {
-        totalAssets: Math.floor(Math.random() * 2000) + 100,
-        processedAssets: Math.floor(Math.random() * 2000),
-        failedAssets: Math.floor(Math.random() * 100),
-        apiCalls: Math.floor(Math.random() * 5000) + 500,
-      },
-    }));
-
-    const exportApi = await import('@/shared/api/modules/export');
-    exportApi.exportApi.listJobs = async () => ({
-      jobs: manyJobs.map((job) => ({ ...job, jobType: 'export' })),
-    });
-  },
+  render: (args) => (
+    <MockedApi routes={listJobs(() => new Promise(() => {}))}>
+      <JobHistory {...args} />
+    </MockedApi>
+  ),
 };

@@ -3,11 +3,11 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Markdown } from './Markdown';
 
 /** What a model writes, drawn as text: bold, lists, code, a short table and links. */
-const meta: Meta<typeof Markdown> = {
+const meta = {
   title: 'Shared/Markdown',
   component: Markdown,
   parameters: { layout: 'padded' },
-};
+} satisfies Meta<typeof Markdown>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

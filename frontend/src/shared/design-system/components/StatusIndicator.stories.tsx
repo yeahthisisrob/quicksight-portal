@@ -42,18 +42,6 @@ export const AllTypes: Story = {
   ),
 };
 
-export const Small: Story = {
-  render: () => (
-    <Stack direction="row" spacing={2}>
-      {ALL.slice(0, 4).map(([type, label]) => (
-        <StatusIndicator key={type} type={type} size="small">
-          {label}
-        </StatusIndicator>
-      ))}
-    </Stack>
-  ),
-};
-
 export const IconOnly: Story = {
   args: { type: 'success', iconOnly: true, children: 'Succeeded' },
 };

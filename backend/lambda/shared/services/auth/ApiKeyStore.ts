@@ -17,7 +17,7 @@ const ID_LENGTH = 8;
 /** lastUsedAt is written at most this often, so reads stay reads. */
 const LAST_USED_WRITE_INTERVAL_MS = TIME_UNITS.HOUR;
 
-export interface ApiKey {
+interface ApiKey {
   id: string;
   label: string;
   /** The first characters of the secret, enough to recognise it in a config file. */

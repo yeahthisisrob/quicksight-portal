@@ -23,7 +23,7 @@ export interface PaginationParams {
   sortOrder?: 'asc' | 'desc';
 }
 
-export interface PaginationResult<T> {
+interface PaginationResult<T> {
   items: T[];
   pagination: {
     page: number;
@@ -53,7 +53,7 @@ export interface SearchFieldConfig<T> {
 /**
  * Apply search filter to items with optional match reason tracking
  */
-export function applySearch<T extends Record<string, any>>(
+function applySearch<T extends Record<string, any>>(
   items: T[],
   search: string,
   searchFields: SearchFieldConfig<T>[]
@@ -95,7 +95,7 @@ export function applySearch<T extends Record<string, any>>(
 /**
  * Apply sorting with optional pre-computation for expensive operations
  */
-export function applySort<T>(
+function applySort<T>(
   items: T[],
   sortBy: string,
   sortOrder: 'asc' | 'desc',
@@ -131,7 +131,7 @@ export function applySort<T>(
 /**
  * Apply pagination to get a slice of items
  */
-export function paginate<T>(items: T[], page: number, pageSize: number): PaginationResult<T> {
+function paginate<T>(items: T[], page: number, pageSize: number): PaginationResult<T> {
   const totalItems = items.length;
   const totalPages = Math.ceil(totalItems / pageSize);
   const startIndex = (page - 1) * pageSize;

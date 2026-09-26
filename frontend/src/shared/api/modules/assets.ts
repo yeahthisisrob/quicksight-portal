@@ -1,30 +1,28 @@
-import type { components } from '@shared/generated/types';
+import type { components, paths } from '@shared/generated/types';
 
-import { api as apiClient } from '../client';
-import type { ApiResponse } from '../types';
+import { accepted, client, unwrap } from '../typed';
 
 type Schemas = components['schemas'];
 
-export type DatasetSource = Schemas['DatasetSource'];
+type DatasetSource = Schemas['DatasetSource'];
 export type DatasetPhysicalTable = Schemas['DatasetPhysicalTable'];
 export type DatasetTableEdit = Schemas['DatasetTableEdit'];
 export type DataSourceOption = Schemas['DataSourceOption'];
 /** The GET response adds the selectable data sources to the dataset's own sources. */
-export type DatasetSourceResponse = DatasetSource & { dataSources: DataSourceOption[] };
+type DatasetSourceResponse = DatasetSource & { dataSources: DataSourceOption[] };
 
-/** Params shared by every paginated list endpoint; extra filter params pass through */
-export type PaginatedListParams = {
-  page?: number;
-  pageSize?: number;
-  search?: string;
-  dateRange?: string;
-  sortBy?: string;
-  sortOrder?: string;
-  filters?: Record<string, any>;
-  [key: string]: any;
+type PaginatedQuery = NonNullable<
+  paths['/api/assets/{assetType}/paginated']['get']['parameters']['query']
+>;
+type PluralAssetType =
+  paths['/api/assets/{assetType}/paginated']['get']['parameters']['path']['assetType'];
+
+/** Params shared by every paginated list endpoint; `filters` is sent JSON-encoded. */
+export type PaginatedListParams = Omit<PaginatedQuery, 'filters'> & {
+  filters?: Record<string, unknown>;
 };
 
-type FilterCount = { value: string; count: number };
+type FilterCount = Schemas['FilterValueCount'];
 
 /** Response shape of a paginated list keyed by its collection name */
 type PaginatedList<K extends string, TItem> = { [P in K]: TItem[] } & {
@@ -32,410 +30,280 @@ type PaginatedList<K extends string, TItem> = { [P in K]: TItem[] } & {
   fromCache?: boolean;
 };
 
+type CsvExportQuery = NonNullable<
+  paths['/api/assets/{assetType}/export']['get']['parameters']['query']
+>;
+export type ArchivedQuery = NonNullable<
+  paths['/api/assets/archived']['get']['parameters']['query']
+>;
+export type RenamableAssetType =
+  paths['/api/assets/{assetType}/{assetId}/rename']['post']['parameters']['path']['assetType'];
+type PermissionAssetType =
+  paths['/api/assets/{assetType}/{assetId}/permission-sources']['get']['parameters']['path']['assetType'];
+type CachedAssetType =
+  paths['/api/assets/{assetType}/{assetId}/cached']['get']['parameters']['path']['assetType'];
+type TaggableAssetType =
+  paths['/api/tags/{assetType}/{assetId}']['put']['parameters']['path']['assetType'];
+type AssetType = Schemas['AssetType'];
+type Tag = Schemas['Tag'];
+
+const oneOf =
+  <T extends string>(values: readonly T[]) =>
+  (value: string): value is T =>
+    (values as readonly string[]).includes(value);
+
+/** Whether an asset type has permissions the portal can read and revoke (users and groups do not). */
+export const hasPermissions = oneOf<PermissionAssetType>([
+  'dashboard',
+  'analysis',
+  'dataset',
+  'datasource',
+  'folder',
+]);
+
+/** Whether QuickSight lets the portal rename this asset type. */
+export const isRenamable = oneOf<RenamableAssetType>([
+  'dashboard',
+  'analysis',
+  'dataset',
+  'folder',
+]);
+
+const PLURAL: Record<AssetType, PluralAssetType> = {
+  dashboard: 'dashboards',
+  analysis: 'analyses',
+  dataset: 'datasets',
+  datasource: 'datasources',
+  folder: 'folders',
+  user: 'users',
+  group: 'groups',
+};
+
 /**
  * One fetcher for all seven paginated asset lists - identical wire contract,
- * differing only in URL segment, collection key, and item type
+ * differing only in the path segment, collection key, and item type. The
+ * contract keys the page by the type asked for, so each list names its own.
  */
 async function getPaginatedList<TResult>(
-  segment: string,
-  label: string,
-  params?: PaginatedListParams
+  assetType: PluralAssetType,
+  params: PaginatedListParams = {}
 ): Promise<TResult> {
-  const queryParams: any = { ...params };
-  if (params?.filters) {
-    queryParams.filters = JSON.stringify(params.filters);
-  }
-  const response = await apiClient.get<ApiResponse<TResult>>(`/assets/${segment}/paginated`, {
-    params: queryParams,
-  });
-  if (!response.data.success) {
-    throw new Error(response.data.error || `Failed to fetch ${label}`);
-  }
-  return response.data.data!;
+  const { filters, ...query } = params;
+  const data = unwrap(
+    await client.GET('/api/assets/{assetType}/paginated', {
+      params: {
+        path: { assetType },
+        query: { ...query, filters: filters ? JSON.stringify(filters) : undefined },
+      },
+    }),
+    `Failed to fetch ${assetType}`
+  );
+  return data as TResult;
 }
 
 /**
  * Assets API - handles all QuickSight asset types (dashboards, analyses, datasets, datasources)
  */
 export const assetsApi = {
-  // Get export summary
-  async getExportSummary(): Promise<any> {
-    const response = await apiClient.get<ApiResponse<any>>('/export/summary');
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch export summary');
-    }
-    return response.data.data;
-  },
-
-  // Export all assets
-  async exportAll(forceRefresh = false, rebuildIndex = false): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>('/export', {
-      forceRefresh,
-      rebuildIndex,
-    });
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to export assets');
-    }
-    return response.data.data;
-  },
-
-  // Rename an asset live in QuickSight (dashboard/analysis/dataset/folder)
-  async renameAsset(assetType: string, assetId: string, name: string): Promise<{ name: string }> {
-    const response = await apiClient.post<ApiResponse<{ name: string }>>(
-      `/assets/${assetType}/${assetId}/rename`,
-      { name }
+  /** Rename an asset live in QuickSight. */
+  async renameAsset(assetType: RenamableAssetType, assetId: string, name: string) {
+    return unwrap(
+      await client.POST('/api/assets/{assetType}/{assetId}/rename', {
+        params: { path: { assetType, assetId } },
+        body: { name },
+      }),
+      'Failed to rename asset'
     );
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to rename asset');
-    }
-    return response.data.data!;
   },
 
-  // Where a dataset reads its data from, live from QuickSight, plus the data
-  // sources a table may be pointed at.
+  /** Where a dataset reads its data from, live, plus the data sources a table may point at. */
   async getDatasetSource(assetId: string): Promise<DatasetSourceResponse> {
-    const response = await apiClient.get<ApiResponse<DatasetSourceResponse>>(
-      `/assets/dataset/${encodeURIComponent(assetId)}/source`
+    return unwrap(
+      await client.GET('/api/assets/dataset/{assetId}/source', { params: { path: { assetId } } }),
+      'Failed to read the dataset source'
     );
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to read the dataset source');
-    }
-    return response.data.data!;
   },
 
-  // Repoint a dataset's physical tables and/or rename it.
+  /** Repoint a dataset's physical tables and/or rename it. */
   async updateDatasetSource(
     assetId: string,
     update: { name?: string; tables?: DatasetTableEdit[] }
   ): Promise<DatasetSource> {
-    const response = await apiClient.put<ApiResponse<DatasetSource>>(
-      `/assets/dataset/${encodeURIComponent(assetId)}/source`,
-      update
+    return unwrap(
+      await client.PUT('/api/assets/dataset/{assetId}/source', {
+        params: { path: { assetId } },
+        body: update,
+      }),
+      'Failed to update the dataset source'
     );
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to update the dataset source');
-    }
-    return response.data.data!;
   },
 
-  // Rebuild index and catalog from existing exported data
-  async rebuildIndex(): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>('/assets/rebuild-index');
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to rebuild index');
-    }
-    return response.data.data;
-  },
-
-  async updateAssetTags(
-    assetType: string,
-    assetId: string,
-    tags: Array<{ Key: string; Value: string }>
-  ): Promise<any> {
-    const response = await apiClient.put<ApiResponse<any>>(
-      `/tags/${assetType.toLowerCase()}/${assetId}`,
-      { tags }
+  /** Replace an asset's tags. */
+  async updateAssetTags(assetType: TaggableAssetType, assetId: string, tags: Tag[]): Promise<void> {
+    unwrap(
+      await client.PUT('/api/tags/{assetType}/{assetId}', {
+        params: { path: { assetType, assetId } },
+        body: { tags },
+      }),
+      'Failed to update tags'
     );
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to update tags');
-    }
-    return response.data.data;
   },
 
-  // Bulk update asset tags
+  /** Add, replace or remove tags on many assets: queues a job and returns it. */
   async bulkUpdateAssetTags(
     assetType: string,
     assetIds: string[],
     operation: 'add' | 'remove' | 'update',
-    tags?: Array<{ key: string; value: string }>,
+    tags?: Tag[],
     tagKeys?: string[]
-  ): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>('/tags/bulk', {
-      assetType: assetType.toLowerCase(),
-      assetIds,
-      operation,
-      tags,
-      tagKeys,
-    });
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to bulk update tags');
-    }
-    return response.data.data;
+  ) {
+    return accepted(
+      await client.POST('/api/tags/bulk', {
+        body: { assetType: assetType.toLowerCase(), assetIds, operation, tags, tagKeys },
+      }),
+      'Failed to bulk update tags'
+    );
   },
 
-  // Get paginated datasets with full info
   getDatasetsPaginated(params?: PaginatedListParams) {
     return getPaginatedList<
       PaginatedList<'datasets', Schemas['DatasetListItem']> & {
         availableSourceTypes?: FilterCount[];
       }
-    >('datasets', 'datasets', params);
+    >('datasets', params);
   },
 
-  // Get paginated dashboards with full info
   getDashboardsPaginated(params?: PaginatedListParams) {
     return getPaginatedList<PaginatedList<'dashboards', Schemas['DashboardListItem']>>(
       'dashboards',
-      'dashboards',
       params
     );
   },
 
-  // Get paginated analyses with full info
   getAnalysesPaginated(params?: PaginatedListParams) {
     return getPaginatedList<PaginatedList<'analyses', Schemas['AnalysisListItem']>>(
       'analyses',
-      'analyses',
       params
     );
   },
 
-  // Get paginated datasources with full info
   getDatasourcesPaginated(params?: PaginatedListParams) {
     return getPaginatedList<
       PaginatedList<'datasources', Schemas['DatasourceListItem']> & {
         availableSourceTypes?: FilterCount[];
       }
-    >('datasources', 'datasources', params);
+    >('datasources', params);
   },
 
-  // Get paginated folders with full info
   getFoldersPaginated(params?: PaginatedListParams) {
-    return getPaginatedList<PaginatedList<'folders', Schemas['FolderListItem']>>(
-      'folders',
-      'folders',
-      params
-    );
+    return getPaginatedList<PaginatedList<'folders', Schemas['FolderListItem']>>('folders', params);
   },
 
-  // Get paginated groups with full info
   getGroupsPaginated(params?: PaginatedListParams) {
-    return getPaginatedList<PaginatedList<'groups', Schemas['GroupListItem']>>(
-      'groups',
-      'groups',
-      params
-    );
+    return getPaginatedList<PaginatedList<'groups', Schemas['GroupListItem']>>('groups', params);
   },
 
-  // Get paginated users with full info
   getUsersPaginated(params?: PaginatedListParams) {
     return getPaginatedList<
       PaginatedList<'users', Schemas['UserListItem']> & {
         availableRoles?: FilterCount[];
         availableGroups?: FilterCount[];
       }
-    >('users', 'users', params);
+    >('users', params);
   },
 
-  // Get permission sources for an asset (how each user has access)
-  async getPermissionSources(
-    assetType: string,
-    assetId: string
-  ): Promise<{
-    permissions: components['schemas']['Permission'][];
-    userAccessSources: components['schemas']['UserAccessInfo'][];
-    groupAccessSources: components['schemas']['GroupAccessInfo'][];
-  }> {
-    const response = await apiClient.get<
-      ApiResponse<{
-        permissions: components['schemas']['Permission'][];
-        userAccessSources: components['schemas']['UserAccessInfo'][];
-        groupAccessSources: components['schemas']['GroupAccessInfo'][];
-      }>
-    >(`/assets/${assetType}/${assetId}/permission-sources`);
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch permission sources');
-    }
-    return response.data.data!;
+  /** How each user has access to an asset: direct, by group, or by shared folder. */
+  async getPermissionSources(assetType: PermissionAssetType, assetId: string) {
+    return unwrap(
+      await client.GET('/api/assets/{assetType}/{assetId}/permission-sources', {
+        params: { path: { assetType, assetId } },
+      }),
+      'Failed to fetch permission sources'
+    );
   },
 
-  // Bulk revoke direct permissions from an asset (queues a job)
+  /** Revoke direct permissions from an asset: queues a job and returns it. */
   async bulkRevokePermissions(
-    assetType: string,
+    assetType: PermissionAssetType,
     assetId: string,
     revocations: Array<{ principal: string; actions: string[] }>
-  ): Promise<{
-    jobId: string;
-    status: string;
-    message: string;
-    estimatedOperations: number;
-  }> {
-    const response = await apiClient.post<ApiResponse<any>>(
-      `/assets/${assetType}/${assetId}/revoke-permissions`,
-      { revocations }
+  ) {
+    return accepted(
+      await client.POST('/api/assets/{assetType}/{assetId}/revoke-permissions', {
+        params: { path: { assetType, assetId } },
+        body: { revocations },
+      }),
+      'Failed to revoke permissions'
     );
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to revoke permissions');
-    }
-    // jobId/status/message are at top level of response (not under data)
-    return response.data as any;
   },
 
-  // Get all assets a user has access to
-  async getUserAssetAccess(
-    userName: string,
-    assetType?: string
-  ): Promise<components['schemas']['UserAssetAccessResponse']> {
-    const params = assetType ? { assetType } : {};
-    const response = await apiClient.get<
-      ApiResponse<components['schemas']['UserAssetAccessResponse']>
-    >(`/users/${encodeURIComponent(userName)}/asset-access`, { params });
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch user asset access');
-    }
-    return response.data.data!;
-  },
-
-  // Get specific asset
-  async getAsset(assetType: string, assetId: string): Promise<any> {
-    const response = await apiClient.get<ApiResponse<any>>(`/assets/${assetType}/${assetId}`);
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch asset');
-    }
-    return response.data.data;
-  },
-
-  // Get cached/S3 asset data (for JSON viewer)
-  async getCachedAsset(assetType: string, assetId: string): Promise<any> {
-    const response = await apiClient.get<ApiResponse<any>>(
-      `/assets/${assetType}/${assetId}/cached`
+  /** Every asset a user can open, and how. */
+  async getUserAssetAccess(userName: string, assetType?: AssetType) {
+    return unwrap(
+      await client.GET('/api/users/{userName}/asset-access', {
+        params: { path: { userName }, query: { assetType } },
+      }),
+      'Failed to fetch user asset access'
     );
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch cached asset');
-    }
-    return response.data.data;
   },
 
-  // Refresh tags for multiple assets
-  async refreshAssetTags(
-    assetType: string,
-    assetIds: string[]
-  ): Promise<{
-    successful: number;
-    failed: number;
-    total: number;
-  }> {
-    const response = await apiClient.post<ApiResponse<any>>('/tags/refresh', {
-      assetType,
-      assetIds,
-    });
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to refresh tags');
-    }
-    return response.data.data;
+  /** The asset as the last export saved it (for the JSON viewer and wireframes). */
+  async getCachedAsset(assetType: CachedAssetType, assetId: string): Promise<any> {
+    return unwrap(
+      await client.GET('/api/assets/{assetType}/{assetId}/cached', {
+        params: { path: { assetType, assetId } },
+      }),
+      'Failed to fetch cached asset'
+    );
   },
 
-  // Parse asset to extract fields and calculated fields
-  async parseAsset(assetType: string, assetId: string): Promise<any> {
-    const response = await apiClient.get<ApiResponse<any>>(`/assets/${assetType}/${assetId}/parse`);
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to parse asset');
-    }
-    return response.data.data;
+  /** Re-read tags from QuickSight for these assets. */
+  async refreshAssetTags(assetType: string, assetIds: string[]) {
+    return unwrap(
+      await client.POST('/api/tags/refresh', { body: { assetType, assetIds } }),
+      'Failed to refresh tags'
+    );
   },
 
-  // Get live tags for multiple assets
-  async getBatchTags(assets: Array<{ type: string; id: string }>): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>('/tags/batch', { assets });
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch batch tags');
-    }
-    return response.data.data;
-  },
-
-  // Refresh dashboard view statistics (legacy - redirects to activity API)
-  async refreshViewStats(params?: { dashboardIds?: string[]; days?: number }): Promise<any> {
-    // Import dynamically to avoid circular dependency
-    const { activityApi } = await import('./activity');
-    return activityApi.refreshActivity({ assetTypes: ['dashboard'], days: params?.days || 90 });
-  },
-
-  // Export assets to CSV
+  /** Export every asset of a type to CSV: queues a job; the CSV is its result. */
   async exportAssets(
-    assetType: string,
-    params?: {
-      search?: string;
-      dateRange?: string;
-      sortBy?: string;
-      sortOrder?: string;
-      filters?: Record<string, any>;
-    }
-  ): Promise<any> {
-    // Convert singular asset type to plural for API endpoint
-    const pluralMap: Record<string, string> = {
-      dashboard: 'dashboards',
-      analysis: 'analyses',
-      dataset: 'datasets',
-      datasource: 'datasources',
-      folder: 'folders',
-      user: 'users',
-      group: 'groups',
-    };
-    const pluralType = pluralMap[assetType] || assetType;
-
-    const queryParams: any = { ...params };
-    if (params?.filters) {
-      queryParams.filters = JSON.stringify(params.filters);
-    }
-    const response = await apiClient.get<ApiResponse<any>>(`/assets/${pluralType}/export`, {
-      params: queryParams,
-      timeout: 300000, // 5 minutes timeout for export
-    });
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to export assets');
-    }
-    // Return the whole data object which contains jobId, status, message
-    return response.data;
-  },
-
-  // Get archived assets with pagination
-  async getArchivedAssetsPaginated(params?: {
-    type?: string;
-    page?: number;
-    pageSize?: number;
-    search?: string;
-    sortBy?: string;
-    sortOrder?: string;
-    dateRange?: string;
-  }): Promise<any> {
-    const response = await apiClient.get<ApiResponse<any>>('/assets/archived', { params });
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch archived assets');
-    }
-    return response.data.data;
-  },
-
-  // Bulk delete assets
-  async bulkDelete(assets: Array<{ type: string; id: string }>, reason: string): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>('/assets/bulk-delete', {
-      assets,
-      reason,
-    });
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to delete assets');
-    }
-    return response.data.data;
-  },
-
-  // Validate bulk delete (check dependencies)
-  async validateBulkDelete(assets: Array<{ type: string; id: string }>): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>('/assets/bulk-delete/validate', {
-      assets,
-    });
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to validate deletion');
-    }
-    return response.data.data;
-  },
-
-  // Get archived asset metadata
-  async getArchivedAssetMetadata(assetType: string, assetId: string): Promise<any> {
-    const response = await apiClient.get<ApiResponse<any>>(
-      `/assets/archive/${assetType}/${assetId}/metadata`
+    assetType: AssetType,
+    params: Omit<CsvExportQuery, 'filters'> & { filters?: Record<string, unknown> } = {}
+  ) {
+    const { filters, ...query } = params;
+    return accepted(
+      await client.GET('/api/assets/{assetType}/export', {
+        params: {
+          path: { assetType: PLURAL[assetType] },
+          query: { ...query, filters: filters ? JSON.stringify(filters) : undefined },
+        },
+      }),
+      'Failed to export assets'
     );
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch archived asset metadata');
-    }
-    return response.data.data;
+  },
+
+  async getArchivedAssetsPaginated(params: ArchivedQuery = {}) {
+    return unwrap(
+      await client.GET('/api/assets/archived', { params: { query: params } }),
+      'Failed to fetch archived assets'
+    );
+  },
+
+  /** Delete assets and archive their exports: queues a job and returns it. */
+  async bulkDelete(assets: Array<{ type: AssetType; id: string }>, reason: string) {
+    return accepted(
+      await client.POST('/api/assets/bulk-delete', { body: { assets, reason } }),
+      'Failed to delete assets'
+    );
+  },
+
+  /** An archived asset's export, for a restore preview. */
+  async getArchivedAssetMetadata(assetType: AssetType, assetId: string) {
+    return unwrap(
+      await client.GET('/api/assets/archive/{assetType}/{assetId}/metadata', {
+        params: { path: { assetType, assetId } },
+      }),
+      'Failed to fetch archived asset metadata'
+    );
   },
 };

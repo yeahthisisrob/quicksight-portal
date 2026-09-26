@@ -29,7 +29,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { CatalogDataset, DatasetCatalogField } from '@/shared/api/modules/data-catalog';
 import { pal, StatusIndicator } from '@/shared/design-system';
 
-export interface FieldActions {
+interface FieldActions {
   onEditNote: (field: DatasetCatalogField) => void;
   onLineage: (field: DatasetCatalogField) => void;
   onSaveTemplate: (field: DatasetCatalogField) => void;

@@ -22,7 +22,10 @@ const sheet: SheetOutline = {
   ],
 } as any;
 
-const clamp = { col: (c: number) => Math.max(0, Math.min(35, c)), row: (r: number) => Math.max(0, r) };
+const clamp = {
+  col: (c: number) => Math.max(0, Math.min(35, c)),
+  row: (r: number) => Math.max(0, r),
+};
 
 describe('swapNeighbour', () => {
   it('finds the nearest visual in each direction that shares the same band', () => {

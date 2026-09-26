@@ -32,7 +32,7 @@ import type { RebindService, TargetDataset } from './RebindService';
 
 const NAME_MAX_LENGTH = 200;
 
-export interface DefinitionTarget {
+interface DefinitionTarget {
   assetType: AuthorableAssetType;
   assetId: string;
 }

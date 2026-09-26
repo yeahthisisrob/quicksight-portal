@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useEffect, useState } from 'react';
 
-import { type MockRoute, mockApi, requestBody } from '../../../../../.storybook/mocks/api';
+import { MockedApi, type MockRoute, requestBody } from '../../../../../.storybook/mocks/api';
 import RebindDialog from './RebindDialog';
 
 /**
@@ -186,18 +185,7 @@ const routes = (overrides: MockRoute[] = []): MockRoute[] => [
   },
 ];
 
-/**
- * Installs the stub during render, not in an effect: the dialog is a child,
- * and children's effects run before the parent's, so an effect here would
- * install the adapter after the dialog had already fired its first request.
- */
-function Mocked({ routes: r, children }: { routes: MockRoute[]; children: React.ReactNode }) {
-  const [restore] = useState(() => mockApi(r));
-  useEffect(() => restore, [restore]);
-  return <>{children}</>;
-}
-
-const meta: Meta<typeof RebindDialog> = {
+const meta = {
   title: 'Features/AssetManagement/RebindDialog',
   component: RebindDialog,
   parameters: {
@@ -209,7 +197,7 @@ const meta: Meta<typeof RebindDialog> = {
       },
     },
   },
-};
+} satisfies Meta<typeof RebindDialog>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -225,19 +213,9 @@ const args = {
 export const ChooseTarget: Story = {
   args,
   render: (a) => (
-    <Mocked routes={routes()}>
+    <MockedApi routes={routes()}>
       <RebindDialog {...a} />
-    </Mocked>
-  ),
-};
-
-/** Same, for an analysis. */
-export const Analysis: Story = {
-  args: { ...args, assetType: 'analysis', asset: { id: 'a1', name: 'Sales analysis' } },
-  render: (a) => (
-    <Mocked routes={routes()}>
-      <RebindDialog {...a} />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
@@ -245,7 +223,7 @@ export const Analysis: Story = {
 export const CannotRead: Story = {
   args,
   render: (a) => (
-    <Mocked
+    <MockedApi
       routes={routes([
         {
           method: 'get',
@@ -261,31 +239,6 @@ export const CannotRead: Story = {
       ])}
     >
       <RebindDialog {...a} />
-    </Mocked>
-  ),
-};
-
-/** QuickSight rejects the write; its message is shown verbatim. */
-export const RejectedByQuickSight: Story = {
-  args,
-  render: (a) => (
-    <Mocked
-      routes={routes([
-        {
-          method: 'post',
-          url: /\/rebind$/,
-          respond: () => ({
-            status: 400,
-            body: {
-              success: false,
-              error:
-                'Column net_revenue in dataset orders has type DECIMAL but the visual expects DATETIME',
-            },
-          }),
-        },
-      ])}
-    >
-      <RebindDialog {...a} />
-    </Mocked>
+    </MockedApi>
   ),
 };

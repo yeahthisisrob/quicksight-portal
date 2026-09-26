@@ -231,7 +231,7 @@ function formValue(value: unknown): string {
 }
 
 /** Every form as label/value pairs, in the order SMUS returns them. */
-export function flattenForms(
+function flattenForms(
   forms: Record<string, any>
 ): Array<{ name: string; fields: Array<{ key: string; value: string }> }> {
   return Object.entries(forms)

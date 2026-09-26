@@ -4,7 +4,7 @@
  */
 
 // Success codes
-export const HTTP_STATUS = {
+const HTTP_STATUS = {
   OK: 200,
   CREATED: 201,
   ACCEPTED: 202,
@@ -13,7 +13,7 @@ export const HTTP_STATUS = {
 } as const;
 
 // Client error codes
-export const HTTP_ERROR = {
+const HTTP_ERROR = {
   BAD_REQUEST: 400,
   UNAUTHORIZED: 401,
   FORBIDDEN: 403,
@@ -25,7 +25,7 @@ export const HTTP_ERROR = {
 } as const;
 
 // Server error codes
-export const HTTP_SERVER_ERROR = {
+const HTTP_SERVER_ERROR = {
   INTERNAL_SERVER_ERROR: 500,
   BAD_GATEWAY: 502,
   SERVICE_UNAVAILABLE: 503,

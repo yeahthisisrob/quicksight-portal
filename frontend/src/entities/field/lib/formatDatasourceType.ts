@@ -1,7 +1,6 @@
 /**
  * Friendly display names for QuickSight datasource types (the DataSource
- * API's Type field). Shared by table cells (plain text) and
- * DatasourceTypeBadge (dialog badge contexts).
+ * API's Type field). Used by table cells and the ingestions page.
  */
 const DATASOURCE_TYPE_LABELS: Record<string, string> = {
   AMAZONELASTICSEARCH: 'Elasticsearch',

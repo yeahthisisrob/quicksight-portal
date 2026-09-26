@@ -2,7 +2,7 @@ import { ContentCopy } from '@mui/icons-material';
 import { IconButton, Tooltip } from '@mui/material';
 import { useSnackbar } from 'notistack';
 
-export function CopyButton({ text, label }: { text: string; label: string }) {
+function CopyButton({ text, label }: { text: string; label: string }) {
   const { enqueueSnackbar } = useSnackbar();
   const copy = async () => {
     try {

@@ -5,7 +5,7 @@
 
 import { logger } from './logger';
 
-export interface LocalJobExecutionConfig {
+interface LocalJobExecutionConfig {
   jobId: string;
   jobType: string;
   message: any;
@@ -15,7 +15,7 @@ export interface LocalJobExecutionConfig {
  * Creates a mock SQS event for local testing
  * This replicates how SQS would structure the event for our worker
  */
-export function createMockSQSEvent(config: LocalJobExecutionConfig): any {
+function createMockSQSEvent(config: LocalJobExecutionConfig): any {
   return {
     Records: [
       {
@@ -42,7 +42,7 @@ export function createMockSQSEvent(config: LocalJobExecutionConfig): any {
  * Executes a job locally using the worker handler
  * This is only used during local development with SAM Local
  */
-export async function executeJobLocally(config: LocalJobExecutionConfig): Promise<void> {
+async function executeJobLocally(config: LocalJobExecutionConfig): Promise<void> {
   logger.info('Local job execution started', {
     jobId: config.jobId,
     jobType: config.jobType,

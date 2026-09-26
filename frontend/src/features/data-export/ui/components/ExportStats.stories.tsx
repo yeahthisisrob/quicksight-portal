@@ -28,36 +28,6 @@ export const Default: Story = {
   },
 };
 
-export const RecentlyUpdated: Story = {
-  args: {
-    totalAssets: 1250,
-    archivedAssets: 12,
-    lastUpdated: new Date(Date.now() - 5 * 60 * 1000).toISOString(), // 5 minutes ago
-    fieldStats: {
-      total: 3456,
-      calculated: 789,
-      physical: 2667,
-    },
-
-    loading: false,
-  },
-};
-
-export const StaleCache: Story = {
-  args: {
-    totalAssets: 1250,
-    archivedAssets: 78,
-    lastUpdated: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-    fieldStats: {
-      total: 3456,
-      calculated: 789,
-      physical: 2667,
-    },
-
-    loading: false,
-  },
-};
-
 export const VeryStaleCache: Story = {
   args: {
     totalAssets: 1250,
@@ -73,32 +43,6 @@ export const VeryStaleCache: Story = {
   },
 };
 
-export const NoArchivedAssets: Story = {
-  args: {
-    totalAssets: 500,
-    archivedAssets: 0,
-    lastUpdated: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
-    fieldStats: {
-      total: 1234,
-      calculated: 234,
-      physical: 1000,
-    },
-
-    loading: false,
-  },
-};
-
-export const NoFieldStats: Story = {
-  args: {
-    totalAssets: 1250,
-    archivedAssets: 25,
-    lastUpdated: new Date(Date.now() - 60 * 60 * 1000).toISOString(), // 1 hour ago
-    fieldStats: null,
-
-    loading: false,
-  },
-};
-
 export const Loading: Story = {
   args: {
     totalAssets: 0,
@@ -107,31 +51,5 @@ export const Loading: Story = {
     fieldStats: null,
 
     loading: true,
-  },
-};
-
-export const Empty: Story = {
-  args: {
-    totalAssets: 0,
-    archivedAssets: 0,
-    lastUpdated: null,
-    fieldStats: null,
-
-    loading: false,
-  },
-};
-
-export const LargeNumbers: Story = {
-  args: {
-    totalAssets: 125000,
-    archivedAssets: 3456,
-    lastUpdated: new Date(Date.now() - 15 * 60 * 1000).toISOString(), // 15 minutes ago
-    fieldStats: {
-      total: 345678,
-      calculated: 78901,
-      physical: 266777,
-    },
-
-    loading: false,
   },
 };

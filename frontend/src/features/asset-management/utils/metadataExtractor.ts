@@ -8,7 +8,7 @@ import { normalizePermissionsArray } from './permissions';
 /**
  * Extract base metadata from API responses
  */
-export function extractBaseMetadata(apiResponses: any): Partial<AssetMetadata> {
+function extractBaseMetadata(apiResponses: any): Partial<AssetMetadata> {
   return {
     permissions: normalizePermissionsArray(apiResponses?.permissions?.data),
     tags: apiResponses?.tags?.data || [],
@@ -21,7 +21,7 @@ export function extractBaseMetadata(apiResponses: any): Partial<AssetMetadata> {
 /**
  * Extract describe metadata fields
  */
-export function extractDescribeMetadata(describeData: any): Partial<AssetMetadata> {
+function extractDescribeMetadata(describeData: any): Partial<AssetMetadata> {
   if (!describeData) return {};
 
   return {
@@ -35,7 +35,7 @@ export function extractDescribeMetadata(describeData: any): Partial<AssetMetadat
 /**
  * Extract dataset-specific metadata
  */
-export function extractDatasetMetadata(describeData: any): Partial<AssetMetadata> {
+function extractDatasetMetadata(describeData: any): Partial<AssetMetadata> {
   if (!describeData) return {};
 
   return {

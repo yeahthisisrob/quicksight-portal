@@ -278,5 +278,3 @@ export function ScriptsPanel() {
     </Stack>
   );
 }
-
-export default ScriptsPanel;

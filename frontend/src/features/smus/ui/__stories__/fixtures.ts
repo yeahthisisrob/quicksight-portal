@@ -10,9 +10,9 @@ const HOUR_MS = 60 * 60 * 1000;
 const POLLS_TO_FINISH = 4;
 const PROGRESS_STEP = 25;
 
-export const EXPORTED_AT = new Date(Date.now() - 2 * HOUR_MS).toISOString();
+const EXPORTED_AT = new Date(Date.now() - 2 * HOUR_MS).toISOString();
 
-export const SNAPSHOT: SmusSnapshotSummary = {
+const SNAPSHOT: SmusSnapshotSummary = {
   exportedAt: EXPORTED_AT,
   projectFilter: ['proj-published-prod', 'proj-published-dev'],
   domainId: 'dzd_example',
@@ -68,7 +68,7 @@ export const STATUS_NOT_CONFIGURED: SmusStatus = { configured: false };
 /** Status plus an export job that completes after a few polls. */
 export function smusExportRoutes(
   status: SmusStatus,
-  options: { failJob?: boolean; statusError?: string } = {}
+  options: { statusError?: string } = {}
 ): MockRoute[] {
   let polls = 0;
   let current: SmusStatus = status;
@@ -82,16 +82,13 @@ export function smusExportRoutes(
     return {
       jobId,
       jobType: 'export',
-      status: done ? (options.failJob ? 'failed' : 'completed') : 'processing',
+      status: done ? 'completed' : 'processing',
       progress: Math.min(polls * PROGRESS_STEP, PROGRESS_STEP * POLLS_TO_FINISH),
       message: done
-        ? options.failJob
-          ? 'SearchListings failed'
-          : 'SMUS export completed: 3 projects, 42 listings'
+        ? 'SMUS export completed: 3 projects, 42 listings'
         : (['Listing projects', 'Sweeping published listings', 'Naming publishers'][polls - 1] ??
           'Writing the snapshot'),
       startTime: new Date().toISOString(),
-      error: done && options.failJob ? 'AccessDeniedException: datazone:SearchListings' : undefined,
     };
   };
   return [

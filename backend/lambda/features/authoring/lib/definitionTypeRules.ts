@@ -23,7 +23,7 @@ import {
 } from './definitionOps';
 import { renameColumns } from './definitionRebind';
 
-export interface ChartFamilyRule {
+interface ChartFamilyRule {
   from: EditableVisualType;
   to: EditableVisualType;
 }
@@ -36,7 +36,7 @@ export interface TypeRules {
   casts?: boolean;
 }
 
-export interface TypeRulesResult {
+interface TypeRulesResult {
   definition: Record<string, any>;
   changes: DefinitionChange[];
   warnings: string[];
@@ -97,7 +97,12 @@ export function applyTypeRules(
         if (!entry || currentEditableType(entry[0], entry[1]) !== rule.from) continue;
         try {
           const result = applyOps(definition, [
-            { op: 'retype', sheetId: sheet.SheetId, elementId: entry[1].VisualId, visualType: rule.to },
+            {
+              op: 'retype',
+              sheetId: sheet.SheetId,
+              elementId: entry[1].VisualId,
+              visualType: rule.to,
+            },
           ]);
           definition = result.definition;
           changes.push(...result.changes);
@@ -129,7 +134,9 @@ export function applyTypeRules(
                   ...(wells.Values ? { Values: wells.Values } : {}),
                   ...(wells.TargetValues ? { TargetValues: wells.TargetValues } : {}),
                 },
-                ...(context.templateKpiOptions ? { KPIOptions: structuredClone(context.templateKpiOptions) } : {}),
+                ...(context.templateKpiOptions
+                  ? { KPIOptions: structuredClone(context.templateKpiOptions) }
+                  : {}),
               },
               ...(body.Actions ? { Actions: body.Actions } : {}),
             },
@@ -166,13 +173,22 @@ export function applyTypeRules(
 type ColumnType = 'STRING' | 'INTEGER' | 'DECIMAL' | 'DATETIME';
 
 /** The expression that turns the target's type into what the definition expects, or null when none is needed or known. */
-export function castExpression(column: string, from: ColumnType | string, to: ColumnType | string): string | null {
+export function castExpression(
+  column: string,
+  from: ColumnType | string,
+  to: ColumnType | string
+): string | null {
   if (from === to) return null;
-  if ((from === 'INTEGER' && to === 'DECIMAL') || (from === 'DECIMAL' && to === 'INTEGER')) return null;
+  if ((from === 'INTEGER' && to === 'DECIMAL') || (from === 'DECIMAL' && to === 'INTEGER'))
+    return null;
   const ref = `{${column}}`;
   switch (to) {
     case 'DATETIME':
-      return from === 'STRING' ? `parseDate(${ref})` : from === 'INTEGER' ? `epochDate(${ref})` : null;
+      return from === 'STRING'
+        ? `parseDate(${ref})`
+        : from === 'INTEGER'
+          ? `epochDate(${ref})`
+          : null;
     case 'DECIMAL':
       return from === 'STRING' ? `parseDecimal(${ref})` : null;
     case 'INTEGER':
@@ -184,7 +200,7 @@ export function castExpression(column: string, from: ColumnType | string, to: Co
   }
 }
 
-export interface CastPlan {
+interface CastPlan {
   addCalculatedFields: AddedCalculatedField[];
   /** identifier -> target column name -> cast field name */
   renames: Map<string, Record<string, string>>;
@@ -203,14 +219,19 @@ export function castPlan(
 ): CastPlan {
   const plan: CastPlan = { addCalculatedFields: [], renames: new Map(), changes: [], warnings: [] };
   for (const dataset of datasets) {
-    const current = new Map((currentColumns.get(dataset.identifier) ?? []).map((c) => [c.name, c.type]));
+    const current = new Map(
+      (currentColumns.get(dataset.identifier) ?? []).map((c) => [c.name, c.type])
+    );
     for (const column of dataset.columns) {
       if (!column.resolvedTo || !column.targetType) continue;
       const wanted = current.get(column.name);
       if (!wanted || wanted === column.targetType) continue;
       const expression = castExpression(column.resolvedTo, column.targetType, wanted);
       if (!expression) {
-        if (!(wanted === 'DECIMAL' && column.targetType === 'INTEGER') && !(wanted === 'INTEGER' && column.targetType === 'DECIMAL')) {
+        if (
+          !(wanted === 'DECIMAL' && column.targetType === 'INTEGER') &&
+          !(wanted === 'INTEGER' && column.targetType === 'DECIMAL')
+        ) {
           plan.warnings.push(
             `${dataset.identifier}: ${column.name} was ${wanted} and is now ${column.targetType}; no cast is known, visuals may fail.`
           );
@@ -232,7 +253,10 @@ export function castPlan(
 }
 
 /** Point every reference at the cast fields. Leaves the cast fields' own expressions alone. */
-export function applyCastRenames(definition: Record<string, any>, renames: Map<string, Record<string, string>>): void {
+export function applyCastRenames(
+  definition: Record<string, any>,
+  renames: Map<string, Record<string, string>>
+): void {
   for (const [identifier, map] of renames) {
     renameColumns(definition.Sheets, identifier, map);
     renameColumns(definition.FilterGroups, identifier, map);

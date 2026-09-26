@@ -4,7 +4,7 @@
  */
 import { Box, CircularProgress, Typography } from '@mui/material';
 
-export type StatusKind = 'success' | 'info' | 'warning' | 'error' | 'pending' | 'loading';
+type StatusKind = 'success' | 'info' | 'warning' | 'error' | 'pending' | 'loading';
 
 interface StatusIndicatorProps {
   kind: StatusKind;

@@ -4,10 +4,8 @@
  * the Author feature's import path.
  */
 export {
-  hasErrors,
   healthBadges,
   isSlow,
   problemVisuals,
   seconds,
-  SLOW_VISUAL_MS,
 } from '@/entities/definition';

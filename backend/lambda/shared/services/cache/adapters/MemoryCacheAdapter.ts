@@ -12,19 +12,19 @@
  *   S3 (see CacheService) — not by TTL guessing.
  */
 
-export interface MemoryCacheOptions {
+interface MemoryCacheOptions {
   maxSize: number;
   ttlMs: number;
   enableStats: boolean;
 }
 
-export interface MemoryCacheStats {
+interface MemoryCacheStats {
   hits: number;
   misses: number;
   hitRate: number;
 }
 
-export interface ValidatedCacheEntry<T = any> {
+interface ValidatedCacheEntry<T = any> {
   value: T;
   /** S3 ETag at load time. Undefined = unknown → next read must re-fetch. */
   etag?: string;

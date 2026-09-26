@@ -4,7 +4,7 @@ import type { APIGatewayProxyEvent } from 'aws-lambda';
 
 import { logger } from '../../utils/logger';
 
-export interface AuthResult {
+interface AuthResult {
   authenticated: boolean;
   user?: {
     id: string;

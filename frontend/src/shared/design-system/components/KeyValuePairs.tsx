@@ -3,14 +3,14 @@ import type { ReactNode } from 'react';
 
 import { pal } from '../createAppTheme';
 
-export interface KeyValueItem {
+interface KeyValueItem {
   label: ReactNode;
   value: ReactNode;
   /** Shown in a tooltip on the label. */
   info?: string;
 }
 
-export interface KeyValuePairsProps {
+interface KeyValuePairsProps {
   items: KeyValueItem[];
   /** Columns at desktop width; collapses to one on narrow screens. */
   columns?: 1 | 2 | 3 | 4;
@@ -64,5 +64,3 @@ export function KeyValuePairs({ items, columns = 2, emptyText = '-' }: KeyValueP
     </Box>
   );
 }
-
-export default KeyValuePairs;

@@ -28,13 +28,13 @@ const MAX_LINEAGE_DEPTH = 6;
 /** And how big it is allowed to get, so one hub field cannot blow up a page. */
 const MAX_LINEAGE_NODES = 80;
 
-export interface CalculatedFieldRef {
+interface CalculatedFieldRef {
   type: 'dashboard' | 'analysis' | 'dataset';
   id: string;
   name: string;
 }
 
-export interface CatalogListingRef {
+interface CatalogListingRef {
   listingId: string;
   name: string;
   projectId?: string;
@@ -46,13 +46,13 @@ export interface CatalogListingRef {
   via?: { datasetId: string; name?: string };
 }
 
-export interface CatalogDatasetRef {
+interface CatalogDatasetRef {
   id: string;
   name: string;
   listing?: CatalogListingRef;
 }
 
-export interface SmusColumnRef extends CatalogListingRef {
+interface SmusColumnRef extends CatalogListingRef {
   /**
    * The listing column this QuickSight column resolves to. Absent when the
    * dataset is tied to a listing but the listing's schema does not name the
@@ -69,7 +69,7 @@ export interface SmusColumnRef extends CatalogListingRef {
   glossaryTerms: string[];
 }
 
-export interface CalculatedFieldSummary {
+interface CalculatedFieldSummary {
   /** Stable id for one distinct (name, expression). */
   key: string;
   name: string;
@@ -88,7 +88,7 @@ export interface CalculatedFieldSummary {
   hasNote: boolean;
 }
 
-export interface CalculatedFieldCatalog {
+interface CalculatedFieldCatalog {
   configured: boolean;
   exportedAt: string | null;
   projectFilter: string[];
@@ -105,7 +105,7 @@ export interface CalculatedFieldCatalog {
   items: CalculatedFieldSummary[];
 }
 
-export interface LineageRead {
+interface LineageRead {
   name: string;
   kind: 'column' | 'calculated';
   /** For a calculated field: its catalog key. */
@@ -122,7 +122,7 @@ export interface LineageRead {
  * downstream (what is computed from it). A field reachable at several depths
  * keeps the nearest.
  */
-export interface FieldLineageNode {
+interface FieldLineageNode {
   id: string;
   name: string;
   kind: 'column' | 'calculated';
@@ -138,19 +138,19 @@ export interface FieldLineageNode {
 }
 
 /** Data flows from `from` to `to`: `to` reads `from`. */
-export interface FieldLineageEdge {
+interface FieldLineageEdge {
   from: string;
   to: string;
 }
 
-export interface FieldLineage {
+interface FieldLineage {
   nodes: FieldLineageNode[];
   edges: FieldLineageEdge[];
   /** True when the walk hit its depth or size bound, so the chain is partial. */
   truncated: boolean;
 }
 
-export interface CalculatedFieldDetail extends CalculatedFieldSummary {
+interface CalculatedFieldDetail extends CalculatedFieldSummary {
   /** Every distinct expression under this name, this one included. */
   variants: Array<{ key: string; expression: string; definedIn: CalculatedFieldRef[] }>;
   reads: LineageRead[];
@@ -162,7 +162,7 @@ export interface CalculatedFieldDetail extends CalculatedFieldSummary {
   portal?: { description?: string; tags?: string[]; category?: string; sensitivity?: string };
 }
 
-export interface ColumnCatalogItem {
+interface ColumnCatalogItem {
   name: string;
   /** Absent when the export did not say: QuickSight leaves OutputColumns.Type out for some columns. */
   dataType?: string;
@@ -173,7 +173,7 @@ export interface ColumnCatalogItem {
   usedByCalculated: Array<{ key: string; name: string }>;
 }
 
-export interface ColumnCatalog {
+interface ColumnCatalog {
   configured: boolean;
   exportedAt: string | null;
   counts: {
@@ -197,7 +197,7 @@ export interface ColumnCatalog {
  */
 export type CatalogScope = 'smus' | 'outside' | 'all';
 
-export interface FieldCatalogFilters {
+interface FieldCatalogFilters {
   projectId?: string;
   datasetId?: string;
   search?: string;

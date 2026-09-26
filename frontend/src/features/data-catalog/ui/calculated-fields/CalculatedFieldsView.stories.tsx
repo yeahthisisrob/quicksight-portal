@@ -1,12 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 
-import { type MockRoute, mockApi } from '../../../../../.storybook/mocks/api';
+import { type MockRoute, useMockApi } from '../../../../../.storybook/mocks/api';
 import {
   EMPTY_CALCULATED_FIELDS,
   fieldCatalogRoutes,
-  KEYS,
   NO_EXPORT_CALCULATED_FIELDS,
 } from '../__stories__/fieldCatalog';
 import { catalogRoutes } from '../__stories__/routes';
@@ -19,25 +18,18 @@ import { CalculatedFieldsView } from './CalculatedFieldsView';
  */
 function Harness({
   routes,
-  path = '/data-catalog',
-  initialSearch = '',
   initialConflicts = false,
-  initialKey,
 }: {
   routes: MockRoute[];
-  path?: string;
-  initialSearch?: string;
   initialConflicts?: boolean;
-  initialKey?: string;
 }) {
-  const [restore] = useState(() => mockApi(routes));
-  useEffect(() => restore, [restore]);
-  const [search, setSearch] = useState(initialSearch);
+  useMockApi(routes);
+  const [search, setSearch] = useState('');
   const [conflicts, setConflicts] = useState(initialConflicts);
-  const [key, setKey] = useState<string | undefined>(initialKey);
+  const [key, setKey] = useState<string | undefined>();
   return (
     <>
-      <Navigate to={path} replace />
+      <Navigate to="/data-catalog" replace />
       <CalculatedFieldsView
         projectId="proj-analytics-prod"
         search={search}
@@ -76,16 +68,6 @@ export const Loaded: Story = {
 export const ConflictsOnly: Story = {
   name: 'Conflicts only: one name, three expressions',
   render: () => <Harness routes={catalogRoutes()} initialConflicts />,
-};
-
-export const WithDetail: Story = {
-  name: 'A row open: lineage both ways and the variants',
-  render: () => <Harness routes={catalogRoutes()} initialKey={KEYS.marginPctDashboard} />,
-};
-
-export const Searched: Story = {
-  name: 'Searched by expression: "closed"',
-  render: () => <Harness routes={catalogRoutes()} initialSearch="closed" />,
 };
 
 export const Empty: Story = {

@@ -5,7 +5,7 @@
 import { Box, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
 
-export interface KeyValueItem {
+interface KeyValueItem {
   label: string;
   value: ReactNode;
 }

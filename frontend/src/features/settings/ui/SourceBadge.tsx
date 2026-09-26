@@ -39,5 +39,3 @@ export function SourceBadge({ source, pending }: { source: SettingSource; pendin
     </Tooltip>
   );
 }
-
-export default SourceBadge;

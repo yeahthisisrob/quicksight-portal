@@ -34,7 +34,7 @@ function browserStorage(): Storage | undefined {
   }
 }
 
-export interface ConversationState {
+interface ConversationState {
   conversation: Conversation;
   /** What the assistant said it is doing, while it works. */
   status: string | null;

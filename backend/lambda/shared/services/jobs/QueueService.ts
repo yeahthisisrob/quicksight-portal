@@ -21,7 +21,7 @@ export interface QueueMessage {
 /**
  * Shared service for managing SQS queue operations
  */
-export class QueueService {
+class QueueService {
   private static instance: QueueService;
   /**
    * Get singleton instance

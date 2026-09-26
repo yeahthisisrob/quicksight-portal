@@ -13,7 +13,7 @@ export function useExportOperations() {
 
   const refreshActivity = useCallback(async () => {
     if (refreshingActivity) return;
-    
+
     try {
       setRefreshingActivity(true);
       enqueueSnackbar('Refreshing activity data...', { variant: 'info' });
@@ -26,7 +26,7 @@ export function useExportOperations() {
       setRefreshingActivity(false);
     }
   }, [refreshingActivity, enqueueSnackbar]);
-  
+
   return {
     refreshingActivity,
     refreshActivity,

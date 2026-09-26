@@ -24,7 +24,12 @@
 import { randomUUID } from 'node:crypto';
 
 import { ValidationError } from '../../../shared/errors/ValidationError';
-import { type ControlBarElement, controlBar, controlBarElements, controlBarIds } from './controlBar';
+import {
+  type ControlBarElement,
+  controlBar,
+  controlBarElements,
+  controlBarIds,
+} from './controlBar';
 import { isColumnIdentifier } from './definitionColumns';
 import { type DefinitionChange, GRID_COLUMNS } from './definitionOps';
 
@@ -34,7 +39,7 @@ const CONTROL_TILE = { colSpan: 9, rowSpan: 3 };
 const ID_SUFFIX_LENGTH = 8;
 const KPI_TYPE = 'KPIVisual';
 
-export interface TemplateOptions {
+interface TemplateOptions {
   /** Carry the template's text boxes (and any footer furniture). Default true. */
   textBoxes?: boolean;
   /** Carry the template's filter and parameter controls where they can be rebound. Default true. */
@@ -49,7 +54,7 @@ export interface TemplateOptions {
   themeArn?: string;
 }
 
-export interface TemplateResult {
+interface TemplateResult {
   definition: Record<string, any>;
   changes: DefinitionChange[];
   warnings: string[];
@@ -107,14 +112,26 @@ export function templateTiles(templateSheet: any): { tile: Tile; kpi: Tile | nul
   const source = others.length > 0 ? others : visuals;
   return {
     tile: {
-      colSpan: median(source.map((e) => e.ColumnSpan), DEFAULT_TILE.colSpan),
-      rowSpan: median(source.map((e) => e.RowSpan), DEFAULT_TILE.rowSpan),
+      colSpan: median(
+        source.map((e) => e.ColumnSpan),
+        DEFAULT_TILE.colSpan
+      ),
+      rowSpan: median(
+        source.map((e) => e.RowSpan),
+        DEFAULT_TILE.rowSpan
+      ),
     },
     kpi:
       kpis.length > 0
         ? {
-            colSpan: median(kpis.map((e) => e.ColumnSpan), DEFAULT_TILE.colSpan),
-            rowSpan: median(kpis.map((e) => e.RowSpan), DEFAULT_TILE.rowSpan),
+            colSpan: median(
+              kpis.map((e) => e.ColumnSpan),
+              DEFAULT_TILE.colSpan
+            ),
+            rowSpan: median(
+              kpis.map((e) => e.RowSpan),
+              DEFAULT_TILE.rowSpan
+            ),
           }
         : null,
   };
@@ -183,7 +200,10 @@ function rewriteIdentifiers(node: unknown, from: string, to: string): void {
   }
 }
 
-function columnRefs(node: unknown, out: Array<{ DataSetIdentifier: string; ColumnName: string }> = []) {
+function columnRefs(
+  node: unknown,
+  out: Array<{ DataSetIdentifier: string; ColumnName: string }> = []
+) {
   if (Array.isArray(node)) {
     node.forEach((n) => columnRefs(n, out));
   } else if (typeof node === 'object' && node !== null) {
@@ -277,7 +297,8 @@ export function applyTemplate(
     const textBoxes: any[] = [];
     const filterControls: any[] = [];
     const parameterControls: any[] = [];
-    const barElements: Array<{ id: string; type: ControlBarElement['ElementType']; span: number }> = [];
+    const barElements: Array<{ id: string; type: ControlBarElement['ElementType']; span: number }> =
+      [];
     const furniture = templateGrid.filter((e) => e.ElementType !== 'VISUAL');
     const top = furniture.filter((e) => (e.RowIndex ?? 0) < templateVisualTop);
     const footer = furniture.filter((e) => (e.RowIndex ?? 0) >= templateVisualTop);
@@ -286,15 +307,29 @@ export function applyTemplate(
 
     const put = (element: GridElement, id: string, where: Placement) => {
       if (where.bar) {
-        barElements.push({ id, type: element.ElementType as ControlBarElement['ElementType'], span: element.ColumnSpan });
+        barElements.push({
+          id,
+          type: element.ElementType as ControlBarElement['ElementType'],
+          span: element.ColumnSpan,
+        });
       } else {
-        elements.push({ ...element, ElementId: id, RowIndex: (element.RowIndex ?? 0) + where.rowOffset });
+        elements.push({
+          ...element,
+          ElementId: id,
+          RowIndex: (element.RowIndex ?? 0) + where.rowOffset,
+        });
       }
     };
-    const carry = (element: GridElement, rowOffset: number, where: Placement = { bar: false, rowOffset }): boolean => {
+    const carry = (
+      element: GridElement,
+      rowOffset: number,
+      where: Placement = { bar: false, rowOffset }
+    ): boolean => {
       if (element.ElementType === 'TEXT_BOX') {
         if (!opts.textBoxes) return false;
-        const box = (templateSheet.TextBoxes ?? []).find((t: any) => t.SheetTextBoxId === element.ElementId);
+        const box = (templateSheet.TextBoxes ?? []).find(
+          (t: any) => t.SheetTextBoxId === element.ElementId
+        );
         if (!box) return false;
         const id = newId('tpl-text');
         textBoxes.push({ ...structuredClone(box), SheetTextBoxId: id });
@@ -305,20 +340,22 @@ export function applyTemplate(
       if (!opts.controls) return false;
       if (element.ElementType === 'FILTER_CONTROL') {
         const control = (templateSheet.FilterControls ?? []).find(
-          (c: any) => Object.values(c ?? {})[0] && (Object.values(c)[0] as any).FilterControlId === element.ElementId
+          (c: any) =>
+            Object.values(c ?? {})[0] &&
+            (Object.values(c)[0] as any).FilterControlId === element.ElementId
         );
         if (!control) return false;
         const [kind, body] = Object.entries(control)[0] as [string, any];
-        const source = templateFilters.get(body.SourceFilterId);
-        if (!source) return false;
-        const target = rebindTarget(source.filter, opts.columnsByIdentifier);
+        const sourceFilter = templateFilters.get(body.SourceFilterId);
+        if (!sourceFilter) return false;
+        const target = rebindTarget(sourceFilter.filter, opts.columnsByIdentifier);
         if (!target) {
           warnings.push(
             `Template control '${body.Title ?? body.FilterControlId}' was dropped: no dataset here has the columns it filters.`
           );
           return false;
         }
-        const filter = structuredClone(source.filter);
+        const filter = structuredClone(sourceFilter.filter);
         const filterBody = Object.values(filter)[0] as any;
         filterBody.FilterId = newId('tpl-filter');
         rewriteIdentifiers(filter, target.from, target.to);
@@ -328,20 +365,26 @@ export function applyTemplate(
             FilterGroupId: newId('tpl-fg'),
             Filters: [filter],
             ScopeConfiguration: { AllSheets: {} },
-            CrossDataset: source.group.CrossDataset ?? 'SINGLE_DATASET',
-            Status: source.group.Status,
+            CrossDataset: sourceFilter.group.CrossDataset ?? 'SINGLE_DATASET',
+            Status: sourceFilter.group.Status,
           },
         ];
         const id = newId('tpl-control');
         filterControls.push({
-          [kind]: { ...structuredClone(body), FilterControlId: id, SourceFilterId: filterBody.FilterId },
+          [kind]: {
+            ...structuredClone(body),
+            FilterControlId: id,
+            SourceFilterId: filterBody.FilterId,
+          },
         });
         put(element, id, where);
         return true;
       }
       if (element.ElementType === 'PARAMETER_CONTROL') {
         const control = (templateSheet.ParameterControls ?? []).find(
-          (c: any) => Object.values(c ?? {})[0] && (Object.values(c)[0] as any).ParameterControlId === element.ElementId
+          (c: any) =>
+            Object.values(c ?? {})[0] &&
+            (Object.values(c)[0] as any).ParameterControlId === element.ElementId
         );
         if (!control) return false;
         const [kind, body] = Object.entries(control)[0] as [string, any];
@@ -362,10 +405,15 @@ export function applyTemplate(
             Object.values(d ?? {}).some((x: any) => x?.Name === copy.SourceParameterName)
           );
           if (declaration) {
-            definition.ParameterDeclarations = [...(definition.ParameterDeclarations ?? []), structuredClone(declaration)];
+            definition.ParameterDeclarations = [
+              ...(definition.ParameterDeclarations ?? []),
+              structuredClone(declaration),
+            ];
             declaredParameters.add(copy.SourceParameterName);
           } else {
-            warnings.push(`Template control '${body.Title ?? body.ParameterControlId}' was dropped: its parameter is not declared.`);
+            warnings.push(
+              `Template control '${body.Title ?? body.ParameterControlId}' was dropped: its parameter is not declared.`
+            );
             return false;
           }
         }
@@ -397,7 +445,10 @@ export function applyTemplate(
     }
     let order = sourceOrder(sheet);
     if (opts.kpisFirst && kpi) {
-      order = [...order.filter((id) => typeOf.get(id) === KPI_TYPE), ...order.filter((id) => typeOf.get(id) !== KPI_TYPE)];
+      order = [
+        ...order.filter((id) => typeOf.get(id) === KPI_TYPE),
+        ...order.filter((id) => typeOf.get(id) !== KPI_TYPE),
+      ];
     }
     const flowed = reflow(
       order.map((id) => ({ id, tile: kpi && typeOf.get(id) === KPI_TYPE ? kpi : tile })),
@@ -416,7 +467,8 @@ export function applyTemplate(
       elements.push({ ...element, ElementType: 'TEXT_BOX' });
     }
     bottom = ownBoxes.bottom;
-    const ownControls = (sheet.FilterControls?.length ?? 0) + (sheet.ParameterControls?.length ?? 0);
+    const ownControls =
+      (sheet.FilterControls?.length ?? 0) + (sheet.ParameterControls?.length ?? 0);
     if (templateHasControls && opts.controls) {
       if (ownControls > 0) {
         changes.push({
@@ -430,7 +482,11 @@ export function applyTemplate(
       sheet.SheetControlLayouts = controlBar(barElements);
     } else {
       // The source's own control bar stays a control bar; the template's joins it.
-      const ownBar = controlBarElements(sheet).map((e) => ({ id: e.ElementId, type: e.ElementType, span: e.ColumnSpan }));
+      const ownBar = controlBarElements(sheet).map((e) => ({
+        id: e.ElementId,
+        type: e.ElementType,
+        span: e.ColumnSpan,
+      }));
       const bar = controlBar([...ownBar, ...barElements]);
       if (bar.length > 0) {
         sheet.SheetControlLayouts = bar;
@@ -450,16 +506,27 @@ export function applyTemplate(
           id: (Object.values(c)[0] as any)?.ParameterControlId,
           type: 'PARAMETER_CONTROL',
         })),
-      ].filter((c) => typeof c.id === 'string' && !inBar.has(c.id) && !elements.some((e) => e.ElementId === c.id));
+      ].filter(
+        (c) =>
+          typeof c.id === 'string' &&
+          !inBar.has(c.id) &&
+          !elements.some((e) => e.ElementId === c.id)
+      );
       const placed = reflow(
         own.map((c) => {
           const e = sized.get(c.id);
-          return { id: c.id, tile: e ? { colSpan: e.ColumnSpan, rowSpan: e.RowSpan } : CONTROL_TILE };
+          return {
+            id: c.id,
+            tile: e ? { colSpan: e.ColumnSpan, rowSpan: e.RowSpan } : CONTROL_TILE,
+          };
         }),
         bottom
       );
       for (const element of placed.elements) {
-        elements.push({ ...element, ElementType: own.find((c) => c.id === element.ElementId)!.type });
+        elements.push({
+          ...element,
+          ElementType: own.find((c) => c.id === element.ElementId)!.type,
+        });
       }
       bottom = placed.bottom;
     }
@@ -472,7 +539,11 @@ export function applyTemplate(
     sheet.TextBoxes = [...textBoxes, ...(sheet.TextBoxes ?? [])];
     sheet.Layouts = [{ Configuration: { GridLayout: { Elements: elements } } }];
     if (opts.sheetNames && templateSheet.Name && templateSheet.Name !== sheet.Name) {
-      changes.push({ kind: 'sheet', sheetId: sheet.SheetId, description: `Renamed sheet '${sheetName}' to '${templateSheet.Name}'` });
+      changes.push({
+        kind: 'sheet',
+        sheetId: sheet.SheetId,
+        description: `Renamed sheet '${sheetName}' to '${templateSheet.Name}'`,
+      });
       sheet.Name = templateSheet.Name;
     }
     const carried = textBoxes.length + filterControls.length + parameterControls.length;

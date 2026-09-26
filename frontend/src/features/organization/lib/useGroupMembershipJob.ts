@@ -4,10 +4,9 @@ import { useCallback, useRef, useState } from 'react';
 import { resolveUserNames, type UserLike } from '@/entities/user';
 
 import { getApiErrorMessage } from '@/shared/api/errors';
+import type { BulkItemFailure, JobMetadata } from '@/shared/api/modules/jobs';
 import { usersApi } from '@/shared/api/modules/users';
 import { useJobPolling } from '@/shared/hooks/useJobPolling';
-
-import type { BulkItemFailure, JobMetadata } from '@/shared/api/modules/jobs';
 
 export type MembershipAction = 'add' | 'remove';
 
@@ -27,7 +26,7 @@ export interface MembershipOutcome {
   ok: boolean;
 }
 
-export interface UseGroupMembershipJobOptions {
+interface UseGroupMembershipJobOptions {
   /**
    * Called on every terminal outcome. Typical use: refresh the parent when
    * anything succeeded, close the dialog only when `outcome.ok`.
@@ -56,7 +55,11 @@ export function useGroupMembershipJob(options: UseGroupMembershipJobOptions = {}
   const [outcome, setOutcome] = useState<MembershipOutcome | null>(null);
 
   // What the in-flight job is about; read back when it settles
-  const requestRef = useRef<{ action: MembershipAction; groupName: string; requested: string[] } | null>(null);
+  const requestRef = useRef<{
+    action: MembershipAction;
+    groupName: string;
+    requested: string[];
+  } | null>(null);
   const onSettledRef = useRef(options.onSettled);
   onSettledRef.current = options.onSettled;
 
@@ -117,7 +120,11 @@ export function useGroupMembershipJob(options: UseGroupMembershipJobOptions = {}
     [enqueueSnackbar, settle]
   );
 
-  const { startPolling, jobStatus, reset: resetPolling } = useJobPolling({
+  const {
+    startPolling,
+    jobStatus,
+    reset: resetPolling,
+  } = useJobPolling({
     onComplete: handleComplete,
     onFailed: handleFailed,
   });
@@ -146,9 +153,12 @@ export function useGroupMembershipJob(options: UseGroupMembershipJobOptions = {}
           action === 'add'
             ? await usersApi.addUsersToGroup(groupName, requested)
             : await usersApi.removeUsersFromGroup(groupName, requested);
-        enqueueSnackbar(`${present} ${pluralUsers(requested.length)} ${preposition} ${groupName}…`, {
-          variant: 'info',
-        });
+        enqueueSnackbar(
+          `${present} ${pluralUsers(requested.length)} ${preposition} ${groupName}…`,
+          {
+            variant: 'info',
+          }
+        );
         startPolling(response.jobId);
       } catch (error) {
         const message = getApiErrorMessage(error, `Failed to ${action} users`);

@@ -785,7 +785,7 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       { aiModel, isAiModelKey, openAiModelId },
       { BedrockAdapter },
       { getPlannerConfig },
-      chatModels,
+      { BedrockChatModel, OpenAiChatModel },
       { AssistantService },
       { apiHandler },
       { withInProcessAuth },
@@ -812,13 +812,8 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
     const config = getPlannerConfig();
     const chat =
       model.provider === 'openai'
-        ? new chatModels.OpenAiChatModel(
-            config.openAi.baseUrl,
-            config.openAi.apiKey,
-            openAiModelId(),
-            model
-          )
-        : new chatModels.BedrockChatModel(new BedrockAdapter(config.region), model);
+        ? new OpenAiChatModel(config.openAi.baseUrl, config.openAi.apiKey, openAiModelId(), model)
+        : new BedrockChatModel(new BedrockAdapter(config.region), model);
     const dispatch = async (req: { method: string; path: string; body?: unknown }) => {
       const url = new URL(req.path, 'http://portal.internal');
       const query = Object.fromEntries(url.searchParams.entries());

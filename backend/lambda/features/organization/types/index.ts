@@ -1,35 +1,6 @@
-import type { AssetType } from '../../../shared/types/assetTypes';
-
 export interface Tag {
   key: string;
   value: string;
-}
-
-export interface Folder {
-  id: string;
-  name: string;
-  parentId?: string;
-  path: string;
-  memberCount: number;
-  createdBy: string;
-  createdAt: Date;
-  updatedAt: Date;
-  // Additional fields from old service
-  arn?: string;
-  folderType?: string;
-  folderPath?: string[];
-  metadata?: FolderMetadata;
-  permissions?: any[];
-  tags?: Array<{ key: string; value: string }>;
-  displayPath?: string[];
-}
-
-export interface FolderMember {
-  id: string;
-  type: 'USER' | 'GROUP';
-  name: string;
-  email?: string;
-  memberType: 'ADMIN' | 'AUTHOR' | 'VIEWER';
 }
 
 export interface FolderMetadata {
@@ -127,29 +98,4 @@ export interface UsersAndGroupsExport {
   users: User[];
   groups: Group[];
   exportTime: string;
-}
-
-// Bulk operation interfaces (moved from asset-management)
-export interface BulkOperationResult {
-  success: boolean;
-  message: string;
-  affectedAssets?: string[];
-  errors?: Array<{ assetId: string; error: string }>;
-}
-
-export interface BulkOperationOptions {
-  assetIds: string[];
-  assetType: AssetType;
-  skipIndexUpdate?: boolean;
-  continueOnError?: boolean;
-}
-
-export interface BulkTagOperation extends BulkOperationOptions {
-  operation: 'add' | 'remove' | 'update';
-  tags: Tag[];
-}
-
-export interface BulkFolderOperation extends BulkOperationOptions {
-  operation: 'add' | 'remove';
-  folderId: string;
 }

@@ -8,14 +8,6 @@ export interface PermissionsDialogProps {
   onPermissionRevoked?: (principal: string) => void;
 }
 
-export interface RelatedAssetsDialogProps {
-  open: boolean;
-  onClose: () => void;
-  assetName: string;
-  assetType: string;
-  relatedAssets: any[] | { usedBy?: any[]; uses?: any[] };
-}
-
 export interface TagsDialogProps {
   open: boolean;
   onClose: () => void;

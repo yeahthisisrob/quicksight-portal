@@ -28,9 +28,3 @@ export interface IngestionMetadata {
   failedIngestions: number;
   lastUpdated: string;
 }
-
-export interface IngestionListResponse {
-  ingestions: Ingestion[];
-  metadata: IngestionMetadata;
-  nextToken?: string;
-}

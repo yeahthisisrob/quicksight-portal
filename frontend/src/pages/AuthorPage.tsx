@@ -26,7 +26,7 @@ const TABS: Array<{ value: AuthorTab; label: string }> = [
 const STUDIO_PARAMS = ['id', 'type', 'new'];
 
 /** The tab in the URL, else Studio when the link is a Studio link, else the Assistant. */
-export function authorTabOf(params: URLSearchParams): AuthorTab {
+function authorTabOf(params: URLSearchParams): AuthorTab {
   const tab = params.get('tab');
   if (tab === 'assistant' || tab === 'studio' || tab === 'api') {
     return tab;

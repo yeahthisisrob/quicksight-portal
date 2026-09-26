@@ -1,7 +1,7 @@
-export const OPERATIONS_TABS = ['export', 'smus', 'archived', 'scripts'] as const;
+const OPERATIONS_TABS = ['export', 'smus', 'archived', 'scripts'] as const;
 export type OperationsTab = (typeof OPERATIONS_TABS)[number];
 
-export const DEFAULT_OPERATIONS_TAB: OperationsTab = 'export';
+const DEFAULT_OPERATIONS_TAB: OperationsTab = 'export';
 
 /** The query parameter that carries the tab, so a tab is a shareable URL. */
 export const OPERATIONS_TAB_PARAM = 'tab';

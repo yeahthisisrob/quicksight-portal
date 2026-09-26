@@ -20,7 +20,7 @@
 
 import { settingsStore } from '../services/settings/SettingsStore';
 
-export type PlannerProvider = 'bedrock' | 'claude-cli' | 'codex-cli' | 'openai-compatible';
+type PlannerProvider = 'bedrock' | 'claude-cli' | 'codex-cli' | 'openai-compatible';
 
 export interface PlannerConfig {
   provider: PlannerProvider;
@@ -51,7 +51,7 @@ const DEFAULT_MODEL_BY_PROVIDER: Record<PlannerProvider, string> = {
   'openai-compatible': DEFAULT_OPENAI_COMPATIBLE_MODEL,
 };
 
-export function isPlannerProvider(value: string): value is PlannerProvider {
+function isPlannerProvider(value: string): value is PlannerProvider {
   return (PROVIDERS as readonly string[]).includes(value);
 }
 

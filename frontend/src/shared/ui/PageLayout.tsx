@@ -18,7 +18,7 @@ interface PageLayoutProps {
 /**
  * Standard page layout: a PageHeader followed by page content.
  */
-export function PageLayout({
+function PageLayout({
   title,
   description,
   totalRows,

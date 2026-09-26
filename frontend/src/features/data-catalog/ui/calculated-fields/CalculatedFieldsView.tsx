@@ -35,7 +35,7 @@ import { CalculatedFieldDetail } from './CalculatedFieldDetail';
 import { CalculatedFieldsTable } from './CalculatedFieldsTable';
 import { type CountFilter, FieldCounts } from './FieldCounts';
 
-export interface CalculatedFieldsViewProps {
+interface CalculatedFieldsViewProps {
   projectId?: string;
   /** Which datasets to read: the selected projects, or the ones outside them. */
   scope?: CatalogScope;

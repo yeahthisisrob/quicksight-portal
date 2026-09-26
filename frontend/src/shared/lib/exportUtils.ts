@@ -17,34 +17,36 @@ export function dataToCSV(data: any[], columns: ExportColumn[]): string {
   }
 
   // Create header row
-  const headers = columns.map(col => `"${col.label}"`).join(',');
-  
+  const headers = columns.map((col) => `"${col.label}"`).join(',');
+
   // Create data rows
-  const rows = data.map(row => {
-    return columns.map(col => {
-      let value = col.getValue ? col.getValue(row) : row[col.id];
-      
-      // Handle null/undefined
-      if (value === null || value === undefined) {
-        return '""';
-      }
-      
-      // Handle arrays
-      if (Array.isArray(value)) {
-        value = value.join('; ');
-      }
-      
-      // Handle objects
-      if (typeof value === 'object') {
-        value = JSON.stringify(value);
-      }
-      
-      // Escape quotes and wrap in quotes
-      value = String(value).replace(/"/g, '""');
-      return `"${value}"`;
-    }).join(',');
+  const rows = data.map((row) => {
+    return columns
+      .map((col) => {
+        let value = col.getValue ? col.getValue(row) : row[col.id];
+
+        // Handle null/undefined
+        if (value === null || value === undefined) {
+          return '""';
+        }
+
+        // Handle arrays
+        if (Array.isArray(value)) {
+          value = value.join('; ');
+        }
+
+        // Handle objects
+        if (typeof value === 'object') {
+          value = JSON.stringify(value);
+        }
+
+        // Escape quotes and wrap in quotes
+        value = String(value).replace(/"/g, '""');
+        return `"${value}"`;
+      })
+      .join(',');
   });
-  
+
   return [headers, ...rows].join('\n');
 }
 
@@ -54,7 +56,7 @@ export function dataToCSV(data: any[], columns: ExportColumn[]): string {
 export function downloadCSV(csvContent: string, filename: string): void {
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
-  
+
   if (link.download !== undefined) {
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);

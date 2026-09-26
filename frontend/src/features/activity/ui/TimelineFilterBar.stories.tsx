@@ -55,10 +55,6 @@ export const Default: Story = {
   render: () => <Wrapper />,
 };
 
-export const AgentsOnly: Story = {
-  render: () => <Wrapper initial={{ origins: ['portal-api'] }} />,
-};
-
 export const PerAsset: Story = {
   render: () => <Wrapper hideResourceTypes />,
 };

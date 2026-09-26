@@ -1,16 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useEffect, useState } from 'react';
 
-import { type MockRoute, mockApi } from '../../../../.storybook/mocks/api';
+import { MockedApi } from '../../../../.storybook/mocks/api';
 import { settingsRoutes } from './__stories__/fixtures';
 import { SettingsForm } from './SettingsForm';
-
-/** Installed during render, before the form's first request. */
-function Mocked({ routes: r, children }: { routes: MockRoute[]; children: React.ReactNode }) {
-  const [restore] = useState(() => mockApi(r));
-  useEffect(() => restore, [restore]);
-  return <>{children}</>;
-}
 
 const meta: Meta = {
   title: 'Features/Settings/SettingsForm',
@@ -38,15 +30,15 @@ type Story = StoryObj<typeof meta>;
 
 export const Loaded: Story = {
   render: () => (
-    <Mocked routes={settingsRoutes()}>
+    <MockedApi routes={settingsRoutes()}>
       <SettingsForm />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const Dirty: Story = {
   render: () => (
-    <Mocked routes={settingsRoutes()}>
+    <MockedApi routes={settingsRoutes()}>
       <SettingsForm
         initialDraft={{
           'smus.domainId': 'dzd_newdomain',
@@ -54,32 +46,13 @@ export const Dirty: Story = {
           'smus.projectIds': ['proj-published-prod', 'proj-published-dev'],
         }}
       />
-    </Mocked>
-  ),
-};
-
-export const SavingError: Story = {
-  render: () => (
-    <Mocked
-      routes={settingsRoutes([
-        {
-          method: 'put',
-          url: '/settings',
-          respond: () => ({
-            status: 400,
-            body: { success: false, error: "Unknown setting 'smus.domainId'" },
-          }),
-        },
-      ])}
-    >
-      <SettingsForm initialDraft={{ 'smus.domainId': 'dzd_newdomain' }} />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const SmusNotConfigured: Story = {
   render: () => (
-    <Mocked
+    <MockedApi
       routes={settingsRoutes([
         {
           method: 'get',
@@ -91,13 +64,13 @@ export const SmusNotConfigured: Story = {
       ])}
     >
       <SettingsForm />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const LoadError: Story = {
   render: () => (
-    <Mocked
+    <MockedApi
       routes={[
         {
           method: 'get',
@@ -110,13 +83,13 @@ export const LoadError: Story = {
       ]}
     >
       <SettingsForm />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const NoSettings: Story = {
   render: () => (
-    <Mocked
+    <MockedApi
       routes={[
         {
           method: 'get',
@@ -126,6 +99,6 @@ export const NoSettings: Story = {
       ]}
     >
       <SettingsForm />
-    </Mocked>
+    </MockedApi>
   ),
 };

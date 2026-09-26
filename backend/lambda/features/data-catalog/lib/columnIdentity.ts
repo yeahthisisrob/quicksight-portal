@@ -27,13 +27,13 @@ export function normalizeColumnName(value: string): string {
  */
 export type ColumnMatchKind = 'exact' | 'normalized' | 'listing-only' | 'no-schema';
 
-export interface ListingColumn {
+interface ListingColumn {
   name: string;
   type?: string;
   description?: string;
 }
 
-export interface ColumnMatch {
+interface ColumnMatch {
   column: ListingColumn;
   match: 'exact' | 'normalized';
 }

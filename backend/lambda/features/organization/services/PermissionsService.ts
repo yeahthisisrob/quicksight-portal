@@ -10,7 +10,7 @@ import type { AssetPermission } from '../types';
 /**
  * Describes how a user has access to an asset
  */
-export interface AccessSource {
+interface AccessSource {
   type: 'direct' | 'group' | 'folder';
   actions: string[];
   groupName?: string;
@@ -21,7 +21,7 @@ export interface AccessSource {
 /**
  * A user with all the ways they can access an asset
  */
-export interface UserAccessInfo {
+interface UserAccessInfo {
   userName: string;
   userArn: string;
   sources: AccessSource[];
@@ -30,7 +30,7 @@ export interface UserAccessInfo {
 /**
  * A group with all the ways it can access an asset
  */
-export interface GroupAccessInfo {
+interface GroupAccessInfo {
   groupName: string;
   groupArn: string;
   sources: AccessSource[];

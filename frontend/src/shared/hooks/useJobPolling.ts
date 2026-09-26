@@ -8,7 +8,7 @@ import { type JobMetadata, jobsApi } from '@/shared/api/modules/jobs';
  * useful for tighter cadence at the start of a job and looser later.
  */
 export type PollIntervalFn = (elapsedMs: number) => number;
-export type PollInterval = number | PollIntervalFn;
+type PollInterval = number | PollIntervalFn;
 
 interface UseJobPollingOptions {
   /** Default 2000ms. Pass a function for dynamic backoff. */

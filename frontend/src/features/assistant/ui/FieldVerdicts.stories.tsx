@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { FIELD_VERDICTS } from './__stories__/assistant';
 import { FieldVerdicts } from './FieldVerdicts';
 
 /**
@@ -16,13 +15,13 @@ const meta: Meta<typeof FieldVerdicts> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const PushDownStrategy: Story = {
-  name: 'Push down to the source: reuse, follow-up, analysis',
-  args: { fields: FIELD_VERDICTS.fields as never },
-};
-
-export const DatasetStrategy: Story = {
-  name: 'Materialise in the dataset',
+/**
+ * The push-down strategy (reuse a column, follow-up upstream, keep in the
+ * analysis) is drawn inside the assistant chat's Planned story; these are the
+ * other two strategies' verdicts.
+ */
+export const DatasetOrNoPreference: Story = {
+  name: 'Materialise in the dataset, or no stated strategy',
   args: {
     fields: [
       {
@@ -31,17 +30,9 @@ export const DatasetStrategy: Story = {
         verdict: 'dataset',
         note: 'Row-level: per your guidance it belongs in the QuickSight dataset, computed once there rather than in every analysis.',
       },
-    ],
-  },
-};
-
-export const NoPreference: Story = {
-  name: 'No stated strategy',
-  args: {
-    fields: [
       {
-        name: 'Unit price',
-        expression: '{revenue} / {qty}',
+        name: 'Unit margin',
+        expression: '({revenue} - {cost}) / {qty}',
         verdict: 'row-level',
         note: 'Row-level, so it could be materialised in the dataset or upstream; your guidance states no preference.',
       },

@@ -31,7 +31,7 @@ export interface CalculatedFieldTemplate {
   updatedAt: string;
 }
 
-export interface CalculatedFieldTemplateInput {
+interface CalculatedFieldTemplateInput {
   name: string;
   expression: string;
   dataType?: string;

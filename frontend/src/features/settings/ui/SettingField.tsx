@@ -18,7 +18,7 @@ import { displayValue, type SettingsDraft, type SettingValue } from '../model/se
 import { RemoteMultiSelect } from './RemoteMultiSelect';
 import { SourceBadge } from './SourceBadge';
 
-export interface SettingFieldProps {
+interface SettingFieldProps {
   definition: SettingDefinition;
   draft: SettingsDraft;
   onSet: (value: SettingValue) => void;
@@ -211,5 +211,3 @@ export function SettingField({
     </Box>
   );
 }
-
-export default SettingField;

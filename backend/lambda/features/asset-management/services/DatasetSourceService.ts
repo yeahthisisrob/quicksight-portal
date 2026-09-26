@@ -38,10 +38,10 @@ import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
 
-export type PhysicalTableKind = 'RELATIONAL' | 'CUSTOM_SQL' | 'S3';
+type PhysicalTableKind = 'RELATIONAL' | 'CUSTOM_SQL' | 'S3';
 
 /** One physical table, flattened for editing. */
-export interface DatasetPhysicalTable {
+interface DatasetPhysicalTable {
   /** Key in PhysicalTableMap. Referenced by LogicalTableMap - never changes. */
   id: string;
   kind: PhysicalTableKind;
@@ -61,7 +61,7 @@ export interface DatasetPhysicalTable {
   editable: boolean;
 }
 
-export interface DatasetSource {
+interface DatasetSource {
   dataSetId: string;
   name: string;
   importMode: string;
@@ -69,7 +69,7 @@ export interface DatasetSource {
 }
 
 /** A change to one physical table. Omitted fields are left alone. */
-export interface DatasetTableEdit {
+interface DatasetTableEdit {
   id: string;
   dataSourceArn?: string;
   name?: string;
@@ -78,14 +78,14 @@ export interface DatasetTableEdit {
   sqlQuery?: string;
 }
 
-export interface DatasetSourceUpdate {
+interface DatasetSourceUpdate {
   /** Rename the dataset at the same time, if given. */
   name?: string;
   tables?: DatasetTableEdit[];
 }
 
 /** A data source the caller may point a table at. */
-export interface DataSourceOption {
+interface DataSourceOption {
   id: string;
   name: string;
   arn: string;

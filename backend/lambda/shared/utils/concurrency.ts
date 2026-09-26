@@ -3,9 +3,9 @@
  * keeps behavior predictable: at most `concurrency` tasks run at any time;
  * tasks queue FIFO when the bucket is full.
  */
-export type LimitedTask<T> = () => Promise<T>;
+type LimitedTask<T> = () => Promise<T>;
 
-export interface PLimit {
+interface PLimit {
   <T>(task: LimitedTask<T>): Promise<T>;
   readonly activeCount: number;
   readonly pendingCount: number;

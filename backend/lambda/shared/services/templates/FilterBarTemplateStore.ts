@@ -17,11 +17,11 @@ const TEMPLATE_PK = 'FILTER_BAR_TEMPLATE';
 const NAME_MAX_LENGTH = 200;
 const MAX_CONTROLS = 12;
 /** Control-bar widths, in the bar's grid units. */
-export const MIN_CONTROL_SPAN = 1;
-export const MAX_CONTROL_SPAN = 6;
-export const DEFAULT_CONTROL_SPAN = 2;
+const MIN_CONTROL_SPAN = 1;
+const MAX_CONTROL_SPAN = 6;
+const DEFAULT_CONTROL_SPAN = 2;
 
-export interface FilterBarControl {
+interface FilterBarControl {
   /** Column name, matched case-insensitively against the datasets' columns. */
   column: string;
   title?: string;
@@ -35,7 +35,7 @@ export interface FilterBarTemplate extends TemplateMeta {
   controls: FilterBarControl[];
 }
 
-export interface FilterBarTemplateInput {
+interface FilterBarTemplateInput {
   name: string;
   description?: string;
   isDefault?: boolean;

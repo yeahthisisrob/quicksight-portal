@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
+import type { TimelineEvent } from '@/shared/api/modules/activity';
+
 import { TimelineEventJsonDialog } from './TimelineEventJsonDialog';
 
 const meta: Meta<typeof TimelineEventJsonDialog> = {
@@ -55,35 +57,7 @@ export const ConsoleUpdateAnalysis: Story = {
             { key: 'analysisId', value: 'arn:aws:quicksight:us-east-1:123:analysis/abc-123' },
           ],
         },
-      } as any,
-    },
-  },
-};
-
-export const NameMissDebugging: Story = {
-  args: {
-    open: true,
-    onClose: () => {},
-    event: {
-      id: '2026-08-17T13:00:00Z_UpdateAnalysis__john.doe',
-      timestamp: '2026-08-17T13:00:00Z',
-      eventName: 'UpdateAnalysis',
-      kind: 'mutation',
-      action: 'update',
-      user: 'john.doe',
-      actor: { kind: 'user', label: 'john.doe', raw: 'john.doe' },
-      origin: 'console',
-      resourceType: 'analysis',
-      assetType: 'analysis',
-      raw: {
-        timestamp: '2026-08-17T13:00:00Z',
-        eventName: 'UpdateAnalysis',
-        user: 'john.doe',
-        kind: 'mutation',
-        action: 'update',
-        resourceType: 'analysis',
-        eventId: 'a1b2c3d4-aaaa-bbbb-cccc-ddddeeeeffff',
-      } as any,
+      } as unknown as TimelineEvent['raw'],
     },
   },
 };

@@ -7,6 +7,7 @@
     "check": "biome check .",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
+    "deadcode": "knip --no-progress",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "build": "pnpm -r run build",
@@ -25,6 +26,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
     "concurrently": "^10.0.5",
+    "knip": "^6.38.0",
     "typescript": "^7.0.2"
   },
   "packageManager": "pnpm@12.4.2",

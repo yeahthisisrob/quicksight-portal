@@ -28,7 +28,7 @@ const smusExportPollInterval: PollIntervalFn = (elapsedMs) => {
 };
 
 /** Every query that reads the SMUS snapshot. */
-export const SMUS_SNAPSHOT_QUERY_KEYS: readonly (readonly string[])[] = [
+const SMUS_SNAPSHOT_QUERY_KEYS: readonly (readonly string[])[] = [
   ['settings'],
   ['settings-options'],
   ['smus-assets'],
@@ -37,7 +37,7 @@ export const SMUS_SNAPSHOT_QUERY_KEYS: readonly (readonly string[])[] = [
   ['data-catalog', 'smus'],
 ];
 
-export interface SmusExport {
+interface SmusExport {
   /** Queue the job (or attach to the one already running). */
   start: () => Promise<void>;
   /** Queued or processing. */

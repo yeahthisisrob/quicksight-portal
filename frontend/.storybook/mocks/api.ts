@@ -1,6 +1,18 @@
-import type { AxiosAdapter, AxiosRequestConfig, AxiosResponse } from 'axios';
+import type { Middleware } from 'openapi-fetch';
+import { createElement, Fragment, type ReactNode, useEffect, useState } from 'react';
 
-import { api } from '../../src/shared/api/client';
+import { client } from '../../src/shared/api/typed';
+
+/** A request as a mock route sees it. */
+export interface MockRequest {
+  method: string;
+  /** The path relative to /api, without the query string. */
+  url: string;
+  /** The query string, parsed. */
+  params: Record<string, string>;
+  /** The body as sent (JSON text); see requestBody. */
+  data?: string;
+}
 
 export interface MockRoute {
   method?: 'get' | 'post' | 'put' | 'delete';
@@ -8,63 +20,72 @@ export interface MockRoute {
   url: string | RegExp;
   /** Return the JSON body. Throw or return `{ status }` to fail. */
   respond: (
-    config: AxiosRequestConfig
+    config: MockRequest
   ) => { status?: number; body: unknown } | Promise<{ status?: number; body: unknown }>;
 }
 
 /**
  * Stub the HTTP layer the app actually uses.
  *
- * The API client is axios, which talks XMLHttpRequest in a browser, so a
- * `window.fetch` stub never sees its requests. Replacing the adapter does:
- * every call goes through here, unmatched routes fail loudly with 404, and
- * the previous adapter is restored when the story unmounts.
+ * The API client (openapi-fetch) speaks fetch through middleware, so a
+ * middleware answers its requests from these routes: unmatched routes fail
+ * loudly with 404, and the middleware is removed when the story unmounts.
  */
 export function mockApi(routes: MockRoute[]): () => void {
-  const previous = api.defaults.adapter;
-
-  const adapter: AxiosAdapter = async (config) => {
-    const method = (config.method ?? 'get').toLowerCase();
-    const url = config.url ?? '';
-    const route = routes.find(
-      (r) =>
-        (!r.method || r.method === method) &&
-        (typeof r.url === 'string' ? url.includes(r.url) : r.url.test(url))
-    );
-
-    const result = route
-      ? await route.respond(config)
-      : {
-          status: 404,
-          body: { success: false, error: `No mock for ${method.toUpperCase()} ${url}` },
-        };
-    const status = result.status ?? 200;
-    const response: AxiosResponse = {
-      data: result.body,
-      status,
-      statusText: status < 400 ? 'OK' : 'Error',
-      headers: {},
-      config: config as AxiosResponse['config'],
-    };
-    if (status >= 400) {
-      const error = Object.assign(new Error(`Request failed with status code ${status}`), {
-        isAxiosError: true,
-        response,
-        config,
-        toJSON: () => ({}),
+  const fetchMock: Middleware = {
+    async onRequest({ request }) {
+      const parsed = new URL(request.url);
+      const config: MockRequest = {
+        method: request.method.toLowerCase(),
+        url: parsed.pathname.replace(/^\/api(?=\/)/, ''),
+        params: Object.fromEntries(parsed.searchParams.entries()),
+        data: request.body ? await request.clone().text() : undefined,
+      };
+      const route = routes.find(
+        (r) =>
+          (!r.method || r.method === config.method) &&
+          (typeof r.url === 'string' ? config.url.includes(r.url) : r.url.test(config.url))
+      );
+      const result = route
+        ? await route.respond(config)
+        : {
+            status: 404,
+            body: {
+              success: false,
+              error: `No mock for ${config.method.toUpperCase()} ${config.url}`,
+            },
+          };
+      return new Response(JSON.stringify(result.body), {
+        status: result.status ?? 200,
+        headers: { 'Content-Type': 'application/json' },
       });
-      throw error;
-    }
-    return response;
+    },
   };
 
-  api.defaults.adapter = adapter;
+  client.use(fetchMock);
   return () => {
-    api.defaults.adapter = previous;
+    client.eject(fetchMock);
   };
 }
 
+/**
+ * Answer the API from `routes` for as long as the calling component is
+ * mounted. The routes go in during the first render, not in an effect:
+ * children's effects run before their parent's, so a mock installed in an
+ * effect would miss the story's first request.
+ */
+export function useMockApi(routes: MockRoute[]): void {
+  const [restore] = useState(() => mockApi(routes));
+  useEffect(() => restore, [restore]);
+}
+
+/** `useMockApi` as a wrapper: `<MockedApi routes={...}><Story /></MockedApi>`. */
+export function MockedApi({ routes, children }: { routes: MockRoute[]; children: ReactNode }) {
+  useMockApi(routes);
+  return createElement(Fragment, null, children);
+}
+
 /** Parse a request body the way the server would. */
-export function requestBody<T = any>(config: AxiosRequestConfig): T {
-  return typeof config.data === 'string' ? (JSON.parse(config.data) as T) : (config.data as T);
+export function requestBody<T = any>(config: MockRequest): T {
+  return (config.data ? JSON.parse(config.data) : undefined) as T;
 }

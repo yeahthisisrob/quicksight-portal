@@ -17,13 +17,3 @@ export interface ActivityData {
   lastRefreshTime?: string | null;
   lastRefreshStatus?: string | null;
 }
-
-/**
- * Activity statistics for view tracking
- */
-export interface ViewStats {
-  totalViews: number;
-  uniqueViewers: number;
-  lastViewedAt?: string;
-  statsRefreshedAt?: string;
-}

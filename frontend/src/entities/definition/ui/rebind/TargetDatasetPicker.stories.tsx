@@ -1,8 +1,8 @@
 import { Box } from '@mui/material';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
-import { type MockRoute, mockApi } from '../../../../../.storybook/mocks/api';
+import { type MockRoute, useMockApi } from '../../../../../.storybook/mocks/api';
 import { searchRoute } from '../../../../../.storybook/mocks/search';
 import type { DatasetOption } from '../../lib/useRebindDraft';
 import { TargetDatasetPicker } from './TargetDatasetPicker';
@@ -33,8 +33,7 @@ const routes: MockRoute[] = [
 ];
 
 function Demo({ initialInput }: { initialInput?: string }) {
-  const [restore] = useState(() => mockApi(routes));
-  useEffect(() => restore, [restore]);
+  useMockApi(routes);
   const [value, setValue] = useState<DatasetOption | null>(null);
   return (
     <Box sx={{ maxWidth: 520 }}>

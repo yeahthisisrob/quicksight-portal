@@ -4,14 +4,14 @@ import type { ReactNode } from 'react';
 import { pal } from '../createAppTheme';
 import { radius } from '../tokens/scale';
 
-export interface SegmentedOption<T extends string> {
+interface SegmentedOption<T extends string> {
   value: T;
   label: ReactNode;
   icon?: ReactNode;
   disabled?: boolean;
 }
 
-export interface SegmentedControlProps<T extends string> {
+interface SegmentedControlProps<T extends string> {
   options: SegmentedOption<T>[];
   value: T;
   onChange: (value: T) => void;
@@ -86,5 +86,3 @@ export function SegmentedControl<T extends string>({
     </Box>
   );
 }
-
-export default SegmentedControl;

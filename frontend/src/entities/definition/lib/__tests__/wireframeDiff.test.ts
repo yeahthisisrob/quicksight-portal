@@ -152,9 +152,7 @@ describe('diffWireframeModels', () => {
     const after: WireframeModel = {
       ...before,
       sheets: before.sheets.map((s, i) =>
-        i === 0
-          ? { ...s, elements: [...s.elements.filter((e) => e.id !== 'line-trend'), copy] }
-          : s
+        i === 0 ? { ...s, elements: [...s.elements.filter((e) => e.id !== 'line-trend'), copy] } : s
       ),
     };
     const diff = diffWireframeModels(before, after);

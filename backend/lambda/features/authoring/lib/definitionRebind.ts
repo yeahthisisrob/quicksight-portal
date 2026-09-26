@@ -156,4 +156,3 @@ export function withAddedCalculatedFields(
   }
   return { ...definition, CalculatedFields: fields };
 }
-

@@ -200,7 +200,7 @@ function applyOp(definition: Json, op: DefinitionOp, changes: DefinitionChange[]
   }
 }
 
-export interface SimulatedPreview {
+interface SimulatedPreview {
   definition: Json;
   changes: DefinitionChange[];
   outline: SheetOutline[];

@@ -1,25 +1,3 @@
-export interface Column {
-  name: string;
-  dataType: string;
-  description?: string;
-  tags?: string[];
-}
-
-export interface Table {
-  name: string;
-  schema: string;
-  database: string;
-  columns: Column[];
-  description?: string;
-  tags?: string[];
-}
-
-export interface FieldTag {
-  datasetId: string;
-  fieldName: string;
-  tags: string[];
-}
-
 // Data catalog types - moved from old services
 export interface CatalogField {
   fieldId: string;
@@ -129,20 +107,6 @@ export interface CatalogIndex {
   };
 }
 
-export interface VisualFieldName {
-  fieldId: string;
-  visualId: string;
-  visualName: string;
-  sheetId: string;
-  sheetName: string;
-  dashboardId: string;
-  dashboardName: string;
-  fieldName: string;
-  dataType: string;
-  isCalculated: boolean;
-  lastUpdated: string;
-}
-
 export interface DataCatalogResult {
   fields: CatalogField[];
   calculatedFields: CatalogField[];
@@ -163,16 +127,13 @@ export interface DataCatalogResult {
   };
 }
 
-export interface VisualFieldCatalogResult {
-  visualFields: VisualFieldName[];
-  summary: {
-    totalVisualFields: number;
-    totalVisuals: number;
-    totalSheets: number;
-    totalDashboards: number;
-    lastUpdated: Date;
-    processingTimeMs: number;
-  };
+/** Where a field's data comes from, as the person who documented it wrote it down. */
+export interface FieldLineageNotes {
+  sourceSystem?: string;
+  sourceTable?: string;
+  sourceField?: string;
+  transformationLogic?: string;
+  updateFrequency?: string;
 }
 
 export interface FieldMetadataEntry {
@@ -181,6 +142,7 @@ export interface FieldMetadataEntry {
   tags?: string[];
   category?: string;
   sensitivity?: 'public' | 'internal' | 'confidential' | 'restricted';
+  lineage?: FieldLineageNotes;
   lastUpdated?: string;
   updatedBy?: string;
 }
@@ -190,15 +152,4 @@ export interface BulkFieldMetadata {
   lastUpdated: string;
   totalFields: number;
   fields: Record<string, FieldMetadataEntry>;
-}
-
-export interface CatalogResponse {
-  fields: CatalogField[];
-  pagination: {
-    page: number;
-    pageSize: number;
-    totalItems: number;
-    totalPages: number;
-    hasMore: boolean;
-  };
 }

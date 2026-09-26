@@ -28,13 +28,11 @@
     "aws-cdk-lib": "^2.267.0",
     "cdk-nag": "^3.0.2",
     "constructs": "^10.8.1",
-    "esbuild": "^0.28.2",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
     "vitest": "^5.0.1"
   },
   "engines": {
     "node": ">=22 <23"
-  },
-  "dependencies": {}
+  }
 }

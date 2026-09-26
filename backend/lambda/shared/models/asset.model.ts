@@ -18,10 +18,9 @@ export type AssetType =
 export enum AssetStatus {
   ACTIVE = 'active',
   ARCHIVED = 'archived',
-  DELETED = 'deleted',
 }
 
-export type EnrichmentStatus = 'skeleton' | 'enriched' | 'partial' | 'metadata-update';
+type EnrichmentStatus = 'skeleton' | 'enriched' | 'partial' | 'metadata-update';
 
 /**
  * Lightweight cache entry for fast queries
@@ -255,62 +254,4 @@ export interface MasterCache {
 
   // Lightweight entries for fast queries
   entries: Record<AssetType, CacheEntry[]>;
-}
-
-/**
- * API response models - what frontend receives
- * Note: We re-export the OpenAPI generated types to ensure consistency
- */
-export interface AssetListItem {
-  id: string;
-  name: string;
-  type: AssetType;
-  status: AssetStatus;
-
-  // QuickSight timestamps (strings for API compatibility)
-  createdTime: string;
-  lastModifiedTime: string;
-
-  // Portal info
-  lastExported: string;
-  enrichmentStatus: EnrichmentStatus;
-
-  // Quick access
-  tags: Array<{ key: string; value: string }>;
-
-  // Type-specific fields from metadata
-  [key: string]: any;
-}
-
-export interface FolderListItem extends AssetListItem {
-  path: string;
-  memberCount: number;
-  parentId?: string;
-}
-
-export interface DashboardListItem extends AssetListItem {
-  dashboardStatus: string; // QuickSight specific status like CREATION_SUCCESSFUL
-  visualCount: number;
-  sheetCount: number;
-  datasetCount: number;
-  definitionErrors?: Array<{
-    type: string;
-    message: string;
-    violatedEntities?: Array<{
-      path: string;
-    }>;
-  }>;
-}
-
-export interface DatasetListItem extends AssetListItem {
-  importMode: 'SPICE' | 'DIRECT_QUERY';
-  fieldCount: number;
-  sourceType?: string; // FILE, S3, ATHENA, database types, etc.
-}
-
-export interface UserListItem extends AssetListItem {
-  email: string;
-  role: string;
-  active: boolean;
-  groupCount: number;
 }

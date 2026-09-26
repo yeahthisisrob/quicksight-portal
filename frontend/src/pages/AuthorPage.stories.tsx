@@ -6,7 +6,6 @@ import {
   REPAIR_PLAN,
   repairPlanRoute,
   SMUS_NOT_CONFIGURED,
-  SMUS_SETTINGS_NO_PROJECTS,
   SMUS_SETTINGS_NOT_CONFIGURED,
   SOURCE,
 } from '@/features/author/ui/__stories__/fixtures';
@@ -54,16 +53,6 @@ export const RepairFromErrors: Story = {
   ),
 };
 
-export const MigrateOntoStandard: Story = {
-  name: 'Opened to migrate onto a standard',
-  parameters: { router: { initialEntries: [`${sourceUrl}&standard=1`] } },
-  render: () => (
-    <AppShell path="author" routes={authorRoutes()}>
-      <AuthorPage />
-    </AppShell>
-  ),
-};
-
 /** /author?new=1 - the flow that starts from nothing, on the Datasets step. */
 export const StartedFromNothing: Story = {
   name: 'Started from nothing',
@@ -97,16 +86,6 @@ export const AssistantTab: Story = {
   ),
 };
 
-export const Start: Story = {
-  name: 'Studio: fresh, nothing chosen',
-  parameters: { router: { initialEntries: ['/author?tab=studio'] } },
-  render: () => (
-    <AppShell path="author" routes={authorRoutes()}>
-      <AuthorPage />
-    </AppShell>
-  ),
-};
-
 export const SmusNotConfigured: Story = {
   name: 'Gated: SMUS not configured',
   parameters: { router: { initialEntries: [sourceUrl] } },
@@ -115,16 +94,6 @@ export const SmusNotConfigured: Story = {
       path="author"
       routes={authorRoutes([SMUS_SETTINGS_NOT_CONFIGURED, SMUS_NOT_CONFIGURED])}
     >
-      <AuthorPage />
-    </AppShell>
-  ),
-};
-
-export const NoProjectsSelected: Story = {
-  name: 'Gated: no projects selected',
-  parameters: { router: { initialEntries: [sourceUrl] } },
-  render: () => (
-    <AppShell path="author" routes={authorRoutes([SMUS_SETTINGS_NO_PROJECTS])}>
       <AuthorPage />
     </AppShell>
   ),

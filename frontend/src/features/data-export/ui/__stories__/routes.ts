@@ -8,7 +8,7 @@ const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
 const JOB_ID = 'export-story-job';
 
-export interface ExportStubOptions {
+interface ExportStubOptions {
   /** A job in flight when the page opens. */
   running?: boolean;
   /** The last job failed on some assets. */

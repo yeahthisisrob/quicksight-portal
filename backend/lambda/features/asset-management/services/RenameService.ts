@@ -25,8 +25,8 @@ import { cacheService } from '../../../shared/services/cache/CacheService';
 import type { AssetType } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
 
-export const RENAMEABLE_ASSET_TYPES = ['dashboard', 'analysis', 'dataset', 'folder'] as const;
-export type RenameableAssetType = (typeof RENAMEABLE_ASSET_TYPES)[number];
+const RENAMEABLE_ASSET_TYPES = ['dashboard', 'analysis', 'dataset', 'folder'] as const;
+type RenameableAssetType = (typeof RENAMEABLE_ASSET_TYPES)[number];
 
 /** QuickSight name constraints (dashboards/analyses/datasets allow 1-2048;
  *  folders 1-200 - enforce the stricter bound uniformly for sanity) */

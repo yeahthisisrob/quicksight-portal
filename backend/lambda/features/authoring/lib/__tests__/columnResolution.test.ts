@@ -25,7 +25,13 @@ describe('resolveColumns', () => {
   it('matches identical names', () => {
     const result = resolveColumns([ref('status')], TARGET);
     expect(result.columns).toEqual([
-      { name: 'status', status: 'matched', resolvedTo: 'status', targetType: 'STRING', usage: emptyUsage() },
+      {
+        name: 'status',
+        status: 'matched',
+        resolvedTo: 'status',
+        targetType: 'STRING',
+        usage: emptyUsage(),
+      },
     ]);
     expect(result.canApply).toBe(true);
   });

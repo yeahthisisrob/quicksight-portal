@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { applyTemplate, reflow, templateTiles } from '../definitionTemplate';
 import { sampleDefinition } from './fixtures';
 
-const col = (identifier: string, name: string) => ({ DataSetIdentifier: identifier, ColumnName: name });
+const col = (identifier: string, name: string) => ({
+  DataSetIdentifier: identifier,
+  ColumnName: name,
+});
 
 /** A template: title band, status filter + region parameter, two KPIs, two 18x12 charts, a notes footer. */
 function templateDefinition() {
@@ -16,10 +19,26 @@ function templateDefinition() {
       {
         FilterGroupId: 'tfg',
         Filters: [
-          { CategoryFilter: { FilterId: 'tf-status', Column: col('tpl', 'status'), Configuration: {} } },
-          { CategoryFilter: { FilterId: 'tf-missing', Column: col('tpl', 'segment'), Configuration: {} } },
+          {
+            CategoryFilter: {
+              FilterId: 'tf-status',
+              Column: col('tpl', 'status'),
+              Configuration: {},
+            },
+          },
+          {
+            CategoryFilter: {
+              FilterId: 'tf-missing',
+              Column: col('tpl', 'segment'),
+              Configuration: {},
+            },
+          },
         ],
-        ScopeConfiguration: { SelectedSheets: { SheetVisualScopingConfigurations: [{ SheetId: 'ts', Scope: 'ALL_VISUALS' }] } },
+        ScopeConfiguration: {
+          SelectedSheets: {
+            SheetVisualScopingConfigurations: [{ SheetId: 'ts', Scope: 'ALL_VISUALS' }],
+          },
+        },
         CrossDataset: 'SINGLE_DATASET',
       },
     ],
@@ -32,11 +51,29 @@ function templateDefinition() {
           { SheetTextBoxId: 'notes', Content: 'Notes · last refreshed nightly · open a SIM' },
         ],
         FilterControls: [
-          { Dropdown: { FilterControlId: 'fc-status', Title: 'Status', SourceFilterId: 'tf-status' } },
-          { Dropdown: { FilterControlId: 'fc-missing', Title: 'Segment', SourceFilterId: 'tf-missing' } },
+          {
+            Dropdown: {
+              FilterControlId: 'fc-status',
+              Title: 'Status',
+              SourceFilterId: 'tf-status',
+            },
+          },
+          {
+            Dropdown: {
+              FilterControlId: 'fc-missing',
+              Title: 'Segment',
+              SourceFilterId: 'tf-missing',
+            },
+          },
         ],
         ParameterControls: [
-          { Dropdown: { ParameterControlId: 'pc-period', Title: 'Period', SourceParameterName: 'period' } },
+          {
+            Dropdown: {
+              ParameterControlId: 'pc-period',
+              Title: 'Period',
+              SourceParameterName: 'period',
+            },
+          },
         ],
         Visuals: [
           { KPIVisual: { VisualId: 'tk1' } },
@@ -49,15 +86,78 @@ function templateDefinition() {
             Configuration: {
               GridLayout: {
                 Elements: [
-                  { ElementId: 'title', ElementType: 'TEXT_BOX', ColumnIndex: 0, ColumnSpan: 36, RowIndex: 0, RowSpan: 2 },
-                  { ElementId: 'fc-status', ElementType: 'FILTER_CONTROL', ColumnIndex: 0, ColumnSpan: 9, RowIndex: 2, RowSpan: 3 },
-                  { ElementId: 'fc-missing', ElementType: 'FILTER_CONTROL', ColumnIndex: 9, ColumnSpan: 9, RowIndex: 2, RowSpan: 3 },
-                  { ElementId: 'pc-period', ElementType: 'PARAMETER_CONTROL', ColumnIndex: 18, ColumnSpan: 9, RowIndex: 2, RowSpan: 3 },
-                  { ElementId: 'tk1', ElementType: 'VISUAL', ColumnIndex: 0, ColumnSpan: 9, RowIndex: 5, RowSpan: 6 },
-                  { ElementId: 'tk2', ElementType: 'VISUAL', ColumnIndex: 9, ColumnSpan: 9, RowIndex: 5, RowSpan: 6 },
-                  { ElementId: 'tb1', ElementType: 'VISUAL', ColumnIndex: 0, ColumnSpan: 18, RowIndex: 11, RowSpan: 12 },
-                  { ElementId: 'tl1', ElementType: 'VISUAL', ColumnIndex: 18, ColumnSpan: 18, RowIndex: 11, RowSpan: 12 },
-                  { ElementId: 'notes', ElementType: 'TEXT_BOX', ColumnIndex: 0, ColumnSpan: 36, RowIndex: 24, RowSpan: 3 },
+                  {
+                    ElementId: 'title',
+                    ElementType: 'TEXT_BOX',
+                    ColumnIndex: 0,
+                    ColumnSpan: 36,
+                    RowIndex: 0,
+                    RowSpan: 2,
+                  },
+                  {
+                    ElementId: 'fc-status',
+                    ElementType: 'FILTER_CONTROL',
+                    ColumnIndex: 0,
+                    ColumnSpan: 9,
+                    RowIndex: 2,
+                    RowSpan: 3,
+                  },
+                  {
+                    ElementId: 'fc-missing',
+                    ElementType: 'FILTER_CONTROL',
+                    ColumnIndex: 9,
+                    ColumnSpan: 9,
+                    RowIndex: 2,
+                    RowSpan: 3,
+                  },
+                  {
+                    ElementId: 'pc-period',
+                    ElementType: 'PARAMETER_CONTROL',
+                    ColumnIndex: 18,
+                    ColumnSpan: 9,
+                    RowIndex: 2,
+                    RowSpan: 3,
+                  },
+                  {
+                    ElementId: 'tk1',
+                    ElementType: 'VISUAL',
+                    ColumnIndex: 0,
+                    ColumnSpan: 9,
+                    RowIndex: 5,
+                    RowSpan: 6,
+                  },
+                  {
+                    ElementId: 'tk2',
+                    ElementType: 'VISUAL',
+                    ColumnIndex: 9,
+                    ColumnSpan: 9,
+                    RowIndex: 5,
+                    RowSpan: 6,
+                  },
+                  {
+                    ElementId: 'tb1',
+                    ElementType: 'VISUAL',
+                    ColumnIndex: 0,
+                    ColumnSpan: 18,
+                    RowIndex: 11,
+                    RowSpan: 12,
+                  },
+                  {
+                    ElementId: 'tl1',
+                    ElementType: 'VISUAL',
+                    ColumnIndex: 18,
+                    ColumnSpan: 18,
+                    RowIndex: 11,
+                    RowSpan: 12,
+                  },
+                  {
+                    ElementId: 'notes',
+                    ElementType: 'TEXT_BOX',
+                    ColumnIndex: 0,
+                    ColumnSpan: 36,
+                    RowIndex: 24,
+                    RowSpan: 3,
+                  },
                 ],
               },
             },
@@ -80,7 +180,10 @@ describe('templateTiles and reflow', () => {
       tile: { colSpan: 18, rowSpan: 12 },
       kpi: { colSpan: 9, rowSpan: 6 },
     });
-    expect(templateTiles({ Visuals: [], Layouts: [] })).toEqual({ tile: { colSpan: 12, rowSpan: 10 }, kpi: null });
+    expect(templateTiles({ Visuals: [], Layouts: [] })).toEqual({
+      tile: { colSpan: 12, rowSpan: 10 },
+      kpi: null,
+    });
   });
 
   it('flows tiles left to right and wraps rows by the tallest tile', () => {
@@ -92,7 +195,11 @@ describe('templateTiles and reflow', () => {
       ],
       5
     );
-    expect(elements.map((e) => [e.ColumnIndex, e.RowIndex])).toEqual([[0, 5], [18, 5], [0, 17]]);
+    expect(elements.map((e) => [e.ColumnIndex, e.RowIndex])).toEqual([
+      [0, 5],
+      [18, 5],
+      [0, 17],
+    ]);
     expect(bottom).toBe(21);
   });
 });
@@ -106,10 +213,14 @@ describe('applyTemplate', () => {
   });
 
   it('carries the title band and rebindable controls, reflows visuals with KPIs first, and puts the footer after', () => {
-    const { definition, changes, warnings, themeArn } = applyTemplate(sampleDefinition(), templateDefinition(), {
-      columnsByIdentifier: columns,
-      themeArn: 'arn:theme',
-    });
+    const { definition, changes, warnings, themeArn } = applyTemplate(
+      sampleDefinition(),
+      templateDefinition(),
+      {
+        columnsByIdentifier: columns,
+        themeArn: 'arn:theme',
+      }
+    );
     const sheet = definition.Sheets[0];
     const elements = grid(definition);
     const byType = (t: string) => elements.filter((e) => e.ElementType === t);
@@ -131,24 +242,33 @@ describe('applyTemplate', () => {
     const added = definition.FilterGroups.find((g: any) => g.FilterGroupId.startsWith('tpl-fg'));
     expect(added.Filters[0].CategoryFilter.Column).toEqual(col('orders', 'status'));
     expect(added.ScopeConfiguration).toEqual({ AllSheets: {} });
-    expect(sheet.FilterControls[0].Dropdown.SourceFilterId).toBe(added.Filters[0].CategoryFilter.FilterId);
+    expect(sheet.FilterControls[0].Dropdown.SourceFilterId).toBe(
+      added.Filters[0].CategoryFilter.FilterId
+    );
     expect(warnings).toEqual([expect.stringContaining("'Segment' was dropped")]);
 
     // The period parameter control came with its declaration; the source's own controls were replaced.
     expect(sheet.ParameterControls).toHaveLength(1);
-    expect(definition.ParameterDeclarations.some((d: any) => d.StringParameterDeclaration?.Name === 'period')).toBe(true);
+    expect(
+      definition.ParameterDeclarations.some(
+        (d: any) => d.StringParameterDeclaration?.Name === 'period'
+      )
+    ).toBe(true);
     expect(changes.some((c) => c.description.includes('Replaced 2 controls'))).toBe(true);
 
     // Visuals: the KPI (v2) first at 9x6, then the bar chart at 18x12, both below the band (rows 0-5).
     const visuals = byType('VISUAL');
-    expect(visuals.map((e) => [e.ElementId, e.ColumnIndex, e.RowIndex, e.ColumnSpan, e.RowSpan])).toEqual([
+    expect(
+      visuals.map((e) => [e.ElementId, e.ColumnIndex, e.RowIndex, e.ColumnSpan, e.RowSpan])
+    ).toEqual([
       ['v2', 0, 5, 9, 6],
       ['v1', 9, 5, 18, 12],
     ]);
     expect(boxes[1]!.RowIndex).toBeGreaterThan(17);
-    expect(changes.find((c) => c.kind === 'template' && c.description.startsWith('Laid out'))?.description).toContain(
-      '18x12 tiles (KPIs 9x6 first)'
-    );
+    expect(
+      changes.find((c) => c.kind === 'template' && c.description.startsWith('Laid out'))
+        ?.description
+    ).toContain('18x12 tiles (KPIs 9x6 first)');
   });
 
   it('keeps the source furniture when the template parts are switched off', () => {
@@ -171,10 +291,24 @@ describe('applyTemplate', () => {
 
   it('serves extra source sheets from the last template sheet', () => {
     const source = sampleDefinition();
-    source.Sheets.push({ SheetId: 's2', Name: 'Detail', Visuals: [{ TableVisual: { VisualId: 'v3' } }], Layouts: [] });
-    const { definition } = applyTemplate(source, templateDefinition(), { columnsByIdentifier: columns });
-    expect(definition.Sheets.map((s: any) => s.Name)).toEqual(['Standard overview', 'Standard overview']);
-    expect(definition.Sheets[1].Layouts[0].Configuration.GridLayout.Elements.some((e: any) => e.ElementId === 'v3')).toBe(true);
+    source.Sheets.push({
+      SheetId: 's2',
+      Name: 'Detail',
+      Visuals: [{ TableVisual: { VisualId: 'v3' } }],
+      Layouts: [],
+    });
+    const { definition } = applyTemplate(source, templateDefinition(), {
+      columnsByIdentifier: columns,
+    });
+    expect(definition.Sheets.map((s: any) => s.Name)).toEqual([
+      'Standard overview',
+      'Standard overview',
+    ]);
+    expect(
+      definition.Sheets[1].Layouts[0].Configuration.GridLayout.Elements.some(
+        (e: any) => e.ElementId === 'v3'
+      )
+    ).toBe(true);
   });
 
   it('refuses a template with no sheets', () => {
@@ -185,28 +319,56 @@ describe('applyTemplate', () => {
     const template = templateDefinition();
     const ts: any = template.Sheets[0];
     // The template keeps Status in its control bar instead of on the canvas.
-    ts.Layouts[0].Configuration.GridLayout.Elements = ts.Layouts[0].Configuration.GridLayout.Elements.filter(
-      (e: any) => e.ElementId !== 'fc-status'
-    );
+    ts.Layouts[0].Configuration.GridLayout.Elements =
+      ts.Layouts[0].Configuration.GridLayout.Elements.filter(
+        (e: any) => e.ElementId !== 'fc-status'
+      );
     ts.SheetControlLayouts = [
-      { Configuration: { GridLayout: { Elements: [{ ElementId: 'fc-status', ElementType: 'FILTER_CONTROL', ColumnSpan: 3, RowSpan: 1 }] } } },
+      {
+        Configuration: {
+          GridLayout: {
+            Elements: [
+              { ElementId: 'fc-status', ElementType: 'FILTER_CONTROL', ColumnSpan: 3, RowSpan: 1 },
+            ],
+          },
+        },
+      },
     ];
     const source: any = sampleDefinition();
     const sheet = source.Sheets[0];
-    sheet.FilterControls = [{ Dropdown: { FilterControlId: 'own-ctl', Title: 'Own', SourceFilterId: 'own-f' } }];
+    sheet.FilterControls = [
+      { Dropdown: { FilterControlId: 'own-ctl', Title: 'Own', SourceFilterId: 'own-f' } },
+    ];
     sheet.SheetControlLayouts = [
-      { Configuration: { GridLayout: { Elements: [{ ElementId: 'own-ctl', ElementType: 'FILTER_CONTROL', ColumnSpan: 2, RowSpan: 1 }] } } },
+      {
+        Configuration: {
+          GridLayout: {
+            Elements: [
+              { ElementId: 'own-ctl', ElementType: 'FILTER_CONTROL', ColumnSpan: 2, RowSpan: 1 },
+            ],
+          },
+        },
+      },
     ];
 
-    const { definition } = applyTemplate(source, template, { columnsByIdentifier: columns, controls: true });
+    const { definition } = applyTemplate(source, template, {
+      columnsByIdentifier: columns,
+      controls: true,
+    });
     const out = definition.Sheets[0];
     const bar = out.SheetControlLayouts[0].Configuration.GridLayout.Elements;
-    const status = out.FilterControls.find((c: any) => c.Dropdown?.Title === 'Status').Dropdown.FilterControlId;
+    const status = out.FilterControls.find((c: any) => c.Dropdown?.Title === 'Status').Dropdown
+      .FilterControlId;
     // The template's controls replace the source's, and Status stays in the bar at its width.
-    expect(bar).toEqual([{ ElementId: status, ElementType: 'FILTER_CONTROL', ColumnSpan: 3, RowSpan: 1 }]);
+    expect(bar).toEqual([
+      { ElementId: status, ElementType: 'FILTER_CONTROL', ColumnSpan: 3, RowSpan: 1 },
+    ]);
     expect(grid(definition).some((e) => e.ElementId === status)).toBe(false);
 
-    const kept = applyTemplate(sampleDefinition() as any, templateDefinition(), { columnsByIdentifier: columns, controls: false });
+    const kept = applyTemplate(sampleDefinition() as any, templateDefinition(), {
+      columnsByIdentifier: columns,
+      controls: false,
+    });
     expect(kept.definition.Sheets[0].SheetControlLayouts).toBeUndefined();
 
     const own: any = sampleDefinition();
@@ -217,9 +379,15 @@ describe('applyTemplate', () => {
       t.FilterControls = [];
       t.ParameterControls = [];
     }
-    const mine = applyTemplate(own, noTemplateControls, { columnsByIdentifier: columns }).definition;
+    const mine = applyTemplate(own, noTemplateControls, {
+      columnsByIdentifier: columns,
+    }).definition;
     // The source's own bar control is not dragged onto the canvas.
-    expect(mine.Sheets[0].SheetControlLayouts[0].Configuration.GridLayout.Elements.map((e: any) => e.ElementId)).toEqual(['own-ctl']);
+    expect(
+      mine.Sheets[0].SheetControlLayouts[0].Configuration.GridLayout.Elements.map(
+        (e: any) => e.ElementId
+      )
+    ).toEqual(['own-ctl']);
     expect(grid(mine).some((e) => e.ElementId === 'own-ctl')).toBe(false);
   });
 });

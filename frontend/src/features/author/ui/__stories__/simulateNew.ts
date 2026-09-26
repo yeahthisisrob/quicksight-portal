@@ -115,7 +115,7 @@ function reflow(specs: Array<{ id: string; kpi: boolean }>, startRow = 0): Place
   return out;
 }
 
-export interface SimulatedNew extends NewAssetPreview {}
+interface SimulatedNew extends NewAssetPreview {}
 
 /**
  * Build what the server would: unknown columns are warned about and their

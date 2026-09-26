@@ -29,7 +29,7 @@ const BULK_OPERATION_LIMITS = {
   DEFAULT_MAX_CONCURRENCY: 5,
 } as const;
 
-export interface BulkOperationJobResponse {
+interface BulkOperationJobResponse {
   jobId: string;
   status: string;
   message: string;

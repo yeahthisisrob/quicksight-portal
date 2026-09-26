@@ -51,7 +51,7 @@ import { simulateNew } from './simulateNew';
 import { simulatePreview } from './simulateOps';
 
 /** Nothing wrong with the source: the Repair step stays hidden. */
-export const CLEAN_REPAIR_PLAN: RepairPlan = {
+const CLEAN_REPAIR_PLAN: RepairPlan = {
   issues: [],
   summary: { fixable: 0, needsChoice: 0, unfixable: 0 },
   proposed: { repairs: [], rebinds: [] },
@@ -154,13 +154,13 @@ export function repairPlanRoute(plan: RepairPlan = CLEAN_REPAIR_PLAN): MockRoute
 
 export const SOURCE = { type: 'dashboard' as const, id: 'sales-overview', name: 'Sales overview' };
 /** When the SMUS snapshot the stories read was taken. */
-export const SMUS_EXPORTED_AT = '2026-09-18T09:30:00Z';
-export const SILVER = 'arn:aws:quicksight:us-east-1:1:dataset/sales-silver';
-export const GOLD_ARN = 'arn:aws:quicksight:us-east-1:1:dataset/sales-gold';
+const SMUS_EXPORTED_AT = '2026-09-18T09:30:00Z';
+const SILVER = 'arn:aws:quicksight:us-east-1:1:dataset/sales-silver';
+const GOLD_ARN = 'arn:aws:quicksight:us-east-1:1:dataset/sales-gold';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Relative to now, so "last viewed 2 days ago" stays true whenever the story runs. */
-export const daysAgo = (n: number) => new Date(Date.now() - n * DAY_MS).toISOString();
+const daysAgo = (n: number) => new Date(Date.now() - n * DAY_MS).toISOString();
 
 const usage = (partial: Partial<Record<string, number>> = {}) => ({
   visual: 0,
@@ -173,7 +173,7 @@ const usage = (partial: Partial<Record<string, number>> = {}) => ({
 });
 
 /** The synthetic grid dashboard declares `sales` and `targets`. */
-export const DATASETS: DefinitionDataset[] = [
+const DATASETS: DefinitionDataset[] = [
   {
     identifier: 'sales',
     dataSetArn: SILVER,
@@ -200,7 +200,7 @@ export const DATASETS: DefinitionDataset[] = [
   },
 ];
 
-export const GOLD_COLUMNS = [
+const GOLD_COLUMNS = [
   { name: 'channel', type: 'STRING' },
   { name: 'customer_name', type: 'STRING' },
   { name: 'margin', type: 'DECIMAL' },
@@ -215,7 +215,7 @@ export const GOLD_COLUMNS = [
 const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
 /** A faithful copy of the server's rules, so stories react like the app. */
-export function planFor(
+function planFor(
   rebinds: Array<{
     identifier: string;
     targetDataSetId: string;
@@ -291,11 +291,7 @@ export function planFor(
 }
 
 /** Rewrites column names in a definition the way the server's preview does. */
-export function rewrite(
-  definition: unknown,
-  identifier: string,
-  map: Record<string, string>
-): unknown {
+function rewrite(definition: unknown, identifier: string, map: Record<string, string>): unknown {
   const walk = (node: unknown): unknown => {
     if (Array.isArray(node)) return node.map(walk);
     if (node && typeof node === 'object') {
@@ -314,7 +310,7 @@ export function rewrite(
 
 export const FULL_MAP = { revenue: 'net_revenue', order_date: 'Order Date' };
 
-export const SMUS_ASSETS: SmusAsset[] = [
+const SMUS_ASSETS: SmusAsset[] = [
   {
     listingId: 'lst-sales-gold',
     assetId: 'ast-1',
@@ -364,7 +360,7 @@ const TEMPLATE_TAG_ITEM = { key: 'quicksight-portal:template', value: 'true' };
 // ---------------------------------------------------------------------------
 
 /** Output columns by dataset id, as the cached dataset exports carry them. */
-export const DATASET_COLUMNS: Record<string, DatasetColumn[]> = {
+const DATASET_COLUMNS: Record<string, DatasetColumn[]> = {
   'sales-gold': GOLD_COLUMNS,
   targets: [
     { name: 'region', type: 'STRING' },
@@ -381,7 +377,7 @@ const DATASET_NAMES: Record<string, string> = {
 };
 
 /** What the authoring columns endpoint answers for a dataset. */
-export function datasetColumnsFor(dataSetId: string) {
+function datasetColumnsFor(dataSetId: string) {
   return {
     dataSetId,
     name: DATASET_NAMES[dataSetId] ?? dataSetId,
@@ -444,7 +440,7 @@ export const FRESH_PROPOSAL = {
 };
 
 /** The server's from-nothing preview for a request, with the story datasets' columns. */
-export function newAssetPreviewFor(request: NewAssetRequest) {
+function newAssetPreviewFor(request: NewAssetRequest) {
   return simulateNew(request, DATASET_COLUMNS, { visuals: PROPOSED_VISUALS, ...FRESH_PROPOSAL });
 }
 
@@ -487,7 +483,7 @@ function rebindProposal() {
 }
 
 /** Dashboards as the list endpoint returns them, with activity for ranking. */
-export const SOURCES = [
+const SOURCES = [
   {
     id: SOURCE.id,
     name: SOURCE.name,
@@ -522,7 +518,7 @@ export const SOURCES = [
 ];
 
 /** Views plus CloudWatch health: one slow visual, one that errors. */
-export const INSIGHTS: AssetInsights = {
+const INSIGHTS: AssetInsights = {
   assetType: 'dashboard',
   assetId: SOURCE.id,
   views: { total: 1840, last30d: 310, uniqueViewers: 62, lastViewedAt: daysAgo(2) },
@@ -539,7 +535,7 @@ export const INSIGHTS: AssetInsights = {
   },
 };
 
-export const FOLDERS = [
+const FOLDERS = [
   { id: 'fld-sales', name: 'Sales', path: '/Sales', memberCount: 12, arn: 'arn:x' },
   {
     id: 'fld-sales-eu',
@@ -564,7 +560,7 @@ export const PROPOSED_OPS: DefinitionOp[] = [
   { op: 'retype', sheetId: 'sheet-overview', elementId: 'bar-region', visualType: 'ColumnChart' },
 ];
 
-export function exportFor(definition: unknown, tags = SOURCES[0]!.tags) {
+function exportFor(definition: unknown, tags = SOURCES[0]!.tags) {
   return {
     apiResponses: {
       list: { data: { DashboardId: SOURCE.id, Name: SOURCE.name } },
@@ -575,7 +571,7 @@ export function exportFor(definition: unknown, tags = SOURCES[0]!.tags) {
 }
 
 /** Every route the page can hit, with realistic answers. */
-export const TEMPLATES = [
+const TEMPLATES = [
   {
     id: 't-net-margin',
     name: 'net_margin',
@@ -596,7 +592,7 @@ export const TEMPLATES = [
   },
 ];
 
-export const SMUS_PROJECTS = [
+const SMUS_PROJECTS = [
   { id: 'proj-published-prod', name: 'published_prod', description: 'Published layer' },
   { id: 'proj-published-dev', name: 'published_dev', description: 'Published layer, dev' },
 ];
@@ -615,7 +611,7 @@ function withTargetNames(
 }
 
 /** Dashboards tagged as templates, as the Standard step lists them. */
-export const STANDARD_CANDIDATES: StandardCandidate[] = SOURCES.filter((s) =>
+const STANDARD_CANDIDATES: StandardCandidate[] = SOURCES.filter((s) =>
   s.tags.some((t) => t.key === 'quicksight-portal:template')
 ).map((s) => ({ id: s.id, name: s.name, views: s.activity.totalViews }));
 
@@ -645,7 +641,7 @@ interface StandardEffects {
  * What the server would add to a preview for a template and type rules: the
  * change list entries and the warnings. The layout itself is not simulated.
  */
-export function standardEffects(template: unknown, typeRules: unknown): StandardEffects {
+function standardEffects(template: unknown, typeRules: unknown): StandardEffects {
   const changes: DefinitionChange[] = [];
   const warnings: string[] = [];
   const t = template as
@@ -1086,18 +1082,6 @@ export const SMUS_NOT_CONFIGURED: MockRoute = {
   }),
 };
 
-/** A configured domain that has never been exported: the picker points at Operations. */
-export const SMUS_NOT_EXPORTED: MockRoute = {
-  method: 'get',
-  url: '/smus/assets',
-  respond: () => ({
-    body: {
-      success: true,
-      data: { configured: true, exportedAt: null, projectFilter: ['prj-1'], assets: [] },
-    },
-  }),
-};
-
 /** The settings snapshot the page gate reads: a domain and the selected projects. */
 export function settingsSnapshotRoute(domainId: string | null, projectIds: string[]): MockRoute {
   const base = { description: '', source: 'stored' as const, sensitive: false };
@@ -1151,7 +1135,7 @@ export const SMUS_SETTINGS_NO_PROJECTS: MockRoute = settingsSnapshotRoute('dzd_e
 const noop = () => {};
 const noopAsync = async () => {};
 
-export function fakeDraft(overrides: Partial<RebindDraft> = {}): RebindDraft {
+function fakeDraft(overrides: Partial<RebindDraft> = {}): RebindDraft {
   const rebinds = overrides.rebinds ?? [];
   return {
     source: SOURCE,
@@ -1178,7 +1162,7 @@ export function fakeDraft(overrides: Partial<RebindDraft> = {}): RebindDraft {
   };
 }
 
-export interface FakeFlowOptions {
+interface FakeFlowOptions {
   addedFields?: AuthorFlow['addedFields'];
   step?: AuthorFlow['state']['step'];
   draft?: Partial<RebindDraft>;

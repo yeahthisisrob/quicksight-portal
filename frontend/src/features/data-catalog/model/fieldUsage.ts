@@ -21,7 +21,7 @@ export interface FieldUsageRow {
   inVisual: boolean;
 }
 
-export interface FieldUsageSummary {
+interface FieldUsageSummary {
   dashboards: number;
   analyses: number;
   visuals: number;

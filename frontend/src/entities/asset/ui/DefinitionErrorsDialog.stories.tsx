@@ -9,6 +9,7 @@ const meta: Meta<typeof DefinitionErrorsDialog> = {
     layout: 'centered',
   },
   tags: ['autodocs'],
+  args: { open: true, onClose: () => {} },
   argTypes: {
     open: {
       control: 'boolean',
@@ -70,38 +71,16 @@ const sampleErrors = [
 /** The primary action sends you to Author's Repair step for this asset. */
 export const DashboardErrors: Story = {
   args: {
-    open: true,
     assetName: 'Sales Dashboard',
     assetType: 'dashboard',
     assetId: 'sales-dashboard',
     errors: sampleErrors,
-    onClose: () => console.log('Dialog closed'),
   },
 };
 
-export const AnalysisErrors: Story = {
-  args: {
-    open: true,
-    assetName: 'Revenue Analysis',
-    assetType: 'analysis',
-    errors: sampleErrors.slice(0, 2),
-    onClose: () => console.log('Dialog closed'),
-  },
-};
-
-export const SingleError: Story = {
-  args: {
-    open: true,
-    assetName: 'Marketing Dashboard',
-    assetType: 'dashboard',
-    errors: [sampleErrors[0]],
-    onClose: () => console.log('Dialog closed'),
-  },
-};
-
+/** Errors QuickSight reports without a path into the definition. */
 export const NoViolatedEntities: Story = {
   args: {
-    open: true,
     assetName: 'Finance Dashboard',
     assetType: 'dashboard',
     errors: [
@@ -114,6 +93,5 @@ export const NoViolatedEntities: Story = {
         message: 'Insufficient permissions to access some datasets',
       },
     ],
-    onClose: () => console.log('Dialog closed'),
   },
 };

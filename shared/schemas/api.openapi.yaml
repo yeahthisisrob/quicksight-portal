@@ -113,7 +113,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/FolderDetails'
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/FolderDetails'
 
   /api/folders/{folderId}/members:
     get:
@@ -132,9 +138,15 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/FolderMember'
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FolderMember'
     post:
       operationId: postFoldersByFolderIdMembers
       tags: [Folders]
@@ -283,22 +295,80 @@ paths:
           description: Date range filter value
         - name: includeTags
           in: query
-          description: JSON-encoded array of {key, value} tag filters to include
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TagFilter'
+          schema:
+            type: string
+          description: JSON-encoded array of {key, value} tag filters to include, e.g. [{"key":"env","value":"prod"}]
         - name: excludeTags
           in: query
-          description: JSON-encoded array of {key, value} tag filters to exclude
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TagFilter'
+          schema:
+            type: string
+          description: JSON-encoded array of {key, value} tag filters to exclude, e.g. [{"key":"env","value":"prod"}]
+        - name: errorFilter
+          in: query
+          description: Only assets with (or without) definition errors.
+          schema:
+            type: string
+            enum: [all, with_errors, without_errors]
+        - name: activityFilter
+          in: query
+          description: Only assets with (or without) recorded activity.
+          schema:
+            type: string
+            enum: [all, with_activity, without_activity]
+        - name: roleFilter
+          in: query
+          description: Users - an array of roles to include. JSON-encoded.
+          schema:
+            type: string
+        - name: permissionsFilter
+          in: query
+          description: Only assets with (or without) permissions.
+          schema:
+            type: string
+            enum: [all, with_permissions, without_permissions]
+        - name: groupMembershipFilter
+          in: query
+          description: Users - only those in (or not in) any group.
+          schema:
+            type: string
+            enum: [all, in_groups, not_in_groups]
+        - name: groupFilter
+          in: query
+          description: Users - an array of group names; users in any of them. JSON-encoded.
+          schema:
+            type: string
+        - name: accessUsers
+          in: query
+          description: An array of user names; only assets any of them can open (directly, by group or by folder). JSON-encoded.
+          schema:
+            type: string
+        - name: includeFolders
+          in: query
+          description: An array of `{id, name}` folders; assets in any of them. JSON-encoded.
+          schema:
+            type: string
+        - name: excludeFolders
+          in: query
+          description: An array of `{id, name}` folders; assets in none of them. JSON-encoded.
+          schema:
+            type: string
+        - name: sourceTypeFilter
+          in: query
+          description: Datasets and data sources - an array of source types (S3, ATHENA, ...). JSON-encoded.
+          schema:
+            type: string
+        - name: smusFilter
+          in: query
+          description: Datasets - only those linked (or not) to a SMUS listing.
+          schema:
+            type: string
+            enum: [all, smus_linked, not_smus_linked]
+        - name: importModeFilter
+          in: query
+          description: Datasets - only SPICE or only direct query.
+          schema:
+            type: string
+            enum: [all, SPICE, DIRECT_QUERY]
       responses:
         '200':
           description: Paginated asset list
@@ -563,6 +633,12 @@ paths:
             type: string
             default: createdTime
             description: Date field to filter on
+        - name: sourceTypeFilter
+          in: query
+          required: false
+          schema:
+            type: string
+          description: JSON-encoded array of data source types to keep, e.g. ["ATHENA","S3"].
       responses:
         '200':
           description: List of ingestions with metadata
@@ -600,7 +676,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Ingestion'
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Ingestion'
         '404':
           $ref: '#/components/responses/NotFound'
         '401':
@@ -673,26 +755,18 @@ paths:
                   default: 90
                   description: Number of days of activity to fetch
       responses:
-        '200':
-          description: Activity refresh initiated successfully
+        '202':
+          description: The refresh was queued as a job; follow it under /api/jobs/{jobId}.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  message:
-                    type: string
-                  refreshed:
-                    type: object
-                    properties:
-                      dashboards:
-                        type: integer
-                      analyses:
-                        type: integer
-                      users:
-                        type: integer
+                $ref: '#/components/schemas/JobQueuedEnvelope'
+        '200':
+          description: A refresh was already queued or running; its job is returned instead of a second one.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobQueuedEnvelope'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -721,10 +795,16 @@ paths:
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: '#/components/schemas/ActivityData'
-                  - $ref: '#/components/schemas/UserActivity'
-                  - $ref: '#/components/schemas/DatasetActivityData'
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    oneOf:
+                      - $ref: '#/components/schemas/ActivityData'
+                      - $ref: '#/components/schemas/UserActivity'
+                      - $ref: '#/components/schemas/DatasetActivityData'
         '404':
           description: Asset not found
         '401':
@@ -810,6 +890,7 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [success, data]
                 properties:
                   success:
                     type: boolean
@@ -861,8 +942,18 @@ paths:
           in: query
           schema:
             type: string
+        - name: excludeEventNames
+          in: query
+          description: Comma-separated list of CloudTrail event names to exclude.
+          schema:
+            type: string
         - name: actions
           in: query
+          schema:
+            type: string
+        - name: origins
+          in: query
+          description: Comma-separated origins to include (portal-ui, portal-api, portal, console, automation, unknown).
           schema:
             type: string
         - name: startDate
@@ -882,6 +973,7 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [success, data]
                 properties:
                   success:
                     type: boolean
@@ -1261,7 +1353,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SmusStatus'
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/SmusStatus'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -1335,12 +1433,18 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [links]
+                required: [success, data]
                 properties:
-                  links:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/SmusDatasetLink'
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [links]
+                    properties:
+                      links:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SmusDatasetLink'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -1362,11 +1466,13 @@ paths:
                     type: boolean
                   data:
                     type: object
+                    required: [datasources, datasets, analyses, totalCount]
                     properties:
                       datasources:
                         type: array
                         items:
                           type: object
+                          required: [id, name]
                           properties:
                             id:
                               type: string
@@ -1378,6 +1484,7 @@ paths:
                         type: array
                         items:
                           type: object
+                          required: [id, name, datasourceIds]
                           properties:
                             id:
                               type: string
@@ -1391,6 +1498,7 @@ paths:
                         type: array
                         items:
                           type: object
+                          required: [id, name]
                           properties:
                             id:
                               type: string
@@ -1480,32 +1588,38 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [success, data]
                 properties:
-                  dashboards:
+                  success:
+                    type: boolean
+                  data:
                     type: object
                     properties:
-                      totalViews:
-                        type: integer
-                      uniqueViewers:
-                        type: integer
-                      activeAssets:
-                        type: integer
-                  analyses:
-                    type: object
-                    properties:
-                      totalViews:
-                        type: integer
-                      uniqueViewers:
-                        type: integer
-                      activeAssets:
-                        type: integer
-                  users:
-                    type: object
-                    properties:
-                      activeUsers:
-                        type: integer
-                      totalActivities:
-                        type: integer
+                      dashboards:
+                        type: object
+                        properties:
+                          totalViews:
+                            type: integer
+                          uniqueViewers:
+                            type: integer
+                          activeAssets:
+                            type: integer
+                      analyses:
+                        type: object
+                        properties:
+                          totalViews:
+                            type: integer
+                          uniqueViewers:
+                            type: integer
+                          activeAssets:
+                            type: integer
+                      users:
+                        type: object
+                        properties:
+                          activeUsers:
+                            type: integer
+                          totalActivities:
+                            type: integer
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -4352,10 +4466,12 @@ paths:
       summary: Re-read tags from QuickSight into the cache
       tags: [Tags]
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required: [assetType, assetIds]
               properties:
                 assetType:
                   type: string
@@ -4365,7 +4481,27 @@ paths:
                     type: string
       responses:
         '200':
-          $ref: '#/components/responses/Acknowledged'
+          description: How many assets' tags were re-read
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [successful, failed, total]
+                    properties:
+                      successful:
+                        type: integer
+                      failed:
+                        type: integer
+                      total:
+                        type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -4495,7 +4631,17 @@ paths:
         $ref: '#/components/requestBodies/Deployment'
       responses:
         '202':
-          $ref: '#/components/responses/BulkJobQueued'
+          description: Queued; follow the job under /api/jobs/{jobId}
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/JobQueued'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4521,7 +4667,14 @@ paths:
                     type: boolean
                   data:
                     type: object
-                    additionalProperties: true
+                    required: [validationResults, canDeploy]
+                    properties:
+                      validationResults:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DeploymentValidationResult'
+                      canDeploy:
+                        type: boolean
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -4747,23 +4900,23 @@ paths:
         - $ref: '#/components/parameters/FieldName'
       responses:
         '200':
-          description: The metadata
+          description: The metadata; `data` is absent when nothing was recorded for the field.
           content:
             application/json:
               schema:
                 type: object
-                required: [success, data]
+                required: [success]
                 properties:
                   success:
                     type: boolean
                   data:
-                    type: object
-                    additionalProperties: true
+                    $ref: '#/components/schemas/FieldMetadata'
         '401':
           $ref: '#/components/responses/Unauthorized'
     put:
       operationId: putDataCatalogFieldBySourceTypeBySourceIdByFieldName
-      summary: Replace a field's portal metadata
+      summary: Update a field's portal metadata
+      description: The fields sent replace the stored ones; fields left out are kept.
       tags: [Data Catalog]
       parameters:
         - $ref: '#/components/parameters/FieldSourceType'
@@ -4774,11 +4927,20 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/FieldMetadataUpdate'
       responses:
         '200':
-          $ref: '#/components/responses/Acknowledged'
+          description: The metadata as stored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/FieldMetadata'
         '401':
           $ref: '#/components/responses/Unauthorized'
     post:
@@ -5404,6 +5566,11 @@ components:
               type: integer
             apiCalls:
               type: integer
+            operations:
+              type: object
+              description: Counts by operation, for jobs that track them.
+              additionalProperties:
+                type: integer
         failures:
           type: array
           description: |
@@ -5459,12 +5626,28 @@ components:
           format: date-time
         error:
           type: string
+        errorStack:
+          type: string
         userId:
+          type: string
+        accountId:
           type: string
         assetType:
           type: string
+          description: Deploy jobs - the asset deployed.
         assetId:
           type: string
+          description: Deploy jobs - the asset deployed.
+        deploymentType:
+          type: string
+          description: Deploy jobs - restore, clone, and so on.
+        exportOptions:
+          type: object
+          description: Export jobs - the options the export was started with.
+          additionalProperties: true
+        stopRequested:
+          type: boolean
+          description: A stop was asked for; the job stops at its next checkpoint.
 
     JobLog:
       type: object
@@ -5688,6 +5871,8 @@ components:
           type: boolean
         data:
           type: object
+          description: The page, keyed by the plural asset type asked for (`dashboards`, `users`, ...).
+          required: [pagination, fromCache]
           properties:
             dashboards:
               type: array
@@ -5721,7 +5906,31 @@ components:
               $ref: '#/components/schemas/PaginationInfo'
             fromCache:
               type: boolean
+            availableRoles:
+              type: array
+              description: Users - the roles in use, with counts, for the role filter.
+              items:
+                $ref: '#/components/schemas/FilterValueCount'
+            availableGroups:
+              type: array
+              description: Users - the groups, with member counts, for the group filter.
+              items:
+                $ref: '#/components/schemas/FilterValueCount'
+            availableSourceTypes:
+              type: array
+              description: Datasets and data sources - the source types in use, with counts.
+              items:
+                $ref: '#/components/schemas/FilterValueCount'
     
+    FilterValueCount:
+      type: object
+      required: [value, count]
+      properties:
+        value:
+          type: string
+        count:
+          type: integer
+
     PaginationInfo:
       type: object
       required: [page, pageSize, totalItems, totalPages]
@@ -5738,18 +5947,6 @@ components:
           type: boolean
 
     # Filter types (shared across frontend and backend)
-    TagFilter:
-      type: object
-      description: Filter for tags with key-value pairs
-      required: [key, value]
-      properties:
-        key:
-          type: string
-          description: Tag key
-        value:
-          type: string
-          description: Tag value
-
     AssetListItem:
       type: object
       required: [id, name, type, status, createdTime, lastUpdatedTime, lastExportTime, enrichmentStatus]
@@ -6767,15 +6964,14 @@ components:
     # Export job schemas
     ExportJobRequest:
       type: object
+      description: Every field is optional; the defaults are an incremental export of every asset type.
       properties:
         forceRefresh:
           type: boolean
-          default: false
-          description: Force re-export of all assets even if cached
+          description: Force re-export of all assets even if cached (default false)
         rebuildIndex:
           type: boolean
-          default: false
-          description: Rebuild all indexes from scratch
+          description: Rebuild all indexes from scratch (default false)
         assetTypes:
           type: array
           items:
@@ -6783,20 +6979,17 @@ components:
           description: Specific asset types to export (all if not specified)
         exportOrganizational:
           type: boolean
-          default: false
-          description: Export all organizational assets (users, groups, folders) together
+          description: Export all organizational assets (users, groups, folders) together (default false)
         refreshOptions:
           type: object
+          description: Which parts of each asset to re-read; each defaults to true.
           properties:
             definitions:
               type: boolean
-              default: true
             permissions:
               type: boolean
-              default: true
             tags:
               type: boolean
-              default: true
 
     ExportJobResponse:
       type: object
@@ -8127,6 +8320,60 @@ components:
           type: string
         assetName:
           type: string
+
+    FieldLineageNotes:
+      type: object
+      description: Where a field's data comes from, as the person who documented it wrote it down.
+      properties:
+        sourceSystem:
+          type: string
+        sourceTable:
+          type: string
+        sourceField:
+          type: string
+        transformationLogic:
+          type: string
+        updateFrequency:
+          type: string
+
+    FieldMetadataUpdate:
+      type: object
+      description: What the portal keeps about a field. Tags are free text.
+      properties:
+        description:
+          type: string
+        businessGlossary:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        category:
+          type: string
+        sensitivity:
+          type: string
+          enum: [public, internal, confidential, restricted]
+        lineage:
+          $ref: '#/components/schemas/FieldLineageNotes'
+        updatedBy:
+          type: string
+
+    FieldMetadata:
+      allOf:
+        - $ref: '#/components/schemas/FieldMetadataUpdate'
+        - type: object
+          required: [sourceType, sourceId, fieldName]
+          properties:
+            sourceType:
+              type: string
+              enum: [dataset, analysis, dashboard]
+            sourceId:
+              type: string
+            fieldName:
+              type: string
+            lastUpdated:
+              type: string
+              format: date-time
 
     PortalFieldMetadata:
       type: object
@@ -9576,6 +9823,16 @@ components:
         diagnostics:
           $ref: '#/components/schemas/SmusProjectDiagnostics'
 
+    JobQueuedEnvelope:
+      type: object
+      description: A job was queued (or an equivalent one is already running); follow `data.jobId`.
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/JobQueued'
+
     JobQueued:
       type: object
       description: |
@@ -9655,12 +9912,23 @@ components:
           type: boolean
         data:
           type: object
-          required: [ingestions, metadata, pagination]
+          required: [ingestions, metadata, pagination, availableSourceTypes]
           properties:
             ingestions:
               type: array
               items:
                 $ref: '#/components/schemas/Ingestion'
+            availableSourceTypes:
+              type: array
+              description: The data source types among these ingestions, with counts, for the filter.
+              items:
+                type: object
+                required: [value, count]
+                properties:
+                  value:
+                    type: string
+                  count:
+                    type: integer
             metadata:
               $ref: '#/components/schemas/IngestionMetadata'
             pagination:
@@ -9998,6 +10266,24 @@ components:
           nullable: true
           description: Human-readable size (e.g. "12.5 MB", "1.2 GB") for SPICE datasets
 
+    DeploymentValidationResult:
+      type: object
+      description: One check a deployment ran before writing.
+      required: [validator, passed, severity]
+      properties:
+        validator:
+          type: string
+        passed:
+          type: boolean
+        message:
+          type: string
+        severity:
+          type: string
+          enum: [error, warning, info]
+        details:
+          type: object
+          additionalProperties: true
+
     ResolvedRecipient:
       type: object
       required: [userName, email]
@@ -10070,7 +10356,8 @@ components:
             properties:
               assetType:
                 type: string
-                enum: [dashboard, analysis, dataset, datasource, folder]
+                enum: [dashboard, analysis, dataset, datasource, folder, user, group]
+                description: Any asset type; folders, users and groups are reported as not restorable.
               assetId:
                 type: string
               deploymentConfig:

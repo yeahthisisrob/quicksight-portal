@@ -16,7 +16,7 @@ import type { AuthorableAssetType } from '../types';
 /** QuickSight tag values are capped at 256 characters. */
 const TAG_VALUE_MAX = 256;
 
-export interface WrittenAsset {
+interface WrittenAsset {
   assetId: string;
   arn: string;
   /** Dashboards: the version that was created (and published). */
@@ -32,7 +32,7 @@ interface WriteInput {
   dashboardPublishOptions?: any;
 }
 
-export function parseVersionNumber(versionArn?: string): number | null {
+function parseVersionNumber(versionArn?: string): number | null {
   const match = versionArn?.match(/\/version\/(\d+)$/);
   if (!match?.[1]) {
     return null;
@@ -99,7 +99,7 @@ export async function updateAsset(
   return { assetId: input.assetId, arn: updated?.arn ?? updated?.Arn ?? '', versionNumber };
 }
 
-export type ProvenanceAction = 'authoring.create' | 'authoring.update' | 'authoring.clone';
+type ProvenanceAction = 'authoring.create' | 'authoring.update' | 'authoring.clone';
 
 /**
  * After every write: the cache learns of the asset at once and queues its

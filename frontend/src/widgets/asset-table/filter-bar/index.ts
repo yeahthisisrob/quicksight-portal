@@ -1,23 +1,15 @@
 export {
-  ACTIVITY_FILTER_OPTIONS,
-  DATE_FIELD_OPTIONS,
-  DATE_RANGE_OPTIONS,
   DEFAULT_ACTIVITY_FILTER,
   DEFAULT_DATE_FILTER,
   DEFAULT_ERROR_FILTER,
   DEFAULT_IMPORT_MODE_FILTER,
   DEFAULT_SMUS_FILTER,
-  ERROR_FILTER_OPTIONS,
 } from './lib/constants';
 export type {
   ActivityFilterState,
-  AssetFilter,
-  AssetOption,
   DateFieldOption,
   DateFilterState,
-  DateRangeOption,
   ErrorFilterState,
-  FilterBarProps,
   FolderFilter,
   FolderOption,
   GroupMembershipFilterState,

@@ -22,20 +22,3 @@ export const Default: Story = {
     </AppShell>
   ),
 };
-
-export const SmusNotConfigured: Story = {
-  render: () => (
-    <AppShell
-      path="settings"
-      routes={settingsRoutes([
-        {
-          method: 'get',
-          url: '/settings/smus/projects',
-          respond: () => ({ body: { success: true, data: { configured: false, projects: [] } } }),
-        },
-      ])}
-    >
-      <SettingsPage />
-    </AppShell>
-  ),
-};

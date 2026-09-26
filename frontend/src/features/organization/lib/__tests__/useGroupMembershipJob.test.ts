@@ -1,8 +1,9 @@
-import { renderHook, act, cleanup } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { act, cleanup, renderHook } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { jobsApi } from '@/shared/api/modules/jobs';
 import { usersApi } from '@/shared/api/modules/users';
+import { ApiError } from '@/shared/api/typed';
 
 import { useGroupMembershipJob } from '../useGroupMembershipJob';
 
@@ -44,7 +45,10 @@ describe('useGroupMembershipJob', () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     vi.mocked(usersApi.addUsersToGroup).mockResolvedValue({ success: true, jobId: 'job-1' } as any);
-    vi.mocked(usersApi.removeUsersFromGroup).mockResolvedValue({ success: true, jobId: 'job-1' } as any);
+    vi.mocked(usersApi.removeUsersFromGroup).mockResolvedValue({
+      success: true,
+      jobId: 'job-1',
+    } as any);
   });
 
   afterEach(async () => {
@@ -74,7 +78,9 @@ describe('useGroupMembershipJob', () => {
       expect.objectContaining({ ok: true, succeeded: 2, failed: 0, requested: ['alice', 'bob'] })
     );
     expect(result.current.isRunning).toBe(false);
-    expect(enqueueSnackbar).toHaveBeenCalledWith('2 users added to analysts', { variant: 'success' });
+    expect(enqueueSnackbar).toHaveBeenCalledWith('2 users added to analysts', {
+      variant: 'success',
+    });
   });
 
   it('refuses to call the API when no user name can be resolved', async () => {
@@ -110,22 +116,28 @@ describe('useGroupMembershipJob', () => {
     await flush();
 
     expect(onSettled).toHaveBeenCalledWith(
-      expect.objectContaining({ ok: false, succeeded: 1, failed: 1, failures, error: 'User not found' })
+      expect.objectContaining({
+        ok: false,
+        succeeded: 1,
+        failed: 1,
+        failures,
+        error: 'User not found',
+      })
     );
     expect(result.current.outcome?.failures).toEqual(failures);
-    expect(enqueueSnackbar).toHaveBeenCalledWith('1 user added to analysts', { variant: 'warning' });
+    expect(enqueueSnackbar).toHaveBeenCalledWith('1 user added to analysts', {
+      variant: 'warning',
+    });
     expect(enqueueSnackbar).toHaveBeenCalledWith(
       '1 user could not be added to analysts: User not found',
       { variant: 'error' }
     );
   });
 
-  it('shows the API validation message instead of the generic axios text', async () => {
-    const axiosLike = Object.assign(new Error('Request failed with status code 400'), {
-      isAxiosError: true,
-      response: { data: { success: false, error: 'Each user name must be a non-empty string' } },
-    });
-    vi.mocked(usersApi.removeUsersFromGroup).mockRejectedValue(axiosLike);
+  it("shows the API's validation message", async () => {
+    vi.mocked(usersApi.removeUsersFromGroup).mockRejectedValue(
+      new ApiError('Each user name must be a non-empty string', 400)
+    );
     const onSettled = vi.fn();
     const { result } = renderHook(() => useGroupMembershipJob({ onSettled }));
 

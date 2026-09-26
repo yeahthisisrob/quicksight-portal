@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { DATASET_QUESTION, FILTERS_QUESTION } from './__stories__/assistant';
+import { FILTERS_QUESTION } from './__stories__/assistant';
 import { QuestionCard } from './QuestionCard';
 
 /**
@@ -16,11 +16,6 @@ const meta: Meta<typeof QuestionCard> = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
-
-export const SingleChoice: Story = {
-  name: 'One of two datasets',
-  args: { interrupt: DATASET_QUESTION as never },
-};
 
 export const SeveralOrOther: Story = {
   name: 'Several filters, or something typed',

@@ -2284,7 +2284,10 @@ export interface paths {
         };
         /** One field's portal metadata (tags, notes) */
         get: operations["getDataCatalogFieldBySourceTypeBySourceIdByFieldName"];
-        /** Replace a field's portal metadata */
+        /**
+         * Update a field's portal metadata
+         * @description The fields sent replace the stored ones; fields left out are kept.
+         */
         put: operations["putDataCatalogFieldBySourceTypeBySourceIdByFieldName"];
         /** Add tags to a field */
         post: operations["postDataCatalogFieldBySourceTypeBySourceIdByFieldName"];
@@ -2581,6 +2584,10 @@ export interface components {
                 processedAssets?: number;
                 failedAssets?: number;
                 apiCalls?: number;
+                /** @description Counts by operation, for jobs that track them. */
+                operations?: {
+                    [key: string]: number;
+                };
             };
             /**
              * @description Item-level failures for bulk jobs (capped; the full list is on
@@ -2616,9 +2623,21 @@ export interface components {
             /** Format: date-time */
             endTime?: string;
             error?: string;
+            errorStack?: string;
             userId?: string;
+            accountId?: string;
+            /** @description Deploy jobs - the asset deployed. */
             assetType?: string;
+            /** @description Deploy jobs - the asset deployed. */
             assetId?: string;
+            /** @description Deploy jobs - restore, clone, and so on. */
+            deploymentType?: string;
+            /** @description Export jobs - the options the export was started with. */
+            exportOptions?: {
+                [key: string]: unknown;
+            };
+            /** @description A stop was asked for; the job stops at its next checkpoint. */
+            stopRequested?: boolean;
         } & {
             [key: string]: unknown;
         };
@@ -2721,6 +2740,7 @@ export interface components {
         SearchMatchReason: "name" | "id" | "description" | "arn" | "tag_key" | "tag_value" | "permission" | "dependency_dataset" | "dependency_datasource" | "dependency_analysis";
         PaginatedAssetResponse: {
             success: boolean;
+            /** @description The page, keyed by the plural asset type asked for (`dashboards`, `users`, ...). */
             data: {
                 dashboards?: components["schemas"]["DashboardListItem"][];
                 datasets?: components["schemas"]["DatasetListItem"][];
@@ -2729,9 +2749,19 @@ export interface components {
                 folders?: components["schemas"]["FolderListItem"][];
                 users?: components["schemas"]["UserListItem"][];
                 groups?: components["schemas"]["GroupListItem"][];
-                pagination?: components["schemas"]["PaginationInfo"];
-                fromCache?: boolean;
+                pagination: components["schemas"]["PaginationInfo"];
+                fromCache: boolean;
+                /** @description Users - the roles in use, with counts, for the role filter. */
+                availableRoles?: components["schemas"]["FilterValueCount"][];
+                /** @description Users - the groups, with member counts, for the group filter. */
+                availableGroups?: components["schemas"]["FilterValueCount"][];
+                /** @description Datasets and data sources - the source types in use, with counts. */
+                availableSourceTypes?: components["schemas"]["FilterValueCount"][];
             };
+        };
+        FilterValueCount: {
+            value: string;
+            count: number;
         };
         PaginationInfo: {
             page: number;
@@ -2739,13 +2769,6 @@ export interface components {
             totalItems: number;
             totalPages: number;
             hasMore?: boolean;
-        };
-        /** @description Filter for tags with key-value pairs */
-        TagFilter: {
-            /** @description Tag key */
-            key: string;
-            /** @description Tag value */
-            value: string;
         };
         AssetListItem: {
             /** @description Asset unique identifier */
@@ -3369,31 +3392,21 @@ export interface components {
                 cacheVersion?: string;
             };
         };
+        /** @description Every field is optional; the defaults are an incremental export of every asset type. */
         ExportJobRequest: {
-            /**
-             * @description Force re-export of all assets even if cached
-             * @default false
-             */
-            forceRefresh: boolean;
-            /**
-             * @description Rebuild all indexes from scratch
-             * @default false
-             */
-            rebuildIndex: boolean;
+            /** @description Force re-export of all assets even if cached (default false) */
+            forceRefresh?: boolean;
+            /** @description Rebuild all indexes from scratch (default false) */
+            rebuildIndex?: boolean;
             /** @description Specific asset types to export (all if not specified) */
             assetTypes?: components["schemas"]["AssetType"][];
-            /**
-             * @description Export all organizational assets (users, groups, folders) together
-             * @default false
-             */
-            exportOrganizational: boolean;
+            /** @description Export all organizational assets (users, groups, folders) together (default false) */
+            exportOrganizational?: boolean;
+            /** @description Which parts of each asset to re-read; each defaults to true. */
             refreshOptions?: {
-                /** @default true */
-                definitions: boolean;
-                /** @default true */
-                permissions: boolean;
-                /** @default true */
-                tags: boolean;
+                definitions?: boolean;
+                permissions?: boolean;
+                tags?: boolean;
             };
         };
         ExportJobResponse: {
@@ -4097,6 +4110,33 @@ export interface components {
             assetType: "dashboard" | "analysis";
             assetId: string;
             assetName: string;
+        };
+        /** @description Where a field's data comes from, as the person who documented it wrote it down. */
+        FieldLineageNotes: {
+            sourceSystem?: string;
+            sourceTable?: string;
+            sourceField?: string;
+            transformationLogic?: string;
+            updateFrequency?: string;
+        };
+        /** @description What the portal keeps about a field. Tags are free text. */
+        FieldMetadataUpdate: {
+            description?: string;
+            businessGlossary?: string;
+            tags?: string[];
+            category?: string;
+            /** @enum {string} */
+            sensitivity?: "public" | "internal" | "confidential" | "restricted";
+            lineage?: components["schemas"]["FieldLineageNotes"];
+            updatedBy?: string;
+        };
+        FieldMetadata: components["schemas"]["FieldMetadataUpdate"] & {
+            /** @enum {string} */
+            sourceType: "dataset" | "analysis" | "dashboard";
+            sourceId: string;
+            fieldName: string;
+            /** Format: date-time */
+            lastUpdated?: string;
         };
         /** @description What the portal stores for a field because SMUS has no home for it. */
         PortalFieldMetadata: {
@@ -4826,6 +4866,11 @@ export interface components {
             jobId?: string;
             diagnostics?: components["schemas"]["SmusProjectDiagnostics"];
         };
+        /** @description A job was queued (or an equivalent one is already running); follow `data.jobId`. */
+        JobQueuedEnvelope: {
+            success: boolean;
+            data: components["schemas"]["JobQueued"];
+        };
         /**
          * @description A call that runs as a job. Poll `GET /api/jobs/{jobId}` until
          *     `status` is `completed` or `failed`; a job that produces something
@@ -4874,6 +4919,11 @@ export interface components {
             success: boolean;
             data: {
                 ingestions: components["schemas"]["Ingestion"][];
+                /** @description The data source types among these ingestions, with counts, for the filter. */
+                availableSourceTypes: {
+                    value: string;
+                    count: number;
+                }[];
                 metadata: components["schemas"]["IngestionMetadata"];
                 pagination: {
                     page: number;
@@ -5043,6 +5093,17 @@ export interface components {
             /** @description Human-readable size (e.g. "12.5 MB", "1.2 GB") for SPICE datasets */
             sizeFormatted?: string | null;
         };
+        /** @description One check a deployment ran before writing. */
+        DeploymentValidationResult: {
+            validator: string;
+            passed: boolean;
+            message?: string;
+            /** @enum {string} */
+            severity: "error" | "warning" | "info";
+            details?: {
+                [key: string]: unknown;
+            };
+        };
         ResolvedRecipient: {
             userName: string;
             email: string;
@@ -5152,8 +5213,11 @@ export interface components {
         Deployment: {
             content: {
                 "application/json": {
-                    /** @enum {string} */
-                    assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder";
+                    /**
+                     * @description Any asset type; folders, users and groups are reported as not restorable.
+                     * @enum {string}
+                     */
+                    assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "user" | "group";
                     assetId: string;
                     /** @description deploymentType (restore), source (archive), target and options; see the Deploy page for the shape it sends. */
                     deploymentConfig: {
@@ -5227,7 +5291,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["FolderDetails"];
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["FolderDetails"];
+                    };
                 };
             };
         };
@@ -5249,7 +5316,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["FolderMember"][];
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["FolderMember"][];
+                    };
                 };
             };
         };
@@ -5345,10 +5415,34 @@ export interface operations {
                 dateField?: "lastUpdatedTime" | "createdTime" | "lastActivity";
                 /** @description Date range filter value */
                 dateRange?: "all" | "24h" | "7d" | "30d" | "90d";
-                /** @description JSON-encoded array of {key, value} tag filters to include */
+                /** @description JSON-encoded array of {key, value} tag filters to include, e.g. [{"key":"env","value":"prod"}] */
                 includeTags?: string;
-                /** @description JSON-encoded array of {key, value} tag filters to exclude */
+                /** @description JSON-encoded array of {key, value} tag filters to exclude, e.g. [{"key":"env","value":"prod"}] */
                 excludeTags?: string;
+                /** @description Only assets with (or without) definition errors. */
+                errorFilter?: "all" | "with_errors" | "without_errors";
+                /** @description Only assets with (or without) recorded activity. */
+                activityFilter?: "all" | "with_activity" | "without_activity";
+                /** @description Users - an array of roles to include. JSON-encoded. */
+                roleFilter?: string;
+                /** @description Only assets with (or without) permissions. */
+                permissionsFilter?: "all" | "with_permissions" | "without_permissions";
+                /** @description Users - only those in (or not in) any group. */
+                groupMembershipFilter?: "all" | "in_groups" | "not_in_groups";
+                /** @description Users - an array of group names; users in any of them. JSON-encoded. */
+                groupFilter?: string;
+                /** @description An array of user names; only assets any of them can open (directly, by group or by folder). JSON-encoded. */
+                accessUsers?: string;
+                /** @description An array of `{id, name}` folders; assets in any of them. JSON-encoded. */
+                includeFolders?: string;
+                /** @description An array of `{id, name}` folders; assets in none of them. JSON-encoded. */
+                excludeFolders?: string;
+                /** @description Datasets and data sources - an array of source types (S3, ATHENA, ...). JSON-encoded. */
+                sourceTypeFilter?: string;
+                /** @description Datasets - only those linked (or not) to a SMUS listing. */
+                smusFilter?: "all" | "smus_linked" | "not_smus_linked";
+                /** @description Datasets - only SPICE or only direct query. */
+                importModeFilter?: "all" | "SPICE" | "DIRECT_QUERY";
             };
             header?: never;
             path: {
@@ -5562,6 +5656,8 @@ export interface operations {
                 pageSize?: number;
                 dateRange?: "all" | "24h" | "7d" | "30d" | "90d";
                 dateField?: string;
+                /** @description JSON-encoded array of data source types to keep, e.g. ["ATHENA","S3"]. */
+                sourceTypeFilter?: string;
             };
             header?: never;
             path?: never;
@@ -5600,7 +5696,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Ingestion"];
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["Ingestion"];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -5658,21 +5757,22 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Activity refresh initiated successfully */
+            /** @description A refresh was already queued or running; its job is returned instead of a second one. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        refreshed?: {
-                            dashboards?: number;
-                            analyses?: number;
-                            users?: number;
-                        };
-                    };
+                    "application/json": components["schemas"]["JobQueuedEnvelope"];
+                };
+            };
+            /** @description The refresh was queued as a job; follow it under /api/jobs/{jobId}. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobQueuedEnvelope"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -5697,7 +5797,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActivityData"] | components["schemas"]["UserActivity"] | components["schemas"]["DatasetActivityData"];
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["ActivityData"] | components["schemas"]["UserActivity"] | components["schemas"]["DatasetActivityData"];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -5747,8 +5850,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        success?: boolean;
-                        data?: components["schemas"]["TimelinePage"];
+                        success: boolean;
+                        data: components["schemas"]["TimelinePage"];
                     };
                 };
             };
@@ -5763,7 +5866,11 @@ export interface operations {
                 limit?: number;
                 users?: string;
                 eventNames?: string;
+                /** @description Comma-separated list of CloudTrail event names to exclude. */
+                excludeEventNames?: string;
                 actions?: string;
+                /** @description Comma-separated origins to include (portal-ui, portal-api, portal, console, automation, unknown). */
+                origins?: string;
                 startDate?: string;
                 endDate?: string;
             };
@@ -5783,8 +5890,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        success?: boolean;
-                        data?: components["schemas"]["TimelinePage"];
+                        success: boolean;
+                        data: components["schemas"]["TimelinePage"];
                     };
                 };
             };
@@ -6061,7 +6168,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SmusStatus"];
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["SmusStatus"];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -6127,7 +6237,10 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        links: components["schemas"]["SmusDatasetLink"][];
+                        success: boolean;
+                        data: {
+                            links: components["schemas"]["SmusDatasetLink"][];
+                        };
                     };
                 };
             };
@@ -6152,21 +6265,21 @@ export interface operations {
                     "application/json": {
                         success?: boolean;
                         data?: {
-                            datasources?: {
-                                id?: string;
-                                name?: string;
+                            datasources: {
+                                id: string;
+                                name: string;
                                 bucket?: string;
                             }[];
-                            datasets?: {
-                                id?: string;
-                                name?: string;
-                                datasourceIds?: string[];
+                            datasets: {
+                                id: string;
+                                name: string;
+                                datasourceIds: string[];
                             }[];
-                            analyses?: {
-                                id?: string;
-                                name?: string;
+                            analyses: {
+                                id: string;
+                                name: string;
                             }[];
-                            totalCount?: number;
+                            totalCount: number;
                         };
                     };
                 };
@@ -6236,19 +6349,22 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        dashboards?: {
-                            totalViews?: number;
-                            uniqueViewers?: number;
-                            activeAssets?: number;
-                        };
-                        analyses?: {
-                            totalViews?: number;
-                            uniqueViewers?: number;
-                            activeAssets?: number;
-                        };
-                        users?: {
-                            activeUsers?: number;
-                            totalActivities?: number;
+                        success: boolean;
+                        data: {
+                            dashboards?: {
+                                totalViews?: number;
+                                uniqueViewers?: number;
+                                activeAssets?: number;
+                            };
+                            analyses?: {
+                                totalViews?: number;
+                                uniqueViewers?: number;
+                                activeAssets?: number;
+                            };
+                            users?: {
+                                activeUsers?: number;
+                                totalActivities?: number;
+                            };
                         };
                     };
                 };
@@ -8529,16 +8645,32 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
                 "application/json": {
-                    assetType?: string;
-                    assetIds?: string[];
+                    assetType: string;
+                    assetIds: string[];
                 };
             };
         };
         responses: {
-            200: components["responses"]["Acknowledged"];
+            /** @description How many assets' tags were re-read */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            successful: number;
+                            failed: number;
+                            total: number;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
         };
     };
@@ -8644,7 +8776,18 @@ export interface operations {
         };
         requestBody: components["requestBodies"]["Deployment"];
         responses: {
-            202: components["responses"]["BulkJobQueued"];
+            /** @description Queued; follow the job under /api/jobs/{jobId} */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["JobQueued"];
+                    };
+                };
+            };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
         };
@@ -8667,7 +8810,8 @@ export interface operations {
                     "application/json": {
                         success: boolean;
                         data: {
-                            [key: string]: unknown;
+                            validationResults: components["schemas"]["DeploymentValidationResult"][];
+                            canDeploy: boolean;
                         };
                     };
                 };
@@ -8864,7 +9008,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The metadata */
+            /** @description The metadata; `data` is absent when nothing was recorded for the field. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -8872,9 +9016,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         success: boolean;
-                        data: {
-                            [key: string]: unknown;
-                        };
+                        data?: components["schemas"]["FieldMetadata"];
                     };
                 };
             };
@@ -8894,13 +9036,22 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["FieldMetadataUpdate"];
             };
         };
         responses: {
-            200: components["responses"]["Acknowledged"];
+            /** @description The metadata as stored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["FieldMetadata"];
+                    };
+                };
+            };
             401: components["responses"]["Unauthorized"];
         };
     };

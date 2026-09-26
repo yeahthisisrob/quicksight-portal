@@ -25,10 +25,7 @@ import {
 const SWEEP_CALL_TIMEOUT_MS = 120_000;
 const CALLER_LOOKUP_TIMEOUT_MS = 15_000;
 
-export type SmusExportProgress = (
-  message: string,
-  details?: Record<string, unknown>
-) => Promise<void>;
+type SmusExportProgress = (message: string, details?: Record<string, unknown>) => Promise<void>;
 
 /** arn:aws:sts::123:assumed-role/Name/session -> arn:aws:iam::123:role/Name */
 export function roleArnFromCaller(callerArn: string): string {

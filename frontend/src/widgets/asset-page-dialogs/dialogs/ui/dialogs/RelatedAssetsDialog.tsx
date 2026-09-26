@@ -23,12 +23,23 @@ import { borderRadius, typography } from '@/shared/design-system/theme';
 import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 import { AssetRelationshipSection } from '@/shared/ui/AssetRelationshipSection';
 
+/** One lineage edge as the asset list returns it (`relatedAssets` on each row). */
+export interface LineageRelationship {
+  relationshipType: 'uses' | 'used_by';
+  targetAssetId: string;
+  targetAssetName: string;
+  targetAssetType: string;
+  targetIsArchived?: boolean;
+  activity?: RelatedAsset['activity'];
+  tags?: RelatedAsset['tags'];
+}
+
 interface RelatedAssetsDialogProps {
   open: boolean;
   onClose: () => void;
   assetName: string;
   assetType: string;
-  relatedAssets: RelatedAsset[] | { usedBy?: RelatedAsset[]; uses?: RelatedAsset[] };
+  relatedAssets: LineageRelationship[];
 }
 
 export default function RelatedAssetsDialog({
@@ -52,27 +63,17 @@ export default function RelatedAssetsDialog({
     const usesMap = new Map<string, RelatedAsset>();
     const usedByMap = new Map<string, RelatedAsset>();
 
-    if (Array.isArray(relatedAssets)) {
-      relatedAssets.forEach((rel: any) => {
-        const asset: RelatedAsset = {
-          id: rel.targetAssetId,
-          name: rel.targetAssetName,
-          type: rel.targetAssetType,
-          isArchived: rel.targetIsArchived,
-          relationshipType: rel.relationshipType,
-          activity: rel.activity,
-          tags: rel.tags,
-        };
-
-        if (rel.relationshipType === 'used_by') {
-          usedByMap.set(asset.id, asset);
-        } else if (rel.relationshipType === 'uses') {
-          usesMap.set(asset.id, asset);
-        }
-      });
-    } else if (relatedAssets && typeof relatedAssets === 'object') {
-      (relatedAssets.uses || []).forEach((a: RelatedAsset) => usesMap.set(a.id, a));
-      (relatedAssets.usedBy || []).forEach((a: RelatedAsset) => usedByMap.set(a.id, a));
+    for (const rel of relatedAssets) {
+      const asset: RelatedAsset = {
+        id: rel.targetAssetId,
+        name: rel.targetAssetName,
+        type: rel.targetAssetType,
+        isArchived: rel.targetIsArchived,
+        relationshipType: rel.relationshipType,
+        activity: rel.activity,
+        tags: rel.tags,
+      };
+      (rel.relationshipType === 'used_by' ? usedByMap : usesMap).set(asset.id, asset);
     }
 
     return {

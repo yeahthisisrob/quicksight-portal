@@ -5,7 +5,7 @@ import { BaseAssetParser, type ParserCapabilities } from '../BaseAssetParser';
 /**
  * Folder metadata extracted from API responses
  */
-export interface FolderMetadata {
+interface FolderMetadata {
   assetId: string;
   name: string;
   arn: string;

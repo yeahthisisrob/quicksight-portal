@@ -9,7 +9,7 @@
  * - blocked: settings, keys, scripts and the assistant itself. Never.
  */
 
-export type CallVerdict = 'read' | 'action' | 'blocked';
+type CallVerdict = 'read' | 'action' | 'blocked';
 
 const BLOCKED = [/^\/api\/settings(\/|$)/, /^\/api\/scripts(\/|$)/, /^\/api\/assistant(\/|$)/];
 

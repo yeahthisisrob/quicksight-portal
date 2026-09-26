@@ -22,7 +22,7 @@ import {
 /**
  * Extracted metadata specific to explorations
  */
-export interface ExplorationMetadata {
+interface ExplorationMetadata {
   sheetCount: number;
   visualCount: number;
   datasetCount: number;

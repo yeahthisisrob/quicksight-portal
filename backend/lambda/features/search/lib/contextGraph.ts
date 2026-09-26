@@ -52,7 +52,7 @@ export type Relation =
   | 'in-asset'
   | 'in-folder';
 
-export interface ContextEntity {
+interface ContextEntity {
   /** `${type}:${key}`, stable across rebuilds. */
   id: string;
   type: EntityType;
@@ -66,7 +66,7 @@ export interface ContextEntity {
   path?: string;
 }
 
-export interface ContextEdge {
+interface ContextEdge {
   from: string;
   relation: Relation;
   to: string;
@@ -76,7 +76,7 @@ export interface ContextEdge {
 
 export type Direction = 'out' | 'in' | 'both';
 
-export interface RelatedQuery {
+interface RelatedQuery {
   relations?: Relation[];
   direction?: Direction;
   /** 1 to MAX_DEPTH hops. */
@@ -85,7 +85,7 @@ export interface RelatedQuery {
   limit?: number;
 }
 
-export interface RelatedHit {
+interface RelatedHit {
   entity: ContextEntity;
   /** The path from the start, as relations: ["reads-listing", "in-project"]. */
   via: Array<{ relation: Relation; direction: 'out' | 'in'; note?: string }>;
@@ -110,14 +110,21 @@ export class ContextGraph {
     const existing = this.entities.get(entity.id);
     this.entities.set(
       entity.id,
-      existing ? { ...existing, ...entity, attributes: { ...existing.attributes, ...entity.attributes } } : entity
+      existing
+        ? { ...existing, ...entity, attributes: { ...existing.attributes, ...entity.attributes } }
+        : entity
     );
   }
 
   /** Both ends must exist; a dangling edge is dropped rather than pointing nowhere. */
   public link(from: string, relation: Relation, to: string, note?: string): void {
     const key = `${from}|${relation}|${to}`;
-    if (from === to || this.seenEdges.has(key) || !this.entities.has(from) || !this.entities.has(to)) {
+    if (
+      from === to ||
+      this.seenEdges.has(key) ||
+      !this.entities.has(from) ||
+      !this.entities.has(to)
+    ) {
       return;
     }
     this.seenEdges.add(key);
@@ -139,7 +146,9 @@ export class ContextGraph {
   }
 
   /** How many relationships of each kind an entity has, in and out: what an agent can ask next. */
-  public relationCounts(id: string): Array<{ relation: Relation; direction: 'out' | 'in'; count: number }> {
+  public relationCounts(
+    id: string
+  ): Array<{ relation: Relation; direction: 'out' | 'in'; count: number }> {
     const counts = new Map<string, number>();
     for (const e of this.outgoing.get(id) ?? []) {
       counts.set(`out|${e.relation}`, (counts.get(`out|${e.relation}`) ?? 0) + 1);
@@ -174,7 +183,12 @@ export class ContextGraph {
     for (let hop = 1; hop <= depth && frontier.length > 0; hop += 1) {
       const next: typeof frontier = [];
       for (const node of frontier) {
-        const steps: Array<{ to: string; relation: Relation; direction: 'out' | 'in'; note?: string }> = [];
+        const steps: Array<{
+          to: string;
+          relation: Relation;
+          direction: 'out' | 'in';
+          note?: string;
+        }> = [];
         if (direction !== 'in') {
           for (const e of this.outgoing.get(node.id) ?? []) {
             steps.push({ to: e.to, relation: e.relation, direction: 'out', note: e.note });
@@ -192,7 +206,11 @@ export class ContextGraph {
           seen.add(step.to);
           const via = [
             ...node.via,
-            { relation: step.relation, direction: step.direction, ...(step.note ? { note: step.note } : {}) },
+            {
+              relation: step.relation,
+              direction: step.direction,
+              ...(step.note ? { note: step.note } : {}),
+            },
           ];
           const entity = this.entities.get(step.to)!;
           if (!types || types.has(entity.type)) {

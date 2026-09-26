@@ -28,7 +28,7 @@ type Story = StoryObj<typeof meta>;
 
 type Tab = 'export' | 'archived' | 'scripts';
 
-function Demo({ withIcons }: { withIcons?: boolean }) {
+function Demo() {
   const [tab, setTab] = useState<Tab>('export');
   return (
     <Container disableContentPadding sx={{ maxWidth: 720 }}>
@@ -42,14 +42,14 @@ function Demo({ withIcons }: { withIcons?: boolean }) {
           </Button>
         }
         tabs={[
-          { value: 'export', label: 'Export', icon: withIcons ? <ExportIcon /> : undefined },
+          { value: 'export', label: 'Export', icon: <ExportIcon /> },
           {
             value: 'archived',
             label: 'Archived assets',
             badge: 37,
-            icon: withIcons ? <ArchiveIcon /> : undefined,
+            icon: <ArchiveIcon />,
           },
-          { value: 'scripts', label: 'Scripts', icon: withIcons ? <CodeIcon /> : undefined },
+          { value: 'scripts', label: 'Scripts', icon: <CodeIcon /> },
         ]}
       />
       <Typography sx={{ p: 2.5 }}>Content for the {tab} tab.</Typography>
@@ -57,5 +57,4 @@ function Demo({ withIcons }: { withIcons?: boolean }) {
   );
 }
 
-export const Text: Story = { render: () => <Demo /> };
-export const WithIcons: Story = { render: () => <Demo withIcons /> };
+export const WithIcons: Story = { render: () => <Demo /> };

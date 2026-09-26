@@ -28,7 +28,7 @@ import { type ApiKey, type ApiKeyCreated, settingsApi } from '@/shared/api/modul
 import { Container, EmptyState, StatusIndicator } from '@/shared/design-system';
 import ConfirmationDialog from '@/shared/ui/ConfirmationDialog';
 
-export const API_KEYS_QUERY_KEY = ['settings', 'api-keys'] as const;
+const API_KEYS_QUERY_KEY = ['settings', 'api-keys'] as const;
 const DATE_FORMAT = 'MMM d, yyyy HH:mm';
 const LABEL_WIDTH = 280;
 const META_WIDTH = 160;

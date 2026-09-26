@@ -20,7 +20,12 @@ const OUTLINE: SheetOutline[] = [
     name: 'Overview',
     layout: 'grid',
     elements: [
-      { elementId: 'bar-region', kind: 'visual', visualType: 'BarChart', title: 'Revenue by region' },
+      {
+        elementId: 'bar-region',
+        kind: 'visual',
+        visualType: 'BarChart',
+        title: 'Revenue by region',
+      },
       { elementId: 'text-intro', kind: 'textBox' },
     ],
   },
@@ -53,22 +58,33 @@ describe('ops helpers', () => {
 
   it('describes every op in words, naming the element when it can', () => {
     const s = 'sheet-overview';
-    expect(describeOp({ op: 'move', sheetId: s, elementId: 'bar-region', col: 0, row: 6 }, OUTLINE)).toBe(
-      'Move "Revenue by region" to column 0, row 6'
+    expect(
+      describeOp({ op: 'move', sheetId: s, elementId: 'bar-region', col: 0, row: 6 }, OUTLINE)
+    ).toBe('Move "Revenue by region" to column 0, row 6');
+    expect(
+      describeOp(
+        { op: 'resize', sheetId: s, elementId: 'text-intro', colSpan: 36, rowSpan: 2 },
+        OUTLINE
+      )
+    ).toBe('Resize text-intro to 36 × 2');
+    expect(
+      describeOp(
+        { op: 'retype', sheetId: s, elementId: 'bar-region', visualType: 'LineChart' },
+        OUTLINE
+      )
+    ).toBe('Change "Revenue by region" to a line chart');
+    expect(
+      describeOp(
+        { op: 'retitle', sheetId: s, elementId: 'bar-region', title: 'Sales', subtitle: '' },
+        OUTLINE
+      )
+    ).toBe('Retitle "Revenue by region": title "Sales", no subtitle');
+    expect(describeOp({ op: 'remove', sheetId: s, elementId: 'bar-region' })).toBe(
+      'Remove bar-region'
     );
-    expect(describeOp({ op: 'resize', sheetId: s, elementId: 'text-intro', colSpan: 36, rowSpan: 2 }, OUTLINE)).toBe(
-      'Resize text-intro to 36 × 2'
-    );
-    expect(describeOp({ op: 'retype', sheetId: s, elementId: 'bar-region', visualType: 'LineChart' }, OUTLINE)).toBe(
-      'Change "Revenue by region" to a line chart'
-    );
-    expect(describeOp({ op: 'retitle', sheetId: s, elementId: 'bar-region', title: 'Sales', subtitle: '' }, OUTLINE)).toBe(
-      'Retitle "Revenue by region": title "Sales", no subtitle'
-    );
-    expect(describeOp({ op: 'remove', sheetId: s, elementId: 'bar-region' })).toBe('Remove bar-region');
-    expect(describeOp({ op: 'duplicate', sheetId: s, elementId: 'bar-region', title: 'Copy' }, OUTLINE)).toBe(
-      'Duplicate "Revenue by region" as "Copy"'
-    );
+    expect(
+      describeOp({ op: 'duplicate', sheetId: s, elementId: 'bar-region', title: 'Copy' }, OUTLINE)
+    ).toBe('Duplicate "Revenue by region" as "Copy"');
     expect(describeOp({ op: 'renameSheet', sheetId: s, name: 'Summary' }, OUTLINE)).toBe(
       'Rename sheet "Overview" to "Summary"'
     );

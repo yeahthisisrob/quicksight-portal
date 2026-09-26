@@ -40,7 +40,7 @@ export const OWNER_ACTIONS: Record<AuthorableAssetType, string[]> = {
   ],
 };
 
-export interface Audience {
+interface Audience {
   permissions?: any[];
   folderIds: string[];
   /** The creator's QuickSight user, when their email matched one. */
@@ -92,7 +92,7 @@ export function withOwner(
 }
 
 /** The folders every authored asset goes into, from Settings. */
-export function defaultFolderIds(): string[] {
+function defaultFolderIds(): string[] {
   const value = settingsStore.get('authoring.defaultFolderIds');
   return Array.isArray(value)
     ? value.filter((v): v is string => typeof v === 'string' && v.length > 0)

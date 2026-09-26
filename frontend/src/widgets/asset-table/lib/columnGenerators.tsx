@@ -5,15 +5,13 @@ import { ErrorOutlined as ErrorOutlineIcon } from '@mui/icons-material';
 import { alpha, Box, Chip, Tooltip, Typography } from '@mui/material';
 
 import { formatDatasourceType } from '@/entities/field';
+import type { ColumnConfig } from '@/features/asset-management';
 
 import { colors } from '@/shared/design-system/theme';
 import { TypedChip } from '@/shared/ui';
-import { SearchMatchChipGroup } from '@/shared/ui/SearchMatchChip';
 
 import { ActivityCountCell, ErrorsCell, LoadTimeCell } from '../ui/components/HealthCell';
-import { formatBytes, formatRelativeDate, type AssetRow } from './createAssetColumns';
-
-import type { ColumnConfig } from '@/features/asset-management';
+import { type AssetRow, formatBytes, formatRelativeDate } from './createAssetColumns';
 
 type Handlers = {
   onRefreshScheduleClick?: (dataset: any) => void;
@@ -28,7 +26,9 @@ type Handlers = {
 };
 
 // Type guards
-const isDataset = (_row: AssetRow): _row is AssetRow & { sourceType?: string; importMode?: string; sizeInBytes?: number } => {
+const isDataset = (
+  _row: AssetRow
+): _row is AssetRow & { sourceType?: string; importMode?: string; sizeInBytes?: number } => {
   return true; // This is used only when assetType is 'dataset'
 };
 
@@ -67,7 +67,8 @@ export function generateDatasetColumns(handlers: Handlers): ColumnConfig[] {
         if (!sourceType) return null;
         return <Typography variant="body2">{formatDatasourceType(sourceType)}</Typography>;
       },
-      valueGetter: (params) => isDataset(params.row) ? (params.row.sourceType || 'UNKNOWN') : 'UNKNOWN',
+      valueGetter: (params) =>
+        isDataset(params.row) ? params.row.sourceType || 'UNKNOWN' : 'UNKNOWN',
     },
     {
       id: 'importMode',
@@ -85,7 +86,7 @@ export function generateDatasetColumns(handlers: Handlers): ColumnConfig[] {
           </Typography>
         );
       },
-      valueGetter: (params) => isDataset(params.row) ? (params.row.importMode || '') : '',
+      valueGetter: (params) => (isDataset(params.row) ? params.row.importMode || '' : ''),
     },
     {
       id: 'schemas',
@@ -104,21 +105,17 @@ export function generateDatasetColumns(handlers: Handlers): ColumnConfig[] {
         if (!isDataset(params.row)) {
           return null;
         }
-        
+
         const capacity = params.row.sizeInBytes;
         const importMode = params.row.importMode;
-        
+
         if (importMode !== 'SPICE' || !capacity) {
           return null;
         }
-        
-        return (
-          <Typography variant="body2">
-            {formatBytes(capacity)}
-          </Typography>
-        );
+
+        return <Typography variant="body2">{formatBytes(capacity)}</Typography>;
       },
-      valueGetter: (params) => isDataset(params.row) ? (params.row.sizeInBytes || 0) : 0,
+      valueGetter: (params) => (isDataset(params.row) ? params.row.sizeInBytes || 0 : 0),
     },
     {
       id: 'refreshAlerts',
@@ -130,17 +127,19 @@ export function generateDatasetColumns(handlers: Handlers): ColumnConfig[] {
           return null;
         }
 
-        const refreshProps = params.row.dataSetRefreshProperties || (params.row as any)['DataSetRefreshProperties'];
-        
+        const refreshProps =
+          params.row.dataSetRefreshProperties || (params.row as any).DataSetRefreshProperties;
+
         if (!refreshProps) {
           return null;
         }
 
         // Check for email alerts in failure configuration
-        const failureConfig = refreshProps.failureConfiguration || refreshProps['FailureConfiguration'];
-        const emailAlert = failureConfig?.emailAlert || failureConfig?.['EmailAlert'];
-        const alertStatus = emailAlert?.alertStatus || emailAlert?.['AlertStatus'];
-        
+        const failureConfig =
+          refreshProps.failureConfiguration || refreshProps.FailureConfiguration;
+        const emailAlert = failureConfig?.emailAlert || failureConfig?.EmailAlert;
+        const alertStatus = emailAlert?.alertStatus || emailAlert?.AlertStatus;
+
         const hasAlerts = alertStatus === 'ENABLED';
         if (!hasAlerts) return null;
 
@@ -148,10 +147,12 @@ export function generateDatasetColumns(handlers: Handlers): ColumnConfig[] {
       },
       valueGetter: (params) => {
         if (!isDataset(params.row)) return '';
-        const refreshProps = params.row.dataSetRefreshProperties || (params.row as any)['DataSetRefreshProperties'];
-        const failureConfig = refreshProps?.failureConfiguration || refreshProps?.['FailureConfiguration'];
-        const emailAlert = failureConfig?.emailAlert || failureConfig?.['EmailAlert'];
-        const alertStatus = emailAlert?.alertStatus || emailAlert?.['AlertStatus'];
+        const refreshProps =
+          params.row.dataSetRefreshProperties || (params.row as any).DataSetRefreshProperties;
+        const failureConfig =
+          refreshProps?.failureConfiguration || refreshProps?.FailureConfiguration;
+        const emailAlert = failureConfig?.emailAlert || failureConfig?.EmailAlert;
+        const alertStatus = emailAlert?.alertStatus || emailAlert?.AlertStatus;
         return alertStatus === 'ENABLED' ? 'Yes' : 'No';
       },
     },
@@ -174,7 +175,7 @@ export function generateDatasetColumns(handlers: Handlers): ColumnConfig[] {
       renderCell: (params: { row: AssetRow; value: any }) =>
         renderDatasetActivityCell(params, handlers.onActivityClick),
       valueGetter: (params) => ((params.row as any).activity?.totalViews as number) || 0,
-    }
+    },
   ];
 }
 
@@ -202,9 +203,19 @@ function renderActivityChips(options: {
         }}
         onClick={onClick}
       >
-        <TypedChip type="VIEWS" customLabel={views.toLocaleString()} size="small" variant="outlined" />
+        <TypedChip
+          type="VIEWS"
+          customLabel={views.toLocaleString()}
+          size="small"
+          variant="outlined"
+        />
         {viewers !== undefined && viewers > 0 && (
-          <TypedChip type="USER" customLabel={viewers.toLocaleString()} size="small" variant="outlined" />
+          <TypedChip
+            type="USER"
+            customLabel={viewers.toLocaleString()}
+            size="small"
+            variant="outlined"
+          />
         )}
       </Box>
     </Tooltip>
@@ -269,9 +280,7 @@ function renderSchemasCell(params: { row: AssetRow; value: any }) {
         >
           {schemas[0]}
         </Typography>
-        {schemas.length > 1 && (
-          <Chip label={`+${schemas.length - 1}`} size="small" />
-        )}
+        {schemas.length > 1 && <Chip label={`+${schemas.length - 1}`} size="small" />}
       </Box>
     </Tooltip>
   );
@@ -280,77 +289,92 @@ function renderSchemasCell(params: { row: AssetRow; value: any }) {
 /**
  * Render refresh schedule cell for datasets
  */
-function renderRefreshScheduleCell(params: { row: AssetRow; value: any }, onRefreshScheduleClick?: (dataset: any) => void) {
+function renderRefreshScheduleCell(
+  params: { row: AssetRow; value: any },
+  onRefreshScheduleClick?: (dataset: any) => void
+) {
   if (!isDataset(params.row)) {
     return null;
   }
 
   const { refreshSchedules } = params.row;
-  
+
   if (!refreshSchedules || refreshSchedules.length === 0) {
-    return <Typography variant="body2" color="text.secondary">None</Typography>;
+    return (
+      <Typography variant="body2" color="text.secondary">
+        None
+      </Typography>
+    );
   }
 
   // Validate that refreshSchedules is a proper array with valid objects
-  const validSchedules = Array.isArray(refreshSchedules) 
-    ? refreshSchedules.filter((s: any) => s && typeof s === 'object' && 
-        (s.refreshType || s['RefreshType']) && 
-        (s.scheduleFrequency || s['ScheduleFrequency']))
+  const validSchedules = Array.isArray(refreshSchedules)
+    ? refreshSchedules.filter(
+        (s: any) =>
+          s &&
+          typeof s === 'object' &&
+          (s.refreshType || s.RefreshType) &&
+          (s.scheduleFrequency || s.ScheduleFrequency)
+      )
     : [];
 
   if (validSchedules.length === 0) {
-    return <Typography variant="body2" color="text.secondary">Invalid data</Typography>;
+    return (
+      <Typography variant="body2" color="text.secondary">
+        Invalid data
+      </Typography>
+    );
   }
 
   // Find first regular (FULL_REFRESH) and first incremental schedule
-  const fullRefreshSchedule = validSchedules.find((s: any) => 
-    (s.refreshType || s['RefreshType']) === 'FULL_REFRESH'
+  const fullRefreshSchedule = validSchedules.find(
+    (s: any) => (s.refreshType || s.RefreshType) === 'FULL_REFRESH'
   );
-  const incrementalSchedule = validSchedules.find((s: any) => 
-    (s.refreshType || s['RefreshType']) === 'INCREMENTAL_REFRESH'
+  const incrementalSchedule = validSchedules.find(
+    (s: any) => (s.refreshType || s.RefreshType) === 'INCREMENTAL_REFRESH'
   );
-  
+
   const formatScheduleTime = (schedule: any) => {
-    const frequency = schedule.scheduleFrequency || schedule['ScheduleFrequency'];
+    const frequency = schedule.scheduleFrequency || schedule.ScheduleFrequency;
     if (!schedule || !frequency) {
       return 'Unknown';
     }
-    
+
     // Handle both camelCase and PascalCase properties
-    const interval = frequency.interval || frequency['Interval'];
-    const timeOfTheDay = frequency.timeOfTheDay || frequency['TimeOfTheDay'];
-    const refreshOnDay = frequency.refreshOnDay || frequency['RefreshOnDay'];
+    const interval = frequency.interval || frequency.Interval;
+    const timeOfTheDay = frequency.timeOfTheDay || frequency.TimeOfTheDay;
+    const refreshOnDay = frequency.refreshOnDay || frequency.RefreshOnDay;
     let timeStr = '';
-    
+
     if (!interval) {
       return 'Unknown interval';
     }
-    
+
     if (interval === 'DAILY') {
       timeStr = timeOfTheDay ? `Daily at ${timeOfTheDay}` : 'Daily';
     } else if (interval === 'WEEKLY') {
-      const dayOfWeek = refreshOnDay?.dayOfWeek || refreshOnDay?.['DayOfWeek'];
+      const dayOfWeek = refreshOnDay?.dayOfWeek || refreshOnDay?.DayOfWeek;
       const day = dayOfWeek ? dayOfWeek.charAt(0) + dayOfWeek.slice(1).toLowerCase() : '';
       timeStr = timeOfTheDay ? `${day} at ${timeOfTheDay}` : `Weekly ${day}`;
     } else if (interval === 'MONTHLY') {
-      const dayOfMonth = refreshOnDay?.dayOfMonth || refreshOnDay?.['DayOfMonth'] || '1st';
+      const dayOfMonth = refreshOnDay?.dayOfMonth || refreshOnDay?.DayOfMonth || '1st';
       timeStr = timeOfTheDay ? `${dayOfMonth} at ${timeOfTheDay}` : `Monthly ${dayOfMonth}`;
     } else if (interval === 'HOURLY') {
       timeStr = 'Hourly';
     } else if (interval.includes('MINUTE')) {
-      timeStr = interval.replace('MINUTE', '') + 'm';
+      timeStr = `${interval.replace('MINUTE', '')}m`;
     } else {
       timeStr = interval;
     }
-    
+
     return timeStr;
   };
 
   return (
-    <Box 
-      sx={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
         gap: 0.5,
         cursor: 'pointer',
         '&:hover': {
@@ -358,7 +382,7 @@ function renderRefreshScheduleCell(params: { row: AssetRow; value: any }, onRefr
           borderRadius: 1,
           p: 0.5,
           m: -0.5,
-        }
+        },
       }}
       onClick={(e) => {
         e.stopPropagation();
@@ -369,30 +393,26 @@ function renderRefreshScheduleCell(params: { row: AssetRow; value: any }, onRefr
     >
       {fullRefreshSchedule && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Chip 
-            label="Full" 
-            size="small" 
-            variant="outlined" 
+          <Chip
+            label="Full"
+            size="small"
+            variant="outlined"
             color="primary"
             sx={{ minWidth: 45 }}
           />
-          <Typography variant="caption">
-            {formatScheduleTime(fullRefreshSchedule)}
-          </Typography>
+          <Typography variant="caption">{formatScheduleTime(fullRefreshSchedule)}</Typography>
         </Box>
       )}
       {incrementalSchedule && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Chip 
-            label="Inc" 
-            size="small" 
-            variant="outlined" 
+          <Chip
+            label="Inc"
+            size="small"
+            variant="outlined"
             color="secondary"
             sx={{ minWidth: 45 }}
           />
-          <Typography variant="caption">
-            {formatScheduleTime(incrementalSchedule)}
-          </Typography>
+          <Typography variant="caption">{formatScheduleTime(incrementalSchedule)}</Typography>
         </Box>
       )}
       {validSchedules.length > 2 && (
@@ -400,11 +420,12 @@ function renderRefreshScheduleCell(params: { row: AssetRow; value: any }, onRefr
           +{validSchedules.length - 2} more
         </Typography>
       )}
-      {validSchedules.length > 1 && !(validSchedules.length > 2 && fullRefreshSchedule && incrementalSchedule) && (
-        <Typography variant="caption" color="text.secondary">
-          +{validSchedules.length - 1} more
-        </Typography>
-      )}
+      {validSchedules.length > 1 &&
+        !(validSchedules.length > 2 && fullRefreshSchedule && incrementalSchedule) && (
+          <Typography variant="caption" color="text.secondary">
+            +{validSchedules.length - 1} more
+          </Typography>
+        )}
     </Box>
   );
 }
@@ -416,22 +437,24 @@ function getRefreshScheduleValue(params: { row: AssetRow }) {
   if (!isDataset(params.row)) return '';
   const { refreshSchedules } = params.row;
   if (!refreshSchedules || refreshSchedules.length === 0) return 'None';
-  
+
   // Validate schedules before accessing properties
-  const validSchedules = refreshSchedules.filter((s: any) => 
-    s && 
-    typeof s === 'object' && 
-    (s.scheduleFrequency || s['ScheduleFrequency']) && 
-    ((s.scheduleFrequency && s.scheduleFrequency.interval) || 
-     (s['ScheduleFrequency'] && s['ScheduleFrequency']['Interval']))
+  const validSchedules = refreshSchedules.filter(
+    (s: any) =>
+      s &&
+      typeof s === 'object' &&
+      (s.scheduleFrequency || s.ScheduleFrequency) &&
+      (s.scheduleFrequency?.interval || s.ScheduleFrequency?.Interval)
   );
-  
+
   if (validSchedules.length === 0) return 'Invalid';
-  
-  return validSchedules.map((s: any) => {
-    const freq = s.scheduleFrequency || s['ScheduleFrequency'];
-    return freq.interval || freq['Interval'];
-  }).join(', ');
+
+  return validSchedules
+    .map((s: any) => {
+      const freq = s.scheduleFrequency || s.ScheduleFrequency;
+      return freq.interval || freq.Interval;
+    })
+    .join(', ');
 }
 
 /**
@@ -450,9 +473,9 @@ export function generateFolderColumns(handlers: Handlers): ColumnConfig[] {
         const path = params.row.path || '/';
         return (
           <Tooltip title={path}>
-            <Typography 
-              variant="body2" 
-              sx={{ 
+            <Typography
+              variant="body2"
+              sx={{
                 color: 'text.secondary',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -464,7 +487,7 @@ export function generateFolderColumns(handlers: Handlers): ColumnConfig[] {
           </Tooltip>
         );
       },
-      valueGetter: (params) => isFolder(params.row) ? (params.row.path || '/') : '/',
+      valueGetter: (params) => (isFolder(params.row) ? params.row.path || '/' : '/'),
     },
     {
       id: 'memberCount',
@@ -472,22 +495,22 @@ export function generateFolderColumns(handlers: Handlers): ColumnConfig[] {
       width: 100,
       visible: true,
       renderCell: (params) => (
-        <Chip 
-          label={params.row.memberCount || 0} 
-          size="small" 
+        <Chip
+          label={params.row.memberCount || 0}
+          size="small"
           color={params.row.memberCount > 0 ? 'primary' : 'default'}
-          sx={{ 
+          sx={{
             cursor: 'pointer',
-            '&:hover': { 
+            '&:hover': {
               backgroundColor: 'primary.main',
               color: 'primary.contrastText',
-            }
+            },
           }}
           onClick={() => handlers.onFolderMembersClick?.(params.row)}
         />
       ),
       valueGetter: (params: any) => params.row.memberCount || 0,
-    }
+    },
   ];
 }
 
@@ -545,7 +568,7 @@ export function generateUserColumns(handlers: Handlers): ColumnConfig[] {
             : undefined,
         });
       },
-      valueGetter: (params) => isUser(params.row) ? (params.row.activity?.totalActivities || 0) : 0,
+      valueGetter: (params) => (isUser(params.row) ? params.row.activity?.totalActivities || 0 : 0),
     },
     {
       id: 'permissions',
@@ -566,13 +589,13 @@ export function generateUserColumns(handlers: Handlers): ColumnConfig[] {
               '&:hover': {
                 backgroundColor: 'primary.main',
                 color: 'primary.contrastText',
-              }
+              },
             }}
             onClick={() => handlers.onUserAssetAccessClick?.(params.row)}
           />
         );
       },
-      valueGetter: (params) => isUser(params.row) ? ((params.row as any).assetAccessCount || 0) : 0,
+      valueGetter: (params) => (isUser(params.row) ? (params.row as any).assetAccessCount || 0 : 0),
     },
     {
       id: 'groups',
@@ -580,7 +603,7 @@ export function generateUserColumns(handlers: Handlers): ColumnConfig[] {
       width: 150,
       visible: true,
       renderCell: (params: { row: AssetRow; value: any }) => {
-        const groupCount = isUser(params.row) ? (params.row.groupCount || 0) : 0;
+        const groupCount = isUser(params.row) ? params.row.groupCount || 0 : 0;
         if (groupCount === 0) return '-';
         return (
           <Chip
@@ -592,13 +615,13 @@ export function generateUserColumns(handlers: Handlers): ColumnConfig[] {
               '&:hover': {
                 backgroundColor: 'primary.main',
                 color: 'primary.contrastText',
-              }
+              },
             }}
             onClick={() => handlers.onUserGroupsClick?.(params.row)}
           />
         );
       },
-      valueGetter: (params) => isUser(params.row) ? (params.row.groupCount || 0) : 0,
+      valueGetter: (params) => (isUser(params.row) ? params.row.groupCount || 0 : 0),
     },
     {
       id: 'role',
@@ -615,7 +638,7 @@ export function generateUserColumns(handlers: Handlers): ColumnConfig[] {
           />
         );
       },
-    }
+    },
   ];
 }
 
@@ -632,7 +655,11 @@ export function generateGroupColumns(handlers: Handlers): ColumnConfig[] {
       visible: true,
       renderCell: (params) => (
         <Tooltip title={params.value || 'No description'}>
-          <Typography variant="body2" noWrap sx={{ color: params.value ? 'inherit' : 'text.secondary' }}>
+          <Typography
+            variant="body2"
+            noWrap
+            sx={{ color: params.value ? 'inherit' : 'text.secondary' }}
+          >
             {params.value || 'No description'}
           </Typography>
         </Tooltip>
@@ -646,9 +673,9 @@ export function generateGroupColumns(handlers: Handlers): ColumnConfig[] {
       renderCell: (params) => {
         const memberCount = params.row.memberCount || params.row.Members?.length || 0;
         return (
-          <Chip 
-            label={memberCount} 
-            size="small" 
+          <Chip
+            label={memberCount}
+            size="small"
             color={memberCount > 0 ? 'primary' : 'default'}
             onClick={(e) => {
               e.stopPropagation();
@@ -668,16 +695,16 @@ export function generateGroupColumns(handlers: Handlers): ColumnConfig[] {
       valueGetter: (params: any) => params.row.memberCount || params.row.Members?.length || 0,
     },
     {
-      id: 'assetsCount', 
+      id: 'assetsCount',
       label: 'Assets',
       width: 100,
       visible: true,
       renderCell: (params) => {
         const assetsCount = params.row.assetsCount || 0;
         return (
-          <Chip 
-            label={assetsCount} 
-            size="small" 
+          <Chip
+            label={assetsCount}
+            size="small"
             color={assetsCount > 0 ? 'success' : 'default'}
             onClick={(e) => {
               e.stopPropagation();
@@ -685,18 +712,22 @@ export function generateGroupColumns(handlers: Handlers): ColumnConfig[] {
                 handlers.onGroupAssetsClick(params.row);
               }
             }}
-            sx={assetsCount > 0 ? {
-              cursor: 'pointer',
-              '&:hover': {
-                backgroundColor: 'success.dark',
-                color: 'white',
-              },
-            } : {}}
+            sx={
+              assetsCount > 0
+                ? {
+                    cursor: 'pointer',
+                    '&:hover': {
+                      backgroundColor: 'success.dark',
+                      color: 'white',
+                    },
+                  }
+                : {}
+            }
           />
         );
       },
       valueGetter: (params: any) => params.row.assetsCount || 0,
-    }
+    },
   ];
 }
 
@@ -711,12 +742,13 @@ export function generateDatasourceColumns(): ColumnConfig[] {
       width: 200,
       visible: true,
       renderCell: (params: { row: AssetRow; value: any }) => {
-        const type = isDatasource(params.row) ? (params.row.sourceType || 'UNKNOWN') : 'UNKNOWN';
-        
+        const type = isDatasource(params.row) ? params.row.sourceType || 'UNKNOWN' : 'UNKNOWN';
+
         return <Typography variant="body2">{formatDatasourceType(type)}</Typography>;
       },
-      valueGetter: (params) => isDatasource(params.row) ? (params.row.sourceType || 'UNKNOWN') : 'UNKNOWN',
-    }
+      valueGetter: (params) =>
+        isDatasource(params.row) ? params.row.sourceType || 'UNKNOWN' : 'UNKNOWN',
+    },
   ];
 }
 
@@ -732,9 +764,14 @@ export function generateDashboardAnalysisColumns(handlers: Handlers): ColumnConf
       visible: false,
       renderCell: (params: { row: AssetRow; value: any }) => {
         const status = params.row.status || 'unknown';
-        const color = status === 'active' ? 'success' : 
-                     status === 'archived' ? 'warning' : 
-                     status === 'deleted' ? 'error' : 'default';
+        const color =
+          status === 'active'
+            ? 'success'
+            : status === 'archived'
+              ? 'warning'
+              : status === 'deleted'
+                ? 'error'
+                : 'default';
         return <Chip label={status} size="small" color={color} />;
       },
     },
@@ -746,11 +783,11 @@ export function generateDashboardAnalysisColumns(handlers: Handlers): ColumnConf
       sortable: true,
       renderCell: (params: { row: AssetRow; value: any }) => {
         const errors = params.row.definitionErrors;
-        
+
         if (!errors || errors.length === 0) {
           return null; // Show blank spot if no errors
         }
-        
+
         return (
           <Chip
             label={errors.length}
@@ -833,8 +870,11 @@ export function generateDashboardAnalysisColumns(handlers: Handlers): ColumnConf
             : undefined,
         });
       },
-      valueGetter: (params) => (isDashboard(params.row) || isAnalysis(params.row)) ? (params.row.activity?.totalViews || 0) : 0,
-    }
+      valueGetter: (params) =>
+        isDashboard(params.row) || isAnalysis(params.row)
+          ? params.row.activity?.totalViews || 0
+          : 0,
+    },
   ];
 }
 
@@ -862,9 +902,9 @@ function generateRelationshipColumn(
       let archivedCount = 0;
 
       if (Array.isArray(relatedAssets)) {
-        const matches = relatedAssets.filter(r => r.relationshipType === kind);
-        activeCount = matches.filter(r => !r.targetIsArchived).length;
-        archivedCount = matches.filter(r => r.targetIsArchived).length;
+        const matches = relatedAssets.filter((r) => r.relationshipType === kind);
+        activeCount = matches.filter((r) => !r.targetIsArchived).length;
+        archivedCount = matches.filter((r) => r.targetIsArchived).length;
       } else if (relatedAssets?.[legacyKey]) {
         activeCount = relatedAssets[legacyKey].length;
       }
@@ -920,7 +960,7 @@ function generateRelationshipColumn(
     valueGetter: (params: { row: AssetRow }) => {
       const relatedAssets = params.row.relatedAssets;
       if (Array.isArray(relatedAssets)) {
-        return relatedAssets.filter(r => r.relationshipType === kind).length;
+        return relatedAssets.filter((r) => r.relationshipType === kind).length;
       }
       return params.row.relatedAssets?.[legacyKey]?.length || 0;
     },
@@ -939,40 +979,6 @@ export function generateUsedByColumn(handlers: Handlers): ColumnConfig {
  */
 export function generateUsesColumn(handlers: Handlers): ColumnConfig {
   return generateRelationshipColumn('uses', 'uses', 'Uses', 'uses', handlers);
-}
-
-/**
- * Generate search match reasons column
- * Shows why assets matched a search query (name, tags, dependencies, etc.)
- */
-export function generateSearchMatchReasonsColumn(): ColumnConfig {
-  return {
-    id: 'searchMatchReasons',
-    label: 'Match',
-    width: 120,
-    visible: true,
-    sortable: false,
-    hideable: true,
-    renderCell: (params: { row: AssetRow; value: any }) => {
-      const reasons = params.row.searchMatchReasons;
-
-      if (!reasons || reasons.length === 0) {
-        return null;
-      }
-
-      return (
-        <SearchMatchChipGroup
-          reasons={reasons}
-          maxVisible={2}
-          compact
-        />
-      );
-    },
-    valueGetter: (params: { row: AssetRow }) => {
-      const reasons = params.row.searchMatchReasons;
-      return reasons ? reasons.join(', ') : '';
-    },
-  };
 }
 
 /**

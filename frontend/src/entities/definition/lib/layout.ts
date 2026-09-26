@@ -20,7 +20,7 @@ export interface PlacedElement {
   section?: { id: string; role: WireframeSectionRole };
 }
 
-export interface SheetLayout {
+interface SheetLayout {
   kind: WireframeLayoutKind;
   canvasWidth?: number;
   placed: PlacedElement[];
@@ -28,7 +28,7 @@ export interface SheetLayout {
 }
 
 /** `'123px'` -> 123. Anything unparseable is 0. */
-export function px(value: unknown): number {
+function px(value: unknown): number {
   if (typeof value === 'number') return value;
   if (typeof value !== 'string') return 0;
   const parsed = Number.parseFloat(value);
@@ -101,8 +101,9 @@ function canvasWidth(layout: any): number | undefined {
 
 export function readSheetLayout(sheet: any): SheetLayout {
   const configuration = sheet?.Layouts?.[0]?.Configuration ?? {};
-  const controlStrip = (Array.isArray(sheet?.SheetControlLayouts) ? sheet.SheetControlLayouts : [])
-    .flatMap((l: any) => gridElements(l?.Configuration?.GridLayout));
+  const controlStrip = (
+    Array.isArray(sheet?.SheetControlLayouts) ? sheet.SheetControlLayouts : []
+  ).flatMap((l: any) => gridElements(l?.Configuration?.GridLayout));
 
   if (configuration.GridLayout) {
     return {

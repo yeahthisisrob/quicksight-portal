@@ -12,7 +12,7 @@ import { flattenGroups, groupHits } from '@/shared/lib/search/groupHits';
 
 import { SearchHitRow } from './SearchHitRow';
 
-export interface SearchHitListProps {
+interface SearchHitListProps {
   hits: SearchHit[];
   /** Index into the drawn order (see flattenGroups); -1 for none. */
   selectedIndex?: number;

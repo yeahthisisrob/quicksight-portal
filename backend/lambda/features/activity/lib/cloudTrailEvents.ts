@@ -6,8 +6,8 @@
  * stays about orchestration and the cache.
  */
 
-import { type AssetType } from '../../../shared/types/assetTypes';
-import { type ActionCategory } from '../types';
+import type { AssetType } from '../../../shared/types/assetTypes';
+import type { ActionCategory } from '../types';
 
 /**
  * Asset type configurations for event processing

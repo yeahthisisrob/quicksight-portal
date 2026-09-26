@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { walkColumnIdentifiers } from '../definitionColumns';
-import { rebindDefinition, rewriteExpression, withAddedCalculatedFields } from '../definitionRebind';
+import {
+  rebindDefinition,
+  rewriteExpression,
+  withAddedCalculatedFields,
+} from '../definitionRebind';
 import { ORDERS_ARN, REGIONS_ARN, sampleDefinition } from './fixtures';
 
 const GOLD_ARN = 'arn:aws:quicksight:us-east-1:1:dataset/orders-gold';
@@ -93,7 +97,11 @@ describe('rebindDefinition', () => {
   it('applies several rebinds in one pass', () => {
     const out = rebindDefinition(sampleDefinition(), [
       { identifier: 'orders', targetDataSetArn: GOLD_ARN },
-      { identifier: 'regions', targetDataSetArn: 'arn:x/regions-gold', columnMap: { region_name: 'name' } },
+      {
+        identifier: 'regions',
+        targetDataSetArn: 'arn:x/regions-gold',
+        columnMap: { region_name: 'name' },
+      },
     ]);
     expect(out.DataSetIdentifierDeclarations[1].DataSetArn).toBe('arn:x/regions-gold');
     expect(
@@ -128,7 +136,9 @@ describe('withAddedCalculatedFields', () => {
     });
     expect(sampleDefinition().CalculatedFields).toHaveLength(2);
     expect(() =>
-      withAddedCalculatedFields(sampleDefinition(), [{ identifier: 'ghost', name: 'a', expression: 'x' }])
+      withAddedCalculatedFields(sampleDefinition(), [
+        { identifier: 'ghost', name: 'a', expression: 'x' },
+      ])
     ).toThrow("no dataset identifier 'ghost'");
   });
 
@@ -142,6 +152,9 @@ describe('withAddedCalculatedFields', () => {
       { identifier: 'orders', name: 'margin', expression: '{revenue} - {cost} - {tax}' },
       { identifier: 'orders', name: 'margin', expression: '{revenue} - {cost} - {tax} - {fees}' },
     ]);
-    expect(different.CalculatedFields.slice(2).map((f: any) => f.Name)).toEqual(['margin_v2', 'margin_v3']);
+    expect(different.CalculatedFields.slice(2).map((f: any) => f.Name)).toEqual([
+      'margin_v2',
+      'margin_v3',
+    ]);
   });
 });

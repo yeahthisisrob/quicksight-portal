@@ -12,13 +12,6 @@ export const PAGINATION = {
   SMALL_BATCH_SIZE: 30,
 } as const;
 
-// Retry and concurrency limits
-export const RETRY_LIMITS = {
-  MAX_RETRIES: 3,
-  MAX_CONCURRENT_OPERATIONS: 5,
-  MAX_CONCURRENT_PROCESSORS: 10,
-} as const;
-
 // AWS retry configuration
 export const RETRY_CONFIG = {
   MAX_RETRIES: 3,
@@ -38,13 +31,6 @@ export const STORAGE_LIMITS = {
   CHUNK_SIZE_KB: 1024, // 1MB
   CACHE_ENTRY_LIMIT: 10000,
   MAX_LOG_ENTRIES: 50000,
-} as const;
-
-// Time limits in milliseconds
-export const TIMEOUT_LIMITS = {
-  FAST_OPERATION: 5000, // 5 seconds
-  NORMAL_OPERATION: 30000, // 30 seconds
-  SLOW_OPERATION: 120000, // 2 minutes
 } as const;
 
 // Activity and history limits

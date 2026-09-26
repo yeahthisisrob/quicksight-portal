@@ -25,12 +25,15 @@ export function matchOperation(spec: SpecLike, method: string, path: string): st
     return literal;
   }
   return candidates.find((t) =>
-    new RegExp(`^${t.replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\{[^}]+\}/g, '[^/]+')}$`).test(pathname)
+    new RegExp(`^${t.replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\{[^}]+\}/g, '[^/]+')}$`).test(
+      pathname
+    )
   );
 }
 
-export function requestSchema(spec: SpecLike, method: string, template: string): unknown {
-  return spec.paths?.[template]?.[method.toLowerCase()]?.requestBody?.content?.['application/json']?.schema;
+function requestSchema(spec: SpecLike, method: string, template: string): unknown {
+  return spec.paths?.[template]?.[method.toLowerCase()]?.requestBody?.content?.['application/json']
+    ?.schema;
 }
 
 function deref(spec: SpecLike, node: any): any {
@@ -49,7 +52,14 @@ function typeOf(value: unknown): string {
   return typeof value;
 }
 
-function check(spec: SpecLike, schemaNode: any, value: unknown, at: string, errors: string[], depth: number): void {
+function check(
+  spec: SpecLike,
+  schemaNode: any,
+  value: unknown,
+  at: string,
+  errors: string[],
+  depth: number
+): void {
   const schema = deref(spec, schemaNode);
   if (!schema || typeof schema !== 'object' || depth > MAX_DEPTH || errors.length >= MAX_ERRORS) {
     return;
@@ -84,10 +94,14 @@ function check(spec: SpecLike, schemaNode: any, value: unknown, at: string, erro
   if (actual === 'array') {
     const items = value as unknown[];
     if (typeof schema.minItems === 'number' && items.length < schema.minItems) {
-      errors.push(`${where}: needs at least ${schema.minItems} item${schema.minItems === 1 ? '' : 's'}`);
+      errors.push(
+        `${where}: needs at least ${schema.minItems} item${schema.minItems === 1 ? '' : 's'}`
+      );
     }
     if (schema.items) {
-      items.forEach((item, i) => check(spec, schema.items, item, `${where}[${i}]`, errors, depth + 1));
+      items.forEach((item, i) =>
+        check(spec, schema.items, item, `${where}[${i}]`, errors, depth + 1)
+      );
     }
   }
   if (actual === 'object' && (schema.properties || schema.required)) {
@@ -104,7 +118,12 @@ function check(spec: SpecLike, schemaNode: any, value: unknown, at: string, erro
 }
 
 /** What is wrong with a body for this operation, empty when it fits. */
-export function bodyErrors(spec: SpecLike, method: string, template: string, body: unknown): string[] {
+export function bodyErrors(
+  spec: SpecLike,
+  method: string,
+  template: string,
+  body: unknown
+): string[] {
   const schema = requestSchema(spec, method, template);
   if (!schema) {
     return [];

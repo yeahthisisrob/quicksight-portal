@@ -5,7 +5,7 @@
  */
 import type { SearchableType, SearchHit } from '@/shared/api/modules/search';
 
-export const SEARCH_TYPE_LABELS: Record<SearchableType, string> = {
+const SEARCH_TYPE_LABELS: Record<SearchableType, string> = {
   dashboard: 'Dashboards',
   analysis: 'Analyses',
   dataset: 'Datasets',
@@ -34,7 +34,7 @@ export const SEARCH_TYPE_SINGULAR: Record<SearchableType, string> = {
 };
 
 /** Groups appear in this order, whatever the scores; within a group, by score. */
-export const SEARCH_TYPE_ORDER: readonly SearchableType[] = [
+const SEARCH_TYPE_ORDER: readonly SearchableType[] = [
   'dashboard',
   'analysis',
   'dataset',
@@ -48,7 +48,7 @@ export const SEARCH_TYPE_ORDER: readonly SearchableType[] = [
   'folder',
 ];
 
-export interface SearchFilter {
+interface SearchFilter {
   id: string;
   label: string;
   /** Empty means every type. */
@@ -66,7 +66,7 @@ export const SEARCH_FILTERS: readonly SearchFilter[] = [
   { id: 'templates', label: 'Templates', types: ['template'] },
 ];
 
-export interface SearchHitGroup {
+interface SearchHitGroup {
   type: SearchableType;
   label: string;
   hits: SearchHit[];

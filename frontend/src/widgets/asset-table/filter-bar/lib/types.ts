@@ -1,7 +1,9 @@
-import type { components } from '@shared/generated';
+import type { PaginatedListParams } from '@/shared/api/modules/assets';
+import type { AssetFilter, TagFilter } from '@/shared/lib/useFilters';
 
-export type DateFieldOption = string;
-export type DateRangeOption = 'all' | '24h' | '7d' | '30d' | '90d';
+/** The date columns the lists filter on, as the contract names them. */
+export type DateFieldOption = NonNullable<PaginatedListParams['dateField']>;
+export type DateRangeOption = NonNullable<PaginatedListParams['dateRange']>;
 
 export interface DateFilterState {
   field: DateFieldOption;
@@ -14,7 +16,7 @@ export interface TagOption {
   count: number;
 }
 
-export type TagFilter = components['schemas']['TagFilter'];
+export type { AssetFilter, TagFilter };
 
 export type ErrorFilterState = 'all' | 'with_errors' | 'without_errors';
 
@@ -30,7 +32,7 @@ export type GroupMembershipFilterState = 'all' | 'in_groups' | 'not_in_groups';
 export type PermissionsFilterState = 'all' | 'with_permissions' | 'without_permissions';
 
 /** Shared shape for filter dropdown options with a value and count */
-export interface FilterOption {
+interface FilterOption {
   value: string;
   count: number;
 }
@@ -56,10 +58,6 @@ export interface AssetOption {
   type: string;
   fieldCount?: number;
 }
-
-import type { AssetFilter } from '@/shared/lib/useFilters';
-
-export type { AssetFilter };
 
 /** Option for the user-access filter dropdown (value = QuickSight user name) */
 export interface UserAccessOption {

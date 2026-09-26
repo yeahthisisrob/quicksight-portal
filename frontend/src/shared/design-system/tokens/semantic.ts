@@ -191,10 +191,3 @@ export const darkColors: SemanticColors = {
   },
   asset: darkAssets,
 };
-
-export type ColorSchemeName = 'light' | 'dark';
-
-export const semanticColors: Record<ColorSchemeName, SemanticColors> = {
-  light: lightColors,
-  dark: darkColors,
-};

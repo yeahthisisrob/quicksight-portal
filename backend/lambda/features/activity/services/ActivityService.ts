@@ -72,7 +72,7 @@ export interface EventNameProgress {
  * Optional knobs for refreshActivity — kept off the public request shape so
  * the wire API stays simple. The processor passes these in.
  */
-export interface ActivityRefreshOptions {
+interface ActivityRefreshOptions {
   signal?: AbortSignal;
   onEventNameProgress?: (progress: EventNameProgress) => void;
   onPhase?: (
@@ -104,7 +104,7 @@ const ACTIVITY_CONSTANTS = {
 } as const;
 
 /** Aggregated dataset activity block returned to asset listing APIs. */
-export interface DatasetActivityCounts {
+interface DatasetActivityCounts {
   totalViews: number;
   uniqueViewers: number;
   lastViewed: string | null;

@@ -34,7 +34,7 @@ function isFieldObject(value: unknown): boolean {
  *   { PercentileAggregation: { PercentileValue: 90 } }
  *   { AttributeAggregationFunction: { SimpleAttributeAggregation: 'UNIQUE_VALUE' } }
  */
-export function readAggregation(value: unknown): string | undefined {
+function readAggregation(value: unknown): string | undefined {
   if (typeof value === 'string') return value;
   if (!isPlainObject(value)) return undefined;
 
@@ -51,7 +51,7 @@ export function readAggregation(value: unknown): string | undefined {
   return undefined;
 }
 
-export function readField(fieldObject: Record<string, any>): WireframeField {
+function readField(fieldObject: Record<string, any>): WireframeField {
   const [kind] = Object.keys(fieldObject);
   const body = fieldObject[kind] ?? {};
   const column = body.Column;
@@ -73,7 +73,10 @@ export function readField(fieldObject: Record<string, any>): WireframeField {
 }
 
 /** Walk a FieldWells subtree and collect every well that has at least one field. */
-export function collectFieldWells(node: unknown, wells: WireframeFieldWell[] = []): WireframeFieldWell[] {
+export function collectFieldWells(
+  node: unknown,
+  wells: WireframeFieldWell[] = []
+): WireframeFieldWell[] {
   if (Array.isArray(node)) {
     for (const item of node) collectFieldWells(item, wells);
     return wells;

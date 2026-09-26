@@ -14,7 +14,7 @@ import { logger } from '../../../shared/utils/logger';
 import type { buildOutline } from '../lib/definitionOutline';
 import type { AuthorableAssetType } from '../types';
 
-export interface AssetInsights {
+interface AssetInsights {
   assetType: AuthorableAssetType;
   assetId: string;
   views: { total: number; last30d: number; uniqueViewers: number; lastViewedAt?: string };
@@ -27,7 +27,7 @@ export interface AssetInsights {
 }
 
 /** The slice of ActivityService this needs. */
-export interface ActivityReader {
+interface ActivityReader {
   getAssetActivity(
     assetType: 'dashboard' | 'analysis',
     assetId: string
@@ -40,7 +40,7 @@ export interface ActivityReader {
   } | null>;
 }
 
-export interface DefinitionReader {
+interface DefinitionReader {
   loadDefinitionOutline(
     assetType: AuthorableAssetType,
     assetId: string

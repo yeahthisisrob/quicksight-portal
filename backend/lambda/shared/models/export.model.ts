@@ -5,51 +5,6 @@
 
 import type { AssetType } from './asset.model';
 
-export interface ExportLogEntry {
-  ts: number; // timestamp in milliseconds
-  msg: string; // log message
-  level?: 'info' | 'warn' | 'error'; // log level
-  assetType?: string; // optional asset type context
-  assetId?: string; // optional asset ID context
-  apiCalls?: number; // running count of API calls made
-}
-
-export interface ExportProgress {
-  totalAssets: number;
-  enrichedAssets: number;
-  skeletonAssets: number;
-  failedAssets: number;
-  startedAt: number;
-  completedAt?: number;
-  status: 'idle' | 'running' | 'completed' | 'error';
-  currentStage?: string; // e.g., "Listing dashboards", "Enriching datasets"
-  error?: string; // error message if status is 'error'
-}
-
-export interface ExportState {
-  version: string;
-  progress: ExportProgress;
-  logs: ExportLogEntry[]; // rolling window of log entries
-  lastUpdated: number;
-  // lastHeartbeat removed - not needed with worker lambda architecture
-
-  // Asset-specific progress (optional, for detailed tracking)
-  assetProgress?: Record<
-    string,
-    {
-      listed: number;
-      enriched: number;
-      failed: number;
-    }
-  >;
-
-  // Stop signal for cooperative termination
-  // TODO: With Step Functions, this would be replaced by StopExecution API
-  stopRequested?: boolean;
-  stopRequestedAt?: number;
-  stopRequestedBy?: string;
-}
-
 /**
  * Export execution options with detailed refresh control
  */
@@ -64,19 +19,6 @@ export interface ExportOptions {
   assetTypes?: AssetType[]; // Asset types to export
   batchSize?: number;
   maxConcurrency?: number;
-}
-
-export interface ExportResult {
-  success: boolean;
-  duration: number;
-  totalAssets: number;
-  enrichedAssets: number;
-  failedAssets: number;
-  errors?: Array<{
-    assetType: string;
-    assetId: string;
-    error: string;
-  }>;
 }
 
 /**

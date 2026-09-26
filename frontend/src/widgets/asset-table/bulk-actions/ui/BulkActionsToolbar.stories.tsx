@@ -17,93 +17,32 @@ const meta = {
       </Box>
     ),
   ],
+  args: {
+    selectedCount: 5,
+    onBulkTag: () => {},
+    onClearSelection: () => {},
+  },
 } satisfies Meta<typeof BulkActionsToolbar>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** Every built-in action: add to folder, tag, delete. */
 export const Default: Story = {
   args: {
-    selectedCount: 5,
     onAddToFolder: () => {},
-    onBulkTag: () => {},
-    onClearSelection: () => {},
+    onBulkDelete: () => {},
+    showDeleteAction: true,
   },
 };
 
-export const WithCustomFolderLabel: Story = {
-  args: {
-    selectedCount: 3,
-    onAddToFolder: () => {},
-    onBulkTag: () => {},
-    onClearSelection: () => {},
-    folderActionLabel: 'Add to Group',
-  },
-};
-
-export const WithoutFolderAction: Story = {
-  args: {
-    selectedCount: 10,
-    onBulkTag: () => {},
-    onClearSelection: () => {},
-  },
-};
-
+/** No folder action; the host adds its own actions instead. */
 export const WithCustomActions: Story = {
   args: {
     selectedCount: 7,
-    onBulkTag: () => {},
-    onClearSelection: () => {},
     customActions: [
-      {
-        label: 'Move to Archive',
-        icon: <FolderOpen />,
-        onClick: () => {},
-      },
-      {
-        label: 'Export Selected',
-        icon: <CloudUpload />,
-        onClick: () => {},
-      },
+      { label: 'Move to Archive', icon: <FolderOpen />, onClick: () => {} },
+      { label: 'Export Selected', icon: <CloudUpload />, onClick: () => {} },
     ],
-  },
-};
-
-export const SingleSelection: Story = {
-  args: {
-    selectedCount: 1,
-    onAddToFolder: () => {},
-    onBulkTag: () => {},
-    onClearSelection: () => {},
-  },
-};
-
-export const LargeSelection: Story = {
-  args: {
-    selectedCount: 150,
-    onAddToFolder: () => {},
-    onBulkTag: () => {},
-    onClearSelection: () => {},
-  },
-};
-
-export const WithDeleteAction: Story = {
-  args: {
-    selectedCount: 5,
-    onAddToFolder: () => {},
-    onBulkTag: () => {},
-    onBulkDelete: () => {},
-    onClearSelection: () => {},
-    showDeleteAction: true,
-  },
-};
-
-export const OnlyDeleteAction: Story = {
-  args: {
-    selectedCount: 3,
-    onBulkTag: () => {},
-    onBulkDelete: () => {},
-    onClearSelection: () => {},
-    showDeleteAction: true,
   },
 };

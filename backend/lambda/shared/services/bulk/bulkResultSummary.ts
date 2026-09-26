@@ -12,7 +12,7 @@ import type { BulkItemFailure, BulkOperationResult } from '../../types/bulkOpera
 /** Failures kept on the job record itself; the full list stays in the result */
 export const MAX_RECORDED_FAILURES = 25;
 
-export interface BulkResultSummary {
+interface BulkResultSummary {
   /** One-line outcome, e.g. "Bulk group-add completed: 2/3 successful (1 failed)" */
   message: string;
   /** Set only when something failed: distinct reasons, most common first */
@@ -23,7 +23,7 @@ export interface BulkResultSummary {
 
 const UNKNOWN_ERROR = 'Unknown error';
 
-export type BulkResultInput = Pick<
+type BulkResultInput = Pick<
   BulkOperationResult,
   'operationType' | 'totalItems' | 'successCount' | 'failureCount' | 'results'
 >;

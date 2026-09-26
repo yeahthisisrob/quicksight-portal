@@ -51,29 +51,6 @@ export const CalculatedFieldOpen: Story = {
   ),
 };
 
-export const Conflicts: Story = {
-  name: 'Conflicts only',
-  parameters: {
-    router: { initialEntries: ['/data-catalog?project=proj-analytics-prod&conflicts=1'] },
-  },
-  render: () => (
-    <AppShell path="data-catalog" routes={catalogRoutes()}>
-      <DataCatalogPage />
-    </AppShell>
-  ),
-};
-
-export const Columns: Story = {
-  parameters: {
-    router: { initialEntries: ['/data-catalog?project=proj-analytics-prod&tab=columns'] },
-  },
-  render: () => (
-    <AppShell path="data-catalog" routes={catalogRoutes()}>
-      <DataCatalogPage />
-    </AppShell>
-  ),
-};
-
 export const SmusAssets: Story = {
   name: 'SMUS assets tab: one asset open',
   parameters: {

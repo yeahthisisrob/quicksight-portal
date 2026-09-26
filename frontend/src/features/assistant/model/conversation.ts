@@ -16,7 +16,7 @@ export type ConversationEntry =
   | { role: 'user'; text: string; resume?: AgUiResumeEntry[] }
   | { role: 'assistant'; text: string; result: AssistantChatResult };
 
-export type ActionRunStatus = 'running' | 'completed' | 'failed';
+type ActionRunStatus = 'running' | 'completed' | 'failed';
 
 export interface ActionRun {
   status: ActionRunStatus;
@@ -44,7 +44,7 @@ export const CONVERSATION_KEY = 'qsp.assistant.conversation.v1';
 /** Long conversations cost more per message and more storage; keep the recent ones. */
 export const MAX_ENTRIES = 60;
 /** What the follow-up hands back to the assistant from a finished job. */
-export const MAX_FOLLOW_UP_CHARS = 4_000;
+const MAX_FOLLOW_UP_CHARS = 4_000;
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 

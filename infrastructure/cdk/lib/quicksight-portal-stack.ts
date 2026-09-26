@@ -1,38 +1,62 @@
-import * as path from 'path';
-import { Construct } from 'constructs';
+import * as path from 'node:path';
+
 import {
-  Stack, StackProps, Duration, RemovalPolicy, CfnOutput, Token, Validations,
+  CfnOutput,
+  Duration,
+  RemovalPolicy,
+  Stack,
+  type StackProps,
+  Token,
+  Validations,
 } from 'aws-cdk-lib';
-import {
-  Bucket, BucketEncryption, BlockPublicAccess,
-} from 'aws-cdk-lib/aws-s3';
-import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
-import {
-  Distribution, ViewerProtocolPolicy, CachePolicy, AllowedMethods,
-  ResponseHeadersPolicy, OriginAccessIdentity, CfnDistribution,
-  HeadersFrameOption, HeadersReferrerPolicy,
-  OriginRequestPolicy, CacheHeaderBehavior, CacheQueryStringBehavior,
-  CacheCookieBehavior, OriginProtocolPolicy,
-} from 'aws-cdk-lib/aws-cloudfront';
-import { S3BucketOrigin, HttpOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
-import { HttpApi, CfnStage, PayloadFormatVersion } from 'aws-cdk-lib/aws-apigatewayv2';
+import { type CfnStage, HttpApi, PayloadFormatVersion } from 'aws-cdk-lib/aws-apigatewayv2';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
-import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
-import { CfnWebACL, CfnIPSet } from 'aws-cdk-lib/aws-wafv2';
 import {
-  Function as LambdaFunction, Runtime, Code,
-} from 'aws-cdk-lib/aws-lambda';
+  AllowedMethods,
+  CacheCookieBehavior,
+  CacheHeaderBehavior,
+  CachePolicy,
+  CacheQueryStringBehavior,
+  type CfnDistribution,
+  Distribution,
+  HeadersFrameOption,
+  HeadersReferrerPolicy,
+  OriginAccessIdentity,
+  OriginProtocolPolicy,
+  OriginRequestPolicy,
+  ResponseHeadersPolicy,
+  ViewerProtocolPolicy,
+} from 'aws-cdk-lib/aws-cloudfront';
+import { HttpOrigin, S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import {
-  Role, ServicePrincipal, PolicyStatement, Effect, ManagedPolicy,
-} from 'aws-cdk-lib/aws-iam';
-import {
-  UserPool, UserPoolDomain, CfnUserPoolGroup, CfnUserPoolClient, AccountRecovery, Mfa,
+  AccountRecovery,
+  CfnUserPoolClient,
+  CfnUserPoolGroup,
+  Mfa,
+  UserPool,
+  UserPoolDomain,
 } from 'aws-cdk-lib/aws-cognito';
-import { Queue, QueueEncryption } from 'aws-cdk-lib/aws-sqs';
-import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import {
-  Table as DynamoTable, AttributeType, BillingMode, ProjectionType,
+  AttributeType,
+  BillingMode,
+  Table as DynamoTable,
+  ProjectionType,
 } from 'aws-cdk-lib/aws-dynamodb';
+import {
+  Effect,
+  ManagedPolicy,
+  PolicyStatement,
+  Role,
+  ServicePrincipal,
+} from 'aws-cdk-lib/aws-iam';
+import { Code, Function as LambdaFunction, Runtime } from 'aws-cdk-lib/aws-lambda';
+import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { BlockPublicAccess, Bucket, BucketEncryption } from 'aws-cdk-lib/aws-s3';
+import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
+import { Queue, QueueEncryption } from 'aws-cdk-lib/aws-sqs';
+import { CfnIPSet, CfnWebACL } from 'aws-cdk-lib/aws-wafv2';
+import type { Construct } from 'constructs';
 
 export class QuicksightPortalStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -53,8 +77,8 @@ export class QuicksightPortalStack extends Stack {
       ? rawIpRanges.filter((c): c is string => typeof c === 'string' && c.length > 0)
       : [];
     const hasIpAllowlist = allowedIpRanges.length > 0;
-    const allowedIpv4 = allowedIpRanges.filter(cidr => !cidr.includes(':'));
-    const allowedIpv6 = allowedIpRanges.filter(cidr => cidr.includes(':'));
+    const allowedIpv4 = allowedIpRanges.filter((cidr) => !cidr.includes(':'));
+    const allowedIpv6 = allowedIpRanges.filter((cidr) => cidr.includes(':'));
 
     const enableWaf = hasIpAllowlist || !wafOptedOut;
 
@@ -77,8 +101,11 @@ export class QuicksightPortalStack extends Stack {
       signInAliases: { email: true, username: false },
       autoVerify: { email: true },
       passwordPolicy: {
-        minLength: 8, requireLowercase: true, requireUppercase: true,
-        requireDigits: true, requireSymbols: true,
+        minLength: 8,
+        requireLowercase: true,
+        requireUppercase: true,
+        requireDigits: true,
+        requireSymbols: true,
       },
       standardAttributes: {
         email: { required: true, mutable: true },
@@ -159,84 +186,119 @@ export class QuicksightPortalStack extends Stack {
         ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
       ],
     });
-    lambdaRole.addToPolicy(new PolicyStatement({
-      effect: Effect.ALLOW,
-      actions: [
-        'quicksight:List*', 'quicksight:Describe*', 'quicksight:Get*',
-        'quicksight:Search*', 'quicksight:TagResource', 'quicksight:UntagResource',
-        'quicksight:Update*', 'quicksight:CreateFolderMembership',
-        'quicksight:DeleteFolderMembership',
-        'quicksight:DeleteAnalysis', 'quicksight:DeleteDashboard', 
-        'quicksight:DeleteDataSet', 'quicksight:DeleteDataSource',
-        'quicksight:ListIngestions', 'quicksight:DescribeIngestion',
-        'quicksight:CancelIngestion',
-        'quicksight:CreateDashboard', 'quicksight:CreateAnalysis',
-        'quicksight:CreateDataSet', 'quicksight:CreateDataSource',
-        'quicksight:CreateFolder', 'quicksight:CreateGroup',
-        'quicksight:RegisterUser', 'quicksight:CreateGroupMembership',
-        'quicksight:PassDataSource', 'quicksight:PassDataSet',
-        'quicksight:UpdateDashboard', 'quicksight:UpdateAnalysis',
-        'quicksight:UpdateDataSet', 'quicksight:UpdateDataSource',
-        'quicksight:UpdateFolder', 'quicksight:UpdateGroup',
-        'quicksight:DeleteGroup', 'quicksight:DeleteGroupMembership', 'quicksight:DeleteUser',
-        'quicksight:UpdateUser', 'quicksight:UpdateDashboardPermissions',
-        'quicksight:UpdateAnalysisPermissions', 'quicksight:UpdateDataSetPermissions',
-        'quicksight:UpdateDataSourcePermissions', 'quicksight:UpdateFolderPermissions',
-        'quicksight:UpdateDashboardPublishedVersion',
-        'quicksight:CreateRefreshSchedule', 'quicksight:UpdateRefreshSchedule',
-        'quicksight:DeleteRefreshSchedule', 'quicksight:PutDataSetRefreshProperties',
-      ],
-      resources: [`arn:aws:quicksight:${this.region}:${this.account}:*`],
-    }));
-    lambdaRole.addToPolicy(new PolicyStatement({
-      effect: Effect.ALLOW,
-      // Activity (CloudTrail) and QuickSight's CloudWatch metrics for Author's
-      // dashboard health; neither API supports resource-level scoping.
-      actions: ['cloudtrail:LookupEvents', 'cloudwatch:GetMetricData'],
-      resources: ['*'],
-    }));
+    lambdaRole.addToPolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: [
+          'quicksight:List*',
+          'quicksight:Describe*',
+          'quicksight:Get*',
+          'quicksight:Search*',
+          'quicksight:TagResource',
+          'quicksight:UntagResource',
+          'quicksight:Update*',
+          'quicksight:CreateFolderMembership',
+          'quicksight:DeleteFolderMembership',
+          'quicksight:DeleteAnalysis',
+          'quicksight:DeleteDashboard',
+          'quicksight:DeleteDataSet',
+          'quicksight:DeleteDataSource',
+          'quicksight:ListIngestions',
+          'quicksight:DescribeIngestion',
+          'quicksight:CancelIngestion',
+          'quicksight:CreateDashboard',
+          'quicksight:CreateAnalysis',
+          'quicksight:CreateDataSet',
+          'quicksight:CreateDataSource',
+          'quicksight:CreateFolder',
+          'quicksight:CreateGroup',
+          'quicksight:RegisterUser',
+          'quicksight:CreateGroupMembership',
+          'quicksight:PassDataSource',
+          'quicksight:PassDataSet',
+          'quicksight:UpdateDashboard',
+          'quicksight:UpdateAnalysis',
+          'quicksight:UpdateDataSet',
+          'quicksight:UpdateDataSource',
+          'quicksight:UpdateFolder',
+          'quicksight:UpdateGroup',
+          'quicksight:DeleteGroup',
+          'quicksight:DeleteGroupMembership',
+          'quicksight:DeleteUser',
+          'quicksight:UpdateUser',
+          'quicksight:UpdateDashboardPermissions',
+          'quicksight:UpdateAnalysisPermissions',
+          'quicksight:UpdateDataSetPermissions',
+          'quicksight:UpdateDataSourcePermissions',
+          'quicksight:UpdateFolderPermissions',
+          'quicksight:UpdateDashboardPublishedVersion',
+          'quicksight:CreateRefreshSchedule',
+          'quicksight:UpdateRefreshSchedule',
+          'quicksight:DeleteRefreshSchedule',
+          'quicksight:PutDataSetRefreshProperties',
+        ],
+        resources: [`arn:aws:quicksight:${this.region}:${this.account}:*`],
+      })
+    );
+    lambdaRole.addToPolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        // Activity (CloudTrail) and QuickSight's CloudWatch metrics for Author's
+        // dashboard health; neither API supports resource-level scoping.
+        actions: ['cloudtrail:LookupEvents', 'cloudwatch:GetMetricData'],
+        resources: ['*'],
+      })
+    );
     // Planner (natural-language rebind proposals) over the Bedrock Converse
     // API. The wildcard region matters: cross-region inference profiles
     // (us.anthropic.*) fan out to other regions' foundation models.
-    lambdaRole.addToPolicy(new PolicyStatement({
-      effect: Effect.ALLOW,
-      actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
-      resources: [
-        'arn:aws:bedrock:*::foundation-model/anthropic.*',
-        `arn:aws:bedrock:*:${this.account}:inference-profile/*`,
-      ],
-    }));
+    lambdaRole.addToPolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
+        resources: [
+          'arn:aws:bedrock:*::foundation-model/anthropic.*',
+          `arn:aws:bedrock:*:${this.account}:inference-profile/*`,
+        ],
+      })
+    );
     // Bedrock gates a foundation model behind its Marketplace subscription, so
     // the first invoke fails with AccessDenied unless the caller can read - and
     // on first use accept - that subscription. Neither action supports
     // resource-level scoping, and the product id is not known at synth time
     // (the model comes from PLANNER_MODEL_ID), hence the wildcard.
-    lambdaRole.addToPolicy(new PolicyStatement({
-      effect: Effect.ALLOW,
-      actions: ['aws-marketplace:ViewSubscriptions', 'aws-marketplace:Subscribe'],
-      resources: ['*'],
-    }));
+    lambdaRole.addToPolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['aws-marketplace:ViewSubscriptions', 'aws-marketplace:Subscribe'],
+        resources: ['*'],
+      })
+    );
     // SMUS (SageMaker Unified Studio) catalog lookups: listings (with their
     // metadata forms) and the project list the settings page chooses from.
     // Harmless when no SMUS domain is configured.
-    lambdaRole.addToPolicy(new PolicyStatement({
-      effect: Effect.ALLOW,
-      actions: [
-        'datazone:SearchListings',
-        'datazone:ListProjects',
-        'datazone:GetProject',
-        'datazone:GetUserProfile',
-      ],
-      resources: ['*'],
-    }));
-    lambdaRole.addToPolicy(new PolicyStatement({
-      effect: Effect.ALLOW,
-      actions: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject', 's3:ListBucket'],
-      resources: [
-        `arn:aws:s3:::quicksight-metadata-bucket-${this.account}`,
-        `arn:aws:s3:::quicksight-metadata-bucket-${this.account}/*`,
-      ],
-    }));
+    lambdaRole.addToPolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: [
+          'datazone:SearchListings',
+          'datazone:ListProjects',
+          'datazone:GetProject',
+          'datazone:GetUserProfile',
+        ],
+        resources: ['*'],
+      })
+    );
+    lambdaRole.addToPolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject', 's3:ListBucket'],
+        resources: [
+          `arn:aws:s3:::quicksight-metadata-bucket-${this.account}`,
+          `arn:aws:s3:::quicksight-metadata-bucket-${this.account}/*`,
+        ],
+      })
+    );
 
     // SMUS (SageMaker Unified Studio) integration — optional. Provide the
     // DataZone domain id at synth time via CDK context or environment:
@@ -244,8 +306,10 @@ export class QuicksightPortalStack extends Stack {
     //   (or SMUS_DOMAIN_ID=dzd_xxxx cdk deploy)
     // smusPortalUrl / SMUS_PORTAL_URL optionally overrides the derived portal
     // URL for custom SMUS domains. Unset = SMUS UI hidden in the portal.
-    const smusDomainId = this.node.tryGetContext('smusDomainId') || process.env.SMUS_DOMAIN_ID || '';
-    const smusPortalUrl = this.node.tryGetContext('smusPortalUrl') || process.env.SMUS_PORTAL_URL || '';
+    const smusDomainId =
+      this.node.tryGetContext('smusDomainId') || process.env.SMUS_DOMAIN_ID || '';
+    const smusPortalUrl =
+      this.node.tryGetContext('smusPortalUrl') || process.env.SMUS_PORTAL_URL || '';
 
     // What both Lambdas need to see the same portal. The worker runs the
     // assistant's calls to the portal's own routes in-process, so anything
@@ -304,10 +368,12 @@ export class QuicksightPortalStack extends Stack {
     });
 
     // Configure the worker Lambda to be triggered by SQS
-    workerLambda.addEventSource(new SqsEventSource(exportQueue, {
-      batchSize: 1, // Process one export job at a time
-      maxBatchingWindow: Duration.seconds(0), // Process immediately
-    }));
+    workerLambda.addEventSource(
+      new SqsEventSource(exportQueue, {
+        batchSize: 1, // Process one export job at a time
+        maxBatchingWindow: Duration.seconds(0), // Process immediately
+      })
+    );
 
     // Worker requeues continuation messages for long-running exports
     exportQueue.grantSendMessages(workerLambda);
@@ -380,83 +446,123 @@ export class QuicksightPortalStack extends Stack {
     // Default on (~$5/mo base + $1/M requests). Opt out: `enableWaf: false` in
     // cdk.context.json or `-c enableWaf=false` on the CLI.
     // Force-enabled if `allowedIpRanges` is set.
-    const ipv4Set = enableWaf && allowedIpv4.length > 0 ? new CfnIPSet(this, 'AllowedIpv4Set', {
-      scope: 'CLOUDFRONT',
-      ipAddressVersion: 'IPV4',
-      addresses: allowedIpv4,
-    }) : undefined;
-    const ipv6Set = enableWaf && allowedIpv6.length > 0 ? new CfnIPSet(this, 'AllowedIpv6Set', {
-      scope: 'CLOUDFRONT',
-      ipAddressVersion: 'IPV6',
-      addresses: allowedIpv6,
-    }) : undefined;
+    const ipv4Set =
+      enableWaf && allowedIpv4.length > 0
+        ? new CfnIPSet(this, 'AllowedIpv4Set', {
+            scope: 'CLOUDFRONT',
+            ipAddressVersion: 'IPV4',
+            addresses: allowedIpv4,
+          })
+        : undefined;
+    const ipv6Set =
+      enableWaf && allowedIpv6.length > 0
+        ? new CfnIPSet(this, 'AllowedIpv6Set', {
+            scope: 'CLOUDFRONT',
+            ipAddressVersion: 'IPV6',
+            addresses: allowedIpv6,
+          })
+        : undefined;
 
     // Build the "allowed IP" match statement — OR of v4 and v6 sets if both
     // are present, else a single IP set reference.
     const ipSetRefs: Array<{ ipSetReferenceStatement: { arn: string } }> = [];
     if (ipv4Set) ipSetRefs.push({ ipSetReferenceStatement: { arn: ipv4Set.attrArn } });
     if (ipv6Set) ipSetRefs.push({ ipSetReferenceStatement: { arn: ipv6Set.attrArn } });
-    const allowedIpStatement = ipSetRefs.length === 1
-      ? ipSetRefs[0]
-      : ipSetRefs.length > 1
-        ? { orStatement: { statements: ipSetRefs } }
-        : undefined;
+    const allowedIpStatement =
+      ipSetRefs.length === 1
+        ? ipSetRefs[0]
+        : ipSetRefs.length > 1
+          ? { orStatement: { statements: ipSetRefs } }
+          : undefined;
 
-    const allowlistRule = allowedIpStatement ? {
-      name: 'IpAllowlist',
-      priority: 0,
-      action: { block: {} },
-      // Block anything NOT in the allowlist.
-      statement: { notStatement: { statement: allowedIpStatement } },
-      visibilityConfig: { cloudWatchMetricsEnabled: true, metricName: 'IpAllowlist', sampledRequestsEnabled: true },
-    } : undefined;
-
-    const waf = enableWaf ? new CfnWebACL(this, 'SiteWAF', {
-      scope: 'CLOUDFRONT',
-      defaultAction: { allow: {} },
-      visibilityConfig: {
-        cloudWatchMetricsEnabled: true,
-        metricName: 'QuickSightPortalWAF',
-        sampledRequestsEnabled: true,
-      },
-      rules: [
-        ...(allowlistRule ? [allowlistRule] : []),
-        {
-          name: 'AWSManagedRulesCommonRuleSet',
-          priority: 1,
-          overrideAction: { none: {} },
-          statement: {
-            managedRuleGroupStatement: { vendorName: 'AWS', name: 'AWSManagedRulesCommonRuleSet' },
-          },
-          visibilityConfig: { cloudWatchMetricsEnabled: true, metricName: 'CommonRuleSet', sampledRequestsEnabled: true },
-        },
-        {
-          name: 'AWSManagedRulesKnownBadInputsRuleSet',
-          priority: 2,
-          overrideAction: { none: {} },
-          statement: {
-            managedRuleGroupStatement: { vendorName: 'AWS', name: 'AWSManagedRulesKnownBadInputsRuleSet' },
-          },
-          visibilityConfig: { cloudWatchMetricsEnabled: true, metricName: 'KnownBadInputs', sampledRequestsEnabled: true },
-        },
-        {
-          name: 'RateLimitPerIP',
-          priority: 3,
+    const allowlistRule = allowedIpStatement
+      ? {
+          name: 'IpAllowlist',
+          priority: 0,
           action: { block: {} },
-          statement: { rateBasedStatement: { limit: 1000, aggregateKeyType: 'IP' } },
-          visibilityConfig: { cloudWatchMetricsEnabled: true, metricName: 'RateLimitPerIP', sampledRequestsEnabled: true },
-        },
-        {
-          name: 'AWSManagedRulesAmazonIpReputationList',
-          priority: 4,
-          overrideAction: { none: {} },
-          statement: {
-            managedRuleGroupStatement: { vendorName: 'AWS', name: 'AWSManagedRulesAmazonIpReputationList' },
+          // Block anything NOT in the allowlist.
+          statement: { notStatement: { statement: allowedIpStatement } },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: 'IpAllowlist',
+            sampledRequestsEnabled: true,
           },
-          visibilityConfig: { cloudWatchMetricsEnabled: true, metricName: 'IPReputation', sampledRequestsEnabled: true },
-        },
-      ],
-    }) : undefined;
+        }
+      : undefined;
+
+    const waf = enableWaf
+      ? new CfnWebACL(this, 'SiteWAF', {
+          scope: 'CLOUDFRONT',
+          defaultAction: { allow: {} },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: 'QuickSightPortalWAF',
+            sampledRequestsEnabled: true,
+          },
+          rules: [
+            ...(allowlistRule ? [allowlistRule] : []),
+            {
+              name: 'AWSManagedRulesCommonRuleSet',
+              priority: 1,
+              overrideAction: { none: {} },
+              statement: {
+                managedRuleGroupStatement: {
+                  vendorName: 'AWS',
+                  name: 'AWSManagedRulesCommonRuleSet',
+                },
+              },
+              visibilityConfig: {
+                cloudWatchMetricsEnabled: true,
+                metricName: 'CommonRuleSet',
+                sampledRequestsEnabled: true,
+              },
+            },
+            {
+              name: 'AWSManagedRulesKnownBadInputsRuleSet',
+              priority: 2,
+              overrideAction: { none: {} },
+              statement: {
+                managedRuleGroupStatement: {
+                  vendorName: 'AWS',
+                  name: 'AWSManagedRulesKnownBadInputsRuleSet',
+                },
+              },
+              visibilityConfig: {
+                cloudWatchMetricsEnabled: true,
+                metricName: 'KnownBadInputs',
+                sampledRequestsEnabled: true,
+              },
+            },
+            {
+              name: 'RateLimitPerIP',
+              priority: 3,
+              action: { block: {} },
+              statement: { rateBasedStatement: { limit: 1000, aggregateKeyType: 'IP' } },
+              visibilityConfig: {
+                cloudWatchMetricsEnabled: true,
+                metricName: 'RateLimitPerIP',
+                sampledRequestsEnabled: true,
+              },
+            },
+            {
+              name: 'AWSManagedRulesAmazonIpReputationList',
+              priority: 4,
+              overrideAction: { none: {} },
+              statement: {
+                managedRuleGroupStatement: {
+                  vendorName: 'AWS',
+                  name: 'AWSManagedRulesAmazonIpReputationList',
+                },
+              },
+              visibilityConfig: {
+                cloudWatchMetricsEnabled: true,
+                metricName: 'IPReputation',
+                sampledRequestsEnabled: true,
+              },
+            },
+          ],
+        })
+      : undefined;
 
     /* 9 ────────── CloudFront — SPA (default) + API at /api/* (same-origin) */
     // HTTP API v2 has no stage prefix in the URL (uses $default stage).
@@ -482,7 +588,9 @@ export class QuicksightPortalStack extends Stack {
 
     const distribution = new Distribution(this, 'Distribution', {
       defaultBehavior: {
-        origin: S3BucketOrigin.withOriginAccessIdentity(websiteBucket, { originAccessIdentity: oai }),
+        origin: S3BucketOrigin.withOriginAccessIdentity(websiteBucket, {
+          originAccessIdentity: oai,
+        }),
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         allowedMethods: AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         cachePolicy: CachePolicy.CACHING_OPTIMIZED,
@@ -505,16 +613,17 @@ export class QuicksightPortalStack extends Stack {
       // CloudFront certificate (security policy is fixed at TLSv1). Set it
       // (TLS_V1_2_2021) when a custom domain + ACM certificate are added.
       webAclId: waf?.attrArn,
-      errorResponses: [{
-        httpStatus: 404,
-        responseHttpStatus: 200,
-        responsePagePath: '/index.html',
-        ttl: Duration.seconds(0),
-      }],
+      errorResponses: [
+        {
+          httpStatus: 404,
+          responseHttpStatus: 200,
+          responsePagePath: '/index.html',
+          ttl: Duration.seconds(0),
+        },
+      ],
     });
 
-    const cdnDomain =
-      (distribution.node.defaultChild as CfnDistribution).attrDomainName;
+    const cdnDomain = (distribution.node.defaultChild as CfnDistribution).attrDomainName;
 
     /* 8 ────────── User-pool client (needs CloudFront domain) */
     const userPoolClient = new CfnUserPoolClient(this, 'QuickSightPortalUserPoolClient', {
@@ -531,11 +640,7 @@ export class QuicksightPortalStack extends Stack {
         'http://localhost:5173/auth/cognito/callback',
         'http://localhost:5174/auth/cognito/callback',
       ],
-      logoutUrLs: [
-        `https://${cdnDomain}`,
-        'http://localhost:5173',
-        'http://localhost:5174',
-      ],
+      logoutUrLs: [`https://${cdnDomain}`, 'http://localhost:5173', 'http://localhost:5174'],
     });
 
     // Needed by Lambda for aws-jwt-verify audience check.

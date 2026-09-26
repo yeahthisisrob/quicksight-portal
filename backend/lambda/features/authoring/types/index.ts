@@ -12,19 +12,17 @@
 import type { DefinitionChange, DefinitionOp } from '../lib/definitionOps';
 import type { SheetOutline } from '../lib/definitionOutline';
 
-export type { DefinitionChange, DefinitionOp, SheetOutline };
+export type { SheetOutline };
 
 import type { RepairOp } from '../lib/definitionRepairs';
 import type { TypeRules } from '../lib/definitionTypeRules';
 import type { RepairIssue, RepairPlan } from '../lib/repairPlan';
 
-export type { ChartFamilyRule, TypeRules } from '../lib/definitionTypeRules';
-export type { RepairFix, RepairIssue, RepairIssueKind, RepairPlan } from '../lib/repairPlan';
-export type { RepairOp };
+export type { TypeRules } from '../lib/definitionTypeRules';
 
 export type AuthorableAssetType = 'analysis' | 'dashboard';
 
-export const AUTHORABLE_ASSET_TYPES: readonly AuthorableAssetType[] = ['analysis', 'dashboard'];
+const AUTHORABLE_ASSET_TYPES: readonly AuthorableAssetType[] = ['analysis', 'dashboard'];
 
 export function isAuthorableAssetType(value: string): value is AuthorableAssetType {
   return (AUTHORABLE_ASSET_TYPES as readonly string[]).includes(value);
@@ -171,11 +169,6 @@ export interface PreviewRequest {
   typeRules?: TypeRules;
 }
 
-export interface RepairPlanRequest {
-  /** Datasets already chosen for identifiers whose own dataset is gone. */
-  rebinds?: RebindRequest[];
-}
-
 export interface RebindPreview {
   plan: RebindPlan;
   definition: Record<string, any>;
@@ -254,7 +247,7 @@ export interface Proposal {
 // the same write path as everything else.
 // ---------------------------------------------------------------------------
 
-export interface DefinitionRequest {
+interface DefinitionRequest {
   /** A full QuickSight AnalysisDefinition / DashboardVersionDefinition. */
   definition: Record<string, any>;
 }

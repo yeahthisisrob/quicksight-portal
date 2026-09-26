@@ -34,7 +34,7 @@ export interface TimelineAssetPin {
   assetId: string;
 }
 
-export interface UseActivityTimelineOptions {
+interface UseActivityTimelineOptions {
   filters?: TimelineFilters;
   assetPin?: TimelineAssetPin;
   pageSize?: number;

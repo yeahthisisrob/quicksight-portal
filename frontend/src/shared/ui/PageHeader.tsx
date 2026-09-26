@@ -3,8 +3,4 @@
  * existing `@/shared/ui` import path working. Prefer
  * `@/shared/design-system` in new code.
  */
-export {
-  PageHeader,
-  PageHeader as default,
-  type PageHeaderProps,
-} from '@/shared/design-system/components/PageHeader';
+export { PageHeader } from '@/shared/design-system/components/PageHeader';

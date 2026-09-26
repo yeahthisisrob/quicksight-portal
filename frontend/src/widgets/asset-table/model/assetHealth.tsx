@@ -8,9 +8,9 @@ import { createContext, type ReactNode, useContext, useMemo } from 'react';
 
 import { type AssetHealth, activityApi } from '@/shared/api/modules/activity';
 
-export type HealthAssetType = 'dashboard' | 'dataset';
+type HealthAssetType = 'dashboard' | 'dataset';
 
-export interface AssetHealthState {
+interface AssetHealthState {
   /** Undefined until loaded; false when CloudWatch has nothing for this account. */
   available?: boolean;
   windowDays: number;
@@ -20,7 +20,7 @@ export interface AssetHealthState {
 const EMPTY: AssetHealthState = { windowDays: 30, byId: new Map() };
 const AssetHealthContext = createContext<AssetHealthState>(EMPTY);
 
-export function supportsHealth(assetType: string): assetType is HealthAssetType {
+function supportsHealth(assetType: string): assetType is HealthAssetType {
   return assetType === 'dashboard' || assetType === 'dataset';
 }
 

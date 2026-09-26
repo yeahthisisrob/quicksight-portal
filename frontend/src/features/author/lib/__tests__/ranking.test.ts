@@ -15,14 +15,43 @@ const daysAgo = (n: number) => new Date(NOW - n * DAY).toISOString();
 const TEMPLATE = { key: 'quicksight-portal:template', value: 'true' };
 
 const ITEMS = [
-  { id: 'a', name: 'Alpha', activity: { totalViews: 1000, uniqueViewers: 40, lastViewed: daysAgo(1) } },
-  { id: 'b', name: 'Bravo', activity: { totalViews: 500, uniqueViewers: 20, lastViewed: daysAgo(3) } },
-  { id: 'c', name: 'Charlie', activity: { totalViews: 200, uniqueViewers: 9, lastViewed: daysAgo(10) } },
-  { id: 'd', name: 'Delta', activity: { totalViews: 50, uniqueViewers: 3, lastViewed: daysAgo(40) } },
-  { id: 'e', name: 'Echo', activity: { totalViews: 10, uniqueViewers: 1, lastViewed: daysAgo(120) } },
-  { id: 'f', name: 'Foxtrot', tags: [TEMPLATE], activity: { totalViews: 5, lastViewed: daysAgo(2) } },
+  {
+    id: 'a',
+    name: 'Alpha',
+    activity: { totalViews: 1000, uniqueViewers: 40, lastViewed: daysAgo(1) },
+  },
+  {
+    id: 'b',
+    name: 'Bravo',
+    activity: { totalViews: 500, uniqueViewers: 20, lastViewed: daysAgo(3) },
+  },
+  {
+    id: 'c',
+    name: 'Charlie',
+    activity: { totalViews: 200, uniqueViewers: 9, lastViewed: daysAgo(10) },
+  },
+  {
+    id: 'd',
+    name: 'Delta',
+    activity: { totalViews: 50, uniqueViewers: 3, lastViewed: daysAgo(40) },
+  },
+  {
+    id: 'e',
+    name: 'Echo',
+    activity: { totalViews: 10, uniqueViewers: 1, lastViewed: daysAgo(120) },
+  },
+  {
+    id: 'f',
+    name: 'Foxtrot',
+    tags: [TEMPLATE],
+    activity: { totalViews: 5, lastViewed: daysAgo(2) },
+  },
   { id: 'g', name: 'Golf' },
-  { id: 'h', name: 'Hotel', activity: { totalViews: 900, uniqueViewers: 30, lastViewed: daysAgo(2) } },
+  {
+    id: 'h',
+    name: 'Hotel',
+    activity: { totalViews: 900, uniqueViewers: 30, lastViewed: daysAgo(2) },
+  },
 ];
 
 describe('ranking', () => {
@@ -40,7 +69,9 @@ describe('ranking', () => {
     expect(badgesFor(ITEMS[4]!, t, NOW)).toEqual(['unused']);
     expect(badgesFor(ITEMS[5]!, t, NOW)).toEqual(['template']);
     expect(badgesFor(ITEMS[6]!, t, NOW)).toEqual(['unused']);
-    expect(isUnused({ id: 'x', name: 'x', activity: { lastViewed: daysAgo(89) } }, NOW)).toBe(false);
+    expect(isUnused({ id: 'x', name: 'x', activity: { lastViewed: daysAgo(89) } }, NOW)).toBe(
+      false
+    );
     expect(isUnused({ id: 'x', name: 'x', activity: { lastViewed: daysAgo(91) } }, NOW)).toBe(true);
   });
 

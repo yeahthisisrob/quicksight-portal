@@ -16,7 +16,7 @@ export interface TargetColumn {
   type?: string;
 }
 
-export interface ColumnResolutionResult {
+interface ColumnResolutionResult {
   columns: ColumnResolution[];
   unusedTargetColumns: string[];
   summary: Record<ColumnResolutionStatus, number>;
@@ -60,7 +60,13 @@ export function resolveColumns(
     if (mappedName !== undefined) {
       const hit = byName.get(mappedName);
       resolution = hit
-        ? { name: ref.name, status: 'mapped', resolvedTo: hit.name, targetType: hit.type, usage: ref.usage }
+        ? {
+            name: ref.name,
+            status: 'mapped',
+            resolvedTo: hit.name,
+            targetType: hit.type,
+            usage: ref.usage,
+          }
         : {
             name: ref.name,
             status: 'missing',
@@ -80,7 +86,13 @@ export function resolveColumns(
       } else {
         const near = suggestFor(ref.name);
         resolution = near
-          ? { name: ref.name, status: 'suggested', suggestion: near.name, targetType: near.type, usage: ref.usage }
+          ? {
+              name: ref.name,
+              status: 'suggested',
+              suggestion: near.name,
+              targetType: near.type,
+              usage: ref.usage,
+            }
           : { name: ref.name, status: 'missing', usage: ref.usage };
       }
     }

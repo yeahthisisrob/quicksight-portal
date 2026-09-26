@@ -1,8 +1,13 @@
 import { useSnackbar } from 'notistack';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { deployApi , type DeploymentConfig, type DeploymentResult } from '@/shared/api/modules/deploy';
-import { jobsApi, type JobMetadata, type JobLog } from '@/shared/api/modules/jobs';
+import {
+  type DeployableAssetType,
+  type DeploymentConfig,
+  type DeploymentResult,
+  deployApi,
+} from '@/shared/api/modules/deploy';
+import { type JobLog, type JobMetadata, jobsApi } from '@/shared/api/modules/jobs';
 
 interface UseDeploymentJobOptions {
   pollInterval?: number;
@@ -13,7 +18,7 @@ interface UseDeploymentJobOptions {
 export function useDeploymentJob(options: UseDeploymentJobOptions = {}) {
   const { enqueueSnackbar } = useSnackbar();
   const { pollInterval = 2000, onSuccess, onError } = options;
-  
+
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<JobMetadata | null>(null);
   const [jobLogs, setJobLogs] = useState<JobLog[]>([]);
@@ -31,122 +36,121 @@ export function useDeploymentJob(options: UseDeploymentJobOptions = {}) {
   }, []);
 
   // Poll for job status - improved with adaptive backoff for clarity
-  const pollJobStatus = useCallback(async (jobId: string) => {
-    try {
-      const status = await jobsApi.getJob(jobId);
-      if (!status) return;
+  const pollJobStatus = useCallback(
+    async (jobId: string) => {
+      try {
+        const status = await jobsApi.getJob(jobId);
+        if (!status) return;
 
-      setJobStatus(status);
+        setJobStatus(status);
 
-      // Check if job is complete
-      if (status.status === 'completed' || status.status === 'failed' || status.status === 'stopped') {
-        setIsPolling(false);
+        // Check if job is complete
+        if (
+          status.status === 'completed' ||
+          status.status === 'failed' ||
+          status.status === 'stopped'
+        ) {
+          setIsPolling(false);
 
-        if (pollIntervalRef.current) {
-          clearTimeout(pollIntervalRef.current);
-          pollIntervalRef.current = null;
-        }
-
-        try {
-          const logs = await jobsApi.getJobLogs(jobId);
-          setJobLogs(logs);
-        } catch (error) {
-          console.error('Failed to load job logs:', error);
-        }
-
-        if (status.status === 'completed') {
-          try {
-            const result = await jobsApi.getJobResult<DeploymentResult>(jobId);
-            if (result) {
-              setDeploymentResult(result);
-
-              // Show clearer message based on verification if present (from backend QS describe)
-              const verification = (result as any).metadata?.verification;
-              if (verification) {
-                const msg = verification.verified
-                  ? `Deployment completed and verified in QuickSight (${verification.status || 'SUCCESS'})`
-                  : `Deployment completed but verification issue: ${verification.message || verification.status}`;
-                enqueueSnackbar(msg, { variant: verification.verified ? 'success' : 'warning' });
-              } else {
-                enqueueSnackbar('Deployment completed successfully', { variant: 'success' });
-              }
-
-              onSuccess?.(result);
-            }
-          } catch (error) {
-            console.error('Failed to load deployment result:', error);
+          if (pollIntervalRef.current) {
+            clearTimeout(pollIntervalRef.current);
+            pollIntervalRef.current = null;
           }
-        } else if (status.status === 'failed') {
-          onError?.(status.error || 'Deployment failed');
-          enqueueSnackbar(status.error || 'Deployment failed', { variant: 'error' });
-        } else if (status.status === 'stopped') {
-          enqueueSnackbar('Deployment was stopped', { variant: 'warning' });
-        }
 
-        const recentJobs = JSON.parse(localStorage.getItem('recentDeploymentJobs') || '[]');
-        if (!recentJobs.includes(jobId)) {
-          recentJobs.unshift(jobId);
-          localStorage.setItem('recentDeploymentJobs', JSON.stringify(recentJobs.slice(0, 10)));
+          try {
+            const logs = await jobsApi.getJobLogs(jobId);
+            setJobLogs(logs);
+          } catch (error) {
+            console.error('Failed to load job logs:', error);
+          }
+
+          if (status.status === 'completed') {
+            try {
+              const result = await jobsApi.getJobResult<DeploymentResult>(jobId);
+              if (result) {
+                setDeploymentResult(result);
+
+                // Show clearer message based on verification if present (from backend QS describe)
+                const verification = (result as any).metadata?.verification;
+                if (verification) {
+                  const msg = verification.verified
+                    ? `Deployment completed and verified in QuickSight (${verification.status || 'SUCCESS'})`
+                    : `Deployment completed but verification issue: ${verification.message || verification.status}`;
+                  enqueueSnackbar(msg, { variant: verification.verified ? 'success' : 'warning' });
+                } else {
+                  enqueueSnackbar('Deployment completed successfully', { variant: 'success' });
+                }
+
+                onSuccess?.(result);
+              }
+            } catch (error) {
+              console.error('Failed to load deployment result:', error);
+            }
+          } else if (status.status === 'failed') {
+            onError?.(status.error || 'Deployment failed');
+            enqueueSnackbar(status.error || 'Deployment failed', { variant: 'error' });
+          } else if (status.status === 'stopped') {
+            enqueueSnackbar('Deployment was stopped', { variant: 'warning' });
+          }
+
+          const recentJobs = JSON.parse(localStorage.getItem('recentDeploymentJobs') || '[]');
+          if (!recentJobs.includes(jobId)) {
+            recentJobs.unshift(jobId);
+            localStorage.setItem('recentDeploymentJobs', JSON.stringify(recentJobs.slice(0, 10)));
+          }
         }
+      } catch (error) {
+        console.error('Failed to poll job status:', error);
       }
-    } catch (error) {
-      console.error('Failed to poll job status:', error);
-    }
-  }, [enqueueSnackbar, onSuccess, onError]);
+    },
+    [enqueueSnackbar, onSuccess, onError]
+  );
 
   // Start deployment
-  const startDeployment = useCallback(async (
-    assetType: string,
-    assetId: string,
-    config: DeploymentConfig
-  ) => {
-    try {
-      // Clear previous state
-      setJobStatus(null);
-      setJobLogs([]);
-      setDeploymentResult(null);
-      
-      // Start deployment
-      enqueueSnackbar('Starting deployment...', { variant: 'info' });
-      const response = await deployApi.deployAsset(assetType, assetId, config) as any;
-      
-      // Check if we got a job ID (async processing)
-      if (response.jobId) {
-        const jobId = response.jobId;
+  const startDeployment = useCallback(
+    async (assetType: DeployableAssetType, assetId: string, config: DeploymentConfig) => {
+      try {
+        // Clear previous state
+        setJobStatus(null);
+        setJobLogs([]);
+        setDeploymentResult(null);
+
+        // Start deployment
+        enqueueSnackbar('Starting deployment...', { variant: 'info' });
+        // Deployments always run as jobs: follow the one queued.
+        const { jobId } = await deployApi.deployAsset(assetType, assetId, config);
         setCurrentJobId(jobId);
         setIsPolling(true);
-        
+
         // Store in localStorage
         localStorage.setItem('lastDeploymentJobId', jobId);
-        
+
         // Start polling with simple backoff for less spam on long restores
         const doPoll = () => {
           pollJobStatus(jobId);
           // ramp the delay a bit, hard cap
-          const nextDelay = pollIntervalRef.current ? Math.min(10000, pollInterval * 1.5) : pollInterval;
+          const nextDelay = pollIntervalRef.current
+            ? Math.min(10000, pollInterval * 1.5)
+            : pollInterval;
           pollIntervalRef.current = setTimeout(doPoll, nextDelay);
         };
         doPoll();
-        
+
         enqueueSnackbar('Deployment job queued. Monitoring progress...', { variant: 'info' });
-      } else {
-        // Synchronous response (shouldn't happen with new design, but handle it)
-        setDeploymentResult(response);
-        onSuccess?.(response);
-        enqueueSnackbar('Deployment completed successfully', { variant: 'success' });
+      } catch (_error: any) {
+        const message = _error.message || 'Failed to start deployment';
+        onError?.(message);
+        enqueueSnackbar(message, { variant: 'error' });
+        throw _error;
       }
-    } catch (_error: any) {
-      const message = _error.message || 'Failed to start deployment';
-      onError?.(message);
-      enqueueSnackbar(message, { variant: 'error' });
-      throw _error;
-    }
-  }, [enqueueSnackbar, pollJobStatus, pollInterval, onSuccess, onError]);
+    },
+    [enqueueSnackbar, pollJobStatus, pollInterval, onError]
+  );
 
   // Stop deployment
   const stopDeployment = useCallback(async () => {
     if (!currentJobId) return;
-    
+
     try {
       await jobsApi.stopJob(currentJobId);
       enqueueSnackbar('Stop request sent', { variant: 'warning' });
@@ -156,46 +160,49 @@ export function useDeploymentJob(options: UseDeploymentJobOptions = {}) {
   }, [currentJobId, enqueueSnackbar]);
 
   // Load job status by ID
-  const loadJob = useCallback(async (jobId: string) => {
-    try {
-      setCurrentJobId(jobId);
-      
-      const status = await jobsApi.getJob(jobId);
-      if (status) {
-        setJobStatus(status);
-        
-        // Load logs
-        try {
-          const logs = await jobsApi.getJobLogs(jobId);
-          setJobLogs(logs);
-        } catch (error) {
-          console.error('Failed to load job logs:', error);
-        }
-        
-        // Load result if completed
-        if (status.status === 'completed') {
+  const loadJob = useCallback(
+    async (jobId: string) => {
+      try {
+        setCurrentJobId(jobId);
+
+        const status = await jobsApi.getJob(jobId);
+        if (status) {
+          setJobStatus(status);
+
+          // Load logs
           try {
-            const result = await jobsApi.getJobResult<DeploymentResult>(jobId);
-            if (result) {
-              setDeploymentResult(result);
-            }
+            const logs = await jobsApi.getJobLogs(jobId);
+            setJobLogs(logs);
           } catch (error) {
-            console.error('Failed to load deployment result:', error);
+            console.error('Failed to load job logs:', error);
+          }
+
+          // Load result if completed
+          if (status.status === 'completed') {
+            try {
+              const result = await jobsApi.getJobResult<DeploymentResult>(jobId);
+              if (result) {
+                setDeploymentResult(result);
+              }
+            } catch (error) {
+              console.error('Failed to load deployment result:', error);
+            }
+          }
+
+          // Start polling if still running
+          if (status.status === 'processing' || status.status === 'queued') {
+            setIsPolling(true);
+            pollIntervalRef.current = setInterval(() => {
+              pollJobStatus(jobId);
+            }, pollInterval);
           }
         }
-        
-        // Start polling if still running
-        if (status.status === 'processing' || status.status === 'queued') {
-          setIsPolling(true);
-          pollIntervalRef.current = setInterval(() => {
-            pollJobStatus(jobId);
-          }, pollInterval);
-        }
+      } catch (error) {
+        console.error('Failed to load job:', error);
       }
-    } catch (error) {
-      console.error('Failed to load job:', error);
-    }
-  }, [pollJobStatus, pollInterval]);
+    },
+    [pollJobStatus, pollInterval]
+  );
 
   // Load deployment history
   const loadHistory = useCallback(async (limit: number = 10) => {
@@ -224,7 +231,7 @@ export function useDeploymentJob(options: UseDeploymentJobOptions = {}) {
     jobLogs,
     deploymentResult,
     isPolling,
-    
+
     // Actions
     startDeployment,
     stopDeployment,

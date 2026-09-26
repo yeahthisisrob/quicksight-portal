@@ -80,7 +80,7 @@ export function glyphFor(element: Pick<WireframeElement, 'kind' | 'visualType'>)
 }
 
 /** "BarChart" -> "Bar chart", "KPI" -> "KPI", "PivotTable" -> "Pivot table". */
-export function humanize(type?: string): string {
+function humanize(type?: string): string {
   if (!type) return 'Visual';
   return type
     .replace(/([a-z])([A-Z])/g, '$1 $2')

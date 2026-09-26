@@ -21,7 +21,7 @@ export interface PlacedNode extends FieldLineageNode {
   y: number;
 }
 
-export interface PlacedEdge {
+interface PlacedEdge {
   id: string;
   from: string;
   to: string;
@@ -31,7 +31,7 @@ export interface PlacedEdge {
   backwards: boolean;
 }
 
-export interface LineageLayout {
+interface LineageLayout {
   width: number;
   height: number;
   nodes: PlacedNode[];

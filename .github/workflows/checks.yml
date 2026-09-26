@@ -34,6 +34,11 @@ jobs:
       - name: Format and lint
         run: pnpm exec biome ci .
 
+      # Biome fails on unused imports and locals within a file; knip fails on
+      # unused files, exports, types and dependencies across the workspace.
+      - name: Dead code
+        run: pnpm exec knip --no-progress
+
       - name: Typecheck
         run: pnpm -r run typecheck
 

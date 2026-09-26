@@ -1,22 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useEffect, useState } from 'react';
 
-import { type MockRoute, mockApi } from '../../../../.storybook/mocks/api';
+import { MockedApi } from '../../../../.storybook/mocks/api';
 import {
   assistantRoutes,
-  DATASET_QUESTION,
   PLANNED_ANSWER,
   QUESTION_ANSWER,
   SCRIPTED_ANSWER,
 } from './__stories__/assistant';
 import { AnswerView, AssistantChat } from './AssistantChat';
 import { ModelPicker } from './ModelPicker';
-
-function Mocked({ routes, children }: { routes: MockRoute[]; children: React.ReactNode }) {
-  const [restore] = useState(() => mockApi(routes));
-  useEffect(() => restore, [restore]);
-  return <>{children}</>;
-}
 
 /**
  * Ask the portal. Click a suggestion: the assistant reads, draws a
@@ -35,11 +27,11 @@ const meta: Meta<typeof AssistantChat> = {
       return <Story />;
     },
     (Story) => (
-      <Mocked routes={assistantRoutes()}>
+      <MockedApi routes={assistantRoutes()}>
         <div style={{ maxWidth: 1100 }}>
           <Story />
         </div>
-      </Mocked>
+      </MockedApi>
     ),
   ],
 };
@@ -67,25 +59,6 @@ export const AsksAQuestion: Story = {
   render: () => <AnswerView result={QUESTION_ANSWER as never} onAnswer={() => undefined} />,
 };
 
-/** After the answer: the choice stays, locked. */
-export const QuestionAnswered: Story = {
-  name: 'A question already answered',
-  render: () => (
-    <AnswerView
-      result={QUESTION_ANSWER as never}
-      answerFor={(id) =>
-        id === DATASET_QUESTION.id
-          ? {
-              interruptId: id,
-              status: 'resolved',
-              payload: { selected: ['dataset:ds-orders-gold'] },
-            }
-          : undefined
-      }
-    />
-  ),
-};
-
 /** The same answer after Run: the card follows the job it started, then says how it ended. */
 export const ActionRunning: Story = {
   name: 'An action following its job',
@@ -93,24 +66,6 @@ export const ActionRunning: Story = {
     <AnswerView
       result={SCRIPTED_ANSWER as never}
       runs={{ 'act-1': { status: 'running', jobId: 'grant-7', message: 'Queued' } }}
-      onRun={() => undefined}
-      onFollowUp={() => undefined}
-    />
-  ),
-};
-
-export const ActionDone: Story = {
-  name: 'An action that finished, ready to hand back',
-  render: () => (
-    <AnswerView
-      result={SCRIPTED_ANSWER as never}
-      runs={{
-        'act-1': {
-          status: 'completed',
-          jobId: 'grant-7',
-          result: { assetId: 'sales-overview-gold', granted: 5 },
-        },
-      }}
       onRun={() => undefined}
       onFollowUp={() => undefined}
     />

@@ -16,7 +16,7 @@ interface UseInactivityMailtoProps {
   };
 }
 
-export interface GroupActivityBreakdown {
+interface GroupActivityBreakdown {
   groupName: string;
   viewCount: number;
   viewerCount: number;

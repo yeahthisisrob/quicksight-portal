@@ -10,7 +10,7 @@ import type { FilterBarControl } from '@/shared/api/modules/data-catalog';
 import { pal } from '@/shared/design-system';
 
 /** Control-bar width in grid units, so a span reads as a share of it. */
-export const CONTROL_BAR_UNITS = 12;
+const CONTROL_BAR_UNITS = 12;
 
 export function FilterBarPreview({ controls }: { controls: FilterBarControl[] }) {
   return (

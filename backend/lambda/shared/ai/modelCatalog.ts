@@ -18,9 +18,9 @@
  */
 
 export type AiModelKey = 'haiku-4-5' | 'sonnet-4-6' | 'sonnet-5' | 'opus-5' | 'openai';
-export type AiProvider = 'bedrock' | 'openai';
+type AiProvider = 'bedrock' | 'openai';
 
-export interface AiModelCapabilities {
+interface AiModelCapabilities {
   /** Accepts `temperature`. */
   temperature: boolean;
   /** Accepts a forced tool choice (answer by calling exactly this tool). */
@@ -159,7 +159,7 @@ export function typicalCost(model: AiModel, kind: 'authoring' | 'chat'): number 
 }
 
 /** OpenAI is only offered when the stack has an endpoint and a key for it. */
-export function openAiConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
+function openAiConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
   return Boolean((env.PLANNER_BASE_URL || '').trim() && (env.PLANNER_API_KEY || '').trim());
 }
 
@@ -168,7 +168,7 @@ export function openAiModelId(env: NodeJS.ProcessEnv = process.env): string {
   return (env.OPENAI_MODEL_ID || '').trim() || aiModel('openai').modelId;
 }
 
-export interface AiModelView {
+interface AiModelView {
   key: AiModelKey;
   label: string;
   provider: AiProvider;

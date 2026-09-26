@@ -30,7 +30,7 @@ import { healthBadges } from '../lib/healthBadges';
 import { buildWireframeModel } from '../lib/wireframeModel';
 import { DefinitionWireframe } from './DefinitionWireframe';
 
-export type WireframeAssetType = 'dashboard' | 'analysis';
+type WireframeAssetType = 'dashboard' | 'analysis';
 
 interface WireframeDialogProps {
   open: boolean;

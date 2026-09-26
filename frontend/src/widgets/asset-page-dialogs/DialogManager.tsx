@@ -32,6 +32,7 @@ import {
   UserGroupsDialog,
 } from '@/features/organization';
 
+import { isRenamable } from '@/shared/api/modules/assets';
 import type { AssetType } from '@/shared/types/asset';
 import { JsonViewerModal } from '@/shared/ui';
 
@@ -491,7 +492,7 @@ export function DialogManager({
       )}
 
       {/* Rename asset (live in QuickSight) */}
-      {renameAssetDialog.asset && (
+      {renameAssetDialog.asset && isRenamable(assetType) && (
         <RenameAssetDialog
           open={renameAssetDialog.open}
           onClose={() => setRenameAssetDialog({ open: false, asset: null })}

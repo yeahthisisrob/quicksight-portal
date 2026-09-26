@@ -2,7 +2,8 @@
  * Simple token bucket rate limiter for smoothing out API requests
  */
 import { RATE_LIMITS, TIME_UNITS } from '../constants';
-export class TokenBucketRateLimiter {
+
+class TokenBucketRateLimiter {
   private lastRefillTime: number;
   private readonly maxTokens: number;
   private readonly refillRate: number; // tokens per second

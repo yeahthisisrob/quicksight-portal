@@ -102,13 +102,19 @@ api method path body='':
 
 # Everything CI runs. Do this before opening a PR.
 [group('check')]
-check: lint typecheck test architecture
+check: lint deadcode typecheck test architecture
     @echo "All checks passed."
 
 # Format + lint the whole repo (Biome, ~150ms)
 [group('check')]
 lint:
     {{x}} pnpm exec biome check .
+
+# Unused files, exports, types and dependencies (knip). Biome catches unused
+# imports and locals within a file; this catches what no other file uses.
+[group('check')]
+deadcode:
+    {{x}} pnpm exec knip --no-progress
 
 # Apply every safe fix Biome can make
 [group('check')]

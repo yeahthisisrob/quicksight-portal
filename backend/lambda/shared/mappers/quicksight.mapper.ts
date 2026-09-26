@@ -352,46 +352,6 @@ export function mapSDKDashboardListToDomain(
   };
 }
 
-export function mapSDKAnalysisListToDomain(
-  items: SDKAnalysisSummary[],
-  nextToken?: string
-): PaginatedResult<AnalysisSummary> {
-  return {
-    items: items.map(mapSDKAnalysisSummaryToDomain),
-    nextToken,
-  };
-}
-
-export function mapSDKDataSetListToDomain(
-  items: SDKDataSetSummary[],
-  nextToken?: string
-): PaginatedResult<DatasetSummary> {
-  return {
-    items: items.map(mapSDKDataSetSummaryToDomain),
-    nextToken,
-  };
-}
-
-export function mapSDKDataSourceListToDomain(
-  items: SDKDataSourceSummary[],
-  nextToken?: string
-): PaginatedResult<DatasourceSummary> {
-  return {
-    items: items.map(mapSDKDataSourceSummaryToDomain),
-    nextToken,
-  };
-}
-
-export function mapSDKFolderListToDomain(
-  items: SDKFolderSummary[],
-  nextToken?: string
-): PaginatedResult<FolderSummary> {
-  return {
-    items: items.map(mapSDKFolderSummaryToDomain),
-    nextToken,
-  };
-}
-
 export function mapSDKUserListToDomain(
   items: SDKUser[],
   nextToken?: string
@@ -529,19 +489,5 @@ export function mapDomainGroupToSDK(domain: Group): SDKGroup {
     Description: domain.description,
     Arn: domain.arn,
     PrincipalId: domain.principalId,
-  };
-}
-
-export function mapDomainPermissionToSDK(domain: Permission): SDKResourcePermission {
-  return {
-    Principal: domain.principal,
-    Actions: domain.actions,
-  };
-}
-
-export function mapDomainTagToSDK(domain: Tag): SDKTag {
-  return {
-    Key: domain.key,
-    Value: domain.value,
   };
 }

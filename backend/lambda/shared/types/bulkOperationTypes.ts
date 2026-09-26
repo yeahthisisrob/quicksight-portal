@@ -6,7 +6,7 @@
 import type { AssetType } from './assetTypes';
 
 // Bulk operation types that can be processed
-export type BulkOperationType =
+type BulkOperationType =
   | 'delete'
   | 'folder-add'
   | 'folder-remove'
@@ -24,7 +24,7 @@ export interface BulkAssetReference {
 }
 
 // Base configuration for all bulk operations
-export interface BaseBulkOperationConfig {
+interface BaseBulkOperationConfig {
   operationType: BulkOperationType;
   requestedBy: string;
   reason?: string;
@@ -120,25 +120,4 @@ export interface BulkOperationResult {
     byFolder?: Record<string, number>; // For folder operations
     byGroup?: Record<string, number>; // For group operations
   };
-}
-
-// Job configuration for bulk operations
-export interface BulkOperationJobConfig {
-  jobType: 'bulk-operation';
-  operationConfig: BulkOperationConfig;
-  estimatedOperations: number;
-  batchSize?: number; // Allow override of default batch size
-  maxConcurrency?: number; // Allow override of default concurrency
-}
-
-// Progress tracking
-export interface BulkOperationProgress {
-  totalOperations: number;
-  completedOperations: number;
-  successfulOperations: number;
-  failedOperations: number;
-  currentBatch: number;
-  totalBatches: number;
-  percentComplete: number;
-  estimatedTimeRemaining?: number;
 }

@@ -17,7 +17,7 @@ import {
 } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
 
-export interface BulkDeleteRequest {
+interface BulkDeleteRequest {
   assets: Array<{
     type: AssetType;
     id: string;
@@ -26,7 +26,7 @@ export interface BulkDeleteRequest {
   deletedBy: string;
 }
 
-export interface BulkDeleteResult {
+interface BulkDeleteResult {
   deleted: {
     total: number;
     byType: Record<AssetType, number>;
