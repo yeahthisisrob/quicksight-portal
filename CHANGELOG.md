@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.24.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.23.1...v2.24.0) (2026-09-26)
+
+
+### Features
+
+* **author:** plans are the write - a typed authoring vocabulary, filter controls and visual actions, contract-checked requests, and a rebuilt chat ([#235](https://github.com/yeahthisisrob/quicksight-portal/issues/235)) ([d52578f](https://github.com/yeahthisisrob/quicksight-portal/commit/d52578ff823277649217509e19a2fc8a31fe8359))
+
 ## [2.23.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.23.0...v2.23.1) (2026-09-26)
 
 
