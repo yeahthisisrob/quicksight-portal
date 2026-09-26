@@ -7,11 +7,9 @@
  *   show an asset or a lineage, prepare the plan or another write for the
  *   person to run.
  *
- * The plan's `build` schema is the contract's own (AssistantPlanBuild,
- * inlined), so what the model can say and what the API can build are the
- * same thing.
+ * The chat model briefs; the authoring model drafts the build (through the
+ * planner), so the stronger model does the creative work.
  */
-import spec from '../../../../../shared/generated/openapi.json';
 import type { ChatTool } from './ChatModel';
 
 const ENTITY_TYPES = [
@@ -137,7 +135,7 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
   {
     name: 'show_plan',
     description:
-      "Draw what a change will build as a lineage, before preparing it: where the data comes from (SMUS listings, when there are any) -> datasets (existing, or new and through which data source) -> the analysis or dashboard (new, edited, or a copy). List the calculated fields it adds too: each is judged against the organisation's guidance and the verdicts come back to you. The actions you prepare next are shown under the plan.",
+      "Draw what a change will build, before preparing it: where the data comes from (SMUS listings, when there are any) -> datasets (existing, or new and through which data source) -> the analysis or dashboard (new, edited, or a copy), and the calculated fields it adds (each judged against the organisation's guidance; the verdicts come back to you). Give a precise brief and the target; the person's authoring model drafts the build from the brief, it is checked and previewed, and the plan is shown with its wireframe. If it cannot be drafted, you hear why.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -187,10 +185,58 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
             required: ['name', 'status'],
           },
         },
-        build: {
-          ...inlined('AssistantPlanBuild'),
+        brief: {
+          type: 'string',
           description:
-            "The exact write that carries the plan out: `create` (a new analysis or dashboard: datasets, visuals, filters with their controls, visual actions) or `edit` (ops on an existing one: addVisual, addFilter, addAction, retype, move...). Put in everything the person asked for - every filter, control and interaction - and nothing they did not. It is checked and previewed before the plan is shown; the person's Run sends it unchanged.",
+            "Exactly what the person asked for, in the vocabulary's terms, for the authoring model to draft: every visual, every filter with its control and placement, every interaction, and anything they ruled out. The build is drafted from this, so leave nothing implied.",
+        },
+        target: {
+          type: 'object',
+          description:
+            'Where the build goes. `create` - a new asset: its type, name and datasets (and a folder, audience or filter bar template only when the person named one); what it shows is drafted from the brief. `edit` - an existing asset.',
+          properties: {
+            create: {
+              type: 'object',
+              properties: {
+                assetType: { type: 'string', enum: ['analysis', 'dashboard'] },
+                name: { type: 'string' },
+                datasets: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      identifier: {
+                        type: 'string',
+                        description: 'A short name the build uses for it, e.g. "orders".',
+                      },
+                      dataSetId: { type: 'string' },
+                      shareWithAudience: { type: 'boolean' },
+                    },
+                    required: ['identifier', 'dataSetId'],
+                  },
+                },
+                sheetName: { type: 'string' },
+                folderId: { type: 'string' },
+                filterBarTemplateId: { type: 'string' },
+                permissionsFrom: {
+                  type: 'object',
+                  properties: {
+                    assetType: { type: 'string', enum: ['analysis', 'dashboard'] },
+                    assetId: { type: 'string' },
+                  },
+                },
+              },
+              required: ['assetType', 'name', 'datasets'],
+            },
+            edit: {
+              type: 'object',
+              properties: {
+                assetType: { type: 'string', enum: ['analysis', 'dashboard'] },
+                assetId: { type: 'string' },
+              },
+              required: ['assetType', 'assetId'],
+            },
+          },
         },
         asset: {
           type: 'object',
@@ -203,7 +249,7 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
           required: ['kind', 'name', 'status'],
         },
       },
-      required: ['title', 'datasets', 'asset', 'build'],
+      required: ['title', 'datasets', 'asset', 'brief', 'target'],
     },
   },
   {
@@ -293,28 +339,3 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
     },
   },
 ];
-
-/**
- * A contract schema with every $ref resolved, as a tool input schema
- * (models read plain JSON Schema). Recursion is cut at a depth no request
- * body reaches.
- */
-function inlined(name: string): Record<string, unknown> {
-  const components = (spec as any).components?.schemas ?? {};
-  const MAX_DEPTH = 8;
-  const walk = (node: any, depth: number): any => {
-    if (Array.isArray(node)) return node.map((n) => walk(n, depth));
-    if (typeof node !== 'object' || node === null) return node;
-    if (typeof node.$ref === 'string') {
-      const target = components[node.$ref.split('/').pop() as string];
-      return depth > MAX_DEPTH ? { type: 'object' } : walk(target, depth + 1);
-    }
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(node)) {
-      if (k === 'example' || k === 'examples') continue;
-      out[k] = walk(v, depth);
-    }
-    return out;
-  };
-  return walk(components[name], 0);
-}

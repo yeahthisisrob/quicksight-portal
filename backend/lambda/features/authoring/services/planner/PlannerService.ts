@@ -27,6 +27,7 @@ import {
   type GuidanceFocus,
   guidanceSection,
 } from '../../../../shared/ai/authoringGuidance';
+import { vocabularySection } from '../../../../shared/ai/authoringVocabulary';
 import { getSmusConfig } from '../../../../shared/config/smusConfig';
 import { ValidationError } from '../../../../shared/errors/ValidationError';
 import { ClientFactory } from '../../../../shared/services/aws/ClientFactory';
@@ -42,12 +43,19 @@ import {
   type VisualSpec,
 } from '../../lib/definitionBuilder';
 import {
+  CONTROL_PLACEMENTS,
+  type ControlPlacement,
+  FILTER_CONTROLS,
+  type FilterControlKind,
+} from '../../lib/definitionFilters';
+import {
   applyOps,
   type DefinitionOp,
   EDITABLE_VISUAL_TYPES,
   parseOps,
 } from '../../lib/definitionOps';
 import type { SheetOutline } from '../../lib/definitionOutline';
+import { ACTION_KINDS, ACTION_TRIGGERS, type VisualActionSpec } from '../../lib/visualActions';
 import type {
   ApplyMode,
   AuthorableAssetType,
@@ -120,7 +128,8 @@ export function rankCandidates(
 type CandidateLoader = () => Promise<CandidateDataset[]>;
 
 const MAX_CANDIDATES = 400;
-const MAX_ASK_LENGTH = 2000;
+/** Room for a precise brief, and the reasons a previous draft failed. */
+const MAX_ASK_LENGTH = 4000;
 const CHOICE_MAX_TOKENS = 1024;
 const MAPPING_MAX_TOKENS = 2048;
 const EDITS_MAX_TOKENS = 2048;
@@ -217,6 +226,141 @@ const VISUALS_MAX_TOKENS = 4096;
 const MAX_PLANNED_VISUALS = 24;
 const MAX_COLUMNS_PER_DATASET = 150;
 
+/**
+ * A filter, visual and action as the planner writes them. Flat, every
+ * field required, '' / [] / false meaning "not used" (see the header).
+ */
+const FILTER_ITEM = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'identifier',
+    'column',
+    'title',
+    'control',
+    'placement',
+    'appliesTo',
+    'values',
+    'hasRange',
+    'min',
+    'max',
+    'lastDays',
+  ],
+  properties: {
+    identifier: { type: 'string' },
+    column: { type: 'string' },
+    title: { type: 'string', description: 'The control title; "" for the column name.' },
+    control: {
+      type: 'string',
+      enum: ['', ...FILTER_CONTROLS],
+      description:
+        'text: dropdown (default), singleSelect, list; date: dateRange (default), relativeDate; number: slider (needs hasRange). "" for the default.',
+    },
+    placement: {
+      type: 'string',
+      enum: ['', ...CONTROL_PLACEMENTS],
+      description: 'controlBar (the strip at the top, the default) or canvas; "" for the default.',
+    },
+    appliesTo: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Keys (or titles) of the visuals it narrows; [] for every visual.',
+    },
+    values: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Text columns: values selected to start with, when the ask names them; else [].',
+    },
+    hasRange: { type: 'boolean', description: 'True when min and max are set (a slider).' },
+    min: { type: 'number' },
+    max: { type: 'number' },
+    lastDays: { type: 'integer', description: 'relativeDate: the last N days; else 0.' },
+  },
+} as const;
+
+const ACTION_ITEM = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['kind', 'trigger', 'targets', 'fields', 'sheet'],
+  properties: {
+    kind: {
+      type: 'string',
+      enum: ['', ...ACTION_KINDS],
+      description:
+        'filter: clicking a data point filters other visuals (an action filter, cross-filter); navigate: opens a sheet. "" when unused.',
+    },
+    trigger: { type: 'string', enum: [...ACTION_TRIGGERS] },
+    targets: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'filter: keys of the visuals it filters; [] for every other visual.',
+    },
+    fields: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'filter: columns the selection filters by; [] for all its fields.',
+    },
+    sheet: { type: 'string', description: 'navigate: the sheet name; else "".' },
+  },
+} as const;
+
+const VISUAL_ITEM = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'key',
+    'type',
+    'title',
+    'identifier',
+    'category',
+    'granularity',
+    'values',
+    'color',
+    'actions',
+  ],
+  properties: {
+    key: {
+      type: 'string',
+      description: 'A short id filters and actions refer to it by, e.g. "byRegion".',
+    },
+    type: { type: 'string', enum: [...BUILDABLE_VISUAL_TYPES] },
+    title: { type: 'string', description: 'Short, in the words of the ask.' },
+    identifier: {
+      type: 'string',
+      description: 'The dataset identifier every column belongs to.',
+    },
+    category: {
+      type: 'string',
+      description: 'The dimension column (x axis, group-by, rows); "" for a KPI.',
+    },
+    granularity: {
+      type: 'string',
+      enum: ['', 'DAY', 'WEEK', 'MONTH', 'QUARTER', 'YEAR'],
+      description: 'When the category is a date; else "".',
+    },
+    values: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['column', 'aggregation'],
+        properties: {
+          column: { type: 'string' },
+          aggregation: {
+            type: 'string',
+            enum: ['SUM', 'AVERAGE', 'COUNT', 'DISTINCT_COUNT', 'MIN', 'MAX'],
+          },
+        },
+      },
+    },
+    color: {
+      type: 'string',
+      description: 'A second dimension (colours, pivot columns) or "".',
+    },
+    actions: { type: 'array', items: ACTION_ITEM, description: 'Interactions; [] for none.' },
+  },
+} as const;
+
 const VISUALS_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -225,80 +369,10 @@ const VISUALS_SCHEMA = {
     reason: { type: 'string', description: 'One sentence on the choices, or why nothing fits.' },
     filters: {
       type: 'array',
-      description:
-        'Columns the person should be able to filter on, most used first; each becomes a control in the sheet control bar. Empty when the ask needs none.',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['identifier', 'column', 'values'],
-        properties: {
-          identifier: { type: 'string' },
-          column: { type: 'string' },
-          values: {
-            type: 'array',
-            items: { type: 'string' },
-            description:
-              'Text columns: values selected to start with, when the ask names them; else [].',
-          },
-        },
-      },
+      description: 'Every filter the ask names, with its control; [] when it needs none.',
+      items: FILTER_ITEM,
     },
-    visuals: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['type', 'title', 'identifier', 'category', 'granularity', 'values', 'color'],
-        properties: {
-          type: {
-            type: 'string',
-            enum: [
-              'KPI',
-              'BarChart',
-              'ColumnChart',
-              'LineChart',
-              'PieChart',
-              'DonutChart',
-              'Table',
-              'PivotTable',
-            ],
-          },
-          title: { type: 'string', description: 'Short, in the words of the ask.' },
-          identifier: {
-            type: 'string',
-            description: 'The dataset identifier every column belongs to.',
-          },
-          category: {
-            type: 'string',
-            description: 'The dimension column (x axis, group-by, rows); "" for a KPI.',
-          },
-          granularity: {
-            type: 'string',
-            enum: ['', 'DAY', 'WEEK', 'MONTH', 'QUARTER', 'YEAR'],
-            description: 'When the category is a date; else "".',
-          },
-          values: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['column', 'aggregation'],
-              properties: {
-                column: { type: 'string' },
-                aggregation: {
-                  type: 'string',
-                  enum: ['SUM', 'AVERAGE', 'COUNT', 'DISTINCT_COUNT', 'MIN', 'MAX'],
-                },
-              },
-            },
-          },
-          color: {
-            type: 'string',
-            description: 'A second dimension (colours, pivot columns) or "".',
-          },
-        },
-      },
-    },
+    visuals: { type: 'array', items: VISUAL_ITEM },
   },
 } as const;
 
@@ -326,7 +400,9 @@ const EDITS_SCHEMA = {
           'name',
           'identifier',
           'column',
-          'values',
+          'filter',
+          'visual',
+          'action',
         ],
         properties: {
           op: {
@@ -340,12 +416,15 @@ const EDITS_SCHEMA = {
               'duplicate',
               'renameSheet',
               'addFilter',
+              'addVisual',
+              'addAction',
             ],
           },
           sheetId: { type: 'string', description: 'A sheetId from the outline.' },
           elementId: {
             type: 'string',
-            description: 'An elementId from the outline; "" for renameSheet.',
+            description:
+              'An elementId from the outline (addAction: the visual that carries it); "" for renameSheet, addFilter, addVisual.',
           },
           col: { type: 'integer', description: 'move/duplicate: 0-35, else -1.' },
           row: { type: 'integer', description: 'move/duplicate: 0 or more, else -1.' },
@@ -363,11 +442,19 @@ const EDITS_SCHEMA = {
               'addFilter: the dataset identifier (from the datasets list, never an ARN); else "".',
           },
           column: { type: 'string', description: 'addFilter: the column to filter on; else "".' },
-          values: {
-            type: 'array',
-            items: { type: 'string' },
+          filter: {
+            ...FILTER_ITEM,
             description:
-              'addFilter on a text column: values selected to start with, when the ask names them; else [].',
+              "addFilter: the filter (its identifier and column repeat the op's); else any filler.",
+          },
+          visual: {
+            ...VISUAL_ITEM,
+            description: 'addVisual: the visual to add; else any filler with type "".',
+          },
+          action: {
+            ...ACTION_ITEM,
+            description:
+              'addAction: the interaction for the visual named by elementId; else kind "".',
           },
         },
       },
@@ -443,7 +530,9 @@ export class PlannerService {
     // Layout and visual edits are planned against the definition's outline,
     // then validated by applying them to a preview - an op that fails is
     // dropped with its reason logged rather than failing the whole proposal.
-    const ops = choice.wantsEdits ? await this.planEdits(assetType, assetId, ask) : [];
+    const { ops, problems } = choice.wantsEdits
+      ? await this.planEdits(assetType, assetId, ask)
+      : { ops: [], problems: [] };
 
     if (choice.intent === 'unclear' || (choice.rebinds.length === 0 && ops.length === 0)) {
       return {
@@ -454,6 +543,7 @@ export class PlannerService {
         rebinds: [],
         unmapped: [],
         ops: [],
+        problems,
         plan: null,
         model: modelInfo,
       };
@@ -468,6 +558,7 @@ export class PlannerService {
         rebinds: [],
         unmapped: [],
         ops,
+        problems,
         plan: null,
         model: modelInfo,
       };
@@ -514,6 +605,7 @@ export class PlannerService {
       rebinds: choice.rebinds,
       unmapped,
       ops,
+      problems,
       plan,
       model: modelInfo,
     };
@@ -527,27 +619,40 @@ export class PlannerService {
     assetType: AuthorableAssetType,
     assetId: string,
     ask: string
-  ): Promise<DefinitionOp[]> {
+  ): Promise<{ ops: DefinitionOp[]; problems: string[] }> {
     const [outline, described] = await Promise.all([
       this.rebindService.loadDefinitionOutline(assetType, assetId),
       this.rebindService.describeDatasets(assetType, assetId).catch(() => null),
     ]);
-    const datasets = (described?.datasets ?? []).map((d: any) => ({
-      identifier: d.identifier,
-      columns: (d.columns ?? [])
-        .map((c: any) => (typeof c === 'string' ? c : c?.name))
-        .filter(Boolean),
-    }));
+    // Every column of each dataset, with its type: an added visual or filter
+    // may use a column the definition does not read yet.
+    const datasets = await Promise.all(
+      (described?.datasets ?? []).map(async (d) => {
+        const target = await this.rebindService
+          .describeTargetDataset(d.dataSetId)
+          .catch(() => null);
+        return {
+          identifier: d.identifier,
+          columns: target
+            ? target.columns
+                .slice(0, MAX_COLUMNS_PER_DATASET)
+                .map((c) => `${c.name} (${c.type ?? 'STRING'})`)
+            : d.columns.map((c: any) => (typeof c === 'string' ? c : c?.name)).filter(Boolean),
+        };
+      })
+    );
     const user = [
       'The sheets of the definition, with the ids you must use:',
       JSON.stringify(outline),
       '',
-      'The datasets it reads, by identifier, with the columns it uses:',
+      'The datasets it reads, by identifier, with their columns and types:',
       JSON.stringify(datasets),
       '',
       `The ask: ${JSON.stringify(ask)}`,
       '',
-      'Express the layout, visual and filter changes the ask wants as ops. The grid is 36 columns wide; rows grow downward. Use only ids from the outline and identifiers from the datasets. Change a visual type only between BarChart, ColumnChart, LineChart, PieChart, DonutChart, Table and PivotTable. A filter the ask wants is an addFilter op on its column: its control goes in the sheet control bar by itself. If the ask wants no such change, return an empty list.',
+      vocabularySection(),
+      '',
+      'Express every change the ask wants as ops, and nothing it does not: every filter it names with the control and placement it names (addFilter), every visual (addVisual, by column names), every interaction (addAction on the visual that is clicked), and layout changes (move, resize, retype, retitle, remove). The grid is 36 columns wide; rows grow downward. Use only ids from the outline, identifiers and columns from the datasets, and visual titles or ids for appliesTo and targets. Change a visual type only between BarChart, ColumnChart, LineChart, PieChart, DonutChart, Table and PivotTable. If the ask wants no such change, return an empty list.',
     ].join('\n');
 
     const result = await this.model.complete({
@@ -555,12 +660,12 @@ export class PlannerService {
       system: this.system(['explorations', 'visuals']),
       user,
       schemaName: 'plan_edits',
-      schemaDescription: 'Layout and visual edits as ops.',
-      schema: EDITS_SCHEMA,
+      schemaDescription: 'Layout, visual, filter and interaction edits as ops.',
+      schema: EDITS_SCHEMA as unknown as Record<string, unknown>,
       maxTokens: EDITS_MAX_TOKENS,
     });
 
-    const ops = parseEditOps(result.output, outline);
+    const ops = parseEditOps(result.output, outline, new Set(datasets.map((d) => d.identifier)));
     return this.validateOps(assetType, assetId, ops);
   }
 
@@ -597,7 +702,9 @@ export class PlannerService {
       '',
       `The ask: ${JSON.stringify(trimmed)}`,
       '',
-      'Propose the visuals a dashboard for this ask should show, most important first, and the columns to filter on. Use only these identifiers and column names, exactly. KPIs for single numbers, line charts over dates, bar or column charts by a category, tables for detail. Aggregate numeric columns with SUM unless the ask says otherwise; count or distinct-count text columns. A filter the ask names always becomes a filter; add the date column when the data is over time. Say what to show, not where or how big: the layout, sizes and control placement are decided for you. Keep it to what the ask needs.',
+      vocabularySection(),
+      '',
+      'Propose what this ask should show, most important first. Use only these identifiers and column names, exactly. KPIs for single numbers, line charts over dates, bar or column charts by a category, tables for detail. Aggregate numeric columns with SUM unless the ask says otherwise; count or distinct-count text columns. Every filter the ask names is a filter, with the control and placement it names (the defaults otherwise); a slider needs its range, so use a range the ask gives or pick another control. Every interaction it names is an action on the visual that is clicked, targeting visuals by key. Give each visual a key. Say what to show, not where or how big: the layout and sizes are decided for you. Build exactly what the ask needs, nothing more.',
     ].join('\n');
 
     const result = await this.model.complete({
@@ -617,26 +724,29 @@ export class PlannerService {
     };
   }
 
-  /** Keep only ops the definition accepts, in order; log the rest. */
+  /** The ops the definition accepts, in order, and why each of the others does not apply. */
   private async validateOps(
     assetType: AuthorableAssetType,
     assetId: string,
     ops: DefinitionOp[]
-  ): Promise<DefinitionOp[]> {
+  ): Promise<{ ops: DefinitionOp[]; problems: string[] }> {
     if (ops.length === 0) {
-      return [];
+      return { ops: [], problems: [] };
     }
     const preview = await this.rebindService.preview(assetType, assetId, { rebinds: [] });
     const kept: DefinitionOp[] = [];
+    const problems: string[] = [];
     for (const op of ops) {
       try {
         applyOps(preview.definition, [...kept, op]);
         kept.push(op);
       } catch (error) {
-        logger.warn('Planner op dropped', { op, error: (error as Error).message });
+        const reason = (error as Error).message.replace(/^Op \d+: /, '');
+        problems.push(`${op.op}: ${reason}`);
+        logger.warn('Planner op does not apply', { op, error: reason });
       }
     }
-    return kept;
+    return { ops: kept, problems };
   }
 
   private async candidates(restrictTo?: string[]): Promise<CandidateDataset[]> {
@@ -800,46 +910,107 @@ function reasonOf(output: unknown): string {
   return isRecord(output) && typeof output.reason === 'string' ? output.reason : '';
 }
 
-/** Model output to visual specs: drop anything not naming a known identifier; the builder checks columns. */
+/** A planner action item as a VisualActionSpec; undefined for a filler (kind ""). */
+function actionOf(item: unknown): VisualActionSpec | undefined {
+  if (!isRecord(item) || !(ACTION_KINDS as readonly string[]).includes(str(item, 'kind'))) {
+    return undefined;
+  }
+  const strings = (key: string) =>
+    Array.isArray(item[key])
+      ? (item[key] as unknown[]).filter((v): v is string => typeof v === 'string' && v.length > 0)
+      : [];
+  const trigger = str(item, 'trigger');
+  return {
+    kind: str(item, 'kind') as VisualActionSpec['kind'],
+    ...((ACTION_TRIGGERS as readonly string[]).includes(trigger)
+      ? { trigger: trigger as VisualActionSpec['trigger'] }
+      : {}),
+    ...(strings('targets').length ? { targets: strings('targets') } : {}),
+    ...(strings('fields').length ? { fields: strings('fields') } : {}),
+    ...(str(item, 'sheet') ? { sheet: str(item, 'sheet') } : {}),
+  };
+}
+
+/** A planner visual item as a VisualSpec; undefined when it is not one. The builder checks columns. */
+function visualOf(item: unknown, identifiers: Set<string>): VisualSpec | undefined {
+  if (!isRecord(item)) return undefined;
+  const type = str(item, 'type') as VisualSpec['type'];
+  const identifier = str(item, 'identifier');
+  if (!BUILDABLE_VISUAL_TYPES.includes(type) || !identifiers.has(identifier)) return undefined;
+  const values = Array.isArray(item.values)
+    ? item.values
+        .filter(
+          (v): v is Record<string, unknown> =>
+            isRecord(v) && typeof v.column === 'string' && v.column.length > 0
+        )
+        .map((v) => ({
+          column: v.column as string,
+          ...(typeof v.aggregation === 'string' && v.aggregation
+            ? { aggregation: v.aggregation as VisualSpec['values'][number]['aggregation'] }
+            : {}),
+        }))
+    : [];
+  if (values.length === 0) return undefined;
+  const category = str(item, 'category');
+  const granularity = str(item, 'granularity');
+  const color = str(item, 'color');
+  const actions = (Array.isArray(item.actions) ? item.actions : [])
+    .map(actionOf)
+    .filter((a): a is VisualActionSpec => Boolean(a));
+  return {
+    ...(str(item, 'key') ? { key: str(item, 'key') } : {}),
+    type,
+    title: str(item, 'title') || `${type} of ${values[0]!.column}`,
+    identifier,
+    ...(category && type !== 'KPI' ? { category } : {}),
+    ...(granularity ? { granularity: granularity as VisualSpec['granularity'] } : {}),
+    values,
+    ...(color ? { color } : {}),
+    ...(actions.length ? { actions } : {}),
+  };
+}
+
+/** A planner filter item as a FilterSpec; undefined when it names no known column. */
+function filterOf(item: unknown, identifiers: Set<string>): FilterSpec | undefined {
+  if (!isRecord(item)) return undefined;
+  const identifier = str(item, 'identifier');
+  const column = str(item, 'column');
+  if (!identifiers.has(identifier) || !column) return undefined;
+  const strings = (key: string) =>
+    Array.isArray(item[key])
+      ? (item[key] as unknown[]).filter((v): v is string => typeof v === 'string' && v.length > 0)
+      : [];
+  const control = str(item, 'control');
+  const placement = str(item, 'placement');
+  const ranged =
+    item.hasRange === true && typeof item.min === 'number' && typeof item.max === 'number';
+  const lastDays = typeof item.lastDays === 'number' && item.lastDays > 0 ? item.lastDays : 0;
+  return {
+    identifier,
+    column,
+    ...(str(item, 'title') ? { title: str(item, 'title') } : {}),
+    ...((FILTER_CONTROLS as readonly string[]).includes(control)
+      ? { control: control as FilterControlKind }
+      : {}),
+    ...((CONTROL_PLACEMENTS as readonly string[]).includes(placement)
+      ? { placement: placement as ControlPlacement }
+      : {}),
+    ...(strings('appliesTo').length ? { appliesTo: strings('appliesTo') } : {}),
+    ...(strings('values').length ? { values: strings('values') } : {}),
+    ...(ranged ? { min: item.min as number, max: item.max as number } : {}),
+    ...(lastDays ? { lastDays } : {}),
+  };
+}
+
 function parseVisualSpecs(output: unknown, datasets: BuilderDataset[]): VisualSpec[] {
   if (!isRecord(output) || !Array.isArray(output.visuals)) {
     return [];
   }
   const identifiers = new Set(datasets.map((d) => d.identifier));
-  const specs: VisualSpec[] = [];
-  for (const item of output.visuals.slice(0, MAX_PLANNED_VISUALS)) {
-    if (!isRecord(item)) continue;
-    const type = str(item, 'type') as VisualSpec['type'];
-    const identifier = str(item, 'identifier');
-    if (!BUILDABLE_VISUAL_TYPES.includes(type) || !identifiers.has(identifier)) continue;
-    const values = Array.isArray(item.values)
-      ? item.values
-          .filter(
-            (v): v is Record<string, unknown> =>
-              isRecord(v) && typeof v.column === 'string' && v.column.length > 0
-          )
-          .map((v) => ({
-            column: v.column as string,
-            ...(typeof v.aggregation === 'string' && v.aggregation
-              ? { aggregation: v.aggregation as VisualSpec['values'][number]['aggregation'] }
-              : {}),
-          }))
-      : [];
-    if (values.length === 0) continue;
-    const category = str(item, 'category');
-    const granularity = str(item, 'granularity');
-    const color = str(item, 'color');
-    specs.push({
-      type,
-      title: str(item, 'title') || `${type} of ${values[0]!.column}`,
-      identifier,
-      ...(category && type !== 'KPI' ? { category } : {}),
-      ...(granularity ? { granularity: granularity as VisualSpec['granularity'] } : {}),
-      values,
-      ...(color ? { color } : {}),
-    });
-  }
-  return specs;
+  return output.visuals
+    .slice(0, MAX_PLANNED_VISUALS)
+    .map((item) => visualOf(item, identifiers))
+    .filter((v): v is VisualSpec => Boolean(v));
 }
 
 function parseFilterSpecs(output: unknown, datasets: BuilderDataset[]): FilterSpec[] {
@@ -847,19 +1018,16 @@ function parseFilterSpecs(output: unknown, datasets: BuilderDataset[]): FilterSp
     return [];
   }
   const identifiers = new Set(datasets.map((d) => d.identifier));
-  return output.filters.flatMap((item): FilterSpec[] => {
-    if (!isRecord(item)) return [];
-    const identifier = str(item, 'identifier');
-    const column = str(item, 'column');
-    if (!identifiers.has(identifier) || !column) return [];
-    const values = Array.isArray(item.values)
-      ? item.values.filter((v): v is string => typeof v === 'string' && v.length > 0)
-      : [];
-    return [{ identifier, column, ...(values.length ? { values } : {}) }];
-  });
+  return output.filters
+    .map((item) => filterOf(item, identifiers))
+    .filter((f): f is FilterSpec => Boolean(f));
 }
 
-export function parseEditOps(output: unknown, outline: SheetOutline[]): DefinitionOp[] {
+export function parseEditOps(
+  output: unknown,
+  outline: SheetOutline[],
+  identifiers: Set<string> = new Set()
+): DefinitionOp[] {
   if (!isRecord(output) || !Array.isArray(output.ops)) {
     return [];
   }
@@ -891,18 +1059,24 @@ export function parseEditOps(output: unknown, outline: SheetOutline[]): Definiti
         return [base];
       case 'renameSheet':
         return [{ op: 'renameSheet', sheetId: base.sheetId, name: text('name') }];
-      case 'addFilter':
-        return [
-          {
-            op: 'addFilter',
-            sheetId: base.sheetId,
-            identifier: text('identifier'),
-            column: text('column'),
-            values: Array.isArray(item.values)
-              ? item.values.filter((v) => typeof v === 'string' && v)
-              : [],
-          },
-        ];
+      case 'addFilter': {
+        const identifier = text('identifier');
+        const column = text('column');
+        const filter =
+          filterOf(item.filter, new Set([...identifiers, identifier ?? ''])) ??
+          (identifier && column ? { identifier, column } : undefined);
+        return filter
+          ? [{ ...filter, op: 'addFilter', sheetId: base.sheetId, identifier, column }]
+          : [];
+      }
+      case 'addVisual': {
+        const visual = visualOf(item.visual, identifiers);
+        return visual ? [{ op: 'addVisual', sheetId: base.sheetId, visual }] : [];
+      }
+      case 'addAction': {
+        const action = actionOf(item.action);
+        return action ? [{ ...base, action }] : [];
+      }
       default:
         return [];
     }

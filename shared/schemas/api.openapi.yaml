@@ -7984,7 +7984,7 @@ components:
         ask:
           type: string
           minLength: 1
-          maxLength: 2000
+          maxLength: 4000
           description: What the person wants, in their words.
         candidateDataSetIds:
           type: array
@@ -8017,8 +8017,13 @@ components:
 
     Proposal:
       type: object
-      required: [ask, intent, mode, reason, rebinds, unmapped, ops, plan, model]
+      required: [ask, intent, mode, reason, rebinds, unmapped, ops, problems, plan, model]
       properties:
+        problems:
+          type: array
+          description: Edits the planner proposed that do not apply to the definition, each with the reason.
+          items:
+            type: string
         ask:
           type: string
         intent:

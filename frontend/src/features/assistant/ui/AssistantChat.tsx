@@ -41,6 +41,7 @@ import { CONTINUE_MESSAGE, endsOnAPromise } from '../model/conversation';
 import { resultTarget, threadOf } from '../model/thread';
 import { useConversation } from '../model/useConversation';
 import { formatCost } from './costFormat';
+import { ModelMenu } from './ModelMenu';
 import { AssistantMessage, UserMessage } from './thread/ChatMessages';
 import { ChatStatusContext } from './thread/chatStatus';
 import { assistantToolkit } from './tools/toolkit';
@@ -147,11 +148,12 @@ function Composer() {
       <Box
         sx={(theme) => ({
           display: 'flex',
-          alignItems: 'flex-end',
-          gap: 1,
+          flexDirection: 'column',
+          gap: 0.5,
           pl: 1.75,
           pr: 0.75,
-          py: 0.75,
+          pt: 0.75,
+          pb: 0.75,
           borderRadius: `${Number(theme.shape.borderRadius) * 3}px`,
           border: `1px solid ${pal(theme).line.default}`,
           bgcolor: pal(theme).surface.input,
@@ -159,8 +161,9 @@ function Composer() {
           transition: 'border-color 120ms',
           '&:focus-within': { borderColor: pal(theme).brand.primary },
           '& textarea': {
-            flex: 1,
-            minWidth: 0,
+            width: '100%',
+            boxSizing: 'border-box',
+            pr: 1,
             py: 0.75,
             border: 0,
             outline: 0,
@@ -182,36 +185,52 @@ function Composer() {
           aria-label="Message the assistant"
           submitMode="enter"
         />
-        <AuiIf condition={(s) => !s.thread.isRunning}>
-          <ComposerPrimitive.Send asChild>
-            <IconButton
-              color="primary"
-              aria-label="Send"
-              sx={(theme) => ({
-                bgcolor: pal(theme).brand.primary,
-                color: pal(theme).text.onBrand,
-                '&:hover': { bgcolor: pal(theme).brand.hover },
-                '&.Mui-disabled, &:disabled': {
-                  bgcolor: pal(theme).surface.disabled,
-                  color: pal(theme).text.disabled,
-                },
-              })}
-            >
-              <ArrowUpward fontSize="small" />
-            </IconButton>
-          </ComposerPrimitive.Send>
-        </AuiIf>
-        <AuiIf condition={(s) => s.thread.isRunning}>
-          <Tooltip title="Stop waiting for this answer">
-            <ComposerPrimitive.Cancel asChild>
-              <IconButton aria-label="Stop" color="primary">
-                <Stop fontSize="small" />
-              </IconButton>
-            </ComposerPrimitive.Cancel>
-          </Tooltip>
-        </AuiIf>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0 }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <ModelMenu />
+          </Box>
+          <ComposerActions />
+        </Stack>
       </Box>
     </ComposerPrimitive.Root>
+  );
+}
+
+/** Send, or Stop while an answer is running. */
+function ComposerActions() {
+  return (
+    <>
+      <AuiIf condition={(s) => !s.thread.isRunning}>
+        <ComposerPrimitive.Send asChild>
+          <IconButton
+            color="primary"
+            aria-label="Send"
+            size="small"
+            sx={(theme) => ({
+              p: 0.75,
+              bgcolor: pal(theme).brand.primary,
+              color: pal(theme).text.onBrand,
+              '&:hover': { bgcolor: pal(theme).brand.hover },
+              '&.Mui-disabled, &:disabled': {
+                bgcolor: pal(theme).surface.disabled,
+                color: pal(theme).text.disabled,
+              },
+            })}
+          >
+            <ArrowUpward fontSize="small" />
+          </IconButton>
+        </ComposerPrimitive.Send>
+      </AuiIf>
+      <AuiIf condition={(s) => s.thread.isRunning}>
+        <Tooltip title="Stop waiting for this answer">
+          <ComposerPrimitive.Cancel asChild>
+            <IconButton aria-label="Stop" color="primary" size="small" sx={{ p: 0.75 }}>
+              <Stop fontSize="small" />
+            </IconButton>
+          </ComposerPrimitive.Cancel>
+        </Tooltip>
+      </AuiIf>
+    </>
   );
 }
 

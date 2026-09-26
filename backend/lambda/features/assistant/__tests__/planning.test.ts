@@ -15,7 +15,8 @@ const plan = parsePlan({
     { name: 'Kept', expression: '{a} + {b}', status: 'existing' },
   ],
   asset: { kind: 'analysis', name: 'Orders', status: 'new' },
-  build: {
+  brief: 'An orders analysis with revenue, unit cost and a running total.',
+  target: {
     create: {
       assetType: 'analysis',
       name: 'Orders',
@@ -33,7 +34,7 @@ describe('field placement follows the organisation guidance', () => {
   it('uses an existing column, keeps aggregates in the analysis, and places the rest by strategy', async () => {
     if (typeof plan === 'string') throw new Error(plan);
     const byStrategy = async (strategy: 'source' | 'dataset' | 'none') =>
-      (await judgeFields(plan, strategy, columns)).map((f) => [f.name, f.verdict]);
+      (await judgeFields(plan.lineage, strategy, columns)).map((f) => [f.name, f.verdict]);
 
     expect(await byStrategy('none')).toEqual([
       ['Revenue', 'use-column'],
@@ -43,14 +44,14 @@ describe('field placement follows the organisation guidance', () => {
     expect((await byStrategy('source'))[1]).toEqual(['Unit cost', 'push-down']);
     expect((await byStrategy('dataset'))[1]).toEqual(['Unit cost', 'dataset']);
 
-    const judged = await judgeFields(plan, 'dataset', columns);
+    const judged = await judgeFields(plan.lineage, 'dataset', columns);
     expect(judged[0]!.note).toContain('revenue (DECIMAL, "Net revenue in USD")');
     expect(verdictsMessage(judged)).toContain('move them into the QuickSight dataset');
   });
 
   it('still judges fields when the dataset columns cannot be read', async () => {
     if (typeof plan === 'string') throw new Error(plan);
-    const judged = await judgeFields(plan, 'none', async () => {
+    const judged = await judgeFields(plan.lineage, 'none', async () => {
       throw new Error('denied');
     });
     expect(judged.map((f) => f.verdict)).toEqual(['row-level', 'row-level', 'analysis']);

@@ -106,7 +106,13 @@ describe('AssistantService', () => {
   it('reads, previews, shows lineage, and prepares the write against its preview', async () => {
     const dispatch = vi.fn(async ({ path }: { path: string }) => ({
       status: 200,
-      body: JSON.stringify({ success: true, data: { path } }),
+      body: JSON.stringify({
+        success: true,
+        // The planner proposes a copy onto gold with no edits.
+        data: path.endsWith('/propose')
+          ? { intent: 'rebind', mode: 'clone', rebinds: [], ops: [], problems: [], unmapped: [] }
+          : { path },
+      }),
     }));
     const chat = scripted([
       {
@@ -141,13 +147,8 @@ describe('AssistantService', () => {
               title: 'The copy on gold',
               datasets: [{ name: 'Orders (gold)', id: 'ds-gold', status: 'existing' }],
               asset: { kind: 'dashboard', name: 'Margin', id: 'd1', status: 'new' },
-              build: {
-                edit: {
-                  assetType: 'dashboard',
-                  assetId: 'd1',
-                  request: { mode: 'clone', rebinds: [] },
-                },
-              },
+              brief: 'A copy of the margin dashboard reading orders gold, nothing else changed.',
+              target: { edit: { assetType: 'dashboard', assetId: 'd1' } },
             },
           },
           { id: 't4b', name: 'prepare_plan', input: { why: 'Clones onto gold.' } },
@@ -169,6 +170,7 @@ describe('AssistantService', () => {
       '/api/search?q=margin',
       '/api/data-catalog/calculated-fields/margin%3A%3Aabc',
       '/api/authoring/dashboard/d1/rebind/preview',
+      '/api/authoring/dashboard/d1/propose',
     ]);
     const kinds = result.artifacts.map((a) => a.kind);
     expect(kinds).toEqual(['lineage', 'preview', 'plan', 'asset']);
@@ -185,7 +187,7 @@ describe('AssistantService', () => {
         planId: result.artifacts[2]!.id,
       }),
     ]);
-    expect(dispatch).toHaveBeenCalledTimes(3);
+    expect(dispatch).toHaveBeenCalledTimes(4);
     expect(result.rounds).toBe(3);
     expect(result.cost).toBeCloseTo(costOf(model, { inputTokens: 3_000, outputTokens: 300 }));
   });
@@ -462,16 +464,31 @@ describe('AssistantService', () => {
 
   it('draws the plan, judges each new field, and ties the action to the plan', async () => {
     const dispatch = vi.fn(async ({ path }: { method: string; path: string }) =>
-      path === '/api/authoring/dashboard/d1/rebind/preview'
-        ? { status: 200, body: JSON.stringify({ data: { canApply: true, definition: {} } }) }
-        : path === '/api/authoring/datasets/ds-gold/columns'
-          ? {
-              status: 200,
-              body: JSON.stringify({
-                data: { columns: [{ name: 'net_margin' }, { name: 'revenue' }] },
-              }),
-            }
-          : { status: 404, body: '' }
+      path === '/api/authoring/dashboard/d1/propose'
+        ? {
+            status: 200,
+            body: JSON.stringify({
+              data: {
+                intent: 'rebind',
+                mode: 'clone',
+                name: 'Sales (gold)',
+                rebinds: [{ identifier: 'orders', targetDataSetId: 'ds-gold' }],
+                ops: [],
+                problems: [],
+                unmapped: [],
+              },
+            }),
+          }
+        : path === '/api/authoring/dashboard/d1/rebind/preview'
+          ? { status: 200, body: JSON.stringify({ data: { canApply: true, definition: {} } }) }
+          : path === '/api/authoring/datasets/ds-gold/columns'
+            ? {
+                status: 200,
+                body: JSON.stringify({
+                  data: { columns: [{ name: 'net_margin' }, { name: 'revenue' }] },
+                }),
+              }
+            : { status: 404, body: '' }
     );
     let told = '';
     const chat: ChatModel = {
@@ -527,17 +544,8 @@ describe('AssistantService', () => {
                   },
                 ],
                 asset: { kind: 'dashboard', name: 'Sales (gold)', status: 'new' },
-                build: {
-                  edit: {
-                    assetType: 'dashboard',
-                    assetId: 'd1',
-                    request: {
-                      mode: 'clone',
-                      name: 'Sales (gold)',
-                      rebinds: [{ identifier: 'orders', targetDataSetId: 'ds-gold' }],
-                    },
-                  },
-                },
+                brief: 'Copy the sales dashboard onto the orders gold dataset as Sales (gold).',
+                target: { edit: { assetType: 'dashboard', assetId: 'd1' } },
               },
             },
           ],
@@ -579,18 +587,40 @@ describe('AssistantService', () => {
     ).toContain('needs its id');
   });
 
-  it('sends a malformed write back to the model, and previews a write before preparing it', async () => {
-    const dispatch = vi.fn(async ({ path }: { method: string; path: string }) =>
-      path === '/api/authoring/new/preview'
+  it('refuses a plan with no usable target, and gives the planner the reason when its draft fails', async () => {
+    const dispatch = vi.fn(async ({ path }: { method: string; path: string; body?: any }) =>
+      path === '/api/authoring/new/propose'
         ? {
             status: 200,
             body: JSON.stringify({
-              data: { canApply: false, issues: [{ message: 'dataset ds-x not found' }] },
+              data: {
+                visuals: [
+                  {
+                    type: 'BarChart',
+                    title: 'Margin by region',
+                    identifier: 'orders',
+                    category: 'region',
+                    values: [{ column: 'margin' }],
+                  },
+                ],
+                filters: [],
+                proposal: {
+                  reason: 'Margin by region.',
+                  model: { provider: 'bedrock', model: 'm' },
+                },
+              },
             }),
           }
-        : { status: 404, body: '' }
+        : path === '/api/authoring/new/preview'
+          ? {
+              status: 200,
+              body: JSON.stringify({
+                data: { canApply: false, issues: [{ message: 'dataset ds-x not found' }] },
+              }),
+            }
+          : { status: 404, body: '' }
     );
-    const create = (body: unknown) => ({
+    const create = (target: unknown) => ({
       toolCalls: [
         {
           id: 'c',
@@ -599,7 +629,8 @@ describe('AssistantService', () => {
             title: 'Margin',
             datasets: [{ name: 'Orders', id: 'ds-x', status: 'existing' }],
             asset: { kind: 'analysis', name: 'Margin', status: 'new' },
-            build: { create: body },
+            brief: 'Margin by region as a bar chart.',
+            target: { create: target },
           },
         },
       ],
@@ -610,7 +641,6 @@ describe('AssistantService', () => {
         assetType: 'analysis',
         name: 'Margin',
         datasets: [{ identifier: 'orders', dataSetId: 'ds-x' }],
-        folderId: 'f-shared',
       }),
       { text: 'The dataset does not exist.' },
     ]);
@@ -621,17 +651,28 @@ describe('AssistantService', () => {
       if (last?.role === 'tool') told.push(last.results[0]?.content ?? '');
       return spy(system, turns, tools);
     };
-    const result = await new AssistantService(chat, model, dispatch).respond([
-      { role: 'user', text: 'make it' },
-    ]);
+    const result = await new AssistantService(chat, model, dispatch, {
+      authoringModel: 'sonnet-4-6',
+    }).respond([{ role: 'user', text: 'make it' }]);
 
     expect(result.actions).toEqual([]);
     expect(result.artifacts.some((a) => a.kind === 'plan')).toBe(false);
-    expect(told[0]).toContain('datasets: required');
-    expect(told[0]).toContain('The operation expects');
+    // The malformed target never reached the API.
+    expect(told[0]).toContain('needs its target');
+    expect(told[1]).toContain('could not draft a build that works');
     expect(told[1]).toContain('dataset ds-x not found');
-    // The malformed one never reached the API; the second was only previewed.
-    expect(dispatch.mock.calls.map((c) => c[0].path)).toEqual(['/api/authoring/new/preview']);
+    // Three drafts, each checked by its preview; the later asks carry the reason.
+    const calls = dispatch.mock.calls.map((c) => c[0]);
+    expect(calls.map((c) => c.path)).toEqual([
+      '/api/authoring/new/propose',
+      '/api/authoring/new/preview',
+      '/api/authoring/new/propose',
+      '/api/authoring/new/preview',
+      '/api/authoring/new/propose',
+      '/api/authoring/new/preview',
+    ]);
+    expect((calls[0] as any).body).toMatchObject({ model: 'sonnet-4-6' });
+    expect((calls[2] as any).body.ask).toContain('previous draft could not be built');
   });
 
   it('names the planner model an answer used', async () => {
