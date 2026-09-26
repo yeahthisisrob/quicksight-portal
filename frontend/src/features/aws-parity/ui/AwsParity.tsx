@@ -4,6 +4,10 @@
  * capability per row, a level and a few words per side. Only what can be checked goes
  * in the AWS column; the page carries the date it was checked, and a row
  * whose AWS side changes is updated, never left to overstate the portal.
+ *
+ * A row earns its place where the portal fills (or could fill) an API or
+ * UX gap on the AWS side; it is not a checklist of everything QuickSight
+ * has.
  */
 import { CheckCircle, RadioButtonUnchecked, Schedule, TonalityOutlined } from '@mui/icons-material';
 import { Box, Stack, Typography } from '@mui/material';
@@ -71,6 +75,11 @@ export const PARITY_ROWS: ParityRow[] = [
     capability: 'Assets as code, cross-account',
     portal: { level: 'no', note: 'One account' },
     aws: { level: 'yes', note: 'Asset bundles' },
+  },
+  {
+    capability: 'Themes across assets',
+    portal: { level: 'no', note: 'Kept on copy only' },
+    aws: { level: 'partial', note: 'Applied per analysis' },
   },
   {
     capability: 'Namespaces',
