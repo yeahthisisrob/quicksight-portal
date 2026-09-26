@@ -1,11 +1,11 @@
-import type { CacheEntry, MasterCache } from '../../../shared/models/asset.model';
-import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
-import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
-import { cacheService } from '../../../shared/services/cache/CacheService';
-import { ASSET_TYPES, type AssetType } from '../../../shared/types/assetTypes';
-import { logger } from '../../../shared/utils/logger';
-import { principalMatchesGroup, principalMatchesUser } from '../../../shared/utils/quicksightUtils';
-import type { AssetPermission } from '../types';
+import type { CacheEntry, MasterCache } from '../../models/asset.model';
+import { ASSET_TYPES, type AssetType } from '../../types/assetTypes';
+import type { AssetPermission } from '../../types/organization';
+import { logger } from '../../utils/logger';
+import { principalMatchesGroup, principalMatchesUser } from '../../utils/quicksightUtils';
+import { ClientFactory } from '../aws/ClientFactory';
+import type { QuickSightService } from '../aws/QuickSightService';
+import { cacheService } from '../cache/CacheService';
 
 /**
  * Describes how a user has access to an asset

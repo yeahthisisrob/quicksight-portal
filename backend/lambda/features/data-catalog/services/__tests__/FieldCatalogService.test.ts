@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { calculatedFieldKey, FieldCatalogService } from '../FieldCatalogService';
+import { calculatedFieldKey } from '../../../../shared/lib/expressionAnalysis';
+import { FieldCatalogService } from '../FieldCatalogService';
 
 const field = (over: Record<string, unknown>) => ({
   fieldId: 'x',

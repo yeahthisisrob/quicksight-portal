@@ -3,9 +3,9 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
+import { FolderService } from '../../../shared/services/organization/FolderService';
 import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
-import { FolderService } from '../services/FolderService';
 
 export class FolderHandler {
   private readonly bulkOperationsService: BulkOperationsService;

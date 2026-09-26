@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { requireAuth } from '../../../../shared/auth';
 import { STATUS_CODES } from '../../../../shared/constants';
-import { FolderService } from '../../services/FolderService';
+import { FolderService } from '../../../../shared/services/organization/FolderService';
 import { FolderHandler } from '../FolderHandler';
 
 // Mock dependencies
-vi.mock('../../services/FolderService');
+vi.mock('../../../../shared/services/organization/FolderService');
 vi.mock('../../../../shared/auth');
 vi.mock('../../../../shared/utils/logger');
 vi.mock('../../../../shared/services/bulk/BulkOperationsService');

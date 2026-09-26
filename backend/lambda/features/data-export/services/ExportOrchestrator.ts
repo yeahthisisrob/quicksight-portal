@@ -13,6 +13,7 @@ import { ArchiveService } from '../../../shared/services/archive/ArchiveService'
 import { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { S3Service } from '../../../shared/services/aws/S3Service';
 import { cacheService } from '../../../shared/services/cache/CacheService';
+import { catalogIndexer } from '../../../shared/services/catalog/catalogIndexer';
 import type { ExportCheckpoint } from '../../../shared/services/jobs/JobRepository';
 import type {
   JobProgressLogger,
@@ -20,11 +21,10 @@ import type {
 } from '../../../shared/services/jobs/JobStateService';
 import { LineageService } from '../../../shared/services/lineage/LineageService';
 import { OperationTrackingService } from '../../../shared/services/operations/OperationTrackingService';
+import { TagService } from '../../../shared/services/organization/TagService';
 import { AssetParserService } from '../../../shared/services/parsing/AssetParserService';
 import { ASSET_TYPES, isCollectionType } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
-import { CatalogService } from '../../data-catalog/services/CatalogService';
-import { TagService } from '../../organization/services/TagService';
 import { AnalysisProcessor } from '../processors/AnalysisProcessor';
 import {
   BaseAssetProcessor,
@@ -331,8 +331,7 @@ export class ExportOrchestrator {
       await cacheService.clearAllCaches();
 
       // Also clear the data catalog
-      const catalogService = new CatalogService();
-      await catalogService.clearCatalog();
+      await catalogIndexer().clear();
 
       logger.info('Catalog cleared successfully');
       if (this.jobStateService) {
@@ -906,9 +905,7 @@ export class ExportOrchestrator {
   private async rebuildDerivedIndexes(): Promise<void> {
     try {
       await cacheService.updateFieldCache(null);
-      const catalogService = new CatalogService();
-      await catalogService.rebuildCatalogIndex();
-      await catalogService.buildVisualFieldCatalog();
+      await catalogIndexer().rebuild();
       await new LineageService().rebuildLineage();
       await cacheService.runCacheRebuildHooks();
     } catch (error) {
@@ -1370,10 +1367,8 @@ export class ExportOrchestrator {
       }
 
       await this.updateCatalogPhaseStatus('Rebuilding data catalog...');
-      const catalogService = new CatalogService();
       // Build the pre-computed catalog index from the freshly rebuilt field cache.
-      await catalogService.rebuildCatalogIndex();
-      await catalogService.buildVisualFieldCatalog();
+      await catalogIndexer().rebuild();
       logger.info('Data catalog rebuilt successfully');
 
       // Now rebuild lineage since all assets are exported

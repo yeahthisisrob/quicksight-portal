@@ -9,7 +9,7 @@ vi.mock('../../../../shared/auth', async (importOriginal) => ({
   requireAuth: vi.fn().mockResolvedValue({ userId: 'test-user', email: 'test@example.com' }),
 }));
 
-vi.mock('../../services/TagService', () => ({
+vi.mock('../../../../shared/services/organization/TagService', () => ({
   TagService: vi.fn().mockImplementation(function () {
     return {
       tagResource: vi.fn().mockResolvedValue(undefined),

@@ -1,18 +1,26 @@
 /* global setInterval, clearInterval, setTimeout */
+
+import { CloudTrailClient } from '@aws-sdk/client-cloudtrail';
 import type { Context, SQSEvent } from 'aws-lambda';
 
+import { CloudTrailAdapter } from './adapters/aws/CloudTrailAdapter';
 import { ActivityRefreshProcessor } from './features/activity/processors/ActivityRefreshProcessor';
+import { ActivityService } from './features/activity/services/ActivityService';
 import { warmCollectionSnapshots } from './features/asset-management/services/collectionSnapshotWarmer';
+import { CatalogService } from './features/data-catalog/services/CatalogService';
 import { ExportOrchestrator } from './features/data-export/services/ExportOrchestrator';
 import { SmusExportProcessor } from './features/smus/processors/SmusExportProcessor';
 import type { SmusConfig } from './shared/config/smusConfig';
 import { JOB_CONFIG, STORAGE_LIMITS, TIME_UNITS, WORKER_CONFIG } from './shared/constants';
 import type { AssetType } from './shared/models/asset.model';
+import { registerActivityReader } from './shared/services/activity/activityReader';
 import { summarizeBulkResult } from './shared/services/bulk/bulkResultSummary';
 import { registerAssetRefresher } from './shared/services/cache/assetRefresher';
 import { cacheService } from './shared/services/cache/CacheService';
+import { registerCatalogIndexer } from './shared/services/catalog/catalogIndexer';
 import { JobStateService } from './shared/services/jobs/JobStateService';
 import { queueService } from './shared/services/jobs/QueueService';
+import { GroupService } from './shared/services/organization/GroupService';
 import { logger } from './shared/utils/logger';
 
 // Composition root: wire cross-slice derived-data recomputation here so
@@ -21,6 +29,24 @@ import { logger } from './shared/utils/logger';
 cacheService.registerCacheRebuildHook(warmCollectionSnapshots);
 // Deletes archive what QuickSight has now, and bulk changes re-read what they
 // touched: both through the export's own refresh.
+// The export rebuilds the data catalog through a port; the catalog slice does the work.
+registerCatalogIndexer({
+  clear: () => new CatalogService().clearCatalog(),
+  rebuild: async () => {
+    const catalog = new CatalogService();
+    await catalog.rebuildCatalogIndex();
+    await catalog.buildVisualFieldCatalog();
+  },
+});
+// Slices read activity through a port; the activity slice's service is the reader.
+registerActivityReader(() => {
+  const region = process.env.AWS_REGION || 'us-east-1';
+  return new ActivityService(
+    cacheService,
+    new CloudTrailAdapter(new CloudTrailClient({ region }), region),
+    new GroupService()
+  );
+});
 registerAssetRefresher((assets) =>
   new ExportOrchestrator(process.env.AWS_ACCOUNT_ID || '').refreshAssets(assets)
 );

@@ -16,13 +16,13 @@
  */
 
 import { CACHE_TTL } from '../../../shared/constants/timeConstants';
+import { calculatedFieldKey } from '../../../shared/lib/expressionAnalysis';
 import { CacheService } from '../../../shared/services/cache/CacheService';
 import type { FieldInfo } from '../../../shared/services/cache/types';
 import { SmusService } from '../../../shared/services/smus/SmusService';
+import { CalculatedFieldTemplateStore } from '../../../shared/services/templates/CalculatedFieldTemplateStore';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { logger } from '../../../shared/utils/logger';
-import { CalculatedFieldTemplateStore } from '../../data-catalog/services/CalculatedFieldTemplateStore';
-import { calculatedFieldKey } from '../../data-catalog/services/FieldCatalogService';
 import { buildContextGraph } from '../lib/buildContextGraph';
 import { type ContextGraph, entityId } from '../lib/contextGraph';
 import { SearchIndex } from '../lib/searchIndex';

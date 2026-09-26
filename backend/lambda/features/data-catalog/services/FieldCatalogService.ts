@@ -6,13 +6,16 @@
  * tied back to their SMUS listing column. Built on the same field index the
  * per-listing view uses.
  */
-import { createHash } from 'node:crypto';
 
+import {
+  calculatedFieldKey,
+  canonicalExpression,
+  extractFieldReferences,
+} from '../../../shared/lib/expressionAnalysis';
 import type { FieldInfo } from '../../../shared/services/cache/types';
 import type { SmusService } from '../../../shared/services/smus/SmusService';
 import type { SmusAsset, SmusMatchType } from '../../../shared/types/smus';
 import { type ColumnMatchKind, matchListingColumn } from '../lib/columnIdentity';
-import { canonicalExpression, extractFieldReferences } from '../lib/expressionAnalysis';
 import {
   dedupeUsers,
   type FieldIndex,
@@ -20,8 +23,6 @@ import {
   type FieldVisualUsage,
   type SmusCatalogService,
 } from './SmusCatalogService';
-
-const KEY_LENGTH = 12;
 
 /** How far the dependency chain is walked in each direction. */
 const MAX_LINEAGE_DEPTH = 6;
@@ -250,13 +251,6 @@ interface Group {
   datasetIds: Set<string>;
   /** The FieldInfo entries behind it, for usage lookups. */
   entries: FieldInfo[];
-}
-
-export function calculatedFieldKey(name: string, expression: string): string {
-  return `cf_${createHash('sha1')
-    .update(`${name.toLowerCase()}::${canonicalExpression(expression)}`)
-    .digest('base64url')
-    .slice(0, KEY_LENGTH)}`;
 }
 
 function refOf(field: FieldInfo): CalculatedFieldRef {

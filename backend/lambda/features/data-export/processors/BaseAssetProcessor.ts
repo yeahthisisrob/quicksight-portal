@@ -4,10 +4,10 @@ import { EXPORT_CONFIG } from '../../../shared/config/exportConfig';
 import type { AssetExportData } from '../../../shared/models/asset-export.model';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import type { S3Service } from '../../../shared/services/aws/S3Service';
+import type { TagService } from '../../../shared/services/organization/TagService';
 import type { AssetParserService } from '../../../shared/services/parsing/AssetParserService';
 import { logger } from '../../../shared/utils/logger';
 import { buildAssetCacheKey } from '../../../shared/utils/s3KeyUtils';
-import type { TagService } from '../../organization/services/TagService';
 import type { AssetSummary, AssetType, ProcessingContext } from '../types';
 import { carryForward, isMissingObject } from '../utils/exportRecord';
 

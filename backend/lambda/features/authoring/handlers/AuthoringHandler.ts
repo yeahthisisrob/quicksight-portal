@@ -1,17 +1,13 @@
-import { CloudTrailClient } from '@aws-sdk/client-cloudtrail';
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
-import { CloudTrailAdapter } from '../../../adapters/aws/CloudTrailAdapter';
 import { CloudWatchAdapter } from '../../../adapters/aws/CloudWatchAdapter';
 import { aiModelViews, isAiModelKey } from '../../../shared/ai/modelCatalog';
 import { actorLabel, requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
-import { CacheService } from '../../../shared/services/cache/CacheService';
+import { activityReader } from '../../../shared/services/activity/activityReader';
 import { jobFactory } from '../../../shared/services/jobs/JobFactory';
 import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
-import { ActivityService } from '../../activity/services/ActivityService';
-import { GroupService } from '../../organization/services/GroupService';
 import { parseOps } from '../lib/definitionOps';
 import { parseRepairs } from '../lib/definitionRepairs';
 import { DefinitionService } from '../services/DefinitionService';
@@ -102,13 +98,11 @@ export class AuthoringHandler {
       await requireAuth(event);
       const target = this.target(event);
       const region = process.env.AWS_REGION || 'us-east-1';
-      const cacheService = CacheService.getInstance();
-      const activity = new ActivityService(
-        cacheService,
-        new CloudTrailAdapter(new CloudTrailClient({ region }), region),
-        new GroupService()
+      const service = new InsightsService(
+        activityReader(),
+        this.service(),
+        new CloudWatchAdapter(region)
       );
-      const service = new InsightsService(activity, this.service(), new CloudWatchAdapter(region));
       const data = await service.get(target.assetType, target.assetId);
       return successResponse(event, { success: true, data });
     } catch (error: any) {

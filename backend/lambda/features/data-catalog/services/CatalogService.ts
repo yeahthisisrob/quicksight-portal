@@ -1,6 +1,8 @@
+import { detectConflict } from '../../../shared/lib/expressionAnalysis';
 import type { CacheEntry } from '../../../shared/models/asset.model';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import type { FieldInfo } from '../../../shared/services/cache/types';
+import { FolderService } from '../../../shared/services/organization/FolderService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
 import {
@@ -11,8 +13,6 @@ import {
 } from '../../../shared/types/filterTypes';
 import { PORTAL_EXCLUDE_TAGS } from '../../../shared/utils/constants';
 import { logger } from '../../../shared/utils/logger';
-import { FolderService } from '../../organization/services/FolderService';
-import { detectConflict } from '../lib/expressionAnalysis';
 import type {
   CatalogField,
   CatalogIndex,

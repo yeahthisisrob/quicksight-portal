@@ -10,6 +10,7 @@
  */
 
 import type { CloudWatchAdapter } from '../../../adapters/aws/CloudWatchAdapter';
+import type { ActivityReader } from '../../../shared/services/activity/activityReader';
 import { logger } from '../../../shared/utils/logger';
 import type { buildOutline } from '../lib/definitionOutline';
 import type { AuthorableAssetType } from '../types';
@@ -24,20 +25,6 @@ interface AssetInsights {
     viewLoadTimeP90Ms?: number;
     visuals: Array<{ sheetId: string; visualId: string; loadTimeP90Ms?: number; errors?: number }>;
   };
-}
-
-/** The slice of ActivityService this needs. */
-interface ActivityReader {
-  getAssetActivity(
-    assetType: 'dashboard' | 'analysis',
-    assetId: string
-  ): Promise<{
-    totalViews?: number;
-    uniqueViewers?: number;
-    lastViewed?: string | null;
-    viewsLast30Days?: number;
-    activities?: Array<{ timestamp?: string; eventName?: string }>;
-  } | null>;
 }
 
 interface DefinitionReader {

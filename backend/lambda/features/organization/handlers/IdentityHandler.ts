@@ -5,10 +5,10 @@ import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { isValidationError } from '../../../shared/errors/ValidationError';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
+import { PermissionsService } from '../../../shared/services/organization/PermissionsService';
 import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { IdentityService } from '../services/IdentityService';
-import { PermissionsService } from '../services/PermissionsService';
 
 export class IdentityHandler {
   private readonly bulkOperationsService: BulkOperationsService;

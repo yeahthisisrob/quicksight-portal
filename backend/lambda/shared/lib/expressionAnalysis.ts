@@ -6,6 +6,8 @@
  * frontend can rely on server-computed values instead of re-deriving them.
  */
 
+import { createHash } from 'node:crypto';
+
 /**
  * QuickSight expressions reference other fields with brace syntax: {Field Name}.
  * Mirror of the frontend regex in UnifiedFieldDetailsDialog so client and
@@ -135,4 +137,13 @@ export function canonicalExpression(expression: string | null | undefined): stri
     }
   }
   return out;
+}
+
+const CALCULATED_FIELD_KEY_LENGTH = 12;
+
+export function calculatedFieldKey(name: string, expression: string): string {
+  return `cf_${createHash('sha1')
+    .update(`${name.toLowerCase()}::${canonicalExpression(expression)}`)
+    .digest('base64url')
+    .slice(0, CALCULATED_FIELD_KEY_LENGTH)}`;
 }

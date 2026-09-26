@@ -89,7 +89,7 @@ vi.mock('../../../../shared/services/cache/CacheService', () => {
   };
 });
 
-vi.mock('../../../organization/services/FolderService', () => ({
+vi.mock('../../../../shared/services/organization/FolderService', () => ({
   FolderService: vi.fn().mockImplementation(function () {
     return {
       getFolderMemberships: vi.fn().mockResolvedValue({

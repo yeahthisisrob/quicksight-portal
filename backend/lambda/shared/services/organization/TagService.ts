@@ -1,8 +1,8 @@
-import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
-import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
-import type { AssetType } from '../../../shared/types/assetTypes';
-import { logger } from '../../../shared/utils/logger';
-import type { Tag } from '../types';
+import type { AssetType } from '../../types/assetTypes';
+import type { Tag } from '../../types/organization';
+import { logger } from '../../utils/logger';
+import { ClientFactory } from '../aws/ClientFactory';
+import type { QuickSightService } from '../aws/QuickSightService';
 
 export class TagService {
   private readonly awsRegion: string;

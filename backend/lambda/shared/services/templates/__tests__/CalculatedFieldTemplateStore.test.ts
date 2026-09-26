@@ -5,7 +5,7 @@ import {
   validateTemplateInput,
 } from '../CalculatedFieldTemplateStore';
 
-vi.mock('../../../../shared/utils/logger', () => ({
+vi.mock('../../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 

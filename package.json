@@ -21,7 +21,8 @@
     "cdk:diff": "pnpm --filter @quicksight-portal/cdk exec cdk diff",
     "cdk:deploy": "pnpm --filter @quicksight-portal/cdk run deploy",
     "fix": "biome check --write .",
-    "verify:architecture": "node scripts/verify-architecture-rules.mjs"
+    "verify:architecture": "node scripts/verify-architecture-rules.mjs",
+    "verify:slices": "node scripts/verify-slice-boundaries.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",

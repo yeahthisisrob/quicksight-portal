@@ -1,9 +1,13 @@
 import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { DEBUG_CONFIG, QUICKSIGHT_LIMITS } from '../../../shared/constants';
 import type { CacheEntry, MasterCache } from '../../../shared/models/asset.model';
+import { activityReader } from '../../../shared/services/activity/activityReader';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { resolvePeople } from '../../../shared/services/identity/IdentityResolver';
 import { LineageService } from '../../../shared/services/lineage';
+import { GroupService } from '../../../shared/services/organization/GroupService';
+import { PermissionsService } from '../../../shared/services/organization/PermissionsService';
+import { TagService } from '../../../shared/services/organization/TagService';
 import { SmusService } from '../../../shared/services/smus/SmusService';
 import type { ActivityData } from '../../../shared/types/activityTypes';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
@@ -30,10 +34,6 @@ import {
   type SearchFieldConfig,
   type SortConfig,
 } from '../../../shared/utils/paginationUtils';
-import { ActivityService } from '../../activity/services/ActivityService';
-import { GroupService } from '../../organization/services/GroupService';
-import { PermissionsService } from '../../organization/services/PermissionsService';
-import { TagService } from '../../organization/services/TagService';
 import type {
   ArchivedAssetItem,
   ArchivedAssetsResponse,
@@ -61,7 +61,6 @@ interface EnrichmentContext {
 const ACTIVE_RELATIONSHIP_SORT_WEIGHT = 1_000_000;
 
 export class AssetService {
-  private readonly activityService: ActivityService;
   private readonly groupService: GroupService;
   private readonly lineageService: LineageService;
   private readonly permissionsService: PermissionsService;
@@ -72,7 +71,6 @@ export class AssetService {
     this.lineageService = new LineageService();
     this.groupService = new GroupService();
     this.permissionsService = new PermissionsService(accountId);
-    this.activityService = new ActivityService(cacheService, null as any, this.groupService); // CloudTrail adapter not needed for reading
   }
 
   public async getArchivedAssetsPaginated(params: {
@@ -874,7 +872,7 @@ export class AssetService {
         return mappedItems;
       }
 
-      const userActivity = await this.activityService.getUserActivityCounts(userNames);
+      const userActivity = await activityReader().getUserActivityCounts(userNames);
 
       logger.debug('User activity results for collection:', {
         activityMapSize: userActivity.size,
@@ -924,7 +922,7 @@ export class AssetService {
     activityMap: Map<string, any>
   ): Promise<void> {
     if (analysisIds.size > 0) {
-      const analysisActivity = await this.activityService.getAssetActivityCounts(
+      const analysisActivity = await activityReader().getAssetActivityCounts(
         'analysis',
         Array.from(analysisIds)
       );
@@ -940,7 +938,7 @@ export class AssetService {
     activityMap: Map<string, any>
   ): Promise<void> {
     if (dashboardIds.size > 0) {
-      const dashboardActivity = await this.activityService.getAssetActivityCounts(
+      const dashboardActivity = await activityReader().getAssetActivityCounts(
         'dashboard',
         Array.from(dashboardIds)
       );
@@ -984,8 +982,7 @@ export class AssetService {
       dependentsByDataset.set(asset.assetId, { dashboardIds, analysisIds });
     }
 
-    const datasetActivity =
-      await this.activityService.getDatasetActivityCounts(dependentsByDataset);
+    const datasetActivity = await activityReader().getDatasetActivityCounts(dependentsByDataset);
     datasetActivity.forEach((value, datasetId) => activityMap.set(`dataset:${datasetId}`, value));
   }
 
@@ -1000,7 +997,7 @@ export class AssetService {
     if (assetType === ASSET_TYPES.user) {
       const userNames = cachedAssets.map((asset: any) => asset.assetId);
       if (userNames.length > 0) {
-        const userActivity = await this.activityService.getUserActivityCounts(userNames);
+        const userActivity = await activityReader().getUserActivityCounts(userNames);
         userActivity.forEach((value, key) => activityMap.set(key, value));
       }
     }

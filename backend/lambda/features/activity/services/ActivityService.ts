@@ -9,11 +9,11 @@ import { ACTIVITY_LIMITS } from '../../../shared/constants';
 import { TIME_UNITS } from '../../../shared/constants/timeConstants';
 import { type AuditLog, type AuditRecord, auditLog } from '../../../shared/services/audit/AuditLog';
 import type { CacheService } from '../../../shared/services/cache/CacheService';
+import type { GroupService } from '../../../shared/services/organization/GroupService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES, type AssetType } from '../../../shared/types/assetTypes';
 import { pLimit } from '../../../shared/utils/concurrency';
 import { logger } from '../../../shared/utils/logger';
-import type { GroupService } from '../../organization/services/GroupService';
 import {
   describeActor,
   matchProvenance,

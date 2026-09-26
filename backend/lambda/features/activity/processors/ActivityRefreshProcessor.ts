@@ -15,8 +15,8 @@ import { QuickSightService } from '../../../shared/services/aws/QuickSightServic
 import { CacheService } from '../../../shared/services/cache/CacheService';
 import { IngestionRefreshService } from '../../../shared/services/ingestions/IngestionRefreshService';
 import type { JobStateService } from '../../../shared/services/jobs/JobStateService';
+import { GroupService } from '../../../shared/services/organization/GroupService';
 import { logger } from '../../../shared/utils/logger';
-import { GroupService } from '../../organization/services/GroupService';
 import { ActivityService, type EventNameProgress } from '../services/ActivityService';
 import type { ActivityRefreshRequest } from '../types';
 

@@ -15,7 +15,7 @@
  */
 
 import { ValidationError } from '../../../shared/errors/ValidationError';
-import { canonicalExpression } from '../../data-catalog/lib/expressionAnalysis';
+import { canonicalExpression } from '../../../shared/lib/expressionAnalysis';
 import type { AddedCalculatedField } from '../types';
 import { expressionColumns, isColumnIdentifier } from './definitionColumns';
 

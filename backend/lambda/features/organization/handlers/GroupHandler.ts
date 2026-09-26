@@ -2,9 +2,9 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
+import { GroupService } from '../../../shared/services/organization/GroupService';
 import { errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
-import { GroupService } from '../services/GroupService';
 
 export class GroupHandler {
   private readonly groupService: GroupService;

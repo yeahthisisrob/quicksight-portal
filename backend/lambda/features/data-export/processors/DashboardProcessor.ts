@@ -1,9 +1,9 @@
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import type { S3Service } from '../../../shared/services/aws/S3Service';
+import type { TagService } from '../../../shared/services/organization/TagService';
 import type { AssetParserService } from '../../../shared/services/parsing/AssetParserService';
 import { ASSET_TYPES, ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
-import type { TagService } from '../../organization/services/TagService';
 import type { AssetSummary, AssetType } from '../types';
 import { type AssetProcessingCapabilities, BaseAssetProcessor } from './BaseAssetProcessor';
 

@@ -13,10 +13,10 @@ import {
 } from '../../../shared/services/jobs/JobFactory';
 import { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { LineageService } from '../../../shared/services/lineage';
+import { GroupService } from '../../../shared/services/organization/GroupService';
 import type { AssetType } from '../../../shared/types/assetTypes';
 import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
-import { GroupService } from '../../organization/services/GroupService';
 import { ActivityService } from '../services/ActivityService';
 import type {
   ActionCategory,

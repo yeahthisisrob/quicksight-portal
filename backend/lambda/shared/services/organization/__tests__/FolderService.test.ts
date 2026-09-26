@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ClientFactory } from '../../../../shared/services/aws/ClientFactory';
-import { S3Service } from '../../../../shared/services/aws/S3Service';
-import { cacheService } from '../../../../shared/services/cache/CacheService';
+import { ClientFactory } from '../../aws/ClientFactory';
+import { S3Service } from '../../aws/S3Service';
+import { cacheService } from '../../cache/CacheService';
 import { FolderService } from '../FolderService';
 
 // Mock dependencies
-vi.mock('../../../../shared/services/aws/ClientFactory');
-vi.mock('../../../../shared/services/aws/S3Service');
-vi.mock('../../../../shared/services/cache/CacheService');
-vi.mock('../../../../shared/utils/logger');
+vi.mock('../../aws/ClientFactory');
+vi.mock('../../aws/S3Service');
+vi.mock('../../cache/CacheService');
+vi.mock('../../../utils/logger');
 vi.mock('../TagService');
 const freshness = vi.hoisted(() => vi.fn());
-vi.mock('../../../../shared/services/cache/assetFreshness', () => ({ keepCacheFresh: freshness }));
+vi.mock('../../cache/assetFreshness', () => ({ keepCacheFresh: freshness }));
 
 describe('FolderService', () => {
   let folderService: FolderService;

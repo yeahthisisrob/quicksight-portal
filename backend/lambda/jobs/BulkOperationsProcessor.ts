@@ -9,9 +9,7 @@ import pLimit from 'p-limit';
 
 // Import services that will handle individual operations
 import { BulkDeleteService } from '../features/asset-management/services/BulkDeleteService';
-import { FolderService } from '../features/organization/services/FolderService';
 import { IdentityService } from '../features/organization/services/IdentityService';
-import { TagService } from '../features/organization/services/TagService';
 import { MATH_CONSTANTS, PAGINATION, TIME_UNITS } from '../shared/constants';
 import { ClientFactory } from '../shared/services/aws/ClientFactory';
 import { QuickSightService } from '../shared/services/aws/QuickSightService';
@@ -20,6 +18,8 @@ import { keepCacheFresh } from '../shared/services/cache/assetFreshness';
 import { assetRefresher } from '../shared/services/cache/assetRefresher';
 import { cacheService } from '../shared/services/cache/CacheService';
 import type { JobStateService } from '../shared/services/jobs/JobStateService';
+import { FolderService } from '../shared/services/organization/FolderService';
+import { TagService } from '../shared/services/organization/TagService';
 import type { AssetType } from '../shared/types/assetTypes';
 import type {
   BulkAssetReference,
