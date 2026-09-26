@@ -7,6 +7,7 @@
 import { repairErrors } from '../catalog/repairErrors';
 import type { ItemPlan, PlaybookContext, PlaybookTarget } from '../types';
 import { applyFieldOps, planDropUnused, planRenameToStandard } from './calcHygiene';
+import { applyRenameDatasetCalcs, planRenameDatasetCalcs } from './datasetCalcNames';
 import { inferMatch, type Offered } from './inferMatch';
 import { resolve, resolveBoolean, resolveText } from './inputs';
 import { planReplaceMaterialised } from './materialisedCalcs';
@@ -340,6 +341,8 @@ export async function planStep(
       return await planDropUnused(ctx, target, step);
     case 'renameCalcsToStandard':
       return await planRenameToStandard(ctx, target, step);
+    case 'renameDatasetCalcsToStandard':
+      return await planRenameDatasetCalcs(ctx, target, step);
     case 'repair': {
       const plan = await repairErrors.plan(ctx, target);
       return {
@@ -405,6 +408,8 @@ export async function applyStep(
       return await applyFieldOps(ctx, target, plan, 'Dropped');
     case 'renameCalcsToStandard':
       return await applyFieldOps(ctx, target, plan, 'Renamed');
+    case 'renameDatasetCalcsToStandard':
+      return await applyRenameDatasetCalcs(ctx, target, plan);
     case 'repair':
       return (await repairErrors.apply(ctx, target, plan.data as ItemPlan)).summary;
     default:

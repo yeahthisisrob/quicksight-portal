@@ -90,6 +90,10 @@ const STEPS: Record<PlaybookSpecStep['kind'], { label: string; help: string }> =
     label: 'Rename calculated fields to the standard',
     help: 'Each gets the prefix and a snake_case name, everywhere it is read. A name already in use goes to review.',
   },
+  renameDatasetCalcsToStandard: {
+    label: "Rename a dataset's calculated fields to the standard",
+    help: 'Copied under the new name, every dashboard and analysis reading the old one moved over (on SPICE once a refresh has loaded it), and the old name removed once nothing reads it. A reader opted out of playbooks holds its field back.',
+  },
   addToFolder: {
     label: 'Add to a folder',
     help: 'A shared folder then carries its audience. Anything already in it is skipped; nothing is removed from other folders.',
@@ -396,6 +400,11 @@ function StepCard({
       {step.kind === 'renameCalcsToStandard' && (
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
           {field('prefix', 'Prefix', 'c_')}
+        </Stack>
+      )}
+      {step.kind === 'renameDatasetCalcsToStandard' && (
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+          {field('prefix', 'Prefix', 'c_ds_')}
         </Stack>
       )}
       {step.kind === 'addToFolder' && (

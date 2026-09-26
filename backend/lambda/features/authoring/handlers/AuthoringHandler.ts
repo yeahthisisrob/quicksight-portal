@@ -10,6 +10,7 @@ import { createResponse, errorResponse, successResponse } from '../../../shared/
 import { logger } from '../../../shared/utils/logger';
 import { parseOps } from '../lib/definitionOps';
 import { parseRepairs } from '../lib/definitionRepairs';
+import { type DatasetFieldOp, DatasetFieldService } from '../services/DatasetFieldService';
 import { DefinitionService } from '../services/DefinitionService';
 import { InsightsService } from '../services/InsightsService';
 import { type NewAssetRequest, NewAssetService } from '../services/NewAssetService';
@@ -383,11 +384,7 @@ export class AuthoringHandler {
   public async getDatasetColumns(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       await requireAuth(event);
-      const dataSetId = event.pathParameters?.dataSetId;
-      if (!dataSetId) {
-        throw badRequest('Dataset id is required');
-      }
-      const dataset = await this.service().describeTargetDataset(dataSetId);
+      const dataset = await this.service().describeTargetDataset(this.dataSetId(event));
       return successResponse(event, {
         success: true,
         data: {
@@ -399,6 +396,39 @@ export class AuthoringHandler {
     } catch (error: any) {
       logger.error('Describe dataset columns failed', { error });
       return this.failure(event, error, 'Failed to read the dataset');
+    }
+  }
+
+  /** GET /authoring/datasets/{dataSetId}/calculated-fields?readers=true */
+  public async getDatasetCalculatedFields(
+    event: APIGatewayProxyEvent
+  ): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const result = await this.datasetFieldService().fields(this.dataSetId(event), {
+        readers: event.queryStringParameters?.readers === 'true',
+      });
+      return successResponse(event, { success: true, data: result });
+    } catch (error: any) {
+      logger.error('Read dataset calculated fields failed', { error });
+      return this.failure(event, error, 'Failed to read the dataset');
+    }
+  }
+
+  /** POST /authoring/datasets/{dataSetId}/calculated-fields  body: { ops, dryRun? } */
+  public async applyDatasetFieldOps(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const body = this.parseBody(event);
+      const result = await this.datasetFieldService().apply(
+        this.dataSetId(event),
+        parseDatasetFieldOps(body.ops),
+        { dryRun: body.dryRun === true }
+      );
+      return successResponse(event, { success: true, data: result });
+    } catch (error: any) {
+      logger.error('Dataset calculated field ops failed', { error });
+      return this.failure(event, error, 'Failed to update the dataset');
     }
   }
 
@@ -516,6 +546,18 @@ export class AuthoringHandler {
 
   private service(): RebindService {
     return new RebindService(this.accountId);
+  }
+
+  private datasetFieldService(): DatasetFieldService {
+    return new DatasetFieldService(this.accountId, this.service());
+  }
+
+  private dataSetId(event: APIGatewayProxyEvent): string {
+    const dataSetId = event.pathParameters?.dataSetId;
+    if (!dataSetId) {
+      throw badRequest('Dataset id is required');
+    }
+    return dataSetId;
   }
 
   /** A catalog model key the stack can serve, or undefined for the configured default. */
@@ -797,4 +839,26 @@ function parseTags(raw: unknown): Array<{ key: string; value: string }> | undefi
 
 function badRequest(message: string): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode: STATUS_CODES.BAD_REQUEST });
+}
+
+function parseDatasetFieldOps(raw: unknown): DatasetFieldOp[] {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw badRequest('ops must be a non-empty array');
+  }
+  return raw.map((item, i) => {
+    const op = (item ?? {}) as Record<string, unknown>;
+    const text = (key: string) => {
+      if (typeof op[key] !== 'string' || !String(op[key]).trim()) {
+        throw badRequest(`ops[${i}].${key} is required`);
+      }
+      return String(op[key]);
+    };
+    if (op.op === 'copyCalculatedField') {
+      return { op: 'copyCalculatedField', name: text('name'), to: text('to') };
+    }
+    if (op.op === 'retireCalculatedField') {
+      return { op: 'retireCalculatedField', name: text('name'), replacedBy: text('replacedBy') };
+    }
+    throw badRequest(`ops[${i}].op must be copyCalculatedField or retireCalculatedField`);
+  });
 }

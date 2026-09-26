@@ -1700,6 +1700,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/authoring/datasets/{dataSetId}/calculated-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A dataset's calculated fields, and who downstream reads each
+         * @description Read live, in either dataset shape (legacy logical tables or the new
+         *     data prep). With `readers=true`, every dashboard and analysis the
+         *     lineage says uses the dataset is read live too, and each field lists
+         *     the ones that read it; any that could not be read are listed as
+         *     `unreadable`.
+         */
+        get: operations["getAuthoringDatasetCalculatedFields"];
+        put?: never;
+        /**
+         * Copy or retire a dataset's calculated fields
+         * @description Dashboards and analyses read a dataset's columns by name, so a dataset
+         *     field is renamed as a migration: `copyCalculatedField` (name, to) adds
+         *     it again under the new name, carrying its projection, description,
+         *     folders, column-level permissions and semantic metadata; each reader
+         *     is then repointed (a rebind of the same dataset with a `columnMap`);
+         *     `retireCalculatedField` (name, replacedBy) removes the old name once
+         *     no dashboard or analysis reads it, pointing the dataset's own fields
+         *     at the new one. Retire reads every reader live first and is refused
+         *     while any still reads the old name or cannot be read. Either is
+         *     refused when the name is referenced somewhere a rename cannot follow
+         *     (a join clause, a cast, a row-level tag rule...). `dryRun` checks
+         *     everything and writes nothing.
+         */
+        post: operations["postAuthoringDatasetCalculatedFields"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/authoring/new/propose": {
         parameters: {
             query?: never;
@@ -2911,10 +2950,17 @@ export interface components {
          *     only such fields read). renameCalcsToStandard (prefix, default c_):
          *     each calculated field gets the prefix and a snake_case name,
          *     everywhere it is read; a name already in use goes to review.
+         *     renameDatasetCalcsToStandard (prefix, default c_ds_): a dataset's
+         *     calculated fields to the standard names without breaking a reader:
+         *     each is copied under the new name, every dashboard and analysis
+         *     reading the old name is moved to the new one (on SPICE once a refresh
+         *     has loaded it), and the old name is removed once nothing reads it.
+         *     Each phase is read from live state, so a later run finishes what an
+         *     earlier one started.
          */
         PlaybookSpecStep: {
             /** @enum {string} */
-            kind: "matchDataset" | "rebind" | "tag" | "repair" | "addToFolder" | "replaceMaterialisedCalcs" | "dropUnusedCalcs" | "renameCalcsToStandard";
+            kind: "matchDataset" | "rebind" | "tag" | "repair" | "addToFolder" | "replaceMaterialisedCalcs" | "dropUnusedCalcs" | "renameCalcsToStandard" | "renameDatasetCalcsToStandard";
             engine?: components["schemas"]["PlaybookSpecValue"];
             governed?: components["schemas"]["PlaybookSpecValue"];
             infer?: components["schemas"]["PlaybookSpecValue"];
@@ -5083,6 +5129,54 @@ export interface components {
             /** @description The calculated fields whose expressions read it. */
             readBy: string[];
             unused: boolean;
+        };
+        DatasetFieldReader: {
+            assetType: components["schemas"]["AuthorableAssetType"];
+            assetId: string;
+            name: string;
+            /** @description The dataset identifier the asset reads the dataset through. */
+            identifier: string;
+        };
+        DatasetCalculatedField: {
+            name: string;
+            columnId: string;
+            expression: string;
+            /** @description The dataset's other calculated fields that read it. */
+            readBy: string[];
+            /** @description Named in a column-level permission rule. */
+            restricted: boolean;
+            /** @description With readers=true, the dashboards and analyses that read it. */
+            readers?: components["schemas"]["DatasetFieldReader"][];
+        };
+        DatasetCalculatedFields: {
+            dataSetId: string;
+            name: string;
+            /** @enum {string} */
+            shape: "legacy" | "dataPrep";
+            importMode: string;
+            /**
+             * @description SPICE only: the status of the most recent refresh. A column added
+             *     to a SPICE dataset has data once a refresh after it completes, so
+             *     readers should move to it only then.
+             * @enum {string}
+             */
+            latestRefresh?: "running" | "completed" | "failed" | "none";
+            fields: components["schemas"]["DatasetCalculatedField"][];
+            /** @description Readers that could not be read live, so their use is unknown. */
+            unreadable?: {
+                assetType: components["schemas"]["AuthorableAssetType"];
+                assetId: string;
+                name: string;
+            }[];
+        };
+        DatasetFieldOp: {
+            /** @enum {string} */
+            op: "copyCalculatedField" | "retireCalculatedField";
+            name: string;
+            /** @description copyCalculatedField - the new name. */
+            to?: string;
+            /** @description retireCalculatedField - the copy that now serves its readers. */
+            replacedBy?: string;
         };
         /**
          * @description One edit to a definition, applied by deterministic code after
@@ -8632,6 +8726,73 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getAuthoringDatasetCalculatedFields: {
+        parameters: {
+            query?: {
+                readers?: "true" | "false";
+            };
+            header?: never;
+            path: {
+                dataSetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The fields */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["DatasetCalculatedFields"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthoringDatasetCalculatedFields: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataSetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ops: components["schemas"]["DatasetFieldOp"][];
+                    dryRun?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description What changed (or would) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            dataSetId: string;
+                            changes: string[];
+                            written: boolean;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
         };
     };
     postAuthoringNewPropose: {

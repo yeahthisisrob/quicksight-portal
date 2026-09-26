@@ -32,6 +32,7 @@
 
 import { ValidationError } from '../../../shared/errors/ValidationError';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
+import { resendDataSet } from '../../../shared/services/aws/datasetUpdate';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
 import { cacheService } from '../../../shared/services/cache/CacheService';
@@ -179,21 +180,7 @@ export class DatasetSourceService {
       renamed: name !== current.Name,
     });
 
-    await this.quickSightService.updateDataSet({
-      dataSetId,
-      name,
-      physicalTableMap,
-      logicalTableMap: current.LogicalTableMap,
-      importMode: current.ImportMode,
-      columnGroups: current.ColumnGroups,
-      fieldFolders: current.FieldFolders,
-      rowLevelPermissionDataSet: current.RowLevelPermissionDataSet,
-      rowLevelPermissionTagConfiguration: current.RowLevelPermissionTagConfiguration,
-      columnLevelPermissionRules: current.ColumnLevelPermissionRules,
-      dataSetUsageConfiguration: current.DataSetUsageConfiguration,
-      dataPrepConfiguration: current.DataPrepConfiguration,
-      semanticModelConfiguration: current.SemanticModelConfiguration,
-    });
+    await resendDataSet(this.quickSightService, dataSetId, current, { name, physicalTableMap });
 
     // Reflect the rename in listings straight away, then re-read the dataset
     // (its sources, lineage and fields changed too) without waiting for an export.

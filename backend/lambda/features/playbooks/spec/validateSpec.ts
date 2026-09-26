@@ -47,6 +47,7 @@ const STEP_FIELDS: Record<SpecStep['kind'], { required: string[]; optional: stri
   addToFolder: { required: ['folder'], optional: [] },
   dropUnusedCalcs: { required: [], optional: [] },
   renameCalcsToStandard: { required: [], optional: ['prefix'] },
+  renameDatasetCalcsToStandard: { required: [], optional: ['prefix'] },
   replaceMaterialisedCalcs: {
     required: [],
     optional: ['governed', 'infer', 'minConfidence', 'prefixes'],
