@@ -6,12 +6,22 @@
  *   lookups). The assistant runs these itself.
  * - action: everything that writes. The assistant prepares it; the person
  *   runs it, under their own session, from the chat.
- * - blocked: settings, keys, scripts and the assistant itself. Never.
+ * - blocked: settings, keys, the assistant itself, and changing the
+ *   account's saved playbooks. Never.
  */
 
 type CallVerdict = 'read' | 'action' | 'blocked';
 
-const BLOCKED = [/^\/api\/settings(\/|$)/, /^\/api\/scripts(\/|$)/, /^\/api\/assistant(\/|$)/];
+const BLOCKED = [/^\/api\/settings(\/|$)/, /^\/api\/assistant(\/|$)/];
+
+/** Saved playbooks are the account's shared definitions: the assistant reads them, never changes them. */
+const PLAYBOOK_SPECS = /^\/api\/playbooks\/custom(\/|$)/;
+
+/**
+ * Previews that are jobs over the whole account (and may ask a model): the
+ * person starts them, like a write, though they change nothing.
+ */
+const HEAVY_PREVIEWS = [/^\/api\/playbooks\/[^/]+\/preview$/];
 
 /**
  * POSTs that compute and write nothing. The planner's propose calls are
@@ -37,6 +47,12 @@ export function classifyCall(method: string, path: string): CallVerdict {
   const m = method.toUpperCase();
   if (m === 'GET') {
     return 'read';
+  }
+  if (PLAYBOOK_SPECS.test(pathname)) {
+    return 'blocked';
+  }
+  if (m === 'POST' && HEAVY_PREVIEWS.some((re) => re.test(pathname))) {
+    return 'action';
   }
   if (m === 'POST' && READ_ONLY_POSTS.some((re) => re.test(pathname))) {
     return 'read';

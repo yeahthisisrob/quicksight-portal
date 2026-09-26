@@ -23,8 +23,9 @@ interface ListRow {
   activity?: { totalViews?: number };
   definitionErrors?: unknown[];
   permissions?: Array<{ principal: string }>;
-  /** Data sources: the engine. */
-  type?: string;
+  /** Data sources and datasets: the engine (a dataset reading several says COMPOSITE). */
+  sourceType?: string;
+  lastUpdatedTime?: string;
 }
 
 async function listAll(ctx: PlaybookContext, type: SelectableType): Promise<ListRow[]> {
@@ -50,7 +51,8 @@ function cheap(
   // A data source's engine is its own; it reads no dataset to be governed.
   if (assetType === 'datasource' && condition.kind === 'readsEngine') {
     return (
-      (row.type ?? '').toUpperCase() === String(resolve(condition.engine, params)).toUpperCase()
+      (row.sourceType ?? '').toUpperCase() ===
+      String(resolve(condition.engine, params)).toUpperCase()
     );
   }
   if (assetType === 'datasource' && condition.kind === 'readsGoverned') return true;
@@ -138,7 +140,15 @@ async function selectOfType(
         break;
       }
     }
-    if (pass) out.push({ assetType, assetId: row.id, name: row.name });
+    if (pass) {
+      out.push({
+        assetType,
+        assetId: row.id,
+        name: row.name,
+        ...(row.tags ? { tags: row.tags } : {}),
+        ...(row.lastUpdatedTime ? { lastUpdatedTime: row.lastUpdatedTime } : {}),
+      });
+    }
   }
   return out;
 }

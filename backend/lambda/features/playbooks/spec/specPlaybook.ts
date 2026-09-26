@@ -4,7 +4,13 @@
  * cannot tell it from a built-in, so previews, gates, the failure threshold,
  * pausing and retry all work the same way.
  */
-import type { ItemPlan, Playbook, PlaybookContext, PlaybookParam } from '../types';
+import {
+  type ItemPlan,
+  type Playbook,
+  type PlaybookContext,
+  type PlaybookParam,
+  PortalCallError,
+} from '../types';
 import { selectTargets } from './select';
 import { SpecSession } from './session';
 import { applyStep, planStep, type SpecState, type StepPlan } from './steps';
@@ -29,6 +35,34 @@ function paramOf(input: SpecInput): PlaybookParam {
     ...(input.required ? { required: true } : {}),
     ...(input.default === undefined ? {} : { default: input.default as string | boolean }),
   };
+}
+
+const ATTEMPTS = 3;
+const BACKOFF_MS = 1_000;
+const TOO_MANY = 429;
+const SERVER_ERROR = 500;
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Throttling and server errors pass; a refusal (4xx) is the answer. */
+function transient(error: unknown): boolean {
+  if (error instanceof PortalCallError) {
+    return error.status === TOO_MANY || error.status >= SERVER_ERROR;
+  }
+  return /throttl|rate exceeded|timed? ?out/i.test(errorText(error));
+}
+
+async function withRetries<T>(work: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await work();
+    } catch (error) {
+      if (attempt >= ATTEMPTS || !transient(error)) throw error;
+      await new Promise((resolve) => globalThis.setTimeout(resolve, BACKOFF_MS * attempt));
+    }
+  }
 }
 
 /** The worst verdict wins: one step that needs a person makes the asset need one. */
@@ -89,10 +123,20 @@ export function specPlaybook(spec: PlaybookSpec): Playbook {
     async apply(ctx, target, plan) {
       const { steps } = plan.data as { steps: StepPlan[] };
       const done: string[] = [];
-      for (const step of steps) {
-        if (step.verdict !== 'change') continue;
-        const summary = await applyStep(ctx, target, step);
-        if (summary) done.push(summary);
+      const todo = steps.filter((s) => s.verdict === 'change');
+      for (const [i, step] of todo.entries()) {
+        try {
+          const summary = await withRetries(() => applyStep(ctx, target, step));
+          if (summary) done.push(summary);
+        } catch (error) {
+          if (done.length === 0) throw error;
+          // Part of it is written. A retry plans again against what is there
+          // now and cannot see what was left, so say exactly what that is.
+          const left = todo.slice(i).flatMap((s) => s.changes);
+          throw new Error(
+            `${done.join('; ')}; then this failed: ${errorText(error)}. Not done, do it by hand: ${left.join('; ')}`
+          );
+        }
       }
       return { summary: done.join('; ') || 'Done' };
     },

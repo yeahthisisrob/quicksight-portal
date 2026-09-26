@@ -270,4 +270,51 @@ describe('PlaybookEngine', () => {
     expect(book.apply).not.toHaveBeenCalled();
     expect(outcome.counts.pending).toBe(3);
   });
+
+  it('judges gates by the facts a spec target carries (tags, last change), not only a cache entry', async () => {
+    const book = playbook({
+      gateDefaults: { editedWithinDays: 7 },
+      scope: vi.fn(async () => [
+        target('fresh', { lastUpdatedTime: new Date(NOW - DAY).toISOString() }),
+        target('optout', { tags: [{ key: 'portal:playbook-skip', value: '' }] }),
+        target('fine', { lastUpdatedTime: new Date(NOW - 30 * DAY).toISOString(), tags: [] }),
+      ]),
+    });
+    await new PlaybookEngine(book, ctx, job(store, 'p1')).execute(preview);
+    const rows = Object.fromEntries((await store.all('p1')).map((r) => [r.assetId, r.status]));
+    expect(rows).toEqual({ fresh: 'skipped', optout: 'skipped', fine: 'planned' });
+  });
+
+  it('a canary set as the playbook’s default holds back the rest', async () => {
+    const book = playbook({ gateDefaults: { canary: 1 } });
+    await new PlaybookEngine(book, ctx, job(store, 'p1')).execute(preview);
+    expect((await store.all('p1')).filter((r) => r.status === 'planned')).toHaveLength(1);
+  });
+
+  it('never halts a preview on failed checks: they are findings', async () => {
+    const many = Array.from({ length: 12 }, (_, i) => target(`d${String(i).padStart(2, '0')}`));
+    const book = playbook({
+      scope: vi.fn(async () => many),
+      plan: vi.fn(async () => {
+        throw new Error('graph miss');
+      }),
+    });
+    const outcome = await new PlaybookEngine(book, ctx, job(store, 'p1')).execute(preview);
+    expect(outcome.state).toBe('finished');
+    expect(outcome.counts.failed).toBe(12);
+  });
+
+  it('a retry takes what the earlier run failed and what it never reached', async () => {
+    await new PlaybookEngine(playbook(), ctx, job(store, 'p1')).execute(preview);
+    await new PlaybookEngine(
+      playbook(),
+      ctx,
+      job(store, 'r1', { stopRequested: vi.fn(async () => true) })
+    ).execute(run());
+    const book = playbook();
+    const retry = await new PlaybookEngine(book, ctx, job(store, 'r2')).execute(
+      run({ retryOf: 'r1' })
+    );
+    expect(retry.counts).toMatchObject({ total: 3, done: 3 });
+  });
 });

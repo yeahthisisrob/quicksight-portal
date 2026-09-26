@@ -1,3 +1,5 @@
+import pLimit from 'p-limit';
+
 import { EXPORT_CONFIG } from '../../../shared/config/exportConfig';
 import { WORKER_CONFIG } from '../../../shared/constants';
 import type {
@@ -53,6 +55,8 @@ const DERIVED_FROM = new Set<AssetType>([
 /** How long a refresh waits for QuickSight to finish writing what it refreshes. */
 const SETTLE_ATTEMPTS = 20;
 const SETTLE_INTERVAL_MS = 3_000;
+/** Assets waited on at once. */
+const SETTLE_CONCURRENCY = 5;
 const REFRESH_LIST_RETRY_MS = 5_000;
 const IN_PROGRESS = /_IN_PROGRESS$/;
 
@@ -871,21 +875,24 @@ export class ExportOrchestrator {
    */
   private async waitUntilSettled(assetType: AssetType, ids: Set<string>): Promise<void> {
     if (assetType !== 'dashboard' && assetType !== 'analysis') return;
-    for (const id of ids) {
-      for (let attempt = 0; attempt < SETTLE_ATTEMPTS; attempt++) {
-        let status: string | undefined;
-        try {
-          const described =
-            assetType === 'dashboard'
-              ? await this.quickSightService.describeDashboard(id)
-              : await this.quickSightService.describeAnalysis(id);
-          status = described?.Version?.Status ?? described?.Status;
-        } catch {
-          break;
-        }
-        if (!status || !IN_PROGRESS.test(status)) break;
-        await sleep(SETTLE_INTERVAL_MS);
+    const limit = pLimit(SETTLE_CONCURRENCY);
+    await Promise.all([...ids].map((id) => limit(() => this.settle(assetType, id))));
+  }
+
+  private async settle(assetType: 'dashboard' | 'analysis', id: string): Promise<void> {
+    for (let attempt = 0; attempt < SETTLE_ATTEMPTS; attempt++) {
+      let status: string | undefined;
+      try {
+        const described =
+          assetType === 'dashboard'
+            ? await this.quickSightService.describeDashboard(id)
+            : await this.quickSightService.describeAnalysis(id);
+        status = described?.Version?.Status ?? described?.Status;
+      } catch {
+        return;
       }
+      if (!status || !IN_PROGRESS.test(status)) return;
+      await sleep(SETTLE_INTERVAL_MS);
     }
   }
 

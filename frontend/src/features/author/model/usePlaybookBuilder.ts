@@ -4,6 +4,7 @@
  * example included). Saving opens the playbook, ready to preview.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSnackbar } from 'notistack';
 import { useSearchParams } from 'react-router-dom';
 
 import { getApiErrorMessage, playbooksApi } from '@/shared/api';
@@ -83,6 +84,7 @@ export function usePlaybookBuilder() {
 export function useStartBuilder() {
   const [, setParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const { enqueueSnackbar } = useSnackbar();
   const go = (value: string) =>
     setParams((prev) => {
       const next = new URLSearchParams(prev);
@@ -94,7 +96,14 @@ export function useStartBuilder() {
     });
   const remove = useMutation({
     mutationFn: (id: string) => playbooksApi.deleteSpec(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['playbooks'] }),
+    onSuccess: () => {
+      enqueueSnackbar('Playbook deleted', { variant: 'success' });
+      void queryClient.invalidateQueries({ queryKey: ['playbooks'] });
+    },
+    onError: (e) =>
+      enqueueSnackbar(getApiErrorMessage(e, 'The playbook could not be deleted'), {
+        variant: 'error',
+      }),
   });
   return {
     create: () => go('new'),

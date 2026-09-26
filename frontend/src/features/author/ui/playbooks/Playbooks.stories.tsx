@@ -187,6 +187,23 @@ export const Running: Story = {
   render: () => <PlaybookFlowView flow={fakeFlow('running')} />,
 };
 
+export const RanCanary: Story = {
+  name: 'Done with a canary, more to run',
+  render: () => (
+    <PlaybookFlowView
+      flow={fakeFlow('ran', { remaining: ['000#dataset#x', '000#dataset#y', '000#dataset#z'] })}
+    />
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'After a canary (or a stopped or halted run), "Run the other 3" runs only what it did not get to, through the same confirmation.',
+      },
+    },
+  },
+};
+
 export const Ran: Story = {
   name: 'Done, with a failure',
   render: () => <PlaybookFlowView flow={fakeFlow('ran')} />,

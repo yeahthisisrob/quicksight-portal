@@ -9,6 +9,10 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   LinearProgress,
   Stack,
@@ -54,14 +58,13 @@ function JobBar({ job, onStop }: { job: JobMetadata | null; onStop: () => void }
   );
 }
 
-function RunSummary({ flow }: { flow: PlaybookFlow }) {
+function RunSummary({ flow, onRest }: { flow: PlaybookFlow; onRest: () => void }) {
   const job = flow.run.job;
   const counts = flow.run.page?.counts;
   if (!job || !counts) return null;
   const severity =
     job.status === 'failed' ? 'error' : counts.failed || counts.review ? 'warning' : 'success';
-  const chosen = flow.selected.size;
-  const remaining = chosen > counts.total;
+  const rest = flow.remaining.length;
   return (
     <Stack spacing={1.5}>
       <Alert severity={severity}>{job.message}</Alert>
@@ -76,14 +79,14 @@ function RunSummary({ flow }: { flow: PlaybookFlow }) {
             Retry {counts.failed} failed
           </Button>
         )}
-        {remaining && (
+        {rest > 0 && (
           <Button
             variant="contained"
             startIcon={<PlayArrow />}
-            onClick={() => flow.startRun()}
+            onClick={onRest}
             disabled={flow.busy}
           >
-            Run the rest
+            Run the other {rest}
           </Button>
         )}
         <Button startIcon={<Refresh />} onClick={flow.edit}>
@@ -96,7 +99,8 @@ function RunSummary({ flow }: { flow: PlaybookFlow }) {
 
 /** One playbook's page, driven by a flow (stories hand it a canned one). */
 export function PlaybookFlowView({ flow }: { flow: PlaybookFlow }) {
-  const [confirming, setConfirming] = useState(false);
+  /** 'chosen' runs what is ticked; 'rest' what the last run did not get to. */
+  const [confirming, setConfirming] = useState<'chosen' | 'rest' | null>(null);
   const { playbook, stage } = flow;
   if (!playbook) return null;
   const chosen = flow.selected.size;
@@ -164,7 +168,7 @@ export function PlaybookFlowView({ flow }: { flow: PlaybookFlow }) {
           <Stack spacing={2}>
             {stage === 'previewing' && <JobBar job={flow.preview.job} onStop={flow.stop} />}
             {stage === 'running' && <JobBar job={flow.run.job} onStop={flow.stop} />}
-            {stage === 'ran' && <RunSummary flow={flow} />}
+            {stage === 'ran' && <RunSummary flow={flow} onRest={() => setConfirming('rest')} />}
             {flow.preview.job?.status === 'failed' && (
               <Alert severity="error">{flow.preview.job.error ?? flow.preview.job.message}</Alert>
             )}
@@ -203,8 +207,8 @@ export function PlaybookFlowView({ flow }: { flow: PlaybookFlow }) {
                   variant="contained"
                   color={playbook.deletes ? 'warning' : 'primary'}
                   startIcon={<PlayArrow />}
-                  disabled={chosen === 0 || flow.busy}
-                  onClick={() => setConfirming(true)}
+                  disabled={chosen === 0 || flow.busy || !flow.canRun}
+                  onClick={() => setConfirming('chosen')}
                 >
                   Run…
                 </Button>
@@ -218,11 +222,14 @@ export function PlaybookFlowView({ flow }: { flow: PlaybookFlow }) {
         <RunConfirmDialog
           open
           playbook={playbook}
-          count={chosen}
-          onClose={() => setConfirming(false)}
+          count={confirming === 'rest' ? flow.remaining.length : chosen}
+          allowCanary={confirming === 'chosen'}
+          onClose={() => setConfirming(null)}
           onConfirm={(limits, canary) => {
-            setConfirming(false);
-            flow.startRun(limits, canary);
+            const which = confirming;
+            setConfirming(null);
+            if (which === 'rest') flow.runRest(limits);
+            else flow.startRun(limits, canary);
           }}
         />
       )}
@@ -252,6 +259,7 @@ export function PlaybooksView() {
   const flow = usePlaybook();
   const builder = usePlaybookBuilder();
   const start = useStartBuilder();
+  const [deleting, setDeleting] = useState<string | null>(null);
   if (builder.open) {
     return <Builder />;
   }
@@ -269,10 +277,33 @@ export function PlaybooksView() {
           onCreate: start.create,
           onCopy: start.copy,
           onEdit: start.edit,
-          onDelete: start.remove,
+          onDelete: setDeleting,
         }}
       />
       <SavedReports />
+      <Dialog open={deleting !== null} onClose={() => setDeleting(null)}>
+        <DialogTitle>
+          Delete "{catalog.playbooks.find((p) => p.id === deleting)?.title ?? 'this playbook'}"?
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            It goes for everyone. Its past previews, runs and saved reports stay.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleting(null)}>Cancel</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => {
+              if (deleting) start.remove(deleting);
+              setDeleting(null);
+            }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }

@@ -12,7 +12,7 @@
  */
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import {
@@ -466,10 +466,15 @@ export function useStudio(options: StudioOptions = {}): Studio {
         };
         dispatch({ type: 'saved', result });
         setRepairChoices({});
-        // In place, the asset changed under the cached export and the plan.
+        // In place, the asset changed under the cached export, the repair plan
+        // and the datasets it reads: read them again, or the fixes just
+        // written are offered (and armed) a second time.
         if (request.mode === 'update') {
-          void queryClient.invalidateQueries({ queryKey: ['repair-plan', source.type, source.id] });
+          void queryClient.invalidateQueries({
+            queryKey: ['repair-plan', origin, source.type, source.id],
+          });
           void queryClient.invalidateQueries({ queryKey: ['asset-json', source.type, source.id] });
+          void draft.reload();
         }
         announceAssetChanges(
           result.folderIds.length > 0 ? [written.assetType, 'folder'] : [written.assetType]
@@ -498,6 +503,8 @@ export function useStudio(options: StudioOptions = {}): Studio {
       repairRequest.repairs,
       queryClient,
       enqueueSnackbar,
+      origin,
+      draft,
     ]
   );
 
@@ -506,27 +513,51 @@ export function useStudio(options: StudioOptions = {}): Studio {
       dispatch({ type: 'open', source: next, origin: nextOrigin });
       setRepairChoices({});
       setSaveError(null);
-      setParams(
-        (prev) => {
-          const copy = new URLSearchParams(prev);
-          for (const key of ['type', 'id', 'name', 'source']) {
-            copy.delete(key);
+      setParams((prev) => {
+        const copy = new URLSearchParams(prev);
+        for (const key of ['type', 'id', 'name', 'source']) {
+          copy.delete(key);
+        }
+        if (next) {
+          copy.set('type', next.type);
+          copy.set('id', next.id);
+          copy.set('name', next.name);
+          if (nextOrigin === 'archive') {
+            copy.set('source', 'archive');
           }
-          if (next) {
-            copy.set('type', next.type);
-            copy.set('id', next.id);
-            copy.set('name', next.name);
-            if (nextOrigin === 'archive') {
-              copy.set('source', 'archive');
-            }
-          }
-          return copy;
-        },
-        { replace: true }
-      );
+        }
+        return copy;
+      });
     },
     [setParams]
   );
+
+  // The URL can change under an open Studio: a link from a playbook row or a
+  // template, Back and Forward. Follow it, so what is on screen (and what Save
+  // writes to) is always what the URL names. Only URL changes are followed;
+  // open() changes both at once, so it is never undone here.
+  const urlSource = sourceFromParams(params);
+  const urlOrigin = originFromParams(params);
+  const urlKey = urlSource ? `${urlOrigin}:${urlSource.type}:${urlSource.id}` : '';
+  const stateKey = useRef('');
+  stateKey.current = source ? `${origin}:${source.type}:${source.id}` : '';
+  const mounted = useRef(false);
+  const followUrl = useRef({ urlSource, urlOrigin });
+  followUrl.current = { urlSource, urlOrigin };
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
+    if (urlKey === stateKey.current) return;
+    dispatch({
+      type: 'open',
+      source: followUrl.current.urlSource,
+      origin: followUrl.current.urlOrigin,
+    });
+    setRepairChoices({});
+    setSaveError(null);
+  }, [urlKey]);
 
   const openArchived = useCallback(
     (pick: ArchivedPick) => {
@@ -560,7 +591,14 @@ export function useStudio(options: StudioOptions = {}): Studio {
     [setParams]
   );
 
-  const dismissResult = useCallback(() => dispatch({ type: 'dismissResult' }), []);
+  // A restored asset is live now: leave the archive for it, so Restore is not offered again.
+  const restored = state.result?.mode === 'restore' ? state.result : null;
+  const dismissResult = useCallback(() => {
+    dispatch({ type: 'dismissResult' });
+    if (restored) {
+      open({ type: restored.assetType, id: restored.assetId, name: restored.name }, 'live');
+    }
+  }, [restored, open]);
 
   const setTemplate = useCallback(
     async (on: boolean) => {

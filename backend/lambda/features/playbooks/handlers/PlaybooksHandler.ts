@@ -162,6 +162,9 @@ export class PlaybooksHandler {
         if (earlier?.playbook?.mode !== 'run' || earlier.playbook.previewJobId !== preview.jobId) {
           throw new BadRequest('Only a run of this same preview can be retried');
         }
+        if (!['completed', 'failed', 'stopped'].includes(earlier.status)) {
+          throw new BadRequest('That run is still going; retry it once it has ended');
+        }
       }
       if (
         body.keys !== undefined &&

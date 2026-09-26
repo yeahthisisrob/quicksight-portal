@@ -81,7 +81,11 @@ export class PlaybookEngine {
       if (this.rows.length === 0) {
         await this.seedFromScope(request.gates ?? {});
       }
-      return await this.work('Checked', (row) => this.check(row), DEFAULT_RUN_LIMITS);
+      // A preview changes nothing, so failures are just findings: it never halts on them.
+      return await this.work('Checked', (row) => this.check(row), {
+        ...DEFAULT_RUN_LIMITS,
+        failureMinimum: Number.POSITIVE_INFINITY,
+      });
     }
     if (this.rows.length === 0) {
       await this.seedFromEarlierJob(request);
@@ -131,7 +135,8 @@ export class PlaybookEngine {
     this.rows = earlier
       .filter((row) =>
         request.retryOf
-          ? row.status === 'failed'
+          ? // Its failures, and what it never got to (it was stopped, or halted on failures).
+            row.status === 'failed' || row.status === 'pending'
           : row.verdict === 'change' && (!wanted || wanted.has(row.key))
       )
       .map((row) => ({
@@ -148,7 +153,7 @@ export class PlaybookEngine {
     await this.job.log(
       'info',
       request.retryOf
-        ? `Retrying ${this.rows.length} asset(s) that failed in ${request.retryOf}`
+        ? `Retrying ${this.rows.length} asset(s) that failed or were not reached in ${request.retryOf}`
         : `${this.rows.length} asset(s) to change`
     );
   }

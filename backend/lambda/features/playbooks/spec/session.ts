@@ -3,7 +3,9 @@
  * invocation: what an asset reads, whether a dataset is governed, a
  * dataset's columns, and the candidate datasets a match step chooses from.
  */
-import type { PlaybookContext } from '../types';
+import pLimit from 'p-limit';
+
+import { type PlaybookContext, PortalCallError } from '../types';
 
 interface RelatedHit {
   entityId: string;
@@ -50,6 +52,11 @@ export interface Candidate {
 
 const RELATED_LIMIT = 200;
 const PAGE_SIZE = 100;
+/** Graph reads at once, for the few datasets whose engine the list cannot say. */
+const GRAPH_CONCURRENCY = 8;
+/** What the list says for a dataset reading several engines, or none it knows. */
+const UNSURE_ENGINES = new Set(['', 'COMPOSITE', 'UNKNOWN', 'FILE']);
+const NOT_FOUND = 404;
 
 const idOf = (entityId: string) => entityId.slice(entityId.indexOf(':') + 1);
 
@@ -71,7 +78,8 @@ export class SpecSession {
 
   public constructor(private readonly ctx: PlaybookContext) {}
 
-  private related(entityId: string, relations: string[], depth: number, types: string[]) {
+  /** An entity the graph has not got (just created, or never exported) relates to nothing. */
+  private async related(entityId: string, relations: string[], depth: number, types: string[]) {
     const query = new URLSearchParams({
       relations: relations.join(','),
       direction: 'out',
@@ -79,10 +87,15 @@ export class SpecSession {
       types: types.join(','),
       limit: String(RELATED_LIMIT),
     });
-    return this.ctx.call<{ hits: RelatedHit[] }>(
-      'GET',
-      `/api/context/entities/${encodeURIComponent(entityId)}/related?${query.toString()}`
-    );
+    try {
+      return await this.ctx.call<{ hits: RelatedHit[] }>(
+        'GET',
+        `/api/context/entities/${encodeURIComponent(entityId)}/related?${query.toString()}`
+      );
+    } catch (error) {
+      if (error instanceof PortalCallError && error.status === NOT_FOUND) return { hits: [] };
+      throw error;
+    }
   }
 
   /** The datasets an asset reads (a dataset reads itself) and their data sources. */
@@ -166,32 +179,60 @@ export class SpecSession {
     );
   }
 
-  /** Every live dataset, with the engines it reads through and whether it is governed. */
+  /**
+   * Every live dataset, with the engines it reads through and whether it is
+   * governed: from two list reads (the engine from each row's source type,
+   * governance by the Datasets page's own SMUS rule), and the graph only for
+   * a dataset reading several engines. One that cannot be read is left out,
+   * not allowed to fail the rest; a failed attempt is not kept.
+   */
   public candidates(): Promise<Candidate[]> {
-    this.candidatesPromise ??= (async () => {
-      const rows: DatasetRef[] = [];
-      for (let page = 1; ; page++) {
-        const data = await this.ctx.call<{
-          datasets?: DatasetRef[];
-          pagination?: { totalPages?: number };
-        }>('GET', `/api/assets/datasets/paginated?page=${page}&pageSize=${PAGE_SIZE}`);
-        rows.push(...(data.datasets ?? []));
-        if (page >= (data.pagination?.totalPages ?? 1) || !data.datasets?.length) break;
-      }
-      return await Promise.all(
-        rows.map(async (row) => ({
-          id: row.id,
-          name: row.name,
-          engines: [
-            ...new Set(
-              (await this.sourcesOf(row.id)).map((s) => s.engine).filter((e): e is string => !!e)
-            ),
-          ],
-          governed: await this.governed(row.id),
-        }))
-      );
-    })();
+    this.candidatesPromise ??= this.loadCandidates().catch((error) => {
+      this.candidatesPromise = null;
+      throw error;
+    });
     return this.candidatesPromise;
+  }
+
+  private async listDatasets(filter = ''): Promise<Array<DatasetRef & { sourceType?: string }>> {
+    const rows: Array<DatasetRef & { sourceType?: string }> = [];
+    for (let page = 1; ; page++) {
+      const data = await this.ctx.call<{
+        datasets?: Array<DatasetRef & { sourceType?: string }>;
+        pagination?: { totalPages?: number };
+      }>('GET', `/api/assets/datasets/paginated?page=${page}&pageSize=${PAGE_SIZE}${filter}`);
+      rows.push(...(data.datasets ?? []));
+      if (page >= (data.pagination?.totalPages ?? 1) || !data.datasets?.length) return rows;
+    }
+  }
+
+  private async loadCandidates(): Promise<Candidate[]> {
+    const [rows, linked] = await Promise.all([
+      this.listDatasets(),
+      this.listDatasets('&smusFilter=smus_linked'),
+    ]);
+    const governed = new Set(linked.map((r) => r.id));
+    const limit = pLimit(GRAPH_CONCURRENCY);
+    const settled = await Promise.allSettled(
+      rows.map((row) =>
+        limit(async () => {
+          const listed = (row.sourceType ?? '').toUpperCase();
+          const engines = UNSURE_ENGINES.has(listed)
+            ? [
+                ...new Set(
+                  (await this.sourcesOf(row.id))
+                    .map((s) => s.engine)
+                    .filter((e): e is string => Boolean(e))
+                ),
+              ]
+            : [listed];
+          return { id: row.id, name: row.name, engines, governed: governed.has(row.id) };
+        })
+      )
+    );
+    return settled
+      .filter((r): r is PromiseFulfilledResult<Candidate> => r.status === 'fulfilled')
+      .map((r) => r.value);
   }
 }
 

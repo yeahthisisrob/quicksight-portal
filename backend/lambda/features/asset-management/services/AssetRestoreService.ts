@@ -278,6 +278,12 @@ export class AssetRestoreService {
       assetType === 'dataset' ? DATASET_OWNER_ACTIONS : DATASOURCE_OWNER_ACTIONS,
       auth
     );
+    if (!permissions) {
+      // An API key has no QuickSight user to own it, and the archive kept no audience.
+      warnings.push(
+        'Nobody was given access: no audience survives from the archive and no QuickSight user matched who restored it. Only account admins can see it until it is shared.'
+      );
+    }
 
     const d = archived.describe;
     const created =

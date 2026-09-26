@@ -45,13 +45,13 @@ function portal(world: World) {
       };
     }
     if (p === '/api/assets/datasets/paginated') {
-      return {
-        datasets: [
-          { id: 'rs-sales', name: 'sales (redshift)' },
-          { id: 'gold', name: 'sales_gold' },
-        ],
-        pagination: { totalPages: 1 },
-      };
+      const all = [
+        { id: 'rs-sales', name: 'sales (redshift)', sourceType: 'REDSHIFT' },
+        { id: 'gold', name: 'sales_gold', sourceType: 'ATHENA' },
+      ];
+      // The Datasets page's SMUS rule: only gold is governed.
+      const linked = url.searchParams.get('smusFilter') === 'smus_linked';
+      return { datasets: linked ? all.slice(1) : all, pagination: { totalPages: 1 } };
     }
     if (p.startsWith('/api/context/entities/')) {
       const entity = p.split('/')[4]!;
@@ -290,5 +290,72 @@ describe('specPlaybook: a team into its shared folder', () => {
     expect(posted).toEqual([
       { path: '/api/folders/f1/members', body: { memberId: 'd1', memberType: 'DASHBOARD' } },
     ]);
+  });
+});
+
+describe('specPlaybook: robustness', () => {
+  it('selects data sources by their engine (the list row’s sourceType)', async () => {
+    const spec = {
+      ...EXAMPLE_SPECS[1]!,
+      select: {
+        assetTypes: ['datasource' as const],
+        where: [{ kind: 'readsEngine' as const, engine: 'REDSHIFT' }],
+      },
+      steps: [
+        { kind: 'tag' as const, target: 'asset' as const, key: 'lifecycle', value: 'deprecated' },
+      ],
+    };
+    const call = vi.fn(async () => ({
+      datasources: [
+        { id: 'rs', name: 'Warehouse', sourceType: 'REDSHIFT', type: 'datasource' },
+        { id: 'ath', name: 'Athena', sourceType: 'ATHENA', type: 'datasource' },
+      ],
+      pagination: { totalPages: 1 },
+    }));
+    const scope = await specPlaybook(spec).scope({
+      call,
+      params: {},
+    } as unknown as PlaybookContext);
+    expect(scope.map((t) => t.assetId)).toEqual(['rs']);
+  });
+
+  it('says what was written and what was not when a later step fails', async () => {
+    const playbook = specPlaybook(EXAMPLE_SPECS[0]!);
+    const call = vi.fn(async (_method: string, path: string) => {
+      if (path.endsWith('/rebind')) return { versionNumber: 3 };
+      if (path.startsWith('/api/tags/')) throw new PortalCallError(400, 'Tag limit reached');
+      return {};
+    });
+    const plan = {
+      verdict: 'change' as const,
+      summary: '',
+      data: {
+        steps: [
+          {
+            kind: 'rebind',
+            verdict: 'change',
+            summary: '',
+            changes: ['Rebind sales'],
+            data: { rebinds: [] },
+          },
+          {
+            kind: 'tag',
+            verdict: 'change',
+            summary: '',
+            changes: ['Tag dataset old portal:deprecated=yes'],
+            data: {
+              key: 'portal:deprecated',
+              value: 'yes',
+              targets: [{ type: 'dataset', id: 'old' }],
+            },
+          },
+        ],
+      },
+    };
+    await expect(
+      playbook.apply({ call, params: {} } as unknown as PlaybookContext, busy, plan)
+    ).rejects.toThrow(
+      /Rebound \(version 3\); then this failed: Tag limit reached\. Not done, do it by hand: Tag dataset old/
+    );
   });
 });

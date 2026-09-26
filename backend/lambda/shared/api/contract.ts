@@ -119,6 +119,31 @@ function check(
   }
 }
 
+/**
+ * Required query parameters the path leaves out (a delete needs its
+ * reason), empty when it has them all. Parameters may be references to
+ * the spec's shared ones.
+ */
+export function queryErrors(
+  spec: SpecLike,
+  method: string,
+  template: string,
+  path: string
+): string[] {
+  const item = spec.paths?.[template];
+  const op = item?.[method.toLowerCase()];
+  if (!op) return [];
+  const resolve = (p: any) =>
+    typeof p?.$ref === 'string'
+      ? (spec.components?.parameters?.[p.$ref.split('/').pop() as string] ?? p)
+      : p;
+  const given = new URLSearchParams(path.split('?')[1] ?? '');
+  return [...(item.parameters ?? []), ...(op.parameters ?? [])]
+    .map(resolve)
+    .filter((p: any) => p?.in === 'query' && p.required && !given.get(p.name))
+    .map((p: any) => `query ${p.name}: required${p.description ? ` (${p.description})` : ''}`);
+}
+
 /** What is wrong with a body for this operation, empty when it fits. */
 export function bodyErrors(
   spec: SpecLike,

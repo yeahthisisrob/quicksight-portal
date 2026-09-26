@@ -41,16 +41,19 @@ export function RunConfirmDialog({
   open,
   playbook,
   count,
+  allowCanary = true,
   onClose,
   onConfirm,
 }: {
   open: boolean;
   playbook: Playbook;
   count: number;
+  /** Offer a canary of a few first (not for the rest after one). */
+  allowCanary?: boolean;
   onClose: () => void;
   onConfirm: (limits: RunLimits, canary?: number) => void;
 }) {
-  const offerCanary = count > CANARY_OVER;
+  const offerCanary = allowCanary && count > CANARY_OVER;
   const [canary, setCanary] = useState(offerCanary);
   const [concurrency, setConcurrency] = useState(4);
   const [threshold, setThreshold] = useState(0.2);

@@ -24,8 +24,10 @@ export type PlaybookReportSummary = Schemas['PlaybookReportSummary'];
 type AiModelKey = Schemas['AiModelKey'];
 export type GateValues = Record<string, number | string | boolean | null>;
 
-/** Most rows a preview or run shows at once; the counts cover all of them. */
-const ALL_ROWS = 500;
+/** Rows per request (the most the API gives); `items` reads every page. */
+const PAGE_ROWS = 500;
+/** A guard against a cursor that never ends. */
+const MAX_PAGES = 100;
 
 /** Fixes across the account: preview what one would do, then run it. */
 export const playbooksApi = {
@@ -124,12 +126,29 @@ export const playbooksApi = {
     );
   },
 
-  async items(jobId: string, query: ItemsQuery = { limit: ALL_ROWS }): Promise<PlaybookItemsPage> {
-    return unwrap(
-      await client.GET('/api/playbooks/runs/{jobId}/items', {
-        params: { path: { jobId }, query },
-      }),
-      'Failed to read the rows'
-    );
+  /**
+   * Every row of a preview or run, however many pages: what is chosen and
+   * counted on screen must be what a run changes.
+   */
+  async items(jobId: string, query: ItemsQuery = {}): Promise<PlaybookItemsPage> {
+    const read = async (after?: string) =>
+      unwrap(
+        await client.GET('/api/playbooks/runs/{jobId}/items', {
+          params: {
+            path: { jobId },
+            query: { ...query, limit: PAGE_ROWS, ...(after ? { cursor: after } : {}) },
+          },
+        }),
+        'Failed to read the rows'
+      );
+    const first = await read();
+    const items = [...first.items];
+    let cursor = first.cursor;
+    for (let page = 1; cursor && page < MAX_PAGES; page++) {
+      const next = await read(cursor);
+      items.push(...next.items);
+      cursor = next.cursor;
+    }
+    return { ...first, items, cursor: undefined };
   },
 };

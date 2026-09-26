@@ -87,7 +87,12 @@ function CreatedNote({ result }: { result: unknown }) {
             <Button
               size="small"
               color="inherit"
-              href={`/author?tab=studio&type=${created.assetType}&id=${encodeURIComponent(created.assetId)}`}
+              href={`/author?${new URLSearchParams({
+                tab: 'studio',
+                type: created.assetType,
+                id: created.assetId,
+                ...(created.name ? { name: created.name } : {}),
+              }).toString()}`}
               target="_blank"
               rel="noopener"
             >
