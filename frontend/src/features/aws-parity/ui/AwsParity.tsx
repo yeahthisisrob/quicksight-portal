@@ -1,23 +1,26 @@
 /**
- * What the portal adds to QuickSight, set against what AWS offers today.
- *
- * Said openly, the way the SMUS hand-off is: where AWS has (or has
- * announced) the same thing, the row says so and the portal points there
- * when it can do the job. Only what can be checked goes in the AWS column,
- * and the table carries the date it was last checked; a row whose AWS side
- * changes is updated or removed, never left to overstate the portal.
+ * The portal and AWS side by side, gaps shown on both sides: this matrix is
+ * how the portal tracks what it lacks as well as what AWS lacks. One
+ * capability per row, a level and a few words per side. Only what can be checked goes
+ * in the AWS column; the page carries the date it was checked, and a row
+ * whose AWS side changes is updated, never left to overstate the portal.
  */
-import { OpenInNew } from '@mui/icons-material';
-import { Box, Chip, Link, Stack, Typography } from '@mui/material';
+import { CheckCircle, RadioButtonUnchecked, Schedule, TonalityOutlined } from '@mui/icons-material';
+import { Box, Stack, Typography } from '@mui/material';
+import type { ReactNode } from 'react';
 
-type AwsStatus = 'none' | 'announced' | 'partial';
+/** announced = AWS has announced it and it is not yet available. */
+type Level = 'yes' | 'partial' | 'announced' | 'no';
 
-export interface ParityRow {
+interface Side {
+  level: Level;
+  note: string;
+}
+
+interface ParityRow {
   capability: string;
-  portal: string;
-  aws: string;
-  status: AwsStatus;
-  link?: { label: string; href: string };
+  portal: Side;
+  aws: Side;
 }
 
 /** When the AWS column was last checked against AWS's docs and announcements. */
@@ -25,128 +28,154 @@ export const PARITY_CHECKED = 'September 2026';
 
 export const PARITY_ROWS: ParityRow[] = [
   {
-    capability: 'Context graph',
-    portal:
-      'Search, lineage and related entities across datasets, dashboards, analyses, calculated fields and SMUS listings, served as an API shaped like AWS Context.',
-    aws: 'QuickSight describes one asset at a time and has no lineage API. AWS Context is announced; once it reads QuickSight, agents get these reads there.',
-    status: 'announced',
-    link: { label: 'AWS Context', href: 'https://aws.amazon.com/context/' },
+    capability: 'Search and lineage graph',
+    portal: { level: 'yes', note: 'API shaped like AWS Context' },
+    aws: { level: 'announced', note: 'AWS Context' },
   },
   {
-    capability: 'Generative authoring by API',
-    portal:
-      'Build and edit dashboards and analyses from a sentence through the API: planned, validated against the datasets and previewed before anything is written.',
-    aws: 'Generative authoring in QuickSight lives in the console; it is not in the SDK or the API.',
-    status: 'none',
+    capability: 'Generative authoring',
+    portal: { level: 'yes', note: 'By API, previewed first' },
+    aws: { level: 'partial', note: 'Console only' },
   },
   {
     capability: 'Calculated fields as metadata',
-    portal:
-      'Every calculated field indexed with its expression, where it is defined and read, and whether it is row-level or computed at query time.',
-    aws: 'Calculated fields stay inside dataset and analysis definitions; they are not entries in the Glue Data Catalog or the SMUS catalog.',
-    status: 'none',
+    portal: { level: 'yes', note: 'Indexed, with who reads each' },
+    aws: { level: 'no', note: 'Not in Glue or SMUS catalogs' },
   },
   {
     capability: 'Dataset to SMUS listing',
-    portal:
-      'Each dataset matched to the SMUS listing it reads (source table, SQL references, name, lineage), so governed descriptions reach QuickSight.',
-    aws: 'A QuickSight dataset does not record which SMUS listing it reads.',
-    status: 'none',
+    portal: { level: 'yes', note: 'Matched automatically' },
+    aws: { level: 'no', note: 'Not recorded' },
   },
   {
-    capability: 'Account-wide fixes',
-    portal:
-      'Playbooks: scope, gates, a dry run per asset, preview, a chosen run that pauses and resumes, and a report.',
-    aws: 'Changes are per-asset Update calls; there is no preview or dry run across assets.',
-    status: 'none',
+    capability: 'Fixes across the account',
+    portal: { level: 'yes', note: 'Playbooks with dry runs' },
+    aws: { level: 'no', note: 'One asset at a time' },
   },
   {
-    capability: 'Refactoring calculated fields',
-    portal:
-      'Rename, drop unused, or replace with a governed column everywhere they are read; a dataset field renamed by moving each reader first.',
-    aws: 'Edited one asset at a time in the console; renaming a dataset field breaks what reads it.',
-    status: 'none',
+    capability: 'Refactor calculated fields',
+    portal: { level: 'yes', note: 'Rename, drop, replace safely' },
+    aws: { level: 'no', note: 'Manual, per asset' },
   },
   {
-    capability: 'Archive, restore and history',
-    portal:
-      'A deleted dashboard, analysis or dataset is kept as its last exported definition and restored from the Studio. One copy per asset: no version history yet.',
-    aws: 'RestoreAnalysis brings back an analysis within its recovery window. Dashboards keep published versions (ListDashboardVersions); dataset versions are in the console only. Asset bundle jobs export and import assets as JSON or CloudFormation. A deleted dashboard or dataset has no restore.',
-    status: 'partial',
-    link: {
-      label: 'Asset bundles',
-      href: 'https://docs.aws.amazon.com/quicksight/latest/developerguide/asset-bundle-ops.html',
-    },
+    capability: 'Restore deleted assets',
+    portal: { level: 'yes', note: 'Dashboards, analyses, datasets' },
+    aws: { level: 'partial', note: 'Analyses, within a window' },
+  },
+  {
+    capability: 'Version history',
+    portal: { level: 'no', note: 'Last export only' },
+    aws: { level: 'partial', note: 'Dashboards; datasets in console' },
+  },
+  {
+    capability: 'Assets as code, cross-account',
+    portal: { level: 'no', note: 'One account' },
+    aws: { level: 'yes', note: 'Asset bundles' },
+  },
+  {
+    capability: 'Namespaces',
+    portal: { level: 'no', note: 'Default namespace only' },
+    aws: { level: 'yes', note: 'Through the API' },
   },
 ];
 
-const STATUS: Record<AwsStatus, { label: string; color: 'default' | 'info' | 'warning' }> = {
-  none: { label: 'Not in AWS', color: 'default' },
-  announced: { label: 'Announced', color: 'info' },
-  partial: { label: 'Partly', color: 'warning' },
+const LEVELS: Record<Level, { label: string; icon: ReactNode }> = {
+  yes: { label: 'Yes', icon: <CheckCircle fontSize="small" color="success" /> },
+  partial: { label: 'Partly', icon: <TonalityOutlined fontSize="small" color="warning" /> },
+  announced: { label: 'Announced', icon: <Schedule fontSize="small" color="info" /> },
+  no: { label: 'No', icon: <RadioButtonUnchecked fontSize="small" color="disabled" /> },
 };
+
+const COLUMNS = { xs: '1fr 1fr', sm: 'minmax(180px, 1.2fr) 1fr 1fr' };
+
+function Cell({ side }: { side: Side }) {
+  const level = LEVELS[side.level];
+  return (
+    <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start', minWidth: 0 }}>
+      <Box aria-label={level.label} sx={{ display: 'flex', pt: 0.125 }}>
+        {level.icon}
+      </Box>
+      <Typography variant="body2" sx={{ color: 'text.secondary', minWidth: 0 }}>
+        {side.note}
+      </Typography>
+    </Stack>
+  );
+}
 
 export function AwsParity({ rows = PARITY_ROWS }: { rows?: ParityRow[] }) {
   return (
-    <Box sx={{ borderRadius: 2, border: 1, borderColor: 'divider', overflow: 'hidden' }}>
-      <Box component="dl" sx={{ m: 0 }}>
-        {rows.map((row) => (
-          <Box
-            key={row.capability}
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: '200px 1fr 1fr' },
-              gap: { xs: 0.75, md: 2.5 },
-              px: 2.5,
-              py: 1.75,
-              '&:not(:first-of-type)': { borderTop: 1, borderColor: 'divider' },
-            }}
-          >
-            <Box component="dt" sx={{ m: 0 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                {row.capability}
-              </Typography>
-            </Box>
-            <Box component="dd" sx={{ m: 0 }}>
-              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                Portal
-              </Typography>
-              <Typography variant="body2">{row.portal}</Typography>
-            </Box>
-            <Box component="dd" sx={{ m: 0 }}>
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  AWS today
-                </Typography>
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label={STATUS[row.status].label}
-                  color={STATUS[row.status].color}
-                  sx={{ height: 20 }}
-                />
-              </Stack>
-              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.25 }}>
-                {row.aws}
-                {row.link && (
-                  <>
-                    {' '}
-                    <Link
-                      href={row.link.href}
-                      target="_blank"
-                      rel="noreferrer"
-                      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}
-                    >
-                      {row.link.label}
-                      <OpenInNew sx={{ fontSize: 14 }} />
-                    </Link>
-                  </>
-                )}
-              </Typography>
-            </Box>
-          </Box>
-        ))}
+    <Box
+      role="table"
+      sx={{ borderRadius: 2, border: 1, borderColor: 'divider', overflow: 'hidden' }}
+    >
+      <Box
+        role="row"
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: COLUMNS,
+          gap: 2,
+          px: 2,
+          py: 1.25,
+          bgcolor: 'action.hover',
+        }}
+      >
+        <Typography
+          role="columnheader"
+          variant="overline"
+          sx={{ display: { xs: 'none', sm: 'block' }, color: 'text.secondary' }}
+        >
+          Capability
+        </Typography>
+        <Typography role="columnheader" variant="overline" sx={{ color: 'text.secondary' }}>
+          Portal
+        </Typography>
+        <Typography role="columnheader" variant="overline" sx={{ color: 'text.secondary' }}>
+          AWS today
+        </Typography>
       </Box>
+      {rows.map((row) => (
+        <Box
+          key={row.capability}
+          role="row"
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: COLUMNS,
+            gap: { xs: 1, sm: 2 },
+            px: 2,
+            py: 1.25,
+            borderTop: 1,
+            borderColor: 'divider',
+          }}
+        >
+          <Typography
+            role="rowheader"
+            variant="subtitle2"
+            sx={{ fontWeight: 600, gridColumn: { xs: '1 / -1', sm: 'auto' } }}
+          >
+            {row.capability}
+          </Typography>
+          <Box role="cell">
+            <Cell side={row.portal} />
+          </Box>
+          <Box role="cell">
+            <Cell side={row.aws} />
+          </Box>
+        </Box>
+      ))}
+      <Stack
+        direction="row"
+        spacing={2}
+        sx={{ px: 2, py: 1, borderTop: 1, borderColor: 'divider', flexWrap: 'wrap', rowGap: 0.5 }}
+      >
+        {Object.values(LEVELS).map((level) => (
+          <Stack key={level.label} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+            {level.icon}
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {level.label}
+            </Typography>
+          </Stack>
+        ))}
+      </Stack>
     </Box>
   );
 }
