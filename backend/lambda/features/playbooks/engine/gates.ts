@@ -7,7 +7,7 @@ import { TIME_UNITS } from '../../../shared/constants';
 import type { Gate, GateSpec, Playbook, ScopedTarget } from '../types';
 
 /** Tag an asset with this and no playbook touches it. */
-const OPT_OUT_TAG = 'portal:playbook-skip';
+export const OPT_OUT_TAG = 'portal:playbook-skip';
 
 const DAY_MS = TIME_UNITS.DAY;
 

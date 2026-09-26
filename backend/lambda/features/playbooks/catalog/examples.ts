@@ -159,4 +159,18 @@ export const EXAMPLE_SPECS: PlaybookSpec[] = [
     createdAt: SHIPPED_AT,
     updatedAt: SHIPPED_AT,
   },
+  {
+    id: 'dataset-calcs-to-standard-names',
+    name: 'Name dataset calculated fields to the standard',
+    description:
+      "A dataset's calculated fields get the organisation's dataset prefix and a snake_case name without breaking anything that reads them: each is copied under the new name, every dashboard and analysis reading the old name moves to the new one, and the old name goes once nothing reads it. On SPICE the readers move on a later run, once a refresh has loaded the new column; run it again to finish.",
+    inputs: [{ key: 'prefix', label: 'Prefix', kind: 'text', default: 'c_ds_', required: true }],
+    category: 'cleanup',
+    select: { assetTypes: ['dataset'], where: [] },
+    steps: [{ kind: 'renameDatasetCalcsToStandard', prefix: '{{prefix}}' }],
+    gates: { editedWithinDays: 7 },
+    createdBy: 'The portal',
+    createdAt: SHIPPED_AT,
+    updatedAt: SHIPPED_AT,
+  },
 ];

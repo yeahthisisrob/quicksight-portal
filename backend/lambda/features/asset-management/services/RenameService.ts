@@ -20,6 +20,7 @@
  * Smart Sync re-exports the asset file automatically.
  */
 
+import { resendDataSet } from '../../../shared/services/aws/datasetUpdate';
 import { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import type { AssetType } from '../../../shared/types/assetTypes';
@@ -144,20 +145,6 @@ export class RenameService {
           '(flat-file datasets cannot be described via the API and cannot be renamed here)'
       );
     }
-    await this.quickSightService.updateDataSet({
-      dataSetId,
-      name,
-      physicalTableMap: current.PhysicalTableMap,
-      logicalTableMap: current.LogicalTableMap,
-      importMode: current.ImportMode,
-      columnGroups: current.ColumnGroups,
-      fieldFolders: current.FieldFolders,
-      rowLevelPermissionDataSet: current.RowLevelPermissionDataSet,
-      rowLevelPermissionTagConfiguration: current.RowLevelPermissionTagConfiguration,
-      columnLevelPermissionRules: current.ColumnLevelPermissionRules,
-      dataSetUsageConfiguration: current.DataSetUsageConfiguration,
-      dataPrepConfiguration: current.DataPrepConfiguration,
-      semanticModelConfiguration: current.SemanticModelConfiguration,
-    });
+    await resendDataSet(this.quickSightService, dataSetId, current, { name });
   }
 }

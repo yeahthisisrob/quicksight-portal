@@ -27,6 +27,7 @@ const WRITES: Record<string, Playbook['writes']> = {
   replaceMaterialisedCalcs: ['dashboard', 'analysis'],
   dropUnusedCalcs: ['dashboard', 'analysis'],
   renameCalcsToStandard: ['dashboard', 'analysis'],
+  renameDatasetCalcsToStandard: ['dataset', 'dashboard', 'analysis'],
 };
 
 function paramOf(input: SpecInput): PlaybookParam {

@@ -97,6 +97,16 @@ export interface RenameToStandardStep {
   prefix?: Templated<string>;
 }
 
+/**
+ * A dataset's calculated fields to the standard names, migrated so no
+ * dashboard or analysis reading them breaks: copy, repoint readers, retire.
+ */
+export interface RenameDatasetCalcsStep {
+  kind: 'renameDatasetCalcsToStandard';
+  /** Default c_ds_. */
+  prefix?: Templated<string>;
+}
+
 /** Put the asset in a folder (a shared folder then carries its audience). */
 interface AddToFolderStep {
   kind: 'addToFolder';
@@ -111,7 +121,8 @@ export type SpecStep =
   | AddToFolderStep
   | ReplaceMaterialisedStep
   | DropUnusedStep
-  | RenameToStandardStep;
+  | RenameToStandardStep
+  | RenameDatasetCalcsStep;
 
 export interface PlaybookSpec {
   id: string;

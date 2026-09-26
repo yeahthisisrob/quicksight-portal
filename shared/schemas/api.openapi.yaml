@@ -3734,6 +3734,112 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /api/authoring/datasets/{dataSetId}/calculated-fields:
+    get:
+      operationId: getAuthoringDatasetCalculatedFields
+      tags: [Authoring]
+      summary: A dataset's calculated fields, and who downstream reads each
+      description: |
+        Read live, in either dataset shape (legacy logical tables or the new
+        data prep). With `readers=true`, every dashboard and analysis the
+        lineage says uses the dataset is read live too, and each field lists
+        the ones that read it; any that could not be read are listed as
+        `unreadable`.
+      parameters:
+        - name: dataSetId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: readers
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ['true', 'false']
+      responses:
+        '200':
+          description: The fields
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/DatasetCalculatedFields'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: postAuthoringDatasetCalculatedFields
+      tags: [Authoring]
+      summary: Copy or retire a dataset's calculated fields
+      description: |
+        Dashboards and analyses read a dataset's columns by name, so a dataset
+        field is renamed as a migration: `copyCalculatedField` (name, to) adds
+        it again under the new name, carrying its projection, description,
+        folders, column-level permissions and semantic metadata; each reader
+        is then repointed (a rebind of the same dataset with a `columnMap`);
+        `retireCalculatedField` (name, replacedBy) removes the old name once
+        no dashboard or analysis reads it, pointing the dataset's own fields
+        at the new one. Retire reads every reader live first and is refused
+        while any still reads the old name or cannot be read. Either is
+        refused when the name is referenced somewhere a rename cannot follow
+        (a join clause, a cast, a row-level tag rule...). `dryRun` checks
+        everything and writes nothing.
+      parameters:
+        - name: dataSetId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ops]
+              properties:
+                ops:
+                  type: array
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/DatasetFieldOp'
+                dryRun:
+                  type: boolean
+      responses:
+        '200':
+          description: What changed (or would)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [dataSetId, changes, written]
+                    properties:
+                      dataSetId:
+                        type: string
+                      changes:
+                        type: array
+                        items:
+                          type: string
+                      written:
+                        type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/authoring/new/propose:
     post:
       operationId: postAuthoringNewPropose
@@ -6286,11 +6392,18 @@ components:
         only such fields read). renameCalcsToStandard (prefix, default c_):
         each calculated field gets the prefix and a snake_case name,
         everywhere it is read; a name already in use goes to review.
+        renameDatasetCalcsToStandard (prefix, default c_ds_): a dataset's
+        calculated fields to the standard names without breaking a reader:
+        each is copied under the new name, every dashboard and analysis
+        reading the old name is moved to the new one (on SPICE once a refresh
+        has loaded it), and the old name is removed once nothing reads it.
+        Each phase is read from live state, so a later run finishes what an
+        earlier one started.
       required: [kind]
       properties:
         kind:
           type: string
-          enum: [matchDataset, rebind, tag, repair, addToFolder, replaceMaterialisedCalcs, dropUnusedCalcs, renameCalcsToStandard]
+          enum: [matchDataset, rebind, tag, repair, addToFolder, replaceMaterialisedCalcs, dropUnusedCalcs, renameCalcsToStandard, renameDatasetCalcsToStandard]
         engine:
           $ref: '#/components/schemas/PlaybookSpecValue'
         governed:
@@ -10358,6 +10471,98 @@ components:
             type: string
         unused:
           type: boolean
+
+    DatasetFieldReader:
+      type: object
+      required: [assetType, assetId, name, identifier]
+      properties:
+        assetType:
+          $ref: '#/components/schemas/AuthorableAssetType'
+        assetId:
+          type: string
+        name:
+          type: string
+        identifier:
+          type: string
+          description: The dataset identifier the asset reads the dataset through.
+
+    DatasetCalculatedField:
+      type: object
+      required: [name, columnId, expression, readBy, restricted]
+      properties:
+        name:
+          type: string
+        columnId:
+          type: string
+        expression:
+          type: string
+        readBy:
+          type: array
+          description: The dataset's other calculated fields that read it.
+          items:
+            type: string
+        restricted:
+          type: boolean
+          description: Named in a column-level permission rule.
+        readers:
+          type: array
+          description: With readers=true, the dashboards and analyses that read it.
+          items:
+            $ref: '#/components/schemas/DatasetFieldReader'
+
+    DatasetCalculatedFields:
+      type: object
+      required: [dataSetId, name, shape, importMode, fields]
+      properties:
+        dataSetId:
+          type: string
+        name:
+          type: string
+        shape:
+          type: string
+          enum: [legacy, dataPrep]
+        importMode:
+          type: string
+        latestRefresh:
+          type: string
+          enum: [running, completed, failed, none]
+          description: |
+            SPICE only: the status of the most recent refresh. A column added
+            to a SPICE dataset has data once a refresh after it completes, so
+            readers should move to it only then.
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/DatasetCalculatedField'
+        unreadable:
+          type: array
+          description: Readers that could not be read live, so their use is unknown.
+          items:
+            type: object
+            required: [assetType, assetId, name]
+            properties:
+              assetType:
+                $ref: '#/components/schemas/AuthorableAssetType'
+              assetId:
+                type: string
+              name:
+                type: string
+
+    DatasetFieldOp:
+      type: object
+      required: [op, name]
+      properties:
+        op:
+          type: string
+          enum: [copyCalculatedField, retireCalculatedField]
+        name:
+          type: string
+        to:
+          type: string
+          description: copyCalculatedField - the new name.
+        replacedBy:
+          type: string
+          description: retireCalculatedField - the copy that now serves its readers.
 
     DefinitionOp:
       type: object

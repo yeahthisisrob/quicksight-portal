@@ -186,6 +186,7 @@ theme and never write a definition QuickSight would refuse:
 | Add calculated fields from the template library | `addCalculatedFields` on `.../rebind/preview` |
 | See each calculated field, its expression and what reads it | `GET /api/authoring/{type}/{id}/calculated-fields` |
 | Replace a calculated field with a column the dataset now has, rename one, or drop one nothing reads | `ops`: `replaceCalculatedField` (identifier, name, column), `renameCalculatedField` (identifier, name, to), `dropCalculatedField` (identifier, name); no sheetId, they follow every reference |
+| Rename a dataset's calculated field without breaking what reads it | `GET /api/authoring/datasets/{id}/calculated-fields?readers=true`, then `POST` the same path with `copyCalculatedField` (name, to); move each reader with a rebind of the same dataset and `columnMap` {old: new}; then `retireCalculatedField` (name, replacedBy), refused while anything still reads the old name. `dryRun: true` checks without writing |
 | Repair an asset QuickSight refuses to write | `POST /api/authoring/{type}/{id}/repair/plan`, then `repairs` on the preview |
 | A dashboard from nothing, by naming columns | `POST /api/authoring/new/preview` with `visuals` |
 
@@ -424,7 +425,8 @@ curl -sS -X POST "$QSP_API_URL/api/playbooks/consolidate-athena/run" \
   (match a replacement dataset, optionally letting a model map names that
   differ, then rebind; tag; repair; add to a folder; replace calculated
   fields the governed dataset now holds as columns, judged by a model; drop
-  calculated fields nothing reads; rename them to a prefix and snake_case;
+  calculated fields nothing reads; rename them to a prefix and snake_case,
+  in dashboards and analyses or, migrated reader by reader, in datasets;
   each dry-run first). Any value can be
   `{{inputKey}}`. `GET /api/playbooks/custom/{id}` returns a shipped
   example's spec too, to copy. A saved one previews and runs like the rest;

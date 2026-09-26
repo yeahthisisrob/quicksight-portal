@@ -1,0 +1,10 @@
+# Redocly lint exceptions, each with its reason. See https://redocly.com/docs/cli/.
+#
+# /api/playbooks/custom/{playbookId} reads as ambiguous beside
+# /api/playbooks/{playbookId}/preview|run, but no playbook is called
+# "custom" (saved ones are "custom-<id>"), and the router matches the literal
+# /playbooks/custom/ prefix first.
+../../shared/schemas/api.openapi.yaml:
+  no-ambiguous-paths:
+    - '#/paths/~1api~1playbooks~1{playbookId}~1preview'
+    - '#/paths/~1api~1playbooks~1{playbookId}~1run'
