@@ -17,7 +17,7 @@ export { foldersApi } from './modules/folders';
 export { groupsApi } from './modules/groups';
 export { ingestionsApi } from './modules/ingestions';
 export { jobsApi } from './modules/jobs';
-export { scriptsApi } from './modules/scripts';
+export { playbooksApi } from './modules/playbooks';
 export { settingsApi } from './modules/settings';
 export { tagsApi } from './modules/tags';
 export { usersApi } from './modules/users';

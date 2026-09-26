@@ -5,9 +5,12 @@
  *   Editor     one dashboard or analysis: its issues and their fixes, the
  *              visuals on a canvas to move, rename, retype or remove, the
  *              datasets it reads, how it is used; save over it or as a copy.
+ *              Or one dataset: where it reads from, what reads it, its
+ *              governance. Archived ones open here to be restored.
  *   Templates  the reusable pieces: filter bars, visuals, calculated fields
  *              and layout templates.
- *   Scripts    fixes across the whole account, previewed before they run.
+ *   Playbooks  fixes across the whole account: scoped, gated, previewed,
+ *              chosen, then run, with every asset's outcome kept.
  *
  * Nothing here asks a model or makes something from nothing: that is the
  * Assistant (or the QuickSight console). The view is in the URL (?view=).
@@ -19,28 +22,31 @@ import { SegmentedControl } from '@/shared/design-system';
 
 import { type Studio, type StudioOptions, useStudio } from '../model/useStudio';
 import { Editor } from './editor/Editor';
-import { ScriptsPanel } from './scripts/ScriptsPanel';
+import { PlaybooksView } from './playbooks/PlaybooksView';
 import { TemplatesView } from './templates/TemplatesView';
 
-export type StudioView = 'editor' | 'templates' | 'scripts';
+export type StudioView = 'editor' | 'templates' | 'playbooks';
 
 const VIEWS: Array<{ value: StudioView; label: string }> = [
   { value: 'editor', label: 'Editor' },
   { value: 'templates', label: 'Templates' },
-  { value: 'scripts', label: 'Scripts' },
+  { value: 'playbooks', label: 'Playbooks' },
 ];
 
 const DESCRIPTIONS: Record<StudioView, string> = {
   editor:
-    'Fix and shape an existing dashboard or analysis: its errors, its visuals, its layout. New assets come from the Assistant.',
+    'Fix and shape an existing dashboard, analysis or dataset: its errors, its visuals, where it reads from. Archived ones come back from here. New assets come from the Assistant.',
   templates:
     'The pieces the organisation reuses: filter bars, visuals, calculated fields and layouts. The Assistant and the portal apply them.',
-  scripts: 'Fixes across the whole account. Each one shows what it will touch before it runs.',
+  playbooks:
+    'Fixes across the whole account. Each shows what it would touch, and why, before anything changes.',
 };
 
 function viewOf(params: URLSearchParams): StudioView {
   const view = params.get('view');
-  return view === 'templates' || view === 'scripts' ? view : 'editor';
+  // 'scripts' was this view's old name; links to it still land here.
+  if (view === 'scripts' || view === 'playbooks') return 'playbooks';
+  return view === 'templates' ? view : 'editor';
 }
 
 /** The Studio with its editor state injected, so stories can drive it. */
@@ -81,8 +87,8 @@ export function AuthorStudioView({
       </Box>
       {view === 'templates' ? (
         <TemplatesView />
-      ) : view === 'scripts' ? (
-        <ScriptsPanel />
+      ) : view === 'playbooks' ? (
+        <PlaybooksView />
       ) : (
         <Editor
           key={

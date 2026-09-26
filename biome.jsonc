@@ -246,6 +246,36 @@
         }
       }
     },
+    // shared/ is below every slice: a slice may use it, it may not use a slice. Code that
+    // composes slices lives at the composition roots (api/, jobs/, worker.ts, index.ts).
+    {
+      "includes": ["backend/lambda/shared/**/*.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@aws-sdk/client-quicksight"],
+                    "message": "Do not import @aws-sdk/client-quicksight directly. Use shared/types/aws-sdk-types.ts for types, or QuickSightAdapter for SDK operations."
+                  },
+                  {
+                    "group": ["**/adapters/aws/QuickSightAdapter"],
+                    "message": "Do not import QuickSightAdapter directly. Use QuickSightService for QuickSight operations."
+                  },
+                  {
+                    "group": ["**/features/**"],
+                    "message": "shared/ may not import a feature slice. Move the code a slice needs into shared, or compose at a root (api/, jobs/, worker.ts)."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     // The adapter layer is where the raw SDK belongs.
     {
       "includes": [

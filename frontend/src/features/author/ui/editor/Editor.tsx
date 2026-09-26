@@ -24,6 +24,7 @@ import { compactNumber } from '../../lib/ranking';
 import type { StudioPanel } from '../../model/studio';
 import type { Studio } from '../../model/useStudio';
 import { ChangesList } from '../ChangesList';
+import { DatasetEditor } from '../dataset/DatasetEditor';
 import { Inspector } from '../mockup/Inspector';
 import { OpsList } from '../mockup/OpsList';
 import { Panel } from '../primitives/Panel';
@@ -204,6 +205,15 @@ export function Editor({ studio }: { studio: Studio }) {
   const firstSheet = preview.outline?.[0]?.sheetId ?? source.model?.sheets[0]?.id ?? '';
   const currentSheetId = sheetId ?? firstSheet;
 
+  if (studio.dataset) {
+    return (
+      <DatasetEditor
+        dataset={studio.dataset}
+        onClose={() => studio.open(null)}
+        onOpen={(next) => studio.open(next)}
+      />
+    );
+  }
   if (studio.archivedData) {
     const pick = studio.archivedData;
     const type = pick.type === 'dataset' || pick.type === 'datasource' ? pick.type : null;
@@ -212,7 +222,13 @@ export function Editor({ studio }: { studio: Studio }) {
     }
   }
   if (!studio.state.source) {
-    return <AssetBrowser onOpen={studio.open} onOpenArchived={studio.openArchived} />;
+    return (
+      <AssetBrowser
+        onOpen={studio.open}
+        onOpenArchived={studio.openArchived}
+        onOpenDataset={studio.openDataset}
+      />
+    );
   }
 
   return (

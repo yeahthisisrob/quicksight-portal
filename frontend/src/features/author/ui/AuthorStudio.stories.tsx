@@ -1,12 +1,12 @@
 import { Box } from '@mui/material';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import type { MockRoute } from '../../../../.storybook/mocks/api';
 import { MockedApi } from '../../../../.storybook/mocks/api';
 import { authorRoutes, EDITOR_OPS, fakeStudio, REPAIR_PLAN } from './__stories__/fixtures';
 import { AuthorStudioView, type StudioView } from './AuthorStudio';
 import { AssetBrowser } from './editor/AssetBrowser';
 import { SaveDialog } from './editor/SaveDialog';
+import { playbookRoutes } from './playbooks/__stories__/fixtures';
 
 /**
  * Each story hands `AuthorStudioView` a canned studio so each view and
@@ -22,7 +22,7 @@ const meta: Meta<typeof AuthorStudioView> = {
     docs: {
       description: {
         component:
-          'The Studio edits and fixes what exists, by function rather than by steps: the Editor (issues and their fixes, the canvas, the inspector, the datasets and their SMUS governance, usage; save over it or as a copy), the Templates everything reuses, and account-wide Scripts. New assets come from the Assistant.',
+          'The Studio edits and fixes what exists, by function rather than by steps: the Editor (issues and their fixes, the canvas, the inspector, the datasets and their SMUS governance, usage; save over it or as a copy), the Templates everything reuses, and account-wide Playbooks. New assets come from the Assistant.',
       },
     },
   },
@@ -31,28 +31,9 @@ const meta: Meta<typeof AuthorStudioView> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A demo-cleanup preview, so the Scripts view has something to show. */
-const DEMO_CLEANUP: MockRoute = {
-  method: 'get',
-  url: '/scripts/demo-cleanup/preview',
-  respond: () => ({
-    body: {
-      success: true,
-      data: {
-        datasources: [{ id: 'ds-sample', name: 'Sample data', bucket: 'spaceneedle-samplefiles' }],
-        datasets: [
-          { id: 'people', name: 'People Overview' },
-          { id: 'sales-pipeline', name: 'Sales Pipeline' },
-        ],
-        analyses: [{ id: 'business-review', name: 'Business Review' }],
-      },
-    },
-  }),
-};
-
 function view(studio: ReturnType<typeof fakeStudio>, current: StudioView = 'editor') {
   return (
-    <MockedApi routes={authorRoutes([DEMO_CLEANUP])}>
+    <MockedApi routes={authorRoutes(playbookRoutes())}>
       <AuthorStudioView studio={studio} view={current} onViewChange={() => {}} />
     </MockedApi>
   );
@@ -78,10 +59,45 @@ export const BrowseSearch: Story = {
   render: () => (
     <MockedApi routes={authorRoutes()}>
       <Box sx={{ p: 3, maxWidth: 960 }}>
-        <AssetBrowser onOpen={() => {}} onOpenArchived={() => {}} initialSearch="sales revenue" />
+        <AssetBrowser
+          onOpen={() => {}}
+          onOpenArchived={() => {}}
+          onOpenDataset={() => {}}
+          initialSearch="sales revenue"
+        />
       </Box>
     </MockedApi>
   ),
+};
+
+export const BrowseDatasets: Story = {
+  name: 'Editor · open a dataset',
+  render: () => (
+    <MockedApi routes={authorRoutes()}>
+      <Box sx={{ p: 3, maxWidth: 960 }}>
+        <AssetBrowser
+          onOpen={() => {}}
+          onOpenArchived={() => {}}
+          onOpenDataset={() => {}}
+          initialType="dataset"
+        />
+      </Box>
+    </MockedApi>
+  ),
+};
+
+export const Dataset: Story = {
+  name: 'Editor · a dataset',
+  render: () =>
+    view(fakeStudio({ closed: true, dataset: { id: 'sales-gold', name: 'sales_gold' } })),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Where it reads from, edited in place (data source, catalog, schema, table or query); what reads it, its SMUS governance and its calculated fields beside. Columns are never rewritten, so every dashboard downstream keeps working.',
+      },
+    },
+  },
 };
 
 export const BrowseArchived: Story = {
@@ -89,7 +105,12 @@ export const BrowseArchived: Story = {
   render: () => (
     <MockedApi routes={authorRoutes()}>
       <Box sx={{ p: 3, maxWidth: 960 }}>
-        <AssetBrowser onOpen={() => {}} onOpenArchived={() => {}} initialScope="archived" />
+        <AssetBrowser
+          onOpen={() => {}}
+          onOpenArchived={() => {}}
+          onOpenDataset={() => {}}
+          initialScope="archived"
+        />
       </Box>
     </MockedApi>
   ),
@@ -321,7 +342,7 @@ export const Templates: Story = {
   },
 };
 
-export const Scripts: Story = {
-  name: 'Scripts',
-  render: () => view(fakeStudio({ closed: true }), 'scripts'),
+export const Playbooks: Story = {
+  name: 'Playbooks',
+  render: () => view(fakeStudio({ closed: true }), 'playbooks'),
 };

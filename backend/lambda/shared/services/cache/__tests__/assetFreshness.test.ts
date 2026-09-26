@@ -8,7 +8,7 @@ vi.mock('../../../utils/logger', () => ({
 vi.mock('../CacheService', () => ({ cacheService: { updateAsset } }));
 vi.mock('../../jobs/JobFactory', () => ({ JobFactory: { getInstance: () => ({ createJob }) } }));
 
-import { keepCacheFresh } from '../assetFreshness';
+import { batchFreshness, keepCacheFresh } from '../assetFreshness';
 
 describe('keepCacheFresh', () => {
   beforeEach(() => {
@@ -51,6 +51,38 @@ describe('keepCacheFresh', () => {
       keepCacheFresh([{ assetType: 'dashboard', assetId: 'd-1', name: 'Sales' }])
     ).resolves.toBeUndefined();
     await keepCacheFresh([]);
+    expect(createJob).toHaveBeenCalledTimes(1);
+  });
+
+  it('inside a batch, gathers every write into one refresh at the end', async () => {
+    const result = await batchFreshness(
+      async () => {
+        await keepCacheFresh([{ assetType: 'dataset', assetId: 'a', name: 'A' }]);
+        await Promise.all([
+          keepCacheFresh([{ assetType: 'dataset', assetId: 'b', name: 'B' }]),
+          keepCacheFresh([{ assetType: 'dataset', assetId: 'a', name: 'A' }]),
+        ]);
+        expect(createJob).not.toHaveBeenCalled();
+        return 'done';
+      },
+      { accountId: '123' }
+    );
+    expect(result).toBe('done');
+    expect(updateAsset).toHaveBeenCalledTimes(3);
+    expect(createJob).toHaveBeenCalledTimes(1);
+    expect(createJob.mock.calls[0]?.[0].assets).toEqual([
+      { assetType: 'dataset', assetId: 'a' },
+      { assetType: 'dataset', assetId: 'b' },
+    ]);
+  });
+
+  it('still queues what was written when the batch throws', async () => {
+    await expect(
+      batchFreshness(async () => {
+        await keepCacheFresh([{ assetType: 'dataset', assetId: 'a' }]);
+        throw new Error('half way');
+      })
+    ).rejects.toThrow('half way');
     expect(createJob).toHaveBeenCalledTimes(1);
   });
 });

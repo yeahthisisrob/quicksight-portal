@@ -1,9 +1,16 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
 
 import { apiHandler } from './api/apiHandler';
+import { ExportOrchestrator } from './features/data-export/services/ExportOrchestrator';
 import { STATUS_CODES } from './shared/constants';
+import { registerAssetRefresher } from './shared/services/cache/assetRefresher';
 import { errorResponse, successResponse } from './shared/utils/cors';
 import { logger } from './shared/utils/logger';
+
+// A delete through the API archives what QuickSight has now (see worker.ts).
+registerAssetRefresher((assets) =>
+  new ExportOrchestrator(process.env.AWS_ACCOUNT_ID || '').refreshAssets(assets)
+);
 
 // Warm start optimization - keep track of initialization
 let isWarm = false;

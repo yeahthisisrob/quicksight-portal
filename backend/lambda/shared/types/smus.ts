@@ -1,4 +1,4 @@
-import type { SmusSnapshotSummary } from '../../../shared/services/smus/SmusSnapshot';
+import type { SmusSnapshotSummary } from '../services/smus/SmusSnapshot';
 
 /**
  * How a QuickSight dataset was matched to a SMUS catalog listing, in

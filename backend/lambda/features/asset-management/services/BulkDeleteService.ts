@@ -9,6 +9,7 @@ import { TIME_UNITS } from '../../../shared/constants';
 import type { CacheEntry } from '../../../shared/models/asset.model';
 import { ArchiveService } from '../../../shared/services/archive/ArchiveService';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
+import { assetRefresher, type RefreshAssets } from '../../../shared/services/cache/assetRefresher';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import {
   ASSET_TYPES,
@@ -45,17 +46,12 @@ interface BulkDeleteResult {
   duration: number;
 }
 
-/** Re-export these assets from QuickSight (the worker hands in the export's refresh). */
-export type RefreshAssets = (
-  assets: Array<{ assetType: AssetType; assetId: string }>
-) => Promise<{ refreshed: string[]; missing: string[]; failed: string[] }>;
-
 export class BulkDeleteService {
   private readonly archiveService: ArchiveService;
 
   public constructor(
     private readonly quickSightService: QuickSightService,
-    private readonly refreshAssets?: RefreshAssets
+    private readonly refreshAssets: RefreshAssets | undefined = assetRefresher()
   ) {
     const bucketName = process.env.BUCKET_NAME || 'quicksight-metadata-bucket';
     this.archiveService = new ArchiveService(bucketName, cacheService);

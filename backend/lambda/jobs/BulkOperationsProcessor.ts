@@ -8,28 +8,26 @@
 import pLimit from 'p-limit';
 
 // Import services that will handle individual operations
-import {
-  BulkDeleteService,
-  type RefreshAssets,
-} from '../../../features/asset-management/services/BulkDeleteService';
-import { FolderService } from '../../../features/organization/services/FolderService';
-import { IdentityService } from '../../../features/organization/services/IdentityService';
-import { TagService } from '../../../features/organization/services/TagService';
-import { MATH_CONSTANTS, PAGINATION, TIME_UNITS } from '../../constants';
-import type { AssetType } from '../../types/assetTypes';
+import { BulkDeleteService } from '../features/asset-management/services/BulkDeleteService';
+import { FolderService } from '../features/organization/services/FolderService';
+import { IdentityService } from '../features/organization/services/IdentityService';
+import { TagService } from '../features/organization/services/TagService';
+import { MATH_CONSTANTS, PAGINATION, TIME_UNITS } from '../shared/constants';
+import { ClientFactory } from '../shared/services/aws/ClientFactory';
+import { QuickSightService } from '../shared/services/aws/QuickSightService';
+import { summarizeBulkResult } from '../shared/services/bulk/bulkResultSummary';
+import { keepCacheFresh } from '../shared/services/cache/assetFreshness';
+import { assetRefresher } from '../shared/services/cache/assetRefresher';
+import { cacheService } from '../shared/services/cache/CacheService';
+import type { JobStateService } from '../shared/services/jobs/JobStateService';
+import type { AssetType } from '../shared/types/assetTypes';
 import type {
   BulkAssetReference,
   BulkOperationConfig,
   BulkOperationItemResult,
   BulkOperationResult,
-} from '../../types/bulkOperationTypes';
-import { logger } from '../../utils/logger';
-import { ClientFactory } from '../aws/ClientFactory';
-import { QuickSightService } from '../aws/QuickSightService';
-import { keepCacheFresh } from '../cache/assetFreshness';
-import { cacheService } from '../cache/CacheService';
-import type { JobStateService } from '../jobs/JobStateService';
-import { summarizeBulkResult } from './bulkResultSummary';
+} from '../shared/types/bulkOperationTypes';
+import { logger } from '../shared/utils/logger';
 
 // Processing constants
 const PROCESSING_CONSTANTS = {
@@ -59,17 +57,10 @@ export class BulkOperationsProcessor {
   private lastProgressUpdate: number = 0;
   private readonly tagService: TagService;
 
-  /**
-   * `refreshAssets` re-exports assets from QuickSight; the worker passes the
-   * export's, so a delete archives what QuickSight has now.
-   */
-  private readonly refreshAssets?: RefreshAssets;
-
-  public constructor(accountId: string, deps: { refreshAssets?: RefreshAssets } = {}) {
+  public constructor(accountId: string) {
     const quickSightService = ClientFactory.getQuickSightService(accountId);
-    this.refreshAssets = deps.refreshAssets;
 
-    this.bulkDeleteService = new BulkDeleteService(quickSightService, deps.refreshAssets);
+    this.bulkDeleteService = new BulkDeleteService(quickSightService);
     this.folderService = new FolderService(accountId);
     this.identityService = new IdentityService(accountId);
     this.tagService = new TagService(accountId);
@@ -206,8 +197,9 @@ export class BulkOperationsProcessor {
     }
     await this.updateProgress('Refreshing what changed', PAGINATION.MAX_PAGE_SIZE - 1);
     try {
-      if (this.refreshAssets) {
-        const refreshed = await this.refreshAssets(affected);
+      const refreshAssets = assetRefresher();
+      if (refreshAssets) {
+        const refreshed = await refreshAssets(affected);
         if (refreshed.failed.length > 0) {
           logger.warn('Some changed assets could not be re-read after the bulk operation', {
             failed: refreshed.failed,

@@ -43,5 +43,4 @@ export const smusRoutes: RouteHandler[] = [
 // Export service
 
 // Export types
-export type * from './types';
 // Export handlers

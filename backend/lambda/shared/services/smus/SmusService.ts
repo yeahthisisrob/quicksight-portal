@@ -15,6 +15,13 @@ import type {
   CatalogProject,
   DataZoneAdapter,
 } from '../../../adapters/aws/DataZoneAdapter';
+import { getSmusConfig, type SmusConfig } from '../../config/smusConfig';
+import { CACHE_TTL } from '../../constants/timeConstants';
+import { ValidationError } from '../../errors/ValidationError';
+import type { QuickSightService } from '../../services/aws/QuickSightService';
+import type { CacheService } from '../../services/cache/CacheService';
+import { AssetStatusFilter } from '../../types/assetFilterTypes';
+import { ASSET_TYPES } from '../../types/assetTypes';
 import type {
   CreateSmusDatasetRequest,
   SmusAsset,
@@ -23,14 +30,7 @@ import type {
   SmusDatasetLink,
   SmusMatchType,
   SmusStatus,
-} from '../../../features/smus/types';
-import { getSmusConfig, type SmusConfig } from '../../config/smusConfig';
-import { CACHE_TTL } from '../../constants/timeConstants';
-import { ValidationError } from '../../errors/ValidationError';
-import type { QuickSightService } from '../../services/aws/QuickSightService';
-import type { CacheService } from '../../services/cache/CacheService';
-import { AssetStatusFilter } from '../../types/assetFilterTypes';
-import { ASSET_TYPES } from '../../types/assetTypes';
+} from '../../types/smus';
 import { logger } from '../../utils/logger';
 import { normalizePermissionsArray } from '../../utils/permissions';
 import { withTimeout } from '../../utils/withTimeout';

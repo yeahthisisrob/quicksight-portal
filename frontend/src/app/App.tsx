@@ -118,7 +118,7 @@ function App() {
                 />
                 <Route
                   path="scripts"
-                  element={<Navigate to="/author?tab=studio&view=scripts" replace />}
+                  element={<Navigate to="/author?tab=studio&view=playbooks" replace />}
                 />
                 <Route
                   path="activity"

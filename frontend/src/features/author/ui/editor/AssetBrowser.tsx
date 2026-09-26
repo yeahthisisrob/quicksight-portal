@@ -306,6 +306,78 @@ function ArchivedRow({ item, onSelect }: { item: ArchivedItem; onSelect: () => v
   );
 }
 
+type DatasetItem = components['schemas']['DatasetListItem'];
+
+/** Live datasets, most recently changed first; the search box filters them. */
+function DatasetList({
+  search,
+  onSelect,
+}: {
+  search: string;
+  onSelect: (pick: { id: string; name: string }) => void;
+}) {
+  const query = useQuery({
+    queryKey: ['author-sources', 'dataset', search.trim()],
+    queryFn: () =>
+      assetsApi.getDatasetsPaginated({
+        search: search.trim() || undefined,
+        pageSize: PAGE_SIZE,
+        page: 1,
+        sortBy: 'lastUpdatedTime',
+        sortOrder: 'desc',
+      }),
+  });
+  if (query.isLoading) {
+    return (
+      <Box sx={{ py: 2, display: 'flex', justifyContent: 'center' }}>
+        <CircularProgress size={20} />
+      </Box>
+    );
+  }
+  if (query.error) {
+    return (
+      <Typography variant="body2" color="error" sx={{ py: 1 }}>
+        {getApiErrorMessage(query.error, 'The datasets could not be read')}
+      </Typography>
+    );
+  }
+  const items = (query.data?.datasets ?? []) as DatasetItem[];
+  if (items.length === 0) {
+    return (
+      <Typography variant="body2" sx={{ color: 'text.secondary', py: 1 }}>
+        No datasets{search.trim() ? ` match "${search.trim()}"` : ''}.
+      </Typography>
+    );
+  }
+  return (
+    <List disablePadding data-testid="dataset-list">
+      {items.map((item) => (
+        <ListItemButton
+          key={item.id}
+          onClick={() => onSelect({ id: item.id, name: item.name })}
+          sx={{ borderRadius: 2, mb: 0.5 }}
+          data-testid={`dataset-row-${item.id}`}
+        >
+          <ListItemText
+            primary={
+              <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                {item.name}
+              </Typography>
+            }
+            secondary={[
+              item.importMode,
+              item.sourceType,
+              timeAgo(item.lastUpdatedTime) && `changed ${timeAgo(item.lastUpdatedTime)}`,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          />
+        </ListItemButton>
+      ))}
+    </List>
+  );
+}
+
 /** Archived assets of one kind, newest first; the search box filters them. */
 function ArchivedList({
   type,
@@ -378,6 +450,7 @@ function merge(templates: SourceItem[] | undefined, results: SourceItem[] | unde
 export function AssetBrowser({
   onOpen,
   onOpenArchived,
+  onOpenDataset,
   initialType = 'dashboard',
   initialSearch = '',
   initialScope = 'live',
@@ -385,13 +458,18 @@ export function AssetBrowser({
   onOpen: (source: RebindSource) => void;
   /** Open something from the archive, to restore it. */
   onOpenArchived: (pick: ArchivedPick) => void;
-  initialType?: SourceType;
+  /** Open a dataset in the dataset editor. */
+  onOpenDataset: (pick: { id: string; name: string }) => void;
+  initialType?: SourceType | 'dataset';
   /** Text in the search box at first render (stories). */
   initialSearch?: string;
   initialScope?: Scope;
 }) {
   const [scope, setScope] = useState<Scope>(initialScope);
-  const [type, setType] = useState<SourceType>(initialType);
+  const [liveType, setLiveType] = useState<SourceType | 'dataset'>(initialType);
+  const datasets = liveType === 'dataset';
+  // Dashboards and analyses rank and search the same way; datasets list on their own.
+  const type: SourceType = datasets ? 'dashboard' : liveType;
   const [archivedType, setArchivedType] = useState<ArchivedType>(initialType);
   const [search, setSearch] = useState(initialSearch);
   const [sort, setSort] = useState<SourceSort>('views');
@@ -399,18 +477,18 @@ export function AssetBrowser({
   // name, column, calculated field, tag or folder; the ranked list is for
   // browsing when the box is empty.
   const archive = scope === 'archived';
-  const searching = !archive && search.trim().length >= SEARCH_MIN_LENGTH;
+  const searching = !archive && !datasets && search.trim().length >= SEARCH_MIN_LENGTH;
   const found = useSearchHits(search, { types: [type], enabled: searching });
 
   const templates = useQuery({
     queryKey: ['author-sources', type, 'templates'],
     queryFn: () => listSources(type, '', true),
-    enabled: !searching && !archive,
+    enabled: !searching && !archive && !datasets,
   });
   const results = useQuery({
     queryKey: ['author-sources', type, 'list'],
     queryFn: () => listSources(type, '', false),
-    enabled: !searching && !archive,
+    enabled: !searching && !archive && !datasets,
   });
 
   const ranked = useMemo(
@@ -418,7 +496,7 @@ export function AssetBrowser({
     [templates.data, results.data, sort]
   );
   const broken = ranked.filter((r) => r.group === 'errors').length;
-  const plural = type === 'dashboard' ? 'dashboards' : 'analyses';
+  const plural = datasets ? 'datasets' : type === 'dashboard' ? 'dashboards' : 'analyses';
   const archivedPlural =
     ARCHIVED_TYPES.find((t) => t.value === archivedType)?.label.toLowerCase() ?? 'assets';
 
@@ -462,15 +540,16 @@ export function AssetBrowser({
             <ToggleButtonGroup
               exclusive
               size="small"
-              value={type}
-              onChange={(_, next: SourceType | null) => next && setType(next)}
+              value={liveType}
+              onChange={(_, next: SourceType | 'dataset' | null) => next && setLiveType(next)}
             >
               <ToggleButton value="dashboard">Dashboards</ToggleButton>
               <ToggleButton value="analysis">Analyses</ToggleButton>
+              <ToggleButton value="dataset">Datasets</ToggleButton>
             </ToggleButtonGroup>
           )}
           <Box sx={{ flex: 1 }} />
-          {!archive && (
+          {!archive && !datasets && (
             <SegmentedControl<SourceSort>
               size="small"
               ariaLabel="Sort"
@@ -486,7 +565,9 @@ export function AssetBrowser({
           placeholder={
             archive
               ? `Search archived ${archivedPlural} by name, id or reason`
-              : `Search ${plural} by name, column, calculated field, tag or folder`
+              : datasets
+                ? 'Search datasets by name'
+                : `Search ${plural} by name, column, calculated field, tag or folder`
           }
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -503,6 +584,8 @@ export function AssetBrowser({
 
         {archive ? (
           <ArchivedList type={archivedType} search={search} onSelect={onOpenArchived} />
+        ) : datasets ? (
+          <DatasetList search={search} onSelect={onOpenDataset} />
         ) : searching ? (
           <SearchResults
             search={found}

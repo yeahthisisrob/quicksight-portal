@@ -44,6 +44,12 @@ export const assetManagementRoutes: RouteHandler[] = [
   },
 
   {
+    method: 'DELETE',
+    path: /^\/assets\/(dashboard|analysis|dataset|datasource)\/([^/]+)$/,
+    handler: (event) => handler.deleteAsset(event),
+  },
+
+  {
     method: 'POST',
     path: '/assets/rebuild-index',
     handler: (event) => handler.rebuildIndex(event),

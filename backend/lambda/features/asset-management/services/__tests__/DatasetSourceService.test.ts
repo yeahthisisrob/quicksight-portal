@@ -260,7 +260,7 @@ describe('DatasetSourceService', () => {
   describe('listDataSourceOptions', () => {
     it('returns the account data sources sorted by name', async () => {
       mocks.cache.getCacheEntries.mockResolvedValue([
-        { assetId: 'b', assetName: 'Zeta', arn: SOURCE_B, metadata: { dataSourceType: 'ATHENA' } },
+        { assetId: 'b', assetName: 'Zeta', arn: SOURCE_B, metadata: { sourceType: 'ATHENA' } },
         { assetId: 'a', assetName: 'Alpha', arn: SOURCE_A, metadata: {} },
       ]);
 

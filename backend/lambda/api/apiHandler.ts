@@ -72,7 +72,7 @@ const handleRequest = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
       return successResponse(event, {
         message: 'QuickSight Assets Portal API',
         version: '2.0',
-        architecture: 'VSA (View-Service-Adapter)',
+        architecture: 'Vertical Slice Architecture',
         features: {
           'asset-management': {
             description: 'Asset CRUD, tags, permissions, lineage',
