@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.28.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.27.2...v2.28.0) (2026-09-26)
+
+
+### Features
+
+* **playbooks:** use governed columns instead of calculated fields, judged by a model and dry-run ([#255](https://github.com/yeahthisisrob/quicksight-portal/issues/255)) ([ec35cfa](https://github.com/yeahthisisrob/quicksight-portal/commit/ec35cfa6efb552babbc064ad72e8b53f01f02f98))
+
 ## [2.27.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.27.1...v2.27.2) (2026-09-26)
 
 
