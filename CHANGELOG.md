@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.25.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.24.1...v2.25.0) (2026-09-26)
+
+
+### Features
+
+* **identity:** name the people behind jobs and archives, linked to their QuickSight user ([b94d5ee](https://github.com/yeahthisisrob/quicksight-portal/commit/b94d5eeff510fc6b6739eff437031835a4387559))
+* **operations:** a Jobs tab - every job in one filterable grid, a detail drawer, and logs as data followed live ([#241](https://github.com/yeahthisisrob/quicksight-portal/issues/241)) ([7bf9c06](https://github.com/yeahthisisrob/quicksight-portal/commit/7bf9c06c42c8d8692a8967a0e152faf2557882c8))
+* **playbooks:** account-wide fixes on one engine, and datasets in the Studio ([#244](https://github.com/yeahthisisrob/quicksight-portal/issues/244)) ([ad7a1b4](https://github.com/yeahthisisrob/quicksight-portal/commit/ad7a1b4fcff97ad22bbdb869810dc8a442fe89c5))
+* **restore:** restore archived assets in the Studio through the authoring API, repaired on the way back; Operations &gt; Archived is the ledger ([b94d5ee](https://github.com/yeahthisisrob/quicksight-portal/commit/b94d5eeff510fc6b6739eff437031835a4387559))
+* **studio:** an editing studio by function - Editor, Templates, Scripts - with AI authoring left to the Assistant ([#239](https://github.com/yeahthisisrob/quicksight-portal/issues/239)) ([c0c9f9e](https://github.com/yeahthisisrob/quicksight-portal/commit/c0c9f9e7ae62c73b4a973ba952a9623e7977be84))
+
+
+### Bug Fixes
+
+* **cache:** every live and bulk write leaves the cache showing what QuickSight has ([b94d5ee](https://github.com/yeahthisisrob/quicksight-portal/commit/b94d5eeff510fc6b6739eff437031835a4387559))
+* **export:** never lose permissions, tags, definitions or folder members; deletes archive what QuickSight has now ([b94d5ee](https://github.com/yeahthisisrob/quicksight-portal/commit/b94d5eeff510fc6b6739eff437031835a4387559))
+* **jobs:** every job says who started it by name, and the message column stops hogging the grid ([#242](https://github.com/yeahthisisrob/quicksight-portal/issues/242)) ([c3c8ec5](https://github.com/yeahthisisrob/quicksight-portal/commit/c3c8ec52bc0358b3202b5d6ef2f89f78f31da48d))
+
+
+### Documentation
+
+* **api:** playbooks in the served API guide, without repository-only instructions ([#245](https://github.com/yeahthisisrob/quicksight-portal/issues/245)) ([71e7236](https://github.com/yeahthisisrob/quicksight-portal/commit/71e7236c945116941c06fa65e0b8e47897afe4e6))
+
 ## [2.24.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.24.0...v2.24.1) (2026-09-26)
 
 
