@@ -297,6 +297,16 @@ why). The `fields` artifact places each calculated field the plan adds:
 | `row-level` | Row-level; your guidance states no preference |
 | `analysis` | Aggregates, table or level-aware calculations, or parameters |
 
+**Filters and filter bars.** Building from nothing (`POST /api/authoring/new`),
+send `filters` by column name: a text column gets a dropdown, a date a
+date-range picker, a number a slider (give `min` and `max`). Each control
+goes in the sheet's control bar, where QuickSight puts controls by default.
+To filter an existing analysis, send an `addFilter` op (the dataset
+identifier and the column) to `.../rebind` with `mode: "update"`. The
+organisation's standard bars live at `/api/data-catalog/templates/filter-bars`.
+The default bar is applied to every new analysis unless `filterBarTemplateId`
+names another or `none`.
+
 **Authoring guidance.** Settings, under Authoring guidance, holds how your
 organisation builds: a calculated-field strategy (materialise in the
 source, in the dataset, or no preference) and free text about your

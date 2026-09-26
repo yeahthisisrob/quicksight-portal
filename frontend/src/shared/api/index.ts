@@ -11,6 +11,7 @@ export { authoringApi } from './modules/authoring';
 export {
   calculatedFieldTemplatesApi,
   dataCatalogApi,
+  filterBarTemplatesApi,
   smusCatalogApi,
 } from './modules/data-catalog';
 export { deployApi } from './modules/deploy';

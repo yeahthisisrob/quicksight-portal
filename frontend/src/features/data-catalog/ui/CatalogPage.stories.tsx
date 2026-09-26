@@ -4,11 +4,12 @@ import { Navigate } from 'react-router-dom';
 
 import { type MockRoute, mockApi } from '../../../../.storybook/mocks/api';
 import { LONG_FORMS_ASSET, SALES_ASSET, SALES_GOLD_DATASET } from './__stories__/fixtures';
-import { catalogRoutes } from './__stories__/routes';
+import { catalogRoutes, FILTER_BARS } from './__stories__/routes';
 import { AssetDetail } from './AssetDetail';
 import { CatalogPage } from './CatalogPage';
 import ExpressionGraphDialog from './dialogs/ExpressionGraphDialog';
-import { TemplateLibraryDialog } from './templates/TemplateLibraryDialog';
+import { FilterBarDialog } from './templates/FilterBarDialog';
+import { TemplatesView } from './templates/TemplatesView';
 
 /**
  * The page makes three kinds of request: the unscoped list (to learn the
@@ -238,11 +239,20 @@ export const Lineage: Story = {
   ),
 };
 
-/** The saved calculated-field templates. */
-export const TemplateLibrary: Story = {
+/** The Templates tab: the filter bars (the default first), calculated-field templates and layouts. */
+export const Templates: Story = {
   render: () => (
-    <Mocked routes={catalogRoutes()} path="/data-catalog">
-      <TemplateLibraryDialog open onClose={() => {}} />
+    <Mocked routes={catalogRoutes()} path="/data-catalog?tab=templates">
+      <TemplatesView />
+    </Mocked>
+  ),
+};
+
+/** Editing a filter bar: controls in order with widths, previewed as the bar. */
+export const FilterBarEditor: Story = {
+  render: () => (
+    <Mocked routes={catalogRoutes()} path="/data-catalog?tab=templates">
+      <FilterBarDialog open onClose={() => {}} template={FILTER_BARS[0] as never} />
     </Mocked>
   ),
 };

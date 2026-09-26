@@ -8,9 +8,14 @@ import type {
   SmusCatalogAssetSummary,
 } from '@/shared/api/modules/data-catalog';
 
-export type CatalogTab = 'calculated-fields' | 'columns' | 'smus';
+export type CatalogTab = 'calculated-fields' | 'columns' | 'smus' | 'templates';
 
-export const CATALOG_TABS: readonly CatalogTab[] = ['calculated-fields', 'columns', 'smus'];
+export const CATALOG_TABS: readonly CatalogTab[] = [
+  'calculated-fields',
+  'columns',
+  'smus',
+  'templates',
+];
 export const DEFAULT_CATALOG_TAB: CatalogTab = 'calculated-fields';
 
 export interface CatalogUrlState {
@@ -30,7 +35,7 @@ export interface CatalogUrlState {
   term?: string;
   /** Search text. */
   q?: string;
-  /** '1' opens the template library. */
+  /** '1' (older links) opens the Templates tab. */
   templates?: string;
 }
 
@@ -46,7 +51,7 @@ export function readCatalogState(params: URLSearchParams): CatalogUrlState {
     return value ? value : undefined;
   };
   return {
-    tab: readTab(read('tab')),
+    tab: readTab(read('tab')) ?? (read('templates') === '1' ? 'templates' : undefined),
     project: read('project'),
     asset: read('asset'),
     field: read('field'),

@@ -28,7 +28,6 @@ import { CatalogStats } from './CatalogStats';
 import { DatasetTagsFilter } from './DatasetTagsFilter';
 import { ProjectSelect } from './ProjectSelect';
 import { CATALOG_SCOPES, type CatalogSearchScope, SearchEverything } from './SearchEverything';
-import { TemplateLibraryDialog } from './templates/TemplateLibraryDialog';
 
 const SEARCH_DEBOUNCE_MS = 300;
 const LIST_WIDTH = 360;
@@ -89,7 +88,6 @@ export function CatalogPage({
   const [search, setSearch] = useState(url.q ?? '');
   const [scope, setScope] = useState<CatalogSearchScope>(initialScope);
   const [tags, setTags] = useState<TagFilter[]>([]);
-  const [libraryOpen, setLibraryOpen] = useState(false);
   const debouncedSearch = useDebounce(search, SEARCH_DEBOUNCE_MS);
 
   const projects = useCatalogProjects();
@@ -251,9 +249,10 @@ export function CatalogPage({
             <Button
               variant="outlined"
               startIcon={<CollectionsBookmark />}
-              onClick={() => setLibraryOpen(true)}
+              component={RouterLink}
+              to="/data-catalog?tab=templates"
             >
-              Template library
+              Templates
             </Button>
             {configured && projectOptions.length > 0 && (
               <ProjectSelect
@@ -267,7 +266,6 @@ export function CatalogPage({
         }
       />
       <Box sx={{ mt: 2 }}>{body}</Box>
-      {libraryOpen && <TemplateLibraryDialog open onClose={() => setLibraryOpen(false)} />}
     </Box>
   );
 }

@@ -280,7 +280,7 @@ export function CalculatedFieldDetail({
               icon={<CollectionsBookmark />}
               label="Template"
               component={RouterLink}
-              to="/data-catalog?tab=smus&templates=1"
+              to="/data-catalog?tab=templates"
               clickable
             />
           ) : null}
