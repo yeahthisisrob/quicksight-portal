@@ -8,7 +8,7 @@ vi.mock('../../../../shared/auth', () => ({
   requireAuth: vi.fn().mockResolvedValue({ userId: 'test-user', email: 'test@example.com' }),
 }));
 
-vi.mock('../../services/GroupService', () => ({
+vi.mock('../../../../shared/services/organization/GroupService', () => ({
   GroupService: vi.fn().mockImplementation(function () {
     return {
       createGroup: vi.fn().mockResolvedValue({
@@ -113,7 +113,9 @@ describe('GroupHandler', () => {
     });
 
     it('should handle creation errors', async () => {
-      const { GroupService } = await import('../../services/GroupService');
+      const { GroupService } = await import(
+        '../../../../shared/services/organization/GroupService'
+      );
       (GroupService as any).mockImplementationOnce(function () {
         return {
           createGroup: vi.fn().mockRejectedValue(new Error('Creation failed')),

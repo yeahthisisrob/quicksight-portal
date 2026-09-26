@@ -6,6 +6,10 @@ import { PAGINATION, STATUS_CODES } from '../../../shared/constants';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { SmusService } from '../../../shared/services/smus/SmusService';
+import {
+  CalculatedFieldTemplateStore,
+  validateTemplateInput,
+} from '../../../shared/services/templates/CalculatedFieldTemplateStore';
 import type { AssetType } from '../../../shared/types/assetTypes';
 import { errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
@@ -15,10 +19,6 @@ import {
   type SearchFieldConfig,
   type SortConfig,
 } from '../../../shared/utils/paginationUtils';
-import {
-  CalculatedFieldTemplateStore,
-  validateTemplateInput,
-} from '../services/CalculatedFieldTemplateStore';
 import { CatalogService } from '../services/CatalogService';
 import { type CatalogScope, FieldCatalogService } from '../services/FieldCatalogService';
 import { FieldMetadataService } from '../services/FieldMetadataService';

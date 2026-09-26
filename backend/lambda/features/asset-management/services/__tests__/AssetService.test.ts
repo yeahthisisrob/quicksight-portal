@@ -89,15 +89,17 @@ vi.mock('../../../../shared/services/lineage', () => ({
     };
   }),
 }));
-vi.mock('../../../activity/services/ActivityService', () => ({
-  ActivityService: vi.fn().mockImplementation(function () {
-    return {
-      getActivity: vi.fn(),
-      getUserActivityCounts: vi.fn().mockResolvedValue(new Map()),
-    };
-  }),
+const activity = vi.hoisted(() => ({
+  getAssetActivity: vi.fn(),
+  getAssetActivityCounts: vi.fn(),
+  getDatasetActivityCounts: vi.fn(),
+  getUserActivityCounts: vi.fn(),
 }));
-vi.mock('../../../organization/services/TagService', () => ({
+// Activity is read through the port the composition root fills.
+vi.mock('../../../../shared/services/activity/activityReader', () => ({
+  activityReader: () => activity,
+}));
+vi.mock('../../../../shared/services/organization/TagService', () => ({
   TagService: vi.fn().mockImplementation(function () {
     return {
       getTags: vi.fn(),
@@ -119,6 +121,9 @@ describe('AssetService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    activity.getUserActivityCounts.mockResolvedValue(new Map());
+    activity.getAssetActivityCounts.mockResolvedValue(new Map());
+    activity.getDatasetActivityCounts.mockResolvedValue(new Map());
     process.env.BUCKET_NAME = 'test-bucket';
     process.env.AWS_REGION = 'us-east-1';
     service = new AssetService(mockAccountId);
@@ -129,7 +134,6 @@ describe('AssetService', () => {
       // Verify that essential services are initialized
       expect((service as any).tagService).toBeDefined();
       expect((service as any).lineageService).toBeDefined();
-      expect((service as any).activityService).toBeDefined();
     });
 
     it('should not have any dynamic import() calls in the service methods', () => {
@@ -148,7 +152,6 @@ describe('AssetService', () => {
       // Each service should have its own service instances
       expect((service as any).tagService).not.toBe((service2 as any).tagService);
       expect((service as any).lineageService).not.toBe((service2 as any).lineageService);
-      expect((service as any).activityService).not.toBe((service2 as any).activityService);
     });
   });
 
@@ -264,6 +267,9 @@ describe('AssetService collection snapshot memoization', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    activity.getUserActivityCounts.mockResolvedValue(new Map());
+    activity.getAssetActivityCounts.mockResolvedValue(new Map());
+    activity.getDatasetActivityCounts.mockResolvedValue(new Map());
     process.env.BUCKET_NAME = 'test-bucket';
     process.env.AWS_REGION = 'us-east-1';
     service = new AssetService(mockAccountId);
@@ -288,7 +294,7 @@ describe('AssetService collection snapshot memoization', () => {
         etag: 'pers-1',
       });
 
-      const activitySpy = (service as any).activityService.getUserActivityCounts;
+      const activitySpy = activity.getUserActivityCounts;
 
       const first = await service.list('user', { maxResults: 10 });
       const second = await service.list('user', { maxResults: 10 });
@@ -307,7 +313,7 @@ describe('AssetService collection snapshot memoization', () => {
         etag: 'pers-1',
       });
 
-      const activitySpy = (service as any).activityService.getUserActivityCounts;
+      const activitySpy = activity.getUserActivityCounts;
 
       mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
         cache: buildUserCache(),

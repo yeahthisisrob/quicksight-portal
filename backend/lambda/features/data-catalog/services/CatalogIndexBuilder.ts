@@ -10,9 +10,14 @@
  * VSA: all catalog-specific logic lives in this slice. Only generic S3 access is
  * borrowed from the shared layer via ClientFactory.
  */
+
+import {
+  expressionLength,
+  extractFieldReferences,
+  hasComments,
+} from '../../../shared/lib/expressionAnalysis';
 import type { FieldInfo } from '../../../shared/services/cache/types';
 import { logger } from '../../../shared/utils/logger';
-import { expressionLength, extractFieldReferences, hasComments } from '../lib/expressionAnalysis';
 import type { CatalogIndex, IndexedCatalogField, IndexedFieldSource } from '../types';
 
 const CATALOG_INDEX_KEY = 'catalog/catalog-index.json';

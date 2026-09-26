@@ -150,6 +150,7 @@ coverage:
 [group('check')]
 architecture:
     {{x}} node scripts/verify-architecture-rules.mjs
+    {{x}} node scripts/verify-slice-boundaries.mjs
 
 # Render every Storybook story in Chromium and fail on console errors
 [group('check')]

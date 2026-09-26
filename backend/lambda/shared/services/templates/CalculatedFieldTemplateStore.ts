@@ -10,10 +10,10 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { ValidationError } from '../../../shared/errors/ValidationError';
-import { DynamoDBService } from '../../../shared/services/aws/DynamoDBService';
-import { logger } from '../../../shared/utils/logger';
-import { canonicalExpression } from '../lib/expressionAnalysis';
+import { ValidationError } from '../../errors/ValidationError';
+import { canonicalExpression } from '../../lib/expressionAnalysis';
+import { logger } from '../../utils/logger';
+import { DynamoDBService } from '../aws/DynamoDBService';
 
 const TEMPLATE_PK = 'CALC_TEMPLATE';
 const NAME_MAX_LENGTH = 200;

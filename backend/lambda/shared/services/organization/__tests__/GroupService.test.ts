@@ -1,12 +1,12 @@
 import { type Mock, vi } from 'vitest';
 
-import { cacheService } from '../../../../shared/services/cache/CacheService';
+import { cacheService } from '../../cache/CacheService';
 import { GroupService } from '../GroupService';
 
-vi.mock('../../../../shared/services/cache/CacheService');
-vi.mock('../../../../shared/services/aws/QuickSightService');
-vi.mock('../../../../shared/services/aws/S3Service');
-vi.mock('../../../../shared/utils/logger');
+vi.mock('../../cache/CacheService');
+vi.mock('../../aws/QuickSightService');
+vi.mock('../../aws/S3Service');
+vi.mock('../../../utils/logger');
 
 // Helper functions to create test data
 const createMockGroup = (name: string) => ({

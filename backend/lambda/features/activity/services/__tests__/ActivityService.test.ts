@@ -3,8 +3,8 @@ import { type Mocked, vi } from 'vitest';
 
 import type { CloudTrailAdapter } from '../../../../adapters/aws/CloudTrailAdapter';
 import type { CacheService } from '../../../../shared/services/cache/CacheService';
+import type { GroupService } from '../../../../shared/services/organization/GroupService';
 import { logger } from '../../../../shared/utils/logger';
-import type { GroupService } from '../../../organization/services/GroupService';
 import { classifyAction } from '../../lib/cloudTrailEvents';
 import type { ActivityCache, ActivityRefreshRequest, MinimalEvent } from '../../types';
 import { ActivityService } from '../ActivityService';
@@ -12,7 +12,7 @@ import { ActivityService } from '../ActivityService';
 // Mock dependencies
 vi.mock('../../../../adapters/aws/CloudTrailAdapter');
 vi.mock('../../../../shared/services/cache/CacheService');
-vi.mock('../../../organization/services/GroupService');
+vi.mock('../../../../shared/services/organization/GroupService');
 vi.mock('../../../../shared/utils/logger');
 
 // Test constants

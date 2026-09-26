@@ -16,8 +16,7 @@ vi.mock('../../../../shared/services/lineage/LineageService');
 vi.mock('../../../../shared/services/operations/OperationTrackingService');
 vi.mock('../../../../shared/services/parsing/AssetParserService');
 vi.mock('../../../../shared/utils/logger');
-vi.mock('../../../data-catalog/services/CatalogService');
-vi.mock('../../../organization/services/TagService');
+vi.mock('../../../../shared/services/organization/TagService');
 
 const DELETED_ASSETS_COUNT = 3;
 const EXPECTED_ACTIVE_ASSETS = 2;

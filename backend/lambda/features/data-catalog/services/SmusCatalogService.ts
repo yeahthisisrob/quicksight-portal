@@ -14,17 +14,20 @@
  */
 
 import { ValidationError } from '../../../shared/errors/ValidationError';
+import {
+  canonicalExpression,
+  extractFieldReferences,
+} from '../../../shared/lib/expressionAnalysis';
 import type { CacheService } from '../../../shared/services/cache/CacheService';
 import type { FieldInfo } from '../../../shared/services/cache/types';
 import type { SmusService } from '../../../shared/services/smus/SmusService';
-import type { SmusAsset } from '../../../shared/types/smus';
-import { logger } from '../../../shared/utils/logger';
-import { matchListingColumn } from '../lib/columnIdentity';
-import { canonicalExpression, extractFieldReferences } from '../lib/expressionAnalysis';
 import {
   type CalculatedFieldTemplate,
   CalculatedFieldTemplateStore,
-} from './CalculatedFieldTemplateStore';
+} from '../../../shared/services/templates/CalculatedFieldTemplateStore';
+import type { SmusAsset } from '../../../shared/types/smus';
+import { logger } from '../../../shared/utils/logger';
+import { matchListingColumn } from '../lib/columnIdentity';
 import type { FieldMetadata, FieldMetadataService } from './FieldMetadataService';
 
 export interface FieldUsedIn {

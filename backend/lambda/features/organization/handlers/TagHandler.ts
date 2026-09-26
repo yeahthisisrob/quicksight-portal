@@ -6,10 +6,10 @@ import { actorFromAuth, auditLog } from '../../../shared/services/audit/AuditLog
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
 import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
 import { cacheService } from '../../../shared/services/cache/CacheService';
+import { TagService } from '../../../shared/services/organization/TagService';
 import { type AssetType, getSingularForm } from '../../../shared/types/assetTypes';
 import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
-import { TagService } from '../services/TagService';
 
 const TAGGABLE = new Set<string>(['dashboard', 'analysis', 'dataset', 'datasource', 'folder']);
 

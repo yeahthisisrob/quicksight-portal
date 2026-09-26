@@ -1,17 +1,17 @@
-import { DEBUG_CONFIG } from '../../../shared/constants';
-import type { CacheEntry, MasterCache } from '../../../shared/models/asset.model';
+import { DEBUG_CONFIG } from '../../constants';
+import type { CacheEntry, MasterCache } from '../../models/asset.model';
 import type {
   ApiResponse,
   AssetExportData,
   GroupDescribeData,
   GroupListData,
-} from '../../../shared/models/asset-export.model';
-import { QuickSightService } from '../../../shared/services/aws/QuickSightService';
-import { S3Service } from '../../../shared/services/aws/S3Service';
-import { cacheService } from '../../../shared/services/cache/CacheService';
-import { ASSET_TYPES, type AssetType, getPluralForm } from '../../../shared/types/assetTypes';
-import { logger } from '../../../shared/utils/logger';
-import { principalMatchesGroup } from '../../../shared/utils/quicksightUtils';
+} from '../../models/asset-export.model';
+import { ASSET_TYPES, type AssetType, getPluralForm } from '../../types/assetTypes';
+import { logger } from '../../utils/logger';
+import { principalMatchesGroup } from '../../utils/quicksightUtils';
+import { QuickSightService } from '../aws/QuickSightService';
+import { S3Service } from '../aws/S3Service';
+import { cacheService } from '../cache/CacheService';
 
 /**
  * Parameters for updating group in export file

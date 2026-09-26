@@ -1,14 +1,14 @@
 import type { components } from '@shared/generated/types';
 
-import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
-import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
-import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
-import { cacheService } from '../../../shared/services/cache/CacheService';
-import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
-import { ASSET_TYPES, type AssetType } from '../../../shared/types/assetTypes';
-import { mapFolderFromCache } from '../../../shared/utils/assetMapping';
-import { logger } from '../../../shared/utils/logger';
-import type { FolderMetadata } from '../types';
+import { AssetStatusFilter } from '../../types/assetFilterTypes';
+import { ASSET_TYPES, type AssetType } from '../../types/assetTypes';
+import type { FolderMetadata } from '../../types/organization';
+import { mapFolderFromCache } from '../../utils/assetMapping';
+import { logger } from '../../utils/logger';
+import { ClientFactory } from '../aws/ClientFactory';
+import type { QuickSightService } from '../aws/QuickSightService';
+import { keepCacheFresh } from '../cache/assetFreshness';
+import { cacheService } from '../cache/CacheService';
 import { TagService } from './TagService';
 
 // Use shared API types for consistency

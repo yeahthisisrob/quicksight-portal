@@ -4,7 +4,6 @@ import type { QuickSightService } from '../../../shared/services/aws/QuickSightS
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
-import { logger } from '../../../shared/utils/logger';
 import type {
   BulkUserGroupResult,
   Group,
@@ -12,7 +11,8 @@ import type {
   User,
   UserActivityRefreshResult,
   UsersAndGroupsExport,
-} from '../types';
+} from '../../../shared/types/organization';
+import { logger } from '../../../shared/utils/logger';
 
 export class IdentityService {
   private readonly quickSightService: QuickSightService;

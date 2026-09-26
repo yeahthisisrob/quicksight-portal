@@ -27,14 +27,6 @@ vi.mock('../../handlers/IngestionHandler', () => ({
   }),
 }));
 
-vi.mock('../../../organization/handlers/TagHandler', () => ({
-  TagHandler: vi.fn().mockImplementation(function () {
-    return {
-      updateTags: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
-    };
-  }),
-}));
-
 // Now import the routes after mocks are set up
 import { assetManagementRoutes } from '../index';
 

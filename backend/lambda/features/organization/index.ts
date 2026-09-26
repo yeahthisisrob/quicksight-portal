@@ -1,2 +1,2 @@
+export type * from '../../shared/types/organization';
 export { organizationRoutes } from './routes';
-export type * from './types';

@@ -1,23 +1,20 @@
 import { vi } from 'vitest';
 
-import type { CacheEntry, MasterCache } from '../../../../shared/models/asset.model';
-import {
-  principalMatchesGroup,
-  principalMatchesUser,
-} from '../../../../shared/utils/quicksightUtils';
+import type { CacheEntry, MasterCache } from '../../../models/asset.model';
+import { principalMatchesGroup, principalMatchesUser } from '../../../utils/quicksightUtils';
 import { PermissionsService } from '../PermissionsService';
 
-vi.mock('../../../../shared/services/aws/ClientFactory', () => ({
+vi.mock('../../aws/ClientFactory', () => ({
   ClientFactory: {
     getQuickSightService: vi.fn().mockReturnValue({}),
   },
 }));
-vi.mock('../../../../shared/services/cache/CacheService', () => ({
+vi.mock('../../cache/CacheService', () => ({
   cacheService: {
     getMasterCache: vi.fn(),
   },
 }));
-vi.mock('../../../../shared/utils/logger', () => ({
+vi.mock('../../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
