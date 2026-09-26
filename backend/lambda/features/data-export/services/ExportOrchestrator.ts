@@ -775,6 +775,61 @@ export class ExportOrchestrator {
   }
 
   /**
+   * Re-export just these assets and upsert their cache entries: what the
+   * portal itself just wrote (a new analysis, a published dashboard, the
+   * folder it went into), so they show up without a full export. Each type
+   * is listed once to find the assets' summaries, then only they are
+   * processed. An asset QuickSight does not list yet is reported missing.
+   */
+  public async refreshAssets(
+    assets: Array<{ assetType: AssetType; assetId: string }>
+  ): Promise<{ refreshed: string[]; missing: string[]; failed: string[] }> {
+    await this.ensureBucketName();
+    const out = { refreshed: [] as string[], missing: [] as string[], failed: [] as string[] };
+    const byType = new Map<AssetType, Set<string>>();
+    for (const { assetType, assetId } of assets) {
+      byType.set(assetType, (byType.get(assetType) ?? new Set()).add(assetId));
+    }
+    for (const [assetType, ids] of byType) {
+      const processor = this.processors.get(assetType);
+      if (!processor) {
+        out.failed.push(...[...ids].map((id) => `${assetType}:${id}`));
+        continue;
+      }
+      const { assets: listed } = await this.quickSightService.listAllAssetsOfType(assetType);
+      const found = listed.filter((summary) =>
+        ids.has(this.getAssetIdFromSummary(summary, assetType))
+      );
+      const foundIds = new Set(
+        found.map((summary) => this.getAssetIdFromSummary(summary, assetType))
+      );
+      out.missing.push(
+        ...[...ids].filter((id) => !foundIds.has(id)).map((id) => `${assetType}:${id}`)
+      );
+      const done: string[] = [];
+      for (const summary of found) {
+        const id = this.getAssetIdFromSummary(summary, assetType);
+        try {
+          const result = await processor.processAsset(summary, { forceRefresh: true });
+          if (result.status === 'success') {
+            done.push(id);
+          } else {
+            out.failed.push(`${assetType}:${id}`);
+          }
+        } catch (error) {
+          logger.warn('Asset refresh failed', { assetType, assetId: id, error });
+          out.failed.push(`${assetType}:${id}`);
+        }
+      }
+      if (done.length > 0) {
+        await cacheService.upsertCacheEntriesForAssets(assetType, done);
+        out.refreshed.push(...done.map((id) => `${assetType}:${id}`));
+      }
+    }
+    return out;
+  }
+
+  /**
    * Initialize all asset processors with the new architecture
    */
   private initializeProcessors(): void {

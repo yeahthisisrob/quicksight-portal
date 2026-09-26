@@ -5,6 +5,7 @@ import { assistantApi } from '@/shared/api';
 
 import {
   CONVERSATION_KEY,
+  createdAsset,
   EMPTY_CONVERSATION,
   endsOnAPromise,
   followUpFor,
@@ -98,6 +99,8 @@ describe('endsOnAPromise', () => {
     expect(endsOnAPromise("I'll preview it next")).toBe(true);
     expect(endsOnAPromise('Found 3. Let me know which one to copy.')).toBe(false);
     expect(endsOnAPromise('margin is revenue minus cost.')).toBe(false);
+    expect(endsOnAPromise('I found the folder. Shall I add the analysis to it?')).toBe(true);
+    expect(endsOnAPromise('Which folder, Sales or Finance?')).toBe(false);
   });
 });
 
@@ -168,5 +171,36 @@ describe('useConversation', () => {
     act(() => result.current.reset());
     expect(result.current.conversation).toEqual(EMPTY_CONVERSATION);
     expect(window.localStorage.getItem(CONVERSATION_KEY)).toBeNull();
+  });
+
+  it('tells the assistant what the person ran, with what it created', () => {
+    const answer = {
+      ...(ANSWER as object),
+      reply: 'Prepared.',
+      actions: [
+        {
+          id: 'a1',
+          title: 'Create the analysis',
+          why: '',
+          method: 'POST',
+          path: '/api/authoring/new',
+        },
+      ],
+    };
+    let c = withAnswer(withQuestion(EMPTY_CONVERSATION, 'make it'), answer as never);
+    expect(historyOf(c)[1]!.text).toBe('Prepared.');
+    c = withRun(c, 'a1', {
+      status: 'completed',
+      result: { assetType: 'analysis', assetId: 'an-9', name: 'Orders' },
+    });
+    expect(historyOf(c)[1]!.text).toBe(
+      'Prepared.\n\n[The person ran, after this answer:\n- "Create the analysis" (POST /api/authoring/new): done. Result: {"assetType":"analysis","assetId":"an-9","name":"Orders"}]'
+    );
+    expect(createdAsset(c.runs.a1!.result)).toEqual({
+      assetType: 'analysis',
+      assetId: 'an-9',
+      name: 'Orders',
+    });
+    expect(createdAsset({ jobId: 'x' })).toBeUndefined();
   });
 });

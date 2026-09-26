@@ -15,6 +15,8 @@ const mocks = vi.hoisted(() => ({
   audit: { record: vi.fn() },
 }));
 
+const freshness = vi.hoisted(() => vi.fn());
+vi.mock('../../../../shared/services/cache/assetFreshness', () => ({ keepCacheFresh: freshness }));
 vi.mock('../../../../shared/services/aws/ClientFactory', () => ({
   ClientFactory: { getQuickSightService: () => mocks.qs },
 }));

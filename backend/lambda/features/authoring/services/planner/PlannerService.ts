@@ -38,6 +38,7 @@ import { logger } from '../../../../shared/utils/logger';
 import {
   BUILDABLE_VISUAL_TYPES,
   type BuilderDataset,
+  type FilterSpec,
   type VisualSpec,
 } from '../../lib/definitionBuilder';
 import {
@@ -221,9 +222,29 @@ const MAX_COLUMNS_PER_DATASET = 150;
 const VISUALS_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['visuals', 'reason'],
+  required: ['visuals', 'filters', 'reason'],
   properties: {
     reason: { type: 'string', description: 'One sentence on the choices, or why nothing fits.' },
+    filters: {
+      type: 'array',
+      description:
+        'Columns the person should be able to filter on, most used first; each becomes a control in the sheet control bar. Empty when the ask needs none.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['identifier', 'column', 'values'],
+        properties: {
+          identifier: { type: 'string' },
+          column: { type: 'string' },
+          values: {
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              'Text columns: values selected to start with, when the ask names them; else [].',
+          },
+        },
+      },
+    },
     visuals: {
       type: 'array',
       items: {
@@ -519,6 +540,7 @@ export class PlannerService {
     datasets: BuilderDataset[]
   ): Promise<{
     visuals: VisualSpec[];
+    filters: FilterSpec[];
     reason: string;
     model: { provider: string; model: string };
   }> {
@@ -541,7 +563,7 @@ export class PlannerService {
       '',
       `The ask: ${JSON.stringify(trimmed)}`,
       '',
-      'Propose the visuals a dashboard for this ask should show, most important first. Use only these identifiers and column names, exactly. KPIs for single numbers, line charts over dates, bar or column charts by a category, tables for detail. Aggregate numeric columns with SUM unless the ask says otherwise; count or distinct-count text columns. Keep it to what the ask needs.',
+      'Propose the visuals a dashboard for this ask should show, most important first, and the columns to filter on. Use only these identifiers and column names, exactly. KPIs for single numbers, line charts over dates, bar or column charts by a category, tables for detail. Aggregate numeric columns with SUM unless the ask says otherwise; count or distinct-count text columns. A filter the ask names always becomes a filter; add the date column when the data is over time. Say what to show, not where or how big: the layout, sizes and control placement are decided for you. Keep it to what the ask needs.',
     ].join('\n');
 
     const result = await this.model.complete({
@@ -555,6 +577,7 @@ export class PlannerService {
     });
     return {
       visuals: parseVisualSpecs(result.output, datasets),
+      filters: parseFilterSpecs(result.output, datasets),
       reason: reasonOf(result.output),
       model: { provider: result.provider, model: result.model },
     };
@@ -783,6 +806,23 @@ export function parseVisualSpecs(output: unknown, datasets: BuilderDataset[]): V
     });
   }
   return specs;
+}
+
+export function parseFilterSpecs(output: unknown, datasets: BuilderDataset[]): FilterSpec[] {
+  if (!isRecord(output) || !Array.isArray(output.filters)) {
+    return [];
+  }
+  const identifiers = new Set(datasets.map((d) => d.identifier));
+  return output.filters.flatMap((item): FilterSpec[] => {
+    if (!isRecord(item)) return [];
+    const identifier = str(item, 'identifier');
+    const column = str(item, 'column');
+    if (!identifiers.has(identifier) || !column) return [];
+    const values = Array.isArray(item.values)
+      ? item.values.filter((v): v is string => typeof v === 'string' && v.length > 0)
+      : [];
+    return [{ identifier, column, ...(values.length ? { values } : {}) }];
+  });
 }
 
 export function parseEditOps(output: unknown, outline: SheetOutline[]): DefinitionOp[] {

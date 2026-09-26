@@ -139,6 +139,8 @@ export class DefinitionService {
         assetType: target.assetType,
         assetId: written.assetId,
         name,
+        arn: written.arn,
+        folderId,
         details: { definition: true, sheets: definition.Sheets.length },
       },
       auth
@@ -195,6 +197,8 @@ export class DefinitionService {
         assetType: request.assetType,
         assetId: written.assetId,
         name,
+        arn: written.arn,
+        folderId,
         details: { definition: true, sheets: definition.Sheets.length },
       },
       auth

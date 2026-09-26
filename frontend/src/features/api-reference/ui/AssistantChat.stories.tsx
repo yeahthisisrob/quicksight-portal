@@ -86,6 +86,34 @@ export const ActionDone: Story = {
   ),
 };
 
+/** A create that finished: what it made, a way to open it, and what it warned about. */
+export const Created: Story = {
+  name: 'A create that finished: the new analysis, and its warnings',
+  render: () => (
+    <AnswerView
+      result={PLANNED_ANSWER as never}
+      runs={{
+        'act-plan': {
+          status: 'completed',
+          result: {
+            assetType: 'analysis',
+            assetId: 'margin-by-region',
+            name: 'Margin by region',
+            arn: 'arn:aws:quicksight:us-east-1:1:analysis/margin-by-region',
+            changes: [],
+            warnings: [
+              'Filter on revenue left out: a number filter needs min and max for its slider.',
+            ],
+            folderId: 'shared-sales',
+          },
+        },
+      }}
+      onRun={() => undefined}
+      onFollowUp={() => undefined}
+    />
+  ),
+};
+
 /** Waiting on an answer: what it is doing, and for how long. */
 export const Working: Story = {
   name: 'Working: the assistant says what it is doing',

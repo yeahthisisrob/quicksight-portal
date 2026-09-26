@@ -263,6 +263,7 @@ export function simulateNew(
     changes,
     warnings,
     visuals,
+    filters: request.filters ?? [],
     ...(request.visuals?.length || !proposed
       ? {}
       : { proposal: { reason: proposed.reason, model: proposed.model } }),

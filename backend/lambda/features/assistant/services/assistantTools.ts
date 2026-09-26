@@ -226,6 +226,11 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
         method: { type: 'string', enum: ['POST', 'PUT', 'DELETE'] },
         path: { type: 'string' },
         body: { type: 'object' },
+        adminsOnly: {
+          type: 'boolean',
+          description:
+            'Only for creating an asset with no permissionsFrom, template or folderId: true when the person said only admins should see it.',
+        },
         personAskedForNew: {
           type: 'boolean',
           description:

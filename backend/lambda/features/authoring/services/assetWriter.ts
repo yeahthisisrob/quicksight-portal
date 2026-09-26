@@ -8,6 +8,7 @@
 import type { AuthContext } from '../../../shared/auth';
 import { actorFromAuth, auditLog } from '../../../shared/services/audit/AuditLog';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
+import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
 import { settingsStore } from '../../../shared/services/settings/SettingsStore';
 import { logger } from '../../../shared/utils/logger';
 import type { AuthorableAssetType } from '../types';
@@ -101,9 +102,11 @@ export async function updateAsset(
 export type ProvenanceAction = 'authoring.create' | 'authoring.update' | 'authoring.clone';
 
 /**
- * The portal's own trace of a write: an audit record (who, through what),
- * and tags on the asset so the fact survives outside the portal. Neither
- * may fail the write they describe.
+ * After every write: the cache learns of the asset at once and queues its
+ * full refresh (and the folder's, when it was filed), so nobody has to run
+ * an export to see it; then the portal's own trace of the write, an audit
+ * record (who, through what) and tags on the asset so the fact survives
+ * outside the portal. None of it may fail the write it follows.
  */
 export async function recordProvenance(
   quickSight: QuickSightService,
@@ -112,10 +115,20 @@ export async function recordProvenance(
     assetType: AuthorableAssetType;
     assetId: string;
     name: string;
+    arn?: string;
+    /** The folder it was filed in, whose members changed. */
+    folderId?: string;
     details: Record<string, unknown>;
   },
   auth?: AuthContext
 ): Promise<void> {
+  await keepCacheFresh(
+    [
+      { assetType: entry.assetType, assetId: entry.assetId, name: entry.name, arn: entry.arn },
+      ...(entry.folderId ? [{ assetType: 'folder' as const, assetId: entry.folderId }] : []),
+    ],
+    { accountId: auth?.accountId, userId: auth?.userId }
+  );
   if (!auth) {
     return;
   }

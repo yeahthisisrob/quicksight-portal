@@ -5619,7 +5619,7 @@ export interface components {
             rounds: number;
         };
         /** @enum {string} */
-        JobType: "export" | "deploy" | "ingestion" | "rebuild" | "activity-refresh" | "bulk-operation" | "csv-export" | "smus-export" | "planner" | "assistant";
+        JobType: "export" | "deploy" | "ingestion" | "rebuild" | "activity-refresh" | "bulk-operation" | "csv-export" | "smus-export" | "planner" | "assistant" | "asset-refresh";
         /** @description One background job, as /api/jobs returns it. */
         Job: {
             jobId: string;
@@ -6803,6 +6803,25 @@ export interface components {
             /** @description A second dimension (colours, pivot columns). */
             color?: string;
         };
+        /**
+         * @description A column the person filters on. The column's type decides the rest:
+         *     text gets a multi-select dropdown, a date a date-range picker, a
+         *     number a range slider (needs min and max). The filter applies to
+         *     every visual on the sheet, and its control goes in the sheet's
+         *     control bar (the collapsible strip at the top), where QuickSight
+         *     puts controls by default.
+         */
+        FilterSpec: {
+            /** @description The dataset identifier the column belongs to. */
+            identifier: string;
+            column: string;
+            /** @description The control's title; the column name when omitted. */
+            title?: string;
+            /** @description Text columns - values selected to start with; all when omitted. */
+            values?: string[];
+            min?: number;
+            max?: number;
+        };
         NewAssetRequest: {
             /** @enum {string} */
             assetType: "dashboard" | "analysis";
@@ -6818,8 +6837,15 @@ export interface components {
                  */
                 shareWithAudience?: boolean;
             }[];
+            /**
+             * @description What to show, by column name. The layout is decided for you: KPIs
+             *     in a band at the top, charts two to a row (a lone one full width),
+             *     tables and pivot tables full width.
+             */
             visuals?: components["schemas"]["VisualSpec"][];
-            /** @description When visuals are absent, the planner proposes them from this. */
+            /** @description Columns to filter on, each a control in the sheet's control bar. */
+            filters?: components["schemas"]["FilterSpec"][];
+            /** @description When visuals are absent, the planner proposes them (and filters, unless given) from this. */
             ask?: string;
             sheetName?: string;
             addCalculatedFields?: components["schemas"]["AddedCalculatedField"][];
@@ -6836,6 +6862,8 @@ export interface components {
             model?: components["schemas"]["AiModelKey"];
         };
         NewAssetPreview: {
+            /** @description The filters that were built, given or proposed. */
+            filters: components["schemas"]["FilterSpec"][];
             definition: {
                 [key: string]: unknown;
             };
@@ -7619,6 +7647,13 @@ export interface components {
             row?: number;
             colSpan?: number;
             rowSpan?: number;
+            /**
+             * @description Controls only. `controlBar` - in the sheet's collapsible control
+             *     bar (SheetControlLayouts), QuickSight's default; `canvas` - placed
+             *     on the sheet like a visual.
+             * @enum {string}
+             */
+            placement?: "canvas" | "controlBar";
             fieldWells?: {
                 role: string;
                 fields: string[];

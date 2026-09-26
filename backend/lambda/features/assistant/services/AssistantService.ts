@@ -21,7 +21,7 @@ import { contextGet, contextRelated, contextSearch, datasetColumns } from '../li
 import { judgeFields, parsePlan, verdictsMessage } from '../lib/planning';
 import { buildBrief, listTemplates } from '../lib/portalBrief';
 import { classifyCall, describeOperation } from '../lib/portalCalls';
-import { announcesMore, CONTINUE_NUDGE, describeStep } from '../lib/steps';
+import { announcesMore, CONTINUE_NUDGE, describeStep, MAX_NUDGES } from '../lib/steps';
 import type {
   AssistantAction,
   AssistantArtifact,
@@ -36,7 +36,8 @@ import type { ChatModel, ChatSystem, ChatTurn, ToolResult } from './ChatModel';
 export { parsePlan } from '../lib/planning';
 export { announcesMore, CONTINUE_NUDGE, describeStep } from '../lib/steps';
 
-const MAX_ROUNDS = 8;
+/** Enough for find, plan, preview, prepare, and a correction or two. */
+const MAX_ROUNDS = 12;
 const MAX_RESULT_CHARS = 12_000;
 const MAX_HISTORY = 20;
 const MAX_MESSAGE_CHARS = 8_000;
@@ -109,6 +110,28 @@ function int(input: Record<string, unknown>, key: string): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : undefined;
 }
 
+/** Creates that make a new asset, which only account admins can see without an audience. */
+const CREATES_ASSET = new Set(['/api/authoring/new', '/api/authoring/definition']);
+
+/**
+ * A new asset with no audience (permissionsFrom, template, or a folder to
+ * put it in) is visible to account admins only. The model has to choose
+ * one, or say the person asked for exactly that (adminsOnly).
+ */
+export function audienceProblem(
+  template: string,
+  input: Record<string, unknown>
+): string | undefined {
+  if (!CREATES_ASSET.has(template) || input.adminsOnly === true) {
+    return undefined;
+  }
+  const body = (input.body ?? {}) as Record<string, unknown>;
+  if (body.permissionsFrom || body.template || body.folderId) {
+    return undefined;
+  }
+  return 'This creates an asset with no audience, so only account admins would see it. Give it one: permissionsFrom an asset whose audience fits (the dashboards that already use this dataset are a good start: context_related on the dataset, relations uses-dataset, direction in), or folderId of a shared folder the person named (find it with context_search, types folder). If neither is clear, ask the person who should see it. Set adminsOnly only when they said admins only.';
+}
+
 export class AssistantService {
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly now: () => number;
@@ -135,7 +158,7 @@ export class AssistantService {
     const usage = { inputTokens: 0, outputTokens: 0 };
     let reply = '';
     let rounds = 0;
-    let nudged = false;
+    let nudges = 0;
 
     let brief: string | undefined;
     if (this.options.brief) {
@@ -161,10 +184,10 @@ export class AssistantService {
         reply = turn.text;
       }
       if (turn.toolCalls.length === 0) {
-        // Once per answer: an answer that ends on a promise is pushed to
-        // keep going instead of leaving the person waiting on nothing.
-        if (!nudged && rounds < MAX_ROUNDS && announcesMore(turn.text)) {
-          nudged = true;
+        // An answer that ends on a promise or on asking leave is pushed to
+        // keep going instead of leaving the person to say "continue".
+        if (nudges < MAX_NUDGES && rounds < MAX_ROUNDS && announcesMore(turn.text)) {
+          nudges += 1;
           turns.push({ role: 'user', text: CONTINUE_NUDGE });
           continue;
         }
@@ -392,6 +415,10 @@ export class AssistantService {
         content: `The body does not fit ${method} ${template}, so it would fail when the person runs it:\n${problems.map((p) => `- ${p}`).join('\n')}\nThe operation expects:\n${describeOperation(spec as never, method, template)}\nFix the body and prepare it again.`,
         isError: true,
       };
+    }
+    const audience = audienceProblem(template, input);
+    if (audience) {
+      return { id, content: audience, isError: true };
     }
     const rehearsal = await this.rehearse(method, path, template, input.body, out);
     if (rehearsal) {

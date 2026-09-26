@@ -3,6 +3,7 @@
  * sheet, where, of what type, reading which fields. Small enough to hand to
  * a planner and precise enough to address edits by id. Pure.
  */
+import { controlBarElements } from './controlBar';
 
 export type OutlineElementKind =
   | 'visual'
@@ -22,6 +23,12 @@ export interface OutlineElement {
   colSpan?: number;
   rowSpan?: number;
   fieldWells?: Array<{ role: string; fields: string[] }>;
+  /**
+   * Controls only: 'controlBar' when the control sits in the sheet's
+   * collapsible control bar (SheetControlLayouts), 'canvas' when it is
+   * placed on the sheet like a visual.
+   */
+  placement?: 'canvas' | 'controlBar';
 }
 
 export interface SheetOutline {
@@ -193,6 +200,27 @@ export function buildOutline(definition: any): SheetOutline[] {
         fieldWells: known.fieldWells,
       };
     });
+    for (const element of elements) {
+      if (element.kind === 'filterControl' || element.kind === 'parameterControl') {
+        element.placement = 'canvas';
+      }
+    }
+    // Controls in the control bar, in its order.
+    for (const bar of controlBarElements(sheet)) {
+      const id = String(bar.ElementId ?? '');
+      const known = catalog.get(id) ?? {
+        kind: KIND_BY_ELEMENT_TYPE[String(bar.ElementType ?? '')] ?? 'other',
+      };
+      if (!elements.some((e) => e.elementId === id)) {
+        elements.push({
+          elementId: id,
+          kind: known.kind ?? 'other',
+          visualType: known.visualType,
+          title: known.title,
+          placement: 'controlBar',
+        });
+      }
+    }
     // Defined but not placed still counts: it can be moved onto the grid.
     for (const [id, known] of catalog) {
       if (!elements.some((e) => e.elementId === id)) {

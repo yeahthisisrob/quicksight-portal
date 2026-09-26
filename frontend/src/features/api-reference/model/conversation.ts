@@ -101,9 +101,66 @@ export function withRun(c: Conversation, actionId: string, run: ActionRun): Conv
   return { ...c, runs: { ...c.runs, [actionId]: run } };
 }
 
-/** The history the assistant is sent: text only. */
+/** How much of an action's result goes back to the assistant with the history. */
+export const MAX_RUN_RESULT_CHARS = 1_500;
+
+function clip(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+/**
+ * What the person ran from one answer, as a line the assistant reads with
+ * the history: without it the assistant cannot know an action ran, and
+ * prepares it again.
+ */
+export function runsNote(result: AssistantChatResult, runs: Record<string, ActionRun>): string {
+  const lines = result.actions.flatMap((action) => {
+    const run = runs[action.id];
+    if (!run) {
+      return [];
+    }
+    const outcome =
+      run.status === 'running'
+        ? `still running${run.jobId ? ` (job ${run.jobId})` : ''}`
+        : run.status === 'failed'
+          ? `failed: ${run.error ?? run.message ?? 'no reason given'}`
+          : 'done';
+    const detail =
+      run.result === undefined
+        ? ''
+        : ` Result: ${clip(JSON.stringify(run.result), MAX_RUN_RESULT_CHARS)}`;
+    return [`- "${action.title}" (${action.method} ${action.path}): ${outcome}.${detail}`];
+  });
+  return lines.length ? `[The person ran, after this answer:\n${lines.join('\n')}]` : '';
+}
+
+/** The history the assistant is sent: text, with what the person ran after each answer. */
 export function historyOf(c: Conversation): Array<{ role: 'user' | 'assistant'; text: string }> {
-  return c.entries.map((e) => ({ role: e.role, text: e.text }));
+  return c.entries.map((e) => {
+    if (e.role === 'user') {
+      return { role: e.role, text: e.text };
+    }
+    const note = runsNote(e.result, c.runs);
+    return { role: e.role, text: note ? `${e.text}\n\n${note}` : e.text };
+  });
+}
+
+/** What a finished action created, when it created an asset. */
+export function createdAsset(
+  result: unknown
+): { assetType: 'dashboard' | 'analysis'; assetId: string; name?: string } | undefined {
+  const r = result as { assetType?: unknown; assetId?: unknown; name?: unknown } | null;
+  if (
+    (r?.assetType === 'dashboard' || r?.assetType === 'analysis') &&
+    typeof r.assetId === 'string'
+  ) {
+    return {
+      assetType: r.assetType,
+      assetId: r.assetId,
+      ...(typeof r.name === 'string' ? { name: r.name } : {}),
+    };
+  }
+  return undefined;
 }
 
 /** The job id an action's response carries, whichever envelope it came in. */
@@ -121,6 +178,8 @@ export function jobIdOf(response: unknown): string | undefined {
  */
 const ANNOUNCES_MORE =
   /\b(let me(?! know)|i'll|i will|i am going to|i'm going to|next,? i|now i'll|i'll now|going to (check|try|look|run))\b[^.?!]*[.…:]?\s*$/i;
+const ASKS_TO_PROCEED =
+  /\b(shall i|should i|want me to|would you like me to|do you want me to|ready for me to|can i go ahead|may i)\b[^?]*\?\s*$/i;
 
 export function endsOnAPromise(text: string): boolean {
   const lastSentences = text
@@ -128,7 +187,7 @@ export function endsOnAPromise(text: string): boolean {
     .split(/(?<=[.!?])\s+/)
     .slice(-2)
     .join(' ');
-  return ANNOUNCES_MORE.test(lastSentences);
+  return ANNOUNCES_MORE.test(lastSentences) || ASKS_TO_PROCEED.test(lastSentences);
 }
 
 export const CONTINUE_MESSAGE = 'Go ahead and do that now.';
