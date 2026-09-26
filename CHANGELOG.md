@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.17.0...v2.17.1) (2026-09-26)
+
+
+### Bug Fixes
+
+* **assistant:** check a prepared write against the contract and its preview before offering Run ([#217](https://github.com/yeahthisisrob/quicksight-portal/issues/217)) ([1204d86](https://github.com/yeahthisisrob/quicksight-portal/commit/1204d8621cc743165b9e54704bd96cd54837b03d))
+
 ## [2.17.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.16.3...v2.17.0) (2026-09-26)
 
 
