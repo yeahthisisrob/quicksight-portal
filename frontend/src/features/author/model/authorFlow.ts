@@ -70,7 +70,7 @@ export const AUTHOR_STEPS: readonly AuthorStepMeta[] = [
 ];
 
 /** From nothing: datasets, visuals, an optional standard, the mockup, publish. */
-export const NEW_STEPS: readonly AuthorStepMeta[] = [
+const NEW_STEPS: readonly AuthorStepMeta[] = [
   { id: 'targets', label: 'Datasets', hint: 'What the new one reads from' },
   { id: 'visuals', label: 'Visuals', hint: 'Describe it, or name the columns' },
   { id: 'standard', label: 'Standard', hint: 'A template dashboard to lay it out on' },
@@ -154,7 +154,7 @@ export const EMPTY_FRESH: FreshAsset = {
   audience: null,
 };
 
-export type AuthorFlowAction =
+type AuthorFlowAction =
   | { type: 'selectSource'; source: RebindSource | null }
   | { type: 'goTo'; step: AuthorStep }
   | { type: 'published'; result: AuthorResult }
@@ -374,7 +374,7 @@ export function authorFlowReducer(
 }
 
 /** What the reducer cannot know on its own: the draft's server-checked state. */
-export interface DraftFacts {
+interface DraftFacts {
   /** At least one identifier has a target dataset. */
   hasTargets: boolean;
   /** The server dry run says everything resolves (or nothing needs to). */

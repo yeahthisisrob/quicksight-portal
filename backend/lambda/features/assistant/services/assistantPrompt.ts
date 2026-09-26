@@ -18,7 +18,7 @@ export const NO_GUIDANCE: AuthoringGuidance = {
   visuals: '',
 };
 
-export interface PromptContext {
+interface PromptContext {
   smus: boolean;
   guidance: AuthoringGuidance;
 }

@@ -5,7 +5,7 @@
  */
 import type { MockRoute } from './api';
 
-export interface StoryHit {
+interface StoryHit {
   type: string;
   id: string;
   name: string;
@@ -21,7 +21,7 @@ export interface StoryHit {
   definedIn?: Array<{ type: string; id: string; name: string }>;
 }
 
-export const SEARCH_HITS: StoryHit[] = [
+const SEARCH_HITS: StoryHit[] = [
   {
     type: 'dashboard',
     id: 'sales-overview',

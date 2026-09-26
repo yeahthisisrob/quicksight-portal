@@ -6,10 +6,10 @@
  */
 import type { SettingsSnapshot, SmusProjectDiagnostics } from '@/shared/api/modules/settings';
 
-export type SmusReadiness = 'not-configured' | 'no-projects' | 'ready';
+type SmusReadiness = 'not-configured' | 'no-projects' | 'ready';
 
-export const SMUS_DOMAIN_KEY = 'smus.domainId';
-export const SMUS_PROJECTS_KEY = 'smus.projectIds';
+const SMUS_DOMAIN_KEY = 'smus.domainId';
+const SMUS_PROJECTS_KEY = 'smus.projectIds';
 
 function settingValue(snapshot: SettingsSnapshot, key: string): unknown {
   for (const group of snapshot.groups) {

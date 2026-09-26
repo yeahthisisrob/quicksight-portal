@@ -29,7 +29,3 @@ export const Default: Story = {
     ),
   },
 };
-
-export const ReferenceOnly: Story = {
-  name: 'Without the keys panel',
-};

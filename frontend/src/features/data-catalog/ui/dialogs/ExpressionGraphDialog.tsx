@@ -36,7 +36,7 @@ interface ExpressionGraphDialogProps {
 const MAX_DEPTH = 8;
 
 /** Function names in an expression become links to the QuickSight docs. */
-export function expressionWithDocLinks(expression: string): React.ReactNode[] {
+function expressionWithDocLinks(expression: string): React.ReactNode[] {
   const pattern = /\b(\w+)\s*(\()/g;
   const parts: React.ReactNode[] = [];
   let last = 0;
@@ -70,7 +70,7 @@ interface LineageNode {
 }
 
 /** Walk one direction from `start`, breadth-first, never repeating a field. */
-export function walkLineage(
+function walkLineage(
   dataset: CatalogDataset,
   start: string,
   direction: 'up' | 'down'

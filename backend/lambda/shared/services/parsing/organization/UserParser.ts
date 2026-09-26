@@ -5,7 +5,7 @@ import { BaseAssetParser, type ParserCapabilities } from '../BaseAssetParser';
 /**
  * User metadata extracted from API responses
  */
-export interface UserMetadata {
+interface UserMetadata {
   assetId: string;
   name: string;
   arn: string;

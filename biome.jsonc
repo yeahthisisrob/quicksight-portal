@@ -40,7 +40,6 @@
       "!.claude",
       "!**/dist",
       "!**/build",
-      "!**/lib",
       "!**/coverage",
       "!**/cdk.out",
       "!**/storybook-static",

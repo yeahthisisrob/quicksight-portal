@@ -9,7 +9,7 @@ import { AssetChip, FilterSection } from './shared';
 // Types
 // ============================================================================
 
-export interface ActiveFiltersDisplayProps {
+interface ActiveFiltersDisplayProps {
   selectedAssets: AssetFilter[];
   includeTags: TagFilter[];
   excludeTags: TagFilter[];

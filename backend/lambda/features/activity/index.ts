@@ -60,19 +60,8 @@ export const activityRoutes: RouteHandler[] = [
     handler: getUserUnusedDatasets,
   },
 ];
-
 // Export service
-export { ActivityService } from './services/ActivityService';
+
 // Export types
 export type * from './types';
 // Export handlers
-export {
-  getActivityData,
-  getActivitySummary,
-  getAssetTimeline,
-  getTimeline,
-  getUserInactiveAnalyses,
-  getUserUnusedDatasets,
-  refreshActivity,
-  resolveRecipients,
-};

@@ -14,18 +14,7 @@ import { DashboardParser } from './explorations/DashboardParser';
 import { FolderParser } from './organization/FolderParser';
 import { GroupParser } from './organization/GroupParser';
 import { UserParser } from './organization/UserParser';
-
 // Re-export types for convenience
-export type {
-  CalculatedField,
-  DataSetInfo,
-  Field,
-  Filter,
-  Parameter,
-  ParsedAssetInfo,
-  Sheet,
-  Visual,
-} from './BaseAssetParser';
 
 /**
  * Unified asset parser service

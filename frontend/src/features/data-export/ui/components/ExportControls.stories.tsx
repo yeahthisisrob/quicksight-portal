@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useState } from 'react';
+import { useArgs } from 'storybook/preview-api';
 
 import type { ExportMode } from '../../model/types';
 import ExportControls from './ExportControls';
@@ -17,130 +17,42 @@ const meta = {
       </div>
     ),
   ],
+  args: {
+    exportMode: 'smart',
+    onModeChange: () => {},
+    onStartExport: () => {},
+    onStopExport: () => {},
+    onRefreshActivity: () => {},
+    onRefreshStatus: () => {},
+    isRunning: false,
+    isRefreshing: false,
+    canRefreshActivity: true,
+    refreshingActivity: false,
+    selectedTypesCount: 3,
+  },
+  render: function Render(args) {
+    const [, updateArgs] = useArgs();
+    return (
+      <ExportControls
+        {...args}
+        onModeChange={(exportMode: ExportMode) => updateArgs({ exportMode })}
+      />
+    );
+  },
 } satisfies Meta<typeof ExportControls>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {
-  render: (args) => {
-    const [exportMode, setExportMode] = useState<ExportMode>(args.exportMode);
+/** Smart sync; the mode switch is live. The running state is in DataExportView. */
+export const Default: Story = {};
 
-    return <ExportControls {...args} exportMode={exportMode} onModeChange={setExportMode} />;
-  },
-  args: {
-    exportMode: 'smart',
-    onModeChange: () => {},
-    onStartExport: () => {},
-    onStopExport: () => {},
-    onRefreshActivity: () => {},
-    onRefreshStatus: () => {},
-    isRunning: false,
-    isRefreshing: false,
-    canRefreshActivity: true,
-    refreshingActivity: false,
-    selectedTypesCount: 3,
-  },
-};
-
-export const Running: Story = {
-  render: Default.render,
-  args: {
-    exportMode: 'smart',
-    onModeChange: () => {},
-    onStartExport: () => {},
-    onStopExport: () => {},
-    onRefreshActivity: () => {},
-    onRefreshStatus: () => {},
-    isRunning: true,
-    isRefreshing: false,
-    canRefreshActivity: true,
-    refreshingActivity: false,
-    selectedTypesCount: 3,
-  },
-};
-
-export const ForceMode: Story = {
-  render: Default.render,
-  args: {
-    exportMode: 'force',
-    onModeChange: () => {},
-    onStartExport: () => {},
-    onStopExport: () => {},
-    onRefreshActivity: () => {},
-    onRefreshStatus: () => {},
-    isRunning: false,
-    isRefreshing: false,
-    canRefreshActivity: true,
-    refreshingActivity: false,
-    selectedTypesCount: 3,
-  },
-};
-
+/** Rebuild ignores the asset type selection and warns about duration. */
 export const RebuildMode: Story = {
-  render: Default.render,
-  args: {
-    exportMode: 'rebuild',
-    onModeChange: () => {},
-    onStartExport: () => {},
-    onStopExport: () => {},
-    onRefreshActivity: () => {},
-    onRefreshStatus: () => {},
-    isRunning: false,
-    isRefreshing: false,
-    canRefreshActivity: true,
-    refreshingActivity: false,
-    selectedTypesCount: 3,
-  },
+  args: { exportMode: 'rebuild' },
 };
 
+/** Nothing selected: start is disabled and activity refresh is hidden. */
 export const NoSelection: Story = {
-  render: Default.render,
-  args: {
-    exportMode: 'smart',
-    onModeChange: () => {},
-    onStartExport: () => {},
-    onStopExport: () => {},
-    onRefreshActivity: () => {},
-    onRefreshStatus: () => {},
-    isRunning: false,
-    isRefreshing: false,
-    canRefreshActivity: false,
-    refreshingActivity: false,
-    selectedTypesCount: 0,
-  },
-};
-
-export const RefreshingViews: Story = {
-  render: Default.render,
-  args: {
-    exportMode: 'smart',
-    onModeChange: () => {},
-    onStartExport: () => {},
-    onStopExport: () => {},
-    onRefreshActivity: () => {},
-    onRefreshStatus: () => {},
-    isRunning: false,
-    isRefreshing: false,
-    canRefreshActivity: true,
-    refreshingActivity: true,
-    selectedTypesCount: 2,
-  },
-};
-
-export const PermissionsMode: Story = {
-  render: Default.render,
-  args: {
-    exportMode: 'permissions',
-    onModeChange: () => {},
-    onStartExport: () => {},
-    onStopExport: () => {},
-    onRefreshActivity: () => {},
-    onRefreshStatus: () => {},
-    isRunning: false,
-    isRefreshing: false,
-    canRefreshActivity: false,
-    refreshingActivity: false,
-    selectedTypesCount: 5,
-  },
+  args: { canRefreshActivity: false, selectedTypesCount: 0 },
 };

@@ -1,12 +1,4 @@
-/**
- * Types for RestoreAssetDialog components
- */
-
-import type { ReactNode } from 'react';
-
 import type { ArchivedAssetItem } from '@/features/asset-management';
-
-import type { ValidationResult } from '@/shared/api/modules/deploy';
 
 export type { ValidationResult } from '@/shared/api/modules/deploy';
 
@@ -21,12 +13,6 @@ export interface RestoreAssetDialogProps {
 
 export type { AssetMetadata } from '@/features/asset-management';
 
-export interface TabPanelProps {
-  children?: ReactNode;
-  index: number;
-  value: number;
-}
-
 export interface RestoreOptions {
   skipIfExists: boolean;
   overwriteExisting: boolean;
@@ -39,13 +25,6 @@ export interface RestoreFormData {
   assetName: string;
   description: string;
   tags: Array<{ key: string; value: string }>;
-}
-
-export interface ValidationSectionProps {
-  validationResults: ValidationResult[];
-  validating: boolean;
-  canDeploy: boolean;
-  hasRequiredFields: boolean;
 }
 
 export interface JobStatusSectionProps {

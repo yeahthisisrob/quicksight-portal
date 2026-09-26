@@ -17,7 +17,7 @@ import type { Direction, EntityType, Relation } from '../lib/contextGraph';
 import { SearchService } from '../services/SearchService';
 import type { SearchableType } from '../types';
 
-export const ENTITY_TYPES: readonly EntityType[] = [
+const ENTITY_TYPES: readonly EntityType[] = [
   'project',
   'listing',
   'listing-column',
@@ -32,7 +32,7 @@ export const ENTITY_TYPES: readonly EntityType[] = [
   'folder',
 ];
 
-export const RELATIONS: readonly Relation[] = [
+const RELATIONS: readonly Relation[] = [
   'in-project',
   'has-column',
   'tagged',

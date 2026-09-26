@@ -76,7 +76,7 @@ interface ApiOperation {
 /**
  * Asset permission structure
  */
-export interface AssetPermission {
+interface AssetPermission {
   principal: string;
   principalType: 'USER' | 'GROUP';
   actions: string[];

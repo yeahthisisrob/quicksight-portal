@@ -14,7 +14,7 @@ export interface FieldRename {
   to: string;
 }
 
-export type ElementChangeKind = 'moved' | 'resized' | 'retyped' | 'added' | 'removed';
+type ElementChangeKind = 'moved' | 'resized' | 'retyped' | 'added' | 'removed';
 
 export interface ElementChange {
   kind: ElementChangeKind;
@@ -181,7 +181,7 @@ export function removedOnly(diff: WireframeDiff | undefined): WireframeDiff | un
   return { renames: new Map(), elements, size: elements.size };
 }
 
-export type DiffSummary = Record<ElementChangeKind | 'renamed', number>;
+type DiffSummary = Record<ElementChangeKind | 'renamed', number>;
 
 /** Counts by kind, for summary chips. */
 export function summarizeDiff(diff: WireframeDiff | undefined): DiffSummary {

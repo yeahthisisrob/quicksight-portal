@@ -20,7 +20,7 @@ import { GroupService } from '../../organization/services/GroupService';
 import { ActivityService, type EventNameProgress } from '../services/ActivityService';
 import type { ActivityRefreshRequest } from '../types';
 
-export interface ActivityRefreshOptions {
+interface ActivityRefreshOptions {
   assetTypes: ('dashboard' | 'analysis' | 'user' | 'all')[];
   days?: number;
 }

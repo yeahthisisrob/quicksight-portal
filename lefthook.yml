@@ -45,6 +45,10 @@ pre-push:
     - name: typecheck
       run: mise exec -- pnpm -r run typecheck
 
+    - name: deadcode
+      # Unused files, exports and dependencies: what no other file imports.
+      run: mise exec -- pnpm exec knip --no-progress
+
     - name: test
       run: mise exec -- pnpm -r run test
 

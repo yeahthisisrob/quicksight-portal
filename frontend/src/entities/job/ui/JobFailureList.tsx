@@ -3,7 +3,7 @@ import { Alert, AlertTitle, Box, List, ListItem, ListItemText, Typography } from
 import type { BulkItemFailure } from '@/shared/api/modules/jobs';
 import { typography } from '@/shared/design-system/theme';
 
-export interface JobFailureListProps {
+interface JobFailureListProps {
   /** Item-level failures from a bulk job record (job.failures) */
   failures: BulkItemFailure[];
   /** Headline, e.g. "2 of 5 users could not be added" */

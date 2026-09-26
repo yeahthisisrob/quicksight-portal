@@ -6,7 +6,7 @@ import {
 
 import { logger } from '../../shared/utils/logger';
 
-export interface DashboardHealth {
+interface DashboardHealth {
   windowDays: number;
   viewLoads: number;
   viewLoadTimeP90Ms?: number;
@@ -18,7 +18,6 @@ const SECONDS_PER_DAY = 86_400;
 const MS_PER_SECOND = 1000;
 /** GetMetricData accepts 500 queries; keep headroom for the two dashboard ones. */
 const QUERIES_PER_CALL = 400;
-const QUERIES_PER_VISUAL = 2;
 
 /**
  * QuickSight publishes per-dashboard and per-visual metrics to CloudWatch
@@ -98,7 +97,7 @@ export class CloudWatchAdapter {
   }
 }
 
-export type HealthKind = 'dashboard' | 'dataset';
+type HealthKind = 'dashboard' | 'dataset';
 
 export interface AssetHealth {
   id: string;
@@ -124,7 +123,7 @@ function visualErrorSearch(dashboardId: string, period: number): string {
  * search, so no outline is needed. Datasets: refresh runs, p90 ingestion
  * latency and error rows.
  */
-export async function readAssetHealthBatch(
+async function readAssetHealthBatch(
   client: CloudWatchClient,
   kind: HealthKind,
   ids: string[],
@@ -198,6 +197,3 @@ function metric(
     },
   };
 }
-
-/** For sizing the queries list; two per visual. */
-export const HEALTH_QUERIES_PER_VISUAL = QUERIES_PER_VISUAL;

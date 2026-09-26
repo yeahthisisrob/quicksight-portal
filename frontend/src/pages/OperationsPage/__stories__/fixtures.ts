@@ -1,7 +1,7 @@
 import type { MockRoute } from '../../../../.storybook/mocks/api';
 
 const now = new Date('2026-09-18T12:00:00Z');
-export const daysAgo = (n: number) => new Date(now.getTime() - n * 86_400_000).toISOString();
+const daysAgo = (n: number) => new Date(now.getTime() - n * 86_400_000).toISOString();
 
 export const ITEMS = [
   {

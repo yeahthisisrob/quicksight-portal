@@ -9,7 +9,7 @@ import type { ContentBlock, Message } from '@aws-sdk/client-bedrock-runtime';
 import type { BedrockAdapter } from '../../../adapters/aws/BedrockAdapter';
 import type { AiModel } from '../../../shared/ai/modelCatalog';
 
-export interface ToolCall {
+interface ToolCall {
   id: string;
   name: string;
   input: Record<string, unknown>;
@@ -131,7 +131,7 @@ export class BedrockChatModel implements ChatModel {
   }
 }
 
-export type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
+type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
 
 const HTTP_OK_MAX = 299;
 

@@ -15,12 +15,7 @@
  * calculated field's own name is never mistaken for a dataset column.
  */
 
-import type {
-  ColumnUsage,
-  ColumnUsageSite,
-  DefinitionDataset,
-  ReferencedColumn,
-} from '../types';
+import type { ColumnUsage, ColumnUsageSite, DefinitionDataset, ReferencedColumn } from '../types';
 
 /** Top-level definition keys and the usage site they represent. */
 const SECTION_SITES: Record<string, ColumnUsageSite> = {
@@ -38,7 +33,7 @@ const SHEET_CONTROL_KEYS = new Set(['FilterControls', 'ParameterControls', 'Shee
  */
 const EXPRESSION_COLUMN_TOKEN = /(?<!\$)\{([^{}]+)\}/g;
 
-export interface ColumnIdentifier {
+interface ColumnIdentifier {
   DataSetIdentifier: string;
   ColumnName: string;
 }
@@ -217,7 +212,7 @@ export function collectDefinitionDatasets(definition: unknown): DefinitionDatase
     });
 }
 
-export interface UnresolvedCalculatedField {
+interface UnresolvedCalculatedField {
   identifier: string;
   name: string;
   /** The `{column}` tokens neither the dataset nor another calculated field provides. */

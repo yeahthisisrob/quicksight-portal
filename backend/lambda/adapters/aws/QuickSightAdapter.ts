@@ -106,7 +106,7 @@ import {
 /**
  * Adapter-specific types (not SDK types)
  */
-export interface ListOptions {
+interface ListOptions {
   maxResults?: number;
   nextToken?: string;
 }

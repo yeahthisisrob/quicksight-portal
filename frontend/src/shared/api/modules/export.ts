@@ -3,7 +3,7 @@ import type { components } from '@shared/generated/types';
 import { client, unwrap } from '../typed';
 import { type JobListOptions, jobsApi } from './jobs';
 
-export type ExportJobRequest = components['schemas']['ExportJobRequest'];
+type ExportJobRequest = components['schemas']['ExportJobRequest'];
 
 /**
  * Export API - the full export (and its jobs), and the cache summary.

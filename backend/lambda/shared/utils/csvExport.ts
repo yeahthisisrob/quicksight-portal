@@ -1,17 +1,8 @@
-/**
- * CSV Export utility functions
- */
-
-// CSV export constants
-const CSV_CONSTANTS = {
-  DATE_FORMAT_LENGTH: 10, // YYYY-MM-DD format
-} as const;
-
 // Type for fields that can have multiple naming conventions
 type FieldVariants = string | string[];
 
 // Column definition with flexible field mapping
-export interface CSVColumn {
+interface CSVColumn {
   header: string;
   field: FieldVariants;
   format?: (value: any) => string;
@@ -427,21 +418,6 @@ export function generateCSV(data: any[], assetType: string): string {
   });
 
   return [headers, ...rows].join('\n');
-}
-
-/**
- * Generate filename with timestamp
- */
-export function generateCSVFilename(prefix: string): string {
-  const date = new Date().toISOString().slice(0, CSV_CONSTANTS.DATE_FORMAT_LENGTH);
-  return `quicksight_${prefix}_export_${date}.csv`;
-}
-
-/**
- * Get columns for a specific asset type
- */
-export function getAssetColumns(assetType: string): CSVColumn[] {
-  return ASSET_CONFIGS[assetType] || getGenericColumns();
 }
 
 // Generic columns for unknown asset types

@@ -9,7 +9,7 @@ import type { AssetInsights, VisualHealth } from '@/shared/api/modules/authoring
 import type { WireframeBadges } from '../model/types';
 
 /** A visual whose p90 load time is above this is flagged as slow. */
-export const SLOW_VISUAL_MS = 3000;
+const SLOW_VISUAL_MS = 3000;
 
 const SECOND_MS = 1000;
 
@@ -17,7 +17,7 @@ export function isSlow(visual: VisualHealth): boolean {
   return (visual.loadTimeP90Ms ?? 0) > SLOW_VISUAL_MS;
 }
 
-export function hasErrors(visual: VisualHealth): boolean {
+function hasErrors(visual: VisualHealth): boolean {
   return (visual.errors ?? 0) > 0;
 }
 

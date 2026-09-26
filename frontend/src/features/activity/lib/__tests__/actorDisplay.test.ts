@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { TimelineEvent } from '@/shared/api/modules/activity';
 
-import { actorDisplay, actorKey, AGENT_ORIGINS, ORIGIN_META } from '../actorDisplay';
+import { AGENT_ORIGINS, actorDisplay, actorKey, ORIGIN_META } from '../actorDisplay';
 
 const base = (over: Partial<TimelineEvent>): TimelineEvent =>
   ({

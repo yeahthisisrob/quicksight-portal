@@ -1,8 +1,8 @@
 /**
  * Tests for useCacheSummary hook
  */
-import { renderHook, act, waitFor, cleanup } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { exportApi } from '@/shared/api';
 
@@ -36,19 +36,19 @@ describe('useCacheSummary', () => {
     it('should initialize with correct default state', async () => {
       // Mock API to prevent actual calls during initialization
       vi.mocked(exportApi.getExportSummary).mockRejectedValue(new Error('Test error'));
-      
+
       const { result, unmount } = renderHook(() => useCacheSummary());
-      
+
       // Initial state before any async operations
       expect(result.current.cacheSummary).toBeNull();
       expect(result.current.cacheSummaryLoading).toBe(true);
       expect(result.current.showInitialExportPrompt).toBe(false);
-      
+
       // Wait for the initial load attempt to complete
       await waitFor(() => {
         expect(result.current.cacheSummaryLoading).toBe(false);
       });
-      
+
       unmount();
     });
 
@@ -72,19 +72,19 @@ describe('useCacheSummary', () => {
           totalUniqueFields: 180,
         },
       };
-      
+
       vi.mocked(exportApi.getExportSummary).mockResolvedValue(mockSummary);
-      
+
       const { result, unmount } = renderHook(() => useCacheSummary());
-      
+
       await waitFor(() => {
         expect(result.current.cacheSummaryLoading).toBe(false);
       });
-      
+
       expect(result.current.cacheSummary).toEqual(mockSummary);
       expect(result.current.showInitialExportPrompt).toBe(false);
       expect(exportApi.getExportSummary).toHaveBeenCalledOnce();
-      
+
       unmount();
     });
   });
@@ -107,21 +107,21 @@ describe('useCacheSummary', () => {
         },
         fieldStatistics: null,
       };
-      
+
       vi.mocked(exportApi.getExportSummary).mockResolvedValue(mockSummary);
-      
+
       const { result, unmount } = renderHook(() => useCacheSummary());
-      
+
       await waitFor(() => {
         expect(result.current.cacheSummaryLoading).toBe(false);
       });
-      
+
       expect(result.current.showInitialExportPrompt).toBe(true);
       expect(mockEnqueueSnackbar).toHaveBeenCalledWith(
         'No cache data found. Please run an initial export.',
         { variant: 'info' }
       );
-      
+
       unmount();
     });
 
@@ -145,18 +145,18 @@ describe('useCacheSummary', () => {
           totalUniqueFields: 135,
         },
       };
-      
+
       vi.mocked(exportApi.getExportSummary).mockResolvedValue(mockSummary);
-      
+
       const { result, unmount } = renderHook(() => useCacheSummary());
-      
+
       await waitFor(() => {
         expect(result.current.cacheSummaryLoading).toBe(false);
       });
-      
+
       expect(result.current.showInitialExportPrompt).toBe(false);
       expect(mockEnqueueSnackbar).not.toHaveBeenCalled();
-      
+
       unmount();
     });
 
@@ -176,18 +176,18 @@ describe('useCacheSummary', () => {
         },
         fieldStatistics: null,
       };
-      
+
       vi.mocked(exportApi.getExportSummary).mockResolvedValue(mockSummary);
-      
+
       const { result, unmount } = renderHook(() => useCacheSummary());
-      
+
       await waitFor(() => {
         expect(result.current.cacheSummaryLoading).toBe(false);
       });
-      
+
       expect(result.current.showInitialExportPrompt).toBe(true);
       expect(mockEnqueueSnackbar).not.toHaveBeenCalled();
-      
+
       unmount();
     });
   });
@@ -196,19 +196,18 @@ describe('useCacheSummary', () => {
     it('should handle API errors gracefully', async () => {
       const error = new Error('Network error');
       vi.mocked(exportApi.getExportSummary).mockRejectedValue(error);
-      
+
       const { result, unmount } = renderHook(() => useCacheSummary());
-      
+
       await waitFor(() => {
         expect(result.current.cacheSummaryLoading).toBe(false);
       });
-      
+
       expect(result.current.cacheSummary).toBeNull();
-      expect(mockEnqueueSnackbar).toHaveBeenCalledWith(
-        'Failed to load cache summary',
-        { variant: 'error' }
-      );
-      
+      expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Failed to load cache summary', {
+        variant: 'error',
+      });
+
       unmount();
     });
   });
@@ -234,7 +233,7 @@ describe('useCacheSummary', () => {
           totalUniqueFields: 135,
         },
       };
-      
+
       const updatedSummary = {
         totalAssets: 75,
         exportedAssets: 65,
@@ -254,28 +253,28 @@ describe('useCacheSummary', () => {
           totalUniqueFields: 180,
         },
       };
-      
+
       vi.mocked(exportApi.getExportSummary)
         .mockResolvedValueOnce(initialSummary)
         .mockResolvedValueOnce(updatedSummary);
-      
+
       const { result, unmount } = renderHook(() => useCacheSummary());
-      
+
       // Wait for initial load
       await waitFor(() => {
         expect(result.current.cacheSummaryLoading).toBe(false);
       });
-      
+
       expect(result.current.cacheSummary).toEqual(initialSummary);
-      
+
       // Manually refresh
       await act(async () => {
         await result.current.loadCacheSummary();
       });
-      
+
       expect(result.current.cacheSummary).toEqual(updatedSummary);
       expect(exportApi.getExportSummary).toHaveBeenCalledTimes(2);
-      
+
       unmount();
     });
 
@@ -299,28 +298,28 @@ describe('useCacheSummary', () => {
           totalUniqueFields: 135,
         },
       };
-      
+
       vi.mocked(exportApi.getExportSummary).mockResolvedValue(mockSummary);
-      
+
       const { result, unmount } = renderHook(() => useCacheSummary());
-      
+
       // Wait for initial load
       await waitFor(() => {
         expect(result.current.cacheSummaryLoading).toBe(false);
       });
-      
+
       // Start manual refresh
       act(() => {
         result.current.loadCacheSummary();
       });
-      
+
       // Should show loading state
       expect(result.current.cacheSummaryLoading).toBe(true);
-      
+
       await waitFor(() => {
         expect(result.current.cacheSummaryLoading).toBe(false);
       });
-      
+
       unmount();
     });
   });
@@ -343,29 +342,29 @@ describe('useCacheSummary', () => {
         },
         fieldStatistics: null,
       };
-      
+
       vi.mocked(exportApi.getExportSummary).mockResolvedValue(mockSummary);
-      
+
       const { result, unmount } = renderHook(() => useCacheSummary());
-      
+
       await waitFor(() => {
         expect(result.current.showInitialExportPrompt).toBe(true);
       });
-      
+
       // Manually dismiss the prompt
       act(() => {
         result.current.setShowInitialExportPrompt(false);
       });
-      
+
       expect(result.current.showInitialExportPrompt).toBe(false);
-      
+
       // Manually show the prompt again
       act(() => {
         result.current.setShowInitialExportPrompt(true);
       });
-      
+
       expect(result.current.showInitialExportPrompt).toBe(true);
-      
+
       unmount();
     });
   });
@@ -373,31 +372,31 @@ describe('useCacheSummary', () => {
   describe('edge cases', () => {
     it('should handle null response from API', async () => {
       vi.mocked(exportApi.getExportSummary).mockResolvedValue(null as any);
-      
+
       const { result, unmount } = renderHook(() => useCacheSummary());
-      
+
       await waitFor(() => {
         expect(result.current.cacheSummaryLoading).toBe(false);
       });
-      
+
       expect(result.current.cacheSummary).toBeNull();
       expect(result.current.showInitialExportPrompt).toBe(false);
-      
+
       unmount();
     });
 
     it('should handle undefined response from API', async () => {
       vi.mocked(exportApi.getExportSummary).mockResolvedValue(undefined as any);
-      
+
       const { result, unmount } = renderHook(() => useCacheSummary());
-      
+
       await waitFor(() => {
         expect(result.current.cacheSummaryLoading).toBe(false);
       });
-      
+
       expect(result.current.cacheSummary).toBeNull();
       expect(result.current.showInitialExportPrompt).toBe(false);
-      
+
       unmount();
     });
 
@@ -417,16 +416,16 @@ describe('useCacheSummary', () => {
         fieldStatistics: null,
       };
       vi.mocked(exportApi.getExportSummary).mockResolvedValue(emptySummary);
-      
+
       const { result, unmount } = renderHook(() => useCacheSummary());
-      
+
       await waitFor(() => {
         expect(result.current.cacheSummaryLoading).toBe(false);
       });
-      
+
       expect(result.current.cacheSummary).toEqual(emptySummary);
       expect(result.current.showInitialExportPrompt).toBe(false);
-      
+
       unmount();
     });
   });

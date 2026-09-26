@@ -27,50 +27,6 @@ export interface ColumnConfig {
   dateFilterField?: NonNullable<PaginatedListParams['dateField']>;
 }
 
-export interface AssetListPageProps {
-  title: string;
-  assetType: string;
-  columns: string[];
-  bulkActions?: boolean;
-  showRelatedAssets?: boolean;
-  defaultSort?: {
-    field: string;
-    sort: 'asc' | 'desc';
-  };
-}
-
-export interface MetadataFormProps {
-  metadata: any;
-  metadataFields?: string[];
-  title?: string;
-  hiddenFields?: string[];
-}
-
-export interface PermissionsDialogProps {
-  open: boolean;
-  onClose: () => void;
-  assetId: string;
-  assetName: string;
-  permissions: any[];
-}
-
-export interface RelatedAssetsDialogProps {
-  open: boolean;
-  onClose: () => void;
-  assetId: string;
-  assetName: string;
-  relatedAssets: any[];
-}
-
-export interface TagsDialogProps {
-  open: boolean;
-  onClose: () => void;
-  assetId: string;
-  assetName: string;
-  tags: string[];
-  onUpdateTags: (tags: string[]) => void;
-}
-
 // Archive and deployment types — grounded in the generated OpenAPI schema
 export type ArchivedAssetItem = components['schemas']['ArchivedAssetItem'] & {
   size?: number;

@@ -15,7 +15,7 @@ import { jobRoutes } from '../shared/routes/jobRoutes';
 import type { RouteHandler } from './types';
 import { extractPathParams } from './utils/routeUtils';
 
-export const featureRoutes: RouteHandler[] = [
+const featureRoutes: RouteHandler[] = [
   ...searchRoutes,
   ...apiDocsRoutes,
   ...assistantRoutes,

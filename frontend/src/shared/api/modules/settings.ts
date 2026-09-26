@@ -5,11 +5,9 @@ import { client, unwrap } from '../typed';
 type Schemas = components['schemas'];
 
 export type SettingsSnapshot = Schemas['SettingsSnapshot'];
-export type SettingsGroup = Schemas['SettingsGroup'];
 export type SettingDefinition = Schemas['SettingDefinition'];
 export type SettingSource = Schemas['SettingSource'];
 export type SettingsUpdate = Schemas['SettingsUpdate'];
-export type SmusProject = Schemas['SmusProject'];
 export type SmusProjectDiagnostics = Schemas['SmusProjectDiagnostics'];
 export type ApiKey = Schemas['ApiKey'];
 export type ApiKeyCreated = Schemas['ApiKeyCreated'];
@@ -56,5 +54,3 @@ export const settingsApi = {
     return unwrap(await client.GET('/api/settings/quicksight/folders'), 'Failed to list folders');
   },
 };
-
-export type SmusProjectsResponse = Awaited<ReturnType<typeof settingsApi.listSmusProjects>>;

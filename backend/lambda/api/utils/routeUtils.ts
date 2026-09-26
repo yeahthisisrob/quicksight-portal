@@ -218,24 +218,3 @@ function createDefaultParams(match: RegExpMatchArray): Record<string, string> {
 
   return params;
 }
-
-/**
- * Helper to create a regex pattern from a path template
- * @example createPattern('/users/:id') => /^\/users\/([^\/]+)$/
- */
-export function createPattern(template: string): RegExp {
-  const pattern = template
-    .replace(/:[^/]+/g, '([^/]+)') // Replace :param with capture group
-    .replace(/\*/g, '.*'); // Support wildcards
-
-  return new RegExp(`^${pattern}$`);
-}
-
-/**
- * Extracts parameter names from a route template
- * @example extractParamNames('/users/:id/posts/:postId') => ['id', 'postId']
- */
-export function extractParamNames(template: string): string[] {
-  const matches = template.match(/:[^/]+/g) || [];
-  return matches.map((match) => match.substring(1));
-}

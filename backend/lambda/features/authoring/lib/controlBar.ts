@@ -7,7 +7,7 @@
  */
 
 /** Width of one control in the bar, in the bar's grid units, as QuickSight exports it. */
-export const CONTROL_BAR_SPAN = 2;
+const CONTROL_BAR_SPAN = 2;
 
 export interface ControlBarElement {
   ElementId: string;

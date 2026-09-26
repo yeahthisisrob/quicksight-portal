@@ -163,7 +163,8 @@ export const gridDashboardDefinition = {
       TextBoxes: [
         {
           SheetTextBoxId: 'text-intro',
-          Content: '<block><inline><b>Sales overview</b> - refreshed nightly from the gold dataset.</inline></block>',
+          Content:
+            '<block><inline><b>Sales overview</b> - refreshed nightly from the gold dataset.</inline></block>',
         },
       ],
       SheetControlLayouts: [
@@ -249,9 +250,7 @@ export const freeFormDefinition = {
           },
         },
       ],
-      Images: [
-        { SheetImageId: 'img-logo', ImageContentAltText: 'Company logo', Source: {} },
-      ],
+      Images: [{ SheetImageId: 'img-logo', ImageContentAltText: 'Company logo', Source: {} }],
       Layouts: [
         {
           Configuration: {

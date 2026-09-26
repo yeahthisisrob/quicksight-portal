@@ -41,7 +41,7 @@ export function outlineFromModel(model: WireframeModel): SheetOutline[] {
   }));
 }
 
-export type RetypableVisualType = NonNullable<DefinitionOp['visualType']>;
+type RetypableVisualType = NonNullable<DefinitionOp['visualType']>;
 
 /** The conversions the server accepts: field wells translate between these. */
 export const RETYPABLE_TYPES: ReadonlyArray<{ value: RetypableVisualType; label: string }> = [
@@ -58,8 +58,8 @@ export function isRetypable(visualType: string | undefined): visualType is Retyp
   return RETYPABLE_TYPES.some((t) => t.value === visualType);
 }
 
-export const GRID_COLUMNS = 36;
-export const MAX_COL = GRID_COLUMNS - 1;
+const GRID_COLUMNS = 36;
+const MAX_COL = GRID_COLUMNS - 1;
 
 export const clampCol = (col: number): number => Math.min(MAX_COL, Math.max(0, Math.round(col)));
 export const clampRow = (row: number): number => Math.max(0, Math.round(row));

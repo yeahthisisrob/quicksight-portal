@@ -19,7 +19,7 @@ export interface FieldMetadata {
   updatedBy?: string;
 }
 
-export interface FieldMetadataUpdate {
+interface FieldMetadataUpdate {
   description?: string;
   businessGlossary?: string;
   tags?: string[];
@@ -29,7 +29,7 @@ export interface FieldMetadataUpdate {
   updatedBy?: string;
 }
 
-export interface BulkFieldMetadataResponse {
+interface BulkFieldMetadataResponse {
   success: boolean;
   totalFields: number;
   updatedFields: number;

@@ -1,7 +1,7 @@
 import { Badge, Box, Tab, Tabs } from '@mui/material';
 import type { ReactNode } from 'react';
 
-export interface TabBarItem<T extends string> {
+interface TabBarItem<T extends string> {
   value: T;
   label: ReactNode;
   icon?: ReactNode;
@@ -10,7 +10,7 @@ export interface TabBarItem<T extends string> {
   disabled?: boolean;
 }
 
-export interface TabBarProps<T extends string> {
+interface TabBarProps<T extends string> {
   tabs: TabBarItem<T>[];
   value: T;
   onChange: (value: T) => void;
@@ -69,5 +69,3 @@ export function TabBar<T extends string>({
     </Box>
   );
 }
-
-export default TabBar;

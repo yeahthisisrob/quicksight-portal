@@ -6,11 +6,9 @@
 /** Synthetic definitions for stories and tests; tree-shaken out of the app. */
 export * as definitionFixtures from './lib/__fixtures__/definitions';
 export {
-  hasErrors,
   healthBadges,
   isSlow,
   problemVisuals,
-  SLOW_VISUAL_MS,
   seconds,
 } from './lib/healthBadges';
 export {
@@ -21,16 +19,7 @@ export {
   useRebindDraft,
 } from './lib/useRebindDraft';
 export {
-  type DiffSummary,
   diffWireframeModels,
-  type ElementChange,
-  type ElementChangeKind,
-  elementChanges,
-  elementKey,
-  elementRenames,
-  emptyDiff,
-  type FieldRename,
-  fieldKey,
   removedOnly,
   summarizeDiff,
   type WireframeDiff,

@@ -50,6 +50,28 @@ const mockRefreshSchedules = [
     refreshType: 'INCREMENTAL_REFRESH' as const,
     arn: 'arn:aws:quicksight:us-east-1:123456789012:dataset/95ce201a-3fcb-4831-91dc-1c41af6d41d6/refresh-schedule/969836cf-26f6-46e8-ae6b-612d6775a9cf',
   },
+  {
+    scheduleId: 'hourly-123',
+    scheduleFrequency: {
+      interval: 'HOURLY' as const,
+      timezone: 'UTC',
+    },
+    refreshType: 'INCREMENTAL_REFRESH' as const,
+    arn: 'arn:aws:quicksight:us-east-1:123456789012:dataset/hourly-dataset/refresh-schedule/hourly-123',
+  },
+  {
+    scheduleId: 'monthly-456',
+    scheduleFrequency: {
+      interval: 'MONTHLY' as const,
+      refreshOnDay: {
+        dayOfMonth: '1',
+      },
+      timeOfTheDay: '02:00',
+      timezone: 'America/New_York',
+    },
+    refreshType: 'FULL_REFRESH' as const,
+    arn: 'arn:aws:quicksight:us-east-1:123456789012:dataset/monthly-dataset/refresh-schedule/monthly-456',
+  },
 ];
 
 const mockRefreshProperties = {
@@ -69,20 +91,12 @@ const mockRefreshProperties = {
   },
 };
 
+/** Daily, weekly, hourly and monthly schedules, plus refresh properties. */
 export const Default: Story = {
   args: {
     open: true,
     datasetName: 'Sales Data',
     refreshSchedules: mockRefreshSchedules,
-    dataSetRefreshProperties: mockRefreshProperties,
-  },
-};
-
-export const SingleSchedule: Story = {
-  args: {
-    open: true,
-    datasetName: 'Customer Analytics',
-    refreshSchedules: [mockRefreshSchedules[0]],
     dataSetRefreshProperties: mockRefreshProperties,
   },
 };
@@ -105,53 +119,6 @@ export const OnlyProperties: Story = {
       failureConfiguration: {
         emailAlert: {
           alertStatus: 'DISABLED',
-        },
-      },
-    },
-  },
-};
-
-export const HourlySchedule: Story = {
-  args: {
-    open: true,
-    datasetName: 'Real-time Dashboard Data',
-    refreshSchedules: [
-      {
-        scheduleId: 'hourly-123',
-        scheduleFrequency: {
-          interval: 'HOURLY' as const,
-          timezone: 'UTC',
-        },
-        refreshType: 'INCREMENTAL_REFRESH' as const,
-        arn: 'arn:aws:quicksight:us-east-1:123456789012:dataset/hourly-dataset/refresh-schedule/hourly-123',
-      },
-    ],
-  },
-};
-
-export const MonthlySchedule: Story = {
-  args: {
-    open: true,
-    datasetName: 'Monthly Reports',
-    refreshSchedules: [
-      {
-        scheduleId: 'monthly-456',
-        scheduleFrequency: {
-          interval: 'MONTHLY' as const,
-          refreshOnDay: {
-            dayOfMonth: '1',
-          },
-          timeOfTheDay: '02:00',
-          timezone: 'America/New_York',
-        },
-        refreshType: 'FULL_REFRESH' as const,
-        arn: 'arn:aws:quicksight:us-east-1:123456789012:dataset/monthly-dataset/refresh-schedule/monthly-456',
-      },
-    ],
-    dataSetRefreshProperties: {
-      failureConfiguration: {
-        emailAlert: {
-          alertStatus: 'ENABLED',
         },
       },
     },

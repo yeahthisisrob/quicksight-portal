@@ -32,7 +32,7 @@ const ICONS: Record<ActorIconKind, SvgIconComponent> = {
 
 const ICON_SIZE = 16;
 
-export interface ActorChipProps {
+interface ActorChipProps {
   event: TimelineEvent;
   /** Compact: icon and primary label only; the "via" part moves to the tooltip. */
   compact?: boolean;

@@ -12,7 +12,7 @@ import {
   toUpdate,
 } from '../model/settingsForm';
 
-export const SETTINGS_QUERY_KEY = ['settings'] as const;
+const SETTINGS_QUERY_KEY = ['settings'] as const;
 
 export interface UseSettingsFormOptions {
   /** Pre-filled changes (stories, tests). */
@@ -61,9 +61,9 @@ export function useSettingsForm({ initialDraft = {}, onSaved }: UseSettingsFormO
     isDirty: changed.length > 0,
     save: () => mutation.mutate(),
     isSaving: mutation.isPending,
-    saveError: mutation.isError ? getApiErrorMessage(mutation.error, 'Failed to save settings') : null,
+    saveError: mutation.isError
+      ? getApiErrorMessage(mutation.error, 'Failed to save settings')
+      : null,
     clearSaveError: mutation.reset,
   };
 }
-
-export type SettingsForm = ReturnType<typeof useSettingsForm>;

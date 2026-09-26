@@ -10,12 +10,7 @@ import type {
 
 export type CatalogTab = 'calculated-fields' | 'columns' | 'smus' | 'templates';
 
-export const CATALOG_TABS: readonly CatalogTab[] = [
-  'calculated-fields',
-  'columns',
-  'smus',
-  'templates',
-];
+const CATALOG_TABS: readonly CatalogTab[] = ['calculated-fields', 'columns', 'smus', 'templates'];
 export const DEFAULT_CATALOG_TAB: CatalogTab = 'calculated-fields';
 
 export interface CatalogUrlState {
@@ -120,7 +115,7 @@ export function pickProject(
   return projects.find((p) => p.id === requested) ?? projects[0];
 }
 
-export interface AssetFilters {
+interface AssetFilters {
   term?: string;
   /** Dataset ids carrying the chosen tags; null means no tag filter. */
   taggedDatasetIds?: Set<string> | null;

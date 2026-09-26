@@ -81,7 +81,7 @@ export interface NewAssetRequest {
   newAssetId?: string;
 }
 
-export interface NewAssetPreview {
+interface NewAssetPreview {
   definition: Record<string, any>;
   outline: SheetOutline[];
   changes: DefinitionChange[];
@@ -92,7 +92,7 @@ export interface NewAssetPreview {
   themeArn?: string;
 }
 
-export interface NewAssetResult {
+interface NewAssetResult {
   assetType: AuthorableAssetType;
   assetId: string;
   name: string;

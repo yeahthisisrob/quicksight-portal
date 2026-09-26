@@ -1,15 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
-import { type MockRoute, mockApi } from '../../../../../.storybook/mocks/api';
+import { type MockRoute, useMockApi } from '../../../../../.storybook/mocks/api';
 import { fieldCatalogRoutes } from '../__stories__/fieldCatalog';
 import { catalogRoutes } from '../__stories__/routes';
 import { ColumnsView } from './ColumnsView';
 
-function Harness({ routes, initialSearch = '' }: { routes: MockRoute[]; initialSearch?: string }) {
-  const [restore] = useState(() => mockApi(routes));
-  useEffect(() => restore, [restore]);
-  const [search, setSearch] = useState(initialSearch);
+function Harness({ routes }: { routes: MockRoute[] }) {
+  useMockApi(routes);
+  const [search, setSearch] = useState('');
   return (
     <ColumnsView
       projectId="proj-analytics-prod"
@@ -40,11 +39,6 @@ type Story = StoryObj<typeof meta>;
 
 export const Loaded: Story = {
   render: () => <Harness routes={catalogRoutes()} />,
-};
-
-export const Searched: Story = {
-  name: 'Searched: "rev"',
-  render: () => <Harness routes={catalogRoutes()} initialSearch="rev" />,
 };
 
 export const Empty: Story = {

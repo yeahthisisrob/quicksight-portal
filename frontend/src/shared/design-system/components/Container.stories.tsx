@@ -28,24 +28,8 @@ const meta: Meta<typeof Container> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Basic: Story = {
-  args: {
-    header: 'Dataset details',
-    description: 'Where this dataset reads from and who can use it.',
-    children: (
-      <KeyValuePairs
-        items={[
-          { label: 'Import mode', value: 'SPICE' },
-          { label: 'Last refreshed', value: '2 hours ago' },
-          { label: 'Owner', value: 'analytics-team' },
-          { label: 'Status', value: <StatusIndicator type="success">Available</StatusIndicator> },
-        ]}
-      />
-    ),
-  },
-};
-
-export const WithActionsAndFooter: Story = {
+/** Header with counter, description and actions; a footer; key-value content. */
+export const Default: Story = {
   args: {
     header: 'Published assets',
     headerAdornment: <Typography color="text.secondary">(12)</Typography>,
@@ -65,7 +49,16 @@ export const WithActionsAndFooter: Story = {
         Showing the first 50. Refine the search to see more.
       </Typography>
     ),
-    children: <Typography>Table or list content goes here.</Typography>,
+    children: (
+      <KeyValuePairs
+        items={[
+          { label: 'Import mode', value: 'SPICE' },
+          { label: 'Last refreshed', value: '2 hours ago' },
+          { label: 'Owner', value: 'analytics-team' },
+          { label: 'Status', value: <StatusIndicator type="success">Available</StatusIndicator> },
+        ]}
+      />
+    ),
   },
 };
 
@@ -75,16 +68,5 @@ export const Subtle: Story = {
     header: 'Advanced',
     headingLevel: 'h3',
     children: <Typography>A quieter container for secondary content.</Typography>,
-  },
-};
-
-export const NoHeader: Story = {
-  args: {
-    disableContentPadding: true,
-    children: (
-      <Typography sx={{ p: 2 }}>
-        Content-only, with padding handled by the child (a table, a canvas).
-      </Typography>
-    ),
   },
 };

@@ -6,7 +6,7 @@ export const ACTIONS_WIDTH = 50; // Width for the actions column
 
 export const tableStyles = {
   container: components.container,
-  
+
   dataGrid: {
     border: 'none',
     '& .MuiDataGrid-main': {
@@ -28,7 +28,7 @@ export const tableStyles = {
       color: colors.neutral[700],
     },
     '& .MuiDataGrid-row': {
-      display: 'flex !important',  // Enable flex for order property
+      display: 'flex !important', // Enable flex for order property
       '&:hover': {
         backgroundColor: alpha(colors.primary.main, 0.04),
       },
@@ -94,7 +94,7 @@ export const tableStyles = {
     '& .MuiDataGrid-virtualScroller': {
       overflowX: 'scroll',
       '&::-webkit-scrollbar': {
-        width: 8,  // For vertical scrollbar
+        width: 8, // For vertical scrollbar
         height: 8, // For horizontal scrollbar
         backgroundColor: colors.neutral[100],
       },
@@ -112,11 +112,3 @@ export const tableStyles = {
     },
   },
 } as const;
-
-export const DATE_RANGES = [
-  { value: 'all', label: 'All time' },
-  { value: '24h', label: 'Last 24 hours' },
-  { value: '7d', label: 'Last 7 days' },
-  { value: '30d', label: 'Last 30 days' },
-  { value: '90d', label: 'Last 90 days' },
-];

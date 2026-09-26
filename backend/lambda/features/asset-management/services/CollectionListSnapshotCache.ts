@@ -2,7 +2,7 @@ import { cacheService } from '../../../shared/services/cache/CacheService';
 import { logger } from '../../../shared/utils/logger';
 import { SingleFlight } from '../../../shared/utils/singleFlight';
 
-export type CollectionSnapshotType = 'user' | 'group';
+type CollectionSnapshotType = 'user' | 'group';
 
 /**
  * Fully enriched collection list (pre-filter, pre-sort) plus any filter
@@ -13,7 +13,7 @@ export type CollectionSnapshotType = 'user' | 'group';
  * paginate) is non-mutating; anything new that touches these items must
  * copy first.
  */
-export interface CollectionListSnapshot {
+interface CollectionListSnapshot {
   version: string;
   items: any[];
   availableRoles?: any[];

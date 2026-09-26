@@ -24,7 +24,7 @@ export interface JobProgressStep {
   icon: ComponentType<{ sx?: object }>;
 }
 
-export interface JobProgressProps {
+interface JobProgressProps {
   title: string;
   steps: JobProgressStep[];
   /** -1 = no step active (idle); steps.length = all done. */

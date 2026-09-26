@@ -19,10 +19,7 @@ const TAGGED_DATASETS_PAGE = 500;
 const LIST_STALE_MS = 30_000;
 const PROJECTS_STALE_MS = 60_000;
 
-export function useCatalogUrlState(): [
-  CatalogUrlState,
-  (patch: Partial<CatalogUrlState>) => void,
-] {
+export function useCatalogUrlState(): [CatalogUrlState, (patch: Partial<CatalogUrlState>) => void] {
   const [params, setParams] = useSearchParams();
   const state = useMemo(() => readCatalogState(params), [params]);
   const update = useCallback(

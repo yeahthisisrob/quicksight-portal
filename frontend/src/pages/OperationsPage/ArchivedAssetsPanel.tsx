@@ -108,7 +108,7 @@ function AssetTypeChip({ type }: { type: AssetType }) {
   );
 }
 
-export interface ArchivedAssetsPanelProps {
+interface ArchivedAssetsPanelProps {
   /** Called with the total after each fetch, so a host can show a count. */
   onTotalChange?: (total: number) => void;
 }
@@ -337,5 +337,3 @@ export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps)
     </>
   );
 }
-
-export default ArchivedAssetsPanel;

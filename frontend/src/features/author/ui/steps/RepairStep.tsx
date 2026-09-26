@@ -40,7 +40,7 @@ import { StatusIndicator } from '../primitives/StatusIndicator';
 const LEAVE = '__leave__';
 
 /** "3 visuals, 1 filter" from a usage record. */
-export function usageWords(usage: ColumnUsage | undefined): string {
+function usageWords(usage: ColumnUsage | undefined): string {
   if (!usage) {
     return '';
   }

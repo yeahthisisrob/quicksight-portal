@@ -7,9 +7,9 @@ import { useCallback, useEffect, useState } from 'react';
 
 import type { AiModelKey } from '@/shared/api/modules/assistant';
 
-export type AiWork = 'authoring' | 'chat';
+type AiWork = 'authoring' | 'chat';
 
-export const DEFAULT_AI_MODEL: Record<AiWork, AiModelKey> = {
+const DEFAULT_AI_MODEL: Record<AiWork, AiModelKey> = {
   authoring: 'sonnet-4-6',
   chat: 'haiku-4-5',
 };
@@ -31,7 +31,7 @@ export function readAiModel(work: AiWork): AiModelKey {
   }
 }
 
-export function writeAiModel(work: AiWork, key: AiModelKey): void {
+function writeAiModel(work: AiWork, key: AiModelKey): void {
   try {
     window.localStorage.setItem(`${STORAGE_PREFIX}${work}`, key);
   } catch {

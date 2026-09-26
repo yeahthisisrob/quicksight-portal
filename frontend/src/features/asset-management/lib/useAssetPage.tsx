@@ -1,8 +1,8 @@
-import { GridRowSelectionModel, GridSortModel } from '@mui/x-data-grid';
-import { useState, useEffect, useCallback } from 'react';
+import type { GridRowSelectionModel, GridSortModel } from '@mui/x-data-grid';
+import { useCallback, useEffect, useState } from 'react';
 
-import type { AssetType } from '@/shared/types/asset';
 import { EMPTY_SELECTION, isRowSelected } from '@/shared/lib/gridSelection';
+import type { AssetType } from '@/shared/types/asset';
 
 // Module-level constant so the grid receives a stable sort-model identity
 const DEFAULT_SORT_MODEL: GridSortModel = [{ field: 'lastModified', sort: 'desc' }];
@@ -21,13 +21,21 @@ export function useAssetPage({
   updateAssetTags,
 }: UseAssetPageOptions) {
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>(EMPTY_SELECTION);
-  const [permissionsDialog, setPermissionsDialog] = useState<{ open: boolean; asset?: any }>({ open: false });
-  const [relatedAssetsDialog, setRelatedAssetsDialog] = useState<{ open: boolean; asset?: any; relatedAssets?: any[] }>({ open: false });
+  const [permissionsDialog, setPermissionsDialog] = useState<{ open: boolean; asset?: any }>({
+    open: false,
+  });
+  const [relatedAssetsDialog, setRelatedAssetsDialog] = useState<{
+    open: boolean;
+    asset?: any;
+    relatedAssets?: any[];
+  }>({ open: false });
   const [tagsDialog, setTagsDialog] = useState<{ open: boolean; asset?: any }>({ open: false });
   const [addToFolderOpen, setAddToFolderOpen] = useState(false);
   const [bulkTagOpen, setBulkTagOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-  const [viewStatsDialog, setViewStatsDialog] = useState<{ open: boolean; asset?: any }>({ open: false });
+  const [viewStatsDialog, setViewStatsDialog] = useState<{ open: boolean; asset?: any }>({
+    open: false,
+  });
 
   const openPermissionsDialog = useCallback(
     (asset: any) => setPermissionsDialog({ open: true, asset }),
@@ -35,7 +43,8 @@ export function useAssetPage({
   );
   const openTagsDialog = useCallback((asset: any) => setTagsDialog({ open: true, asset }), []);
   const openRelatedAssetsDialog = useCallback(
-    (asset: any, relatedAssets: any[]) => setRelatedAssetsDialog({ open: true, asset, relatedAssets }),
+    (asset: any, relatedAssets: any[]) =>
+      setRelatedAssetsDialog({ open: true, asset, relatedAssets }),
     []
   );
   const openViewStatsDialog = useCallback(

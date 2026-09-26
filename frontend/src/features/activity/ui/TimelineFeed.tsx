@@ -34,7 +34,7 @@ const DEFAULT_RANGE: TimelineDateRange = '30d';
  */
 const DEFAULT_EXCLUDED_EVENTS = ['CreateIngestion', 'CancelIngestion'];
 
-export interface TimelineFeedProps {
+interface TimelineFeedProps {
   /** Pin the feed to a single catalog asset. When omitted, shows the global feed. */
   assetPin?: TimelineAssetPin;
   /** Rendered above the filter bar, with the cache's last-refresh time. */

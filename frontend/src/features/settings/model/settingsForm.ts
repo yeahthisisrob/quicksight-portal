@@ -23,11 +23,11 @@ export type SettingsFormAction =
   | { type: 'revert'; key: string }
   | { type: 'discard' };
 
-export function definitionsOf(snapshot: SettingsSnapshot | null | undefined): SettingDefinition[] {
+function definitionsOf(snapshot: SettingsSnapshot | null | undefined): SettingDefinition[] {
   return snapshot?.groups.flatMap((g) => g.settings) ?? [];
 }
 
-export function findDefinition(
+function findDefinition(
   snapshot: SettingsSnapshot | null | undefined,
   key: string
 ): SettingDefinition | undefined {

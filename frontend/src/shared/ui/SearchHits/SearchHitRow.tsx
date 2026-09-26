@@ -13,7 +13,7 @@ import { SEARCH_TYPE_SINGULAR } from '@/shared/lib/search/groupHits';
 const WHY_LIMIT = 4;
 const DEFINED_IN_LIMIT = 3;
 
-export interface SearchHitRowProps {
+interface SearchHitRowProps {
   hit: SearchHit;
   selected?: boolean;
   /** Hide the type chip when the list already says the type (a grouped list). */

@@ -14,7 +14,7 @@ export type DeploymentType =
 /**
  * Deployment source types
  */
-export type DeploymentSource =
+type DeploymentSource =
   | 'archive' // From archived assets
   | 'template' // From template library
   | 's3' // From S3 location
@@ -35,7 +35,7 @@ export interface DeploymentConfig {
 /**
  * Deployment target configuration
  */
-export interface DeploymentTarget {
+interface DeploymentTarget {
   accountId?: string; // Target AWS account (defaults to current)
   region?: string; // Target AWS region (defaults to current)
   namespace?: string; // QuickSight namespace (defaults to 'default')
@@ -45,7 +45,7 @@ export interface DeploymentTarget {
 /**
  * Common deployment options
  */
-export interface DeploymentOptions {
+interface DeploymentOptions {
   // Identity options
   id?: string; // Override asset ID
   name?: string; // Override asset name
@@ -83,7 +83,7 @@ export interface DeploymentOptions {
 /**
  * Validation options
  */
-export interface ValidationOptions {
+interface ValidationOptions {
   checkDependencies?: boolean;
   checkPermissions?: boolean;
   checkQuotas?: boolean;
@@ -94,7 +94,7 @@ export interface ValidationOptions {
 /**
  * Asset transformation configuration
  */
-export interface AssetTransformation {
+interface AssetTransformation {
   type: 'rename' | 'replace' | 'regex' | 'custom';
   field: string;
   value?: string;

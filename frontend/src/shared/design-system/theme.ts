@@ -11,7 +11,7 @@
 import { alpha } from '@mui/material';
 
 import { assetHue } from './tokens/palette';
-import { elevation, fontFamily as fontFamilyTokens, motion, radius, space } from './tokens/scale';
+import { fontFamily as fontFamilyTokens, motion, radius, space } from './tokens/scale';
 import { lightColors } from './tokens/semantic';
 
 const assetTriplet = (key: keyof typeof assetHue) => ({
@@ -118,16 +118,8 @@ export const borderRadius = {
   full: '9999px',
 };
 
-/** @deprecated Use `elevation` from tokens. */
-export const shadows = {
-  sm: elevation.container,
-  md: elevation.container,
-  lg: elevation.popover,
-  xl: elevation.dialog,
-};
-
 /** @deprecated Use `theme.transitions` or `motion` from tokens. */
-export const transitions = {
+const transitions = {
   fast: `${motion.duration.fast}ms`,
   normal: `${motion.duration.normal}ms`,
   slow: `${motion.duration.slow}ms`,

@@ -16,7 +16,7 @@ export interface AuthContext {
 const LOGGED_PREFIX_LENGTH = 8;
 
 /** Group name carried by API-key callers; key management itself needs a person. */
-export const API_KEY_GROUP = 'api-key';
+const API_KEY_GROUP = 'api-key';
 
 /**
  * An identity attached to an event built in-process (the assistant calling

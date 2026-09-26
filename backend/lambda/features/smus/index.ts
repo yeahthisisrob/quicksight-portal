@@ -40,10 +40,8 @@ export const smusRoutes: RouteHandler[] = [
     handler: createSmusDataset,
   },
 ];
-
 // Export service
-export { SmusService } from '../../shared/services/smus/SmusService';
+
 // Export types
 export type * from './types';
 // Export handlers
-export { createSmusDataset, getSmusDatasetLinks, getSmusStatus, listSmusAssets, startSmusExport };

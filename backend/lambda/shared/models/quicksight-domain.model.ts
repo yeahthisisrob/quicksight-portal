@@ -17,7 +17,7 @@ export interface Permission {
 }
 
 // Base interface for all asset summaries
-export interface BaseAssetSummary {
+interface BaseAssetSummary {
   arn: string;
   createdTime: Date;
   lastUpdatedTime: Date;
@@ -62,7 +62,7 @@ export interface FolderSummary extends BaseAssetSummary {
   sharingModel?: string;
 }
 
-export interface UserSummary extends BaseAssetSummary {
+interface UserSummary extends BaseAssetSummary {
   userName: string;
   email?: string;
   role?: string;
@@ -72,7 +72,7 @@ export interface UserSummary extends BaseAssetSummary {
   customPermissionsName?: string;
 }
 
-export interface GroupSummary extends BaseAssetSummary {
+interface GroupSummary extends BaseAssetSummary {
   groupName: string;
   description?: string;
   principalId?: string;
@@ -93,7 +93,7 @@ export type AssetSummary =
   | GroupSummary;
 
 // Type guards for each asset type
-export function isDashboardSummary(asset: AssetSummary): asset is DashboardSummary {
+function isDashboardSummary(asset: AssetSummary): asset is DashboardSummary {
   return 'dashboardId' in asset;
 }
 
@@ -101,23 +101,23 @@ export function isDatasetSummary(asset: AssetSummary): asset is DatasetSummary {
   return 'dataSetId' in asset;
 }
 
-export function isAnalysisSummary(asset: AssetSummary): asset is AnalysisSummary {
+function isAnalysisSummary(asset: AssetSummary): asset is AnalysisSummary {
   return 'analysisId' in asset;
 }
 
-export function isDatasourceSummary(asset: AssetSummary): asset is DatasourceSummary {
+function isDatasourceSummary(asset: AssetSummary): asset is DatasourceSummary {
   return 'dataSourceId' in asset;
 }
 
-export function isFolderSummary(asset: AssetSummary): asset is FolderSummary {
+function isFolderSummary(asset: AssetSummary): asset is FolderSummary {
   return 'folderId' in asset;
 }
 
-export function isUserSummary(asset: AssetSummary): asset is UserSummary {
+function isUserSummary(asset: AssetSummary): asset is UserSummary {
   return 'userName' in asset && 'email' in asset;
 }
 
-export function isGroupSummary(asset: AssetSummary): asset is GroupSummary {
+function isGroupSummary(asset: AssetSummary): asset is GroupSummary {
   return 'groupName' in asset && !('email' in asset);
 }
 
@@ -156,138 +156,6 @@ export function getAssetName(asset: AssetSummary): string {
   }
   // All other assets have a 'name' property
   return (asset as any).name || '';
-}
-
-// ==================== Create/Update Parameters ====================
-
-export interface CreateDashboardParams {
-  dashboardId: string;
-  name: string;
-  definition?: any;
-  permissions?: Permission[];
-  tags?: Tag[];
-  sourceEntity?: any;
-  themeArn?: string;
-  dashboardPublishOptions?: any;
-}
-
-export interface CreateAnalysisParams {
-  analysisId: string;
-  name: string;
-  definition?: any;
-  permissions?: Permission[];
-  tags?: Tag[];
-  sourceEntity?: any;
-  themeArn?: string;
-}
-
-export interface CreateDataSetParams {
-  dataSetId: string;
-  name: string;
-  physicalTableMap: Record<string, any>;
-  logicalTableMap?: Record<string, any>;
-  importMode: 'SPICE' | 'DIRECT_QUERY';
-  permissions?: Permission[];
-  tags?: Tag[];
-  columnGroups?: any[];
-  fieldFolders?: Record<string, { columns: string[]; description?: string }>;
-  rowLevelPermissionDataSet?: any;
-  rowLevelPermissionTagConfiguration?: any;
-  columnLevelPermissionRules?: any[];
-  dataSetUsageConfiguration?: any;
-  datasetParameters?: any[];
-}
-
-export interface CreateDataSourceParams {
-  dataSourceId: string;
-  name: string;
-  type: string;
-  dataSourceParameters?: any;
-  credentials?: any;
-  permissions?: Permission[];
-  tags?: Tag[];
-  vpcConnectionProperties?: any;
-  sslProperties?: any;
-}
-
-export interface CreateFolderParams {
-  folderId: string;
-  name: string;
-  folderType?: string;
-  parentFolderArn?: string;
-  permissions?: Permission[];
-  tags?: Tag[];
-}
-
-export interface UpdateDashboardParams {
-  dashboardId: string;
-  name: string;
-  definition?: any;
-  sourceEntity?: any;
-  themeArn?: string;
-  dashboardPublishOptions?: any;
-}
-
-export interface UpdateAnalysisParams {
-  analysisId: string;
-  name: string;
-  definition?: any;
-  sourceEntity?: any;
-  themeArn?: string;
-}
-
-export interface UpdateDataSetParams {
-  dataSetId: string;
-  name: string;
-  physicalTableMap: Record<string, any>;
-  logicalTableMap?: Record<string, any>;
-  importMode: 'SPICE' | 'DIRECT_QUERY';
-  columnGroups?: any[];
-  fieldFolders?: Record<string, { columns: string[]; description?: string }>;
-  rowLevelPermissionDataSet?: any;
-  rowLevelPermissionTagConfiguration?: any;
-  columnLevelPermissionRules?: any[];
-  dataSetUsageConfiguration?: any;
-  /** New data prep experience: the steps that replace LogicalTableMap. */
-  dataPrepConfiguration?: any;
-  /** New data prep experience: the semantic model written beside those steps. */
-  semanticModelConfiguration?: any;
-}
-
-export interface UpdateDataSourceParams {
-  dataSourceId: string;
-  name: string;
-  dataSourceParameters?: any;
-  credentials?: any;
-  vpcConnectionProperties?: any;
-  sslProperties?: any;
-}
-
-// ==================== Response Types ====================
-
-export interface CreateDashboardResponse {
-  arn: string;
-  dashboardId: string;
-  creationStatus: string;
-  versionArn?: string;
-}
-
-export interface CreateAnalysisResponse {
-  arn: string;
-  analysisId: string;
-  creationStatus: string;
-}
-
-export interface CreateDataSetResponse {
-  arn: string;
-  dataSetId: string;
-  ingestionArn?: string;
-}
-
-export interface CreateDataSourceResponse {
-  arn: string;
-  dataSourceId: string;
-  creationStatus: string;
 }
 
 // ==================== Paginated Results ====================

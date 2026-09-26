@@ -20,7 +20,7 @@ export interface TemplateMeta {
 
 type Stored<T> = T & { pk: string; sk: string };
 
-export function strip<T extends TemplateMeta>({ pk: _pk, sk: _sk, ...rest }: Stored<T>): T {
+function strip<T extends TemplateMeta>({ pk: _pk, sk: _sk, ...rest }: Stored<T>): T {
   return rest as unknown as T;
 }
 

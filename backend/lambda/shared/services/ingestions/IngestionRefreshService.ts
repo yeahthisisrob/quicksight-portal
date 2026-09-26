@@ -17,7 +17,7 @@ import { logger } from '../../utils/logger';
 import type { QuickSightService } from '../aws/QuickSightService';
 import type { CacheService } from '../cache/CacheService';
 
-export interface IngestionRefreshResult {
+interface IngestionRefreshResult {
   ingestions: Ingestion[];
   metadata: IngestionMetadata;
   processingTimeMs: number;

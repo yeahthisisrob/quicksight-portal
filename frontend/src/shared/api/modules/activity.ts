@@ -6,13 +6,12 @@ type Schemas = components['schemas'];
 type ActivityData = Schemas['ActivityData'];
 type UserActivity = Schemas['UserActivity'];
 export type DatasetActivityData = Schemas['DatasetActivityData'];
-export type DatasetDependentActivity = Schemas['DatasetDependentActivity'];
 type UserInactiveAnalysis = Schemas['UserInactiveAnalysis'];
 type UserUnusedDataset = Schemas['UserUnusedDataset'];
 export type TimelineEvent = Schemas['TimelineEvent'];
 export type TimelinePage = Schemas['TimelinePage'];
 export type AssetHealth = Schemas['AssetHealth'];
-export type AssetHealthBatch = Schemas['AssetHealthBatch'];
+type AssetHealthBatch = Schemas['AssetHealthBatch'];
 
 type ActivityRefreshRequest =
   paths['/api/activity/refresh']['post']['requestBody']['content']['application/json'];

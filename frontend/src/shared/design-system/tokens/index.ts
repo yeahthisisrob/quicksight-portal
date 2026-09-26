@@ -10,23 +10,5 @@
  * Import from here only for the rare non-MUI case: a canvas, an SVG, a
  * constant.
  */
-export { type AssetHueKey, assetHue } from './palette';
-export {
-  elevation,
-  fontFamily,
-  fontWeight,
-  layout,
-  motion,
-  radius,
-  space,
-  typeScale,
-} from './scale';
-export {
-  type AssetColor,
-  type ColorSchemeName,
-  darkColors,
-  lightColors,
-  type SemanticColors,
-  type StatusColor,
-  semanticColors,
-} from './semantic';
+export type { AssetHueKey } from './palette';
+export { layout } from './scale';

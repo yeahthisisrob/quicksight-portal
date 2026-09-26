@@ -4,7 +4,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { SmusLinkBadge } from './SmusLinkBadge';
 
 const meta: Meta<typeof SmusLinkBadge> = {
-  title: 'Features/Smus/SmusLinkBadge',
+  title: 'Features/SMUS/SmusLinkBadge',
   component: SmusLinkBadge,
   parameters: {
     layout: 'centered',
@@ -34,19 +34,6 @@ export const LinkedByName: Story = {
   },
 };
 
-export const LinkedBySourceTable: Story = {
-  args: {
-    link: {
-      datasetId: 'dataset-002',
-      linked: true,
-      matchType: 'source-table',
-      listingId: 'listing-def456',
-      listingName: 'analytics.sales_orders',
-      url: 'https://dzd_example.sagemaker.us-east-1.on.aws/catalog/assets/listing-def456',
-    },
-  },
-};
-
 export const InTableContext: Story = {
   render: () => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
@@ -62,10 +49,4 @@ export const InTableContext: Story = {
       />
     </Box>
   ),
-};
-
-export const NotLinkedRendersNothing: Story = {
-  args: {
-    link: { datasetId: 'dataset-003', linked: false },
-  },
 };

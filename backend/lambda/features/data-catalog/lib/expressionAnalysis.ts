@@ -82,7 +82,7 @@ export function normalizeExpression(expression: string | null | undefined): stri
   return expression.replace(/\s+/g, ' ').trim();
 }
 
-export interface ConflictResult {
+interface ConflictResult {
   /** True when the same field name resolves to more than one distinct expression. */
   hasExpressionConflict: boolean;
   /** Number of distinct (normalised) expressions found for the field. */

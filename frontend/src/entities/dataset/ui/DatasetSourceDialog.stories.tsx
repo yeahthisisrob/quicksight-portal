@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { SnackbarProvider } from 'notistack';
 import { useEffect, useState } from 'react';
 
 import { mockApi } from '../../../../.storybook/mocks/api';
@@ -97,9 +96,7 @@ const meta: Meta<typeof DatasetSourceDialog> = {
       <QueryClientProvider
         client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
       >
-        <SnackbarProvider maxSnack={3}>
-          <Story />
-        </SnackbarProvider>
+        <Story />
       </QueryClientProvider>
     ),
   ],
@@ -114,25 +111,7 @@ const args = {
   dataset: { id: 'ds-1', name: 'orders_fact' },
 };
 
-export const RelationalTable: Story = {
-  args,
-  render: (a) => (
-    <Stubbed tables={[RELATIONAL_TABLE]}>
-      <DatasetSourceDialog {...a} />
-    </Stubbed>
-  ),
-};
-
-export const CustomSql: Story = {
-  args,
-  render: (a) => (
-    <Stubbed tables={[CUSTOM_SQL_TABLE]}>
-      <DatasetSourceDialog {...a} />
-    </Stubbed>
-  ),
-};
-
-/** Composite datasets mix both kinds; each is edited on its own terms. */
+/** A relational table and a custom SQL table: composite datasets mix both kinds, each edited on its own terms. */
 export const MixedTables: Story = {
   args,
   render: (a) => (

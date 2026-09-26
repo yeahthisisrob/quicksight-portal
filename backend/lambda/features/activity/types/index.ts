@@ -1,10 +1,6 @@
 import type { AssetType } from '../../../shared/types/assetTypes';
 import type { ActorDescription, EventOrigin, Provenance } from '../lib/actors';
 
-// Keep original types for backward compatibility but map to new types
-export type ActivityData = AssetActivityData;
-export type UserActivity = UserActivityData;
-
 export interface ActivityRefreshRequest {
   assetTypes: ('dashboard' | 'analysis' | 'user' | 'all')[];
   days?: number;
@@ -69,7 +65,7 @@ export type ActionCategory =
  * (Create/Update/Delete/...). Missing field is treated as 'view' for
  * backward compatibility with pre-timeline cache entries.
  */
-export type EventKind = 'view' | 'mutation';
+type EventKind = 'view' | 'mutation';
 
 /**
  * Resource type for a timeline event. Extends the portal's AssetType (7 catalog types)
@@ -164,18 +160,6 @@ export interface ActivityCache {
   perEventNameWatermark?: { [eventName: string]: string };
 }
 
-// Persistence cache - stores only last activity dates that persist forever
-export interface ActivityPersistence {
-  version: string;
-  lastUpdated: string;
-  // Last activity dates by type and ID
-  dashboards: { [dashboardId: string]: string }; // dashboardId -> lastViewedDate
-  analyses: { [analysisId: string]: string }; // analysisId -> lastViewedDate
-  users: { [userName: string]: string }; // userName -> lastActiveDate
-  // Extensible for future types
-  [key: string]: any;
-}
-
 // API Response types (computed on-the-fly from events)
 export interface AssetActivityData {
   assetId: string;
@@ -204,7 +188,7 @@ export interface DatasetDependentRef {
 }
 
 /** Per-dependent activity block inside DatasetActivityData. */
-export interface DatasetDependentActivity extends DatasetDependentRef {
+interface DatasetDependentActivity extends DatasetDependentRef {
   totalViews: number;
   uniqueViewers: number;
   lastViewed: string | null;
@@ -251,12 +235,10 @@ export interface UserActivityData {
     lastViewed: string;
   }>;
 }
-
 /**
  * One entry in the activity timeline — wire format returned to the frontend.
  * Hydrated from MinimalEvent + catalog lookup on the backend.
  */
-export type { ActorDescription, EventOrigin, Provenance } from '../lib/actors';
 
 export interface TimelineEvent {
   id: string; // stable — hash of `${t}_${e}_${r}_${u}`

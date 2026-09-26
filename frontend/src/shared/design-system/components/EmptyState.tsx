@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 import { pal } from '../createAppTheme';
 
-export interface EmptyStateProps {
+interface EmptyStateProps {
   title: string;
   description?: ReactNode;
   /** A large icon above the title. */
@@ -54,5 +54,3 @@ export function EmptyState({ title, description, icon, action, compact = false }
     </Box>
   );
 }
-
-export default EmptyState;

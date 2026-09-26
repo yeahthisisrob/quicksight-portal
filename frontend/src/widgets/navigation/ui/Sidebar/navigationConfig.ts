@@ -10,7 +10,7 @@ export interface NavigationItem {
   match?: 'exact' | 'prefix';
 }
 
-export interface NavigationSection {
+interface NavigationSection {
   title?: string;
   items: NavigationItem[];
 }

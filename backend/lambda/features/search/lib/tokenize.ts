@@ -6,8 +6,33 @@
  * sales and dashboard.
  */
 const STOP = new Set([
-  'the', 'a', 'an', 'of', 'for', 'and', 'or', 'to', 'in', 'on', 'by', 'with', 'from', 'that',
-  'this', 'is', 'are', 'me', 'my', 'our', 'show', 'find', 'get', 'all', 'any', 'one', 'it',
+  'the',
+  'a',
+  'an',
+  'of',
+  'for',
+  'and',
+  'or',
+  'to',
+  'in',
+  'on',
+  'by',
+  'with',
+  'from',
+  'that',
+  'this',
+  'is',
+  'are',
+  'me',
+  'my',
+  'our',
+  'show',
+  'find',
+  'get',
+  'all',
+  'any',
+  'one',
+  'it',
 ]);
 
 export function tokenize(text: string): string[] {

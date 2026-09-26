@@ -13,10 +13,10 @@
  *   but never declared.
  */
 import { ValidationError } from '../../../shared/errors/ValidationError';
-import type { DefinitionChange } from './definitionOps';
 import { expressionColumns, isColumnIdentifier } from './definitionColumns';
+import type { DefinitionChange } from './definitionOps';
 
-export type ParameterValueType = 'STRING' | 'INTEGER' | 'DECIMAL' | 'DATETIME';
+type ParameterValueType = 'STRING' | 'INTEGER' | 'DECIMAL' | 'DATETIME';
 
 export type RepairOp =
   | { op: 'dropColumn'; identifier: string; columnName: string }
@@ -206,7 +206,9 @@ export function applyRepairs(
       case 'dropColumn': {
         const { identifier, columnName } = repair;
         if (!identifier || !columnName) {
-          throw new ValidationError(`Repair ${index + 1}: dropColumn needs identifier and columnName`);
+          throw new ValidationError(
+            `Repair ${index + 1}: dropColumn needs identifier and columnName`
+          );
         }
         const calculated = (definition.CalculatedFields ?? []).filter(
           (f: any) =>
@@ -237,7 +239,8 @@ export function applyRepairs(
         }
         const before = (definition.ParameterDeclarations ?? []).length;
         definition.ParameterDeclarations = (definition.ParameterDeclarations ?? []).filter(
-          (d: any) => !Object.values(PARAMETER_DECLARATION_KEY).some((k) => d?.[k]?.Name === repair.name)
+          (d: any) =>
+            !Object.values(PARAMETER_DECLARATION_KEY).some((k) => d?.[k]?.Name === repair.name)
         );
         const declared = before - definition.ParameterDeclarations.length;
         const removed = pruneParameter(definition, repair.name);
@@ -255,7 +258,9 @@ export function applyRepairs(
           );
         }
         if (declaredParameters(definition).includes(repair.name)) {
-          throw new ValidationError(`Repair ${index + 1}: parameter ${repair.name} is already declared`);
+          throw new ValidationError(
+            `Repair ${index + 1}: parameter ${repair.name} is already declared`
+          );
         }
         const key = PARAMETER_DECLARATION_KEY[repair.type];
         const declaration: Record<string, any> = { Name: repair.name };
@@ -263,9 +268,14 @@ export function applyRepairs(
           declaration.ParameterValueType = 'SINGLE_VALUED';
         }
         if (repair.defaultValue !== undefined) {
-          declaration.DefaultValues = { StaticValues: [coerceDefault(repair.type, repair.defaultValue)] };
+          declaration.DefaultValues = {
+            StaticValues: [coerceDefault(repair.type, repair.defaultValue)],
+          };
         }
-        definition.ParameterDeclarations = [...(definition.ParameterDeclarations ?? []), { [key]: declaration }];
+        definition.ParameterDeclarations = [
+          ...(definition.ParameterDeclarations ?? []),
+          { [key]: declaration },
+        ];
         changes.push({
           kind: 'repair',
           description: `Declared parameter ${repair.name} as ${repair.type}${repair.defaultValue !== undefined ? ` defaulting to ${repair.defaultValue}` : ''}`,

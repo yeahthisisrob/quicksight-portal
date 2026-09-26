@@ -54,7 +54,7 @@ export function sameFix(a: RepairFix | null, b: RepairFix | null): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-export interface RepairRequests {
+interface RepairRequests {
   repairs: RepairOp[];
   /** identifier → { from: to } renames that resolve column issues. */
   columnMaps: Record<string, Record<string, string>>;

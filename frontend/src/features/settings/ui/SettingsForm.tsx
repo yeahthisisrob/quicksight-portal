@@ -146,5 +146,3 @@ export function SettingsForm(options: UseSettingsFormOptions = {}) {
     </Stack>
   );
 }
-
-export default SettingsForm;

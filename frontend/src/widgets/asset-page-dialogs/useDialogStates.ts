@@ -12,14 +12,14 @@ import type { AssetType } from '@/shared/types/asset';
 
 // Type aliases for better readability - all fields come from the generated
 // OpenAPI schema (activity/definitionErrors/dataSetRefreshProperties included)
-export type DashboardItem = components['schemas']['DashboardListItem'];
-export type AnalysisItem = components['schemas']['AnalysisListItem'];
-export type DatasetItem = components['schemas']['DatasetListItem'];
-export type FolderItem = components['schemas']['FolderListItem'];
-export type UserItem = components['schemas']['UserListItem'];
-export type GroupItem = components['schemas']['GroupListItem'];
-export type AssetWithErrors = DashboardItem | AnalysisItem;
-export type AssetItem = components['schemas']['AssetListItem'];
+type DashboardItem = components['schemas']['DashboardListItem'];
+type AnalysisItem = components['schemas']['AnalysisListItem'];
+type DatasetItem = components['schemas']['DatasetListItem'];
+type FolderItem = components['schemas']['FolderListItem'];
+type UserItem = components['schemas']['UserListItem'];
+type GroupItem = components['schemas']['GroupListItem'];
+type AssetWithErrors = DashboardItem | AnalysisItem;
+type AssetItem = components['schemas']['AssetListItem'];
 
 // Dialog state types
 export interface JsonViewerDialogState {

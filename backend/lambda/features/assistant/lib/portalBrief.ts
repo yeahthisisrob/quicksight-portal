@@ -8,7 +8,7 @@
  * the model reads a short summary instead of a page of JSON.
  */
 
-export type Dispatch = (request: {
+type Dispatch = (request: {
   method: string;
   path: string;
   body?: unknown;
@@ -24,10 +24,10 @@ export type Dispatch = (request: {
 export function portalConcepts(options: { smus: boolean }): string {
   const smus = options.smus
     ? [
-      '- SMUS (SageMaker Unified Studio) is where governed data comes from. Tables are published as listings, and every listing belongs to a project. The portal links each listing to the QuickSight datasets that already read it (by table, by SQL, by name, or through a composite dataset built on a linked one); the Data Catalog page shows those links.',
-      '- "A SMUS dataset", "the governed dataset", "the linked dataset" or the name of a published table means an existing QuickSight dataset linked to a listing. Find it with context_search (types listing or dataset), then context_related on the listing (relations reads-listing, direction in), and use its id. Do not create a dataset (POST /api/smus/assets/{listingId}/dataset) unless the person asks for a new one, or the listing has no linked dataset and they agree.',
-      '- Projects scope everything: governed datasets, calculated fields and columns all filter by projectId. When the person names a project, or a listing or dataset that belongs to one, work within it. The brief below lists the projects.',
-      '- SMUS tables are Glue tables, read in QuickSight through an Athena data source. A new dataset over a listing (POST /api/smus/assets/{listingId}/dataset) needs no dataSourceId: the portal uses the Athena data source the linked datasets already read through (the brief names it). Send only what the person chose, if anything.',
+        '- SMUS (SageMaker Unified Studio) is where governed data comes from. Tables are published as listings, and every listing belongs to a project. The portal links each listing to the QuickSight datasets that already read it (by table, by SQL, by name, or through a composite dataset built on a linked one); the Data Catalog page shows those links.',
+        '- "A SMUS dataset", "the governed dataset", "the linked dataset" or the name of a published table means an existing QuickSight dataset linked to a listing. Find it with context_search (types listing or dataset), then context_related on the listing (relations reads-listing, direction in), and use its id. Do not create a dataset (POST /api/smus/assets/{listingId}/dataset) unless the person asks for a new one, or the listing has no linked dataset and they agree.',
+        '- Projects scope everything: governed datasets, calculated fields and columns all filter by projectId. When the person names a project, or a listing or dataset that belongs to one, work within it. The brief below lists the projects.',
+        '- SMUS tables are Glue tables, read in QuickSight through an Athena data source. A new dataset over a listing (POST /api/smus/assets/{listingId}/dataset) needs no dataSourceId: the portal uses the Athena data source the linked datasets already read through (the brief names it). Send only what the person chose, if anything.',
       ]
     : [
         '- SMUS is not configured for this portal, so there are no governed listings or projects: work with the QuickSight datasets, analyses and dashboards directly.',
@@ -44,9 +44,10 @@ export function portalConcepts(options: { smus: boolean }): string {
 
 const MAX_TEMPLATES = 20;
 const MAX_PROJECTS = 30;
+const FIRST_ERROR_STATUS = 400;
 
 function parseData(response: { status: number; body: string }): any {
-  if (response.status >= 400) {
+  if (response.status >= FIRST_ERROR_STATUS) {
     return null;
   }
   try {
@@ -74,9 +75,7 @@ function query(params: Record<string, string | undefined>): string {
 
 const TEMPLATE_TAGS = JSON.stringify([{ key: 'quicksight-portal:template', value: 'true' }]);
 
-
-
-export function compactTemplates(
+function compactTemplates(
   fieldTemplates: any,
   layoutStandards: any,
   filterBars?: any,
@@ -90,7 +89,10 @@ export function compactTemplates(
       : [];
   const fieldLines = templates
     .slice(0, MAX_TEMPLATES)
-    .map((t) => `- ${t.name} = ${t.expression}${t.description ? ` (${t.description})` : ''} [template ${t.id}]`);
+    .map(
+      (t) =>
+        `- ${t.name} = ${t.expression}${t.description ? ` (${t.description})` : ''} [template ${t.id}]`
+    );
   const layoutLines = dashboards
     .slice(0, MAX_TEMPLATES)
     .map((d) => `- ${d.name ?? d.dashboardName} [dashboard ${d.id ?? d.dashboardId}]`);
@@ -113,7 +115,9 @@ function compactVisualTemplates(visualTemplates: any): string[] {
           .slice(0, MAX_TEMPLATES)
           .map((t) => {
             const v = t.visual ?? {};
-            const values = (v.values ?? []).map((x: any) => `${x.aggregation ?? 'SUM'}(${x.column})`).join(', ');
+            const values = (v.values ?? [])
+              .map((x: any) => `${x.aggregation ?? 'SUM'}(${x.column})`)
+              .join(', ');
             return `- ${t.name}: ${v.type} of ${values}${v.category ? ` by ${v.category}` : ''}${v.granularity ? ` (${v.granularity})` : ''} [visual template ${t.id}]`;
           })
           .join('\n')
@@ -139,16 +143,22 @@ function compactFilterBars(filterBars: any): string[] {
   ];
 }
 
-
-
 export async function listTemplates(dispatch: Dispatch): Promise<string> {
   const [fields, standards, bars, visuals] = await Promise.all([
     read(dispatch, '/api/data-catalog/templates/calculated-fields'),
-    read(dispatch, `/api/assets/dashboards/paginated${query({ page: '1', pageSize: String(MAX_TEMPLATES), includeTags: TEMPLATE_TAGS })}`),
+    read(
+      dispatch,
+      `/api/assets/dashboards/paginated${query({ page: '1', pageSize: String(MAX_TEMPLATES), includeTags: TEMPLATE_TAGS })}`
+    ),
     read(dispatch, '/api/data-catalog/templates/filter-bars'),
     read(dispatch, '/api/data-catalog/templates/visuals'),
   ]);
-  return compactTemplates(fields, standards, bars ?? { templates: [] }, visuals ?? { templates: [] });
+  return compactTemplates(
+    fields,
+    standards,
+    bars ?? { templates: [] },
+    visuals ?? { templates: [] }
+  );
 }
 
 /**
@@ -166,7 +176,9 @@ export async function buildBrief(dispatch: Dispatch): Promise<string> {
   ]);
   const lines: string[] = ['This account right now (read just now, as the person):'];
   if (!status) {
-    lines.push('- SMUS status could not be read; check GET /api/smus/status before saying anything about it.');
+    lines.push(
+      '- SMUS status could not be read; check GET /api/smus/status before saying anything about it.'
+    );
   } else if (!status.configured) {
     lines.push('- SMUS is not configured for this portal (GET /api/smus/status says so).');
   } else {
@@ -187,14 +199,23 @@ export async function buildBrief(dispatch: Dispatch): Promise<string> {
   const assets: any[] = Array.isArray(catalog?.assets) ? catalog.assets : [];
   if (assets.length) {
     const linked = assets.filter((a) => Array.isArray(a.datasets) && a.datasets.length > 0).length;
-    lines.push(`- ${assets.length} published listings in scope; ${linked} already have a linked QuickSight dataset.`);
+    lines.push(
+      `- ${assets.length} published listings in scope; ${linked} already have a linked QuickSight dataset.`
+    );
   }
   if (status?.configured && source?.dataSource) {
     lines.push(
       `- New datasets over SMUS listings read through the Athena data source ${source.dataSource.name} (${source.dataSource.id}): ${source.dataSource.reason}.`
     );
-  } else if (status?.configured && source && Array.isArray(source.athena) && source.athena.length === 0) {
-    lines.push('- There is no Athena data source in this account, so a dataset over a SMUS listing cannot be created yet.');
+  } else if (
+    status?.configured &&
+    source &&
+    Array.isArray(source.athena) &&
+    source.athena.length === 0
+  ) {
+    lines.push(
+      '- There is no Athena data source in this account, so a dataset over a SMUS listing cannot be created yet.'
+    );
   }
   if (fields?.counts) {
     const c = fields.counts;

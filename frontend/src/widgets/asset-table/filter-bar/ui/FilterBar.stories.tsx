@@ -113,33 +113,18 @@ function InteractiveWrapper(props: {
   );
 }
 
-export const Default: Story = {
-  render: () => <InteractiveWrapper />,
-};
-
-export const WithDateFiltering: Story = {
-  render: () => (
-    <InteractiveWrapper
-      enableDateFiltering
-      showActivityOption
-      initialDateFilter={{ field: 'lastUpdatedTime', range: '7d' }}
-    />
-  ),
-};
-
-export const WithTagFiltering: Story = {
-  render: () => <InteractiveWrapper enableTagFiltering availableTags={mockTags} />,
-};
-
-export const WithErrorFiltering: Story = {
-  render: () => <InteractiveWrapper enableErrorFiltering errorCount={12} />,
-};
-
+/**
+ * Every filter enabled and set: search, date, include and exclude tags,
+ * errors, and asset selection. The idle bar renders in the asset table stories.
+ */
 export const WithActiveFilters: Story = {
   render: () => (
     <InteractiveWrapper
+      showSearch
+      initialSearch="sales"
       enableDateFiltering
-      initialDateFilter={{ field: 'createdTime', range: '30d' }}
+      showActivityOption
+      initialDateFilter={{ field: 'lastUpdatedTime', range: '7d' }}
       enableTagFiltering
       availableTags={mockTags}
       initialIncludeTags={[
@@ -150,49 +135,6 @@ export const WithActiveFilters: Story = {
       enableErrorFiltering
       initialErrorFilter="with_errors"
       errorCount={5}
-    />
-  ),
-};
-
-export const AssetPageStyle: Story = {
-  render: () => (
-    <InteractiveWrapper
-      enableDateFiltering
-      showActivityOption
-      enableTagFiltering
-      availableTags={mockTags}
-      enableErrorFiltering
-      errorCount={8}
-    />
-  ),
-};
-
-export const DataCatalogStyle: Story = {
-  render: () => (
-    <InteractiveWrapper
-      enableDateFiltering={false}
-      enableTagFiltering
-      availableTags={mockTags}
-      enableAssetSelection
-      availableAssets={mockAssets}
-    />
-  ),
-};
-
-export const FullFeatured: Story = {
-  render: () => (
-    <InteractiveWrapper
-      showSearch
-      initialSearch="sales"
-      enableDateFiltering
-      showActivityOption
-      initialDateFilter={{ field: 'lastUpdatedTime', range: '7d' }}
-      enableTagFiltering
-      availableTags={mockTags}
-      initialIncludeTags={[{ key: 'env', value: 'prod' }]}
-      enableErrorFiltering
-      initialErrorFilter="without_errors"
-      errorCount={3}
       enableAssetSelection
       availableAssets={mockAssets}
       initialSelectedAssets={[{ id: 'ds-1', name: 'Sales Dashboard', type: 'dashboard' }]}
@@ -200,16 +142,6 @@ export const FullFeatured: Story = {
   ),
 };
 
-export const Loading: Story = {
+export const LoadingTags: Story = {
   render: () => <InteractiveWrapper enableTagFiltering availableTags={[]} isLoadingTags />,
-};
-
-export const MinimalDateOnly: Story = {
-  render: () => (
-    <InteractiveWrapper
-      enableDateFiltering
-      enableTagFiltering={false}
-      enableErrorFiltering={false}
-    />
-  ),
 };

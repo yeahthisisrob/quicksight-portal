@@ -8,7 +8,7 @@ import type { TimelineEvent } from '@/shared/api/modules/activity';
 
 export type ActorIconKind = 'portal' | 'agent' | 'user' | 'role' | 'root' | 'service' | 'unknown';
 
-export interface ActorDisplay {
+interface ActorDisplay {
   /** "Portal", "rob@example.com", "Admin / rob". */
   label: string;
   /** For portal events with provenance: who was behind it. */
@@ -20,7 +20,7 @@ export interface ActorDisplay {
 
 export type TimelineOrigin = TimelineEvent['origin'];
 
-export interface OriginMeta {
+interface OriginMeta {
   label: string;
   /** Which tone paints the badge. */
   tone: 'brand' | 'info' | 'success' | 'warning' | 'neutral';

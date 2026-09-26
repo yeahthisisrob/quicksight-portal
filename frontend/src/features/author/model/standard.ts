@@ -81,7 +81,7 @@ export function defaultParts(): Record<TemplatePart, boolean> {
   return { textBoxes: true, controls: true, sheetNames: true, kpisFirst: true, theme: true };
 }
 
-export function hasTypeRules(rules: StandardTypeRules): boolean {
+function hasTypeRules(rules: StandardTypeRules): boolean {
   return rules.chartFamily.length > 0 || rules.kpi || rules.casts;
 }
 

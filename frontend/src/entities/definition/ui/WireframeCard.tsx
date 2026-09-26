@@ -28,14 +28,14 @@ function badgeText(badge: WireframeBadge): string {
   return badge.value ? `${word} · ${badge.value}` : word;
 }
 
-export function fieldLabel(field: WireframeField): string {
+function fieldLabel(field: WireframeField): string {
   if (field.aggregation) return `${field.aggregation}(${field.label})`;
   if (field.granularity) return `${field.label} · ${field.granularity}`;
   return field.label;
 }
 
 /** Renames for this element, keyed `role/index` (see elementRenames). */
-export type ElementRenames = Map<string, FieldRename>;
+type ElementRenames = Map<string, FieldRename>;
 
 /** "BarChart" -> "bar chart", for chips. */
 function typeWords(type: string | undefined): string {

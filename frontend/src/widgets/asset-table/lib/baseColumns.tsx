@@ -3,19 +3,17 @@
  */
 import { ContentCopy as CopyIcon } from '@mui/icons-material';
 import { Box, Chip, IconButton, Tooltip, Typography } from '@mui/material';
-
-import { SmusLinkBadge } from '@/features/smus';
+import type { NavigateFunction } from 'react-router-dom';
 
 import { PermissionsCell } from '@/entities/asset';
 import { FoldersCell } from '@/entities/folder';
 import { TagsCell } from '@/entities/tag';
-
-import { renderDateCell, copyToClipboard, type AssetRow } from './createAssetColumns';
-import { ACTIONS_WIDTH } from './tableStyles';
-import { ActionsDropdown } from '../ui/ActionsDropdown';
-
 import type { ColumnConfig } from '@/features/asset-management';
-import type { NavigateFunction } from 'react-router-dom';
+import { SmusLinkBadge } from '@/features/smus';
+
+import { ActionsDropdown } from '../ui/ActionsDropdown';
+import { type AssetRow, copyToClipboard, renderDateCell } from './createAssetColumns';
+import { ACTIONS_WIDTH } from './tableStyles';
 
 type BaseHandlers = {
   onPermissionsClick?: (asset: any) => void;
@@ -45,8 +43,8 @@ export function generateBaseColumns(
     required: true,
     visible: true,
     renderCell: (params) => (
-      <ActionsDropdown 
-        asset={params.row} 
+      <ActionsDropdown
+        asset={params.row}
         assetType={assetType}
         handlers={{ ...handlers, navigate: handlers.navigate }}
       />
@@ -93,17 +91,15 @@ export function generateBaseColumns(
       visible: true,
       renderCell: (params: { row: AssetRow; value: any }) => {
         const fullId = params.value || '';
-        const shortId = fullId.length > 15 
-          ? `${fullId.slice(0, 8)}...${fullId.slice(-4)}`
-          : fullId;
-        
+        const shortId = fullId.length > 15 ? `${fullId.slice(0, 8)}...${fullId.slice(-4)}` : fullId;
+
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Tooltip title={fullId}>
-              <Typography 
-                variant="body2" 
-                sx={{ 
-                  fontFamily: 'monospace', 
+              <Typography
+                variant="body2"
+                sx={{
+                  fontFamily: 'monospace',
                   fontSize: '0.875rem',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -134,12 +130,10 @@ export function generateBaseColumns(
     visible: false,
     renderCell: (params: { row: AssetRow }) => {
       const status = params.row.enrichmentStatus || 'skeleton';
-      const color = status === 'enriched' ? 'success' : 
-                   status === 'partial' ? 'warning' : 
-                   'default';
-      const label = status === 'enriched' ? 'Enriched' :
-                    status === 'partial' ? 'Partial' :
-                    'Skeleton';
+      const color =
+        status === 'enriched' ? 'success' : status === 'partial' ? 'warning' : 'default';
+      const label =
+        status === 'enriched' ? 'Enriched' : status === 'partial' ? 'Partial' : 'Skeleton';
       return <Chip label={label} size="small" color={color} />;
     },
     valueGetter: (params: { row: AssetRow }) => params.row.enrichmentStatus || 'skeleton',
@@ -190,23 +184,27 @@ export function generateBaseColumns(
         const permissions = rawPermissions.map((p: any) => ({
           principal: p.Principal || p.principal,
           principalType: p.PrincipalType || p.principalType || 'USER',
-          actions: p.Actions || p.actions || []
+          actions: p.Actions || p.actions || [],
         }));
-        
+
         return (
           <PermissionsCell
             permissions={permissions}
-            onClick={handlers.onPermissionsClick ? () => handlers.onPermissionsClick!(params.row) : undefined}
+            onClick={
+              handlers.onPermissionsClick
+                ? () => handlers.onPermissionsClick!(params.row)
+                : undefined
+            }
           />
         );
       },
       valueGetter: (params: { row: AssetRow }) => {
         const permissions = params.row.permissions || [];
-        const userCount = permissions.filter((p: any) => 
-          (p.PrincipalType || p.principalType) === 'USER'
+        const userCount = permissions.filter(
+          (p: any) => (p.PrincipalType || p.principalType) === 'USER'
         ).length;
-        const groupCount = permissions.filter((p: any) => 
-          (p.PrincipalType || p.principalType) === 'GROUP'
+        const groupCount = permissions.filter(
+          (p: any) => (p.PrincipalType || p.principalType) === 'GROUP'
         ).length;
         return `${userCount} users ${groupCount} groups`;
       },
@@ -220,10 +218,7 @@ export function generateBaseColumns(
     width: 180,
     visible: true,
     renderCell: (params) => (
-      <TagsCell
-        tags={params.row.tags || []}
-        onClick={() => handlers.onTagsClick?.(params.row)}
-      />
+      <TagsCell tags={params.row.tags || []} onClick={() => handlers.onTagsClick?.(params.row)} />
     ),
     valueGetter: (params: { row: AssetRow }) => {
       const tags = params.row.tags || [];

@@ -6,8 +6,7 @@ type Schemas = components['schemas'];
 
 export type SearchableType = Schemas['SearchableType'];
 export type SearchHit = Schemas['SearchHit'];
-export type SearchResponse = Schemas['SearchResponse'];
-export type SearchAssetRef = Schemas['SearchAssetRef'];
+type SearchResponse = Schemas['SearchResponse'];
 
 /** One ranked search over everything the portal knows, in plain words. */
 export const searchApi = {

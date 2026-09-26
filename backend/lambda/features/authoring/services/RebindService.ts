@@ -85,7 +85,7 @@ export interface TargetDataset {
   columns: TargetColumn[];
 }
 
-export interface DefinitionDatasets {
+interface DefinitionDatasets {
   assetType: AuthorableAssetType;
   assetId: string;
   name: string;

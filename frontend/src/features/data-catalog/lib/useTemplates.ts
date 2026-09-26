@@ -11,7 +11,7 @@ import type {
   CalculatedFieldTemplateInput,
 } from '@/shared/api/modules/data-catalog';
 
-export const TEMPLATES_KEY = ['data-catalog', 'templates', 'calculated-fields'] as const;
+const TEMPLATES_KEY = ['data-catalog', 'templates', 'calculated-fields'] as const;
 
 export function useTemplates() {
   return useQuery<CalculatedFieldTemplate[]>({

@@ -1,17 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useEffect, useState } from 'react';
 
 import { Container } from '@/shared/design-system';
 
-import { type MockRoute, mockApi } from '../../../../.storybook/mocks/api';
+import { MockedApi } from '../../../../.storybook/mocks/api';
 import { timelineRoutes } from './__stories__/fixtures';
 import { TimelineFeed } from './TimelineFeed';
-
-function Mocked({ routes: r, children }: { routes: MockRoute[]; children: React.ReactNode }) {
-  const [restore] = useState(() => mockApi(r));
-  useEffect(() => restore, [restore]);
-  return <>{children}</>;
-}
 
 const FEED_HEIGHT = 720;
 
@@ -41,39 +34,31 @@ type Story = StoryObj<typeof TimelineFeed>;
 
 export const MixedDays: Story = {
   render: () => (
-    <Mocked routes={timelineRoutes()}>
+    <MockedApi routes={timelineRoutes()}>
       <TimelineFeed />
-    </Mocked>
-  ),
-};
-
-export const AgentsOnly: Story = {
-  render: () => (
-    <Mocked routes={timelineRoutes()}>
-      <TimelineFeed initialFilters={{ origins: ['portal-api'] }} />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const PinnedToAnAsset: Story = {
   render: () => (
-    <Mocked routes={timelineRoutes()}>
+    <MockedApi routes={timelineRoutes()}>
       <TimelineFeed assetPin={{ assetType: 'dashboard', assetId: 'sales-overview' }} />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const Empty: Story = {
   render: () => (
-    <Mocked routes={timelineRoutes([])}>
+    <MockedApi routes={timelineRoutes([])}>
       <TimelineFeed />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const LoadError: Story = {
   render: () => (
-    <Mocked
+    <MockedApi
       routes={[
         {
           method: 'get',
@@ -86,6 +71,6 @@ export const LoadError: Story = {
       ]}
     >
       <TimelineFeed />
-    </Mocked>
+    </MockedApi>
   ),
 };

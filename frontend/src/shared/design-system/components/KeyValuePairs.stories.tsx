@@ -38,17 +38,3 @@ export const TwoColumns: Story = {
     ],
   },
 };
-
-export const ThreeColumns: Story = {
-  args: {
-    columns: 3,
-    items: [
-      { label: 'Visuals', value: '12' },
-      { label: 'Sheets', value: '3' },
-      { label: 'Datasets', value: '2' },
-      { label: 'Parameters', value: '1' },
-      { label: 'Filters', value: '4' },
-      { label: 'Calculated fields', value: '7' },
-    ],
-  },
-};

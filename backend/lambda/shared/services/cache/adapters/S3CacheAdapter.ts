@@ -11,10 +11,6 @@ import { ASSET_TYPES_PLURAL } from '../../../types/assetTypes';
 import { logger } from '../../../utils/logger';
 import type { S3Service } from '../../aws/S3Service';
 
-export interface CacheStorageOptions {
-  partition?: string;
-}
-
 /**
  * S3-based cache adapter for persistent storage
  */

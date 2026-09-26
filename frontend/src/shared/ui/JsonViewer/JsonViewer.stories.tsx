@@ -1,41 +1,8 @@
-import { Box, Stack, Typography } from '@mui/material';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
 
-import { JsonViewerIconButton } from '../IconButtons';
+import { MockedApi, type MockRoute } from '../../../../.storybook/mocks/api';
 import JsonViewerModal from './components/JsonViewerModal';
 
-// Create a query client with mocked data for stories
-const createQueryClientWithMocks = () => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-        refetchOnWindowFocus: false,
-        staleTime: Infinity, // Prevent refetching in stories
-      },
-    },
-  });
-
-  // Pre-populate cache with mock data for all potential story asset IDs
-  queryClient.setQueryData(
-    ['asset-json', 'dashboard', 'sample-dashboard-123'],
-    createMockDashboardData()
-  );
-  queryClient.setQueryData(
-    ['asset-json', 'dataset', 'sample-dataset-456'],
-    createMockDatasetData()
-  );
-  queryClient.setQueryData(['asset-json', 'dashboard', 'dash-001'], createMockDashboardData());
-  queryClient.setQueryData(['asset-json', 'dataset', 'dataset-001'], createMockDatasetData());
-  queryClient.setQueryData(['asset-json', 'analysis', 'analysis-001'], createMockDashboardData()); // Use dashboard data as fallback
-  queryClient.setQueryData(['asset-json', 'dashboard', 'sample-001'], createMockDashboardData());
-
-  return queryClient;
-};
-
-// Shared mock data generators (DRY principle)
 const createMockDashboardData = () => ({
   '@metadata': {
     assetType: 'dashboards',
@@ -181,67 +148,15 @@ const createMockDashboardData = () => ({
   ],
 });
 
-const createMockDatasetData = () => ({
-  '@metadata': {
-    assetType: 'datasets',
-    assetId: 'sample-dataset-456',
-    status: 'enriched',
-    name: 'Customer Analytics Dataset',
-  },
-  DataSet: {
-    DataSetId: 'sample-dataset-456',
-    Name: 'Customer Analytics Dataset',
-    ImportMode: 'SPICE',
-    PhysicalTableMap: {
-      'customer-table': {
-        RelationalTable: {
-          DataSourceArn: 'arn:aws:quicksight:us-east-1:123456789012:datasource/customer-db-789',
-          Schema: 'public',
-          Name: 'customers',
-          InputColumns: [
-            { Name: 'customer_id', Type: 'INTEGER' },
-            { Name: 'first_name', Type: 'STRING' },
-            { Name: 'last_name', Type: 'STRING' },
-            { Name: 'email', Type: 'STRING' },
-          ],
-        },
-      },
-    },
-  },
-  Tags: [{ key: 'Source', value: 'Customer Database' }],
-});
+const cachedAssetRoute = (respond: MockRoute['respond']): MockRoute[] => [
+  { method: 'get', url: /\/assets\/[^/]+\/[^/]+\/cached$/, respond },
+];
 
-// Shared mock data generators (consistent with other stories)
-const createMockAsset = (
-  id: string,
-  name: string,
-  type: 'dashboard' | 'analysis' | 'dataset' | 'datasource'
-) => ({
-  id,
-  name,
-  type,
-  arn: `arn:aws:quicksight:us-east-1:123456789012:${type}/${id}`,
-  lastUpdated: '2024-03-20T14:45:00Z',
-});
+const serveCachedAssets = cachedAssetRoute(() => ({
+  body: { success: true, data: createMockDashboardData() },
+}));
 
-const mockAssets = {
-  dashboards: [
-    createMockAsset('dash-001', 'Executive Dashboard', 'dashboard'),
-    createMockAsset('dash-002', 'Sales Performance Dashboard', 'dashboard'),
-    createMockAsset('dash-003', 'Operations Dashboard', 'dashboard'),
-  ],
-  datasets: [
-    createMockAsset('dataset-001', 'Sales Data 2024', 'dataset'),
-    createMockAsset('dataset-002', 'Customer Demographics', 'dataset'),
-    createMockAsset('dataset-003', 'Product Catalog', 'dataset'),
-  ],
-  analyses: [
-    createMockAsset('analysis-001', 'Quarterly Review Analysis', 'analysis'),
-    createMockAsset('analysis-002', 'Customer Segmentation Study', 'analysis'),
-  ],
-};
-
-const meta: Meta<typeof JsonViewerModal> = {
+const meta = {
   title: 'Shared/UI/JsonViewerModal',
   component: JsonViewerModal,
   parameters: {
@@ -249,142 +164,41 @@ const meta: Meta<typeof JsonViewerModal> = {
     docs: {
       description: {
         component:
-          'A modal component for viewing and exploring asset JSON data with syntax highlighting, search, type-specific highlighting, tabs, and line numbers.',
+          "Views an asset's cached JSON in tabs (full, describe, definition, metadata, permissions, tags) with search and type highlighting.",
       },
     },
   },
-  tags: ['autodocs'],
-  decorators: [
-    (Story, context) => {
-      // In docs mode, show a simple placeholder to avoid API calls
-      if (context.viewMode === 'docs') {
-        return (
-          <Box
-            sx={{
-              height: '200px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '1px dashed',
-              borderColor: 'divider',
-              borderRadius: 1,
-            }}
-          >
-            <Typography color="text.secondary" align="center">
-              JSON Viewer Modal
-              <br />
-              <small>Click on individual stories to see them in action</small>
-            </Typography>
-          </Box>
-        );
-      }
-
-      return (
-        <QueryClientProvider client={createQueryClientWithMocks()}>
-          <Story />
-        </QueryClientProvider>
-      );
-    },
-  ],
-  argTypes: {
-    open: {
-      control: 'boolean',
-      description: 'Controls whether the modal is open',
-    },
-    onClose: {
-      action: 'closed',
-      description: 'Callback when modal is closed',
-    },
-    assetId: {
-      control: 'text',
-      description: 'ID of the asset to view',
-    },
-    assetName: {
-      control: 'text',
-      description: 'Display name of the asset',
-    },
-    assetType: {
-      control: 'select',
-      options: ['dashboard', 'analysis', 'dataset', 'datasource', 'folder', 'user', 'group'],
-      description: 'Type of the asset',
-    },
+  args: {
+    open: true,
+    onClose: () => {},
+    assetId: 'sample-dashboard-123',
+    assetName: 'Sales Performance Dashboard',
+    assetType: 'dashboard',
   },
-};
+  render: (args, { parameters }) => (
+    <MockedApi routes={(parameters.routes as MockRoute[] | undefined) ?? serveCachedAssets}>
+      <JsonViewerModal {...args} />
+    </MockedApi>
+  ),
+} satisfies Meta<typeof JsonViewerModal>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// Core modal stories
-export const Default: Story = {
+// Each story uses its own asset id: the preview's query client is shared.
+
+export const Default: Story = {};
+
+export const LoadError: Story = {
   args: {
-    open: true,
-    assetId: 'sample-dashboard-123',
-    assetName: 'Sales Performance Dashboard',
-    assetType: 'dashboard',
-  },
-};
-
-export const DashboardModal: Story = {
-  args: {
-    open: true,
-    assetId: 'sample-dashboard-123',
-    assetName: 'Sales Performance Dashboard',
-    assetType: 'dashboard',
-  },
-};
-
-export const DatasetModal: Story = {
-  args: {
-    open: true,
-    assetId: 'sample-dataset-456',
-    assetName: 'Customer Analytics Dataset',
-    assetType: 'dataset',
-  },
-};
-
-export const AnalysisModal: Story = {
-  args: {
-    open: true,
-    assetId: 'analysis-001',
-    assetName: 'Quarterly Business Review',
-    assetType: 'analysis',
-  },
-};
-
-export const WithIconButton: Story = {
-  render: () => {
-    const [modalOpen, setModalOpen] = useState(false);
-    const mockAsset = mockAssets.dashboards[0];
-
-    return (
-      <Stack sx={{ alignItems: 'center' }} spacing={2}>
-        <Typography variant="h6">JSON Viewer Icon Button</Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography>Click to view JSON:</Typography>
-          <JsonViewerIconButton
-            asset={mockAsset}
-            assetType="dashboard"
-            onView={() => setModalOpen(true)}
-          />
-        </Box>
-        <JsonViewerModal
-          open={modalOpen}
-          onClose={() => setModalOpen(false)}
-          assetId="sample-dashboard-123"
-          assetName={mockAsset.name}
-          assetType="dashboard"
-        />
-      </Stack>
-    );
-  },
-};
-
-export const LongAssetName: Story = {
-  args: {
-    open: true,
-    assetId: 'long-name-asset',
+    assetId: 'missing-dashboard',
     assetName:
       'Enterprise Executive Dashboard with Real-time KPIs and Advanced Analytics for Board Reporting Q4 2024',
-    assetType: 'dashboard',
+  },
+  parameters: {
+    routes: cachedAssetRoute(() => ({
+      status: 404,
+      body: { success: false, error: 'Asset not found in cache' },
+    })),
   },
 };

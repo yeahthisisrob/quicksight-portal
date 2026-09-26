@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { PLAN_NEW_DATASET, PLAN_ON_GOVERNED, PLAN_WITHOUT_SMUS } from './__stories__/assistant';
+import { PLAN_NEW_DATASET, PLAN_WITHOUT_SMUS } from './__stories__/assistant';
 import { PlanLineage } from './PlanLineage';
 
 /**
@@ -16,11 +16,6 @@ const meta: Meta<typeof PlanLineage> = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
-
-export const OnTheGovernedDataset: Story = {
-  name: 'Reuses the dataset linked to the listing',
-  args: { plan: PLAN_ON_GOVERNED as never },
-};
 
 export const NewDataset: Story = {
   name: 'Creates a dataset through the Athena source, edits a dashboard',

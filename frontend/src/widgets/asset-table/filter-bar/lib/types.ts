@@ -32,7 +32,7 @@ export type GroupMembershipFilterState = 'all' | 'in_groups' | 'not_in_groups';
 export type PermissionsFilterState = 'all' | 'with_permissions' | 'without_permissions';
 
 /** Shared shape for filter dropdown options with a value and count */
-export interface FilterOption {
+interface FilterOption {
   value: string;
   count: number;
 }

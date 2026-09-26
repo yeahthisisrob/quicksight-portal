@@ -16,7 +16,7 @@ export type CommandRunner = (
   timeoutMs: number
 ) => Promise<string>;
 
-export interface CliSpec {
+interface CliSpec {
   provider: 'claude-cli' | 'codex-cli';
   command: string;
   args: string[];
@@ -54,7 +54,7 @@ export const CLI_SPECS: Record<CliSpec['provider'], CliSpec> = {
   },
 };
 
-export const defaultCommandRunner: CommandRunner = (command, args, stdin, timeoutMs) =>
+const defaultCommandRunner: CommandRunner = (command, args, stdin, timeoutMs) =>
   new Promise((resolve, reject) => {
     const child = execFile(
       command,

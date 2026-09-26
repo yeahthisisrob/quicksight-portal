@@ -62,7 +62,7 @@ import { CountChip } from './shared';
 // Types
 // ============================================================================
 
-export interface FilterControlsProps {
+interface FilterControlsProps {
   // Date controls
   dateFilter?: DateFilterState;
   onDateFilterChange?: (filter: DateFilterState) => void;

@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 interface User {
   email?: string;
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         const payload = JSON.parse(atob(tokenParts[1]));
-        
+
         // Check if token is expired
         if (payload.exp && payload.exp < Date.now() / 1000) {
           localStorage.removeItem('idToken');
@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.setItem('idToken', newIdToken);
       setIdToken(newIdToken);
-      
+
       // Decode token and set user info
       const tokenParts = newIdToken.split('.');
       if (tokenParts.length === 3) {
@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           groups: payload['cognito:groups'],
         });
       }
-      
+
       setIsAuthenticated(true);
       setIsLoading(false);
     } catch (_error) {
@@ -117,15 +117,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [checkSession]);
 
   return (
-    <AuthContext.Provider value={{
-      isAuthenticated,
-      isLoading,
-      user,
-      idToken,
-      login,
-      logout,
-      checkSession,
-    }}>
+    <AuthContext.Provider
+      value={{
+        isAuthenticated,
+        isLoading,
+        user,
+        idToken,
+        login,
+        logout,
+        checkSession,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

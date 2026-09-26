@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useState } from 'react';
+import { useArgs } from 'storybook/preview-api';
 
 import type { AssetType } from '../../model/types';
 import AssetTypeSelector from './AssetTypeSelector';
@@ -10,130 +10,40 @@ const meta = {
   parameters: {
     layout: 'padded',
   },
+  args: {
+    selectedTypes: ['dashboards', 'datasets'],
+    onToggle: () => {},
+    counts: {
+      dashboards: 125,
+      datasets: 89,
+      analyses: 234,
+      datasources: 12,
+      folders: 45,
+      users: 156,
+      groups: 23,
+      themes: 0,
+    },
+    disabled: false,
+  },
+  render: function Render(args) {
+    const [, updateArgs] = useArgs();
+    const onToggle = (assetType: AssetType) =>
+      updateArgs({
+        selectedTypes: args.selectedTypes.includes(assetType)
+          ? args.selectedTypes.filter((t) => t !== assetType)
+          : [...args.selectedTypes, assetType],
+      });
+    return <AssetTypeSelector {...args} onToggle={onToggle} />;
+  },
 } satisfies Meta<typeof AssetTypeSelector>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {
-  render: (args) => {
-    const [selectedTypes, setSelectedTypes] = useState<AssetType[]>(args.selectedTypes);
+/** Chips toggle live. */
+export const Default: Story = {};
 
-    const handleToggle = (assetType: AssetType) => {
-      setSelectedTypes((prev) =>
-        prev.includes(assetType) ? prev.filter((t) => t !== assetType) : [...prev, assetType]
-      );
-    };
-
-    return <AssetTypeSelector {...args} selectedTypes={selectedTypes} onToggle={handleToggle} />;
-  },
-  args: {
-    selectedTypes: ['dashboards', 'datasets'],
-    onToggle: () => {},
-    counts: {
-      dashboards: 125,
-      datasets: 89,
-      analyses: 234,
-      datasources: 12,
-      folders: 45,
-      users: 156,
-      groups: 23,
-      themes: 0,
-    },
-    disabled: false,
-  },
-};
-
-export const AllSelected: Story = {
-  render: Default.render,
-  args: {
-    selectedTypes: [
-      'dashboards',
-      'datasets',
-      'analyses',
-      'datasources',
-      'folders',
-      'groups',
-      'users',
-    ],
-    onToggle: () => {},
-    counts: {
-      dashboards: 125,
-      datasets: 89,
-      analyses: 234,
-      datasources: 12,
-      folders: 45,
-      users: 156,
-      groups: 23,
-      themes: 0,
-    },
-    disabled: false,
-  },
-};
-
-export const NoneSelected: Story = {
-  render: Default.render,
-  args: {
-    selectedTypes: [],
-    onToggle: () => {},
-    counts: {
-      dashboards: 125,
-      datasets: 89,
-      analyses: 234,
-      datasources: 12,
-      folders: 45,
-      users: 156,
-      groups: 23,
-      themes: 0,
-    },
-    disabled: false,
-  },
-};
-
-export const NoCounts: Story = {
-  render: Default.render,
-  args: {
-    selectedTypes: ['dashboards', 'datasets'],
-    onToggle: () => {},
-    counts: undefined,
-    disabled: false,
-  },
-};
-
+/** While an export runs every chip is inert. */
 export const Disabled: Story = {
-  render: Default.render,
-  args: {
-    selectedTypes: ['dashboards', 'datasets'],
-    onToggle: () => {},
-    counts: {
-      dashboards: 125,
-      datasets: 89,
-      analyses: 234,
-      datasources: 12,
-      folders: 45,
-      users: 156,
-      groups: 23,
-      themes: 0,
-    },
-    disabled: true,
-  },
-};
-
-export const LargeNumbers: Story = {
-  render: Default.render,
-  args: {
-    selectedTypes: ['dashboards', 'datasets', 'analyses'],
-    onToggle: () => {},
-    counts: {
-      dashboards: 12500,
-      datasets: 8900,
-      analyses: 23400,
-      datasources: 1200,
-      folders: 4500,
-      users: 15600,
-      groups: 2300,
-      themes: 0,
-    },
-    disabled: false,
-  },
+  args: { disabled: true },
 };

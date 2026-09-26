@@ -4,7 +4,7 @@
  * predicate logic is unit-testable on its own.
  */
 
-import { type ActivityCache, type MinimalEvent, type TimelineQuery } from '../types';
+import type { ActivityCache, MinimalEvent, TimelineQuery } from '../types';
 
 export const TIMELINE_CONSTANTS = {
   DEFAULT_LIMIT: 50,
@@ -82,7 +82,7 @@ function eventMatchesPredicate(evt: MinimalEvent, p: TimelinePredicate): boolean
   if (p.eventNames && !p.eventNames.has(evt.eventName)) {
     return false;
   }
-  if (p.excludeEventNames && p.excludeEventNames.has(evt.eventName)) {
+  if (p.excludeEventNames?.has(evt.eventName)) {
     return false;
   }
   if (p.origins && p.originFor && !p.origins.has(p.originFor(evt))) {

@@ -1,16 +1,13 @@
 /**
  * The portal's API as a typed client, generated from the contract: every
  * path, parameter and body is checked against `shared/generated/types.ts`
- * (openapi-fetch). `$api` wraps it for react-query (openapi-react-query), so
- * a component can `$api.useQuery('get', '/api/...')` with the query key
- * derived from the call.
+ * (openapi-fetch).
  *
  * Auth rides a middleware: the session's token on every request, and a 401
  * clears the session and sends the person to sign in.
  */
 import type { paths } from '@shared/generated/types';
 import createFetchClient, { type Middleware } from 'openapi-fetch';
-import createQueryClient from 'openapi-react-query';
 
 import { config } from '@/shared/config';
 
@@ -39,8 +36,6 @@ const auth: Middleware = {
 
 export const client = createFetchClient<paths>({ baseUrl: BASE_URL });
 client.use(auth);
-
-export const $api = createQueryClient(client);
 
 /** An API failure, with the server's message when it sent one. */
 export class ApiError extends Error {

@@ -1,4 +1,5 @@
 import type { Middleware } from 'openapi-fetch';
+import { createElement, Fragment, type ReactNode, useEffect, useState } from 'react';
 
 import { client } from '../../src/shared/api/typed';
 
@@ -65,6 +66,23 @@ export function mockApi(routes: MockRoute[]): () => void {
   return () => {
     client.eject(fetchMock);
   };
+}
+
+/**
+ * Answer the API from `routes` for as long as the calling component is
+ * mounted. The routes go in during the first render, not in an effect:
+ * children's effects run before their parent's, so a mock installed in an
+ * effect would miss the story's first request.
+ */
+export function useMockApi(routes: MockRoute[]): void {
+  const [restore] = useState(() => mockApi(routes));
+  useEffect(() => restore, [restore]);
+}
+
+/** `useMockApi` as a wrapper: `<MockedApi routes={...}><Story /></MockedApi>`. */
+export function MockedApi({ routes, children }: { routes: MockRoute[]; children: ReactNode }) {
+  useMockApi(routes);
+  return createElement(Fragment, null, children);
 }
 
 /** Parse a request body the way the server would. */

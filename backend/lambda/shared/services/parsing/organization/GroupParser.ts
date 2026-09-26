@@ -5,7 +5,7 @@ import { BaseAssetParser, type ParserCapabilities } from '../BaseAssetParser';
 /**
  * Group metadata extracted from API responses
  */
-export interface GroupMetadata {
+interface GroupMetadata {
   assetId: string;
   name: string;
   arn: string;

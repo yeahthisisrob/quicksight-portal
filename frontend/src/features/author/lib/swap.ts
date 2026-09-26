@@ -3,9 +3,13 @@
  * direction, rather than sliding one row and overlapping it. When nothing is
  * there to trade with, the visual nudges one cell as before.
  */
-import type { DefinitionOp, SheetOutline, SheetOutlineElement } from '@/shared/api/modules/authoring';
+import type {
+  DefinitionOp,
+  SheetOutline,
+  SheetOutlineElement,
+} from '@/shared/api/modules/authoring';
 
-export type SwapDirection = 'up' | 'down' | 'left' | 'right';
+type SwapDirection = 'up' | 'down' | 'left' | 'right';
 
 interface Placed {
   element: SheetOutlineElement;
@@ -83,7 +87,13 @@ export function swapOps(
     const dc = direction === 'left' ? -1 : direction === 'right' ? 1 : 0;
     const dr = direction === 'up' ? -1 : direction === 'down' ? 1 : 0;
     return [
-      { op: 'move', sheetId: sheet.sheetId, elementId, col: clamp.col(col + dc), row: clamp.row(row + dr) },
+      {
+        op: 'move',
+        sheetId: sheet.sheetId,
+        elementId,
+        col: clamp.col(col + dc),
+        row: clamp.row(row + dr),
+      },
     ];
   }
   return [

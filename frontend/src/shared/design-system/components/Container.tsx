@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { pal } from '../createAppTheme';
 import { radius } from '../tokens/scale';
 
-export interface ContainerProps {
+interface ContainerProps {
   /** A string becomes an h2 heading; a node is rendered as given. */
   header?: ReactNode;
   /** Explanatory text under the heading. */
@@ -129,5 +129,3 @@ export function Container({
     </Box>
   );
 }
-
-export default Container;

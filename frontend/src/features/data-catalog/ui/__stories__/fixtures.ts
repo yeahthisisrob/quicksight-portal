@@ -74,7 +74,7 @@ export const TARGETS_SUMMARY: SmusCatalogAssetSummary = {
   usage: { dashboards: 1, analyses: 0 },
 };
 
-export const DEV_SUMMARY: SmusCatalogAssetSummary = {
+const DEV_SUMMARY: SmusCatalogAssetSummary = {
   listingId: 'lst-sales-gold-dev',
   assetId: 'ast-sales-gold-dev',
   name: 'sales_gold',
@@ -214,7 +214,7 @@ export const SALES_GOLD_DATASET: CatalogDataset = {
   ],
 };
 
-export const SALES_EXEC_DATASET: CatalogDataset = {
+const SALES_EXEC_DATASET: CatalogDataset = {
   id: 'ds-sales-exec',
   name: 'Sales for executives',
   matchType: 'custom-sql',
@@ -244,7 +244,7 @@ export const SALES_EXEC_DATASET: CatalogDataset = {
   ],
 };
 
-export const SALES_ASSET: SmusCatalogAsset = {
+const SALES_ASSET: SmusCatalogAsset = {
   ...SALES_SUMMARY,
   forms: [
     {
@@ -279,7 +279,7 @@ export const SALES_ASSET: SmusCatalogAsset = {
   datasets: [SALES_GOLD_DATASET, SALES_EXEC_DATASET],
 };
 
-export const CUSTOMER_ASSET: SmusCatalogAsset = {
+const CUSTOMER_ASSET: SmusCatalogAsset = {
   ...CUSTOMER_SUMMARY,
   forms: [
     {

@@ -78,7 +78,7 @@ const summary = (
   ...over,
 });
 
-export const CALCULATED_FIELD_ITEMS: CalculatedFieldSummary[] = [
+const CALCULATED_FIELD_ITEMS: CalculatedFieldSummary[] = [
   summary({
     key: KEYS.margin,
     name: 'margin',
@@ -160,7 +160,7 @@ export const CALCULATED_FIELD_ITEMS: CalculatedFieldSummary[] = [
   }),
 ];
 
-export function calculatedFieldCatalog(
+function calculatedFieldCatalog(
   params: { search?: string; conflictsOnly?: boolean; projectId?: string } = {}
 ): CalculatedFieldCatalog {
   const needle = params.search?.toLowerCase();
@@ -586,7 +586,7 @@ const column = (
   ...over,
 });
 
-export const COLUMN_ITEMS: ColumnCatalogItem[] = [
+const COLUMN_ITEMS: ColumnCatalogItem[] = [
   // A column the export could not type: QuickSight leaves OutputColumns.Type out.
   column({ name: 'geo_point', dataType: undefined, datasets: [DS_GOLD] }),
   // A listing that publishes no schema at all, not a column it lacks.
@@ -676,7 +676,7 @@ export const COLUMN_ITEMS: ColumnCatalogItem[] = [
   }),
 ];
 
-export function columnCatalog(params: { search?: string } = {}): ColumnCatalog {
+function columnCatalog(params: { search?: string } = {}): ColumnCatalog {
   const needle = params.search?.toLowerCase();
   const items = COLUMN_ITEMS.filter((c) => !needle || c.name.toLowerCase().includes(needle));
   return {

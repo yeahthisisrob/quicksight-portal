@@ -10,9 +10,9 @@ import { accepted, client } from '../typed';
  * with { success, jobId, ... } at the top level (no data envelope), and the
  * caller polls the jobId.
  */
-export type GroupMembershipJobResponse = components['schemas']['BulkJobAccepted'];
+type GroupMembershipJobResponse = components['schemas']['BulkJobAccepted'];
 
-export interface DeleteUserResult {
+interface DeleteUserResult {
   success: boolean;
   message?: string;
 }

@@ -9,7 +9,8 @@ import {
 } from '../__fixtures__/definitions';
 import { buildWireframeModel } from '../wireframeModel';
 
-const byId = <T extends { id: string }>(elements: T[], id: string) => elements.find((e) => e.id === id);
+const byId = <T extends { id: string }>(elements: T[], id: string) =>
+  elements.find((e) => e.id === id);
 
 describe('buildWireframeModel', () => {
   describe('grid layout', () => {

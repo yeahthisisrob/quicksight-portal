@@ -1,15 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useEffect, useState } from 'react';
 
-import { type MockRoute, mockApi } from '../../../../.storybook/mocks/api';
+import { MockedApi } from '../../../../.storybook/mocks/api';
 import { settingsRoutes } from './__stories__/fixtures';
 import { ApiKeysPanel } from './ApiKeysPanel';
-
-function Mocked({ routes: r, children }: { routes: MockRoute[]; children: React.ReactNode }) {
-  const [restore] = useState(() => mockApi(r));
-  useEffect(() => restore, [restore]);
-  return <>{children}</>;
-}
 
 const meta: Meta = {
   title: 'Features/Settings/ApiKeysPanel',
@@ -37,15 +30,15 @@ type Story = StoryObj<typeof meta>;
 
 export const WithKeys: Story = {
   render: () => (
-    <Mocked routes={settingsRoutes()}>
+    <MockedApi routes={settingsRoutes()}>
       <ApiKeysPanel />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const Empty: Story = {
   render: () => (
-    <Mocked
+    <MockedApi
       routes={settingsRoutes([
         {
           method: 'get',
@@ -55,13 +48,13 @@ export const Empty: Story = {
       ])}
     >
       <ApiKeysPanel />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const LoadError: Story = {
   render: () => (
-    <Mocked
+    <MockedApi
       routes={settingsRoutes([
         {
           method: 'get',
@@ -71,6 +64,6 @@ export const LoadError: Story = {
       ])}
     >
       <ApiKeysPanel />
-    </Mocked>
+    </MockedApi>
   ),
 };

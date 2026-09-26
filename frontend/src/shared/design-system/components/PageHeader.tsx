@@ -1,7 +1,7 @@
 import { Box, Chip, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
 
-export interface PageHeaderProps {
+interface PageHeaderProps {
   title: string;
   /** One line under the title saying what the page is for. */
   description?: ReactNode;
@@ -71,5 +71,3 @@ export function PageHeader({
     </Box>
   );
 }
-
-export default PageHeader;

@@ -54,7 +54,7 @@ function Summary({ model }: { model: WireframeModel }) {
   );
 }
 
-export interface DefinitionWireframeProps {
+interface DefinitionWireframeProps {
   model: WireframeModel;
   /** Which sheet to show first; defaults to the first sheet. */
   initialSheetId?: string;

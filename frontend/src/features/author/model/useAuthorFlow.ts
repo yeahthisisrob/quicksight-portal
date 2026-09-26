@@ -90,7 +90,7 @@ import {
 } from './standard';
 import { isTemplate, TEMPLATE_TAG, templateIncludeTagsParam } from './templateTag';
 
-export interface SourceDefinition {
+interface SourceDefinition {
   loading: boolean;
   error: string | null;
   /** The cached export, when there is one. */
@@ -106,7 +106,7 @@ export interface SourceInsights {
   data: AssetInsights | null;
 }
 
-export interface MockupPreview {
+interface MockupPreview {
   loading: boolean;
   error: string | null;
   plan: RebindPlan | null;
@@ -130,7 +130,7 @@ export interface StandardCandidate {
 }
 
 /** The Standard step: the template chosen and the bulk type rules. */
-export interface StandardChoice {
+interface StandardChoice {
   template: StandardTemplate | null;
   typeRules: StandardTypeRules;
   /** Dashboards tagged as templates. */
@@ -145,7 +145,7 @@ export interface StandardChoice {
 }
 
 /** The output columns of a chosen dataset, from its cached export. */
-export interface DatasetColumns {
+interface DatasetColumns {
   loading: boolean;
   columns: DatasetColumn[];
 }
@@ -183,7 +183,7 @@ export interface NewAssetFlow {
 }
 
 /** The server's repair plan for the source and what the person decided about it. */
-export interface SourceRepair {
+interface SourceRepair {
   loading: boolean;
   error: string | null;
   plan: RepairPlan | null;
@@ -246,7 +246,7 @@ export interface AuthorFlow {
   startFromResult: () => void;
 }
 
-export interface AddedTemplateField {
+interface AddedTemplateField {
   templateId: string;
   identifier: string;
   name: string;

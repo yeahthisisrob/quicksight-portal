@@ -33,41 +33,6 @@ export interface AssetLineage {
   };
 }
 
-// New enhanced field-level lineage interfaces
-export interface FieldLineageNode {
-  id: string;
-  name: string;
-  type: 'asset' | 'field';
-  assetType?: AssetType;
-  assetId?: string; // For fields, the containing asset
-  fieldType?: string; // For fields, the data type
-  metadata?: Record<string, any>;
-}
-
-export interface FieldLineageRelationship {
-  sourceNode: FieldLineageNode;
-  targetNode: FieldLineageNode;
-  relationshipType: 'uses' | 'used_by' | 'derives_from' | 'transforms_to';
-  strength?: number; // Relationship strength (0-1)
-  metadata?: {
-    transformationLogic?: string;
-    calculatedFieldExpression?: string;
-    joinCondition?: string;
-  };
-}
-
-export interface EnhancedAssetLineage extends AssetLineage {
-  fieldLineage?: FieldLineage[]; // Field-level dependencies
-}
-
-export interface FieldLineage {
-  fieldNode: FieldLineageNode;
-  relationships: FieldLineageRelationship[];
-  calculatedFieldDependencies?: string[]; // Fields this calculated field depends on
-  usedInVisuals?: boolean;
-  usedInCalculatedFields?: boolean;
-}
-
 // Create singleton S3 service
 const accountId = process.env.AWS_ACCOUNT_ID || '';
 const s3Service = new S3Service(accountId);

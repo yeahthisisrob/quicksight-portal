@@ -16,6 +16,8 @@ import type {
   ValidationResult,
 } from '../types';
 
+const VALIDATE_DEBOUNCE_MS = 300;
+
 interface UseRestoreDialogProps {
   asset: ArchivedAssetItem | null;
   open: boolean;
@@ -144,14 +146,15 @@ export function useRestoreDialog({ asset, open }: UseRestoreDialogProps) {
     }
   }, [asset, buildDeploymentConfig]);
 
-  // Auto-validate
+  // Validate whenever the inputs change (handleValidate changes with the form
+  // and options), debounced for typing. Keying on the inputs rather than on
+  // the last result means a failed validation waits for an edit instead of
+  // retrying in a loop.
   useEffect(() => {
-    if (open && asset && formData.assetId && formData.assetName && !validating && !canDeploy) {
-      const timer = setTimeout(handleValidate, 100);
-      return () => clearTimeout(timer);
-    }
-    return undefined;
-  }, [open, asset, formData.assetId, formData.assetName, validating, canDeploy, handleValidate]);
+    if (!(open && asset && formData.assetId && formData.assetName)) return undefined;
+    const timer = setTimeout(handleValidate, VALIDATE_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [open, asset, formData.assetId, formData.assetName, handleValidate]);
 
   // Update form data
   const updateFormData = useCallback((updates: Partial<RestoreFormData>) => {

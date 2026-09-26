@@ -33,7 +33,6 @@
     "date-fns": "^4.4.0",
     "notistack": "^3.0.2",
     "openapi-fetch": "^0.17.0",
-    "openapi-react-query": "^0.5.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-markdown": "^10.1.0",

@@ -32,16 +32,10 @@ export const RenameDashboard: Story = {
   },
 };
 
+/** Not a dashboard, so no new version is published. */
 export const RenameDataset: Story = {
   args: {
     assetType: 'dataset',
     asset: { id: 'ds-456', name: 'orders_curated_v2' },
-  },
-};
-
-export const RenameFolder: Story = {
-  args: {
-    assetType: 'folder',
-    asset: { id: 'folder-789', name: 'Finance Team' },
   },
 };

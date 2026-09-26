@@ -1,13 +1,8 @@
-import { Box, Button, Chip, Stack, TextField, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { Container } from '../components/Container';
-import { EmptyState } from '../components/EmptyState';
-import { KeyValuePairs } from '../components/KeyValuePairs';
 import { PageHeader } from '../components/PageHeader';
-import { SegmentedControl } from '../components/SegmentedControl';
-import { StatusIndicator } from '../components/StatusIndicator';
-import { TabBar } from '../components/TabBar';
 import { pal } from '../createAppTheme';
 import { radius, typeScale } from '../tokens/scale';
 import { darkColors, lightColors, type SemanticColors } from '../tokens/semantic';
@@ -135,86 +130,6 @@ export const Tokens: Story = {
             ))}
         </Stack>
       </Container>
-    </Stack>
-  ),
-};
-
-export const Primitives: Story = {
-  render: () => (
-    <Stack spacing={2}>
-      <PageHeader
-        title="Primitives"
-        counter={7}
-        description="The building blocks every page is made of. MUI components pick up the same look through the theme."
-        actions={
-          <Stack direction="row" spacing={1}>
-            <Button variant="outlined" color="inherit">
-              Secondary
-            </Button>
-            <Button variant="outlined">Normal</Button>
-            <Button variant="contained">Primary</Button>
-          </Stack>
-        }
-      >
-        <TabBar
-          ariaLabel="Example"
-          value="one"
-          onChange={() => {}}
-          tabs={[
-            { value: 'one', label: 'Overview' },
-            { value: 'two', label: 'Details', badge: 3 },
-          ]}
-        />
-      </PageHeader>
-
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-        <Container header="Container" description="With header, description and a footer.">
-          <KeyValuePairs
-            items={[
-              {
-                label: 'Status',
-                value: <StatusIndicator type="success">Available</StatusIndicator>,
-              },
-              { label: 'Import mode', value: 'SPICE' },
-              { label: 'Owner', value: 'analytics-team' },
-              { label: 'Tags', value: <Chip size="small" label="template" /> },
-            ]}
-          />
-        </Container>
-        <Container header="Inputs and choices">
-          <Stack spacing={2}>
-            <TextField size="small" label="Dataset name" defaultValue="orders_gold" />
-            <TextField size="small" label="With an error" error helperText="Required" />
-            <SegmentedControl
-              ariaLabel="Mode"
-              value="clone"
-              onChange={() => {}}
-              options={[
-                { value: 'clone', label: 'Create a copy' },
-                { value: 'update', label: 'Change in place' },
-              ]}
-            />
-          </Stack>
-        </Container>
-        <Container header="Status">
-          <Stack spacing={1}>
-            <StatusIndicator type="success">Succeeded</StatusIndicator>
-            <StatusIndicator type="error">3 errors</StatusIndicator>
-            <StatusIndicator type="warning">Needs a decision</StatusIndicator>
-            <StatusIndicator type="info">Proposed</StatusIndicator>
-            <StatusIndicator type="pending">Waiting</StatusIndicator>
-            <StatusIndicator type="in-progress">Exporting</StatusIndicator>
-          </Stack>
-        </Container>
-        <Container disableContentPadding>
-          <EmptyState
-            compact
-            title="Nothing here yet"
-            description="An EmptyState says what would be here and what to do."
-            action={<Button variant="outlined">Do the thing</Button>}
-          />
-        </Container>
-      </Box>
     </Stack>
   ),
 };

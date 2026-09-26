@@ -11,7 +11,7 @@ import { dataTransformsOf, parentDataSetArnsOf } from './dataPrepTransforms';
 /**
  * Dataset metadata extracted from API responses
  */
-export interface DatasetMetadata {
+interface DatasetMetadata {
   assetId: string;
   name: string;
   arn: string;

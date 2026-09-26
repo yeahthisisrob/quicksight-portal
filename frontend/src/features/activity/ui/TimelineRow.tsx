@@ -51,7 +51,7 @@ const ACTION_ICONS: Record<string, SvgIconComponent> = {
 };
 
 /** The rail dot colour per action, from the design tokens. */
-export function actionColour(theme: Theme, action: string | undefined): string {
+function actionColour(theme: Theme, action: string | undefined): string {
   const p = pal(theme);
   switch (action) {
     case 'create':
@@ -246,7 +246,7 @@ function When({ iso, children }: { iso: string; children?: string }) {
 
 /* ───────── Rows ─────────────────────────────────────────────────────────── */
 
-export interface TimelineRowProps {
+interface TimelineRowProps {
   event: TimelineEvent;
   /** Draw the rail line down to the next row. */
   connect?: boolean;
@@ -302,7 +302,7 @@ export function TimelineRow({ event, connect = true, nested = false }: TimelineR
   );
 }
 
-export interface TimelineGroupRowProps {
+interface TimelineGroupRowProps {
   group: TimelineGroup;
   connect?: boolean;
 }

@@ -9,7 +9,7 @@ import type { components } from '@shared/generated/types';
 
 import { isTemplate } from '../model/templateTag';
 
-export type ViewActivitySummary = components['schemas']['ViewActivitySummary'];
+type ViewActivitySummary = components['schemas']['ViewActivitySummary'];
 
 export interface RankableSource {
   id: string;
@@ -37,14 +37,14 @@ export interface RankedSource<T extends RankableSource = RankableSource> {
 }
 
 /** Nothing viewed for this long counts as unused. */
-export const UNUSED_AFTER_DAYS = 90;
+const UNUSED_AFTER_DAYS = 90;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const QUARTILE = 4;
 
 export const views = (item: RankableSource): number => item.activity?.totalViews ?? 0;
 export const viewers = (item: RankableSource): number => item.activity?.uniqueViewers ?? 0;
 
-export function lastViewedMs(item: RankableSource): number | null {
+function lastViewedMs(item: RankableSource): number | null {
   const raw = item.activity?.lastViewed;
   if (!raw) {
     return null;

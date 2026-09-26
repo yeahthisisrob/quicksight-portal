@@ -52,7 +52,10 @@ export function placementOf(expression: string): PlacementVerdict {
   if (/\$\{[^}]+\}/.test(expression)) {
     reasons.push('a parameter');
   }
-  return { placement: reasons.length > 0 ? 'query-time' : 'row-level', reasons: [...new Set(reasons)] };
+  return {
+    placement: reasons.length > 0 ? 'query-time' : 'row-level',
+    reasons: [...new Set(reasons)],
+  };
 }
 
 /** Column and field names compared the way people write them: case, spaces and underscores ignored. */

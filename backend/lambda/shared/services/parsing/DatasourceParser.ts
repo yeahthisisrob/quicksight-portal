@@ -5,7 +5,7 @@ import { BaseAssetParser, type ParserCapabilities } from './BaseAssetParser';
 /**
  * Datasource metadata extracted from API responses
  */
-export interface DatasourceMetadata {
+interface DatasourceMetadata {
   assetId: string;
   name: string;
   arn: string;

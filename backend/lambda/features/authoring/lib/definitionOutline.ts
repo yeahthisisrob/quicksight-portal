@@ -5,7 +5,7 @@
  */
 import { controlBarElements } from './controlBar';
 
-export type OutlineElementKind =
+type OutlineElementKind =
   | 'visual'
   | 'filterControl'
   | 'parameterControl'
@@ -13,7 +13,7 @@ export type OutlineElementKind =
   | 'image'
   | 'other';
 
-export interface OutlineElement {
+interface OutlineElement {
   elementId: string;
   kind: OutlineElementKind;
   visualType?: string;
@@ -103,7 +103,7 @@ function fieldLabel(field: any): string {
 }
 
 /** Field wells by role, for any visual: `FieldWells.<X>AggregatedFieldWells.<Role>[]`. */
-export function fieldWellsOf(visualBody: Record<string, any>): Array<{ role: string; fields: string[] }> {
+function fieldWellsOf(visualBody: Record<string, any>): Array<{ role: string; fields: string[] }> {
   const wells = visualBody.ChartConfiguration?.FieldWells;
   if (typeof wells !== 'object' || wells === null) {
     return [];
@@ -149,7 +149,10 @@ export function buildOutline(definition: any): SheetOutline[] {
     }
     for (const t of sheet.TextBoxes ?? []) {
       if (t?.SheetTextBoxId) {
-        catalog.set(String(t.SheetTextBoxId), { kind: 'textBox', title: stripHtml(t.Content) || undefined });
+        catalog.set(String(t.SheetTextBoxId), {
+          kind: 'textBox',
+          title: stripHtml(t.Content) || undefined,
+        });
       }
     }
     for (const c of sheet.FilterControls ?? []) {
@@ -181,7 +184,8 @@ export function buildOutline(definition: any): SheetOutline[] {
         : configuration.SectionBasedLayout
           ? 'section'
           : 'flow';
-    const placed: any[] = configuration.GridLayout?.Elements ?? configuration.FreeFormLayout?.Elements ?? [];
+    const placed: any[] =
+      configuration.GridLayout?.Elements ?? configuration.FreeFormLayout?.Elements ?? [];
 
     const elements: OutlineElement[] = placed.map((e) => {
       const id = String(e.ElementId ?? '');
@@ -224,7 +228,13 @@ export function buildOutline(definition: any): SheetOutline[] {
     // Defined but not placed still counts: it can be moved onto the grid.
     for (const [id, known] of catalog) {
       if (!elements.some((e) => e.elementId === id)) {
-        elements.push({ elementId: id, kind: known.kind ?? 'other', visualType: known.visualType, title: known.title, fieldWells: known.fieldWells });
+        elements.push({
+          elementId: id,
+          kind: known.kind ?? 'other',
+          visualType: known.visualType,
+          title: known.title,
+          fieldWells: known.fieldWells,
+        });
       }
     }
 

@@ -2,7 +2,7 @@ import type { SettingsSnapshot } from '@/shared/api/modules/settings';
 
 import { type MockRoute, requestBody } from '../../../../../.storybook/mocks/api';
 
-export const SNAPSHOT: SettingsSnapshot = {
+const SNAPSHOT: SettingsSnapshot = {
   updatedAt: '2026-09-18T14:02:00Z',
   updatedBy: 'rob',
   groups: [
@@ -112,13 +112,13 @@ export const SNAPSHOT: SettingsSnapshot = {
   ],
 };
 
-export const PROJECTS = [
+const PROJECTS = [
   { id: 'proj-published-prod', name: 'published_prod', description: 'Published layer' },
   { id: 'proj-published-dev', name: 'published_dev', description: 'Published layer, dev' },
   { id: 'proj-sandbox', name: 'sandbox' },
 ];
 
-export const API_KEYS = [
+const API_KEYS = [
   {
     id: 'k-cli',
     label: 'claude cli',

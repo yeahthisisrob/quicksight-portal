@@ -209,7 +209,7 @@ export const TIMELINE_EVENTS: TimelineEvent[] = [
   }),
 ];
 
-export const CACHE_LAST_UPDATED = minutesAgo(9);
+const CACHE_LAST_UPDATED = minutesAgo(9);
 
 const DEFAULT_LIMIT = 50;
 

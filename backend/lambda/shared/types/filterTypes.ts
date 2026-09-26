@@ -13,28 +13,6 @@ export interface TagFilter {
 }
 
 /**
- * Filter for selecting specific assets
- * Used for filtering fields by source asset
- */
-export interface AssetFilter {
-  id: string;
-  name: string;
-  type: string;
-}
-
-/**
- * Options for filtering assets with tags
- */
-export interface TagFilterOptions {
-  /** Tags to include - asset must have at least one (OR logic) */
-  includeTags?: TagFilter[];
-  /** Tags to exclude - asset must have none (AND NOT logic) */
-  excludeTags?: TagFilter[];
-  /** Specific asset IDs to include (whitelist filter) */
-  assetIds?: string[];
-}
-
-/**
  * Check if an asset matches the include tags filter (OR logic)
  * Asset must have at least one of the include tags
  */
@@ -71,32 +49,4 @@ export function matchesAssetIds(assetId: string, assetIds?: string[]): boolean {
   }
 
   return assetIds.includes(assetId);
-}
-
-/**
- * Apply all tag filters to determine if an asset should be included
- */
-export function matchesTagFilters(
-  assetId: string,
-  assetTags: TagFilter[],
-  options: TagFilterOptions
-): boolean {
-  const { includeTags, excludeTags, assetIds } = options;
-
-  // Check asset ID filter first (most restrictive)
-  if (!matchesAssetIds(assetId, assetIds)) {
-    return false;
-  }
-
-  // Check include tags (OR logic)
-  if (!matchesIncludeTags(assetTags, includeTags || [])) {
-    return false;
-  }
-
-  // Check exclude tags (AND NOT logic)
-  if (!matchesExcludeTags(assetTags, excludeTags || [])) {
-    return false;
-  }
-
-  return true;
 }

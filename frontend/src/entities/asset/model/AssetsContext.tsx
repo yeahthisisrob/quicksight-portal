@@ -34,7 +34,7 @@ export function applyTagsToItems(
  * Remove deleted assets from a list, immutably. Shared by the optimistic
  * local-state update and the query-cache write-through after deletes.
  */
-export function removeAssetsFromItems(
+function removeAssetsFromItems(
   items: AssetData[] | undefined,
   assetIds: Set<string>
 ): AssetData[] | undefined {
@@ -57,9 +57,9 @@ type AssetData = AssetListItem & { [key: string]: any };
 type PaginationInfo = components['schemas']['PaginationInfo'];
 
 /** A page request for any asset list: the contract's query, page and size always set. */
-export type FetchParams = PaginatedListParams & { page: number; pageSize: number };
+type FetchParams = PaginatedListParams & { page: number; pageSize: number };
 
-export type AssetFetchFn = (options: FetchParams) => Promise<void>;
+type AssetFetchFn = (options: FetchParams) => Promise<void>;
 
 interface AssetsContextType {
   // Cached data

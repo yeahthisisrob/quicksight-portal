@@ -37,8 +37,22 @@ describe('buildRepairPlan', () => {
       },
       datasets,
       targets: new Map([
-        ['orders', target('ds-orders', 'orders', columnsOf('orders').map((c) => c.name))],
-        ['regions', target('ds-regions', 'regions', columnsOf('regions').map((c) => c.name))],
+        [
+          'orders',
+          target(
+            'ds-orders',
+            'orders',
+            columnsOf('orders').map((c) => c.name)
+          ),
+        ],
+        [
+          'regions',
+          target(
+            'ds-regions',
+            'regions',
+            columnsOf('regions').map((c) => c.name)
+          ),
+        ],
       ]),
     });
     expect(plan.issues).toEqual([]);
@@ -56,7 +70,14 @@ describe('buildRepairPlan', () => {
       datasets,
       targets: new Map([
         ['orders', target('ds-orders', 'orders_gold', ordersColumns)],
-        ['regions', target('ds-regions', 'regions', columnsOf('regions').map((c) => c.name))],
+        [
+          'regions',
+          target(
+            'ds-regions',
+            'regions',
+            columnsOf('regions').map((c) => c.name)
+          ),
+        ],
       ]),
     });
 
@@ -91,7 +112,14 @@ describe('buildRepairPlan', () => {
       definition,
       datasets,
       targets: new Map([
-        ['orders', target('ds-orders', 'orders', columnsOf('orders').map((c) => c.name))],
+        [
+          'orders',
+          target(
+            'ds-orders',
+            'orders',
+            columnsOf('orders').map((c) => c.name)
+          ),
+        ],
         ['regions', null],
       ]),
     });
@@ -104,7 +132,9 @@ describe('buildRepairPlan', () => {
     expect(scale.alternatives).toEqual([{ op: 'dropParameter', name: 'scale' }]);
 
     expect(plan.summary).toEqual({ fixable: 1, needsChoice: 1, unfixable: 0 });
-    expect(plan.proposed.repairs).toEqual([{ op: 'declareParameter', name: 'scale', type: 'STRING' }]);
+    expect(plan.proposed.repairs).toEqual([
+      { op: 'declareParameter', name: 'scale', type: 'STRING' },
+    ]);
   });
 
   it("attaches QuickSight's errors to the matching findings and lists the rest as-is", () => {
@@ -128,7 +158,14 @@ describe('buildRepairPlan', () => {
               .filter((n) => n !== 'revenue')
           ),
         ],
-        ['regions', target('ds-regions', 'regions', columnsOf('regions').map((c) => c.name))],
+        [
+          'regions',
+          target(
+            'ds-regions',
+            'regions',
+            columnsOf('regions').map((c) => c.name)
+          ),
+        ],
       ]),
       quickSightErrors: [
         {

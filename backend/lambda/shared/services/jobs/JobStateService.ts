@@ -13,9 +13,7 @@ import {
   type JobLog as RepoJobLog,
 } from './JobRepository';
 
-export type { JobPhase, JobPhaseStatus } from './JobRepository';
-
-export interface JobStatus {
+interface JobStatus {
   jobId: string;
   status: 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';
   progress: number;
@@ -37,7 +35,7 @@ export interface JobStatus {
   stopRequested?: boolean;
 }
 
-export interface JobLog {
+interface JobLog {
   timestamp: string;
   level: 'info' | 'warn' | 'error';
   message: string;

@@ -4,7 +4,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 
-import { fieldCatalogApi, type FieldCatalogParams } from '@/shared/api/modules/data-catalog';
+import { type FieldCatalogParams, fieldCatalogApi } from '@/shared/api/modules/data-catalog';
 
 const LIST_STALE_MS = 30_000;
 

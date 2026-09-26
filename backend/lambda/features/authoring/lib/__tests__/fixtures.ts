@@ -142,8 +142,22 @@ export function sampleDefinition(): Record<string, any> {
             Configuration: {
               GridLayout: {
                 Elements: [
-                  { ElementId: 'v1', ElementType: 'VISUAL', ColumnIndex: 0, ColumnSpan: 18, RowIndex: 0, RowSpan: 12 },
-                  { ElementId: 'v2', ElementType: 'VISUAL', ColumnIndex: 18, ColumnSpan: 18, RowIndex: 0, RowSpan: 12 },
+                  {
+                    ElementId: 'v1',
+                    ElementType: 'VISUAL',
+                    ColumnIndex: 0,
+                    ColumnSpan: 18,
+                    RowIndex: 0,
+                    RowSpan: 12,
+                  },
+                  {
+                    ElementId: 'v2',
+                    ElementType: 'VISUAL',
+                    ColumnIndex: 18,
+                    ColumnSpan: 18,
+                    RowIndex: 0,
+                    RowSpan: 12,
+                  },
                 ],
               },
             },

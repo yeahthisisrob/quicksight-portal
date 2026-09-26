@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useEffect, useState } from 'react';
 
-import { type MockRoute, mockApi } from '../../../../.storybook/mocks/api';
+import { MockedApi } from '../../../../.storybook/mocks/api';
 import {
   SNAPSHOT_NO_PROJECTS,
   STATUS_EXPORTED,
@@ -10,13 +9,6 @@ import {
   smusExportRoutes,
 } from './__stories__/fixtures';
 import { SmusExportPanel } from './SmusExportPanel';
-
-/** Installed during render, before the panel's first request. */
-function Mocked({ routes: r, children }: { routes: MockRoute[]; children: React.ReactNode }) {
-  const [restore] = useState(() => mockApi(r));
-  useEffect(() => restore, [restore]);
-  return <>{children}</>;
-}
 
 const meta: Meta<typeof SmusExportPanel> = {
   title: 'Features/SMUS/SmusExportPanel',
@@ -44,48 +36,42 @@ type Story = StoryObj<typeof meta>;
 
 export const Exported: Story = {
   render: () => (
-    <Mocked routes={smusExportRoutes(STATUS_EXPORTED)}>
+    <MockedApi routes={smusExportRoutes(STATUS_EXPORTED)}>
       <SmusExportPanel />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const NeverExported: Story = {
   render: () => (
-    <Mocked routes={smusExportRoutes(STATUS_NEVER_EXPORTED)}>
+    <MockedApi routes={smusExportRoutes(STATUS_NEVER_EXPORTED)}>
       <SmusExportPanel />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const RoleSeesNoProject: Story = {
   render: () => (
-    <Mocked routes={smusExportRoutes({ ...STATUS_EXPORTED, snapshot: SNAPSHOT_NO_PROJECTS })}>
+    <MockedApi routes={smusExportRoutes({ ...STATUS_EXPORTED, snapshot: SNAPSHOT_NO_PROJECTS })}>
       <SmusExportPanel />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const NotConfigured: Story = {
   render: () => (
-    <Mocked routes={smusExportRoutes(STATUS_NOT_CONFIGURED)}>
+    <MockedApi routes={smusExportRoutes(STATUS_NOT_CONFIGURED)}>
       <SmusExportPanel />
-    </Mocked>
-  ),
-};
-
-export const ExportFails: Story = {
-  render: () => (
-    <Mocked routes={smusExportRoutes(STATUS_EXPORTED, { failJob: true })}>
-      <SmusExportPanel />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const StatusUnavailable: Story = {
   render: () => (
-    <Mocked routes={smusExportRoutes(STATUS_EXPORTED, { statusError: 'Cache bucket unreachable' })}>
+    <MockedApi
+      routes={smusExportRoutes(STATUS_EXPORTED, { statusError: 'Cache bucket unreachable' })}
+    >
       <SmusExportPanel />
-    </Mocked>
+    </MockedApi>
   ),
 };

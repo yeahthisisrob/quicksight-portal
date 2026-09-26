@@ -25,7 +25,7 @@ export interface FilterSpec {
   span?: number;
 }
 
-export interface BuiltFilters {
+interface BuiltFilters {
   filterGroups: any[];
   filterControls: any[];
   /** Control ids in the order they are laid out, with their widths when set. */
@@ -37,7 +37,7 @@ export interface BuiltFilters {
 const ID_LENGTH = 8;
 const NUMERIC = new Set(['INTEGER', 'DECIMAL']);
 const SLIDER_STEPS = 100;
-export const MAX_FILTERS = 12;
+const MAX_FILTERS = 12;
 
 function newId(prefix: string): string {
   return `${prefix}-${randomUUID().replace(/-/g, '').slice(0, ID_LENGTH)}`;
@@ -48,12 +48,20 @@ export function buildFilters(
   specs: FilterSpec[],
   columnOf: (identifier: string, name: string) => TargetColumn | undefined
 ): BuiltFilters {
-  const out: BuiltFilters = { filterGroups: [], filterControls: [], controlIds: [], spans: [], warnings: [] };
+  const out: BuiltFilters = {
+    filterGroups: [],
+    filterControls: [],
+    controlIds: [],
+    spans: [],
+    warnings: [],
+  };
   const seen = new Set<string>();
   for (const spec of specs.slice(0, MAX_FILTERS)) {
     const column = columnOf(spec.identifier, spec.column);
     if (!column) {
-      out.warnings.push(`Filter on '${spec.column}' left out: '${spec.identifier}' has no such column.`);
+      out.warnings.push(
+        `Filter on '${spec.column}' left out: '${spec.identifier}' has no such column.`
+      );
       continue;
     }
     const key = `${spec.identifier}.${column.name.toLowerCase()}`;
@@ -79,11 +87,18 @@ export function buildFilters(
         },
       };
       control = {
-        DateTimePicker: { FilterControlId: controlId, Title: title, SourceFilterId: filterId, Type: 'DATE_RANGE' },
+        DateTimePicker: {
+          FilterControlId: controlId,
+          Title: title,
+          SourceFilterId: filterId,
+          Type: 'DATE_RANGE',
+        },
       };
     } else if (NUMERIC.has(column.type ?? '')) {
       if (typeof spec.min !== 'number' || typeof spec.max !== 'number' || spec.max <= spec.min) {
-        out.warnings.push(`Filter on '${column.name}' left out: a number filter needs min and max for its slider.`);
+        out.warnings.push(
+          `Filter on '${column.name}' left out: a number filter needs min and max for its slider.`
+        );
         continue;
       }
       filter = {
@@ -135,7 +150,9 @@ export function buildFilters(
       FilterGroupId: newId('fg'),
       Filters: [filter],
       ScopeConfiguration: {
-        SelectedSheets: { SheetVisualScopingConfigurations: [{ SheetId: sheetId, Scope: 'ALL_VISUALS' }] },
+        SelectedSheets: {
+          SheetVisualScopingConfigurations: [{ SheetId: sheetId, Scope: 'ALL_VISUALS' }],
+        },
       },
       CrossDataset: 'SINGLE_DATASET',
       Status: 'ENABLED',

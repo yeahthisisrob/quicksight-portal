@@ -17,7 +17,7 @@ export interface BulkDeleteDialogProps {
   onComplete?: () => void;
 }
 
-export interface RestorationInfo {
+interface RestorationInfo {
   canRestore: boolean;
   method: string;
   note: string;

@@ -2,9 +2,7 @@ import type { ActivityData } from '../../../shared/types/activityTypes';
 import type { AssetType, FolderInfo } from '../../../shared/types/assetTypes';
 import type { TagFilter } from '../../../shared/types/filterTypes';
 import type { LineageData } from '../../../shared/types/lineage.types';
-
 // Re-export shared TagFilter for convenience
-export type { TagFilter };
 
 export interface Asset {
   id: string;
@@ -34,7 +32,7 @@ export interface Asset {
   metadata?: Record<string, any>;
 }
 
-export interface FolderFilter {
+interface FolderFilter {
   id: string;
   name: string;
 }
@@ -116,17 +114,6 @@ export interface ArchivedAssetsResponse {
   items: ArchivedAssetItem[];
   nextToken?: string;
   totalCount?: number;
-}
-
-export interface AssetSummary {
-  dashboardId?: string;
-  dataSetId?: string;
-  analysisId?: string;
-  dataSourceId?: string;
-  name: string;
-  arn: string;
-  createdTime?: Date;
-  lastUpdatedTime?: Date;
 }
 
 /**

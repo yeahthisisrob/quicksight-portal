@@ -94,7 +94,7 @@ export function toQuickSightColumnType(sourceType: string): string {
 }
 
 /** Kept as a name for the settings handler; the export job produces it. */
-export type ProjectDiscoveryDiagnostics = SmusExportDiagnostics;
+type ProjectDiscoveryDiagnostics = SmusExportDiagnostics;
 
 /** A dataset built on another one is followed no further than this. */
 const MAX_LINEAGE_DEPTH = 10;
@@ -113,7 +113,7 @@ const MAX_LINEAGE_DEPTH = 10;
  * wins, and only direct matches are inherited from, so the result does not
  * depend on the order datasets came in.
  */
-export function inheritThroughLineage(
+function inheritThroughLineage(
   datasets: Array<{ assetId: string; assetName?: string; metadata?: any }>,
   direct: Map<string, SmusDatasetLink>
 ): Map<string, SmusDatasetLink> {

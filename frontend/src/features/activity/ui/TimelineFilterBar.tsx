@@ -75,7 +75,7 @@ function sameSet(a: string[] | undefined, b: string[]): boolean {
   return a !== undefined && a.length === b.length && b.every((v) => a.includes(v));
 }
 
-export interface TimelineFilterBarProps {
+interface TimelineFilterBarProps {
   filters: TimelineFilters;
   onChange: (next: TimelineFilters) => void;
   /** Per-asset pages: the resource type is fixed. */

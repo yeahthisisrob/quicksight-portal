@@ -1,16 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useEffect, useState } from 'react';
 
-import { type MockRoute, mockApi } from '../../../.storybook/mocks/api';
+import { MockedApi } from '../../../.storybook/mocks/api';
 import { archivedRoutes, ITEMS } from './__stories__/fixtures';
 import { ArchivedAssetsPanel } from './ArchivedAssetsPanel';
-
-/** Installed during render, before the panel's first fetch. */
-function Mocked({ routes: r, children }: { routes: MockRoute[]; children: React.ReactNode }) {
-  const [restore] = useState(() => mockApi(r));
-  useEffect(() => restore, [restore]);
-  return <>{children}</>;
-}
 
 const meta = {
   title: 'Pages/Operations/ArchivedAssetsPanel',
@@ -31,24 +23,24 @@ type Story = StoryObj<typeof meta>;
 
 export const WithAssets: Story = {
   render: () => (
-    <Mocked routes={archivedRoutes(ITEMS)}>
+    <MockedApi routes={archivedRoutes(ITEMS)}>
       <ArchivedAssetsPanel />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const Empty: Story = {
   render: () => (
-    <Mocked routes={archivedRoutes([])}>
+    <MockedApi routes={archivedRoutes([])}>
       <ArchivedAssetsPanel />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const LoadError: Story = {
   render: () => (
-    <Mocked routes={archivedRoutes([], 'The archive index could not be read')}>
+    <MockedApi routes={archivedRoutes([], 'The archive index could not be read')}>
       <ArchivedAssetsPanel />
-    </Mocked>
+    </MockedApi>
   ),
 };

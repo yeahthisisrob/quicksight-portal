@@ -10,7 +10,7 @@ import { ExplorationParser } from './ExplorationParser';
 /**
  * Dashboard metadata extracted from API responses
  */
-export interface DashboardMetadata {
+interface DashboardMetadata {
   assetId: string;
   name: string;
   arn: string;

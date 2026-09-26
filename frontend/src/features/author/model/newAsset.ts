@@ -95,7 +95,7 @@ export interface DraftVisual {
 }
 
 /** What a New-mode preview or create sends, before the request is assembled. */
-export interface NewAssetDraft {
+interface NewAssetDraft {
   assetType: AuthorableAssetType;
   name: string;
   datasets: NewAssetDataset[];
@@ -117,7 +117,7 @@ export function isDateColumn(type: string | undefined): boolean {
   return type !== undefined && DATE_TYPES.has(type.toUpperCase());
 }
 
-export function isNumericColumn(type: string | undefined): boolean {
+function isNumericColumn(type: string | undefined): boolean {
   return type !== undefined && NUMERIC_TYPES.has(type.toUpperCase());
 }
 
@@ -146,7 +146,7 @@ export function uniqueIdentifier(name: string, taken: readonly string[]): string
 
 let nextId = 0;
 /** Ids only have to be unique within one page load. */
-export function draftId(): string {
+function draftId(): string {
   nextId += 1;
   return `v${nextId}`;
 }

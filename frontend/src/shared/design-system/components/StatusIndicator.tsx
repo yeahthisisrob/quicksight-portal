@@ -21,7 +21,7 @@ export type StatusType =
   | 'in-progress'
   | 'loading';
 
-export interface StatusIndicatorProps {
+interface StatusIndicatorProps {
   type: StatusType;
   children?: ReactNode;
   /** Icon only; the text becomes the accessible label. */
@@ -104,5 +104,3 @@ export function StatusIndicator({
     </Box>
   );
 }
-
-export default StatusIndicator;

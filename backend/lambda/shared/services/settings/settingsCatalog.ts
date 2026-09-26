@@ -12,13 +12,13 @@
  */
 
 export type SettingValue = string | boolean | string[];
-export type SettingSource = 'stored' | 'env' | 'default';
-export type SettingType = 'string' | 'text' | 'select' | 'multiselect' | 'boolean';
+type SettingSource = 'stored' | 'env' | 'default';
+type SettingType = 'string' | 'text' | 'select' | 'multiselect' | 'boolean';
 
 /** Free-text guidance goes into model prompts; keep it to what a person would write. */
 export const MAX_TEXT_SETTING_LENGTH = 4_000;
 
-export interface SettingSpec {
+interface SettingSpec {
   key: string;
   label: string;
   description: string;
@@ -253,7 +253,7 @@ export function settingSpec(key: string): SettingSpec | undefined {
 }
 
 /** Env vars are strings; lists are comma-separated, booleans true/false. */
-export function parseEnvValue(spec: SettingSpec, raw: string): SettingValue {
+function parseEnvValue(spec: SettingSpec, raw: string): SettingValue {
   switch (spec.type) {
     case 'multiselect':
       return raw

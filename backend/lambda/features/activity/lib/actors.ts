@@ -6,11 +6,18 @@
  * who was behind them. Other assumed roles show their role and session,
  * IAM users their name, and QuickSight users their QuickSight name.
  */
-import type { AuditRecord } from '../../../shared/services/audit/AuditLog';
-import { TIME_UNITS } from '../../../shared/constants/timeConstants';
 
-export type ActorKind = 'portal' | 'user' | 'role' | 'root' | 'service' | 'unknown';
-export type EventOrigin = 'portal-ui' | 'portal-api' | 'portal' | 'console' | 'automation' | 'unknown';
+import { TIME_UNITS } from '../../../shared/constants/timeConstants';
+import type { AuditRecord } from '../../../shared/services/audit/AuditLog';
+
+type ActorKind = 'portal' | 'user' | 'role' | 'root' | 'service' | 'unknown';
+export type EventOrigin =
+  | 'portal-ui'
+  | 'portal-api'
+  | 'portal'
+  | 'console'
+  | 'automation'
+  | 'unknown';
 
 export interface ActorDescription {
   kind: ActorKind;
@@ -72,7 +79,11 @@ export function describeActor(raw: string, portal: PortalIdentity): ActorDescrip
   if (value.endsWith('.amazonaws.com')) {
     return { kind: 'service', label: value.replace(/\.amazonaws\.com$/, ''), raw: value };
   }
-  return { kind: 'user', label: value.includes('/') ? value.slice(value.lastIndexOf('/') + 1) : value, raw: value };
+  return {
+    kind: 'user',
+    label: value.includes('/') ? value.slice(value.lastIndexOf('/') + 1) : value,
+    raw: value,
+  };
 }
 
 /** How close an audit record must be to a CloudTrail event to be its cause. */

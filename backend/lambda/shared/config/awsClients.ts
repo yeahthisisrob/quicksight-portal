@@ -3,7 +3,6 @@
  * Centralized creation of AWS SDK clients with consistent configuration
  */
 
-import { CloudTrailClient } from '@aws-sdk/client-cloudtrail';
 import { QuickSightClient } from '@aws-sdk/client-quicksight';
 import { S3Client } from '@aws-sdk/client-s3';
 
@@ -21,11 +20,4 @@ export function createQuickSightClient(): QuickSightClient {
  */
 export function createS3Client(): S3Client {
   return new S3Client(getOptimizedAwsConfig());
-}
-
-/**
- * Create a CloudTrail client
- */
-export function createCloudTrailClient(): CloudTrailClient {
-  return new CloudTrailClient(getOptimizedAwsConfig());
 }

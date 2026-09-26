@@ -4,7 +4,7 @@ import { type SearchableType, searchApi } from '@/shared/api/modules/search';
 
 import { useDebounce } from '../useDebounce';
 
-export const SEARCH_DEBOUNCE_MS = 250;
+const SEARCH_DEBOUNCE_MS = 250;
 export const SEARCH_MIN_LENGTH = 2;
 const SEARCH_STALE_MS = 60_000;
 

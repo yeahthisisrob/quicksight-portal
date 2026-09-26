@@ -1,9 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import React from 'react';
 
 import { ExportLogs } from './ExportLogs';
 
-const meta: Meta<typeof ExportLogs> = {
+const meta = {
   title: 'Features/DataExport/ExportLogs',
   component: ExportLogs,
   parameters: {
@@ -14,7 +13,7 @@ const meta: Meta<typeof ExportLogs> = {
     defaultExpanded: true,
     maxHeight: 400,
   },
-};
+} satisfies Meta<typeof ExportLogs>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -98,30 +97,10 @@ export const Empty: Story = {
   },
 };
 
-export const ErrorsOnly: Story = {
-  args: {
-    logs: sampleLogs.filter((log) => log.level === 'error'),
-  },
-};
-
 export const Collapsed: Story = {
   args: {
     logs: sampleLogs,
     defaultExpanded: false,
-  },
-};
-
-export const SmallHeight: Story = {
-  args: {
-    logs: sampleLogs,
-    maxHeight: 200,
-  },
-};
-
-export const NoTimestamps: Story = {
-  args: {
-    logs: sampleLogs,
-    showTimestamps: false,
   },
 };
 
@@ -147,42 +126,5 @@ export const LongMessages: Story = {
         assetType: 'analysis',
       },
     ],
-  },
-};
-
-export const RealTimeSimulation: Story = {
-  render: (args) => {
-    const [logs, setLogs] = React.useState(args.logs || []);
-
-    React.useEffect(() => {
-      const messages = [
-        { msg: 'Processing dashboard', assetType: 'dashboard' },
-        { msg: 'Processing dataset', assetType: 'dataset' },
-        { msg: 'Processing analysis', assetType: 'analysis' },
-        { msg: 'Enriching assets...', level: 'info' as const },
-        { msg: 'Failed to enrich asset', level: 'error' as const },
-        { msg: 'Batch completed', level: 'info' as const },
-      ];
-
-      const interval = setInterval(() => {
-        const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-        setLogs((prev) =>
-          [
-            ...prev,
-            {
-              ts: Date.now(),
-              ...randomMessage,
-            },
-          ].slice(-20)
-        ); // Keep last 20 logs
-      }, 2000);
-
-      return () => clearInterval(interval);
-    }, []);
-
-    return <ExportLogs {...args} logs={logs} />;
-  },
-  args: {
-    logs: [],
   },
 };

@@ -35,6 +35,9 @@ const MIN_PREFIX_LENGTH = 3;
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 const WHY_LIMIT = 6;
+/** Divides log10(views): a thousand views adds at most +75% to a score. */
+const POPULARITY_DAMPING = 4;
+const SCORE_DECIMALS = 100;
 
 interface Indexed {
   doc: SearchDocument;
@@ -132,12 +135,12 @@ export class SearchIndex {
       // All words matching beats half of them matching with a bigger field.
       score *= matchedWords / words.length;
       // Popularity: log scale so a thousand views does not bury an exact name.
-      score *= 1 + Math.log10(1 + (doc.views ?? 0)) / 4;
+      score *= 1 + Math.log10(1 + (doc.views ?? 0)) / POPULARITY_DAMPING;
       scored.push({
         type: doc.type,
         id: doc.id,
         name: doc.name,
-        score: Math.round(score * 100) / 100,
+        score: Math.round(score * SCORE_DECIMALS) / SCORE_DECIMALS,
         why,
         summary: doc.summary,
         path: doc.path,

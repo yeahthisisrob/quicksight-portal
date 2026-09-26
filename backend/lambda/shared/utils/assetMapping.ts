@@ -61,7 +61,7 @@ export function mapFolderFromCache(entry: CacheEntry): FolderListItem & { arn: s
 /**
  * Map dashboard cache entry to dashboard list item
  */
-export function mapDashboardFromCache(entry: CacheEntry): DashboardListItem & { arn: string } {
+function mapDashboardFromCache(entry: CacheEntry): DashboardListItem & { arn: string } {
   const base = mapBaseAssetFields(entry);
 
   return {
@@ -78,7 +78,7 @@ export function mapDashboardFromCache(entry: CacheEntry): DashboardListItem & { 
 /**
  * Map analysis cache entry to analysis list item
  */
-export function mapAnalysisFromCache(entry: CacheEntry): DashboardListItem & { arn: string } {
+function mapAnalysisFromCache(entry: CacheEntry): DashboardListItem & { arn: string } {
   const base = mapBaseAssetFields(entry);
 
   return {
@@ -120,7 +120,7 @@ function extractDatasetSchemas(metadata: any): string[] {
 /**
  * Map dataset cache entry to dataset list item
  */
-export function mapDatasetFromCache(entry: CacheEntry): DatasetListItem & { arn: string } {
+function mapDatasetFromCache(entry: CacheEntry): DatasetListItem & { arn: string } {
   const base = mapBaseAssetFields(entry);
 
   // Extract refresh data from the correct location
@@ -146,7 +146,7 @@ export function mapDatasetFromCache(entry: CacheEntry): DatasetListItem & { arn:
 /**
  * Map datasource cache entry to datasource list item
  */
-export function mapDatasourceFromCache(entry: CacheEntry): AssetListItem & { arn: string } {
+function mapDatasourceFromCache(entry: CacheEntry): AssetListItem & { arn: string } {
   const base = mapBaseAssetFields(entry);
 
   return {
@@ -159,7 +159,7 @@ export function mapDatasourceFromCache(entry: CacheEntry): AssetListItem & { arn
 /**
  * Map user cache entry to user list item
  */
-export function mapUserFromCache(entry: CacheEntry): UserListItem & { arn: string } {
+function mapUserFromCache(entry: CacheEntry): UserListItem & { arn: string } {
   const base = mapBaseAssetFields(entry);
 
   return {
@@ -176,7 +176,7 @@ export function mapUserFromCache(entry: CacheEntry): UserListItem & { arn: strin
 /**
  * Map group cache entry to asset list item
  */
-export function mapGroupFromCache(entry: CacheEntry): AssetListItem & { arn: string } {
+function mapGroupFromCache(entry: CacheEntry): AssetListItem & { arn: string } {
   const base = mapBaseAssetFields(entry);
 
   return {

@@ -34,37 +34,26 @@ export default meta;
 
 type Story = StoryObj<typeof TimelineRow>;
 
-const byOrigin = (origin: string, fallback = 0) =>
-  TIMELINE_EVENTS.find((e) => e.origin === origin) ?? TIMELINE_EVENTS[fallback]!;
-
-export const AgentThroughTheApi: Story = {
-  args: { event: byOrigin('portal-api'), connect: false },
-};
-
-export const PersonThroughThePortal: Story = {
-  args: { event: byOrigin('portal-ui'), connect: false },
-};
-
-export const PortalWithoutProvenance: Story = {
-  args: { event: byOrigin('portal'), connect: false },
-};
-
-export const ConsoleRole: Story = {
-  args: {
-    event: TIMELINE_EVENTS.find((e) => e.actor.kind === 'role')!,
-    connect: false,
+/** One row per kind of actor: agent via the API, person via the portal UI, portal without provenance, console role, console user, automation. */
+export const ActorKinds: Story = {
+  render: () => {
+    const byOrigin = (origin: string) => TIMELINE_EVENTS.find((e) => e.origin === origin);
+    const events = [
+      byOrigin('portal-api'),
+      byOrigin('portal-ui'),
+      byOrigin('portal'),
+      TIMELINE_EVENTS.find((e) => e.actor.kind === 'role'),
+      TIMELINE_EVENTS.find((e) => e.actor.kind === 'user' && e.action === 'grant'),
+      byOrigin('automation'),
+    ].filter((e) => e !== undefined);
+    return (
+      <>
+        {events.map((event) => (
+          <TimelineRow key={event.id} event={event} connect={false} />
+        ))}
+      </>
+    );
   },
-};
-
-export const ConsoleUser: Story = {
-  args: {
-    event: TIMELINE_EVENTS.find((e) => e.actor.kind === 'user' && e.action === 'grant')!,
-    connect: false,
-  },
-};
-
-export const Automation: Story = {
-  args: { event: byOrigin('automation'), connect: false },
 };
 
 export const Burst: Story = {

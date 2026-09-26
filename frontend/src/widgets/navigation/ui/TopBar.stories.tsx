@@ -3,6 +3,10 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { TopBar } from './TopBar';
 
+/**
+ * The bar with the development environment renders in every Pages story
+ * (they run in the real app shell); production gets its own tone.
+ */
 const meta = {
   title: 'Widgets/Navigation/TopBar',
   component: TopBar,
@@ -27,14 +31,6 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Development: Story = {
-  args: { environment: 'development', onToggleNavigation: () => {} },
-};
-
 export const Production: Story = {
   args: { environment: 'production', onToggleNavigation: () => {} },
-};
-
-export const NoEnvironment: Story = {
-  args: {},
 };

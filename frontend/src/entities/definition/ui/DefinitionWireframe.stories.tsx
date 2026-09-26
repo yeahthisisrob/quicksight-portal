@@ -1,6 +1,5 @@
 import { Box } from '@mui/material';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useState } from 'react';
 
 import {
   emptyDefinition,
@@ -13,6 +12,8 @@ import { diffWireframeModels, removedOnly } from '../lib/wireframeDiff';
 import { buildWireframeModel } from '../lib/wireframeModel';
 import type { WireframeModel } from '../model/types';
 import { DefinitionWireframe } from './DefinitionWireframe';
+
+const gridModel = buildWireframeModel(gridDashboardDefinition);
 
 /**
  * A read-only sketch of a dashboard or analysis: sheet tabs, the control
@@ -36,9 +37,13 @@ const meta: Meta<typeof DefinitionWireframe> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** KPI row, bar, line and table on a 36-column grid, one filter in the control strip. */
+/**
+ * KPI row, bar, line and table on a 36-column grid, one filter in the control
+ * strip. Editable: cards are clickable and the selected one is outlined.
+ * Health badges are drawn by the WireframeDialog stories.
+ */
 export const GridDashboard: Story = {
-  args: { model: buildWireframeModel(gridDashboardDefinition) },
+  args: { model: gridModel, selectedId: 'bar-region', onSelect: () => {} },
 };
 
 /** Pixel-positioned elements scaled from a 1200px canvas, including an image and an insight. */
@@ -51,14 +56,6 @@ export const TwoSheetAnalysis: Story = {
   args: { model: buildWireframeModel(twoSheetAnalysisDefinition) },
 };
 
-/** Opens on the second sheet. */
-export const TwoSheetAnalysisDetailSheet: Story = {
-  args: {
-    model: buildWireframeModel(twoSheetAnalysisDefinition),
-    initialSheetId: 'sheet-pivot',
-  },
-};
-
 /** Paginated report: header, two body sections and a footer, each its own band. */
 export const PaginatedReport: Story = {
   args: { model: buildWireframeModel(paginatedReportDefinition) },
@@ -67,31 +64,6 @@ export const PaginatedReport: Story = {
 /** A definition with no sheets. */
 export const Empty: Story = {
   args: { model: buildWireframeModel(emptyDefinition) },
-};
-
-const gridModel = buildWireframeModel(gridDashboardDefinition);
-
-/** Health from QuickSight metrics: a slow table and a line chart with load errors. */
-export const WithHealthBadges: Story = {
-  args: {
-    model: gridModel,
-    badges: new Map([
-      ['table-detail', { kind: 'slow', value: '4.8s', label: 'p90 load time 4.8s (over 3.0s)' }],
-      ['line-trend', { kind: 'error', value: '0.9s', label: '7 load errors in the last 14 days' }],
-      ['bar-region', { kind: 'timing', value: '1.2s', label: 'p90 load time 1.2s' }],
-      ['kpi-revenue', { kind: 'timing', value: '0.3s', label: 'p90 load time 0.3s' }],
-    ]),
-  },
-};
-
-/** Editable: cards are clickable and the selected one is outlined. */
-export const Editable: Story = {
-  render: function EditableStory() {
-    const [selectedId, setSelectedId] = useState<string | undefined>('bar-region');
-    return (
-      <DefinitionWireframe model={gridModel} selectedId={selectedId} onSelect={setSelectedId} />
-    );
-  },
 };
 
 /** The diff a mockup carries: a retyped bar, a moved KPI, a resized KPI, a removed line, an added table, a renamed field. */

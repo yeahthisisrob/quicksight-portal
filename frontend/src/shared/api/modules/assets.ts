@@ -4,12 +4,12 @@ import { accepted, client, unwrap } from '../typed';
 
 type Schemas = components['schemas'];
 
-export type DatasetSource = Schemas['DatasetSource'];
+type DatasetSource = Schemas['DatasetSource'];
 export type DatasetPhysicalTable = Schemas['DatasetPhysicalTable'];
 export type DatasetTableEdit = Schemas['DatasetTableEdit'];
 export type DataSourceOption = Schemas['DataSourceOption'];
 /** The GET response adds the selectable data sources to the dataset's own sources. */
-export type DatasetSourceResponse = DatasetSource & { dataSources: DataSourceOption[] };
+type DatasetSourceResponse = DatasetSource & { dataSources: DataSourceOption[] };
 
 type PaginatedQuery = NonNullable<
   paths['/api/assets/{assetType}/paginated']['get']['parameters']['query']
@@ -38,11 +38,11 @@ export type ArchivedQuery = NonNullable<
 >;
 export type RenamableAssetType =
   paths['/api/assets/{assetType}/{assetId}/rename']['post']['parameters']['path']['assetType'];
-export type PermissionAssetType =
+type PermissionAssetType =
   paths['/api/assets/{assetType}/{assetId}/permission-sources']['get']['parameters']['path']['assetType'];
-export type CachedAssetType =
+type CachedAssetType =
   paths['/api/assets/{assetType}/{assetId}/cached']['get']['parameters']['path']['assetType'];
-export type TaggableAssetType =
+type TaggableAssetType =
   paths['/api/tags/{assetType}/{assetId}']['put']['parameters']['path']['assetType'];
 type AssetType = Schemas['AssetType'];
 type Tag = Schemas['Tag'];

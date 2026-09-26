@@ -4,24 +4,21 @@ import { client, unwrap } from '../typed';
 import { jobsApi } from './jobs';
 
 type Schemas = components['schemas'];
-export type JobQueued = Schemas['JobQueued'];
 
 export type AuthorableAssetType = Schemas['AuthorableAssetType'];
-export type DefinitionDatasets = Schemas['DefinitionDatasets'];
+type DefinitionDatasets = Schemas['DefinitionDatasets'];
 export type DefinitionDataset = Schemas['DefinitionDataset'];
-export type ReferencedColumn = Schemas['ReferencedColumn'];
 export type ColumnUsage = Schemas['ColumnUsage'];
 export type RebindRequest = Schemas['RebindRequest'];
 export type RebindPlan = Schemas['RebindPlan'];
 export type DatasetRebindPlan = Schemas['DatasetRebindPlan'];
 export type ColumnResolution = Schemas['ColumnResolution'];
-export type ColumnResolutionStatus = Schemas['ColumnResolutionStatus'];
 export type ApplyRebindRequest = Schemas['ApplyRebindRequest'];
-export type ApplyRebindResult = Schemas['ApplyRebindResult'];
-export type AuthoringDatasetColumns = Schemas['AuthoringDatasetColumns'];
-export type ProposeRequest = Schemas['ProposeRequest'];
+type ApplyRebindResult = Schemas['ApplyRebindResult'];
+type AuthoringDatasetColumns = Schemas['AuthoringDatasetColumns'];
+type ProposeRequest = Schemas['ProposeRequest'];
 export type Proposal = Schemas['Proposal'];
-export type RebindPreview = Schemas['RebindPreview'];
+type RebindPreview = Schemas['RebindPreview'];
 export type DefinitionOp = Schemas['DefinitionOp'];
 export type DefinitionChange = Schemas['DefinitionChange'];
 export type SheetOutline = Schemas['SheetOutline'];
@@ -37,7 +34,7 @@ export type TemplateRequest = Schemas['TemplateRequest'];
 export type TypeRules = Schemas['TypeRules'];
 export type NewAssetRequest = Schemas['NewAssetRequest'];
 export type NewAssetPreview = Schemas['NewAssetPreview'];
-export type NewAssetResult = Schemas['NewAssetResult'];
+type NewAssetResult = Schemas['NewAssetResult'];
 export type VisualSpec = Schemas['VisualSpec'];
 
 type PostBody<P extends keyof paths> = paths[P] extends {
@@ -47,10 +44,10 @@ type PostBody<P extends keyof paths> = paths[P] extends {
   : never;
 
 /** Rebinds plus edits: calculated fields, ops, repairs (applied first), a template, type rules. */
-export type PreviewRequest = PostBody<'/api/authoring/{assetType}/{assetId}/rebind/preview'>;
+type PreviewRequest = PostBody<'/api/authoring/{assetType}/{assetId}/rebind/preview'>;
 
 /** Datasets already chosen for identifiers whose own dataset is gone. */
-export type RepairPlanRequest = PostBody<'/api/authoring/{assetType}/{assetId}/repair/plan'>;
+type RepairPlanRequest = PostBody<'/api/authoring/{assetType}/{assetId}/repair/plan'>;
 
 /**
  * Authoring API - programmatic edits to dashboard and analysis definitions.

@@ -777,5 +777,3 @@ export class CatalogService {
     return types;
   }
 }
-
-export const catalogService = new CatalogService();

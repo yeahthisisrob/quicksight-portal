@@ -15,7 +15,7 @@ export interface ApiResponse<T> {
 /**
  * Tag structure from QuickSight
  */
-export interface QuickSightTag {
+interface QuickSightTag {
   Key: string;
   Value: string;
 }
@@ -23,7 +23,7 @@ export interface QuickSightTag {
 /**
  * Raw permission structure from AWS API
  */
-export interface QuickSightRawPermission {
+interface QuickSightRawPermission {
   Principal?: string;
   Actions?: string[];
 }
@@ -31,7 +31,7 @@ export interface QuickSightRawPermission {
 /**
  * Permissions response structure with LinkSharingConfiguration
  */
-export interface QuickSightPermissionsResponse {
+interface QuickSightPermissionsResponse {
   Permissions?: QuickSightRawPermission[];
   LinkSharingConfiguration?: {
     Permissions?: QuickSightRawPermission[];
@@ -39,18 +39,9 @@ export interface QuickSightPermissionsResponse {
 }
 
 /**
- * Transformed permission structure for cache
- */
-export interface QuickSightPermission {
-  principal: string;
-  principalType: 'USER' | 'GROUP' | 'NAMESPACE' | 'PUBLIC';
-  actions: string[];
-}
-
-/**
  * Common list response fields
  */
-export interface ListResponseData {
+interface ListResponseData {
   Arn: string;
   CreatedTime: string;
   LastUpdatedTime: string;
@@ -59,7 +50,7 @@ export interface ListResponseData {
 /**
  * Dashboard-specific types
  */
-export interface DashboardListData extends ListResponseData {
+interface DashboardListData extends ListResponseData {
   DashboardId: string;
   Name: string;
   Version?: {
@@ -69,7 +60,7 @@ export interface DashboardListData extends ListResponseData {
 }
 
 // Note: The adapter unwraps the response, so this is the Dashboard object directly
-export interface DashboardDescribeData {
+interface DashboardDescribeData {
   DashboardId: string;
   Arn: string;
   Name: string;
@@ -85,7 +76,7 @@ export interface DashboardDescribeData {
   LastPublishedTime?: string;
 }
 
-export interface DashboardDefinitionData {
+interface DashboardDefinitionData {
   Definition?: {
     DataSetIdentifierDeclarations?: Array<{
       Identifier: string;
@@ -111,14 +102,14 @@ export interface DashboardDefinitionData {
 /**
  * Analysis-specific types
  */
-export interface AnalysisListData extends ListResponseData {
+interface AnalysisListData extends ListResponseData {
   AnalysisId: string;
   Name: string;
   Status?: string;
 }
 
 // Note: The adapter unwraps the response, so this is the Analysis object directly
-export interface AnalysisDescribeData {
+interface AnalysisDescribeData {
   AnalysisId: string;
   Arn: string;
   Name: string;
@@ -128,7 +119,7 @@ export interface AnalysisDescribeData {
   LastUpdatedTime: string;
 }
 
-export interface AnalysisDefinitionData {
+interface AnalysisDefinitionData {
   Definition?: {
     DataSetIdentifierDeclarations?: Array<{
       Identifier: string;
@@ -152,135 +143,9 @@ export interface AnalysisDefinitionData {
 }
 
 /**
- * Dataset-specific types
- */
-export interface DatasetListData extends ListResponseData {
-  DataSetId: string;
-  Name: string;
-  ImportMode?: 'SPICE' | 'DIRECT_QUERY';
-  ConsumedSpiceCapacityInBytes?: number;
-  RowLevelPermissionDataSet?: any;
-  RowLevelPermissionTagConfigurationApplied?: boolean;
-  ColumnLevelPermissionRulesApplied?: boolean;
-}
-
-export interface OutputColumn {
-  Name: string;
-  Type?: string;
-  Description?: string;
-  SubType?: string;
-}
-
-export interface CreateColumnsOperation {
-  Columns: Array<{
-    ColumnId?: string;
-    ColumnName: string;
-    Expression: string;
-  }>;
-}
-
-export interface DataTransform {
-  CreateColumnsOperation?: CreateColumnsOperation;
-  TagColumnOperation?: {
-    ColumnName: string;
-    Tags: Array<{
-      ColumnDescription?: {
-        Text: string;
-      };
-      ColumnGeographicRole?: string;
-    }>;
-  };
-  RenameColumnOperation?: any;
-  CastColumnTypeOperation?: any;
-  ProjectOperation?: any;
-  FilterOperation?: any;
-}
-
-export interface LogicalTable {
-  Alias?: string;
-  DataTransforms?: DataTransform[];
-  Source?: {
-    JoinInstruction?: any;
-    PhysicalTableId?: string;
-    DataSetArn?: string;
-  };
-}
-
-export interface PhysicalTable {
-  RelationalTable?: {
-    DataSourceArn: string;
-    Catalog?: string;
-    Schema?: string;
-    Name: string;
-    InputColumns?: any[];
-  };
-  CustomSql?: {
-    DataSourceArn: string;
-    Name: string;
-    SqlQuery: string;
-    Columns?: any[];
-  };
-  S3Source?: {
-    DataSourceArn: string;
-    UploadSettings?: any;
-    InputColumns?: any[];
-  };
-  /** Composite datasets can reference a source dataset directly */
-  DataSetArn?: string;
-}
-
-// Note: The adapter unwraps the response, so this is the DataSet object directly
-export interface DatasetDescribeData {
-  DataSetId: string;
-  Arn: string;
-  Name: string;
-  CreatedTime: string;
-  LastUpdatedTime: string;
-  ImportMode?: 'SPICE' | 'DIRECT_QUERY';
-  ConsumedSpiceCapacityInBytes?: number;
-  OutputColumns?: OutputColumn[];
-  LogicalTableMap?: Record<string, LogicalTable>;
-  PhysicalTableMap?: Record<string, PhysicalTable>;
-  DataSetUsageConfiguration?: any;
-  FieldFolders?: Record<
-    string,
-    {
-      columns: string[];
-      description?: string;
-    }
-  >;
-}
-
-/**
- * Datasource-specific types
- */
-export interface DatasourceListData extends ListResponseData {
-  DataSourceId: string;
-  Name: string;
-  Type?: string;
-  Status?: string;
-  SslProperties?: any;
-}
-
-// Note: The adapter unwraps the response, so this is the DataSource object directly
-export interface DatasourceDescribeData {
-  DataSourceId: string;
-  Arn: string;
-  Name: string;
-  Type: string;
-  Status?: string;
-  CreatedTime: string;
-  LastUpdatedTime: string;
-  DataSourceParameters?: any;
-  VpcConnectionProperties?: any;
-  SslProperties?: any;
-  ErrorInfo?: any;
-}
-
-/**
  * Folder-specific types
  */
-export interface FolderListData extends ListResponseData {
+interface FolderListData extends ListResponseData {
   FolderId: string;
   Name: string;
   FolderPath?: string[];
@@ -294,31 +159,7 @@ export interface FolderMemberData {
   MemberName?: string;
 }
 
-/**
- * User-specific types
- */
-export interface UserListData extends ListResponseData {
-  UserName: string;
-  Email?: string;
-  Role?: string;
-  IdentityType?: string;
-  Active?: boolean;
-  PrincipalId?: string;
-}
-
-export interface UserDescribeData {
-  User?: {
-    UserName: string;
-    Email?: string;
-    Role?: string;
-    IdentityType?: string;
-    Active?: boolean;
-    PrincipalId?: string;
-    Arn: string;
-  };
-}
-
-export interface UserGroupData {
+interface UserGroupData {
   GroupName: string;
   GroupDescription?: string;
   PrincipalId?: string;
@@ -342,7 +183,7 @@ export interface GroupDescribeData {
   };
 }
 
-export interface GroupMemberData {
+interface GroupMemberData {
   MemberName: string;
 }
 
@@ -428,24 +269,6 @@ export function isAnalysisExport(data: AssetExportData): data is AssetExportData
   return !!data.apiResponses.list?.data && 'AnalysisId' in data.apiResponses.list.data;
 }
 
-export function isDatasetExport(data: AssetExportData): data is AssetExportData & {
-  apiResponses: {
-    list?: ApiResponse<DatasetListData>;
-    describe?: ApiResponse<DatasetDescribeData>;
-  };
-} {
-  return !!data.apiResponses.list?.data && 'DataSetId' in data.apiResponses.list.data;
-}
-
-export function isDatasourceExport(data: AssetExportData): data is AssetExportData & {
-  apiResponses: {
-    list?: ApiResponse<DatasourceListData>;
-    describe?: ApiResponse<DatasourceDescribeData>;
-  };
-} {
-  return !!data.apiResponses.list?.data && 'DataSourceId' in data.apiResponses.list.data;
-}
-
 export function isFolderExport(data: AssetExportData): data is AssetExportData & {
   apiResponses: {
     list?: ApiResponse<FolderListData>;
@@ -453,24 +276,4 @@ export function isFolderExport(data: AssetExportData): data is AssetExportData &
   };
 } {
   return !!data.apiResponses.list?.data && 'FolderId' in data.apiResponses.list.data;
-}
-
-export function isUserExport(data: AssetExportData): data is AssetExportData & {
-  apiResponses: {
-    list?: ApiResponse<UserListData>;
-    describe?: ApiResponse<UserDescribeData>;
-    groups?: ApiResponse<UserGroupData[]>;
-  };
-} {
-  return !!data.apiResponses.list?.data && 'UserName' in data.apiResponses.list.data;
-}
-
-export function isGroupExport(data: AssetExportData): data is AssetExportData & {
-  apiResponses: {
-    list?: ApiResponse<GroupListData>;
-    describe?: ApiResponse<GroupDescribeData>;
-    members?: ApiResponse<GroupMemberData[]>;
-  };
-} {
-  return !!data.apiResponses.list?.data && 'GroupName' in data.apiResponses.list.data;
 }

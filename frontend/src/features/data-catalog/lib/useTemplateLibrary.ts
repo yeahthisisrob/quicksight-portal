@@ -10,7 +10,8 @@ function libraryHooks<T, Input>(key: readonly string[], api: TemplateLibraryApi<
     useSave: () => {
       const client = useQueryClient();
       return useMutation({
-        mutationFn: (args: { templateId?: string; input: Input }) => api.save(args.templateId, args.input),
+        mutationFn: (args: { templateId?: string; input: Input }) =>
+          api.save(args.templateId, args.input),
         onSuccess: () => client.invalidateQueries({ queryKey: key }),
       });
     },
@@ -24,5 +25,11 @@ function libraryHooks<T, Input>(key: readonly string[], api: TemplateLibraryApi<
   };
 }
 
-export const filterBarLibrary = libraryHooks(['data-catalog', 'templates', 'filter-bars'], filterBarTemplatesApi);
-export const visualLibrary = libraryHooks(['data-catalog', 'templates', 'visuals'], visualTemplatesApi);
+export const filterBarLibrary = libraryHooks(
+  ['data-catalog', 'templates', 'filter-bars'],
+  filterBarTemplatesApi
+);
+export const visualLibrary = libraryHooks(
+  ['data-catalog', 'templates', 'visuals'],
+  visualTemplatesApi
+);

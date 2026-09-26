@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import ExportJobStatus from './ExportJobStatus';
 
-const meta: Meta<typeof ExportJobStatus> = {
+const meta = {
   title: 'Features/DataExport/ExportJobStatus',
   component: ExportJobStatus,
   parameters: {
@@ -22,7 +22,7 @@ const meta: Meta<typeof ExportJobStatus> = {
     },
     progress: { control: { type: 'range', min: 0, max: 100 } },
   },
-};
+} satisfies Meta<typeof ExportJobStatus>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -35,18 +35,6 @@ export const Processing: Story = {
     stats: { totalAssets: 200, processedAssets: 125, failedAssets: 0, apiCalls: 431 },
     lastUpdatedTime: new Date(Date.now() - 4 * 1000).toISOString(), // active 4s ago
     checkpoint: { completedAssetTypes: ['dashboard', 'analysis', 'dataset'] },
-    jobId: 'export-1755440000-abc123',
-  },
-};
-
-export const WorkerQuiet: Story = {
-  args: {
-    status: 'processing',
-    progress: 71,
-    message: 'Enriching folders...',
-    stats: { totalAssets: 200, processedAssets: 142, failedAssets: 0, apiCalls: 611 },
-    lastUpdatedTime: new Date(Date.now() - 3 * 60 * 1000).toISOString(), // quiet 3m
-    checkpoint: { completedAssetTypes: ['dashboard', 'analysis', 'dataset', 'datasource'] },
     jobId: 'export-1755440000-abc123',
   },
 };
@@ -65,41 +53,12 @@ export const WorkerStalled: Story = {
   },
 };
 
-export const Queued: Story = {
-  args: {
-    status: 'queued',
-    progress: 0,
-    message: 'Export job queued...',
-    jobId: 'export-1755440000-abc123',
-  },
-};
-
-export const CompletedWithFailures: Story = {
-  args: {
-    status: 'completed',
-    progress: 100,
-    message: 'Export completed with 3 errors',
-    stats: { totalAssets: 200, processedAssets: 197, failedAssets: 3, apiCalls: 1289 },
-    jobId: 'export-1755440000-abc123',
-  },
-};
-
 export const Failed: Story = {
   args: {
     status: 'failed',
     progress: 34,
     message: 'Export failed: rate limit exceeded',
     stats: { totalAssets: 200, processedAssets: 68, failedAssets: 1, apiCalls: 240 },
-    jobId: 'export-1755440000-abc123',
-  },
-};
-
-export const Stopped: Story = {
-  args: {
-    status: 'stopped',
-    progress: 48,
-    message: 'Stopped by user',
-    stats: { totalAssets: 200, processedAssets: 96, failedAssets: 0 },
     jobId: 'export-1755440000-abc123',
   },
 };

@@ -3,7 +3,6 @@ import { useCallback, useState } from 'react';
 
 import { assetsApi, jobsApi } from '@/shared/api';
 import { useJobPolling } from '@/shared/hooks/useJobPolling';
-
 import type { AssetType } from '@/shared/types/asset';
 
 import { downloadCSV } from './exportUtils';
@@ -17,11 +16,13 @@ export function useExportCSV(assetType: AssetType, assetLabel: string) {
     async (job: any) => {
       try {
         // Get the job result which contains the CSV data
-        const result = await jobsApi.getJobResult<{ csv?: string; filename?: string; count?: number }>(
-          job.jobId
-        );
+        const result = await jobsApi.getJobResult<{
+          csv?: string;
+          filename?: string;
+          count?: number;
+        }>(job.jobId);
 
-        if (result && result.csv && result.filename) {
+        if (result?.csv && result.filename) {
           downloadCSV(result.csv, result.filename);
           enqueueSnackbar(
             `Export completed! ${result.count || 0} ${assetLabel.toLowerCase()} exported.`,

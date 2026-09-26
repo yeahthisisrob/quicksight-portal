@@ -1,23 +1,24 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
+  DEFAULT_ACTIVITY_FILTER,
   DEFAULT_DATE_FILTER,
   DEFAULT_ERROR_FILTER,
-  DEFAULT_ACTIVITY_FILTER, DEFAULT_SMUS_FILTER, DEFAULT_IMPORT_MODE_FILTER,
+  DEFAULT_IMPORT_MODE_FILTER,
+  DEFAULT_SMUS_FILTER,
 } from './constants';
-
 import type {
+  ActivityFilterState,
+  AssetFilter,
+  AssetOption,
   DateFilterState,
   ErrorFilterState,
-  ActivityFilterState,
-  SmusFilterState,
-  ImportModeFilterState,
-  TagOption,
-  TagFilter,
-  FolderOption,
   FolderFilter,
-  AssetOption,
-  AssetFilter,
+  FolderOption,
+  ImportModeFilterState,
+  SmusFilterState,
+  TagFilter,
+  TagOption,
 } from './types';
 
 const ASSET_KEY = '__ASSET__';
@@ -142,7 +143,20 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     count += selectedAssets.length;
     count += selectedAccessUsers.length;
     return count;
-  }, [dateFilter, errorFilter, activityFilter, smusFilter, importModeFilter, includeTags, excludeTags, includeFolders, excludeFolders, selectedSourceTypes, selectedAssets, selectedAccessUsers]);
+  }, [
+    dateFilter,
+    errorFilter,
+    activityFilter,
+    smusFilter,
+    importModeFilter,
+    includeTags,
+    excludeTags,
+    includeFolders,
+    excludeFolders,
+    selectedSourceTypes,
+    selectedAssets,
+    selectedAccessUsers,
+  ]);
 
   // Tag handlers
   const handleAddTag = useCallback(
@@ -191,12 +205,19 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     (folder: FolderOption) => {
       const newFolder = { id: folder.id, name: folder.name };
       const targetList = folderFilterMode === 'include' ? includeFolders : excludeFolders;
-      const onChange = folderFilterMode === 'include' ? onIncludeFoldersChange : onExcludeFoldersChange;
+      const onChange =
+        folderFilterMode === 'include' ? onIncludeFoldersChange : onExcludeFoldersChange;
       if (onChange && !targetList.some((f) => f.id === newFolder.id)) {
         onChange([...targetList, newFolder]);
       }
     },
-    [folderFilterMode, includeFolders, excludeFolders, onIncludeFoldersChange, onExcludeFoldersChange]
+    [
+      folderFilterMode,
+      includeFolders,
+      excludeFolders,
+      onIncludeFoldersChange,
+      onExcludeFoldersChange,
+    ]
   );
 
   const handleRemoveIncludeFolder = useCallback(

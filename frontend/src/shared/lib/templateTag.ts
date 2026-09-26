@@ -7,7 +7,7 @@
  */
 export const TEMPLATE_TAG = { key: 'quicksight-portal:template', value: 'true' } as const;
 
-export interface TagLike {
+interface TagLike {
   key?: string;
   value?: string;
   Key?: string;

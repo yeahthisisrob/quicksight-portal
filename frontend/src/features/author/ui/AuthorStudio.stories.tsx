@@ -1,8 +1,7 @@
 import { Box } from '@mui/material';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useEffect, useState } from 'react';
 
-import { type MockRoute, mockApi } from '../../../../.storybook/mocks/api';
+import { MockedApi } from '../../../../.storybook/mocks/api';
 import { draftsFromSpecs, newVisual } from '../model/newAsset';
 import {
   authorRoutes,
@@ -18,29 +17,18 @@ import {
   repairPlanRoute,
   resolvedDraft,
   SMUS_NOT_CONFIGURED,
-  SMUS_NOT_EXPORTED,
-  SOURCE,
   STANDARD_RULES,
   STANDARD_TEMPLATE,
   undecidedDraft,
 } from './__stories__/fixtures';
-import { AuthorStudio, AuthorStudioView } from './AuthorStudio';
+import { AuthorStudioView } from './AuthorStudio';
 import { SourceStep } from './steps/SourceStep';
 
 /**
- * Two kinds of story. The step stories hand `AuthorStudioView` a canned flow
- * so each step can be looked at in a known state. The full-page stories run
- * the real hook against stubbed HTTP, so the whole flow can be clicked
- * through: pick "Sales overview", choose sales_gold, type an ask, accept the
- * proposal, edit the mockup, pick a folder, create the copy.
+ * Each story hands `AuthorStudioView` a canned flow so each step can be looked
+ * at in a known state. The real hook, clicked through end to end, is covered
+ * by the Pages/Author stories.
  */
-
-/** Installed during render: the page's own effects fire before ours would. */
-function Mocked({ routes, children }: { routes: MockRoute[]; children: React.ReactNode }) {
-  const [restore] = useState(() => mockApi(routes));
-  useEffect(() => restore, [restore]);
-  return <>{children}</>;
-}
 
 const meta: Meta<typeof AuthorStudioView> = {
   title: 'Features/Author/AuthorStudio',
@@ -59,85 +47,23 @@ const meta: Meta<typeof AuthorStudioView> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// --- full page, real hook ---------------------------------------------------
-
-export const FullPage: Story = {
-  name: 'Full page (click through)',
-  render: () => (
-    <Mocked routes={authorRoutes()}>
-      <AuthorStudio initialSource={SOURCE} />
-    </Mocked>
-  ),
-};
-
-export const FullPageNoSource: Story = {
-  name: 'Full page, nothing chosen yet',
-  render: () => (
-    <Mocked routes={authorRoutes()}>
-      <AuthorStudio />
-    </Mocked>
-  ),
-};
-
-export const FullPageSmusNotConfigured: Story = {
-  name: 'Full page, SMUS not configured',
-  render: () => (
-    <Mocked routes={authorRoutes([SMUS_NOT_CONFIGURED])}>
-      <AuthorStudio initialSource={SOURCE} />
-    </Mocked>
-  ),
-};
-
-export const FullPageRepair: Story = {
-  name: 'Full page, source with errors (repair)',
-  render: () => (
-    <Mocked routes={authorRoutes([repairPlanRoute(REPAIR_PLAN)])}>
-      <AuthorStudio initialSource={SOURCE} />
-    </Mocked>
-  ),
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'The source cannot be written as it is. A Repair step appears after Source with each issue and its proposed fix; the dataset that cannot be read needs a target chosen before the flow continues.',
-      },
-    },
-  },
-};
-
 // --- steps, canned flow -----------------------------------------------------
 
 export const StepRepair: Story = {
   name: '1b · Repair: issues found',
   render: () => (
-    <Mocked routes={authorRoutes([repairPlanRoute(REPAIR_PLAN)])}>
+    <MockedApi routes={authorRoutes([repairPlanRoute(REPAIR_PLAN)])}>
       <AuthorStudioView flow={fakeFlow({ step: 'repair', repairPlan: REPAIR_PLAN })} />
-    </Mocked>
+    </MockedApi>
   ),
-};
-
-export const StepRepairClean: Story = {
-  name: '1b · Repair: clean (step hidden)',
-  render: () => (
-    <Mocked routes={authorRoutes()}>
-      <AuthorStudioView flow={fakeFlow({ step: 'source' })} />
-    </Mocked>
-  ),
-  parameters: {
-    docs: {
-      description: {
-        story: 'With nothing to repair the rail goes straight from Source to Datasets.',
-      },
-    },
-  },
 };
 
 export const StepSource: Story = {
   name: '1 · Source, ranked with badges',
   render: () => (
-    <Mocked routes={authorRoutes()}>
+    <MockedApi routes={authorRoutes()}>
       <AuthorStudioView flow={fakeFlow({ step: 'source' })} />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
@@ -152,80 +78,54 @@ export const StepSourceSearch: Story = {
     },
   },
   render: () => (
-    <Mocked routes={authorRoutes()}>
+    <MockedApi routes={authorRoutes()}>
       <Box sx={{ p: 3, maxWidth: 1200 }}>
         <SourceStep flow={fakeFlow({ step: 'source' })} initialSearch="sales revenue" />
       </Box>
-    </Mocked>
+    </MockedApi>
   ),
-};
-
-export const StepSourceInsights: Story = {
-  name: '1 · Source, insights and health on the preview',
-  render: () => (
-    <Mocked routes={authorRoutes()}>
-      <AuthorStudioView flow={fakeFlow({ step: 'source' })} />
-    </Mocked>
-  ),
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'The selected dashboard shows its views, viewers and p90 load time; the table is flagged slow and the line chart flagged for load errors.',
-      },
-    },
-  },
 };
 
 export const StepSourceNoInsights: Story = {
   name: '1 · Source, no insights available',
   render: () => (
-    <Mocked routes={authorRoutes()}>
+    <MockedApi routes={authorRoutes()}>
       <AuthorStudioView flow={fakeFlow({ step: 'source', insights: null })} />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const StepTargets: Story = {
   name: '2 · Datasets (SMUS assets)',
   render: () => (
-    <Mocked routes={authorRoutes()}>
+    <MockedApi routes={authorRoutes()}>
       <AuthorStudioView flow={fakeFlow({ step: 'targets', draft: undecidedDraft() })} />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const StepTargetsSmusNotConfigured: Story = {
   name: '2 · Datasets, SMUS not configured',
   render: () => (
-    <Mocked routes={authorRoutes([SMUS_NOT_CONFIGURED])}>
+    <MockedApi routes={authorRoutes([SMUS_NOT_CONFIGURED])}>
       <AuthorStudioView flow={fakeFlow({ step: 'targets' })} />
-    </Mocked>
-  ),
-};
-
-export const StepTargetsSmusNotExported: Story = {
-  name: '2 · Datasets, no SMUS export yet',
-  render: () => (
-    <Mocked routes={authorRoutes([SMUS_NOT_EXPORTED])}>
-      <AuthorStudioView flow={fakeFlow({ step: 'targets' })} />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const StepReviewUndecided: Story = {
   name: '3 · Review, columns to decide',
   render: () => (
-    <Mocked routes={authorRoutes()}>
+    <MockedApi routes={authorRoutes()}>
       <AuthorStudioView flow={fakeFlow({ step: 'review', draft: undecidedDraft() })} />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const StepReviewProposed: Story = {
   name: '3 · Review, after a proposal',
   render: () => (
-    <Mocked routes={authorRoutes()}>
+    <MockedApi routes={authorRoutes()}>
       <AuthorStudioView
         flow={fakeFlow({
           step: 'review',
@@ -253,16 +153,7 @@ export const StepReviewProposed: Story = {
           },
         })}
       />
-    </Mocked>
-  ),
-};
-
-export const StepStandardTemplate: Story = {
-  name: '4 · Standard: pick a template',
-  render: () => (
-    <AuthorStudioView
-      flow={fakeFlow({ step: 'standard', draft: resolvedDraft(), template: STANDARD_TEMPLATE })}
-    />
+    </MockedApi>
   ),
 };
 
@@ -314,23 +205,10 @@ export const StepPublishMigration: Story = {
   ),
 };
 
-export const StepMockup: Story = {
-  name: '5 · Mockup, renames highlighted',
-  render: () => (
-    <AuthorStudioView
-      flow={fakeFlow({
-        step: 'mockup',
-        draft: resolvedDraft(),
-        previewModel: previewModelFor(FULL_MAP),
-      })}
-    />
-  ),
-};
-
 export const StepMockupEditor: Story = {
   name: '5 · Mockup editor, inspector open',
   render: () => (
-    <Mocked routes={authorRoutes()}>
+    <MockedApi routes={authorRoutes()}>
       <AuthorStudioView
         flow={fakeFlow({
           step: 'mockup',
@@ -339,7 +217,7 @@ export const StepMockupEditor: Story = {
           selectedElement: { sheetId: 'sheet-overview', elementId: 'bar-region' },
         })}
       />
-    </Mocked>
+    </MockedApi>
   ),
   parameters: {
     docs: {
@@ -354,7 +232,7 @@ export const StepMockupEditor: Story = {
 export const StepMockupChanges: Story = {
   name: '5 · Mockup, every kind of change',
   render: () => (
-    <Mocked routes={authorRoutes()}>
+    <MockedApi routes={authorRoutes()}>
       <AuthorStudioView
         flow={fakeFlow({
           step: 'mockup',
@@ -370,7 +248,7 @@ export const StepMockupChanges: Story = {
           ],
         })}
       />
-    </Mocked>
+    </MockedApi>
   ),
   parameters: {
     docs: {
@@ -380,21 +258,6 @@ export const StepMockupChanges: Story = {
       },
     },
   },
-};
-
-export const StepMockupEditsOnly: Story = {
-  name: '5 · Mockup, edits without a rebind',
-  render: () => (
-    <Mocked routes={authorRoutes()}>
-      <AuthorStudioView
-        flow={fakeFlow({
-          step: 'mockup',
-          ops: EDITOR_OPS.slice(2, 5),
-          selectedElement: { sheetId: 'sheet-overview', elementId: 'kpi-orders' },
-        })}
-      />
-    </Mocked>
-  ),
 };
 
 export const StepMockupBlocked: Story = {
@@ -410,19 +273,10 @@ export const StepMockupBlocked: Story = {
   ),
 };
 
-export const StepPublish: Story = {
-  name: '6 · Publish, ready',
-  render: () => (
-    <Mocked routes={authorRoutes()}>
-      <AuthorStudioView flow={fakeFlow({ step: 'publish', draft: resolvedDraft() })} />
-    </Mocked>
-  ),
-};
-
 export const StepPublishFolder: Story = {
   name: '6 · Publish, into a folder with edits',
   render: () => (
-    <Mocked routes={authorRoutes()}>
+    <MockedApi routes={authorRoutes()}>
       <AuthorStudioView
         flow={fakeFlow({
           step: 'publish',
@@ -439,14 +293,14 @@ export const StepPublishFolder: Story = {
           ],
         })}
       />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
 export const StepPublishRejected: Story = {
   name: '6 · Publish, rejected by QuickSight',
   render: () => (
-    <Mocked routes={authorRoutes()}>
+    <MockedApi routes={authorRoutes()}>
       <AuthorStudioView
         flow={fakeFlow({
           step: 'publish',
@@ -455,7 +309,7 @@ export const StepPublishRejected: Story = {
             'Column net_revenue in dataset sales has type DECIMAL but the visual expects DATETIME',
         })}
       />
-    </Mocked>
+    </MockedApi>
   ),
 };
 
@@ -467,9 +321,9 @@ const proposedDrafts = () => draftsFromSpecs(PROPOSED_VISUALS);
 export const NewDatasets: Story = {
   name: 'New · Datasets',
   render: () => (
-    <Mocked routes={authorRoutes()}>
+    <MockedApi routes={authorRoutes()}>
       <AuthorStudioView flow={fakeFlow({ step: 'targets', fresh: { datasets: FRESH_DATASETS } })} />
-    </Mocked>
+    </MockedApi>
   ),
   parameters: {
     docs: {
@@ -484,7 +338,7 @@ export const NewDatasets: Story = {
 export const NewVisualsProposed: Story = {
   name: 'New · Visuals: proposed',
   render: () => (
-    <Mocked routes={authorRoutes()}>
+    <MockedApi routes={authorRoutes()}>
       <AuthorStudioView
         flow={fakeFlow({
           step: 'visuals',
@@ -493,7 +347,7 @@ export const NewVisualsProposed: Story = {
           fresh: { datasets: FRESH_DATASETS, visuals: proposedDrafts() },
         })}
       />
-    </Mocked>
+    </MockedApi>
   ),
   parameters: {
     docs: {
@@ -508,7 +362,7 @@ export const NewVisualsProposed: Story = {
 export const NewVisualsByHand: Story = {
   name: 'New · Visuals: by hand',
   render: () => (
-    <Mocked routes={authorRoutes()}>
+    <MockedApi routes={authorRoutes()}>
       <AuthorStudioView
         flow={fakeFlow({
           step: 'visuals',
@@ -518,7 +372,7 @@ export const NewVisualsByHand: Story = {
           },
         })}
       />
-    </Mocked>
+    </MockedApi>
   ),
   parameters: {
     docs: {
@@ -533,14 +387,14 @@ export const NewVisualsByHand: Story = {
 export const NewMockup: Story = {
   name: 'New · Mockup',
   render: () => (
-    <Mocked routes={authorRoutes()}>
+    <MockedApi routes={authorRoutes()}>
       <AuthorStudioView
         flow={fakeFlow({
           step: 'mockup',
           fresh: { datasets: FRESH_DATASETS, visuals: proposedDrafts() },
         })}
       />
-    </Mocked>
+    </MockedApi>
   ),
   parameters: {
     docs: {
@@ -552,25 +406,10 @@ export const NewMockup: Story = {
   },
 };
 
-export const NewMockupOnStandard: Story = {
-  name: 'New · Mockup on a standard',
-  render: () => (
-    <Mocked routes={authorRoutes()}>
-      <AuthorStudioView
-        flow={fakeFlow({
-          step: 'mockup',
-          template: STANDARD_TEMPLATE,
-          fresh: { datasets: FRESH_DATASETS, visuals: proposedDrafts() },
-        })}
-      />
-    </Mocked>
-  ),
-};
-
 export const NewPublish: Story = {
   name: 'New · Publish',
   render: () => (
-    <Mocked routes={authorRoutes()}>
+    <MockedApi routes={authorRoutes()}>
       <AuthorStudioView
         flow={fakeFlow({
           step: 'publish',
@@ -584,7 +423,7 @@ export const NewPublish: Story = {
           },
         })}
       />
-    </Mocked>
+    </MockedApi>
   ),
   parameters: {
     docs: {
@@ -599,7 +438,7 @@ export const NewPublish: Story = {
 export const NewCreated: Story = {
   name: 'New · Created',
   render: () => (
-    <Mocked routes={authorRoutes()}>
+    <MockedApi routes={authorRoutes()}>
       <AuthorStudioView
         flow={fakeFlow({
           step: 'publish',
@@ -626,7 +465,7 @@ export const NewCreated: Story = {
           },
         })}
       />
-    </Mocked>
+    </MockedApi>
   ),
 };
 

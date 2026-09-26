@@ -1,9 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 
-import { type MockRoute, mockApi } from '../../../../.storybook/mocks/api';
-import { LONG_FORMS_ASSET, SALES_ASSET, SALES_GOLD_DATASET } from './__stories__/fixtures';
+import { type MockRoute, useMockApi } from '../../../../.storybook/mocks/api';
+import { LONG_FORMS_ASSET, SALES_GOLD_DATASET } from './__stories__/fixtures';
 import { catalogRoutes, FILTER_BARS, VISUAL_TEMPLATES } from './__stories__/routes';
 import { AssetDetail } from './AssetDetail';
 import { CatalogPage } from './CatalogPage';
@@ -40,8 +39,7 @@ function Mocked({
   path: string;
   children: React.ReactNode;
 }) {
-  const [restore] = useState(() => mockApi(r));
-  useEffect(() => restore, [restore]);
+  useMockApi(r);
   return (
     <>
       <Navigate to={path} replace />
@@ -80,18 +78,6 @@ export const SearchEverything: Story = {
   ),
 };
 
-/** Two projects, the first selected, one asset open with two linked datasets. */
-export const Loaded: Story = {
-  render: () => (
-    <Mocked
-      routes={catalogRoutes()}
-      path="/data-catalog?project=proj-analytics-prod&asset=lst-sales-gold"
-    >
-      <CatalogPage />
-    </Mocked>
-  ),
-};
-
 /** An asset no QuickSight dataset reads yet. */
 export const NoQuickSightDatasets: Story = {
   render: () => (
@@ -108,26 +94,6 @@ export const NoQuickSightDatasets: Story = {
 export const FilteredByTerm: Story = {
   render: () => (
     <Mocked routes={catalogRoutes()} path="/data-catalog?project=proj-analytics-prod&term=PII">
-      <CatalogPage />
-    </Mocked>
-  ),
-};
-
-/** SMUS is not set up: the page points at Settings. */
-export const NotConfigured: Story = {
-  render: () => (
-    <Mocked
-      routes={catalogRoutes([
-        {
-          method: 'get',
-          url: /\/data-catalog\/smus$/,
-          respond: () => ({
-            body: { success: true, data: { configured: false, ...EMPTY_CATALOG } },
-          }),
-        },
-      ])}
-      path="/data-catalog"
-    >
       <CatalogPage />
     </Mocked>
   ),
@@ -214,17 +180,6 @@ export const DetailLoading: Story = {
     <div style={{ padding: 24, maxWidth: 960 }}>
       <AssetDetail loading />
     </div>
-  ),
-};
-
-/** The right pane alone, the normal case. */
-export const Detail: Story = {
-  render: () => (
-    <Mocked routes={catalogRoutes()} path="/data-catalog">
-      <div style={{ padding: 24, maxWidth: 960 }}>
-        <AssetDetail asset={SALES_ASSET} />
-      </div>
-    </Mocked>
   ),
 };
 

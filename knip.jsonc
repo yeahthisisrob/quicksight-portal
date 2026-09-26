@@ -1,0 +1,44 @@
+// Dead code: unused files, exports, types and dependencies. Runs in
+// `just check`, the pre-push hook and CI, and fails on any finding - Biome
+// catches unused imports and locals inside a file, knip catches what no
+// other file uses.
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    "backend/lambda": {
+      "entry": ["index.ts", "worker.ts", "**/__tests__/**/*.test.ts"],
+      "project": ["**/*.ts"],
+      "ignore": ["shared/types/raw-imports.ts"]
+    },
+    "frontend": {
+      "entry": [
+        "src/**/*.stories.tsx",
+        "src/**/*.test.{ts,tsx}",
+        ".storybook/*.{ts,tsx}",
+        // Vite aliases swap these in for app modules (see .storybook/main.ts),
+        // which knip cannot follow; their exports mirror the real modules'.
+        ".storybook/mocks/providers.tsx",
+        "scripts/*.mjs"
+      ],
+      "project": ["src/**/*.{ts,tsx,mdx}", ".storybook/**/*.{ts,tsx}"]
+    },
+    "infrastructure/cdk": {
+      "entry": ["bin/app.ts"],
+      "project": ["**/*.ts"]
+    },
+    "shared": {
+      "entry": ["lib/**/*.ts"],
+      "project": ["**/*.ts"],
+      "ignore": ["generated/**"]
+    }
+  },
+  // Code reaches shared through the `@shared/*` path alias, which knip cannot
+  // map back to the package; the workspace dependency is what orders
+  // `pnpm -r` so the contract is generated before its consumers build.
+  // tsx runs the CDK app (cdk.json) and concurrently runs `just dev`; knip
+  // reads neither file.
+  "ignoreDependencies": ["@quicksight-portal/shared", "tsx", "concurrently"],
+  // Installed by mise (just) and the AWS SAM installer (sam), not npm.
+  "ignoreBinaries": ["just", "sam"],
+  "ignoreFiles": ["scripts/smus-grant-portal-access.mjs"]
+}

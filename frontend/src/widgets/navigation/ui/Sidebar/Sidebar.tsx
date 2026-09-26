@@ -22,10 +22,10 @@ import {
   utilityNavigation,
 } from './navigationConfig';
 
-export const DRAWER_WIDTH = tokens.layout.sidebarWidth;
-export const DRAWER_COLLAPSED_WIDTH = tokens.layout.sidebarCollapsedWidth;
+const DRAWER_WIDTH = tokens.layout.sidebarWidth;
+const DRAWER_COLLAPSED_WIDTH = tokens.layout.sidebarCollapsedWidth;
 
-export interface SidebarProps {
+interface SidebarProps {
   /** Icons only. */
   collapsed?: boolean;
   onToggleCollapsed?: () => void;

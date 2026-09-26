@@ -31,7 +31,7 @@ const ENTITY_TYPE: Record<SearchDocument['type'], EntityType> = {
   template: 'template',
 };
 
-export interface GraphInput {
+interface GraphInput {
   docs: SearchDocument[];
   /** The master cache entries by asset type. */
   entries: Record<string, any[]>;
@@ -40,7 +40,11 @@ export interface GraphInput {
   /** Calculated fields by catalog key: expression and the assets that define it. */
   calculatedFields: Map<
     string,
-    { expression: string; definedIn: Array<{ type: string; id: string; name: string }>; dataType?: string }
+    {
+      expression: string;
+      definedIn: Array<{ type: string; id: string; name: string }>;
+      dataType?: string;
+    }
   >;
   /** Visuals by `${assetType}:${assetId}:${visualId}`, with their asset. */
   visuals: Map<string, { asset: { type: string; id: string } }>;
@@ -66,13 +70,18 @@ export function buildContextGraph(input: GraphInput): ContextGraph {
     if (doc.views) attributes.views = doc.views;
     if (type === 'dataset') {
       if (meta.importMode) attributes.importMode = meta.importMode;
-      if (doc.columns.length) attributes.columns = doc.columns.slice(0, COLUMN_ATTRIBUTE_LIMIT).join(', ');
-      if (doc.calculatedFields.length) attributes.calculatedFields = doc.calculatedFields.join(', ');
+      if (doc.columns.length)
+        attributes.columns = doc.columns.slice(0, COLUMN_ATTRIBUTE_LIMIT).join(', ');
+      if (doc.calculatedFields.length)
+        attributes.calculatedFields = doc.calculatedFields.join(', ');
     }
     if (type === 'datasource' && (meta.sourceType ?? meta.datasourceType)) {
       attributes.sourceType = String(meta.sourceType ?? meta.datasourceType);
     }
-    if ((type === 'dashboard' || type === 'analysis') && doc.tags.some((t) => t.startsWith(`${TEMPLATE_TAG_KEY} `))) {
+    if (
+      (type === 'dashboard' || type === 'analysis') &&
+      doc.tags.some((t) => t.startsWith(`${TEMPLATE_TAG_KEY} `))
+    ) {
       attributes.layoutStandard = true;
     }
     graph.add({
@@ -100,7 +109,14 @@ export function buildContextGraph(input: GraphInput): ContextGraph {
       const columnId = entityId('listing-column', `${listing.listingId}/${column.name}`);
       const entity = graph.get(columnId);
       if (entity) {
-        graph.add({ ...entity, attributes: { ...entity.attributes, ...(column.type ? { type: column.type } : {}), listing: listing.name } });
+        graph.add({
+          ...entity,
+          attributes: {
+            ...entity.attributes,
+            ...(column.type ? { type: column.type } : {}),
+            listing: listing.name,
+          },
+        });
         graph.link(listingId, 'has-column', columnId);
         columnsByName.set(normalName(column.name), columnId);
       }
@@ -123,7 +139,9 @@ export function buildContextGraph(input: GraphInput): ContextGraph {
       const note = `by ${dataset.matchType ?? 'match'}${dataset.via?.name ? ` via ${dataset.via.name}` : ''}`;
       graph.link(datasetId, 'reads-listing', listingId, note);
       // The dataset columns that carry the listing's columns.
-      for (const name of (byId.get(datasetId)?.metadata?.fields ?? []).map((f: any) => f.fieldName ?? f.name)) {
+      for (const name of (byId.get(datasetId)?.metadata?.fields ?? []).map(
+        (f: any) => f.fieldName ?? f.name
+      )) {
         const columnId = name ? columnsByName.get(normalName(name)) : undefined;
         if (columnId) {
           graph.link(datasetId, 'exposes', columnId);
@@ -163,11 +181,18 @@ export function buildContextGraph(input: GraphInput): ContextGraph {
       const assetId = entityId(definer.type as EntityType, definer.id);
       graph.link(fieldId, 'defined-in', assetId);
       // The datasets behind the definer: itself, or what an analysis uses.
-      const datasets = definer.type === 'dataset'
-        ? [assetId]
-        : graph.related(assetId, { relations: ['uses-dataset'], direction: 'out' }).map((h) => h.entity.id);
+      const datasets =
+        definer.type === 'dataset'
+          ? [assetId]
+          : graph
+              .related(assetId, { relations: ['uses-dataset'], direction: 'out' })
+              .map((h) => h.entity.id);
       for (const dataset of datasets) {
-        for (const hit of graph.related(dataset, { relations: ['exposes'], direction: 'out', limit: 500 })) {
+        for (const hit of graph.related(dataset, {
+          relations: ['exposes'],
+          direction: 'out',
+          limit: 500,
+        })) {
           if (reads.includes(normalName(hit.entity.name))) {
             graph.link(fieldId, 'reads-column', hit.entity.id);
           }
@@ -178,7 +203,11 @@ export function buildContextGraph(input: GraphInput): ContextGraph {
 
   // 5. Visuals sit in their analysis or dashboard.
   for (const [key, visual] of input.visuals) {
-    graph.link(entityId('visual', key), 'in-asset', entityId(visual.asset.type as EntityType, visual.asset.id));
+    graph.link(
+      entityId('visual', key),
+      'in-asset',
+      entityId(visual.asset.type as EntityType, visual.asset.id)
+    );
   }
 
   return graph;

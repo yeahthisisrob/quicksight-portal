@@ -15,7 +15,7 @@ export interface KnownColumn {
   description?: string;
 }
 
-export type ColumnReader = (dataSetId: string) => Promise<KnownColumn[]>;
+type ColumnReader = (dataSetId: string) => Promise<KnownColumn[]>;
 
 const PLAN_STATUSES = new Set(['existing', 'new', 'edited']);
 
@@ -86,7 +86,7 @@ function describe(column: KnownColumn): string {
 }
 
 /** A row-level field the dataset has no column for, placed by the organisation's strategy. */
-export function rowLevelVerdict(
+function rowLevelVerdict(
   base: { name: string; expression: string; dataset?: string },
   strategy: FieldStrategy
 ): FieldVerdict {
@@ -126,7 +126,11 @@ export async function judgeFields(
   const verdicts: FieldVerdict[] = [];
   for (const field of fields) {
     const expression = field.expression ?? '';
-    const base = { name: field.name, expression, ...(field.dataset ? { dataset: field.dataset } : {}) };
+    const base = {
+      name: field.name,
+      expression,
+      ...(field.dataset ? { dataset: field.dataset } : {}),
+    };
     const placement = placementOf(expression);
     if (placement.placement === 'query-time') {
       verdicts.push({

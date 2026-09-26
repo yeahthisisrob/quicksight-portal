@@ -2,7 +2,7 @@
  * Shared helpers for QuickSight permission payloads.
  */
 
-export type PrincipalType = 'USER' | 'GROUP' | 'NAMESPACE' | 'PUBLIC';
+type PrincipalType = 'USER' | 'GROUP' | 'NAMESPACE' | 'PUBLIC';
 
 /**
  * Infer the QuickSight principal type from a principal ARN.
@@ -60,7 +60,7 @@ export const DATASET_OWNER_ACTIONS = [
   'quicksight:UpdateDataSetPermissions',
 ];
 
-export interface ResourcePermissionEntry {
+interface ResourcePermissionEntry {
   Principal: string;
   Actions: string[];
 }

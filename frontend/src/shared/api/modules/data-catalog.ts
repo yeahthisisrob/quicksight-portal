@@ -9,32 +9,23 @@ export type SmusCatalogAsset = CatalogSchemas['SmusCatalogAsset'];
 export type CatalogDataset = CatalogSchemas['CatalogDataset'];
 export type DatasetCatalogField = CatalogSchemas['DatasetCatalogField'];
 export type GlossaryTerm = CatalogSchemas['GlossaryTerm'];
-export type MetadataForm = CatalogSchemas['MetadataForm'];
-export type PortalFieldMetadata = CatalogSchemas['PortalFieldMetadata'];
 export type CalculatedFieldTemplate = CatalogSchemas['CalculatedFieldTemplate'];
 export type CalculatedFieldTemplateInput = CatalogSchemas['CalculatedFieldTemplateInput'];
 export type FilterBarTemplate = CatalogSchemas['FilterBarTemplate'];
-export type FilterBarTemplateInput = CatalogSchemas['FilterBarTemplateInput'];
+type FilterBarTemplateInput = CatalogSchemas['FilterBarTemplateInput'];
 export type FilterBarControl = CatalogSchemas['FilterBarControl'];
 export type VisualTemplate = CatalogSchemas['VisualTemplate'];
-export type VisualTemplateInput = CatalogSchemas['VisualTemplateInput'];
+type VisualTemplateInput = CatalogSchemas['VisualTemplateInput'];
 export type TemplateVisual = CatalogSchemas['TemplateVisual'];
 export type FieldVisualUsage = CatalogSchemas['FieldVisualUsage'];
-export type FieldConflict = CatalogSchemas['FieldConflict'];
-export type ExpressionVariant = CatalogSchemas['ExpressionVariant'];
-export type SmusColumnLink = CatalogSchemas['SmusColumnLink'];
 export type CalculatedFieldCatalog = CatalogSchemas['CalculatedFieldCatalog'];
 export type CalculatedFieldSummary = CatalogSchemas['CalculatedFieldSummary'];
 export type CalculatedFieldDetail = CatalogSchemas['CalculatedFieldDetail'];
 export type CalculatedFieldRef = CatalogSchemas['CalculatedFieldRef'];
 export type CatalogDatasetRef = CatalogSchemas['CatalogDatasetRef'];
-export type CatalogListingRef = CatalogSchemas['CatalogListingRef'];
-export type SmusColumnRef = CatalogSchemas['SmusColumnRef'];
 export type LineageRead = CatalogSchemas['LineageRead'];
 export type FieldLineage = CatalogSchemas['FieldLineage'];
 export type FieldLineageNode = CatalogSchemas['FieldLineageNode'];
-export type FieldLineageEdge = CatalogSchemas['FieldLineageEdge'];
-export type SmusMatchType = CatalogSchemas['SmusMatchType'];
 export type ColumnCatalog = CatalogSchemas['ColumnCatalog'];
 export type ColumnCatalogItem = CatalogSchemas['ColumnCatalogItem'];
 export type FieldUsedIn = CatalogSchemas['FieldUsedIn'];
@@ -52,9 +43,7 @@ export interface FieldCatalogParams {
   scope?: CatalogScope;
 }
 
-export type SmusCatalogQuery = NonNullable<
-  paths['/api/data-catalog/smus']['get']['parameters']['query']
->;
+type SmusCatalogQuery = NonNullable<paths['/api/data-catalog/smus']['get']['parameters']['query']>;
 
 /**
  * The asset-first catalog's filters: tags in use across assets, with counts.

@@ -61,7 +61,7 @@ import type {
 import type { RebindService } from '../RebindService';
 import type { PlannerModel } from './PlannerModel';
 
-export interface CandidateDataset {
+interface CandidateDataset {
   id: string;
   name: string;
   /** Set when the dataset reads a published SMUS listing (the Data Catalog's link). */
@@ -73,9 +73,7 @@ export interface CandidateDataset {
  * project: the same links the Data Catalog shows. Empty when SMUS is off
  * or has not been exported; the planner then sees plain names.
  */
-export async function governedDatasetIndex(): Promise<
-  Map<string, { listing: string; project?: string }>
-> {
+async function governedDatasetIndex(): Promise<Map<string, { listing: string; project?: string }>> {
   const index = new Map<string, { listing: string; project?: string }>();
   try {
     const config = getSmusConfig();
@@ -119,7 +117,7 @@ export function rankCandidates(
     );
 }
 
-export type CandidateLoader = () => Promise<CandidateDataset[]>;
+type CandidateLoader = () => Promise<CandidateDataset[]>;
 
 const MAX_CANDIDATES = 400;
 const MAX_ASK_LENGTH = 2000;
@@ -384,7 +382,7 @@ interface Mapping {
   reason: string;
 }
 
-export const defaultCandidateLoader: CandidateLoader = async () => {
+const defaultCandidateLoader: CandidateLoader = async () => {
   const [entries, governed] = await Promise.all([
     cacheService.getCacheEntries({
       assetType: ASSET_TYPES.dataset,
@@ -803,7 +801,7 @@ function reasonOf(output: unknown): string {
 }
 
 /** Model output to visual specs: drop anything not naming a known identifier; the builder checks columns. */
-export function parseVisualSpecs(output: unknown, datasets: BuilderDataset[]): VisualSpec[] {
+function parseVisualSpecs(output: unknown, datasets: BuilderDataset[]): VisualSpec[] {
   if (!isRecord(output) || !Array.isArray(output.visuals)) {
     return [];
   }
@@ -844,7 +842,7 @@ export function parseVisualSpecs(output: unknown, datasets: BuilderDataset[]): V
   return specs;
 }
 
-export function parseFilterSpecs(output: unknown, datasets: BuilderDataset[]): FilterSpec[] {
+function parseFilterSpecs(output: unknown, datasets: BuilderDataset[]): FilterSpec[] {
   if (!isRecord(output) || !Array.isArray(output.filters)) {
     return [];
   }

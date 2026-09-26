@@ -39,7 +39,7 @@ export interface FieldVisualUsage extends FieldUsedIn {
   visualName: string;
 }
 
-export interface DatasetCatalogField {
+interface DatasetCatalogField {
   name: string;
   dataType: string;
   isCalculated: boolean;
@@ -55,7 +55,7 @@ export interface DatasetCatalogField {
   template?: { id: string };
 }
 
-export interface CatalogDataset {
+interface CatalogDataset {
   id: string;
   name: string;
   matchType: SmusAsset['datasets'][number]['matchType'];
@@ -64,7 +64,7 @@ export interface CatalogDataset {
   fields: DatasetCatalogField[];
 }
 
-export interface SmusCatalogAssetSummary {
+interface SmusCatalogAssetSummary {
   listingId: string;
   assetId: string;
   name: string;
@@ -81,13 +81,13 @@ export interface SmusCatalogAssetSummary {
   updatedAt?: string;
 }
 
-export interface SmusCatalogAsset extends SmusCatalogAssetSummary {
+interface SmusCatalogAsset extends SmusCatalogAssetSummary {
   forms: SmusAsset['forms'];
   columns: NonNullable<SmusAsset['columns']>;
   datasets: CatalogDataset[];
 }
 
-export interface SmusCatalog {
+interface SmusCatalog {
   configured: boolean;
   projectFilter: string[];
   projects: Array<{ id: string; name: string; count: number }>;
@@ -97,7 +97,7 @@ export interface SmusCatalog {
   exportedAt: string | null;
 }
 
-export interface CatalogFilters {
+interface CatalogFilters {
   search?: string;
   term?: string;
   projectId?: string;

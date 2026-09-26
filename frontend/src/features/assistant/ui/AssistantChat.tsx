@@ -100,7 +100,7 @@ function useElapsed(since: number | undefined): number {
   return since ? Math.max(0, Math.round((now - since) / MS_PER_S)) : 0;
 }
 
-export interface ActionCallbacks {
+interface ActionCallbacks {
   runs: Record<string, ActionRun>;
   onRun: (actionId: string, run: ActionRun) => void;
   onFollowUp?: (text: string) => void;
@@ -462,7 +462,7 @@ function useChat(): ChatContextValue {
  * the reply as markdown text plus an `answer` data part that draws
  * everything else the answer carries (cards, plan, actions, questions).
  */
-export function toThreadMessage(entry: ConversationEntry, index: number): ThreadMessageLike {
+function toThreadMessage(entry: ConversationEntry, index: number): ThreadMessageLike {
   if (entry.role === 'user') {
     return { id: `u${index}`, role: 'user', content: entry.text };
   }

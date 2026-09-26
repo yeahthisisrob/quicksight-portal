@@ -35,9 +35,9 @@ export type JobType =
   | 'planner'
   | 'assistant'
   | 'asset-refresh';
-export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';
+type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';
 
-export type JobPhaseStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';
+type JobPhaseStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';
 
 /**
  * Progress checkpoint for resumable export jobs. Written only when it

@@ -30,7 +30,7 @@ interface DefinitionErrorsDialogProps {
 }
 
 /** Author opens on its Repair step for this asset. */
-export function repairUrl(
+function repairUrl(
   assetType: 'dashboard' | 'analysis',
   assetId: string | undefined,
   assetName: string

@@ -4,7 +4,7 @@ import { EXPORT_CONFIG } from '../../../shared/config/exportConfig';
 import { withRetry } from '../../../shared/utils/awsRetry';
 import { logger } from '../../../shared/utils/logger';
 
-export interface PaginationOptions<T> {
+interface PaginationOptions<T> {
   // Function to fetch a single page
   fetchPage: (nextToken?: string) => Promise<{
     items: T[];
@@ -24,7 +24,7 @@ export interface PaginationOptions<T> {
   operationName: string;
 }
 
-export interface PaginationResult<T> {
+interface PaginationResult<T> {
   items: T[];
   totalPages: number;
   totalItems: number;

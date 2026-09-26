@@ -65,7 +65,7 @@ export type DefinitionOp =
       max?: number;
     };
 
-export type ChangeKind =
+type ChangeKind =
   | 'template'
   | 'repair'
   | 'rebind'
@@ -102,15 +102,49 @@ export const EDITABLE_VISUAL_TYPES: readonly EditableVisualType[] = [
 /** Which QuickSight visual key and field-well wrapper each editable type uses. */
 const TYPE_SPEC: Record<
   EditableVisualType,
-  { key: string; wells: string; roles: readonly string[]; orientation?: 'HORIZONTAL' | 'VERTICAL'; donut?: boolean }
+  {
+    key: string;
+    wells: string;
+    roles: readonly string[];
+    orientation?: 'HORIZONTAL' | 'VERTICAL';
+    donut?: boolean;
+  }
 > = {
-  BarChart: { key: 'BarChartVisual', wells: 'BarChartAggregatedFieldWells', roles: ['Category', 'Values', 'Colors', 'SmallMultiples'], orientation: 'HORIZONTAL' },
-  ColumnChart: { key: 'BarChartVisual', wells: 'BarChartAggregatedFieldWells', roles: ['Category', 'Values', 'Colors', 'SmallMultiples'], orientation: 'VERTICAL' },
-  LineChart: { key: 'LineChartVisual', wells: 'LineChartAggregatedFieldWells', roles: ['Category', 'Values', 'Colors', 'SmallMultiples'] },
-  PieChart: { key: 'PieChartVisual', wells: 'PieChartAggregatedFieldWells', roles: ['Category', 'Values', 'SmallMultiples'], donut: false },
-  DonutChart: { key: 'PieChartVisual', wells: 'PieChartAggregatedFieldWells', roles: ['Category', 'Values', 'SmallMultiples'], donut: true },
+  BarChart: {
+    key: 'BarChartVisual',
+    wells: 'BarChartAggregatedFieldWells',
+    roles: ['Category', 'Values', 'Colors', 'SmallMultiples'],
+    orientation: 'HORIZONTAL',
+  },
+  ColumnChart: {
+    key: 'BarChartVisual',
+    wells: 'BarChartAggregatedFieldWells',
+    roles: ['Category', 'Values', 'Colors', 'SmallMultiples'],
+    orientation: 'VERTICAL',
+  },
+  LineChart: {
+    key: 'LineChartVisual',
+    wells: 'LineChartAggregatedFieldWells',
+    roles: ['Category', 'Values', 'Colors', 'SmallMultiples'],
+  },
+  PieChart: {
+    key: 'PieChartVisual',
+    wells: 'PieChartAggregatedFieldWells',
+    roles: ['Category', 'Values', 'SmallMultiples'],
+    donut: false,
+  },
+  DonutChart: {
+    key: 'PieChartVisual',
+    wells: 'PieChartAggregatedFieldWells',
+    roles: ['Category', 'Values', 'SmallMultiples'],
+    donut: true,
+  },
   Table: { key: 'TableVisual', wells: 'TableAggregatedFieldWells', roles: ['GroupBy', 'Values'] },
-  PivotTable: { key: 'PivotTableVisual', wells: 'PivotTableAggregatedFieldWells', roles: ['Rows', 'Columns', 'Values'] },
+  PivotTable: {
+    key: 'PivotTableVisual',
+    wells: 'PivotTableAggregatedFieldWells',
+    roles: ['Rows', 'Columns', 'Values'],
+  },
 };
 
 /** Which well of the source type feeds which well of the target type. */
@@ -215,11 +249,17 @@ function elementOf(grid: any, elementId: string, index: number): any {
   return element;
 }
 
-function visualOf(sheet: any, visualId: string, index: number): { wrapper: any; key: string; body: any; at: number } {
+function visualOf(
+  sheet: any,
+  visualId: string,
+  index: number
+): { wrapper: any; key: string; body: any; at: number } {
   const visuals: any[] = sheet.Visuals ?? [];
   const at = visuals.findIndex((w) => visualEntry(w)?.[1].VisualId === visualId);
   if (at === -1) {
-    throw new ValidationError(`Op ${index + 1}: no visual '${visualId}' on sheet '${sheet.SheetId}'`);
+    throw new ValidationError(
+      `Op ${index + 1}: no visual '${visualId}' on sheet '${sheet.SheetId}'`
+    );
   }
   const [key, body] = visualEntry(visuals[at]) as [string, any];
   return { wrapper: visuals[at], key, body, at };
@@ -231,7 +271,12 @@ function titleOf(body: any, fallback: string): string {
 }
 
 function assertInt(value: unknown, name: string, index: number, min: number, max?: number): number {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < min || (max !== undefined && value > max)) {
+  if (
+    typeof value !== 'number' ||
+    !Number.isInteger(value) ||
+    value < min ||
+    (max !== undefined && value > max)
+  ) {
     throw new ValidationError(
       `Op ${index + 1}: ${name} must be an integer${max !== undefined ? ` between ${min} and ${max}` : ` of at least ${min}`}`
     );
@@ -287,11 +332,18 @@ export function applyOps(
         const row = assertInt(op.row, 'row', index, 0);
         const span = Number(element.ColumnSpan ?? 1);
         if (col + span > GRID_COLUMNS) {
-          throw new ValidationError(`Op ${index + 1}: column ${col} plus width ${span} exceeds the ${GRID_COLUMNS}-column grid`);
+          throw new ValidationError(
+            `Op ${index + 1}: column ${col} plus width ${span} exceeds the ${GRID_COLUMNS}-column grid`
+          );
         }
         element.ColumnIndex = col;
         element.RowIndex = row;
-        changes.push({ kind: 'layout', sheetId: op.sheetId, elementId: op.elementId, description: `Moved ${labelFor(sheet, op.elementId)} to column ${col}, row ${row} on ${sheetName}` });
+        changes.push({
+          kind: 'layout',
+          sheetId: op.sheetId,
+          elementId: op.elementId,
+          description: `Moved ${labelFor(sheet, op.elementId)} to column ${col}, row ${row} on ${sheetName}`,
+        });
         break;
       }
       case 'resize': {
@@ -301,11 +353,18 @@ export function applyOps(
         const rowSpan = assertInt(op.rowSpan, 'rowSpan', index, 1);
         const col = Number(element.ColumnIndex ?? 0);
         if (col + colSpan > GRID_COLUMNS) {
-          throw new ValidationError(`Op ${index + 1}: width ${colSpan} at column ${col} exceeds the ${GRID_COLUMNS}-column grid`);
+          throw new ValidationError(
+            `Op ${index + 1}: width ${colSpan} at column ${col} exceeds the ${GRID_COLUMNS}-column grid`
+          );
         }
         element.ColumnSpan = colSpan;
         element.RowSpan = rowSpan;
-        changes.push({ kind: 'layout', sheetId: op.sheetId, elementId: op.elementId, description: `Resized ${labelFor(sheet, op.elementId)} to ${colSpan} columns by ${rowSpan} rows on ${sheetName}` });
+        changes.push({
+          kind: 'layout',
+          sheetId: op.sheetId,
+          elementId: op.elementId,
+          description: `Resized ${labelFor(sheet, op.elementId)} to ${colSpan} columns by ${rowSpan} rows on ${sheetName}`,
+        });
         break;
       }
       case 'retitle': {
@@ -319,18 +378,30 @@ export function applyOps(
             ? { Visibility: 'VISIBLE', FormatText: { PlainText: op.subtitle } }
             : { Visibility: 'HIDDEN' };
         }
-        changes.push({ kind: 'visual', sheetId: op.sheetId, elementId: op.elementId, description: op.title !== undefined ? `Renamed ${before} to '${op.title}'` : `Changed the subtitle of ${before}` });
+        changes.push({
+          kind: 'visual',
+          sheetId: op.sheetId,
+          elementId: op.elementId,
+          description:
+            op.title !== undefined
+              ? `Renamed ${before} to '${op.title}'`
+              : `Changed the subtitle of ${before}`,
+        });
         break;
       }
       case 'retype': {
         if (!EDITABLE_VISUAL_TYPES.includes(op.visualType)) {
-          throw new ValidationError(`Op ${index + 1}: '${op.visualType}' is not a type visuals can be changed to (${EDITABLE_VISUAL_TYPES.join(', ')})`);
+          throw new ValidationError(
+            `Op ${index + 1}: '${op.visualType}' is not a type visuals can be changed to (${EDITABLE_VISUAL_TYPES.join(', ')})`
+          );
         }
         const { key, body, at } = visualOf(sheet, op.elementId, index);
         const fromType = visualTypeName(key);
         const fromSpec = Object.values(TYPE_SPEC).find((s) => s.key === key);
         if (!fromSpec) {
-          throw new ValidationError(`Op ${index + 1}: a ${fromType} cannot be changed to another type here; only ${EDITABLE_VISUAL_TYPES.join(', ')} can`);
+          throw new ValidationError(
+            `Op ${index + 1}: a ${fromType} cannot be changed to another type here; only ${EDITABLE_VISUAL_TYPES.join(', ')} can`
+          );
         }
         const wells = aggregatedWells(body) ?? {};
         const { wells: newWells, dropped } = translateWells(wells, op.visualType);
@@ -373,34 +444,52 @@ export function applyOps(
           free.Elements = free.Elements.filter((e: any) => e?.ElementId !== op.elementId);
         }
         const beforeCount = (sheet.Visuals ?? []).length;
-        sheet.Visuals = (sheet.Visuals ?? []).filter((w: any) => visualEntry(w)?.[1].VisualId !== op.elementId);
-        sheet.TextBoxes = (sheet.TextBoxes ?? []).filter((t: any) => t?.SheetTextBoxId !== op.elementId);
+        sheet.Visuals = (sheet.Visuals ?? []).filter(
+          (w: any) => visualEntry(w)?.[1].VisualId !== op.elementId
+        );
+        sheet.TextBoxes = (sheet.TextBoxes ?? []).filter(
+          (t: any) => t?.SheetTextBoxId !== op.elementId
+        );
         // A control, wherever it sits: its declaration, and the control bar.
         const controlId = (c: any) => {
           const body = Object.values(c ?? {})[0] as any;
           return body?.FilterControlId ?? body?.ParameterControlId;
         };
         if (sheet.FilterControls) {
-          sheet.FilterControls = sheet.FilterControls.filter((c: any) => controlId(c) !== op.elementId);
+          sheet.FilterControls = sheet.FilterControls.filter(
+            (c: any) => controlId(c) !== op.elementId
+          );
         }
         if (sheet.ParameterControls) {
-          sheet.ParameterControls = sheet.ParameterControls.filter((c: any) => controlId(c) !== op.elementId);
+          sheet.ParameterControls = sheet.ParameterControls.filter(
+            (c: any) => controlId(c) !== op.elementId
+          );
         }
         if (controlBarElements(sheet).some((e) => e.ElementId === op.elementId)) {
           const rest = controlBarElements(sheet).filter((e) => e.ElementId !== op.elementId);
-          sheet.SheetControlLayouts = controlBar(rest.map((e) => ({ id: e.ElementId, type: e.ElementType, span: e.ColumnSpan })));
+          sheet.SheetControlLayouts = controlBar(
+            rest.map((e) => ({ id: e.ElementId, type: e.ElementType, span: e.ColumnSpan }))
+          );
         }
         if (beforeCount === sheet.Visuals.length && !grid && !free) {
-          throw new ValidationError(`Op ${index + 1}: nothing with id '${op.elementId}' on sheet '${sheet.SheetId}'`);
+          throw new ValidationError(
+            `Op ${index + 1}: nothing with id '${op.elementId}' on sheet '${sheet.SheetId}'`
+          );
         }
         for (const group of definition.FilterGroups ?? []) {
-          for (const scope of group?.ScopeConfiguration?.SelectedSheets?.SheetVisualScopingConfigurations ?? []) {
+          for (const scope of group?.ScopeConfiguration?.SelectedSheets
+            ?.SheetVisualScopingConfigurations ?? []) {
             if (Array.isArray(scope.VisualIds)) {
               scope.VisualIds = scope.VisualIds.filter((id: string) => id !== op.elementId);
             }
           }
         }
-        changes.push({ kind: 'visual', sheetId: op.sheetId, elementId: op.elementId, description: `Removed ${label} from ${sheetName}` });
+        changes.push({
+          kind: 'visual',
+          sheetId: op.sheetId,
+          elementId: op.elementId,
+          description: `Removed ${label} from ${sheetName}`,
+        });
         break;
       }
       case 'duplicate': {
@@ -444,33 +533,55 @@ export function applyOps(
         if (!name) {
           throw new ValidationError(`Op ${index + 1}: a sheet name is required`);
         }
-        changes.push({ kind: 'sheet', sheetId: op.sheetId, description: `Renamed sheet '${sheetName}' to '${name}'` });
+        changes.push({
+          kind: 'sheet',
+          sheetId: op.sheetId,
+          description: `Renamed sheet '${sheetName}' to '${name}'`,
+        });
         sheet.Name = name;
         break;
       }
       case 'addFilter': {
-        const declared = (definition.DataSetIdentifierDeclarations ?? []).map((d: any) => d?.Identifier);
+        const declared = (definition.DataSetIdentifierDeclarations ?? []).map(
+          (d: any) => d?.Identifier
+        );
         if (!declared.includes(op.identifier)) {
           throw new ValidationError(
             `Op ${index + 1}: no dataset identifier '${op.identifier}'; the definition declares ${declared.join(', ') || 'none'}`
           );
         }
-        const type = op.columnType ?? columnTypeIn(definition, op.identifier, op.column) ?? 'STRING';
+        const type =
+          op.columnType ?? columnTypeIn(definition, op.identifier, op.column) ?? 'STRING';
         const built = buildFilters(
           op.sheetId,
-          [{ identifier: op.identifier, column: op.column, title: op.title, values: op.values, min: op.min, max: op.max }],
+          [
+            {
+              identifier: op.identifier,
+              column: op.column,
+              title: op.title,
+              values: op.values,
+              min: op.min,
+              max: op.max,
+            },
+          ],
           (identifier, name) =>
             identifier === op.identifier && name.toLowerCase() === op.column.toLowerCase()
               ? { name: op.column, type }
               : undefined
         );
         if (built.filterControls.length === 0) {
-          throw new ValidationError(`Op ${index + 1}: ${built.warnings.join(' ') || 'the filter could not be built'}`);
+          throw new ValidationError(
+            `Op ${index + 1}: ${built.warnings.join(' ') || 'the filter could not be built'}`
+          );
         }
         definition.FilterGroups = [...(definition.FilterGroups ?? []), ...built.filterGroups];
         sheet.FilterControls = [...(sheet.FilterControls ?? []), ...built.filterControls];
         sheet.SheetControlLayouts = controlBar([
-          ...controlBarElements(sheet).map((e) => ({ id: e.ElementId, type: e.ElementType, span: e.ColumnSpan })),
+          ...controlBarElements(sheet).map((e) => ({
+            id: e.ElementId,
+            type: e.ElementType,
+            span: e.ColumnSpan,
+          })),
           ...built.controlIds.map((id) => ({ id, type: 'FILTER_CONTROL' as const })),
         ]);
         changes.push({
@@ -505,8 +616,10 @@ function columnTypeIn(definition: any, identifier: string, column: string): stri
       String(col?.ColumnName ?? '').toLowerCase() === column.toLowerCase()
     ) {
       if (key === 'DateDimensionField') found = 'DATETIME';
-      else if (key === 'NumericalMeasureField' || key === 'NumericalDimensionField') found = 'DECIMAL';
-      else if (key === 'CategoricalDimensionField' || key === 'CategoricalMeasureField') found = 'STRING';
+      else if (key === 'NumericalMeasureField' || key === 'NumericalDimensionField')
+        found = 'DECIMAL';
+      else if (key === 'CategoricalDimensionField' || key === 'CategoricalMeasureField')
+        found = 'STRING';
       if (found) return;
     }
     for (const [k, v] of Object.entries(node)) visit(v, k);
@@ -516,7 +629,9 @@ function columnTypeIn(definition: any, identifier: string, column: string): stri
 }
 
 function labelFor(sheet: any, elementId: string): string {
-  const visual = (sheet.Visuals ?? []).map(visualEntry).find((e: any) => e?.[1].VisualId === elementId);
+  const visual = (sheet.Visuals ?? [])
+    .map(visualEntry)
+    .find((e: any) => e?.[1].VisualId === elementId);
   if (visual) {
     return titleOf(visual[1], `the ${visualTypeName(visual[0])}`);
   }
@@ -559,11 +674,28 @@ export function parseOps(raw: unknown): DefinitionOp[] {
     };
     switch (op) {
       case 'move':
-        return { op, sheetId, elementId: needElement(), col: Number(entry.col), row: Number(entry.row) };
+        return {
+          op,
+          sheetId,
+          elementId: needElement(),
+          col: Number(entry.col),
+          row: Number(entry.row),
+        };
       case 'resize':
-        return { op, sheetId, elementId: needElement(), colSpan: Number(entry.colSpan), rowSpan: Number(entry.rowSpan) };
+        return {
+          op,
+          sheetId,
+          elementId: needElement(),
+          colSpan: Number(entry.colSpan),
+          rowSpan: Number(entry.rowSpan),
+        };
       case 'retype':
-        return { op, sheetId, elementId: needElement(), visualType: String(entry.visualType) as EditableVisualType };
+        return {
+          op,
+          sheetId,
+          elementId: needElement(),
+          visualType: String(entry.visualType) as EditableVisualType,
+        };
       case 'retitle':
         return {
           op,
@@ -589,22 +721,30 @@ export function parseOps(raw: unknown): DefinitionOp[] {
         const identifier = typeof entry.identifier === 'string' ? entry.identifier.trim() : '';
         const column = typeof entry.column === 'string' ? entry.column.trim() : '';
         if (!identifier || !column) {
-          throw new ValidationError(`ops[${index}]: addFilter needs identifier (the dataset identifier, not its ARN) and column`);
+          throw new ValidationError(
+            `ops[${index}]: addFilter needs identifier (the dataset identifier, not its ARN) and column`
+          );
         }
         return {
           op,
           sheetId,
           identifier,
           column,
-          ...(typeof entry.columnType === 'string' && entry.columnType ? { columnType: entry.columnType } : {}),
+          ...(typeof entry.columnType === 'string' && entry.columnType
+            ? { columnType: entry.columnType }
+            : {}),
           ...(typeof entry.title === 'string' && entry.title ? { title: entry.title } : {}),
-          ...(Array.isArray(entry.values) ? { values: entry.values.filter((v): v is string => typeof v === 'string') } : {}),
+          ...(Array.isArray(entry.values)
+            ? { values: entry.values.filter((v): v is string => typeof v === 'string') }
+            : {}),
           ...(typeof entry.min === 'number' ? { min: entry.min } : {}),
           ...(typeof entry.max === 'number' ? { max: entry.max } : {}),
         };
       }
       default:
-        throw new ValidationError(`ops[${index}].op '${String(op)}' is not one of move, resize, retype, retitle, remove, duplicate, renameSheet, addFilter`);
+        throw new ValidationError(
+          `ops[${index}].op '${String(op)}' is not one of move, resize, retype, retitle, remove, duplicate, renameSheet, addFilter`
+        );
     }
   });
 }

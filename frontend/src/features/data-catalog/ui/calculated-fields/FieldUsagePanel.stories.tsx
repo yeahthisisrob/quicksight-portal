@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { CALCULATED_FIELD_DETAILS, heavyUsage, KEYS } from '../__stories__/fieldCatalog';
+import { heavyUsage } from '../__stories__/fieldCatalog';
 import { FieldUsagePanel } from './FieldUsagePanel';
 
 const meta: Meta<typeof FieldUsagePanel> = {
@@ -26,13 +26,6 @@ const meta: Meta<typeof FieldUsagePanel> = {
 
 export default meta;
 type Story = StoryObj<typeof FieldUsagePanel>;
-
-const MARGIN = CALCULATED_FIELD_DETAILS[KEYS.margin];
-
-export const AFewPlaces: Story = {
-  name: 'three assets, three visuals',
-  args: { usedIn: MARGIN?.usedIn ?? [], visuals: MARGIN?.visuals ?? [] },
-};
 
 export const Everywhere: Story = {
   name: 'two dozen assets, two hundred visuals',

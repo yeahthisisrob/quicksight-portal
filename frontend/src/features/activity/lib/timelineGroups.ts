@@ -13,7 +13,7 @@ const MS_PER_DAY = 24 * 60 * MS_PER_MINUTE;
 const BURST_WINDOW_MINUTES = 10;
 
 /** Events by the same actor on the same asset closer than this become one row. */
-export const BURST_WINDOW_MS = BURST_WINDOW_MINUTES * MS_PER_MINUTE;
+const BURST_WINDOW_MS = BURST_WINDOW_MINUTES * MS_PER_MINUTE;
 
 export interface TimelineGroup {
   id: string;

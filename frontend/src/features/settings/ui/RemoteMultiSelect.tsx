@@ -8,14 +8,14 @@ import { describeProjectDiagnostics } from '@/entities/smus';
 
 import { getApiErrorMessage, settingsApi } from '@/shared/api';
 
-export interface RemoteOption {
+interface RemoteOption {
   value: string;
   label: string;
   description?: string;
 }
 
 /** Something to do about an empty list, rendered as a link in the helper text. */
-export interface RemoteEmptyAction {
+interface RemoteEmptyAction {
   label: string;
   to: string;
 }
@@ -88,7 +88,7 @@ const LOADERS: Record<string, () => Promise<RemoteOptions>> = {
   },
 };
 
-export interface RemoteMultiSelectProps {
+interface RemoteMultiSelectProps {
   optionsFrom: string;
   value: string[];
   onChange: (value: string[]) => void;
@@ -213,5 +213,3 @@ export function RemoteMultiSelect({
     />
   );
 }
-
-export default RemoteMultiSelect;

@@ -15,7 +15,7 @@ import type { DateFilterState } from '../../lib/types';
 
 export const ASSET_KEY = '__ASSET__';
 
-export const ASSET_TYPE_CONFIG: Record<string, { icon: React.ElementType; color: string }> = {
+const ASSET_TYPE_CONFIG: Record<string, { icon: React.ElementType; color: string }> = {
   dashboard: { icon: DashboardIcon, color: '#1976d2' },
   analysis: { icon: AnalysisIcon, color: '#9c27b0' },
   dataset: { icon: DatasetIcon, color: '#2e7d32' },

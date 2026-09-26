@@ -23,7 +23,7 @@ export interface AgUiInterrupt {
   metadata?: Record<string, unknown>;
 }
 
-export type RunOutcome = { type: 'success' } | { type: 'interrupt'; interrupts: AgUiInterrupt[] };
+type RunOutcome = { type: 'success' } | { type: 'interrupt'; interrupts: AgUiInterrupt[] };
 
 export interface ResumeEntry {
   interruptId: string;
@@ -60,17 +60,6 @@ export interface WorkingState {
   }>;
 }
 
-export interface AssistantChatRequest {
-  messages: ChatHistoryMessage[];
-  threadId?: string;
-  state?: WorkingState;
-  /** Answers to the interrupts the previous run ended with. */
-  resume?: ResumeEntry[];
-  model?: AiModelKey;
-  /** The model the planner uses when the assistant asks it to propose. */
-  authoringModel?: AiModelKey;
-}
-
 /** A call the assistant made itself (reads and previews). */
 export interface AssistantCall {
   method: string;
@@ -100,7 +89,7 @@ export type AssistantArtifact =
   | ({ id: string; kind: 'plan'; title: string } & BuildPlan)
   | { id: string; kind: 'fields'; title: string; fields: FieldVerdict[] };
 
-export type PlanStatus = 'existing' | 'new' | 'edited';
+type PlanStatus = 'existing' | 'new' | 'edited';
 
 /**
  * What a change will build, as a lineage: the SMUS listings it reads, the

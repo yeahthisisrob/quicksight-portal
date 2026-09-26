@@ -4,7 +4,7 @@
  */
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts';
 
-export interface CallerIdentity {
+interface CallerIdentity {
   arn: string;
   account: string;
 }

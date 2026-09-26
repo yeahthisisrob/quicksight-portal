@@ -63,16 +63,16 @@ const DRAWABLE_PREVIEW =
   /^\/api\/authoring\/(new|definition|(analysis|dashboard)\/[^/]+\/(rebind|definition))\/preview$/;
 
 /** How far along the assistant is, for the person watching. */
-export type ProgressReporter = (message: string) => Promise<void> | void;
+type ProgressReporter = (message: string) => Promise<void> | void;
 
 /** Runs one of the portal's own routes as the person, in-process. */
-export type PortalDispatch = (request: {
+type PortalDispatch = (request: {
   method: string;
   path: string;
   body?: unknown;
 }) => Promise<{ status: number; body: string }>;
 
-export interface AssistantOptions {
+interface AssistantOptions {
   onProgress?: ProgressReporter;
   /** Whether SMUS is configured: its concepts are only described when it is. */
   smus?: boolean;

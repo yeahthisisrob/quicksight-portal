@@ -5,5 +5,3 @@ import { DataExportView } from '@/features/data-export';
 export function ExportPanel() {
   return <DataExportView embedded timelineFeed={<TimelineFeed />} />;
 }
-
-export default ExportPanel;

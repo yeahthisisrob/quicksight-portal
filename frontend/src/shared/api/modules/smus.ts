@@ -5,12 +5,8 @@ import { client, unwrap } from '../typed';
 export type SmusStatus = components['schemas']['SmusStatus'];
 export type SmusDatasetLink = components['schemas']['SmusDatasetLink'];
 export type SmusAsset = components['schemas']['SmusAsset'];
-export type SmusAssetColumn = components['schemas']['SmusAssetColumn'];
-export type SmusLinkedDataset = components['schemas']['SmusLinkedDataset'];
 export type CreateSmusDatasetRequest = components['schemas']['CreateSmusDatasetRequest'];
 export type SmusSnapshotSummary = components['schemas']['SmusSnapshotSummary'];
-export type SmusExportQueued = components['schemas']['SmusExportQueued'];
-export type SmusDataSourceChoice = components['schemas']['SmusDataSourceChoice'];
 
 /**
  * SMUS (SageMaker Unified Studio) integration. Everything here reads the
@@ -63,5 +59,3 @@ export const smusApi = {
     );
   },
 };
-
-export type SmusAssetsResponse = Awaited<ReturnType<typeof smusApi.listAssets>>;

@@ -78,16 +78,3 @@ export const EXPORT_CONFIG = {
     maxConcurrentArchiveOps: parseInt(process.env.S3_MAX_CONCURRENT_ARCHIVE_OPS || '3', 10),
   },
 } as const;
-
-// Helper to get nested config values with type safety
-export function getConfig<K extends keyof typeof EXPORT_CONFIG>(
-  section: K
-): (typeof EXPORT_CONFIG)[K] {
-  return EXPORT_CONFIG[section];
-}
-
-// Log configuration on startup for debugging
-export function logExportConfig(): void {
-  // Configuration logging disabled for production
-  // console.log('Export Configuration:', JSON.stringify(EXPORT_CONFIG, null, 2));
-}
