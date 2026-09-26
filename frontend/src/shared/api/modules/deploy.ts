@@ -1,5 +1,6 @@
-import { api as apiClient } from '../client';
-import type { ApiResponse } from '../types';
+import type { components, paths } from '@shared/generated/types';
+
+import { client, unwrap } from '../typed';
 
 export interface DeploymentConfig {
   deploymentType: 'restore' | 'template' | 'cross-account' | 'clone' | 'migrate' | 'backup-restore';
@@ -70,98 +71,35 @@ export interface DeploymentResult {
   metadata?: Record<string, any>;
 }
 
-export interface ValidationResult {
-  validator: string;
-  passed: boolean;
-  message?: string;
-  severity: 'error' | 'warning' | 'info';
-  details?: any;
-}
+export type ValidationResult = components['schemas']['DeploymentValidationResult'];
+export type DeployableAssetType =
+  paths['/api/deployments']['post']['requestBody']['content']['application/json']['assetType'];
 
 /**
  * Deploy API - handles asset deployment operations (restore, template, cross-account, etc.)
  */
 export const deployApi = {
-  /**
-   * Deploy an asset (returns job info for async processing)
-   */
-  async deployAsset(
-    assetType: string,
-    assetId: string,
-    config: DeploymentConfig
-  ): Promise<{ jobId: string; status: string; message: string }> {
-    const response = await apiClient.post<
-      ApiResponse<{ jobId: string; status: string; message: string }>
-    >('/deployments', {
-      assetType,
-      assetId,
-      deploymentConfig: config,
-    });
-
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to deploy asset');
-    }
-
-    return response.data.data!;
-  },
-
-  /**
-   * Validate a deployment without executing it
-   */
-  async validateDeployment(
-    assetType: string,
-    assetId: string,
-    config: DeploymentConfig
-  ): Promise<{
-    validationResults: ValidationResult[];
-    canDeploy: boolean;
-  }> {
-    const response = await apiClient.post<
-      ApiResponse<{
-        validationResults: ValidationResult[];
-        canDeploy: boolean;
-      }>
-    >('/deployments/validate', {
-      assetType,
-      assetId,
-      deploymentConfig: config,
-    });
-
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to validate deployment');
-    }
-
-    return response.data.data!;
-  },
-
-  /**
-   * Get deployment history
-   */
-  async getDeploymentHistory(limit?: number): Promise<DeploymentResult[]> {
-    const params = limit ? { limit: limit.toString() } : {};
-    const response = await apiClient.get<ApiResponse<DeploymentResult[]>>('/deployments/history', {
-      params,
-    });
-
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to get deployment history');
-    }
-
-    return response.data.data || [];
-  },
-
-  /**
-   * Get a specific deployment by ID
-   */
-  async getDeployment(deploymentId: string): Promise<DeploymentResult> {
-    const response = await apiClient.get<ApiResponse<DeploymentResult>>(
-      `/deployments/${deploymentId}`
+  /** Queues the deployment as a job; follow it by its jobId. */
+  async deployAsset(assetType: DeployableAssetType, assetId: string, config: DeploymentConfig) {
+    return unwrap(
+      await client.POST('/api/deployments', {
+        body: { assetType, assetId, deploymentConfig: { ...config } },
+      }),
+      'Failed to deploy asset'
     );
+  },
 
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to get deployment');
-    }
-
-    return response.data.data!;
+  /** Validate a deployment without executing it. */
+  async validateDeployment(
+    assetType: DeployableAssetType,
+    assetId: string,
+    config: DeploymentConfig
+  ) {
+    return unwrap(
+      await client.POST('/api/deployments/validate', {
+        body: { assetType, assetId, deploymentConfig: { ...config } },
+      }),
+      'Failed to validate deployment'
+    );
   },
 };

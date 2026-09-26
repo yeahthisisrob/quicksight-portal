@@ -47,11 +47,6 @@ function TabPanel(props: TabPanelProps) {
 /**
  * Map asset type to API parameter (singular form for /cached endpoint)
  */
-function getAssetTypeParam(assetType: string): string {
-  // The /cached endpoint expects singular form
-  return assetType;
-}
-
 /**
  * Extract data views from asset data
  */
@@ -182,10 +177,7 @@ export default function JsonViewerModal({
     error,
   } = useQuery({
     queryKey: ['asset-json', assetType, assetId],
-    queryFn: async () => {
-      const assetTypeParam = getAssetTypeParam(assetType);
-      return await assetsApi.getCachedAsset(assetTypeParam, assetId);
-    },
+    queryFn: () => assetsApi.getCachedAsset(assetType, assetId),
     enabled: open && !!assetId,
   });
 

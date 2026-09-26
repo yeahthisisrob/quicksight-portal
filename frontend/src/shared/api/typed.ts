@@ -6,8 +6,7 @@
  * derived from the call.
  *
  * Auth rides a middleware: the session's token on every request, and a 401
- * clears the session and sends the person to sign in, as the axios client
- * does for the modules not moved over yet.
+ * clears the session and sends the person to sign in.
  */
 import type { paths } from '@shared/generated/types';
 import createFetchClient, { type Middleware } from 'openapi-fetch';
@@ -77,4 +76,19 @@ export function unwrap<T>(
     throw new ApiError(message, result.response.status);
   }
   return body.data as T;
+}
+
+/**
+ * A queued bulk job's 202: `{ success, jobId, status, message }` at the top
+ * level, no data envelope. Gives the body; a failure throws as `unwrap` does.
+ */
+export function accepted<T extends { success?: boolean }>(
+  result: { data?: T; error?: unknown; response: Response },
+  fallback: string
+): T {
+  if (result.error !== undefined || !result.data?.success) {
+    const message = (result.error as { error?: string } | undefined)?.error ?? fallback;
+    throw new ApiError(message, result.response.status);
+  }
+  return result.data;
 }

@@ -1,7 +1,4 @@
-// Export all API modules (clean modular structure)
-
-// Export shared utilities
-export * from './client';
+// Every API module, on the typed client generated from the contract.
 export * from './cognito';
 export * from './errors';
 export { activityApi } from './modules/activity';
@@ -26,4 +23,3 @@ export { settingsApi } from './modules/settings';
 export { smusApi } from './modules/smus';
 export { tagsApi } from './modules/tags';
 export { usersApi } from './modules/users';
-export * from './types';

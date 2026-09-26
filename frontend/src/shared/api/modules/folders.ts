@@ -1,6 +1,8 @@
-import type { paths } from '@shared/generated/types';
+import type { components, paths } from '@shared/generated/types';
 
-import { client, unwrap } from '../typed';
+import { accepted, client, unwrap } from '../typed';
+
+export type AssetRef = components['schemas']['AssetRef'];
 
 type MemberType = NonNullable<
   paths['/api/folders/{folderId}/members/{memberId}']['delete']['parameters']['query']
@@ -24,6 +26,17 @@ export const foldersApi = {
         params: { path: { folderId, memberId }, query: { type: memberType } },
       }),
       'Failed to remove member'
+    );
+  },
+
+  /** Add assets to a folder: queues a job and returns it. */
+  async bulkAddAssets(folderId: string, assets: AssetRef[]) {
+    return accepted(
+      await client.POST('/api/folders/{folderId}/assets/bulk', {
+        params: { path: { folderId } },
+        body: { assets },
+      }),
+      'Failed to add assets to the folder'
     );
   },
 };

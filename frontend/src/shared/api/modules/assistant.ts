@@ -1,7 +1,6 @@
 import type { components } from '@shared/generated/types';
 
-import { api as apiClient } from '../client';
-import type { ApiResponse } from '../types';
+import { ApiError, client, unwrap } from '../typed';
 import { type JobMetadata, jobsApi } from './jobs';
 
 type Schemas = components['schemas'];
@@ -17,29 +16,49 @@ export type AgUiInterrupt = Schemas['AgUiInterrupt'];
 export type AgUiResumeEntry = Schemas['AgUiResumeEntry'];
 export type AssistantWorkingState = Schemas['AssistantWorkingState'];
 export type AssistantQuestionOption = Schemas['AssistantQuestionOption'];
-type JobQueued = Schemas['JobQueued'];
 
-/** The API base already ends in /api; the assistant speaks in full /api paths. */
-function relative(path: string): string {
-  return path.replace(/^\/api(?=\/)/, '');
+type Envelope = { success?: boolean; data?: unknown; error?: string; jobId?: string };
+
+/**
+ * The assistant names concrete paths (a preview it ran, a write it prepared)
+ * at run time, so these calls cannot be checked against the contract; they
+ * still go through the typed client for its session handling.
+ */
+const untyped = client as unknown as {
+  request(
+    method: string,
+    url: string,
+    init?: { body?: unknown }
+  ): Promise<{ data?: Envelope; error?: Envelope; response: Response }>;
+};
+
+async function callPath(
+  method: string,
+  path: string,
+  body: unknown,
+  fallback: string
+): Promise<Envelope> {
+  const result = await untyped.request(method, path, body === undefined ? {} : { body });
+  if (result.error !== undefined || result.data?.success === false) {
+    throw new ApiError(
+      result.error?.error ?? result.data?.error ?? fallback,
+      result.response.status
+    );
+  }
+  return result.data ?? {};
 }
 
 export const assistantApi = {
   async models(): Promise<AiModelCatalog> {
-    const response = await apiClient.get<ApiResponse<AiModelCatalog>>('/assistant/models');
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.error || 'Failed to load the models');
-    }
-    return response.data.data;
+    return unwrap(await client.GET('/api/assistant/models'), 'Failed to load the models');
   },
 
   /** Send one message; the assistant answers as a job. Returns its id. */
   async send(request: AssistantChatRequest): Promise<string> {
-    const response = await apiClient.post<ApiResponse<JobQueued>>('/assistant/chat', request);
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.error || 'Failed to send the message');
-    }
-    return response.data.data.jobId;
+    return unwrap(
+      await client.POST('/api/assistant/chat', { body: request }),
+      'Failed to send the message'
+    ).jobId;
   },
 
   /** Wait for an answer, reporting each step; also resumes a wait after a page reload. */
@@ -52,26 +71,20 @@ export const assistantApi = {
 
   /** Re-run a read-only preview the assistant ran, to draw it. */
   async rerunPreview(artifact: AssistantArtifact): Promise<Record<string, any>> {
-    const response = await apiClient.post<ApiResponse<Record<string, any>>>(
-      relative(artifact.path ?? ''),
-      artifact.body ?? {}
+    const body = await callPath(
+      'POST',
+      artifact.path ?? '',
+      artifact.body ?? {},
+      'The preview could not be run'
     );
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.error || 'The preview could not be run');
+    if (!body.data) {
+      throw new Error('The preview could not be run');
     }
-    return response.data.data;
+    return body.data as Record<string, any>;
   },
 
-  /** Run a prepared write with the person's own session. */
-  async runAction(action: AssistantAction): Promise<unknown> {
-    const response = await apiClient.request<ApiResponse<unknown> & { jobId?: string }>({
-      method: action.method,
-      url: relative(action.path),
-      ...(action.body !== undefined ? { data: action.body } : {}),
-    });
-    if (response.data && (response.data as any).success === false) {
-      throw new Error((response.data as any).error || 'The action failed');
-    }
-    return response.data;
+  /** Run a prepared write with the person's own session. The whole body: a job answers with a top-level jobId. */
+  runAction(action: AssistantAction): Promise<unknown> {
+    return callPath(action.method, action.path, action.body, 'The action failed');
   },
 };

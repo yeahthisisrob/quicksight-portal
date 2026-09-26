@@ -26,7 +26,8 @@ export const assetManagementRoutes: RouteHandler[] = [
 
   {
     method: 'GET',
-    path: /^\/assets\/archive\/(dashboards|analyses|datasets|datasources|folders|groups|users)\/([^/]+)\/metadata$/,
+    // The contract names the singular type (dashboard); the plural is still accepted.
+    path: /^\/assets\/archive\/(dashboard|analysis|dataset|datasource|folder|user|group|dashboards|analyses|datasets|datasources|folders|groups|users)\/([^/]+)\/metadata$/,
     handler: (event) => handler.getArchivedAssetMetadata(event),
   },
 

@@ -12,6 +12,8 @@ import type {
   ExportLogEntry,
   RefreshOptions,
 } from '@/shared/api/types/export.types';
+
+type ExportableAssetType = NonNullable<ExportJobOptions['assetTypes']>[number];
 import type { components } from '@shared/generated';
 
 // The slice of the generated job-status payload this hook tracks.
@@ -25,8 +27,8 @@ type JobStatus = Pick<
 /**
  * Convert plural UI asset types to singular backend asset types
  */
-function convertAssetTypes(selectedTypes: AssetType[]): string[] {
-  const mapping: Record<AssetType, string> = {
+function convertAssetTypes(selectedTypes: AssetType[]): ExportableAssetType[] {
+  const mapping: Record<AssetType, ExportableAssetType | undefined> = {
     dashboards: 'dashboard',
     datasets: 'dataset',
     analyses: 'analysis',
@@ -34,10 +36,10 @@ function convertAssetTypes(selectedTypes: AssetType[]): string[] {
     folders: 'folder',
     groups: 'group',
     users: 'user',
-    themes: 'theme',
+    themes: undefined, // coming soon: the export does not read themes yet
   };
-  
-  return selectedTypes.map(type => mapping[type]).filter(Boolean);
+
+  return selectedTypes.flatMap((type) => mapping[type] ?? []);
 }
 
 /**
@@ -45,7 +47,7 @@ function convertAssetTypes(selectedTypes: AssetType[]): string[] {
  */
 function buildExportOptions(
   exportMode: ExportMode,
-  backendAssetTypes: string[]
+  backendAssetTypes: ExportableAssetType[]
 ): ExportJobOptions {
   const baseOptions: ExportJobOptions = {
     forceRefresh: exportMode === 'force',

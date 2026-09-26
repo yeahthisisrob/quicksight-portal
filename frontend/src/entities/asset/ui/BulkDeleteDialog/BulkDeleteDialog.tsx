@@ -149,19 +149,9 @@ export function BulkDeleteDialog({ open, onClose, assets, onComplete }: BulkDele
         name: asset.name,
       }));
 
-      const result = await assetsApi.bulkDelete(assetsToDelete, reason.trim());
-      const jobId = result?.jobId || result?.data?.jobId;
-
-      if (jobId) {
-        enqueueSnackbar(`Bulk delete operation started (Job ID: ${jobId})`, { variant: 'info' });
-        startPolling(jobId);
-      } else {
-        enqueueSnackbar('Delete operation completed', { variant: 'success' });
-        setTimeout(() => {
-          onClose();
-          onComplete?.();
-        }, 2000);
-      }
+      const { jobId } = await assetsApi.bulkDelete(assetsToDelete, reason.trim());
+      enqueueSnackbar(`Bulk delete operation started (Job ID: ${jobId})`, { variant: 'info' });
+      startPolling(jobId);
     } catch (error: any) {
       console.error('Failed to delete assets:', error);
       enqueueSnackbar(error.message || 'Failed to delete assets', { variant: 'error' });

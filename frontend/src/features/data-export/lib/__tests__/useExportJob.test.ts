@@ -80,7 +80,7 @@ describe('useExportJob', () => {
       const mockJobId = 'test-job-123';
       const mockStatus = {
         jobId: mockJobId,
-        jobType: 'export',
+        jobType: 'export' as const,
         status: 'completed' as const,
         progress: 100,
         message: 'Export completed',
@@ -140,7 +140,7 @@ describe('useExportJob', () => {
       unmount();
     });
 
-    it('should convert asset types correctly', async () => {
+    it('should convert asset types, dropping themes (not exported yet)', async () => {
       const mockResult = { jobId: 'test-job', status: 'queued' as const, message: 'Export job queued' };
       vi.mocked(exportApi.warmUp).mockResolvedValue(true);
       vi.mocked(exportApi.startExportJob).mockResolvedValue(mockResult);
@@ -158,7 +158,7 @@ describe('useExportJob', () => {
       expect(exportApi.startExportJob).toHaveBeenCalledWith({
         forceRefresh: false,
         rebuildIndex: false,
-        assetTypes: ['dashboard', 'dataset', 'analysis', 'datasource', 'folder', 'group', 'user', 'theme'],
+        assetTypes: ['dashboard', 'dataset', 'analysis', 'datasource', 'folder', 'group', 'user'],
         refreshOptions: {
           definitions: true,
           permissions: true,
@@ -302,7 +302,7 @@ describe('useExportJob', () => {
 
   describe('stopExport', () => {
     it('should stop running export job', async () => {
-      vi.mocked(exportApi.stopJob).mockResolvedValue({ success: true, message: 'Job stopped' });
+      vi.mocked(exportApi.stopJob).mockResolvedValue(undefined);
 
       const { result, unmount } = renderHook(() => useExportJob(mockOnCacheSummaryUpdate));
 
@@ -345,7 +345,7 @@ describe('useExportJob', () => {
       const mockJobId = 'polling-job';
       const mockStatus = {
         jobId: mockJobId,
-        jobType: 'export',
+        jobType: 'export' as const,
         status: 'processing' as const,
         progress: 50,
         message: 'Processing assets...',
@@ -406,7 +406,7 @@ describe('useExportJob', () => {
       // Simulate completion via historical load
       vi.mocked(exportApi.getJobStatus).mockResolvedValue({
         jobId: mockJobId,
-        jobType: 'export',
+        jobType: 'export' as const,
         status: 'completed',
         progress: 100,
         message: 'Export completed successfully',
@@ -431,7 +431,7 @@ describe('useExportJob', () => {
       const mockJobId = 'historical-job';
       const mockStatus = {
         jobId: mockJobId,
-        jobType: 'export',
+        jobType: 'export' as const,
         status: 'completed' as const,
         progress: 100,
         message: 'Historical job completed',
@@ -469,7 +469,7 @@ describe('useExportJob', () => {
       const mockJobId = 'refresh-job';
       const mockStatus = {
         jobId: mockJobId,
-        jobType: 'export',
+        jobType: 'export' as const,
         status: 'processing' as const,
         progress: 75,
         message: 'Almost done...',
@@ -494,7 +494,7 @@ describe('useExportJob', () => {
       vi.clearAllMocks();
       vi.mocked(exportApi.getJobStatus).mockResolvedValue({
         jobId: mockJobId,
-        jobType: 'export',
+        jobType: 'export' as const,
         status: 'processing',
         progress: 90,
         message: 'Nearly finished...',
@@ -535,7 +535,7 @@ describe('useExportJob', () => {
       vi.mocked(exportApi.startExportJob).mockResolvedValue({ jobId: mockJobId, status: 'queued', message: 'Queued' });
       vi.mocked(exportApi.getJobStatus).mockResolvedValue({
         jobId: mockJobId,
-        jobType: 'export',
+        jobType: 'export' as const,
         status: 'processing',
         progress: 50,
         message: 'Processing...',

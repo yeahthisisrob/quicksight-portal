@@ -17,7 +17,7 @@ import {
 import { useSnackbar } from 'notistack';
 import { useState } from 'react';
 
-import { assetsApi } from '@/shared/api';
+import { assetsApi, jobsApi } from '@/shared/api';
 
 interface BulkTagDialogProps {
   open: boolean;
@@ -87,22 +87,22 @@ export default function BulkTagDialog({
         try {
           const assetIds = assets.map((a) => a.id);
 
-          // Use bulk update API with 'add' operation to add/update tags
-          const result = await assetsApi.bulkUpdateAssetTags(assetType, assetIds, 'add', validTags);
-
-          // Count successes and failures from the bulk operation
-          if (result.summary) {
-            totalProcessed += result.summary.successful;
-            result.results?.forEach((r: any) => {
-              if (!r.success) {
-                const asset = assets.find((a) => a.id === r.assetId);
-                setErrors((prev) => [
-                  ...prev,
-                  `${asset?.name || r.assetId}: ${r.error || 'Failed to apply tags'}`,
-                ]);
-              }
-            });
+          // The bulk update runs as a job: wait for it, then report what failed.
+          const { jobId } = await assetsApi.bulkUpdateAssetTags(
+            assetType,
+            assetIds,
+            'add',
+            validTags
+          );
+          const job = await jobsApi.awaitJob(jobId);
+          const failures = job.failures ?? [];
+          if (job.status !== 'completed' && failures.length === 0) {
+            throw new Error(job.error || job.message || 'Failed to apply tags');
           }
+          totalProcessed += assetIds.length - failures.length;
+          failures.forEach((failure) => {
+            setErrors((prev) => [...prev, `${failure.item}: ${failure.error}`]);
+          });
 
           setProcessedCount(totalProcessed);
           setProgress((totalProcessed / selectedAssets.length) * 100);

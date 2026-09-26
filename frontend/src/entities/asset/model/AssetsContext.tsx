@@ -5,7 +5,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type React from 'react';
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 
-import { assetsApi } from '@/shared/api';
+import { assetsApi, exportApi } from '@/shared/api';
+import type { PaginatedListParams } from '@/shared/api/modules/assets';
 
 // Cross-tab caching for asset lists: within the stale window a tab switch is
 // served instantly from the query cache; explicit refreshes invalidate first,
@@ -55,31 +56,8 @@ type AssetData = AssetListItem & { [key: string]: any };
 
 type PaginationInfo = components['schemas']['PaginationInfo'];
 
-export type FetchParams = {
-  page: number;
-  pageSize: number;
-  search?: string;
-  dateRange?: string;
-  sortBy?: string;
-  sortOrder?: string;
-  filters?: Record<string, any>;
-  dateField?: string;
-  includeTags?: string;
-  excludeTags?: string;
-  errorFilter?: string;
-  activityFilter?: string;
-  roleFilter?: string;
-  groupMembershipFilter?: string;
-  groupFilter?: string;
-  permissionsFilter?: string;
-  sourceTypeFilter?: string;
-  includeFolders?: string;
-  excludeFolders?: string;
-  smusFilter?: string;
-  importModeFilter?: string;
-  /** JSON array of user names - show only assets they can access */
-  accessUsers?: string;
-};
+/** A page request for any asset list: the contract's query, page and size always set. */
+export type FetchParams = PaginatedListParams & { page: number; pageSize: number };
 
 export type AssetFetchFn = (options: FetchParams) => Promise<void>;
 
@@ -279,7 +257,7 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
     refetch: refetchSummary,
   } = useQuery({
     queryKey: ['export-summary'],
-    queryFn: () => assetsApi.getExportSummary(),
+    queryFn: () => exportApi.getExportSummary(),
     staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
     gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
   });

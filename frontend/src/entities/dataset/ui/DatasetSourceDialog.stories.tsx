@@ -41,10 +41,7 @@ const CUSTOM_SQL_TABLE = {
   editable: true,
 };
 
-/**
- * Stub the one request the dialog makes on open. The API client is axios over
- * XMLHttpRequest, so this replaces its adapter rather than window.fetch.
- */
+/** Stub the one request the dialog makes on open, through the API client's own middleware. */
 function Stubbed({
   tables,
   failWith,

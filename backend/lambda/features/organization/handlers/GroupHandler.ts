@@ -93,7 +93,7 @@ export class GroupHandler {
 
       const result = await this.groupService.getGroupAssets(groupName, assetType);
 
-      return successResponse(event, result);
+      return successResponse(event, { success: true, data: result });
     } catch (error: any) {
       logger.error('Failed to get group assets', { error: error.message });
       return errorResponse(

@@ -27,11 +27,10 @@ import {
 import { useSnackbar } from 'notistack';
 import { useCallback, useEffect, useState } from 'react';
 
-import { assetsApi } from '@/shared/api';
+import { assetsApi, foldersApi } from '@/shared/api';
+import type { AssetRef } from '@/shared/api/modules/folders';
 import { useJobPolling } from '@/shared/hooks/useJobPolling';
-import type { BulkAssetReference } from '@/shared/types/bulk';
 
-import { folderApi } from '../api';
 import { useFolders } from '../model';
 
 interface AddToFolderDialogProps {
@@ -130,9 +129,8 @@ export default function AddToFolderDialog({
     setProcessing(true);
 
     try {
-      // Convert selected assets to BulkAssetReference format
-      const bulkAssets: BulkAssetReference[] = selectedAssets.map((asset) => ({
-        type: asset.type as any,
+      const bulkAssets: AssetRef[] = selectedAssets.map((asset) => ({
+        type: asset.type as AssetRef['type'],
         id: asset.id,
         name: asset.name,
       }));
@@ -141,14 +139,12 @@ export default function AddToFolderDialog({
       // In the future, this could be a single call with multiple folder IDs
       if (selectedFolders.length === 1) {
         // Single folder - use bulk API
-        const response = await folderApi.bulkAddAssets(selectedFolders[0], bulkAssets);
+        const response = await foldersApi.bulkAddAssets(selectedFolders[0], bulkAssets);
 
-        if (response.data?.jobId) {
-          enqueueSnackbar(`Bulk operation started (Job ID: ${response.data.jobId})`, {
-            variant: 'info',
-          });
-          startPolling(response.data.jobId);
-        }
+        enqueueSnackbar(`Bulk operation started (Job ID: ${response.jobId})`, {
+          variant: 'info',
+        });
+        startPolling(response.jobId);
       } else {
         // Multiple folders - create multiple jobs
         // This is a temporary approach until backend supports multiple folders
@@ -162,12 +158,10 @@ export default function AddToFolderDialog({
 
         for (const folderId of selectedFolders) {
           try {
-            const response = await folderApi.bulkAddAssets(folderId, bulkAssets);
-            if (response.data?.jobId) {
-              successCount++;
-              // Track the last job ID for polling
-              lastJobId = response.data.jobId;
-            }
+            const response = await foldersApi.bulkAddAssets(folderId, bulkAssets);
+            successCount++;
+            // Track the last job ID for polling
+            lastJobId = response.jobId;
           } catch (error) {
             failCount++;
             console.error(`Failed to add assets to folder ${folderId}:`, error);

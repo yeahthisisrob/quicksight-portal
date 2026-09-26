@@ -284,14 +284,11 @@ export default function TagsDialog({
     try {
       setSaving(true);
 
-      // Convert tags to API format (uppercase Key/Value)
-      const apiTags = tags.map((tag) => ({
-        Key: tag.key,
-        Value: tag.value,
-      }));
-
-      // Call the API to update tags
-      await assetsApi.updateAssetTags(assetType, assetId, apiTags);
+      await assetsApi.updateAssetTags(
+        resourceType,
+        assetId,
+        tags.map((tag) => ({ key: tag.key, value: tag.value }))
+      );
 
       // Call the callback to update local state
       if (onTagsUpdate) {
