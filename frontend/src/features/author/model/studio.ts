@@ -8,7 +8,11 @@
  */
 import type { RebindMode, RebindSource } from '@/entities/definition';
 
-import type { DefinitionChange, DefinitionOp } from '@/shared/api/modules/authoring';
+import type {
+  DefinitionChange,
+  DefinitionOp,
+  DefinitionSource,
+} from '@/shared/api/modules/authoring';
 
 /** The side panels, one per thing the Studio does. */
 export type StudioPanel = 'issues' | 'inspect' | 'changes' | 'data';
@@ -31,17 +35,21 @@ export interface StudioResult {
   assetType: RebindSource['type'];
   assetId: string;
   name: string;
-  /** Saved in place, or as a copy. */
-  mode: RebindMode;
+  /** Saved in place, as a copy, or restored from the archive. */
+  mode: RebindMode | 'restore';
   versionNumber?: number;
   /** The folders a copy was filed in: the one chosen and the defaults from Settings. */
   folderIds: string[];
   /** What the server wrote, in plain language. */
   changes?: DefinitionChange[];
+  /** What it wrote but could not carry, or what QuickSight still reports. */
+  warnings?: string[];
 }
 
 export interface StudioState {
   source: RebindSource | null;
+  /** Live in QuickSight, or opened from the archive to be restored. */
+  origin: DefinitionSource;
   /** Edits made on the mockup, in order. */
   ops: DefinitionOp[];
   selectedElement: SelectedElement | null;
@@ -51,7 +59,7 @@ export interface StudioState {
 }
 
 type StudioAction =
-  | { type: 'open'; source: RebindSource | null }
+  | { type: 'open'; source: RebindSource | null; origin?: DefinitionSource }
   | { type: 'addOps'; ops: DefinitionOp[] }
   | { type: 'removeOp'; index: number }
   | { type: 'undoOp' }
@@ -63,6 +71,7 @@ type StudioAction =
 
 export const initialStudioState: StudioState = {
   source: null,
+  origin: 'live',
   ops: [],
   selectedElement: null,
   panel: 'issues',
@@ -87,12 +96,15 @@ function selectionAfter(
 export function studioReducer(state: StudioState, action: StudioAction): StudioState {
   switch (action.type) {
     case 'open': {
+      const origin = action.origin ?? 'live';
       const same =
-        state.source?.id === action.source?.id && state.source?.type === action.source?.type;
+        state.source?.id === action.source?.id &&
+        state.source?.type === action.source?.type &&
+        state.origin === origin;
       // The same asset again only picks up a better name; another one starts clean.
       return same
         ? { ...state, source: action.source }
-        : { ...initialStudioState, source: action.source };
+        : { ...initialStudioState, source: action.source, origin };
     }
     case 'addOps': {
       if (action.ops.length === 0) {

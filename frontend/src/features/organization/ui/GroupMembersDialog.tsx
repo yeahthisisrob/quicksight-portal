@@ -34,7 +34,6 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -44,6 +43,7 @@ import { resolveUserName } from '@/entities/user';
 
 import { assetsApi } from '@/shared/api';
 import { borderRadius, colors, spacing, typography } from '@/shared/design-system/theme';
+import { announceAssetChanges } from '@/shared/lib/assetChanges';
 import {
   dataToCSV,
   downloadCSV,
@@ -90,7 +90,6 @@ export default function GroupMembersDialog({
 }: GroupMembersDialogProps) {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
-  const queryClient = useQueryClient();
 
   // State for table sorting and filtering
   const [order, setOrder] = useState<Order>('asc');
@@ -108,12 +107,10 @@ export default function GroupMembersDialog({
   const [removingMember, setRemovingMember] = useState<string | null>(null);
 
   const reloadMembers = useCallback(() => {
-    // Members arrive as a prop from the grid row; the simplest way to see the
-    // post-mutation list is to refetch the page
-    queryClient.invalidateQueries({ queryKey: ['groups'] });
-    queryClient.invalidateQueries({ queryKey: ['users'] });
-    window.location.reload();
-  }, [queryClient]);
+    // The job re-read the group and its users before it reported done; the
+    // lists re-fetch, and the page hands this dialog the group's fresh row.
+    announceAssetChanges(['group', 'user']);
+  }, []);
 
   // Bulk add: keep the picker open on partial failure so the reasons stay
   // visible; anything that did succeed still warrants a refresh

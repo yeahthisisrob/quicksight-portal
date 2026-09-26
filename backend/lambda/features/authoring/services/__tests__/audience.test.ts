@@ -10,13 +10,8 @@ vi.mock('../../../../shared/services/cache/CacheService', () => ({
 }));
 vi.mock('../../../../shared/services/settings/SettingsStore', () => ({ settingsStore: { get } }));
 
-import {
-  audienceFor,
-  fileInFolders,
-  OWNER_ACTIONS,
-  quickSightUserFor,
-  withOwner,
-} from '../audience';
+import { quickSightUserFor } from '../../../../shared/services/identity/IdentityResolver';
+import { audienceFor, fileInFolders, OWNER_ACTIONS, withOwner } from '../audience';
 
 const ROB = {
   assetId: 'rob',

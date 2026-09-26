@@ -10,6 +10,7 @@
  *
  * Neither may fail the write it follows.
  */
+import { AssetStatus } from '../../models/asset.model';
 import type { AssetType } from '../../types/assetTypes';
 import { logger } from '../../utils/logger';
 import { JobFactory } from '../jobs/JobFactory';
@@ -35,7 +36,7 @@ export async function keepCacheFresh(
       await cacheService.updateAsset(asset.assetType, asset.assetId, {
         assetName: asset.name,
         ...(asset.arn ? { arn: asset.arn } : {}),
-        status: 'active',
+        status: AssetStatus.ACTIVE,
         lastUpdatedTime: now,
       } as never);
     } catch (error) {

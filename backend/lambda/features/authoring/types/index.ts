@@ -202,6 +202,42 @@ export interface ApplyResult {
   warnings?: string[];
 }
 
+/**
+ * Where a definition is read from: the asset in QuickSight, or the copy the
+ * portal archived when it was deleted. Every read (datasets, repair plan,
+ * rebind plan, preview) takes either, so the Studio edits an archived asset
+ * exactly as it edits a live one.
+ */
+export type DefinitionSource = 'live' | 'archive';
+
+/**
+ * Bring an archived dashboard or analysis back: the same repairs, dataset
+ * choices and edits the Studio makes, written as a new asset under its old
+ * id (or a new one), with its archived name, theme, audience and tags.
+ */
+export interface RestoreRequest {
+  rebinds: RebindRequest[];
+  ops?: DefinitionOp[];
+  repairs?: RepairOp[];
+  /** Defaults to the archived name. */
+  name?: string;
+  /** Defaults to the archived id; refused while an asset holds it. */
+  newAssetId?: string;
+  folderId?: string;
+}
+
+export interface RestoreResult {
+  assetType: AuthorableAssetType;
+  assetId: string;
+  name: string;
+  arn: string;
+  mode: 'restore';
+  versionNumber?: number;
+  changes: DefinitionChange[];
+  folderIds: string[];
+  warnings?: string[];
+}
+
 // ---------------------------------------------------------------------------
 // Planner - natural language in, a validated proposal out. Never applies.
 // ---------------------------------------------------------------------------

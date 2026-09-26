@@ -335,6 +335,105 @@ export class ArchiveService {
   }
 
   /**
+   * Delete, restore-safe, step 1: copy the asset's export record into the
+   * archive before anything is deleted, so there is always something to
+   * restore from. The live file stays where it is. Returns the archive entry
+   * it replaced (an earlier delete of the same id), to put back if the
+   * delete does not go ahead. Individual types only.
+   */
+  public async keepCopy(
+    assetType: AssetType,
+    assetId: string,
+    archiveReason: string,
+    archivedBy: string
+  ): Promise<{ kept: true; replaced: any | null } | { kept: false; error: string }> {
+    const originalPath = `assets/${ASSET_TYPES_PLURAL[assetType]}/${assetId}.json`;
+    const archivePath = `archived/${ASSET_TYPES_PLURAL[assetType]}/${assetId}.json`;
+    try {
+      if (!(await this.s3Service.objectExists(this.bucketName, originalPath))) {
+        return {
+          kept: false,
+          error:
+            'the portal has no export of it to keep, so it could never be restored; export it first',
+        };
+      }
+      const record = await this.s3Service.getObject(this.bucketName, originalPath);
+      const replaced = (await this.s3Service.objectExists(this.bucketName, archivePath))
+        ? await this.s3Service.getObject(this.bucketName, archivePath)
+        : null;
+      await this.s3Service.putObject(this.bucketName, archivePath, {
+        ...record,
+        archivedMetadata: {
+          archivedAt: new Date().toISOString(),
+          archiveReason,
+          archivedBy,
+          originalPath,
+        },
+      });
+      return { kept: true, replaced };
+    } catch (error) {
+      return { kept: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  /** Delete step 2, once QuickSight has deleted it: the live file goes, the cache says archived. */
+  public async finishArchive(
+    assetType: AssetType,
+    assetId: string,
+    archiveReason: string,
+    archivedBy: string
+  ): Promise<void> {
+    await this.s3Service.deleteObject(
+      this.bucketName,
+      `assets/${ASSET_TYPES_PLURAL[assetType]}/${assetId}.json`
+    );
+    await this.updateCacheAfterArchive(assetType, assetId, archiveReason, archivedBy);
+  }
+
+  /** Delete step 2, when QuickSight refused the delete: the archive is put back as it was. */
+  public async abandonArchive(assetType: AssetType, assetId: string, replaced: any | null) {
+    const archivePath = `archived/${ASSET_TYPES_PLURAL[assetType]}/${assetId}.json`;
+    try {
+      if (replaced) {
+        await this.s3Service.putObject(this.bucketName, archivePath, replaced);
+      } else {
+        await this.s3Service.deleteObject(this.bucketName, archivePath);
+      }
+    } catch (error) {
+      logger.error(`Could not put back the archive of ${assetType} ${assetId}`, { error });
+    }
+  }
+
+  /**
+   * Record that an archived asset was brought back, on its archive record
+   * and its cache entry, so the archive reads as a ledger: what was
+   * archived, when and why, and who restored it, when and as what. The
+   * archive itself is kept.
+   */
+  public async markRestored(
+    assetType: AssetType,
+    assetId: string,
+    restoration: { restoredAt: string; restoredBy: string; restoredAs: string }
+  ): Promise<void> {
+    const archivePath = `archived/${ASSET_TYPES_PLURAL[assetType]}/${assetId}.json`;
+    try {
+      const record = await this.s3Service.getObject(this.bucketName, archivePath);
+      const metadata = record?.archivedMetadata ?? {};
+      const restorations = [...(metadata.restorations ?? []), restoration];
+      await this.s3Service.putObject(this.bucketName, archivePath, {
+        ...record,
+        archivedMetadata: { ...metadata, restorations },
+      });
+      await this.cacheService?.updateArchivedEntryMetadata(assetType, assetId, {
+        restorations,
+      });
+    } catch (error) {
+      // The asset is back either way; the ledger line is what is missing.
+      logger.error(`Could not record the restore of ${assetType} ${assetId}`, { error });
+    }
+  }
+
+  /**
    * Get all archived assets of a specific type
    */
   public async getArchivedAssets(assetType: AssetType): Promise<any[]> {

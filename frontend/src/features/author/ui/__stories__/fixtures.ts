@@ -445,9 +445,130 @@ export const SMUS_NOT_CONFIGURED: MockRoute = {
 };
 
 /** Every route the Studio can hit, with realistic answers. */
+const ARCHIVED_AT = '2026-08-02T14:10:00Z';
+
+/** What the archive holds, for the browser's Archived list. */
+const ARCHIVED = [
+  {
+    id: 'sales-overview-2024',
+    name: 'Sales overview (2024)',
+    type: 'dashboard',
+    archivedDate: ARCHIVED_AT,
+    archiveReason: 'Replaced by Sales overview (gold)',
+    archivedBy: 'rob@example.com',
+    archivedByPerson: {
+      label: 'rob@example.com',
+      kind: 'person',
+      email: 'rob@example.com',
+      quickSightUserName: 'rob',
+    },
+  },
+  {
+    id: 'pipeline-review',
+    name: 'Pipeline review',
+    type: 'analysis',
+    archivedDate: '2026-07-11T09:00:00Z',
+    archiveReason: 'No views in 180 days',
+    archivedBy: 'cleanup (API key)',
+    archivedByPerson: { label: 'cleanup (API key)', kind: 'api-key' },
+    restorations: [
+      {
+        restoredAt: '2026-07-20T09:00:00Z',
+        restoredBy: 'ann@example.com',
+        restoredAs: 'pipeline-review',
+      },
+    ],
+  },
+  {
+    id: 'orders-silver',
+    name: 'orders_silver',
+    type: 'dataset',
+    archivedDate: '2026-09-01T10:00:00Z',
+    archiveReason: 'Replaced by orders_gold',
+    archivedBy: 'rob@example.com',
+    archivedByPerson: { label: 'rob@example.com', kind: 'person', quickSightUserName: 'rob' },
+  },
+  {
+    id: 'legacy-athena',
+    name: 'Legacy Athena',
+    type: 'datasource',
+    archivedDate: '2026-06-01T10:00:00Z',
+    archiveReason: 'Consolidated onto athena-main',
+    archivedBy: 'system',
+    archivedByPerson: { label: 'The portal', kind: 'portal' },
+  },
+];
+
+/** A restore check for each kind of archived data: one that can come back, one that cannot. */
+const SOURCE_RESTORE_PREVIEWS = {
+  dataset: {
+    assetType: 'dataset',
+    assetId: 'orders-silver',
+    name: 'orders_silver',
+    canRestore: true,
+    checks: [
+      { label: 'Archived definition', ok: true, blocking: true, detail: '2 tables, SPICE' },
+      { label: 'Id', ok: true, blocking: true, detail: 'orders-silver is free' },
+      { label: 'Data source athena-main', ok: true, blocking: true, detail: 'Still exists' },
+      {
+        label: 'Audience',
+        ok: false,
+        blocking: false,
+        detail: '1 principal no longer exists and is left out; you are added as owner',
+      },
+    ],
+  },
+  datasource: {
+    assetType: 'datasource',
+    assetId: 'legacy-athena',
+    name: 'Legacy Athena',
+    canRestore: false,
+    checks: [
+      {
+        label: 'Archived definition',
+        ok: true,
+        blocking: true,
+        detail: 'ATHENA, workgroup primary',
+      },
+      {
+        label: 'Id',
+        ok: false,
+        blocking: true,
+        detail: 'QuickSight still holds legacy-athena; restore it under a new id',
+      },
+      { label: 'Credentials', ok: true, blocking: true, detail: 'Athena needs no password' },
+    ],
+  },
+} as const;
+
+function archivedRoutes(): MockRoute[] {
+  return [
+    {
+      method: 'get',
+      url: '/assets/archived',
+      respond: (config) => {
+        const type = config.params?.type;
+        const items = ARCHIVED.filter((a) => !type || a.type === type);
+        return {
+          body: { success: true, data: { items, totalCount: items.length } },
+        };
+      },
+    },
+    {
+      method: 'post',
+      url: /\/assets\/(dataset|datasource)\/[^/]+\/restore\/preview$/,
+      respond: (config) => {
+        const type = String(config.url).includes('/datasource/') ? 'datasource' : 'dataset';
+        return { body: { success: true, data: SOURCE_RESTORE_PREVIEWS[type] } };
+      },
+    },
+  ];
+}
+
 export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
   return [
     ...overrides,
+    ...archivedRoutes(),
     searchRoute(),
     ...smusRoutes(),
     ...templateLibraryRoutes(TEMPLATES),
@@ -706,6 +827,8 @@ function fakeDraft(overrides: Partial<RebindDraft> = {}): RebindDraft {
 interface FakeStudioOptions {
   /** No asset open: the Editor shows the browser. */
   closed?: boolean;
+  /** An archived dataset or data source open for restoring. */
+  archivedData?: Studio['archivedData'];
   panel?: StudioState['panel'];
   /** Edits on the canvas; the preview, changes and outline follow from them. */
   ops?: DefinitionOp[];
@@ -720,6 +843,8 @@ interface FakeStudioOptions {
   smus?: boolean;
   /** No cached definition. */
   noDefinition?: boolean;
+  /** Opened from the archive, to be restored. */
+  fromArchive?: boolean;
 }
 
 export function fakeStudio(options: FakeStudioOptions = {}): Studio {
@@ -749,12 +874,13 @@ export function fakeStudio(options: FakeStudioOptions = {}): Studio {
   const state: StudioState = {
     ...initialStudioState,
     source: options.closed ? null : SOURCE,
+    origin: options.fromArchive ? 'archive' : 'live',
     panel: options.panel ?? 'issues',
     ops,
     selectedElement: options.selectedElement ?? null,
     result: options.result ?? null,
   };
-  const dirty = ops.length > 0 || summary.accepted > 0;
+  const dirty = ops.length > 0 || summary.accepted > 0 || Boolean(options.fromArchive);
   return {
     state,
     draft,
@@ -776,7 +902,14 @@ export function fakeStudio(options: FakeStudioOptions = {}): Studio {
       acceptAll: noop,
     },
     data: { loading: false, datasets, smusConfigured: smus },
-    healthBadges: healthBadges(insights),
+    healthBadges: options.fromArchive ? new Map() : healthBadges(insights),
+    archived: options.fromArchive
+      ? {
+          archivedAt: '2026-08-02T14:10:00Z',
+          archiveReason: 'Replaced by Sales overview (gold)',
+          archivedBy: 'rob@example.com',
+        }
+      : null,
     preview: {
       loading: false,
       error: null,
@@ -788,6 +921,8 @@ export function fakeStudio(options: FakeStudioOptions = {}): Studio {
       warnings: [],
     },
     open: noop,
+    openArchived: noop,
+    archivedData: options.archivedData ?? null,
     setPanel: noop,
     addOps: noop,
     removeOp: noop,

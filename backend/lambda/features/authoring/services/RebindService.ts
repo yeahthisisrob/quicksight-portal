@@ -7,7 +7,8 @@
  * cannot push a definition QuickSight would reject half-way through.
  *
  * Definitions are read live (DescribeAnalysisDefinition /
- * DescribeDashboardDefinition), never from the cache, for the same reason
+ * DescribeDashboardDefinition), or from the portal's archive for an asset
+ * that was deleted (`source: 'archive'`), never from the cache, for the same reason
  * RenameService and DatasetSourceService do: the cache can be stale and an
  * Update* call replaces the whole definition. Target dataset columns are read
  * live too, with the S3 export as a fallback for datasets QuickSight cannot
@@ -19,15 +20,20 @@
 
 import { randomUUID } from 'node:crypto';
 
-import type { AuthContext } from '../../../shared/auth';
+import { type AuthContext, actorLabel } from '../../../shared/auth';
+import { STATUS_CODES } from '../../../shared/constants';
 import { ValidationError } from '../../../shared/errors/ValidationError';
 import type { AssetExportData } from '../../../shared/models/asset-export.model';
+import { ArchiveService } from '../../../shared/services/archive/ArchiveService';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import type { S3Service } from '../../../shared/services/aws/S3Service';
+import { cacheService } from '../../../shared/services/cache/CacheService';
+import { keepLivePrincipals } from '../../../shared/services/identity/livePrincipals';
 import { ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
 import { normalizePermissionsArray } from '../../../shared/utils/permissions';
+import { reviveQuickSightTimestamps } from '../../../shared/utils/quicksightTimestamps';
 import { resolveColumns, type TargetColumn } from '../lib/columnResolution';
 import { crossDatasetFilterColumns, crossDatasetFilterWarnings } from '../lib/crossDatasetFilters';
 import {
@@ -57,15 +63,21 @@ import type {
   AuthorableAssetType,
   DatasetRebindPlan,
   DefinitionDataset,
+  DefinitionSource,
   PreviewRequest,
   RebindPlan,
   RebindPreview,
   RebindRequest,
+  RestoreRequest,
+  RestoreResult,
 } from '../types';
 import { createAsset, recordProvenance, updateAsset } from './assetWriter';
 import { audienceFor, fileInFolders } from './audience';
 
 const NAME_MAX_LENGTH = 200;
+/** Reading a new asset back: every two seconds for up to twenty. */
+const READBACK_ATTEMPTS = 10;
+const READBACK_INTERVAL_MS = 2000;
 
 interface LoadedDefinition {
   name: string;
@@ -74,6 +86,14 @@ interface LoadedDefinition {
   dashboardPublishOptions?: any;
   /** QuickSight's own errors on the asset, when it reports any. */
   errors?: Array<{ Type?: string; Message?: string; ViolatedEntities?: Array<{ Path?: string }> }>;
+}
+
+/** What the archive kept of a deleted asset besides its definition. */
+interface ArchivedExtras {
+  permissions: any[];
+  tags: Array<{ key: string; value: string }>;
+  /** A dashboard shared by link: create cannot set it, so the restore says so. */
+  linkShared: boolean;
 }
 
 interface LoadedTemplate {
@@ -102,18 +122,22 @@ export class RebindService {
   private readonly quickSightService: QuickSightService;
   private readonly s3Service: S3Service;
 
+  private readonly archive: ArchiveService;
+
   public constructor(accountId: string) {
     this.quickSightService = ClientFactory.getQuickSightService(accountId);
     this.s3Service = ClientFactory.getS3Service();
     this.bucketName = process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`;
+    this.archive = new ArchiveService(this.bucketName, cacheService);
   }
 
   /** The datasets a definition declares and the columns it reads from each. */
   public async describeDatasets(
     assetType: AuthorableAssetType,
-    assetId: string
+    assetId: string,
+    source: DefinitionSource = 'live'
   ): Promise<DefinitionDatasets> {
-    const loaded = await this.loadDefinition(assetType, assetId);
+    const loaded = await this.loadDefinition(assetType, assetId, source);
     return {
       assetType,
       assetId,
@@ -132,9 +156,10 @@ export class RebindService {
   public async plan(
     assetType: AuthorableAssetType,
     assetId: string,
-    rebinds: RebindRequest[]
+    rebinds: RebindRequest[],
+    source: DefinitionSource = 'live'
   ): Promise<RebindPlan> {
-    const loaded = await this.loadDefinition(assetType, assetId);
+    const loaded = await this.loadDefinition(assetType, assetId, source);
     return await this.planAgainst(assetType, assetId, loaded, rebinds);
   }
 
@@ -146,9 +171,10 @@ export class RebindService {
   public async preview(
     assetType: AuthorableAssetType,
     assetId: string,
-    request: PreviewRequest
+    request: PreviewRequest,
+    source: DefinitionSource = 'live'
   ): Promise<RebindPreview> {
-    const loaded = await this.loadDefinition(assetType, assetId);
+    const loaded = await this.loadDefinition(assetType, assetId, source);
     const repaired = this.repair(loaded, request.repairs);
     const plan = await this.planAgainst(assetType, assetId, repaired.loaded, request.rebinds);
     const template = await this.loadTemplate(request.template, repaired.loaded.definition, plan);
@@ -232,9 +258,10 @@ export class RebindService {
   public async repairPlan(
     assetType: AuthorableAssetType,
     assetId: string,
-    rebinds: RebindRequest[] = []
+    rebinds: RebindRequest[] = [],
+    source: DefinitionSource = 'live'
   ): Promise<RepairPlan> {
-    const loaded = await this.loadDefinition(assetType, assetId);
+    const loaded = await this.loadDefinition(assetType, assetId, source);
     const datasets = collectDefinitionDatasets(loaded.definition);
     const chosen = new Map(rebinds.map((r) => [r.identifier, r.targetDataSetId]));
     const targets = new Map<string, RepairTarget | null>();
@@ -622,6 +649,246 @@ export class RebindService {
     };
   }
 
+  /**
+   * A deleted asset as the portal archived it: its definition (timestamps
+   * revived for the SDK), name, theme and publish options, and the audience
+   * and tags it had. QuickSight's own errors from back then are left out:
+   * the repair plan checks the definition against the account as it is now.
+   */
+  private async loadArchived(
+    assetType: AuthorableAssetType,
+    assetId: string
+  ): Promise<{ loaded: LoadedDefinition; extras: ArchivedExtras }> {
+    const record = await this.archive.getArchivedAsset(assetType, assetId);
+    const data = record?.apiResponses?.definition?.data;
+    if (!data?.Definition) {
+      throw new ValidationError(
+        `The archive has no definition for ${assetType} '${assetId}', so it cannot be opened or restored`
+      );
+    }
+    const rawTags: any[] = Array.isArray(record.apiResponses?.tags?.data)
+      ? record.apiResponses.tags.data
+      : [];
+    return {
+      loaded: {
+        name: data.Name ?? record.apiResponses?.list?.data?.Name ?? assetId,
+        definition: reviveQuickSightTimestamps(data.Definition),
+        themeArn: data.ThemeArn,
+        dashboardPublishOptions: data.DashboardPublishOptions,
+      },
+      extras: {
+        permissions: normalizePermissionsArray(record.apiResponses?.permissions?.data),
+        tags: rawTags
+          .map((t) => ({
+            key: String(t.key ?? t.Key ?? ''),
+            value: String(t.value ?? t.Value ?? ''),
+          }))
+          .filter((t) => t.key && !t.key.startsWith('portal:')),
+        linkShared:
+          (record.apiResponses?.permissions?.data?.LinkSharingConfiguration?.Permissions?.length ??
+            0) > 0,
+      },
+    };
+  }
+
+  /** Whether QuickSight holds this id now, including a deleted analysis still in recovery. */
+  private async holdsId(assetType: AuthorableAssetType, assetId: string): Promise<string | null> {
+    try {
+      const found =
+        assetType === 'dashboard'
+          ? await this.quickSightService.describeDashboard(assetId)
+          : await this.quickSightService.describeAnalysis(assetId);
+      if (!found) return null;
+      const status = found.Status;
+      return status === 'DELETED'
+        ? `QuickSight still holds the deleted ${assetType} '${assetId}' in its recovery window`
+        : `A ${assetType} with id '${assetId}' exists in QuickSight`;
+    } catch (error: any) {
+      if (
+        error?.name === 'ResourceNotFoundException' ||
+        error?.statusCode === STATUS_CODES.NOT_FOUND
+      ) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Bring an archived dashboard or analysis back. The same pipeline as
+   * every other write: repairs, then the rebind plan (refused unless every
+   * column resolves), then the edits. It is created, never written over
+   * anything: the id must be free in QuickSight. Its audience is the
+   * archived one, less principals that no longer exist, plus the person
+   * restoring it as owner; its tags come back and the archive records the
+   * restore, so the ledger says who brought it back and as what.
+   */
+  public async restore(
+    assetType: AuthorableAssetType,
+    assetId: string,
+    request: RestoreRequest,
+    auth?: AuthContext
+  ): Promise<RestoreResult> {
+    const archived = await this.loadArchived(assetType, assetId);
+    const repaired = this.repair(archived.loaded, request.repairs);
+    const loaded = repaired.loaded;
+    const plan = await this.planAgainst(assetType, assetId, loaded, request.rebinds);
+    this.assertApplicable(plan);
+
+    const targetId = request.newAssetId?.trim() || assetId;
+    const taken = await this.holdsId(assetType, targetId);
+    if (taken) {
+      throw new ValidationError(`${taken}; restore it under a new id instead.`);
+    }
+
+    const name = request.name?.trim() || loaded.name;
+    if (name.length > NAME_MAX_LENGTH) {
+      throw new ValidationError(`name must be at most ${NAME_MAX_LENGTH} characters`);
+    }
+    const columnOf = await this.columnLookup(loaded.definition, plan, request.ops);
+    const rewritten = this.rewrite(
+      loaded.definition,
+      plan,
+      { ops: request.ops },
+      null,
+      new Map(),
+      columnOf
+    );
+    const changes = [...repaired.changes, ...rewritten.changes];
+    const warnings = [
+      ...rewritten.warnings,
+      ...(await this.crossDatasetWarnings(rewritten.definition, plan)),
+    ];
+
+    const live = await keepLivePrincipals(archived.extras.permissions);
+    warnings.push(...live.warnings);
+    if (archived.extras.linkShared) {
+      warnings.push(
+        'It was shared by link; turn link sharing back on in QuickSight if it should be.'
+      );
+    }
+    if (archived.extras.permissions.length === 0) {
+      warnings.push(
+        'The archive kept no audience for it, so only you (and the default folders) can see it until it is shared.'
+      );
+    }
+    const audience = await audienceFor(assetType, live.permissions, auth, request.folderId);
+    warnings.push(...audience.warnings);
+
+    logger.info('Restoring archived asset', {
+      assetType,
+      assetId,
+      targetId,
+      repairs: request.repairs?.length ?? 0,
+      rebinds: plan.datasets.length,
+      ops: request.ops?.length ?? 0,
+      droppedPrincipals: live.dropped,
+    });
+
+    const written = await createAsset(this.quickSightService, {
+      assetType,
+      assetId: targetId,
+      name,
+      definition: rewritten.definition,
+      permissions: audience.permissions,
+      themeArn: loaded.themeArn,
+      dashboardPublishOptions: loaded.dashboardPublishOptions,
+    });
+    warnings.push(...(await this.errorsAfterWrite(assetType, written.assetId)));
+    if (archived.extras.tags.length > 0) {
+      try {
+        await this.quickSightService.tagResource(assetType, written.assetId, archived.extras.tags);
+      } catch (error: any) {
+        warnings.push(`Its tags could not be put back: ${error?.message ?? 'unknown error'}.`);
+      }
+    }
+    const filing = await fileInFolders(
+      this.quickSightService,
+      audience.folderIds,
+      written.assetId,
+      assetType
+    );
+    warnings.push(...filing.warnings);
+
+    await recordProvenance(
+      this.quickSightService,
+      {
+        action: 'authoring.restore',
+        assetType,
+        assetId: written.assetId,
+        name,
+        arn: written.arn,
+        folderIds: filing.filed,
+        details: {
+          restoredFrom: assetId,
+          rebinds: plan.datasets.length,
+          ops: request.ops?.length ?? 0,
+          repairs: request.repairs?.length ?? 0,
+          changes: changes.length,
+        },
+      },
+      auth
+    );
+    await this.archive.markRestored(assetType, assetId, {
+      restoredAt: new Date().toISOString(),
+      restoredBy: auth ? actorLabel(auth) : 'the portal',
+      restoredAs: written.assetId,
+    });
+
+    return {
+      assetType,
+      assetId: written.assetId,
+      name,
+      arn: written.arn,
+      mode: 'restore',
+      ...(written.versionNumber ? { versionNumber: written.versionNumber } : {}),
+      changes,
+      folderIds: filing.filed,
+      ...(warnings.length ? { warnings } : {}),
+    };
+  }
+
+  /**
+   * After a create: wait for QuickSight to finish, then read back its own
+   * errors, so a restore says the asset is back and clean - or exactly what
+   * QuickSight still objects to - instead of assuming.
+   */
+  private async errorsAfterWrite(
+    assetType: AuthorableAssetType,
+    assetId: string
+  ): Promise<string[]> {
+    for (let attempt = 0; attempt < READBACK_ATTEMPTS; attempt++) {
+      try {
+        const found =
+          assetType === 'dashboard'
+            ? await this.quickSightService.describeDashboard(assetId)
+            : await this.quickSightService.describeAnalysis(assetId);
+        const status: string | undefined =
+          assetType === 'dashboard' ? found?.Version?.Status : found?.Status;
+        const errors: Array<{ Type?: string; Message?: string }> =
+          (assetType === 'dashboard' ? found?.Version?.Errors : found?.Errors) ?? [];
+        if (status && !status.endsWith('IN_PROGRESS')) {
+          const words = errors.map((e) => `${e.Type ?? 'Error'}: ${e.Message ?? ''}`.trim());
+          if (status.endsWith('FAILED')) {
+            return [
+              `QuickSight could not finish creating it (${status})${words.length ? `: ${words.join('; ')}` : ''}. Open it in the Studio to fix what it names.`,
+            ];
+          }
+          return words.length > 0
+            ? [
+                `QuickSight still reports ${words.length} error${words.length === 1 ? '' : 's'}: ${words.join('; ')}. Open it in the Studio to fix them.`,
+              ]
+            : [];
+        }
+      } catch (error) {
+        logger.warn('Could not read the restored asset back', { assetType, assetId, error });
+        return [];
+      }
+      await new Promise((resolve) => setTimeout(resolve, READBACK_INTERVAL_MS));
+    }
+    return ['QuickSight is still creating it; check it in a minute.'];
+  }
+
   private async planAgainst(
     assetType: AuthorableAssetType,
     assetId: string,
@@ -728,8 +995,12 @@ export class RebindService {
 
   private async loadDefinition(
     assetType: AuthorableAssetType,
-    assetId: string
+    assetId: string,
+    source: DefinitionSource = 'live'
   ): Promise<LoadedDefinition> {
+    if (source === 'archive') {
+      return (await this.loadArchived(assetType, assetId)).loaded;
+    }
     const current =
       assetType === 'dashboard'
         ? await this.quickSightService.describeDashboardDefinition(assetId)

@@ -9,6 +9,7 @@ import { logger } from '../../../shared/utils/logger';
 import { buildAssetCacheKey } from '../../../shared/utils/s3KeyUtils';
 import type { TagService } from '../../organization/services/TagService';
 import type { AssetSummary, AssetType, ProcessingContext } from '../types';
+import { carryForward, isMissingObject } from '../utils/exportRecord';
 
 /**
  * Asset processing capabilities - defines what operations an asset type supports
@@ -57,6 +58,11 @@ export abstract class BaseAssetProcessor {
     string,
     { data: Record<string, any>; isDirty: boolean }
   > = new Map();
+  /** One read of each collection file per run, shared by concurrent assets. */
+  private static readonly collectionSeeds: Map<
+    string,
+    Promise<{ data: Record<string, any>; isDirty: boolean }>
+  > = new Map();
   /**
    * Flush all pending collection updates to S3
    * This should be called by the orchestrator after processing a batch of assets
@@ -98,6 +104,7 @@ export abstract class BaseAssetProcessor {
 
     // Clear the batches after flushing
     BaseAssetProcessor.collectionBatches.clear();
+    BaseAssetProcessor.collectionSeeds.clear();
   }
   protected assetParserService: AssetParserService;
   public abstract readonly assetType: AssetType;
@@ -229,9 +236,11 @@ export abstract class BaseAssetProcessor {
   // =============================================================================
 
   // Permissions and tags - all asset types support these
-  protected abstract executeGetPermissions(assetId: string): Promise<any[]>;
+  /** Undefined when they could not be read: the previous record's are kept. */
+  protected abstract executeGetPermissions(assetId: string): Promise<any[] | undefined>;
 
-  protected abstract executeGetTags(assetId: string): Promise<any[]>;
+  /** Undefined when they could not be read: the previous record's are kept. */
+  protected abstract executeGetTags(assetId: string): Promise<any[] | undefined>;
 
   // Special operations (dataset refresh schedules, etc.)
   protected executeSpecialOperations?(
@@ -246,13 +255,14 @@ export abstract class BaseAssetProcessor {
   protected async fetchAssetData(
     assetId: string,
     assetName: string,
-    context: ProcessingContext
+    context: ProcessingContext,
+    previous: AssetExportData | null = null
   ): Promise<any> {
     const refreshOptions = this.getRefreshOptions(context);
     const isMetadataOnlyRefresh = this.isMetadataOnlyRefresh(refreshOptions);
 
-    // Load existing data for metadata-only refresh
-    const existingData = isMetadataOnlyRefresh ? await this.loadExistingData(assetId) : null;
+    // A metadata-only refresh starts from the record it replaces
+    const existingData = isMetadataOnlyRefresh ? previous : null;
 
     const data: any = {};
 
@@ -344,16 +354,20 @@ export abstract class BaseAssetProcessor {
       const cacheCheckStart = Date.now();
       const cacheKey = this.getCacheKey(assetId);
       const bucketName = await this.ensureBucketName();
+      // The record this write replaces. A read that fails (rather than finds
+      // nothing) fails the asset, so its existing file is left as it is.
+      const previous = await this.loadPrevious(bucketName, assetId);
       result.timing.phases.cacheCheck = Date.now() - cacheCheckStart;
 
       // Phase 1: Fetch asset data
       const dataFetchingStart = Date.now();
-      const data = await this.fetchAssetData(assetId, assetName, context);
+      const data = await this.fetchAssetData(assetId, assetName, context, previous);
       result.timing.phases.dataFetching = Date.now() - dataFetchingStart;
 
-      // Phase 2: Build and save export data
+      // Phase 2: Build and save export data; what this run did not fetch
+      // (permissions, tags, a definition) is carried from the previous record
       const savingStart = Date.now();
-      const exportData = this.buildExportData(summary, data);
+      const exportData = carryForward(this.buildExportData(summary, data), previous);
 
       if (this.storageType === 'collection') {
         await this.saveToCollection(bucketName, assetId, exportData);
@@ -384,27 +398,13 @@ export abstract class BaseAssetProcessor {
     assetId: string,
     assetData: any
   ): Promise<void> {
-    const collectionKey = this.getCollectionCacheKey();
-    const batchKey = `${bucketName}:${collectionKey}`;
-
     try {
-      // Get or create batch for this collection
-      let batch = BaseAssetProcessor.collectionBatches.get(batchKey);
-
-      if (!batch) {
-        // Start with empty batch - don't merge with existing data
-        // Existing data merging happens at a higher level if needed
-        batch = { data: {}, isDirty: false };
-        BaseAssetProcessor.collectionBatches.set(batchKey, batch);
-      }
-
-      // Update the collection with this asset
+      // The batch starts from the collection file as it is, so a run that
+      // stops part-way (or skips an item) never shrinks it on flush
+      const batch = await this.collectionBatch(bucketName);
       batch.data[assetId] = assetData;
       batch.isDirty = true;
-
-      // Note: Actual writing is deferred until flushCollectionBatches is called
-      // Adding await to satisfy linter - batch operations are synchronous
-      await Promise.resolve();
+      // Actual writing is deferred until flushCollectionBatches is called
     } catch (error) {
       logger.error(`Failed to prepare ${this.assetType} for collection save`, { error, assetId });
       throw error;
@@ -612,15 +612,53 @@ export abstract class BaseAssetProcessor {
   }
 
   /**
-   * Load existing data for metadata-only refresh
+   * The export record this write replaces: the asset's own file, or its
+   * entry in the collection file. Missing is null; any other failure throws.
    */
-  private async loadExistingData(assetId: string): Promise<AssetExportData | null> {
-    try {
-      const bucketName = await this.ensureBucketName();
-      const cacheKey = this.getCacheKey(assetId);
-      return await this.s3Service.getObject(bucketName, cacheKey);
-    } catch (_error) {
-      return null;
+  private async loadPrevious(bucketName: string, assetId: string): Promise<AssetExportData | null> {
+    if (this.storageType === 'collection') {
+      return ((await this.collectionBatch(bucketName)).data[assetId] as AssetExportData) ?? null;
     }
+    try {
+      return await this.s3Service.getObject(bucketName, this.getCacheKey(assetId));
+    } catch (error) {
+      if (isMissingObject(error)) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /** This run's batch for the collection file, seeded once from the file itself. */
+  private collectionBatch(
+    bucketName: string
+  ): Promise<{ data: Record<string, any>; isDirty: boolean }> {
+    const collectionKey = this.getCollectionCacheKey();
+    const batchKey = `${bucketName}:${collectionKey}`;
+    const existing = BaseAssetProcessor.collectionBatches.get(batchKey);
+    if (existing) {
+      return Promise.resolve(existing);
+    }
+    let seeding = BaseAssetProcessor.collectionSeeds.get(batchKey);
+    if (!seeding) {
+      seeding = (async () => {
+        let data: Record<string, any> = {};
+        try {
+          data = (await this.s3Service.getObject(bucketName, collectionKey)) ?? {};
+        } catch (error) {
+          if (!isMissingObject(error)) {
+            throw error;
+          }
+        }
+        const batch = { data, isDirty: false };
+        BaseAssetProcessor.collectionBatches.set(batchKey, batch);
+        return batch;
+      })();
+      BaseAssetProcessor.collectionSeeds.set(batchKey, seeding);
+      // Only an in-flight read is shared; once seeded, the batch map is the truth.
+      const settled = () => BaseAssetProcessor.collectionSeeds.delete(batchKey);
+      seeding.then(settled, settled);
+    }
+    return seeding;
   }
 }

@@ -33,6 +33,7 @@
 import { ValidationError } from '../../../shared/errors/ValidationError';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
+import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
@@ -193,8 +194,8 @@ export class DatasetSourceService {
       semanticModelConfiguration: current.SemanticModelConfiguration,
     });
 
-    // Reflect the rename in listings straight away. QuickSight bumps
-    // LastUpdatedTime, so the next export re-reads the asset file anyway.
+    // Reflect the rename in listings straight away, then re-read the dataset
+    // (its sources, lineage and fields changed too) without waiting for an export.
     if (name !== current.Name) {
       try {
         await cacheService.updateAsset(ASSET_TYPES.dataset, dataSetId, { assetName: name });
@@ -205,6 +206,7 @@ export class DatasetSourceService {
         });
       }
     }
+    await keepCacheFresh([{ assetType: ASSET_TYPES.dataset, assetId: dataSetId, name }]);
 
     return {
       dataSetId,

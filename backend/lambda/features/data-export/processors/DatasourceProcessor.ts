@@ -48,17 +48,15 @@ export class DatasourceProcessor extends BaseAssetProcessor {
   protected override async executeGetPermissions(assetId: string): Promise<any> {
     try {
       return await this.quickSightService.describeDatasourcePermissions(assetId);
-    } catch (_err: any) {
-      return null;
+    } catch (error: any) {
+      // Unread, not empty: the permissions the previous export found are kept.
+      logger.warn(`Could not read permissions for datasource ${assetId}: ${error?.message}`);
+      return undefined;
     }
   }
 
-  protected override async executeGetTags(assetId: string): Promise<any[]> {
-    try {
-      return await this.tagService.getResourceTags(ASSET_TYPES.datasource, assetId);
-    } catch (_err: any) {
-      return [];
-    }
+  protected override executeGetTags(assetId: string): Promise<any[] | undefined> {
+    return this.tagService.readResourceTags(ASSET_TYPES.datasource, assetId);
   }
 
   // =============================================================================

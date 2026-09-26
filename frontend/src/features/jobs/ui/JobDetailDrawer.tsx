@@ -45,6 +45,7 @@ import {
   startedByLabel,
   useJobLogs,
 } from '@/entities/job';
+import { PersonLabel } from '@/entities/user';
 
 import { getApiErrorMessage } from '@/shared/api';
 import { type JobMetadata, type JobPhase, jobsApi } from '@/shared/api/modules/jobs';
@@ -236,7 +237,10 @@ function JobDetail({ job }: { job: JobMetadata }) {
           { label: 'Duration', value: formatDuration(jobDuration(job)) },
           { label: 'Items', value: itemsSummary(job) },
           { label: 'API calls', value: calls === null ? '-' : calls.toLocaleString() },
-          { label: 'Started by', value: startedByLabel(job) },
+          {
+            label: 'Started by',
+            value: <PersonLabel person={job.startedByPerson} fallback={startedByLabel(job)} />,
+          },
           { label: 'Job id', value: <code>{job.jobId}</code> },
         ]}
       />

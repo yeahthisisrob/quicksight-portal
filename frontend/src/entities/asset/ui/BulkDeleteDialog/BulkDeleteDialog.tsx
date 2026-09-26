@@ -16,13 +16,13 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { assetsApi } from '@/shared/api';
 import { spacing } from '@/shared/design-system/theme';
 import { useJobPolling } from '@/shared/hooks/useJobPolling';
+import { announceAssetChanges, type ChangedAssetType } from '@/shared/lib/assetChanges';
 
 // Import component parts
 import { useAssetsOptional } from '../../model';
@@ -58,7 +58,6 @@ function hasNonRestorableAssets(assets: Asset[]): boolean {
 export function BulkDeleteDialog({ open, onClose, assets, onComplete }: BulkDeleteDialogProps) {
   const theme = useTheme();
   const { enqueueSnackbar } = useSnackbar();
-  const queryClient = useQueryClient();
   // Optional: absent in Storybook, present under the app's AssetsProvider
   const assetsContext = useAssetsOptional();
 
@@ -103,22 +102,14 @@ export function BulkDeleteDialog({ open, onClose, assets, onComplete }: BulkDele
       }
     }
 
-    // Summary/catalog widgets observe these keys directly (the asset lists
-    // themselves are refetched via onComplete → refreshAssetType)
-    try {
-      await Promise.allSettled([
-        queryClient.invalidateQueries({ queryKey: ['export-summary'] }),
-        queryClient.invalidateQueries({ queryKey: ['data-catalog'] }),
-      ]);
-    } catch {
-      // Invalidation failure should not block the UX close
-    }
+    // What was deleted, and the folders it may have been filed in
+    announceAssetChanges([...new Set(assets.map((a) => a.type as ChangedAssetType)), 'folder']);
 
     setTimeout(() => {
       onClose();
       onComplete?.();
     }, 1500);
-  }, [enqueueSnackbar, onClose, onComplete, queryClient, assets, assetsContext]);
+  }, [enqueueSnackbar, onClose, onComplete, assets, assetsContext]);
 
   const handleJobFailed = useCallback(
     (job: any) => {

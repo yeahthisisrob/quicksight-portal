@@ -19,14 +19,14 @@ import type {
 import { LineageService } from '../../../shared/services/lineage/LineageService';
 import { OperationTrackingService } from '../../../shared/services/operations/OperationTrackingService';
 import { AssetParserService } from '../../../shared/services/parsing/AssetParserService';
-import { ASSET_TYPES } from '../../../shared/types/assetTypes';
+import { ASSET_TYPES, isCollectionType } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
 import { CatalogService } from '../../data-catalog/services/CatalogService';
 import { TagService } from '../../organization/services/TagService';
 import { AnalysisProcessor } from '../processors/AnalysisProcessor';
-import type {
+import {
   BaseAssetProcessor,
-  EnhancedProcessingResult,
+  type EnhancedProcessingResult,
 } from '../processors/BaseAssetProcessor';
 import { DashboardProcessor } from '../processors/DashboardProcessor';
 import { DatasetProcessor } from '../processors/DatasetProcessor';
@@ -42,6 +42,14 @@ import { BatchProcessingService } from './BatchProcessingService';
  * Unified Export Orchestrator
  * Handles all export operations with proper architecture and detailed progress tracking
  */
+/** Asset types lineage, fields and the catalog are built from. */
+const DERIVED_FROM = new Set<AssetType>([
+  ASSET_TYPES.dashboard,
+  ASSET_TYPES.analysis,
+  ASSET_TYPES.dataset,
+  ASSET_TYPES.datasource,
+]);
+
 export class ExportOrchestrator {
   private archiveService: ArchiveService;
   private readonly assetComparisonService: AssetComparisonService;
@@ -821,12 +829,41 @@ export class ExportOrchestrator {
           out.failed.push(`${assetType}:${id}`);
         }
       }
+      // Folders, users and groups live in one collection file: processing
+      // only stages them (on top of the file as it is), so write it now or
+      // the refresh changes nothing - a folder's new member never lands.
+      if (isCollectionType(assetType)) {
+        await BaseAssetProcessor.flushCollectionBatches(this.s3Service);
+      }
       if (done.length > 0) {
         await cacheService.upsertCacheEntriesForAssets(assetType, done);
         out.refreshed.push(...done.map((id) => `${assetType}:${id}`));
       }
     }
+    if ([...byType.keys()].some((type) => DERIVED_FROM.has(type)) && out.refreshed.length > 0) {
+      await this.rebuildDerivedIndexes();
+    }
     return out;
+  }
+
+  /**
+   * Lineage, the field cache and the data catalog are built from every
+   * asset, so a refresh that changed a dashboard, analysis, dataset or data
+   * source rebuilds them too - otherwise a rename or a new dataset shows up
+   * in lists but not in lineage, fields or the catalog until the next full
+   * export. A failure here leaves the refreshed entries as they are.
+   */
+  private async rebuildDerivedIndexes(): Promise<void> {
+    try {
+      await cacheService.updateFieldCache(null);
+      const catalogService = new CatalogService();
+      await catalogService.rebuildCatalogIndex();
+      await catalogService.buildVisualFieldCatalog();
+      await new LineageService().rebuildLineage();
+      await cacheService.runCacheRebuildHooks();
+    } catch (error) {
+      logger.warn('Derived indexes could not be rebuilt after a refresh', { error });
+    }
   }
 
   /**

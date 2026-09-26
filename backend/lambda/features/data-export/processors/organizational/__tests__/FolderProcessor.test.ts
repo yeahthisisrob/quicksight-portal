@@ -98,7 +98,7 @@ describe('FolderProcessor', () => {
       ]);
     });
 
-    it('should handle errors when fetching members', async () => {
+    it('leaves members out when they cannot be read, so the last member list is kept', async () => {
       const error = new Error('API Error');
       mockQuickSightService.getAllFolderMembers.mockRejectedValue(error);
 
@@ -108,9 +108,7 @@ describe('FolderProcessor', () => {
         'Failed to get members for folder test-folder:',
         error
       );
-      expect(result).toEqual({
-        members: [],
-      });
+      expect(result).toEqual({});
     });
   });
 
@@ -180,7 +178,7 @@ describe('FolderProcessor', () => {
       expect(result).toEqual(mockPermissions);
     });
 
-    it('should return empty array when describeFolderPermissions fails', async () => {
+    it('reports permissions as unread, not empty, when describeFolderPermissions fails', async () => {
       const folderId = 'folder-123';
       const error = new Error('Permission denied');
 
@@ -189,7 +187,7 @@ describe('FolderProcessor', () => {
       const result = await processor['executeGetPermissions'](folderId);
 
       expect(mockQuickSightService.describeFolderPermissions).toHaveBeenCalledWith(folderId);
-      expect(result).toEqual([]);
+      expect(result).toBeUndefined();
       expect(logger.logger.warn).toHaveBeenCalledWith(
         `Failed to get permissions for folder ${folderId}:`,
         error
@@ -227,7 +225,7 @@ describe('FolderProcessor', () => {
       expect(result).toEqual(mockFolderData);
     });
 
-    it('should return fallback when describeFolder fails', async () => {
+    it('reports the describe as unread when describeFolder fails, so the last one is kept', async () => {
       const folderId = 'folder-123';
       const error = new Error('Access denied');
 
@@ -236,7 +234,7 @@ describe('FolderProcessor', () => {
       const result = await processor['executeDescribe'](folderId);
 
       expect(mockQuickSightService.describeFolder).toHaveBeenCalledWith(folderId);
-      expect(result).toEqual({ FolderName: folderId });
+      expect(result).toBeUndefined();
       expect(logger.logger.warn).toHaveBeenCalledWith(
         `Failed to describe folder ${folderId}:`,
         error

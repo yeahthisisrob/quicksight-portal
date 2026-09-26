@@ -24,6 +24,13 @@ const JOBS: JobMetadata[] = [
     lastUpdatedTime: ago(0),
     userId: '4f1c8a2e-9b3d-4e5f-8a6b-7c8d9e0f1a2b',
     startedBy: 'rob@example.com',
+    startedByPerson: {
+      label: 'rob@example.com',
+      kind: 'person',
+      email: 'rob@example.com',
+      quickSightUserName: 'rob',
+      quickSightUserArn: 'arn:aws:quicksight:us-east-1:123456789012:user/default/rob',
+    },
     stats: {
       totalAssets: 1200,
       processedAssets: 744,
@@ -46,6 +53,13 @@ const JOBS: JobMetadata[] = [
     endTime: ago(93),
     userId: '4f1c8a2e-9b3d-4e5f-8a6b-7c8d9e0f1a2b',
     startedBy: 'rob@example.com',
+    startedByPerson: {
+      label: 'rob@example.com',
+      kind: 'person',
+      email: 'rob@example.com',
+      quickSightUserName: 'rob',
+      quickSightUserArn: 'arn:aws:quicksight:us-east-1:123456789012:user/default/rob',
+    },
     phases: [
       { key: 'list-projects', status: 'completed', message: '2 projects' },
       {
@@ -68,6 +82,7 @@ const JOBS: JobMetadata[] = [
     endTime: ago(238),
     userId: '9a2b7c1d-0e3f-4a5b-8c6d-1e2f3a4b5c6d',
     startedBy: 'analyst@example.com',
+    startedByPerson: { label: 'analyst@example.com', kind: 'person', email: 'analyst@example.com' },
     stats: { totalAssets: 40, processedAssets: 40, failedAssets: 2 },
     failures: [
       { item: 'Finance close', error: 'AccessDeniedException: not an owner of this dashboard' },
@@ -84,6 +99,13 @@ const JOBS: JobMetadata[] = [
     endTime: ago(60 * 26 - 4),
     userId: '4f1c8a2e-9b3d-4e5f-8a6b-7c8d9e0f1a2b',
     startedBy: 'rob@example.com',
+    startedByPerson: {
+      label: 'rob@example.com',
+      kind: 'person',
+      email: 'rob@example.com',
+      quickSightUserName: 'rob',
+      quickSightUserArn: 'arn:aws:quicksight:us-east-1:123456789012:user/default/rob',
+    },
     stats: { totalAssets: 1200, processedAssets: 380, failedAssets: 1 },
   },
   {
@@ -96,6 +118,13 @@ const JOBS: JobMetadata[] = [
     endTime: ago(60 * 30 - 1),
     userId: '4f1c8a2e-9b3d-4e5f-8a6b-7c8d9e0f1a2b',
     startedBy: 'rob@example.com',
+    startedByPerson: {
+      label: 'rob@example.com',
+      kind: 'person',
+      email: 'rob@example.com',
+      quickSightUserName: 'rob',
+      quickSightUserArn: 'arn:aws:quicksight:us-east-1:123456789012:user/default/rob',
+    },
   },
   {
     jobId: 'planner-77c1',
@@ -105,6 +134,14 @@ const JOBS: JobMetadata[] = [
     startTime: ago(60 * 50),
     endTime: ago(60 * 50 - 2),
     userId: '4f1c8a2e-9b3d-4e5f-8a6b-7c8d9e0f1a2b',
+    // An older record kept only the sign-in id; the server names it.
+    startedByPerson: {
+      label: 'rob@example.com',
+      kind: 'person',
+      email: 'rob@example.com',
+      quickSightUserName: 'rob',
+      quickSightUserArn: 'arn:aws:quicksight:us-east-1:123456789012:user/default/rob',
+    },
   },
 ];
 

@@ -43,7 +43,7 @@ export abstract class OrganizationalProcessor extends BaseAssetProcessor {
   /**
    * Organizational assets don't have permissions in the traditional sense
    */
-  protected override executeGetPermissions(assetId: string): Promise<any[]> {
+  protected override executeGetPermissions(assetId: string): Promise<any[] | undefined> {
     // Most organizational assets don't have permissions
     // Subclasses like FolderProcessor can override this method if they do need permissions
     logger.debug(`No permissions to fetch for organizational asset: ${assetId}`);

@@ -45,7 +45,7 @@ function SavedSummary({
 }) {
   const [wireframeOpen, setWireframeOpen] = useState(false);
   const consoleUrl = getQuickSightConsoleUrl(result.assetType, result.assetId);
-  const copy = result.mode === 'clone';
+  const copy = result.mode !== 'update';
   const folderLabel = result.folderIds.length
     ? result.folderIds
         .map((id) => (folder && folder.id === id ? (folder.path ?? folder.name) : id))
@@ -75,6 +75,17 @@ function SavedSummary({
             : []),
         ]}
       />
+      {result.warnings && result.warnings.length > 0 && (
+        <Alert severity="warning">
+          <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+            {result.warnings.map((warning) => (
+              <li key={warning}>
+                <Typography variant="body2">{warning}</Typography>
+              </li>
+            ))}
+          </Box>
+        </Alert>
+      )}
       {result.changes && result.changes.length > 0 && (
         <Box>
           <Typography variant="subtitle2" sx={{ mb: 1 }}>
@@ -105,7 +116,7 @@ function SavedSummary({
               studio.open({ type: result.assetType, id: result.assetId, name: result.name })
             }
           >
-            Edit the copy
+            {result.mode === 'restore' ? 'Edit it' : 'Edit the copy'}
           </Button>
         )}
       </Stack>
@@ -132,8 +143,10 @@ interface SaveDialogProps {
 
 export function SaveDialog({ studio, open, onClose }: SaveDialogProps) {
   const source = studio.state.source;
+  const restoring = studio.state.origin === 'archive';
   const [mode, setMode] = useState<RebindMode>('update');
   const [name, setName] = useState('');
+  const [newId, setNewId] = useState('');
   const [folder, setFolder] = useState<StudioFolder | null>(null);
   const result = studio.state.result;
 
@@ -143,7 +156,9 @@ export function SaveDialog({ studio, open, onClose }: SaveDialogProps) {
   const noun = source.type === 'dashboard' ? 'dashboard' : 'analysis';
   const copy = mode === 'clone';
   // In place needs something to write; a copy needs a name.
-  const ready = studio.canSave && (copy ? name.trim().length > 0 : studio.dirty);
+  const ready = restoring
+    ? studio.canSave
+    : studio.canSave && (copy ? name.trim().length > 0 : studio.dirty);
   const { summary } = studio.repair;
   const edits = studio.state.ops.length;
 
@@ -152,17 +167,23 @@ export function SaveDialog({ studio, open, onClose }: SaveDialogProps) {
     onClose();
   };
   const save = async () => {
-    await studio.save({ mode, name, folder });
+    await studio.save(
+      restoring ? { mode: 'restore', name, newAssetId: newId, folder } : { mode, name, folder }
+    );
   };
 
   return (
     <Dialog open={open} onClose={studio.saving ? undefined : close} maxWidth="sm" fullWidth>
       <DialogTitle>
         {result
-          ? result.mode === 'clone'
-            ? `Created "${result.name}"`
-            : `Saved "${result.name}"`
-          : `Save "${source.name}"`}
+          ? result.mode === 'restore'
+            ? `Restored "${result.name}"`
+            : result.mode === 'clone'
+              ? `Created "${result.name}"`
+              : `Saved "${result.name}"`
+          : restoring
+            ? `Restore "${source.name}"`
+            : `Save "${source.name}"`}
       </DialogTitle>
       <DialogContent>
         {result ? (
@@ -186,39 +207,68 @@ export function SaveDialog({ studio, open, onClose }: SaveDialogProps) {
               ]}
             />
 
-            <RadioGroup value={mode} onChange={(e) => setMode(e.target.value as RebindMode)}>
-              <FormControlLabel
-                value="update"
-                control={<Radio />}
-                label={
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      Save over this {noun}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                      Everyone who uses it sees the change
-                      {source.type === 'dashboard' ? ' as soon as the new version publishes' : ''}.
-                    </Typography>
-                  </Box>
-                }
-              />
-              <FormControlLabel
-                value="clone"
-                control={<Radio />}
-                label={
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      Save as a copy
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                      A new {noun} with its own name, filed in a folder; this one is left alone.
-                    </Typography>
-                  </Box>
-                }
-              />
-            </RadioGroup>
+            {restoring && (
+              <Stack spacing={2}>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  It comes back as a new {noun}, with the fixes and edits above. Nothing is written
+                  over: its archived audience, theme and tags come back with it.
+                </Typography>
+                <TextField
+                  size="small"
+                  label="Id"
+                  value={newId}
+                  onChange={(e) => setNewId(e.target.value)}
+                  placeholder={source.id}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  helperText="Its archived id, unless QuickSight still holds that one"
+                />
+                <TextField
+                  size="small"
+                  label="Name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={source.name}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+                <FolderPicker value={folder} onChange={setFolder} disabled={studio.saving} />
+              </Stack>
+            )}
+            {!restoring && (
+              <RadioGroup value={mode} onChange={(e) => setMode(e.target.value as RebindMode)}>
+                <FormControlLabel
+                  value="update"
+                  control={<Radio />}
+                  label={
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        Save over this {noun}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        Everyone who uses it sees the change
+                        {source.type === 'dashboard' ? ' as soon as the new version publishes' : ''}
+                        .
+                      </Typography>
+                    </Box>
+                  }
+                />
+                <FormControlLabel
+                  value="clone"
+                  control={<Radio />}
+                  label={
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        Save as a copy
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        A new {noun} with its own name, filed in a folder; this one is left alone.
+                      </Typography>
+                    </Box>
+                  }
+                />
+              </RadioGroup>
+            )}
 
-            {copy && (
+            {!restoring && copy && (
               <Stack spacing={2}>
                 <TextField
                   size="small"
@@ -248,6 +298,7 @@ export function SaveDialog({ studio, open, onClose }: SaveDialogProps) {
                 {summary.needsChoice > 0
                   ? 'A dataset that cannot be read still needs one chosen on the Issues panel.'
                   : 'Some columns still do not resolve.'}
+                {restoring ? ' An asset comes back fixed, or not at all.' : ''}
               </Alert>
             )}
             {studio.saveError && (
@@ -271,12 +322,12 @@ export function SaveDialog({ studio, open, onClose }: SaveDialogProps) {
             </Button>
             <Button
               variant="contained"
-              color={copy ? 'primary' : 'warning'}
+              color={copy || restoring ? 'primary' : 'warning'}
               disabled={!ready || studio.saving}
               startIcon={studio.saving ? <CircularProgress size={16} color="inherit" /> : undefined}
               onClick={() => void save()}
             >
-              {copy ? 'Create copy' : `Save over this ${noun}`}
+              {restoring ? 'Restore' : copy ? 'Create copy' : `Save over this ${noun}`}
             </Button>
           </>
         )}

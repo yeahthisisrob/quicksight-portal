@@ -483,12 +483,18 @@ export class JobRepository {
    * Save job result data on the job item. Results beyond the size threshold
    * are replaced with a truncation marker so the item never nears the 400KB
    * limit.
+   *
+   * The result is stored as the JSON it is served as: Dates become ISO
+   * strings and class instances plain objects. The DynamoDB marshaller
+   * refuses both, and a refused result used to fail a job whose work had
+   * already been done (every restore, for one).
    */
   public async saveJobResult<T = any>(jobId: string, result: T): Promise<void> {
     await this.ensureReady();
 
-    let stored: any = result;
-    const sizeBytes = JSON.stringify(result).length;
+    const json = JSON.stringify(result) ?? 'null';
+    let stored: any = JSON.parse(json);
+    const sizeBytes = json.length;
     if (sizeBytes > RESULT_MAX_BYTES) {
       // Loud, not silent: consumers see a truncation marker instead of a
       // corrupt payload, and the log names the culprit

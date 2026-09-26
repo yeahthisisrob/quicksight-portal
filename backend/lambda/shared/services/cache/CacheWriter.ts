@@ -55,6 +55,37 @@ export class CacheWriter {
    * notify methods) instead of ad-hoc updateAsset calls. This keeps the powerful
    * S3+index cache consistent with mutations.
    */
+  /**
+   * Merge fields into an archived entry's archive metadata (a restore
+   * recorded against it), so the archived list shows it without a rebuild.
+   * No archived entry, nothing to do: the next rebuild reads the archive.
+   */
+  public async updateArchivedEntryMetadata(
+    assetType: AssetType,
+    assetId: string,
+    patch: Record<string, unknown>
+  ): Promise<void> {
+    const entries = await this.cacheReader.getCacheEntries({
+      assetType,
+      statusFilter: AssetStatusFilter.ALL,
+    });
+    const idx = entries.findIndex(
+      (e: CacheEntry) => e.assetId === assetId && (e.status as string) === 'archived'
+    );
+    if (idx < 0) {
+      return;
+    }
+    const entry = entries[idx] as CacheEntry;
+    const metadata = ((entry as any).metadata ?? {}) as Record<string, any>;
+    entries[idx] = {
+      ...entry,
+      metadata: { ...metadata, archived: { ...(metadata.archived ?? {}), ...patch } },
+    } as CacheEntry;
+    await this.s3Adapter.saveTypeCache(assetType, entries);
+    this.evictMemoryForType(assetType);
+    this.memoryAdapter.delete('master-cache');
+  }
+
   public async archiveAssetsInCache(
     assets: Array<{
       assetType: AssetType;
@@ -412,53 +443,53 @@ export class CacheWriter {
     }
   }
 
+  /**
+   * Patch one live cache entry. Only its own type's cache file is read and
+   * written - never the other types', so a write here cannot undo a
+   * concurrent write to another type - and an archived copy of the same id
+   * (the archive ledger's row) is left alone. `metadata` is merged, not
+   * replaced, so updating one field (a group's description) keeps the rest
+   * (its members).
+   */
   public async updateAsset(
     assetType: AssetType,
     assetId: string,
     updates: Partial<CacheEntry>
   ): Promise<void> {
     try {
-      // Get current master cache
-      const masterCache = await this.getMasterCache();
+      const entries = (await this.loadTypeCache(assetType)) || [];
+      const isLive = (e: CacheEntry) =>
+        e.assetId === assetId && (e.status as string) !== 'archived';
+      const existing = entries.filter(isLive);
+      const others = entries.filter((e) => !isLive(e));
 
-      // Find and update the asset
-      const assets = masterCache.entries[assetType] || [];
-
-      // Remove ALL existing entries with this assetId to prevent duplicates
-      const existingAssets = assets.filter((asset: CacheEntry) => asset.assetId === assetId);
-      const otherAssets = assets.filter((asset: CacheEntry) => asset.assetId !== assetId);
-
-      if (existingAssets.length > 0) {
-        // Update existing asset - use the most recent one as base
-        const baseAsset = existingAssets.reduce((latest, current) => {
-          const latestTime = latest.lastUpdatedTime?.getTime() || 0;
-          const currentTime = current.lastUpdatedTime?.getTime() || 0;
-          return currentTime > latestTime ? current : latest;
-        });
-
-        if (existingAssets.length > 1) {
+      let updated: CacheEntry;
+      if (existing.length > 0) {
+        // The most recent live entry is the base; duplicates are dropped
+        const base = existing.reduce((latest, current) =>
+          (current.lastUpdatedTime?.getTime() || 0) > (latest.lastUpdatedTime?.getTime() || 0)
+            ? current
+            : latest
+        );
+        if (existing.length > 1) {
           logger.info(
-            `Removing ${existingAssets.length - 1} duplicate cache entries for ${assetType}/${assetId}`
+            `Removing ${existing.length - 1} duplicate cache entries for ${assetType}/${assetId}`
           );
         }
-
-        // Special handling for enrichmentTimestamps - merge instead of replace
-        const updatedAsset = { ...baseAsset, ...updates };
-
-        if (updates.enrichmentTimestamps && baseAsset.enrichmentTimestamps) {
-          updatedAsset.enrichmentTimestamps = {
-            ...baseAsset.enrichmentTimestamps,
+        updated = { ...base, ...updates };
+        if (updates.enrichmentTimestamps && base.enrichmentTimestamps) {
+          updated.enrichmentTimestamps = {
+            ...base.enrichmentTimestamps,
             ...updates.enrichmentTimestamps,
           };
         }
-
-        // Replace the entire assets array with deduplicated version + updated asset
-        masterCache.entries[assetType] = [...otherAssets, updatedAsset];
+        if (updates.metadata && base.metadata) {
+          updated.metadata = { ...base.metadata, ...updates.metadata };
+        }
       } else {
-        // Add new asset
-        const newAsset: CacheEntry = {
-          assetId: assetId,
-          assetType: assetType,
+        updated = {
+          assetId,
+          assetType,
           assetName: updates.assetName || '',
           arn: updates.arn || '',
           status: updates.status || 'active',
@@ -478,40 +509,16 @@ export class CacheWriter {
           permissions: updates.permissions || [],
           metadata: updates.metadata || {},
           ...updates,
-        };
-        masterCache.entries[assetType] = [...otherAssets, newAsset];
+        } as CacheEntry;
       }
 
-      // Update summary counts
-      masterCache.assetCounts[assetType] = masterCache.entries[assetType]?.length || 0;
-      masterCache.lastUpdated = new Date();
-
-      // Save to adapters
-      await this.saveMasterCache(masterCache);
-
-      // Evict memory for the affected type + master so this process sees the mutation
-      // (e.g. permission revokes, tag updates, etc. that still flow through updateAsset).
+      const next = [...others, updated];
+      await this.saveTypeCache(assetType, next);
+      await this.updateCacheMetadata(assetType, next.length);
       this.evictMemoryForType(assetType);
       this.memoryAdapter.delete('master-cache');
     } catch (error) {
       logger.error(`Failed to update asset ${assetType}/${assetId}`, { error });
-      throw error;
-    }
-  }
-
-  public async updateAssetPermissions(
-    assetType: AssetType,
-    assetId: string,
-    permissions: any[]
-  ): Promise<void> {
-    try {
-      await this.updateAsset(assetType, assetId, {
-        permissions,
-      });
-
-      logger.debug(`Updated permissions for asset ${assetType}/${assetId}`);
-    } catch (error) {
-      logger.error(`Failed to update permissions for asset ${assetType}/${assetId}`, { error });
       throw error;
     }
   }
@@ -601,63 +608,6 @@ export class CacheWriter {
   }
 
   /**
-   * Update group membership after adding/removing users
-   */
-  public async updateGroupMembership(
-    groupName: string,
-    operation: 'add' | 'remove',
-    userName: string,
-    userArn?: string,
-    userEmail?: string
-  ): Promise<void> {
-    try {
-      // Get current group data from cache
-      const groupEntries = await this.cacheReader.getCacheEntries({
-        assetType: ASSET_TYPES.group as AssetType,
-        statusFilter: AssetStatusFilter.ACTIVE,
-      });
-
-      const groupEntry = groupEntries.find(
-        (g) => g.assetName === groupName || g.assetId === groupName
-      );
-
-      if (!groupEntry) {
-        logger.warn(`Group ${groupName} not found in cache for membership update`);
-        return;
-      }
-
-      // Update members list
-      const currentMembers = groupEntry.metadata?.members || [];
-      const updatedMembers = this.updateMembersList(
-        currentMembers,
-        operation,
-        userName,
-        userArn,
-        userEmail
-      );
-      const memberCount = updatedMembers.length;
-
-      // Update the cache entry
-      await this.updateAsset(ASSET_TYPES.group as AssetType, groupEntry.assetId, {
-        metadata: {
-          ...groupEntry.metadata,
-          members: updatedMembers,
-          memberCount,
-        },
-        lastUpdatedTime: new Date(),
-      });
-
-      // Update the exported JSON file
-      await this.updateGroupExportedJson(groupName, updatedMembers, memberCount);
-
-      logger.info(`Updated group ${groupName} membership: ${operation} user ${userName}`);
-    } catch (error) {
-      logger.error(`Failed to update group membership for ${groupName}`, { error });
-      throw error;
-    }
-  }
-
-  /**
    * Upsert cache entries for a specific set of just-exported assets by
    * re-parsing only their S3 files, merging into the existing type cache -
    * cost scales with what changed, not with account size.
@@ -681,7 +631,10 @@ export class CacheWriter {
     try {
       const startTime = Date.now();
       const existing = (await this.loadTypeCache(assetType)) || [];
-      const byId = new Map<string, CacheEntry>(existing.map((e) => [e.assetId, e]));
+      // A live asset and its archived copy share an id (a restore brings one
+      // back under its old id); the archived entry is the ledger's row and a
+      // live upsert must not replace it.
+      const byId = new Map<string, CacheEntry>(existing.map((e) => [entryKey(e), e]));
 
       // Chunked so large re-parses (e.g. a parser-version bump touching the
       // whole account) can report progress + heartbeat between chunks
@@ -708,7 +661,7 @@ export class CacheWriter {
 
       const newEntries = parsed.filter((e): e is CacheEntry => e !== null);
       for (const entry of newEntries) {
-        byId.set(entry.assetId, entry);
+        byId.set(entryKey(entry), entry);
       }
       const merged = Array.from(byId.values());
 
@@ -1145,7 +1098,9 @@ export class CacheWriter {
       enrichmentStatus,
       enrichmentTimestamps,
       tags: transformedData.apiResponses?.tags?.data || [],
-      permissions: transformedData.apiResponses?.permissions?.data || [],
+      permissions: this.transformPermissions(
+        transformedData.apiResponses?.permissions?.data || null
+      ),
       metadata: {
         ...metadata,
         enrichmentStatus,
@@ -1232,10 +1187,9 @@ export class CacheWriter {
     );
   }
 
-  private getCacheEntryPermissions(status: 'active' | 'archived', transformedData: any): any {
-    return status === 'active'
-      ? this.transformPermissions(transformedData.apiResponses?.permissions?.data || null)
-      : transformedData.apiResponses?.permissions?.data || [];
+  /** The same array for a live entry and its archived copy (a dashboard's API answer is an object). */
+  private getCacheEntryPermissions(_status: 'active' | 'archived', transformedData: any): any {
+    return this.transformPermissions(transformedData.apiResponses?.permissions?.data || null);
   }
 
   private async getCacheMetadata(): Promise<any> {
@@ -1678,7 +1632,23 @@ export class CacheWriter {
     let changed = false;
 
     for (const item of items) {
-      const idx = currentEntries.findIndex((e: CacheEntry) => e.assetId === item.assetId);
+      // The live entry is the one being archived; an older archived copy of
+      // the same id (archived, restored, archived again) gives way to it.
+      const live = currentEntries.findIndex(
+        (e: CacheEntry) => e.assetId === item.assetId && (e.status as string) !== 'archived'
+      );
+      if (live >= 0) {
+        for (let i = currentEntries.length - 1; i >= 0; i--) {
+          const e = currentEntries[i] as CacheEntry;
+          if (i !== live && e.assetId === item.assetId && (e.status as string) === 'archived') {
+            currentEntries.splice(i, 1);
+          }
+        }
+      }
+      const idx = currentEntries.findIndex(
+        (e: CacheEntry) =>
+          e.assetId === item.assetId && (live < 0 || (e.status as string) !== 'archived')
+      );
       const archiveInfo = {
         archivedAt: now.toISOString(),
         archiveReason: item.archiveReason || 'Deleted via portal',
@@ -2257,68 +2227,9 @@ export class CacheWriter {
     // Clear memory cache
     this.memoryAdapter.delete('cache-metadata');
   }
+}
 
-  /**
-   * Helper method to update exported JSON for group
-   */
-  private async updateGroupExportedJson(
-    groupName: string,
-    updatedMembers: any[],
-    memberCount: number
-  ): Promise<void> {
-    const exportFilePath = `assets/organization/groups.json`;
-    try {
-      const exportData = await this.s3Service.getObject(this.bucketName, exportFilePath);
-      if (exportData?.groups) {
-        const groupIndex = exportData.groups.findIndex(
-          (g: any) => g.name === groupName || g.id === groupName
-        );
-
-        if (groupIndex !== -1) {
-          // Transform members back to PascalCase for SDK format in exported JSON
-          const sdkMembers = updatedMembers.map((m) => ({
-            MemberName: m.memberName,
-            Arn: m.arn,
-            Email: m.email,
-          }));
-          exportData.groups[groupIndex].members = sdkMembers;
-          exportData.groups[groupIndex].memberCount = memberCount;
-          exportData.lastUpdated = new Date().toISOString();
-          await this.s3Service.putObject(this.bucketName, exportFilePath, exportData);
-        }
-      }
-    } catch (error) {
-      logger.warn(`Failed to update exported JSON for group ${groupName}`, { error });
-    }
-  }
-
-  /**
-   * Helper method to update group members list
-   */
-  private updateMembersList(
-    currentMembers: any[],
-    operation: 'add' | 'remove',
-    userName: string,
-    userArn?: string,
-    userEmail?: string
-  ): any[] {
-    if (operation === 'add') {
-      const existingMember = currentMembers.find((m: any) => m.memberName === userName);
-
-      if (!existingMember) {
-        // Use camelCase for internal domain model (cache)
-        const newMember = {
-          memberName: userName,
-          arn:
-            userArn ||
-            `arn:aws:quicksight:${process.env.AWS_REGION}:${process.env.AWS_ACCOUNT_ID}:user/default/${userName}`,
-          email: userEmail,
-        };
-        return [...currentMembers, newMember];
-      }
-      return currentMembers;
-    } else {
-      return currentMembers.filter((m: any) => m.memberName !== userName);
-    }
-  }
+/** An entry's identity in a type cache: its id, and whether it is the archived copy. */
+function entryKey(entry: CacheEntry): string {
+  return `${(entry.status as string) === 'archived' ? 'archived' : 'live'}:${entry.assetId}`;
 }

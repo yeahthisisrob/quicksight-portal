@@ -13,7 +13,20 @@ export class TagService {
     this.quickSightService = ClientFactory.getQuickSightService(awsAccountId);
   }
 
+  /** A resource's tags, or an empty list when they cannot be read (for views). */
   public async getResourceTags(resourceType: AssetType, resourceId: string): Promise<Tag[]> {
+    return (await this.readResourceTags(resourceType, resourceId)) ?? [];
+  }
+
+  /**
+   * A resource's tags, or undefined when they could not be read - never an
+   * empty list for a failure. The export relies on the difference: no tags
+   * is an answer it writes, a failed read keeps the tags it had.
+   */
+  public async readResourceTags(
+    resourceType: AssetType,
+    resourceId: string
+  ): Promise<Tag[] | undefined> {
     try {
       return await this.quickSightService.getResourceTags(resourceType, resourceId, this.awsRegion);
     } catch (error: any) {
@@ -25,7 +38,7 @@ export class TagService {
       } else {
         logger.error(`Error getting tags for ${resourceType} ${resourceId}:`, error);
       }
-      return [];
+      return undefined;
     }
   }
 

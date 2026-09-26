@@ -12,7 +12,6 @@ export {
   smusCatalogApi,
   visualTemplatesApi,
 } from './modules/data-catalog';
-export { deployApi } from './modules/deploy';
 export { exportApi } from './modules/export';
 export { foldersApi } from './modules/folders';
 export { groupsApi } from './modules/groups';

@@ -2,7 +2,6 @@ import type { components } from '@shared/generated/types';
 
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
-import { S3Service } from '../../../shared/services/aws/S3Service';
 import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
@@ -52,17 +51,13 @@ const ASSET_MEMBER_TYPES: QuickSightAssetMemberType[] = [
  * - Member Roles: Permission levels for principals (ADMIN, AUTHOR, VIEWER)
  */
 export class FolderService {
-  private readonly bucketName: string;
   private readonly folderMetadataCache: Map<string, FolderMetadata> = new Map();
   private readonly quickSightService: QuickSightService;
-  private readonly s3Service: S3Service;
   private readonly tagService: TagService;
 
   public constructor(private readonly accountId: string) {
     this.quickSightService = ClientFactory.getQuickSightService(accountId);
-    this.s3Service = new S3Service(accountId);
     this.tagService = new TagService(accountId);
-    this.bucketName = process.env.BUCKET_NAME || '';
   }
 
   /**
@@ -315,14 +310,18 @@ export class FolderService {
   public async removeAssetFromFolder(
     folderId: string,
     assetId: string,
-    memberType: QuickSightAssetMemberType
+    memberType: QuickSightAssetMemberType,
+    /** Refresh the folder and the asset in the cache; bulk callers refresh once at the end. */
+    refresh = true
   ): Promise<void> {
     try {
-      // Remove the asset from the folder in QuickSight
       await this.quickSightService.deleteFolderMembership(folderId, assetId, memberType);
-
-      // Update the cache to reflect the removal
-      await this.updateFolderMembershipInCache(folderId, assetId, memberType, 'remove');
+      if (refresh) {
+        await keepCacheFresh([
+          { assetType: 'folder', assetId: folderId },
+          { assetType: memberType.toLowerCase() as AssetType, assetId },
+        ]);
+      }
 
       logger.info(`Removed asset ${assetId} (${memberType}) from folder ${folderId}`);
     } catch (error) {
@@ -412,74 +411,6 @@ export class FolderService {
         ];
       case 'VIEWER':
         return ['quicksight:DescribeFolder'];
-    }
-  }
-
-  /**
-   * Update folder membership in cache and exported JSON
-   */
-  private async updateFolderMembershipInCache(
-    folderId: string,
-    assetId: string,
-    memberType: QuickSightAssetMemberType,
-    action: 'add' | 'remove'
-  ): Promise<void> {
-    try {
-      // Get the folder from cache
-      const folders = await cacheService.getCacheEntries({
-        assetType: 'folder',
-        statusFilter: AssetStatusFilter.ALL,
-      });
-      const folder = folders.find((f: any) => f.assetId === folderId);
-
-      if (!folder) {
-        logger.warn(`Folder ${folderId} not found in cache during membership update`);
-        return;
-      }
-
-      // Update the folder's member count - members are in SDK format (PascalCase)
-      const currentMembers: any[] = folder.metadata?.members || [];
-      let updatedMembers: any[] = [...currentMembers];
-
-      if (action === 'remove') {
-        updatedMembers = updatedMembers.filter((m: any) => m.MemberId !== assetId);
-      } else {
-        // For add action (if we implement it later)
-        const memberArn = `arn:aws:quicksight:${process.env.AWS_REGION}:${this.accountId}:${memberType.toLowerCase()}/${assetId}`;
-        updatedMembers.push({
-          MemberId: assetId,
-          MemberArn: memberArn,
-          MemberType: memberType,
-        });
-      }
-
-      // Update the folder in cache
-      await cacheService.updateAsset(ASSET_TYPES.folder, folderId, {
-        metadata: {
-          ...folder.metadata,
-          members: updatedMembers,
-          memberCount: updatedMembers.length,
-        },
-        lastUpdatedTime: new Date(),
-      });
-
-      // Also update the exported JSON file
-      const exportPath = `assets/folders/${folderId}.json`;
-      try {
-        const exportData = await this.s3Service.getObject(this.bucketName, exportPath);
-        if (exportData?.apiResponses?.listMembers) {
-          exportData.apiResponses.listMembers = {
-            timestamp: new Date().toISOString(),
-            data: updatedMembers,
-          };
-          await this.s3Service.putObject(this.bucketName, exportPath, exportData);
-        }
-      } catch (error) {
-        logger.warn(`Failed to update exported JSON for folder ${folderId}`, { error });
-      }
-    } catch (error) {
-      logger.error('Failed to update folder membership in cache', { folderId, assetId, error });
-      // Don't throw here - cache update failure shouldn't fail the whole operation
     }
   }
 }

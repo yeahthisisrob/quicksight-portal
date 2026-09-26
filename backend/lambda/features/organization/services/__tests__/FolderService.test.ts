@@ -11,6 +11,8 @@ vi.mock('../../../../shared/services/aws/S3Service');
 vi.mock('../../../../shared/services/cache/CacheService');
 vi.mock('../../../../shared/utils/logger');
 vi.mock('../TagService');
+const freshness = vi.hoisted(() => vi.fn());
+vi.mock('../../../../shared/services/cache/assetFreshness', () => ({ keepCacheFresh: freshness }));
 
 describe('FolderService', () => {
   let folderService: FolderService;
@@ -101,42 +103,13 @@ describe('FolderService', () => {
         memberType
       );
 
-      // Verify cache was updated
-      expect(mockCacheService.updateAsset).toHaveBeenCalledWith(
-        'folder',
-        folderId,
-        expect.objectContaining({
-          metadata: expect.objectContaining({
-            members: [
-              {
-                MemberId: 'other-asset',
-                MemberArn: 'arn:aws:quicksight:us-east-1:test-account-id:analysis/other-asset',
-                MemberType: 'ANALYSIS',
-              },
-            ],
-            memberCount: 1,
-          }),
-        })
-      );
-
-      // Verify S3 export was updated
-      expect(mockS3Service.putObject).toHaveBeenCalledWith(
-        expect.any(String),
-        `assets/folders/${folderId}.json`,
-        expect.objectContaining({
-          apiResponses: expect.objectContaining({
-            listMembers: expect.objectContaining({
-              data: [
-                {
-                  MemberId: 'other-asset',
-                  MemberArn: 'arn:aws:quicksight:us-east-1:test-account-id:analysis/other-asset',
-                  MemberType: 'ANALYSIS',
-                },
-              ],
-            }),
-          }),
-        })
-      );
+      // The folder and the asset are re-read from QuickSight (the folder lives
+      // in the shared collection file; nothing is patched by hand)
+      expect(freshness).toHaveBeenCalledWith([
+        { assetType: 'folder', assetId: folderId },
+        { assetType: 'dashboard', assetId },
+      ]);
+      expect(mockS3Service.putObject).not.toHaveBeenCalled();
     });
 
     it('should throw error when QuickSight API fails', async () => {

@@ -14,6 +14,7 @@ import type {
   ApplyRebindRequest,
   AuthorableAssetType,
   DefinitionDataset,
+  DefinitionSource,
   Proposal,
   RebindPlan,
   RebindRequest,
@@ -61,7 +62,15 @@ export interface RebindDraft {
 
 const PLAN_DEBOUNCE_MS = 400;
 
-export function useRebindDraft(source: RebindSource | null, enabled = true): RebindDraft {
+/**
+ * `origin: 'archive'` reads a deleted asset's archived definition (the
+ * Studio restoring it) instead of QuickSight.
+ */
+export function useRebindDraft(
+  source: RebindSource | null,
+  enabled = true,
+  origin: DefinitionSource = 'live'
+): RebindDraft {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [datasets, setDatasets] = useState<DefinitionDataset[]>([]);
@@ -91,14 +100,14 @@ export function useRebindDraft(source: RebindSource | null, enabled = true): Reb
     }
     setLoading(true);
     try {
-      const result = await authoringApi.getDatasets(sourceType, sourceId);
+      const result = await authoringApi.getDatasets(sourceType, sourceId, origin);
       setDatasets(result.datasets);
     } catch (error) {
       setLoadError(getApiErrorMessage(error, `Failed to read the ${sourceType}`));
     } finally {
       setLoading(false);
     }
-  }, [sourceType, sourceId, sourceName]);
+  }, [sourceType, sourceId, sourceName, origin]);
 
   useEffect(() => {
     if (enabled) {
@@ -133,7 +142,7 @@ export function useRebindDraft(source: RebindSource | null, enabled = true): Reb
     setPlanning(true);
     setPlanError(null);
     authoringApi
-      .planRebind(sourceType, sourceId, current)
+      .planRebind(sourceType, sourceId, current, origin)
       .then((next) => {
         if (!cancelled) {
           setPlan(next);
@@ -153,7 +162,7 @@ export function useRebindDraft(source: RebindSource | null, enabled = true): Reb
     return () => {
       cancelled = true;
     };
-  }, [rebindKey, enabled, sourceType, sourceId]);
+  }, [rebindKey, enabled, sourceType, sourceId, origin]);
 
   const setTarget = useCallback((identifier: string, target: DatasetOption | null) => {
     setTargets((prev) => ({ ...prev, [identifier]: target }));

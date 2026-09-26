@@ -45,10 +45,18 @@ interface BulkDeleteResult {
   duration: number;
 }
 
+/** Re-export these assets from QuickSight (the worker hands in the export's refresh). */
+export type RefreshAssets = (
+  assets: Array<{ assetType: AssetType; assetId: string }>
+) => Promise<{ refreshed: string[]; missing: string[]; failed: string[] }>;
+
 export class BulkDeleteService {
   private readonly archiveService: ArchiveService;
 
-  public constructor(private readonly quickSightService: QuickSightService) {
+  public constructor(
+    private readonly quickSightService: QuickSightService,
+    private readonly refreshAssets?: RefreshAssets
+  ) {
     const bucketName = process.env.BUCKET_NAME || 'quicksight-metadata-bucket';
     this.archiveService = new ArchiveService(bucketName, cacheService);
   }
@@ -85,76 +93,63 @@ export class BulkDeleteService {
       deletedBy: request.deletedBy,
     });
 
-    // Group assets by type for more efficient processing
-    const assetsByType = this.groupAssetsByType(request.assets);
+    const reason = request.reason || 'Bulk delete operation';
+    const individual = request.assets.filter((a) => !COLLECTION_ASSET_TYPES.includes(a.type));
+    const collection = request.assets.filter((a) => COLLECTION_ASSET_TYPES.includes(a.type));
 
-    // Process each asset type with concurrency control
+    // The archive is what a restore reads, so bring each export record up to
+    // date first: it then keeps the audience, tags and definition QuickSight
+    // has now, not what the last export saw.
+    await this.refreshBeforeDelete(individual);
+
     const deleteLimit = pLimit(EXPORT_CONFIG.s3Operations.maxConcurrentArchiveOps);
-    const assetsToArchive: Array<{
+    await Promise.all(
+      individual.map((asset) =>
+        deleteLimit(() => this.deleteOne(asset.type, asset.id, reason, request.deletedBy, result))
+      )
+    );
+
+    // Folders, users and groups: deleted, then moved within their collection file.
+    const collectionDeleted: Array<{
       assetType: AssetType;
       assetId: string;
       archiveReason?: string;
       archivedBy?: string;
     }> = [];
-
-    for (const [assetType, assetIds] of Object.entries(assetsByType)) {
-      logger.info(`Processing ${assetIds.length} ${assetType} assets for deletion`);
-
-      const deletePromises = assetIds.map((assetId) =>
+    await Promise.all(
+      collection.map((asset) =>
         deleteLimit(async () => {
           try {
-            // First, try to delete from QuickSight
-            await this.deleteFromQuickSight(assetType as AssetType, assetId);
-            result.deleted.byType[assetType as AssetType]++;
+            await this.deleteFromQuickSight(asset.type, asset.id);
+            result.deleted.byType[asset.type]++;
             result.deleted.total++;
-
-            // Track asset for bulk archiving
-            assetsToArchive.push({
-              assetType: assetType as AssetType,
-              assetId,
-              archiveReason: request.reason || 'Bulk delete operation',
+            collectionDeleted.push({
+              assetType: asset.type,
+              assetId: asset.id,
+              archiveReason: reason,
               archivedBy: request.deletedBy,
             });
-
-            logger.info(`Successfully deleted ${assetType} ${assetId} from QuickSight`);
           } catch (deleteError: any) {
-            // QuickSight deletion failed - do not archive
-            logger.error(`Failed to delete ${assetType} ${assetId} from QuickSight`, {
-              error: deleteError.message,
-            });
             result.errors.push({
-              assetType: assetType as AssetType,
-              assetId,
+              assetType: asset.type,
+              assetId: asset.id,
               error: deleteError.message || 'Unknown error',
             });
           }
         })
-      );
-
-      await Promise.all(deletePromises);
-    }
-
-    // Archive all successfully deleted assets in bulk
-    if (assetsToArchive.length > 0) {
-      try {
-        logger.info(`Archiving ${assetsToArchive.length} successfully deleted assets in bulk`);
-        await this.archiveService.archiveAssetsBulk(assetsToArchive);
-
-        // Update archived counts
-        for (const asset of assetsToArchive) {
-          result.archived.byType[asset.assetType]++;
+      )
+    );
+    if (collectionDeleted.length > 0) {
+      const archived = await this.archiveService.archiveAssetsBulk(collectionDeleted);
+      for (const outcome of archived) {
+        if (outcome.success) {
+          result.archived.byType[outcome.assetType as AssetType]++;
           result.archived.total++;
-        }
-
-        logger.info(`Successfully archived ${assetsToArchive.length} assets`);
-      } catch (archiveError: any) {
-        logger.error('Failed to bulk archive assets', { error: archiveError });
-        // Add error for each asset that failed to archive
-        for (const asset of assetsToArchive) {
+        } else {
           result.errors.push({
-            assetType: asset.assetType,
-            assetId: asset.assetId,
-            error: `Deleted from QuickSight but archive failed: ${archiveError.message}`,
+            assetType: outcome.assetType as AssetType,
+            assetId: outcome.assetId,
+            error: `Deleted from QuickSight but not archived: ${outcome.error ?? 'unknown error'}`,
           });
         }
       }
@@ -172,6 +167,70 @@ export class BulkDeleteService {
     });
 
     return result;
+  }
+
+  private async refreshBeforeDelete(assets: Array<{ type: AssetType; id: string }>) {
+    if (!this.refreshAssets || assets.length === 0) {
+      return;
+    }
+    try {
+      const refreshed = await this.refreshAssets(
+        assets.map((a) => ({ assetType: a.type, assetId: a.id }))
+      );
+      if (refreshed.failed.length > 0) {
+        logger.warn(
+          'Some assets could not be re-exported before delete; the archive keeps their last export',
+          {
+            failed: refreshed.failed,
+          }
+        );
+      }
+    } catch (error) {
+      logger.warn('Re-export before delete failed; the archive keeps the last export', { error });
+    }
+  }
+
+  /**
+   * One asset, restore-safe: a copy goes into the archive first, then
+   * QuickSight deletes it; if QuickSight refuses, the archive is put back
+   * as it was. With no copy to keep, it is not deleted at all.
+   */
+  private async deleteOne(
+    assetType: AssetType,
+    assetId: string,
+    reason: string,
+    deletedBy: string,
+    result: BulkDeleteResult
+  ): Promise<void> {
+    const kept = await this.archiveService.keepCopy(assetType, assetId, reason, deletedBy);
+    if (!kept.kept) {
+      result.errors.push({ assetType, assetId, error: `Not deleted: ${kept.error}` });
+      return;
+    }
+    try {
+      await this.deleteFromQuickSight(assetType, assetId);
+    } catch (deleteError: any) {
+      await this.archiveService.abandonArchive(assetType, assetId, kept.replaced);
+      logger.error(`Failed to delete ${assetType} ${assetId} from QuickSight`, {
+        error: deleteError.message,
+      });
+      result.errors.push({ assetType, assetId, error: deleteError.message || 'Unknown error' });
+      return;
+    }
+    result.deleted.byType[assetType]++;
+    result.deleted.total++;
+    try {
+      await this.archiveService.finishArchive(assetType, assetId, reason, deletedBy);
+      result.archived.byType[assetType]++;
+      result.archived.total++;
+    } catch (error: any) {
+      // The copy is in the archive; only the live file or the cache lags.
+      result.errors.push({
+        assetType,
+        assetId,
+        error: `Deleted and archived, but its live record could not be cleared: ${error?.message}`,
+      });
+    }
   }
 
   /**
@@ -312,27 +371,6 @@ export class BulkDeleteService {
       default:
         throw new Error(`Deletion not supported for asset type: ${assetType}`);
     }
-  }
-
-  /**
-   * Group assets by type for batch processing
-   */
-  private groupAssetsByType(
-    assets: Array<{ type: AssetType; id: string }>
-  ): Record<AssetType, string[]> {
-    const grouped: Record<string, string[]> = {};
-
-    for (const asset of assets) {
-      if (!grouped[asset.type]) {
-        grouped[asset.type] = [];
-      }
-      const typeArray = grouped[asset.type];
-      if (typeArray) {
-        typeArray.push(asset.id);
-      }
-    }
-
-    return grouped as Record<AssetType, string[]>;
   }
 
   /**

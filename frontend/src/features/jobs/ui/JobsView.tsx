@@ -33,6 +33,7 @@ import {
   jobTypeLabel,
   startedByLabel,
 } from '@/entities/job';
+import { PersonLabel } from '@/entities/user';
 
 import { getApiErrorMessage } from '@/shared/api';
 import type { JobMetadata, JobStatus, JobType } from '@/shared/api/modules/jobs';
@@ -136,6 +137,11 @@ const COLUMNS: GridColDef<JobMetadata>[] = [
     flex: 1,
     minWidth: 160,
     valueGetter: (_value, row) => startedByLabel(row),
+    renderCell: ({ row, value }) => (
+      <Box sx={{ display: 'flex', alignItems: 'center', height: '100%', minWidth: 0 }}>
+        <PersonLabel person={row.startedByPerson} fallback={value as string} />
+      </Box>
+    ),
   },
 ];
 

@@ -225,13 +225,21 @@ export class QuickSightAdapter {
     rowLevelPermissionTagConfiguration?: any;
     columnLevelPermissionRules?: any[];
     dataSetUsageConfiguration?: any;
+    /** New data prep experience: the steps that replace LogicalTableMap. */
+    dataPrepConfiguration?: any;
+    /** New data prep experience: the semantic model written beside those steps. */
+    semanticModelConfiguration?: any;
   }): Promise<{ arn: string; dataSetId: string; ingestionArn?: string }> {
+    // One data prep experience or the other, as for updateDataSet.
+    const newExperience = Boolean(params.dataPrepConfiguration);
     const command = new CreateDataSetCommand({
       AwsAccountId: this.awsAccountId,
       DataSetId: params.dataSetId,
       Name: params.name,
       PhysicalTableMap: params.physicalTableMap,
-      LogicalTableMap: params.logicalTableMap,
+      LogicalTableMap: newExperience ? undefined : params.logicalTableMap,
+      DataPrepConfiguration: params.dataPrepConfiguration,
+      SemanticModelConfiguration: params.semanticModelConfiguration,
       ImportMode: params.importMode,
       Permissions: params.permissions,
       Tags: params.tags,

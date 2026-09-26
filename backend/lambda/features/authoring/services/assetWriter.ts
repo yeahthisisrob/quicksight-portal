@@ -99,7 +99,11 @@ export async function updateAsset(
   return { assetId: input.assetId, arn: updated?.arn ?? updated?.Arn ?? '', versionNumber };
 }
 
-type ProvenanceAction = 'authoring.create' | 'authoring.update' | 'authoring.clone';
+type ProvenanceAction =
+  | 'authoring.create'
+  | 'authoring.update'
+  | 'authoring.clone'
+  | 'authoring.restore';
 
 /**
  * After every write: the cache learns of the asset at once and queues its

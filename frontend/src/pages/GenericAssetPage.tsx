@@ -2,7 +2,7 @@
  * Refactored GenericAssetPage with reduced complexity
  */
 import { useQuery } from '@tanstack/react-query';
-import { type ReactNode, useCallback, useMemo } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useAssetPage } from '@/features/asset-management';
@@ -164,7 +164,6 @@ export default function GenericAssetPage({
   } = useAssetPage({
     assetType,
     assets,
-    refreshAssetType,
     updateAssetTags,
   });
 
@@ -195,6 +194,21 @@ export default function GenericAssetPage({
     setNotifyUnusedDatasetsDialog,
     setAddToGroupOpen,
   } = dialogStates;
+
+  // A group's members dialog shows its row as it was when opened; when the
+  // list re-fetches (a membership change was announced), hand it the fresh row.
+  const openGroup = dialogStates.groupMembersDialog.open
+    ? dialogStates.groupMembersDialog.group
+    : null;
+  useEffect(() => {
+    if (!openGroup) return;
+    const fresh = (assets as any[]).find(
+      (a) => a.name === openGroup.name || (a.id && a.id === openGroup.id)
+    );
+    if (fresh && fresh !== openGroup) {
+      setGroupMembersDialog({ open: true, group: fresh });
+    }
+  }, [assets, openGroup, setGroupMembersDialog]);
   // Create column handlers (memoized so the DataGrid keeps a stable column
   // identity instead of re-initializing all columns/cells on every render)
   const columnHandlers = useMemo(

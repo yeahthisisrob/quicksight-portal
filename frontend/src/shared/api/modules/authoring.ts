@@ -28,6 +28,15 @@ export type RepairOp = Schemas['RepairOp'];
 export type RepairFix = Schemas['RepairFix'];
 export type RepairIssue = Schemas['RepairIssue'];
 export type RepairPlan = Schemas['RepairPlan'];
+export type RestoreRequest = Schemas['RestoreRequest'];
+export type RestoreResult = Schemas['RestoreResult'];
+
+/** Where a definition is read from: QuickSight, or the portal's archived copy. */
+export type DefinitionSource = 'live' | 'archive';
+
+/** `?source=archive` only when it is the archive, so live calls stay as they were. */
+const sourceQuery = (source: DefinitionSource = 'live') =>
+  source === 'archive' ? { source: 'archive' as const } : {};
 
 type PostBody<P extends keyof paths> = paths[P] extends {
   post: { requestBody?: { content: { 'application/json': infer B } } };
@@ -49,10 +58,14 @@ type RepairPlanRequest = PostBody<'/api/authoring/{assetType}/{assetId}/repair/p
  */
 export const authoringApi = {
   /** The datasets a definition declares and the columns it reads from each. */
-  async getDatasets(assetType: AuthorableAssetType, assetId: string): Promise<DefinitionDatasets> {
+  async getDatasets(
+    assetType: AuthorableAssetType,
+    assetId: string,
+    source?: DefinitionSource
+  ): Promise<DefinitionDatasets> {
     return unwrap(
       await client.GET('/api/authoring/{assetType}/{assetId}/datasets', {
-        params: { path: { assetType, assetId } },
+        params: { path: { assetType, assetId }, query: sourceQuery(source) },
       }),
       'Failed to read the definition'
     );
@@ -62,11 +75,12 @@ export const authoringApi = {
   async planRebind(
     assetType: AuthorableAssetType,
     assetId: string,
-    rebinds: RebindRequest[]
+    rebinds: RebindRequest[],
+    source?: DefinitionSource
   ): Promise<RebindPlan> {
     return unwrap(
       await client.POST('/api/authoring/{assetType}/{assetId}/rebind/plan', {
-        params: { path: { assetType, assetId } },
+        params: { path: { assetType, assetId }, query: sourceQuery(source) },
         body: { rebinds },
       }),
       'Failed to plan the rebind'
@@ -92,11 +106,12 @@ export const authoringApi = {
   async previewRebind(
     assetType: AuthorableAssetType,
     assetId: string,
-    request: RebindRequest[] | PreviewRequest
+    request: RebindRequest[] | PreviewRequest,
+    source?: DefinitionSource
   ): Promise<RebindPreview> {
     return unwrap(
       await client.POST('/api/authoring/{assetType}/{assetId}/rebind/preview', {
-        params: { path: { assetType, assetId } },
+        params: { path: { assetType, assetId }, query: sourceQuery(source) },
         body: Array.isArray(request) ? { rebinds: request } : request,
       }),
       'Failed to preview the rebind'
@@ -111,14 +126,34 @@ export const authoringApi = {
   async planRepair(
     assetType: AuthorableAssetType,
     assetId: string,
-    request: RepairPlanRequest = {}
+    request: RepairPlanRequest = {},
+    source?: DefinitionSource
   ): Promise<RepairPlan> {
     return unwrap(
       await client.POST('/api/authoring/{assetType}/{assetId}/repair/plan', {
-        params: { path: { assetType, assetId } },
+        params: { path: { assetType, assetId }, query: sourceQuery(source) },
         body: request,
       }),
       'Failed to plan the repair'
+    );
+  },
+
+  /**
+   * Bring an archived dashboard or analysis back, with the repairs, dataset
+   * choices and edits made on it; created under its old id unless another
+   * is given, never over anything.
+   */
+  async restore(
+    assetType: AuthorableAssetType,
+    assetId: string,
+    request: RestoreRequest
+  ): Promise<RestoreResult> {
+    return unwrap(
+      await client.POST('/api/authoring/{assetType}/{assetId}/restore', {
+        params: { path: { assetType, assetId } },
+        body: request,
+      }),
+      'Failed to restore it'
     );
   },
 

@@ -21,9 +21,21 @@ const mocks = vi.hoisted(() => ({
     createAnalysis: vi.fn(),
     createDashboard: vi.fn(),
     createFolderMembership: vi.fn(),
+    describeAnalysis: vi.fn(),
+    describeDashboard: vi.fn(),
+    tagResource: vi.fn(),
   },
   s3: { getObject: vi.fn() },
+  archive: { getArchivedAsset: vi.fn(), markRestored: vi.fn() },
+  cache: { getCacheEntries: vi.fn() },
 }));
+
+vi.mock('../../../../shared/services/archive/ArchiveService', () => ({
+  ArchiveService: vi.fn(function () {
+    return mocks.archive;
+  }),
+}));
+vi.mock('../../../../shared/services/cache/CacheService', () => ({ cacheService: mocks.cache }));
 
 const freshness = vi.hoisted(() => vi.fn());
 vi.mock('../../../../shared/services/cache/assetFreshness', () => ({ keepCacheFresh: freshness }));
@@ -77,6 +89,7 @@ describe('RebindService', () => {
       dashboardId: 'new',
       versionArn: 'arn:dashboard/new/version/1',
     });
+    mocks.cache.getCacheEntries.mockResolvedValue([]);
     service = new RebindService('1');
   });
 
@@ -419,6 +432,155 @@ describe('RebindService', () => {
       await service.apply('analysis', 'a1', { mode: 'clone', name: 'Copy', rebinds: [] });
       expect(mocks.qs.createAnalysis.mock.calls[0]?.[0].permissions).toBeUndefined();
     });
+  });
+});
+
+describe('RebindService restoring an archived asset', () => {
+  const ROB = 'arn:aws:quicksight:us-east-1:1:user/default/rob';
+  const GONE = 'arn:aws:quicksight:us-east-1:1:user/default/left-the-company';
+  const ANALYSTS = 'arn:aws:quicksight:us-east-1:1:group/default/analysts';
+  const notFound = () =>
+    Object.assign(new Error('not found'), { name: 'ResourceNotFoundException' });
+  let service: RebindService;
+
+  function archivedRecord(overrides: Record<string, any> = {}) {
+    return {
+      apiResponses: {
+        definition: {
+          data: {
+            Name: 'Sales analysis',
+            Definition: sampleDefinition(),
+            ThemeArn: 'arn:theme',
+          },
+        },
+        permissions: {
+          data: [
+            { Principal: ROB, Actions: ['quicksight:DescribeAnalysis'] },
+            { Principal: GONE, Actions: ['quicksight:DescribeAnalysis'] },
+            { Principal: ANALYSTS, Actions: ['quicksight:DescribeAnalysis'] },
+          ],
+        },
+        tags: {
+          data: [
+            { key: 'team', value: 'sales' },
+            { key: 'portal:channel', value: 'ui' },
+          ],
+        },
+        ...overrides,
+      },
+      archivedMetadata: { archivedAt: '2026-09-01T00:00:00Z', archiveReason: 'Deleted via portal' },
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.archive.getArchivedAsset.mockResolvedValue(archivedRecord());
+    mocks.qs.describeAnalysis.mockRejectedValue(notFound());
+    mocks.qs.describeDashboard.mockRejectedValue(notFound());
+    mocks.qs.describeDataset.mockResolvedValue({
+      Arn: GOLD_ARN,
+      Name: 'orders_gold',
+      OutputColumns: GOLD_COLUMNS,
+    });
+    mocks.qs.createAnalysis.mockResolvedValue({ arn: 'arn:analysis/a1', analysisId: 'a1' });
+    mocks.cache.getCacheEntries.mockImplementation(async ({ assetType }: any) =>
+      assetType === 'user' ? [{ arn: ROB }] : [{ arn: ANALYSTS }]
+    );
+    service = new RebindService('1');
+  });
+
+  it('reads the archived definition, never QuickSight, when asked for the archive', async () => {
+    const result = await service.describeDatasets('analysis', 'a1', 'archive');
+    expect(result.name).toBe('Sales analysis');
+    expect(mocks.qs.describeAnalysisDefinition).not.toHaveBeenCalled();
+    expect(mocks.archive.getArchivedAsset).toHaveBeenCalledWith('analysis', 'a1');
+  });
+
+  it('restores under its old id with its audience, less who is gone, and its tags', async () => {
+    const result = await service.restore('analysis', 'a1', { rebinds: [] });
+
+    const call = mocks.qs.createAnalysis.mock.calls[0]?.[0];
+    expect(call.analysisId).toBe('a1');
+    expect(call.name).toBe('Sales analysis');
+    expect(call.themeArn).toBe('arn:theme');
+    expect(call.permissions.map((p: any) => p.Principal)).toEqual([ROB, ANALYSTS]);
+    expect(mocks.qs.tagResource).toHaveBeenCalledWith('analysis', 'a1', [
+      { key: 'team', value: 'sales' },
+    ]);
+    expect(mocks.archive.markRestored).toHaveBeenCalledWith(
+      'analysis',
+      'a1',
+      expect.objectContaining({ restoredAs: 'a1', restoredBy: 'the portal' })
+    );
+    expect(result).toMatchObject({ assetId: 'a1', mode: 'restore' });
+    expect(result.warnings?.[0]).toContain('left-the-company');
+  });
+
+  it('refuses the old id while QuickSight holds it, and takes a new one', async () => {
+    mocks.qs.describeAnalysis.mockResolvedValue({
+      AnalysisId: 'a1',
+      Status: 'CREATION_SUCCESSFUL',
+    });
+    await expect(service.restore('analysis', 'a1', { rebinds: [] })).rejects.toThrow(
+      'restore it under a new id'
+    );
+    mocks.qs.describeAnalysis.mockImplementation(async (id: string) => {
+      if (id === 'a1') return { Status: 'DELETED' };
+      throw notFound();
+    });
+    await expect(service.restore('analysis', 'a1', { rebinds: [] })).rejects.toThrow(
+      'recovery window'
+    );
+    await service.restore('analysis', 'a1', { rebinds: [], newAssetId: 'a1-restored' });
+    expect(mocks.qs.createAnalysis.mock.calls[0]?.[0].analysisId).toBe('a1-restored');
+  });
+
+  it('applies repairs, dataset choices and edits before it writes', async () => {
+    const result = await service.restore('analysis', 'a1', {
+      rebinds: [{ identifier: 'orders', targetDataSetId: 'orders-gold', columnMap: FULL_MAP }],
+      ops: [{ op: 'retitle', sheetId: 's1', elementId: 'v1', title: 'Back again' }],
+    });
+    const call = mocks.qs.createAnalysis.mock.calls[0]?.[0];
+    expect(call.definition.DataSetIdentifierDeclarations[0].DataSetArn).toBe(GOLD_ARN);
+    expect(call.definition.Sheets[0].Visuals[0].BarChartVisual.Title.FormatText.PlainText).toBe(
+      'Back again'
+    );
+    expect(result.changes.map((c) => c.kind)).toContain('visual');
+  });
+
+  it('says so when the archive kept no audience or shared the dashboard by link', async () => {
+    mocks.archive.getArchivedAsset.mockResolvedValue(
+      archivedRecord({
+        definition: { data: { Name: 'Board', Definition: sampleDefinition() } },
+        permissions: { data: { Permissions: [], LinkSharingConfiguration: { Permissions: [{}] } } },
+      })
+    );
+    mocks.qs.createDashboard.mockResolvedValue({
+      arn: 'arn:dashboard/d1',
+      dashboardId: 'd1',
+      versionArn: 'arn:dashboard/d1/version/1',
+    });
+    const result = await service.restore('dashboard', 'd1', { rebinds: [] });
+    expect(result.warnings?.join(' ')).toContain('shared by link');
+    expect(result.warnings?.join(' ')).toContain('kept no audience');
+  });
+
+  it('reads the new asset back and says what QuickSight still objects to', async () => {
+    mocks.qs.describeAnalysis.mockRejectedValueOnce(notFound()).mockResolvedValueOnce({
+      Status: 'CREATION_SUCCESSFUL',
+      Errors: [{ Type: 'COLUMN_NOT_FOUND', Message: 'Column margin was not found' }],
+    });
+    const result = await service.restore('analysis', 'a1', { rebinds: [] });
+    expect(result.warnings?.join(' ')).toContain(
+      'QuickSight still reports 1 error: COLUMN_NOT_FOUND: Column margin was not found'
+    );
+  });
+
+  it('refuses an archive without a definition', async () => {
+    mocks.archive.getArchivedAsset.mockResolvedValue({ apiResponses: {} });
+    await expect(service.restore('analysis', 'a1', { rebinds: [] })).rejects.toThrow(
+      'has no definition'
+    );
   });
 });
 

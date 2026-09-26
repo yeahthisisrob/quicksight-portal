@@ -13,7 +13,21 @@ export const ITEMS = [
     lastActivity: daysAgo(35),
     archivedDate: daysAgo(3),
     archiveReason: 'No views in 180 days',
-    archivedBy: 'rob',
+    archivedBy: 'rob@example.com',
+    archivedByPerson: {
+      label: 'rob@example.com',
+      kind: 'person',
+      email: 'rob@example.com',
+      quickSightUserName: 'rob',
+    },
+    restorations: [
+      {
+        restoredAt: daysAgo(1),
+        restoredBy: 'ann@example.com',
+        restoredAs: 'sales-overview-restored',
+        restoredByPerson: { label: 'ann@example.com', kind: 'person', email: 'ann@example.com' },
+      },
+    ],
   },
   {
     id: '3b1f7c2e-2222-4a8e-9c3d-000000000002',
@@ -23,7 +37,8 @@ export const ITEMS = [
     lastUpdatedTime: daysAgo(90),
     archivedDate: daysAgo(10),
     archiveReason: 'Replaced by orders_gold',
-    archivedBy: 'rob',
+    archivedBy: '9f8e7d6c-1234-4abc-8def-0123456789ab',
+    archivedByPerson: { label: 'Ann Lee', kind: 'person' },
   },
   {
     id: '3b1f7c2e-3333-4a8e-9c3d-000000000003',
@@ -33,11 +48,23 @@ export const ITEMS = [
     lastUpdatedTime: daysAgo(500),
     archivedDate: daysAgo(30),
     archiveReason: 'Demo cleanup',
-    archivedBy: 'script',
+    archivedBy: 'cleanup (API key)',
+    archivedByPerson: { label: 'cleanup (API key)', kind: 'api-key' },
+  },
+  {
+    id: 'finance',
+    name: 'Finance',
+    type: 'folder',
+    createdTime: daysAgo(700),
+    lastUpdatedTime: daysAgo(60),
+    archivedDate: daysAgo(45),
+    archiveReason: 'Merged into Reporting',
+    archivedBy: 'system',
+    archivedByPerson: { label: 'The portal', kind: 'portal' },
   },
 ];
 
-export const archivedRoutes = (items: typeof ITEMS, fail?: string): MockRoute[] => [
+export const archivedRoutes = (items: unknown[], fail?: string): MockRoute[] => [
   {
     method: 'get',
     url: '/assets/archived',

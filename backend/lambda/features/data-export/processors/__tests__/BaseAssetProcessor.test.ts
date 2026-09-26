@@ -319,6 +319,68 @@ describe('BaseAssetProcessor - Refresh Options', () => {
     });
   });
 
+  describe('what a write keeps', () => {
+    const summary = {
+      dashboardId: 'dashboard-1',
+      name: 'Test Dashboard',
+      arn: 'arn:aws:quicksight:us-east-1:123456789012:dashboard/dashboard-1',
+      createdTime: new Date(),
+      lastUpdatedTime: new Date(),
+    };
+    const previousRecord = {
+      apiResponses: {
+        list: { timestamp: 'old', data: { Name: 'Test Dashboard' } },
+        describe: { timestamp: 'old', data: { DashboardId: 'dashboard-1' } },
+        definition: { timestamp: 'old', data: { Definition: { Sheets: [{ SheetId: 's1' }] } } },
+        permissions: { timestamp: 'old', data: [{ Principal: 'owner', Actions: ['all'] }] },
+        tags: { timestamp: 'old', data: [{ key: 'team', value: 'sales' }] },
+      },
+    };
+    const written = () => mockS3Service.putObject.mock.calls[0]?.[2] as any;
+
+    it('keeps the definition and tags through a permissions-only refresh', async () => {
+      mockS3Service.getObject.mockResolvedValue(previousRecord);
+      await processor.processAsset(summary, {
+        forceRefresh: false,
+        refreshOptions: { definitions: false, permissions: true, tags: false },
+      });
+      expect(written().apiResponses.definition.data.Definition.Sheets[0].SheetId).toBe('s1');
+      expect(written().apiResponses.tags.data).toEqual([{ key: 'team', value: 'sales' }]);
+      expect(written().apiResponses.permissions.data[0].Principal).toBe('user1');
+    });
+
+    it('keeps permissions and tags when a caller turns them off', async () => {
+      mockS3Service.getObject.mockResolvedValue(previousRecord);
+      await processor.processAsset(summary, {
+        forceRefresh: true,
+        refreshOptions: { definitions: true, permissions: false, tags: false },
+      });
+      expect(written().apiResponses.permissions.data[0].Principal).toBe('owner');
+      expect(written().apiResponses.tags.data[0].key).toBe('team');
+    });
+
+    it('writes nothing when the record it would replace cannot be read', async () => {
+      mockS3Service.getObject.mockRejectedValue(
+        Object.assign(new Error('Slow down'), { name: 'SlowDown' })
+      );
+      const result = await processor.processAsset(summary, {
+        forceRefresh: false,
+        refreshOptions: { definitions: false, permissions: true, tags: false },
+      });
+      expect(result.status).toBe('error');
+      expect(mockS3Service.putObject).not.toHaveBeenCalled();
+    });
+
+    it('writes a first record when there is none yet', async () => {
+      mockS3Service.getObject.mockRejectedValue(
+        Object.assign(new Error('missing'), { name: 'NoSuchKey' })
+      );
+      const result = await processor.processAsset(summary, { forceRefresh: true });
+      expect(result.status).toBe('success');
+      expect(written().apiResponses.permissions.data[0].Principal).toBe('user1');
+    });
+  });
+
   describe('standard refresh', () => {
     it('should call describe for standard refresh with definitions', async () => {
       const summary = {
@@ -413,14 +475,14 @@ describe('BaseAssetProcessor - Collection Storage', () => {
       expect(batch.isDirty).toBe(true);
     });
 
-    it('should not load existing collection data', async () => {
+    it('starts from the collection file, so a partial run never shrinks it', async () => {
       const bucketName = 'test-bucket';
       const assetId = 'user-2';
       const assetData = { UserName: 'user-2', Email: 'user2@example.com' };
 
-      // Mock S3 to return existing collection with deleted items
+      // Deleted items leave the file in the archive step, before any
+      // processing; what is still in it is kept, whether processed or not.
       mockS3Service.getObject.mockResolvedValue({
-        'deleted-user': { UserName: 'deleted-user', Email: 'deleted@example.com' },
         'old-user': { UserName: 'old-user', Email: 'old@example.com' },
       });
 
@@ -429,10 +491,22 @@ describe('BaseAssetProcessor - Collection Storage', () => {
       const batchKey = `${bucketName}:${collectionProcessor.testGetCollectionCacheKey()}`;
       const batch = (BaseAssetProcessor as any).collectionBatches.get(batchKey);
 
-      // Should only contain the new user, not the old/deleted ones
-      expect(batch.data).toEqual({ 'user-2': assetData });
-      expect(batch.data['deleted-user']).toBeUndefined();
-      expect(batch.data['old-user']).toBeUndefined();
+      expect(batch.data).toEqual({
+        'old-user': { UserName: 'old-user', Email: 'old@example.com' },
+        'user-2': assetData,
+      });
+      expect(mockS3Service.getObject).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not write over the file when it cannot be read', async () => {
+      mockS3Service.getObject.mockRejectedValue(
+        Object.assign(new Error('Service unavailable'), { name: 'ServiceUnavailable' })
+      );
+      await expect(
+        collectionProcessor.testSaveToCollection('test-bucket', 'user-1', { UserName: 'user-1' })
+      ).rejects.toThrow('Service unavailable');
+      const batchKey = `test-bucket:${collectionProcessor.testGetCollectionCacheKey()}`;
+      expect((BaseAssetProcessor as any).collectionBatches.get(batchKey)).toBeUndefined();
     });
 
     it('should accumulate multiple assets in the same batch', async () => {

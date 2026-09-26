@@ -18,6 +18,110 @@ security:
 paths:
   # Asset listing endpoints
 
+  /api/assets/{assetType}/{assetId}/restore/preview:
+    post:
+      operationId: postAssetsByAssetTypeByAssetIdRestorePreview
+      tags: [Assets]
+      summary: Check whether an archived dataset or data source can be restored
+      description: |
+        Each check says what it found and whether it blocks: the archive holds
+        its definition, the id (the archived one, or `newAssetId`) is free in
+        QuickSight, every data source a dataset reads still exists, and a
+        data source needs no credentials the export never keeps. Dashboards
+        and analyses restore through `/api/authoring/{assetType}/{assetId}/restore`.
+      parameters:
+        - name: assetType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [dataset, datasource]
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                newAssetId:
+                  type: string
+      responses:
+        '200':
+          description: The checks
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/SourceRestorePreview'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/assets/{assetType}/{assetId}/restore:
+    post:
+      operationId: postAssetsByAssetTypeByAssetIdRestore
+      tags: [Assets]
+      summary: Restore an archived dataset or data source
+      description: |
+        Refused unless every blocking check passes. It is created from the
+        archived record, never written over anything; its audience comes back
+        less users and groups deleted since, with the person restoring it as
+        owner, and its tags and (for a dataset) refresh schedules come back.
+        The archive records who restored it, when and as what.
+      parameters:
+        - name: assetType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [dataset, datasource]
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                newAssetId:
+                  type: string
+                  description: Defaults to the archived id.
+                name:
+                  type: string
+                  description: Defaults to the archived name.
+      responses:
+        '200':
+          description: What was restored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/SourceRestoreResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/assets/archived:
     get:
       operationId: getAssetsArchived
@@ -1960,6 +2064,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/AuthorableAssetType'
         - $ref: '#/components/parameters/AuthoringAssetId'
+        - $ref: '#/components/parameters/DefinitionSource'
       responses:
         '200':
           description: The definition's datasets
@@ -2001,6 +2106,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/AuthorableAssetType'
         - $ref: '#/components/parameters/AuthoringAssetId'
+        - $ref: '#/components/parameters/DefinitionSource'
       requestBody:
         required: true
         content:
@@ -2078,6 +2184,51 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/authoring/{assetType}/{assetId}/restore:
+    post:
+      operationId: postAuthoringByAssetTypeByAssetIdRestore
+      tags: [Authoring]
+      summary: Bring an archived dashboard or analysis back
+      description: |
+        Reads the copy the portal archived when the asset was deleted and
+        writes it back as a new asset, through the same checks as every
+        other write: `repairs` first, then the `rebinds` plan (refused unless
+        every column resolves), then `ops`. Check and preview it first with
+        `?source=archive` on the repair plan and preview endpoints.
+
+        It is created, never written over anything: the id (the archived one,
+        or `newAssetId`) must be free in QuickSight, including a deleted
+        analysis still in QuickSight's recovery window. Its audience is the
+        archived one less users and groups that no longer exist, with the
+        person restoring it as owner; its name, theme and tags come back,
+        and the archive records who restored it, when and as what.
+      parameters:
+        - $ref: '#/components/parameters/AuthorableAssetType'
+        - $ref: '#/components/parameters/AuthoringAssetId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestoreRequest'
+      responses:
+        '200':
+          description: The asset that was restored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/RestoreResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/authoring/{assetType}/{assetId}/repair/plan:
     post:
       operationId: postAuthoringByAssetTypeByAssetIdRepairPlan
@@ -2099,17 +2250,9 @@ paths:
         result, then to the rebind endpoint with `mode: update` to fix the
         asset in place, or `mode: clone` to fix a copy.
       parameters:
-        - name: assetType
-          in: path
-          required: true
-          schema:
-            type: string
-            enum: [dashboard, analysis]
-        - name: assetId
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/AuthorableAssetType'
+        - $ref: '#/components/parameters/AuthoringAssetId'
+        - $ref: '#/components/parameters/DefinitionSource'
       requestBody:
         required: false
         content:
@@ -2209,6 +2352,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/AuthorableAssetType'
         - $ref: '#/components/parameters/AuthoringAssetId'
+        - $ref: '#/components/parameters/DefinitionSource'
       requestBody:
         required: true
         content:
@@ -4634,153 +4778,6 @@ paths:
   # ---------------------------------------------------------------------------
   # Deployments - restore archived assets
   # ---------------------------------------------------------------------------
-  /api/deployments:
-    post:
-      operationId: postDeployments
-      summary: Deploy (restore) an asset from its archived export (queues a job)
-      tags: [Deployments]
-      requestBody:
-        $ref: '#/components/requestBodies/Deployment'
-      responses:
-        '202':
-          description: Queued; follow the job under /api/jobs/{jobId}
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [success, data]
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    $ref: '#/components/schemas/JobQueued'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  /api/deployments/validate:
-    post:
-      operationId: postDeploymentsValidate
-      summary: Check a deployment without running it
-      tags: [Deployments]
-      requestBody:
-        $ref: '#/components/requestBodies/Deployment'
-      responses:
-        '200':
-          description: Validation findings
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [success, data]
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    required: [validationResults, canDeploy]
-                    properties:
-                      validationResults:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/DeploymentValidationResult'
-                      canDeploy:
-                        type: boolean
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  /api/deployments/history:
-    get:
-      operationId: getDeploymentsHistory
-      summary: Past deployments
-      tags: [Deployments]
-      parameters:
-        - name: limit
-          in: query
-          schema:
-            type: integer
-        - name: assetType
-          in: query
-          schema:
-            type: string
-        - name: assetId
-          in: query
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Deployments, newest first
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [success, data]
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      additionalProperties: true
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  /api/deployments/templates:
-    get:
-      operationId: getDeploymentsTemplates
-      summary: Manifest templates for common deployments
-      tags: [Deployments]
-      responses:
-        '200':
-          description: Templates
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [success, data]
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      additionalProperties: true
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  /api/deployments/jobs/{jobId}:
-    get:
-      operationId: getDeploymentsJobsByJobId
-      summary: A deployment job's status (same record as /api/jobs/{jobId})
-      tags: [Deployments]
-      parameters:
-        - $ref: '#/components/parameters/JobId'
-      responses:
-        '200':
-          description: The job
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Job'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  /api/deployments/jobs/{jobId}/stop:
-    post:
-      operationId: postDeploymentsJobsByJobIdStop
-      summary: Stop a deployment job
-      tags: [Deployments]
-      parameters:
-        - $ref: '#/components/parameters/JobId'
-      responses:
-        '200':
-          $ref: '#/components/responses/Acknowledged'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
   # ---------------------------------------------------------------------------
   # Data catalog - the older field-level views and field tags
   # ---------------------------------------------------------------------------
@@ -5069,6 +5066,18 @@ components:
       required: true
       schema:
         type: string
+    DefinitionSource:
+      name: source
+      in: query
+      required: false
+      description: >-
+        `archive` reads the copy the portal kept when the asset was deleted,
+        instead of QuickSight, so an archived asset can be checked, repaired,
+        edited and previewed before it is restored.
+      schema:
+        type: string
+        enum: [live, archive]
+        default: live
 
   schemas:
     AiModelKey:
@@ -5608,6 +5617,72 @@ components:
       type: string
       enum: [export, deploy, ingestion, rebuild, activity-refresh, bulk-operation, csv-export, smus-export, planner, assistant, asset-refresh]
 
+    SourceRestorePreview:
+      type: object
+      required: [assetType, assetId, name, canRestore, checks]
+      properties:
+        assetType:
+          type: string
+          enum: [dataset, datasource]
+        assetId:
+          type: string
+        name:
+          type: string
+        canRestore:
+          type: boolean
+        checks:
+          type: array
+          items:
+            type: object
+            required: [label, ok, blocking, detail]
+            properties:
+              label:
+                type: string
+              ok:
+                type: boolean
+              blocking:
+                type: boolean
+                description: A failed blocking check stops the restore; the rest are warnings.
+              detail:
+                type: string
+
+    SourceRestoreResult:
+      type: object
+      required: [assetType, assetId, name, arn, warnings]
+      properties:
+        assetType:
+          type: string
+          enum: [dataset, datasource]
+        assetId:
+          type: string
+        name:
+          type: string
+        arn:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+
+    Person:
+      type: object
+      description: Someone the portal names - who started a job, archived or restored an asset.
+      required: [label, kind]
+      properties:
+        label:
+          type: string
+          description: How to show them - an email, an API key's label, a user name.
+        kind:
+          type: string
+          enum: [person, api-key, portal]
+        email:
+          type: string
+        quickSightUserName:
+          type: string
+          description: Their QuickSight user, when one matches by email or user name.
+        quickSightUserArn:
+          type: string
+
     Job:
       type: object
       description: One background job, as /api/jobs returns it.
@@ -5702,6 +5777,8 @@ components:
         startedBy:
           type: string
           description: Who started it, in words - an email, or an API key's label. Absent when the portal started it itself.
+        startedByPerson:
+          $ref: '#/components/schemas/Person'
         accountId:
           type: string
         assetType:
@@ -6108,6 +6185,25 @@ components:
             archivedBy:
               type: string
               description: User or system that archived the asset
+            archivedByPerson:
+              $ref: '#/components/schemas/Person'
+            restorations:
+              type: array
+              description: Each time it was restored from this archive - the ledger's other half.
+              items:
+                type: object
+                required: [restoredAt, restoredBy, restoredAs]
+                properties:
+                  restoredAt:
+                    type: string
+                    format: date-time
+                  restoredBy:
+                    type: string
+                  restoredAs:
+                    type: string
+                    description: The id it was restored under.
+                  restoredByPerson:
+                    $ref: '#/components/schemas/Person'
             lastActivity:
               type: string
               format: date-time
@@ -7985,6 +8081,61 @@ components:
         folderIds:
           type: array
           description: Clone only - the folders it was filed in (the request's folderId and the default folders from Settings).
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+
+    RestoreRequest:
+      type: object
+      properties:
+        rebinds:
+          type: array
+          items:
+            $ref: '#/components/schemas/RebindRequest'
+        repairs:
+          type: array
+          items:
+            $ref: '#/components/schemas/RepairOp'
+        ops:
+          type: array
+          items:
+            $ref: '#/components/schemas/DefinitionOp'
+        name:
+          type: string
+          description: Defaults to the archived name.
+        newAssetId:
+          type: string
+          description: Defaults to the archived id; refused while an asset holds it.
+        folderId:
+          type: string
+
+    RestoreResult:
+      type: object
+      required: [assetType, assetId, name, arn, mode, changes, folderIds]
+      properties:
+        assetType:
+          $ref: '#/components/schemas/AuthorableAssetType'
+        assetId:
+          type: string
+        name:
+          type: string
+        arn:
+          type: string
+        mode:
+          type: string
+          enum: [restore]
+        versionNumber:
+          type: integer
+          description: Dashboards only. The version created and published.
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DefinitionChange'
+        folderIds:
+          type: array
           items:
             type: string
         warnings:
@@ -10439,24 +10590,6 @@ components:
           nullable: true
           description: Human-readable size (e.g. "12.5 MB", "1.2 GB") for SPICE datasets
 
-    DeploymentValidationResult:
-      type: object
-      description: One check a deployment ran before writing.
-      required: [validator, passed, severity]
-      properties:
-        validator:
-          type: string
-        passed:
-          type: boolean
-        message:
-          type: string
-        severity:
-          type: string
-          enum: [error, warning, info]
-        details:
-          type: object
-          additionalProperties: true
-
     ResolvedRecipient:
       type: object
       required: [userName, email]
@@ -10519,25 +10652,6 @@ components:
                 minItems: 1
                 items:
                   $ref: '#/components/schemas/AssetRef'
-    Deployment:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            required: [assetType, assetId, deploymentConfig]
-            properties:
-              assetType:
-                type: string
-                enum: [dashboard, analysis, dataset, datasource, folder, user, group]
-                description: Any asset type; folders, users and groups are reported as not restorable.
-              assetId:
-                type: string
-              deploymentConfig:
-                type: object
-                description: deploymentType (restore), source (archive), target and options; see the Deploy page for the shape it sends.
-                additionalProperties: true
-
   responses:
     Acknowledged:
       description: Done

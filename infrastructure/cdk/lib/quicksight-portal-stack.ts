@@ -249,6 +249,15 @@ export class QuicksightPortalStack extends Stack {
         resources: ['*'],
       })
     );
+    // Name the people behind jobs and archives: a sign-in id (the Cognito sub
+    // older records kept) is looked up for its email, scoped to this pool.
+    lambdaRole.addToPolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ['cognito-idp:ListUsers'],
+        resources: [userPool.userPoolArn],
+      })
+    );
     // Planner (natural-language rebind proposals) over the Bedrock Converse
     // API. The wildcard region matters: cross-region inference profiles
     // (us.anthropic.*) fan out to other regions' foundation models.
@@ -328,6 +337,8 @@ export class QuicksightPortalStack extends Stack {
       PLANNER_MODEL_ID: process.env.PLANNER_MODEL_ID || 'us.anthropic.claude-sonnet-4-6',
       EXPORT_QUEUE_URL: exportQueue.queueUrl,
       JOBS_TABLE_NAME: jobsTable.tableName,
+      // In the shared environment: the assistant runs portal routes in the worker too.
+      COGNITO_USER_POOL_ID: userPool.userPoolId,
       ...(smusDomainId ? { SMUS_DOMAIN_ID: smusDomainId } : {}),
       ...(smusPortalUrl ? { SMUS_PORTAL_URL: smusPortalUrl } : {}),
     };
@@ -342,7 +353,6 @@ export class QuicksightPortalStack extends Stack {
       environment: {
         ...sharedEnvironment,
         SERVICE_NAME: 'quicksight-portal-api',
-        COGNITO_USER_POOL_ID: userPool.userPoolId,
         COGNITO_ISSUER: `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}`,
       },
     });

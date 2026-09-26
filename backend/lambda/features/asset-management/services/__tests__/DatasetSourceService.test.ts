@@ -21,6 +21,8 @@ vi.mock('../../../../shared/services/cache/CacheService', () => ({
   cacheService: mocks.cache,
 }));
 
+const freshness = vi.hoisted(() => vi.fn());
+vi.mock('../../../../shared/services/cache/assetFreshness', () => ({ keepCacheFresh: freshness }));
 vi.mock('../../../../shared/utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
@@ -234,9 +236,12 @@ describe('DatasetSourceService', () => {
       expect(result.name).toBe('orders_fact_v2');
     });
 
-    it('does not touch the cache when the name is unchanged', async () => {
+    it('re-reads the dataset after a source change, without patching a name that did not change', async () => {
       await service.updateSource('ds-1', { tables: [{ id: 't-rel', schema: 'other' }] });
       expect(mocks.cache.updateAsset).not.toHaveBeenCalled();
+      expect(freshness).toHaveBeenCalledWith([
+        expect.objectContaining({ assetType: 'dataset', assetId: 'ds-1' }),
+      ]);
     });
 
     it('leaves the live dataset alone if any edit is invalid', async () => {

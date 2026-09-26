@@ -23,6 +23,7 @@ import { RebindService } from '../services/RebindService';
 import {
   type ApplyRequest,
   type AuthorableAssetType,
+  type DefinitionSource,
   isAuthorableAssetType,
   type RebindRequest,
   type TemplateRequest,
@@ -45,7 +46,11 @@ export class AuthoringHandler {
     try {
       await requireAuth(event);
       const target = this.target(event);
-      const result = await this.service().describeDatasets(target.assetType, target.assetId);
+      const result = await this.service().describeDatasets(
+        target.assetType,
+        target.assetId,
+        this.source(event)
+      );
       return successResponse(event, { success: true, data: result });
     } catch (error: any) {
       logger.error('Describe definition datasets failed', { error });
@@ -62,7 +67,8 @@ export class AuthoringHandler {
       const plan = await this.service().repairPlan(
         target.assetType,
         target.assetId,
-        this.parseRebinds(body.rebinds ?? [])
+        this.parseRebinds(body.rebinds ?? []),
+        this.source(event)
       );
       return successResponse(event, { success: true, data: plan });
     } catch (error: any) {
@@ -80,7 +86,8 @@ export class AuthoringHandler {
       const plan = await this.service().plan(
         target.assetType,
         target.assetId,
-        this.parseRebinds(rebinds)
+        this.parseRebinds(rebinds),
+        this.source(event)
       );
       return successResponse(event, { success: true, data: plan });
     } catch (error: any) {
@@ -116,14 +123,19 @@ export class AuthoringHandler {
       await requireAuth(event);
       const target = this.target(event);
       const body = this.parseBody(event);
-      const preview = await this.service().preview(target.assetType, target.assetId, {
-        rebinds: this.parseRebinds(body.rebinds ?? []),
-        addCalculatedFields: this.parseAddedFields(body.addCalculatedFields),
-        ops: parseOps(body.ops),
-        repairs: parseRepairs(body.repairs),
-        template: this.parseTemplate(body.template),
-        typeRules: this.parseTypeRules(body.typeRules),
-      });
+      const preview = await this.service().preview(
+        target.assetType,
+        target.assetId,
+        {
+          rebinds: this.parseRebinds(body.rebinds ?? []),
+          addCalculatedFields: this.parseAddedFields(body.addCalculatedFields),
+          ops: parseOps(body.ops),
+          repairs: parseRepairs(body.repairs),
+          template: this.parseTemplate(body.template),
+          typeRules: this.parseTypeRules(body.typeRules),
+        },
+        this.source(event)
+      );
       return successResponse(event, { success: true, data: preview });
     } catch (error: any) {
       logger.error('Preview rebind failed', { error });
@@ -151,6 +163,36 @@ export class AuthoringHandler {
       // QuickSight's own rejection is the useful message when the definition
       // does not validate against the new dataset.
       return this.failure(event, error, 'Failed to apply the rebind');
+    }
+  }
+
+  /**
+   * POST /authoring/{assetType}/{assetId}/restore - bring an archived asset
+   * back, with the repairs, dataset choices and edits the Studio made.
+   */
+  public async restore(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const target = this.target(event);
+      const body = this.parseBody(event);
+      logger.info('Restore requested', { user: user.email, ...target });
+      const result = await this.service().restore(
+        target.assetType,
+        target.assetId,
+        {
+          rebinds: this.parseRebinds(body.rebinds ?? []),
+          ops: parseOps(body.ops),
+          repairs: parseRepairs(body.repairs),
+          name: this.optionalString(body, 'name'),
+          newAssetId: this.optionalString(body, 'newAssetId'),
+          folderId: this.optionalString(body, 'folderId'),
+        },
+        user
+      );
+      return successResponse(event, { success: true, data: result });
+    } catch (error: any) {
+      logger.error('Restore failed', { error });
+      return this.failure(event, error, 'Failed to restore the asset');
     }
   }
 
@@ -514,6 +556,14 @@ export class AuthoringHandler {
       throw badRequest('permissionsFrom needs assetType and assetId');
     }
     return { assetType: from.assetType, assetId: from.assetId };
+  }
+
+  /** `?source=archive` reads the portal's archived copy instead of QuickSight. */
+  private source(event: APIGatewayProxyEvent): DefinitionSource {
+    const source = event.queryStringParameters?.source;
+    if (source === undefined || source === 'live') return 'live';
+    if (source === 'archive') return 'archive';
+    throw badRequest("source must be 'live' or 'archive'");
   }
 
   private target(event: APIGatewayProxyEvent): Target {

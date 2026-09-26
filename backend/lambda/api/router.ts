@@ -5,7 +5,6 @@ import { assistantRoutes } from '../features/assistant';
 import { authoringRoutes } from '../features/authoring';
 import { dataCatalogRoutes } from '../features/data-catalog';
 import { dataExportRoutes } from '../features/data-export';
-import { deploymentRoutes } from '../features/deployment';
 import { organizationRoutes } from '../features/organization';
 import { scriptsRoutes } from '../features/scripts/routes';
 import { searchRoutes } from '../features/search';
@@ -21,7 +20,6 @@ const featureRoutes: RouteHandler[] = [
   ...assistantRoutes,
   ...assetManagementRoutes,
   ...authoringRoutes,
-  ...deploymentRoutes,
   ...dataExportRoutes,
   ...organizationRoutes,
   ...dataCatalogRoutes,

@@ -1,7 +1,6 @@
-import { TimelineFeed } from '@/features/activity';
 import { DataExportView } from '@/features/data-export';
 
-/** The export console: run and watch exports, with the activity feed beside it. */
+/** The export console: run and watch exports. */
 export function ExportPanel() {
-  return <DataExportView embedded timelineFeed={<TimelineFeed />} />;
+  return <DataExportView embedded />;
 }

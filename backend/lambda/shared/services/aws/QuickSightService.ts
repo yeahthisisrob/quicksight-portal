@@ -211,6 +211,8 @@ export class QuickSightService {
     columnLevelPermissionRules?: ColumnLevelPermissionRule[];
     dataSetUsageConfiguration?: DataSetUsageConfiguration;
     datasetParameters?: DatasetParameter[];
+    dataPrepConfiguration?: unknown;
+    semanticModelConfiguration?: unknown;
   }): Promise<{ arn: string; dataSetId: string; ingestionArn?: string }> {
     return await this.executeWithTracking(
       () =>
