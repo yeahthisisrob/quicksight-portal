@@ -5225,7 +5225,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["FolderDetails"];
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["FolderDetails"];
+                    };
                 };
             };
         };
@@ -5703,7 +5706,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActivityData"] | components["schemas"]["UserActivity"] | components["schemas"]["DatasetActivityData"];
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["ActivityData"] | components["schemas"]["UserActivity"] | components["schemas"]["DatasetActivityData"];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -6067,7 +6073,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SmusStatus"];
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["SmusStatus"];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -6133,7 +6142,10 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        links: components["schemas"]["SmusDatasetLink"][];
+                        success: boolean;
+                        data: {
+                            links: components["schemas"]["SmusDatasetLink"][];
+                        };
                     };
                 };
             };
@@ -6242,19 +6254,22 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        dashboards?: {
-                            totalViews?: number;
-                            uniqueViewers?: number;
-                            activeAssets?: number;
-                        };
-                        analyses?: {
-                            totalViews?: number;
-                            uniqueViewers?: number;
-                            activeAssets?: number;
-                        };
-                        users?: {
-                            activeUsers?: number;
-                            totalActivities?: number;
+                        success: boolean;
+                        data: {
+                            dashboards?: {
+                                totalViews?: number;
+                                uniqueViewers?: number;
+                                activeAssets?: number;
+                            };
+                            analyses?: {
+                                totalViews?: number;
+                                uniqueViewers?: number;
+                                activeAssets?: number;
+                            };
+                            users?: {
+                                activeUsers?: number;
+                                totalActivities?: number;
+                            };
                         };
                     };
                 };

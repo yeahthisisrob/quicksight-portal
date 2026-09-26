@@ -113,7 +113,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/FolderDetails'
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/FolderDetails'
 
   /api/folders/{folderId}/members:
     get:
@@ -731,10 +737,16 @@ paths:
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: '#/components/schemas/ActivityData'
-                  - $ref: '#/components/schemas/UserActivity'
-                  - $ref: '#/components/schemas/DatasetActivityData'
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    oneOf:
+                      - $ref: '#/components/schemas/ActivityData'
+                      - $ref: '#/components/schemas/UserActivity'
+                      - $ref: '#/components/schemas/DatasetActivityData'
         '404':
           description: Asset not found
         '401':
@@ -1271,7 +1283,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SmusStatus'
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/SmusStatus'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -1345,12 +1363,18 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [links]
+                required: [success, data]
                 properties:
-                  links:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/SmusDatasetLink'
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [links]
+                    properties:
+                      links:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SmusDatasetLink'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -1494,32 +1518,38 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [success, data]
                 properties:
-                  dashboards:
+                  success:
+                    type: boolean
+                  data:
                     type: object
                     properties:
-                      totalViews:
-                        type: integer
-                      uniqueViewers:
-                        type: integer
-                      activeAssets:
-                        type: integer
-                  analyses:
-                    type: object
-                    properties:
-                      totalViews:
-                        type: integer
-                      uniqueViewers:
-                        type: integer
-                      activeAssets:
-                        type: integer
-                  users:
-                    type: object
-                    properties:
-                      activeUsers:
-                        type: integer
-                      totalActivities:
-                        type: integer
+                      dashboards:
+                        type: object
+                        properties:
+                          totalViews:
+                            type: integer
+                          uniqueViewers:
+                            type: integer
+                          activeAssets:
+                            type: integer
+                      analyses:
+                        type: object
+                        properties:
+                          totalViews:
+                            type: integer
+                          uniqueViewers:
+                            type: integer
+                          activeAssets:
+                            type: integer
+                      users:
+                        type: object
+                        properties:
+                          activeUsers:
+                            type: integer
+                          totalActivities:
+                            type: integer
         '401':
           $ref: '#/components/responses/Unauthorized'
 
