@@ -18,7 +18,7 @@ const MODEL_CATALOG = {
       bestFor: 'Conversation and quick lookups. The cheapest; the chat default.',
       thinks: false,
       available: true,
-      typicalCost: { authoring: 0.018, chat: 0.0375 },
+      typicalCost: { authoring: 0.018, chat: 0.0375, review: 0.0045 },
     },
     {
       key: 'sonnet-4-6',
@@ -29,7 +29,7 @@ const MODEL_CATALOG = {
       bestFor: 'Authoring: rebinds, column mapping, visuals from an ask. The proven default.',
       thinks: false,
       available: true,
-      typicalCost: { authoring: 0.054, chat: 0.1125 },
+      typicalCost: { authoring: 0.054, chat: 0.1125, review: 0.0135 },
     },
     {
       key: 'sonnet-5',
@@ -40,7 +40,7 @@ const MODEL_CATALOG = {
       bestFor: 'Newer and cheaper per token than 4.6, and thinks before it answers.',
       thinks: true,
       available: true,
-      typicalCost: { authoring: 0.066, chat: 0.0975 },
+      typicalCost: { authoring: 0.066, chat: 0.0975, review: 0.0165 },
     },
     {
       key: 'opus-5',
@@ -51,7 +51,7 @@ const MODEL_CATALOG = {
       bestFor: 'The hardest asks: many datasets, messy column names, big definitions.',
       thinks: true,
       available: true,
-      typicalCost: { authoring: 0.165, chat: 0.24375 },
+      typicalCost: { authoring: 0.165, chat: 0.24375, review: 0.04125 },
     },
     {
       key: 'openai',
@@ -63,7 +63,7 @@ const MODEL_CATALOG = {
       thinks: true,
       available: false,
       unavailableReason: 'Set PLANNER_BASE_URL and PLANNER_API_KEY on the stack to enable.',
-      typicalCost: { authoring: 0.06, chat: 0.075 },
+      typicalCost: { authoring: 0.06, chat: 0.075, review: 0.015 },
     },
   ],
   defaults: { authoring: 'sonnet-4-6', chat: 'haiku-4-5' },

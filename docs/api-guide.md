@@ -411,6 +411,17 @@ curl -sS -X POST "$QSP_API_URL/api/playbooks/consolidate-athena/run" \
   left for review. It stops starting new assets once more than
   `failureThreshold` of those tried have failed.
 - **Retry** the failures of a run with `"retryOf":"<run-job-id>"`.
+- **Compose your own.** `POST /api/playbooks/custom` saves a spec:
+  `inputs`, what to `select` (asset types and conditions: views, engine it
+  reads, SMUS-governed, shared with, tagged, name, errors) and the `steps`
+  (match a replacement dataset, optionally letting a model map names that
+  differ, then rebind; tag; repair; add to a folder). Any value can be
+  `{{inputKey}}`. `GET /api/playbooks/custom/{id}` returns a shipped
+  example's spec too, to copy. A saved one previews and runs like the rest;
+  pass `model` on the preview when it asks a model.
+- **Reports.** `GET /api/playbooks/runs/{jobId}/report` has every row and
+  how it went; `POST` the same path keeps it beyond the jobs' 30 days
+  (`GET /api/playbooks/reports` lists what was kept).
 - **Deleting one asset** outside a playbook: `DELETE
   /api/assets/{type}/{id}?reason=...` archives it first; restore it later.
 

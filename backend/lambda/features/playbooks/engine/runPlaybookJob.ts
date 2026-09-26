@@ -8,7 +8,7 @@ import { batchFreshness } from '../../../shared/services/cache/assetFreshness';
 import { type JobItemCounts, JobItemStore } from '../../../shared/services/jobs/JobItemStore';
 import type { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { findPlaybook } from '../catalog';
-import type { PlaybookJobRequest } from '../types';
+import type { Infer, PlaybookJobRequest } from '../types';
 import { PlaybookEngine } from './PlaybookEngine';
 import { type Dispatch, portalCall } from './portalCall';
 
@@ -25,6 +25,8 @@ interface Input {
   >;
   deadline: number | null;
   items?: JobItemStore;
+  /** The run's model, for steps that infer. */
+  infer?: Infer;
 }
 
 /** The job record's counters are flat numbers. */
@@ -39,7 +41,7 @@ function plural(n: number, word: string): string {
 
 export async function runPlaybookJob(input: Input): Promise<'done' | 'paused'> {
   const { jobId, request, jobs } = input;
-  const playbook = findPlaybook(request?.playbookId);
+  const playbook = await findPlaybook(request?.playbookId);
   if (!playbook) {
     throw new Error(`There is no playbook '${request?.playbookId}'`);
   }
@@ -51,7 +53,11 @@ export async function runPlaybookJob(input: Input): Promise<'done' | 'paused'> {
 
   const engine = new PlaybookEngine(
     playbook,
-    { call: portalCall(input.dispatch), params: request.params ?? {} },
+    {
+      call: portalCall(input.dispatch),
+      params: request.params ?? {},
+      ...(input.infer ? { infer: input.infer } : {}),
+    },
     {
       jobId,
       items: input.items ?? new JobItemStore(),

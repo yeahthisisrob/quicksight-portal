@@ -1,0 +1,103 @@
+/**
+ * Playbooks the portal ships as specs: the same blocks anyone composes
+ * with, so each is also a starting point to copy and change.
+ */
+import type { PlaybookSpec } from '../spec/types';
+
+const SHIPPED_AT = '2026-09-26T00:00:00Z';
+
+export const EXAMPLE_SPECS: PlaybookSpec[] = [
+  {
+    id: 'move-to-governed-athena',
+    name: 'Move busy dashboards onto governed Athena datasets',
+    description:
+      'Dashboards viewed at least the number of times you set that still read Redshift: each dataset they read is matched to a SMUS-governed Athena dataset holding every column they use (a model maps names that differ, using the governed descriptions), the dashboard is rebound onto it, and the old dataset and its Redshift data source are tagged deprecated. Nothing is deleted.',
+    inputs: [
+      {
+        key: 'minViews',
+        label: 'At least this many views',
+        kind: 'number',
+        default: 50,
+        required: true,
+      },
+      {
+        key: 'fromEngine',
+        label: 'Move off this engine',
+        kind: 'engine',
+        default: 'REDSHIFT',
+        required: true,
+      },
+      {
+        key: 'toEngine',
+        label: 'Onto datasets of this engine',
+        kind: 'engine',
+        default: 'ATHENA',
+        required: true,
+      },
+      {
+        key: 'infer',
+        label: 'Let a model map columns whose names differ',
+        kind: 'boolean',
+        default: true,
+      },
+    ],
+    category: 'data',
+    select: {
+      assetTypes: ['dashboard'],
+      where: [
+        { kind: 'views', min: '{{minViews}}' },
+        { kind: 'readsEngine', engine: '{{fromEngine}}' },
+      ],
+    },
+    steps: [
+      {
+        kind: 'matchDataset',
+        engine: '{{toEngine}}',
+        governed: true,
+        infer: '{{infer}}',
+        minConfidence: 0.8,
+      },
+      { kind: 'rebind' },
+      {
+        kind: 'tag',
+        target: 'replaced-datasets',
+        key: 'portal:deprecated',
+        value: 'moved to governed Athena',
+      },
+      {
+        kind: 'tag',
+        target: 'replaced-datasources',
+        key: 'portal:deprecated',
+        value: 'moved to governed Athena',
+      },
+    ],
+    gates: { editedWithinDays: 7 },
+    createdBy: 'The portal',
+    createdAt: SHIPPED_AT,
+    updatedAt: SHIPPED_AT,
+  },
+  {
+    id: 'team-into-shared-folder',
+    name: "Put a team's assets in its shared folder",
+    description:
+      "Every dashboard, analysis, dataset and data source shared with a team (or tagged for it) goes into the team's shared folder, so the folder carries their access from now on. Anything already there is skipped; nothing is removed from anywhere.",
+    inputs: [
+      {
+        key: 'team',
+        label: 'Shared with (group or user name contains)',
+        kind: 'text',
+        required: true,
+      },
+      { key: 'folder', label: "The team's shared folder", kind: 'folder', required: true },
+    ],
+    category: 'cleanup',
+    select: {
+      assetTypes: ['dashboard', 'analysis', 'dataset', 'datasource'],
+      where: [{ kind: 'sharedWith', principal: '{{team}}' }],
+    },
+    steps: [{ kind: 'addToFolder', folder: '{{folder}}' }],
+    createdBy: 'The portal',
+    createdAt: SHIPPED_AT,
+    updatedAt: SHIPPED_AT,
+  },
+];

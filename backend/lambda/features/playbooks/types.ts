@@ -62,15 +62,15 @@ interface ItemOutcome {
 }
 
 /** A value a playbook asks for before it runs. */
-interface PlaybookParam {
+export interface PlaybookParam {
   key: string;
   label: string;
-  kind: 'datasource' | 'text' | 'boolean';
+  kind: 'datasource' | 'text' | 'boolean' | 'number' | 'engine' | 'folder';
   help?: string;
   required?: boolean;
   /** datasource only: offer only data sources of this engine. */
   dataSourceType?: string;
-  default?: string | boolean;
+  default?: string | number | boolean;
 }
 
 /** A call to the portal's own API. Throws PortalCallError on anything but 2xx. */
@@ -86,9 +86,25 @@ export class PortalCallError extends Error {
   }
 }
 
+/** A model asked for JSON that fits a schema (the worker wires it to the run's model). */
+export interface InferRequest {
+  /** Short tag for logs. */
+  label: string;
+  system: string;
+  user: string;
+  schemaName: string;
+  schemaDescription: string;
+  schema: Record<string, unknown>;
+  maxTokens: number;
+}
+
+export type Infer = (request: InferRequest) => Promise<unknown>;
+
 export interface PlaybookContext {
   call: PortalCall;
   params: Record<string, unknown>;
+  /** Present when the run has a model; steps that infer send uncertain work to review without one. */
+  infer?: Infer;
 }
 
 export interface Playbook {
@@ -97,7 +113,7 @@ export interface Playbook {
   /** What it does and why, for the card. */
   description: string;
   /** What kind of fix it is, to group the cards. */
-  category: 'repair' | 'data' | 'cleanup';
+  category: 'repair' | 'data' | 'cleanup' | 'custom';
   params: PlaybookParam[];
   /** What it writes to, so the run can say so and the cache can follow. */
   writes: AssetType[];
@@ -110,6 +126,10 @@ export interface Playbook {
   scope(ctx: PlaybookContext): Promise<ScopedTarget[]>;
   plan(ctx: PlaybookContext, target: PlaybookTarget): Promise<ItemPlan>;
   apply(ctx: PlaybookContext, target: PlaybookTarget, plan: ItemPlan): Promise<ItemOutcome>;
+  /** Set when it is built from a spec (shipped or saved): the builder can copy it. */
+  spec?: unknown;
+  /** Some step asks a model (the preview then carries the model chosen). */
+  infers?: boolean;
   /** Lower stages finish before higher ones start. Default 0. */
   stage?(target: PlaybookTarget): number;
 }
@@ -138,6 +158,8 @@ export type PlaybookJobRequest =
       params: Record<string, unknown>;
       /** Gate values by key; null turns a gate with a default off. */
       gates?: Record<string, number | string | boolean | null>;
+      /** A model catalog key for steps that infer; the run uses the preview's. */
+      model?: string;
     }
   | {
       mode: 'run';
@@ -149,5 +171,6 @@ export type PlaybookJobRequest =
       keys?: string[];
       /** Retry: the rows of this earlier run that failed. */
       retryOf?: string;
+      model?: string;
       limits?: Partial<RunLimits>;
     };

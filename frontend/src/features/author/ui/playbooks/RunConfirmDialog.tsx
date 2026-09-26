@@ -29,6 +29,13 @@ const CANARY_OVER = 10;
 const CONCURRENCY = [1, 2, 4, 8];
 const THRESHOLDS = [0.05, 0.1, 0.2, 0.5];
 const PERCENT = 100;
+const PLURAL: Record<string, string> = {
+  dashboard: 'dashboards',
+  analysis: 'analyses',
+  dataset: 'datasets',
+  datasource: 'data sources',
+  folder: 'folders',
+};
 
 export function RunConfirmDialog({
   open,
@@ -50,7 +57,7 @@ export function RunConfirmDialog({
   const [typed, setTyped] = useState('');
   const runCount = canary && offerCanary ? CANARY_SIZE : count;
   const confirmed = !playbook.deletes || typed.trim() === String(runCount);
-  const kinds = playbook.writes.map((w) => `${w}s`).join(', ');
+  const kinds = playbook.writes.map((w) => PLURAL[w] ?? w).join(', ');
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>

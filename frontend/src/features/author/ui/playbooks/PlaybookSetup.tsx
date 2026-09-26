@@ -18,10 +18,29 @@ import {
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 
+import { ModelPill, useAiModels } from '@/entities/ai-model';
+
 import { assetsApi } from '@/shared/api';
 import type { GateValues, Playbook, PlaybookGate } from '@/shared/api/modules/playbooks';
 
+import type { StudioFolder } from '../../model/studio';
+import { FolderPicker } from '../FolderPicker';
+
 const DATASOURCE_PAGE = 100;
+/** Engines a data source can be; any other can be typed. */
+const ENGINES = [
+  'ATHENA',
+  'REDSHIFT',
+  'S3',
+  'SNOWFLAKE',
+  'DATABRICKS',
+  'POSTGRESQL',
+  'AURORA_POSTGRESQL',
+  'MYSQL',
+  'SQLSERVER',
+  'ORACLE',
+  'TIMESTREAM',
+];
 
 type Param = Playbook['params'][number];
 
@@ -139,6 +158,23 @@ function GateField({
   );
 }
 
+/** Which model judges what rules cannot; chosen once, kept for next time. */
+function ReviewModel() {
+  const models = useAiModels();
+  return (
+    <Box>
+      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+        Model
+      </Typography>
+      <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
+        Some steps ask a model, e.g. to map columns whose names differ. Every answer is checked;
+        anything it is unsure of goes to review.
+      </Typography>
+      <ModelPill work="review" models={models} />
+    </Box>
+  );
+}
+
 export function PlaybookSetup({
   playbook,
   params,
@@ -169,6 +205,49 @@ export function PlaybookSetup({
                 param={param}
                 value={params[param.key] as string | undefined}
                 onChange={(id) => onParam(param.key, id)}
+              />
+            ) : param.kind === 'folder' ? (
+              <Box key={param.key} sx={{ maxWidth: 480 }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  {param.label}
+                  {param.required ? ' *' : ''}
+                </Typography>
+                <FolderPicker
+                  value={(params[param.key] as StudioFolder | undefined) ?? null}
+                  onChange={(folder) => onParam(param.key, folder ?? undefined)}
+                />
+              </Box>
+            ) : param.kind === 'engine' ? (
+              <Autocomplete
+                key={param.key}
+                freeSolo
+                size="small"
+                options={ENGINES}
+                value={(params[param.key] as string | undefined) ?? ''}
+                onInputChange={(_, value) => onParam(param.key, value.toUpperCase())}
+                renderInput={(input) => (
+                  <TextField
+                    {...input}
+                    label={param.label}
+                    required={param.required}
+                    helperText={param.help}
+                  />
+                )}
+                sx={{ maxWidth: 320 }}
+              />
+            ) : param.kind === 'number' ? (
+              <TextField
+                key={param.key}
+                size="small"
+                type="number"
+                label={param.label}
+                required={param.required}
+                helperText={param.help}
+                value={(params[param.key] as number | string | undefined) ?? ''}
+                onChange={(e) =>
+                  onParam(param.key, e.target.value === '' ? '' : Number(e.target.value))
+                }
+                sx={{ maxWidth: 200 }}
               />
             ) : param.kind === 'boolean' ? (
               <FormControlLabel
@@ -216,6 +295,8 @@ export function PlaybookSetup({
           ))}
         </Stack>
       </Box>
+
+      {playbook.infers && <ReviewModel />}
 
       <Box>
         <Button

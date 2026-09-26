@@ -35,12 +35,13 @@ import {
 import { Alert, Box, Button, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import { useCallback, useMemo } from 'react';
 
+import { formatCost } from '@/entities/ai-model';
+
 import { Container, pal } from '@/shared/design-system';
 
 import { CONTINUE_MESSAGE, endsOnAPromise } from '../model/conversation';
 import { resultTarget, threadOf } from '../model/thread';
 import { useConversation } from '../model/useConversation';
-import { formatCost } from './costFormat';
 import { ModelMenu } from './ModelMenu';
 import { AssistantMessage, UserMessage } from './thread/ChatMessages';
 import { ChatStatusContext } from './thread/chatStatus';

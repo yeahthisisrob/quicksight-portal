@@ -16,10 +16,11 @@ import { AutoAwesome, Check, ContentCopy } from '@mui/icons-material';
 import { Box, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 
+import { formatCost } from '@/entities/ai-model';
+
 import { pal } from '@/shared/design-system';
 
 import { answerMetaOf } from '../../model/thread';
-import { formatCost } from '../costFormat';
 import { useChatStatus } from './chatStatus';
 import { MarkdownText } from './MarkdownText';
 

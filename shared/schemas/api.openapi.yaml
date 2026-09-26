@@ -1582,6 +1582,230 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/playbooks/custom:
+    post:
+      operationId: postPlaybooksCustom
+      tags: [Playbooks]
+      summary: Save a playbook you composed
+      description: |
+        A spec: inputs, what to select (an asset type and conditions), and the
+        steps to take on each selected asset. Any value may be `{{input}}`.
+        It previews, gates, runs and retries like the shipped playbooks.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaybookSpecInput'
+      responses:
+        '201':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/PlaybookSpec'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/playbooks/custom/{playbookId}:
+    get:
+      operationId: getPlaybooksCustomByPlaybookId
+      tags: [Playbooks]
+      summary: A composed playbook's spec (or a shipped one's, to copy)
+      parameters:
+        - $ref: '#/components/parameters/PlaybookId'
+      responses:
+        '200':
+          description: The spec
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/PlaybookSpec'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      operationId: putPlaybooksCustomByPlaybookId
+      tags: [Playbooks]
+      summary: Change a playbook you composed
+      parameters:
+        - $ref: '#/components/parameters/PlaybookId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaybookSpecInput'
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/PlaybookSpec'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deletePlaybooksCustomByPlaybookId
+      tags: [Playbooks]
+      summary: Delete a playbook you composed
+      parameters:
+        - $ref: '#/components/parameters/PlaybookId'
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [id]
+                    properties:
+                      id:
+                        type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/playbooks/runs/{jobId}/report:
+    get:
+      operationId: getPlaybooksRunsByJobIdReport
+      tags: [Playbooks]
+      summary: A preview's or run's report - every row and how it went - to read or download
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The report
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/PlaybookReport'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: postPlaybooksRunsByJobIdReport
+      tags: [Playbooks]
+      summary: Save the report, beyond the jobs' retention
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/PlaybookReportSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/playbooks/reports:
+    get:
+      operationId: getPlaybooksReports
+      tags: [Playbooks]
+      summary: Saved reports, newest first
+      responses:
+        '200':
+          description: The saved reports
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PlaybookReportSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/playbooks/reports/{jobId}:
+    get:
+      operationId: getPlaybooksReportsByJobId
+      tags: [Playbooks]
+      summary: One saved report
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The report
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/PlaybookReport'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /api/playbooks/{playbookId}/preview:
     post:
       operationId: postPlaybooksByPlaybookIdPreview
@@ -1608,6 +1832,8 @@ paths:
                   type: object
                   additionalProperties: true
                   description: Gate values by key; null turns off a gate that is on by default.
+                model:
+                  $ref: '#/components/schemas/AiModelKey'
       responses:
         '202':
           $ref: '#/components/responses/PlaybookJobAccepted'
@@ -5229,12 +5455,15 @@ components:
         typicalCost:
           type: object
           description: Rough dollars for one typical call of each kind.
-          required: [authoring, chat]
+          required: [authoring, chat, review]
           properties:
             authoring:
               type: number
             chat:
               type: number
+            review:
+              type: number
+              description: One playbook judgement (a column mapping a playbook asks for).
 
     AiModelCatalog:
       type: object
@@ -5741,7 +5970,16 @@ components:
           type: string
         category:
           type: string
-          enum: [repair, data, cleanup]
+          enum: [repair, data, cleanup, custom]
+        custom:
+          type: boolean
+          description: Saved by someone here; it can be changed or deleted.
+        composable:
+          type: boolean
+          description: Built from a spec, so it can be copied into a new one.
+        infers:
+          type: boolean
+          description: Some step asks a model; pass `model` on the preview.
         params:
           type: array
           items:
@@ -5754,7 +5992,7 @@ components:
                 type: string
               kind:
                 type: string
-                enum: [datasource, text, boolean]
+                enum: [datasource, text, boolean, number, engine, folder]
               help:
                 type: string
               required:
@@ -5890,6 +6128,193 @@ components:
           type: string
           description: Pass back for the next page; absent on the last.
 
+    PlaybookSpecValue:
+      description: A literal (text, number or true/false) or `{{inputKey}}`.
+
+    PlaybookSpecInput:
+      type: object
+      required: [name, inputs, select, steps]
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 1000
+        inputs:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            required: [key, label, kind]
+            properties:
+              key:
+                type: string
+              label:
+                type: string
+              kind:
+                type: string
+                enum: [number, text, boolean, datasource, engine, folder]
+              help:
+                type: string
+              required:
+                type: boolean
+              default:
+                $ref: '#/components/schemas/PlaybookSpecValue'
+        select:
+          type: object
+          required: [assetTypes, where]
+          properties:
+            assetTypes:
+              type: array
+              minItems: 1
+              items:
+                type: string
+                enum: [dashboard, analysis, dataset, datasource]
+            where:
+              type: array
+              maxItems: 20
+              items:
+                $ref: '#/components/schemas/PlaybookSpecCondition'
+        steps:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/PlaybookSpecStep'
+        gates:
+          type: object
+          additionalProperties: true
+
+    PlaybookSpecCondition:
+      type: object
+      description: |
+        views (min), viewsAtMost (max), tagged (tag: key or key=value),
+        nameContains (text), hasErrors, readsEngine (engine: REDSHIFT, ATHENA...),
+        readsGoverned (value: true or false), sharedWith (principal: a group or
+        user name, matched in the asset's permissions).
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [views, viewsAtMost, tagged, nameContains, hasErrors, readsEngine, readsGoverned, sharedWith]
+        min:
+          $ref: '#/components/schemas/PlaybookSpecValue'
+        max:
+          $ref: '#/components/schemas/PlaybookSpecValue'
+        tag:
+          $ref: '#/components/schemas/PlaybookSpecValue'
+        text:
+          $ref: '#/components/schemas/PlaybookSpecValue'
+        engine:
+          $ref: '#/components/schemas/PlaybookSpecValue'
+        value:
+          $ref: '#/components/schemas/PlaybookSpecValue'
+        principal:
+          $ref: '#/components/schemas/PlaybookSpecValue'
+
+    PlaybookSpecStep:
+      type: object
+      description: |
+        matchDataset (engine, governed, infer, minConfidence): for each dataset
+        the asset reads, a replacement holding every column it uses; with infer,
+        a model maps names that differ and every mapping is checked.
+        rebind: onto what matchDataset found. tag (target: asset,
+        replaced-datasets or replaced-datasources; key; value). repair.
+        addToFolder (folder): put the asset in a folder, e.g. a team's shared one.
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [matchDataset, rebind, tag, repair, addToFolder]
+        engine:
+          $ref: '#/components/schemas/PlaybookSpecValue'
+        governed:
+          $ref: '#/components/schemas/PlaybookSpecValue'
+        infer:
+          $ref: '#/components/schemas/PlaybookSpecValue'
+        minConfidence:
+          $ref: '#/components/schemas/PlaybookSpecValue'
+        target:
+          type: string
+          enum: [asset, replaced-datasets, replaced-datasources]
+        key:
+          $ref: '#/components/schemas/PlaybookSpecValue'
+        value:
+          $ref: '#/components/schemas/PlaybookSpecValue'
+        folder:
+          $ref: '#/components/schemas/PlaybookSpecValue'
+
+    PlaybookSpec:
+      allOf:
+        - $ref: '#/components/schemas/PlaybookSpecInput'
+        - type: object
+          required: [id, createdAt, updatedAt]
+          properties:
+            id:
+              type: string
+            category:
+              type: string
+              enum: [repair, data, cleanup, custom]
+            createdBy:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    PlaybookReportSummary:
+      type: object
+      required: [jobId, playbookId, playbookTitle, mode, status, startTime, counts]
+      properties:
+        jobId:
+          type: string
+        playbookId:
+          type: string
+        playbookTitle:
+          type: string
+        mode:
+          type: string
+          enum: [preview, run]
+        status:
+          type: string
+        message:
+          type: string
+        startedBy:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        counts:
+          $ref: '#/components/schemas/PlaybookItemCounts'
+        savedAt:
+          type: string
+          format: date-time
+        savedBy:
+          type: string
+
+    PlaybookReport:
+      allOf:
+        - $ref: '#/components/schemas/PlaybookReportSummary'
+        - type: object
+          required: [params, items]
+          properties:
+            params:
+              type: object
+              additionalProperties: true
+            gates:
+              type: object
+              additionalProperties: true
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PlaybookItem'
+
     PlaybookJobInfo:
       type: object
       description: What a playbook job was asked to do.
@@ -5910,6 +6335,8 @@ components:
         previewJobId:
           type: string
         retryOf:
+          type: string
+        model:
           type: string
 
 

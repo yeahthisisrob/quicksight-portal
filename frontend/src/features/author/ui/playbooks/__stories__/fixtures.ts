@@ -9,6 +9,7 @@ import type {
   PlaybookItem,
   PlaybookItemCounts,
   PlaybookItemsPage,
+  PlaybookSpecInput,
 } from '@/shared/api/modules/playbooks';
 
 import type { MockRoute } from '../../../../../../.storybook/mocks/api';
@@ -82,6 +83,79 @@ export const PLAYBOOKS: Playbook[] = [
     gates: COMMON_GATES,
     writes: ['analysis', 'dataset', 'datasource'],
     deletes: true,
+  },
+  {
+    id: 'move-to-governed-athena',
+    title: 'Move busy dashboards onto governed Athena datasets',
+    description:
+      'Dashboards viewed at least the number of times you set that still read Redshift: each dataset is matched to a SMUS-governed Athena dataset holding every column they use, the dashboard is rebound onto it, and the old dataset and its data source are tagged deprecated.',
+    category: 'data',
+    composable: true,
+    infers: true,
+    params: [
+      {
+        key: 'minViews',
+        label: 'At least this many views',
+        kind: 'number',
+        required: true,
+        default: 50,
+      },
+      {
+        key: 'fromEngine',
+        label: 'Move off this engine',
+        kind: 'engine',
+        required: true,
+        default: 'REDSHIFT',
+      },
+      {
+        key: 'toEngine',
+        label: 'Onto datasets of this engine',
+        kind: 'engine',
+        required: true,
+        default: 'ATHENA',
+      },
+      {
+        key: 'infer',
+        label: 'Let a model map columns whose names differ',
+        kind: 'boolean',
+        default: true,
+      },
+    ],
+    gates: COMMON_GATES,
+    writes: ['dashboard', 'analysis', 'dataset', 'datasource'],
+    deletes: false,
+  },
+  {
+    id: 'team-into-shared-folder',
+    title: "Put a team's assets in its shared folder",
+    description:
+      "Every dashboard, analysis, dataset and data source shared with a team goes into the team's shared folder, so the folder carries their access from now on.",
+    category: 'cleanup',
+    composable: true,
+    params: [
+      {
+        key: 'team',
+        label: 'Shared with (group or user name contains)',
+        kind: 'text',
+        required: true,
+      },
+      { key: 'folder', label: "The team's shared folder", kind: 'folder', required: true },
+    ],
+    gates: COMMON_GATES,
+    writes: ['folder'],
+    deletes: false,
+  },
+  {
+    id: 'custom-1b2c',
+    title: 'Tag finance dashboards for the Q4 review',
+    description: 'Every dashboard shared with finance, tagged review=q4.',
+    category: 'custom',
+    custom: true,
+    composable: true,
+    params: [],
+    gates: COMMON_GATES,
+    writes: ['dashboard'],
+    deletes: false,
   },
 ];
 
@@ -264,13 +338,148 @@ export function fakeFlow(
   };
 }
 
+/** The shipped Redshift → governed Athena spec, as the builder edits it. */
+export const EXAMPLE_SPEC: PlaybookSpecInput = {
+  name: 'Move busy dashboards onto governed Athena datasets (copy)',
+  description:
+    'Dashboards viewed at least minViews times that still read Redshift, moved onto SMUS-governed Athena datasets; the old datasets and data sources tagged deprecated.',
+  inputs: [
+    {
+      key: 'minViews',
+      label: 'At least this many views',
+      kind: 'number',
+      default: 50,
+      required: true,
+    },
+    {
+      key: 'fromEngine',
+      label: 'Move off this engine',
+      kind: 'engine',
+      default: 'REDSHIFT',
+      required: true,
+    },
+    {
+      key: 'toEngine',
+      label: 'Onto datasets of this engine',
+      kind: 'engine',
+      default: 'ATHENA',
+      required: true,
+    },
+    {
+      key: 'infer',
+      label: 'Let a model map columns whose names differ',
+      kind: 'boolean',
+      default: true,
+    },
+  ],
+  select: {
+    assetTypes: ['dashboard'],
+    where: [
+      { kind: 'views', min: '{{minViews}}' },
+      { kind: 'readsEngine', engine: '{{fromEngine}}' },
+    ],
+  },
+  steps: [
+    {
+      kind: 'matchDataset',
+      engine: '{{toEngine}}',
+      governed: true,
+      infer: '{{infer}}',
+      minConfidence: 0.8,
+    },
+    { kind: 'rebind' },
+    {
+      kind: 'tag',
+      target: 'replaced-datasets',
+      key: 'portal:deprecated',
+      value: 'moved to governed Athena',
+    },
+    {
+      kind: 'tag',
+      target: 'replaced-datasources',
+      key: 'portal:deprecated',
+      value: 'moved to governed Athena',
+    },
+  ],
+  gates: { editedWithinDays: 7 },
+};
+
+/** Reports someone saved. */
+const SAVED_REPORTS = [
+  {
+    jobId: 'playbook-run-1',
+    playbookId: 'consolidate-athena',
+    playbookTitle: 'Consolidate Athena data sources',
+    mode: 'run',
+    status: 'completed',
+    message: '2 changed, 1 skipped, 1 failed',
+    startedBy: 'rob@example.com',
+    startTime: AT,
+    counts: countRows(RUN_ROWS),
+    savedAt: '2026-09-26T15:00:00Z',
+    savedBy: 'rob@example.com',
+  },
+];
+
 /** The API as the catalog and the data source picker read it. */
 export function playbookRoutes(): MockRoute[] {
   return [
     {
       method: 'get',
+      url: '/playbooks/reports',
+      respond: () => ({ body: { success: true, data: SAVED_REPORTS } }),
+    },
+    {
+      method: 'get',
       url: '/playbooks',
       respond: () => ({ body: { success: true, data: PLAYBOOKS } }),
+    },
+    {
+      method: 'get',
+      url: /\/assets\/folders\/paginated/,
+      respond: () => ({
+        body: {
+          success: true,
+          data: {
+            folders: [
+              { id: 'sales-shared', name: 'Sales (shared)', path: '/Teams/Sales (shared)' },
+              { id: 'finance-shared', name: 'Finance (shared)', path: '/Teams/Finance (shared)' },
+            ],
+            pagination: { page: 1, pageSize: 25, totalItems: 2, totalPages: 1 },
+          },
+        },
+      }),
+    },
+    {
+      method: 'get',
+      url: '/assistant/models',
+      respond: () => ({
+        body: {
+          success: true,
+          data: {
+            models: [
+              {
+                key: 'sonnet-4-6',
+                label: 'Claude Sonnet 4.6',
+                provider: 'bedrock',
+                available: true,
+                bestFor: 'Judgement that needs care',
+                typicalCost: { authoring: 0.054, chat: 0.1125, review: 0.024 },
+              },
+              {
+                key: 'haiku-4-5',
+                label: 'Claude Haiku 4.5',
+                provider: 'bedrock',
+                available: true,
+                bestFor: 'Quick, cheap calls',
+                typicalCost: { authoring: 0.018, chat: 0.0375, review: 0.008 },
+              },
+            ],
+            defaults: { chat: 'haiku-4-5', authoring: 'sonnet-4-6' },
+            note: '',
+          },
+        },
+      }),
     },
     {
       method: 'get',

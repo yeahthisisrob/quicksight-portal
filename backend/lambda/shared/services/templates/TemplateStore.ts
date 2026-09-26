@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { ValidationError } from '../../errors/ValidationError';
 import { logger } from '../../utils/logger';
 import { DynamoDBService } from '../aws/DynamoDBService';
+import { jobsTableName } from '../jobs/jobsTable';
 
 export interface TemplateMeta {
   id: string;
@@ -31,12 +32,11 @@ export class TemplateStore<T extends TemplateMeta, Input extends { name: string 
     protected readonly partition: string,
     protected readonly noun: string,
     protected readonly dynamo: DynamoDBService = new DynamoDBService(),
-    tableName?: string
+    tableName?: string,
+    /** Put before every new id, so a kind's ids are recognisable (and never collide). */
+    private readonly idPrefix = ''
   ) {
-    this.tableName =
-      tableName ||
-      process.env.JOBS_TABLE_NAME ||
-      `quicksight-portal-jobs-${process.env.AWS_ACCOUNT_ID || ''}`;
+    this.tableName = tableName || jobsTableName();
   }
 
   public async list(): Promise<T[]> {
@@ -54,7 +54,7 @@ export class TemplateStore<T extends TemplateMeta, Input extends { name: string 
 
   public async create(input: Input, createdBy: string): Promise<T> {
     const now = new Date().toISOString();
-    const id = randomUUID();
+    const id = `${this.idPrefix}${randomUUID()}`;
     const item = { ...input, id, createdBy, createdAt: now, updatedAt: now } as unknown as T;
     await this.beforeWrite(item, null);
     await this.dynamo.putItem(this.tableName, { ...item, pk: this.partition, sk: id });

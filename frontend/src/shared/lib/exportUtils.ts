@@ -50,11 +50,9 @@ export function dataToCSV(data: any[], columns: ExportColumn[]): string {
   return [headers, ...rows].join('\n');
 }
 
-/**
- * Download CSV file
- */
-export function downloadCSV(csvContent: string, filename: string): void {
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+/** Save text as a file in the browser. */
+export function downloadFile(content: string, filename: string, mimeType: string): void {
+  const blob = new Blob([content], { type: mimeType });
   const link = document.createElement('a');
 
   if (link.download !== undefined) {
@@ -67,6 +65,13 @@ export function downloadCSV(csvContent: string, filename: string): void {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   }
+}
+
+/**
+ * Download CSV file
+ */
+export function downloadCSV(csvContent: string, filename: string): void {
+  downloadFile(csvContent, filename, 'text/csv;charset=utf-8;');
 }
 
 /**

@@ -17,6 +17,7 @@ import type {
   PlaybookItemsPage,
   RunLimits,
 } from '@/shared/api/modules/playbooks';
+import { useAiModel } from '@/shared/lib';
 import { announceAssetChanges, type ChangedAssetType } from '@/shared/lib/assetChanges';
 
 const POLL_MS = 2000;
@@ -63,6 +64,16 @@ function paramDefaults(playbook: Playbook | null): Record<string, unknown> {
   );
 }
 
+/** Pickers hold what they show (a folder's name too); the API takes the id. */
+function sendable(params: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(params).map(([key, value]) => [
+      key,
+      value && typeof value === 'object' && 'id' in value ? (value as { id: string }).id : value,
+    ])
+  );
+}
+
 /** A job and, once it has rows, its rows; both polled while it runs. */
 function useJobRows(jobId: string | null) {
   const job = useQuery({
@@ -101,6 +112,7 @@ export function usePlaybook(): PlaybookFlow {
   const [gates, setGates] = useState<GateValues>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [reviewModel] = useAiModel('review');
 
   // New playbook: its defaults.
   useEffect(() => {
@@ -143,7 +155,13 @@ export function usePlaybook(): PlaybookFlow {
   const onError = (e: unknown) => setError(getApiErrorMessage(e, 'The playbook could not start'));
 
   const previewMutation = useMutation({
-    mutationFn: () => playbooksApi.preview(playbook!.id, params, gates),
+    mutationFn: () =>
+      playbooksApi.preview(
+        playbook!.id,
+        sendable(params),
+        gates,
+        playbook!.infers ? reviewModel : undefined
+      ),
     onMutate: () => setError(null),
     onSuccess: (job) => setUrl({ preview: job.jobId, run: null }),
     onError,

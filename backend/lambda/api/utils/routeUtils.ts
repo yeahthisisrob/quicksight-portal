@@ -113,6 +113,16 @@ const ROUTE_PATTERNS: readonly RoutePattern[] = [
     params: ['jobId'],
   },
   {
+    prefix: '/playbooks/reports/',
+    excludes: [],
+    params: ['jobId'],
+  },
+  {
+    prefix: '/playbooks/custom/',
+    excludes: [],
+    params: ['playbookId'],
+  },
+  {
     prefix: '/playbooks/',
     excludes: [],
     params: ['playbookId'],

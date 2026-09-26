@@ -1,0 +1,98 @@
+/**
+ * A playbook someone composed: inputs, what to select, and the steps to take
+ * on each selected asset. Saved as data; `specPlaybook` turns it into a
+ * Playbook, so it previews, gates, runs and retries like the built-ins.
+ *
+ * Any value may be a literal or `{{inputKey}}`, filled from the inputs given
+ * when it is previewed.
+ */
+type Templated<T> = T | `{{${string}}}`;
+
+export interface SpecInput {
+  key: string;
+  label: string;
+  kind: 'number' | 'text' | 'boolean' | 'datasource' | 'engine' | 'folder';
+  help?: string;
+  required?: boolean;
+  default?: string | number | boolean;
+}
+
+/** An asset type a spec can select. */
+export type SelectableType = 'dashboard' | 'analysis' | 'dataset' | 'datasource';
+
+/** A condition an asset must meet to be selected. Cheap ones read the list; lineage ones follow the graph. */
+export type SpecCondition =
+  /** At least this many views in the activity window the portal keeps. */
+  | { kind: 'views'; min: Templated<number> }
+  /** No more than this many views (unused, or barely used). */
+  | { kind: 'viewsAtMost'; max: Templated<number> }
+  | { kind: 'tagged'; tag: Templated<string> }
+  | { kind: 'nameContains'; text: Templated<string> }
+  | { kind: 'hasErrors' }
+  /** Shared with a user or group whose name contains this (from the asset's permissions). */
+  | { kind: 'sharedWith'; principal: Templated<string> }
+  /** Reads (through its datasets) a data source of this engine: REDSHIFT, ATHENA, S3... */
+  | { kind: 'readsEngine'; engine: Templated<string> }
+  /** Reads a dataset a SMUS listing governs (or, with value false, one it does not). */
+  | { kind: 'readsGoverned'; value: Templated<boolean> };
+
+/**
+ * For each dataset the asset reads (or, for a dataset, itself), find another
+ * that could take its place: of this engine, SMUS-governed if asked, and
+ * holding every column the asset uses. Exact names first; with `infer`, a
+ * model maps the rest using the governed columns' descriptions, and every
+ * mapping it proposes is checked before it counts.
+ */
+export interface MatchDatasetStep {
+  kind: 'matchDataset';
+  engine?: Templated<string>;
+  governed?: Templated<boolean>;
+  infer?: Templated<boolean>;
+  /** A model's mapping below this confidence (0-1) goes to review. */
+  minConfidence?: Templated<number>;
+}
+
+/** Point the asset at the datasets the match step found (a rebind, checked by a dry run). */
+interface RebindStep {
+  kind: 'rebind';
+}
+
+/** Tag something: the asset, the datasets it read before, or their data sources. */
+export interface TagStep {
+  kind: 'tag';
+  target: 'asset' | 'replaced-datasets' | 'replaced-datasources';
+  key: Templated<string>;
+  value: Templated<string>;
+}
+
+/** Fix what the repair plan can fix alone; anything needing a choice goes to review. */
+interface RepairStep {
+  kind: 'repair';
+}
+
+/** Put the asset in a folder (a shared folder then carries its audience). */
+interface AddToFolderStep {
+  kind: 'addToFolder';
+  folder: Templated<string>;
+}
+
+export type SpecStep = MatchDatasetStep | RebindStep | TagStep | RepairStep | AddToFolderStep;
+
+export interface PlaybookSpec {
+  id: string;
+  name: string;
+  description?: string;
+  inputs: SpecInput[];
+  /** Assets of these types; every condition must hold. */
+  select: { assetTypes: SelectableType[]; where: SpecCondition[] };
+  steps: SpecStep[];
+  /** Which group its card sits in; people's own go under Yours. */
+  category?: 'repair' | 'data' | 'cleanup' | 'custom';
+  /** Gate values this playbook starts with. */
+  gates?: Record<string, number | string | boolean>;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type PlaybookSpecInput = Omit<PlaybookSpec, 'id' | 'createdBy' | 'createdAt' | 'updatedAt'>;

@@ -122,6 +122,8 @@ const TYPICAL = {
   authoring: { inputTokens: 8_000, outputTokens: 2_000 },
   /** One chat message: system prompt, history, and a few tool rounds. */
   chat: { inputTokens: 30_000, outputTokens: 1_500 },
+  /** One playbook judgement: an asset's columns and a few candidates in, a mapping out. */
+  review: { inputTokens: 4_000, outputTokens: 800 },
 };
 /** Thinking models write their reasoning too; it is billed as output. */
 const THINKING_OUTPUT_FACTOR = 2.5;
@@ -150,7 +152,7 @@ export function costOf(
 }
 
 /** A rough per-call estimate for the picker. */
-export function typicalCost(model: AiModel, kind: 'authoring' | 'chat'): number {
+export function typicalCost(model: AiModel, kind: keyof typeof TYPICAL): number {
   const shape = TYPICAL[kind];
   const outputTokens = model.thinks
     ? shape.outputTokens * THINKING_OUTPUT_FACTOR
@@ -178,7 +180,7 @@ interface AiModelView {
   thinks: boolean;
   available: boolean;
   unavailableReason?: string;
-  typicalCost: { authoring: number; chat: number };
+  typicalCost: { authoring: number; chat: number; review: number };
 }
 
 /** The catalog as the picker shows it. */
@@ -196,6 +198,10 @@ export function aiModelViews(env: NodeJS.ProcessEnv = process.env): AiModelView[
     ...(m.provider === 'openai' && !openAi
       ? { unavailableReason: 'Set PLANNER_BASE_URL and PLANNER_API_KEY on the stack to enable.' }
       : {}),
-    typicalCost: { authoring: typicalCost(m, 'authoring'), chat: typicalCost(m, 'chat') },
+    typicalCost: {
+      authoring: typicalCost(m, 'authoring'),
+      chat: typicalCost(m, 'chat'),
+      review: typicalCost(m, 'review'),
+    },
   }));
 }
