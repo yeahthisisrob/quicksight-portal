@@ -1,7 +1,6 @@
 /**
  * The Author page's API tab: how to use an agent with a key, the keys
- * themselves (a slot the page fills from Settings), where this is heading,
- * and every operation. Loaded lazily by the page: the contract it reads is
+ * themselves (a slot the page fills from Settings), and every operation. Loaded lazily by the page: the contract it reads is
  * a few hundred kilobytes the Studio tab never needs.
  */
 import { Box, Stack, Typography } from '@mui/material';
@@ -10,7 +9,6 @@ import type { ReactNode } from 'react';
 
 import { ApiQuickStart } from './ApiQuickStart';
 import { ApiReference } from './ApiReference';
-import { AwsContextNote } from './AwsContextNote';
 
 export interface ApiTabProps {
   /** The API keys panel, owned by Settings; the page passes it in. */
@@ -36,7 +34,6 @@ export default function ApiTab({ keysPanel, origin }: ApiTabProps) {
       <Stack spacing={3}>
         <ApiQuickStart origin={base} />
         {keysPanel}
-        <AwsContextNote />
         <ApiReference spec={spec} baseUrl={base} />
       </Stack>
     </Box>
