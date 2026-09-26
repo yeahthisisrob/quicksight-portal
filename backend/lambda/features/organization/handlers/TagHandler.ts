@@ -1,9 +1,10 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
-import { requireAuth } from '../../../shared/auth';
+import { actorLabel, requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { actorFromAuth, auditLog } from '../../../shared/services/audit/AuditLog';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
+import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { type AssetType, getSingularForm } from '../../../shared/types/assetTypes';
 import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
@@ -35,6 +36,7 @@ export class TagHandler {
       }
 
       await this.tagService.tagResource(assetType as any, assetId, tags);
+      await this.syncCachedTags(assetType as AssetType, assetId);
 
       return successResponse(event, {
         success: true,
@@ -86,11 +88,18 @@ export class TagHandler {
         name: `${assetType}-${id}`, // Placeholder name
       }));
 
+      // add: these keys on top of what each asset has; update: exactly these
+      // tags; remove: these keys. Tags arrive as {key, value} or {Key, Value}.
+      const action = operation === 'remove' ? 'remove' : operation === 'add' ? 'add' : 'replace';
+      const normalized =
+        action === 'remove'
+          ? (tagKeys as string[]).map((Key) => ({ Key, Value: '' }))
+          : (tags as any[]).map((t) => ({ Key: t.Key ?? t.key, Value: t.Value ?? t.value ?? '' }));
       const result = await this.bulkOperationsService.bulkUpdateTags(
         assets,
-        operation === 'add' || operation === 'update' ? tags : undefined,
-        operation === 'remove' ? tagKeys : undefined,
-        user.email || user.userId || 'unknown'
+        normalized,
+        action,
+        actorLabel(user)
       );
 
       return createResponse(event, STATUS_CODES.ACCEPTED, {
@@ -107,6 +116,19 @@ export class TagHandler {
         STATUS_CODES.INTERNAL_SERVER_ERROR,
         error.message || 'Internal server error'
       );
+    }
+  }
+
+  /**
+   * After a live tag change: the asset's tags as QuickSight now has them go
+   * into the cache, so the tag filters and the Studio's template star follow.
+   */
+  private async syncCachedTags(assetType: AssetType, assetId: string): Promise<void> {
+    const tags = await this.tagService.readResourceTags(assetType, assetId);
+    if (tags) {
+      await cacheService.updateAssetTags(assetType, assetId, tags);
+    } else {
+      await keepCacheFresh([{ assetType, assetId }]);
     }
   }
 
@@ -249,6 +271,7 @@ export class TagHandler {
       }
 
       await this.tagService.removeResourceTags(assetType as any, assetId, tagKeys);
+      await this.syncCachedTags(assetType as AssetType, assetId);
 
       return successResponse(event, {
         success: true,

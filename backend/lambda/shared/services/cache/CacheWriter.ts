@@ -443,53 +443,53 @@ export class CacheWriter {
     }
   }
 
+  /**
+   * Patch one live cache entry. Only its own type's cache file is read and
+   * written - never the other types', so a write here cannot undo a
+   * concurrent write to another type - and an archived copy of the same id
+   * (the archive ledger's row) is left alone. `metadata` is merged, not
+   * replaced, so updating one field (a group's description) keeps the rest
+   * (its members).
+   */
   public async updateAsset(
     assetType: AssetType,
     assetId: string,
     updates: Partial<CacheEntry>
   ): Promise<void> {
     try {
-      // Get current master cache
-      const masterCache = await this.getMasterCache();
+      const entries = (await this.loadTypeCache(assetType)) || [];
+      const isLive = (e: CacheEntry) =>
+        e.assetId === assetId && (e.status as string) !== 'archived';
+      const existing = entries.filter(isLive);
+      const others = entries.filter((e) => !isLive(e));
 
-      // Find and update the asset
-      const assets = masterCache.entries[assetType] || [];
-
-      // Remove ALL existing entries with this assetId to prevent duplicates
-      const existingAssets = assets.filter((asset: CacheEntry) => asset.assetId === assetId);
-      const otherAssets = assets.filter((asset: CacheEntry) => asset.assetId !== assetId);
-
-      if (existingAssets.length > 0) {
-        // Update existing asset - use the most recent one as base
-        const baseAsset = existingAssets.reduce((latest, current) => {
-          const latestTime = latest.lastUpdatedTime?.getTime() || 0;
-          const currentTime = current.lastUpdatedTime?.getTime() || 0;
-          return currentTime > latestTime ? current : latest;
-        });
-
-        if (existingAssets.length > 1) {
+      let updated: CacheEntry;
+      if (existing.length > 0) {
+        // The most recent live entry is the base; duplicates are dropped
+        const base = existing.reduce((latest, current) =>
+          (current.lastUpdatedTime?.getTime() || 0) > (latest.lastUpdatedTime?.getTime() || 0)
+            ? current
+            : latest
+        );
+        if (existing.length > 1) {
           logger.info(
-            `Removing ${existingAssets.length - 1} duplicate cache entries for ${assetType}/${assetId}`
+            `Removing ${existing.length - 1} duplicate cache entries for ${assetType}/${assetId}`
           );
         }
-
-        // Special handling for enrichmentTimestamps - merge instead of replace
-        const updatedAsset = { ...baseAsset, ...updates };
-
-        if (updates.enrichmentTimestamps && baseAsset.enrichmentTimestamps) {
-          updatedAsset.enrichmentTimestamps = {
-            ...baseAsset.enrichmentTimestamps,
+        updated = { ...base, ...updates };
+        if (updates.enrichmentTimestamps && base.enrichmentTimestamps) {
+          updated.enrichmentTimestamps = {
+            ...base.enrichmentTimestamps,
             ...updates.enrichmentTimestamps,
           };
         }
-
-        // Replace the entire assets array with deduplicated version + updated asset
-        masterCache.entries[assetType] = [...otherAssets, updatedAsset];
+        if (updates.metadata && base.metadata) {
+          updated.metadata = { ...base.metadata, ...updates.metadata };
+        }
       } else {
-        // Add new asset
-        const newAsset: CacheEntry = {
-          assetId: assetId,
-          assetType: assetType,
+        updated = {
+          assetId,
+          assetType,
           assetName: updates.assetName || '',
           arn: updates.arn || '',
           status: updates.status || 'active',
@@ -509,40 +509,16 @@ export class CacheWriter {
           permissions: updates.permissions || [],
           metadata: updates.metadata || {},
           ...updates,
-        };
-        masterCache.entries[assetType] = [...otherAssets, newAsset];
+        } as CacheEntry;
       }
 
-      // Update summary counts
-      masterCache.assetCounts[assetType] = masterCache.entries[assetType]?.length || 0;
-      masterCache.lastUpdated = new Date();
-
-      // Save to adapters
-      await this.saveMasterCache(masterCache);
-
-      // Evict memory for the affected type + master so this process sees the mutation
-      // (e.g. permission revokes, tag updates, etc. that still flow through updateAsset).
+      const next = [...others, updated];
+      await this.saveTypeCache(assetType, next);
+      await this.updateCacheMetadata(assetType, next.length);
       this.evictMemoryForType(assetType);
       this.memoryAdapter.delete('master-cache');
     } catch (error) {
       logger.error(`Failed to update asset ${assetType}/${assetId}`, { error });
-      throw error;
-    }
-  }
-
-  public async updateAssetPermissions(
-    assetType: AssetType,
-    assetId: string,
-    permissions: any[]
-  ): Promise<void> {
-    try {
-      await this.updateAsset(assetType, assetId, {
-        permissions,
-      });
-
-      logger.debug(`Updated permissions for asset ${assetType}/${assetId}`);
-    } catch (error) {
-      logger.error(`Failed to update permissions for asset ${assetType}/${assetId}`, { error });
       throw error;
     }
   }
@@ -627,63 +603,6 @@ export class CacheWriter {
       this.memoryAdapter.delete('field-cache');
     } catch (error) {
       logger.error('Failed to update field cache', { error });
-      throw error;
-    }
-  }
-
-  /**
-   * Update group membership after adding/removing users
-   */
-  public async updateGroupMembership(
-    groupName: string,
-    operation: 'add' | 'remove',
-    userName: string,
-    userArn?: string,
-    userEmail?: string
-  ): Promise<void> {
-    try {
-      // Get current group data from cache
-      const groupEntries = await this.cacheReader.getCacheEntries({
-        assetType: ASSET_TYPES.group as AssetType,
-        statusFilter: AssetStatusFilter.ACTIVE,
-      });
-
-      const groupEntry = groupEntries.find(
-        (g) => g.assetName === groupName || g.assetId === groupName
-      );
-
-      if (!groupEntry) {
-        logger.warn(`Group ${groupName} not found in cache for membership update`);
-        return;
-      }
-
-      // Update members list
-      const currentMembers = groupEntry.metadata?.members || [];
-      const updatedMembers = this.updateMembersList(
-        currentMembers,
-        operation,
-        userName,
-        userArn,
-        userEmail
-      );
-      const memberCount = updatedMembers.length;
-
-      // Update the cache entry
-      await this.updateAsset(ASSET_TYPES.group as AssetType, groupEntry.assetId, {
-        metadata: {
-          ...groupEntry.metadata,
-          members: updatedMembers,
-          memberCount,
-        },
-        lastUpdatedTime: new Date(),
-      });
-
-      // Update the exported JSON file
-      await this.updateGroupExportedJson(groupName, updatedMembers, memberCount);
-
-      logger.info(`Updated group ${groupName} membership: ${operation} user ${userName}`);
-    } catch (error) {
-      logger.error(`Failed to update group membership for ${groupName}`, { error });
       throw error;
     }
   }
@@ -2307,70 +2226,6 @@ export class CacheWriter {
 
     // Clear memory cache
     this.memoryAdapter.delete('cache-metadata');
-  }
-
-  /**
-   * Helper method to update exported JSON for group
-   */
-  private async updateGroupExportedJson(
-    groupName: string,
-    updatedMembers: any[],
-    memberCount: number
-  ): Promise<void> {
-    const exportFilePath = `assets/organization/groups.json`;
-    try {
-      const exportData = await this.s3Service.getObject(this.bucketName, exportFilePath);
-      if (exportData?.groups) {
-        const groupIndex = exportData.groups.findIndex(
-          (g: any) => g.name === groupName || g.id === groupName
-        );
-
-        if (groupIndex !== -1) {
-          // Transform members back to PascalCase for SDK format in exported JSON
-          const sdkMembers = updatedMembers.map((m) => ({
-            MemberName: m.memberName,
-            Arn: m.arn,
-            Email: m.email,
-          }));
-          exportData.groups[groupIndex].members = sdkMembers;
-          exportData.groups[groupIndex].memberCount = memberCount;
-          exportData.lastUpdated = new Date().toISOString();
-          await this.s3Service.putObject(this.bucketName, exportFilePath, exportData);
-        }
-      }
-    } catch (error) {
-      logger.warn(`Failed to update exported JSON for group ${groupName}`, { error });
-    }
-  }
-
-  /**
-   * Helper method to update group members list
-   */
-  private updateMembersList(
-    currentMembers: any[],
-    operation: 'add' | 'remove',
-    userName: string,
-    userArn?: string,
-    userEmail?: string
-  ): any[] {
-    if (operation === 'add') {
-      const existingMember = currentMembers.find((m: any) => m.memberName === userName);
-
-      if (!existingMember) {
-        // Use camelCase for internal domain model (cache)
-        const newMember = {
-          memberName: userName,
-          arn:
-            userArn ||
-            `arn:aws:quicksight:${process.env.AWS_REGION}:${process.env.AWS_ACCOUNT_ID}:user/default/${userName}`,
-          email: userEmail,
-        };
-        return [...currentMembers, newMember];
-      }
-      return currentMembers;
-    } else {
-      return currentMembers.filter((m: any) => m.memberName !== userName);
-    }
   }
 }
 

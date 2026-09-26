@@ -17,6 +17,7 @@ vi.mock('../../services/TagService', () => ({
         { key: 'Environment', value: 'Production' },
         { key: 'Owner', value: 'Team A' },
       ]),
+      readResourceTags: vi.fn().mockResolvedValue([{ key: 'Project', value: 'Alpha' }]),
       updateResourceTags: vi.fn().mockResolvedValue(undefined),
       removeResourceTags: vi.fn().mockResolvedValue(undefined),
     };
@@ -285,6 +286,51 @@ describe('TagHandler - Batch Operations', () => {
       expect(body.success).toBe(true);
       expect(body.jobId).toBe('job-123');
       expect(body.status).toBe('pending');
+    });
+
+    it('passes the action and tags the job needs, in the shape it reads', async () => {
+      const bulk = (handler as any).bulkOperationsService.bulkUpdateTags;
+      mockEvent.body = JSON.stringify({
+        assetType: 'dashboard',
+        assetIds: ['dash-1'],
+        operation: 'add',
+        tags: [{ key: 'team', value: 'sales' }],
+      });
+      await handler.bulkUpdateTags(mockEvent);
+      expect(bulk).toHaveBeenLastCalledWith(
+        [{ type: 'dashboard', id: 'dash-1', name: 'dashboard-dash-1' }],
+        [{ Key: 'team', Value: 'sales' }],
+        'add',
+        expect.any(String)
+      );
+
+      mockEvent.body = JSON.stringify({
+        assetType: 'dashboard',
+        assetIds: ['dash-1'],
+        operation: 'remove',
+        tagKeys: ['team'],
+      });
+      await handler.bulkUpdateTags(mockEvent);
+      expect(bulk).toHaveBeenLastCalledWith(
+        expect.any(Array),
+        [{ Key: 'team', Value: '' }],
+        'remove',
+        expect.any(String)
+      );
+
+      mockEvent.body = JSON.stringify({
+        assetType: 'dashboard',
+        assetIds: ['dash-1'],
+        operation: 'update',
+        tags: [{ Key: 'team', Value: 'ops' }],
+      });
+      await handler.bulkUpdateTags(mockEvent);
+      expect(bulk).toHaveBeenLastCalledWith(
+        expect.any(Array),
+        [{ Key: 'team', Value: 'ops' }],
+        'replace',
+        expect.any(String)
+      );
     });
 
     it('should bulk update tags for remove operation', async () => {

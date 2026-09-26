@@ -63,8 +63,11 @@ export class BulkOperationsProcessor {
    * `refreshAssets` re-exports assets from QuickSight; the worker passes the
    * export's, so a delete archives what QuickSight has now.
    */
+  private readonly refreshAssets?: RefreshAssets;
+
   public constructor(accountId: string, deps: { refreshAssets?: RefreshAssets } = {}) {
     const quickSightService = ClientFactory.getQuickSightService(accountId);
+    this.refreshAssets = deps.refreshAssets;
 
     this.bulkDeleteService = new BulkDeleteService(quickSightService, deps.refreshAssets);
     this.folderService = new FolderService(accountId);
@@ -134,9 +137,10 @@ export class BulkOperationsProcessor {
 
       await this.updateProgress(summarizeBulkResult(result).message, PAGINATION.MAX_PAGE_SIZE);
 
-      // DRY post-mutation cache maintenance for all bulk ops.
-      // No explicit memory invalidation needed: cache reads are ETag-revalidated
-      // against S3, so this worker's writes are visible everywhere on next read.
+      // One cache path for every bulk op: re-export what it touched from
+      // QuickSight before the job reports done, so a view that refreshes on
+      // completion shows the result (no per-operation cache patching).
+      await this.refreshAffected(config);
 
       return result;
     } catch (error) {
@@ -151,6 +155,70 @@ export class BulkOperationsProcessor {
       );
 
       throw error;
+    }
+  }
+
+  /** What a bulk operation changed, as the assets whose records must be re-read. */
+  private affectedAssets(
+    config: BulkOperationConfig
+  ): Array<{ assetType: AssetType; assetId: string }> {
+    const c = config as any;
+    const assets = (list: BulkAssetReference[] = []) =>
+      list.map((a) => ({ assetType: a.type, assetId: a.id }));
+    switch (config.operationType) {
+      case 'folder-add':
+      case 'folder-remove':
+        // The folders' members changed, and so did each asset's folder list.
+        return [
+          ...(c.folderIds as string[]).map((assetId) => ({
+            assetType: 'folder' as AssetType,
+            assetId,
+          })),
+          ...assets(c.assets),
+        ];
+      case 'group-add':
+      case 'group-remove':
+        return [
+          ...(c.groupNames as string[]).map((assetId) => ({
+            assetType: 'group' as AssetType,
+            assetId,
+          })),
+          ...(c.userNames as string[]).map((assetId) => ({
+            assetType: 'user' as AssetType,
+            assetId,
+          })),
+        ];
+      case 'permission-grant':
+      case 'permission-revoke':
+        return [{ assetType: c.assetType as AssetType, assetId: c.assetId as string }];
+      case 'tag-update':
+        return assets(c.assets);
+      default:
+        // Deletes archive their assets themselves.
+        return [];
+    }
+  }
+
+  private async refreshAffected(config: BulkOperationConfig): Promise<void> {
+    const affected = this.affectedAssets(config);
+    if (affected.length === 0) {
+      return;
+    }
+    await this.updateProgress('Refreshing what changed', PAGINATION.MAX_PAGE_SIZE - 1);
+    try {
+      if (this.refreshAssets) {
+        const refreshed = await this.refreshAssets(affected);
+        if (refreshed.failed.length > 0) {
+          logger.warn('Some changed assets could not be re-read after the bulk operation', {
+            failed: refreshed.failed,
+          });
+        }
+      } else {
+        await keepCacheFresh(affected);
+      }
+    } catch (error) {
+      // The operation itself succeeded; the next export picks the change up.
+      logger.warn('Refreshing the cache after the bulk operation failed', { error });
     }
   }
 
@@ -406,11 +474,6 @@ export class BulkOperationsProcessor {
       maxConcurrency,
       (op) => `${op.assetType}:${op.assetId} → folder ${op.folderId}`
     );
-    // The folders' members changed, and so did each asset's folder path.
-    await keepCacheFresh([
-      ...config.folderIds.map((assetId) => ({ assetType: 'folder' as const, assetId })),
-      ...config.assets.map((a) => ({ assetType: a.type, assetId: a.id })),
-    ]);
     return result;
   }
 
@@ -427,10 +490,11 @@ export class BulkOperationsProcessor {
       'folder-remove',
       operations,
       async (op) => {
-        await this.folderService.removeMember(
+        await this.folderService.removeAssetFromFolder(
           op.folderId,
           op.assetId,
-          op.assetType.toUpperCase() as any
+          op.assetType.toUpperCase() as any,
+          false
         );
         return `Removed ${op.assetType}:${op.assetId} from folder ${op.folderId}`;
       },
@@ -455,17 +519,6 @@ export class BulkOperationsProcessor {
       async (op) => {
         await this.identityService.addUserToGroup(op.userName, op.groupName);
 
-        // Update cache for group
-        try {
-          // Update group's member list
-          await cacheService.updateGroupMembership(op.groupName, 'add', op.userName);
-        } catch (cacheError) {
-          // Log but don't fail the operation if cache update fails
-          logger.warn(`Failed to update cache after adding ${op.userName} to ${op.groupName}`, {
-            cacheError,
-          });
-        }
-
         return `Added ${op.userName} to group ${op.groupName}`;
       },
       batchSize,
@@ -488,17 +541,6 @@ export class BulkOperationsProcessor {
       operations,
       async (op) => {
         await this.identityService.removeUserFromGroup(op.userName, op.groupName);
-
-        // Update cache for group
-        try {
-          // Update group's member list
-          await cacheService.updateGroupMembership(op.groupName, 'remove', op.userName);
-        } catch (cacheError) {
-          // Log but don't fail the operation if cache update fails
-          logger.warn(`Failed to update cache after removing ${op.userName} from ${op.groupName}`, {
-            cacheError,
-          });
-        }
 
         return `Removed ${op.userName} from group ${op.groupName}`;
       },
@@ -560,39 +602,10 @@ export class BulkOperationsProcessor {
       (op) => `${op.principal.split('/').pop()} on ${op.assetType}:${op.assetId}`
     );
 
-    // Update cache — remove all revoked principals from cached permissions
-    try {
-      const revokedPrincipals = new Set(
-        result.results
-          .filter((r) => r.success)
-          .map((_, i) => config.revocations[i]?.principal)
-          .filter(Boolean)
-      );
-
-      if (revokedPrincipals.size > 0) {
-        const cachedAsset = await cacheService.getAsset(config.assetType as any, config.assetId);
-        if (cachedAsset?.permissions) {
-          const updatedPermissions = cachedAsset.permissions.filter(
-            (p: any) => !revokedPrincipals.has(p.principal)
-          );
-          await cacheService.updateAssetPermissions(
-            config.assetType as any,
-            config.assetId,
-            updatedPermissions
-          );
-        }
-      }
-    } catch (cacheError) {
-      logger.warn('Failed to update cache after permission revoke', { cacheError });
-    }
-
     return result;
   }
 
-  /**
-   * Process bulk permission grant operations: the mirror of revoke, and the
-   * cache learns the new principals so the portal shows them at once.
-   */
+  /** Process bulk permission grant operations: the mirror of revoke. */
   private async processBulkPermissionGrant(
     config: BulkOperationConfig & {
       assetType: string;
@@ -626,32 +639,6 @@ export class BulkOperationsProcessor {
       (op) => `${op.principal.split('/').pop()} on ${op.assetType}:${op.assetId}`
     );
 
-    try {
-      const granted = result.results
-        .map((r, i) => (r.success ? config.grants[i] : undefined))
-        .filter((g): g is { principal: string; actions: string[] } => g !== undefined);
-      if (granted.length > 0) {
-        const cachedAsset = await cacheService.getAsset(config.assetType as any, config.assetId);
-        if (cachedAsset?.permissions) {
-          const byPrincipal = new Map<string, any>(
-            cachedAsset.permissions.map((p: any) => [p.principal, p])
-          );
-          for (const grant of granted) {
-            const existing = byPrincipal.get(grant.principal);
-            byPrincipal.set(grant.principal, {
-              ...(existing ?? { principal: grant.principal }),
-              actions: [...new Set([...(existing?.actions ?? []), ...grant.actions])],
-            });
-          }
-          await cacheService.updateAssetPermissions(config.assetType as any, config.assetId, [
-            ...byPrincipal.values(),
-          ]);
-        }
-      }
-    } catch (cacheError) {
-      logger.warn('Failed to update cache after permission grant', { cacheError });
-    }
-
     return result;
   }
 
@@ -678,18 +665,21 @@ export class BulkOperationsProcessor {
       'tag-update',
       operations,
       async (op) => {
+        const formattedTags = op.tags.map((t: any) => ({
+          key: t.Key ?? t.key,
+          value: t.Value ?? t.value ?? '',
+        }));
         if (op.action === 'remove') {
           await this.tagService.removeResourceTags(
             op.assetType,
             op.assetId,
-            op.tags.map((t: any) => t.Key || t.key)
+            formattedTags.map((t) => t.key)
           );
+        } else if (op.action === 'add') {
+          // Add or overwrite these keys; every other tag stays.
+          await this.tagService.tagResource(op.assetType, op.assetId, formattedTags);
         } else {
-          // Convert tags format if needed
-          const formattedTags = op.tags.map((t: any) => ({
-            key: t.Key || t.key,
-            value: t.Value || t.value,
-          }));
+          // Replace: exactly these tags.
           await this.tagService.updateResourceTags(op.assetType, op.assetId, formattedTags);
         }
         return `Updated tags for ${op.assetType}:${op.assetId}`;

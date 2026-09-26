@@ -449,3 +449,52 @@ describe('CacheWriter - calculated fields reaching the field cache', () => {
     expect(fields.filter((f) => f.isCalculated).map((f) => f.fieldName)).toEqual(['real']);
   });
 });
+
+describe('CacheWriter - live and archived entries of one id', () => {
+  let cacheWriter: CacheWriter;
+  let saved: any[] | null;
+  const t = (iso: string) => new Date(iso);
+  const live = {
+    assetId: 'g1',
+    assetType: 'group',
+    assetName: 'analysts',
+    status: 'active',
+    lastUpdatedTime: t('2026-09-01'),
+    metadata: { description: 'old', members: ['ann', 'rob'] },
+  };
+  const archived = {
+    assetId: 'g1',
+    assetType: 'group',
+    assetName: 'analysts',
+    status: 'archived',
+    lastUpdatedTime: t('2026-08-01'),
+    metadata: { archived: { archivedAt: '2026-08-01' } },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    saved = null;
+    cacheWriter = new CacheWriter(
+      mockS3Adapter as any,
+      mockMemoryAdapter as any,
+      mockS3Service,
+      'test-bucket'
+    );
+    vi.spyOn(cacheWriter as any, 'loadTypeCache').mockResolvedValue([live, archived]);
+    vi.spyOn(cacheWriter as any, 'saveTypeCache').mockImplementation(async (_type, entries) => {
+      saved = entries as any[];
+    });
+    vi.spyOn(cacheWriter as any, 'updateCacheMetadata').mockResolvedValue(undefined);
+  });
+
+  it('updateAsset patches the live entry only, merges its metadata, and touches one type', async () => {
+    const getMaster = vi.spyOn(cacheWriter as any, 'getMasterCache');
+
+    await cacheWriter.updateAsset('group', 'g1', { metadata: { description: 'new' } } as any);
+
+    expect(getMaster).not.toHaveBeenCalled();
+    const byStatus = Object.fromEntries((saved ?? []).map((e) => [e.status, e]));
+    expect(byStatus.active.metadata).toEqual({ description: 'new', members: ['ann', 'rob'] });
+    expect(byStatus.archived).toEqual(archived);
+  });
+});

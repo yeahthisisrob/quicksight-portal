@@ -42,6 +42,14 @@ import { BatchProcessingService } from './BatchProcessingService';
  * Unified Export Orchestrator
  * Handles all export operations with proper architecture and detailed progress tracking
  */
+/** Asset types lineage, fields and the catalog are built from. */
+const DERIVED_FROM = new Set<AssetType>([
+  ASSET_TYPES.dashboard,
+  ASSET_TYPES.analysis,
+  ASSET_TYPES.dataset,
+  ASSET_TYPES.datasource,
+]);
+
 export class ExportOrchestrator {
   private archiveService: ArchiveService;
   private readonly assetComparisonService: AssetComparisonService;
@@ -832,7 +840,30 @@ export class ExportOrchestrator {
         out.refreshed.push(...done.map((id) => `${assetType}:${id}`));
       }
     }
+    if ([...byType.keys()].some((type) => DERIVED_FROM.has(type)) && out.refreshed.length > 0) {
+      await this.rebuildDerivedIndexes();
+    }
     return out;
+  }
+
+  /**
+   * Lineage, the field cache and the data catalog are built from every
+   * asset, so a refresh that changed a dashboard, analysis, dataset or data
+   * source rebuilds them too - otherwise a rename or a new dataset shows up
+   * in lists but not in lineage, fields or the catalog until the next full
+   * export. A failure here leaves the refreshed entries as they are.
+   */
+  private async rebuildDerivedIndexes(): Promise<void> {
+    try {
+      await cacheService.updateFieldCache(null);
+      const catalogService = new CatalogService();
+      await catalogService.rebuildCatalogIndex();
+      await catalogService.buildVisualFieldCatalog();
+      await new LineageService().rebuildLineage();
+      await cacheService.runCacheRebuildHooks();
+    } catch (error) {
+      logger.warn('Derived indexes could not be rebuilt after a refresh', { error });
+    }
   }
 
   /**

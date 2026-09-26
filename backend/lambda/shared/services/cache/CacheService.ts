@@ -618,15 +618,6 @@ export class CacheService extends EventEmitter {
     return writer.updateAsset(assetType, assetId, updates);
   }
 
-  public async updateAssetPermissions(
-    assetType: AssetType,
-    assetId: string,
-    permissions: any[]
-  ): Promise<any> {
-    const writer = await this.getCacheWriter();
-    return writer.updateAssetPermissions(assetType, assetId, permissions);
-  }
-
   public async updateAssetTags(
     assetType: AssetType,
     assetId: string,
@@ -639,20 +630,6 @@ export class CacheService extends EventEmitter {
   public async updateFieldCache(fieldCache: any): Promise<any> {
     const writer = await this.getCacheWriter();
     return writer.updateFieldCache(fieldCache);
-  }
-
-  /**
-   * Update group membership after adding/removing users
-   */
-  public async updateGroupMembership(
-    groupName: string,
-    operation: 'add' | 'remove',
-    userName: string,
-    userArn?: string,
-    userEmail?: string
-  ): Promise<any> {
-    const writer = await this.getCacheWriter();
-    return writer.updateGroupMembership(groupName, operation, userName, userArn, userEmail);
   }
 
   /**

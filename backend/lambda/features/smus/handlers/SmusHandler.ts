@@ -4,6 +4,7 @@ import { actorLabel, requireAuth } from '../../../shared/auth';
 import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { STATUS_CODES } from '../../../shared/constants/httpStatusCodes';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
+import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
 import { CacheService } from '../../../shared/services/cache/CacheService';
 import { jobFactory, type SmusExportJobConfig } from '../../../shared/services/jobs/JobFactory';
 import { JobStateService } from '../../../shared/services/jobs/JobStateService';
@@ -143,6 +144,10 @@ export async function createSmusDataset(
           ? body.permissionsFromDataSetId
           : undefined,
     });
+    // The new dataset joins the cache (and its SMUS link resolves) without an export.
+    await keepCacheFresh([
+      { assetType: 'dataset', assetId: result.dataSetId, name: result.name, arn: result.arn },
+    ]);
     return successResponse(event, { success: true, data: result });
   } catch (error: any) {
     logger.error('Failed to create dataset from SMUS asset', { error });
