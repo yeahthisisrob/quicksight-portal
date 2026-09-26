@@ -314,6 +314,10 @@ identifier and the column) to `.../rebind` with `mode: "update"`. The
 organisation's standard bars live at `/api/data-catalog/templates/filter-bars`.
 The default bar is applied to every new analysis unless `filterBarTemplateId`
 names another or `none`.
+Saved visuals live at `/api/data-catalog/templates/visuals`, stored by
+column name. Add them to a new analysis with `visualTemplates: [{ "templateId":
+"...", "identifier": "orders" }]`. They work on any dataset that has the
+columns.
 
 **Authoring guidance.** Settings, under Authoring guidance, holds how your
 organisation builds: a calculated-field strategy (materialise in the

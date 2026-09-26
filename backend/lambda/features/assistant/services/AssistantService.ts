@@ -162,7 +162,62 @@ export function audienceProblem(
   return 'This creates an asset with no audience, so only account admins would see it. Give it one: permissionsFrom an asset whose audience fits (the dashboards that already use this dataset are a good start: context_related on the dataset, relations uses-dataset, direction in), or folderId of a shared folder the person named (find it with context_search, types folder). If neither is clear, ask the person who should see it. Set adminsOnly only when they said admins only.';
 }
 
+const ASKS_FOR_FILTER = /\b(filter(s|ed|ing)?|slicer|dropdown|date range|control bar)\b/i;
+const CREATE_NEW = '/api/authoring/new';
+const EDIT_OPS = '/api/authoring/{assetType}/{assetId}/rebind';
+
+/**
+ * A write that leaves out the filters the person asked for, or the plan
+ * promised: a create with no `filters`, or an edit with no addFilter op.
+ */
+export function missingFilters(
+  template: string,
+  body: unknown,
+  ask: string,
+  artifacts: AssistantArtifact[]
+): string | undefined {
+  if (template !== CREATE_NEW && template !== EDIT_OPS) {
+    return undefined;
+  }
+  const b = (body ?? {}) as Record<string, any>;
+  const plan = [...artifacts].reverse().find((a) => a.kind === 'plan');
+  const planned =
+    plan && 'filters' in plan ? (plan.filters ?? []).map((f) => f.column.toLowerCase()) : [];
+  const sent: string[] =
+    template === CREATE_NEW
+      ? (Array.isArray(b.filters) ? b.filters : []).map((f: any) =>
+          String(f?.column ?? '').toLowerCase()
+        )
+      : (Array.isArray(b.ops) ? b.ops : [])
+          .filter((o: any) => o?.op === 'addFilter')
+          .map((o: any) => String(o?.column ?? '').toLowerCase());
+  const missing = planned.filter((c) => !sent.includes(c));
+  if (missing.length) {
+    return `The plan promised filters on ${missing.join(', ')}, but this ${template === CREATE_NEW ? 'create has no filters for them' : 'edit has no addFilter op for them'}. Add them (${template === CREATE_NEW ? '`filters` by column' : 'an addFilter op each'}) and prepare it again.`;
+  }
+  if (sent.length === 0 && planned.length === 0 && ASKS_FOR_FILTER.test(ask)) {
+    return `The person asked for a filter, and this ${template === CREATE_NEW ? 'create has no `filters`' : 'edit has no addFilter op'}. Add the filter they asked for and prepare it again. If they did not mean a filter, say so and prepare it with a filter on the column they named.`;
+  }
+  return undefined;
+}
+
+/** What a preview built, in a line: visuals, and the control bar's filters. */
+export function describeBuilt(data: any): string | undefined {
+  const sheets: any[] = Array.isArray(data?.outline) ? data.outline : [];
+  if (sheets.length === 0) return undefined;
+  const elements = sheets.flatMap((s) => (Array.isArray(s?.elements) ? s.elements : []));
+  const visuals = elements.filter((e: any) => e?.kind === 'visual').length;
+  const controls = elements
+    .filter((e: any) => e?.kind === 'filterControl' || e?.kind === 'parameterControl')
+    .map(
+      (e: any) => `${e.title ?? e.elementId}${e.placement === 'canvas' ? ' (on the canvas)' : ''}`
+    );
+  return `${visuals} visual${visuals === 1 ? '' : 's'}; ${controls.length ? `controls: ${controls.join(', ')}` : 'no filter controls'}`;
+}
+
 export class AssistantService {
+  /** The person's latest message, for checking a prepared write against it. */
+  private lastAsk = '';
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly now: () => number;
 
@@ -180,6 +235,7 @@ export class AssistantService {
     history: ChatHistoryMessage[],
     run: RunInput = {}
   ): Promise<AssistantChatResult> {
+    this.lastAsk = [...history].reverse().find((m) => m.role === 'user')?.text ?? '';
     const turns: ChatTurn[] = history
       .slice(-MAX_HISTORY)
       .map((m) =>
@@ -559,9 +615,13 @@ export class AssistantService {
     if (audience) {
       return { id, content: audience, isError: true };
     }
+    const unasked = missingFilters(template, input.body, this.lastAsk, out.artifacts);
+    if (unasked) {
+      return { id, content: unasked, isError: true };
+    }
     const rehearsal = await this.rehearse(method, path, template, input.body, out);
-    if (rehearsal) {
-      return { id, content: rehearsal, isError: true };
+    if (rehearsal.problem) {
+      return { id, content: rehearsal.problem, isError: true };
     }
     const preview = [...out.artifacts].reverse().find((a) => a.kind === 'preview');
     const plan = [...out.artifacts].reverse().find((a) => a.kind === 'plan');
@@ -575,7 +635,10 @@ export class AssistantService {
       ...(preview ? { previewId: preview.id } : {}),
       ...(plan ? { planId: plan.id } : {}),
     });
-    return { id, content: 'Prepared. The person will see it with a Run button; it has not run.' };
+    return {
+      id,
+      content: `Prepared. The person will see it with a Run button; it has not run.${rehearsal.built ? ` The preview built: ${rehearsal.built}. Tell them if that is not what they asked for.` : ''}`,
+    };
   }
 
   /**
@@ -590,11 +653,11 @@ export class AssistantService {
     template: string,
     body: unknown,
     out: Collected
-  ): Promise<string | undefined> {
+  ): Promise<{ problem?: string; built?: string }> {
     const pathname = path.split('?')[0] ?? '';
     const previewPath = `${pathname}/preview`;
     if (method !== 'POST' || !(spec as any).paths?.[`${template}/preview`]?.post) {
-      return undefined;
+      return {};
     }
     // The write body adds its own fields (mode, name); what the preview reads must match.
     const fields = bodyFields(spec as never, 'POST', `${template}/preview`);
@@ -607,7 +670,7 @@ export class AssistantService {
         fields.every((f) => same((a.body as any)?.[f], (body as any)?.[f]))
     );
     if (already) {
-      return undefined;
+      return {};
     }
     await this.progress('Checking the change with a preview');
     const response = await this.run('POST', previewPath, body);
@@ -618,7 +681,9 @@ export class AssistantService {
       ok: response.status < HTTP_ERROR_MIN,
     });
     if (response.status >= HTTP_ERROR_MIN) {
-      return `The preview of this change failed, so running it would too:\n${clip(response.body)}\nFix it and prepare it again.`;
+      return {
+        problem: `The preview of this change failed, so running it would too:\n${clip(response.body)}\nFix it and prepare it again.`,
+      };
     }
     let data: any;
     try {
@@ -627,10 +692,12 @@ export class AssistantService {
       data = undefined;
     }
     if (data?.canApply === false) {
-      return `The preview says QuickSight would refuse this as it stands:\n${clip(JSON.stringify({ issues: data.issues, warnings: data.warnings, summary: data.summary }))}\nFix it and prepare it again.`;
+      return {
+        problem: `The preview says QuickSight would refuse this as it stands:\n${clip(JSON.stringify({ issues: data.issues, warnings: data.warnings, summary: data.summary }))}\nFix it and prepare it again.`,
+      };
     }
     this.capture('POST', previewPath, body, out.artifacts);
-    return undefined;
+    return { built: describeBuilt(data) };
   }
 
   /** Dispatch, waiting on a job when the call queued one. */

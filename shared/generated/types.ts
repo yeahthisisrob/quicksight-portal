@@ -3097,6 +3097,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data-catalog/templates/visuals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The visual templates
+         * @description Visuals the organisation saves for reuse, by column name, so one
+         *     works on any dataset with those columns. Add one to a new analysis
+         *     with `visualTemplates` on POST /api/authoring/new.
+         */
+        get: operations["listVisualTemplates"];
+        put?: never;
+        /** Save a visual template */
+        post: operations["createVisualTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data-catalog/templates/visuals/{templateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change a visual template */
+        put: operations["updateVisualTemplate"];
+        post?: never;
+        /** Delete a visual template */
+        delete: operations["deleteVisualTemplate"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/data-catalog/templates/calculated-fields": {
         parameters: {
             query?: never;
@@ -5678,6 +5719,11 @@ export interface components {
                 id?: string;
                 status: components["schemas"]["PlanStatus"];
             };
+            /** @description plan - the filters the asset will carry, each a control in the control bar. */
+            filters?: {
+                column: string;
+                title?: string;
+            }[];
             fields?: components["schemas"]["FieldVerdict"][];
             title: string;
             method?: string;
@@ -6963,6 +7009,12 @@ export interface components {
              *     tables and pivot tables full width.
              */
             visuals?: components["schemas"]["VisualSpec"][];
+            /** @description Saved visual templates to add, each on the dataset identifier given. */
+            visualTemplates?: {
+                templateId: string;
+                identifier: string;
+                title?: string;
+            }[];
             /**
              * @description The filter bar template to start from; the organisation's default
              *     when omitted, none with 'none'. Its controls come first, in its
@@ -7462,6 +7514,38 @@ export interface components {
             template?: {
                 id: string;
             };
+        };
+        /** @description A visual by column names, with no dataset; the builder places it by rule. */
+        TemplateVisual: {
+            /** @enum {string} */
+            type: "KPI" | "BarChart" | "ColumnChart" | "LineChart" | "PieChart" | "DonutChart" | "Table" | "PivotTable";
+            title?: string;
+            /** @description Required except for KPI and Table. */
+            category?: string;
+            /** @enum {string} */
+            granularity?: "DAY" | "WEEK" | "MONTH" | "QUARTER" | "YEAR";
+            values: {
+                column: string;
+                /** @enum {string} */
+                aggregation?: "SUM" | "AVERAGE" | "COUNT" | "DISTINCT_COUNT" | "MIN" | "MAX";
+            }[];
+            color?: string;
+        };
+        VisualTemplateInput: {
+            name: string;
+            description?: string;
+            visual: components["schemas"]["TemplateVisual"];
+        };
+        VisualTemplate: {
+            id: string;
+            name: string;
+            description?: string;
+            visual: components["schemas"]["TemplateVisual"];
+            createdBy?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
         };
         FilterBarControl: {
             /** @description Matched case-insensitively against the datasets' columns; a column no dataset has is skipped. */
@@ -8699,6 +8783,117 @@ export interface operations {
         };
     };
     deleteFilterBarTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listVisualTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The templates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            templates: components["schemas"]["VisualTemplate"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createVisualTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisualTemplateInput"];
+            };
+        };
+        responses: {
+            /** @description The saved template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["VisualTemplate"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateVisualTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisualTemplateInput"];
+            };
+        };
+        responses: {
+            /** @description The updated template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["VisualTemplate"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    deleteVisualTemplate: {
         parameters: {
             query?: never;
             header?: never;

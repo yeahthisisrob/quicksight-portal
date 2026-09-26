@@ -94,7 +94,7 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
   {
     name: 'list_templates',
     description:
-      'The template library, with ids: calculated-field templates, layout standards (tagged dashboards) and filter bar templates. To add, change or remove a template, prepare the write (POST/PUT/DELETE /api/data-catalog/templates/...) with propose_action.',
+      'The template library, with ids: calculated-field templates, layout standards (tagged dashboards), filter bar templates and visual templates. Prefer a saved visual template over composing the same visual by hand. To add, change or remove a template, prepare the write (POST/PUT/DELETE /api/data-catalog/templates/...) with propose_action.',
     inputSchema: { type: 'object', properties: {} },
   },
   {
@@ -179,6 +179,16 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
               },
             },
             required: ['name', 'status'],
+          },
+        },
+        filters: {
+          type: 'array',
+          description:
+            'Every filter the person asked for, and any the change adds; each becomes a control in the control bar.',
+          items: {
+            type: 'object',
+            properties: { column: { type: 'string' }, title: { type: 'string' } },
+            required: ['column'],
           },
         },
         asset: {

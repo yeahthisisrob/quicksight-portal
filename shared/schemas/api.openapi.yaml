@@ -2671,6 +2671,121 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/data-catalog/templates/visuals:
+    get:
+      tags: [Data Catalog]
+      operationId: listVisualTemplates
+      summary: The visual templates
+      description: |
+        Visuals the organisation saves for reuse, by column name, so one
+        works on any dataset with those columns. Add one to a new analysis
+        with `visualTemplates` on POST /api/authoring/new.
+      responses:
+        '200':
+          description: The templates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [templates]
+                    properties:
+                      templates:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/VisualTemplate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Data Catalog]
+      operationId: createVisualTemplate
+      summary: Save a visual template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VisualTemplateInput'
+      responses:
+        '200':
+          description: The saved template
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/VisualTemplate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/data-catalog/templates/visuals/{templateId}:
+    put:
+      tags: [Data Catalog]
+      operationId: updateVisualTemplate
+      summary: Change a visual template
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VisualTemplateInput'
+      responses:
+        '200':
+          description: The updated template
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/VisualTemplate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [Data Catalog]
+      operationId: deleteVisualTemplate
+      summary: Delete a visual template
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /api/data-catalog/templates/calculated-fields:
     get:
       summary: The calculated-field template library
@@ -4892,6 +5007,17 @@ components:
               type: string
             status:
               $ref: '#/components/schemas/PlanStatus'
+        filters:
+          type: array
+          description: plan - the filters the asset will carry, each a control in the control bar.
+          items:
+            type: object
+            required: [column]
+            properties:
+              column:
+                type: string
+              title:
+                type: string
         fields:
           type: array
           items:
@@ -7122,6 +7248,19 @@ components:
             tables and pivot tables full width.
           items:
             $ref: '#/components/schemas/VisualSpec'
+        visualTemplates:
+          type: array
+          description: Saved visual templates to add, each on the dataset identifier given.
+          items:
+            type: object
+            required: [templateId, identifier]
+            properties:
+              templateId:
+                type: string
+              identifier:
+                type: string
+              title:
+                type: string
         filterBarTemplateId:
           type: string
           description: |
@@ -8103,6 +8242,71 @@ components:
           properties:
             id:
               type: string
+
+    TemplateVisual:
+      type: object
+      description: A visual by column names, with no dataset; the builder places it by rule.
+      required: [type, values]
+      properties:
+        type:
+          type: string
+          enum: [KPI, BarChart, ColumnChart, LineChart, PieChart, DonutChart, Table, PivotTable]
+        title:
+          type: string
+        category:
+          type: string
+          description: Required except for KPI and Table.
+        granularity:
+          type: string
+          enum: [DAY, WEEK, MONTH, QUARTER, YEAR]
+        values:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            type: object
+            required: [column]
+            properties:
+              column:
+                type: string
+              aggregation:
+                type: string
+                enum: [SUM, AVERAGE, COUNT, DISTINCT_COUNT, MIN, MAX]
+        color:
+          type: string
+
+    VisualTemplateInput:
+      type: object
+      required: [name, visual]
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        visual:
+          $ref: '#/components/schemas/TemplateVisual'
+
+    VisualTemplate:
+      type: object
+      required: [id, name, visual, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        visual:
+          $ref: '#/components/schemas/TemplateVisual'
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
 
     FilterBarControl:
       type: object

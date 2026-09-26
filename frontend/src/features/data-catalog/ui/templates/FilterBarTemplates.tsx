@@ -21,14 +21,14 @@ import { getApiErrorMessage } from '@/shared/api';
 import type { FilterBarTemplate } from '@/shared/api/modules/data-catalog';
 import { EmptyState, pal } from '@/shared/design-system';
 
-import { useDeleteFilterBar, useFilterBarTemplates } from '../../lib/useFilterBarTemplates';
+import { filterBarLibrary } from '../../lib/useTemplateLibrary';
 import { FilterBarDialog } from './FilterBarDialog';
 import { FilterBarPreview } from './FilterBarPreview';
 
 export function FilterBarTemplates() {
   const { enqueueSnackbar } = useSnackbar();
-  const bars = useFilterBarTemplates();
-  const remove = useDeleteFilterBar();
+  const bars = filterBarLibrary.useList();
+  const remove = filterBarLibrary.useRemove();
   const [editing, setEditing] = useState<FilterBarTemplate | 'new' | null>(null);
 
   const handleDelete = async (bar: FilterBarTemplate) => {

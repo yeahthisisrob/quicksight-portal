@@ -199,6 +199,10 @@ export const PLAN_ON_GOVERNED = {
     },
     { name: 'Share of region', expression: 'sum({revenue}) / sum({revenue}, [])', status: 'new' },
   ],
+  filters: [
+    { column: 'order_date', title: 'Period' },
+    { column: 'region', title: 'Region' },
+  ],
   asset: { kind: 'analysis', name: 'Margin by region', status: 'new' },
 } as const;
 

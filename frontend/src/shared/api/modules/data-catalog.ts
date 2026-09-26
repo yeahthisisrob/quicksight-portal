@@ -161,6 +161,9 @@ export type CalculatedFieldTemplateInput = CatalogSchemas['CalculatedFieldTempla
 export type FilterBarTemplate = CatalogSchemas['FilterBarTemplate'];
 export type FilterBarTemplateInput = CatalogSchemas['FilterBarTemplateInput'];
 export type FilterBarControl = CatalogSchemas['FilterBarControl'];
+export type VisualTemplate = CatalogSchemas['VisualTemplate'];
+export type VisualTemplateInput = CatalogSchemas['VisualTemplateInput'];
+export type TemplateVisual = CatalogSchemas['TemplateVisual'];
 export type FieldVisualUsage = CatalogSchemas['FieldVisualUsage'];
 export type FieldConflict = CatalogSchemas['FieldConflict'];
 export type ExpressionVariant = CatalogSchemas['ExpressionVariant'];
@@ -325,45 +328,51 @@ export const smusCatalogApi = {
   },
 };
 
-const FILTER_BARS = '/data-catalog/templates/filter-bars';
-
 /**
- * Filter bar templates: the standard filters, order and widths of a
- * sheet's control bar. The default is applied to every analysis the portal
- * builds from nothing.
+ * A template library (filter bars, visuals): list, save (create or
+ * update), remove. One factory, one path per kind.
  */
-export const filterBarTemplatesApi = {
-  async list(): Promise<FilterBarTemplate[]> {
-    const response =
-      await apiClient.get<ApiResponse<{ templates: FilterBarTemplate[] }>>(FILTER_BARS);
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.error || 'Failed to load the filter bars');
-    }
-    return response.data.data.templates;
-  },
+function templateLibraryApi<T, Input>(path: string, noun: string) {
+  return {
+    async list(): Promise<T[]> {
+      const response = await apiClient.get<ApiResponse<{ templates: T[] }>>(path);
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.error || `Failed to load the ${noun}s`);
+      }
+      return response.data.data.templates;
+    },
 
-  async save(
-    templateId: string | undefined,
-    input: FilterBarTemplateInput
-  ): Promise<FilterBarTemplate> {
-    const response = templateId
-      ? await apiClient.put<ApiResponse<FilterBarTemplate>>(
-          `${FILTER_BARS}/${encodeURIComponent(templateId)}`,
-          input
-        )
-      : await apiClient.post<ApiResponse<FilterBarTemplate>>(FILTER_BARS, input);
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.error || 'Failed to save the filter bar');
-    }
-    return response.data.data;
-  },
+    async save(templateId: string | undefined, input: Input): Promise<T> {
+      const response = templateId
+        ? await apiClient.put<ApiResponse<T>>(`${path}/${encodeURIComponent(templateId)}`, input)
+        : await apiClient.post<ApiResponse<T>>(path, input);
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.error || `Failed to save the ${noun}`);
+      }
+      return response.data.data;
+    },
 
-  async remove(templateId: string): Promise<void> {
-    const response = await apiClient.delete<ApiResponse<unknown>>(
-      `${FILTER_BARS}/${encodeURIComponent(templateId)}`
-    );
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to delete the filter bar');
-    }
-  },
-};
+    async remove(templateId: string): Promise<void> {
+      const response = await apiClient.delete<ApiResponse<unknown>>(
+        `${path}/${encodeURIComponent(templateId)}`
+      );
+      if (!response.data.success) {
+        throw new Error(response.data.error || `Failed to delete the ${noun}`);
+      }
+    },
+  };
+}
+
+export type TemplateLibraryApi<T, Input> = ReturnType<typeof templateLibraryApi<T, Input>>;
+
+/** The standard filters, order and widths of a sheet's control bar; the default starts every built analysis. */
+export const filterBarTemplatesApi = templateLibraryApi<FilterBarTemplate, FilterBarTemplateInput>(
+  '/data-catalog/templates/filter-bars',
+  'filter bar'
+);
+
+/** Visuals by column name, reusable on any dataset with those columns. */
+export const visualTemplatesApi = templateLibraryApi<VisualTemplate, VisualTemplateInput>(
+  '/data-catalog/templates/visuals',
+  'visual template'
+);

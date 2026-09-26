@@ -4,12 +4,13 @@ import { Navigate } from 'react-router-dom';
 
 import { type MockRoute, mockApi } from '../../../../.storybook/mocks/api';
 import { LONG_FORMS_ASSET, SALES_ASSET, SALES_GOLD_DATASET } from './__stories__/fixtures';
-import { catalogRoutes, FILTER_BARS } from './__stories__/routes';
+import { catalogRoutes, FILTER_BARS, VISUAL_TEMPLATES } from './__stories__/routes';
 import { AssetDetail } from './AssetDetail';
 import { CatalogPage } from './CatalogPage';
 import ExpressionGraphDialog from './dialogs/ExpressionGraphDialog';
 import { FilterBarDialog } from './templates/FilterBarDialog';
 import { TemplatesView } from './templates/TemplatesView';
+import { VisualTemplateDialog } from './templates/VisualTemplateDialog';
 
 /**
  * The page makes three kinds of request: the unscoped list (to learn the
@@ -253,6 +254,15 @@ export const FilterBarEditor: Story = {
   render: () => (
     <Mocked routes={catalogRoutes()} path="/data-catalog?tab=templates">
       <FilterBarDialog open onClose={() => {}} template={FILTER_BARS[0] as never} />
+    </Mocked>
+  ),
+};
+
+/** Editing a visual template: type, category, values and aggregations, summarised as what it draws. */
+export const VisualTemplateEditor: Story = {
+  render: () => (
+    <Mocked routes={catalogRoutes()} path="/data-catalog?tab=templates">
+      <VisualTemplateDialog open onClose={() => {}} template={VISUAL_TEMPLATES[1] as never} />
     </Mocked>
   ),
 };

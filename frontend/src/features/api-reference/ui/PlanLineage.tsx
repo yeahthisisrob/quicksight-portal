@@ -2,10 +2,12 @@
  * What a change will build, drawn before anything is prepared: where the
  * data comes from (SMUS listings, when there are any) to the datasets
  * (existing, or new and through which data source) to the analysis or
- * dashboard (new, edited, or read as it is). Each node says whether it
+ * dashboard (new, edited, or read as it is), with the filters its control
+ * bar will carry. Each node says whether it
  * exists already, so "use the governed dataset" is visibly not "make one".
  */
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import { Box, Chip, Stack, Typography } from '@mui/material';
 
 import type { AssistantArtifact } from '@/shared/api/modules/assistant';
@@ -145,6 +147,24 @@ export function PlanLineage({ plan }: { plan: AssistantArtifact }) {
           <Arrow />
           <Column label={asset.kind === 'dashboard' ? 'Dashboard' : 'Analysis'}>
             <Node title={asset.name} status={asset.status} detail={asset.id} />
+            {(plan.filters?.length ?? 0) > 0 && (
+              <Box aria-label="Control bar">
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  Control bar
+                </Typography>
+                <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.5, mt: 0.25 }}>
+                  {plan.filters?.map((f) => (
+                    <Chip
+                      key={f.column}
+                      size="small"
+                      variant="outlined"
+                      icon={<FilterListIcon fontSize="small" />}
+                      label={f.title ?? f.column}
+                    />
+                  ))}
+                </Stack>
+              </Box>
+            )}
           </Column>
         </>
       )}

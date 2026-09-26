@@ -1,9 +1,26 @@
 import type { RouteHandler } from '../../../api/types';
+import {
+  FilterBarTemplateStore,
+  validateFilterBarInput,
+} from '../../../shared/services/templates/FilterBarTemplateStore';
+import {
+  VisualTemplateStore,
+  validateVisualTemplateInput,
+} from '../../../shared/services/templates/VisualTemplateStore';
 import { DataCatalogHandler } from '../handlers/DataCatalogHandler';
-import { FilterBarTemplateHandler } from '../handlers/FilterBarTemplateHandler';
+import { TemplateLibraryHandler } from '../handlers/TemplateLibraryHandler';
 
 const handler = new DataCatalogHandler();
-const filterBars = new FilterBarTemplateHandler();
+const filterBars = new TemplateLibraryHandler(
+  new FilterBarTemplateStore(),
+  validateFilterBarInput,
+  'filter bar'
+);
+const visuals = new TemplateLibraryHandler(
+  new VisualTemplateStore(),
+  validateVisualTemplateInput,
+  'visual template'
+);
 
 export const dataCatalogRoutes: RouteHandler[] = [
   // Main data catalog endpoint with pagination
@@ -154,5 +171,27 @@ export const dataCatalogRoutes: RouteHandler[] = [
     method: 'DELETE',
     path: /^\/data-catalog\/templates\/filter-bars\/([^/]+)$/,
     handler: (event) => filterBars.remove(event),
+  },
+
+  // Visual templates: visuals by column name, reusable on any dataset with those columns
+  {
+    method: 'GET',
+    path: '/data-catalog/templates/visuals',
+    handler: (event) => visuals.list(event),
+  },
+  {
+    method: 'POST',
+    path: '/data-catalog/templates/visuals',
+    handler: (event) => visuals.create(event),
+  },
+  {
+    method: 'PUT',
+    path: /^\/data-catalog\/templates\/visuals\/([^/]+)$/,
+    handler: (event) => visuals.update(event),
+  },
+  {
+    method: 'DELETE',
+    path: /^\/data-catalog\/templates\/visuals\/([^/]+)$/,
+    handler: (event) => visuals.remove(event),
   },
 ];

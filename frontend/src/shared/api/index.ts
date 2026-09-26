@@ -13,6 +13,7 @@ export {
   dataCatalogApi,
   filterBarTemplatesApi,
   smusCatalogApi,
+  visualTemplatesApi,
 } from './modules/data-catalog';
 export { deployApi } from './modules/deploy';
 export { exportApi } from './modules/export';

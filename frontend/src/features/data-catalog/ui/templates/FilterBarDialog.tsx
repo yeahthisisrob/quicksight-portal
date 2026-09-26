@@ -27,7 +27,7 @@ import { useState } from 'react';
 import { getApiErrorMessage } from '@/shared/api';
 import type { FilterBarControl, FilterBarTemplate } from '@/shared/api/modules/data-catalog';
 
-import { useSaveFilterBar } from '../../lib/useFilterBarTemplates';
+import { filterBarLibrary } from '../../lib/useTemplateLibrary';
 import { FilterBarPreview } from './FilterBarPreview';
 
 const SPANS = [1, 2, 3, 4, 5, 6];
@@ -83,7 +83,7 @@ export function FilterBarDialog({
   template?: FilterBarTemplate;
 }) {
   const { enqueueSnackbar } = useSnackbar();
-  const save = useSaveFilterBar();
+  const save = filterBarLibrary.useSave();
   const [name, setName] = useState(template?.name ?? '');
   const [description, setDescription] = useState(template?.description ?? '');
   const [isDefault, setIsDefault] = useState(template?.isDefault ?? false);

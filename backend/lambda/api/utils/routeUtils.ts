@@ -138,6 +138,11 @@ const ROUTE_PATTERNS: readonly RoutePattern[] = [
     params: ['templateId'],
   },
   {
+    prefix: '/data-catalog/templates/visuals/',
+    excludes: [],
+    params: ['templateId'],
+  },
+  {
     prefix: '/data-catalog/smus/',
     excludes: [],
     params: ['listingId'],
