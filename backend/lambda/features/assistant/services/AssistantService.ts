@@ -14,11 +14,12 @@ import { randomUUID } from 'node:crypto';
 
 import spec from '../../../../../shared/generated/openapi.json';
 import type { AuthoringGuidance } from '../../../shared/ai/authoringGuidance';
+import type { VocabularyEntry } from '../../../shared/ai/authoringVocabulary';
 import { AI_MODELS, type AiModel, costOf } from '../../../shared/ai/modelCatalog';
+import { bodyErrors, bodyFields, matchOperation } from '../../../shared/api/contract';
 import { logger } from '../../../shared/utils/logger';
-import { bodyErrors, bodyFields, matchOperation } from '../lib/bodyCheck';
 import { contextGet, contextRelated, contextSearch, datasetColumns } from '../lib/contextTools';
-import { judgeFields, parsePlan, verdictsMessage } from '../lib/planning';
+import { filtersOf, judgeFields, parsePlan, verdictsMessage, writeOf } from '../lib/planning';
 import { buildBrief, listTemplates } from '../lib/portalBrief';
 import { classifyCall, describeOperation } from '../lib/portalCalls';
 import { describeRunInput, type RunInput } from '../lib/runInput';
@@ -78,6 +79,8 @@ interface AssistantOptions {
   smus?: boolean;
   /** The organisation's authoring guidance from Settings. */
   guidance?: AuthoringGuidance;
+  /** The organisation's own words for what to build, from Settings. */
+  vocabulary?: VocabularyEntry[];
   /** Read the account's state (SMUS, catalog, templates) before answering. */
   brief?: boolean;
   /** Sent as `model` on propose calls that do not name one. */
@@ -140,44 +143,8 @@ function int(input: Record<string, unknown>, key: string): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : undefined;
 }
 
-const ASKS_FOR_FILTER = /\b(filter(s|ed|ing)?|slicer|dropdown|date range|control bar)\b/i;
 const CREATE_NEW = '/api/authoring/new';
 const EDIT_OPS = '/api/authoring/{assetType}/{assetId}/rebind';
-
-/**
- * A write that leaves out the filters the person asked for, or the plan
- * promised: a create with no `filters`, or an edit with no addFilter op.
- */
-export function missingFilters(
-  template: string,
-  body: unknown,
-  ask: string,
-  artifacts: AssistantArtifact[]
-): string | undefined {
-  if (template !== CREATE_NEW && template !== EDIT_OPS) {
-    return undefined;
-  }
-  const b = (body ?? {}) as Record<string, any>;
-  const plan = [...artifacts].reverse().find((a) => a.kind === 'plan');
-  const planned =
-    plan && 'filters' in plan ? (plan.filters ?? []).map((f) => f.column.toLowerCase()) : [];
-  const sent: string[] =
-    template === CREATE_NEW
-      ? (Array.isArray(b.filters) ? b.filters : []).map((f: any) =>
-          String(f?.column ?? '').toLowerCase()
-        )
-      : (Array.isArray(b.ops) ? b.ops : [])
-          .filter((o: any) => o?.op === 'addFilter')
-          .map((o: any) => String(o?.column ?? '').toLowerCase());
-  const missing = planned.filter((c) => !sent.includes(c));
-  if (missing.length) {
-    return `The plan promised filters on ${missing.join(', ')}, but this ${template === CREATE_NEW ? 'create has no filters for them' : 'edit has no addFilter op for them'}. Add them (${template === CREATE_NEW ? '`filters` by column' : 'an addFilter op each'}) and prepare it again.`;
-  }
-  if (sent.length === 0 && planned.length === 0 && ASKS_FOR_FILTER.test(ask)) {
-    return `The person asked for a filter, and this ${template === CREATE_NEW ? 'create has no `filters`' : 'edit has no addFilter op'}. Add the filter they asked for and prepare it again. If they did not mean a filter, say so and prepare it with a filter on the column they named.`;
-  }
-  return undefined;
-}
 
 /** What a preview built, in a line: visuals, and the control bar's filters. */
 export function describeBuilt(data: any): string | undefined {
@@ -194,8 +161,8 @@ export function describeBuilt(data: any): string | undefined {
 }
 
 export class AssistantService {
-  /** The person's latest message, for checking a prepared write against it. */
-  private lastAsk = '';
+  /** Plans drawn in earlier answers (the page's working state), for prepare_plan. */
+  private earlierPlans: NonNullable<NonNullable<RunInput['state']>['plans']> = [];
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly now: () => number;
 
@@ -213,7 +180,7 @@ export class AssistantService {
     history: ChatHistoryMessage[],
     run: RunInput = {}
   ): Promise<AssistantChatResult> {
-    this.lastAsk = [...history].reverse().find((m) => m.role === 'user')?.text ?? '';
+    this.earlierPlans = run.state?.plans ?? [];
     const turns: ChatTurn[] = history
       .slice(-MAX_HISTORY)
       .map((m) =>
@@ -239,6 +206,7 @@ export class AssistantService {
       stable: systemPrompt({
         smus: this.options.smus ?? true,
         guidance: this.options.guidance ?? NO_GUIDANCE,
+        vocabulary: this.options.vocabulary,
       }),
       ...(context ? { context } : {}),
     };
@@ -339,6 +307,8 @@ export class AssistantService {
         return this.askPerson(id, input, out);
       case 'show_to_person':
         return this.showToPerson(id, input, out);
+      case 'prepare_plan':
+        return this.preparePlan(id, input, out);
       case 'propose_action':
         return this.proposeAction(id, input, out);
       case 'call_portal_api':
@@ -396,11 +366,25 @@ export class AssistantService {
     if (typeof plan === 'string') {
       return { id, content: plan, isError: true };
     }
+    // The build is checked and previewed before the plan is shown: a plan
+    // the person sees is one that runs.
+    const checked = await this.checkWrite(writeOf(plan.build), out);
+    if (checked.problem) {
+      return {
+        id,
+        content: `The plan's build does not work yet, so it was not shown:\n${checked.problem}`,
+        isError: true,
+      };
+    }
+    const planId = randomUUID();
+    const filters = filtersOf(plan.build);
     out.artifacts.push({
-      id: randomUUID(),
+      id: planId,
       kind: 'plan',
       title: str(input, 'title') || 'The plan',
       ...plan,
+      model: { key: this.model.key, label: this.model.label },
+      ...(filters.length ? { filters } : {}),
     });
     await this.progress('Checking the calculated fields');
     const judged = await judgeFields(
@@ -416,7 +400,78 @@ export class AssistantService {
         fields: judged,
       });
     }
-    return { id, content: verdictsMessage(judged) };
+    return {
+      id,
+      content: `${verdictsMessage(judged)}\nPlan id ${planId}.${checked.built ? ` Its preview built: ${checked.built}.` : ''} Prepare it with prepare_plan (the person runs it), or draw it again to change it.`,
+    };
+  }
+
+  /**
+   * The Run button under a plan: its build, exactly. A plan from an earlier
+   * answer is previewed again first, since the account may have moved on.
+   */
+  private async preparePlan(
+    id: string,
+    input: Record<string, unknown>,
+    out: Collected
+  ): Promise<ToolResult> {
+    const wanted = str(input, 'planId');
+    const here = out.artifacts.filter(
+      (a): a is Extract<AssistantArtifact, { kind: 'plan' }> => a.kind === 'plan'
+    );
+    const plan =
+      (wanted
+        ? (here.find((p) => p.id === wanted) ?? this.earlierPlans.find((p) => p.id === wanted))
+        : (here.at(-1) ?? this.earlierPlans.at(-1))) ?? undefined;
+    if (!plan) {
+      return {
+        id,
+        content: wanted
+          ? `No plan ${wanted} in this conversation. Draw it with show_plan.`
+          : 'There is no plan to prepare. Draw one with show_plan first.',
+        isError: true,
+      };
+    }
+    const write = writeOf(plan.build);
+    if (!here.some((p) => p.id === plan.id)) {
+      const checked = await this.checkWrite(write, out);
+      if (checked.problem) {
+        return { id, content: checked.problem, isError: true };
+      }
+    }
+    const preview = [...out.artifacts].reverse().find((a) => a.kind === 'preview');
+    out.actions.push({
+      id: randomUUID(),
+      title: write.title,
+      why: str(input, 'why') || plan.title,
+      method: write.method,
+      path: write.path,
+      body: write.body,
+      planId: plan.id,
+      ...(preview ? { previewId: preview.id } : {}),
+    });
+    return {
+      id,
+      content: 'Prepared. The person sees the plan with a Run button; it has not run.',
+    };
+  }
+
+  /** A write checked against the contract and rehearsed through its preview. */
+  private async checkWrite(
+    write: { method: string; path: string; body: unknown },
+    out: Collected
+  ): Promise<{ problem?: string; built?: string }> {
+    const template = matchOperation(spec as never, write.method, write.path);
+    if (!template) {
+      return { problem: `${write.method} ${write.path} is not an operation in the API.` };
+    }
+    const problems = bodyErrors(spec as never, write.method, template, write.body);
+    if (problems.length > 0) {
+      return {
+        problem: `It does not fit ${write.method} ${template}:\n${problems.map((p) => `- ${p}`).join('\n')}\nThe operation expects:\n${describeOperation(spec as never, write.method, template)}`,
+      };
+    }
+    return await this.rehearse(write.method, write.path, template, write.body, out);
   }
 
   /**
@@ -581,6 +636,14 @@ export class AssistantService {
         isError: true,
       };
     }
+    if (template === CREATE_NEW || template === EDIT_OPS) {
+      return {
+        id,
+        content:
+          'Creating or editing an analysis or dashboard comes from a plan: draw it with show_plan (its build is this write) and prepare it with prepare_plan, so what runs is exactly what the person saw.',
+        isError: true,
+      };
+    }
     const problems = bodyErrors(spec as never, method, template, input.body);
     if (problems.length > 0) {
       return {
@@ -588,10 +651,6 @@ export class AssistantService {
         content: `The body does not fit ${method} ${template}, so it would fail when the person runs it:\n${problems.map((p) => `- ${p}`).join('\n')}\nThe operation expects:\n${describeOperation(spec as never, method, template)}\nFix the body and prepare it again.`,
         isError: true,
       };
-    }
-    const unasked = missingFilters(template, input.body, this.lastAsk, out.artifacts);
-    if (unasked) {
-      return { id, content: unasked, isError: true };
     }
     const rehearsal = await this.rehearse(method, path, template, input.body, out);
     if (rehearsal.problem) {

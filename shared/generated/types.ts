@@ -2365,11 +2365,17 @@ export interface components {
             resume?: components["schemas"]["AgUiResumeEntry"][];
         };
         /**
-         * @description What the page holds between answers (AG-UI state): actions the
-         *     assistant prepared that were not run (the working draft), and actions
-         *     the person ran, with their results. Large bodies are clipped.
+         * @description What the page holds between answers (AG-UI state): plans drawn so
+         *     far (so "go" acts on the plan drawn earlier), actions the assistant
+         *     prepared that were not run (the working draft), and actions the
+         *     person ran, with their results. Large bodies are clipped.
          */
         AssistantWorkingState: {
+            plans?: {
+                id: string;
+                title: string;
+                build: components["schemas"]["AssistantPlanBuild"];
+            }[];
             drafts?: {
                 title: string;
                 method: string;
@@ -2468,9 +2474,10 @@ export interface components {
          *     preview call and draw its definition as a wireframe. `asset`: draw
          *     the dashboard or analysis as it is. `lineage`: draw the calculated
          *     field's lineage from GET /api/data-catalog/calculated-fields/{fieldKey}.
-         *     `plan`: the lineage of what a change builds (listings, datasets, the
-         *     analysis or dashboard). `fields`: the calculated fields it adds, each
-         *     placed by the organisation's field strategy.
+         *     `plan`: what a change builds - its lineage (listings, datasets, the
+         *     analysis or dashboard) and `build`, the exact write that carries it
+         *     out, which is what the person runs. `fields`: the calculated fields
+         *     it adds, each placed by the organisation's field strategy.
          */
         AssistantArtifact: {
             id: string;
@@ -2502,11 +2509,19 @@ export interface components {
                 id?: string;
                 status: components["schemas"]["PlanStatus"];
             };
-            /** @description plan - the filters the asset will carry, each a control in the control bar. */
+            build?: components["schemas"]["AssistantPlanBuild"];
+            /** @description plan - the filters its build adds, for drawing (the build is what runs). */
             filters?: {
                 column: string;
                 title?: string;
+                control?: components["schemas"]["FilterControlKind"];
+                placement?: components["schemas"]["ControlPlacement"];
             }[];
+            /** @description plan - the model that drew it. */
+            model?: {
+                key: components["schemas"]["AiModelKey"];
+                label: string;
+            };
             fields?: components["schemas"]["FieldVerdict"][];
             title: string;
             method?: string;
@@ -2519,6 +2534,23 @@ export interface components {
             assetId?: string;
             fieldKey?: string;
         };
+        /**
+         * @description The exact write a plan carries out: a new asset (`create`, the body
+         *     of POST /api/authoring/new), or a change to an existing one (`edit`:
+         *     the body of POST /api/authoring/{assetType}/{assetId}/rebind - ops,
+         *     a rebind onto other datasets, a copy, a template). Checked against
+         *     the contract and rehearsed through the matching preview when the plan
+         *     is drawn; the Run button sends it unchanged.
+         */
+        AssistantPlanBuild: {
+            create?: components["schemas"]["NewAssetRequest"];
+            edit?: {
+                /** @enum {string} */
+                assetType: "dashboard" | "analysis";
+                assetId: string;
+                request: components["schemas"]["ApplyRebindRequest"];
+            };
+        } & (unknown | unknown);
         /** @description A write the assistant prepared; the person runs it with their own session. */
         AssistantAction: {
             id: string;
@@ -3603,8 +3635,14 @@ export interface components {
                 rebinds: components["schemas"]["RebindRequest"][];
             };
         };
-        /** @description One visual by column names; the builder decides the field wells from the columns' types. */
+        /**
+         * @description One visual by column names; the builder decides the field wells from
+         *     the columns' types. A column the dataset does not have refuses the
+         *     build (it is never left out quietly).
+         */
         VisualSpec: {
+            /** @description How filters (`appliesTo`) and actions (`targets`) refer to this visual; its title works too. */
+            key?: string;
             /** @enum {string} */
             type: "KPI" | "BarChart" | "ColumnChart" | "LineChart" | "PieChart" | "DonutChart" | "Table" | "PivotTable";
             title: string;
@@ -3624,19 +3662,53 @@ export interface components {
             }[];
             /** @description A second dimension (colours, pivot columns). */
             color?: string;
+            /** @description Interactions on this visual - a click that filters other visuals, or opens a sheet. */
+            actions?: components["schemas"]["VisualAction"][];
         };
         /**
-         * @description A column the person filters on. The column's type decides the rest:
-         *     text gets a multi-select dropdown, a date a date-range picker, a
-         *     number a range slider (needs min and max). The filter applies to
-         *     every visual on the sheet, and its control goes in the sheet's
-         *     control bar (the collapsible strip at the top), where QuickSight
-         *     puts controls by default.
+         * @description An interaction on a visual (a QuickSight custom action). `filter` is
+         *     what people call an action filter, click-to-filter or cross-filter:
+         *     selecting a data point filters other visuals by it. `navigate` opens
+         *     another sheet (drill to a detail sheet). A visual runs one action on
+         *     select (click); others go in its data point menu.
+         */
+        VisualAction: {
+            /** @enum {string} */
+            kind: "filter" | "navigate";
+            /** @description Shown in the visual's menu. */
+            name?: string;
+            /**
+             * @description select (default) - clicking a data point runs it; menu - offered in the data point's menu.
+             * @enum {string}
+             */
+            trigger?: "select" | "menu";
+            /** @description filter. Keys (or titles) of the visuals it filters; every other visual on the sheet when omitted. */
+            targets?: string[];
+            /** @description filter. Columns the selection filters by; every field of the visual when omitted. */
+            fields?: string[];
+            /** @description navigate. The name of the sheet it opens. */
+            sheet?: string;
+        };
+        /**
+         * @description A column the person filters on, with its control. Controls by column
+         *     type - text: dropdown (multi-select, the default), singleSelect or
+         *     list; date: dateRange (the default) or relativeDate ("last N days");
+         *     number: slider (needs min and max). The control goes in the sheet's
+         *     control bar (the collapsible strip at the top, the default) or on the
+         *     canvas above the visuals. The filter narrows every visual on the
+         *     sheet, or only those named in `appliesTo`. A filter that cannot be
+         *     built as asked refuses the build with the reason.
          */
         FilterSpec: {
             /** @description The dataset identifier the column belongs to. */
             identifier: string;
             column: string;
+            control?: components["schemas"]["FilterControlKind"];
+            placement?: components["schemas"]["ControlPlacement"];
+            /** @description Keys (or titles) of the visuals it narrows; every visual on the sheet when omitted. */
+            appliesTo?: string[];
+            /** @description relativeDate. The last N days selected to start with (30 when omitted). */
+            lastDays?: number;
             /** @description The control's title; the column name when omitted. */
             title?: string;
             /** @description Text columns - values selected to start with; all when omitted. */
@@ -4526,20 +4598,45 @@ export interface components {
             assets: components["schemas"]["SmusCatalogAssetSummary"][];
         };
         /**
+         * @description The control a filter gets. Text columns: dropdown (multi-select),
+         *     singleSelect, list. Dates: dateRange, relativeDate. Numbers: slider
+         *     (needs min and max). The column type's default when omitted.
+         * @enum {string}
+         */
+        FilterControlKind: "dropdown" | "singleSelect" | "list" | "dateRange" | "relativeDate" | "slider";
+        /**
+         * @description controlBar - the collapsible strip at the top of the sheet, where
+         *     QuickSight puts controls by default. canvas - on the sheet grid,
+         *     above the visuals.
+         * @enum {string}
+         */
+        ControlPlacement: "controlBar" | "canvas";
+        /**
          * @description One edit to a definition, applied by deterministic code after
          *     validation. Element and visual ids are the definition's own; a sheet
-         *     outline (see RebindPreview.outline) lists them. Changing a visual's
+         *     outline (see RebindPreview.outline) lists them. addVisual builds a
+         *     visual from column names (as VisualSpec) below the last tile;
+         *     addFilter adds a filter with its control; addAction gives a visual an
+         *     interaction (VisualAction). Changing a visual's
          *     type keeps its field wells, title and subtitle and resets the rest of
          *     the chart configuration to defaults; only conversions whose field
          *     wells translate are allowed.
          */
         DefinitionOp: {
             /** @enum {string} */
-            op: "move" | "resize" | "retype" | "retitle" | "remove" | "duplicate" | "renameSheet" | "addFilter";
+            op: "move" | "resize" | "retype" | "retitle" | "remove" | "duplicate" | "renameSheet" | "addFilter" | "addVisual" | "addAction";
             sheetId: string;
+            visual?: components["schemas"]["VisualSpec"];
+            action?: components["schemas"]["VisualAction"];
+            control?: components["schemas"]["FilterControlKind"];
+            placement?: components["schemas"]["ControlPlacement"];
+            /** @description addFilter. Visuals it narrows, by element id or title; every visual on the sheet when omitted. */
+            appliesTo?: string[];
+            /** @description addFilter with relativeDate. */
+            lastDays?: number;
             /** @description addFilter. The dataset identifier the definition declares (not the dataset ARN). */
             identifier?: string;
-            /** @description addFilter. The column to filter on; the filter applies to every visual on the sheet and its control goes in the control bar. */
+            /** @description addFilter. The column to filter on. */
             column?: string;
             /**
              * @description addFilter. Read from how the definition uses the column when omitted.
@@ -4551,7 +4648,7 @@ export interface components {
             /** @description addFilter on a number column. Slider minimum (required with max). */
             min?: number;
             max?: number;
-            /** @description move, resize, remove, duplicate, retype, retitle. The layout element id (the visual id for visuals, the control id for controls, wherever they sit). */
+            /** @description move, resize, remove, duplicate, retype, retitle, addAction. The layout element id (the visual id for visuals, the control id for controls, wherever they sit); addAction also takes the visual's title. */
             elementId?: string;
             /** @description move, duplicate. Grid column, 0-35. */
             col?: number;

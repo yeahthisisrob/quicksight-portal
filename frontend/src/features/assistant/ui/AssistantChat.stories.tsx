@@ -1,34 +1,66 @@
-import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { Decorator, Meta, StoryObj } from '@storybook/react-vite';
+import { expect, screen, userEvent, within } from 'storybook/test';
 
 import { MockedApi } from '../../../../.storybook/mocks/api';
+import type { ActionRun, ConversationEntry } from '../model/conversation';
 import {
   assistantRoutes,
+  MARKDOWN_ANSWER,
   PLANNED_ANSWER,
   QUESTION_ANSWER,
   SCRIPTED_ANSWER,
+  WIREFRAME_ANSWER,
 } from './__stories__/assistant';
-import { AnswerView, AssistantChat } from './AssistantChat';
+import { AssistantChat } from './AssistantChat';
 import { ModelPicker } from './ModelPicker';
 
+const KEY = 'qsp.assistant.conversation.v1';
+
+/** Seeds the conversation the chat picks up from the browser, as after a reload. */
+function seeded(
+  turns: Array<[question: string, answer?: { reply: string }]>,
+  options: { runs?: Record<string, ActionRun>; pendingSince?: number } = {}
+): Decorator {
+  const entries: ConversationEntry[] = turns.flatMap(([question, answer]) => [
+    { role: 'user', text: question },
+    ...(answer ? [{ role: 'assistant', text: answer.reply, result: answer } as never] : []),
+  ]);
+  return (Story) => {
+    window.localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        version: 1,
+        threadId: 'story-thread',
+        entries,
+        runs: options.runs ?? {},
+        ...(options.pendingSince
+          ? { pending: { jobId: 'assistant-working', since: options.pendingSince } }
+          : {}),
+      })
+    );
+    return <Story />;
+  };
+}
+
 /**
- * Ask the portal. Click a suggestion: the assistant reads, draws a
- * calculated field's lineage, previews a copy as a wireframe, and prepares
- * the publish beside it for you to confirm and run.
+ * Ask the portal, on assistant-ui. Each answer is text plus tool calls: a
+ * wireframe, a lineage or a plan drawn as a compact card that expands, a
+ * prepared change to run, or a question to answer.
  */
 const meta: Meta<typeof AssistantChat> = {
   title: 'Features/Author/Assistant chat',
   component: AssistantChat,
   parameters: { layout: 'padded' },
   decorators: [
-    // Stories share one origin: start each from an empty conversation (the
-    // Working story seeds its own inside this).
+    // Stories share one origin: start each from an empty conversation (a
+    // story that needs one seeds it inside this).
     (Story) => {
-      window.localStorage.removeItem('qsp.assistant.conversation.v1');
+      window.localStorage.removeItem(KEY);
       return <Story />;
     },
     (Story) => (
       <MockedApi routes={assistantRoutes()}>
-        <div style={{ maxWidth: 1100 }}>
+        <div style={{ maxWidth: 1000 }}>
           <Story />
         </div>
       </MockedApi>
@@ -39,114 +71,86 @@ const meta: Meta<typeof AssistantChat> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Empty: Story = { name: 'Suggestions, before the first message' };
+/** Before the first message: a welcome and suggestions that send on click. */
+export const Welcome: Story = { name: 'Welcome, with suggestions' };
 
-/** A finished answer: the lineage it traced, the preview drawn, and the publish beside it. */
-export const Answered: Story = {
-  name: 'An answer: lineage, a previewed copy, and Run to confirm',
-  render: () => <AnswerView result={SCRIPTED_ANSWER as never} />,
+/** A reply as markdown: a table, a list, inline code, a code block, a quote; it ends on a promise, so Continue is offered. */
+export const MarkdownReply: Story = {
+  name: 'A markdown reply, stopped on a promise',
+  decorators: [seeded([['Which dashboards read orders gold?', MARKDOWN_ANSWER]])],
 };
 
-/** Plans before it builds: the lineage from the SMUS listing, the field verdicts, then the change. */
-export const Planned: Story = {
-  name: 'A plan on the governed dataset, with field verdicts',
-  render: () => <AnswerView result={PLANNED_ANSWER as never} />,
+/** A preview drawn as a compact card; Expand opens the full, interactive wireframe. */
+export const Wireframe: Story = {
+  name: 'A wireframe: compact, then expanded',
+  decorators: [seeded([['Copy sales overview onto sales gold', WIREFRAME_ANSWER]])],
+  play: async () => {
+    const card = await screen.findByTestId('artifact-card');
+    await within(card).findByText(/visual|table|chart|KPI/i);
+    await userEvent.click(within(card).getByRole('button', { name: 'Expand' }));
+    const dialog = await screen.findByRole('dialog');
+    await expect(
+      (await within(dialog).findAllByTestId(/^wireframe-element-/)).length
+    ).toBeGreaterThan(0);
+  },
 };
 
-/** Asks instead of guessing: the options are cards, each with what the portal knows about it. */
-export const AsksAQuestion: Story = {
-  name: 'Asks a question: options as cards',
-  render: () => <AnswerView result={QUESTION_ANSWER as never} onAnswer={() => undefined} />,
+/** Plans before it builds: the plan (with who drew it and what it writes), the change under it, then the field verdicts. */
+export const Plan: Story = {
+  name: 'A plan, its change, and the field verdicts',
+  decorators: [seeded([['Margin by region on the governed orders data', PLANNED_ANSWER]])],
 };
 
-/** The same answer after Run: the card follows the job it started, then says how it ended. */
-export const ActionRunning: Story = {
-  name: 'An action following its job',
-  render: () => (
-    <AnswerView
-      result={SCRIPTED_ANSWER as never}
-      runs={{ 'act-1': { status: 'running', jobId: 'grant-7', message: 'Queued' } }}
-      onRun={() => undefined}
-      onFollowUp={() => undefined}
-    />
-  ),
-};
-
-/** A create that finished: what it made, a way to open it, and what it warned about. */
-export const Created: Story = {
-  name: 'A create that finished: the new analysis, and its warnings',
-  render: () => (
-    <AnswerView
-      result={PLANNED_ANSWER as never}
-      runs={{
-        'act-plan': {
-          status: 'completed',
-          result: {
-            assetType: 'analysis',
-            assetId: 'margin-by-region',
-            name: 'Margin by region',
-            arn: 'arn:aws:quicksight:us-east-1:1:analysis/margin-by-region',
-            changes: [],
-            warnings: [
-              'Filter on revenue left out: a number filter needs min and max for its slider.',
-            ],
-            folderId: 'shared-sales',
-          },
-        },
-      }}
-      onRun={() => undefined}
-      onFollowUp={() => undefined}
-    />
-  ),
-};
-
-/** Waiting on an answer: what it is doing, and for how long. */
-export const Working: Story = {
-  name: 'Working: the assistant says what it is doing',
+/** A lineage it traced, and a publish prepared with its preview inside, to confirm and run. */
+export const PreparedAction: Story = {
+  name: 'A prepared change with its preview',
   decorators: [
-    (Story) => {
-      window.localStorage.setItem(
-        'qsp.assistant.conversation.v1',
-        JSON.stringify({
-          version: 1,
-          entries: [{ role: 'user', text: 'Run the propose for sales overview onto gold' }],
-          pending: { jobId: 'assistant-working', since: Date.now() - 23_000 },
-          runs: {},
-        })
-      );
-      return <Story />;
-    },
+    seeded([['Where does margin come from, and copy sales overview to gold', SCRIPTED_ANSWER]]),
   ],
 };
 
-/** An answer that stopped on what it would do next: the chat says nothing is running and offers to continue. */
-export const StoppedOnAPromise: Story = {
-  name: 'Stopped on a promise: nothing running, Continue',
+/** After Run: one create finished (what it made, its warnings), one still following its job. */
+export const ActionsRun: Story = {
+  name: 'Changes run: one finished, one following its job',
   decorators: [
-    (Story) => {
-      window.localStorage.setItem(
-        'qsp.assistant.conversation.v1',
-        JSON.stringify({
-          version: 1,
-          entries: [
-            { role: 'user', text: 'Run the propose for sales overview onto gold' },
-            {
-              role: 'assistant',
-              text: 'The planner could not map order_date. Let me check the exact column names and try a simpler approach.',
-              result: {
-                ...SCRIPTED_ANSWER,
-                reply:
-                  'The planner could not map order_date. Let me check the exact column names and try a simpler approach.',
-                artifacts: [],
-                actions: [],
-              },
+    seeded(
+      [
+        ['Margin by region on the governed orders data', PLANNED_ANSWER],
+        ['Now copy sales overview to gold', SCRIPTED_ANSWER],
+      ],
+      {
+        runs: {
+          'act-plan': {
+            status: 'completed',
+            result: {
+              assetType: 'analysis',
+              assetId: 'margin-by-region',
+              name: 'Margin by region',
+              warnings: [
+                'Filter on revenue left out: a number filter needs min and max for its slider.',
+              ],
             },
-          ],
-          runs: {},
-        })
-      );
-      return <Story />;
-    },
+          },
+          'act-1': { status: 'running', jobId: 'grant-7', message: 'Queued' },
+        },
+      }
+    ),
+  ],
+};
+
+/** Asks instead of guessing: a human-in-the-loop tool call waiting for a pick. */
+export const Question: Story = {
+  name: 'A question awaiting an answer',
+  decorators: [seeded([['Build margin by region', QUESTION_ANSWER]])],
+};
+
+/** Waiting on an answer: what it is doing and for how long, and Stop in the composer. */
+export const Running: Story = {
+  name: 'Running: the assistant says what it is doing',
+  decorators: [
+    seeded([['Run the propose for sales overview onto gold']], {
+      pendingSince: Date.now() - 23_000,
+    }),
   ],
 };
 

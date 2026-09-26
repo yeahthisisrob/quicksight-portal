@@ -15,6 +15,13 @@ const plan = parsePlan({
     { name: 'Kept', expression: '{a} + {b}', status: 'existing' },
   ],
   asset: { kind: 'analysis', name: 'Orders', status: 'new' },
+  build: {
+    create: {
+      assetType: 'analysis',
+      name: 'Orders',
+      datasets: [{ identifier: 'orders', dataSetId: 'ds-1' }],
+    },
+  },
 });
 
 const columns = async () => [
@@ -143,7 +150,7 @@ describe('context tools', () => {
 
 describe('the body check', () => {
   it('matches concrete paths to operations and reports what a body lacks', async () => {
-    const { bodyErrors, bodyFields, matchOperation } = await import('../lib/bodyCheck');
+    const { bodyErrors, bodyFields, matchOperation } = await import('../../../shared/api/contract');
     const spec = (await import('../../../../../shared/generated/openapi.json')).default as never;
     expect(matchOperation(spec, 'POST', '/api/authoring/new')).toBe('/api/authoring/new');
     expect(matchOperation(spec, 'POST', '/api/authoring/dashboard/d1/rebind')).toBe(

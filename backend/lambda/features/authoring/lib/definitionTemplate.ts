@@ -31,11 +31,11 @@ import {
   controlBarIds,
 } from './controlBar';
 import { isColumnIdentifier } from './definitionColumns';
-import { type DefinitionChange, GRID_COLUMNS } from './definitionOps';
+import type { DefinitionChange } from './definitionOps';
+import { CONTROL_TILE, GRID_COLUMNS, type GridElement, reflow, type Tile } from './grid';
 
 const DEFAULT_TILE = { colSpan: 12, rowSpan: 10 };
 const TEXT_BOX_TILE = { colSpan: GRID_COLUMNS, rowSpan: 3 };
-const CONTROL_TILE = { colSpan: 9, rowSpan: 3 };
 const ID_SUFFIX_LENGTH = 8;
 const KPI_TYPE = 'KPIVisual';
 
@@ -44,6 +44,12 @@ interface TemplateOptions {
   textBoxes?: boolean;
   /** Carry the template's filter and parameter controls where they can be rebound. Default true. */
   controls?: boolean;
+  /**
+   * The source's own filter controls that survive when the template's
+   * controls replace the rest: the ones the person asked for. They follow
+   * the template's in the control bar.
+   */
+  keepControls?: string[];
   /** Take the template's sheet names. Default true. */
   sheetNames?: boolean;
   /** Place KPIs first, at the template's KPI size, when the template has a KPI band. Default true. */
@@ -59,20 +65,6 @@ interface TemplateResult {
   changes: DefinitionChange[];
   warnings: string[];
   themeArn?: string;
-}
-
-interface Tile {
-  colSpan: number;
-  rowSpan: number;
-}
-
-interface GridElement {
-  ElementId: string;
-  ElementType: string;
-  ColumnIndex?: number;
-  ColumnSpan: number;
-  RowIndex?: number;
-  RowSpan: number;
 }
 
 function newId(prefix: string): string {
@@ -135,36 +127,6 @@ export function templateTiles(templateSheet: any): { tile: Tile; kpi: Tile | nul
           }
         : null,
   };
-}
-
-/** Lay tiles left to right, top to bottom, from a starting row. Returns the row after the last. */
-export function reflow(
-  items: Array<{ id: string; tile: Tile }>,
-  startRow: number
-): { elements: GridElement[]; bottom: number } {
-  const elements: GridElement[] = [];
-  let col = 0;
-  let row = startRow;
-  let rowHeight = 0;
-  for (const { id, tile } of items) {
-    const colSpan = Math.min(Math.max(tile.colSpan, 1), GRID_COLUMNS);
-    if (col + colSpan > GRID_COLUMNS) {
-      col = 0;
-      row += rowHeight;
-      rowHeight = 0;
-    }
-    elements.push({
-      ElementId: id,
-      ElementType: 'VISUAL',
-      ColumnIndex: col,
-      ColumnSpan: colSpan,
-      RowIndex: row,
-      RowSpan: tile.rowSpan,
-    });
-    col += colSpan;
-    rowHeight = Math.max(rowHeight, tile.rowSpan);
-  }
-  return { elements, bottom: row + rowHeight };
 }
 
 function sourceOrder(sheet: any): string[] {
@@ -247,6 +209,7 @@ export function applyTemplate(
     controls: options.controls ?? true,
     sheetNames: options.sheetNames ?? true,
     kpisFirst: options.kpisFirst ?? true,
+    keepControls: options.keepControls ?? [],
     columnsByIdentifier: options.columnsByIdentifier ?? new Map<string, Set<string>>(),
   };
   const templateSheets: any[] = template.Sheets ?? [];
@@ -470,16 +433,27 @@ export function applyTemplate(
     const ownControls =
       (sheet.FilterControls?.length ?? 0) + (sheet.ParameterControls?.length ?? 0);
     if (templateHasControls && opts.controls) {
-      if (ownControls > 0) {
+      const keep = new Set(opts.keepControls ?? []);
+      const kept = (sheet.FilterControls ?? []).filter((c: any) =>
+        keep.has((Object.values(c ?? {})[0] as any)?.FilterControlId)
+      );
+      const replaced = ownControls - kept.length;
+      if (replaced > 0) {
         changes.push({
           kind: 'template',
           sheetId: sheet.SheetId,
-          description: `Replaced ${ownControls} control${ownControls === 1 ? '' : 's'} on ${sheetName} with the template's`,
+          description: `Replaced ${replaced} control${replaced === 1 ? '' : 's'} on ${sheetName} with the template's`,
         });
       }
-      sheet.FilterControls = filterControls;
+      sheet.FilterControls = [...filterControls, ...kept];
       sheet.ParameterControls = parameterControls;
-      sheet.SheetControlLayouts = controlBar(barElements);
+      sheet.SheetControlLayouts = controlBar([
+        ...barElements,
+        ...kept.map((c: any) => ({
+          id: (Object.values(c)[0] as any).FilterControlId as string,
+          type: 'FILTER_CONTROL' as const,
+        })),
+      ]);
     } else {
       // The source's own control bar stays a control bar; the template's joins it.
       const ownBar = controlBarElements(sheet).map((e) => ({

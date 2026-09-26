@@ -268,4 +268,127 @@ describe('buildOutline', () => {
       'not its ARN'
     );
   });
+
+  it('adds a filter with the control asked for, on the canvas, narrowing only the visual named', () => {
+    const { definition, changes } = applyOps(sampleDefinition(), [
+      {
+        op: 'addFilter',
+        sheetId: 's1',
+        identifier: 'orders',
+        column: 'status',
+        control: 'list',
+        placement: 'canvas',
+        appliesTo: ['Revenue by status'],
+      },
+    ]);
+    const sheet = definition.Sheets[0];
+    const control = sheet.FilterControls.at(-1);
+    expect(Object.keys(control)).toEqual(['List']);
+    const cells = sheet.Layouts[0].Configuration.GridLayout.Elements;
+    expect(cells.at(-1)).toMatchObject({
+      ElementId: control.List.FilterControlId,
+      ElementType: 'FILTER_CONTROL',
+    });
+    expect(
+      definition.FilterGroups.at(-1).ScopeConfiguration.SelectedSheets
+        .SheetVisualScopingConfigurations
+    ).toEqual([{ SheetId: 's1', Scope: 'SELECTED_VISUALS', VisualIds: ['v1'] }]);
+    expect(changes[0]!.description).toContain('to the canvas of Overview');
+    expect(() =>
+      applyOps(sampleDefinition(), [
+        {
+          op: 'addFilter',
+          sheetId: 's1',
+          identifier: 'orders',
+          column: 'status',
+          control: 'slider',
+        },
+      ])
+    ).toThrow('a slider control does not fit a text column');
+  });
+
+  it('adds a visual from column names, typed by the dataset, below everything else', () => {
+    const columns = new Map([
+      ['order_date', 'DATETIME'],
+      ['revenue', 'DECIMAL'],
+    ]);
+    const { definition, changes } = applyOps(
+      sampleDefinition(),
+      [
+        {
+          op: 'addVisual',
+          sheetId: 's1',
+          visual: {
+            type: 'LineChart',
+            title: 'Revenue over time',
+            identifier: 'orders',
+            category: 'order_date',
+            values: [{ column: 'revenue' }],
+          },
+        },
+      ],
+      (identifier, name) =>
+        identifier === 'orders' && columns.has(name)
+          ? { name, type: columns.get(name) as string }
+          : undefined
+    );
+    const sheet = definition.Sheets[0];
+    const line = sheet.Visuals.at(-1).LineChartVisual;
+    expect(
+      line.ChartConfiguration.FieldWells.LineChartAggregatedFieldWells.Category[0]
+        .DateDimensionField.Column
+    ).toEqual({ DataSetIdentifier: 'orders', ColumnName: 'order_date' });
+    const cells = sheet.Layouts[0].Configuration.GridLayout.Elements;
+    const placed = cells.find((e: any) => e.ElementId === line.VisualId);
+    const others = cells.filter((e: any) => e.ElementId !== line.VisualId);
+    expect(placed.RowIndex).toBe(Math.max(...others.map((e: any) => e.RowIndex + e.RowSpan)));
+    expect(changes[0]!.description).toBe("Added a line chart 'Revenue over time' to Overview");
+    expect(() =>
+      applyOps(sampleDefinition(), [
+        {
+          op: 'addVisual',
+          sheetId: 's1',
+          visual: { type: 'Table', title: 'X', identifier: 'orders', values: [{ column: 'nope' }] },
+        },
+      ])
+    ).toThrow("'X': 'nope' is not in 'orders'.");
+  });
+
+  it('adds an action filter to a visual by its title, and refuses a second click action', () => {
+    const { definition, changes } = applyOps(sampleDefinition(), [
+      {
+        op: 'addAction',
+        sheetId: 's1',
+        elementId: 'Revenue by status',
+        action: { kind: 'filter' },
+      },
+    ]);
+    const bar = definition.Sheets[0].Visuals.find((v: any) => v.BarChartVisual).BarChartVisual;
+    expect(bar.Actions).toEqual([
+      expect.objectContaining({
+        Trigger: 'DATA_POINT_CLICK',
+        ActionOperations: [
+          {
+            FilterOperation: {
+              SelectedFieldsConfiguration: { SelectedFieldOptions: 'ALL_FIELDS' },
+              TargetVisualsConfiguration: {
+                SameSheetTargetVisualConfiguration: { TargetVisualOptions: 'ALL_VISUALS' },
+              },
+            },
+          },
+        ],
+      }),
+    ]);
+    expect(changes[0]!.description).toBe(
+      'Revenue by status now filters other visuals when a data point is clicked'
+    );
+    expect(() =>
+      applyOps(definition, [
+        { op: 'addAction', sheetId: 's1', elementId: 'v1', action: { kind: 'filter' } },
+      ])
+    ).toThrow('already runs an action on click');
+    expect(() =>
+      parseOps([{ op: 'addAction', sheetId: 's1', elementId: 'v1', action: { kind: 'drill' } }])
+    ).toThrow('ops[0].action.kind must be one of filter, navigate');
+  });
 });

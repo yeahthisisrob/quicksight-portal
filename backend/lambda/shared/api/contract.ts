@@ -1,12 +1,14 @@
 /**
- * Checks a request the assistant prepares against the served contract,
- * before the person ever sees a Run button: the path must be a real
- * operation, and the body must have the fields, types and enums its
- * schema requires. Deliberately small (no ajv): required, type, enum,
- * minItems, items, properties, $ref, allOf, oneOf/anyOf. Extra fields
- * pass, as they do in the handlers.
+ * Requests checked against the served contract (shared/generated/openapi.json):
+ * the path must be a real operation, and the body must have the fields,
+ * types and enums its schema requires. Used at the API boundary for every
+ * request (apiHandler), so a handler receives a body that fits its schema
+ * and never has to re-pick fields from it, and by the assistant before it
+ * prepares a write. Deliberately small (no ajv): required, type, enum,
+ * minItems, items, properties, $ref, allOf, oneOf/anyOf. Extra fields pass.
  */
-interface SpecLike {
+import served from '../../../../shared/generated/openapi.json';
+export interface SpecLike {
   paths?: Record<string, Record<string, any>>;
   components?: Record<string, Record<string, any>>;
 }
@@ -142,4 +144,15 @@ export function bodyFields(spec: SpecLike, method: string, template: string): st
   const schema = deref(spec, requestSchema(spec, method, template));
   const parts = [schema, ...((schema?.allOf as unknown[]) ?? []).map((p) => deref(spec, p))];
   return [...new Set(parts.flatMap((p: any) => Object.keys(p?.properties ?? {})))];
+}
+
+/**
+ * What is wrong with a request's body for the served contract: empty when
+ * it fits, or when the path is not an operation (routing answers that).
+ * `path` is the full path, with /api.
+ */
+export function requestErrors(method: string, path: string, body: unknown): string[] {
+  const contract = served as SpecLike;
+  const template = matchOperation(contract, method, path);
+  return template ? bodyErrors(contract, method, template, body) : [];
 }

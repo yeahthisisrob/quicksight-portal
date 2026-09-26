@@ -1,1 +1,1 @@
-export { Markdown } from './Markdown';
+export { markdownComponents, markdownSx, remarkPlugins } from './Markdown';

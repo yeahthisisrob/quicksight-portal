@@ -6,9 +6,16 @@
  * the sheet is laid out by fixed rules (see layoutSheet), so a model only
  * says what to show, never how big. Filters are by column name too; each
  * gets a control in the sheet's control bar, where QuickSight puts them by
- * default (definitionFilters, controlBar). Anything that cannot be built (an
- * unknown dataset, a column the dataset does not have, a visual left with
- * no values) is left out and said so.
+ * default, or on the canvas above the visuals when placed there
+ * (definitionFilters, controlBar). A visual can carry interactions: a click
+ * that filters other visuals, or opens a sheet (visualActions); filters and
+ * actions name visuals by their key.
+ *
+ * Anything asked for that cannot be built (an unknown dataset, a column the
+ * dataset does not have, a control that does not fit its column) is an
+ * error, not a quiet omission: the caller refuses the whole build, because
+ * a preview that silently drops what the person asked for is worse than
+ * one that says why it cannot.
  */
 import { randomUUID } from 'node:crypto';
 
@@ -16,14 +23,20 @@ import { ValidationError } from '../../../shared/errors/ValidationError';
 import type { TargetColumn } from './columnResolution';
 import { controlBar } from './controlBar';
 import { buildFilters, type FilterSpec } from './definitionFilters';
-import { type EditableVisualType, GRID_COLUMNS } from './definitionOps';
-import { reflow } from './definitionTemplate';
+import { CONTROL_TILE, GRID_COLUMNS, reflow, type Tile } from './grid';
+import { buildActions } from './visualActions';
+import {
+  type BuildableVisualType,
+  buildVisual,
+  CHART_TILE,
+  DETAIL_TYPES,
+  TABLE_TILE,
+  type VisualSpec,
+  WIDE_CHART_TILE,
+} from './visualBuilder';
 
 export type { FilterSpec } from './definitionFilters';
-
-export type BuildableVisualType = EditableVisualType | 'KPI';
-type Aggregation = 'SUM' | 'AVERAGE' | 'COUNT' | 'DISTINCT_COUNT' | 'MIN' | 'MAX';
-type DateGranularity = 'DAY' | 'WEEK' | 'MONTH' | 'QUARTER' | 'YEAR';
+export { BUILDABLE_VISUAL_TYPES, type VisualSpec } from './visualBuilder';
 
 export interface BuilderDataset {
   identifier: string;
@@ -31,22 +44,11 @@ export interface BuilderDataset {
   columns: TargetColumn[];
 }
 
-export interface VisualSpec {
-  type: BuildableVisualType;
-  title: string;
-  /** The dataset identifier every column below belongs to. */
-  identifier: string;
-  /** The dimension: category axis, group-by, pivot rows. Not for KPI. */
-  category?: string;
-  granularity?: DateGranularity;
-  values: Array<{ column: string; aggregation?: Aggregation }>;
-  /** A second dimension: colours, pivot columns. */
-  color?: string;
-}
-
 interface BuildResult {
   definition: Record<string, any>;
   warnings: string[];
+  /** What was asked for and could not be built; the build must be refused. */
+  errors: string[];
 }
 
 const ID_LENGTH = 8;
@@ -59,127 +61,17 @@ const ID_LENGTH = 8;
  */
 const KPI_ROW_HEIGHT = 6;
 const KPIS_PER_ROW = 4;
-const CHART_TILE = { colSpan: GRID_COLUMNS / 2, rowSpan: 12 };
-const WIDE_CHART_TILE = { colSpan: GRID_COLUMNS, rowSpan: 14 };
-const TABLE_TILE = { colSpan: GRID_COLUMNS, rowSpan: 18 };
-const DETAIL_TYPES = new Set<BuildableVisualType>(['Table', 'PivotTable']);
 const MAX_VISUALS = 60;
-const NUMERIC = new Set(['INTEGER', 'DECIMAL']);
-
-const WRAPPER: Record<
-  BuildableVisualType,
-  { key: string; wells: string; dimension: string; values: string; color?: string }
-> = {
-  BarChart: {
-    key: 'BarChartVisual',
-    wells: 'BarChartAggregatedFieldWells',
-    dimension: 'Category',
-    values: 'Values',
-    color: 'Colors',
-  },
-  ColumnChart: {
-    key: 'BarChartVisual',
-    wells: 'BarChartAggregatedFieldWells',
-    dimension: 'Category',
-    values: 'Values',
-    color: 'Colors',
-  },
-  LineChart: {
-    key: 'LineChartVisual',
-    wells: 'LineChartAggregatedFieldWells',
-    dimension: 'Category',
-    values: 'Values',
-    color: 'Colors',
-  },
-  PieChart: {
-    key: 'PieChartVisual',
-    wells: 'PieChartAggregatedFieldWells',
-    dimension: 'Category',
-    values: 'Values',
-  },
-  DonutChart: {
-    key: 'PieChartVisual',
-    wells: 'PieChartAggregatedFieldWells',
-    dimension: 'Category',
-    values: 'Values',
-  },
-  Table: {
-    key: 'TableVisual',
-    wells: 'TableAggregatedFieldWells',
-    dimension: 'GroupBy',
-    values: 'Values',
-  },
-  PivotTable: {
-    key: 'PivotTableVisual',
-    wells: 'PivotTableAggregatedFieldWells',
-    dimension: 'Rows',
-    values: 'Values',
-    color: 'Columns',
-  },
-  KPI: { key: 'KPIVisual', wells: '', dimension: '', values: 'Values' },
-};
-
-export const BUILDABLE_VISUAL_TYPES = Object.keys(WRAPPER) as BuildableVisualType[];
 
 function newId(prefix: string): string {
   return `${prefix}-${randomUUID().replace(/-/g, '').slice(0, ID_LENGTH)}`;
 }
 
-function dimensionField(
-  visualId: string,
-  identifier: string,
-  column: TargetColumn,
-  index: number,
-  granularity?: DateGranularity
-) {
-  const base = {
-    FieldId: `${visualId}.${column.name}.${index}`,
-    Column: { DataSetIdentifier: identifier, ColumnName: column.name },
-  };
-  return column.type === 'DATETIME'
-    ? { DateDimensionField: { ...base, DateGranularity: granularity ?? 'MONTH' } }
-    : { CategoricalDimensionField: base };
-}
-
-function measureField(
-  visualId: string,
-  identifier: string,
-  column: TargetColumn,
-  index: number,
-  aggregation?: Aggregation
-) {
-  const base = {
-    FieldId: `${visualId}.${column.name}.${index}`,
-    Column: { DataSetIdentifier: identifier, ColumnName: column.name },
-  };
-  if (NUMERIC.has(column.type ?? '')) {
-    return {
-      NumericalMeasureField: {
-        ...base,
-        AggregationFunction: { SimpleNumericalAggregation: aggregation ?? 'SUM' },
-      },
-    };
-  }
-  if (column.type === 'DATETIME') {
-    return {
-      DateMeasureField: {
-        ...base,
-        AggregationFunction: aggregation === 'MIN' || aggregation === 'MAX' ? aggregation : 'COUNT',
-      },
-    };
-  }
-  return {
-    CategoricalMeasureField: {
-      ...base,
-      AggregationFunction: aggregation === 'DISTINCT_COUNT' ? 'DISTINCT_COUNT' : 'COUNT',
-    },
-  };
-}
-
-type Tile = { colSpan: number; rowSpan: number };
-
-/** Place a sheet's visuals on the canvas by the rules above. */
-function layoutSheet(visuals: Array<{ id: string; type: BuildableVisualType }>): any[] {
+/** Place a sheet's visuals (and any controls placed on the canvas) by the rules above. */
+function layoutSheet(
+  visuals: Array<{ id: string; type: BuildableVisualType }>,
+  canvasControls: string[] = []
+): any[] {
   const elements: any[] = [];
   let row = 0;
   const band = (items: Array<{ id: string; tile: Tile }>, type: string) => {
@@ -188,6 +80,10 @@ function layoutSheet(visuals: Array<{ id: string; type: BuildableVisualType }>):
     elements.push(...placed.elements.map((e) => ({ ...e, ElementType: type })));
     row = placed.bottom;
   };
+  band(
+    canvasControls.map((id) => ({ id, tile: CONTROL_TILE })),
+    'FILTER_CONTROL'
+  );
   const kpis = visuals.filter((v) => v.type === 'KPI');
   const kpiWidth = Math.floor(GRID_COLUMNS / Math.min(Math.max(kpis.length, 1), KPIS_PER_ROW));
   band(
@@ -220,96 +116,70 @@ export function buildDefinition(input: {
     throw new ValidationError('At least one dataset is required');
   }
   const warnings: string[] = [];
+  const errors: string[] = [];
   const byIdentifier = new Map(input.datasets.map((d) => [d.identifier, d]));
   const columnOf = (identifier: string, name: string): TargetColumn | undefined =>
     byIdentifier.get(identifier)?.columns.find((c) => c.name.toLowerCase() === name.toLowerCase());
 
+  if (input.visuals.length > MAX_VISUALS) {
+    errors.push(
+      `At most ${MAX_VISUALS} visuals on a sheet; ${input.visuals.length} were asked for.`
+    );
+  }
   const visuals: any[] = [];
-  const placed: Array<{ id: string; type: BuildableVisualType }> = [];
+  const placed: Array<{ id: string; type: BuildableVisualType; spec: VisualSpec; inner: any }> = [];
   for (const spec of input.visuals.slice(0, MAX_VISUALS)) {
-    const wrapper = WRAPPER[spec.type];
-    if (!wrapper) {
-      warnings.push(`'${spec.title}' skipped: '${spec.type}' is not a type that can be built.`);
-      continue;
-    }
     if (!byIdentifier.has(spec.identifier)) {
-      warnings.push(`'${spec.title}' skipped: no dataset '${spec.identifier}'.`);
+      errors.push(`'${spec.title}': no dataset '${spec.identifier}'.`);
       continue;
     }
-    const visualId = newId('vis');
-    const wells: Record<string, any[]> = {};
-    let fieldIndex = 0;
-    if (spec.type !== 'KPI' && spec.category) {
-      const column = columnOf(spec.identifier, spec.category);
-      if (column) {
-        wells[wrapper.dimension] = [
-          dimensionField(visualId, spec.identifier, column, fieldIndex++, spec.granularity),
-        ];
-      } else {
-        warnings.push(
-          `'${spec.title}': column '${spec.category}' is not in '${spec.identifier}', so it has no category.`
-        );
-      }
-    }
-    const values: any[] = [];
-    for (const value of spec.values) {
-      const column = columnOf(spec.identifier, value.column);
-      if (!column) {
-        warnings.push(
-          `'${spec.title}': column '${value.column}' is not in '${spec.identifier}' and was left out.`
-        );
-        continue;
-      }
-      values.push(measureField(visualId, spec.identifier, column, fieldIndex++, value.aggregation));
-    }
-    if (values.length === 0) {
-      warnings.push(`'${spec.title}' skipped: none of its values exist.`);
+    const built = buildVisual(spec, columnOf);
+    if ('error' in built) {
+      errors.push(built.error);
       continue;
     }
-    wells[wrapper.values] = values;
-    if (spec.type !== 'KPI' && spec.color && wrapper.color) {
-      const column = columnOf(spec.identifier, spec.color);
-      if (column) {
-        wells[wrapper.color] = [dimensionField(visualId, spec.identifier, column, fieldIndex++)];
-      } else {
-        warnings.push(
-          `'${spec.title}': colour column '${spec.color}' is not in '${spec.identifier}'.`
-        );
-      }
-    }
-
-    const config: Record<string, any> =
-      spec.type === 'KPI' ? { FieldWells: wells } : { FieldWells: { [wrapper.wells]: wells } };
-    if (spec.type === 'ColumnChart') config.Orientation = 'VERTICAL';
-    if (spec.type === 'BarChart') config.Orientation = 'HORIZONTAL';
-    if (spec.type === 'DonutChart')
-      config.DonutOptions = { ArcOptions: { ArcThickness: 'MEDIUM' } };
-    if (spec.type === 'PieChart') config.DonutOptions = { ArcOptions: { ArcThickness: 'WHOLE' } };
-
-    visuals.push({
-      [wrapper.key]: {
-        VisualId: visualId,
-        Title: { Visibility: 'VISIBLE', FormatText: { PlainText: spec.title } },
-        ChartConfiguration: config,
-      },
-    });
-    placed.push({ id: visualId, type: spec.type });
+    visuals.push(built.visual);
+    placed.push({ id: built.id, type: spec.type, spec, inner: built.inner });
   }
 
+  // Filters and actions name visuals by key (or title), so they are built
+  // once every visual has its id.
+  const keyed = new Map<string, string>();
+  for (const p of placed) {
+    keyed.set((p.spec.key ?? p.spec.title).toLowerCase(), p.id);
+    keyed.set(p.spec.title.toLowerCase(), p.id);
+  }
+  const visualIdOf = (key: string) => keyed.get(key.toLowerCase());
   const sheetId = newId('sheet');
-  const filters = buildFilters(sheetId, input.filters ?? [], columnOf);
-  warnings.push(...filters.warnings);
+  const sheetName = input.sheetName?.trim() || 'Overview';
+  for (const p of placed) {
+    if (!p.spec.actions?.length) continue;
+    const built = buildActions(p.spec.actions, {
+      identifier: p.spec.identifier,
+      visual: p.spec.key ?? p.spec.title,
+      visualIdOf,
+      sheetIdOf: (name) => (name.toLowerCase() === sheetName.toLowerCase() ? sheetId : undefined),
+    });
+    errors.push(...built.errors);
+    if (built.actions.length > 0) p.inner.Actions = built.actions;
+  }
+  const filters = buildFilters(sheetId, input.filters ?? [], columnOf, visualIdOf);
+  errors.push(...filters.errors);
 
+  const onCanvas = filters.controls.filter((c) => c.placement === 'canvas').map((c) => c.id);
+  const inBar = filters.controls.filter((c) => c.placement === 'controlBar');
   const sheet: Record<string, any> = {
     SheetId: sheetId,
-    Name: input.sheetName?.trim() || 'Overview',
+    Name: sheetName,
     Visuals: visuals,
-    Layouts: [{ Configuration: { GridLayout: { Elements: layoutSheet(placed) } } }],
+    Layouts: [{ Configuration: { GridLayout: { Elements: layoutSheet(placed, onCanvas) } } }],
   };
   if (filters.filterControls.length > 0) {
     sheet.FilterControls = filters.filterControls;
+  }
+  if (inBar.length > 0) {
     sheet.SheetControlLayouts = controlBar(
-      filters.controlIds.map((id, i) => ({ id, type: 'FILTER_CONTROL', span: filters.spans[i] }))
+      inBar.map((c) => ({ id: c.id, type: 'FILTER_CONTROL' as const, span: c.span }))
     );
   }
   const definition: Record<string, any> = {
@@ -323,8 +193,8 @@ export function buildDefinition(input: {
   if (filters.filterGroups.length > 0) {
     definition.FilterGroups = filters.filterGroups;
   }
-  if (visuals.length === 0) {
-    warnings.push('No visual could be built; the sheet is empty.');
+  if (visuals.length === 0 && errors.length === 0) {
+    warnings.push('No visuals were asked for; the sheet is empty.');
   }
-  return { definition, warnings };
+  return { definition, warnings, errors };
 }

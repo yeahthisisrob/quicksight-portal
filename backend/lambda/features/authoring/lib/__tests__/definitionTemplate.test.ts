@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { applyTemplate, reflow, templateTiles } from '../definitionTemplate';
+import { applyTemplate, templateTiles } from '../definitionTemplate';
+import { reflow } from '../grid';
 import { sampleDefinition } from './fixtures';
 
 const col = (identifier: string, name: string) => ({

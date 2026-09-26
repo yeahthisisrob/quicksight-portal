@@ -13,6 +13,9 @@ const MAX_ID = 100;
 const MAX_METHOD = 10;
 const MAX_PATH = 500;
 const MAX_ERROR = 1_000;
+/** Bounded for the SQS message the run rides in (256 KB with the history). */
+const MAX_PLANS = 5;
+const MAX_PLAN_CHARS = 20_000;
 
 export interface RunInput {
   threadId?: string;
@@ -65,6 +68,15 @@ export function parseRunInput(body: Record<string, unknown>): RunInput | string 
     const raw = (body.state ?? {}) as Record<string, unknown>;
     const list = (value: unknown) => (Array.isArray(value) ? value.slice(-MAX_ENTRIES) : []);
     out.state = {
+      // Plans carry their whole build (it is what runs); a build too large
+      // to carry is dropped rather than clipped, since half a build is wrong.
+      plans: (Array.isArray(raw.plans) ? raw.plans.slice(-MAX_PLANS) : []).flatMap((p: any) => {
+        const id = text(p?.id, MAX_ID);
+        const title = text(p?.title);
+        const build = p?.build;
+        const sized = build && JSON.stringify(build).length <= MAX_PLAN_CHARS;
+        return id && title && sized && (build.create || build.edit) ? [{ id, title, build }] : [];
+      }),
       drafts: list(raw.drafts).flatMap((d: any) => {
         const title = text(d?.title);
         const method = text(d?.method, MAX_METHOD);
@@ -110,6 +122,13 @@ export function parseRunInput(body: Record<string, unknown>): RunInput | string 
 /** The working state and any answers, as the context block the model reads. */
 export function describeRunInput(input: RunInput): string {
   const lines: string[] = [];
+  const plans = input.state?.plans ?? [];
+  if (plans.length) {
+    lines.push(
+      'Plans you drew earlier (latest last). When the person says go / run it / do it, carry out the latest with prepare_plan; to change one, draw it again with the change:',
+      ...plans.map((p) => `- ${p.id}: "${p.title}" build: ${JSON.stringify(p.build)}`)
+    );
+  }
   const drafts = input.state?.drafts ?? [];
   const ran = input.state?.ran ?? [];
   if (drafts.length) {

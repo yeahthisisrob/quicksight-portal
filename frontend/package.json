@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@assistant-ui/react": "^0.15.22",
+    "@assistant-ui/react-markdown": "^0.14.17",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@monaco-editor/react": "^4.7.0",

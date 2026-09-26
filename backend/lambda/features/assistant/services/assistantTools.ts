@@ -3,9 +3,15 @@
  * - context: search the portal's knowledge, get an entity, follow its
  *   relationships (the same shape as AWS Context);
  * - the API: read and preview through any route, and describe one;
- * - showing and preparing: draw the plan, show an asset or a lineage,
- *   prepare a write for the person to run.
+ * - showing and preparing: draw the plan (whose build is the exact write),
+ *   show an asset or a lineage, prepare the plan or another write for the
+ *   person to run.
+ *
+ * The plan's `build` schema is the contract's own (AssistantPlanBuild,
+ * inlined), so what the model can say and what the API can build are the
+ * same thing.
  */
+import spec from '../../../../../shared/generated/openapi.json';
 import type { ChatTool } from './ChatModel';
 
 const ENTITY_TYPES = [
@@ -181,15 +187,10 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
             required: ['name', 'status'],
           },
         },
-        filters: {
-          type: 'array',
+        build: {
+          ...inlined('AssistantPlanBuild'),
           description:
-            'Every filter the person asked for, and any the change adds; each becomes a control in the control bar.',
-          items: {
-            type: 'object',
-            properties: { column: { type: 'string' }, title: { type: 'string' } },
-            required: ['column'],
-          },
+            "The exact write that carries the plan out: `create` (a new analysis or dashboard: datasets, visuals, filters with their controls, visual actions) or `edit` (ops on an existing one: addVisual, addFilter, addAction, retype, move...). Put in everything the person asked for - every filter, control and interaction - and nothing they did not. It is checked and previewed before the plan is shown; the person's Run sends it unchanged.",
         },
         asset: {
           type: 'object',
@@ -202,7 +203,22 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
           required: ['kind', 'name', 'status'],
         },
       },
-      required: ['title', 'datasets', 'asset'],
+      required: ['title', 'datasets', 'asset', 'build'],
+    },
+  },
+  {
+    name: 'prepare_plan',
+    description:
+      "Put the Run button under a plan: the action is the plan's build, exactly. Use it for every authoring write (a new analysis or dashboard, edits to one) - after show_plan in this answer, or for a plan drawn earlier (the working state lists them) when the person says go. Change the plan by drawing it again, never by preparing something else.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        planId: {
+          type: 'string',
+          description: 'The plan to carry out; the latest plan when omitted.',
+        },
+        why: { type: 'string', description: 'One sentence on what running it does.' },
+      },
     },
   },
   {
@@ -258,7 +274,7 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
   {
     name: 'propose_action',
     description:
-      "Prepare a write (apply, create, grant, tag, delete) for the person to run. The body is checked against the operation's schema (use describe_operation first), and a write with a /preview twin is previewed with the same body; either failing comes back to you to fix. It is not run until they click it.",
+      "Prepare a write that is not authoring (grant, tag, share, delete, a dataset, a template) for the person to run. Authoring writes - creating or editing an analysis or dashboard - come from a plan: show_plan, then prepare_plan. The body is checked against the operation's schema (use describe_operation first), and a write with a /preview twin is previewed with the same body; either failing comes back to you to fix. It is not run until they click it.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -277,3 +293,28 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
     },
   },
 ];
+
+/**
+ * A contract schema with every $ref resolved, as a tool input schema
+ * (models read plain JSON Schema). Recursion is cut at a depth no request
+ * body reaches.
+ */
+function inlined(name: string): Record<string, unknown> {
+  const components = (spec as any).components?.schemas ?? {};
+  const MAX_DEPTH = 8;
+  const walk = (node: any, depth: number): any => {
+    if (Array.isArray(node)) return node.map((n) => walk(n, depth));
+    if (typeof node !== 'object' || node === null) return node;
+    if (typeof node.$ref === 'string') {
+      const target = components[node.$ref.split('/').pop() as string];
+      return depth > MAX_DEPTH ? { type: 'object' } : walk(target, depth + 1);
+    }
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(node)) {
+      if (k === 'example' || k === 'examples') continue;
+      out[k] = walk(v, depth);
+    }
+    return out;
+  };
+  return walk(components[name], 0);
+}

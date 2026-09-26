@@ -15,17 +15,40 @@
  *   duplicate          a deep copy with fresh visual and field ids, placed
  *                      where asked or flowed after the last tile.
  *   renameSheet        the sheet name.
- * No free-form visual creation: a new visual is a duplicate of one that
- * already renders, then edited. That keeps every result something
- * QuickSight will accept.
+ *   addFilter          a filter on a column with its control (dropdown,
+ *                      single select, list, date range, relative date or
+ *                      slider), in the control bar or on the canvas,
+ *                      narrowing every visual or the ones named.
+ *   addVisual          a visual described by column names, built by the
+ *                      same rules as a sheet from nothing (visualBuilder)
+ *                      and flowed below the last tile.
+ *   addAction          an interaction on a visual: a click that filters
+ *                      other visuals, or opens another sheet.
+ * A visual is named by its element id or its title, so ops in one request
+ * can refer to a visual an earlier op added.
  */
 
 import { randomUUID } from 'node:crypto';
 
 import { ValidationError } from '../../../shared/errors/ValidationError';
+import type { TargetColumn } from './columnResolution';
 import { controlBar, controlBarElements } from './controlBar';
-import { buildFilters } from './definitionFilters';
+import {
+  buildFilters,
+  CONTROL_PLACEMENTS,
+  type ControlPlacement,
+  FILTER_CONTROLS,
+  type FilterControlKind,
+} from './definitionFilters';
 import { stripHtml, visualEntry, visualTypeName } from './definitionOutline';
+import { CONTROL_TILE, GRID_COLUMNS, gridBottom, reflow } from './grid';
+import {
+  ACTION_KINDS,
+  ACTION_TRIGGERS,
+  buildActions,
+  type VisualActionSpec,
+} from './visualActions';
+import { buildVisual, tileFor, type VisualSpec } from './visualBuilder';
 
 export type EditableVisualType =
   | 'BarChart'
@@ -60,10 +83,29 @@ export type DefinitionOp =
       /** STRING, INTEGER, DECIMAL or DATETIME; read from how the definition uses the column when omitted. */
       columnType?: string;
       title?: string;
+      control?: FilterControlKind;
+      placement?: ControlPlacement;
+      /** Visuals it narrows, by element id or title; every visual on the sheet when omitted. */
+      appliesTo?: string[];
       values?: string[];
       min?: number;
       max?: number;
+      lastDays?: number;
+    }
+  | { op: 'addVisual'; sheetId: string; visual: VisualSpec }
+  | {
+      op: 'addAction';
+      sheetId: string;
+      /** The visual that carries it, by element id or title. */
+      elementId: string;
+      action: VisualActionSpec;
     };
+
+/**
+ * A dataset column's name and type, for ops that build from columns the
+ * definition may not use yet (addVisual, addFilter).
+ */
+export type ColumnLookup = (identifier: string, name: string) => TargetColumn | undefined;
 
 type ChangeKind =
   | 'template'
@@ -83,7 +125,6 @@ export interface DefinitionChange {
   elementId?: string;
 }
 
-export const GRID_COLUMNS = 36;
 /** A new tile's size when the source has none: half the grid wide, a comfortable height. */
 const DEFAULT_COL_SPAN = 18;
 const DEFAULT_ROW_SPAN = 12;
@@ -265,9 +306,15 @@ function visualOf(
   return { wrapper: visuals[at], key, body, at };
 }
 
-function titleOf(body: any, fallback: string): string {
+/** A visual's title as plain text, '' when it has none. */
+function plainTitle(body: any): string {
   const text = body?.Title?.FormatText?.PlainText ?? stripHtml(body?.Title?.FormatText?.RichText);
-  return typeof text === 'string' && text.trim() ? `'${text.trim()}'` : fallback;
+  return typeof text === 'string' ? text.trim() : '';
+}
+
+function titleOf(body: any, fallback: string): string {
+  const text = plainTitle(body);
+  return text ? `'${text}'` : fallback;
 }
 
 function assertInt(value: unknown, name: string, index: number, min: number, max?: number): number {
@@ -315,7 +362,8 @@ function collectFieldIds(node: any, out: Set<string>): void {
 
 export function applyOps(
   input: Record<string, any>,
-  ops: DefinitionOp[]
+  ops: DefinitionOp[],
+  columnOf: ColumnLookup = () => undefined
 ): { definition: Record<string, any>; changes: DefinitionChange[] } {
   const definition = structuredClone(input);
   const changes: DefinitionChange[] = [];
@@ -542,16 +590,12 @@ export function applyOps(
         break;
       }
       case 'addFilter': {
-        const declared = (definition.DataSetIdentifierDeclarations ?? []).map(
-          (d: any) => d?.Identifier
-        );
-        if (!declared.includes(op.identifier)) {
-          throw new ValidationError(
-            `Op ${index + 1}: no dataset identifier '${op.identifier}'; the definition declares ${declared.join(', ') || 'none'}`
-          );
-        }
+        assertDeclared(definition, op.identifier, index);
         const type =
-          op.columnType ?? columnTypeIn(definition, op.identifier, op.column) ?? 'STRING';
+          op.columnType ??
+          columnOf(op.identifier, op.column)?.type ??
+          columnTypeIn(definition, op.identifier, op.column) ??
+          'STRING';
         const built = buildFilters(
           op.sheetId,
           [
@@ -559,36 +603,116 @@ export function applyOps(
               identifier: op.identifier,
               column: op.column,
               title: op.title,
+              control: op.control,
+              placement: op.placement,
+              appliesTo: op.appliesTo,
               values: op.values,
               min: op.min,
               max: op.max,
+              lastDays: op.lastDays,
             },
           ],
           (identifier, name) =>
             identifier === op.identifier && name.toLowerCase() === op.column.toLowerCase()
-              ? { name: op.column, type }
-              : undefined
+              ? { name: columnOf(identifier, name)?.name ?? op.column, type }
+              : undefined,
+          (key) => visualIdIn(sheet, key)
         );
-        if (built.filterControls.length === 0) {
+        const control = built.controls[0];
+        if (built.errors.length > 0 || !control) {
           throw new ValidationError(
-            `Op ${index + 1}: ${built.warnings.join(' ') || 'the filter could not be built'}`
+            `Op ${index + 1}: ${built.errors.join(' ') || 'the filter could not be built'}`
           );
         }
         definition.FilterGroups = [...(definition.FilterGroups ?? []), ...built.filterGroups];
         sheet.FilterControls = [...(sheet.FilterControls ?? []), ...built.filterControls];
-        sheet.SheetControlLayouts = controlBar([
-          ...controlBarElements(sheet).map((e) => ({
-            id: e.ElementId,
-            type: e.ElementType,
-            span: e.ColumnSpan,
-          })),
-          ...built.controlIds.map((id) => ({ id, type: 'FILTER_CONTROL' as const })),
-        ]);
+        if (control.placement === 'canvas') {
+          const grid = gridOf(sheet, index, 'addFilter');
+          const placed = reflow(
+            [{ id: control.id, tile: CONTROL_TILE }],
+            gridBottom(grid.Elements)
+          );
+          grid.Elements.push(
+            ...placed.elements.map((e) => ({ ...e, ElementType: 'FILTER_CONTROL' }))
+          );
+        } else {
+          sheet.SheetControlLayouts = controlBar([
+            ...controlBarElements(sheet).map((e) => ({
+              id: e.ElementId,
+              type: e.ElementType,
+              span: e.ColumnSpan,
+            })),
+            { id: control.id, type: 'FILTER_CONTROL' as const },
+          ]);
+        }
         changes.push({
           kind: 'filter',
           sheetId: op.sheetId,
-          elementId: built.controlIds[0],
-          description: `Added a filter on ${op.column} to the control bar of ${sheetName}`,
+          elementId: control.id,
+          description: `Added a filter on ${op.column} to ${control.placement === 'canvas' ? 'the canvas' : 'the control bar'} of ${sheetName}`,
+        });
+        break;
+      }
+      case 'addVisual': {
+        assertDeclared(definition, op.visual.identifier, index);
+        const built = buildVisual(op.visual, (identifier, name) =>
+          identifier === op.visual.identifier
+            ? (columnOf(identifier, name) ?? typedFromUse(definition, identifier, name))
+            : undefined
+        );
+        if ('error' in built) {
+          throw new ValidationError(`Op ${index + 1}: ${built.error}`);
+        }
+        const grid = gridOf(sheet, index, 'addVisual');
+        const placed = reflow(
+          [{ id: built.id, tile: tileFor(op.visual.type) }],
+          gridBottom(grid.Elements)
+        );
+        grid.Elements.push(...placed.elements);
+        sheet.Visuals = [...(sheet.Visuals ?? []), built.visual];
+        changes.push({
+          kind: 'visual',
+          sheetId: op.sheetId,
+          elementId: built.id,
+          description: `Added ${describeType(op.visual.type)} '${op.visual.title}' to ${sheetName}`,
+        });
+        break;
+      }
+      case 'addAction': {
+        const visualId = visualIdIn(sheet, op.elementId);
+        const entry = (sheet.Visuals ?? [])
+          .map(visualEntry)
+          .find((e: any) => e?.[1].VisualId === visualId);
+        if (!entry) {
+          throw new ValidationError(
+            `Op ${index + 1}: no visual '${op.elementId}' on sheet ${sheetName}`
+          );
+        }
+        const inner = entry[1];
+        const built = buildActions([op.action], {
+          identifier: firstIdentifierOf(inner) ?? '',
+          visual: plainTitle(inner) || op.elementId,
+          visualIdOf: (key) => visualIdIn(sheet, key),
+          sheetIdOf: (name) =>
+            (definition.Sheets ?? []).find(
+              (s: any) => String(s?.Name ?? '').toLowerCase() === name.toLowerCase()
+            )?.SheetId,
+        });
+        const onClick = (inner.Actions ?? []).some((a: any) => a?.Trigger === 'DATA_POINT_CLICK');
+        if (onClick && (op.action.trigger ?? 'select') === 'select') {
+          built.errors.push(
+            `${plainTitle(inner) || op.elementId} already runs an action on click; add this one to its menu (trigger 'menu').`
+          );
+        }
+        if (built.errors.length > 0) {
+          throw new ValidationError(`Op ${index + 1}: ${built.errors.join(' ')}`);
+        }
+        inner.Actions = [...(inner.Actions ?? []), ...built.actions];
+        changes.push({
+          kind: 'visual',
+          sheetId: op.sheetId,
+          elementId: visualId,
+          description: `${plainTitle(inner) || op.elementId} now ${op.action.kind === 'filter' ? 'filters other visuals when a data point is clicked' : `opens ${op.action.sheet}`}${op.action.trigger === 'menu' ? ' (from its menu)' : ''}`,
         });
         break;
       }
@@ -628,6 +752,48 @@ function columnTypeIn(definition: any, identifier: string, column: string): stri
   return found;
 }
 
+/** A column's name and type from how the definition already uses it. */
+function typedFromUse(definition: any, identifier: string, name: string): TargetColumn | undefined {
+  const type = columnTypeIn(definition, identifier, name);
+  return type ? { name, type } : undefined;
+}
+
+function assertDeclared(definition: any, identifier: string, index: number): void {
+  const declared = (definition.DataSetIdentifierDeclarations ?? []).map((d: any) => d?.Identifier);
+  if (!declared.includes(identifier)) {
+    throw new ValidationError(
+      `Op ${index + 1}: no dataset identifier '${identifier}'; the definition declares ${declared.join(', ') || 'none'}`
+    );
+  }
+}
+
+/** A visual on the sheet by element id, or by title (case-insensitive). */
+function visualIdIn(sheet: any, key: string): string | undefined {
+  const entries = (sheet.Visuals ?? []).map(visualEntry).filter(Boolean) as Array<[string, any]>;
+  const byId = entries.find(([, v]) => v.VisualId === key);
+  if (byId) return byId[1].VisualId;
+  const wanted = key.trim().toLowerCase();
+  return entries.find(([, v]) => plainTitle(v).toLowerCase() === wanted)?.[1].VisualId;
+}
+
+/** The dataset identifier a visual's first field reads. */
+function firstIdentifierOf(node: any): string | undefined {
+  if (Array.isArray(node)) {
+    for (const n of node) {
+      const found = firstIdentifierOf(n);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  if (typeof node !== 'object' || node === null) return undefined;
+  if (typeof node.Column?.DataSetIdentifier === 'string') return node.Column.DataSetIdentifier;
+  for (const v of Object.values(node)) {
+    const found = firstIdentifierOf(v);
+    if (found) return found;
+  }
+  return undefined;
+}
+
 function labelFor(sheet: any, elementId: string): string {
   const visual = (sheet.Visuals ?? [])
     .map(visualEntry)
@@ -648,6 +814,13 @@ function describeType(type: string, body?: any): string {
   }
   const words = type.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
   return /^[aeiou]/.test(words) ? `an ${words}` : `a ${words}`;
+}
+
+function oneOf<T extends string>(value: unknown, allowed: readonly T[], at: string): T {
+  if (typeof value !== 'string' || !(allowed as readonly string[]).includes(value)) {
+    throw new ValidationError(`${at} must be one of ${allowed.join(', ')}`);
+  }
+  return value as T;
 }
 
 /** Validate a raw op list from a request or a planner. */
@@ -739,11 +912,48 @@ export function parseOps(raw: unknown): DefinitionOp[] {
             : {}),
           ...(typeof entry.min === 'number' ? { min: entry.min } : {}),
           ...(typeof entry.max === 'number' ? { max: entry.max } : {}),
+          ...(typeof entry.lastDays === 'number' ? { lastDays: entry.lastDays } : {}),
+          ...(typeof entry.control === 'string'
+            ? { control: oneOf(entry.control, FILTER_CONTROLS, `ops[${index}].control`) }
+            : {}),
+          ...(typeof entry.placement === 'string'
+            ? { placement: oneOf(entry.placement, CONTROL_PLACEMENTS, `ops[${index}].placement`) }
+            : {}),
+          ...(Array.isArray(entry.appliesTo)
+            ? { appliesTo: entry.appliesTo.filter((v): v is string => typeof v === 'string') }
+            : {}),
         };
+      }
+      case 'addVisual': {
+        const visual = entry.visual as VisualSpec | undefined;
+        if (
+          !visual ||
+          typeof visual !== 'object' ||
+          typeof visual.type !== 'string' ||
+          typeof visual.title !== 'string' ||
+          typeof visual.identifier !== 'string' ||
+          !Array.isArray(visual.values)
+        ) {
+          throw new ValidationError(
+            `ops[${index}]: addVisual needs visual { type, title, identifier, values[] }`
+          );
+        }
+        return { op, sheetId, visual };
+      }
+      case 'addAction': {
+        const action = entry.action as VisualActionSpec | undefined;
+        if (!action || typeof action !== 'object') {
+          throw new ValidationError(`ops[${index}]: addAction needs action { kind, ... }`);
+        }
+        oneOf(action.kind, ACTION_KINDS, `ops[${index}].action.kind`);
+        if (action.trigger !== undefined) {
+          oneOf(action.trigger, ACTION_TRIGGERS, `ops[${index}].action.trigger`);
+        }
+        return { op, sheetId, elementId: needElement(), action };
       }
       default:
         throw new ValidationError(
-          `ops[${index}].op '${String(op)}' is not one of move, resize, retype, retitle, remove, duplicate, renameSheet, addFilter`
+          `ops[${index}].op '${String(op)}' is not one of move, resize, retype, retitle, remove, duplicate, renameSheet, addFilter, addVisual, addAction`
         );
     }
   });

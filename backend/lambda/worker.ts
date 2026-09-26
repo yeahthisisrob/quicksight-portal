@@ -791,6 +791,7 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       { withInProcessAuth },
       { settingsStore },
       { readAuthoringGuidance },
+      { readCustomVocabulary },
       { getSmusConfig },
     ] = await Promise.all([
       import('./shared/ai/modelCatalog'),
@@ -802,6 +803,7 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       import('./shared/auth'),
       import('./shared/services/settings/SettingsStore'),
       import('./shared/ai/authoringGuidance'),
+      import('./shared/ai/authoringVocabulary'),
       import('./shared/config/smusConfig'),
     ]);
     await settingsStore.load();
@@ -842,6 +844,7 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       brief: true,
       smus: getSmusConfig().enabled,
       guidance: readAuthoringGuidance(),
+      vocabulary: readCustomVocabulary(),
       ...(message.authoringModel && isAiModelKey(message.authoringModel)
         ? { authoringModel: message.authoringModel }
         : {}),
