@@ -71,8 +71,8 @@ export class DashboardProcessor extends BaseAssetProcessor {
     return response;
   }
 
-  protected async executeGetTags(assetId: string): Promise<any[]> {
-    return await this.tagService.getResourceTags(ASSET_TYPES.dashboard, assetId);
+  protected async executeGetTags(assetId: string): Promise<any[] | undefined> {
+    return await this.tagService.readResourceTags(ASSET_TYPES.dashboard, assetId);
   }
 
   protected generateCustomMetadata(

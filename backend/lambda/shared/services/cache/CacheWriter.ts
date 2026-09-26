@@ -1179,7 +1179,9 @@ export class CacheWriter {
       enrichmentStatus,
       enrichmentTimestamps,
       tags: transformedData.apiResponses?.tags?.data || [],
-      permissions: transformedData.apiResponses?.permissions?.data || [],
+      permissions: this.transformPermissions(
+        transformedData.apiResponses?.permissions?.data || null
+      ),
       metadata: {
         ...metadata,
         enrichmentStatus,
@@ -1266,10 +1268,9 @@ export class CacheWriter {
     );
   }
 
-  private getCacheEntryPermissions(status: 'active' | 'archived', transformedData: any): any {
-    return status === 'active'
-      ? this.transformPermissions(transformedData.apiResponses?.permissions?.data || null)
-      : transformedData.apiResponses?.permissions?.data || [];
+  /** The same array for a live entry and its archived copy (a dashboard's API answer is an object). */
+  private getCacheEntryPermissions(_status: 'active' | 'archived', transformedData: any): any {
+    return this.transformPermissions(transformedData.apiResponses?.permissions?.data || null);
   }
 
   private async getCacheMetadata(): Promise<any> {

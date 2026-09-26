@@ -71,9 +71,12 @@ export class DatasetProcessor extends BaseAssetProcessor {
 
       return result;
     } catch (error: any) {
-      // Silently handle FILE dataset errors - no logging to avoid noise in production
+      // Only an uploaded file cannot be described; anything else (throttling,
+      // a transient error) fails the asset, so the dataset's existing record,
+      // with its full definition, is left as it is.
       if (!error.message?.includes('not supported through API')) {
         logger.warn(`DescribeDataSet failed for ${assetId}: ${error.message}`);
+        throw error;
       }
 
       // For uploaded file datasets that can't be described via API,
@@ -113,8 +116,8 @@ export class DatasetProcessor extends BaseAssetProcessor {
     return this.quickSightService.describeDatasetPermissions(assetId);
   }
 
-  protected override executeGetTags(assetId: string): Promise<any[]> {
-    return this.tagService.getResourceTags(ASSET_TYPES.dataset, assetId);
+  protected override executeGetTags(assetId: string): Promise<any[] | undefined> {
+    return this.tagService.readResourceTags(ASSET_TYPES.dataset, assetId);
   }
 
   // =============================================================================

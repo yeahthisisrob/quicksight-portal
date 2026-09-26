@@ -49,21 +49,23 @@ export class FolderProcessor extends OrganizationalProcessor {
       const folder = await this.quickSightService.describeFolder(assetId);
       return folder || { FolderName: assetId };
     } catch (error) {
+      // Unread, not empty: the previous record's describe (path, parent) is kept.
       logger.warn(`Failed to describe folder ${assetId}:`, error);
-      return { FolderName: assetId };
+      return undefined;
     }
   }
 
   /**
    * Fetch folder permissions (overrides parent class which returns empty array)
    */
-  protected override async executeGetPermissions(assetId: string): Promise<any[]> {
+  protected override async executeGetPermissions(assetId: string): Promise<any[] | undefined> {
     try {
       const permissions = await this.quickSightService.describeFolderPermissions(assetId);
       return permissions || [];
     } catch (error) {
+      // Unread, not empty: the folder's previous audience is kept.
       logger.warn(`Failed to get permissions for folder ${assetId}:`, error);
-      return [];
+      return undefined;
     }
   }
 
@@ -82,8 +84,8 @@ export class FolderProcessor extends OrganizationalProcessor {
         return member;
       });
     } catch (error) {
+      // Unread, not empty: without a members key the previous member list is kept.
       logger.warn(`Failed to get members for folder ${assetId}:`, error);
-      specialData.members = [];
     }
 
     return specialData;

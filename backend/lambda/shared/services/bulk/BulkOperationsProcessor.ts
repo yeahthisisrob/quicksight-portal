@@ -8,7 +8,10 @@
 import pLimit from 'p-limit';
 
 // Import services that will handle individual operations
-import { BulkDeleteService } from '../../../features/asset-management/services/BulkDeleteService';
+import {
+  BulkDeleteService,
+  type RefreshAssets,
+} from '../../../features/asset-management/services/BulkDeleteService';
 import { FolderService } from '../../../features/organization/services/FolderService';
 import { IdentityService } from '../../../features/organization/services/IdentityService';
 import { TagService } from '../../../features/organization/services/TagService';
@@ -56,10 +59,14 @@ export class BulkOperationsProcessor {
   private lastProgressUpdate: number = 0;
   private readonly tagService: TagService;
 
-  public constructor(accountId: string) {
+  /**
+   * `refreshAssets` re-exports assets from QuickSight; the worker passes the
+   * export's, so a delete archives what QuickSight has now.
+   */
+  public constructor(accountId: string, deps: { refreshAssets?: RefreshAssets } = {}) {
     const quickSightService = ClientFactory.getQuickSightService(accountId);
 
-    this.bulkDeleteService = new BulkDeleteService(quickSightService);
+    this.bulkDeleteService = new BulkDeleteService(quickSightService, deps.refreshAssets);
     this.folderService = new FolderService(accountId);
     this.identityService = new IdentityService(accountId);
     this.tagService = new TagService(accountId);

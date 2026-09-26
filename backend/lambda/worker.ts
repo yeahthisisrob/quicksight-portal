@@ -494,7 +494,10 @@ async function processBulkOperationJob(message: BulkOperationMessage, record: an
   const { BulkOperationsProcessor } = await import(
     './shared/services/bulk/BulkOperationsProcessor'
   );
-  const bulkProcessor = new BulkOperationsProcessor(msgAccountId);
+  // Deletes archive what QuickSight has now: each record is re-exported first.
+  const bulkProcessor = new BulkOperationsProcessor(msgAccountId, {
+    refreshAssets: (assets) => new ExportOrchestrator(msgAccountId).refreshAssets(assets),
+  });
 
   try {
     await cleanupStuckJobs(jobStateService, 'bulk-operation');

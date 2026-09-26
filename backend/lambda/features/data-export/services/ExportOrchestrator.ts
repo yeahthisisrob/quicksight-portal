@@ -19,14 +19,14 @@ import type {
 import { LineageService } from '../../../shared/services/lineage/LineageService';
 import { OperationTrackingService } from '../../../shared/services/operations/OperationTrackingService';
 import { AssetParserService } from '../../../shared/services/parsing/AssetParserService';
-import { ASSET_TYPES } from '../../../shared/types/assetTypes';
+import { ASSET_TYPES, isCollectionType } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
 import { CatalogService } from '../../data-catalog/services/CatalogService';
 import { TagService } from '../../organization/services/TagService';
 import { AnalysisProcessor } from '../processors/AnalysisProcessor';
-import type {
+import {
   BaseAssetProcessor,
-  EnhancedProcessingResult,
+  type EnhancedProcessingResult,
 } from '../processors/BaseAssetProcessor';
 import { DashboardProcessor } from '../processors/DashboardProcessor';
 import { DatasetProcessor } from '../processors/DatasetProcessor';
@@ -820,6 +820,12 @@ export class ExportOrchestrator {
           logger.warn('Asset refresh failed', { assetType, assetId: id, error });
           out.failed.push(`${assetType}:${id}`);
         }
+      }
+      // Folders, users and groups live in one collection file: processing
+      // only stages them (on top of the file as it is), so write it now or
+      // the refresh changes nothing - a folder's new member never lands.
+      if (isCollectionType(assetType)) {
+        await BaseAssetProcessor.flushCollectionBatches(this.s3Service);
       }
       if (done.length > 0) {
         await cacheService.upsertCacheEntriesForAssets(assetType, done);

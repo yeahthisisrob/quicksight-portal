@@ -58,8 +58,8 @@ export class AnalysisProcessor extends BaseAssetProcessor {
     return await this.quickSightService.describeAnalysisPermissions(assetId);
   }
 
-  protected async executeGetTags(assetId: string): Promise<any[]> {
-    return await this.tagService.getResourceTags(ASSET_TYPES.analysis, assetId);
+  protected async executeGetTags(assetId: string): Promise<any[] | undefined> {
+    return await this.tagService.readResourceTags(ASSET_TYPES.analysis, assetId);
   }
 
   protected generateCustomMetadata(
