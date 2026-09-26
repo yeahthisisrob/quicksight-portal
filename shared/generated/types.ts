@@ -918,6 +918,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/authoring/{assetType}/{assetId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring an archived dashboard or analysis back
+         * @description Reads the copy the portal archived when the asset was deleted and
+         *     writes it back as a new asset, through the same checks as every
+         *     other write: `repairs` first, then the `rebinds` plan (refused unless
+         *     every column resolves), then `ops`. Check and preview it first with
+         *     `?source=archive` on the repair plan and preview endpoints.
+         *
+         *     It is created, never written over anything: the id (the archived one,
+         *     or `newAssetId`) must be free in QuickSight, including a deleted
+         *     analysis still in QuickSight's recovery window. Its audience is the
+         *     archived one less users and groups that no longer exist, with the
+         *     person restoring it as owner; its name, theme and tags come back,
+         *     and the archive records who restored it, when and as what.
+         */
+        post: operations["postAuthoringByAssetTypeByAssetIdRestore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/authoring/{assetType}/{assetId}/repair/plan": {
         parameters: {
             query?: never;
@@ -3960,6 +3991,29 @@ export interface components {
             folderIds?: string[];
             warnings?: string[];
         };
+        RestoreRequest: {
+            rebinds?: components["schemas"]["RebindRequest"][];
+            repairs?: components["schemas"]["RepairOp"][];
+            ops?: components["schemas"]["DefinitionOp"][];
+            /** @description Defaults to the archived name. */
+            name?: string;
+            /** @description Defaults to the archived id; refused while an asset holds it. */
+            newAssetId?: string;
+            folderId?: string;
+        };
+        RestoreResult: {
+            assetType: components["schemas"]["AuthorableAssetType"];
+            assetId: string;
+            name: string;
+            arn: string;
+            /** @enum {string} */
+            mode: "restore";
+            /** @description Dashboards only. The version created and published. */
+            versionNumber?: number;
+            changes: components["schemas"]["DefinitionChange"][];
+            folderIds: string[];
+            warnings?: string[];
+        };
         ProposeRequest: {
             /** @description What the person wants, in their words. */
             ask: string;
@@ -5291,6 +5345,8 @@ export interface components {
         FieldName: string;
         AuthorableAssetType: components["schemas"]["AuthorableAssetType"];
         AuthoringAssetId: string;
+        /** @description `archive` reads the copy the portal kept when the asset was deleted, instead of QuickSight, so an archived asset can be checked, repaired, edited and previewed before it is restored. */
+        DefinitionSource: "live" | "archive";
     };
     requestBodies: {
         Tags: {
@@ -6724,7 +6780,10 @@ export interface operations {
     };
     getAuthoringByAssetTypeByAssetIdDatasets: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `archive` reads the copy the portal kept when the asset was deleted, instead of QuickSight, so an archived asset can be checked, repaired, edited and previewed before it is restored. */
+                source?: components["parameters"]["DefinitionSource"];
+            };
             header?: never;
             path: {
                 assetType: components["parameters"]["AuthorableAssetType"];
@@ -6752,7 +6811,10 @@ export interface operations {
     };
     postAuthoringByAssetTypeByAssetIdRebindPlan: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `archive` reads the copy the portal kept when the asset was deleted, instead of QuickSight, so an archived asset can be checked, repaired, edited and previewed before it is restored. */
+                source?: components["parameters"]["DefinitionSource"];
+            };
             header?: never;
             path: {
                 assetType: components["parameters"]["AuthorableAssetType"];
@@ -6816,13 +6878,48 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
-    postAuthoringByAssetTypeByAssetIdRepairPlan: {
+    postAuthoringByAssetTypeByAssetIdRestore: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                assetType: "dashboard" | "analysis";
-                assetId: string;
+                assetType: components["parameters"]["AuthorableAssetType"];
+                assetId: components["parameters"]["AuthoringAssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreRequest"];
+            };
+        };
+        responses: {
+            /** @description The asset that was restored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["RestoreResult"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthoringByAssetTypeByAssetIdRepairPlan: {
+        parameters: {
+            query?: {
+                /** @description `archive` reads the copy the portal kept when the asset was deleted, instead of QuickSight, so an archived asset can be checked, repaired, edited and previewed before it is restored. */
+                source?: components["parameters"]["DefinitionSource"];
+            };
+            header?: never;
+            path: {
+                assetType: components["parameters"]["AuthorableAssetType"];
+                assetId: components["parameters"]["AuthoringAssetId"];
             };
             cookie?: never;
         };
@@ -6886,7 +6983,10 @@ export interface operations {
     };
     postAuthoringByAssetTypeByAssetIdRebindPreview: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `archive` reads the copy the portal kept when the asset was deleted, instead of QuickSight, so an archived asset can be checked, repaired, edited and previewed before it is restored. */
+                source?: components["parameters"]["DefinitionSource"];
+            };
             header?: never;
             path: {
                 assetType: components["parameters"]["AuthorableAssetType"];

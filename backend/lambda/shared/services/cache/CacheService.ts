@@ -102,6 +102,15 @@ export class CacheService extends EventEmitter {
     return writer.archiveAssetsInCache(assets);
   }
 
+  public async updateArchivedEntryMetadata(
+    assetType: AssetType,
+    assetId: string,
+    patch: Record<string, unknown>
+  ): Promise<void> {
+    const writer = await this.getCacheWriter();
+    return writer.updateArchivedEntryMetadata(assetType, assetId, patch);
+  }
+
   public async bulkUpdateAssetTags(
     assetType: AssetType,
     assetIds: string[],

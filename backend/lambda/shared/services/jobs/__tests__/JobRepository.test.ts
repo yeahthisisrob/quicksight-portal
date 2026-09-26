@@ -471,6 +471,18 @@ describe('JobRepository - results and deletion', () => {
     );
   });
 
+  it('saveJobResult stores the result as JSON, so a Date cannot fail a finished job', async () => {
+    setStoredJobs([createMockJob({ jobId: 'deploy-1', status: 'processing' })]);
+    const startTime = new Date('2026-09-26T10:00:00.000Z');
+
+    await repository.saveJobResult('deploy-1', { success: true, startTime, note: undefined });
+
+    const written = mocks.dynamo.updateItem.mock.calls.find(
+      (call) => call[1]?.pk === 'deploy-1'
+    )?.[2];
+    expect(written.set.result).toEqual({ success: true, startTime: '2026-09-26T10:00:00.000Z' });
+  });
+
   it('replaces an oversized result with a loud truncation marker (never S3, never a corrupt payload)', async () => {
     const bigResult = { rows: 'x'.repeat(BIG_RESULT_BYTES) };
     setStoredJobs([createMockJob({ jobId: 'bulk-1', status: 'processing' })]);

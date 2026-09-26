@@ -1960,6 +1960,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/AuthorableAssetType'
         - $ref: '#/components/parameters/AuthoringAssetId'
+        - $ref: '#/components/parameters/DefinitionSource'
       responses:
         '200':
           description: The definition's datasets
@@ -2001,6 +2002,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/AuthorableAssetType'
         - $ref: '#/components/parameters/AuthoringAssetId'
+        - $ref: '#/components/parameters/DefinitionSource'
       requestBody:
         required: true
         content:
@@ -2078,6 +2080,51 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/authoring/{assetType}/{assetId}/restore:
+    post:
+      operationId: postAuthoringByAssetTypeByAssetIdRestore
+      tags: [Authoring]
+      summary: Bring an archived dashboard or analysis back
+      description: |
+        Reads the copy the portal archived when the asset was deleted and
+        writes it back as a new asset, through the same checks as every
+        other write: `repairs` first, then the `rebinds` plan (refused unless
+        every column resolves), then `ops`. Check and preview it first with
+        `?source=archive` on the repair plan and preview endpoints.
+
+        It is created, never written over anything: the id (the archived one,
+        or `newAssetId`) must be free in QuickSight, including a deleted
+        analysis still in QuickSight's recovery window. Its audience is the
+        archived one less users and groups that no longer exist, with the
+        person restoring it as owner; its name, theme and tags come back,
+        and the archive records who restored it, when and as what.
+      parameters:
+        - $ref: '#/components/parameters/AuthorableAssetType'
+        - $ref: '#/components/parameters/AuthoringAssetId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestoreRequest'
+      responses:
+        '200':
+          description: The asset that was restored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/RestoreResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/authoring/{assetType}/{assetId}/repair/plan:
     post:
       operationId: postAuthoringByAssetTypeByAssetIdRepairPlan
@@ -2099,17 +2146,9 @@ paths:
         result, then to the rebind endpoint with `mode: update` to fix the
         asset in place, or `mode: clone` to fix a copy.
       parameters:
-        - name: assetType
-          in: path
-          required: true
-          schema:
-            type: string
-            enum: [dashboard, analysis]
-        - name: assetId
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/AuthorableAssetType'
+        - $ref: '#/components/parameters/AuthoringAssetId'
+        - $ref: '#/components/parameters/DefinitionSource'
       requestBody:
         required: false
         content:
@@ -2209,6 +2248,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/AuthorableAssetType'
         - $ref: '#/components/parameters/AuthoringAssetId'
+        - $ref: '#/components/parameters/DefinitionSource'
       requestBody:
         required: true
         content:
@@ -5069,6 +5109,18 @@ components:
       required: true
       schema:
         type: string
+    DefinitionSource:
+      name: source
+      in: query
+      required: false
+      description: >-
+        `archive` reads the copy the portal kept when the asset was deleted,
+        instead of QuickSight, so an archived asset can be checked, repaired,
+        edited and previewed before it is restored.
+      schema:
+        type: string
+        enum: [live, archive]
+        default: live
 
   schemas:
     AiModelKey:
@@ -7985,6 +8037,61 @@ components:
         folderIds:
           type: array
           description: Clone only - the folders it was filed in (the request's folderId and the default folders from Settings).
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+
+    RestoreRequest:
+      type: object
+      properties:
+        rebinds:
+          type: array
+          items:
+            $ref: '#/components/schemas/RebindRequest'
+        repairs:
+          type: array
+          items:
+            $ref: '#/components/schemas/RepairOp'
+        ops:
+          type: array
+          items:
+            $ref: '#/components/schemas/DefinitionOp'
+        name:
+          type: string
+          description: Defaults to the archived name.
+        newAssetId:
+          type: string
+          description: Defaults to the archived id; refused while an asset holds it.
+        folderId:
+          type: string
+
+    RestoreResult:
+      type: object
+      required: [assetType, assetId, name, arn, mode, changes, folderIds]
+      properties:
+        assetType:
+          $ref: '#/components/schemas/AuthorableAssetType'
+        assetId:
+          type: string
+        name:
+          type: string
+        arn:
+          type: string
+        mode:
+          type: string
+          enum: [restore]
+        versionNumber:
+          type: integer
+          description: Dashboards only. The version created and published.
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DefinitionChange'
+        folderIds:
+          type: array
           items:
             type: string
         warnings:

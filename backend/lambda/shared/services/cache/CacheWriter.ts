@@ -55,6 +55,37 @@ export class CacheWriter {
    * notify methods) instead of ad-hoc updateAsset calls. This keeps the powerful
    * S3+index cache consistent with mutations.
    */
+  /**
+   * Merge fields into an archived entry's archive metadata (a restore
+   * recorded against it), so the archived list shows it without a rebuild.
+   * No archived entry, nothing to do: the next rebuild reads the archive.
+   */
+  public async updateArchivedEntryMetadata(
+    assetType: AssetType,
+    assetId: string,
+    patch: Record<string, unknown>
+  ): Promise<void> {
+    const entries = await this.cacheReader.getCacheEntries({
+      assetType,
+      statusFilter: AssetStatusFilter.ALL,
+    });
+    const idx = entries.findIndex(
+      (e: CacheEntry) => e.assetId === assetId && (e.status as string) === 'archived'
+    );
+    if (idx < 0) {
+      return;
+    }
+    const entry = entries[idx] as CacheEntry;
+    const metadata = ((entry as any).metadata ?? {}) as Record<string, any>;
+    entries[idx] = {
+      ...entry,
+      metadata: { ...metadata, archived: { ...(metadata.archived ?? {}), ...patch } },
+    } as CacheEntry;
+    await this.s3Adapter.saveTypeCache(assetType, entries);
+    this.evictMemoryForType(assetType);
+    this.memoryAdapter.delete('master-cache');
+  }
+
   public async archiveAssetsInCache(
     assets: Array<{
       assetType: AssetType;
@@ -681,7 +712,10 @@ export class CacheWriter {
     try {
       const startTime = Date.now();
       const existing = (await this.loadTypeCache(assetType)) || [];
-      const byId = new Map<string, CacheEntry>(existing.map((e) => [e.assetId, e]));
+      // A live asset and its archived copy share an id (a restore brings one
+      // back under its old id); the archived entry is the ledger's row and a
+      // live upsert must not replace it.
+      const byId = new Map<string, CacheEntry>(existing.map((e) => [entryKey(e), e]));
 
       // Chunked so large re-parses (e.g. a parser-version bump touching the
       // whole account) can report progress + heartbeat between chunks
@@ -708,7 +742,7 @@ export class CacheWriter {
 
       const newEntries = parsed.filter((e): e is CacheEntry => e !== null);
       for (const entry of newEntries) {
-        byId.set(entry.assetId, entry);
+        byId.set(entryKey(entry), entry);
       }
       const merged = Array.from(byId.values());
 
@@ -1678,7 +1712,23 @@ export class CacheWriter {
     let changed = false;
 
     for (const item of items) {
-      const idx = currentEntries.findIndex((e: CacheEntry) => e.assetId === item.assetId);
+      // The live entry is the one being archived; an older archived copy of
+      // the same id (archived, restored, archived again) gives way to it.
+      const live = currentEntries.findIndex(
+        (e: CacheEntry) => e.assetId === item.assetId && (e.status as string) !== 'archived'
+      );
+      if (live >= 0) {
+        for (let i = currentEntries.length - 1; i >= 0; i--) {
+          const e = currentEntries[i] as CacheEntry;
+          if (i !== live && e.assetId === item.assetId && (e.status as string) === 'archived') {
+            currentEntries.splice(i, 1);
+          }
+        }
+      }
+      const idx = currentEntries.findIndex(
+        (e: CacheEntry) =>
+          e.assetId === item.assetId && (live < 0 || (e.status as string) !== 'archived')
+      );
       const archiveInfo = {
         archivedAt: now.toISOString(),
         archiveReason: item.archiveReason || 'Deleted via portal',
@@ -2321,4 +2371,9 @@ export class CacheWriter {
       return currentMembers.filter((m: any) => m.memberName !== userName);
     }
   }
+}
+
+/** An entry's identity in a type cache: its id, and whether it is the archived copy. */
+function entryKey(entry: CacheEntry): string {
+  return `${(entry.status as string) === 'archived' ? 'archived' : 'live'}:${entry.assetId}`;
 }

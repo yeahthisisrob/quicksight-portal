@@ -335,6 +335,35 @@ export class ArchiveService {
   }
 
   /**
+   * Record that an archived asset was brought back, on its archive record
+   * and its cache entry, so the archive reads as a ledger: what was
+   * archived, when and why, and who restored it, when and as what. The
+   * archive itself is kept.
+   */
+  public async markRestored(
+    assetType: AssetType,
+    assetId: string,
+    restoration: { restoredAt: string; restoredBy: string; restoredAs: string }
+  ): Promise<void> {
+    const archivePath = `archived/${ASSET_TYPES_PLURAL[assetType]}/${assetId}.json`;
+    try {
+      const record = await this.s3Service.getObject(this.bucketName, archivePath);
+      const metadata = record?.archivedMetadata ?? {};
+      const restorations = [...(metadata.restorations ?? []), restoration];
+      await this.s3Service.putObject(this.bucketName, archivePath, {
+        ...record,
+        archivedMetadata: { ...metadata, restorations },
+      });
+      await this.cacheService?.updateArchivedEntryMetadata(assetType, assetId, {
+        restorations,
+      });
+    } catch (error) {
+      // The asset is back either way; the ledger line is what is missing.
+      logger.error(`Could not record the restore of ${assetType} ${assetId}`, { error });
+    }
+  }
+
+  /**
    * Get all archived assets of a specific type
    */
   public async getArchivedAssets(assetType: AssetType): Promise<any[]> {
