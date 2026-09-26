@@ -51,7 +51,12 @@ describe('buildDefinition', () => {
     expect(Object.keys(pivot).sort()).toEqual(['Columns', 'Rows', 'Values']);
 
     const elements = sheet.Layouts[0].Configuration.GridLayout.Elements;
-    expect(elements[0]).toMatchObject({ ElementId: sheet.Visuals[1].KPIVisual.VisualId, ColumnSpan: 9, RowSpan: 6, RowIndex: 0 });
+    const at = (id: string) => elements.find((e: any) => e.ElementId === id);
+    // A lone KPI takes the band; two charts share a row; the pivot is full width and tall, last.
+    expect(at(sheet.Visuals[1].KPIVisual.VisualId)).toMatchObject({ ColumnIndex: 0, ColumnSpan: 36, RowSpan: 6, RowIndex: 0 });
+    expect(at(sheet.Visuals[0].LineChartVisual.VisualId)).toMatchObject({ ColumnIndex: 0, ColumnSpan: 18, RowIndex: 6 });
+    expect(at(sheet.Visuals[2].BarChartVisual.VisualId)).toMatchObject({ ColumnIndex: 18, ColumnSpan: 18, RowIndex: 6 });
+    expect(at(sheet.Visuals[3].PivotTableVisual.VisualId)).toMatchObject({ ColumnIndex: 0, ColumnSpan: 36, RowSpan: 18, RowIndex: 18 });
     expect(elements.every((e: any) => e.ColumnIndex + e.ColumnSpan <= 36)).toBe(true);
 
     expect(collectDefinitionDatasets(definition).map((d) => d.identifier)).toEqual(['orders']);
@@ -79,5 +84,53 @@ describe('buildDefinition', () => {
     ]);
     expect(() => buildDefinition({ datasets: [], visuals: [] })).toThrow('At least one dataset');
     expect(buildDefinition({ datasets, visuals: [] }).warnings).toEqual(['No visual could be built; the sheet is empty.']);
+  });
+
+  it('puts a lone table across the page and every filter in the control bar, typed by its column', () => {
+    const { definition, warnings } = buildDefinition({
+      datasets,
+      visuals: [{ type: 'Table', title: 'Orders', identifier: 'orders', category: 'order_id', values: [{ column: 'revenue' }] }],
+      filters: [
+        { identifier: 'orders', column: 'Region', values: ['West'] },
+        { identifier: 'orders', column: 'order_date' },
+        { identifier: 'orders', column: 'revenue' },
+        { identifier: 'orders', column: 'nope' },
+      ],
+    });
+    const sheet = definition.Sheets[0];
+    const grid = sheet.Layouts[0].Configuration.GridLayout.Elements;
+    expect(grid).toEqual([
+      expect.objectContaining({ ElementType: 'VISUAL', ColumnIndex: 0, ColumnSpan: 36, RowSpan: 18, RowIndex: 0 }),
+    ]);
+
+    expect(sheet.FilterControls.map((c: any) => Object.keys(c)[0])).toEqual(['Dropdown', 'DateTimePicker']);
+    const bar = sheet.SheetControlLayouts[0].Configuration.GridLayout.Elements;
+    expect(bar.map((e: any) => e.ElementId)).toEqual(sheet.FilterControls.map((c: any) => (Object.values(c)[0] as any).FilterControlId));
+    expect(bar.every((e: any) => e.ElementType === 'FILTER_CONTROL')).toBe(true);
+
+    const [region, date] = definition.FilterGroups.map((g: any) => g.Filters[0]);
+    expect(region.CategoryFilter.Column).toEqual({ DataSetIdentifier: 'orders', ColumnName: 'region' });
+    expect(region.CategoryFilter.Configuration.FilterListConfiguration.CategoryValues).toEqual(['West']);
+    expect(date.TimeRangeFilter.NullOption).toBe('ALL_VALUES');
+    expect(definition.FilterGroups[0].ScopeConfiguration.SelectedSheets.SheetVisualScopingConfigurations).toEqual([
+      { SheetId: sheet.SheetId, Scope: 'ALL_VISUALS' },
+    ]);
+    expect(warnings).toEqual([
+      "Filter on 'revenue' left out: a number filter needs min and max for its slider.",
+      "Filter on 'nope' left out: 'orders' has no such column.",
+    ]);
+
+    const outline = buildOutline(definition)[0]!.elements;
+    expect(outline.filter((e) => e.kind === 'filterControl').map((e) => e.placement)).toEqual(['controlBar', 'controlBar']);
+  });
+
+  it('gives a number filter a slider when its bounds are known', () => {
+    const { definition } = buildDefinition({
+      datasets,
+      visuals: [{ type: 'KPI', title: 'Revenue', identifier: 'orders', values: [{ column: 'revenue' }] }],
+      filters: [{ identifier: 'orders', column: 'revenue', min: 0, max: 1000 }],
+    });
+    expect(definition.Sheets[0].FilterControls[0].Slider).toMatchObject({ MinimumValue: 0, MaximumValue: 1000, StepSize: 10 });
+    expect(definition.FilterGroups[0].Filters[0].NumericRangeFilter.RangeMaximum).toEqual({ StaticValue: 1000 });
   });
 });

@@ -213,7 +213,7 @@ describe('AssistantService', () => {
     const result = await new AssistantService(chat, model, vi.fn() as any).respond([
       { role: 'user', text: 'loop' },
     ]);
-    expect(result.rounds).toBe(8);
+    expect(result.rounds).toBe(12);
     expect(result.reply).toContain('ran out of steps');
   });
 
@@ -369,12 +369,20 @@ describe('AssistantService', () => {
     expect(result.rounds).toBe(2);
   });
 
-  it('pushes only once, and never for an answer that ends as an answer', async () => {
-    const promises = scripted([{ text: "I'll try again." }, { text: "I'll try again." }]);
-    const once = await new AssistantService(promises, model, vi.fn() as any).respond([
+  it('pushes twice at most, on a promise or on asking leave, and never for an answer that ends as an answer', async () => {
+    const promises = scripted([
+      { text: "I'll try again." },
+      { text: 'Found the folder. Shall I add the analysis to it?' },
+      { text: "I'll try again." },
+    ]);
+    const pushed = await new AssistantService(promises, model, vi.fn() as any).respond([
       { role: 'user', text: 'x' },
     ]);
-    expect(once.rounds).toBe(2);
+    expect(pushed.rounds).toBe(3);
+    expect(announcesMore('Which folder, Sales or Finance?')).toBe(false);
+    expect(announcesMore('Created it. Would you like me to share it with the sales team?')).toBe(
+      true
+    );
     expect(announcesMore('margin is revenue minus cost. It feeds margin_pct.')).toBe(false);
     expect(announcesMore('Found 3 dashboards. Let me know which one to copy.')).toBe(false);
     expect(
@@ -593,6 +601,7 @@ describe('AssistantService', () => {
         assetType: 'analysis',
         name: 'Margin',
         datasets: [{ identifier: 'orders', dataSetId: 'ds-x' }],
+        folderId: 'f-shared',
       }),
       { text: 'The dataset does not exist.' },
     ]);
@@ -613,5 +622,27 @@ describe('AssistantService', () => {
     expect(told[1]).toContain('dataset ds-x not found');
     // The malformed one never reached the API; the second was only previewed.
     expect(dispatch.mock.calls.map((c) => c[0].path)).toEqual(['/api/authoring/new/preview']);
+  });
+
+  it('asks for an audience before creating an asset only admins could see', async () => {
+    const { audienceProblem } = await import('../services/AssistantService');
+    const body = {
+      assetType: 'analysis',
+      name: 'x',
+      datasets: [{ identifier: 'o', dataSetId: 'd' }],
+    };
+    expect(audienceProblem('/api/authoring/new', { body })).toContain('only account admins');
+    expect(
+      audienceProblem('/api/authoring/new', { body: { ...body, folderId: 'f' } })
+    ).toBeUndefined();
+    expect(
+      audienceProblem('/api/authoring/new', {
+        body: { ...body, permissionsFrom: { assetType: 'dashboard', assetId: 'd1' } },
+      })
+    ).toBeUndefined();
+    expect(audienceProblem('/api/authoring/new', { body, adminsOnly: true })).toBeUndefined();
+    expect(
+      audienceProblem('/api/authoring/{assetType}/{assetId}/rebind', { body })
+    ).toBeUndefined();
   });
 });

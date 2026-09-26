@@ -33,7 +33,8 @@ export type JobType =
   | 'csv-export'
   | 'smus-export'
   | 'planner'
-  | 'assistant';
+  | 'assistant'
+  | 'asset-refresh';
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';
 
 export type JobPhaseStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';

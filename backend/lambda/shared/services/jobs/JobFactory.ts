@@ -114,6 +114,12 @@ export interface AssistantJobConfig extends BaseJobConfig {
   };
 }
 
+/** Re-export just these assets and upsert their cache entries (after the portal wrote them). */
+export interface AssetRefreshJobConfig extends BaseJobConfig {
+  jobType: 'asset-refresh';
+  assets: Array<{ assetType: AssetType; assetId: string }>;
+}
+
 export type JobConfig =
   | ExportJobConfig
   | DeployJobConfig
@@ -122,7 +128,8 @@ export type JobConfig =
   | CSVExportJobConfig
   | SmusExportJobConfig
   | PlannerJobConfig
-  | AssistantJobConfig;
+  | AssistantJobConfig
+  | AssetRefreshJobConfig;
 
 export class JobFactory {
   private static instance: JobFactory;
@@ -282,6 +289,8 @@ export class JobFactory {
       return `CSV export job for ${config.assetType} queued`;
     } else if (config.jobType === 'assistant') {
       return 'Assistant thinking';
+    } else if (config.jobType === 'asset-refresh') {
+      return `Refreshing ${config.assets.length} written asset${config.assets.length === 1 ? '' : 's'} in the cache`;
     } else if (config.jobType === 'planner') {
       return config.request.kind === 'propose'
         ? `Planner asked about ${config.request.assetType} ${config.request.assetId}`
@@ -317,6 +326,8 @@ export class JobFactory {
       };
     } else if (config.jobType === 'planner') {
       return { request: config.request, model: config.model };
+    } else if (config.jobType === 'asset-refresh') {
+      return { assets: config.assets };
     } else if (config.jobType === 'assistant') {
       return {
         model: config.model,

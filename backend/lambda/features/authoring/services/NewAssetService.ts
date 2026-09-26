@@ -13,7 +13,12 @@ import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { logger } from '../../../shared/utils/logger';
 import { datasetPermissionsFor } from '../../../shared/utils/permissions';
-import { type BuilderDataset, buildDefinition, type VisualSpec } from '../lib/definitionBuilder';
+import {
+  type BuilderDataset,
+  buildDefinition,
+  type FilterSpec,
+  type VisualSpec,
+} from '../lib/definitionBuilder';
 import { unresolvedCalculatedFieldColumns } from '../lib/definitionColumns';
 import type { DefinitionChange } from '../lib/definitionOps';
 import { buildOutline } from '../lib/definitionOutline';
@@ -47,6 +52,8 @@ export interface NewAssetRequest {
   }>;
   /** Visuals to build; when absent and `ask` is given, the planner proposes them. */
   visuals?: VisualSpec[];
+  /** Columns the person filters on; each gets a control at the top of the sheet. */
+  filters?: FilterSpec[];
   ask?: string;
   sheetName?: string;
   addCalculatedFields?: AddedCalculatedField[];
@@ -64,6 +71,7 @@ export interface NewAssetPreview {
   changes: DefinitionChange[];
   warnings: string[];
   visuals: VisualSpec[];
+  filters: FilterSpec[];
   proposal?: { reason: string; model: { provider: string; model: string } };
   themeArn?: string;
 }
@@ -146,7 +154,7 @@ export class NewAssetService {
       );
       folderId = request.folderId;
     }
-    await this.recordProvenance(request.assetType, written.assetId, name, composed, auth);
+    await this.recordProvenance(request.assetType, written, name, composed, auth, folderId);
     return {
       assetType: request.assetType,
       ...written,
@@ -225,6 +233,7 @@ export class NewAssetService {
     }
 
     let visuals = request.visuals ?? [];
+    let filters = request.filters ?? [];
     let proposal: NewAssetPreview['proposal'];
     if (visuals.length === 0 && request.ask?.trim()) {
       if (!this.planner) {
@@ -232,10 +241,12 @@ export class NewAssetService {
       }
       const planned = await this.planner.planVisuals(request.ask, datasets);
       visuals = planned.visuals;
+      // Filters the caller gave win over the planner's.
+      filters = filters.length > 0 ? filters : planned.filters;
       proposal = { reason: planned.reason, model: planned.model };
     }
 
-    const built = buildDefinition({ datasets, visuals, sheetName: request.sheetName });
+    const built = buildDefinition({ datasets, visuals, filters, sheetName: request.sheetName });
     const changes: DefinitionChange[] = [
       {
         kind: 'visual',
@@ -302,6 +313,7 @@ export class NewAssetService {
         changes,
         warnings,
         visuals,
+        filters,
         ...(proposal ? { proposal } : {}),
         ...(themeArn ? { themeArn } : {}),
       },
@@ -311,17 +323,20 @@ export class NewAssetService {
 
   private recordProvenance(
     assetType: AuthorableAssetType,
-    assetId: string,
+    written: { assetId: string; arn: string },
     name: string,
     composed: NewAssetPreview,
-    auth?: AuthContext
+    auth?: AuthContext,
+    folderId?: string
   ): Promise<void> {
     return recordProvenance(
       this.quickSightService,
       {
         action: 'authoring.create',
         assetType,
-        assetId,
+        assetId: written.assetId,
+        arn: written.arn,
+        folderId,
         name,
         details: { visuals: composed.visuals.length, changes: composed.changes.length },
       },

@@ -9,7 +9,8 @@
  *   and so does any furniture below the visuals (a notes footer);
  * - the template's filter and parameter controls come across when the source
  *   has a column of the same name on one of its datasets; otherwise they are
- *   dropped and said so;
+ *   dropped and said so. Each keeps where it sat: in the control bar (the
+ *   collapsible strip, QuickSight's default) or on the canvas;
  * - the sheet takes the template's name;
  * - the source's visuals reflow, in their original order, into rows of the
  *   template's standard tile size below the top furniture, KPIs first (at
@@ -23,6 +24,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { ValidationError } from '../../../shared/errors/ValidationError';
+import { type ControlBarElement, controlBar, controlBarElements, controlBarIds } from './controlBar';
 import { isColumnIdentifier } from './definitionColumns';
 import { type DefinitionChange, GRID_COLUMNS } from './definitionOps';
 
@@ -251,6 +253,8 @@ export function applyTemplate(
   const templateHasControls = templateSheets.some(
     (s) => (s.FilterControls?.length ?? 0) + (s.ParameterControls?.length ?? 0) > 0
   );
+  /** Where a carried control goes: the canvas grid, or the control bar. */
+  type Placement = { bar: false; rowOffset: number } | { bar: true };
 
   definition.Sheets = (definition.Sheets ?? []).map((sourceSheet: any, index: number) => {
     const templateSheet = templateSheets[Math.min(index, templateSheets.length - 1)];
@@ -273,13 +277,21 @@ export function applyTemplate(
     const textBoxes: any[] = [];
     const filterControls: any[] = [];
     const parameterControls: any[] = [];
+    const barElements: Array<{ id: string; type: ControlBarElement['ElementType']; span: number }> = [];
     const furniture = templateGrid.filter((e) => e.ElementType !== 'VISUAL');
     const top = furniture.filter((e) => (e.RowIndex ?? 0) < templateVisualTop);
     const footer = furniture.filter((e) => (e.RowIndex ?? 0) >= templateVisualTop);
     let topBottom = 0;
     const idMap = new Map<string, string>();
 
-    const carry = (element: GridElement, rowOffset: number): boolean => {
+    const put = (element: GridElement, id: string, where: Placement) => {
+      if (where.bar) {
+        barElements.push({ id, type: element.ElementType as ControlBarElement['ElementType'], span: element.ColumnSpan });
+      } else {
+        elements.push({ ...element, ElementId: id, RowIndex: (element.RowIndex ?? 0) + where.rowOffset });
+      }
+    };
+    const carry = (element: GridElement, rowOffset: number, where: Placement = { bar: false, rowOffset }): boolean => {
       if (element.ElementType === 'TEXT_BOX') {
         if (!opts.textBoxes) return false;
         const box = (templateSheet.TextBoxes ?? []).find((t: any) => t.SheetTextBoxId === element.ElementId);
@@ -324,7 +336,7 @@ export function applyTemplate(
         filterControls.push({
           [kind]: { ...structuredClone(body), FilterControlId: id, SourceFilterId: filterBody.FilterId },
         });
-        elements.push({ ...element, ElementId: id, RowIndex: (element.RowIndex ?? 0) + rowOffset });
+        put(element, id, where);
         return true;
       }
       if (element.ElementType === 'PARAMETER_CONTROL') {
@@ -360,7 +372,7 @@ export function applyTemplate(
         const id = newId('tpl-control');
         copy.ParameterControlId = id;
         parameterControls.push({ [kind]: copy });
-        elements.push({ ...element, ElementId: id, RowIndex: (element.RowIndex ?? 0) + rowOffset });
+        put(element, id, where);
         return true;
       }
       return false;
@@ -370,6 +382,10 @@ export function applyTemplate(
       if (carry(element, 0)) {
         topBottom = Math.max(topBottom, (element.RowIndex ?? 0) + element.RowSpan);
       }
+    }
+    // The template's control bar comes across as a control bar.
+    for (const bar of controlBarElements(templateSheet)) {
+      carry({ ...bar, ColumnIndex: 0, RowIndex: 0 } as GridElement, 0, { bar: true });
     }
 
     // 2. Visuals reflow below the band: KPIs first at the KPI size when the
@@ -411,7 +427,15 @@ export function applyTemplate(
       }
       sheet.FilterControls = filterControls;
       sheet.ParameterControls = parameterControls;
+      sheet.SheetControlLayouts = controlBar(barElements);
     } else {
+      // The source's own control bar stays a control bar; the template's joins it.
+      const ownBar = controlBarElements(sheet).map((e) => ({ id: e.ElementId, type: e.ElementType, span: e.ColumnSpan }));
+      const bar = controlBar([...ownBar, ...barElements]);
+      if (bar.length > 0) {
+        sheet.SheetControlLayouts = bar;
+      }
+      const inBar = new Set([...controlBarIds(sheet), ...barElements.map((b) => b.id)]);
       sheet.FilterControls = [...(sheet.FilterControls ?? []), ...filterControls];
       sheet.ParameterControls = [...(sheet.ParameterControls ?? []), ...parameterControls];
       // The source's own controls keep their grid size when they had one,
@@ -426,7 +450,7 @@ export function applyTemplate(
           id: (Object.values(c)[0] as any)?.ParameterControlId,
           type: 'PARAMETER_CONTROL',
         })),
-      ].filter((c) => typeof c.id === 'string' && !elements.some((e) => e.ElementId === c.id));
+      ].filter((c) => typeof c.id === 'string' && !inBar.has(c.id) && !elements.some((e) => e.ElementId === c.id));
       const placed = reflow(
         own.map((c) => {
           const e = sized.get(c.id);

@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   audit: { record: vi.fn() },
 }));
 
+const freshness = vi.hoisted(() => vi.fn());
+vi.mock('../../../../shared/services/cache/assetFreshness', () => ({ keepCacheFresh: freshness }));
 vi.mock('../../../../shared/services/aws/ClientFactory', () => ({
   ClientFactory: { getQuickSightService: () => mocks.qs },
 }));
@@ -272,6 +274,14 @@ describe('NewAssetService', () => {
     expect(call.definition.Sheets[0].Name).toBe('Standard');
     expect(call.definition.Sheets[0].TextBoxes).toHaveLength(1);
     expect(mocks.qs.createFolderMembership).toHaveBeenCalledWith('f-1', 'new-1', 'DASHBOARD');
+    // The cache learns of the new dashboard and the folder it went into, without an export.
+    expect(freshness).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({ assetType: 'dashboard', assetId: 'new-1' }),
+        { assetType: 'folder', assetId: 'f-1' },
+      ],
+      expect.anything()
+    );
     expect(mocks.audit.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'authoring.create', assetId: 'new-1' })
     );

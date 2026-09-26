@@ -23,6 +23,7 @@ import type {
 import { logger } from '../../utils/logger';
 import { ClientFactory } from '../aws/ClientFactory';
 import { QuickSightService } from '../aws/QuickSightService';
+import { keepCacheFresh } from '../cache/assetFreshness';
 import { cacheService } from '../cache/CacheService';
 import type { JobStateService } from '../jobs/JobStateService';
 import { summarizeBulkResult } from './bulkResultSummary';
@@ -382,14 +383,15 @@ export class BulkOperationsProcessor {
     maxConcurrency: number
   ): Promise<BulkOperationResult> {
     const operations = this.createFolderOperations(config.assets, config.folderIds);
-    return await this.processBatchedOperations(
+    const result = await this.processBatchedOperations(
       'folder-add',
       operations,
       async (op) => {
         await this.folderService.addAssetToFolder(
           op.folderId,
           op.assetId,
-          op.assetType.toUpperCase() as any
+          op.assetType.toUpperCase() as any,
+          false
         );
         return `Added ${op.assetType}:${op.assetId} to folder ${op.folderId}`;
       },
@@ -397,6 +399,12 @@ export class BulkOperationsProcessor {
       maxConcurrency,
       (op) => `${op.assetType}:${op.assetId} → folder ${op.folderId}`
     );
+    // The folders' members changed, and so did each asset's folder path.
+    await keepCacheFresh([
+      ...config.folderIds.map((assetId) => ({ assetType: 'folder' as const, assetId })),
+      ...config.assets.map((a) => ({ assetType: a.type, assetId: a.id })),
+    ]);
+    return result;
   }
 
   /**

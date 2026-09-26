@@ -13,17 +13,32 @@
 const ANNOUNCES_MORE =
   /\b(let me(?! know)|i'll|i will|i am going to|i'm going to|next,? i|now i'll|i'll now|going to (check|try|look|run))\b[^.?!]*[.…:]?\s*$/i;
 
-/** Said to the model, once, when its answer ended on a promise. */
-export const CONTINUE_NUDGE =
-  'You ended by saying what you will do next, but nothing runs after your answer ends. Do it now with the tools, in this answer. If something is blocking you, say what it is and what the person can do.';
+/**
+ * An answer that ends by asking leave to carry on ("Shall I preview it?").
+ * Reading, previewing and preparing need no leave: the person confirms a
+ * change by running it.
+ */
+const ASKS_TO_PROCEED =
+  /\b(shall i|should i|want me to|would you like me to|do you want me to|ready for me to|can i go ahead|may i)\b[^?]*\?\s*$/i;
 
-export function announcesMore(text: string): boolean {
-  const lastSentences = text
+/** Said to the model when its answer ended on a promise or on asking leave to carry on. */
+export const CONTINUE_NUDGE =
+  'You ended by saying what you will do next, or by asking whether to carry on, but nothing runs after your answer ends. Reading, previewing and preparing need no permission: the person confirms a change by running it. Do the next steps now with the tools, in this answer, through to the prepared actions. Ask only a question only the person can answer (which of two folders, a name), and say plainly what is blocking you if anything is.';
+
+/** How many times one answer is pushed on before it is allowed to stop. */
+export const MAX_NUDGES = 2;
+
+function lastSentences(text: string): string {
+  return text
     .trim()
     .split(/(?<=[.!?])\s+/)
     .slice(-2)
     .join(' ');
-  return ANNOUNCES_MORE.test(lastSentences);
+}
+
+export function announcesMore(text: string): boolean {
+  const tail = lastSentences(text);
+  return ANNOUNCES_MORE.test(tail) || ASKS_TO_PROCEED.test(tail);
 }
 
 /** "GET /api/search?q=margin" -> "Searching", for the progress line. */

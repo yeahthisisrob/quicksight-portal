@@ -180,4 +180,46 @@ describe('applyTemplate', () => {
   it('refuses a template with no sheets', () => {
     expect(() => applyTemplate(sampleDefinition(), { Sheets: [] })).toThrow('no sheets');
   });
+
+  it('keeps controls where they sat: the control bar stays the control bar, on both sides', () => {
+    const template = templateDefinition();
+    const ts: any = template.Sheets[0];
+    // The template keeps Status in its control bar instead of on the canvas.
+    ts.Layouts[0].Configuration.GridLayout.Elements = ts.Layouts[0].Configuration.GridLayout.Elements.filter(
+      (e: any) => e.ElementId !== 'fc-status'
+    );
+    ts.SheetControlLayouts = [
+      { Configuration: { GridLayout: { Elements: [{ ElementId: 'fc-status', ElementType: 'FILTER_CONTROL', ColumnSpan: 3, RowSpan: 1 }] } } },
+    ];
+    const source: any = sampleDefinition();
+    const sheet = source.Sheets[0];
+    sheet.FilterControls = [{ Dropdown: { FilterControlId: 'own-ctl', Title: 'Own', SourceFilterId: 'own-f' } }];
+    sheet.SheetControlLayouts = [
+      { Configuration: { GridLayout: { Elements: [{ ElementId: 'own-ctl', ElementType: 'FILTER_CONTROL', ColumnSpan: 2, RowSpan: 1 }] } } },
+    ];
+
+    const { definition } = applyTemplate(source, template, { columnsByIdentifier: columns, controls: true });
+    const out = definition.Sheets[0];
+    const bar = out.SheetControlLayouts[0].Configuration.GridLayout.Elements;
+    const status = out.FilterControls.find((c: any) => c.Dropdown?.Title === 'Status').Dropdown.FilterControlId;
+    // The template's controls replace the source's, and Status stays in the bar at its width.
+    expect(bar).toEqual([{ ElementId: status, ElementType: 'FILTER_CONTROL', ColumnSpan: 3, RowSpan: 1 }]);
+    expect(grid(definition).some((e) => e.ElementId === status)).toBe(false);
+
+    const kept = applyTemplate(sampleDefinition() as any, templateDefinition(), { columnsByIdentifier: columns, controls: false });
+    expect(kept.definition.Sheets[0].SheetControlLayouts).toBeUndefined();
+
+    const own: any = sampleDefinition();
+    own.Sheets[0].FilterControls = sheet.FilterControls;
+    own.Sheets[0].SheetControlLayouts = sheet.SheetControlLayouts;
+    const noTemplateControls = templateDefinition();
+    for (const t of noTemplateControls.Sheets as any[]) {
+      t.FilterControls = [];
+      t.ParameterControls = [];
+    }
+    const mine = applyTemplate(own, noTemplateControls, { columnsByIdentifier: columns }).definition;
+    // The source's own bar control is not dragged onto the canvas.
+    expect(mine.Sheets[0].SheetControlLayouts[0].Configuration.GridLayout.Elements.map((e: any) => e.ElementId)).toEqual(['own-ctl']);
+    expect(grid(mine).some((e) => e.ElementId === 'own-ctl')).toBe(false);
+  });
 });

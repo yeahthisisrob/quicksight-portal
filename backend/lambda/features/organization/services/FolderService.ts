@@ -3,6 +3,7 @@ import type { components } from '@shared/generated/types';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { S3Service } from '../../../shared/services/aws/S3Service';
+import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES, type AssetType } from '../../../shared/types/assetTypes';
@@ -72,10 +73,18 @@ export class FolderService {
   public async addAssetToFolder(
     folderId: string,
     assetId: string,
-    memberType: QuickSightAssetMemberType
+    memberType: QuickSightAssetMemberType,
+    /** Refresh the folder and the asset in the cache; bulk callers refresh once at the end. */
+    refresh = true
   ): Promise<void> {
     try {
       await this.quickSightService.createFolderMembership(folderId, assetId, memberType);
+      if (refresh) {
+        await keepCacheFresh([
+          { assetType: 'folder', assetId: folderId },
+          { assetType: memberType.toLowerCase() as AssetType, assetId },
+        ]);
+      }
     } catch (error) {
       logger.error('Failed to add asset to folder', { folderId, assetId, memberType, error });
       throw error;

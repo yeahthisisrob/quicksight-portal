@@ -29,7 +29,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
 import { assistantApi, getApiErrorMessage, jobsApi } from '@/shared/api';
@@ -43,6 +43,7 @@ import { Container } from '@/shared/design-system';
 import {
   type ActionRun,
   CONTINUE_MESSAGE,
+  createdAsset,
   endsOnAPromise,
   followUpFor,
   jobIdOf,
@@ -124,6 +125,47 @@ function useFollowJob(
   return job.data;
 }
 
+/** What a finished action made, named, with a way to open it, and any warnings it came back with. */
+function CreatedNote({ result }: { result: unknown }) {
+  const created = createdAsset(result);
+  const warnings = (result as { warnings?: unknown } | null)?.warnings;
+  const list = Array.isArray(warnings)
+    ? warnings.filter((w): w is string => typeof w === 'string')
+    : [];
+  if (!created && list.length === 0) {
+    return null;
+  }
+  return (
+    <Stack spacing={0.75}>
+      {created && (
+        <Alert
+          severity="success"
+          action={
+            <Button
+              size="small"
+              color="inherit"
+              href={`/author?type=${created.assetType}&id=${encodeURIComponent(created.assetId)}`}
+              target="_blank"
+              rel="noopener"
+            >
+              Open in Author
+            </Button>
+          }
+        >
+          Created {created.assetType} {created.name ?? created.assetId}
+        </Alert>
+      )}
+      {list.length > 0 && (
+        <Alert severity="warning">
+          {list.map((w) => (
+            <div key={w}>{w}</div>
+          ))}
+        </Alert>
+      )}
+    </Stack>
+  );
+}
+
 function ActionCard({
   action,
   preview,
@@ -132,6 +174,15 @@ function ActionCard({
   onFollowUp,
 }: { action: AssistantAction; preview?: AssistantArtifact } & ActionCallbacks) {
   const run = runs[action.id];
+  const queryClient = useQueryClient();
+  // A write changed the account: lists and searches on this page are stale.
+  useEffect(() => {
+    if (run?.status === 'completed') {
+      void queryClient.invalidateQueries({
+        predicate: (query) => !String(query.queryKey[0] ?? '').startsWith('assistant'),
+      });
+    }
+  }, [run?.status, queryClient]);
   const [starting, setStarting] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const job = useFollowJob(action, run, onRun);
@@ -216,6 +267,7 @@ function ActionCard({
         )}
         {preview && !run && <AssistantArtifactView artifact={preview} />}
         {run?.status === 'failed' && <Alert severity="error">{run.error}</Alert>}
+        {run?.status === 'completed' && <CreatedNote result={run.result} />}
         {(run?.status === 'completed' || run?.status === 'failed') && (
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
             {resultText && (

@@ -452,7 +452,7 @@ export class RebindService {
 
   private recordProvenance(
     assetType: AuthorableAssetType,
-    written: { assetId: string; name: string },
+    written: { assetId: string; name: string; arn?: string; folderId?: string },
     request: ApplyRequest,
     changeCount: number,
     auth?: AuthContext
@@ -464,6 +464,8 @@ export class RebindService {
         assetType,
         assetId: written.assetId,
         name: written.name,
+        arn: written.arn,
+        folderId: written.folderId,
         details: {
           rebinds: request.rebinds.length,
           ops: request.ops?.length ?? 0,
@@ -525,14 +527,6 @@ export class RebindService {
         ? await this.clone(assetType, assetId, request.newAssetId, name, definition, target)
         : await this.update(assetType, assetId, name, definition, target);
 
-    await this.recordProvenance(
-      assetType,
-      { assetId: written.assetId, name },
-      request,
-      changes.length,
-      auth
-    );
-
     let folderId: string | undefined;
     if (request.folderId && request.mode === 'clone') {
       await this.quickSightService.createFolderMembership(
@@ -542,6 +536,14 @@ export class RebindService {
       );
       folderId = request.folderId;
     }
+
+    await this.recordProvenance(
+      assetType,
+      { assetId: written.assetId, name, arn: written.arn, folderId },
+      request,
+      changes.length,
+      auth
+    );
 
     return {
       assetType,

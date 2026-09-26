@@ -113,6 +113,13 @@ interface PlannerMessage {
     | { kind: 'new-visuals'; newAsset: Record<string, unknown> };
 }
 
+interface AssetRefreshMessage {
+  jobId: string;
+  jobType: 'asset-refresh';
+  accountId: string;
+  assets: Array<{ assetType: AssetType; assetId: string }>;
+}
+
 interface AssistantMessage {
   jobId: string;
   jobType: 'assistant';
@@ -237,6 +244,8 @@ async function processRecord(record: any, context: Context): Promise<void> {
       await processPlannerJob(rawMessage as PlannerMessage, record);
     } else if (rawMessage.jobType === 'assistant') {
       await processAssistantJob(rawMessage as AssistantMessage, record);
+    } else if (rawMessage.jobType === 'asset-refresh') {
+      await processAssetRefreshJob(rawMessage as AssetRefreshMessage);
     } else {
       await processExportJob(rawMessage as ExportMessage, record, context);
     }
@@ -698,6 +707,54 @@ async function processPlannerJob(message: PlannerMessage, record: any): Promise<
  */
 const ASSISTANT_PROGRESS_CEILING = 95;
 const ASSISTANT_MS_PER_SECOND = 1_000;
+
+/**
+ * Re-export what the portal just wrote and upsert its cache entries, so a
+ * new or changed asset shows up without a full export.
+ */
+async function processAssetRefreshJob(message: AssetRefreshMessage): Promise<void> {
+  const { jobId, accountId: refreshAccountId, assets } = message;
+  const jobStateService = new JobStateService('asset-refresh');
+  try {
+    if (await jobStateService.getJobStatus(jobId)) {
+      await jobStateService.updateJobStatus(jobId, {
+        status: 'processing',
+        message: 'Refreshing the cache',
+        progress: 0,
+      });
+    } else {
+      await jobStateService.createJob(jobId, {
+        status: 'processing',
+        message: 'Refreshing the cache',
+        startTime: new Date().toISOString(),
+      });
+    }
+    const orchestrator = new ExportOrchestrator(refreshAccountId);
+    const result = await orchestrator.refreshAssets(assets ?? []);
+    logger.info('Asset refresh completed', { jobId, ...result });
+    await jobStateService.updateJobStatus(jobId, {
+      status: result.failed.length === 0 ? 'completed' : 'failed',
+      endTime: new Date().toISOString(),
+      progress: 100,
+      message: [
+        `Refreshed ${result.refreshed.length}`,
+        result.missing.length ? `not listed yet: ${result.missing.join(', ')}` : '',
+        result.failed.length ? `failed: ${result.failed.join(', ')}` : '',
+      ]
+        .filter(Boolean)
+        .join('; '),
+    });
+  } catch (error) {
+    const text = error instanceof Error ? error.message : String(error);
+    logger.error('Asset refresh failed', { jobId, error: text });
+    await jobStateService.updateJobStatus(jobId, {
+      status: 'failed',
+      endTime: new Date().toISOString(),
+      message: text,
+      error: text,
+    });
+  }
+}
 
 async function processAssistantJob(message: AssistantMessage, record: any): Promise<void> {
   const { jobId } = message;

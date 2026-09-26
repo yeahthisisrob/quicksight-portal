@@ -3,7 +3,10 @@
  * it shows, described by column names rather than QuickSight JSON. Field
  * wells follow the visual type (the same roles the retype op uses), a
  * column's type decides whether it is a date, a category or a measure, and
- * the visuals reflow onto one sheet. Anything that cannot be built (an
+ * the sheet is laid out by fixed rules (see layoutSheet), so a model only
+ * says what to show, never how big. Filters are by column name too; each
+ * gets a control in the sheet's control bar, where QuickSight puts them by
+ * default (definitionFilters, controlBar). Anything that cannot be built (an
  * unknown dataset, a column the dataset does not have, a visual left with
  * no values) is left out and said so.
  */
@@ -12,7 +15,11 @@ import { randomUUID } from 'node:crypto';
 import { ValidationError } from '../../../shared/errors/ValidationError';
 import type { TargetColumn } from './columnResolution';
 import { type EditableVisualType, GRID_COLUMNS } from './definitionOps';
+import { controlBar } from './controlBar';
+import { buildFilters, type FilterSpec } from './definitionFilters';
 import { reflow } from './definitionTemplate';
+
+export type { FilterSpec } from './definitionFilters';
 
 export type BuildableVisualType = EditableVisualType | 'KPI';
 export type Aggregation = 'SUM' | 'AVERAGE' | 'COUNT' | 'DISTINCT_COUNT' | 'MIN' | 'MAX';
@@ -43,8 +50,19 @@ export interface BuildResult {
 }
 
 const ID_LENGTH = 8;
-const TILE = { colSpan: 12, rowSpan: 10 };
-const KPI_TILE = { colSpan: 9, rowSpan: 6 };
+/**
+ * The layout rules, in grid units (36 columns wide): KPIs in a band at
+ * the top (controls are in the control bar, not on the canvas), sharing the
+ * width (at most four to a row); charts two to a row, a chart left alone
+ * on its row taking the full width; tables and pivot tables full width
+ * and tall, last, because detail reads best across the page.
+ */
+const KPI_ROW_HEIGHT = 6;
+const KPIS_PER_ROW = 4;
+const CHART_TILE = { colSpan: GRID_COLUMNS / 2, rowSpan: 12 };
+const WIDE_CHART_TILE = { colSpan: GRID_COLUMNS, rowSpan: 14 };
+const TABLE_TILE = { colSpan: GRID_COLUMNS, rowSpan: 18 };
+const DETAIL_TYPES = new Set<BuildableVisualType>(['Table', 'PivotTable']);
 const MAX_VISUALS = 60;
 const NUMERIC = new Set(['INTEGER', 'DECIMAL']);
 
@@ -83,9 +101,38 @@ function measureField(visualId: string, identifier: string, column: TargetColumn
   return { CategoricalMeasureField: { ...base, AggregationFunction: aggregation === 'DISTINCT_COUNT' ? 'DISTINCT_COUNT' : 'COUNT' } };
 }
 
+type Tile = { colSpan: number; rowSpan: number };
+
+/** Place a sheet's visuals on the canvas by the rules above. */
+export function layoutSheet(visuals: Array<{ id: string; type: BuildableVisualType }>): any[] {
+  const elements: any[] = [];
+  let row = 0;
+  const band = (items: Array<{ id: string; tile: Tile }>, type: string) => {
+    if (items.length === 0) return;
+    const placed = reflow(items, row);
+    elements.push(...placed.elements.map((e) => ({ ...e, ElementType: type })));
+    row = placed.bottom;
+  };
+  const kpis = visuals.filter((v) => v.type === 'KPI');
+  const kpiWidth = Math.floor(GRID_COLUMNS / Math.min(Math.max(kpis.length, 1), KPIS_PER_ROW));
+  band(kpis.map((v) => ({ id: v.id, tile: { colSpan: kpiWidth, rowSpan: KPI_ROW_HEIGHT } })), 'VISUAL');
+  const charts = visuals.filter((v) => v.type !== 'KPI' && !DETAIL_TYPES.has(v.type));
+  band(
+    charts.map((v, i) => ({
+      id: v.id,
+      // The last chart of an odd count has its row to itself.
+      tile: i === charts.length - 1 && charts.length % 2 === 1 ? WIDE_CHART_TILE : CHART_TILE,
+    })),
+    'VISUAL'
+  );
+  band(visuals.filter((v) => DETAIL_TYPES.has(v.type)).map((v) => ({ id: v.id, tile: TABLE_TILE })), 'VISUAL');
+  return elements;
+}
+
 export function buildDefinition(input: {
   datasets: BuilderDataset[];
   visuals: VisualSpec[];
+  filters?: FilterSpec[];
   sheetName?: string;
 }): BuildResult {
   if (input.datasets.length === 0) {
@@ -97,7 +144,7 @@ export function buildDefinition(input: {
     byIdentifier.get(identifier)?.columns.find((c) => c.name.toLowerCase() === name.toLowerCase());
 
   const visuals: any[] = [];
-  const placed: Array<{ id: string; tile: { colSpan: number; rowSpan: number } }> = [];
+  const placed: Array<{ id: string; type: BuildableVisualType }> = [];
   for (const spec of input.visuals.slice(0, MAX_VISUALS)) {
     const wrapper = WRAPPER[spec.type];
     if (!wrapper) {
@@ -156,25 +203,31 @@ export function buildDefinition(input: {
         ChartConfiguration: config,
       },
     });
-    placed.push({ id: visualId, tile: spec.type === 'KPI' ? KPI_TILE : TILE });
+    placed.push({ id: visualId, type: spec.type });
   }
 
-  // KPIs first, then the rest, each in the order given.
-  const order = [...placed.filter((p) => p.tile === KPI_TILE), ...placed.filter((p) => p.tile !== KPI_TILE)];
-  const layout = reflow(order, 0);
+  const sheetId = newId('sheet');
+  const filters = buildFilters(sheetId, input.filters ?? [], columnOf);
+  warnings.push(...filters.warnings);
 
-  const definition = {
+  const sheet: Record<string, any> = {
+    SheetId: sheetId,
+    Name: input.sheetName?.trim() || 'Overview',
+    Visuals: visuals,
+    Layouts: [{ Configuration: { GridLayout: { Elements: layoutSheet(placed) } } }],
+  };
+  if (filters.filterControls.length > 0) {
+    sheet.FilterControls = filters.filterControls;
+    sheet.SheetControlLayouts = controlBar(filters.controlIds.map((id) => ({ id, type: 'FILTER_CONTROL' })));
+  }
+  const definition: Record<string, any> = {
     DataSetIdentifierDeclarations: input.datasets.map((d) => ({ Identifier: d.identifier, DataSetArn: d.dataSetArn })),
-    Sheets: [
-      {
-        SheetId: newId('sheet'),
-        Name: input.sheetName?.trim() || 'Overview',
-        Visuals: visuals,
-        Layouts: [{ Configuration: { GridLayout: { Elements: layout.elements } } }],
-      },
-    ],
+    Sheets: [sheet],
     AnalysisDefaults: { DefaultNewSheetConfiguration: { SheetContentType: 'INTERACTIVE' } },
   };
+  if (filters.filterGroups.length > 0) {
+    definition.FilterGroups = filters.filterGroups;
+  }
   if (visuals.length === 0) {
     warnings.push('No visual could be built; the sheet is empty.');
   }
