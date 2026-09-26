@@ -975,7 +975,13 @@ paths:
           required: false
           schema:
             type: string
-          description: Comma-separated subset of dashboard, analysis, dataset, datasource, folder, smus-listing, calculated-field, visual, template.
+          description: Comma-separated subset of dashboard, analysis, dataset, datasource, folder, project, smus-listing, smus-column, calculated-field, visual, template.
+        - name: projectId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Keep to one SMUS project (its listings and columns, and the datasets linked to them).
         - name: limit
           in: query
           required: false
@@ -998,6 +1004,192 @@ paths:
                     $ref: '#/components/schemas/SearchResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/context/search:
+    get:
+      tags: [Context]
+      summary: Search the context graph for entities
+      operationId: searchContext
+      description: |
+        The portal's knowledge as a graph, shaped like AWS Context's agentic
+        search: search for entities, get one, follow its relationships. The
+        entities are SMUS projects, listings and their columns (type,
+        description, glossary terms), glossary terms, data sources, datasets,
+        calculated fields, analyses, dashboards, visuals, templates and
+        folders. Ranked lexically by the same index as /api/search; each hit
+        carries the `entityId` to get or follow.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 200
+        - name: types
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated entity types (ContextEntityType).
+        - name: projectId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Ranked entities
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/ContextSearchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/context/entities/{entityId}:
+    get:
+      tags: [Context]
+      summary: One entity, its facts, and every kind of relationship it has
+      operationId: getContextEntity
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: '`type:key`, e.g. dataset:abc123 or listing-column:lst-1/customer_id (URL-encoded).'
+      responses:
+        '200':
+          description: The entity and its relationships, counted, with a few examples of each
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/ContextEntityDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/context/entities/{entityId}/related:
+    get:
+      tags: [Context]
+      summary: Follow an entity's relationships, up to three hops
+      operationId: getContextRelated
+      description: |
+        Relations read subject to object: listing in-project project; listing
+        has-column listing-column; listing tagged glossary-term; dataset
+        reads-listing listing; dataset through-datasource datasource; dataset
+        exposes listing-column; analysis or dashboard uses-dataset dataset;
+        calculated-field defined-in asset; calculated-field reads-column
+        listing-column; visual in-asset asset; asset in-folder folder.
+        `direction=in` follows them backwards (the datasets that read a
+        listing).
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: relations
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated ContextRelation values; all when omitted.
+        - name: direction
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [out, in, both]
+            default: both
+        - name: depth
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 3
+            default: 1
+        - name: types
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated entity types to keep.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: Related entities, nearest first, each with the path that reached it
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/ContextRelatedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/smus/data-source:
+    get:
+      summary: The Athena data source a new dataset over a SMUS listing reads through
+      description: |
+        SMUS tables are Glue tables read by Athena. The data source chosen is
+        the Athena one most SMUS-linked datasets already read through; with
+        none of those, the one most datasets use; with none, the only Athena
+        source. `athena` lists every Athena source with how many governed
+        datasets read through it.
+      tags: [SMUS]
+      responses:
+        '200':
+          description: The choice
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/SmusDataSourceChoice'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -2122,7 +2314,7 @@ paths:
                     type: boolean
                   data:
                     type: object
-                    required: [dataSetId, name, arn]
+                    required: [dataSetId, name, arn, dataSource]
                     properties:
                       dataSetId:
                         type: string
@@ -2130,6 +2322,15 @@ paths:
                         type: string
                       arn:
                         type: string
+                      dataSource:
+                        type: object
+                        description: The data source the dataset reads through.
+                        required: [id, name]
+                        properties:
+                          id:
+                            type: string
+                          name:
+                            type: string
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4311,6 +4512,69 @@ components:
         authoringModel:
           $ref: '#/components/schemas/AiModelKey'
 
+    SmusDataSourceChoice:
+      type: object
+      required: [dataSource, athena]
+      properties:
+        dataSource:
+          type: object
+          nullable: true
+          required: [id, name, arn, usedBy, reason]
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            arn:
+              type: string
+            usedBy:
+              type: integer
+              description: SMUS-linked datasets that read through it.
+            reason:
+              type: string
+        athena:
+          type: array
+          items:
+            type: object
+            required: [id, name, usedBy]
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              usedBy:
+                type: integer
+
+    PlanStatus:
+      type: string
+      enum: [existing, new, edited]
+
+    FieldVerdict:
+      type: object
+      description: |
+        A calculated field a change adds, placed by the organisation's
+        field strategy (Settings, guidance.fieldStrategy): `use-column`
+        (row-level and the dataset already has the column), `push-down`
+        (row-level; the source should materialise it), `dataset` (row-level;
+        it belongs in the QuickSight dataset), `row-level` (row-level, no
+        stated preference) or `analysis` (aggregates, table or level-aware,
+        or reads a parameter).
+      required: [name, expression, verdict, note]
+      properties:
+        name:
+          type: string
+        expression:
+          type: string
+        dataset:
+          type: string
+        verdict:
+          type: string
+          enum: [use-column, push-down, dataset, row-level, analysis]
+        column:
+          type: string
+        note:
+          type: string
+
     AssistantArtifact:
       type: object
       description: |
@@ -4318,13 +4582,75 @@ components:
         preview call and draw its definition as a wireframe. `asset`: draw
         the dashboard or analysis as it is. `lineage`: draw the calculated
         field's lineage from GET /api/data-catalog/calculated-fields/{fieldKey}.
+        `plan`: the lineage of what a change builds (listings, datasets, the
+        analysis or dashboard). `fields`: the calculated fields it adds, each
+        placed by the organisation's field strategy.
       required: [id, kind, title]
       properties:
         id:
           type: string
         kind:
           type: string
-          enum: [preview, asset, lineage]
+          enum: [preview, asset, lineage, plan, fields]
+        sources:
+          type: array
+          items:
+            type: object
+            required: [listing]
+            properties:
+              listing:
+                type: string
+              project:
+                type: string
+              table:
+                type: string
+        datasets:
+          type: array
+          items:
+            type: object
+            required: [name, status]
+            properties:
+              name:
+                type: string
+              id:
+                type: string
+              status:
+                type: string
+                enum: [existing, new]
+              dataSource:
+                type: string
+        calculatedFields:
+          type: array
+          items:
+            type: object
+            required: [name, status]
+            properties:
+              name:
+                type: string
+              expression:
+                type: string
+              status:
+                type: string
+                enum: [existing, new]
+              dataset:
+                type: string
+        asset:
+          type: object
+          required: [kind, name, status]
+          properties:
+            kind:
+              type: string
+              enum: [dashboard, analysis]
+            name:
+              type: string
+            id:
+              type: string
+            status:
+              $ref: '#/components/schemas/PlanStatus'
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldVerdict'
         title:
           type: string
         method:
@@ -4364,6 +4690,9 @@ components:
         previewId:
           type: string
           description: The preview artifact this action publishes.
+        planId:
+          type: string
+          description: The plan artifact this action carries out.
 
     AssistantChatResult:
       type: object
@@ -7007,7 +7336,7 @@ components:
           type: string
         type:
           type: string
-          enum: [string, select, multiselect, boolean]
+          enum: [string, text, select, multiselect, boolean]
         value:
           description: The effective value. A string, a list of strings, or a boolean; absent when unset.
           oneOf:
@@ -7258,11 +7587,13 @@ components:
 
     CreateSmusDatasetRequest:
       type: object
-      required: [dataSourceId, importMode]
       properties:
         dataSourceId:
           type: string
-          description: An existing QuickSight data source (Athena) chosen from the account.
+          description: |
+            An existing QuickSight data source. Omitted: the Athena data source
+            the SMUS-linked datasets already read through (see
+            GET /api/smus/data-source).
         name:
           type: string
           minLength: 1
@@ -8466,7 +8797,7 @@ components:
     # SMUS (SageMaker Unified Studio) schemas
     SearchableType:
       type: string
-      enum: [dashboard, analysis, dataset, datasource, folder, smus-listing, calculated-field, visual, template]
+      enum: [dashboard, analysis, dataset, datasource, folder, project, smus-listing, smus-column, calculated-field, visual, template]
 
     SearchAssetRef:
       type: object
@@ -8521,6 +8852,12 @@ components:
           description: Calculated fields - every asset that defines this exact expression.
           items:
             $ref: '#/components/schemas/SearchAssetRef'
+        projectId:
+          type: string
+          description: The SMUS project a project, listing, column or linked dataset belongs to.
+        entityId:
+          type: string
+          description: The same thing in the context graph (/api/context/entities/{entityId}).
 
     SearchResponse:
       type: object
@@ -8540,6 +8877,157 @@ components:
         indexedAt:
           type: string
           format: date-time
+
+    ContextEntityType:
+      type: string
+      enum: [project, listing, listing-column, glossary-term, datasource, dataset, calculated-field, analysis, dashboard, visual, template, folder]
+
+    ContextRelation:
+      type: string
+      enum: [in-project, has-column, tagged, reads-listing, through-datasource, exposes, uses-dataset, defined-in, reads-column, in-asset, in-folder]
+
+    ContextEntity:
+      type: object
+      required: [id, type, name, summary, attributes]
+      properties:
+        id:
+          type: string
+        type:
+          $ref: '#/components/schemas/ContextEntityType'
+        name:
+          type: string
+        description:
+          type: string
+        summary:
+          type: string
+        attributes:
+          type: object
+          description: Facts worth reasoning on (column type, import mode, project id, expression).
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: number
+              - type: boolean
+        path:
+          type: string
+
+    ContextStep:
+      type: object
+      required: [relation, direction]
+      properties:
+        relation:
+          $ref: '#/components/schemas/ContextRelation'
+        direction:
+          type: string
+          enum: [out, in]
+        note:
+          type: string
+          description: Why an inferred edge exists, e.g. "by table".
+
+    ContextSearchHit:
+      type: object
+      required: [name, summary, why, score, path]
+      properties:
+        entityId:
+          type: string
+        type:
+          type: string
+        name:
+          type: string
+        summary:
+          type: string
+        why:
+          type: array
+          items:
+            type: string
+        score:
+          type: number
+        projectId:
+          type: string
+        path:
+          type: string
+
+    ContextSearchResponse:
+      type: object
+      required: [q, hits, indexedAt]
+      properties:
+        q:
+          type: string
+        hits:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContextSearchHit'
+        indexedAt:
+          type: string
+          format: date-time
+
+    ContextEntityDetail:
+      type: object
+      required: [entity, relations]
+      properties:
+        entity:
+          $ref: '#/components/schemas/ContextEntity'
+        relations:
+          type: array
+          items:
+            type: object
+            required: [relation, direction, count, examples]
+            properties:
+              relation:
+                $ref: '#/components/schemas/ContextRelation'
+              direction:
+                type: string
+                enum: [out, in]
+              count:
+                type: integer
+              examples:
+                type: array
+                items:
+                  type: object
+                  required: [entityId, name]
+                  properties:
+                    entityId:
+                      type: string
+                    name:
+                      type: string
+                    note:
+                      type: string
+
+    ContextRelatedResponse:
+      type: object
+      required: [from, hits]
+      properties:
+        from:
+          type: string
+        hits:
+          type: array
+          items:
+            type: object
+            required: [entityId, type, name, summary, attributes, depth, via]
+            properties:
+              entityId:
+                type: string
+              type:
+                $ref: '#/components/schemas/ContextEntityType'
+              name:
+                type: string
+              summary:
+                type: string
+              description:
+                type: string
+              attributes:
+                type: object
+                additionalProperties:
+                  oneOf:
+                    - type: string
+                    - type: number
+                    - type: boolean
+              depth:
+                type: integer
+              via:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContextStep'
 
     SmusStatus:
       type: object

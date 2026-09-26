@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useEffect, useState } from 'react';
 
 import { type MockRoute, mockApi } from '../../../../.storybook/mocks/api';
-import { assistantRoutes, SCRIPTED_ANSWER } from './__stories__/assistant';
+import { assistantRoutes, PLANNED_ANSWER, SCRIPTED_ANSWER } from './__stories__/assistant';
 import { AnswerView, AssistantChat } from './AssistantChat';
 import { ModelPicker } from './ModelPicker';
 
@@ -47,6 +47,12 @@ export const Empty: Story = { name: 'Suggestions, before the first message' };
 export const Answered: Story = {
   name: 'An answer: lineage, a previewed copy, and Run to confirm',
   render: () => <AnswerView result={SCRIPTED_ANSWER as never} />,
+};
+
+/** Plans before it builds: the lineage from the SMUS listing, the field verdicts, then the change. */
+export const Planned: Story = {
+  name: 'A plan on the governed dataset, with field verdicts',
+  render: () => <AnswerView result={PLANNED_ANSWER as never} />,
 };
 
 /** The same answer after Run: the card follows the job it started, then says how it ended. */

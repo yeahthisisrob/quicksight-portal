@@ -9,7 +9,7 @@ import { SEARCHABLE_TYPES, type SearchableType } from '../types';
 
 const MAX_QUERY_LENGTH = 200;
 
-/** GET /search?q=&types=a,b&limit= */
+/** GET /search?q=&types=a,b&projectId=&limit= */
 export async function search(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   try {
     await requireAuth(event);
@@ -41,7 +41,12 @@ export async function search(event: APIGatewayProxyEvent): Promise<APIGatewayPro
     if (limit !== undefined && !(Number.isInteger(limit) && limit > 0)) {
       return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'limit must be a positive integer');
     }
-    const result = await new SearchService().search({ q, types, limit });
+    const result = await new SearchService().search({
+      q,
+      types,
+      limit,
+      projectId: params.projectId || undefined,
+    });
     return successResponse(event, { success: true, data: result });
   } catch (error: any) {
     logger.error('Search failed', { error });

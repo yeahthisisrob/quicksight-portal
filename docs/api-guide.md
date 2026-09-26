@@ -69,6 +69,42 @@ curl -sS "$QSP_API_URL/api/search?q=margin&types=calculated-field,template&limit
 Search first: a hit's `summary`, `why` and `path` are usually enough to
 decide. Load a full definition only for the one asset you will change.
 
+**The context graph: search, get, follow.** The same knowledge as a graph
+of entities and typed relationships, in the shape of AWS Context's agentic
+search, so an agent written against these three calls can later be pointed
+at Context. Entities: SMUS projects, listings and their columns (with type,
+description and glossary terms), glossary terms, data sources, datasets,
+calculated fields, analyses, dashboards, visuals, templates and folders.
+
+```bash
+curl -sS "$QSP_API_URL/api/context/search?q=orders%20gold&types=listing,dataset" -H "Authorization: Bearer $QSP_API_KEY"
+curl -sS "$QSP_API_URL/api/context/entities/listing%3A<listing-id>" -H "Authorization: Bearer $QSP_API_KEY"
+curl -sS "$QSP_API_URL/api/context/entities/listing%3A<listing-id>/related?relations=reads-listing&direction=in" -H "Authorization: Bearer $QSP_API_KEY"
+```
+
+Relations read subject to object:
+
+| Relation | From | To |
+|---|---|---|
+| `in-project` | listing | project |
+| `has-column` | listing | listing-column |
+| `tagged` | listing | glossary-term |
+| `reads-listing` | dataset | listing |
+| `through-datasource` | dataset | datasource |
+| `exposes` | dataset | listing-column |
+| `uses-dataset` | analysis, dashboard | dataset |
+| `defined-in` | calculated-field | analysis, dashboard, dataset |
+| `reads-column` | calculated-field | listing-column |
+| `in-asset` | visual | analysis, dashboard |
+| `in-folder` | asset | folder |
+
+`direction=in` follows a relation backwards: the datasets that read a
+listing, the dashboards that use a dataset. `depth` goes up to three hops.
+Every hit carries the path that reached it. `/api/search` and
+`/api/context/search` both take `projectId` to keep to one SMUS project.
+Without SMUS the graph still holds everything QuickSight knows; only the
+SMUS entities are missing.
+
 **Lists, one type at a time**, paginated, filtered, sorted:
 
 ```bash
@@ -238,14 +274,40 @@ answers.
 "user", "text": "..." }], "model": "haiku-4-5" }` is a job whose result is
 an answer from a model that used this API as you: it runs reads and
 previews itself, returns `artifacts` to draw (a preview to re-run and draw
-as a wireframe, an asset, a calculated field's lineage), and returns
-`actions` (writes it prepared, each tied to the preview it publishes). It
-never writes; you run an action with your own key when it looks right.
-Send the whole conversation, text only, each time.
+as a wireframe, an asset, a calculated field's lineage, a `plan` and its
+`fields`), and returns `actions` (writes it prepared, each tied to the
+preview it publishes and the plan it follows). It never writes; you run an
+action with your own key when it looks right. Send the whole conversation,
+text only, each time.
+
+Before it prepares anything that creates or changes a dataset, an analysis
+or a dashboard, the assistant draws a `plan`: the SMUS listings the data
+comes from (when SMUS is used), the datasets (existing, or new and through
+which data source), and the analysis or dashboard (new, edited or as it
+is). It reuses a dataset already linked to a listing unless you ask for a
+new one. A new dataset over a listing reads through the Athena data source
+the linked datasets already use (`GET /api/smus/data-source` says which and
+why). The `fields` artifact places each calculated field the plan adds:
+
+| Verdict | Meaning |
+|---|---|
+| `use-column` | Row-level, and the dataset already has it as a column |
+| `push-down` | Row-level; your guidance says the source should materialise it |
+| `dataset` | Row-level; your guidance says it belongs in the QuickSight dataset |
+| `row-level` | Row-level; your guidance states no preference |
+| `analysis` | Aggregates, table or level-aware calculations, or parameters |
+
+**Authoring guidance.** Settings, under Authoring guidance, holds how your
+organisation builds: a calculated-field strategy (materialise in the
+source, in the dataset, or no preference) and free text about your
+architecture, datasets, explorations and visuals. The assistant and the
+planner follow it. Each prompt carries only the parts that apply, and
+nothing when it is empty.
 
 ## 7. A typical agent loop
 
-1. `GET /api/search?q=...` to find the asset and the dataset.
+1. `GET /api/search?q=...` or `GET /api/context/search?q=...` to find the
+   asset and the dataset, and `.../related` to follow the lineage.
 2. `GET /api/assets/dashboard/{id}/cached` for the definition, and
    `GET /api/authoring/datasets/{dataset-id}/columns` for what the target has.
 3. Build the change: edit the definition, or compose `rebinds`, `ops`,
@@ -261,8 +323,10 @@ AWS Context, announced in June 2026 and not yet available, is an
 identity-aware knowledge graph over an organisation's data that agents
 query at runtime. Once it can read QuickSight, an agent will get search,
 lineage and metadata from there, and this portal will point it that way
-just as it points at SMUS today. What stays here is what a graph does not
-do: the parsed definitions, the checks, and the write paths above.
+just as it points at SMUS today. The `/api/context` calls above are shaped
+the same way now, so moving over is a change of URL. What stays here is what
+a graph does not do: the parsed definitions, the checks, and the write paths
+above.
 
 ---
 

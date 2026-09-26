@@ -22,6 +22,11 @@
  * union-typed fields, and a rejected request is worse than a sentinel.
  */
 
+import {
+  type AuthoringGuidance,
+  type GuidanceFocus,
+  guidanceSection,
+} from '../../../../shared/ai/authoringGuidance';
 import { getSmusConfig } from '../../../../shared/config/smusConfig';
 import { ValidationError } from '../../../../shared/errors/ValidationError';
 import { ClientFactory } from '../../../../shared/services/aws/ClientFactory';
@@ -352,8 +357,16 @@ export class PlannerService {
   public constructor(
     private readonly rebindService: RebindService,
     private readonly model: PlannerModel,
-    private readonly loadCandidates: CandidateLoader = defaultCandidateLoader
+    private readonly loadCandidates: CandidateLoader = defaultCandidateLoader,
+    /** The organisation's authoring guidance from Settings, added to the prompts it applies to. */
+    private readonly options: { guidance?: AuthoringGuidance } = {}
   ) {}
+
+  /** The preamble, plus the guidance for this kind of decision when the organisation set any. */
+  private system(focus: GuidanceFocus[]): string {
+    const guidance = this.options.guidance ? guidanceSection(this.options.guidance, focus) : '';
+    return guidance ? `${PREAMBLE}\n\n${guidance}` : PREAMBLE;
+  }
 
   public async propose(
     assetType: AuthorableAssetType,
@@ -484,7 +497,7 @@ export class PlannerService {
 
     const result = await this.model.complete({
       label: 'plan-edits',
-      system: PREAMBLE,
+      system: this.system(['explorations', 'visuals']),
       user,
       schemaName: 'plan_edits',
       schemaDescription: 'Layout and visual edits as ops.',
@@ -533,7 +546,7 @@ export class PlannerService {
 
     const result = await this.model.complete({
       label: 'plan-visuals',
-      system: PREAMBLE,
+      system: this.system(['explorations', 'visuals']),
       user,
       schemaName: 'plan_visuals',
       schemaDescription: 'The visuals to build, by column names.',
@@ -610,7 +623,7 @@ export class PlannerService {
 
     const result = await this.model.complete({
       label: 'choose-target',
-      system: PREAMBLE,
+      system: this.system(['architecture', 'datasets']),
       user,
       schemaName: 'choose_target',
       schemaDescription: 'The datasets to rebind and how.',
@@ -652,7 +665,7 @@ export class PlannerService {
 
     const result = await this.model.complete({
       label: 'map-columns',
-      system: PREAMBLE,
+      system: this.system(['datasets']),
       user,
       schemaName: 'map_columns',
       schemaDescription: 'Source-to-target column mapping for the unresolved columns.',

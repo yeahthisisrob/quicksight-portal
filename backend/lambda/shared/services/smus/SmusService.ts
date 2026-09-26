@@ -19,6 +19,7 @@ import type {
   CreateSmusDatasetRequest,
   SmusAsset,
   SmusAssetsResult,
+  SmusDataSourceChoice,
   SmusDatasetLink,
   SmusMatchType,
   SmusStatus,
@@ -285,7 +286,12 @@ export class SmusService {
   public async createDatasetFromListing(
     listingId: string,
     request: CreateSmusDatasetRequest
-  ): Promise<{ dataSetId: string; name: string; arn: string }> {
+  ): Promise<{
+    dataSetId: string;
+    name: string;
+    arn: string;
+    dataSource: { id: string; name: string };
+  }> {
     if (!this.config.enabled || !this.quickSightService) {
       throw new ValidationError('SMUS is not configured');
     }
@@ -304,11 +310,21 @@ export class SmusService {
       throw new ValidationError(`'${listing.name}' lists no columns in its metadata forms`);
     }
 
+    let dataSourceId = request.dataSourceId;
+    if (!dataSourceId) {
+      const choice = await this.defaultDataSource();
+      if (!choice.dataSource) {
+        throw new ValidationError(
+          'No Athena data source exists in this account to read the SMUS table through; create one in QuickSight or pass dataSourceId'
+        );
+      }
+      dataSourceId = choice.dataSource.id;
+    }
     const dataSources = await this.cacheService.getCacheEntries({
       assetType: ASSET_TYPES.datasource,
       statusFilter: AssetStatusFilter.ACTIVE,
     });
-    const dataSource = dataSources.find((d) => d.assetId === request.dataSourceId);
+    const dataSource = dataSources.find((d) => d.assetId === dataSourceId);
     if (!dataSource?.arn) {
       throw new ValidationError(
         "The selected data source is not one of this account's data sources"
@@ -342,7 +358,7 @@ export class SmusService {
     const created = await this.quickSightService.createDataSet({
       dataSetId,
       name,
-      importMode: request.importMode,
+      importMode: request.importMode ?? 'DIRECT_QUERY',
       permissions: permissions.length > 0 ? permissions : undefined,
       physicalTableMap: {
         [tableId]: {
@@ -370,7 +386,69 @@ export class SmusService {
     });
 
     SmusService.invalidateLinkMap();
-    return { dataSetId: created.dataSetId, name, arn: created.arn };
+    return {
+      dataSetId: created.dataSetId,
+      name,
+      arn: created.arn,
+      dataSource: { id: dataSource.assetId, name: dataSource.assetName },
+    };
+  }
+
+  /**
+   * The Athena data source to build a dataset over a listing through. SMUS
+   * tables are Glue tables read by Athena, and the datasets already linked
+   * to listings show which Athena data source this account uses for them:
+   * the one most of them read through wins. With no linked dataset reading
+   * one, the Athena source most datasets read through; with none of those,
+   * the only Athena source, or none.
+   */
+  public async defaultDataSource(): Promise<SmusDataSourceChoice> {
+    const [dataSources, datasets, links] = await Promise.all([
+      this.cacheService.getCacheEntries({
+        assetType: ASSET_TYPES.datasource,
+        statusFilter: AssetStatusFilter.ACTIVE,
+      }),
+      this.cacheService.getAllDatasets(),
+      this.config.enabled ? this.getLinkMap() : Promise.resolve(new Map<string, SmusDatasetLink>()),
+    ]);
+    const athena = dataSources.filter(
+      (d: any) => String(d.metadata?.sourceType ?? '').toUpperCase() === 'ATHENA' && d.arn
+    );
+    const governed = new Map<string, number>();
+    const overall = new Map<string, number>();
+    for (const dataset of datasets as any[]) {
+      const ids: string[] = dataset.metadata?.lineageData?.datasourceIds ?? [];
+      const isGoverned = links.get(dataset.assetId)?.linked === true;
+      for (const id of new Set(ids)) {
+        overall.set(id, (overall.get(id) ?? 0) + 1);
+        if (isGoverned) {
+          governed.set(id, (governed.get(id) ?? 0) + 1);
+        }
+      }
+    }
+    const ranked = athena
+      .map((d: any) => ({
+        id: d.assetId as string,
+        name: d.assetName as string,
+        arn: d.arn as string,
+        usedBy: governed.get(d.assetId) ?? 0,
+        overall: overall.get(d.assetId) ?? 0,
+      }))
+      .sort((a, b) => b.usedBy - a.usedBy || b.overall - a.overall || a.name.localeCompare(b.name));
+    const best = ranked[0];
+    const reason = !best
+      ? ''
+      : best.usedBy > 0
+        ? `used by ${best.usedBy} dataset${best.usedBy === 1 ? '' : 's'} linked to SMUS listings`
+        : best.overall > 0
+          ? `the Athena data source most datasets read through (${best.overall}); no SMUS-linked dataset reads one yet`
+          : 'the only Athena data source in the account';
+    return {
+      dataSource: best
+        ? { id: best.id, name: best.name, arn: best.arn, usedBy: best.usedBy, reason }
+        : null,
+      athena: ranked.map(({ id, name, usedBy }) => ({ id, name, usedBy })),
+    };
   }
 
   /** Projects in the last export: ListProjects unioned with the listing publishers. */

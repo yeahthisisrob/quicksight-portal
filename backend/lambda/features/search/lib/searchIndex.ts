@@ -70,7 +70,10 @@ export class SearchIndex {
     return this.items.length;
   }
 
-  public search(query: string, options: { types?: SearchableType[]; limit?: number } = {}): SearchHit[] {
+  public search(
+    query: string,
+    options: { types?: SearchableType[]; limit?: number; projectId?: string } = {}
+  ): SearchHit[] {
     const words = queryTokens(query);
     if (words.length === 0) {
       return [];
@@ -82,6 +85,9 @@ export class SearchIndex {
     const scored: SearchHit[] = [];
     for (const { doc, fields } of this.items) {
       if (types && !types.has(doc.type)) {
+        continue;
+      }
+      if (options.projectId && doc.projectId !== options.projectId) {
         continue;
       }
       let score = 0;
@@ -141,6 +147,8 @@ export class SearchIndex {
         expression: doc.expression,
         parent: doc.parent,
         definedIn: doc.definedIn,
+        ...(doc.projectId ? { projectId: doc.projectId } : {}),
+        ...(doc.entityId ? { entityId: doc.entityId } : {}),
       });
     }
     scored.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));

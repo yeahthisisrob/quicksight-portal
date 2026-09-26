@@ -643,10 +643,18 @@ async function processPlannerJob(message: PlannerMessage, record: any): Promise<
       import('./features/authoring/services/planner/createPlannerModel'),
     ]);
     const rebind = new RebindService(msgAccountId);
-    const { isAiModelKey } = await import('./shared/ai/modelCatalog');
+    const [{ isAiModelKey }, { settingsStore }, { readAuthoringGuidance }] = await Promise.all([
+      import('./shared/ai/modelCatalog'),
+      import('./shared/services/settings/SettingsStore'),
+      import('./shared/ai/authoringGuidance'),
+    ]);
+    // The organisation's authoring guidance lives in Settings.
+    await settingsStore.load();
     const planner = new PlannerService(
       rebind,
-      createPlannerModel(undefined, isAiModelKey(message.model) ? message.model : undefined)
+      createPlannerModel(undefined, isAiModelKey(message.model) ? message.model : undefined),
+      undefined,
+      { guidance: readAuthoringGuidance() }
     );
 
     let result: unknown;
@@ -721,6 +729,9 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       { AssistantService },
       { apiHandler },
       { withInProcessAuth },
+      { settingsStore },
+      { readAuthoringGuidance },
+      { getSmusConfig },
     ] = await Promise.all([
       import('./shared/ai/modelCatalog'),
       import('./adapters/aws/BedrockAdapter'),
@@ -729,7 +740,11 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       import('./features/assistant/services/AssistantService'),
       import('./api/apiHandler'),
       import('./shared/auth'),
+      import('./shared/services/settings/SettingsStore'),
+      import('./shared/ai/authoringGuidance'),
+      import('./shared/config/smusConfig'),
     ]);
+    await settingsStore.load();
     if (!isAiModelKey(message.model)) {
       throw new Error(`Unknown model '${message.model}'`);
     }
@@ -770,6 +785,8 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
     const started = Date.now();
     const result = await new AssistantService(chat, model, dispatch, {
       brief: true,
+      smus: getSmusConfig().enabled,
+      guidance: readAuthoringGuidance(),
       ...(message.authoringModel && isAiModelKey(message.authoringModel)
         ? { authoringModel: message.authoringModel }
         : {}),

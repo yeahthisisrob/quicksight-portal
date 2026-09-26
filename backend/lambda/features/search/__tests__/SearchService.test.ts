@@ -20,6 +20,7 @@ const entries = {
         datasetCount: 1,
         viewStats: { totalViews: 120, uniqueViewers: 9 },
         folderPath: ['arn:folder:sales'],
+        lineageData: { datasetIds: ['ds-1'] },
         fields: [{ fieldName: 'revenue' }, { fieldName: 'region' }],
         calculatedFields: [{ fieldName: 'margin' }],
       },
@@ -127,7 +128,7 @@ describe('SearchService', () => {
     getMasterCacheWithVersion: vi.fn(),
     searchFields: vi.fn(),
   };
-  const smus = { getSnapshot: vi.fn() };
+  const smus = { getSnapshot: vi.fn(), listAssets: vi.fn() };
   const templates = { list: vi.fn() };
   const service = () => new SearchService(cache as any, smus as any, templates as any);
 
@@ -138,14 +139,22 @@ describe('SearchService', () => {
     cache.searchFields.mockResolvedValue(fields);
     smus.getSnapshot.mockResolvedValue({
       exportedAt: '2026-09-18T00:00:00Z',
-      listings: [
+      projects: [{ id: 'p-1', name: 'sales_prod' }],
+    });
+    smus.listAssets.mockResolvedValue({
+      configured: true,
+      assets: [
         {
           listingId: 'lst-1',
           name: 'dim_customer',
-          owningProjectId: 'p-1',
+          projectId: 'p-1',
           table: { database: 'published_prod', name: 'dim_customer' },
-          columns: [{ name: 'customer_id', type: 'bigint' }],
+          columns: [
+            { name: 'customer_id', type: 'bigint', description: 'The customer key' },
+            { name: 'revenue', type: 'decimal(18,2)', description: 'Net revenue in USD' },
+          ],
           glossaryTerms: [{ name: 'PII' }],
+          datasets: [{ id: 'ds-1', name: 'orders_gold', matchType: 'table' }],
         },
       ],
     });
@@ -215,9 +224,8 @@ describe('SearchService', () => {
         visuals: [{ visualId: 'v-x', sheetId: 's1' }],
       },
     ]);
-    smus.getSnapshot.mockResolvedValue({
-      exportedAt: '2026-09-18T00:00:00Z',
-      listings: [
+    smus.listAssets.mockResolvedValue({
+      assets: [
         { listingId: 'lst-noname' },
         { listingId: 'lst-1', name: 'dim_customer', glossaryTerms: [] },
       ],
@@ -247,5 +255,36 @@ describe('SearchService', () => {
     cache.getMasterCacheWithVersion.mockResolvedValue({ cache: { entries }, version: 'v2' });
     await service().search({ q: 'sales' });
     expect(cache.searchFields).toHaveBeenCalledTimes(2);
+  });
+
+  it('finds SMUS columns by description and keeps to a project', async () => {
+    const hits = (await service().search({ q: 'net revenue usd', types: ['smus-column'] })).hits;
+    expect(hits[0]).toMatchObject({ entityId: 'listing-column:lst-1/revenue', projectId: 'p-1' });
+    expect(hits[0]!.summary).toBe(
+      'SMUS column: dim_customer.revenue (decimal(18,2)) - Net revenue in USD'
+    );
+    expect((await service().search({ q: 'dim customer', projectId: 'p-other' })).hits).toEqual([]);
+  });
+
+  it('builds the context graph: project, listing, dataset and dashboard, with column types', async () => {
+    const graph = await service().graph();
+    const readers = graph.related('listing:lst-1', {
+      relations: ['reads-listing'],
+      direction: 'in',
+    });
+    expect(readers.map((h) => h.entity.id)).toEqual(['dataset:ds-1']);
+    const exposed = graph.related('dataset:ds-1', { relations: ['exposes'], direction: 'out' });
+    expect(exposed.map((h) => h.entity.id)).toEqual(['listing-column:lst-1/revenue']);
+    expect(exposed[0]!.entity.attributes).toMatchObject({ type: 'decimal(18,2)' });
+    const users = graph.related('dataset:ds-1', { relations: ['uses-dataset'], direction: 'in' });
+    expect(users.map((h) => h.entity.id)).toContain('dashboard:d-1');
+    const project = graph.related('listing:lst-1', { relations: ['in-project'] });
+    expect(project.map((h) => h.entity.name)).toEqual(['sales_prod']);
+    const twoHops = graph.related('listing:lst-1', {
+      direction: 'in',
+      depth: 2,
+      types: ['dashboard'],
+    });
+    expect(twoHops.map((h) => h.entity.id)).toContain('dashboard:d-1');
   });
 });

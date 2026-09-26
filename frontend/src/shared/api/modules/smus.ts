@@ -11,6 +11,7 @@ export type SmusLinkedDataset = components['schemas']['SmusLinkedDataset'];
 export type CreateSmusDatasetRequest = components['schemas']['CreateSmusDatasetRequest'];
 export type SmusSnapshotSummary = components['schemas']['SmusSnapshotSummary'];
 export type SmusExportQueued = components['schemas']['SmusExportQueued'];
+export type SmusDataSourceChoice = components['schemas']['SmusDataSourceChoice'];
 
 export interface SmusAssetsResponse {
   configured: boolean;
@@ -66,6 +67,15 @@ export const smusApi = {
     });
     if (!response.data.success || !response.data.data) {
       throw new Error(response.data.error || 'Failed to list SMUS assets');
+    }
+    return response.data.data;
+  },
+
+  /** The Athena data source a new dataset over a listing reads through, and the others. */
+  async dataSource(): Promise<SmusDataSourceChoice> {
+    const response = await api.get<ApiResponse<SmusDataSourceChoice>>('/smus/data-source');
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to choose a data source');
     }
     return response.data.data;
   },

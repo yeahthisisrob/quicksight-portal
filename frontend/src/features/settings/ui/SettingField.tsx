@@ -129,6 +129,21 @@ export function SettingField({
             </Select>
           </FormControl>
         );
+      case 'text':
+        return (
+          <TextField
+            size="small"
+            fullWidth
+            multiline
+            minRows={3}
+            maxRows={12}
+            label={definition.label}
+            value={asString(current)}
+            onChange={(e) => onSet(e.target.value)}
+            disabled={disabled}
+            placeholder={definition.source === 'default' ? 'Not set' : undefined}
+          />
+        );
       default:
         return (
           <TextField
