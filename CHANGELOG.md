@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.23.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.23.0...v2.23.1) (2026-09-26)
+
+
+### Bug Fixes
+
+* **frontend:** typed API client from the contract, dead-code gates, lean Storybook ([#232](https://github.com/yeahthisisrob/quicksight-portal/issues/232)) ([e0ca38e](https://github.com/yeahthisisrob/quicksight-portal/commit/e0ca38e8ae95fd3756553fdff0f47a55b3840dd0))
+
 ## [2.23.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.22.0...v2.23.0) (2026-09-26)
 
 
