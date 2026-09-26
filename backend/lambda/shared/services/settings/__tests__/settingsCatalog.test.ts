@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildSnapshot,
   effectiveValue,
+  MAX_TEXT_SETTING_LENGTH,
   resolveSetting,
   settingSpec,
   validateUpdate,
@@ -48,7 +49,7 @@ describe('resolveSetting', () => {
 
   it('builds a grouped snapshot from the catalog', () => {
     const snapshot = buildSnapshot({}, {}, { updatedBy: 'rob' });
-    expect(snapshot.groups.map((g) => g.id)).toEqual(['smus', 'planner', 'provenance']);
+    expect(snapshot.groups.map((g) => g.id)).toEqual(['smus', 'planner', 'guidance', 'provenance']);
     expect(snapshot.updatedBy).toBe('rob');
     const spec = snapshot.groups[0]?.settings.find((s) => s.key === 'smus.projectIds');
     expect(spec?.optionsFrom).toBe('/settings/smus/projects');
@@ -78,6 +79,10 @@ describe('validateUpdate', () => {
     expect(() => validateUpdate({ 'planner.apiKey': 'k' })).toThrow('secret');
     expect(() => validateUpdate({ 'smus.projectIds': 'p1' })).toThrow('list of strings');
     expect(() => validateUpdate({ 'planner.provider': 'gemini' })).toThrow('must be one of');
+    expect(() =>
+      validateUpdate({ 'guidance.architecture': 'x'.repeat(MAX_TEXT_SETTING_LENGTH + 1) })
+    ).toThrow('at most');
+    expect(() => validateUpdate({ 'guidance.fieldStrategy': 'gold' })).toThrow('must be one of');
     expect(() => validateUpdate({ 'smus.domainId': 5 })).toThrow('must be a string');
   });
 });

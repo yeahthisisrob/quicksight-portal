@@ -12,6 +12,7 @@ export type AssistantChatRequest = Schemas['AssistantChatRequest'];
 export type AssistantChatResult = Schemas['AssistantChatResult'];
 export type AssistantArtifact = Schemas['AssistantArtifact'];
 export type AssistantAction = Schemas['AssistantAction'];
+export type FieldVerdict = Schemas['FieldVerdict'];
 type JobQueued = Schemas['JobQueued'];
 
 /** The API base already ends in /api; the assistant speaks in full /api paths. */

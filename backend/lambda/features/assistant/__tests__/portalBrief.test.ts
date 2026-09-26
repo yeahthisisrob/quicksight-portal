@@ -1,11 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  buildBrief,
-  compactCalculatedFields,
-  compactGovernedDatasets,
-  findGovernedDatasets,
-} from '../lib/portalBrief';
+import { buildBrief, portalConcepts } from '../lib/portalBrief';
 
 vi.mock('../../../shared/utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -89,45 +84,13 @@ describe('the portal brief', () => {
   });
 });
 
-describe('governed datasets', () => {
-  it('names each listing, its project and table, and the datasets linked to it', () => {
-    const text = compactGovernedDatasets(CATALOG);
-    expect(text).toContain(
-      '- orders_gold [listing l-orders; project sales_prod table published.orders_gold] -> Orders (gold) (id ds-orders, by source-table)'
-    );
-    expect(text).toContain(
-      '- customers [listing l-cust; project sales_prod] -> no linked QuickSight dataset yet'
-    );
-    expect(compactGovernedDatasets({ configured: false })).toBe(
-      'SMUS is not configured for this portal.'
-    );
-  });
-
-  it('asks the catalog the way the Data Catalog page does, by search and project', async () => {
-    const dispatch = vi.fn(async (_request: { method: string; path: string }) => ok(CATALOG));
-    await findGovernedDatasets(dispatch, 'orders gold', 'prj-sales');
-    expect(dispatch.mock.calls[0]?.[0].path).toBe(
-      '/api/data-catalog/smus?search=orders%20gold&projectId=prj-sales&scope=smus'
-    );
-  });
-
-  it('summarises calculated fields with their conflicts and templates', () => {
-    const text = compactCalculatedFields({
-      counts: { fields: 2, names: 1, conflicts: 1, templated: 1 },
-      items: [
-        {
-          key: 'k1',
-          name: 'margin',
-          expression: '{revenue} - {cost}',
-          datasets: [{ name: 'Orders (gold)' }],
-          conflict: true,
-          template: { name: 'margin' },
-        },
-      ],
-    });
-    expect(text).toContain('2 fields (1 names, 1 conflicts, 1 match a template)');
-    expect(text).toContain(
-      '- margin = {revenue} - {cost} [key k1; on Orders (gold); CONFLICT, template margin]'
-    );
+describe('portal concepts', () => {
+  it('describes SMUS only when it is configured, and says what to do without it', () => {
+    const withSmus = portalConcepts({ smus: true });
+    expect(withSmus).toContain('Athena data source');
+    expect(withSmus).toContain('context_related');
+    const without = portalConcepts({ smus: false });
+    expect(without).not.toContain('Athena');
+    expect(without).toContain('SMUS is not configured');
   });
 });

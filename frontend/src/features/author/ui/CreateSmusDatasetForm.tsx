@@ -16,7 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import type { DatasetOption } from '@/entities/definition';
 
@@ -60,6 +60,11 @@ export function CreateSmusDatasetForm({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // The Athena source the governed datasets already read through, preselected.
+  const preferred = useQuery({
+    queryKey: ['smus-data-source'],
+    queryFn: () => smusApi.dataSource(),
+  });
   const dataSources = useQuery({
     queryKey: ['author-datasources'],
     queryFn: async () => {
@@ -69,6 +74,16 @@ export function CreateSmusDatasetForm({
       );
     },
   });
+
+  useEffect(() => {
+    const id = preferred.data?.dataSource?.id;
+    if (!dataSource && id) {
+      const match = dataSources.data?.find((d) => d.id === id);
+      if (match) {
+        setDataSource(match);
+      }
+    }
+  }, [preferred.data, dataSources.data, dataSource]);
 
   const create = async () => {
     if (!dataSource) {
@@ -110,7 +125,15 @@ export function CreateSmusDatasetForm({
         isOptionEqualToValue={(a, b) => a.id === b.id}
         size="small"
         renderInput={(params) => (
-          <TextField {...params} label="Data source" helperText="Athena sources are listed first" />
+          <TextField
+            {...params}
+            label="Data source"
+            helperText={
+              preferred.data?.dataSource
+                ? `${preferred.data.dataSource.name} is preselected: ${preferred.data.dataSource.reason}`
+                : 'Athena sources are listed first'
+            }
+          />
         )}
       />
       <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>

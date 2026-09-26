@@ -1149,8 +1149,10 @@ export interface paths {
                 query: {
                     /** @description Plain words, e.g. "gold orders dataset with revenue by region". */
                     q: string;
-                    /** @description Comma-separated subset of dashboard, analysis, dataset, datasource, folder, smus-listing, calculated-field, visual, template. */
+                    /** @description Comma-separated subset of dashboard, analysis, dataset, datasource, folder, project, smus-listing, smus-column, calculated-field, visual, template. */
                     types?: string;
+                    /** @description Keep to one SMUS project (its listings and columns, and the datasets linked to them). */
+                    projectId?: string;
                     limit?: number;
                 };
                 header?: never;
@@ -1172,6 +1174,123 @@ export interface paths {
                     };
                 };
                 400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/context/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search the context graph for entities
+         * @description The portal's knowledge as a graph, shaped like AWS Context's agentic
+         *     search: search for entities, get one, follow its relationships. The
+         *     entities are SMUS projects, listings and their columns (type,
+         *     description, glossary terms), glossary terms, data sources, datasets,
+         *     calculated fields, analyses, dashboards, visuals, templates and
+         *     folders. Ranked lexically by the same index as /api/search; each hit
+         *     carries the `entityId` to get or follow.
+         */
+        get: operations["searchContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/context/entities/{entityId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One entity, its facts, and every kind of relationship it has */
+        get: operations["getContextEntity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/context/entities/{entityId}/related": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Follow an entity's relationships, up to three hops
+         * @description Relations read subject to object: listing in-project project; listing
+         *     has-column listing-column; listing tagged glossary-term; dataset
+         *     reads-listing listing; dataset through-datasource datasource; dataset
+         *     exposes listing-column; analysis or dashboard uses-dataset dataset;
+         *     calculated-field defined-in asset; calculated-field reads-column
+         *     listing-column; visual in-asset asset; asset in-folder folder.
+         *     `direction=in` follows them backwards (the datasets that read a
+         *     listing).
+         */
+        get: operations["getContextRelated"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/smus/data-source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Athena data source a new dataset over a SMUS listing reads through
+         * @description SMUS tables are Glue tables read by Athena. The data source chosen is
+         *     the Athena one most SMUS-linked datasets already read through; with
+         *     none of those, the one most datasets use; with none, the only Athena
+         *     source. `athena` lists every Athena source with how many governed
+         *     datasets read through it.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The choice */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["SmusDataSourceChoice"];
+                        };
+                    };
+                };
                 401: components["responses"]["Unauthorized"];
             };
         };
@@ -2659,6 +2778,11 @@ export interface paths {
                                 dataSetId: string;
                                 name: string;
                                 arn: string;
+                                /** @description The data source the dataset reads through. */
+                                dataSource: {
+                                    id: string;
+                                    name: string;
+                                };
                             };
                         };
                     };
@@ -5369,16 +5493,81 @@ export interface components {
             model?: components["schemas"]["AiModelKey"];
             authoringModel?: components["schemas"]["AiModelKey"];
         };
+        SmusDataSourceChoice: {
+            dataSource: {
+                id: string;
+                name: string;
+                arn: string;
+                /** @description SMUS-linked datasets that read through it. */
+                usedBy: number;
+                reason: string;
+            } | null;
+            athena: {
+                id: string;
+                name: string;
+                usedBy: number;
+            }[];
+        };
+        /** @enum {string} */
+        PlanStatus: "existing" | "new" | "edited";
+        /**
+         * @description A calculated field a change adds, placed by the organisation's
+         *     field strategy (Settings, guidance.fieldStrategy): `use-column`
+         *     (row-level and the dataset already has the column), `push-down`
+         *     (row-level; the source should materialise it), `dataset` (row-level;
+         *     it belongs in the QuickSight dataset), `row-level` (row-level, no
+         *     stated preference) or `analysis` (aggregates, table or level-aware,
+         *     or reads a parameter).
+         */
+        FieldVerdict: {
+            name: string;
+            expression: string;
+            dataset?: string;
+            /** @enum {string} */
+            verdict: "use-column" | "push-down" | "dataset" | "row-level" | "analysis";
+            column?: string;
+            note: string;
+        };
         /**
          * @description Something to show, by reference. `preview`: re-run this read-only
          *     preview call and draw its definition as a wireframe. `asset`: draw
          *     the dashboard or analysis as it is. `lineage`: draw the calculated
          *     field's lineage from GET /api/data-catalog/calculated-fields/{fieldKey}.
+         *     `plan`: the lineage of what a change builds (listings, datasets, the
+         *     analysis or dashboard). `fields`: the calculated fields it adds, each
+         *     placed by the organisation's field strategy.
          */
         AssistantArtifact: {
             id: string;
             /** @enum {string} */
-            kind: "preview" | "asset" | "lineage";
+            kind: "preview" | "asset" | "lineage" | "plan" | "fields";
+            sources?: {
+                listing: string;
+                project?: string;
+                table?: string;
+            }[];
+            datasets?: {
+                name: string;
+                id?: string;
+                /** @enum {string} */
+                status: "existing" | "new";
+                dataSource?: string;
+            }[];
+            calculatedFields?: {
+                name: string;
+                expression?: string;
+                /** @enum {string} */
+                status: "existing" | "new";
+                dataset?: string;
+            }[];
+            asset?: {
+                /** @enum {string} */
+                kind: "dashboard" | "analysis";
+                name: string;
+                id?: string;
+                status: components["schemas"]["PlanStatus"];
+            };
+            fields?: components["schemas"]["FieldVerdict"][];
             title: string;
             method?: string;
             path?: string;
@@ -5403,6 +5592,8 @@ export interface components {
             };
             /** @description The preview artifact this action publishes. */
             previewId?: string;
+            /** @description The plan artifact this action carries out. */
+            planId?: string;
         };
         AssistantChatResult: {
             reply: string;
@@ -6890,7 +7081,7 @@ export interface components {
             label: string;
             description: string;
             /** @enum {string} */
-            type: "string" | "select" | "multiselect" | "boolean";
+            type: "string" | "text" | "select" | "multiselect" | "boolean";
             /** @description The effective value. A string, a list of strings, or a boolean; absent when unset. */
             value?: string | boolean | string[];
             source: components["schemas"]["SettingSource"];
@@ -7014,12 +7205,16 @@ export interface components {
             datasets: components["schemas"]["SmusLinkedDataset"][];
         };
         CreateSmusDatasetRequest: {
-            /** @description An existing QuickSight data source (Athena) chosen from the account. */
-            dataSourceId: string;
+            /**
+             * @description An existing QuickSight data source. Omitted: the Athena data source
+             *     the SMUS-linked datasets already read through (see
+             *     GET /api/smus/data-source).
+             */
+            dataSourceId?: string;
             /** @description Defaults to the listing name. */
             name?: string;
             /** @enum {string} */
-            importMode: "DIRECT_QUERY" | "SPICE";
+            importMode?: "DIRECT_QUERY" | "SPICE";
             /** @description Copy this dataset's permissions onto the new one, so it has the same audience. */
             permissionsFromDataSetId?: string;
         };
@@ -7631,7 +7826,7 @@ export interface components {
             };
         };
         /** @enum {string} */
-        SearchableType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "smus-listing" | "calculated-field" | "visual" | "template";
+        SearchableType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "project" | "smus-listing" | "smus-column" | "calculated-field" | "visual" | "template";
         SearchAssetRef: {
             /** @enum {string} */
             type: "dashboard" | "analysis" | "dataset";
@@ -7659,6 +7854,10 @@ export interface components {
             parent?: components["schemas"]["SearchAssetRef"];
             /** @description Calculated fields - every asset that defines this exact expression. */
             definedIn?: components["schemas"]["SearchAssetRef"][];
+            /** @description The SMUS project a project, listing, column or linked dataset belongs to. */
+            projectId?: string;
+            /** @description The same thing in the context graph (/api/context/entities/{entityId}). */
+            entityId?: string;
         };
         SearchResponse: {
             q: string;
@@ -7669,6 +7868,74 @@ export interface components {
             };
             /** Format: date-time */
             indexedAt: string;
+        };
+        /** @enum {string} */
+        ContextEntityType: "project" | "listing" | "listing-column" | "glossary-term" | "datasource" | "dataset" | "calculated-field" | "analysis" | "dashboard" | "visual" | "template" | "folder";
+        /** @enum {string} */
+        ContextRelation: "in-project" | "has-column" | "tagged" | "reads-listing" | "through-datasource" | "exposes" | "uses-dataset" | "defined-in" | "reads-column" | "in-asset" | "in-folder";
+        ContextEntity: {
+            id: string;
+            type: components["schemas"]["ContextEntityType"];
+            name: string;
+            description?: string;
+            summary: string;
+            /** @description Facts worth reasoning on (column type, import mode, project id, expression). */
+            attributes: {
+                [key: string]: string | number | boolean;
+            };
+            path?: string;
+        };
+        ContextStep: {
+            relation: components["schemas"]["ContextRelation"];
+            /** @enum {string} */
+            direction: "out" | "in";
+            /** @description Why an inferred edge exists, e.g. "by table". */
+            note?: string;
+        };
+        ContextSearchHit: {
+            entityId?: string;
+            type?: string;
+            name: string;
+            summary: string;
+            why: string[];
+            score: number;
+            projectId?: string;
+            path: string;
+        };
+        ContextSearchResponse: {
+            q: string;
+            hits: components["schemas"]["ContextSearchHit"][];
+            /** Format: date-time */
+            indexedAt: string;
+        };
+        ContextEntityDetail: {
+            entity: components["schemas"]["ContextEntity"];
+            relations: {
+                relation: components["schemas"]["ContextRelation"];
+                /** @enum {string} */
+                direction: "out" | "in";
+                count: number;
+                examples: {
+                    entityId: string;
+                    name: string;
+                    note?: string;
+                }[];
+            }[];
+        };
+        ContextRelatedResponse: {
+            from: string;
+            hits: {
+                entityId: string;
+                type: components["schemas"]["ContextEntityType"];
+                name: string;
+                summary: string;
+                description?: string;
+                attributes: {
+                    [key: string]: string | number | boolean;
+                };
+                depth: number;
+                via: components["schemas"]["ContextStep"][];
+            }[];
         };
         SmusStatus: {
             /** @description Whether a SMUS domain is configured for this portal */
@@ -8041,6 +8308,101 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    searchContext: {
+        parameters: {
+            query: {
+                q: string;
+                /** @description Comma-separated entity types (ContextEntityType). */
+                types?: string;
+                projectId?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ranked entities */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["ContextSearchResponse"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getContextEntity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description `type:key`, e.g. dataset:abc123 or listing-column:lst-1/customer_id (URL-encoded). */
+                entityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entity and its relationships, counted, with a few examples of each */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["ContextEntityDetail"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getContextRelated: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated ContextRelation values; all when omitted. */
+                relations?: string;
+                direction?: "out" | "in" | "both";
+                depth?: number;
+                /** @description Comma-separated entity types to keep. */
+                types?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                entityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Related entities, nearest first, each with the path that reached it */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["ContextRelatedResponse"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getAuthoringDatasetColumns: {
         parameters: {
             query?: never;

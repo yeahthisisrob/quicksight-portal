@@ -13,7 +13,10 @@
 
 export type SettingValue = string | boolean | string[];
 export type SettingSource = 'stored' | 'env' | 'default';
-export type SettingType = 'string' | 'select' | 'multiselect' | 'boolean';
+export type SettingType = 'string' | 'text' | 'select' | 'multiselect' | 'boolean';
+
+/** Free-text guidance goes into model prompts; keep it to what a person would write. */
+export const MAX_TEXT_SETTING_LENGTH = 4_000;
 
 export interface SettingSpec {
   key: string;
@@ -151,6 +154,63 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
     ],
   },
   {
+    id: 'guidance',
+    title: 'Authoring guidance',
+    description:
+      'How your organisation builds things. The assistant and the planner follow it when they choose datasets, lay out analyses and dashboards, propose visuals and place calculated fields. Write it the way you would brief a new analyst.',
+    settings: [
+      {
+        key: 'guidance.fieldStrategy',
+        label: 'Row-level calculated fields',
+        description:
+          'Where a row-level (scalar) calculated field should end up. Aggregations and table calculations always stay in the analysis.',
+        type: 'select',
+        envVar: '',
+        default: 'none',
+        options: [
+          {
+            value: 'source',
+            label: 'Push down to the source (for example gold in a medallion lakehouse)',
+          },
+          { value: 'dataset', label: 'Materialise in the QuickSight dataset' },
+          { value: 'none', label: 'No preference' },
+        ],
+      },
+      {
+        key: 'guidance.architecture',
+        label: 'Architecture',
+        description:
+          'The data platform and its rules, e.g. "Medallion lakehouse: bronze, silver, gold in Glue, published through SMUS. Always recommend pushing row-level logic down to gold."',
+        type: 'text',
+        envVar: '',
+      },
+      {
+        key: 'guidance.datasets',
+        label: 'Datasets',
+        description:
+          'How datasets are chosen and built: SPICE or direct query, reuse over new, naming, which sources.',
+        type: 'text',
+        envVar: '',
+      },
+      {
+        key: 'guidance.explorations',
+        label: 'Analyses and dashboards',
+        description:
+          'Layout standards to use, naming, folders, who they are shared with, analysis first or straight to a dashboard.',
+        type: 'text',
+        envVar: '',
+      },
+      {
+        key: 'guidance.visuals',
+        label: 'Visuals',
+        description:
+          'Chart conventions: KPIs first, preferred chart types, titles, date granularity, colours.',
+        type: 'text',
+        envVar: '',
+      },
+    ],
+  },
+  {
     id: 'provenance',
     title: 'Provenance',
     description:
@@ -274,6 +334,15 @@ export function validateUpdate(
       case 'string':
         if (typeof raw !== 'string') {
           throw new Error(`'${key}' must be a string`);
+        }
+        out[key] = raw.trim();
+        break;
+      case 'text':
+        if (typeof raw !== 'string') {
+          throw new Error(`'${key}' must be text`);
+        }
+        if (raw.trim().length > MAX_TEXT_SETTING_LENGTH) {
+          throw new Error(`'${key}' must be at most ${MAX_TEXT_SETTING_LENGTH} characters`);
         }
         out[key] = raw.trim();
         break;

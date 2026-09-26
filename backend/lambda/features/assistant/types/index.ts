@@ -38,7 +38,30 @@ export type AssistantArtifact =
       assetType: 'dashboard' | 'analysis';
       assetId: string;
     }
-  | { id: string; kind: 'lineage'; title: string; fieldKey: string };
+  | { id: string; kind: 'lineage'; title: string; fieldKey: string }
+  | ({ id: string; kind: 'plan'; title: string } & BuildPlan)
+  | { id: string; kind: 'fields'; title: string; fields: FieldVerdict[] };
+
+export type PlanStatus = 'existing' | 'new' | 'edited';
+
+/**
+ * What a change will build, as a lineage: the SMUS listings it reads, the
+ * datasets over them (existing or new, and through which data source),
+ * any calculated fields it adds, and the analysis or dashboard it makes or
+ * changes. Drawn before anything is run.
+ */
+export interface BuildPlan {
+  sources: Array<{ listing: string; project?: string; table?: string }>;
+  datasets: Array<{ name: string; id?: string; status: 'existing' | 'new'; dataSource?: string }>;
+  calculatedFields?: Array<{
+    name: string;
+    expression?: string;
+    status: 'existing' | 'new';
+    /** The id of the dataset it is computed on, when that dataset exists. */
+    dataset?: string;
+  }>;
+  asset: { kind: 'dashboard' | 'analysis'; name: string; id?: string; status: PlanStatus };
+}
 
 /** A write the assistant prepared; the person runs it, under their own session. */
 export interface AssistantAction {
@@ -50,6 +73,8 @@ export interface AssistantAction {
   body?: unknown;
   /** The preview this action publishes, to confirm against before running. */
   previewId?: string;
+  /** The plan (lineage) this action is part of. */
+  planId?: string;
 }
 
 export interface AssistantChatResult {
@@ -62,4 +87,28 @@ export interface AssistantChatResult {
   /** Dollars at list price; a rough guide. */
   cost: number;
   rounds: number;
+}
+
+/**
+ * A calculated field a change adds, and where it belongs under the
+ * push-down-to-gold strategy:
+ * - use-column: row-level, and the dataset already has a column by that
+ *   name, so the column is used instead of recomputing it;
+ * - push-down: row-level with no such column, and the guidance says to
+ *   materialise it upstream in the source (a follow-up);
+ * - dataset: the same, and the guidance says to materialise it in the
+ *   QuickSight dataset;
+ * - row-level: the same, with no preference in the guidance;
+ * - analysis: aggregates, table or level-aware calculations, or reads a
+ *   parameter, so it can only be computed in the analysis.
+ */
+export interface FieldVerdict {
+  name: string;
+  expression: string;
+  dataset?: string;
+  verdict: 'use-column' | 'push-down' | 'dataset' | 'row-level' | 'analysis';
+  /** The existing column, for use-column. */
+  column?: string;
+  /** Why, in words. */
+  note: string;
 }

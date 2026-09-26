@@ -6,6 +6,8 @@ export type SearchableType =
   | 'datasource'
   | 'folder'
   | 'smus-listing'
+  | 'smus-column'
+  | 'project'
   | 'calculated-field'
   | 'visual'
   | 'template';
@@ -17,6 +19,8 @@ export const SEARCHABLE_TYPES: readonly SearchableType[] = [
   'datasource',
   'folder',
   'smus-listing',
+  'smus-column',
+  'project',
   'calculated-field',
   'visual',
   'template',
@@ -47,6 +51,10 @@ export interface SearchDocument {
   summary: string;
   /** Where to open it in the portal. */
   path: string;
+  /** The SMUS project it belongs to (listings, their columns, and datasets linked to them). */
+  projectId?: string;
+  /** Its id in the context graph, to get it or walk its relationships. */
+  entityId?: string;
 }
 
 export interface SearchHit {
@@ -64,12 +72,16 @@ export interface SearchHit {
   expression?: string;
   parent?: SearchDocument['parent'];
   definedIn?: SearchDocument['definedIn'];
+  projectId?: string;
+  entityId?: string;
 }
 
 export interface SearchRequest {
   q: string;
   types?: SearchableType[];
   limit?: number;
+  /** Keep to one SMUS project. */
+  projectId?: string;
 }
 
 export interface SearchResponse {

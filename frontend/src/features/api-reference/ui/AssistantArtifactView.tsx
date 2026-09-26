@@ -1,7 +1,8 @@
 /**
  * What the assistant put in front of the person, drawn: a preview as the
  * wireframe of what it would publish, an asset as it is now, a calculated
- * field as its lineage. The assistant hands references, not payloads; each
+ * field as its lineage, a plan as the lineage of what it will build, and
+ * the calculated fields that plan adds with where each belongs. The assistant hands references, not payloads; each
  * card fetches (or re-runs the read-only preview) itself.
  */
 import { Alert, Box, CircularProgress, Stack, Typography } from '@mui/material';
@@ -18,6 +19,9 @@ import { FieldLineageGraph } from '@/entities/field';
 import { assetsApi, assistantApi, getApiErrorMessage } from '@/shared/api';
 import type { AssistantArtifact } from '@/shared/api/modules/assistant';
 import { fieldCatalogApi } from '@/shared/api/modules/data-catalog';
+
+import { FieldVerdicts } from './FieldVerdicts';
+import { PlanLineage } from './PlanLineage';
 
 const LINEAGE_HEIGHT = 320;
 const MAX_WARNINGS = 5;
@@ -159,22 +163,33 @@ function LineageCard({ artifact }: { artifact: AssistantArtifact }) {
   );
 }
 
+const TITLE_SUFFIX: Record<AssistantArtifact['kind'], string> = {
+  preview: 'what it would publish',
+  asset: 'as it is now',
+  lineage: 'lineage',
+  plan: 'the plan',
+  fields: 'where each belongs',
+};
+
+function Body({ artifact }: { artifact: AssistantArtifact }) {
+  switch (artifact.kind) {
+    case 'preview':
+      return <PreviewCard artifact={artifact} />;
+    case 'asset':
+      return <AssetCard artifact={artifact} />;
+    case 'plan':
+      return <PlanLineage plan={artifact} />;
+    case 'fields':
+      return <FieldVerdicts fields={artifact.fields ?? []} />;
+    default:
+      return <LineageCard artifact={artifact} />;
+  }
+}
+
 export function AssistantArtifactView({ artifact }: { artifact: AssistantArtifact }) {
-  const title =
-    artifact.kind === 'preview'
-      ? `${artifact.title} · what it would publish`
-      : artifact.kind === 'asset'
-        ? `${artifact.title} · as it is now`
-        : `${artifact.title} · lineage`;
   return (
-    <Frame title={title}>
-      {artifact.kind === 'preview' ? (
-        <PreviewCard artifact={artifact} />
-      ) : artifact.kind === 'asset' ? (
-        <AssetCard artifact={artifact} />
-      ) : (
-        <LineageCard artifact={artifact} />
-      )}
+    <Frame title={`${artifact.title} · ${TITLE_SUFFIX[artifact.kind]}`}>
+      <Body artifact={artifact} />
     </Frame>
   );
 }

@@ -168,6 +168,103 @@ export const SCRIPTED_ANSWER = {
   rounds: 3,
 };
 
+/** A plan on the governed dataset: the listing, the linked dataset it reuses, and a new analysis. */
+export const PLAN_ON_GOVERNED = {
+  id: 'art-plan',
+  kind: 'plan',
+  title: 'Margin by region on orders_gold',
+  sources: [{ listing: 'orders_gold', project: 'sales_prod', table: 'published.orders_gold' }],
+  datasets: [{ name: 'Orders (gold)', id: 'ds-orders-gold', status: 'existing' }],
+  calculatedFields: [
+    {
+      name: 'Net Margin',
+      expression: '{revenue} - {cost}',
+      status: 'new',
+      dataset: 'ds-orders-gold',
+    },
+    {
+      name: 'Unit price',
+      expression: '{revenue} / {qty}',
+      status: 'new',
+      dataset: 'ds-orders-gold',
+    },
+    { name: 'Share of region', expression: 'sum({revenue}) / sum({revenue}, [])', status: 'new' },
+  ],
+  asset: { kind: 'analysis', name: 'Margin by region', status: 'new' },
+} as const;
+
+/** A plan that needs a dataset: a new one over the listing, through the Athena source the portal picked. */
+export const PLAN_NEW_DATASET = {
+  id: 'art-plan-new',
+  kind: 'plan',
+  title: 'Customers on a new dataset',
+  sources: [{ listing: 'dim_customer', project: 'sales_prod', table: 'published.dim_customer' }],
+  datasets: [{ name: 'dim_customer', status: 'new', dataSource: 'Athena (primary)' }],
+  asset: { kind: 'dashboard', name: 'Customer overview', id: 'cust-overview', status: 'edited' },
+} as const;
+
+/** Without SMUS: straight from datasets to the asset. */
+export const PLAN_WITHOUT_SMUS = {
+  id: 'art-plan-plain',
+  kind: 'plan',
+  title: 'Sales overview, copied',
+  datasets: [{ name: 'Sales', id: 'ds-sales', status: 'existing' }],
+  asset: { kind: 'dashboard', name: 'Sales overview (copy)', status: 'new' },
+} as const;
+
+/** The verdicts for PLAN_ON_GOVERNED under a push-down-to-the-source strategy. */
+export const FIELD_VERDICTS = {
+  id: 'art-fields',
+  kind: 'fields',
+  title: 'Calculated fields this adds',
+  fields: [
+    {
+      name: 'Net Margin',
+      expression: '{revenue} - {cost}',
+      dataset: 'ds-orders-gold',
+      verdict: 'use-column',
+      column: 'net_margin',
+      note: 'Row-level, and the dataset already has net_margin (DECIMAL, "Revenue less cost, in USD"): use it rather than recomputing.',
+    },
+    {
+      name: 'Unit price',
+      expression: '{revenue} / {qty}',
+      dataset: 'ds-orders-gold',
+      verdict: 'push-down',
+      note: 'Row-level: it works here for now, and per your guidance belongs upstream, materialised in the source (for example gold).',
+    },
+    {
+      name: 'Share of region',
+      expression: 'sum({revenue}) / sum({revenue}, [])',
+      verdict: 'analysis',
+      note: 'Computed per visual (aggregation), so it belongs in the analysis.',
+    },
+  ],
+} as const;
+
+/** An answer that plans first: the lineage, the field verdicts, then the change to confirm. */
+export const PLANNED_ANSWER = {
+  ...SCRIPTED_ANSWER,
+  reply:
+    'orders_gold already has a linked dataset, Orders (gold), so the new analysis reads it; nothing new is created upstream. Net Margin exists as the net_margin column, so I used it. Unit price is row-level: it works in the analysis for now, and per your guidance it should be materialised in gold as a follow-up.',
+  calls: [
+    { method: 'GET', path: 'context_search "orders gold"', status: 200, ok: true },
+    { method: 'GET', path: 'context_related listing:l-orders', status: 200, ok: true },
+  ],
+  artifacts: [PLAN_ON_GOVERNED, FIELD_VERDICTS],
+  actions: [
+    {
+      id: 'act-plan',
+      title: 'Create the analysis',
+      why: 'Creates "Margin by region" on Orders (gold) with Unit price and Share of region.',
+      method: 'POST',
+      path: '/api/authoring/new',
+      body: { name: 'Margin by region', dataSetIds: ['ds-orders-gold'] },
+      planId: PLAN_ON_GOVERNED.id,
+    },
+  ],
+};
+
 export function assistantRoutes(): MockRoute[] {
   return [
     {

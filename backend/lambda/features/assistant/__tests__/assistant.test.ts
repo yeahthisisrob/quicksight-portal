@@ -382,4 +382,176 @@ describe('AssistantService', () => {
     ).toBe(true);
     expect(announcesMore("Next, I'll preview the copy.")).toBe(true);
   });
+
+  it('refuses to prepare a new dataset for a listing that already has linked ones, unless asked', async () => {
+    const dispatch = vi.fn(async ({ path }: { method: string; path: string }) =>
+      path.startsWith(
+        `/api/context/entities/${encodeURIComponent('listing:l-orders')}/related?relations=reads-listing&direction=in`
+      )
+        ? {
+            status: 200,
+            body: JSON.stringify({
+              data: {
+                hits: [
+                  {
+                    entityId: 'dataset:ds-gold',
+                    type: 'dataset',
+                    name: 'Orders (gold)',
+                    summary: 'dataset: Orders (gold)',
+                    attributes: { importMode: 'SPICE' },
+                    via: [{ relation: 'reads-listing', direction: 'in' }],
+                  },
+                ],
+              },
+            }),
+          }
+        : { status: 404, body: '' }
+    );
+    const create = (personAskedForNew?: boolean) => ({
+      toolCalls: [
+        {
+          id: 'c',
+          name: 'propose_action',
+          input: {
+            title: 'Create a dataset',
+            why: 'Over orders_gold',
+            method: 'POST',
+            path: '/api/smus/assets/l-orders/dataset',
+            body: {},
+            ...(personAskedForNew ? { personAskedForNew } : {}),
+          },
+        },
+      ],
+    });
+    const refused = await new AssistantService(
+      scripted([create(), { text: 'Use Orders (gold).' }]),
+      model,
+      dispatch
+    ).respond([{ role: 'user', text: 'use one of the SMUS datasets' }]);
+    expect(refused.actions).toEqual([]);
+    expect(refused.reply).toBe('Use Orders (gold).');
+    const asked = await new AssistantService(
+      scripted([create(true), { text: 'Prepared.' }]),
+      model,
+      dispatch
+    ).respond([{ role: 'user', text: 'make me a new dataset' }]);
+    expect(asked.actions).toHaveLength(1);
+  });
+
+  it('draws the plan, judges each new field, and ties the action to the plan', async () => {
+    const dispatch = vi.fn(async ({ path }: { method: string; path: string }) =>
+      path === '/api/authoring/datasets/ds-gold/columns'
+        ? {
+            status: 200,
+            body: JSON.stringify({
+              data: { columns: [{ name: 'net_margin' }, { name: 'revenue' }] },
+            }),
+          }
+        : { status: 404, body: '' }
+    );
+    let told = '';
+    const chat: ChatModel = {
+      async turn(_s, turns) {
+        const last = turns[turns.length - 1];
+        if (last?.role === 'tool') {
+          told ||= last.results[0]?.content ?? '';
+          return {
+            text: '',
+            toolCalls: [
+              {
+                id: 'a',
+                name: 'propose_action',
+                input: {
+                  title: 'Publish',
+                  why: 'Copy on gold',
+                  method: 'POST',
+                  path: '/api/authoring/dashboard/d1/rebind',
+                },
+              },
+            ],
+            raw: undefined,
+            usage: { inputTokens: 1, outputTokens: 1 },
+          };
+        }
+        if (
+          last?.role === 'assistant' ||
+          turns.some((t) => t.role === 'tool' && t.results[0]?.id === 'a')
+        ) {
+          return {
+            text: 'Done.',
+            toolCalls: [],
+            raw: undefined,
+            usage: { inputTokens: 1, outputTokens: 1 },
+          };
+        }
+        return {
+          text: '',
+          toolCalls: [
+            {
+              id: 'p',
+              name: 'show_plan',
+              input: {
+                title: 'Sales on gold',
+                sources: [{ listing: 'orders_gold', project: 'sales_prod' }],
+                datasets: [{ name: 'Orders (gold)', id: 'ds-gold', status: 'existing' }],
+                calculatedFields: [
+                  {
+                    name: 'Net Margin',
+                    expression: '{revenue} - {cost}',
+                    status: 'new',
+                    dataset: 'ds-gold',
+                  },
+                  {
+                    name: 'unit_price',
+                    expression: '{revenue} / {qty}',
+                    status: 'new',
+                    dataset: 'ds-gold',
+                  },
+                  {
+                    name: 'share',
+                    expression: 'sum({revenue}) / sum({revenue}, [])',
+                    status: 'new',
+                  },
+                ],
+                asset: { kind: 'dashboard', name: 'Sales (gold)', status: 'new' },
+              },
+            },
+          ],
+          raw: undefined,
+          usage: { inputTokens: 1, outputTokens: 1 },
+        };
+      },
+    };
+    const guidance = {
+      fieldStrategy: 'source' as const,
+      architecture: '',
+      datasets: '',
+      explorations: '',
+      visuals: '',
+    };
+    const result = await new AssistantService(chat, model, dispatch, { guidance }).respond([
+      { role: 'user', text: 'build it' },
+    ]);
+    const plan = result.artifacts.find((a) => a.kind === 'plan');
+    const fields = result.artifacts.find((a) => a.kind === 'fields') as any;
+    expect(plan).toBeDefined();
+    expect(fields.fields.map((f: any) => [f.name, f.verdict, f.column])).toEqual([
+      ['Net Margin', 'use-column', 'net_margin'],
+      ['unit_price', 'push-down', undefined],
+      ['share', 'analysis', undefined],
+    ]);
+    expect(told).toContain('Drop the use-column fields');
+    expect(told).toContain('materialise them in the source');
+    expect(result.actions[0]).toMatchObject({ planId: plan!.id });
+  });
+
+  it('refuses a plan that names an existing dataset without its id', async () => {
+    const { parsePlan } = await import('../services/AssistantService');
+    expect(
+      parsePlan({
+        datasets: [{ name: 'Orders', status: 'existing' }],
+        asset: { kind: 'analysis', name: 'x', status: 'new' },
+      })
+    ).toContain('needs its id');
+  });
 });

@@ -203,6 +203,80 @@ describe('SmusService assets', () => {
     });
   });
 
+  it('builds over the Athena source the governed datasets read through when none is given', async () => {
+    cache.getCacheEntries.mockResolvedValue([
+      {
+        assetId: 'athena-old',
+        assetName: 'Athena (old)',
+        arn: 'arn:ds/athena-old',
+        metadata: { sourceType: 'ATHENA' },
+      },
+      {
+        assetId: 'athena-1',
+        assetName: 'Athena',
+        arn: 'arn:aws:quicksight:us-east-1:1:datasource/athena-1',
+        metadata: { sourceType: 'ATHENA' },
+      },
+      {
+        assetId: 'rs',
+        assetName: 'Redshift',
+        arn: 'arn:ds/rs',
+        metadata: { sourceType: 'REDSHIFT' },
+      },
+    ]);
+    cache.getAllDatasets.mockResolvedValue([
+      {
+        assetId: 'ds-cust',
+        assetName: 'Customers (gold)',
+        metadata: {
+          lineageData: {
+            datasourceIds: ['athena-1'],
+            physicalTables: [
+              { type: 'RELATIONAL', schema: 'published_prod', name: 'dim_customer' },
+            ],
+          },
+        },
+      },
+      // Ungoverned datasets read the old source more often; governed usage wins.
+      {
+        assetId: 'x1',
+        assetName: 'adhoc 1',
+        metadata: { lineageData: { datasourceIds: ['athena-old'] } },
+      },
+      {
+        assetId: 'x2',
+        assetName: 'adhoc 2',
+        metadata: { lineageData: { datasourceIds: ['athena-old'] } },
+      },
+    ]);
+
+    const choice = await service().defaultDataSource();
+    expect(choice.dataSource).toMatchObject({
+      id: 'athena-1',
+      usedBy: 1,
+      reason: 'used by 1 dataset linked to SMUS listings',
+    });
+    expect(choice.athena.map((a) => a.id)).toEqual(['athena-1', 'athena-old']);
+
+    const result = await service().createDatasetFromListing('l-cust', {});
+    expect(result.dataSource).toEqual({ id: 'athena-1', name: 'Athena' });
+    expect(qs.createDataSet.mock.calls[0]?.[0].importMode).toBe('DIRECT_QUERY');
+  });
+
+  it('says so when there is no Athena source to build through', async () => {
+    cache.getCacheEntries.mockResolvedValue([
+      {
+        assetId: 'rs',
+        assetName: 'Redshift',
+        arn: 'arn:ds/rs',
+        metadata: { sourceType: 'REDSHIFT' },
+      },
+    ]);
+    await expect(service().createDatasetFromListing('l-cust', {})).rejects.toThrow(
+      'No Athena data source exists'
+    );
+  });
+
   it('refuses a listing without table identity, an unknown listing, and a foreign data source', async () => {
     await expect(
       service().createDatasetFromListing('l-noform', {

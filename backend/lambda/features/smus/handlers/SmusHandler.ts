@@ -111,10 +111,21 @@ export async function createSmusDataset(
       return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Listing id is required');
     }
     const body = JSON.parse(event.body || '{}');
-    if (typeof body.dataSourceId !== 'string' || !body.dataSourceId) {
-      return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'dataSourceId is required');
+    if (
+      body.dataSourceId !== undefined &&
+      (typeof body.dataSourceId !== 'string' || !body.dataSourceId)
+    ) {
+      return errorResponse(
+        event,
+        STATUS_CODES.BAD_REQUEST,
+        'dataSourceId must be a data source id'
+      );
     }
-    if (body.importMode !== 'DIRECT_QUERY' && body.importMode !== 'SPICE') {
+    if (
+      body.importMode !== undefined &&
+      body.importMode !== 'DIRECT_QUERY' &&
+      body.importMode !== 'SPICE'
+    ) {
       return errorResponse(
         event,
         STATUS_CODES.BAD_REQUEST,
@@ -138,6 +149,30 @@ export async function createSmusDataset(
       event,
       error?.statusCode || STATUS_CODES.BAD_REQUEST,
       error?.message || 'Failed to create the dataset'
+    );
+  }
+}
+
+/**
+ * The Athena data source a new dataset over a listing reads through, and
+ * every Athena source with how many governed datasets use it.
+ * GET /api/smus/data-source
+ */
+export async function getSmusDataSource(
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> {
+  try {
+    await requireAuth(event);
+    return successResponse(event, {
+      success: true,
+      data: await getSmusService().defaultDataSource(),
+    });
+  } catch (error: any) {
+    logger.error('Failed to choose the SMUS data source', { error });
+    return errorResponse(
+      event,
+      error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+      error?.message || 'Failed to choose a data source'
     );
   }
 }

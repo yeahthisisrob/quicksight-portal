@@ -1,6 +1,7 @@
 import type { RouteHandler } from '../../api/types';
 import {
   createSmusDataset,
+  getSmusDataSource,
   getSmusDatasetLinks,
   getSmusStatus,
   listSmusAssets,
@@ -8,6 +9,11 @@ import {
 } from './handlers/SmusHandler';
 
 export const smusRoutes: RouteHandler[] = [
+  {
+    path: '/smus/data-source',
+    method: 'GET',
+    handler: getSmusDataSource,
+  },
   {
     path: '/smus/status',
     method: 'GET',

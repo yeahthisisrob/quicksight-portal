@@ -548,4 +548,50 @@ describe('PlannerService edits', () => {
     expect(proposal.intent).toBe('rebind');
     expect(proposal.plan).toBeNull();
   });
+
+  it("adds the organisation's guidance to the prompts it applies to, and nothing when there is none", async () => {
+    const answer = {
+      intent: 'rebind',
+      mode: 'clone',
+      name: 'Sales (gold)',
+      reason: 'named',
+      rebinds: [{ identifier: 'orders', targetDataSetId: 'orders-gold', reason: 'named' }],
+    };
+    const rebindService = {
+      describeDatasets: vi.fn().mockResolvedValue({
+        assetType: 'dashboard',
+        assetId: 'd1',
+        name: 'Sales',
+        datasets: DATASETS,
+      }),
+      plan: vi.fn(async (_t: string, _id: string, rebinds: any[]) =>
+        planFor(rebinds[0]?.columnMap ?? {})
+      ),
+    };
+    const loadCandidates = vi.fn().mockResolvedValue(CANDIDATES);
+    const guided = new FakeModel([answer, { mappings: [] }]);
+    await new PlannerService(rebindService as any, guided, loadCandidates, {
+      guidance: {
+        fieldStrategy: 'source',
+        architecture: 'Medallion: bronze, silver, gold in Glue.',
+        datasets: 'Prefer SPICE datasets over gold tables.',
+        explorations: '',
+        visuals: 'Never use pie charts.',
+      },
+    }).propose('dashboard', 'd1', { ask: 'copy this onto orders_gold' });
+    const chooseSystem = guided.requests[0]?.system ?? '';
+    expect(chooseSystem).toContain('Medallion: bronze, silver, gold in Glue.');
+    expect(chooseSystem).toContain('Prefer SPICE datasets over gold tables.');
+    expect(chooseSystem).not.toContain('Never use pie charts.');
+
+    const plain = new FakeModel([answer, { mappings: [] }]);
+    await new PlannerService(rebindService as any, plain, loadCandidates).propose(
+      'dashboard',
+      'd1',
+      {
+        ask: 'copy this onto orders_gold',
+      }
+    );
+    expect(plain.requests[0]?.system).not.toContain('authoring guidance');
+  });
 });

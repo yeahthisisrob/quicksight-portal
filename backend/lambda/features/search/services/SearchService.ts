@@ -1,9 +1,18 @@
 /**
- * SearchService - one index over everything the portal knows, built from
+ * SearchService - what the portal knows, two ways, built in one pass from
  * the caches already in memory (the master cache, the field cache, the SMUS
  * snapshot, the template library) and kept per container until any of
- * them changes. Asked in natural words, it answers with ranked hits that
- * say why they matched, in one line each, for people and for agents.
+ * them changes:
+ *
+ * - a ranked index: asked in natural words, it answers with hits that say
+ *   why they matched, in one line each, for people and for agents;
+ * - a context graph: the same things as entities with typed relationships
+ *   (a listing in a project, a dataset reading a listing through a data
+ *   source, a calculated field reading a column), for agents to walk.
+ *   Shaped like AWS Context, so an agent can later move to it unchanged.
+ *
+ * SMUS listings come through the scoped list the Data Catalog uses, so a
+ * listing outside the selected projects is invisible here too.
  */
 
 import { CACHE_TTL } from '../../../shared/constants/timeConstants';
@@ -14,6 +23,8 @@ import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { logger } from '../../../shared/utils/logger';
 import { CalculatedFieldTemplateStore } from '../../data-catalog/services/CalculatedFieldTemplateStore';
 import { calculatedFieldKey } from '../../data-catalog/services/FieldCatalogService';
+import { buildContextGraph } from '../lib/buildContextGraph';
+import { type ContextGraph, entityId } from '../lib/contextGraph';
 import { SearchIndex } from '../lib/searchIndex';
 import type { SearchDocument, SearchHit, SearchRequest, SearchResponse } from '../types';
 
@@ -24,11 +35,31 @@ const SUMMARY_FIELDS = 6;
 const EXPRESSION_SUMMARY_LENGTH = 120;
 const DEFINED_IN_LIMIT = 50;
 
+interface Built {
+  index: SearchIndex;
+  graph: ContextGraph;
+}
+
 interface IndexEntry {
   key: string;
   expiresAt: number;
-  promise: Promise<SearchIndex>;
+  promise: Promise<Built>;
 }
+
+/** Search document kinds to graph entity kinds. */
+const ENTITY_TYPE = {
+  dashboard: 'dashboard',
+  analysis: 'analysis',
+  dataset: 'dataset',
+  datasource: 'datasource',
+  folder: 'folder',
+  'smus-listing': 'listing',
+  'smus-column': 'listing-column',
+  project: 'project',
+  'calculated-field': 'calculated-field',
+  visual: 'visual',
+  template: 'template',
+} as const;
 
 type ParentType = 'dashboard' | 'analysis' | 'dataset';
 
@@ -58,16 +89,22 @@ export class SearchService {
   ) {}
 
   public async search(request: SearchRequest): Promise<SearchResponse> {
-    const index = await this.getIndex();
+    const { index } = await this.getBuilt();
     const hits: SearchHit[] = index.search(request.q, {
       types: request.types,
       limit: request.limit,
+      projectId: request.projectId,
     });
     return { q: request.q, hits, indexed: index.counts, indexedAt: index.indexedAt };
   }
 
-  /** One index per container, rebuilt when the caches it reads have changed. */
-  private async getIndex(): Promise<SearchIndex> {
+  /** The context graph, built with the index. */
+  public async graph(): Promise<ContextGraph> {
+    return (await this.getBuilt()).graph;
+  }
+
+  /** One index and graph per container, rebuilt when the caches they read have changed. */
+  private async getBuilt(): Promise<Built> {
     const { cache, version } = await this.cacheService.getMasterCacheWithVersion({
       statusFilter: AssetStatusFilter.ACTIVE,
     });
@@ -77,18 +114,26 @@ export class SearchService {
     if (cached && cached.key === key && cached.expiresAt > Date.now()) {
       return cached.promise;
     }
-    const promise = this.build(cache.entries, snapshot?.listings ?? []).catch((error) => {
-      SearchService.index = null;
-      throw error;
-    });
+    const promise = this.smusService
+      .listAssets()
+      .catch((error) => {
+        logger.warn('Search: SMUS assets unavailable', { error });
+        return { assets: [] as any[] };
+      })
+      .then((scoped) => this.build(cache.entries, scoped.assets as any[], snapshot?.projects ?? []))
+      .catch((error) => {
+        SearchService.index = null;
+        throw error;
+      });
     SearchService.index = { key, expiresAt: Date.now() + INDEX_TTL_MS, promise };
     return promise;
   }
 
   private async build(
     entries: Record<string, any[]>,
-    listings: Array<Record<string, any>>
-  ): Promise<SearchIndex> {
+    listings: Array<Record<string, any>>,
+    projects: Array<{ id: string; name: string; description?: string }>
+  ): Promise<Built> {
     const started = Date.now();
     const [fields, templates] = await Promise.all([
       this.cacheService.searchFields({}) as Promise<FieldInfo[]>,
@@ -276,25 +321,84 @@ export class SearchService {
       });
     }
 
-    // 4. SMUS listings.
+    // 4. SMUS projects, listings and their columns (the scoped list the Data Catalog shows).
+    const projectNames = new Map(projects.map((p) => [p.id, p.name]));
+    const datasetProject = new Map<string, string>();
+    for (const listing of listings) {
+      for (const d of listing.datasets ?? []) {
+        if (listing.projectId && !datasetProject.has(d.id)) {
+          datasetProject.set(d.id, listing.projectId);
+        }
+      }
+    }
+    for (const project of projects) {
+      const count = listings.filter((l) => l.projectId === project.id).length;
+      docs.push({
+        type: 'project',
+        id: project.id,
+        name: project.name,
+        description: project.description,
+        columns: [],
+        calculatedFields: [],
+        tags: [],
+        context: [],
+        projectId: project.id,
+        summary: `SMUS project: ${project.name} (${plural(count, 'published listing')})`,
+        path: `/data-catalog?project=${encodeURIComponent(project.id)}`,
+      });
+    }
     for (const listing of listings) {
       if (!listing.listingId || !listing.name) {
         continue;
       }
       const table = listing.table ? `${listing.table.database}.${listing.table.name}` : undefined;
-      const columns = (listing.columns ?? []).map((c: any) => c.name).filter(Boolean);
+      const columns: Array<{ name: string; type?: string; description?: string }> = (
+        listing.columns ?? []
+      ).filter((c: any) => c?.name);
+      const terms: Array<{ name: string; shortDescription?: string }> = listing.glossaryTerms ?? [];
+      const projectName = listing.projectName ?? projectNames.get(listing.projectId);
+      const linked: Array<{ name: string }> = listing.datasets ?? [];
       docs.push({
         type: 'smus-listing',
         id: listing.listingId,
         name: listing.name,
         description: listing.description,
-        columns,
+        columns: columns.map((c) => c.name),
         calculatedFields: [],
-        tags: (listing.glossaryTerms ?? []).map((t: any) => t.name),
-        context: [table ?? '', listing.owningProjectId ?? ''].filter(Boolean),
-        summary: `SMUS listing: ${listing.name}${table ? ` (${table}` : ' ('}${columns.length ? `${table ? ', ' : ''}${plural(columns.length, 'column')}` : ''})`,
+        tags: terms.map((t) => t.name),
+        context: [
+          table ?? '',
+          projectName ?? '',
+          ...terms.map((t) => t.shortDescription ?? ''),
+        ].filter(Boolean),
+        ...(listing.projectId ? { projectId: listing.projectId } : {}),
+        summary: `SMUS listing: ${listing.name}${table ? ` (${table}` : ' ('}${columns.length ? `${table ? ', ' : ''}${plural(columns.length, 'column')}` : ''}${projectName ? `, project ${projectName}` : ''}${
+          linked.length
+            ? `, read by ${linked
+                .map((d) => d.name)
+                .slice(0, SUMMARY_NAMES)
+                .join(', ')}`
+            : ', no linked dataset'
+        })`,
         path: `/data-catalog?asset=${encodeURIComponent(listing.listingId)}`,
       });
+      for (const column of columns) {
+        docs.push({
+          type: 'smus-column',
+          id: `${listing.listingId}/${column.name}`,
+          name: column.name,
+          description: column.description,
+          columns: [column.name],
+          calculatedFields: [],
+          tags: terms.map((t) => t.name),
+          context: [listing.name, table ?? '', projectName ?? '', column.type ?? ''].filter(
+            Boolean
+          ),
+          ...(listing.projectId ? { projectId: listing.projectId } : {}),
+          summary: `SMUS column: ${listing.name}.${column.name}${column.type ? ` (${column.type})` : ''}${column.description ? ` - ${column.description}` : ''}`,
+          path: `/data-catalog?asset=${encodeURIComponent(listing.listingId)}`,
+        });
+      }
     }
 
     // 5. Template library.
@@ -314,12 +418,27 @@ export class SearchService {
       });
     }
 
+    for (const doc of docs) {
+      const kind = ENTITY_TYPE[doc.type];
+      doc.entityId = entityId(kind, doc.id);
+      if (doc.type === 'dataset' && !doc.projectId && datasetProject.has(doc.id)) {
+        doc.projectId = datasetProject.get(doc.id);
+      }
+    }
+    const graph = buildContextGraph({
+      docs,
+      entries,
+      listings,
+      calculatedFields: byExpression,
+      visuals: visualFields,
+    });
     const index = new SearchIndex(docs);
-    logger.info('Search index built', {
+    logger.info('Search index and context graph built', {
       documents: docs.length,
       counts: index.counts,
+      graph: graph.counts(),
       ms: Date.now() - started,
     });
-    return index;
+    return { index, graph };
   }
 }
