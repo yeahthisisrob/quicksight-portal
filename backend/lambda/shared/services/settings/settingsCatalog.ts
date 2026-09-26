@@ -29,6 +29,9 @@ interface SettingSpec {
   options?: Array<{ value: string; label: string }>;
   /** Endpoint the UI fetches live choices from (multiselect). */
   optionsFrom?: string;
+  /** A string must match this, when set; `patternHint` says how in the error. */
+  pattern?: RegExp;
+  patternHint?: string;
 }
 
 export interface SettingGroupSpec {
@@ -38,7 +41,7 @@ export interface SettingGroupSpec {
   settings: SettingSpec[];
 }
 
-export interface ResolvedSetting extends Omit<SettingSpec, 'default'> {
+export interface ResolvedSetting extends Omit<SettingSpec, 'default' | 'pattern' | 'patternHint'> {
   value?: SettingValue;
   source: SettingSource;
   sensitive: boolean;
@@ -49,6 +52,10 @@ export interface SettingsSnapshot {
   updatedAt?: string;
   updatedBy?: string;
 }
+
+/** A calculated-field prefix: letters, digits and underscores, starting with a letter. */
+const FIELD_PREFIX = /^([A-Za-z][A-Za-z0-9_]{0,15})?$/;
+const FIELD_PREFIX_HINT = 'up to 16 letters, digits or underscores, starting with a letter';
 
 export const SETTINGS_CATALOG: SettingGroupSpec[] = [
   {
@@ -177,6 +184,28 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
         ],
       },
       {
+        key: 'guidance.calcFieldPrefix',
+        label: 'Calculated field prefix (analyses and dashboards)',
+        description:
+          'The prefix every calculated field defined in an analysis or dashboard starts with. The assistant and the planner name new fields with it.',
+        type: 'string',
+        envVar: '',
+        default: 'c_',
+        pattern: FIELD_PREFIX,
+        patternHint: FIELD_PREFIX_HINT,
+      },
+      {
+        key: 'guidance.datasetCalcFieldPrefix',
+        label: 'Calculated field prefix (datasets)',
+        description:
+          'The prefix every calculated field defined in a dataset starts with, so a field says where it lives wherever it is used.',
+        type: 'string',
+        envVar: '',
+        default: 'c_ds_',
+        pattern: FIELD_PREFIX,
+        patternHint: FIELD_PREFIX_HINT,
+      },
+      {
         key: 'guidance.architecture',
         label: 'Architecture',
         description:
@@ -222,7 +251,7 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
     id: 'authoring',
     title: 'Authored assets',
     description:
-      'Who can see what the portal builds (in Studio, through the assistant, or through the API). The person who builds it always owns it: their sign-in email is matched to their QuickSight user.',
+      'Who can see what the portal builds (a copy saved in the Studio, or anything made through the assistant or the API). The person who builds it always owns it: their sign-in email is matched to their QuickSight user.',
     settings: [
       {
         key: 'authoring.defaultFolderIds',
@@ -288,7 +317,8 @@ export function resolveSetting(
   stored: Record<string, SettingValue | undefined>,
   env: NodeJS.ProcessEnv
 ): ResolvedSetting {
-  const { default: defaultValue, ...rest } = spec;
+  // The pattern is the server's check; the served setting carries only its hint.
+  const { default: defaultValue, pattern: _pattern, patternHint: _hint, ...rest } = spec;
   const base = { ...rest, sensitive: Boolean(spec.sensitive) };
 
   if (spec.sensitive) {
@@ -359,6 +389,9 @@ export function validateUpdate(
       case 'string':
         if (typeof raw !== 'string') {
           throw new Error(`'${key}' must be a string`);
+        }
+        if (spec.pattern && !spec.pattern.test(raw.trim())) {
+          throw new Error(`'${key}' must be ${spec.patternHint ?? `like ${spec.pattern}`}`);
         }
         out[key] = raw.trim();
         break;

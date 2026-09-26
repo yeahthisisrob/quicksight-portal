@@ -1,7 +1,7 @@
 /**
- * The mockup editor's inspector: the selected card's title, type, position
- * and size, plus duplicate and remove. Every change becomes a DefinitionOp
- * on the flow; the preview re-runs and the wireframe redraws from it.
+ * The inspector: the selected card's title, type, position and size, plus
+ * duplicate and remove, and the sheet's name. Every change becomes a
+ * DefinitionOp; the preview re-runs and the canvas redraws from it.
  */
 import {
   ArrowBack,
@@ -44,7 +44,7 @@ import {
   typeWords,
 } from '../../lib/ops';
 import { swapOps } from '../../lib/swap';
-import type { SelectedElement } from '../../model/authorFlow';
+import type { SelectedElement } from '../../model/studio';
 
 const NUMBER_WIDTH = 104;
 
@@ -397,7 +397,7 @@ export function Inspector({ outline, sheetId, selected, onOps, onClearSelection 
     <Container
       header="Inspector"
       headingLevel="h3"
-      description={hit ? undefined : 'Click a card on the After view to edit it.'}
+      description={hit ? undefined : 'Click a visual on the canvas to edit it.'}
       actions={
         hit && (
           <Button size="small" onClick={onClearSelection}>
@@ -405,7 +405,6 @@ export function Inspector({ outline, sheetId, selected, onOps, onClearSelection 
           </Button>
         )
       }
-      sx={{ position: { lg: 'sticky' }, top: { lg: 16 } }}
     >
       <Stack spacing={2} data-testid="inspector">
         {sheet && <SheetSection sheet={sheet} onOps={onOps} />}

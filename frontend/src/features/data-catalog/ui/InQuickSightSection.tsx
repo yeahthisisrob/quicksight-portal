@@ -2,6 +2,8 @@ import { Button, Chip, Stack, Typography } from '@mui/material';
 import { useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 
+import { SaveTemplateDialog } from '@/entities/template';
+
 import type {
   CatalogDataset,
   DatasetCatalogField,
@@ -12,7 +14,6 @@ import { Container, EmptyState, TabBar } from '@/shared/design-system';
 import { DatasetFieldsTable } from './DatasetFieldsTable';
 import ExpressionGraphDialog from './dialogs/ExpressionGraphDialog';
 import FieldMetadataEditDialog from './dialogs/FieldMetadataEditDialog';
-import { SaveTemplateDialog } from './templates/SaveTemplateDialog';
 
 interface InQuickSightSectionProps {
   asset: SmusCatalogAsset;

@@ -11,7 +11,7 @@ import { Alert, Box, Button, LinearProgress, Stack, Typography } from '@mui/mate
 import { format, formatDistanceToNow } from 'date-fns';
 import { Link as RouterLink } from 'react-router-dom';
 
-import { describeProjectDiagnostics } from '@/entities/smus';
+import { describeProjectDiagnostics, useSmusStatus } from '@/entities/smus';
 
 import { getApiErrorMessage } from '@/shared/api';
 import type { JobMetadata } from '@/shared/api/modules/jobs';
@@ -24,7 +24,6 @@ import {
   type StatusType,
 } from '@/shared/design-system';
 
-import { useSmusStatus } from '../hooks/useSmus';
 import { useSmusExport } from '../model/useSmusExport';
 
 const DATE_FORMAT = 'MMM d, yyyy HH:mm';

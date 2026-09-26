@@ -5,8 +5,8 @@ import { useMemo, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 
 import { useAssets } from '@/entities/asset';
+import { useSmusDatasetLinks, useSmusStatus } from '@/entities/smus';
 import { CreateGroupDialog } from '@/features/organization';
-import { useSmusDatasetLinks, useSmusStatus } from '@/features/smus';
 import {
   ActivityStatsDialog,
   DatasetActivityDialog,

@@ -20,6 +20,5 @@ export { ingestionsApi } from './modules/ingestions';
 export { jobsApi } from './modules/jobs';
 export { scriptsApi } from './modules/scripts';
 export { settingsApi } from './modules/settings';
-export { smusApi } from './modules/smus';
 export { tagsApi } from './modules/tags';
 export { usersApi } from './modules/users';

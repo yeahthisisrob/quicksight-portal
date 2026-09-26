@@ -11,9 +11,9 @@ import { Link as RouterLink } from 'react-router-dom';
 
 import { getApiErrorMessage } from '@/shared/api';
 import { EmptyState } from '@/shared/design-system';
+import { useSettingsSnapshot } from '@/shared/lib/useSettingsSnapshot';
 
 import { smusReadiness } from '../model/smusReadiness';
-import { useSettingsSnapshot } from '../model/useSmusProjects';
 
 interface SmusGateProps {
   /** What the page does, for the empty state: "Author" or "The catalog". */

@@ -1,5 +1,5 @@
 /**
- * What the portal knows about how the source is used: views, viewers, when
+ * What the portal knows about how the open asset is used: views, viewers, when
  * it was last opened and, for dashboards with CloudWatch metrics, how fast
  * it loads and which visuals are struggling.
  */
@@ -9,7 +9,7 @@ import type { AssetInsights } from '@/shared/api/modules/authoring';
 
 import { isSlow, problemVisuals, seconds } from '../lib/insights';
 import { compactNumber, timeAgo } from '../lib/ranking';
-import type { SourceInsights } from '../model/useAuthorFlow';
+import type { SourceInsights } from '../model/useStudio';
 import { KeyValueList } from './primitives/KeyValue';
 import { StatusIndicator } from './primitives/StatusIndicator';
 
@@ -70,7 +70,7 @@ export function InsightsCard({ insights }: { insights: SourceInsights }) {
   ];
   return (
     <Stack spacing={1.5} data-testid="insights-card">
-      <KeyValueList items={items} columns={4} />
+      <KeyValueList items={items} columns={2} />
       <HealthLine insights={data} />
     </Stack>
   );

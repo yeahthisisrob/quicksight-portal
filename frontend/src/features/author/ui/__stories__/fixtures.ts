@@ -1,6 +1,6 @@
 /**
- * Story fixtures for the Author page: a fake flow object for the step
- * stories and the HTTP routes the full-page story runs against.
+ * Story fixtures for the Studio: a fake studio for the editor stories and
+ * the HTTP routes the full-page stories run against.
  */
 
 import {
@@ -8,49 +8,30 @@ import {
   definitionFixtures,
   diffWireframeModels,
   type RebindDraft,
-  type WireframeModel,
 } from '@/entities/definition';
 
 import type {
   AssetInsights,
-  DefinitionChange,
   DefinitionDataset,
   DefinitionOp,
-  NewAssetRequest,
   RebindPlan,
   RepairPlan,
-  VisualSpec,
 } from '@/shared/api/modules/authoring';
-import type { SmusAsset } from '@/shared/api/modules/smus';
+import type { CalculatedFieldTemplate } from '@/shared/api/modules/data-catalog';
+import type { SmusDatasetLink } from '@/shared/api/modules/smus';
 
 import type { MockRoute } from '../../../../../.storybook/mocks/api';
 import { requestBody } from '../../../../../.storybook/mocks/api';
 import { searchRoute } from '../../../../../.storybook/mocks/search';
+import { templateLibraryRoutes } from '../../../../../.storybook/mocks/templates';
 import { healthBadges } from '../../lib/insights';
 import { outlineFromModel } from '../../lib/ops';
-import {
-  type AuthorFlowState,
-  authorSteps,
-  EMPTY_FRESH,
-  type FreshAsset,
-  initialAuthorFlowState,
-  initialNewFlowState,
-  stepStatus,
-} from '../../model/authorFlow';
-import { type DatasetColumn, isComplete, newAssetRequest } from '../../model/newAsset';
-import { defaultChoices, repairRequests, repairSummary } from '../../model/repair';
-import {
-  defaultParts,
-  hasStandard,
-  NO_TYPE_RULES,
-  type StandardTemplate,
-  type StandardTypeRules,
-} from '../../model/standard';
-import type { AuthorFlow, NewAssetFlow, StandardCandidate } from '../../model/useAuthorFlow';
-import { simulateNew } from './simulateNew';
+import { repairSummary } from '../../model/repair';
+import { initialStudioState, type StudioState } from '../../model/studio';
+import type { Studio, StudioDataset } from '../../model/useStudio';
 import { simulatePreview } from './simulateOps';
 
-/** Nothing wrong with the source: the Repair step stays hidden. */
+/** Nothing wrong with the asset: the Issues panel says so. */
 const CLEAN_REPAIR_PLAN: RepairPlan = {
   issues: [],
   summary: { fixable: 0, needsChoice: 0, unfixable: 0 },
@@ -153,11 +134,8 @@ export function repairPlanRoute(plan: RepairPlan = CLEAN_REPAIR_PLAN): MockRoute
 }
 
 export const SOURCE = { type: 'dashboard' as const, id: 'sales-overview', name: 'Sales overview' };
-/** When the SMUS snapshot the stories read was taken. */
-const SMUS_EXPORTED_AT = '2026-09-18T09:30:00Z';
 const SILVER = 'arn:aws:quicksight:us-east-1:1:dataset/sales-silver';
 const GOLD_ARN = 'arn:aws:quicksight:us-east-1:1:dataset/sales-gold';
-
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Relative to now, so "last viewed 2 days ago" stays true whenever the story runs. */
 const daysAgo = (n: number) => new Date(Date.now() - n * DAY_MS).toISOString();
@@ -290,197 +268,7 @@ function planFor(
   };
 }
 
-/** Rewrites column names in a definition the way the server's preview does. */
-function rewrite(definition: unknown, identifier: string, map: Record<string, string>): unknown {
-  const walk = (node: unknown): unknown => {
-    if (Array.isArray(node)) return node.map(walk);
-    if (node && typeof node === 'object') {
-      const record = node as Record<string, unknown>;
-      if (record.DataSetIdentifier === identifier && typeof record.ColumnName === 'string') {
-        return { ...record, ColumnName: map[record.ColumnName] ?? record.ColumnName };
-      }
-      const out: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(record)) out[k] = walk(v);
-      return out;
-    }
-    return node;
-  };
-  return walk(definition);
-}
-
-export const FULL_MAP = { revenue: 'net_revenue', order_date: 'Order Date' };
-
-const SMUS_ASSETS: SmusAsset[] = [
-  {
-    listingId: 'lst-sales-gold',
-    assetId: 'ast-1',
-    name: 'sales_gold',
-    assetType: 'amazon.datazone.GlueTableAssetType',
-    description: 'Curated sales facts, refreshed nightly.',
-    projectId: 'prj-1',
-    projectName: 'analytics_prod',
-    url: 'https://example.invalid/catalog/assets/lst-sales-gold',
-    table: { catalog: 'AwsDataCatalog', database: 'published_sales', name: 'sales_gold' },
-    columns: GOLD_COLUMNS.map((c) => ({ name: c.name, type: c.type.toLowerCase() })),
-    datasets: [{ id: 'sales-gold', name: 'sales_gold', matchType: 'source-table' }],
-  },
-  {
-    listingId: 'lst-customers',
-    assetId: 'ast-2',
-    name: 'customer_dim',
-    assetType: 'amazon.datazone.GlueTableAssetType',
-    projectId: 'prj-1',
-    projectName: 'analytics_prod',
-    table: { database: 'published_sales', name: 'customer_dim' },
-    columns: [
-      { name: 'customer_id', type: 'string' },
-      { name: 'customer_name', type: 'string' },
-      { name: 'segment', type: 'string' },
-    ],
-    datasets: [],
-  },
-  {
-    listingId: 'lst-targets',
-    assetId: 'ast-3',
-    name: 'revenue_targets',
-    assetType: 'amazon.datazone.GlueTableAssetType',
-    projectId: 'prj-2',
-    projectName: 'analytics_dev',
-    table: { database: 'published_finance', name: 'revenue_targets' },
-    columns: [{ name: 'target_revenue', type: 'decimal' }],
-    datasets: [{ id: 'targets', name: 'targets', matchType: 'name' }],
-  },
-];
-
 const TEMPLATE_TAG_ITEM = { key: 'quicksight-portal:template', value: 'true' };
-
-// ---------------------------------------------------------------------------
-// From nothing: the datasets a new dashboard can read and what the planner
-// proposes for them.
-// ---------------------------------------------------------------------------
-
-/** Output columns by dataset id, as the cached dataset exports carry them. */
-const DATASET_COLUMNS: Record<string, DatasetColumn[]> = {
-  'sales-gold': GOLD_COLUMNS,
-  targets: [
-    { name: 'region', type: 'STRING' },
-    { name: 'target_revenue', type: 'DECIMAL' },
-    { name: 'target_month', type: 'DATETIME' },
-  ],
-  'sales-bronze': [],
-};
-
-const DATASET_NAMES: Record<string, string> = {
-  'sales-gold': 'sales_gold',
-  targets: 'targets',
-  'sales-bronze': 'sales_bronze',
-};
-
-/** What the authoring columns endpoint answers for a dataset. */
-function datasetColumnsFor(dataSetId: string) {
-  return {
-    dataSetId,
-    name: DATASET_NAMES[dataSetId] ?? dataSetId,
-    columns: DATASET_COLUMNS[dataSetId] ?? [],
-  };
-}
-
-/** The datasets a from-nothing story starts with. */
-export const FRESH_DATASETS: FreshAsset['datasets'] = [
-  { identifier: 'sales_gold', dataSetId: 'sales-gold', name: 'sales_gold' },
-  { identifier: 'targets', dataSetId: 'targets', name: 'targets' },
-];
-
-/** What the planner proposes for "revenue, orders, by region, a trend, top customers". */
-export const PROPOSED_VISUALS: VisualSpec[] = [
-  {
-    type: 'KPI',
-    title: 'Revenue',
-    identifier: 'sales_gold',
-    values: [{ column: 'net_revenue', aggregation: 'SUM' }],
-  },
-  {
-    type: 'KPI',
-    title: 'Orders',
-    identifier: 'sales_gold',
-    values: [{ column: 'order_id', aggregation: 'DISTINCT_COUNT' }],
-  },
-  {
-    type: 'BarChart',
-    title: 'Revenue by region',
-    identifier: 'sales_gold',
-    category: 'region',
-    values: [{ column: 'net_revenue', aggregation: 'SUM' }],
-    color: 'channel',
-  },
-  {
-    type: 'LineChart',
-    title: 'Monthly trend',
-    identifier: 'sales_gold',
-    category: 'Order Date',
-    granularity: 'MONTH',
-    values: [{ column: 'net_revenue', aggregation: 'SUM' }],
-  },
-  {
-    type: 'Table',
-    title: 'Top customers',
-    identifier: 'sales_gold',
-    category: 'customer_name',
-    values: [
-      { column: 'net_revenue', aggregation: 'SUM' },
-      { column: 'margin', aggregation: 'SUM' },
-    ],
-  },
-];
-
-export const FRESH_PROPOSAL = {
-  reason:
-    'Revenue and orders lead as KPIs; region and channel are the only categorical columns worth splitting revenue by; Order Date gives the trend; customers make the table.',
-  model: { provider: 'bedrock', model: 'us.anthropic.claude-sonnet-4-6' },
-};
-
-/** The server's from-nothing preview for a request, with the story datasets' columns. */
-function newAssetPreviewFor(request: NewAssetRequest) {
-  return simulateNew(request, DATASET_COLUMNS, { visuals: PROPOSED_VISUALS, ...FRESH_PROPOSAL });
-}
-
-/** The last from-nothing ask the stories queued, answered when its job result is read. */
-let pendingNewPropose: NewAssetRequest | null = null;
-const EMPTY_NEW_REQUEST: NewAssetRequest = {
-  assetType: 'dashboard',
-  name: '',
-  datasets: [],
-  ask: '',
-};
-
-function queuedJob(jobId: string) {
-  return { jobId, status: 'queued', message: 'Planner asked' };
-}
-
-/** What the planner answers for "copy this onto sales gold". */
-function rebindProposal() {
-  const rebinds = [
-    {
-      identifier: 'sales',
-      targetDataSetId: 'sales-gold',
-      columnMap: FULL_MAP,
-      reason: 'The ask names the gold sales table',
-    },
-  ];
-  return {
-    ask: 'copy this onto sales gold',
-    intent: 'rebind',
-    mode: 'clone',
-    name: 'Sales overview (gold)',
-    reason:
-      'The ask names the gold sales table; every column resolves after two renames. Revenue by region reads better as columns.',
-    rebinds,
-    unmapped: [],
-    ops: PROPOSED_OPS,
-    plan: planFor(rebinds),
-    model: { provider: 'bedrock', model: 'us.anthropic.claude-sonnet-4-6' },
-  };
-}
 
 /** Dashboards as the list endpoint returns them, with activity for ranking. */
 const SOURCES = [
@@ -507,6 +295,10 @@ const SOURCES = [
     name: 'Marketing funnel',
     tags: [{ key: 'team', value: 'marketing' }],
     activity: { totalViews: 150, uniqueViewers: 20, lastViewed: daysAgo(30) },
+    definitionErrors: [
+      { type: 'COLUMN_NOT_FOUND', message: "Column 'promo_code' was not found" },
+      { type: 'PARAMETER_NOT_FOUND', message: "Parameter 'region' was not found" },
+    ],
   },
   {
     id: 'finance-close',
@@ -555,11 +347,6 @@ const FOLDERS = [
   },
 ];
 
-/** A planner proposal that also suggests an edit. */
-export const PROPOSED_OPS: DefinitionOp[] = [
-  { op: 'retype', sheetId: 'sheet-overview', elementId: 'bar-region', visualType: 'ColumnChart' },
-];
-
 function exportFor(definition: unknown, tags = SOURCES[0]!.tags) {
   return {
     apiResponses: {
@@ -570,8 +357,7 @@ function exportFor(definition: unknown, tags = SOURCES[0]!.tags) {
   };
 }
 
-/** Every route the page can hit, with realistic answers. */
-const TEMPLATES = [
+const TEMPLATES: CalculatedFieldTemplate[] = [
   {
     id: 't-net-margin',
     name: 'net_margin',
@@ -592,11 +378,6 @@ const TEMPLATES = [
   },
 ];
 
-const SMUS_PROJECTS = [
-  { id: 'proj-published-prod', name: 'published_prod', description: 'Published layer' },
-  { id: 'proj-published-dev', name: 'published_dev', description: 'Published layer, dev' },
-];
-
 function withTargetNames(
   rebinds: Array<{
     identifier: string;
@@ -610,144 +391,67 @@ function withTargetNames(
   }));
 }
 
-/** Dashboards tagged as templates, as the Standard step lists them. */
-const STANDARD_CANDIDATES: StandardCandidate[] = SOURCES.filter((s) =>
-  s.tags.some((t) => t.key === 'quicksight-portal:template')
-).map((s) => ({ id: s.id, name: s.name, views: s.activity.totalViews }));
+/** What SMUS says about the source's datasets: targets is governed, sales is not. */
+const SMUS_LINKS: SmusDatasetLink[] = [
+  { datasetId: 'sales-silver', linked: false },
+  {
+    datasetId: 'targets',
+    linked: true,
+    matchType: 'name',
+    listingId: 'lst-targets',
+    listingName: 'revenue_targets',
+  },
+];
 
-/** A migration the stories can show: the executive summary as the standard, with rules. */
-export const STANDARD_TEMPLATE: StandardTemplate = {
-  assetType: 'dashboard',
-  assetId: 'exec-summary',
-  name: 'Executive summary',
-  parts: defaultParts(),
-};
-export const STANDARD_RULES: StandardTypeRules = {
-  chartFamily: [
-    { from: 'Table', to: 'PivotTable' },
-    { from: 'BarChart', to: 'ColumnChart' },
-  ],
-  kpi: true,
-  casts: true,
-};
-
-interface StandardEffects {
-  changes: DefinitionChange[];
-  warnings: string[];
-  themeArn?: string;
+/** SMUS configured, and the links for whichever datasets are asked about. */
+function smusRoutes(): MockRoute[] {
+  return [
+    {
+      method: 'get',
+      url: '/smus/status',
+      respond: () => ({
+        body: {
+          success: true,
+          data: { configured: true, domainId: 'dzd_example', region: 'us-east-1' },
+        },
+      }),
+    },
+    {
+      method: 'post',
+      url: '/smus/dataset-links',
+      respond: (config) => {
+        const ids: string[] = requestBody(config).datasetIds ?? [];
+        return {
+          body: {
+            success: true,
+            data: {
+              links: ids.map(
+                (id) =>
+                  SMUS_LINKS.find((l) => l.datasetId === id) ?? { datasetId: id, linked: false }
+              ),
+            },
+          },
+        };
+      },
+    },
+  ];
 }
 
-/**
- * What the server would add to a preview for a template and type rules: the
- * change list entries and the warnings. The layout itself is not simulated.
- */
-function standardEffects(template: unknown, typeRules: unknown): StandardEffects {
-  const changes: DefinitionChange[] = [];
-  const warnings: string[] = [];
-  const t = template as
-    | { assetId?: string; controls?: boolean; sheetNames?: boolean; theme?: boolean }
-    | undefined;
-  const r = typeRules as
-    | { chartFamily?: Array<{ from: string; to: string }>; kpi?: boolean; casts?: boolean }
-    | undefined;
-  if (t?.assetId) {
-    if (t.controls !== false) {
-      changes.push({
-        kind: 'template',
-        sheetId: 'sheet-overview',
-        description: "Replaced 2 controls on Overview with the template's",
-      });
-      warnings.push(
-        "Template control 'Segment' was dropped: no dataset here has the columns it filters."
-      );
-    }
-    if (t.sheetNames !== false) {
-      changes.push({
-        kind: 'sheet',
-        sheetId: 'sheet-overview',
-        description: "Renamed sheet 'Overview' to 'Standard overview'",
-      });
-    }
-    changes.push({
-      kind: 'template',
-      sheetId: 'sheet-overview',
-      description:
-        'Laid out 5 visuals on Standard overview in 18x12 tiles (KPIs 9x6 first), with 3 elements from the template',
-    });
-    if (t.theme !== false) {
-      changes.push({ kind: 'template', description: "Takes the template's theme" });
-    }
-  }
-  for (const rule of r?.chartFamily ?? []) {
-    if (rule.from === 'Table') {
-      changes.push({
-        kind: 'visual',
-        sheetId: 'sheet-overview',
-        elementId: 'table-detail',
-        description:
-          'Changed Top customers from a table to a pivot table; axis, legend and sort settings reset to defaults',
-      });
-    } else if (rule.from === 'BarChart') {
-      changes.push({
-        kind: 'visual',
-        sheetId: 'sheet-overview',
-        elementId: 'bar-region',
-        description:
-          'Changed Revenue by region from a bar chart to a column chart; axis, legend and sort settings reset to defaults',
-      });
-    } else {
-      warnings.push(`Monthly trend stayed a ${rule.from}: its fields do not fit a ${rule.to}`);
-    }
-  }
-  if (r?.kpi) {
-    changes.push({
-      kind: 'visual',
-      sheetId: 'sheet-overview',
-      elementId: 'kpi-revenue',
-      description: "Revenue takes the template's KPI options",
-    });
-    changes.push({
-      kind: 'visual',
-      sheetId: 'sheet-overview',
-      elementId: 'kpi-orders',
-      description: "Orders takes the template's KPI options",
-    });
-  }
-  if (r?.casts) {
-    changes.push({
-      kind: 'calculatedField',
-      description:
-        'sales: order_date is STRING now, so order_date_as_datetime = parseDate({order_date}) takes its place',
-    });
-    warnings.push(
-      'sales: discount was DECIMAL and is now DATETIME; no cast is known, visuals may fail.'
-    );
-  }
-  const themeArn =
-    t?.assetId && t.theme !== false ? 'arn:aws:quicksight:us-east-1:1:theme/standard' : undefined;
-  return { changes, warnings, ...(themeArn ? { themeArn } : {}) };
-}
+/** SMUS is not set up: the Data panel says so, and nothing else changes. */
+export const SMUS_NOT_CONFIGURED: MockRoute = {
+  method: 'get',
+  url: '/smus/status',
+  respond: () => ({ body: { success: true, data: { configured: false } } }),
+};
 
+/** Every route the Studio can hit, with realistic answers. */
 export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
   return [
     ...overrides,
     searchRoute(),
-    settingsSnapshotRoute(
-      'dzd_example',
-      SMUS_PROJECTS.map((p) => p.id)
-    ),
-    {
-      method: 'get',
-      url: '/settings/smus/projects',
-      respond: () => ({
-        body: { success: true, data: { configured: true, projects: SMUS_PROJECTS } },
-      }),
-    },
-    {
-      method: 'get',
-      url: '/data-catalog/templates/calculated-fields',
-      respond: () => ({ body: { success: true, data: { templates: TEMPLATES } } }),
-    },
+    ...smusRoutes(),
+    ...templateLibraryRoutes(TEMPLATES),
+    settingsSnapshotRoute('dzd_example', ['proj-published-prod']),
     {
       method: 'get',
       url: /\/assets\/(dashboards|analyses)\/paginated/,
@@ -790,36 +494,20 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
     },
     {
       method: 'get',
-      url: /\/assets\/datasources\/paginated/,
-      respond: () => ({
-        body: {
-          success: true,
-          data: {
-            datasources: [
-              { id: 'athena-lakehouse', name: 'Athena (lakehouse)', type: 'ATHENA' },
-              { id: 'redshift-wh', name: 'Redshift warehouse', type: 'REDSHIFT' },
-            ],
-            pagination: { page: 1, pageSize: 100, totalItems: 2, totalPages: 1 },
-          },
-        },
-      }),
-    },
-    {
-      method: 'get',
       url: /\/assets\/datasets\/paginated/,
       respond: (config) => {
         const search = String(config.params?.search ?? '').toLowerCase();
         const all = [
           { id: 'sales-gold', name: 'sales_gold' },
-          { id: 'sales-bronze', name: 'sales_bronze' },
-          { id: 'targets', name: 'targets' },
+          { id: 'targets-2025', name: 'targets_2025' },
         ];
+        const datasets = all.filter((d) => d.name.includes(search));
         return {
           body: {
             success: true,
             data: {
-              datasets: all.filter((d) => d.name.includes(search)),
-              pagination: { page: 1, pageSize: 25, totalItems: 3, totalPages: 1 },
+              datasets,
+              pagination: { page: 1, pageSize: 25, totalItems: datasets.length, totalPages: 1 },
             },
           },
         };
@@ -831,87 +519,6 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
       respond: () => ({
         body: { success: true, data: exportFor(definitionFixtures.gridDashboardDefinition) },
       }),
-    },
-    {
-      method: 'get',
-      url: /\/authoring\/datasets\/[^/]+\/columns$/,
-      respond: (config) => {
-        const parts = String(config.url).split('/');
-        const id = parts[parts.length - 2] ?? '';
-        return { body: { success: true, data: datasetColumnsFor(id) } };
-      },
-    },
-    {
-      method: 'post',
-      url: /\/authoring\/new\/preview$/,
-      respond: (config) => ({
-        body: { success: true, data: newAssetPreviewFor(requestBody(config)) },
-      }),
-    },
-    // The planner runs as a job: the ask is queued, the client polls the job,
-    // and the proposal is the job's result.
-    {
-      method: 'post',
-      url: /\/authoring\/new\/propose$/,
-      respond: (config) => {
-        pendingNewPropose = requestBody<NewAssetRequest>(config);
-        return { body: { success: true, data: queuedJob('planner-new') } };
-      },
-    },
-    {
-      method: 'get',
-      url: /\/jobs\/planner-[a-z]+\/result$/,
-      respond: (config) => ({
-        body: {
-          success: true,
-          data: (config.url ?? '').includes('planner-new')
-            ? newAssetPreviewFor(pendingNewPropose ?? EMPTY_NEW_REQUEST)
-            : rebindProposal(),
-        },
-      }),
-    },
-    {
-      method: 'get',
-      url: /\/jobs\/planner-[a-z]+$/,
-      respond: (config) => {
-        const jobId = (config.url ?? '').split('/').pop() ?? 'planner';
-        return {
-          body: {
-            success: true,
-            data: {
-              jobId,
-              jobType: 'planner',
-              status: 'completed',
-              message: 'The planner answered',
-              startTime: daysAgo(0),
-              endTime: daysAgo(0),
-            },
-          },
-        };
-      },
-    },
-    {
-      method: 'post',
-      url: /\/authoring\/new$/,
-      respond: (config) => {
-        const request = requestBody<NewAssetRequest>(config);
-        const built = newAssetPreviewFor(request);
-        return {
-          body: {
-            success: true,
-            data: {
-              assetType: request.assetType,
-              assetId: 'regional-sales-new',
-              name: request.name,
-              arn: 'arn:x',
-              versionNumber: request.assetType === 'dashboard' ? 1 : undefined,
-              changes: built.changes,
-              warnings: built.warnings,
-              folderId: request.folderId,
-            },
-          },
-        };
-      },
     },
     {
       method: 'get',
@@ -963,30 +570,21 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
       method: 'post',
       url: '/rebind/preview',
       respond: (config) => {
-        const {
-          rebinds = [],
-          addCalculatedFields = [],
-          ops = [],
-          template,
-          typeRules,
-        } = requestBody(config);
+        const { rebinds = [], ops = [] } = requestBody(config);
         const sim = simulatePreview(
           definitionFixtures.gridDashboardDefinition,
           withTargetNames(rebinds),
-          addCalculatedFields,
+          [],
           ops
         );
-        const standard = standardEffects(template, typeRules);
         return {
           body: {
             success: true,
             data: {
               plan: planFor(rebinds),
               definition: sim.definition,
-              changes: [...standard.changes, ...sim.changes],
+              changes: sim.changes,
               outline: sim.outline,
-              ...(standard.warnings.length ? { warnings: standard.warnings } : {}),
-              ...(standard.themeArn ? { themeArn: standard.themeArn } : {}),
             },
           },
         };
@@ -996,91 +594,35 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
       method: 'post',
       url: /\/rebind$/,
       respond: (config) => {
-        const {
-          mode,
-          name,
-          rebinds = [],
-          addCalculatedFields = [],
-          ops = [],
-          folderId,
-          template,
-          typeRules,
-        } = requestBody(config);
+        const { mode, name, rebinds = [], ops = [], folderId } = requestBody(config);
         const sim = simulatePreview(
           definitionFixtures.gridDashboardDefinition,
           withTargetNames(rebinds),
-          addCalculatedFields,
+          [],
           ops
         );
-        const standard = standardEffects(template, typeRules);
         return {
           body: {
             success: true,
             data: {
               assetType: 'dashboard',
-              assetId: mode === 'clone' ? 'sales-overview-gold' : SOURCE.id,
-              name,
+              assetId: mode === 'clone' ? 'sales-overview-copy' : SOURCE.id,
+              name: name ?? SOURCE.name,
               arn: 'arn:x',
               mode,
               versionNumber: 2,
               plan: planFor(rebinds),
-              changes: [...standard.changes, ...sim.changes],
+              changes: sim.changes,
               folderId,
-              ...(standard.warnings.length ? { warnings: standard.warnings } : {}),
             },
           },
         };
       },
     },
-    {
-      method: 'post',
-      url: '/propose',
-      respond: () => ({ body: { success: true, data: queuedJob('planner-rebind') } }),
-    },
-    {
-      method: 'get',
-      url: '/smus/assets',
-      respond: () => ({
-        body: {
-          success: true,
-          data: {
-            configured: true,
-            exportedAt: SMUS_EXPORTED_AT,
-            projectFilter: ['prj-1', 'prj-2'],
-            assets: SMUS_ASSETS,
-          },
-        },
-      }),
-    },
-    {
-      method: 'post',
-      url: /\/smus\/assets\/[^/]+\/dataset$/,
-      respond: (config) => ({
-        body: {
-          success: true,
-          data: {
-            dataSetId: 'customer-dim',
-            name: requestBody(config).name ?? 'customer_dim',
-            arn: 'arn:x',
-          },
-        },
-      }),
-    },
     { method: 'post', url: /\/tags\//, respond: () => ({ body: { success: true, data: {} } }) },
     { method: 'delete', url: /\/tags\//, respond: () => ({ body: { success: true, data: {} } }) },
   ];
 }
-
-export const SMUS_NOT_CONFIGURED: MockRoute = {
-  method: 'get',
-  url: '/smus/assets',
-  respond: () => ({
-    body: {
-      success: true,
-      data: { configured: false, exportedAt: null, projectFilter: [], assets: [] },
-    },
-  }),
-};
 
 /** The settings snapshot the page gate reads: a domain and the selected projects. */
 export function settingsSnapshotRoute(domainId: string | null, projectIds: string[]): MockRoute {
@@ -1129,14 +671,13 @@ export const SMUS_SETTINGS_NOT_CONFIGURED: MockRoute = settingsSnapshotRoute(nul
 export const SMUS_SETTINGS_NO_PROJECTS: MockRoute = settingsSnapshotRoute('dzd_example', []);
 
 // ---------------------------------------------------------------------------
-// A fake flow for the step stories: canned state, no-op actions.
+// A fake studio for the editor stories: canned state, no-op actions.
 // ---------------------------------------------------------------------------
 
 const noop = () => {};
 const noopAsync = async () => {};
 
 function fakeDraft(overrides: Partial<RebindDraft> = {}): RebindDraft {
-  const rebinds = overrides.rebinds ?? [];
   return {
     source: SOURCE,
     loading: false,
@@ -1144,13 +685,13 @@ function fakeDraft(overrides: Partial<RebindDraft> = {}): RebindDraft {
     datasets: DATASETS,
     targets: {},
     columnMaps: {},
-    mode: 'clone',
-    name: `${SOURCE.name} (gold)`,
+    mode: 'update',
+    name: '',
     plan: null,
     planning: false,
     planError: null,
-    rebinds,
-    canApply: false,
+    rebinds: [],
+    canApply: true,
     reload: noopAsync,
     setTarget: noop,
     mapColumn: noop,
@@ -1162,312 +703,105 @@ function fakeDraft(overrides: Partial<RebindDraft> = {}): RebindDraft {
   };
 }
 
-interface FakeFlowOptions {
-  addedFields?: AuthorFlow['addedFields'];
-  step?: AuthorFlow['state']['step'];
-  draft?: Partial<RebindDraft>;
-  sourceModel?: WireframeModel | null;
-  /** Overrides the simulated preview. */
-  previewModel?: WireframeModel | null;
-  proposal?: AuthorFlow['proposal'];
-  result?: AuthorFlow['state']['result'];
-  publishError?: string | null;
-  /** Edits on the mockup; the preview, changes and outline follow from them. */
+interface FakeStudioOptions {
+  /** No asset open: the Editor shows the browser. */
+  closed?: boolean;
+  panel?: StudioState['panel'];
+  /** Edits on the canvas; the preview, changes and outline follow from them. */
   ops?: DefinitionOp[];
-  selectedElement?: AuthorFlowState['selectedElement'];
-  folder?: AuthorFlowState['folder'];
+  selectedElement?: StudioState['selectedElement'];
+  result?: StudioState['result'];
+  saveError?: string | null;
   /** Defaults to INSIGHTS; null for an asset without any. */
   insights?: AssetInsights | null;
-  previewLoading?: boolean;
-  /** Defaults to a clean plan; REPAIR_PLAN shows the Repair step. */
+  /** Defaults to a clean plan; REPAIR_PLAN has every kind of issue. */
   repairPlan?: RepairPlan | null;
-  /** The Standard step: a template dashboard and bulk type rules. */
-  template?: StandardTemplate | null;
-  typeRules?: StandardTypeRules;
-  /** From nothing: the flow in New mode with these datasets and visuals. */
-  fresh?: Partial<FreshAsset>;
-  /** Shown once on the Visuals step after a proposal. */
-  freshProposal?: NewAssetFlow['proposal'];
-  /** Text in the ask box. */
-  ask?: string;
+  /** SMUS configured (the default) or not. */
+  smus?: boolean;
+  /** No cached definition. */
+  noDefinition?: boolean;
 }
 
-export function fakeFlow(options: FakeFlowOptions = {}): AuthorFlow {
-  if (options.fresh) {
-    return fakeNewFlow(options);
-  }
-  const draft = fakeDraft(options.draft);
-  const sourceModel =
-    options.sourceModel === undefined
-      ? buildWireframeModel(definitionFixtures.gridDashboardDefinition)
-      : options.sourceModel;
+export function fakeStudio(options: FakeStudioOptions = {}): Studio {
+  const draft = fakeDraft();
+  const sourceModel = options.noDefinition
+    ? null
+    : buildWireframeModel(definitionFixtures.gridDashboardDefinition);
   const ops = options.ops ?? [];
-  const addedFields = options.addedFields ?? [];
   const simulated =
-    draft.rebinds.length > 0 || ops.length > 0 || addedFields.length > 0
-      ? simulatePreview(
-          definitionFixtures.gridDashboardDefinition,
-          withTargetNames(draft.rebinds),
-          addedFields,
-          ops
-        )
+    ops.length > 0
+      ? simulatePreview(definitionFixtures.gridDashboardDefinition, [], [], ops)
       : null;
-  const previewModel =
-    options.previewModel !== undefined
-      ? options.previewModel
-      : simulated
-        ? buildWireframeModel(simulated.definition)
-        : null;
+  const previewModel = simulated ? buildWireframeModel(simulated.definition) : null;
   const insights = options.insights === undefined ? INSIGHTS : options.insights;
   const repairPlan = options.repairPlan === undefined ? CLEAN_REPAIR_PLAN : options.repairPlan;
-  const repairChoices = defaultChoices(repairPlan);
-  const repairs = repairRequests(repairPlan, repairChoices);
-  const summary = repairSummary(repairPlan, repairChoices, draft.targets);
-  const repairIssues = repairPlan?.issues.length ?? 0;
-  const template = options.template ?? null;
-  const typeRules = options.typeRules ?? NO_TYPE_RULES;
-  const standard = standardEffects(
-    template ? { assetId: template.assetId, ...template.parts } : undefined,
-    hasStandard(null, typeRules) ? typeRules : undefined
-  );
-  const state: AuthorFlowState = {
-    ...initialAuthorFlowState,
-    step: options.step ?? 'source',
-    source: SOURCE,
-    result: options.result ?? null,
-    visited: ['source', 'repair', 'targets', 'review', 'standard', 'mockup', 'publish'],
+  // Unset choices mean the proposal: every proposed fix counts until changed.
+  const choices = {};
+  const summary = repairSummary(repairPlan, choices, draft.targets);
+  const smus = options.smus ?? true;
+  const datasets: StudioDataset[] = DATASETS.map((d) => ({
+    identifier: d.identifier,
+    dataSetId: d.dataSetId,
+    columns: d.columns.length,
+    calculatedFields: d.calculatedFields.length,
+    smus: smus ? SMUS_LINKS.find((l) => l.datasetId === d.dataSetId) : undefined,
+  }));
+  const state: StudioState = {
+    ...initialStudioState,
+    source: options.closed ? null : SOURCE,
+    panel: options.panel ?? 'issues',
     ops,
-    folder: options.folder ?? null,
     selectedElement: options.selectedElement ?? null,
-    template,
-    typeRules,
+    result: options.result ?? null,
   };
-  const standardActive = hasStandard(template, typeRules);
-  const canApply =
-    draft.rebinds.length > 0 ? draft.canApply : draft.mode === 'update' || draft.name.length > 0;
+  const dirty = ops.length > 0 || summary.accepted > 0;
   return {
     state,
-    status: stepStatus(state, {
-      hasTargets: draft.rebinds.length > 0,
-      canApply,
-      hasOps: ops.length > 0,
-      hasAddedFields: addedFields.length > 0,
-      renamed: draft.mode === 'clone' ? draft.name.length > 0 : draft.name !== SOURCE.name,
-      repairIssues,
-      hasRepairs: repairs.repairs.length > 0 || Object.keys(repairs.columnMaps).length > 0,
-      repairsSettled: summary.needsChoice === 0,
-      hasStandard: standardActive,
-    }),
-    steps: authorSteps(repairIssues > 0),
     draft,
-    repair: {
-      loading: false,
-      error: null,
-      plan: repairPlan,
-      choices: repairChoices,
-      summary,
-      repairs: repairs.repairs,
-      choose: noop,
-      acceptAll: noop,
-    },
     source: {
       loading: false,
       error: null,
-      exportData: exportFor(definitionFixtures.gridDashboardDefinition),
       model: sourceModel,
       tags: SOURCES[0]!.tags,
       isTemplate: true,
     },
     insights: { loading: false, error: null, data: insights },
-    healthBadges: healthBadges(insights),
-    selectSource: noop,
-    startNew: noop,
-    fresh: fakeFresh(EMPTY_FRESH),
-    goTo: noop,
-    next: noop,
-    back: noop,
-    setTemplate: noopAsync,
-    ask: options.proposal ? options.proposal.ask : '',
-    setAsk: noop,
-    proposing: false,
-    proposal: options.proposal ?? null,
-    proposeError: null,
-    propose: noopAsync,
-    preview: {
-      loading: options.previewLoading ?? false,
+    repair: {
+      loading: false,
       error: null,
-      plan: draft.plan,
+      plan: repairPlan,
+      choices,
+      summary,
+      choose: noop,
+      acceptAll: noop,
+    },
+    data: { loading: false, datasets, smusConfigured: smus },
+    healthBadges: healthBadges(insights),
+    preview: {
+      loading: false,
+      error: null,
+      plan: null,
       model: previewModel,
       diff: sourceModel && previewModel ? diffWireframeModels(sourceModel, previewModel) : null,
-      changes: [...standard.changes, ...(simulated?.changes ?? [])],
+      changes: simulated?.changes ?? [],
       outline: simulated?.outline ?? (sourceModel ? outlineFromModel(sourceModel) : null),
-      warnings: standard.warnings,
-      themeArn: standard.themeArn ?? null,
+      warnings: [],
     },
-    standard: {
-      template,
-      typeRules,
-      candidates: { loading: false, items: STANDARD_CANDIDATES },
-      chooseTemplate: noop,
-      setTemplatePart: noop,
-      setTypeRules: noop,
-      addChartRule: noop,
-      removeChartRule: noop,
-      active: standardActive,
-    },
+    open: noop,
+    setPanel: noop,
     addOps: noop,
     removeOp: noop,
     undoOp: noop,
     clearOps: noop,
     selectElement: noop,
-    setFolder: noop,
-    publishing: false,
-    publishError: options.publishError ?? null,
-    publish: noopAsync,
-    addedFields,
-    addTemplateField: () => {},
-    removeTemplateField: () => {},
-    setTemplateFieldIdentifier: () => {},
-    reset: noop,
-    startFromResult: noop,
+    dirty,
+    canSave: summary.needsChoice === 0,
+    saving: false,
+    saveError: options.saveError ?? null,
+    save: async () => null,
+    dismissResult: noop,
+    setTemplate: noopAsync,
   };
-}
-
-function fakeFresh(fresh: FreshAsset, proposal: NewAssetFlow['proposal'] = null): NewAssetFlow {
-  const columns: NewAssetFlow['columns'] = {};
-  for (const dataset of fresh.datasets) {
-    columns[dataset.identifier] = {
-      loading: false,
-      columns: DATASET_COLUMNS[dataset.dataSetId] ?? [],
-    };
-  }
-  return {
-    assetType: fresh.assetType,
-    setAssetType: noop,
-    name: fresh.name,
-    setName: noop,
-    sheetName: fresh.sheetName,
-    setSheetName: noop,
-    datasets: fresh.datasets,
-    addDataset: noop,
-    removeDataset: noop,
-    setIdentifier: noop,
-    columns,
-    visuals: fresh.visuals,
-    addVisual: noop,
-    updateVisual: noop,
-    removeVisual: noop,
-    addValue: noop,
-    updateValue: noop,
-    removeValue: noop,
-    proposal,
-    audience: fresh.audience,
-    setAudience: noop,
-    ready: fresh.datasets.length > 0 && fresh.visuals.some(isComplete),
-  };
-}
-
-/** The flow in New mode: canned datasets and visuals, the preview simulated from them. */
-function fakeNewFlow(options: FakeFlowOptions): AuthorFlow {
-  const fresh: FreshAsset = { ...EMPTY_FRESH, ...options.fresh };
-  const template = options.template ?? null;
-  const typeRules = options.typeRules ?? NO_TYPE_RULES;
-  const standardActive = hasStandard(template, typeRules);
-  const request = newAssetRequest({
-    assetType: fresh.assetType,
-    name: fresh.name || 'Preview',
-    datasets: fresh.datasets,
-    visuals: fresh.visuals,
-    sheetName: fresh.sheetName,
-    template: template
-      ? { assetType: template.assetType, assetId: template.assetId, ...template.parts }
-      : undefined,
-    typeRules: hasStandard(null, typeRules) ? typeRules : undefined,
-  });
-  const ready = fresh.datasets.length > 0 && fresh.visuals.some(isComplete);
-  const built = ready ? newAssetPreviewFor(request) : null;
-  const standard = standardEffects(
-    template ? { assetId: template.assetId, ...template.parts } : undefined,
-    hasStandard(null, typeRules) ? typeRules : undefined
-  );
-  const state: AuthorFlowState = {
-    ...initialNewFlowState,
-    step: options.step ?? 'targets',
-    result: options.result ?? null,
-    visited: ['targets', 'visuals', 'standard', 'mockup', 'publish'],
-    folder: options.folder ?? null,
-    template,
-    typeRules,
-    fresh,
-  };
-  const previewModel = built ? buildWireframeModel(built.definition) : null;
-  const base = fakeFlow({ step: options.step, template, typeRules, result: options.result });
-  return {
-    ...base,
-    state,
-    status: stepStatus(state, {
-      hasTargets: false,
-      canApply: ready,
-      hasStandard: standardActive,
-      hasVisuals: ready,
-    }),
-    steps: authorSteps(false, 'new'),
-    draft: fakeDraft({ datasets: [], name: '', mode: 'clone' }),
-    source: {
-      loading: false,
-      error: null,
-      exportData: null,
-      model: null,
-      tags: [],
-      isTemplate: false,
-    },
-    insights: { loading: false, error: null, data: null },
-    healthBadges: new Map(),
-    fresh: fakeFresh(fresh, options.freshProposal ?? null),
-    ask: options.ask ?? '',
-    proposal: null,
-    preview: {
-      loading: options.previewLoading ?? false,
-      error: null,
-      plan: null,
-      model: previewModel,
-      diff: null,
-      changes: built
-        ? [...built.changes, ...standard.changes.filter((c) => c.kind !== 'template')]
-        : [],
-      outline: built?.outline ?? null,
-      warnings: built ? [...built.warnings, ...standard.warnings] : [],
-      themeArn: built?.themeArn ?? null,
-    },
-    publishError: options.publishError ?? null,
-  };
-}
-
-/** A draft after the planner filled it in and every column resolves. */
-export function resolvedDraft(): Partial<RebindDraft> {
-  const rebinds = [{ identifier: 'sales', targetDataSetId: 'sales-gold', columnMap: FULL_MAP }];
-  return {
-    targets: { sales: { id: 'sales-gold', name: 'sales_gold' } },
-    columnMaps: { sales: FULL_MAP },
-    rebinds,
-    plan: planFor(rebinds),
-    canApply: true,
-  };
-}
-
-/** A draft with a target chosen but two columns still undecided. */
-export function undecidedDraft(): Partial<RebindDraft> {
-  const rebinds = [{ identifier: 'sales', targetDataSetId: 'sales-gold' }];
-  return {
-    targets: { sales: { id: 'sales-gold', name: 'sales_gold' } },
-    rebinds,
-    plan: planFor(rebinds),
-    canApply: false,
-  };
-}
-
-export function previewModelFor(map: Record<string, string>): WireframeModel {
-  return buildWireframeModel(rewrite(definitionFixtures.gridDashboardDefinition, 'sales', map));
 }
 
 /** A handful of edits that exercise every highlight the mockup can draw. */

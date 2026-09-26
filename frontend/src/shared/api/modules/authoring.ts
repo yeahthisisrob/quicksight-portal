@@ -15,7 +15,6 @@ export type DatasetRebindPlan = Schemas['DatasetRebindPlan'];
 export type ColumnResolution = Schemas['ColumnResolution'];
 export type ApplyRebindRequest = Schemas['ApplyRebindRequest'];
 type ApplyRebindResult = Schemas['ApplyRebindResult'];
-type AuthoringDatasetColumns = Schemas['AuthoringDatasetColumns'];
 type ProposeRequest = Schemas['ProposeRequest'];
 export type Proposal = Schemas['Proposal'];
 type RebindPreview = Schemas['RebindPreview'];
@@ -23,19 +22,12 @@ export type DefinitionOp = Schemas['DefinitionOp'];
 export type DefinitionChange = Schemas['DefinitionChange'];
 export type SheetOutline = Schemas['SheetOutline'];
 export type SheetOutlineElement = Schemas['SheetOutlineElement'];
-export type AddedCalculatedField = Schemas['AddedCalculatedField'];
 export type AssetInsights = Schemas['AssetInsights'];
 export type VisualHealth = Schemas['VisualHealth'];
 export type RepairOp = Schemas['RepairOp'];
 export type RepairFix = Schemas['RepairFix'];
 export type RepairIssue = Schemas['RepairIssue'];
 export type RepairPlan = Schemas['RepairPlan'];
-export type TemplateRequest = Schemas['TemplateRequest'];
-export type TypeRules = Schemas['TypeRules'];
-export type NewAssetRequest = Schemas['NewAssetRequest'];
-export type NewAssetPreview = Schemas['NewAssetPreview'];
-type NewAssetResult = Schemas['NewAssetResult'];
-export type VisualSpec = Schemas['VisualSpec'];
 
 type PostBody<P extends keyof paths> = paths[P] extends {
   post: { requestBody?: { content: { 'application/json': infer B } } };
@@ -141,39 +133,6 @@ export const authoringApi = {
   },
 
   /**
-   * The columns a dataset exposes. A new asset has no definition to read them
-   * from, so the server describes the dataset instead.
-   */
-  async getDatasetColumns(dataSetId: string): Promise<AuthoringDatasetColumns> {
-    return unwrap(
-      await client.GET('/api/authoring/datasets/{dataSetId}/columns', {
-        params: { path: { dataSetId } },
-      }),
-      'Failed to read the dataset'
-    );
-  },
-
-  /**
-   * A dashboard or analysis from nothing: datasets and visuals by column
-   * names (or an ask the planner turns into visuals), built and drawn but not
-   * written. The same body creates it.
-   */
-  async previewNew(request: NewAssetRequest): Promise<NewAssetPreview> {
-    return unwrap(
-      await client.POST('/api/authoring/new/preview', { body: request }),
-      'Failed to build the new asset'
-    );
-  },
-
-  /** Writes to QuickSight: the asset the preview showed, in the folder asked for. */
-  async createNew(request: NewAssetRequest): Promise<NewAssetResult> {
-    return unwrap(
-      await client.POST('/api/authoring/new', { body: request }),
-      'Failed to create the new asset'
-    );
-  },
-
-  /**
    * Natural language in, a validated proposal out. Never applies anything.
    * The planner runs as a job (a long think would outlive the gateway), so
    * this queues it and waits for the result.
@@ -191,14 +150,5 @@ export const authoringApi = {
       'Failed to queue the proposal'
     );
     return jobsApi.awaitResult<Proposal>(queued.jobId);
-  },
-
-  /** From nothing: the planner proposes visuals from the ask, as a job; the preview is the result. */
-  async proposeNew(request: NewAssetRequest): Promise<NewAssetPreview> {
-    const queued = unwrap(
-      await client.POST('/api/authoring/new/propose', { body: request }),
-      'Failed to queue the proposal'
-    );
-    return jobsApi.awaitResult<NewAssetPreview>(queued.jobId);
   },
 };

@@ -1,8 +1,7 @@
 /**
  * Which model a person picked, per kind of work, kept in their browser.
- * The model pills in the assistant's composer write it; the Studio's planner
- * and the assistant chat read it, so one choice follows the person across
- * the page.
+ * The model pills in the assistant's composer write it and the assistant
+ * reads it, so one choice follows the person across the page.
  */
 import { useCallback, useEffect, useState } from 'react';
 
@@ -23,7 +22,7 @@ function isKey(value: unknown): value is AiModelKey {
   return typeof value === 'string' && (KEYS as readonly string[]).includes(value);
 }
 
-export function readAiModel(work: AiWork): AiModelKey {
+function readAiModel(work: AiWork): AiModelKey {
   try {
     const stored = window.localStorage.getItem(`${STORAGE_PREFIX}${work}`);
     return isKey(stored) ? stored : DEFAULT_AI_MODEL[work];

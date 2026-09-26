@@ -13,7 +13,7 @@ import {
 import { IconButton, Menu, MenuItem } from '@mui/material';
 import { memo, useState } from 'react';
 
-import { SMUS_ACCENT } from '@/features/smus';
+import { SMUS_ACCENT } from '@/entities/smus';
 
 import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 
@@ -128,13 +128,13 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
             onClick={() =>
               handleAction(() =>
                 handlers.navigate(
-                  `/author?type=${assetType}&id=${encodeURIComponent(asset.id)}&name=${encodeURIComponent(asset.name ?? '')}`
+                  `/author?tab=studio&type=${assetType}&id=${encodeURIComponent(asset.id)}&name=${encodeURIComponent(asset.name ?? '')}`
                 )
               )
             }
           >
             <AuthorIcon fontSize="small" sx={{ mr: 1 }} />
-            Open in Author
+            Edit in Studio
           </MenuItem>
         )}
         {(assetType === 'dashboard' || assetType === 'analysis') && (
@@ -150,14 +150,14 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
               onClick={() =>
                 handleAction(() =>
                   handlers.navigate(
-                    `/author?type=${assetType}&id=${encodeURIComponent(asset.id)}&name=${encodeURIComponent(asset.name ?? '')}&repair=1`
+                    `/author?tab=studio&type=${assetType}&id=${encodeURIComponent(asset.id)}&name=${encodeURIComponent(asset.name ?? '')}`
                   )
                 )
               }
             >
               <RepairIcon fontSize="small" sx={{ mr: 1 }} />
-              Repair ({asset.definitionErrors.length} error
-              {asset.definitionErrors.length === 1 ? '' : 's'})
+              Fix {asset.definitionErrors.length} error
+              {asset.definitionErrors.length === 1 ? '' : 's'} in Studio
             </MenuItem>
           )}
         {RENAMEABLE_TYPES.includes(assetType) && (

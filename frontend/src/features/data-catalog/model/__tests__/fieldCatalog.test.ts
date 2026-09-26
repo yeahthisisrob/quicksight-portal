@@ -105,19 +105,18 @@ describe('describeDefinedIn', () => {
 });
 
 describe('catalog URL state', () => {
-  it('reads the tab, field, conflicts and templates flags, ignoring an unknown tab', () => {
-    const params = new URLSearchParams(
-      'tab=columns&project=p&field=cf_1&conflicts=1&q=margin&templates=1'
-    );
+  it('reads the tab, field and conflicts flags, ignoring an unknown tab', () => {
+    const params = new URLSearchParams('tab=columns&project=p&field=cf_1&conflicts=1&q=margin');
     expect(readCatalogState(params)).toMatchObject({
       tab: 'columns',
       project: 'p',
       field: 'cf_1',
       conflicts: '1',
       q: 'margin',
-      templates: '1',
     });
     expect(readCatalogState(new URLSearchParams('tab=nope')).tab).toBeUndefined();
+    // Templates moved to the Author Studio.
+    expect(readCatalogState(new URLSearchParams('tab=templates')).tab).toBeUndefined();
   });
 
   it('writes and clears keys', () => {

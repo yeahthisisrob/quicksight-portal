@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import type { DefinitionDataset, RepairPlan } from '@/shared/api/modules/authoring';
 
-import { authorSteps, initialAuthorFlowState, nextStep, stepStatus } from '../authorFlow';
 import {
   chosenFix,
   defaultChoices,
@@ -173,51 +172,5 @@ describe('repair choices', () => {
     expect(describeFix(DROP)).toBe('Remove every reference to it');
     expect(describeFix(DECLARE)).toBe('Declare it as STRING');
     expect(describeFix(null)).toBe('Leave as is');
-  });
-});
-
-describe('the Repair step', () => {
-  const withSource = {
-    ...initialAuthorFlowState,
-    source: { type: 'dashboard' as const, id: 'd', name: 'D' },
-  };
-
-  it('is only in the rail when the plan found issues', () => {
-    expect(authorSteps(false).map((s) => s.id)).toEqual([
-      'source',
-      'targets',
-      'review',
-      'standard',
-      'mockup',
-      'publish',
-    ]);
-    expect(authorSteps(true).map((s) => s.id)[1]).toBe('repair');
-    expect(stepStatus(withSource, { hasTargets: false, canApply: false })).not.toHaveProperty(
-      'repair'
-    );
-    expect(
-      stepStatus(withSource, { hasTargets: false, canApply: false, repairIssues: 2 }).repair
-    ).toBe('available');
-  });
-
-  it('counts accepted repairs as a change and is done once settled and visited', () => {
-    const facts = { hasTargets: false, canApply: true, repairIssues: 2, hasRepairs: true };
-    expect(stepStatus(withSource, facts).mockup).toBe('available');
-    expect(stepStatus(withSource, facts).publish).toBe('available');
-    const visited = { ...withSource, visited: ['source', 'repair'] as const };
-    expect(
-      stepStatus({ ...visited, visited: [...visited.visited] }, { ...facts, repairsSettled: true })
-        .repair
-    ).toBe('done');
-    expect(
-      stepStatus({ ...visited, visited: [...visited.visited] }, { ...facts, repairsSettled: false })
-        .repair
-    ).toBe('available');
-  });
-
-  it('walks through repair only when it is shown', () => {
-    expect(nextStep('source', authorSteps(true))).toBe('repair');
-    expect(nextStep('source', authorSteps(false))).toBe('targets');
-    expect(nextStep('repair', authorSteps(true))).toBe('targets');
   });
 });

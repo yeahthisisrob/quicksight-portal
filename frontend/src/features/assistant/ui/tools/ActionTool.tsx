@@ -86,11 +86,11 @@ function CreatedNote({ result }: { result: unknown }) {
             <Button
               size="small"
               color="inherit"
-              href={`/author?type=${created.assetType}&id=${encodeURIComponent(created.assetId)}`}
+              href={`/author?tab=studio&type=${created.assetType}&id=${encodeURIComponent(created.assetId)}`}
               target="_blank"
               rel="noopener"
             >
-              Open in Author
+              Edit in Studio
             </Button>
           }
         >

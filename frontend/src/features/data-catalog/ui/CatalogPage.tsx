@@ -250,7 +250,7 @@ export function CatalogPage({
               variant="outlined"
               startIcon={<CollectionsBookmark />}
               component={RouterLink}
-              to="/data-catalog?tab=templates"
+              to="/author?tab=studio&view=templates"
             >
               Templates
             </Button>

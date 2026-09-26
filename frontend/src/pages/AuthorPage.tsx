@@ -2,7 +2,6 @@ import { Box } from '@mui/material';
 import { lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import { SmusGate } from '@/entities/smus';
 import { loadApiTab } from '@/features/api-reference';
 import { loadAssistantTab } from '@/features/assistant';
 import { AuthorStudio } from '@/features/author';
@@ -23,7 +22,7 @@ const TABS: Array<{ value: AuthorTab; label: string }> = [
 ];
 
 /** Params only the Studio reads: a link carrying any of them opens the Studio. */
-const STUDIO_PARAMS = ['id', 'type', 'new'];
+const STUDIO_PARAMS = ['id', 'type', 'view'];
 
 /** The tab in the URL, else Studio when the link is a Studio link, else the Assistant. */
 function authorTabOf(params: URLSearchParams): AuthorTab {
@@ -36,9 +35,11 @@ function authorTabOf(params: URLSearchParams): AuthorTab {
 
 /**
  * /author - the Assistant: ask, and it plans, previews and prepares the
- * change. ?tab=studio (or ?type=&id=) - the Studio, only with an active SMUS
- * project. ?tab=api - the same authoring by API: the keys and every
- * operation; not gated, a key works whether or not SMUS is configured.
+ * change, new assets included. ?tab=studio (or ?type=&id=, ?view=) - the
+ * Studio, where existing assets are edited and fixed by hand, templates are
+ * kept and account-wide scripts run. ?tab=api - the same authoring by API:
+ * the keys and every operation. None of them is gated on SMUS; each uses it
+ * when it is configured.
  */
 export default function AuthorPage() {
   const [params, setParams] = useSearchParams();
@@ -63,9 +64,7 @@ export default function AuthorPage() {
           <AssistantTab />
         </Suspense>
       ) : (
-        <SmusGate subject="Author">
-          <AuthorStudio />
-        </SmusGate>
+        <AuthorStudio />
       )}
     </Box>
   );

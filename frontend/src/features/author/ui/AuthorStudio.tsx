@@ -1,94 +1,117 @@
 /**
- * AuthorStudio - the Author page: a steps rail beside one panel at a time.
+ * The Studio - where existing QuickSight assets are edited and fixed, by
+ * hand and deterministically. Three views, chosen by what you came to do:
+ *
+ *   Editor     one dashboard or analysis: its issues and their fixes, the
+ *              visuals on a canvas to move, rename, retype or remove, the
+ *              datasets it reads, how it is used; save over it or as a copy.
+ *   Templates  the reusable pieces: filter bars, visuals, calculated fields
+ *              and layout templates.
+ *   Scripts    fixes across the whole account, previewed before they run.
+ *
+ * Nothing here asks a model or makes something from nothing: that is the
+ * Assistant (or the QuickSight console). The view is in the URL (?view=).
  */
 import { Box, Typography } from '@mui/material';
+import { useSearchParams } from 'react-router-dom';
 
-import { type AuthorFlow, type AuthorFlowOptions, useAuthorFlow } from '../model/useAuthorFlow';
-import { HowItWorks } from './HowItWorks';
-import { StepsRail } from './StepsRail';
-import { MockupStep } from './steps/MockupStep';
-import { NewDatasetsStep } from './steps/NewDatasetsStep';
-import { NewPublishStep } from './steps/NewPublishStep';
-import { PublishStep } from './steps/PublishStep';
-import { RepairStep } from './steps/RepairStep';
-import { ReviewStep } from './steps/ReviewStep';
-import { SourceStep } from './steps/SourceStep';
-import { StandardStep } from './steps/StandardStep';
-import { TargetsStep } from './steps/TargetsStep';
-import { VisualsStep } from './steps/VisualsStep';
+import { SegmentedControl } from '@/shared/design-system';
 
-const RAIL_WIDTH = 264;
+import { type Studio, type StudioOptions, useStudio } from '../model/useStudio';
+import { Editor } from './editor/Editor';
+import { ScriptsPanel } from './scripts/ScriptsPanel';
+import { TemplatesView } from './templates/TemplatesView';
 
-function StepBody({ flow }: { flow: AuthorFlow }) {
-  const fromNothing = flow.state.mode === 'new';
-  switch (flow.state.step) {
-    case 'source':
-      return <SourceStep flow={flow} />;
-    case 'repair':
-      return <RepairStep flow={flow} />;
-    case 'targets':
-      return fromNothing ? <NewDatasetsStep flow={flow} /> : <TargetsStep flow={flow} />;
-    case 'review':
-      return <ReviewStep flow={flow} />;
-    case 'visuals':
-      return <VisualsStep flow={flow} />;
-    case 'standard':
-      return <StandardStep flow={flow} />;
-    case 'mockup':
-      return <MockupStep flow={flow} />;
-    case 'publish':
-      return fromNothing ? <NewPublishStep flow={flow} /> : <PublishStep flow={flow} />;
-    default:
-      return null;
-  }
+export type StudioView = 'editor' | 'templates' | 'scripts';
+
+const VIEWS: Array<{ value: StudioView; label: string }> = [
+  { value: 'editor', label: 'Editor' },
+  { value: 'templates', label: 'Templates' },
+  { value: 'scripts', label: 'Scripts' },
+];
+
+const DESCRIPTIONS: Record<StudioView, string> = {
+  editor:
+    'Fix and shape an existing dashboard or analysis: its errors, its visuals, its layout. New assets come from the Assistant.',
+  templates:
+    'The pieces the organisation reuses: filter bars, visuals, calculated fields and layouts. The Assistant and the portal apply them.',
+  scripts: 'Fixes across the whole account. Each one shows what it will touch before it runs.',
+};
+
+function viewOf(params: URLSearchParams): StudioView {
+  const view = params.get('view');
+  return view === 'templates' || view === 'scripts' ? view : 'editor';
 }
 
-/** The page with its flow injected, so stories can drive it. */
-export function AuthorStudioView({ flow }: { flow: AuthorFlow }) {
-  // The mockup is a dashboard drawing with an inspector beside it: it needs
-  // every pixel of width, so the rail moves above it as a horizontal stepper.
-  const wide = flow.state.step === 'mockup';
-  const fromNothing = flow.state.mode === 'new';
+/** The Studio with its editor state injected, so stories can drive it. */
+export function AuthorStudioView({
+  studio,
+  view,
+  onViewChange,
+}: {
+  studio: Studio;
+  view: StudioView;
+  onViewChange: (view: StudioView) => void;
+}) {
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0 }}>
-      <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Box>
-          <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
-            Author
-          </Typography>
-          <Typography variant="body1" sx={{ color: 'text.secondary', mt: 0.5 }}>
-            {fromNothing
-              ? 'Make a dashboard or analysis from nothing: pick datasets, describe it or name the columns, and see it before it exists.'
-              : 'Make a dashboard or analysis like an existing one, on different datasets, shape it, and see it before it exists.'}
-          </Typography>
-        </Box>
-        <HowItWorks defaultOpen={flow.state.source === null && !fromNothing} />
-      </Box>
       <Box
         sx={{
-          display: 'grid',
-          gridTemplateColumns: wide ? '1fr' : { xs: '1fr', md: `${RAIL_WIDTH}px minmax(0, 1fr)` },
-          gap: 3,
-          alignItems: 'start',
+          mb: 3,
+          display: 'flex',
+          alignItems: { md: 'flex-end' },
+          flexDirection: { xs: 'column', md: 'row' },
+          gap: 2,
         }}
       >
-        <Box sx={wide ? undefined : { position: { md: 'sticky' }, top: { md: 24 } }}>
-          <StepsRail
-            status={flow.status}
-            steps={flow.steps}
-            onSelect={flow.goTo}
-            orientation={wide ? 'horizontal' : undefined}
-          />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
+            Studio
+          </Typography>
+          <Typography variant="body1" sx={{ color: 'text.secondary', mt: 0.5 }}>
+            {DESCRIPTIONS[view]}
+          </Typography>
         </Box>
-        <Box sx={{ minWidth: 0 }}>
-          <StepBody flow={flow} />
-        </Box>
+        <SegmentedControl<StudioView>
+          ariaLabel="Studio views"
+          value={view}
+          onChange={onViewChange}
+          options={VIEWS}
+        />
       </Box>
+      {view === 'templates' ? (
+        <TemplatesView />
+      ) : view === 'scripts' ? (
+        <ScriptsPanel />
+      ) : (
+        <Editor
+          key={
+            studio.state.source ? `${studio.state.source.type}/${studio.state.source.id}` : 'browse'
+          }
+          studio={studio}
+        />
+      )}
     </Box>
   );
 }
 
-export function AuthorStudio(options: AuthorFlowOptions = {}) {
-  const flow = useAuthorFlow(options);
-  return <AuthorStudioView flow={flow} />;
+export function AuthorStudio(options: StudioOptions = {}) {
+  const studio = useStudio(options);
+  const [params, setParams] = useSearchParams();
+  const view = viewOf(params);
+  const select = (next: StudioView) => {
+    setParams(
+      (prev) => {
+        const copy = new URLSearchParams(prev);
+        if (next === 'editor') {
+          copy.delete('view');
+        } else {
+          copy.set('view', next);
+        }
+        return copy;
+      },
+      { replace: true }
+    );
+  };
+  return <AuthorStudioView studio={studio} view={view} onViewChange={select} />;
 }

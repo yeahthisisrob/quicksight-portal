@@ -72,7 +72,7 @@ describe('the portal brief', () => {
     expect(brief).toContain('40 distinct across 12 datasets; 3 conflicts');
     expect(brief).toContain('- margin_pct = {margin} / {revenue} [template t1]');
     expect(brief).toContain('- Exec standard [dashboard std-1]');
-    // Layout standards are found by the template tag, as the Studio finds them.
+    // Layout standards are found by the template tag, as the Studio's Templates view finds them.
     const standards = dispatch.mock.calls.find((c) => c[0].path.includes('paginated'))![0].path;
     expect(decodeURIComponent(standards)).toContain('quicksight-portal:template');
   });

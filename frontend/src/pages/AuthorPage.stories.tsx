@@ -18,10 +18,9 @@ const sourceUrl = `/author?type=${SOURCE.type}&id=${SOURCE.id}&name=${encodeURIC
 
 /**
  * The Author page exactly as a user sees it: inside the top bar and sidebar,
- * at its real route, with the API stubbed. Click through the steps: the
- * source list is ranked by use with insights on the preview, the planner
- * proposes a dataset and an edit, the mockup is editable, and the copy can
- * be published into a folder.
+ * at its real route, with the API stubbed. The Assistant makes things; the
+ * Studio edits and fixes what exists - click a row to open it, fix its
+ * issues, edit visuals on the canvas and save.
  */
 const meta: Meta<typeof AuthorPage> = {
   title: 'Pages/Author',
@@ -32,8 +31,19 @@ const meta: Meta<typeof AuthorPage> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** /author?tab=studio - the Editor with nothing open: what needs fixing first. */
+export const Studio: Story = {
+  name: 'Studio',
+  parameters: { router: { initialEntries: ['/author?tab=studio'] } },
+  render: () => (
+    <AppShell path="author" routes={authorRoutes()}>
+      <AuthorPage />
+    </AppShell>
+  ),
+};
+
 export const WithSource: Story = {
-  name: 'Opened from a dashboard row',
+  name: 'Studio: opened from a dashboard row',
   parameters: { router: { initialEntries: [sourceUrl] } },
   render: () => (
     <AppShell path="author" routes={authorRoutes()}>
@@ -42,10 +52,10 @@ export const WithSource: Story = {
   ),
 };
 
-/** Opened from the errors dialog or the row menu: lands on the Repair step. */
+/** Opened from the errors dialog or the row menu: the Issues panel, every fix proposed. */
 export const RepairFromErrors: Story = {
-  name: 'Opened to repair a broken dashboard',
-  parameters: { router: { initialEntries: [`${sourceUrl}&repair=1`] } },
+  name: 'Studio: opened to fix a broken dashboard',
+  parameters: { router: { initialEntries: [sourceUrl] } },
   render: () => (
     <AppShell path="author" routes={authorRoutes([repairPlanRoute(REPAIR_PLAN)])}>
       <AuthorPage />
@@ -53,10 +63,24 @@ export const RepairFromErrors: Story = {
   ),
 };
 
-/** /author?new=1 - the flow that starts from nothing, on the Datasets step. */
-export const StartedFromNothing: Story = {
-  name: 'Started from nothing',
-  parameters: { router: { initialEntries: ['/author?new=1'] } },
+/** SMUS is not configured: the Studio works all the same; the Data panel says so. */
+export const StudioWithoutSmus: Story = {
+  name: 'Studio: SMUS not configured',
+  parameters: { router: { initialEntries: [sourceUrl] } },
+  render: () => (
+    <AppShell
+      path="author"
+      routes={authorRoutes([SMUS_SETTINGS_NOT_CONFIGURED, SMUS_NOT_CONFIGURED])}
+    >
+      <AuthorPage />
+    </AppShell>
+  ),
+};
+
+/** /author?tab=studio&view=templates - the naming standard and the template library. */
+export const StudioTemplates: Story = {
+  name: 'Studio: Templates',
+  parameters: { router: { initialEntries: ['/author?tab=studio&view=templates'] } },
   render: () => (
     <AppShell path="author" routes={authorRoutes()}>
       <AuthorPage />
@@ -81,19 +105,6 @@ export const AssistantTab: Story = {
   parameters: { router: { initialEntries: ['/author'] } },
   render: () => (
     <AppShell path="author" routes={authorRoutes(assistantRoutes())}>
-      <AuthorPage />
-    </AppShell>
-  ),
-};
-
-export const SmusNotConfigured: Story = {
-  name: 'Gated: SMUS not configured',
-  parameters: { router: { initialEntries: [sourceUrl] } },
-  render: () => (
-    <AppShell
-      path="author"
-      routes={authorRoutes([SMUS_SETTINGS_NOT_CONFIGURED, SMUS_NOT_CONFIGURED])}
-    >
       <AuthorPage />
     </AppShell>
   ),

@@ -12,7 +12,6 @@ export {
   seconds,
 } from './lib/healthBadges';
 export {
-  type DatasetOption,
   type RebindDraft,
   type RebindMode,
   type RebindSource,

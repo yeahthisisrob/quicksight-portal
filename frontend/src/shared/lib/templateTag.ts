@@ -15,7 +15,7 @@ interface TagLike {
 }
 
 /** Normalises the two casings the API has used for tags. */
-export function normalizeTags(tags: TagLike[] | undefined): Array<{ key: string; value: string }> {
+function normalizeTags(tags: TagLike[] | undefined): Array<{ key: string; value: string }> {
   return (tags ?? [])
     .map((t) => ({ key: t.key ?? t.Key ?? '', value: t.value ?? t.Value ?? '' }))
     .filter((t) => t.key);

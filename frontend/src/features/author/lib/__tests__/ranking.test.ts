@@ -90,6 +90,14 @@ describe('ranking', () => {
     ]);
   });
 
+  it('puts what needs fixing ahead of everything, template or not', () => {
+    const broken = { ...ITEMS[6]!, id: 'broken', definitionErrors: [{ type: 'COLUMN_NOT_FOUND' }] };
+    const ranked = rankSources([...ITEMS, broken], 'views', NOW);
+    expect(ranked[0]).toMatchObject({ group: 'errors', item: { id: 'broken' } });
+    expect(ranked[0]!.badges).toContain('errors');
+    expect(ranked[1]!.group).toBe('templates');
+  });
+
   it('sorts by recency and by name inside the groups', () => {
     expect(rankSources(ITEMS, 'recent', NOW).map((r) => r.item.id)).toEqual([
       'f',

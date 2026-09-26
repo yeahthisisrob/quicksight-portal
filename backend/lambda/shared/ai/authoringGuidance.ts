@@ -14,6 +14,9 @@ export interface AuthoringGuidance {
   datasets: string;
   explorations: string;
   visuals: string;
+  /** Calculated-field name prefixes: in analyses and dashboards, and in datasets. */
+  calcFieldPrefix?: string;
+  datasetCalcFieldPrefix?: string;
 }
 
 /** Which parts a given model call needs. */
@@ -33,6 +36,8 @@ export function readAuthoringGuidance(
     datasets: get('guidance.datasets').trim(),
     explorations: get('guidance.explorations').trim(),
     visuals: get('guidance.visuals').trim(),
+    calcFieldPrefix: get('guidance.calcFieldPrefix').trim(),
+    datasetCalcFieldPrefix: get('guidance.datasetCalcFieldPrefix').trim(),
   };
 }
 
@@ -51,6 +56,21 @@ const STRATEGY_TEXT: Record<FieldStrategy, string> = {
   none: 'Row-level calculated fields can live in the dataset or the analysis; never recompute one the dataset already has as a column.',
 };
 
+/** The naming standard as one sentence, or '' when neither prefix is set. */
+function namingText(guidance: AuthoringGuidance): string {
+  const rules = [
+    guidance.calcFieldPrefix
+      ? `"${guidance.calcFieldPrefix}" for calculated fields defined in an analysis or dashboard`
+      : '',
+    guidance.datasetCalcFieldPrefix
+      ? `"${guidance.datasetCalcFieldPrefix}" for calculated fields defined in a dataset`
+      : '',
+  ].filter(Boolean);
+  return rules.length
+    ? `Name every new calculated field with the organisation's prefix: ${rules.join(', and ')}. Keep the rest of the name snake_case and say what it computes.`
+    : '';
+}
+
 /**
  * The guidance as a prompt section, only the parts asked for and only the
  * parts written. Empty when nothing is configured, so an unconfigured
@@ -62,7 +82,7 @@ export function guidanceSection(guidance: AuthoringGuidance, focus: GuidanceFocu
     guidance.fieldStrategy !== 'none' || parts.length > 0
       ? `Calculated fields: ${STRATEGY_TEXT[guidance.fieldStrategy]} Aggregations, table calculations, level-aware calculations and anything that reads a parameter always stay in the analysis.`
       : '';
-  const body = [...parts, strategy].filter(Boolean);
+  const body = [...parts, strategy, namingText(guidance)].filter(Boolean);
   return body.length
     ? `This organisation's authoring guidance (from Settings). Follow it; where it conflicts with a general habit, it wins:\n${body.join('\n\n')}`
     : '';
