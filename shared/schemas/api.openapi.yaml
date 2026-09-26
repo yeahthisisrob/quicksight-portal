@@ -4919,8 +4919,20 @@ paths:
           application/json:
             schema:
               type: object
-              required: [assetType, assetIds, operation]
+              description: Either `assets` (any types at once) or `assetType` with `assetIds`.
+              required: [operation]
               properties:
+                assets:
+                  type: array
+                  items:
+                    type: object
+                    required: [assetType, assetId]
+                    properties:
+                      assetType:
+                        type: string
+                        enum: [dashboard, analysis, dataset, datasource, folder]
+                      assetId:
+                        type: string
                 assetType:
                   type: string
                 assetIds:
@@ -6591,6 +6603,12 @@ components:
               description: Clone only.
             themeArn:
               type: string
+            tags:
+              type: array
+              maxItems: 50
+              description: Tags the new asset is created with, beside the organisation's defaults (Settings). portal:* keys are the portal's own.
+              items:
+                $ref: '#/components/schemas/Tag'
             permissionsFrom:
               type: object
               description: Clone only; defaults to the source's audience.
@@ -6613,6 +6631,12 @@ components:
               type: string
             newAssetId:
               type: string
+            tags:
+              type: array
+              maxItems: 50
+              description: Tags the new asset is created with, beside the organisation's defaults (Settings). portal:* keys are the portal's own.
+              items:
+                $ref: '#/components/schemas/Tag'
             folderId:
               type: string
             themeArn:
@@ -8366,6 +8390,12 @@ components:
       type: object
       required: [assetType, name, datasets]
       properties:
+        tags:
+          type: array
+          maxItems: 50
+          description: Tags the new asset is created with, beside the organisation's defaults (Settings). portal:* keys are the portal's own.
+          items:
+            $ref: '#/components/schemas/Tag'
         assetType:
           type: string
           enum: [dashboard, analysis]
@@ -8723,6 +8753,12 @@ components:
       type: object
       required: [mode, rebinds]
       properties:
+        tags:
+          type: array
+          maxItems: 50
+          description: Tags the new asset is created with, beside the organisation's defaults (Settings). portal:* keys are the portal's own.
+          items:
+            $ref: '#/components/schemas/Tag'
         mode:
           type: string
           enum: [update, clone]

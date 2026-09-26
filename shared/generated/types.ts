@@ -3093,6 +3093,8 @@ export interface components {
             /** @description Clone only. */
             folderId?: string;
             themeArn?: string;
+            /** @description Tags the new asset is created with, beside the organisation's defaults (Settings). portal:* keys are the portal's own. */
+            tags?: components["schemas"]["Tag"][];
             /** @description Clone only; defaults to the source's audience. */
             permissionsFrom?: {
                 assetType: components["schemas"]["AuthorableAssetType"];
@@ -3103,6 +3105,8 @@ export interface components {
             assetType: components["schemas"]["AuthorableAssetType"];
             name: string;
             newAssetId?: string;
+            /** @description Tags the new asset is created with, beside the organisation's defaults (Settings). portal:* keys are the portal's own. */
+            tags?: components["schemas"]["Tag"][];
             folderId?: string;
             themeArn?: string;
             permissionsFrom?: {
@@ -4111,6 +4115,8 @@ export interface components {
             max?: number;
         };
         NewAssetRequest: {
+            /** @description Tags the new asset is created with, beside the organisation's defaults (Settings). portal:* keys are the portal's own. */
+            tags?: components["schemas"]["Tag"][];
             /** @enum {string} */
             assetType: "dashboard" | "analysis";
             name: string;
@@ -4304,6 +4310,8 @@ export interface components {
             canApply: boolean;
         };
         ApplyRebindRequest: {
+            /** @description Tags the new asset is created with, beside the organisation's defaults (Settings). portal:* keys are the portal's own. */
+            tags?: components["schemas"]["Tag"][];
             /** @enum {string} */
             mode: "update" | "clone";
             /** @description May be empty for a rename-only update or a plain clone. */
@@ -9538,8 +9546,13 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    assetType: string;
-                    assetIds: string[];
+                    assets?: {
+                        /** @enum {string} */
+                        assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder";
+                        assetId: string;
+                    }[];
+                    assetType?: string;
+                    assetIds?: string[];
                     /** @enum {string} */
                     operation: "add" | "update" | "remove";
                     /** @description For add and update. */

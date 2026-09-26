@@ -752,6 +752,7 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       { readAuthoringGuidance },
       { readCustomVocabulary },
       { getSmusConfig },
+      { readTagStandards },
     ] = await Promise.all([
       import('./shared/ai/modelCatalog'),
       import('./adapters/aws/BedrockAdapter'),
@@ -763,6 +764,7 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       import('./shared/ai/authoringGuidance'),
       import('./shared/ai/authoringVocabulary'),
       import('./shared/config/smusConfig'),
+      import('./shared/tags/tagStandards'),
     ]);
     await settingsStore.load();
     if (!isAiModelKey(message.model)) {
@@ -781,6 +783,7 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       smus: getSmusConfig().enabled,
       guidance: readAuthoringGuidance(),
       vocabulary: readCustomVocabulary(),
+      tagStandards: readTagStandards(),
       ...(message.authoringModel && isAiModelKey(message.authoringModel)
         ? { authoringModel: message.authoringModel }
         : {}),

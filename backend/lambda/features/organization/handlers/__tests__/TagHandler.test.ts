@@ -298,7 +298,7 @@ describe('TagHandler - Batch Operations', () => {
       });
       await handler.bulkUpdateTags(mockEvent);
       expect(bulk).toHaveBeenLastCalledWith(
-        [{ type: 'dashboard', id: 'dash-1', name: 'dashboard-dash-1' }],
+        [{ type: 'dashboard', id: 'dash-1', name: 'dash-1' }],
         [{ Key: 'team', Value: 'sales' }],
         'add',
         expect.any(String)
@@ -333,6 +333,29 @@ describe('TagHandler - Batch Operations', () => {
       );
     });
 
+    it('tags assets of several types in one job', async () => {
+      const bulk = (handler as any).bulkOperationsService.bulkUpdateTags;
+      mockEvent.body = JSON.stringify({
+        assets: [
+          { assetType: 'dashboard', assetId: 'dash-1' },
+          { assetType: 'dataset', assetId: 'ds-1' },
+        ],
+        operation: 'add',
+        tags: [{ key: 'environment', value: 'prod' }],
+      });
+      const result = await handler.bulkUpdateTags(mockEvent);
+      expect(result.statusCode).toBe(STATUS_CODES.ACCEPTED);
+      expect(bulk).toHaveBeenLastCalledWith(
+        [
+          { type: 'dashboard', id: 'dash-1', name: 'dash-1' },
+          { type: 'dataset', id: 'ds-1', name: 'ds-1' },
+        ],
+        [{ Key: 'environment', Value: 'prod' }],
+        'add',
+        expect.any(String)
+      );
+    });
+
     it('should bulk update tags for remove operation', async () => {
       mockEvent.body = JSON.stringify({
         assetType: 'dataset',
@@ -360,7 +383,7 @@ describe('TagHandler - Batch Operations', () => {
 
       expect(result.statusCode).toBe(STATUS_CODES.BAD_REQUEST);
       expect(body.success).toBe(false);
-      expect(body.error).toBe('Asset type, assetIds array, and operation are required');
+      expect(body.error).toContain('assetType with assetIds, and an operation');
     });
 
     it('should return error when tags missing for add operation', async () => {

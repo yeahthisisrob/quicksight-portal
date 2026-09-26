@@ -218,6 +218,16 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
                 sheetName: { type: 'string' },
                 folderId: { type: 'string' },
                 filterBarTemplateId: { type: 'string' },
+                tags: {
+                  type: 'array',
+                  description:
+                    "Tags it is created with, from the organisation's tag standards (e.g. environment, lifecycle), when the person asked for them. The organisation's default tags are added for you.",
+                  items: {
+                    type: 'object',
+                    properties: { key: { type: 'string' }, value: { type: 'string' } },
+                    required: ['key', 'value'],
+                  },
+                },
                 permissionsFrom: {
                   type: 'object',
                   properties: {

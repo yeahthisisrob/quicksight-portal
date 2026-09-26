@@ -129,6 +129,8 @@ export class DefinitionService {
         permissions: audience.permissions,
         themeArn,
         dashboardPublishOptions: loaded.dashboardPublishOptions,
+        ...(request.tags ? { tags: request.tags } : {}),
+        auth,
       });
       const filing = await fileInFolders(
         this.quickSightService,
@@ -193,6 +195,8 @@ export class DefinitionService {
       definition,
       permissions,
       themeArn: request.themeArn?.trim() || undefined,
+      ...(request.tags ? { tags: request.tags } : {}),
+      auth,
     });
     const { filed, warnings: filing } = await fileInFolders(
       this.quickSightService,

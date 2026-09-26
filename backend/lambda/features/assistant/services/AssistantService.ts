@@ -23,6 +23,7 @@ import {
   isAiModelKey,
 } from '../../../shared/ai/modelCatalog';
 import { bodyErrors, bodyFields, matchOperation } from '../../../shared/api/contract';
+import type { TagStandard } from '../../../shared/tags/tagStandards';
 import { logger } from '../../../shared/utils/logger';
 import { contextGet, contextRelated, contextSearch, datasetColumns } from '../lib/contextTools';
 import {
@@ -95,6 +96,8 @@ interface AssistantOptions {
   guidance?: AuthoringGuidance;
   /** The organisation's own words for what to build, from Settings. */
   vocabulary?: VocabularyEntry[];
+  /** The organisation's tag keys and values, from Settings. */
+  tagStandards?: TagStandard[];
   /** Read the account's state (SMUS, catalog, templates) before answering. */
   brief?: boolean;
   /** Sent as `model` on propose calls that do not name one. */
@@ -225,6 +228,7 @@ export class AssistantService {
         smus: this.options.smus ?? true,
         guidance: this.options.guidance ?? NO_GUIDANCE,
         vocabulary: this.options.vocabulary,
+        tagStandards: this.options.tagStandards,
       }),
       ...(context ? { context } : {}),
     };

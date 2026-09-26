@@ -238,6 +238,14 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
         envVar: '',
       },
       {
+        key: 'guidance.tagStandards',
+        label: 'Tag standards',
+        description:
+          'The tag keys your organisation uses and the values each may take, one key per line as "key: value, value, value", e.g. "environment: dev, test, prod" and "lifecycle: draft, active, deprecated, retired". The assistant tags with these words and asks when a request fits none of them.',
+        type: 'text',
+        envVar: '',
+      },
+      {
         key: 'guidance.vocabulary',
         label: 'Vocabulary',
         description:
@@ -261,6 +269,14 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
         type: 'multiselect',
         envVar: '',
         optionsFrom: '/settings/quicksight/folders',
+      },
+      {
+        key: 'authoring.defaultTags',
+        label: 'Tag authored assets with',
+        description:
+          'Tags every dashboard and analysis the portal creates is written with, one per line as "key=value", e.g. "lifecycle=draft". They are part of the create call, so the asset never exists without them.',
+        type: 'text',
+        envVar: '',
       },
     ],
   },

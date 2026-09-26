@@ -10,6 +10,7 @@ import { actorFromAuth, auditLog } from '../../../shared/services/audit/AuditLog
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
 import { settingsStore } from '../../../shared/services/settings/SettingsStore';
+import { mergeTags, readDefaultTags, type TagPair } from '../../../shared/tags/tagStandards';
 import { logger } from '../../../shared/utils/logger';
 import type { AuthorableAssetType } from '../types';
 
@@ -41,10 +42,28 @@ function parseVersionNumber(versionArn?: string): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+/** Who wrote it and through what, as tags; none when Settings turn them off or nobody is known. */
+function provenanceTags(auth: AuthContext | undefined): TagPair[] {
+  if (!auth || settingsStore.get('provenance.tagAssets') === false) return [];
+  const { actor, channel } = actorFromAuth(auth);
+  return [
+    { key: 'portal:authored-by', value: `${actor.kind}:${actor.label}`.slice(0, TAG_VALUE_MAX) },
+    { key: 'portal:channel', value: channel },
+    { key: 'portal:at', value: new Date().toISOString() },
+  ];
+}
+
+/**
+ * Create it with its tags in the same call: the organisation's defaults,
+ * the ones asked for, and who made it. Tagging afterwards left a window in
+ * which it existed untagged, and a cache refresh landing in it kept it so.
+ */
 export async function createAsset(
   quickSight: QuickSightService,
-  input: WriteInput & { permissions?: any[] }
+  input: WriteInput & { permissions?: any[]; tags?: TagPair[]; auth?: AuthContext }
 ): Promise<WrittenAsset> {
+  const tags = mergeTags(readDefaultTags(), input.tags, provenanceTags(input.auth));
+  const tagged = tags.length > 0 ? { tags } : {};
   if (input.assetType === 'analysis') {
     const created = await quickSight.createAnalysis({
       analysisId: input.assetId,
@@ -52,6 +71,7 @@ export async function createAsset(
       definition: input.definition as any,
       permissions: input.permissions,
       themeArn: input.themeArn,
+      ...tagged,
     });
     return { assetId: created.analysisId, arn: created.arn };
   }
@@ -62,6 +82,7 @@ export async function createAsset(
     permissions: input.permissions,
     themeArn: input.themeArn,
     dashboardPublishOptions: input.dashboardPublishOptions,
+    ...tagged,
   });
   return {
     assetId: created.dashboardId,
@@ -146,18 +167,13 @@ export async function recordProvenance(
     assetName: entry.name,
     details: entry.details,
   });
-  if (settingsStore.get('provenance.tagAssets') === false) {
+  // A new asset was created with these tags; an update records who changed it.
+  const tags = entry.action === 'authoring.update' ? provenanceTags(auth) : [];
+  if (tags.length === 0) {
     return;
   }
   try {
-    await quickSight.tagResource(entry.assetType, entry.assetId, [
-      {
-        key: 'portal:authored-by',
-        value: `${actor.kind}:${actor.label}`.slice(0, TAG_VALUE_MAX),
-      },
-      { key: 'portal:channel', value: channel },
-      { key: 'portal:at', value: new Date().toISOString() },
-    ]);
+    await quickSight.tagResource(entry.assetType, entry.assetId, tags);
   } catch (error) {
     logger.warn('Provenance tags could not be written', {
       assetType: entry.assetType,

@@ -236,6 +236,7 @@ export class AuthoringHandler {
           folderId: this.optionalString(body, 'folderId'),
           themeArn: this.optionalString(body, 'themeArn'),
           permissionsFrom: this.parsePermissionsFrom(body.permissionsFrom),
+          tags: parseTags(body.tags),
         },
         user
       );
@@ -270,6 +271,7 @@ export class AuthoringHandler {
           folderId: this.optionalString(body, 'folderId'),
           themeArn: this.optionalString(body, 'themeArn'),
           permissionsFrom: this.parsePermissionsFrom(body.permissionsFrom),
+          tags: parseTags(body.tags),
         },
         user
       );
@@ -497,6 +499,7 @@ export class AuthoringHandler {
       permissionsFrom: permissionsFrom as NewAssetRequest['permissionsFrom'],
       folderId: typeof body.folderId === 'string' ? body.folderId.trim() || undefined : undefined,
       newAssetId: typeof body.newAssetId === 'string' ? body.newAssetId : undefined,
+      tags: parseTags(body.tags),
     };
   }
 
@@ -648,6 +651,7 @@ export class AuthoringHandler {
       template: this.parseTemplate(body.template),
       typeRules: this.parseTypeRules(body.typeRules),
       folderId: (body.folderId as string | undefined)?.trim() || undefined,
+      tags: parseTags(body.tags),
     };
   }
 
@@ -748,6 +752,36 @@ export class AuthoringHandler {
       error?.message || fallback
     );
   }
+}
+
+const MAX_TAGS = 50;
+const TAG_KEY_MAX = 128;
+const TAG_VALUE_MAX = 256;
+const RESERVED_TAG_PREFIX = 'portal:';
+
+/**
+ * Tags a new asset is created with: `{ key, value }` pairs within
+ * QuickSight's limits. The portal's own `portal:` keys (who made it,
+ * through what) are written by the portal, never asked for.
+ */
+function parseTags(raw: unknown): Array<{ key: string; value: string }> | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (!Array.isArray(raw) || raw.length > MAX_TAGS) {
+    throw badRequest(`tags must be a list of at most ${MAX_TAGS} { key, value }`);
+  }
+  return raw.map((tag, i) => {
+    const key = typeof tag?.key === 'string' ? tag.key.trim() : '';
+    const value = typeof tag?.value === 'string' ? tag.value.trim() : '';
+    if (!key || key.length > TAG_KEY_MAX || value.length > TAG_VALUE_MAX) {
+      throw badRequest(
+        `tags[${i}] needs a key (at most ${TAG_KEY_MAX}) and a value (at most ${TAG_VALUE_MAX})`
+      );
+    }
+    if (key.startsWith(RESERVED_TAG_PREFIX)) {
+      throw badRequest(`tags[${i}]: ${RESERVED_TAG_PREFIX} keys are written by the portal`);
+    }
+    return { key, value };
+  });
 }
 
 function badRequest(message: string): Error & { statusCode: number } {
