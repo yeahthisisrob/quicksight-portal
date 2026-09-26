@@ -177,4 +177,88 @@ describe('AG-UI run protocol', () => {
     expect(big.state!.ran).toEqual([]);
     expect(describeRunInput({})).toBe('');
   });
+
+  it('sends back a write that leaves out a filter the person asked for or the plan promised', async () => {
+    const { missingFilters, describeBuilt } = await import('../services/AssistantService');
+    const create = { assetType: 'analysis', name: 'x', datasets: [] };
+    expect(
+      missingFilters('/api/authoring/new', create, 'one table and a region filter', [])
+    ).toContain('asked for a filter');
+    expect(
+      missingFilters(
+        '/api/authoring/new',
+        { ...create, filters: [{ identifier: 'o', column: 'region' }] },
+        'a region filter',
+        []
+      )
+    ).toBeUndefined();
+    expect(missingFilters('/api/authoring/new', create, 'one simple table', [])).toBeUndefined();
+    const plan = {
+      id: 'p',
+      kind: 'plan',
+      title: 't',
+      sources: [],
+      datasets: [],
+      asset: { kind: 'analysis', name: 'x', status: 'new' },
+      filters: [{ column: 'Region' }, { column: 'order_date' }],
+    };
+    expect(
+      missingFilters(
+        '/api/authoring/{assetType}/{assetId}/rebind',
+        { mode: 'update', rebinds: [], ops: [{ op: 'addFilter', column: 'region' }] },
+        'go',
+        [plan as never]
+      )
+    ).toContain('promised filters on order_date');
+    expect(missingFilters('/api/folders/{folderId}/members', {}, 'filter', [])).toBeUndefined();
+
+    expect(
+      describeBuilt({
+        outline: [
+          {
+            elements: [
+              { kind: 'visual', elementId: 'v1' },
+              { kind: 'filterControl', elementId: 'c1', title: 'Region', placement: 'controlBar' },
+            ],
+          },
+        ],
+      })
+    ).toBe('1 visual; controls: Region');
+  });
+
+  it('in a real run, sends a create without the asked-for filter back to the model', async () => {
+    const told: string[] = [];
+    const create = {
+      toolCalls: [
+        {
+          id: 'c1',
+          name: 'propose_action',
+          input: {
+            title: 'Create',
+            why: 'x',
+            method: 'POST',
+            path: '/api/authoring/new',
+            body: {
+              assetType: 'analysis',
+              name: 'x',
+              datasets: [{ identifier: 'o', dataSetId: 'd' }],
+              folderId: 'f',
+            },
+          },
+        },
+      ],
+    };
+    const chat = scripted([create, { text: 'Adding the filter.' }]);
+    const turn = chat.turn.bind(chat);
+    chat.turn = async (system, turns, tools) => {
+      const last = turns[turns.length - 1];
+      if (last?.role === 'tool') told.push(last.results[0]?.content ?? '');
+      return turn(system, turns, tools);
+    };
+    const result = await new AssistantService(chat, model, vi.fn()).respond([
+      { role: 'user', text: 'one simple table and a region filter' },
+    ]);
+    expect(result.actions).toEqual([]);
+    expect(told[0]).toContain('asked for a filter');
+  });
 });

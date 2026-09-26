@@ -1,29 +1,27 @@
 /**
- * Filter bar templates over HTTP: list, create, update, delete.
+ * A template library over HTTP: list, create, update, delete. One handler
+ * per kind (filter bars, visuals), each with its own store and validation.
  *
- * GET    /data-catalog/templates/filter-bars
- * POST   /data-catalog/templates/filter-bars
- * PUT    /data-catalog/templates/filter-bars/{templateId}
- * DELETE /data-catalog/templates/filter-bars/{templateId}
+ * GET    /data-catalog/templates/{kind}
+ * POST   /data-catalog/templates/{kind}
+ * PUT    /data-catalog/templates/{kind}/{templateId}
+ * DELETE /data-catalog/templates/{kind}/{templateId}
  */
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
-import {
-  FilterBarTemplateStore,
-  validateFilterBarInput,
-} from '../../../shared/services/templates/FilterBarTemplateStore';
+import type { TemplateMeta, TemplateStore } from '../../../shared/services/templates/TemplateStore';
 import { errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 
-function fail(event: APIGatewayProxyEvent, error: any, fallback: string, status: number) {
-  logger.error(fallback, { error });
-  return errorResponse(event, error?.statusCode || status, error?.message || fallback);
-}
-
-export class FilterBarTemplateHandler {
-  public constructor(private readonly store = new FilterBarTemplateStore()) {}
+export class TemplateLibraryHandler<T extends TemplateMeta, Input extends { name: string }> {
+  public constructor(
+    private readonly store: TemplateStore<T, Input>,
+    private readonly validate: (raw: unknown) => Input,
+    /** For messages: "filter bar", "visual template". */
+    private readonly noun: string
+  ) {}
 
   public async list(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
@@ -33,10 +31,10 @@ export class FilterBarTemplateHandler {
         data: { templates: await this.store.list() },
       });
     } catch (error: any) {
-      return fail(
+      return this.fail(
         event,
         error,
-        'Failed to list filter bar templates',
+        `Failed to list the ${this.noun}s`,
         STATUS_CODES.INTERNAL_SERVER_ERROR
       );
     }
@@ -45,11 +43,13 @@ export class FilterBarTemplateHandler {
   public async create(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       const user = await requireAuth(event);
-      const input = validateFilterBarInput(JSON.parse(event.body || '{}'));
-      const template = await this.store.create(input, user.email ?? 'unknown');
-      return successResponse(event, { success: true, data: template });
+      const input = this.validate(JSON.parse(event.body || '{}'));
+      return successResponse(event, {
+        success: true,
+        data: await this.store.create(input, user.email ?? 'unknown'),
+      });
     } catch (error: any) {
-      return fail(event, error, 'Failed to save the filter bar template', STATUS_CODES.BAD_REQUEST);
+      return this.fail(event, error, `Failed to save the ${this.noun}`, STATUS_CODES.BAD_REQUEST);
     }
   }
 
@@ -60,15 +60,10 @@ export class FilterBarTemplateHandler {
       if (!id) {
         return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Template id is required');
       }
-      const input = validateFilterBarInput(JSON.parse(event.body || '{}'));
+      const input = this.validate(JSON.parse(event.body || '{}'));
       return successResponse(event, { success: true, data: await this.store.update(id, input) });
     } catch (error: any) {
-      return fail(
-        event,
-        error,
-        'Failed to update the filter bar template',
-        STATUS_CODES.BAD_REQUEST
-      );
+      return this.fail(event, error, `Failed to update the ${this.noun}`, STATUS_CODES.BAD_REQUEST);
     }
   }
 
@@ -82,12 +77,12 @@ export class FilterBarTemplateHandler {
       await this.store.delete(id);
       return successResponse(event, { success: true });
     } catch (error: any) {
-      return fail(
-        event,
-        error,
-        'Failed to delete the filter bar template',
-        STATUS_CODES.BAD_REQUEST
-      );
+      return this.fail(event, error, `Failed to delete the ${this.noun}`, STATUS_CODES.BAD_REQUEST);
     }
+  }
+
+  private fail(event: APIGatewayProxyEvent, error: any, fallback: string, status: number) {
+    logger.error(fallback, { error });
+    return errorResponse(event, error?.statusCode || status, error?.message || fallback);
   }
 }

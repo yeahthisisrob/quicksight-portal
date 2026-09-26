@@ -46,12 +46,15 @@ describe('NewAssetService', () => {
   };
   const planner = { planVisuals: vi.fn() };
   const filterBars = { get: vi.fn(), getDefault: vi.fn() };
-  const service = () => new NewAssetService('1', rebind as any, planner as any, filterBars);
+  const visualTemplates = { get: vi.fn() };
+  const service = () =>
+    new NewAssetService('1', rebind as any, planner as any, filterBars, visualTemplates as any);
 
   beforeEach(() => {
     vi.clearAllMocks();
     filterBars.get.mockResolvedValue(null);
     filterBars.getDefault.mockResolvedValue(null);
+    visualTemplates.get.mockResolvedValue(null);
     rebind.describeTargetDataset.mockResolvedValue({
       dataSetId: 'ds-1',
       dataSetArn: 'arn:ds-1',
@@ -367,5 +370,40 @@ describe('NewAssetService', () => {
       filterBarTemplateId: 'none',
     });
     expect(none.definition.Sheets[0].FilterControls).toBeUndefined();
+  });
+
+  it('adds saved visual templates on the dataset named, and says when one is gone', async () => {
+    visualTemplates.get.mockImplementation(async (id: string) =>
+      id === 'vt-trend'
+        ? {
+            id,
+            name: 'Revenue trend',
+            visual: {
+              type: 'LineChart',
+              category: 'order_date',
+              granularity: 'MONTH',
+              values: [{ column: 'revenue' }],
+            },
+          }
+        : null
+    );
+    const preview = await service().preview({
+      assetType: 'analysis',
+      name: 'x',
+      datasets: [{ identifier: 'orders', dataSetId: 'ds-1' }],
+      visualTemplates: [
+        { templateId: 'vt-trend', identifier: 'orders' },
+        { templateId: 'vt-gone', identifier: 'orders' },
+      ],
+    });
+    expect(preview.visuals).toEqual([
+      expect.objectContaining({
+        type: 'LineChart',
+        identifier: 'orders',
+        title: 'Revenue trend',
+        granularity: 'MONTH',
+      }),
+    ]);
+    expect(preview.warnings).toContain("No visual template 'vt-gone'; it was left out.");
   });
 });

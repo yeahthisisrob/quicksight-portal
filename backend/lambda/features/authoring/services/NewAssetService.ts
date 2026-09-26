@@ -17,6 +17,7 @@ import {
   FilterBarTemplateStore,
   filtersFromTemplate,
 } from '../../../shared/services/templates/FilterBarTemplateStore';
+import { VisualTemplateStore } from '../../../shared/services/templates/VisualTemplateStore';
 import { logger } from '../../../shared/utils/logger';
 import { datasetPermissionsFor } from '../../../shared/utils/permissions';
 import {
@@ -66,6 +67,8 @@ export interface NewAssetRequest {
    * widths; filters asked for besides follow.
    */
   filterBarTemplateId?: string;
+  /** Saved visual templates to add, each on the dataset identifier given. */
+  visualTemplates?: Array<{ templateId: string; identifier: string; title?: string }>;
   ask?: string;
   sheetName?: string;
   addCalculatedFields?: AddedCalculatedField[];
@@ -109,7 +112,8 @@ export class NewAssetService {
     private readonly filterBars: Pick<
       FilterBarTemplateStore,
       'get' | 'getDefault'
-    > = new FilterBarTemplateStore()
+    > = new FilterBarTemplateStore(),
+    private readonly visualTemplates: Pick<VisualTemplateStore, 'get'> = new VisualTemplateStore()
   ) {
     this.quickSightService = ClientFactory.getQuickSightService(accountId);
   }
@@ -248,7 +252,8 @@ export class NewAssetService {
       });
     }
 
-    let visuals = request.visuals ?? [];
+    const templated = await this.fromTemplates(request.visualTemplates ?? []);
+    let visuals = [...(request.visuals ?? []), ...templated.visuals];
     let filters = request.filters ?? [];
     let proposal: NewAssetPreview['proposal'];
     if (visuals.length === 0 && request.ask?.trim()) {
@@ -277,7 +282,7 @@ export class NewAssetService {
         description: `Built ${built.definition.Sheets[0].Visuals.length} visual${built.definition.Sheets[0].Visuals.length === 1 ? '' : 's'} on ${datasets.map((d) => d.identifier).join(', ')}`,
       },
     ];
-    const warnings = [...bar.warnings, ...built.warnings];
+    const warnings = [...templated.warnings, ...bar.warnings, ...built.warnings];
     let definition = built.definition;
     let themeArn: string | undefined;
 
@@ -343,6 +348,27 @@ export class NewAssetService {
       },
       blocking,
     };
+  }
+
+  /** Saved visual templates as visuals on the datasets named; a missing template is said so. */
+  private async fromTemplates(
+    refs: Array<{ templateId: string; identifier: string; title?: string }>
+  ): Promise<{ visuals: VisualSpec[]; warnings: string[] }> {
+    const visuals: VisualSpec[] = [];
+    const warnings: string[] = [];
+    for (const ref of refs) {
+      const template = await this.visualTemplates.get(ref.templateId).catch(() => null);
+      if (!template) {
+        warnings.push(`No visual template '${ref.templateId}'; it was left out.`);
+        continue;
+      }
+      visuals.push({
+        ...template.visual,
+        identifier: ref.identifier,
+        title: ref.title?.trim() || template.visual.title || template.name,
+      });
+    }
+    return { visuals, warnings };
   }
 
   /** The filter bar template's controls on these datasets, and what it could not place. */

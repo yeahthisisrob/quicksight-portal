@@ -1,7 +1,7 @@
 /**
  * Everything repeatable the organisation standardises, in one place: the
- * filter bars every analysis starts from, the calculated fields worth
- * reusing, and the dashboards whose layout new assets follow. The builder
+ * filter bars every analysis starts from, the visuals and calculated fields
+ * worth reusing, and the dashboards whose layout new assets follow. The builder
  * and the assistant apply them; changes here reach both.
  */
 import { Box, Stack, Typography } from '@mui/material';
@@ -11,6 +11,7 @@ import { pal } from '@/shared/design-system';
 import { CalculatedFieldTemplateList } from './CalculatedFieldTemplateList';
 import { FilterBarTemplates } from './FilterBarTemplates';
 import { LayoutStandards } from './LayoutStandards';
+import { VisualTemplates } from './VisualTemplates';
 
 function Section({
   title,
@@ -48,6 +49,12 @@ export function TemplatesView() {
         description="The filters a sheet's control bar carries, in order and at their widths. The default one starts every analysis the portal builds."
       >
         <FilterBarTemplates />
+      </Section>
+      <Section
+        title="Visuals"
+        description="Visuals by column name, reusable on any dataset with those columns. The assistant adds them instead of composing the same visual again."
+      >
+        <VisualTemplates />
       </Section>
       <Section
         title="Calculated fields"

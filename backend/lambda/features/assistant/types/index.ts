@@ -118,6 +118,8 @@ export interface BuildPlan {
     /** The id of the dataset it is computed on, when that dataset exists. */
     dataset?: string;
   }>;
+  /** The filters the asset will carry, each a control in the sheet's control bar. */
+  filters?: Array<{ column: string; title?: string }>;
   asset: { kind: 'dashboard' | 'analysis'; name: string; id?: string; status: PlanStatus };
 }
 

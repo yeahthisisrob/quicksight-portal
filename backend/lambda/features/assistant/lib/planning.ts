@@ -24,6 +24,7 @@ export function parsePlan(input: Record<string, unknown>): BuildPlan | string {
   const sources = Array.isArray(input.sources) ? (input.sources as any[]) : [];
   const datasets = Array.isArray(input.datasets) ? (input.datasets as any[]) : [];
   const fields = Array.isArray(input.calculatedFields) ? (input.calculatedFields as any[]) : [];
+  const filters = Array.isArray(input.filters) ? (input.filters as any[]) : [];
   const asset = input.asset as any;
   if (
     datasets.length === 0 ||
@@ -58,6 +59,16 @@ export function parsePlan(input: Record<string, unknown>): BuildPlan | string {
             ...(typeof f.expression === 'string' ? { expression: f.expression } : {}),
             ...(typeof f.dataset === 'string' ? { dataset: f.dataset } : {}),
           })),
+        }
+      : {}),
+    ...(filters.some((f) => typeof f?.column === 'string')
+      ? {
+          filters: filters
+            .filter((f) => typeof f?.column === 'string' && f.column.trim())
+            .map((f) => ({
+              column: String(f.column).trim(),
+              ...(typeof f.title === 'string' && f.title.trim() ? { title: f.title.trim() } : {}),
+            })),
         }
       : {}),
     asset: {
