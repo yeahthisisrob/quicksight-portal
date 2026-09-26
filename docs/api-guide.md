@@ -352,12 +352,18 @@ read ahead of the built-in vocabulary that maps requests such as "a table
 with a filter" or "add an action filter" onto the constructs above.
 
 **Plans are the write.** The assistant draws every authoring change as a
-plan whose `build` is the exact request - `create` (a new asset's body) or
-`edit` (`assetType`, `assetId` and the rebind body). The build is checked
-against this contract and previewed before the plan is shown, and the Run
-button under it sends that build unchanged. The page keeps the plans in its
-working state (`state.plans`), so "go" in a later message carries out the
-plan drawn earlier.
+plan. The chat model (cheap by default) finds the data and writes a brief of
+exactly what was asked; the authoring model you pick for builds drafts the
+build from it through `/api/authoring/new/propose` or
+`/api/authoring/{assetType}/{assetId}/propose`. The build is the exact
+request - `create` (a new asset's body) or `edit` (`assetType`, `assetId`
+and the rebind body) - checked against this contract and previewed before
+the plan is shown; a draft that fails goes back to the authoring model with
+the reason. The plan names the model that drafted it, and the Run button
+under it sends the build unchanged. The page keeps the plans in its working
+state (`state.plans`), so "go" in a later message carries out the plan
+drawn earlier. A proposal's `problems` lists edits it proposed that do not
+apply, each with the reason.
 
 ## 7. A typical agent loop
 

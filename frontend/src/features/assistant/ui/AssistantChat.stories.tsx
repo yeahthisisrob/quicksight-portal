@@ -12,7 +12,6 @@ import {
   WIREFRAME_ANSWER,
 } from './__stories__/assistant';
 import { AssistantChat } from './AssistantChat';
-import { ModelPicker } from './ModelPicker';
 
 const KEY = 'qsp.assistant.conversation.v1';
 
@@ -154,7 +153,16 @@ export const Running: Story = {
   ],
 };
 
+/** The models, picked inline in the composer: Chat (cheap) and Builds (stronger), each a menu with its rough cost. */
 export const Models: Story = {
-  name: 'The model picker',
-  render: () => <ModelPicker />,
+  name: 'Models, picked in the composer',
+  play: async () => {
+    await userEvent.click(await screen.findByRole('button', { name: /^Builds model:/ }));
+    const menu = await screen.findByRole('menu');
+    await within(menu).findByText('Claude Opus 5');
+    await expect(within(menu).getByRole('menuitem', { name: /OpenAI/ })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+  },
 };

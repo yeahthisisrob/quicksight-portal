@@ -1,12 +1,11 @@
 /**
  * The Author page's Assistant tab: ask in plain words, and the assistant
  * reads the portal, plans, previews and prepares the change for you to run.
- * The models it thinks with are chosen here.
+ * The models it thinks with are picked in the chat's composer.
  */
-import { Box, Stack, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 
 import { AssistantChat } from './AssistantChat';
-import { ModelPicker } from './ModelPicker';
 
 export default function AssistantTab() {
   return (
@@ -20,10 +19,7 @@ export default function AssistantTab() {
           change; nothing is written until you run it.
         </Typography>
       </Box>
-      <Stack spacing={3}>
-        <AssistantChat />
-        <ModelPicker />
-      </Stack>
+      <AssistantChat />
     </Box>
   );
 }

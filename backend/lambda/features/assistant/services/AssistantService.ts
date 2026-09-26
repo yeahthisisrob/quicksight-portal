@@ -15,11 +15,24 @@ import { randomUUID } from 'node:crypto';
 import spec from '../../../../../shared/generated/openapi.json';
 import type { AuthoringGuidance } from '../../../shared/ai/authoringGuidance';
 import type { VocabularyEntry } from '../../../shared/ai/authoringVocabulary';
-import { AI_MODELS, type AiModel, costOf } from '../../../shared/ai/modelCatalog';
+import {
+  AI_MODELS,
+  type AiModel,
+  aiModel,
+  costOf,
+  isAiModelKey,
+} from '../../../shared/ai/modelCatalog';
 import { bodyErrors, bodyFields, matchOperation } from '../../../shared/api/contract';
 import { logger } from '../../../shared/utils/logger';
 import { contextGet, contextRelated, contextSearch, datasetColumns } from '../lib/contextTools';
-import { filtersOf, judgeFields, parsePlan, verdictsMessage, writeOf } from '../lib/planning';
+import {
+  filtersOf,
+  judgeFields,
+  type PlanTarget,
+  parsePlan,
+  verdictsMessage,
+  writeOf,
+} from '../lib/planning';
 import { buildBrief, listTemplates } from '../lib/portalBrief';
 import { classifyCall, describeOperation } from '../lib/portalCalls';
 import { describeRunInput, type RunInput } from '../lib/runInput';
@@ -31,6 +44,7 @@ import type {
   AssistantCall,
   AssistantChatResult,
   ChatHistoryMessage,
+  PlanBuild,
   QuestionOption,
 } from '../types';
 import { NO_GUIDANCE, systemPrompt } from './assistantPrompt';
@@ -144,6 +158,10 @@ function int(input: Record<string, unknown>, key: string): number | undefined {
 }
 
 const CREATE_NEW = '/api/authoring/new';
+/** Drafts the authoring model gets before the chat model hears it cannot be built. */
+const MAX_DRAFTS = 3;
+/** Within the planner's ask limit, with room for the reasons a draft failed. */
+const MAX_BRIEF_CHARS = 4_000;
 const EDIT_OPS = '/api/authoring/{assetType}/{assetId}/rebind';
 
 /** What a preview built, in a line: visuals, and the control bar's filters. */
@@ -362,20 +380,22 @@ export class AssistantService {
     input: Record<string, unknown>,
     out: Collected
   ): Promise<ToolResult> {
-    const plan = parsePlan(input);
-    if (typeof plan === 'string') {
-      return { id, content: plan, isError: true };
+    const parsed = parsePlan(input);
+    if (typeof parsed === 'string') {
+      return { id, content: parsed, isError: true };
     }
-    // The build is checked and previewed before the plan is shown: a plan
-    // the person sees is one that runs.
-    const checked = await this.checkWrite(writeOf(plan.build), out);
-    if (checked.problem) {
+    // The authoring model drafts the build from the brief; it is checked and
+    // previewed before the plan is shown, so a plan the person sees runs.
+    const drafted = await this.draft(parsed.target, parsed.brief, out);
+    if ('problem' in drafted) {
       return {
         id,
-        content: `The plan's build does not work yet, so it was not shown:\n${checked.problem}`,
+        content: `The authoring model could not draft a build that works, so no plan was shown:\n${drafted.problem}\nTell the person what is in the way, or change the brief and draw the plan again.`,
         isError: true,
       };
     }
+    const plan = { ...parsed.lineage, build: drafted.build };
+    const checked = { built: drafted.built };
     const planId = randomUUID();
     const filters = filtersOf(plan.build);
     out.artifacts.push({
@@ -383,7 +403,7 @@ export class AssistantService {
       kind: 'plan',
       title: str(input, 'title') || 'The plan',
       ...plan,
-      model: { key: this.model.key, label: this.model.label },
+      model: drafted.model,
       ...(filters.length ? { filters } : {}),
     });
     await this.progress('Checking the calculated fields');
@@ -402,8 +422,145 @@ export class AssistantService {
     }
     return {
       id,
-      content: `${verdictsMessage(judged)}\nPlan id ${planId}.${checked.built ? ` Its preview built: ${checked.built}.` : ''} Prepare it with prepare_plan (the person runs it), or draw it again to change it.`,
+      content: `${verdictsMessage(judged)}\nPlan id ${planId}, drafted by ${drafted.model.label}${drafted.reason ? `: ${drafted.reason}` : ''}.${checked.built ? ` Its preview built: ${checked.built}.` : ''} Prepare it with prepare_plan (the person runs it), or draw it again with a changed brief.`,
     };
+  }
+
+  /**
+   * The build for a brief, drafted by the authoring model through the
+   * planner (the propose endpoints, which run on the person's authoring
+   * choice). A draft that does not check or preview goes back to it with
+   * the reason, a few times, before the chat model hears it cannot be done.
+   */
+  private async draft(
+    target: PlanTarget,
+    brief: string,
+    out: Collected
+  ): Promise<
+    | { build: PlanBuild; model: { key: string; label: string }; built?: string; reason?: string }
+    | { problem: string }
+  > {
+    const key = this.options.authoringModel;
+    const chosen = key && isAiModelKey(key) ? aiModel(key) : undefined;
+    let ask = brief;
+    let problem = '';
+    for (let attempt = 1; attempt <= MAX_DRAFTS; attempt++) {
+      await this.progress(
+        `${attempt === 1 ? 'Drafting' : 'Drafting again'}${chosen ? ` with ${chosen.label}` : ''}`
+      );
+      const proposed = await this.proposeDraft(target, ask, out);
+      if ('problem' in proposed) {
+        problem = proposed.problem;
+      } else {
+        const checked = await this.checkWrite(writeOf(proposed.build), out);
+        if (!checked.problem) {
+          const helper = out.helpers.at(-1);
+          return {
+            build: proposed.build,
+            model: chosen
+              ? { key: chosen.key, label: chosen.label }
+              : { key: helper?.modelId ?? 'planner', label: helper?.label ?? 'The planner' },
+            ...(checked.built ? { built: checked.built } : {}),
+            ...(proposed.reason ? { reason: proposed.reason } : {}),
+          };
+        }
+        problem = checked.problem;
+      }
+      ask =
+        `${brief}\n\nYour previous draft could not be built:\n${problem}\nDraft it again so that it can.`.slice(
+          0,
+          MAX_BRIEF_CHARS
+        );
+    }
+    return { problem };
+  }
+
+  /** One draft from the planner, as a build, or why there is none. */
+  private async proposeDraft(
+    target: PlanTarget,
+    ask: string,
+    out: Collected
+  ): Promise<{ build: PlanBuild; reason?: string } | { problem: string }> {
+    const model = this.options.authoringModel ? { model: this.options.authoringModel } : {};
+    const path =
+      'create' in target
+        ? '/api/authoring/new/propose'
+        : `/api/authoring/${target.edit.assetType}/${encodeURIComponent(target.edit.assetId)}/propose`;
+    const body = 'create' in target ? { ...target.create, ask, ...model } : { ask, ...model };
+    const response = await this.run('POST', path, body);
+    const ok = response.status < HTTP_ERROR_MIN;
+    out.calls.push({ method: 'POST', path, status: response.status, ok });
+    if (!ok) {
+      return { problem: clip(response.body) };
+    }
+    this.recordPlanner(response.body, out);
+    let data: any;
+    try {
+      data = JSON.parse(response.body)?.data;
+    } catch {
+      return { problem: 'The planner answered with something unreadable.' };
+    }
+    if ('create' in target) {
+      const visuals = Array.isArray(data?.visuals) ? data.visuals : [];
+      if (visuals.length === 0) {
+        return { problem: data?.proposal?.reason || 'The planner proposed no visuals.' };
+      }
+      return {
+        build: {
+          create: {
+            ...target.create,
+            visuals,
+            ...(Array.isArray(data.filters) && data.filters.length
+              ? { filters: data.filters }
+              : {}),
+          },
+        },
+        ...(data.proposal?.reason ? { reason: data.proposal.reason } : {}),
+      };
+    }
+    if (data?.intent === 'unclear') {
+      return { problem: data.reason || 'The planner could not tell what to change.' };
+    }
+    if (Array.isArray(data?.problems) && data.problems.length > 0) {
+      return { problem: `Some edits do not apply:\n- ${data.problems.join('\n- ')}` };
+    }
+    if (Array.isArray(data?.unmapped) && data.unmapped.length > 0) {
+      return {
+        problem: `Columns with no match on the new dataset: ${data.unmapped.map((u: any) => `${u.identifier}.${u.column}`).join(', ')}.`,
+      };
+    }
+    return {
+      build: {
+        edit: {
+          ...target.edit,
+          request: {
+            mode: data.mode ?? 'update',
+            ...(data.name ? { name: data.name } : {}),
+            rebinds: (data.rebinds ?? []).map((r: any) => ({
+              identifier: r.identifier,
+              targetDataSetId: r.targetDataSetId,
+              ...(r.columnMap && Object.keys(r.columnMap).length ? { columnMap: r.columnMap } : {}),
+            })),
+            ...(Array.isArray(data.ops) && data.ops.length ? { ops: data.ops } : {}),
+          },
+        },
+      },
+      ...(data.reason ? { reason: data.reason } : {}),
+    };
+  }
+
+  /** The planner model an answer used, once, for its chip and its cost. */
+  private recordPlanner(body: string, out: Collected): void {
+    const planner = plannerModelOf(body);
+    if (planner && !out.helpers.some((h) => h.modelId === planner.model)) {
+      const known = AI_MODELS.find((m) => m.modelId === planner.model);
+      out.helpers.push({
+        role: 'planner',
+        label: known?.label ?? planner.model,
+        modelId: planner.model,
+        provider: planner.provider,
+      });
+    }
   }
 
   /**
@@ -807,17 +964,8 @@ export class AssistantService {
       const response = await this.run(method, path, body);
       const ok = response.status < HTTP_ERROR_MIN;
       out.calls.push({ method, path, status: response.status, ok });
-      const planner = ok ? plannerModelOf(response.body) : undefined;
-      if (planner && !out.helpers.some((h) => h.modelId === planner.model)) {
-        const known = AI_MODELS.find((m) => m.modelId === planner.model);
-        out.helpers.push({
-          role: 'planner',
-          label: known?.label ?? planner.model,
-          modelId: planner.model,
-          provider: planner.provider,
-        });
-      }
       if (ok) {
+        this.recordPlanner(response.body, out);
         this.capture(method, path, body, out.artifacts);
       }
       return { id, content: clip(`HTTP ${response.status}\n${response.body}`), isError: !ok };

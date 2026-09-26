@@ -3972,6 +3972,8 @@ export interface components {
             reason: string;
         };
         Proposal: {
+            /** @description Edits the planner proposed that do not apply to the definition, each with the reason. */
+            problems: string[];
             ask: string;
             /**
              * @description unclear when the ask is not a rebind or clone the planner can express.

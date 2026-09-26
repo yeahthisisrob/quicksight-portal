@@ -217,8 +217,26 @@ describe('AG-UI run protocol', () => {
       title: 'Orders with a region filter',
       datasets: [{ name: 'Orders', id: 'ds-1', status: 'existing' }],
       asset: { kind: 'analysis', name: 'Orders', status: 'new' },
-      build: { create: CREATE },
+      brief: 'One table of orders by id with revenue, and a dropdown filter on region.',
+      target: {
+        create: { assetType: 'analysis', name: 'Orders', datasets: CREATE.datasets },
+      },
     },
+  };
+  /** The planner's answer: the visuals and filters the authoring model drafted. */
+  const PROPOSED = {
+    status: 200,
+    body: JSON.stringify({
+      success: true,
+      data: {
+        visuals: CREATE.visuals,
+        filters: CREATE.filters,
+        proposal: {
+          reason: 'A table and the filter asked for.',
+          model: { provider: 'bedrock', model: aiModel('sonnet-4-6').modelId },
+        },
+      },
+    }),
   };
   const OUTLINE = {
     success: true,
@@ -234,23 +252,40 @@ describe('AG-UI run protocol', () => {
     },
   };
 
-  it("previews a plan's build before showing it, and prepares exactly that build, with the model that drew it", async () => {
+  it('has the authoring model draft the build from the brief, previews it, and prepares exactly that build', async () => {
     const chat = scripted([
       { toolCalls: [PLAN] },
       { toolCalls: [{ id: 'r1', name: 'prepare_plan', input: {} }] },
       { text: 'Ready to run.' },
     ]);
-    const dispatch = vi.fn(async () => ({ status: 200, body: JSON.stringify(OUTLINE) }));
-    const result = await new AssistantService(chat, model, dispatch).respond([
-      { role: 'user', text: 'one table with a region filter' },
-    ]);
+    const dispatch = vi.fn(async ({ path }: { path: string }) =>
+      path.endsWith('/propose') ? PROPOSED : { status: 200, body: JSON.stringify(OUTLINE) }
+    );
+    const result = await new AssistantService(chat, model, dispatch, {
+      authoringModel: 'sonnet-4-6',
+    }).respond([{ role: 'user', text: 'one table with a region filter' }]);
+    expect(dispatch).toHaveBeenCalledWith({
+      method: 'POST',
+      path: '/api/authoring/new/propose',
+      body: {
+        assetType: 'analysis',
+        name: 'Orders',
+        datasets: CREATE.datasets,
+        ask: PLAN.input.brief,
+        model: 'sonnet-4-6',
+      },
+    });
     expect(dispatch).toHaveBeenCalledWith({
       method: 'POST',
       path: '/api/authoring/new/preview',
       body: CREATE,
     });
     const plan = result.artifacts.find((a) => a.kind === 'plan') as any;
-    expect(plan.model).toEqual({ key: model.key, label: model.label });
+    // Drawn by the authoring model, not the (cheap) chat model.
+    expect(plan.model).toEqual({ key: 'sonnet-4-6', label: aiModel('sonnet-4-6').label });
+    expect(result.helpers).toEqual([
+      expect.objectContaining({ role: 'planner', label: aiModel('sonnet-4-6').label }),
+    ]);
     expect(plan.filters).toEqual([
       { column: 'region', control: 'dropdown', placement: 'controlBar' },
     ]);
@@ -264,7 +299,7 @@ describe('AG-UI run protocol', () => {
     ]);
   });
 
-  it('does not show a plan whose build fails its preview, and tells the model why', async () => {
+  it('does not show a plan whose drafts keep failing their preview, and tells the chat model why', async () => {
     const told: string[] = [];
     const chat = scripted([{ toolCalls: [PLAN] }, { text: 'Fixing it.' }]);
     const turn = chat.turn.bind(chat);
@@ -273,13 +308,17 @@ describe('AG-UI run protocol', () => {
       if (last?.role === 'tool') told.push(last.results[0]?.content ?? '');
       return turn(system, turns, tools);
     };
-    const dispatch = vi.fn(async () => ({
-      status: 400,
-      body: JSON.stringify({
-        success: false,
-        error: "Filter on 'region': 'orders' has no such column.",
-      }),
-    }));
+    const dispatch = vi.fn(async ({ path }: { path: string }) =>
+      path.endsWith('/propose')
+        ? PROPOSED
+        : {
+            status: 400,
+            body: JSON.stringify({
+              success: false,
+              error: "Filter on 'region': 'orders' has no such column.",
+            }),
+          }
+    );
     const result = await new AssistantService(chat, model, dispatch).respond([
       { role: 'user', text: 'one table with a region filter' },
     ]);

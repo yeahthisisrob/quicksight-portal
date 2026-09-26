@@ -1,7 +1,8 @@
 /**
  * Which model a person picked, per kind of work, kept in their browser.
- * The API tab's picker writes it; the Studio's planner and the assistant
- * chat read it, so one choice follows the person across the page.
+ * The model pills in the assistant's composer write it; the Studio's planner
+ * and the assistant chat read it, so one choice follows the person across
+ * the page.
  */
 import { useCallback, useEffect, useState } from 'react';
 

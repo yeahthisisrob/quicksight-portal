@@ -451,6 +451,12 @@ describe('PlannerService edits', () => {
         datasets: DATASETS,
       }),
       plan: vi.fn(),
+      describeTargetDataset: vi.fn().mockResolvedValue({
+        columns: [
+          { name: 'region', type: 'STRING' },
+          { name: 'revenue', type: 'DECIMAL' },
+        ],
+      }),
       loadDefinitionOutline: vi.fn().mockResolvedValue([
         {
           sheetId: 's1',
@@ -541,10 +547,14 @@ describe('PlannerService edits', () => {
 
     expect(model.requests.map((r) => r.label)).toEqual(['choose-target', 'plan-edits']);
     expect(model.requests[1]?.user).toContain('"elementId":"v1"');
-    // The retype applies; the move would leave the 36-column grid and is dropped
+    // Every column of the dataset, typed, so added visuals and filters can use any of them.
+    expect(model.requests[1]?.user).toContain('revenue (DECIMAL)');
+    expect(model.requests[1]?.user).toContain('action filter');
+    // The retype applies; the move would leave the 36-column grid, and says so.
     expect(proposal.ops).toEqual([
       { op: 'retype', sheetId: 's1', elementId: 'v1', visualType: 'LineChart' },
     ]);
+    expect(proposal.problems).toEqual([expect.stringMatching(/^move: .*36-column grid/)]);
     expect(proposal.intent).toBe('rebind');
     expect(proposal.plan).toBeNull();
   });
@@ -595,7 +605,7 @@ describe('PlannerService edits', () => {
     expect(plain.requests[0]?.system).not.toContain('authoring guidance');
   });
 
-  it('reads an addFilter op from the planner and drops one without a column', () => {
+  it('reads addFilter, addVisual and addAction ops, with controls, placement, scope and actions', () => {
     const outline = [{ sheetId: 's1', name: 'Sheet', layout: 'grid' as const, elements: [] }];
     const blank = {
       elementId: '',
@@ -606,33 +616,123 @@ describe('PlannerService edits', () => {
       visualType: '',
       title: '',
       name: '',
+      identifier: '',
+      column: '',
     };
-    expect(
-      parseEditOps(
-        {
-          ops: [
-            {
-              ...blank,
-              op: 'addFilter',
-              sheetId: 's1',
+    const noFilter = {
+      identifier: '',
+      column: '',
+      title: '',
+      control: '',
+      placement: '',
+      appliesTo: [],
+      values: [],
+      hasRange: false,
+      min: 0,
+      max: 0,
+      lastDays: 0,
+    };
+    const noAction = { kind: '', trigger: 'select', targets: [], fields: [], sheet: '' };
+    const noVisual = {
+      key: '',
+      type: '',
+      title: '',
+      identifier: '',
+      category: '',
+      granularity: '',
+      values: [],
+      color: '',
+      actions: [],
+    };
+    const ops = parseEditOps(
+      {
+        ops: [
+          {
+            ...blank,
+            op: 'addFilter',
+            sheetId: 's1',
+            identifier: 'orders',
+            column: 'region',
+            filter: {
+              ...noFilter,
               identifier: 'orders',
               column: 'region',
+              control: 'singleSelect',
+              placement: 'canvas',
+              appliesTo: ['Detail'],
               values: ['West'],
             },
-            {
-              ...blank,
-              op: 'addFilter',
-              sheetId: 's1',
+            visual: noVisual,
+            action: noAction,
+          },
+          {
+            ...blank,
+            op: 'addFilter',
+            sheetId: 's1',
+            identifier: 'orders',
+            filter: noFilter,
+            visual: noVisual,
+            action: noAction,
+          },
+          {
+            ...blank,
+            op: 'addVisual',
+            sheetId: 's1',
+            filter: noFilter,
+            visual: {
+              ...noVisual,
+              key: 'detail',
+              type: 'Table',
+              title: 'Detail',
               identifier: 'orders',
-              column: '',
-              values: [],
+              category: 'order_id',
+              values: [{ column: 'revenue', aggregation: 'SUM' }],
             },
-          ],
+            action: noAction,
+          },
+          {
+            ...blank,
+            op: 'addAction',
+            sheetId: 's1',
+            elementId: 'v1',
+            filter: noFilter,
+            visual: noVisual,
+            action: { ...noAction, kind: 'filter', targets: ['Detail'] },
+          },
+        ],
+      },
+      outline,
+      new Set(['orders'])
+    );
+    expect(ops).toEqual([
+      {
+        op: 'addFilter',
+        sheetId: 's1',
+        identifier: 'orders',
+        column: 'region',
+        control: 'singleSelect',
+        placement: 'canvas',
+        appliesTo: ['Detail'],
+        values: ['West'],
+      },
+      {
+        op: 'addVisual',
+        sheetId: 's1',
+        visual: {
+          key: 'detail',
+          type: 'Table',
+          title: 'Detail',
+          identifier: 'orders',
+          category: 'order_id',
+          values: [{ column: 'revenue', aggregation: 'SUM' }],
         },
-        outline
-      )
-    ).toEqual([
-      { op: 'addFilter', sheetId: 's1', identifier: 'orders', column: 'region', values: ['West'] },
+      },
+      {
+        op: 'addAction',
+        sheetId: 's1',
+        elementId: 'v1',
+        action: { kind: 'filter', trigger: 'select', targets: ['Detail'] },
+      },
     ]);
   });
 });

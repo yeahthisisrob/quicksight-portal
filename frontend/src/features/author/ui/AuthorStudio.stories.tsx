@@ -135,6 +135,7 @@ export const StepReviewProposed: Story = {
             ask: 'copy this onto sales gold',
             intent: 'rebind',
             mode: 'clone',
+            problems: [],
             name: 'Sales overview (gold)',
             reason:
               'The ask names the gold sales table; every column resolves after two renames. Revenue by region reads better as columns.',

@@ -19,8 +19,29 @@ type ColumnReader = (dataSetId: string) => Promise<KnownColumn[]>;
 
 const PLAN_STATUSES = new Set(['existing', 'new', 'edited']);
 
-/** A plan from the model's input, or why it is not one. */
-export function parsePlan(input: Record<string, unknown>): BuildPlan | string {
+/**
+ * What the chat model decides: where the data comes from, what the asset
+ * is, and a brief of exactly what the person asked for. The build itself is
+ * drafted from the brief by the authoring model (the planner), which is
+ * where the stronger model earns its price.
+ */
+export type PlanTarget =
+  | {
+      /** A new asset's frame: type, name, datasets and filing - not its visuals or filters. */
+      create: Record<string, any>;
+    }
+  | { edit: { assetType: 'dashboard' | 'analysis'; assetId: string } };
+
+export interface ParsedPlan {
+  lineage: Omit<BuildPlan, 'build'>;
+  brief: string;
+  target: PlanTarget;
+}
+
+const MIN_BRIEF = 10;
+
+/** A plan from the chat model's input, or why it is not one. */
+export function parsePlan(input: Record<string, unknown>): ParsedPlan | string {
   const sources = Array.isArray(input.sources) ? (input.sources as any[]) : [];
   const datasets = Array.isArray(input.datasets) ? (input.datasets as any[]) : [];
   const fields = Array.isArray(input.calculatedFields) ? (input.calculatedFields as any[]) : [];
@@ -36,11 +57,15 @@ export function parsePlan(input: Record<string, unknown>): BuildPlan | string {
   if (missingId) {
     return `Existing dataset "${missingId.name}" needs its id; find it with context_search.`;
   }
-  const build = parseBuild(input.build);
-  if (typeof build === 'string') {
-    return build;
+  const brief = typeof input.brief === 'string' ? input.brief.trim() : '';
+  if (brief.length < MIN_BRIEF) {
+    return 'A plan needs its brief: exactly what the person asked for - every visual, filter (with its control and placement) and interaction - for the authoring model to draft.';
   }
-  return {
+  const target = parseTarget(input.target);
+  if (typeof target === 'string') {
+    return target;
+  }
+  const lineage: Omit<BuildPlan, 'build'> = {
     sources: sources
       .filter((s) => typeof s?.listing === 'string')
       .map((s) => ({
@@ -64,7 +89,6 @@ export function parsePlan(input: Record<string, unknown>): BuildPlan | string {
           })),
         }
       : {}),
-    build,
     asset: {
       kind: asset.kind,
       name: String(asset.name),
@@ -72,6 +96,7 @@ export function parsePlan(input: Record<string, unknown>): BuildPlan | string {
       ...(typeof asset.id === 'string' ? { id: asset.id } : {}),
     },
   };
+  return { lineage, brief, target };
 }
 
 function describe(column: KnownColumn): string {
@@ -111,7 +136,7 @@ function rowLevelVerdict(
  * that name, and are otherwise placed by the organisation's strategy.
  */
 export async function judgeFields(
-  plan: BuildPlan,
+  plan: Pick<BuildPlan, 'calculatedFields'>,
   strategy: FieldStrategy,
   readColumns: ColumnReader
 ): Promise<FieldVerdict[]> {
@@ -178,24 +203,33 @@ export function verdictsMessage(judged: FieldVerdict[]): string {
     .join('\n');
 }
 
-/** A plan's build from the model's input, or why it is not one. */
-function parseBuild(raw: unknown): PlanBuild | string {
-  const b = (raw ?? {}) as Record<string, any>;
-  if (b.create && typeof b.create === 'object' && !Array.isArray(b.create)) {
-    return { create: b.create };
+/** Where a plan's build goes: a new asset's frame, or an existing asset. */
+function parseTarget(raw: unknown): PlanTarget | string {
+  const t = (raw ?? {}) as Record<string, any>;
+  const create = t.create;
+  if (
+    create &&
+    typeof create === 'object' &&
+    (create.assetType === 'dashboard' || create.assetType === 'analysis') &&
+    typeof create.name === 'string' &&
+    Array.isArray(create.datasets) &&
+    create.datasets.length > 0
+  ) {
+    // The frame only: what to show is the authoring model's to draft.
+    const { visuals: _v, filters: _f, ask: _a, model: _m, ...frame } = create;
+    return { create: frame };
   }
-  const edit = b.edit;
+  const edit = t.edit;
   if (
     edit &&
     typeof edit === 'object' &&
     (edit.assetType === 'dashboard' || edit.assetType === 'analysis') &&
     typeof edit.assetId === 'string' &&
-    edit.request &&
-    typeof edit.request === 'object'
+    edit.assetId
   ) {
-    return { edit };
+    return { edit: { assetType: edit.assetType, assetId: edit.assetId } };
   }
-  return 'A plan needs its build: `create` (the body for a new analysis or dashboard) or `edit` ({ assetType, assetId, request }: the rebind body with its ops) - the exact write that carries it out.';
+  return 'A plan needs its target: `create` ({ assetType, name, datasets: [{ identifier, dataSetId }] }) for a new asset, or `edit` ({ assetType, assetId }) for an existing one.';
 }
 
 /** The request a build is: what the person's Run sends. */

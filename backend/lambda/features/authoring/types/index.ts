@@ -237,6 +237,8 @@ export interface Proposal {
   unmapped: UnmappedColumn[];
   /** Layout and visual edits the planner proposes, already validated. */
   ops: DefinitionOp[];
+  /** Edits the planner proposed that do not apply, each with the reason. */
+  problems: string[];
   /** The server's own dry run of the proposal. Null when the intent is unclear. */
   plan: RebindPlan | null;
   model: { provider: string; model: string };
