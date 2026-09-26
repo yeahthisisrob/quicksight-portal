@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.21.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.20.0...v2.21.0) (2026-09-26)
+
+
+### Features
+
+* **assistant:** questions as cards and working state as data, on the AG-UI 1.0 data model; markdown replies ([#225](https://github.com/yeahthisisrob/quicksight-portal/issues/225)) ([fbbe978](https://github.com/yeahthisisrob/quicksight-portal/commit/fbbe9783b66bc549fa975d9666c64b67e6fbd73b))
+
 ## [2.20.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.19.0...v2.20.0) (2026-09-26)
 
 
