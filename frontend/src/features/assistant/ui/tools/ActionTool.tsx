@@ -30,6 +30,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { assistantApi, getApiErrorMessage, jobsApi } from '@/shared/api';
 import { pal } from '@/shared/design-system';
+import { announceAssetChanges } from '@/shared/lib/assetChanges';
 
 import { type ActionRun, createdAsset, followUpFor, jobIdOf } from '../../model/conversation';
 import type { ActionArgs } from '../../model/thread';
@@ -172,6 +173,7 @@ export const ActionTool: ToolCallMessagePartComponent<ActionArgs, ActionRun> = (
       void queryClient.invalidateQueries({
         predicate: (query) => !String(query.queryKey[0] ?? '').startsWith('assistant'),
       });
+      announceAssetChanges();
     }
   }, [run?.status, queryClient]);
 

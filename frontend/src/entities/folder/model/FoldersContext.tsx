@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import type React from 'react';
 import { createContext, type ReactNode, useCallback, useContext } from 'react';
 
+import { announceAssetChanges } from '@/shared/lib/assetChanges';
+
 interface FoldersContextType {
   // Methods to invalidate and refresh folder-related data
   invalidateFolders: () => Promise<void>;
@@ -33,7 +35,7 @@ export const FoldersProvider: React.FC<FoldersProviderProps> = ({ children }) =>
 
   // Invalidate folders list
   const invalidateFolders = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ['folders'] });
+    await queryClient.invalidateQueries({ queryKey: ['folders-list'] });
   }, [queryClient]);
 
   // Invalidate folder members - optionally for a specific folder
@@ -59,41 +61,12 @@ export const FoldersProvider: React.FC<FoldersProviderProps> = ({ children }) =>
     await Promise.all([invalidateFolders(), invalidateFolderMembers(), invalidateFolderTags()]);
   }, [invalidateFolders, invalidateFolderMembers, invalidateFolderTags]);
 
-  // Handle completion of bulk operations
+  // A bulk folder operation finished: folders, their members and the assets
+  // in them all changed (the job re-read them before it reported done).
   const handleBulkOperationComplete = useCallback(async () => {
-    // Invalidate all folder-related queries to ensure fresh data
     await invalidateAllFolderData();
-
-    // Also invalidate asset queries since assets may have moved
-    await queryClient.invalidateQueries({ queryKey: ['assets'] });
-    await queryClient.invalidateQueries({ queryKey: ['export-summary'] });
-
-    // Invalidate paginated asset queries (prefix-matches every cached
-    // page/filter combination; invalidated entries refetch on next use)
-    await queryClient.invalidateQueries({ queryKey: ['dashboards-paginated'] });
-    await queryClient.invalidateQueries({ queryKey: ['datasets-paginated'] });
-    await queryClient.invalidateQueries({ queryKey: ['analyses-paginated'] });
-    await queryClient.invalidateQueries({ queryKey: ['datasources-paginated'] });
-    await queryClient.invalidateQueries({ queryKey: ['folders-list'] });
-    await queryClient.invalidateQueries({ queryKey: ['users-list'] });
-    await queryClient.invalidateQueries({ queryKey: ['groups'] });
-
-    // Also invalidate the live asset tags since folder membership affects visibility
-    await queryClient.invalidateQueries({ queryKey: ['live-tags'] });
-
-    // Invalidate master index which is used by asset lists
-    await queryClient.invalidateQueries({ queryKey: ['master-index'] });
-
-    // Invalidate data catalog queries since folder exclusions affect field visibility
-    await queryClient.invalidateQueries({ queryKey: ['data-catalog'] });
-    await queryClient.invalidateQueries({ queryKey: ['visual-field-catalog'] });
-    await queryClient.invalidateQueries({ queryKey: ['catalog-stats'] });
-
-    // NOTE: no blanket refetchQueries() here — with asset lists now living in
-    // the query cache it would refetch every cached page/filter combination
-    // at once. Invalidation above is enough: active queries refetch
-    // immediately, cached ones refetch on next use.
-  }, [queryClient, invalidateAllFolderData]);
+    announceAssetChanges();
+  }, [invalidateAllFolderData]);
 
   const value: FoldersContextType = {
     invalidateFolders,

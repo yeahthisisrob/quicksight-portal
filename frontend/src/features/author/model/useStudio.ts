@@ -40,6 +40,7 @@ import type {
   SheetOutline,
 } from '@/shared/api/modules/authoring';
 import type { SmusDatasetLink } from '@/shared/api/modules/smus';
+import { announceAssetChanges } from '@/shared/lib/assetChanges';
 import { isTemplate, TEMPLATE_TAG } from '@/shared/lib/templateTag';
 import { useDebounce } from '@/shared/lib/useDebounce';
 
@@ -379,6 +380,9 @@ export function useStudio(options: StudioOptions = {}): Studio {
           void queryClient.invalidateQueries({ queryKey: ['repair-plan', source.type, source.id] });
           void queryClient.invalidateQueries({ queryKey: ['asset-json', source.type, source.id] });
         }
+        announceAssetChanges(
+          result.folderIds.length > 0 ? [written.assetType, 'folder'] : [written.assetType]
+        );
         enqueueSnackbar(copy ? `Created "${written.name}"` : `Saved "${written.name}"`, {
           variant: 'success',
         });
@@ -437,8 +441,10 @@ export function useStudio(options: StudioOptions = {}): Studio {
       } else {
         await tagsApi.removeResourceTags(source.type, source.id, [TEMPLATE_TAG.key]);
       }
-      // The export carries the tags; refresh it so the star follows.
+      // The cache now carries the new tag: the star, the template lists and
+      // the tag filters follow.
       await queryClient.invalidateQueries({ queryKey: ['asset-json', source.type, source.id] });
+      announceAssetChanges([source.type]);
       enqueueSnackbar(
         on ? `"${source.name}" is now a template` : `"${source.name}" is no longer a template`,
         { variant: 'success' }

@@ -3,10 +3,19 @@
 import type { AssetListItem, components } from '@shared/generated';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type React from 'react';
-import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from 'react';
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { assetsApi, exportApi } from '@/shared/api';
 import type { PaginatedListParams } from '@/shared/api/modules/assets';
+import { onAssetChanges } from '@/shared/lib/assetChanges';
 
 // Cross-tab caching for asset lists: within the stale window a tab switch is
 // served instantly from the query cache; explicit refreshes invalidate first,
@@ -194,6 +203,19 @@ const ASSET_CONFIGS: Record<string, AssetTypeConfig> = {
     queryKey: 'groups',
   },
 };
+
+/** Views built from assets rather than listing one kind: stale whenever assets change. */
+const DERIVED_QUERY_KEYS = [
+  'export-summary',
+  'search',
+  'asset-json',
+  'author-sources',
+  'available-tags',
+  'available-folders-filter',
+  'folder-members',
+  'archived-assets',
+  'data-catalog',
+] as const;
 
 // Map from singular to plural for refreshAssetType
 const ASSET_TYPE_MAP: Record<string, string> = {
@@ -391,6 +413,22 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
       }, BACKEND_REVALIDATE_WINDOW_MS);
     },
     [queryClient]
+  );
+
+  // Anything that changed assets announces which kinds (shared/lib/assetChanges):
+  // each named list re-fetches with its own filters (refreshAssetType bumps the
+  // tables' refreshKey), and the views built from assets are invalidated too.
+  useEffect(
+    () =>
+      onAssetChanges((types) => {
+        for (const type of types) {
+          void refreshAssetType(type);
+        }
+        for (const key of DERIVED_QUERY_KEYS) {
+          void queryClient.invalidateQueries({ queryKey: [key] });
+        }
+      }),
+    [refreshAssetType, queryClient]
   );
 
   // Optimistically remove deleted assets from the visible list and every
