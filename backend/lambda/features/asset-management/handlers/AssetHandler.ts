@@ -1,6 +1,6 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
-import { requireAuth } from '../../../shared/auth';
+import { actorLabel, requireAuth } from '../../../shared/auth';
 import { PAGINATION, STATUS_CODES } from '../../../shared/constants';
 import { actorFromAuth, auditLog } from '../../../shared/services/audit/AuditLog';
 import { S3Service } from '../../../shared/services/aws/S3Service';
@@ -247,7 +247,8 @@ export class AssetHandler {
         options,
         accountId: this.accountId,
         bucketName: this.bucketName,
-        userId: user.email || user.userId || 'unknown',
+        userId: user.userId,
+        startedBy: actorLabel(user),
       });
 
       return createResponse(event, STATUS_CODES.ACCEPTED, {

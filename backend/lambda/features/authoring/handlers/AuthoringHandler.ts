@@ -4,7 +4,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { CloudTrailAdapter } from '../../../adapters/aws/CloudTrailAdapter';
 import { CloudWatchAdapter } from '../../../adapters/aws/CloudWatchAdapter';
 import { aiModelViews, isAiModelKey } from '../../../shared/ai/modelCatalog';
-import { requireAuth } from '../../../shared/auth';
+import { actorLabel, requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { CacheService } from '../../../shared/services/cache/CacheService';
 import { jobFactory } from '../../../shared/services/jobs/JobFactory';
@@ -264,6 +264,7 @@ export class AuthoringHandler {
         accountId: this.accountId,
         bucketName: process.env.BUCKET_NAME || `quicksight-metadata-bucket-${this.accountId}`,
         userId: user.userId,
+        startedBy: actorLabel(user),
         model: this.parseModel(body.model),
         request: {
           kind: 'propose',
@@ -297,6 +298,7 @@ export class AuthoringHandler {
         accountId: this.accountId,
         bucketName: process.env.BUCKET_NAME || `quicksight-metadata-bucket-${this.accountId}`,
         userId: user.userId,
+        startedBy: actorLabel(user),
         model: this.parseModel(body.model),
         request: { kind: 'new-visuals', newAsset: { ...request, visuals: undefined } },
       });

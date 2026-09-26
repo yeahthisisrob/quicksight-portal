@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { STATUS_CODES } from '../../../../shared/constants';
 import { TagHandler } from '../TagHandler';
 
-vi.mock('../../../../shared/auth', () => ({
+vi.mock('../../../../shared/auth', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../shared/auth')>()),
   requireAuth: vi.fn().mockResolvedValue({ userId: 'test-user', email: 'test@example.com' }),
 }));
 

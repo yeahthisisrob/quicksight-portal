@@ -42,6 +42,7 @@ import {
   JobStatusIndicator,
   jobDuration,
   jobTypeLabel,
+  startedByLabel,
   useJobLogs,
 } from '@/entities/job';
 
@@ -235,7 +236,7 @@ function JobDetail({ job }: { job: JobMetadata }) {
           { label: 'Duration', value: formatDuration(jobDuration(job)) },
           { label: 'Items', value: itemsSummary(job) },
           { label: 'API calls', value: calls === null ? '-' : calls.toLocaleString() },
-          { label: 'Started by', value: job.userId ?? 'The portal' },
+          { label: 'Started by', value: startedByLabel(job) },
           { label: 'Job id', value: <code>{job.jobId}</code> },
         ]}
       />

@@ -7,6 +7,7 @@ import {
   itemsSummary,
   jobDuration,
   jobTypeLabel,
+  startedByLabel,
 } from '../jobPresentation';
 
 describe('job presentation', () => {
@@ -51,6 +52,18 @@ describe('job presentation', () => {
     ).toBe(5);
     expect(apiCalls({ stats: { apiCalls: 7 } })).toBe(7);
     expect(apiCalls({})).toBeNull();
+  });
+
+  it('names who started it, never an opaque sign-in id', () => {
+    expect(startedByLabel({ startedBy: 'rob@example.com', userId: '4f1c' })).toBe(
+      'rob@example.com'
+    );
+    expect(startedByLabel({ userId: 'analyst@example.com' })).toBe('analyst@example.com');
+    expect(startedByLabel({ userId: 'api-key:claude-cli' })).toBe('claude-cli (API key)');
+    expect(startedByLabel({ userId: '4f1c8a2e-9b3d-4e5f-8a6b-7c8d9e0f1a2b' })).toBe(
+      'A portal user'
+    );
+    expect(startedByLabel({})).toBe('The portal');
   });
 
   it('summarises items worked through and failed', () => {

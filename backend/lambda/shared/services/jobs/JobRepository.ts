@@ -97,6 +97,8 @@ export interface JobMetadata {
   endTime?: string;
   duration?: number;
   userId?: string;
+  /** Who started it, in words (an email, or an API key's label). */
+  startedBy?: string;
   accountId?: string;
 
   // Type-specific metadata

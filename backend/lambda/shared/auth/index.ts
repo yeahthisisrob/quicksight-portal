@@ -26,6 +26,18 @@ const API_KEY_GROUP = 'api-key';
  */
 const IN_PROCESS_AUTH = Symbol('portal.inProcessAuth');
 
+/**
+ * Who someone is, in words: their email, or an API key's label for an agent
+ * or a script. Jobs and the audit trail name people with it; the stable
+ * userId stays alongside for filtering.
+ */
+export function actorLabel(auth: Pick<AuthContext, 'userId' | 'email' | 'apiKey'>): string {
+  if (auth.apiKey) {
+    return `${auth.apiKey.label} (API key)`;
+  }
+  return auth.email || auth.userId;
+}
+
 export function withInProcessAuth<T extends APIGatewayProxyEvent>(
   event: T,
   context: AuthContext
