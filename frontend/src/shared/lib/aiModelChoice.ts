@@ -1,17 +1,19 @@
 /**
  * Which model a person picked, per kind of work, kept in their browser.
- * The model pills in the assistant's composer write it and the assistant
- * reads it, so one choice follows the person across the page.
+ * The model pills write it and whatever does that work reads it, so one
+ * choice follows the person across the page: chat and builds in the
+ * Assistant, review (a playbook's judgements) in the Studio.
  */
 import { useCallback, useEffect, useState } from 'react';
 
 import type { AiModelKey } from '@/shared/api/modules/assistant';
 
-type AiWork = 'authoring' | 'chat';
+export type AiWork = 'authoring' | 'chat' | 'review';
 
 const DEFAULT_AI_MODEL: Record<AiWork, AiModelKey> = {
   authoring: 'sonnet-4-6',
   chat: 'haiku-4-5',
+  review: 'sonnet-4-6',
 };
 
 const KEYS = ['haiku-4-5', 'sonnet-4-6', 'sonnet-5', 'opus-5', 'openai'] as const;

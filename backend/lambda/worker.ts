@@ -843,10 +843,21 @@ async function processPlaybookJob(
         `Gave up after ${WORKER_CONFIG.EXPORT_MAX_CONTINUATIONS} invocations; the rows done so far stand`
       );
     }
-    const [{ runPlaybookJob }, { inProcessDispatch }] = await Promise.all([
+    const [{ runPlaybookJob }, { inProcessDispatch }, { isAiModelKey }] = await Promise.all([
       import('./features/playbooks/engine/runPlaybookJob'),
       import('./api/inProcessDispatch'),
+      import('./shared/ai/modelCatalog'),
     ]);
+    // Steps that infer ask the model the preview chose, through the planner's
+    // structured call (prompt in, JSON that fits a schema out).
+    const infer = isAiModelKey(request?.model)
+      ? async (ask: any) => {
+          const { createPlannerModel } = await import(
+            './features/authoring/services/planner/createPlannerModel'
+          );
+          return (await createPlannerModel(undefined, request.model).complete(ask)).output;
+        }
+      : undefined;
     logger.info('Processing playbook job', {
       jobId,
       messageId: record.messageId,
@@ -858,6 +869,7 @@ async function processPlaybookJob(
       jobId,
       request,
       dispatch: inProcessDispatch(message.auth),
+      ...(infer ? { infer } : {}),
       jobs: jobStateService,
       deadline: computeInvocationDeadline(context),
     });

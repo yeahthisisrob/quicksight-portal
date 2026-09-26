@@ -1,11 +1,14 @@
-import { Box } from '@mui/material';
+import { Box, Stack } from '@mui/material';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { MockedApi } from '../../../../../.storybook/mocks/api';
-import { fakeFlow, PLAYBOOKS, playbookRoutes } from './__stories__/fixtures';
+import { BLANK_SPEC } from '../../model/usePlaybookBuilder';
+import { EXAMPLE_SPEC, fakeFlow, PLAYBOOKS, playbookRoutes } from './__stories__/fixtures';
+import { PlaybookBuilder } from './PlaybookBuilder';
 import { PlaybookCatalog } from './PlaybookCatalog';
 import { PlaybookFlowView } from './PlaybooksView';
 import { RunConfirmDialog } from './RunConfirmDialog';
+import { SavedReports } from './SavedReports';
 
 /**
  * A playbook from setup to done, one story per stage: each is the page a
@@ -37,9 +40,99 @@ const meta: Meta<typeof PlaybookFlowView> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+const noop = () => {};
+
 export const Catalog: Story = {
   render: () => (
-    <PlaybookCatalog playbooks={PLAYBOOKS} loading={false} error={null} onOpen={() => {}} />
+    <Stack spacing={3}>
+      <PlaybookCatalog
+        playbooks={PLAYBOOKS}
+        loading={false}
+        error={null}
+        onOpen={noop}
+        actions={{ onCreate: noop, onCopy: noop, onEdit: noop, onDelete: noop }}
+      />
+      <SavedReports />
+    </Stack>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The shipped playbooks, including two built from specs (copy them to start your own), yours with change and delete, and saved reports.',
+      },
+    },
+  },
+};
+
+export const BuilderNew: Story = {
+  name: 'Builder · new',
+  render: () => (
+    <PlaybookBuilder
+      initial={BLANK_SPEC}
+      title="New playbook"
+      saving={false}
+      error={null}
+      onSave={noop}
+      onCancel={noop}
+    />
+  ),
+};
+
+export const BuilderCopy: Story = {
+  name: 'Builder · a copy of the Redshift example',
+  render: () => (
+    <PlaybookBuilder
+      initial={EXAMPLE_SPEC}
+      title="Copy a playbook"
+      saving={false}
+      error={null}
+      onSave={noop}
+      onCancel={noop}
+    />
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Inputs, what to select (busy dashboards still on Redshift), and the steps: match a governed Athena dataset (a model maps names that differ), rebind, tag the old dataset and data source deprecated.',
+      },
+    },
+  },
+};
+
+export const BuilderRejected: Story = {
+  name: 'Builder · the server says what is wrong',
+  render: () => (
+    <PlaybookBuilder
+      initial={{ ...EXAMPLE_SPEC, steps: [{ kind: 'rebind' }] }}
+      title="Change a playbook"
+      saving={false}
+      error="steps[0] (rebind) needs a matchDataset step before it"
+      onSave={noop}
+      onCancel={noop}
+    />
+  ),
+};
+
+export const SetupWithModel: Story = {
+  name: 'Setup · asks a model',
+  render: () => (
+    <PlaybookFlowView
+      flow={fakeFlow('setup', {
+        playbook: PLAYBOOKS[3]!,
+        params: { minViews: 50, fromEngine: 'REDSHIFT', toEngine: 'ATHENA', infer: true },
+      })}
+    />
+  ),
+};
+
+export const SetupFolder: Story = {
+  name: 'Setup · a team into its folder',
+  render: () => (
+    <PlaybookFlowView
+      flow={fakeFlow('setup', { playbook: PLAYBOOKS[4]!, params: { team: 'sales-team' } })}
+    />
   ),
 };
 

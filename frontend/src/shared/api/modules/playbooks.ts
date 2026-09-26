@@ -15,6 +15,13 @@ type RunBody = NonNullable<
   paths['/api/playbooks/{playbookId}/run']['post']['requestBody']
 >['content']['application/json'];
 export type RunLimits = NonNullable<RunBody['limits']>;
+export type PlaybookSpec = Schemas['PlaybookSpec'];
+export type PlaybookSpecInput = Schemas['PlaybookSpecInput'];
+export type PlaybookSpecCondition = Schemas['PlaybookSpecCondition'];
+export type PlaybookSpecStep = Schemas['PlaybookSpecStep'];
+export type PlaybookReport = Schemas['PlaybookReport'];
+export type PlaybookReportSummary = Schemas['PlaybookReportSummary'];
+type AiModelKey = Schemas['AiModelKey'];
 export type GateValues = Record<string, number | string | boolean | null>;
 
 /** Most rows a preview or run shows at once; the counts cover all of them. */
@@ -27,11 +34,16 @@ export const playbooksApi = {
   },
 
   /** Queue a preview; its rows come from `items`. */
-  async preview(playbookId: string, params: Record<string, unknown>, gates: GateValues) {
+  async preview(
+    playbookId: string,
+    params: Record<string, unknown>,
+    gates: GateValues,
+    model?: AiModelKey
+  ) {
     return accepted(
       await client.POST('/api/playbooks/{playbookId}/preview', {
         params: { path: { playbookId } },
-        body: { params, gates },
+        body: { params, gates, ...(model ? { model } : {}) },
       }),
       'Failed to start the preview'
     );
@@ -49,6 +61,66 @@ export const playbooksApi = {
         body: { previewJobId, ...options },
       }),
       'Failed to start the run'
+    );
+  },
+
+  /** A saved playbook's spec, or a shipped one's to copy. */
+  async getSpec(playbookId: string): Promise<PlaybookSpec> {
+    return unwrap(
+      await client.GET('/api/playbooks/custom/{playbookId}', { params: { path: { playbookId } } }),
+      'Failed to read the playbook'
+    );
+  },
+
+  async createSpec(spec: PlaybookSpecInput): Promise<PlaybookSpec> {
+    return unwrap(
+      await client.POST('/api/playbooks/custom', { body: spec }),
+      'Failed to save the playbook'
+    );
+  },
+
+  async updateSpec(playbookId: string, spec: PlaybookSpecInput): Promise<PlaybookSpec> {
+    return unwrap(
+      await client.PUT('/api/playbooks/custom/{playbookId}', {
+        params: { path: { playbookId } },
+        body: spec,
+      }),
+      'Failed to save the playbook'
+    );
+  },
+
+  async deleteSpec(playbookId: string): Promise<void> {
+    unwrap(
+      await client.DELETE('/api/playbooks/custom/{playbookId}', {
+        params: { path: { playbookId } },
+      }),
+      'Failed to delete the playbook'
+    );
+  },
+
+  /** Every row of a preview or run, and how it went: to read or download. */
+  async report(jobId: string): Promise<PlaybookReport> {
+    return unwrap(
+      await client.GET('/api/playbooks/runs/{jobId}/report', { params: { path: { jobId } } }),
+      'Failed to build the report'
+    );
+  },
+
+  async saveReport(jobId: string): Promise<PlaybookReportSummary> {
+    return unwrap(
+      await client.POST('/api/playbooks/runs/{jobId}/report', { params: { path: { jobId } } }),
+      'Failed to save the report'
+    );
+  },
+
+  async listReports(): Promise<PlaybookReportSummary[]> {
+    return unwrap(await client.GET('/api/playbooks/reports'), 'Failed to list the reports');
+  },
+
+  async getReport(jobId: string): Promise<PlaybookReport> {
+    return unwrap(
+      await client.GET('/api/playbooks/reports/{jobId}', { params: { path: { jobId } } }),
+      'Failed to read the report'
     );
   },
 

@@ -681,6 +681,99 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/playbooks/custom": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save a playbook you composed
+         * @description A spec: inputs, what to select (an asset type and conditions), and the
+         *     steps to take on each selected asset. Any value may be `{{input}}`.
+         *     It previews, gates, runs and retries like the shipped playbooks.
+         */
+        post: operations["postPlaybooksCustom"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/playbooks/custom/{playbookId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A composed playbook's spec (or a shipped one's, to copy) */
+        get: operations["getPlaybooksCustomByPlaybookId"];
+        /** Change a playbook you composed */
+        put: operations["putPlaybooksCustomByPlaybookId"];
+        post?: never;
+        /** Delete a playbook you composed */
+        delete: operations["deletePlaybooksCustomByPlaybookId"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/playbooks/runs/{jobId}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A preview's or run's report - every row and how it went - to read or download */
+        get: operations["getPlaybooksRunsByJobIdReport"];
+        put?: never;
+        /** Save the report, beyond the jobs' retention */
+        post: operations["postPlaybooksRunsByJobIdReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/playbooks/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Saved reports, newest first */
+        get: operations["getPlaybooksReports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/playbooks/reports/{jobId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One saved report */
+        get: operations["getPlaybooksReportsByJobId"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/playbooks/{playbookId}/preview": {
         parameters: {
             query?: never;
@@ -2392,6 +2485,8 @@ export interface components {
             typicalCost: {
                 authoring: number;
                 chat: number;
+                /** @description One playbook judgement (a column mapping a playbook asks for). */
+                review: number;
             };
         };
         AiModelCatalog: {
@@ -2658,12 +2753,18 @@ export interface components {
             title: string;
             description: string;
             /** @enum {string} */
-            category: "repair" | "data" | "cleanup";
+            category: "repair" | "data" | "cleanup" | "custom";
+            /** @description Saved by someone here; it can be changed or deleted. */
+            custom?: boolean;
+            /** @description Built from a spec, so it can be copied into a new one. */
+            composable?: boolean;
+            /** @description Some step asks a model; pass `model` on the preview. */
+            infers?: boolean;
             params: {
                 key: string;
                 label: string;
                 /** @enum {string} */
-                kind: "datasource" | "text" | "boolean";
+                kind: "datasource" | "text" | "boolean" | "number" | "engine" | "folder";
                 help?: string;
                 required?: boolean;
                 /** @description datasource only - offer only data sources of this engine. */
@@ -2732,6 +2833,104 @@ export interface components {
             /** @description Pass back for the next page; absent on the last. */
             cursor?: string;
         };
+        /** @description A literal (text, number or true/false) or `{{inputKey}}`. */
+        PlaybookSpecValue: unknown;
+        PlaybookSpecInput: {
+            name: string;
+            description?: string;
+            inputs: {
+                key: string;
+                label: string;
+                /** @enum {string} */
+                kind: "number" | "text" | "boolean" | "datasource" | "engine" | "folder";
+                help?: string;
+                required?: boolean;
+                default?: components["schemas"]["PlaybookSpecValue"];
+            }[];
+            select: {
+                assetTypes: ("dashboard" | "analysis" | "dataset" | "datasource")[];
+                where: components["schemas"]["PlaybookSpecCondition"][];
+            };
+            steps: components["schemas"]["PlaybookSpecStep"][];
+            gates?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * @description views (min), viewsAtMost (max), tagged (tag: key or key=value),
+         *     nameContains (text), hasErrors, readsEngine (engine: REDSHIFT, ATHENA...),
+         *     readsGoverned (value: true or false), sharedWith (principal: a group or
+         *     user name, matched in the asset's permissions).
+         */
+        PlaybookSpecCondition: {
+            /** @enum {string} */
+            kind: "views" | "viewsAtMost" | "tagged" | "nameContains" | "hasErrors" | "readsEngine" | "readsGoverned" | "sharedWith";
+            min?: components["schemas"]["PlaybookSpecValue"];
+            max?: components["schemas"]["PlaybookSpecValue"];
+            tag?: components["schemas"]["PlaybookSpecValue"];
+            text?: components["schemas"]["PlaybookSpecValue"];
+            engine?: components["schemas"]["PlaybookSpecValue"];
+            value?: components["schemas"]["PlaybookSpecValue"];
+            principal?: components["schemas"]["PlaybookSpecValue"];
+        };
+        /**
+         * @description matchDataset (engine, governed, infer, minConfidence): for each dataset
+         *     the asset reads, a replacement holding every column it uses; with infer,
+         *     a model maps names that differ and every mapping is checked.
+         *     rebind: onto what matchDataset found. tag (target: asset,
+         *     replaced-datasets or replaced-datasources; key; value). repair.
+         *     addToFolder (folder): put the asset in a folder, e.g. a team's shared one.
+         */
+        PlaybookSpecStep: {
+            /** @enum {string} */
+            kind: "matchDataset" | "rebind" | "tag" | "repair" | "addToFolder";
+            engine?: components["schemas"]["PlaybookSpecValue"];
+            governed?: components["schemas"]["PlaybookSpecValue"];
+            infer?: components["schemas"]["PlaybookSpecValue"];
+            minConfidence?: components["schemas"]["PlaybookSpecValue"];
+            /** @enum {string} */
+            target?: "asset" | "replaced-datasets" | "replaced-datasources";
+            key?: components["schemas"]["PlaybookSpecValue"];
+            value?: components["schemas"]["PlaybookSpecValue"];
+            folder?: components["schemas"]["PlaybookSpecValue"];
+        };
+        PlaybookSpec: components["schemas"]["PlaybookSpecInput"] & {
+            id: string;
+            /** @enum {string} */
+            category?: "repair" | "data" | "cleanup" | "custom";
+            createdBy?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PlaybookReportSummary: {
+            jobId: string;
+            playbookId: string;
+            playbookTitle: string;
+            /** @enum {string} */
+            mode: "preview" | "run";
+            status: string;
+            message?: string;
+            startedBy?: string;
+            /** Format: date-time */
+            startTime: string;
+            /** Format: date-time */
+            endTime?: string;
+            counts: components["schemas"]["PlaybookItemCounts"];
+            /** Format: date-time */
+            savedAt?: string;
+            savedBy?: string;
+        };
+        PlaybookReport: components["schemas"]["PlaybookReportSummary"] & {
+            params: {
+                [key: string]: unknown;
+            };
+            gates?: {
+                [key: string]: unknown;
+            };
+            items: components["schemas"]["PlaybookItem"][];
+        };
         /** @description What a playbook job was asked to do. */
         PlaybookJobInfo: {
             /** @enum {string} */
@@ -2745,6 +2944,7 @@ export interface components {
             };
             previewJobId?: string;
             retryOf?: string;
+            model?: string;
         } & {
             [key: string]: unknown;
         };
@@ -6647,6 +6847,228 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
+    postPlaybooksCustom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaybookSpecInput"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["PlaybookSpec"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getPlaybooksCustomByPlaybookId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playbookId: components["parameters"]["PlaybookId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The spec */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["PlaybookSpec"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putPlaybooksCustomByPlaybookId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playbookId: components["parameters"]["PlaybookId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaybookSpecInput"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["PlaybookSpec"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deletePlaybooksCustomByPlaybookId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playbookId: components["parameters"]["PlaybookId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            id: string;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getPlaybooksRunsByJobIdReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["PlaybookReport"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postPlaybooksRunsByJobIdReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Saved */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["PlaybookReportSummary"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPlaybooksReports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The saved reports */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["PlaybookReportSummary"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getPlaybooksReportsByJobId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["PlaybookReport"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     postPlaybooksByPlaybookIdPreview: {
         parameters: {
             query?: never;
@@ -6667,6 +7089,7 @@ export interface operations {
                     gates?: {
                         [key: string]: unknown;
                     };
+                    model?: components["schemas"]["AiModelKey"];
                 };
             };
         };

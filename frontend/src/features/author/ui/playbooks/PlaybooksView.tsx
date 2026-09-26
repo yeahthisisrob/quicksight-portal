@@ -20,11 +20,15 @@ import { useState } from 'react';
 import type { JobMetadata } from '@/shared/api/modules/jobs';
 
 import { type PlaybookFlow, usePlaybook, usePlaybookCatalog } from '../../model/usePlaybook';
+import { usePlaybookBuilder, useStartBuilder } from '../../model/usePlaybookBuilder';
 import { Panel } from '../primitives/Panel';
+import { PlaybookBuilder } from './PlaybookBuilder';
 import { PlaybookCatalog } from './PlaybookCatalog';
 import { PlaybookRows } from './PlaybookRows';
 import { PlaybookSetup } from './PlaybookSetup';
+import { ReportActions } from './ReportActions';
 import { RunConfirmDialog } from './RunConfirmDialog';
+import { SavedReports } from './SavedReports';
 
 function JobBar({ job, onStop }: { job: JobMetadata | null; onStop: () => void }) {
   return (
@@ -143,10 +147,17 @@ export function PlaybookFlowView({ flow }: { flow: PlaybookFlow }) {
                 : undefined
           }
           actions={
-            stage === 'scope' ? (
-              <Button size="small" onClick={flow.edit}>
-                Change the setup
-              </Button>
+            stage === 'scope' || stage === 'ran' ? (
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <ReportActions
+                  jobId={(stage === 'ran' ? flow.run.job?.jobId : flow.preview.job?.jobId) ?? ''}
+                />
+                {stage === 'scope' && (
+                  <Button size="small" onClick={flow.edit}>
+                    Change the setup
+                  </Button>
+                )}
+              </Stack>
             ) : undefined
           }
         >
@@ -219,18 +230,49 @@ export function PlaybookFlowView({ flow }: { flow: PlaybookFlow }) {
   );
 }
 
+function Builder() {
+  const builder = usePlaybookBuilder();
+  if (builder.loadError) return <Alert severity="error">{builder.loadError}</Alert>;
+  if (builder.loading || !builder.initial) return <LinearProgress />;
+  return (
+    <PlaybookBuilder
+      key={builder.key}
+      initial={builder.initial}
+      title={builder.title}
+      saving={builder.saving}
+      error={builder.saveError}
+      onSave={builder.save}
+      onCancel={builder.cancel}
+    />
+  );
+}
+
 export function PlaybooksView() {
   const catalog = usePlaybookCatalog();
   const flow = usePlaybook();
+  const builder = usePlaybookBuilder();
+  const start = useStartBuilder();
+  if (builder.open) {
+    return <Builder />;
+  }
   if (flow.playbook) {
     return <PlaybookFlowView flow={flow} />;
   }
   return (
-    <PlaybookCatalog
-      playbooks={catalog.playbooks}
-      loading={catalog.loading}
-      error={catalog.error}
-      onOpen={catalog.open}
-    />
+    <Stack spacing={3}>
+      <PlaybookCatalog
+        playbooks={catalog.playbooks}
+        loading={catalog.loading}
+        error={catalog.error}
+        onOpen={catalog.open}
+        actions={{
+          onCreate: start.create,
+          onCopy: start.copy,
+          onEdit: start.edit,
+          onDelete: start.remove,
+        }}
+      />
+      <SavedReports />
+    </Stack>
   );
 }
