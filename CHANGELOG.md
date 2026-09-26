@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.29.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.28.0...v2.29.0) (2026-09-26)
+
+
+### Features
+
+* **authoring,playbooks:** calculated fields as definition ops; drop unused and rename-to-standard playbooks ([#257](https://github.com/yeahthisisrob/quicksight-portal/issues/257)) ([5c923f2](https://github.com/yeahthisisrob/quicksight-portal/commit/5c923f27cb8041c09a6633b11907f3b6e2eadc09))
+
 ## [2.28.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.27.2...v2.28.0) (2026-09-26)
 
 
