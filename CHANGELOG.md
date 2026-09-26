@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.23.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.22.0...v2.23.0) (2026-09-26)
+
+
+### Features
+
+* authored assets owned by their builder and filed by Settings; an Assistant tab on assistant-ui; Scalar for the API reference ([#229](https://github.com/yeahthisisrob/quicksight-portal/issues/229)) ([1ae0d4e](https://github.com/yeahthisisrob/quicksight-portal/commit/1ae0d4ea3ff4b05db61368ca1fbe5999d8ecd093))
+
 ## [2.22.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.21.0...v2.22.0) (2026-09-26)
 
 
