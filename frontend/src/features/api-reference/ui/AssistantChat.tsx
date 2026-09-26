@@ -34,14 +34,18 @@ import { useEffect, useRef, useState } from 'react';
 
 import { assistantApi, getApiErrorMessage, jobsApi } from '@/shared/api';
 import type {
+  AgUiInterrupt,
+  AgUiResumeEntry,
   AssistantAction,
   AssistantArtifact,
   AssistantChatResult,
 } from '@/shared/api/modules/assistant';
 import { Container } from '@/shared/design-system';
+import { Markdown } from '@/shared/ui';
 
 import {
   type ActionRun,
+  answerTo,
   CONTINUE_MESSAGE,
   createdAsset,
   endsOnAPromise,
@@ -51,6 +55,7 @@ import {
 import { useConversation } from '../model/useConversation';
 import { AssistantArtifactView } from './AssistantArtifactView';
 import { formatCost } from './costFormat';
+import { QuestionCard } from './QuestionCard';
 
 const SUGGESTIONS = [
   'Which dashboards read the orders gold dataset?',
@@ -314,14 +319,37 @@ export function AnswerView({
   runs = {},
   onRun = () => undefined,
   onFollowUp,
-}: { result: AssistantChatResult } & Partial<ActionCallbacks>) {
+  answerFor = () => undefined,
+  onAnswer,
+}: {
+  result: AssistantChatResult;
+  /** The answer a later message gave to one of this answer's questions. */
+  answerFor?: (interruptId: string) => AgUiResumeEntry | undefined;
+  onAnswer?: (interrupt: AgUiInterrupt, selected: string[], other?: string) => void;
+} & Partial<ActionCallbacks>) {
   const linked = new Set(result.actions.map((a) => a.previewId).filter(Boolean));
   const loose = result.artifacts.filter((a) => !linked.has(a.id));
+  const questions =
+    result.outcome?.type === 'interrupt'
+      ? (result.outcome.interrupts ?? []).filter((i) => i.reason === 'input_required')
+      : [];
+  // The question is drawn as a card; do not repeat it as prose.
+  const reply = questions.some((q) => q.message?.trim() === result.reply.trim())
+    ? ''
+    : result.reply;
   return (
     <Stack spacing={1.25} sx={{ minWidth: 0 }}>
-      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-        {result.reply}
-      </Typography>
+      {reply && <Markdown>{reply}</Markdown>}
+      {questions.map((interrupt) => (
+        <QuestionCard
+          key={interrupt.id}
+          interrupt={interrupt}
+          answer={answerFor(interrupt.id)}
+          onAnswer={
+            onAnswer ? (selected, other) => onAnswer(interrupt, selected, other) : undefined
+          }
+        />
+      ))}
       {loose.map((artifact) => (
         <AssistantArtifactView key={artifact.id} artifact={artifact} />
       ))}
@@ -384,7 +412,8 @@ function Working({ status, since }: { status: string; since?: number }) {
 }
 
 export function AssistantChat() {
-  const { conversation, status, error, busy, ask, retry, recordRun, reset } = useConversation();
+  const { conversation, status, error, busy, ask, answer, retry, recordRun, reset } =
+    useConversation();
   const [draft, setDraft] = useState('');
   const entries = conversation.entries;
   const total = entries.reduce((sum, e) => sum + (e.role === 'assistant' ? e.result.cost : 0), 0);
@@ -444,6 +473,8 @@ export function AssistantChat() {
                   runs={conversation.runs}
                   onRun={recordRun}
                   onFollowUp={busy ? undefined : submit}
+                  answerFor={(id) => answerTo(conversation, id)}
+                  onAnswer={busy ? undefined : answer}
                 />
               )
             )}

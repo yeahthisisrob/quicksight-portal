@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { assistantApi } from '@/shared/api';
 
 import {
+  answerTo,
   CONVERSATION_KEY,
   createdAsset,
   EMPTY_CONVERSATION,
@@ -18,6 +19,7 @@ import {
   withPending,
   withQuestion,
   withRun,
+  workingStateOf,
 } from '../conversation';
 import { useConversation } from '../useConversation';
 
@@ -128,6 +130,8 @@ describe('useConversation', () => {
       messages: [{ role: 'user', text: 'run the propose' }],
       model: 'haiku-4-5',
       authoringModel: 'sonnet-4-6',
+      threadId: expect.any(String),
+      state: { drafts: [], ran: [] },
     });
     expect(result.current.busy).toBe(true);
     expect(JSON.parse(window.localStorage.getItem(CONVERSATION_KEY) ?? '{}').pending.jobId).toBe(
@@ -173,7 +177,7 @@ describe('useConversation', () => {
     expect(window.localStorage.getItem(CONVERSATION_KEY)).toBeNull();
   });
 
-  it('tells the assistant what the person ran, with what it created', () => {
+  it('sends the working draft and what ran as state, not text, and answers a question with a resume entry', async () => {
     const answer = {
       ...(ANSWER as object),
       reply: 'Prepared.',
@@ -184,23 +188,76 @@ describe('useConversation', () => {
           why: '',
           method: 'POST',
           path: '/api/authoring/new',
+          body: { name: 'M' },
         },
+        { id: 'a2', title: 'Share it', why: '', method: 'POST', path: '/api/x' },
       ],
     };
     let c = withAnswer(withQuestion(EMPTY_CONVERSATION, 'make it'), answer as never);
     expect(historyOf(c)[1]!.text).toBe('Prepared.');
+    expect(workingStateOf(c)).toEqual({
+      drafts: [
+        {
+          title: 'Create the analysis',
+          method: 'POST',
+          path: '/api/authoring/new',
+          body: { name: 'M' },
+        },
+        { title: 'Share it', method: 'POST', path: '/api/x' },
+      ],
+      ran: [],
+    });
     c = withRun(c, 'a1', {
       status: 'completed',
       result: { assetType: 'analysis', assetId: 'an-9', name: 'Orders' },
     });
-    expect(historyOf(c)[1]!.text).toBe(
-      'Prepared.\n\n[The person ran, after this answer:\n- "Create the analysis" (POST /api/authoring/new): done. Result: {"assetType":"analysis","assetId":"an-9","name":"Orders"}]'
-    );
+    expect(workingStateOf(c)).toEqual({
+      drafts: [{ title: 'Share it', method: 'POST', path: '/api/x' }],
+      ran: [
+        {
+          title: 'Create the analysis',
+          method: 'POST',
+          path: '/api/authoring/new',
+          status: 'done',
+          result: { assetType: 'analysis', assetId: 'an-9', name: 'Orders' },
+        },
+      ],
+    });
     expect(createdAsset(c.runs.a1!.result)).toEqual({
       assetType: 'analysis',
       assetId: 'an-9',
       name: 'Orders',
     });
     expect(createdAsset({ jobId: 'x' })).toBeUndefined();
+
+    const answered = withQuestion(c, 'Orders (gold)', [
+      { interruptId: 'i-1', status: 'resolved', payload: { selected: ['dataset:ds-gold'] } },
+    ]);
+    expect(answered.threadId).toBe(c.threadId);
+    expect(answerTo(answered, 'i-1')).toMatchObject({ status: 'resolved' });
+    expect(answerTo(answered, 'nope')).toBeUndefined();
+  });
+
+  it('answers a question: the labels become the message, the ids go back as resume', async () => {
+    vi.mocked(assistantApi.send).mockResolvedValue('assistant-2');
+    vi.mocked(assistantApi.waitForAnswer).mockImplementation(
+      () => new Promise(() => undefined) as never
+    );
+    const { result } = renderHook(() => useConversation());
+    const interrupt = {
+      id: 'i-1',
+      reason: 'input_required',
+      message: 'Which dataset?',
+      metadata: { options: [{ id: 'dataset:ds-gold', label: 'Orders (gold)' }] },
+    };
+    act(() => result.current.answer(interrupt as never, ['dataset:ds-gold']));
+    await waitFor(() => expect(assistantApi.send).toHaveBeenCalled());
+    const calls = vi.mocked(assistantApi.send).mock.calls;
+    expect(calls[calls.length - 1]![0]).toMatchObject({
+      messages: [{ role: 'user', text: 'Orders (gold)' }],
+      resume: [
+        { interruptId: 'i-1', status: 'resolved', payload: { selected: ['dataset:ds-gold'] } },
+      ],
+    });
   });
 });

@@ -280,6 +280,14 @@ preview it publishes and the plan it follows). It never writes; you run an
 action with your own key when it looks right. Send the whole conversation,
 text only, each time.
 
+**The run protocol follows AG-UI 1.0** ([docs.ag-ui.com](https://docs.ag-ui.com)). Only
+its data model is used; the transport is still a job you poll.
+- **Every result has an `outcome`.** It is `{ "type": "success" }` when the answer is done. It is `{ "type": "interrupt", "interrupts": [...] }` when the assistant asked a question.
+- **A question is an interrupt with reason `input_required`.** Its `metadata.options` hold the choices, each tied to a context-graph entity where it names one. `responseSchema` is the JSON Schema of the answer.
+- **To answer,** send the next message with `resume: [{ "interruptId": "...", "status": "resolved", "payload": { "selected": ["dataset:abc"] } }]`.
+- **Send the page's working state as `state`.** `drafts` holds the actions the assistant prepared that you did not run. `ran` holds the actions you ran, with their results. The assistant revises drafts instead of looking for assets that don't exist yet, and never repeats what already ran.
+- **Keep one `threadId` per conversation.**
+
 Before it prepares anything that creates or changes a dataset, an analysis
 or a dashboard, the assistant draws a `plan`: the SMUS listings the data
 comes from (when SMUS is used), the datasets (existing, or new and through

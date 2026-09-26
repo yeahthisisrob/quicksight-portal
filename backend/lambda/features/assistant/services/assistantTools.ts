@@ -215,6 +215,37 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
     },
   },
   {
+    name: 'ask_person',
+    description:
+      "Ask the person to choose, when the next step depends on a choice only they can make (which dataset, which folder, which of two designs). The options are drawn as cards they click, with the portal's summary of any entity you name, and your answer ends here: their choice comes back with their next message. Use it instead of asking in prose whenever there are options; ask open questions (a name) in your reply. Never use it to ask permission to read, preview or prepare.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        question: { type: 'string', description: 'One short question.' },
+        options: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 12,
+          items: {
+            type: 'object',
+            properties: {
+              label: { type: 'string' },
+              description: { type: 'string', description: 'One line on why they might choose it.' },
+              entityId: {
+                type: 'string',
+                description: 'The context-graph id it names (dataset:abc, folder:xyz), if any.',
+              },
+            },
+            required: ['label'],
+          },
+        },
+        multi: { type: 'boolean', description: 'True when they may choose several.' },
+        allowOther: { type: 'boolean', description: 'True to let them type something else.' },
+      },
+      required: ['question', 'options'],
+    },
+  },
+  {
     name: 'propose_action',
     description:
       "Prepare a write (apply, create, grant, tag, delete) for the person to run. The body is checked against the operation's schema (use describe_operation first), and a write with a /preview twin is previewed with the same body; either failing comes back to you to fix. It is not run until they click it.",

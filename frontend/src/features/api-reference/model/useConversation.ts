@@ -4,9 +4,11 @@
  * answer back up after a reload. Action runs are recorded here so their
  * cards resume following a job too.
  */
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { assistantApi } from '@/shared/api';
+import type { AgUiInterrupt } from '@/shared/api/modules/assistant';
 import { useAiModel } from '@/shared/lib';
 
 import {
@@ -21,6 +23,7 @@ import {
   withPending,
   withQuestion,
   withRun,
+  workingStateOf,
 } from './conversation';
 
 function browserStorage(): Storage | undefined {
@@ -38,6 +41,8 @@ export interface ConversationState {
   error: string | null;
   busy: boolean;
   ask: (text: string) => void;
+  /** Answer the question the last answer asked. */
+  answer: (interrupt: AgUiInterrupt, selected: string[], other?: string) => void;
   retry: () => void;
   recordRun: (actionId: string, run: ActionRun) => void;
   reset: () => void;
@@ -101,10 +106,14 @@ export function useConversation(): ConversationState {
       setError(null);
       setStatus('Sending');
       try {
+        const last = next.entries[next.entries.length - 1];
         const jobId = await assistantApi.send({
           messages: historyOf(next),
           model: chatModel,
           authoringModel,
+          ...(next.threadId ? { threadId: next.threadId } : {}),
+          state: workingStateOf(next),
+          ...(last?.role === 'user' && last.resume?.length ? { resume: last.resume } : {}),
         });
         setConversation((c) => withPending(c, jobId, Date.now()));
       } catch (e) {
@@ -130,6 +139,33 @@ export function useConversation(): ConversationState {
     [conversation, busy, send]
   );
 
+  /**
+   * Answer a question the last answer asked (an AG-UI interrupt): the chosen
+   * labels become the person's message, and the ids go back as a resume
+   * entry the next run carries on from.
+   */
+  const answer = useCallback(
+    (interrupt: AgUiInterrupt, selected: string[], other?: string) => {
+      if (busy) {
+        return;
+      }
+      const options = interrupt.metadata?.options ?? [];
+      const labels = selected.map((id) => options.find((o) => o.id === id)?.label ?? id);
+      const typed = other?.trim();
+      const text = [...labels, ...(typed ? [typed] : [])].join(', ') || 'None of these';
+      const next = withQuestion(conversation, text, [
+        {
+          interruptId: interrupt.id,
+          status: 'resolved',
+          payload: { selected, ...(typed ? { other: typed } : {}) },
+        },
+      ]);
+      setConversation(next);
+      void send(next);
+    },
+    [conversation, busy, send]
+  );
+
   /** Send the same history again, after an error. */
   const retry = useCallback(() => {
     if (!busy && conversation.entries[conversation.entries.length - 1]?.role === 'user') {
@@ -148,5 +184,5 @@ export function useConversation(): ConversationState {
     setConversation(EMPTY_CONVERSATION);
   }, []);
 
-  return { conversation, status, error, busy, ask, retry, recordRun, reset };
+  return { conversation, status, error, busy, ask, answer, retry, recordRun, reset };
 }

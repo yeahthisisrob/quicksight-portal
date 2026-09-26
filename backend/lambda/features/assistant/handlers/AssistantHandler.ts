@@ -11,6 +11,7 @@ import { STATUS_CODES } from '../../../shared/constants';
 import { jobFactory } from '../../../shared/services/jobs/JobFactory';
 import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
+import { parseRunInput } from '../lib/runInput';
 import type { ChatHistoryMessage } from '../types';
 
 const MAX_MESSAGES = 40;
@@ -95,6 +96,10 @@ export async function chat(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
         `${view?.label ?? model} is not available here. ${view?.unavailableReason ?? ''}`.trim()
       );
     }
+    const runInput = parseRunInput(body);
+    if (typeof runInput === 'string') {
+      return badRequest(event, runInput);
+    }
     const authoringModel = body.authoringModel;
     if (authoringModel !== undefined && !isAiModelKey(authoringModel)) {
       return badRequest(event, 'authoringModel must be a model key');
@@ -108,6 +113,7 @@ export async function chat(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
       model,
       ...(authoringModel ? { authoringModel } : {}),
       messages: messages as ChatHistoryMessage[],
+      ...runInput,
       // The identity the assistant's calls run as: the same person, with
       // the same groups, or the same API key.
       auth: {

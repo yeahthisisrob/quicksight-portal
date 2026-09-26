@@ -127,6 +127,9 @@ interface AssistantMessage {
   model: string;
   authoringModel?: string;
   messages: Array<{ role: 'user' | 'assistant'; text: string }>;
+  threadId?: string;
+  state?: any;
+  resume?: any[];
   auth: {
     userId: string;
     accountId: string;
@@ -858,7 +861,11 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
             Math.round((Date.now() - started) / ASSISTANT_MS_PER_SECOND)
           ),
         }),
-    }).respond(message.messages);
+    }).respond(message.messages, {
+      ...(message.threadId ? { threadId: message.threadId } : {}),
+      ...(message.state ? { state: message.state } : {}),
+      ...(message.resume ? { resume: message.resume } : {}),
+    });
     const { JobRepository } = await import('./shared/services/jobs/JobRepository');
     await new JobRepository().saveJobResult(jobId, result);
     await jobStateService.updateJobStatus(jobId, {

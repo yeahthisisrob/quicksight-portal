@@ -104,6 +104,10 @@ export interface AssistantJobConfig extends BaseJobConfig {
   model: string;
   authoringModel?: string;
   messages: Array<{ role: 'user' | 'assistant'; text: string }>;
+  /** AG-UI run input beyond the messages: the thread, the page's working state, answers. */
+  threadId?: string;
+  state?: unknown;
+  resume?: unknown[];
   /** The identity the assistant's own calls run as. */
   auth: {
     userId: string;
@@ -333,6 +337,9 @@ export class JobFactory {
         model: config.model,
         authoringModel: config.authoringModel,
         messages: config.messages,
+        threadId: config.threadId,
+        state: config.state,
+        resume: config.resume,
         auth: config.auth,
       };
     }
