@@ -175,12 +175,22 @@ export interface VisualFieldCatalogResult {
   };
 }
 
+/** Where a field's data comes from, as the person who documented it wrote it down. */
+export interface FieldLineageNotes {
+  sourceSystem?: string;
+  sourceTable?: string;
+  sourceField?: string;
+  transformationLogic?: string;
+  updateFrequency?: string;
+}
+
 export interface FieldMetadataEntry {
   description?: string;
   businessGlossary?: string;
   tags?: string[];
   category?: string;
   sensitivity?: 'public' | 'internal' | 'confidential' | 'restricted';
+  lineage?: FieldLineageNotes;
   lastUpdated?: string;
   updatedBy?: string;
 }

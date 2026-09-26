@@ -1,7 +1,6 @@
-import type { components } from '@shared/generated/types';
+import type { components, paths } from '@shared/generated/types';
 
-import { api as apiClient } from '../client';
-import type { ApiResponse } from '../types';
+import { client, unwrap } from '../typed';
 import { jobsApi } from './jobs';
 
 type Schemas = components['schemas'];
@@ -41,30 +40,17 @@ export type NewAssetPreview = Schemas['NewAssetPreview'];
 export type NewAssetResult = Schemas['NewAssetResult'];
 export type VisualSpec = Schemas['VisualSpec'];
 
-export interface PreviewRequest {
-  rebinds: RebindRequest[];
-  addCalculatedFields?: AddedCalculatedField[];
-  ops?: DefinitionOp[];
-  /** Applied first, before the rebind plan, so the plan sees the repaired definition. */
-  repairs?: RepairOp[];
-  /** Migrate onto a template dashboard's layout standard, after rebinds and before ops. */
-  template?: TemplateRequest;
-  /** Bulk conversions: chart family swaps, KPI standardisation, column casts. */
-  typeRules?: TypeRules;
+type PostBody<P extends keyof paths> = paths[P] extends {
+  post: { requestBody?: { content: { 'application/json': infer B } } };
 }
+  ? B
+  : never;
 
-export interface RepairPlanRequest {
-  /** Datasets already chosen for identifiers whose own dataset is gone. */
-  rebinds?: RebindRequest[];
-}
+/** Rebinds plus edits: calculated fields, ops, repairs (applied first), a template, type rules. */
+export type PreviewRequest = PostBody<'/api/authoring/{assetType}/{assetId}/rebind/preview'>;
 
-async function unwrap<T>(promise: Promise<{ data: ApiResponse<T> }>, fallback: string): Promise<T> {
-  const response = await promise;
-  if (!response.data.success) {
-    throw new Error(response.data.error || fallback);
-  }
-  return response.data.data!;
-}
+/** Datasets already chosen for identifiers whose own dataset is gone. */
+export type RepairPlanRequest = PostBody<'/api/authoring/{assetType}/{assetId}/repair/plan'>;
 
 /**
  * Authoring API - programmatic edits to dashboard and analysis definitions.
@@ -74,54 +60,56 @@ async function unwrap<T>(promise: Promise<{ data: ApiResponse<T> }>, fallback: s
  */
 export const authoringApi = {
   /** The datasets a definition declares and the columns it reads from each. */
-  getDatasets(assetType: AuthorableAssetType, assetId: string): Promise<DefinitionDatasets> {
+  async getDatasets(assetType: AuthorableAssetType, assetId: string): Promise<DefinitionDatasets> {
     return unwrap(
-      apiClient.get<ApiResponse<DefinitionDatasets>>(`/authoring/${assetType}/${assetId}/datasets`),
+      await client.GET('/api/authoring/{assetType}/{assetId}/datasets', {
+        params: { path: { assetType, assetId } },
+      }),
       'Failed to read the definition'
     );
   },
 
   /** Read-only. Resolves every referenced column against the target datasets. */
-  planRebind(
+  async planRebind(
     assetType: AuthorableAssetType,
     assetId: string,
     rebinds: RebindRequest[]
   ): Promise<RebindPlan> {
     return unwrap(
-      apiClient.post<ApiResponse<RebindPlan>>(`/authoring/${assetType}/${assetId}/rebind/plan`, {
-        rebinds,
+      await client.POST('/api/authoring/{assetType}/{assetId}/rebind/plan', {
+        params: { path: { assetType, assetId } },
+        body: { rebinds },
       }),
       'Failed to plan the rebind'
     );
   },
 
   /** Writes to QuickSight. Refused unless the plan resolves completely. */
-  applyRebind(
+  async applyRebind(
     assetType: AuthorableAssetType,
     assetId: string,
     request: ApplyRebindRequest
   ): Promise<ApplyRebindResult> {
     return unwrap(
-      apiClient.post<ApiResponse<ApplyRebindResult>>(
-        `/authoring/${assetType}/${assetId}/rebind`,
-        request
-      ),
+      await client.POST('/api/authoring/{assetType}/{assetId}/rebind', {
+        params: { path: { assetType, assetId } },
+        body: request,
+      }),
       'Failed to apply the rebind'
     );
   },
 
   /** The plan plus the definition as apply would write it, for mockups. */
-  previewRebind(
+  async previewRebind(
     assetType: AuthorableAssetType,
     assetId: string,
     request: RebindRequest[] | PreviewRequest
   ): Promise<RebindPreview> {
-    const body: PreviewRequest = Array.isArray(request) ? { rebinds: request } : request;
     return unwrap(
-      apiClient.post<ApiResponse<RebindPreview>>(
-        `/authoring/${assetType}/${assetId}/rebind/preview`,
-        body
-      ),
+      await client.POST('/api/authoring/{assetType}/{assetId}/rebind/preview', {
+        params: { path: { assetType, assetId } },
+        body: Array.isArray(request) ? { rebinds: request } : request,
+      }),
       'Failed to preview the rebind'
     );
   },
@@ -131,24 +119,26 @@ export const authoringApi = {
    * each with a fix. `rebinds` names datasets already chosen for identifiers
    * whose own dataset is gone.
    */
-  planRepair(
+  async planRepair(
     assetType: AuthorableAssetType,
     assetId: string,
     request: RepairPlanRequest = {}
   ): Promise<RepairPlan> {
     return unwrap(
-      apiClient.post<ApiResponse<RepairPlan>>(
-        `/authoring/${assetType}/${assetId}/repair/plan`,
-        request
-      ),
+      await client.POST('/api/authoring/{assetType}/{assetId}/repair/plan', {
+        params: { path: { assetType, assetId } },
+        body: request,
+      }),
       'Failed to plan the repair'
     );
   },
 
   /** Views from the portal's activity data and, for dashboards, CloudWatch health. */
-  getInsights(assetType: AuthorableAssetType, assetId: string): Promise<AssetInsights> {
+  async getInsights(assetType: AuthorableAssetType, assetId: string): Promise<AssetInsights> {
     return unwrap(
-      apiClient.get<ApiResponse<AssetInsights>>(`/authoring/${assetType}/${assetId}/insights`),
+      await client.GET('/api/authoring/{assetType}/{assetId}/insights', {
+        params: { path: { assetType, assetId } },
+      }),
       'Failed to load insights'
     );
   },
@@ -157,11 +147,11 @@ export const authoringApi = {
    * The columns a dataset exposes. A new asset has no definition to read them
    * from, so the server describes the dataset instead.
    */
-  getDatasetColumns(dataSetId: string): Promise<AuthoringDatasetColumns> {
+  async getDatasetColumns(dataSetId: string): Promise<AuthoringDatasetColumns> {
     return unwrap(
-      apiClient.get<ApiResponse<AuthoringDatasetColumns>>(
-        `/authoring/datasets/${encodeURIComponent(dataSetId)}/columns`
-      ),
+      await client.GET('/api/authoring/datasets/{dataSetId}/columns', {
+        params: { path: { dataSetId } },
+      }),
       'Failed to read the dataset'
     );
   },
@@ -171,17 +161,17 @@ export const authoringApi = {
    * names (or an ask the planner turns into visuals), built and drawn but not
    * written. The same body creates it.
    */
-  previewNew(request: NewAssetRequest): Promise<NewAssetPreview> {
+  async previewNew(request: NewAssetRequest): Promise<NewAssetPreview> {
     return unwrap(
-      apiClient.post<ApiResponse<NewAssetPreview>>('/authoring/new/preview', request),
+      await client.POST('/api/authoring/new/preview', { body: request }),
       'Failed to build the new asset'
     );
   },
 
   /** Writes to QuickSight: the asset the preview showed, in the folder asked for. */
-  createNew(request: NewAssetRequest): Promise<NewAssetResult> {
+  async createNew(request: NewAssetRequest): Promise<NewAssetResult> {
     return unwrap(
-      apiClient.post<ApiResponse<NewAssetResult>>('/authoring/new', request),
+      await client.POST('/api/authoring/new', { body: request }),
       'Failed to create the new asset'
     );
   },
@@ -196,8 +186,11 @@ export const authoringApi = {
     assetId: string,
     request: ProposeRequest
   ): Promise<Proposal> {
-    const queued = await unwrap(
-      apiClient.post<ApiResponse<JobQueued>>(`/authoring/${assetType}/${assetId}/propose`, request),
+    const queued = unwrap(
+      await client.POST('/api/authoring/{assetType}/{assetId}/propose', {
+        params: { path: { assetType, assetId } },
+        body: request,
+      }),
       'Failed to queue the proposal'
     );
     return jobsApi.awaitResult<Proposal>(queued.jobId);
@@ -205,8 +198,8 @@ export const authoringApi = {
 
   /** From nothing: the planner proposes visuals from the ask, as a job; the preview is the result. */
   async proposeNew(request: NewAssetRequest): Promise<NewAssetPreview> {
-    const queued = await unwrap(
-      apiClient.post<ApiResponse<JobQueued>>('/authoring/new/propose', request),
+    const queued = unwrap(
+      await client.POST('/api/authoring/new/propose', { body: request }),
       'Failed to queue the proposal'
     );
     return jobsApi.awaitResult<NewAssetPreview>(queued.jobId);

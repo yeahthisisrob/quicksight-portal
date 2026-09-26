@@ -13,6 +13,7 @@ import { useSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 
 import { assetsApi } from '@/shared/api';
+import type { RenamableAssetType } from '@/shared/api/modules/assets';
 
 const NAME_MAX_LENGTH = 200;
 
@@ -21,7 +22,7 @@ interface RenameAssetDialogProps {
   onClose: () => void;
   /** Called with the applied name after a successful rename */
   onSuccess: (newName: string) => void;
-  assetType: string;
+  assetType: RenamableAssetType;
   asset: { id: string; name: string } | null;
 }
 

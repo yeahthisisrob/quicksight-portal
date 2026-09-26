@@ -12,6 +12,7 @@ import type { SearchMatchReason } from '@shared/generated';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import type { PaginatedListParams } from '@/shared/api/modules/assets';
 import { spacing } from '@/shared/design-system/theme';
 import { useDebounce, usePagination } from '@/shared/lib';
 import { EMPTY_SELECTION, selectionCount } from '@/shared/lib/gridSelection';
@@ -19,6 +20,7 @@ import { EMPTY_SELECTION, selectionCount } from '@/shared/lib/gridSelection';
 import { BulkActionsToolbar } from '../bulk-actions';
 import {
   type ActivityFilterState,
+  type DateFieldOption,
   type DateFilterState,
   DEFAULT_ACTIVITY_FILTER,
   DEFAULT_DATE_FILTER,
@@ -57,34 +59,11 @@ export interface ColumnConfig {
   renderCell?: (params: any) => React.ReactNode;
   valueGetter?: (params: any) => any;
   /** When set, this column appears as an option in the date filter dropdown. Value is the backend field name. */
-  dateFilterField?: string;
+  dateFilterField?: DateFieldOption;
 }
 
-export interface FetchAssetsOptions {
-  page: number;
-  pageSize: number;
-  search?: string;
-  dateRange?: string;
-  sortBy?: string;
-  sortOrder?: string;
-  filters?: Record<string, any>;
-  dateField?: string;
-  includeTags?: string;
-  excludeTags?: string;
-  errorFilter?: ErrorFilterState;
-  activityFilter?: ActivityFilterState;
-  smusFilter?: SmusFilterState;
-  importModeFilter?: ImportModeFilterState;
-  roleFilter?: string;
-  permissionsFilter?: PermissionsFilterState;
-  groupMembershipFilter?: GroupMembershipFilterState;
-  groupFilter?: string;
-  includeFolders?: string;
-  excludeFolders?: string;
-  sourceTypeFilter?: string;
-  /** JSON array of user names - show only assets they can access */
-  accessUsers?: string;
-}
+/** A page request for the table: the list endpoints' query, page and size always set. */
+export type FetchAssetsOptions = PaginatedListParams & { page: number; pageSize: number };
 
 interface EnhancedAssetTableProps {
   title?: string;

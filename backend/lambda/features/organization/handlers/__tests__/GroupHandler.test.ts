@@ -24,11 +24,18 @@ vi.mock('../../services/GroupService', () => ({
         data: { message: 'Group deleted successfully' },
       }),
       getGroupAssets: vi.fn().mockResolvedValue({
-        success: true,
-        data: {
-          dashboards: [{ id: 'dash-1', name: 'Dashboard 1' }],
-          datasets: [{ id: 'data-1', name: 'Dataset 1' }],
-        },
+        groupName: 'test-group',
+        totalAssets: 2,
+        assetsByType: { dashboards: 1, datasets: 1 },
+        assets: [
+          {
+            assetId: 'dash-1',
+            assetType: 'dashboard',
+            assetName: 'Dashboard 1',
+            accessType: 'direct',
+          },
+          { assetId: 'data-1', assetType: 'dataset', assetName: 'Dataset 1', accessType: 'direct' },
+        ],
       }),
     };
   }),
@@ -195,8 +202,8 @@ describe('GroupHandler', () => {
 
       expect(result.statusCode).toBe(STATUS_CODES.OK);
       expect(body.success).toBe(true);
-      expect(body.data.dashboards).toHaveLength(1);
-      expect(body.data.datasets).toHaveLength(1);
+      expect(body.data.totalAssets).toBe(2);
+      expect(body.data.assets).toHaveLength(2);
     });
 
     it('should return error when group name is missing', async () => {

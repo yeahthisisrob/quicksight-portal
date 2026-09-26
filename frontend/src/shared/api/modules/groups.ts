@@ -31,4 +31,14 @@ export const groupsApi = {
       'Failed to delete group'
     );
   },
+
+  /** Every asset a group can open: directly, or through a folder shared with it. */
+  async getAssets(groupName: string) {
+    return unwrap(
+      await client.GET('/api/groups/{groupName}/assets', { params: { path: { groupName } } }),
+      'Failed to fetch group assets'
+    );
+  },
 };
+
+export type GroupAsset = Awaited<ReturnType<typeof groupsApi.getAssets>>['assets'][number];

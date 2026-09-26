@@ -35,6 +35,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Permission } from '@/entities/asset';
 
 import { assetsApi } from '@/shared/api';
+import { hasPermissions } from '@/shared/api/modules/assets';
 import { borderRadius, colors, spacing, typography } from '@/shared/design-system/theme';
 import { useJobPolling } from '@/shared/hooks/useJobPolling';
 
@@ -311,16 +312,14 @@ export default function PermissionsDialog({
     setProcessing(false);
     onPermissionRevoked?.('');
     // Refresh permission sources after job completes
-    if (assetId && assetType) {
-      const supportedTypes = ['dashboard', 'analysis', 'dataset', 'datasource', 'folder'];
-      if (supportedTypes.includes(assetType.toLowerCase())) {
-        try {
-          const result = await assetsApi.getPermissionSources(assetType.toLowerCase(), assetId);
-          setUserAccessSources(result.userAccessSources || []);
-          setGroupAccessSources(result.groupAccessSources || []);
-        } catch (err) {
-          console.error('Failed to refresh permission sources:', err);
-        }
+    const type = assetType?.toLowerCase() ?? '';
+    if (assetId && hasPermissions(type)) {
+      try {
+        const result = await assetsApi.getPermissionSources(type, assetId);
+        setUserAccessSources(result.userAccessSources || []);
+        setGroupAccessSources(result.groupAccessSources || []);
+      } catch (err) {
+        console.error('Failed to refresh permission sources:', err);
       }
     }
   }, [enqueueSnackbar, onPermissionRevoked, assetId, assetType]);
@@ -343,13 +342,12 @@ export default function PermissionsDialog({
   });
 
   const fetchPermissionSources = useCallback(async () => {
-    if (!assetId || !assetType) return;
-    const supportedTypes = ['dashboard', 'analysis', 'dataset', 'datasource', 'folder'];
-    if (!supportedTypes.includes(assetType.toLowerCase())) return;
+    const type = assetType?.toLowerCase() ?? '';
+    if (!assetId || !hasPermissions(type)) return;
 
     setLoading(true);
     try {
-      const result = await assetsApi.getPermissionSources(assetType.toLowerCase(), assetId);
+      const result = await assetsApi.getPermissionSources(type, assetId);
       setUserAccessSources(result.userAccessSources || []);
       setGroupAccessSources(result.groupAccessSources || []);
     } catch (err) {
@@ -860,18 +858,15 @@ export default function PermissionsDialog({
           </Button>
           <Button
             onClick={async () => {
-              if (!assetId || !assetType) return;
+              const type = assetType?.toLowerCase() ?? '';
+              if (!assetId || !hasPermissions(type)) return;
               setProcessing(true);
               try {
                 const revocations = allEntries
                   .filter((e) => selectedPrincipals.has(e.principal))
                   .map((e) => ({ principal: e.principal, actions: e.actions }));
 
-                const result = await assetsApi.bulkRevokePermissions(
-                  assetType.toLowerCase(),
-                  assetId,
-                  revocations
-                );
+                const result = await assetsApi.bulkRevokePermissions(type, assetId, revocations);
 
                 if (result.jobId) {
                   enqueueSnackbar(`Permission revoke job started`, { variant: 'info' });

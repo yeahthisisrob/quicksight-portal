@@ -1,48 +1,19 @@
 /**
- * Export operation types.
- *
- * Response shapes come from the generated OpenAPI types (@shared/generated) —
- * only request options and the expanded log-entry shape (which the logs
- * endpoint returns and the schema does not model) are declared here.
+ * Export operation types, all from the generated OpenAPI schema.
  */
 import type { components } from '@shared/generated';
 
-/**
- * Job status values - from the generated OpenAPI schema
- */
-export type JobStatus = components['schemas']['JobStatus'];
+type Schemas = components['schemas'];
 
-/**
- * Log levels for export logs
- */
-export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
+export type JobStatus = Schemas['JobStatus'];
 
-/**
- * Options for refreshing specific asset data
- */
-export interface RefreshOptions {
-  definitions?: boolean;
-  permissions?: boolean;
-  tags?: boolean;
-}
+/** The POST /api/export body. */
+export type ExportJobOptions = Schemas['ExportJobRequest'];
 
-/**
- * Export job options
- */
-export interface ExportJobOptions {
-  forceRefresh?: boolean;
-  rebuildIndex?: boolean;
-  exportOrganizational?: boolean;
-  assetTypes?: string[];
-  refreshOptions?: RefreshOptions;
-}
+/** Which parts of each asset an export re-reads. */
+export type RefreshOptions = NonNullable<ExportJobOptions['refreshOptions']>;
 
-/**
- * Expanded export log entry as returned by the job-logs endpoint
- */
-export interface ExportLogEntry {
-  timestamp: string;
-  level: LogLevel;
-  message: string;
-  details?: unknown;
-}
+/** One line of a job's log. */
+export type ExportLogEntry = Schemas['JobLog'];
+
+export type LogLevel = ExportLogEntry['level'];

@@ -44,6 +44,15 @@ interface Tag {
   value: string;
 }
 
+/** The portal stores a field's tags as free text; the editor keeps them as `Key: Value`. */
+const tagToText = (tag: Tag) => (tag.value ? `${tag.key}: ${tag.value}` : tag.key);
+const textToTag = (text: string): Tag => {
+  const at = text.indexOf(':');
+  return at < 0
+    ? { key: text.trim(), value: '' }
+    : { key: text.slice(0, at).trim(), value: text.slice(at + 1).trim() };
+};
+
 const commonFieldTagKeys = [
   'BusinessUnit',
   'DataDomain',
@@ -97,7 +106,7 @@ export default function FieldMetadataContent({
     if (metadata) {
       setDescription(metadata.description || '');
       setBusinessGlossary(metadata.businessGlossary || '');
-      setTags(metadata.tags || []);
+      setTags((metadata.tags ?? []).map(textToTag));
 
       if (metadata.lineage) {
         setSourceSystem(metadata.lineage.sourceSystem || '');
@@ -118,19 +127,10 @@ export default function FieldMetadataContent({
     try {
       setSaving(true);
 
-      const updatedMetadata = {
-        fieldId: `${sourceType}::${sourceId}::${field.name}`,
-        sourceType,
-        [sourceType === 'dataset'
-          ? 'datasetId'
-          : sourceType === 'analysis'
-            ? 'analysisId'
-            : 'dashboardId']: sourceId,
-        fieldName: field.name,
-        tags,
+      const updatedMetadata = await tagsApi.updateFieldMetadata(sourceType, sourceId, field.name, {
+        tags: tags.map(tagToText),
         description,
         businessGlossary,
-        semanticType: metadata?.semanticType,
         lineage: {
           sourceSystem,
           sourceTable,
@@ -138,11 +138,7 @@ export default function FieldMetadataContent({
           transformationLogic,
           updateFrequency,
         },
-        lastUpdated: new Date().toISOString(),
-        updatedBy: 'current-user', // In real app, get from auth context
-      };
-
-      await tagsApi.updateFieldMetadata(sourceType, sourceId, field.name, updatedMetadata);
+      });
 
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({
@@ -203,10 +199,10 @@ export default function FieldMetadataContent({
                   }}
                 />
               )}
-              {metadata?.semanticType && (
+              {metadata?.category && (
                 <Chip
                   icon={<CategoryIcon sx={{ fontSize: 16 }} />}
-                  label={metadata.semanticType}
+                  label={metadata.category}
                   size="small"
                   sx={{
                     bgcolor: alpha(theme.palette.secondary.main, 0.1),

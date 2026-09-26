@@ -18,10 +18,15 @@ import { format } from 'date-fns';
 import { useCallback, useState } from 'react';
 
 import type { ArchivedAssetItem as LocalArchivedAssetItem } from '@/features/asset-management';
-import { copyToClipboard, EnhancedAssetTable } from '@/widgets/asset-table';
+import {
+  copyToClipboard,
+  EnhancedAssetTable,
+  type FetchAssetsOptions,
+} from '@/widgets/asset-table';
 import { RestoreAssetDialog } from '@/widgets/restore-asset-dialog';
 
 import { assetsApi } from '@/shared/api';
+import type { ArchivedQuery } from '@/shared/api/modules/assets';
 import { pal } from '@/shared/design-system';
 import { EMPTY_SELECTION } from '@/shared/lib/gridSelection';
 import { assetIcons } from '@/shared/ui/icons';
@@ -123,14 +128,7 @@ export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps)
   const [assetToRestore, setAssetToRestore] = useState<LocalArchivedAssetItem | null>(null);
 
   const fetchAssets = useCallback(
-    async (options: {
-      page: number;
-      pageSize: number;
-      search?: string;
-      dateRange?: string;
-      sortBy?: string;
-      sortOrder?: string;
-    }) => {
+    async (options: FetchAssetsOptions) => {
       const { page, pageSize, search, dateRange, sortBy, sortOrder } = options;
       setLoading(true);
       try {
@@ -140,8 +138,9 @@ export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps)
           pageSize,
           search,
           dateRange,
-          sortBy,
-          sortOrder,
+          // The table sorts by its column fields, which are the archive's sort keys.
+          sortBy: sortBy as ArchivedQuery['sortBy'],
+          sortOrder: sortOrder?.toLowerCase() as ArchivedQuery['sortOrder'],
         });
         setAssets(response.items);
         setTotalRows(response.totalCount);

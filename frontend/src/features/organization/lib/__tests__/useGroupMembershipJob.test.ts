@@ -3,6 +3,7 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { jobsApi } from '@/shared/api/modules/jobs';
 import { usersApi } from '@/shared/api/modules/users';
+import { ApiError } from '@/shared/api/typed';
 
 import { useGroupMembershipJob } from '../useGroupMembershipJob';
 
@@ -120,12 +121,10 @@ describe('useGroupMembershipJob', () => {
     );
   });
 
-  it('shows the API validation message instead of the generic axios text', async () => {
-    const axiosLike = Object.assign(new Error('Request failed with status code 400'), {
-      isAxiosError: true,
-      response: { data: { success: false, error: 'Each user name must be a non-empty string' } },
-    });
-    vi.mocked(usersApi.removeUsersFromGroup).mockRejectedValue(axiosLike);
+  it("shows the API's validation message", async () => {
+    vi.mocked(usersApi.removeUsersFromGroup).mockRejectedValue(
+      new ApiError('Each user name must be a non-empty string', 400)
+    );
     const onSettled = vi.fn();
     const { result } = renderHook(() => useGroupMembershipJob({ onSettled }));
 

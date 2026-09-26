@@ -1,7 +1,7 @@
 import { useSnackbar } from 'notistack';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-import { deployApi , type DeploymentConfig, type DeploymentResult } from '@/shared/api/modules/deploy';
+import { deployApi, type DeployableAssetType, type DeploymentConfig, type DeploymentResult } from '@/shared/api/modules/deploy';
 import { jobsApi, type JobMetadata, type JobLog } from '@/shared/api/modules/jobs';
 
 interface UseDeploymentJobOptions {
@@ -96,7 +96,7 @@ export function useDeploymentJob(options: UseDeploymentJobOptions = {}) {
 
   // Start deployment
   const startDeployment = useCallback(async (
-    assetType: string,
+    assetType: DeployableAssetType,
     assetId: string,
     config: DeploymentConfig
   ) => {
@@ -108,40 +108,31 @@ export function useDeploymentJob(options: UseDeploymentJobOptions = {}) {
       
       // Start deployment
       enqueueSnackbar('Starting deployment...', { variant: 'info' });
-      const response = await deployApi.deployAsset(assetType, assetId, config) as any;
-      
-      // Check if we got a job ID (async processing)
-      if (response.jobId) {
-        const jobId = response.jobId;
-        setCurrentJobId(jobId);
-        setIsPolling(true);
-        
-        // Store in localStorage
-        localStorage.setItem('lastDeploymentJobId', jobId);
-        
-        // Start polling with simple backoff for less spam on long restores
-        const doPoll = () => {
-          pollJobStatus(jobId);
-          // ramp the delay a bit, hard cap
-          const nextDelay = pollIntervalRef.current ? Math.min(10000, pollInterval * 1.5) : pollInterval;
-          pollIntervalRef.current = setTimeout(doPoll, nextDelay);
-        };
-        doPoll();
-        
-        enqueueSnackbar('Deployment job queued. Monitoring progress...', { variant: 'info' });
-      } else {
-        // Synchronous response (shouldn't happen with new design, but handle it)
-        setDeploymentResult(response);
-        onSuccess?.(response);
-        enqueueSnackbar('Deployment completed successfully', { variant: 'success' });
-      }
+      // Deployments always run as jobs: follow the one queued.
+      const { jobId } = await deployApi.deployAsset(assetType, assetId, config);
+      setCurrentJobId(jobId);
+      setIsPolling(true);
+
+      // Store in localStorage
+      localStorage.setItem('lastDeploymentJobId', jobId);
+
+      // Start polling with simple backoff for less spam on long restores
+      const doPoll = () => {
+        pollJobStatus(jobId);
+        // ramp the delay a bit, hard cap
+        const nextDelay = pollIntervalRef.current ? Math.min(10000, pollInterval * 1.5) : pollInterval;
+        pollIntervalRef.current = setTimeout(doPoll, nextDelay);
+      };
+      doPoll();
+
+      enqueueSnackbar('Deployment job queued. Monitoring progress...', { variant: 'info' });
     } catch (_error: any) {
       const message = _error.message || 'Failed to start deployment';
       onError?.(message);
       enqueueSnackbar(message, { variant: 'error' });
       throw _error;
     }
-  }, [enqueueSnackbar, pollJobStatus, pollInterval, onSuccess, onError]);
+  }, [enqueueSnackbar, pollJobStatus, pollInterval, onError]);
 
   // Stop deployment
   const stopDeployment = useCallback(async () => {

@@ -3,7 +3,7 @@ import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { S3Service } from '../../../shared/services/aws/S3Service';
 import type { AssetType } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
-import type { BulkFieldMetadata, FieldMetadataEntry } from '../types';
+import type { BulkFieldMetadata, FieldLineageNotes, FieldMetadataEntry } from '../types';
 
 export interface FieldMetadata {
   sourceType: AssetType;
@@ -14,6 +14,7 @@ export interface FieldMetadata {
   tags?: string[];
   category?: string;
   sensitivity?: 'public' | 'internal' | 'confidential' | 'restricted';
+  lineage?: FieldLineageNotes;
   lastUpdated?: Date;
   updatedBy?: string;
 }
@@ -24,6 +25,7 @@ export interface FieldMetadataUpdate {
   tags?: string[];
   category?: string;
   sensitivity?: 'public' | 'internal' | 'confidential' | 'restricted';
+  lineage?: FieldLineageNotes;
   updatedBy?: string;
 }
 
@@ -193,6 +195,7 @@ export class FieldMetadataService {
         tags: metadata.tags || [],
         category: metadata.category,
         sensitivity: metadata.sensitivity,
+        lineage: metadata.lineage,
         lastUpdated: metadata.lastUpdated ? new Date(metadata.lastUpdated) : undefined,
         updatedBy: metadata.updatedBy,
       });
@@ -227,6 +230,7 @@ export class FieldMetadataService {
       tags: metadata.tags || [],
       category: metadata.category,
       sensitivity: metadata.sensitivity,
+      lineage: metadata.lineage,
       lastUpdated: metadata.lastUpdated ? new Date(metadata.lastUpdated) : undefined,
       updatedBy: metadata.updatedBy,
     };
@@ -351,6 +355,7 @@ export class FieldMetadataService {
       tags: updated.tags || [],
       category: updated.category,
       sensitivity: updated.sensitivity,
+      lineage: updated.lineage,
       lastUpdated: updated.lastUpdated ? new Date(updated.lastUpdated) : new Date(),
       updatedBy: updated.updatedBy,
     };

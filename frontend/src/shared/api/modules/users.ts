@@ -1,6 +1,6 @@
 import type { components } from '@shared/generated';
 
-import { ApiError, client } from '../typed';
+import { accepted, client } from '../typed';
 
 /**
  * Users and group membership. For listing users and groups, use
@@ -15,17 +15,6 @@ export type GroupMembershipJobResponse = components['schemas']['BulkJobAccepted'
 export interface DeleteUserResult {
   success: boolean;
   message?: string;
-}
-
-function accepted<T extends { success?: boolean }>(
-  result: { data?: T; error?: unknown; response: Response },
-  fallback: string
-): T {
-  if (result.error !== undefined || !result.data?.success) {
-    const message = (result.error as { error?: string } | undefined)?.error ?? fallback;
-    throw new ApiError(message, result.response.status);
-  }
-  return result.data;
 }
 
 export const usersApi = {

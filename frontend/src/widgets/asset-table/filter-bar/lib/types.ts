@@ -1,7 +1,9 @@
+import type { PaginatedListParams } from '@/shared/api/modules/assets';
 import type { AssetFilter, TagFilter } from '@/shared/lib/useFilters';
 
-export type DateFieldOption = string;
-export type DateRangeOption = 'all' | '24h' | '7d' | '30d' | '90d';
+/** The date columns the lists filter on, as the contract names them. */
+export type DateFieldOption = NonNullable<PaginatedListParams['dateField']>;
+export type DateRangeOption = NonNullable<PaginatedListParams['dateRange']>;
 
 export interface DateFilterState {
   field: DateFieldOption;

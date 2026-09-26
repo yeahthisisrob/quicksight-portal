@@ -305,9 +305,6 @@ importers:
       '@tanstack/react-query-devtools':
         specifier: ^5.102.8
         version: 5.103.1(@tanstack/react-query@5.103.1(react@19.3.0))(@types/react@19.3.0)(csstype@3.2.3)(react@19.3.0)
-      axios:
-        specifier: ^1.20.0
-        version: 1.20.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
       date-fns:
         specifier: ^4.4.0
         version: 4.4.0
