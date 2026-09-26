@@ -1766,7 +1766,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** A job's log lines */
+        /**
+         * A job's log lines
+         * @description Oldest first. Pass the `cursor` of the last answer as `after` to get only the lines written since, which is how a view follows a running job.
+         */
         get: operations["getJobsByJobIdLogs"];
         put?: never;
         post?: never;
@@ -8285,7 +8288,10 @@ export interface operations {
     };
     getJobsByJobIdLogs: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The `cursor` from a previous answer; only later lines come back. */
+                after?: string;
+            };
             header?: never;
             path: {
                 jobId: components["parameters"]["JobId"];
@@ -8305,6 +8311,8 @@ export interface operations {
                         data: {
                             jobId?: string;
                             logs?: components["schemas"]["JobLog"][];
+                            /** @description Ask with this as `after` for the lines written next. */
+                            cursor?: string;
                         };
                     };
                 };

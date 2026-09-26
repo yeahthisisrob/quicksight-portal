@@ -4,12 +4,13 @@ import { exportRoutes } from '@/features/data-export/ui/__stories__/routes';
 import { STATUS_EXPORTED, smusExportRoutes } from '@/features/smus/ui/__stories__/fixtures';
 
 import { AppShell } from '../../.storybook/mocks/AppShell';
+import { jobsRoutes } from '../../.storybook/mocks/jobs';
 import OperationsPage from './OperationsPage';
 import { archivedRoutes, ITEMS } from './OperationsPage/__stories__/fixtures';
 
 /**
  * The Operations page in the app shell, API stubbed: the QuickSight export,
- * the SageMaker Unified Studio export and archived assets as tabs.
+ * every job, the SageMaker Unified Studio export and archived assets as tabs.
  */
 const meta: Meta<typeof OperationsPage> = {
   title: 'Pages/Operations',
@@ -24,6 +25,16 @@ export const Export: Story = {
   parameters: { router: { initialEntries: ['/operations'] } },
   render: () => (
     <AppShell path="operations" routes={exportRoutes()}>
+      <OperationsPage />
+    </AppShell>
+  ),
+};
+
+/** /operations?tab=jobs - every job, filterable, one open in the drawer. */
+export const Jobs: Story = {
+  parameters: { router: { initialEntries: ['/operations?tab=jobs'] } },
+  render: () => (
+    <AppShell path="operations" routes={jobsRoutes()}>
       <OperationsPage />
     </AppShell>
   ),

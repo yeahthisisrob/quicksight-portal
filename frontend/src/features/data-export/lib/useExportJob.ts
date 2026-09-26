@@ -1,15 +1,13 @@
 /**
- * Hook for managing export job state and operations
+ * The export being run from this page: start it, stop it, and follow its
+ * status. Its log is read by useJobLogs (only new lines each poll) and every
+ * past export is on Operations > Jobs.
  */
 import { useSnackbar } from 'notistack';
 import { useCallback, useEffect, useState } from 'react';
 
 import { exportApi } from '@/shared/api';
-import type {
-  ExportJobOptions,
-  ExportLogEntry,
-  RefreshOptions,
-} from '@/shared/api/types/export.types';
+import type { ExportJobOptions, RefreshOptions } from '@/shared/api/types/export.types';
 
 import type { AssetType, ExportMode } from '../model/types';
 
@@ -109,6 +107,18 @@ function isNetworkError(error: unknown): error is { response?: { status?: number
 /** Job statuses that mean an export is still in flight */
 const ACTIVE_JOB_STATUSES = ['queued', 'processing', 'stopping'];
 
+/** The slice of a job record this hook tracks. */
+function statusOf(job: components['schemas']['Job']): JobStatus {
+  return {
+    status: job.status,
+    progress: job.progress || 0,
+    message: job.message,
+    stats: job.stats,
+    lastUpdatedTime: job.lastUpdatedTime,
+    checkpoint: job.checkpoint,
+  };
+}
+
 /**
  * Get error message from unknown error type
  */
@@ -128,9 +138,7 @@ export function useExportJob(onCacheSummaryUpdate: () => void) {
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const [isRunning, setIsRunning] = useState(false);
-  const [exportLogs, setExportLogs] = useState<ExportLogEntry[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isViewingHistorical, setIsViewingHistorical] = useState(false);
   const [jobStartedInSession, setJobStartedInSession] = useState(false);
 
   // Load job status and logs
@@ -143,24 +151,7 @@ export function useExportJob(onCacheSummaryUpdate: () => void) {
         const status = await exportApi.getJobStatus(targetJobId);
         if (!status) return;
 
-        setJobStatus({
-          status: status.status,
-          progress: status.progress || 0,
-          message: status.message,
-          stats: status.stats,
-          lastUpdatedTime: status.lastUpdatedTime,
-          checkpoint: status.checkpoint,
-        });
-
-        // Load logs for all jobs (running or completed)
-        try {
-          const logsData = await exportApi.getJobLogs(targetJobId);
-          if (logsData?.logs) {
-            setExportLogs(logsData.logs);
-          }
-        } catch {
-          // Silently fail - logs might not be available yet
-        }
+        setJobStatus(statusOf(status));
 
         // Update running state based on job status
         const isComplete = ['completed', 'failed', 'stopped'].includes(status.status);
@@ -208,10 +199,8 @@ export function useExportJob(onCacheSummaryUpdate: () => void) {
 
       try {
         setIsRunning(true);
-        setExportLogs([]);
         setJobStatus(null);
         setCurrentJobId(null);
-        setIsViewingHistorical(false);
         setJobStartedInSession(true);
 
         enqueueSnackbar('Starting export job...', { variant: 'info' });
@@ -305,8 +294,6 @@ export function useExportJob(onCacheSummaryUpdate: () => void) {
   // tab or by another user), so the UI shows its progress and blocks a second
   // start. Otherwise fall back to the last job from localStorage.
   useEffect(() => {
-    if (isViewingHistorical) return;
-
     let cancelled = false;
     const adoptActiveJob = async (): Promise<boolean> => {
       try {
@@ -318,14 +305,7 @@ export function useExportJob(onCacheSummaryUpdate: () => void) {
         localStorage.setItem('lastExportJobId', active.jobId);
         setJobStartedInSession(false);
         setIsRunning(true);
-        setJobStatus({
-          status: active.status,
-          progress: active.progress || 0,
-          message: active.message,
-          stats: active.stats,
-          lastUpdatedTime: active.lastUpdatedTime,
-          checkpoint: active.checkpoint,
-        });
+        setJobStatus(statusOf(active));
         return true;
       } catch {
         return false; // non-fatal - fall through to localStorage restore
@@ -343,24 +323,7 @@ export function useExportJob(onCacheSummaryUpdate: () => void) {
           const status = await exportApi.getJobStatus(storedJobId);
           if (!status) return;
 
-          setJobStatus({
-            status: status.status,
-            progress: status.progress || 0,
-            message: status.message,
-            stats: status.stats,
-            lastUpdatedTime: status.lastUpdatedTime,
-            checkpoint: status.checkpoint,
-          });
-
-          // Load logs
-          try {
-            const logsData = await exportApi.getJobLogs(storedJobId);
-            if (logsData?.logs) {
-              setExportLogs(logsData.logs);
-            }
-          } catch {
-            // Silently fail - logs might not be available yet
-          }
+          setJobStatus(statusOf(status));
 
           // Update running state based on job status
           const isComplete = ['completed', 'failed', 'stopped'].includes(status.status);
@@ -397,35 +360,18 @@ export function useExportJob(onCacheSummaryUpdate: () => void) {
     return () => {
       cancelled = true;
     };
-  }, [isViewingHistorical, onCacheSummaryUpdate]); // Re-run when historical viewing changes
+  }, [onCacheSummaryUpdate]);
 
-  // Poll for job status (only for active jobs, not historical)
+  // Poll for job status while it runs
   useEffect(() => {
-    if (!isRunning || !currentJobId || isViewingHistorical) return;
+    if (!isRunning || !currentJobId) return;
 
     const pollInterval = setInterval(async () => {
       try {
         const status = await exportApi.getJobStatus(currentJobId);
         if (!status) return;
 
-        setJobStatus({
-          status: status.status,
-          progress: status.progress || 0,
-          message: status.message,
-          stats: status.stats,
-          lastUpdatedTime: status.lastUpdatedTime,
-          checkpoint: status.checkpoint,
-        });
-
-        // Load logs for all jobs (running or completed)
-        try {
-          const logsData = await exportApi.getJobLogs(currentJobId);
-          if (logsData?.logs) {
-            setExportLogs(logsData.logs);
-          }
-        } catch {
-          // Silently fail - logs might not be available yet
-        }
+        setJobStatus(statusOf(status));
 
         // Update running state based on job status
         const isComplete = ['completed', 'failed', 'stopped'].includes(status.status);
@@ -463,58 +409,15 @@ export function useExportJob(onCacheSummaryUpdate: () => void) {
     }, 5000);
 
     return () => clearInterval(pollInterval);
-  }, [
-    isRunning,
-    currentJobId,
-    isViewingHistorical,
-    jobStartedInSession,
-    enqueueSnackbar,
-    onCacheSummaryUpdate,
-  ]);
-
-  // Load historical job details
-  const loadHistoricalJob = useCallback(async (jobId: string) => {
-    try {
-      // Mark as viewing historical job and stop monitoring
-      setIsViewingHistorical(true);
-      setIsRunning(false);
-      setJobStartedInSession(false);
-
-      // Load job status
-      const status = await exportApi.getJobStatus(jobId);
-      if (status) {
-        setJobStatus({
-          status: status.status,
-          progress: status.progress || 0,
-          message: status.message,
-          stats: status.stats,
-          lastUpdatedTime: status.lastUpdatedTime,
-          checkpoint: status.checkpoint,
-        });
-      }
-
-      // Load logs
-      const logsData = await exportApi.getJobLogs(jobId);
-      if (logsData?.logs) {
-        setExportLogs(logsData.logs);
-      }
-
-      // Update current job ID but don't save to localStorage
-      setCurrentJobId(jobId);
-    } catch (error) {
-      console.error('Failed to load historical job:', error);
-    }
-  }, []);
+  }, [isRunning, currentJobId, jobStartedInSession, enqueueSnackbar, onCacheSummaryUpdate]);
 
   return {
     currentJobId,
     jobStatus,
     isRunning,
-    exportLogs,
     isRefreshing,
     startExport,
     stopExport,
     refreshStatus,
-    loadHistoricalJob,
   };
 }

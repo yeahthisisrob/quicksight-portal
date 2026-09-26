@@ -225,14 +225,25 @@ export class DynamoDBService {
 
   /**
    * Query all items in one table partition, ascending by sort key.
-   * Optional begins_with filter on the sort key (e.g. log entries).
+   * Optional begins_with filter on the sort key (e.g. log entries), and an
+   * optional exclusive lower bound within that prefix (only what came after
+   * a cursor, for a view that follows a growing log).
    */
   public async queryPartition<T = Record<string, any>>(
     tableName: string,
     partitionKey: string,
     partitionValue: string,
-    options: { sortKeyBeginsWith?: { name: string; prefix: string }; limit?: number } = {}
+    options: {
+      sortKeyBeginsWith?: { name: string; prefix: string };
+      /** Exclusive: only sort keys greater than this, within the prefix. Needs sortKeyBeginsWith. */
+      sortKeyAfter?: string;
+      limit?: number;
+    } = {}
   ): Promise<T[]> {
+    const prefix = options.sortKeyBeginsWith;
+    // BETWEEN is inclusive, so the cursor's own item is dropped afterwards;
+    // the upper bound keeps the range inside the prefix (META sorts after LOG#).
+    const after = prefix && options.sortKeyAfter !== undefined ? options.sortKeyAfter : undefined;
     const items: T[] = [];
     let exclusiveStartKey: Record<string, any> | undefined;
     const limit = options.limit ?? DEFAULT_PARTITION_QUERY_LIMIT;
@@ -242,23 +253,33 @@ export class DynamoDBService {
         await this.docClient.send(
           new QueryCommand({
             TableName: tableName,
-            KeyConditionExpression: options.sortKeyBeginsWith
-              ? `#pk = :pk AND begins_with(#sk, :prefix)`
-              : `#pk = :pk`,
+            KeyConditionExpression:
+              after !== undefined
+                ? `#pk = :pk AND #sk BETWEEN :after AND :end`
+                : prefix
+                  ? `#pk = :pk AND begins_with(#sk, :prefix)`
+                  : `#pk = :pk`,
             ExpressionAttributeNames: {
               '#pk': partitionKey,
-              ...(options.sortKeyBeginsWith && { '#sk': options.sortKeyBeginsWith.name }),
+              ...(prefix && { '#sk': prefix.name }),
             },
             ExpressionAttributeValues: {
               ':pk': partitionValue,
-              ...(options.sortKeyBeginsWith && { ':prefix': options.sortKeyBeginsWith.prefix }),
+              ...(prefix && after === undefined && { ':prefix': prefix.prefix }),
+              ...(prefix &&
+                after !== undefined && { ':after': after, ':end': `${prefix.prefix}\uffff` }),
             },
             ConsistentRead: true,
             Limit: limit - items.length,
             ExclusiveStartKey: exclusiveStartKey,
           })
         );
-      items.push(...((result.Items as T[]) || []));
+      const page = (result.Items as T[]) || [];
+      items.push(
+        ...(after !== undefined && prefix
+          ? page.filter((item) => (item as Record<string, any>)[prefix.name] !== after)
+          : page)
+      );
       exclusiveStartKey = result.LastEvaluatedKey;
     } while (exclusiveStartKey && items.length < limit);
 

@@ -33,6 +33,7 @@ import {
   FilterList as FilterIcon,
   Folder as FolderIcon,
   Group as GroupIcon,
+  WorkHistoryOutlined as JobsNavIcon,
   // Actions
   Code as JsonIcon,
   LightMode as LightModeIcon,
@@ -139,6 +140,7 @@ export const navigationIcons = {
   logout: LogoutIcon,
   storage: StorageIcon,
   timeline: TimelineNavIcon,
+  jobs: JobsNavIcon,
   author: AuthorIcon,
   operations: OperationsIcon,
   settings: Settings,

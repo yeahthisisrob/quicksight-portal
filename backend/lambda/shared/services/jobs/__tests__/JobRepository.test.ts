@@ -349,6 +349,45 @@ describe('JobRepository - export lock and logs', () => {
       { timestamp: '2025-01-01T00:00:02.000Z', level: 'warn', message: 'second' },
     ]);
   });
+
+  it('getJobLogPage asks only for what came after the cursor, and hands the next one back', async () => {
+    const cursor = 'LOG#2025-01-01T00:00:01.000Z#000001';
+    mocks.dynamo.queryPartition.mockResolvedValue([
+      {
+        pk: 'export-1',
+        sk: 'LOG#2025-01-01T00:00:02.000Z#000002',
+        timestamp: '2025-01-01T00:00:02.000Z',
+        level: 'info',
+        message: 'second',
+      },
+    ]);
+
+    const page = await repository.getJobLogPage('export-1', cursor);
+
+    expect(mocks.dynamo.queryPartition).toHaveBeenCalledWith(expect.any(String), 'pk', 'export-1', {
+      sortKeyBeginsWith: { name: 'sk', prefix: 'LOG#' },
+      sortKeyAfter: cursor,
+    });
+    expect(page).toEqual({
+      logs: [{ timestamp: '2025-01-01T00:00:02.000Z', level: 'info', message: 'second' }],
+      cursor: 'LOG#2025-01-01T00:00:02.000Z#000002',
+    });
+  });
+
+  it('getJobLogPage keeps the cursor when nothing is new, and ignores one that is not a log key', async () => {
+    mocks.dynamo.queryPartition.mockResolvedValue([]);
+    const cursor = 'LOG#2025-01-01T00:00:02.000Z#000002';
+
+    expect(await repository.getJobLogPage('export-1', cursor)).toEqual({ logs: [], cursor });
+
+    await repository.getJobLogPage('export-1', 'META');
+    expect(mocks.dynamo.queryPartition).toHaveBeenLastCalledWith(
+      expect.any(String),
+      'pk',
+      'export-1',
+      { sortKeyBeginsWith: { name: 'sk', prefix: 'LOG#' } }
+    );
+  });
 });
 
 describe('JobRepository - self-healing dead jobs', () => {

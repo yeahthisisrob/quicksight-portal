@@ -41,11 +41,21 @@ export const jobsApi = {
   },
 
   async getJobLogs(jobId: string): Promise<JobLog[]> {
+    return (await jobsApi.getJobLogPage(jobId)).logs;
+  },
+
+  /**
+   * The lines after `after` (all of them without it) and the cursor to ask
+   * with next, so a view following a running job only fetches what is new.
+   */
+  async getJobLogPage(jobId: string, after?: string): Promise<{ logs: JobLog[]; cursor?: string }> {
     const data = unwrap(
-      await client.GET('/api/jobs/{jobId}/logs', { params: { path: { jobId } } }),
+      await client.GET('/api/jobs/{jobId}/logs', {
+        params: { path: { jobId }, query: after ? { after } : {} },
+      }),
       'Failed to get job logs'
     );
-    return data.logs ?? [];
+    return { logs: data.logs ?? [], ...(data.cursor && { cursor: data.cursor }) };
   },
 
   /** What the job produced, shaped by the job; null until it completes or when it produced nothing. */

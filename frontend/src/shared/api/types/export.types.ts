@@ -14,4 +14,3 @@ export type ExportJobOptions = Schemas['ExportJobRequest'];
 export type RefreshOptions = NonNullable<ExportJobOptions['refreshOptions']>;
 
 /** One line of a job's log. */
-export type ExportLogEntry = Schemas['JobLog'];

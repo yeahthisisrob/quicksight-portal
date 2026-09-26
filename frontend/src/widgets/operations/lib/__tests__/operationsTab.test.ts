@@ -11,6 +11,7 @@ describe('operations tab URL sync', () => {
   it('reads a known tab from the query parameter', () => {
     expect(parseOperationsTab('archived')).toBe('archived');
     expect(parseOperationsTab('smus')).toBe('smus');
+    expect(parseOperationsTab('jobs')).toBe('jobs');
   });
 
   it('falls back to export for anything unknown or missing', () => {
@@ -28,7 +29,7 @@ describe('operations tab URL sync', () => {
   });
 
   it('round-trips every tab', () => {
-    for (const tab of ['export', 'smus', 'archived'] as const) {
+    for (const tab of ['export', 'jobs', 'smus', 'archived'] as const) {
       const search = new URLSearchParams(operationsTabSearch(tab));
       expect(parseOperationsTab(search.get('tab'))).toBe(tab);
     }
