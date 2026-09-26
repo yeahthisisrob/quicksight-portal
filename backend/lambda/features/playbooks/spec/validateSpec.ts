@@ -45,6 +45,10 @@ const STEP_FIELDS: Record<SpecStep['kind'], { required: string[]; optional: stri
   tag: { required: ['target', 'key', 'value'], optional: [] },
   repair: { required: [], optional: [] },
   addToFolder: { required: ['folder'], optional: [] },
+  replaceMaterialisedCalcs: {
+    required: [],
+    optional: ['governed', 'infer', 'minConfidence', 'prefixes'],
+  },
 };
 const TAG_TARGETS = new Set(['asset', 'replaced-datasets', 'replaced-datasources']);
 

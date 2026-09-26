@@ -2880,10 +2880,14 @@ export interface components {
          *     rebind: onto what matchDataset found. tag (target: asset,
          *     replaced-datasets or replaced-datasources; key; value). repair.
          *     addToFolder (folder): put the asset in a folder, e.g. a team's shared one.
+         *     replaceMaterialisedCalcs (governed, infer, minConfidence, prefixes):
+         *     calculated fields the dataset now holds as columns are replaced by
+         *     them and dropped; a model judges each (a name alone is only a
+         *     suggestion for review), and the rewrite is dry-run first.
          */
         PlaybookSpecStep: {
             /** @enum {string} */
-            kind: "matchDataset" | "rebind" | "tag" | "repair" | "addToFolder";
+            kind: "matchDataset" | "rebind" | "tag" | "repair" | "addToFolder" | "replaceMaterialisedCalcs";
             engine?: components["schemas"]["PlaybookSpecValue"];
             governed?: components["schemas"]["PlaybookSpecValue"];
             infer?: components["schemas"]["PlaybookSpecValue"];
@@ -2893,6 +2897,7 @@ export interface components {
             key?: components["schemas"]["PlaybookSpecValue"];
             value?: components["schemas"]["PlaybookSpecValue"];
             folder?: components["schemas"]["PlaybookSpecValue"];
+            prefixes?: components["schemas"]["PlaybookSpecValue"];
         };
         PlaybookSpec: components["schemas"]["PlaybookSpecInput"] & {
             id: string;
@@ -3962,16 +3967,21 @@ export interface components {
          *     filter groups go too). dropParameter removes a parameter's
          *     declaration, controls and filters. declareParameter adds a
          *     declaration for a parameter that is referenced but never declared.
+         *     replaceCalculatedField points every reference to a calculated field
+         *     at a dataset column holding the same values (one materialised
+         *     upstream), rewrites calculated fields that read it, and drops it.
          */
         RepairOp: {
             /** @enum {string} */
-            op: "dropColumn" | "dropParameter" | "declareParameter";
-            /** @description dropColumn - the dataset identifier. */
+            op: "dropColumn" | "dropParameter" | "declareParameter" | "replaceCalculatedField";
+            /** @description dropColumn / replaceCalculatedField - the dataset identifier. */
             identifier?: string;
             /** @description dropColumn - the column. */
             columnName?: string;
-            /** @description dropParameter / declareParameter - the parameter name. */
+            /** @description dropParameter / declareParameter - the parameter name; replaceCalculatedField - the calculated field. */
             name?: string;
+            /** @description replaceCalculatedField - the dataset column that replaces it. */
+            column?: string;
             /**
              * @description declareParameter - the value type.
              * @enum {string}

@@ -8,6 +8,7 @@ import { repairErrors } from '../catalog/repairErrors';
 import type { ItemPlan, PlaybookContext, PlaybookTarget } from '../types';
 import { inferMatch, type Offered } from './inferMatch';
 import { resolve, resolveBoolean, resolveText } from './inputs';
+import { applyReplaceMaterialised, planReplaceMaterialised } from './materialisedCalcs';
 import type { DatasetRef, SpecSession } from './session';
 import type { MatchDatasetStep, SpecStep, TagStep } from './types';
 
@@ -332,6 +333,8 @@ export async function planStep(
         data: { folderId, memberType },
       };
     }
+    case 'replaceMaterialisedCalcs':
+      return await planReplaceMaterialised(ctx, session, target, step);
     case 'repair': {
       const plan = await repairErrors.plan(ctx, target);
       return {
@@ -391,6 +394,8 @@ export async function applyStep(
       });
       return 'Added to the folder';
     }
+    case 'replaceMaterialisedCalcs':
+      return await applyReplaceMaterialised(ctx, target, plan);
     case 'repair':
       return (await repairErrors.apply(ctx, target, plan.data as ItemPlan)).summary;
     default:

@@ -60,8 +60,11 @@ interface RepairRequests {
   columnMaps: Record<string, Record<string, string>>;
 }
 
-function isRepairOp(fix: RepairFix): fix is RepairOp {
-  return fix.op === 'dropColumn' || fix.op === 'dropParameter' || fix.op === 'declareParameter';
+/** The fixes a repair plan proposes that are repair ops (the rest are renames and rebinds). */
+const PLAN_REPAIR_OPS = new Set(['dropColumn', 'dropParameter', 'declareParameter']);
+
+function asRepairOp(fix: RepairFix): RepairOp | null {
+  return PLAN_REPAIR_OPS.has(fix.op) ? (fix as RepairOp) : null;
 }
 
 /** What the accepted fixes send: repair ops, and renames grouped per identifier. */
@@ -78,8 +81,9 @@ export function repairRequests(
     }
     if (fix.op === 'rename' && fix.identifier && fix.columnName && fix.to) {
       columnMaps[fix.identifier] = { ...columnMaps[fix.identifier], [fix.columnName]: fix.to };
-    } else if (isRepairOp(fix)) {
-      repairs.push(fix);
+    } else {
+      const repair = asRepairOp(fix);
+      if (repair) repairs.push(repair);
     }
   }
   return { repairs, columnMaps };

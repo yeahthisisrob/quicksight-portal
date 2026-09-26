@@ -6234,11 +6234,15 @@ components:
         rebind: onto what matchDataset found. tag (target: asset,
         replaced-datasets or replaced-datasources; key; value). repair.
         addToFolder (folder): put the asset in a folder, e.g. a team's shared one.
+        replaceMaterialisedCalcs (governed, infer, minConfidence, prefixes):
+        calculated fields the dataset now holds as columns are replaced by
+        them and dropped; a model judges each (a name alone is only a
+        suggestion for review), and the rewrite is dry-run first.
       required: [kind]
       properties:
         kind:
           type: string
-          enum: [matchDataset, rebind, tag, repair, addToFolder]
+          enum: [matchDataset, rebind, tag, repair, addToFolder, replaceMaterialisedCalcs]
         engine:
           $ref: '#/components/schemas/PlaybookSpecValue'
         governed:
@@ -6255,6 +6259,8 @@ components:
         value:
           $ref: '#/components/schemas/PlaybookSpecValue'
         folder:
+          $ref: '#/components/schemas/PlaybookSpecValue'
+        prefixes:
           $ref: '#/components/schemas/PlaybookSpecValue'
 
     PlaybookSpec:
@@ -8135,20 +8141,26 @@ components:
         filter groups go too). dropParameter removes a parameter's
         declaration, controls and filters. declareParameter adds a
         declaration for a parameter that is referenced but never declared.
+        replaceCalculatedField points every reference to a calculated field
+        at a dataset column holding the same values (one materialised
+        upstream), rewrites calculated fields that read it, and drops it.
       required: [op]
       properties:
         op:
           type: string
-          enum: [dropColumn, dropParameter, declareParameter]
+          enum: [dropColumn, dropParameter, declareParameter, replaceCalculatedField]
         identifier:
           type: string
-          description: dropColumn - the dataset identifier.
+          description: dropColumn / replaceCalculatedField - the dataset identifier.
         columnName:
           type: string
           description: dropColumn - the column.
         name:
           type: string
-          description: dropParameter / declareParameter - the parameter name.
+          description: dropParameter / declareParameter - the parameter name; replaceCalculatedField - the calculated field.
+        column:
+          type: string
+          description: replaceCalculatedField - the dataset column that replaces it.
         type:
           type: string
           enum: [STRING, INTEGER, DECIMAL, DATETIME]

@@ -78,6 +78,10 @@ const STEPS: Record<PlaybookSpecStep['kind'], { label: string; help: string }> =
     label: 'Repair definition errors',
     help: 'What the repair plan can fix alone; choices go to review.',
   },
+  replaceMaterialisedCalcs: {
+    label: 'Use governed columns instead of calculated fields',
+    help: 'A calculated field the dataset now holds as a column is replaced by it and dropped. A model judges each against the governed descriptions; a name match alone only goes to review. Every rewrite is dry-run first.',
+  },
   addToFolder: {
     label: 'Add to a folder',
     help: 'A shared folder then carries its audience. Anything already in it is skipped; nothing is removed from other folders.',
@@ -371,6 +375,14 @@ function StepCard({
           {field('governed', 'SMUS-governed', 'true or false')}
           {field('infer', 'Use a model', 'true or false')}
           {field('minConfidence', 'Min confidence', '0.8')}
+        </Stack>
+      )}
+      {step.kind === 'replaceMaterialisedCalcs' && (
+        <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap', gap: 1.5 }}>
+          {field('governed', 'Governed only', 'true or false')}
+          {field('infer', 'Use a model', 'true or false')}
+          {field('minConfidence', 'Min confidence', '0.85')}
+          {field('prefixes', 'Name prefixes', 'c_ds_,c_')}
         </Stack>
       )}
       {step.kind === 'addToFolder' && (

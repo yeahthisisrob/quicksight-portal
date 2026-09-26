@@ -24,6 +24,7 @@ const WRITES: Record<string, Playbook['writes']> = {
   tag: ['dashboard', 'analysis', 'dataset', 'datasource'],
   repair: ['dashboard', 'analysis'],
   addToFolder: ['folder'],
+  replaceMaterialisedCalcs: ['dashboard', 'analysis'],
 };
 
 function paramOf(input: SpecInput): PlaybookParam {
@@ -92,7 +93,10 @@ export function specPlaybook(spec: PlaybookSpec): Playbook {
     spec,
     // An infer value that is an input may be turned off when it runs; the choice is still offered.
     infers: spec.steps.some(
-      (s) => s.kind === 'matchDataset' && s.infer !== undefined && s.infer !== false
+      (s) =>
+        (s.kind === 'matchDataset' || s.kind === 'replaceMaterialisedCalcs') &&
+        s.infer !== undefined &&
+        s.infer !== false
     ),
     params: spec.inputs.map(paramOf),
     writes,
