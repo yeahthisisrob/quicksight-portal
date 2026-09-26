@@ -345,6 +345,11 @@ export function AnswerView({
             label={`${result.model.label} · ${formatCost(result.cost)}`}
           />
         </Tooltip>
+        {(result.helpers ?? []).map((helper) => (
+          <Tooltip key={helper.modelId} title={`The planner answered with ${helper.modelId}`}>
+            <Chip size="small" variant="outlined" label={`Planner: ${helper.label}`} />
+          </Tooltip>
+        ))}
         {result.calls.length > 0 && (
           <Tooltip
             title={result.calls.map((c) => `${c.method} ${c.path} → ${c.status}`).join('\n')}

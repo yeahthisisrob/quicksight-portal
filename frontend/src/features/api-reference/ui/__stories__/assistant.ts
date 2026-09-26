@@ -166,6 +166,14 @@ export const SCRIPTED_ANSWER = {
   usage: { inputTokens: 24_180, outputTokens: 912 },
   cost: 0.02874,
   rounds: 3,
+  helpers: [
+    {
+      role: 'planner',
+      label: 'Claude Sonnet 4.6',
+      modelId: 'us.anthropic.claude-sonnet-4-6',
+      provider: 'bedrock',
+    },
+  ],
 };
 
 /** A plan on the governed dataset: the listing, the linked dataset it reuses, and a new analysis. */

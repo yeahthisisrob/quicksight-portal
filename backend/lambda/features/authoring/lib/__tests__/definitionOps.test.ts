@@ -124,4 +124,37 @@ describe('buildOutline', () => {
     expect(buildOutline(null)).toEqual([]);
     expect(buildOutline({ Sheets: [{ SheetId: 'x' }] })).toEqual([{ sheetId: 'x', name: 'Sheet 1', layout: 'flow', elements: [] }]);
   });
+
+  it('adds a filter by column, typed by how the definition uses it, into the control bar, and removes it again', () => {
+    const { definition, changes } = applyOps(sampleDefinition(), [
+      { op: 'addFilter', sheetId: 's1', identifier: 'orders', column: 'order_date' },
+      { op: 'addFilter', sheetId: 's1', identifier: 'orders', column: 'status', values: ['closed'] },
+    ]);
+    const sheet = definition.Sheets[0];
+    const controls = sheet.FilterControls.slice(-2).map((c: any) => Object.keys(c)[0]);
+    expect(controls).toEqual(['DateTimePicker', 'Dropdown']);
+    const bar = sheet.SheetControlLayouts[0].Configuration.GridLayout.Elements.map((e: any) => e.ElementId);
+    const ids = sheet.FilterControls.slice(-2).map((c: any) => (Object.values(c)[0] as any).FilterControlId);
+    expect(bar).toEqual(ids);
+    const statusFilter = definition.FilterGroups.at(-1).Filters[0].CategoryFilter;
+    expect(statusFilter.Column).toEqual({ DataSetIdentifier: 'orders', ColumnName: 'status' });
+    expect(changes.map((c) => c.kind)).toEqual(['filter', 'filter']);
+    expect(buildOutline(definition)[0]!.elements.filter((e) => e.placement === 'controlBar')).toHaveLength(2);
+
+    const removed = applyOps(definition, [{ op: 'remove', sheetId: 's1', elementId: ids[0] }]).definition.Sheets[0];
+    expect(removed.SheetControlLayouts[0].Configuration.GridLayout.Elements.map((e: any) => e.ElementId)).toEqual([ids[1]]);
+    expect(removed.FilterControls.some((c: any) => (Object.values(c)[0] as any).FilterControlId === ids[0])).toBe(false);
+  });
+
+  it('refuses a filter on an ARN or an undeclared identifier, and a number filter without bounds', () => {
+    expect(() =>
+      applyOps(sampleDefinition(), [
+        { op: 'addFilter', sheetId: 's1', identifier: 'arn:aws:quicksight:us-east-1:1:dataset/orders', column: 'status' },
+      ])
+    ).toThrow("no dataset identifier 'arn:aws:quicksight:us-east-1:1:dataset/orders'; the definition declares orders, regions");
+    expect(() =>
+      applyOps(sampleDefinition(), [{ op: 'addFilter', sheetId: 's1', identifier: 'orders', column: 'revenue' }])
+    ).toThrow('needs min and max');
+    expect(() => parseOps([{ op: 'addFilter', sheetId: 's1', column: 'x' }])).toThrow('not its ARN');
+  });
 });

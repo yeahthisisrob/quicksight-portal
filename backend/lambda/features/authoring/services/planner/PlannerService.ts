@@ -140,7 +140,7 @@ const CHOICE_SCHEMA = {
   properties: {
     wantsEdits: {
       type: 'boolean',
-      description: 'true when the ask includes layout or visual changes beyond datasets.',
+      description: 'true when the ask includes layout, visual or filter changes beyond datasets.',
     },
     intent: {
       type: 'string',
@@ -326,11 +326,23 @@ const EDITS_SCHEMA = {
           'visualType',
           'title',
           'name',
+          'identifier',
+          'column',
+          'values',
         ],
         properties: {
           op: {
             type: 'string',
-            enum: ['move', 'resize', 'retype', 'retitle', 'remove', 'duplicate', 'renameSheet'],
+            enum: [
+              'move',
+              'resize',
+              'retype',
+              'retitle',
+              'remove',
+              'duplicate',
+              'renameSheet',
+              'addFilter',
+            ],
           },
           sheetId: { type: 'string', description: 'A sheetId from the outline.' },
           elementId: {
@@ -347,6 +359,18 @@ const EDITS_SCHEMA = {
           },
           title: { type: 'string', description: 'retitle/duplicate: the new title; else "".' },
           name: { type: 'string', description: 'renameSheet: the new name; else "".' },
+          identifier: {
+            type: 'string',
+            description:
+              'addFilter: the dataset identifier (from the datasets list, never an ARN); else "".',
+          },
+          column: { type: 'string', description: 'addFilter: the column to filter on; else "".' },
+          values: {
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              'addFilter on a text column: values selected to start with, when the ask names them; else [].',
+          },
         },
       },
     },
@@ -506,14 +530,26 @@ export class PlannerService {
     assetId: string,
     ask: string
   ): Promise<DefinitionOp[]> {
-    const outline = await this.rebindService.loadDefinitionOutline(assetType, assetId);
+    const [outline, described] = await Promise.all([
+      this.rebindService.loadDefinitionOutline(assetType, assetId),
+      this.rebindService.describeDatasets(assetType, assetId).catch(() => null),
+    ]);
+    const datasets = (described?.datasets ?? []).map((d: any) => ({
+      identifier: d.identifier,
+      columns: (d.columns ?? [])
+        .map((c: any) => (typeof c === 'string' ? c : c?.name))
+        .filter(Boolean),
+    }));
     const user = [
       'The sheets of the definition, with the ids you must use:',
       JSON.stringify(outline),
       '',
+      'The datasets it reads, by identifier, with the columns it uses:',
+      JSON.stringify(datasets),
+      '',
       `The ask: ${JSON.stringify(ask)}`,
       '',
-      'Express the layout and visual changes the ask wants as ops. The grid is 36 columns wide; rows grow downward. Use only ids from the outline. Change a visual type only between BarChart, ColumnChart, LineChart, PieChart, DonutChart, Table and PivotTable. If the ask wants no such change, return an empty list.',
+      'Express the layout, visual and filter changes the ask wants as ops. The grid is 36 columns wide; rows grow downward. Use only ids from the outline and identifiers from the datasets. Change a visual type only between BarChart, ColumnChart, LineChart, PieChart, DonutChart, Table and PivotTable. A filter the ask wants is an addFilter op on its column: its control goes in the sheet control bar by itself. If the ask wants no such change, return an empty list.',
     ].join('\n');
 
     const result = await this.model.complete({
@@ -857,6 +893,18 @@ export function parseEditOps(output: unknown, outline: SheetOutline[]): Definiti
         return [base];
       case 'renameSheet':
         return [{ op: 'renameSheet', sheetId: base.sheetId, name: text('name') }];
+      case 'addFilter':
+        return [
+          {
+            op: 'addFilter',
+            sheetId: base.sheetId,
+            identifier: text('identifier'),
+            column: text('column'),
+            values: Array.isArray(item.values)
+              ? item.values.filter((v) => typeof v === 'string' && v)
+              : [],
+          },
+        ];
       default:
         return [];
     }

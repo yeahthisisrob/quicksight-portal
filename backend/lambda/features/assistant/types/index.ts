@@ -87,6 +87,8 @@ export interface AssistantChatResult {
   /** Dollars at list price; a rough guide. */
   cost: number;
   rounds: number;
+  /** Other models this answer used through the portal, such as the planner. */
+  helpers?: Array<{ role: 'planner'; label: string; modelId: string; provider: string }>;
 }
 
 /**

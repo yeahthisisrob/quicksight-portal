@@ -23,6 +23,8 @@
 import { randomUUID } from 'node:crypto';
 
 import { ValidationError } from '../../../shared/errors/ValidationError';
+import { controlBar, controlBarElements } from './controlBar';
+import { buildFilters } from './definitionFilters';
 import { stripHtml, visualEntry, visualTypeName } from './definitionOutline';
 
 export type EditableVisualType =
@@ -48,7 +50,20 @@ export type DefinitionOp =
       col?: number;
       row?: number;
     }
-  | { op: 'renameSheet'; sheetId: string; name: string };
+  | { op: 'renameSheet'; sheetId: string; name: string }
+  | {
+      op: 'addFilter';
+      sheetId: string;
+      /** The dataset identifier (as declared in the definition), not its ARN. */
+      identifier: string;
+      column: string;
+      /** STRING, INTEGER, DECIMAL or DATETIME; read from how the definition uses the column when omitted. */
+      columnType?: string;
+      title?: string;
+      values?: string[];
+      min?: number;
+      max?: number;
+    };
 
 export type ChangeKind =
   | 'template'
@@ -58,7 +73,8 @@ export type ChangeKind =
   | 'calculatedField'
   | 'layout'
   | 'visual'
-  | 'sheet';
+  | 'sheet'
+  | 'filter';
 
 export interface DefinitionChange {
   kind: ChangeKind;
@@ -359,6 +375,21 @@ export function applyOps(
         const beforeCount = (sheet.Visuals ?? []).length;
         sheet.Visuals = (sheet.Visuals ?? []).filter((w: any) => visualEntry(w)?.[1].VisualId !== op.elementId);
         sheet.TextBoxes = (sheet.TextBoxes ?? []).filter((t: any) => t?.SheetTextBoxId !== op.elementId);
+        // A control, wherever it sits: its declaration, and the control bar.
+        const controlId = (c: any) => {
+          const body = Object.values(c ?? {})[0] as any;
+          return body?.FilterControlId ?? body?.ParameterControlId;
+        };
+        if (sheet.FilterControls) {
+          sheet.FilterControls = sheet.FilterControls.filter((c: any) => controlId(c) !== op.elementId);
+        }
+        if (sheet.ParameterControls) {
+          sheet.ParameterControls = sheet.ParameterControls.filter((c: any) => controlId(c) !== op.elementId);
+        }
+        if (controlBarElements(sheet).some((e) => e.ElementId === op.elementId)) {
+          const rest = controlBarElements(sheet).filter((e) => e.ElementId !== op.elementId);
+          sheet.SheetControlLayouts = controlBar(rest.map((e) => ({ id: e.ElementId, type: e.ElementType, span: e.ColumnSpan })));
+        }
         if (beforeCount === sheet.Visuals.length && !grid && !free) {
           throw new ValidationError(`Op ${index + 1}: nothing with id '${op.elementId}' on sheet '${sheet.SheetId}'`);
         }
@@ -417,12 +448,71 @@ export function applyOps(
         sheet.Name = name;
         break;
       }
+      case 'addFilter': {
+        const declared = (definition.DataSetIdentifierDeclarations ?? []).map((d: any) => d?.Identifier);
+        if (!declared.includes(op.identifier)) {
+          throw new ValidationError(
+            `Op ${index + 1}: no dataset identifier '${op.identifier}'; the definition declares ${declared.join(', ') || 'none'}`
+          );
+        }
+        const type = op.columnType ?? columnTypeIn(definition, op.identifier, op.column) ?? 'STRING';
+        const built = buildFilters(
+          op.sheetId,
+          [{ identifier: op.identifier, column: op.column, title: op.title, values: op.values, min: op.min, max: op.max }],
+          (identifier, name) =>
+            identifier === op.identifier && name.toLowerCase() === op.column.toLowerCase()
+              ? { name: op.column, type }
+              : undefined
+        );
+        if (built.filterControls.length === 0) {
+          throw new ValidationError(`Op ${index + 1}: ${built.warnings.join(' ') || 'the filter could not be built'}`);
+        }
+        definition.FilterGroups = [...(definition.FilterGroups ?? []), ...built.filterGroups];
+        sheet.FilterControls = [...(sheet.FilterControls ?? []), ...built.filterControls];
+        sheet.SheetControlLayouts = controlBar([
+          ...controlBarElements(sheet).map((e) => ({ id: e.ElementId, type: e.ElementType, span: e.ColumnSpan })),
+          ...built.controlIds.map((id) => ({ id, type: 'FILTER_CONTROL' as const })),
+        ]);
+        changes.push({
+          kind: 'filter',
+          sheetId: op.sheetId,
+          elementId: built.controlIds[0],
+          description: `Added a filter on ${op.column} to the control bar of ${sheetName}`,
+        });
+        break;
+      }
       default:
         throw new ValidationError(`Op ${index + 1}: unknown op '${(op as any).op}'`);
     }
   });
 
   return { definition, changes };
+}
+
+/** A column's type as the definition uses it: a date dimension, a number measure, or text. */
+function columnTypeIn(definition: any, identifier: string, column: string): string | undefined {
+  let found: string | undefined;
+  const visit = (node: any, key?: string) => {
+    if (found || typeof node !== 'object' || node === null) return;
+    if (Array.isArray(node)) {
+      for (const n of node) visit(n);
+      return;
+    }
+    const col = node.Column;
+    if (
+      key &&
+      col?.DataSetIdentifier === identifier &&
+      String(col?.ColumnName ?? '').toLowerCase() === column.toLowerCase()
+    ) {
+      if (key === 'DateDimensionField') found = 'DATETIME';
+      else if (key === 'NumericalMeasureField' || key === 'NumericalDimensionField') found = 'DECIMAL';
+      else if (key === 'CategoricalDimensionField' || key === 'CategoricalMeasureField') found = 'STRING';
+      if (found) return;
+    }
+    for (const [k, v] of Object.entries(node)) visit(v, k);
+  };
+  visit(definition.Sheets);
+  return found;
 }
 
 function labelFor(sheet: any, elementId: string): string {
@@ -495,8 +585,26 @@ export function parseOps(raw: unknown): DefinitionOp[] {
         };
       case 'renameSheet':
         return { op, sheetId, name: String(entry.name ?? '') };
+      case 'addFilter': {
+        const identifier = typeof entry.identifier === 'string' ? entry.identifier.trim() : '';
+        const column = typeof entry.column === 'string' ? entry.column.trim() : '';
+        if (!identifier || !column) {
+          throw new ValidationError(`ops[${index}]: addFilter needs identifier (the dataset identifier, not its ARN) and column`);
+        }
+        return {
+          op,
+          sheetId,
+          identifier,
+          column,
+          ...(typeof entry.columnType === 'string' && entry.columnType ? { columnType: entry.columnType } : {}),
+          ...(typeof entry.title === 'string' && entry.title ? { title: entry.title } : {}),
+          ...(Array.isArray(entry.values) ? { values: entry.values.filter((v): v is string => typeof v === 'string') } : {}),
+          ...(typeof entry.min === 'number' ? { min: entry.min } : {}),
+          ...(typeof entry.max === 'number' ? { max: entry.max } : {}),
+        };
+      }
       default:
-        throw new ValidationError(`ops[${index}].op '${String(op)}' is not one of move, resize, retype, retitle, remove, duplicate, renameSheet`);
+        throw new ValidationError(`ops[${index}].op '${String(op)}' is not one of move, resize, retype, retitle, remove, duplicate, renameSheet, addFilter`);
     }
   });
 }

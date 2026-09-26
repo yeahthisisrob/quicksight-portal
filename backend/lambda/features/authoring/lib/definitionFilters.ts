@@ -21,13 +21,16 @@ export interface FilterSpec {
   /** Numeric columns: the slider's bounds. */
   min?: number;
   max?: number;
+  /** Width in the control bar (grid units); a filter bar template sets it. */
+  span?: number;
 }
 
 export interface BuiltFilters {
   filterGroups: any[];
   filterControls: any[];
-  /** Control ids in the order they are laid out. */
+  /** Control ids in the order they are laid out, with their widths when set. */
   controlIds: string[];
+  spans: Array<number | undefined>;
   warnings: string[];
 }
 
@@ -45,7 +48,7 @@ export function buildFilters(
   specs: FilterSpec[],
   columnOf: (identifier: string, name: string) => TargetColumn | undefined
 ): BuiltFilters {
-  const out: BuiltFilters = { filterGroups: [], filterControls: [], controlIds: [], warnings: [] };
+  const out: BuiltFilters = { filterGroups: [], filterControls: [], controlIds: [], spans: [], warnings: [] };
   const seen = new Set<string>();
   for (const spec of specs.slice(0, MAX_FILTERS)) {
     const column = columnOf(spec.identifier, spec.column);
@@ -139,6 +142,7 @@ export function buildFilters(
     });
     out.filterControls.push(control);
     out.controlIds.push(controlId);
+    out.spans.push(spec.span);
   }
   return out;
 }

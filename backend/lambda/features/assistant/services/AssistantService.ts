@@ -14,7 +14,7 @@ import { randomUUID } from 'node:crypto';
 
 import spec from '../../../../../shared/generated/openapi.json';
 import type { AuthoringGuidance } from '../../../shared/ai/authoringGuidance';
-import { type AiModel, costOf } from '../../../shared/ai/modelCatalog';
+import { AI_MODELS, type AiModel, costOf } from '../../../shared/ai/modelCatalog';
 import { logger } from '../../../shared/utils/logger';
 import { bodyErrors, bodyFields, matchOperation } from '../lib/bodyCheck';
 import { contextGet, contextRelated, contextSearch, datasetColumns } from '../lib/contextTools';
@@ -87,6 +87,20 @@ interface Collected {
   calls: AssistantCall[];
   actions: AssistantAction[];
   artifacts: AssistantArtifact[];
+  helpers: NonNullable<AssistantChatResult['helpers']>;
+}
+
+/** The model the planner reported in its answer (a proposal, or a from-nothing preview), if any. */
+export function plannerModelOf(body: string): { provider: string; model: string } | undefined {
+  try {
+    const data = JSON.parse(body)?.data;
+    const model = data?.model ?? data?.proposal?.model;
+    return typeof model?.model === 'string'
+      ? { provider: String(model.provider ?? ''), model: model.model }
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function clip(text: string): string {
@@ -154,7 +168,7 @@ export class AssistantService {
           ? { role: 'user', text: m.text.slice(0, MAX_MESSAGE_CHARS) }
           : { role: 'assistant', text: m.text.slice(0, MAX_MESSAGE_CHARS), toolCalls: [] }
       );
-    const out: Collected = { calls: [], actions: [], artifacts: [] };
+    const out: Collected = { calls: [], actions: [], artifacts: [], helpers: [] };
     const usage = { inputTokens: 0, outputTokens: 0 };
     let reply = '';
     let rounds = 0;
@@ -219,6 +233,7 @@ export class AssistantService {
       usage,
       cost: costOf(this.model, usage),
       rounds,
+      ...(out.helpers.length ? { helpers: out.helpers } : {}),
     };
   }
 
@@ -568,6 +583,16 @@ export class AssistantService {
       const response = await this.run(method, path, body);
       const ok = response.status < HTTP_ERROR_MIN;
       out.calls.push({ method, path, status: response.status, ok });
+      const planner = ok ? plannerModelOf(response.body) : undefined;
+      if (planner && !out.helpers.some((h) => h.modelId === planner.model)) {
+        const known = AI_MODELS.find((m) => m.modelId === planner.model);
+        out.helpers.push({
+          role: 'planner',
+          label: known?.label ?? planner.model,
+          modelId: planner.model,
+          provider: planner.provider,
+        });
+      }
       if (ok) {
         this.capture(method, path, body, out.artifacts);
       }

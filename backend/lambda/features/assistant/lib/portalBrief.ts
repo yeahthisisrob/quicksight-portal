@@ -76,7 +76,7 @@ const TEMPLATE_TAGS = JSON.stringify([{ key: 'quicksight-portal:template', value
 
 
 
-export function compactTemplates(fieldTemplates: any, layoutStandards: any): string {
+export function compactTemplates(fieldTemplates: any, layoutStandards: any, filterBars?: any): string {
   const templates: any[] = Array.isArray(fieldTemplates?.templates) ? fieldTemplates.templates : [];
   const dashboards: any[] = Array.isArray(layoutStandards?.dashboards)
     ? layoutStandards.dashboards
@@ -94,17 +94,37 @@ export function compactTemplates(fieldTemplates: any, layoutStandards: any): str
     fieldLines.length ? fieldLines.join('\n') : '- none saved yet',
     `Layout standards (${dashboards.length}):`,
     layoutLines.length ? layoutLines.join('\n') : '- no dashboard is tagged as a standard',
+    ...(filterBars === undefined ? [] : compactFilterBars(filterBars)),
   ].join('\n');
+}
+
+function compactFilterBars(filterBars: any): string[] {
+  const bars: any[] = Array.isArray(filterBars?.templates) ? filterBars.templates : [];
+  return [
+    `Filter bar templates (${bars.length}); the default is applied to every analysis built from nothing unless filterBarTemplateId says otherwise ('none' for no bar):`,
+    bars.length
+      ? bars
+          .slice(0, MAX_TEMPLATES)
+          .map(
+            (b) =>
+              `- ${b.name}${b.isDefault ? ' (default)' : ''}: ${(b.controls ?? [])
+                .map((c: any) => `${c.title ?? c.column} (${c.column}, width ${c.span})`)
+                .join(', ')} [filter bar ${b.id}]`
+          )
+          .join('\n')
+      : '- none saved yet',
+  ];
 }
 
 
 
 export async function listTemplates(dispatch: Dispatch): Promise<string> {
-  const [fields, standards] = await Promise.all([
+  const [fields, standards, bars] = await Promise.all([
     read(dispatch, '/api/data-catalog/templates/calculated-fields'),
     read(dispatch, `/api/assets/dashboards/paginated${query({ page: '1', pageSize: String(MAX_TEMPLATES), includeTags: TEMPLATE_TAGS })}`),
+    read(dispatch, '/api/data-catalog/templates/filter-bars'),
   ]);
-  return compactTemplates(fields, standards);
+  return compactTemplates(fields, standards, bars ?? { templates: [] });
 }
 
 /**

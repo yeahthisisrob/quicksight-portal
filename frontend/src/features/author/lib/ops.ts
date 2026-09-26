@@ -153,6 +153,7 @@ export const CHANGE_KIND_LABELS: Record<DefinitionChange['kind'], string> = {
   layout: 'Layout',
   visual: 'Visual',
   sheet: 'Sheet',
+  filter: 'Filter',
 };
 
 const CHANGE_KIND_ORDER: DefinitionChange['kind'][] = [
@@ -164,6 +165,7 @@ const CHANGE_KIND_ORDER: DefinitionChange['kind'][] = [
   'sheet',
   'layout',
   'visual',
+  'filter',
 ];
 
 /** Changes grouped by kind in a fixed order, empty kinds left out. */
