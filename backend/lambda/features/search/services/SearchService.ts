@@ -414,7 +414,7 @@ export class SearchService {
         context: [template.source?.datasetName ?? ''].filter(Boolean),
         expression: template.expression,
         summary: `template: ${template.name} = ${trimExpression(template.expression)}`,
-        path: '/data-catalog?templates=1',
+        path: '/author?tab=studio&view=templates',
       });
     }
 

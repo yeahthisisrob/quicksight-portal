@@ -13,7 +13,7 @@ const DAY_MS = TIME_UNITS.DAY;
 
 function tagged(target: ScopedTarget, wanted: string): boolean {
   const [key, value] = wanted.split('=').map((s) => s.trim());
-  return (target.entry?.tags ?? []).some(
+  return (target.tags ?? target.entry?.tags ?? []).some(
     (t) => t.key === key && (value === undefined || value === '' || t.value === value)
   );
 }
@@ -26,9 +26,8 @@ const COMMON_GATES: Gate[] = [
     help: 'Recent edits are usually work in progress; leave them to whoever is making them.',
     exclude(target, value, now) {
       const days = Number(value);
-      const edited = target.entry?.lastUpdatedTime
-        ? new Date(target.entry.lastUpdatedTime).getTime()
-        : Number.NaN;
+      const when = target.lastUpdatedTime ?? target.entry?.lastUpdatedTime;
+      const edited = when ? new Date(when).getTime() : Number.NaN;
       if (!(days > 0) || !Number.isFinite(edited)) return null;
       const ago = Math.floor((now - edited) / DAY_MS);
       return now - edited < days * DAY_MS
@@ -98,7 +97,9 @@ export function applyGates(
       }
     }
   }
-  const canary = Number(values[CANARY_GATE.key]);
+  const canary = Number(
+    CANARY_GATE.key in values ? values[CANARY_GATE.key] : playbook.gateDefaults?.[CANARY_GATE.key]
+  );
   if (canary > 0) {
     let kept = 0;
     for (const target of targets) {

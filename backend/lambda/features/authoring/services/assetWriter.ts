@@ -14,8 +14,29 @@ import { mergeTags, readDefaultTags, type TagPair } from '../../../shared/tags/t
 import { logger } from '../../../shared/utils/logger';
 import type { AuthorableAssetType } from '../types';
 
-/** QuickSight tag values are capped at 256 characters. */
+/** QuickSight tag values are capped at 256 characters, and a resource at 50 tags. */
 const TAG_VALUE_MAX = 256;
+const TAG_COUNT_MAX = 50;
+
+/**
+ * QuickSight refuses a create over 50 tags or with an empty value, which
+ * would lose the whole write over a tag. Empty values are dropped; past 50,
+ * the portal's own go first (who made it), then the rest in order.
+ */
+function withinTagLimit(tags: TagPair[], assetId: string): TagPair[] {
+  const valued = tags.filter((t) => t.value.trim() !== '');
+  if (valued.length <= TAG_COUNT_MAX) return valued;
+  const own = valued.filter((t) => t.key.startsWith('portal:'));
+  const kept = [...own, ...valued.filter((t) => !t.key.startsWith('portal:'))].slice(
+    0,
+    TAG_COUNT_MAX
+  );
+  logger.warn("Tags past QuickSight's limit of 50 were left off", {
+    assetId,
+    dropped: valued.filter((t) => !kept.includes(t)).map((t) => t.key),
+  });
+  return kept;
+}
 
 interface WrittenAsset {
   assetId: string;
@@ -62,7 +83,10 @@ export async function createAsset(
   quickSight: QuickSightService,
   input: WriteInput & { permissions?: any[]; tags?: TagPair[]; auth?: AuthContext }
 ): Promise<WrittenAsset> {
-  const tags = mergeTags(readDefaultTags(), input.tags, provenanceTags(input.auth));
+  const tags = withinTagLimit(
+    mergeTags(readDefaultTags(), input.tags, provenanceTags(input.auth)),
+    input.assetId
+  );
   const tagged = tags.length > 0 ? { tags } : {};
   if (input.assetType === 'analysis') {
     const created = await quickSight.createAnalysis({

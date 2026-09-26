@@ -39,6 +39,8 @@ interface DefinitionDatasets {
 }
 
 const MISSING_NAMED = 5;
+/** Candidates whose columns are read for one dataset, the closest-named first. */
+const MAX_CANDIDATES_READ = 25;
 /** How many of the closest candidates a model is shown. */
 const OFFERED = 3;
 /** Inferred mappings below this go to review unless the spec asks otherwise. */
@@ -49,6 +51,20 @@ const normalName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, ''
 
 const assetPath = (t: PlaybookTarget) =>
   `/api/authoring/${t.assetType}/${encodeURIComponent(t.assetId)}`;
+
+/** Candidates ordered by how many name words they share with the dataset being replaced. */
+function closestFirst<T extends { name: string }>(candidates: T[], name: string): T[] {
+  const words = (s: string) =>
+    new Set(
+      s
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter(Boolean)
+    );
+  const mine = words(name);
+  const shared = (c: T) => [...words(c.name)].filter((w) => mine.has(w)).length;
+  return [...candidates].sort((a, b) => shared(b) - shared(a));
+}
 
 /** How well a candidate's columns cover the used ones, and the renames exact names need. */
 function coverage(used: string[], columns: Array<{ name: string }>) {
@@ -98,7 +114,10 @@ async function planMatch(
     if (current && suits(current)) continue;
     const used = dataset.columns.map((c) => c.name);
     const scored: Array<Offered & { columnMap: Record<string, string>; missing: string[] }> = [];
-    for (const candidate of wanted) {
+    for (const candidate of closestFirst(wanted, current?.name ?? dataset.dataSetId).slice(
+      0,
+      MAX_CANDIDATES_READ
+    )) {
       if (candidate.id === dataset.dataSetId) continue;
       const { columns } = await session.columns(candidate.id);
       scored.push({
@@ -270,6 +289,15 @@ export async function planStep(
       const targets = await tagTargets(session, target, step, state);
       if (!key || targets.length === 0) {
         return { kind: 'tag', verdict: 'skip', summary: 'Nothing to tag', changes: [] };
+      }
+      if (!value) {
+        // QuickSight refuses an empty tag value; an input left blank is a question, not a tag.
+        return {
+          kind: 'tag',
+          verdict: 'review',
+          summary: `The tag ${key} has no value (an input left empty?)`,
+          changes: [],
+        };
       }
       return {
         kind: 'tag',

@@ -187,13 +187,13 @@ export function answerTo(c: Conversation, interruptId: string): AgUiResumeEntry 
   return undefined;
 }
 
-/** What a finished action created, when it created an asset. */
+/** What a finished action created or restored, when it is something the Studio opens. */
 export function createdAsset(
   result: unknown
-): { assetType: 'dashboard' | 'analysis'; assetId: string; name?: string } | undefined {
+): { assetType: 'dashboard' | 'analysis' | 'dataset'; assetId: string; name?: string } | undefined {
   const r = result as { assetType?: unknown; assetId?: unknown; name?: unknown } | null;
   if (
-    (r?.assetType === 'dashboard' || r?.assetType === 'analysis') &&
+    (r?.assetType === 'dashboard' || r?.assetType === 'analysis' || r?.assetType === 'dataset') &&
     typeof r.assetId === 'string'
   ) {
     return {

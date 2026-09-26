@@ -22,8 +22,13 @@ export interface PlaybookTarget {
   name: string;
 }
 
-/** A target as scope found it, with the cache entry the gates judge it by. */
+/** A target as scope found it, with what the gates judge it by. */
 export interface ScopedTarget extends PlaybookTarget {
+  /** Its tags (the opt-out tag, onlyTagged). */
+  tags?: Array<{ key: string; value: string }>;
+  /** When it last changed (editedWithinDays). */
+  lastUpdatedTime?: string | Date;
+  /** The cache entry, when scope read one (a playbook's own gates may read more of it). */
   entry?: CacheEntry;
 }
 

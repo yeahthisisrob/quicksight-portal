@@ -235,7 +235,8 @@ export class DynamoDBService {
               ...(options.sortKeyBefore && { ':before': options.sortKeyBefore.value }),
             },
             ScanIndexForward: false, // newest first
-            Limit: limit - items.length,
+            // No limit: read every page (DynamoDB still pages at 1MB).
+            ...(Number.isFinite(limit) ? { Limit: limit - items.length } : {}),
             ExclusiveStartKey: exclusiveStartKey,
           })
         );
@@ -260,6 +261,7 @@ export class DynamoDBService {
       sortKeyBeginsWith?: { name: string; prefix: string };
       /** Exclusive: only sort keys greater than this, within the prefix. Needs sortKeyBeginsWith. */
       sortKeyAfter?: string;
+      /** At most this many (default 5,000); Infinity reads the whole partition. */
       limit?: number;
     } = {}
   ): Promise<T[]> {

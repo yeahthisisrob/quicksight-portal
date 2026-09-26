@@ -31,6 +31,37 @@ describe('classifyCall', () => {
     expect(classifyCall('GET', '/search')).toBe('blocked');
   });
 
+  it('leaves account-wide playbook previews to the person, and saved playbooks alone', () => {
+    expect(classifyCall('POST', '/api/playbooks/consolidate-athena/preview')).toBe('action');
+    expect(classifyCall('POST', '/api/playbooks/consolidate-athena/run')).toBe('action');
+    expect(classifyCall('GET', '/api/playbooks/runs/job-1/items')).toBe('read');
+    expect(classifyCall('GET', '/api/playbooks/custom/custom-1')).toBe('read');
+    expect(classifyCall('POST', '/api/playbooks/custom')).toBe('blocked');
+    expect(classifyCall('DELETE', '/api/playbooks/custom/custom-1')).toBe('blocked');
+    expect(classifyCall('POST', '/api/assets/dataset/d1/restore/preview')).toBe('read');
+    expect(classifyCall('DELETE', '/api/assets/dashboard/d1?reason=x')).toBe('action');
+  });
+
+  it('knows a delete needs its reason', async () => {
+    const { queryErrors } = await import('../../../shared/api/contract');
+    expect(
+      queryErrors(
+        spec as never,
+        'DELETE',
+        '/api/assets/{assetType}/{assetId}',
+        '/api/assets/dashboard/d1'
+      )
+    ).toEqual([expect.stringContaining('query reason: required')]);
+    expect(
+      queryErrors(
+        spec as never,
+        'DELETE',
+        '/api/assets/{assetType}/{assetId}',
+        '/api/assets/dashboard/d1?reason=old'
+      )
+    ).toEqual([]);
+  });
+
   it('indexes every callable operation and describes one with its body', () => {
     const index = apiIndex(spec as never);
     expect(index).toContain('GET /api/search - ');
@@ -345,6 +376,83 @@ describe('AssistantService', () => {
     ).respond([{ role: 'user', text: 'go' }]);
     expect(waited.calls[0]).toMatchObject({ status: 202 });
     expect(clock).toBeGreaterThanOrEqual(5 * 60 * 1000);
+  });
+
+  it('waits on a job whose id comes back at the top level', async () => {
+    const dispatch = vi.fn(async ({ method, path }: { method: string; path: string }) =>
+      method === 'POST'
+        ? { status: 202, body: JSON.stringify({ success: true, jobId: 'top-1', status: 'queued' }) }
+        : path.endsWith('/result')
+          ? { status: 200, body: JSON.stringify({ success: true, data: { answer: 42 } }) }
+          : { status: 200, body: JSON.stringify({ data: { status: 'completed' } }) }
+    );
+    const result = await new AssistantService(
+      scripted([
+        {
+          toolCalls: [
+            {
+              id: 'p',
+              name: 'call_portal_api',
+              input: { method: 'POST', path: '/api/authoring/new/propose', body: {} },
+            },
+          ],
+        },
+        { text: 'Done.' },
+      ]),
+      model,
+      dispatch,
+      { sleep: async () => {} }
+    ).respond([{ role: 'user', text: 'go' }]);
+    expect(dispatch.mock.calls.at(-1)![0]).toMatchObject({ path: '/api/jobs/top-1/result' });
+    expect(result.calls[0]).toMatchObject({ status: 200, ok: true });
+  });
+
+  it('will not prepare a restore its own check says cannot go ahead', async () => {
+    const dispatch = vi.fn(async ({ path }: { path: string }) =>
+      path.endsWith('/restore/preview')
+        ? {
+            status: 200,
+            body: JSON.stringify({
+              data: {
+                canRestore: false,
+                checks: [
+                  {
+                    label: 'Data source athena-old',
+                    ok: false,
+                    blocking: true,
+                    detail: 'It is gone',
+                  },
+                  { label: 'Audience', ok: true, blocking: false, detail: 'fine' },
+                ],
+              },
+            }),
+          }
+        : { status: 404, body: '' }
+    );
+    const result = await new AssistantService(
+      scripted([
+        {
+          toolCalls: [
+            {
+              id: 'r',
+              name: 'propose_action',
+              input: {
+                title: 'Restore orders',
+                why: 'It was archived by mistake',
+                method: 'POST',
+                path: '/api/assets/dataset/orders/restore',
+                body: {},
+              },
+            },
+          ],
+        },
+        { text: 'Its data source is gone.' },
+      ]),
+      model,
+      dispatch
+    ).respond([{ role: 'user', text: 'bring orders back' }]);
+    expect(result.actions).toEqual([]);
+    expect(result.reply).toBe('Its data source is gone.');
   });
 
   it('names each step in words', () => {

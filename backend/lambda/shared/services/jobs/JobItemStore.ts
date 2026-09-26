@@ -97,11 +97,12 @@ export class JobItemStore {
   /** Every row, in key order (stage, then type, then id). */
   public async all(jobId: string): Promise<JobItem[]> {
     await this.dynamo.ensureJobsTableExists(this.tableName);
+    // Every row, however many: the default partition read stops at 5,000.
     const rows = await this.dynamo.queryPartition<Record<string, any>>(
       this.tableName,
       'pk',
       jobId,
-      { sortKeyBeginsWith: { name: 'sk', prefix: ITEM_SK_PREFIX } }
+      { sortKeyBeginsWith: { name: 'sk', prefix: ITEM_SK_PREFIX }, limit: Number.POSITIVE_INFINITY }
     );
     return rows.map((row) => this.fromRow(row));
   }

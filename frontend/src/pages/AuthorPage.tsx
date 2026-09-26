@@ -37,7 +37,7 @@ function authorTabOf(params: URLSearchParams): AuthorTab {
  * /author - the Assistant: ask, and it plans, previews and prepares the
  * change, new assets included. ?tab=studio (or ?type=&id=, ?view=) - the
  * Studio, where existing assets are edited and fixed by hand, templates are
- * kept and account-wide scripts run. ?tab=api - the same authoring by API:
+ * kept and account-wide playbooks run. ?tab=api - the same authoring by API:
  * the keys and every operation. None of them is gated on SMUS; each uses it
  * when it is configured.
  */

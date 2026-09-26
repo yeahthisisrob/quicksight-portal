@@ -92,7 +92,6 @@ export function useRebindDraft(
     setTargets({});
     setColumnMaps({});
     setMode('clone');
-    setName(sourceName ? `${sourceName} (copy)` : '');
     setDatasets([]);
     setLoadError(null);
     if (!sourceType || !sourceId) {
@@ -107,7 +106,13 @@ export function useRebindDraft(
     } finally {
       setLoading(false);
     }
-  }, [sourceType, sourceId, sourceName, origin]);
+  }, [sourceType, sourceId, origin]);
+
+  // The copy's default name follows the source's; learning the name (a link
+  // without one) must not reload the datasets and drop what was chosen.
+  useEffect(() => {
+    setName(sourceName ? `${sourceName} (copy)` : '');
+  }, [sourceName]);
 
   useEffect(() => {
     if (enabled) {

@@ -5,7 +5,7 @@
  * or a run is a link and a reload lands back on it.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { getApiErrorMessage, jobsApi, playbooksApi } from '@/shared/api';
@@ -41,6 +41,11 @@ export interface PlaybookFlow {
   setSelected: (keys: Set<string>) => void;
   startPreview: () => void;
   startRun: (limits?: RunLimits, canary?: number) => void;
+  /** Only once the preview completed: the server refuses to run any other. */
+  canRun: boolean;
+  /** Chosen rows the last run did not handle, and a run of just those. */
+  remaining: string[];
+  runRest: (limits?: RunLimits) => void;
   retryFailed: () => void;
   stop: () => void;
   /** Back to setup, keeping the parameters. */
@@ -123,12 +128,23 @@ export function usePlaybook(): PlaybookFlow {
   const preview = useJobRows(previewJobId);
   const run = useJobRows(runJobId);
 
-  // The preview's 'change' rows start chosen; a new preview chooses again.
+  // The preview's 'change' rows start chosen as they arrive; a new preview
+  // chooses again. Rows already seen keep whatever the person made of them,
+  // so a poll never re-ticks what they unticked.
   const previewItems = preview.page?.items;
+  const seen = useRef<{ jobId: string | null; keys: Set<string> }>({
+    jobId: null,
+    keys: new Set(),
+  });
   useEffect(() => {
     if (!previewItems) return;
-    setSelected(new Set(previewItems.filter((r) => r.verdict === 'change').map((r) => r.key)));
-  }, [previewItems]);
+    const fresh = seen.current.jobId !== previewJobId;
+    if (fresh) seen.current = { jobId: previewJobId, keys: new Set() };
+    const arrived = previewItems.filter((r) => !seen.current.keys.has(r.key));
+    for (const row of arrived) seen.current.keys.add(row.key);
+    const toTick = arrived.filter((r) => r.verdict === 'change').map((r) => r.key);
+    setSelected((prev) => new Set([...(fresh ? [] : prev), ...toTick]));
+  }, [previewItems, previewJobId]);
 
   // A run that finished changed things: every open list reloads.
   const runStatus = run.job?.status;
@@ -201,6 +217,13 @@ export function usePlaybook(): PlaybookFlow {
     () => (preview.page?.items ?? []).filter((r) => r.verdict === 'change'),
     [preview.page]
   );
+  // What the last run did not get to: chosen, and not handled by it (a
+  // canary's other rows, or what a stopped or halted run left pending).
+  const remaining = useMemo(() => {
+    if (!run.page) return [];
+    const handled = new Set(run.page.items.filter((r) => r.status !== 'pending').map((r) => r.key));
+    return changeRows.filter((r) => selected.has(r.key) && !handled.has(r.key)).map((r) => r.key);
+  }, [run.page, changeRows, selected]);
 
   return {
     playbook,
@@ -215,6 +238,7 @@ export function usePlaybook(): PlaybookFlow {
     selected,
     setSelected,
     startPreview: () => previewMutation.mutate(),
+    canRun: preview.job?.status === 'completed',
     startRun: (limits, canary) => {
       const chosen = changeRows.filter((r) => selected.has(r.key)).map((r) => r.key);
       const keys = canary ? chosen.slice(0, canary) : chosen;
@@ -222,6 +246,8 @@ export function usePlaybook(): PlaybookFlow {
       const all = keys.length === changeRows.length;
       runMutation.mutate({ ...(all ? {} : { keys }), ...(limits ? { limits } : {}) });
     },
+    remaining,
+    runRest: (limits) => runMutation.mutate({ keys: remaining, ...(limits ? { limits } : {}) }),
     retryFailed: () => runJobId && runMutation.mutate({ retryOf: runJobId }),
     stop: () => {
       const active = run.running ? runJobId : preview.running ? previewJobId : null;

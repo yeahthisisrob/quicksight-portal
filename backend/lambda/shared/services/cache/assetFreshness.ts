@@ -29,6 +29,9 @@ interface WrittenAssetRef {
   arn?: string;
 }
 
+/** Assets per refresh job. */
+const REFRESH_CHUNK = 50;
+
 const batches = new AsyncLocalStorage<Map<string, WrittenAssetRef>>();
 
 /**
@@ -86,15 +89,23 @@ async function queueRefresh(
     return;
   }
   const accountId = context.accountId ?? process.env.AWS_ACCOUNT_ID ?? '';
-  try {
-    await JobFactory.getInstance().createJob({
-      jobType: 'asset-refresh',
-      accountId,
-      bucketName: process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`,
-      userId: context.userId ?? 'system',
-      assets: assets.map(({ assetType, assetId }) => ({ assetType, assetId })),
-    });
-  } catch (error) {
-    logger.warn('Cache: the refresh of written assets could not be queued', { assets, error });
+  // A refresh job re-exports serially; a few hundred at once would outlast a
+  // Lambda. Chunks keep each job well inside it and failing alone.
+  for (let i = 0; i < assets.length; i += REFRESH_CHUNK) {
+    const chunk = assets.slice(i, i + REFRESH_CHUNK);
+    try {
+      await JobFactory.getInstance().createJob({
+        jobType: 'asset-refresh',
+        accountId,
+        bucketName: process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`,
+        userId: context.userId ?? 'system',
+        assets: chunk.map(({ assetType, assetId }) => ({ assetType, assetId })),
+      });
+    } catch (error) {
+      logger.warn('Cache: the refresh of written assets could not be queued', {
+        assets: chunk,
+        error,
+      });
+    }
   }
 }

@@ -22,7 +22,7 @@ import {
   costOf,
   isAiModelKey,
 } from '../../../shared/ai/modelCatalog';
-import { bodyErrors, bodyFields, matchOperation } from '../../../shared/api/contract';
+import { bodyErrors, bodyFields, matchOperation, queryErrors } from '../../../shared/api/contract';
 import type { TagStandard } from '../../../shared/tags/tagStandards';
 import { logger } from '../../../shared/utils/logger';
 import { contextGet, contextRelated, contextSearch, datasetColumns } from '../lib/contextTools';
@@ -805,11 +805,14 @@ export class AssistantService {
         isError: true,
       };
     }
-    const problems = bodyErrors(spec as never, method, template, input.body);
+    const problems = [
+      ...queryErrors(spec as never, method, template, path),
+      ...bodyErrors(spec as never, method, template, input.body),
+    ];
     if (problems.length > 0) {
       return {
         id,
-        content: `The body does not fit ${method} ${template}, so it would fail when the person runs it:\n${problems.map((p) => `- ${p}`).join('\n')}\nThe operation expects:\n${describeOperation(spec as never, method, template)}\nFix the body and prepare it again.`,
+        content: `The request does not fit ${method} ${template}, so it would fail when the person runs it:\n${problems.map((p) => `- ${p}`).join('\n')}\nThe operation expects:\n${describeOperation(spec as never, method, template)}\nFix the body and prepare it again.`,
         isError: true,
       };
     }
@@ -885,6 +888,12 @@ export class AssistantService {
     } catch {
       data = undefined;
     }
+    if (data?.canRestore === false) {
+      const blocking = (data.checks ?? []).filter((c: any) => c?.blocking && !c?.ok);
+      return {
+        problem: `The restore cannot go ahead:\n${blocking.map((c: any) => `- ${c.label}: ${c.detail}`).join('\n')}\nTell the person what stands in the way, or fix it (a new id, say) and prepare it again.`,
+      };
+    }
     if (data?.canApply === false) {
       return {
         problem: `The preview says QuickSight would refuse this as it stands:\n${clip(JSON.stringify({ issues: data.issues, warnings: data.warnings, summary: data.summary }))}\nFix it and prepare it again.`,
@@ -906,7 +915,9 @@ export class AssistantService {
     }
     let jobId: string | undefined;
     try {
-      jobId = JSON.parse(response.body)?.data?.jobId;
+      // Queued work answers { success, jobId } or { data: { jobId } }, by route.
+      const parsed = JSON.parse(response.body);
+      jobId = parsed?.jobId ?? parsed?.data?.jobId;
     } catch {
       jobId = undefined;
     }
