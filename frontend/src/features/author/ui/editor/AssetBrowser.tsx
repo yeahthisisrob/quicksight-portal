@@ -7,6 +7,7 @@
 import { ErrorOutlined, Inventory2Outlined, Search, Star } from '@mui/icons-material';
 import {
   Box,
+  Button,
   Chip,
   CircularProgress,
   InputAdornment,
@@ -21,9 +22,9 @@ import {
   Typography,
 } from '@mui/material';
 import type { components } from '@shared/generated/types';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import type { RebindSource } from '@/entities/definition';
 import { PersonLabel } from '@/entities/user';
@@ -33,6 +34,7 @@ import type { SearchHit } from '@/shared/api/modules/search';
 import { SegmentedControl } from '@/shared/design-system';
 import { SEARCH_MIN_LENGTH, useSearchHits } from '@/shared/lib/search';
 import { displayTags, templateIncludeTagsParam } from '@/shared/lib/templateTag';
+import { useSessionState } from '@/shared/lib/useSessionState';
 import { SearchHitList } from '@/shared/ui';
 
 import {
@@ -388,16 +390,22 @@ function ArchivedList({
   search: string;
   onSelect: (pick: ArchivedPick) => void;
 }) {
-  const query = useQuery({
+  const query = useInfiniteQuery({
     queryKey: ['archived-assets', 'studio', type, search.trim()],
-    queryFn: () =>
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
       assetsApi.getArchivedAssetsPaginated({
         type,
         search: search.trim() || undefined,
+        page: pageParam,
         pageSize: PAGE_SIZE,
         sortBy: 'archivedDate',
         sortOrder: 'desc',
       }),
+    getNextPageParam: (last, pages) => {
+      const shown = pages.reduce((n, p) => n + (p.items?.length ?? 0), 0);
+      return shown < (last.totalCount ?? 0) ? pages.length + 1 : undefined;
+    },
   });
   if (query.isLoading) {
     return (
@@ -413,7 +421,8 @@ function ArchivedList({
       </Typography>
     );
   }
-  const items = (query.data?.items ?? []) as ArchivedItem[];
+  const items = (query.data?.pages.flatMap((p) => p.items ?? []) ?? []) as ArchivedItem[];
+  const total = query.data?.pages[0]?.totalCount ?? items.length;
   if (items.length === 0) {
     return (
       <Typography variant="body2" sx={{ color: 'text.secondary', py: 1 }}>
@@ -422,15 +431,27 @@ function ArchivedList({
     );
   }
   return (
-    <List disablePadding data-testid="archived-list">
-      {items.map((item) => (
-        <ArchivedRow
-          key={item.id}
-          item={item}
-          onSelect={() => onSelect({ type, id: item.id, name: item.name })}
-        />
-      ))}
-    </List>
+    <Stack spacing={1}>
+      <List disablePadding data-testid="archived-list">
+        {items.map((item) => (
+          <ArchivedRow
+            key={item.id}
+            item={item}
+            onSelect={() => onSelect({ type, id: item.id, name: item.name })}
+          />
+        ))}
+      </List>
+      {query.hasNextPage && (
+        <Button
+          size="small"
+          onClick={() => void query.fetchNextPage()}
+          disabled={query.isFetchingNextPage}
+          sx={{ alignSelf: 'flex-start' }}
+        >
+          {query.isFetchingNextPage ? 'Loading…' : `Show more (${items.length} of ${total})`}
+        </Button>
+      )}
+    </Stack>
   );
 }
 
@@ -454,6 +475,7 @@ export function AssetBrowser({
   initialType = 'dashboard',
   initialSearch = '',
   initialScope = 'live',
+  remember = true,
 }: {
   onOpen: (source: RebindSource) => void;
   /** Open something from the archive, to restore it. */
@@ -464,15 +486,24 @@ export function AssetBrowser({
   /** Text in the search box at first render (stories). */
   initialSearch?: string;
   initialScope?: Scope;
+  /** Keep scope, type, search and sort for the session (off in stories, which pin them). */
+  remember?: boolean;
 }) {
-  const [scope, setScope] = useState<Scope>(initialScope);
-  const [liveType, setLiveType] = useState<SourceType | 'dataset'>(initialType);
+  const kept = (name: string) => (remember ? `studio.browse.${name}` : null);
+  const [scope, setScope] = useSessionState<Scope>(kept('scope'), initialScope);
+  const [liveType, setLiveType] = useSessionState<SourceType | 'dataset'>(
+    kept('type'),
+    initialType
+  );
   const datasets = liveType === 'dataset';
   // Dashboards and analyses rank and search the same way; datasets list on their own.
   const type: SourceType = datasets ? 'dashboard' : liveType;
-  const [archivedType, setArchivedType] = useState<ArchivedType>(initialType);
-  const [search, setSearch] = useState(initialSearch);
-  const [sort, setSort] = useState<SourceSort>('views');
+  const [archivedType, setArchivedType] = useSessionState<ArchivedType>(
+    kept('archivedType'),
+    initialType
+  );
+  const [search, setSearch] = useSessionState(kept('search'), initialSearch);
+  const [sort, setSort] = useSessionState<SourceSort>(kept('sort'), 'views');
   // Typing searches everything the portal knows about this kind of asset, by
   // name, column, calculated field, tag or folder; the ranked list is for
   // browsing when the box is empty.
