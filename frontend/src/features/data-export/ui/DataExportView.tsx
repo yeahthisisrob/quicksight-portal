@@ -2,11 +2,14 @@
  * DataExportView - the Export tab of Operations.
  *
  * One top-down flow: cache facts, the export container (asset types, mode,
- * run), the live job, then the activity container (this job's log, every
- * job, the activity timeline) with tabs.
+ * run), the live job, then the activity container (this job's log, followed
+ * live, and the activity timeline). Every past job is on Operations > Jobs.
  */
 import { Alert, Box, Button, Divider, Stack } from '@mui/material';
 import { type ReactNode, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
+
+import { JobLogGrid, useJobLogs } from '@/entities/job';
 
 import { Container, EmptyState, TabBar } from '@/shared/design-system';
 import { PageLayout } from '@/shared/ui';
@@ -15,20 +18,13 @@ import { useCacheSummary } from '../lib/useCacheSummary';
 import { useExportJob } from '../lib/useExportJob';
 import { useExportOperations } from '../lib/useExportOperations';
 import type { AssetType, ExportMode } from '../model/types';
-import {
-  AssetTypeSelector,
-  ExportControls,
-  ExportJobStatus,
-  ExportLogs,
-  ExportStats,
-  JobHistory,
-} from './components';
+import { AssetTypeSelector, ExportControls, ExportJobStatus, ExportStats } from './components';
 import { assetTypeConfig } from './constants';
 
-type ExportTab = 'current' | 'history' | 'timeline';
+type ExportTab = 'current' | 'timeline';
 
 const TIMELINE_MAX_HEIGHT = 600;
-const LOG_MAX_HEIGHT = 360;
+const LOG_HEIGHT = 400;
 
 const ALL_SELECTABLE_TYPES = Object.entries(assetTypeConfig)
   .filter(([, config]) => !config.disabled)
@@ -36,25 +32,14 @@ const ALL_SELECTABLE_TYPES = Object.entries(assetTypeConfig)
 
 interface ExportTabBodyProps {
   activeTab: ExportTab;
-  exportLogs: ReturnType<typeof useExportJob>['exportLogs'];
-  isRunning: boolean;
   currentJobId: string | null;
-  onSelectHistoryJob: (jobId: string) => void;
+  isRunning: boolean;
   /** Activity timeline content, injected by the page (cross-feature composition). */
   timelineFeed?: ReactNode;
 }
 
-function ExportTabBody({
-  activeTab,
-  exportLogs,
-  isRunning,
-  currentJobId,
-  onSelectHistoryJob,
-  timelineFeed,
-}: ExportTabBodyProps) {
-  if (activeTab === 'history') {
-    return <JobHistory onSelectJob={onSelectHistoryJob} currentJobId={currentJobId} />;
-  }
+function ExportTabBody({ activeTab, currentJobId, isRunning, timelineFeed }: ExportTabBodyProps) {
+  const log = useJobLogs(currentJobId, { follow: isRunning });
 
   if (activeTab === 'timeline') {
     return (
@@ -64,31 +49,23 @@ function ExportTabBody({
     );
   }
 
-  if (exportLogs.length === 0 && !isRunning) {
+  if (!currentJobId) {
     return (
       <EmptyState
         compact
         title="No export running"
-        description="Start an export above, or open a past job from History, to see its log here."
+        description="Start an export above to follow its log here. Past exports are under Jobs."
       />
     );
   }
 
   return (
-    <ExportLogs
-      logs={exportLogs
-        .filter((log) => log.level !== 'debug')
-        .map((log) => ({
-          ts: new Date(log.timestamp).getTime(),
-          msg: log.message,
-          level: log.level as 'info' | 'warn' | 'error',
-          assetType: (log.details as any)?.assetType,
-          assetId: (log.details as any)?.assetId,
-          apiCalls: (log.details as any)?.apiCalls,
-        }))}
-      maxHeight={LOG_MAX_HEIGHT}
-      showTimestamps
-      defaultExpanded={isRunning}
+    <JobLogGrid
+      logs={log.logs}
+      loading={log.loading}
+      error={log.error}
+      follow={isRunning}
+      height={LOG_HEIGHT}
     />
   );
 }
@@ -125,12 +102,10 @@ export default function DataExportView({
     currentJobId,
     jobStatus,
     isRunning,
-    exportLogs,
     isRefreshing,
     startExport,
     stopExport,
     refreshStatus,
-    loadHistoricalJob,
   } = useExportJob(loadCacheSummary);
 
   const { refreshingActivity, refreshActivity } = useExportOperations();
@@ -138,11 +113,6 @@ export default function DataExportView({
   const handleStartExport = async () => {
     await startExport(selectedAssetTypes, exportMode);
     setShowInitialExportPrompt(false);
-  };
-
-  const handleSelectHistoryJob = async (jobId: string) => {
-    setActiveTab('current');
-    await loadHistoricalJob(jobId);
   };
 
   return (
@@ -228,7 +198,12 @@ export default function DataExportView({
 
         <Container
           header="Activity"
-          description="This job's log, every job the portal has run, and the account's activity timeline."
+          description="This export's log, followed while it runs, and the account's activity timeline."
+          actions={
+            <Button size="small" component={RouterLink} to="/operations?tab=jobs&type=export">
+              All export jobs
+            </Button>
+          }
         >
           <Stack spacing={2}>
             <TabBar
@@ -236,17 +211,14 @@ export default function DataExportView({
               value={activeTab}
               onChange={setActiveTab}
               tabs={[
-                { value: 'current', label: 'Current job' },
-                { value: 'history', label: 'History' },
+                { value: 'current', label: 'This export' },
                 { value: 'timeline', label: 'Timeline' },
               ]}
             />
             <ExportTabBody
               activeTab={activeTab}
-              exportLogs={exportLogs}
-              isRunning={isRunning}
               currentJobId={currentJobId}
-              onSelectHistoryJob={handleSelectHistoryJob}
+              isRunning={isRunning}
               timelineFeed={timelineFeed}
             />
           </Stack>

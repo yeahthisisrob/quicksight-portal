@@ -2,6 +2,7 @@ import { Box } from '@mui/material';
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import { JobsView } from '@/features/jobs';
 import { SmusExportPanel } from '@/features/smus';
 import {
   ExportPanel,
@@ -19,13 +20,14 @@ import { ArchivedAssetsPanel } from './ArchivedAssetsPanel';
 
 const TABS: Array<{ value: OperationsTab; label: string; icon: keyof typeof navigationIcons }> = [
   { value: 'export', label: 'Export', icon: 'exportManagement' },
+  { value: 'jobs', label: 'Jobs', icon: 'jobs' },
   { value: 'smus', label: 'SageMaker Unified Studio', icon: 'dataCatalog' },
   { value: 'archived', label: 'Archived assets', icon: 'archive' },
 ];
 
 /**
- * Exports, the SMUS export and archived assets: the things an operator does
- * to the account rather than to one asset. The tab
+ * Exports, every job the portal runs, the SMUS export and archived assets:
+ * the things an operator does to the account rather than to one asset. The tab
  * is in the URL.
  */
 export default function OperationsPage() {
@@ -54,7 +56,7 @@ export default function OperationsPage() {
     <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0 }}>
       <PageHeader
         title="Operations"
-        description="Exports, the SageMaker Unified Studio snapshot and archived assets for the whole account."
+        description="Exports, every job the portal runs, the SageMaker Unified Studio snapshot and archived assets for the whole account."
       >
         <TabBar
           ariaLabel="Operations"
@@ -69,6 +71,7 @@ export default function OperationsPage() {
 
       <Box sx={{ mt: 2 }}>
         {tab === 'export' && <ExportPanel />}
+        {tab === 'jobs' && <JobsView />}
         {tab === 'smus' && <SmusExportPanel />}
         {tab === 'archived' && <ArchivedAssetsPanel />}
       </Box>

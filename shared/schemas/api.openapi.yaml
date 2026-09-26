@@ -3931,9 +3931,18 @@ paths:
     get:
       operationId: getJobsByJobIdLogs
       summary: A job's log lines
+      description: >-
+        Oldest first. Pass the `cursor` of the last answer as `after` to get only
+        the lines written since, which is how a view follows a running job.
       tags: [Jobs]
       parameters:
         - $ref: '#/components/parameters/JobId'
+        - name: after
+          in: query
+          required: false
+          description: The `cursor` from a previous answer; only later lines come back.
+          schema:
+            type: string
       responses:
         '200':
           description: Logs
@@ -3954,6 +3963,9 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/JobLog'
+                      cursor:
+                        type: string
+                        description: Ask with this as `after` for the lines written next.
         '401':
           $ref: '#/components/responses/Unauthorized'
 

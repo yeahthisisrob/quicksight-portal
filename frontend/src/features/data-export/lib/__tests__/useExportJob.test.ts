@@ -31,7 +31,6 @@ vi.mock('notistack', () => ({
 vi.mock('@/shared/api', () => ({
   exportApi: {
     getJobStatus: vi.fn(),
-    getJobLogs: vi.fn(),
     startExportJob: vi.fn(),
     stopJob: vi.fn(),
     warmUp: vi.fn(),
@@ -70,7 +69,6 @@ describe('useExportJob', () => {
       expect(result.current.currentJobId).toBeNull();
       expect(result.current.jobStatus).toBeNull();
       expect(result.current.isRunning).toBe(false);
-      expect(result.current.exportLogs).toEqual([]);
       expect(result.current.isRefreshing).toBe(false);
 
       unmount();
@@ -89,7 +87,6 @@ describe('useExportJob', () => {
 
       localStorageMock.getItem.mockReturnValue(mockJobId);
       vi.mocked(exportApi.getJobStatus).mockResolvedValue(mockStatus);
-      vi.mocked(exportApi.getJobLogs).mockResolvedValue({ jobId: mockJobId, logs: [] });
 
       const { result, unmount } = renderHook(() => useExportJob(mockOnCacheSummaryUpdate));
 
@@ -400,7 +397,6 @@ describe('useExportJob', () => {
         message: 'Queued',
       });
       vi.mocked(exportApi.getJobStatus).mockResolvedValue(mockStatus);
-      vi.mocked(exportApi.getJobLogs).mockResolvedValue({ jobId: mockJobId, logs: [] });
 
       const { result, unmount } = renderHook(() => useExportJob(vi.fn()));
 
@@ -452,7 +448,7 @@ describe('useExportJob', () => {
       expect(result.current.isRunning).toBe(true);
       expect(result.current.currentJobId).toBe(mockJobId);
 
-      // Simulate completion via historical load
+      // The next poll finds it finished.
       vi.mocked(exportApi.getJobStatus).mockResolvedValue({
         jobId: mockJobId,
         jobType: 'export' as const,
@@ -461,53 +457,15 @@ describe('useExportJob', () => {
         message: 'Export completed successfully',
         startTime: '2024-01-01T00:00:00Z',
       });
-      vi.mocked(exportApi.getJobLogs).mockResolvedValue({ jobId: mockJobId, logs: [] });
 
       await act(async () => {
-        await result.current.loadHistoricalJob(mockJobId);
+        await vi.advanceTimersByTimeAsync(5000);
       });
       await flush();
 
       expect(result.current.isRunning).toBe(false);
       expect(result.current.jobStatus?.status).toBe('completed');
-
-      unmount();
-    });
-  });
-
-  describe('loadHistoricalJob', () => {
-    it('should load historical job details', async () => {
-      const mockJobId = 'historical-job';
-      const mockStatus = {
-        jobId: mockJobId,
-        jobType: 'export' as const,
-        status: 'completed' as const,
-        progress: 100,
-        message: 'Historical job completed',
-        startTime: '2024-01-01T00:00:00Z',
-      };
-      const mockLogs = [
-        { timestamp: '2024-01-01T00:00:00Z', level: 'info' as const, message: 'Job started' },
-      ];
-
-      vi.mocked(exportApi.getJobStatus).mockResolvedValue(mockStatus);
-      vi.mocked(exportApi.getJobLogs).mockResolvedValue({ jobId: mockJobId, logs: mockLogs });
-
-      const { result, unmount } = renderHook(() => useExportJob(mockOnCacheSummaryUpdate));
-
-      await act(async () => {
-        await result.current.loadHistoricalJob(mockJobId);
-      });
-
-      expect(result.current.currentJobId).toBe(mockJobId);
-      expect(result.current.jobStatus).toEqual({
-        status: 'completed',
-        progress: 100,
-        message: 'Historical job completed',
-        stats: undefined,
-      });
-      expect(result.current.exportLogs).toEqual(mockLogs);
-      expect(result.current.isRunning).toBe(false);
+      expect(mockOnCacheSummaryUpdate).toHaveBeenCalled();
 
       unmount();
     });
@@ -532,7 +490,6 @@ describe('useExportJob', () => {
         message: 'Queued',
       });
       vi.mocked(exportApi.getJobStatus).mockResolvedValue(mockStatus);
-      vi.mocked(exportApi.getJobLogs).mockResolvedValue({ jobId: mockJobId, logs: [] });
 
       const { result, unmount } = renderHook(() => useExportJob(mockOnCacheSummaryUpdate));
 
@@ -598,7 +555,6 @@ describe('useExportJob', () => {
         message: 'Processing...',
         startTime: '2024-01-01T00:00:00Z',
       });
-      vi.mocked(exportApi.getJobLogs).mockResolvedValue({ jobId: mockJobId, logs: [] });
 
       const { result, unmount } = renderHook(() => useExportJob(mockOnCacheSummaryUpdate));
 

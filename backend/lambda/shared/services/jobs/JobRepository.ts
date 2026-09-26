@@ -349,14 +349,34 @@ export class JobRepository {
    * Get job logs, chronological (one consistent partition query)
    */
   public async getJobLogs(jobId: string): Promise<JobLog[]> {
+    return (await this.getJobLogPage(jobId)).logs;
+  }
+
+  /**
+   * A job's log lines after `cursor` (all of them without one), and the
+   * cursor to ask with next: a view that follows a running job only fetches
+   * what is new. The cursor is opaque to callers (it is the last sort key).
+   */
+  public async getJobLogPage(
+    jobId: string,
+    cursor?: string
+  ): Promise<{ logs: JobLog[]; cursor?: string }> {
     await this.ensureReady();
+    const valid = cursor?.startsWith(LOG_SK_PREFIX) ? cursor : undefined;
     const items = await this.dynamo.queryPartition<JobLog & { pk: string; sk: string }>(
       this.tableName,
       'pk',
       jobId,
-      { sortKeyBeginsWith: { name: 'sk', prefix: LOG_SK_PREFIX } }
+      {
+        sortKeyBeginsWith: { name: 'sk', prefix: LOG_SK_PREFIX },
+        ...(valid && { sortKeyAfter: valid }),
+      }
     );
-    return items.map(({ pk: _pk, sk: _sk, expiresAt: _e, ...log }: any) => log as JobLog);
+    const last = items.at(-1)?.sk ?? valid;
+    return {
+      logs: items.map(({ pk: _pk, sk: _sk, expiresAt: _e, ...log }: any) => log as JobLog),
+      ...(last && { cursor: last }),
+    };
   }
 
   /**

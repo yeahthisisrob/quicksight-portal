@@ -96,13 +96,17 @@ export class JobHandler {
         return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Job ID is required');
       }
 
-      const logs = await this.repository.getJobLogs(jobId);
+      const page = await this.repository.getJobLogPage(
+        jobId,
+        event.queryStringParameters?.after || undefined
+      );
 
       return successResponse(event, {
         success: true,
         data: {
           jobId,
-          logs,
+          logs: page.logs,
+          ...(page.cursor && { cursor: page.cursor }),
         },
       });
     } catch (error: any) {
