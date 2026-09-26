@@ -43,6 +43,18 @@ const CASES = [
     expect: null,
   },
   {
+    name: 'shared may not import a feature slice (upward)',
+    file: 'backend/lambda/shared/__archcheck__/up.ts',
+    source: `import { playbookRoutes } from '../../features/playbooks';\nexport const r = playbookRoutes;\n`,
+    expect: 'noRestrictedImports',
+  },
+  {
+    name: 'a composition root MAY import slices (negative case)',
+    file: 'backend/lambda/jobs/__archcheck__.ts',
+    source: `import { playbookRoutes } from '../features/playbooks';\nexport const r = playbookRoutes;\n`,
+    expect: null,
+  },
+  {
     name: 'unref() is banned in Lambda code',
     file: 'backend/lambda/features/__archcheck__/unref.ts',
     source: `export function go(timer: { unref(): void }): void {\n  timer.unref();\n}\n`,

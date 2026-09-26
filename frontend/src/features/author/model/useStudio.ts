@@ -161,6 +161,10 @@ export interface Studio {
   openArchived: (pick: ArchivedPick) => void;
   /** An archived dataset or data source being restored (from the URL). */
   archivedData: ArchivedPick | null;
+  /** Open a live dataset in the dataset editor. */
+  openDataset: (pick: { id: string; name: string }) => void;
+  /** The live dataset open in the dataset editor (from the URL). */
+  dataset: { id: string; name: string } | null;
   setPanel: (panel: StudioPanel) => void;
   addOps: (ops: DefinitionOp[]) => void;
   removeOp: (index: number) => void;
@@ -202,6 +206,14 @@ function archivedDataFromParams(params: URLSearchParams): ArchivedPick | null {
   const id = params.get('id');
   if (params.get('source') === 'archive' && (type === 'dataset' || type === 'datasource') && id) {
     return { type, id, name: params.get('name') ?? id };
+  }
+  return null;
+}
+
+function datasetFromParams(params: URLSearchParams): { id: string; name: string } | null {
+  const id = params.get('id');
+  if (params.get('type') === 'dataset' && id && params.get('source') !== 'archive') {
+    return { id, name: params.get('name') ?? id };
   }
   return null;
 }
@@ -534,6 +546,19 @@ export function useStudio(options: StudioOptions = {}): Studio {
     [open, setParams]
   );
   const archivedData = useMemo(() => archivedDataFromParams(params), [params]);
+  const dataset = useMemo(() => datasetFromParams(params), [params]);
+  const openDataset = useCallback(
+    (pick: { id: string; name: string }) =>
+      setParams((prev) => {
+        const copy = new URLSearchParams(prev);
+        copy.delete('source');
+        copy.set('type', 'dataset');
+        copy.set('id', pick.id);
+        copy.set('name', pick.name);
+        return copy;
+      }),
+    [setParams]
+  );
 
   const dismissResult = useCallback(() => dispatch({ type: 'dismissResult' }), []);
 
@@ -608,6 +633,8 @@ export function useStudio(options: StudioOptions = {}): Studio {
     open,
     openArchived,
     archivedData,
+    openDataset,
+    dataset,
     setPanel,
     addOps,
     removeOp,

@@ -9,6 +9,7 @@ import type { SmusConfig } from './shared/config/smusConfig';
 import { JOB_CONFIG, STORAGE_LIMITS, TIME_UNITS, WORKER_CONFIG } from './shared/constants';
 import type { AssetType } from './shared/models/asset.model';
 import { summarizeBulkResult } from './shared/services/bulk/bulkResultSummary';
+import { registerAssetRefresher } from './shared/services/cache/assetRefresher';
 import { cacheService } from './shared/services/cache/CacheService';
 import { JobStateService } from './shared/services/jobs/JobStateService';
 import { queueService } from './shared/services/jobs/QueueService';
@@ -18,6 +19,11 @@ import { logger } from './shared/utils/logger';
 // feature slices (data-export, activity) trigger it via cacheService hooks
 // instead of importing asset-management's warmer directly (import cycle)
 cacheService.registerCacheRebuildHook(warmCollectionSnapshots);
+// Deletes archive what QuickSight has now, and bulk changes re-read what they
+// touched: both through the export's own refresh.
+registerAssetRefresher((assets) =>
+  new ExportOrchestrator(process.env.AWS_ACCOUNT_ID || '').refreshAssets(assets)
+);
 
 interface ExportMessage {
   jobId: string;
@@ -119,6 +125,17 @@ interface AssistantMessage {
     groups?: string[];
     apiKey?: { id: string; label: string };
   };
+}
+
+interface PlaybookMessage {
+  jobId: string;
+  jobType: 'playbook';
+  accountId: string;
+  /** The playbooks slice's PlaybookJobRequest. */
+  request: any;
+  auth: AssistantMessage['auth'];
+  continuation?: boolean;
+  continuationCount?: number;
 }
 
 interface CSVExportMessage {
@@ -229,6 +246,8 @@ async function processRecord(record: any, context: Context): Promise<void> {
       await processAssistantJob(rawMessage as AssistantMessage, record);
     } else if (rawMessage.jobType === 'asset-refresh') {
       await processAssetRefreshJob(rawMessage as AssetRefreshMessage);
+    } else if (rawMessage.jobType === 'playbook') {
+      await processPlaybookJob(rawMessage as PlaybookMessage, record, context);
     } else {
       await processExportJob(rawMessage as ExportMessage, record, context);
     }
@@ -434,13 +453,8 @@ async function processBulkOperationJob(message: BulkOperationMessage, record: an
   const jobStateService = new JobStateService('bulk-operation');
 
   // Import BulkOperationsProcessor dynamically to avoid circular dependencies
-  const { BulkOperationsProcessor } = await import(
-    './shared/services/bulk/BulkOperationsProcessor'
-  );
-  // Deletes archive what QuickSight has now: each record is re-exported first.
-  const bulkProcessor = new BulkOperationsProcessor(msgAccountId, {
-    refreshAssets: (assets) => new ExportOrchestrator(msgAccountId).refreshAssets(assets),
-  });
+  const { BulkOperationsProcessor } = await import('./jobs/BulkOperationsProcessor');
+  const bulkProcessor = new BulkOperationsProcessor(msgAccountId);
 
   try {
     await cleanupStuckJobs(jobStateService, 'bulk-operation');
@@ -733,8 +747,7 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       { getPlannerConfig },
       { BedrockChatModel, OpenAiChatModel },
       { AssistantService },
-      { apiHandler },
-      { withInProcessAuth },
+      { inProcessDispatch },
       { settingsStore },
       { readAuthoringGuidance },
       { readCustomVocabulary },
@@ -745,8 +758,7 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       import('./shared/config/plannerConfig'),
       import('./features/assistant/services/ChatModel'),
       import('./features/assistant/services/AssistantService'),
-      import('./api/apiHandler'),
-      import('./shared/auth'),
+      import('./api/inProcessDispatch'),
       import('./shared/services/settings/SettingsStore'),
       import('./shared/ai/authoringGuidance'),
       import('./shared/ai/authoringVocabulary'),
@@ -762,29 +774,7 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       model.provider === 'openai'
         ? new OpenAiChatModel(config.openAi.baseUrl, config.openAi.apiKey, openAiModelId(), model)
         : new BedrockChatModel(new BedrockAdapter(config.region), model);
-    const dispatch = async (req: { method: string; path: string; body?: unknown }) => {
-      const url = new URL(req.path, 'http://portal.internal');
-      const query = Object.fromEntries(url.searchParams.entries());
-      const event = withInProcessAuth(
-        {
-          httpMethod: req.method,
-          path: url.pathname,
-          resource: url.pathname,
-          headers: { 'Content-Type': 'application/json' },
-          multiValueHeaders: {},
-          queryStringParameters: Object.keys(query).length ? query : null,
-          multiValueQueryStringParameters: null,
-          pathParameters: null,
-          stageVariables: null,
-          requestContext: {} as any,
-          body: req.body === undefined ? null : JSON.stringify(req.body),
-          isBase64Encoded: false,
-        },
-        message.auth
-      );
-      const response = await apiHandler(event);
-      return { status: response.statusCode, body: response.body };
-    };
+    const dispatch = inProcessDispatch(message.auth);
     const started = Date.now();
     const result = await new AssistantService(chat, model, dispatch, {
       brief: true,
@@ -821,6 +811,62 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
   } catch (error) {
     const text = error instanceof Error ? error.message : String(error);
     logger.error('Assistant job failed', { jobId, error: text });
+    await jobStateService.updateJobStatus(jobId, {
+      status: 'failed',
+      endTime: new Date().toISOString(),
+      message: text,
+      error: text,
+    });
+  }
+}
+
+/**
+ * A playbook preview or run. The engine works through the job's rows and
+ * stops starting new ones before the Lambda time limit; this hands the job
+ * to a fresh invocation, which carries on from the rows it left pending.
+ */
+async function processPlaybookJob(
+  message: PlaybookMessage,
+  record: any,
+  context: Context
+): Promise<void> {
+  const { jobId, request } = message;
+  const jobStateService = new JobStateService('playbook');
+  try {
+    const existing = await jobStateService.getJobStatus(jobId);
+    if (existing && ['completed', 'failed', 'stopped'].includes(existing.status)) {
+      logger.info('Dropping redelivered message for a finished playbook job', { jobId });
+      return;
+    }
+    if ((message.continuationCount || 0) > WORKER_CONFIG.EXPORT_MAX_CONTINUATIONS) {
+      throw new Error(
+        `Gave up after ${WORKER_CONFIG.EXPORT_MAX_CONTINUATIONS} invocations; the rows done so far stand`
+      );
+    }
+    const [{ runPlaybookJob }, { inProcessDispatch }] = await Promise.all([
+      import('./features/playbooks/engine/runPlaybookJob'),
+      import('./api/inProcessDispatch'),
+    ]);
+    logger.info('Processing playbook job', {
+      jobId,
+      messageId: record.messageId,
+      mode: request?.mode,
+      playbookId: request?.playbookId,
+      continuation: message.continuationCount || 0,
+    });
+    const outcome = await runPlaybookJob({
+      jobId,
+      request,
+      dispatch: inProcessDispatch(message.auth),
+      jobs: jobStateService,
+      deadline: computeInvocationDeadline(context),
+    });
+    if (outcome === 'paused') {
+      await requeueContinuation(jobId, message);
+    }
+  } catch (error) {
+    const text = error instanceof Error ? error.message : String(error);
+    logger.error('Playbook job failed', { jobId, error: text });
     await jobStateService.updateJobStatus(jobId, {
       status: 'failed',
       endTime: new Date().toISOString(),
@@ -1203,20 +1249,27 @@ async function requeueExportContinuation(
   message: ExportMessage,
   remainingAssetTypes?: string[]
 ): Promise<void> {
-  const continuationCount = (message.continuationCount || 0) + 1;
-  const continuationMessage: ExportMessage = {
-    ...message,
-    jobType: 'export',
-    continuation: true,
-    continuationCount,
-  };
-
   await jobStateService.updateJobStatus(jobId, {
     status: 'processing',
     message: `Paused before Lambda timeout - continuing in a new invocation${
       remainingAssetTypes?.length ? ` (remaining: ${remainingAssetTypes.join(', ')})` : ''
     }`,
   });
+  await requeueContinuation(jobId, { ...message, jobType: 'export' });
+  logger.info('Requeued export continuation', { jobId, remainingAssetTypes });
+}
+
+/**
+ * Send a job's message again, marked as a continuation, so a fresh
+ * invocation picks it up where this one stopped. Any job whose progress
+ * lives on its record or its rows can use it.
+ */
+async function requeueContinuation(
+  jobId: string,
+  message: { continuationCount?: number } & Record<string, any>
+): Promise<void> {
+  const continuationCount = (message.continuationCount || 0) + 1;
+  const continuationMessage = { ...message, continuation: true, continuationCount };
 
   // Local development has no SQS loop - re-enter this worker's own handler on
   // the next event-loop tick (mirrors localDevelopment.executeJobLocallyAsync
@@ -1238,18 +1291,13 @@ async function requeueExportContinuation(
         ],
       } as unknown as SQSEvent;
       handler(mockEvent, {} as Context).catch((error) => {
-        logger.error('Local export continuation failed', { jobId, error });
+        logger.error('Local continuation failed', { jobId, error });
       });
     }, 0);
   } else {
     await queueService.sendMessage(continuationMessage as any);
   }
-
-  logger.info('Requeued export continuation', {
-    jobId,
-    continuationCount,
-    remainingAssetTypes,
-  });
+  logger.info('Requeued continuation', { jobId, continuationCount });
 }
 
 /**

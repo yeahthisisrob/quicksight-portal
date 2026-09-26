@@ -1552,125 +1552,175 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/scripts/demo-cleanup/preview:
+  /api/playbooks:
     get:
-      operationId: getScriptsDemoCleanupPreview
-      tags: [Scripts]
-      summary: Preview demo assets that would be deleted
-      description: Returns a list of all QuickSight demo assets that would be deleted without actually deleting them
+      operationId: getPlaybooks
+      tags: [Playbooks]
+      summary: The playbooks - fixes across the account, previewed before they run
+      description: |
+        Each playbook finds the assets it could touch, checks each one live
+        (change, review or skip) and applies the changes through the same
+        endpoints this API offers, as whoever started it. Gates hold assets
+        back (recently edited ones, those tagged `portal:playbook-skip`, a
+        canary of the first few); what a gate held back is listed as skipped
+        with the reason.
       responses:
         '200':
-          description: List of demo assets to be deleted
+          description: Every playbook, with its parameters and gates
           content:
             application/json:
               schema:
                 type: object
+                required: [success, data]
                 properties:
                   success:
                     type: boolean
                   data:
-                    type: object
-                    required: [datasources, datasets, analyses, totalCount]
-                    properties:
-                      datasources:
-                        type: array
-                        items:
-                          type: object
-                          required: [id, name]
-                          properties:
-                            id:
-                              type: string
-                            name:
-                              type: string
-                            bucket:
-                              type: string
-                      datasets:
-                        type: array
-                        items:
-                          type: object
-                          required: [id, name, datasourceIds]
-                          properties:
-                            id:
-                              type: string
-                            name:
-                              type: string
-                            datasourceIds:
-                              type: array
-                              items:
-                                type: string
-                      analyses:
-                        type: array
-                        items:
-                          type: object
-                          required: [id, name]
-                          properties:
-                            id:
-                              type: string
-                            name:
-                              type: string
-                      totalCount:
-                        type: integer
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Playbook'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
 
-  /api/scripts/demo-cleanup/execute:
+  /api/playbooks/{playbookId}/preview:
     post:
-      operationId: postScriptsDemoCleanupExecute
-      tags: [Scripts]
-      summary: Delete all QuickSight demo assets
-      description: Deletes all demo datasources, datasets, and analyses, then archives them
+      operationId: postPlaybooksByPlaybookIdPreview
+      tags: [Playbooks]
+      summary: Preview a playbook (a job)
+      description: |
+        Scopes the playbook, applies the gates and checks every asset, writing
+        nothing. Returns a job; read its rows from
+        `/api/playbooks/runs/{jobId}/items`.
+      parameters:
+        - $ref: '#/components/parameters/PlaybookId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                params:
+                  type: object
+                  additionalProperties: true
+                  description: The playbook's parameters, by key.
+                gates:
+                  type: object
+                  additionalProperties: true
+                  description: Gate values by key; null turns off a gate that is on by default.
+      responses:
+        '202':
+          $ref: '#/components/responses/PlaybookJobAccepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/playbooks/{playbookId}/run:
+    post:
+      operationId: postPlaybooksByPlaybookIdRun
+      tags: [Playbooks]
+      summary: Run a finished preview (a job)
+      description: |
+        Applies the preview's `change` rows (or only `keys`, or with `retryOf`
+        only the rows an earlier run of the same preview failed). Each asset
+        is checked again first: one fixed by hand since is skipped, one that
+        now needs a decision goes to review. The run stops starting new
+        assets once more than `failureThreshold` of those tried have failed.
+      parameters:
+        - $ref: '#/components/parameters/PlaybookId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [previewJobId]
+              properties:
+                previewJobId:
+                  type: string
+                keys:
+                  type: array
+                  items:
+                    type: string
+                retryOf:
+                  type: string
+                  description: A run of this preview whose failures to try again.
+                limits:
+                  type: object
+                  properties:
+                    concurrency:
+                      type: integer
+                      minimum: 1
+                      maximum: 10
+                    failureThreshold:
+                      type: number
+                      minimum: 0
+                      maximum: 1
+                    failureMinimum:
+                      type: integer
+                      minimum: 1
+      responses:
+        '202':
+          $ref: '#/components/responses/PlaybookJobAccepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/playbooks/runs/{jobId}/items:
+    get:
+      operationId: getPlaybooksRunsByJobIdItems
+      tags: [Playbooks]
+      summary: A preview's or run's rows, one per asset
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/PlaybookItemStatus'
+        - name: verdict
+          in: query
+          schema:
+            $ref: '#/components/schemas/PlaybookVerdict'
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
       responses:
         '200':
-          description: Demo cleanup completed successfully
+          description: A page of rows and the counts for all of them
           content:
             application/json:
               schema:
                 type: object
+                required: [success, data]
                 properties:
                   success:
                     type: boolean
                   data:
-                    type: object
-                    properties:
-                      deleted:
-                        type: object
-                        properties:
-                          datasources:
-                            type: integer
-                          datasets:
-                            type: integer
-                          analyses:
-                            type: integer
-                          total:
-                            type: integer
-                      archived:
-                        type: object
-                        properties:
-                          datasources:
-                            type: integer
-                          datasets:
-                            type: integer
-                          analyses:
-                            type: integer
-                          total:
-                            type: integer
-                      errors:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            assetType:
-                              type: string
-                            assetId:
-                              type: string
-                            error:
-                              type: string
+                    $ref: '#/components/schemas/PlaybookItemsPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /api/activity/summary:
     get:
@@ -1889,6 +1939,62 @@ paths:
           $ref: '#/components/responses/Unauthorized'
 
   # Permission sources endpoint
+  /api/assets/{assetType}/{assetId}:
+    delete:
+      operationId: deleteAssetsByAssetTypeByAssetId
+      tags: [Assets]
+      summary: Delete one asset, archiving it first
+      description: |
+        Re-exports the asset (so the archive holds what QuickSight has now),
+        keeps a copy in the archive, then deletes it from QuickSight. If
+        QuickSight refuses, the archive is put back as it was. Restore it
+        from the archive later. For many assets at once use
+        `/api/assets/bulk-delete`, which queues a job.
+      parameters:
+        - name: assetType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [dashboard, analysis, dataset, datasource]
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: reason
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          description: Why it is deleted; kept with the archive.
+      responses:
+        '200':
+          description: Deleted and archived
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [assetType, assetId, archived]
+                    properties:
+                      assetType:
+                        type: string
+                      assetId:
+                        type: string
+                      archived:
+                        type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/assets/{assetType}/{assetId}/permission-sources:
     get:
       operationId: getAssetsByAssetTypeByAssetIdPermissionSources
@@ -5066,6 +5172,12 @@ components:
       required: true
       schema:
         type: string
+    PlaybookId:
+      name: playbookId
+      in: path
+      required: true
+      schema:
+        type: string
     DefinitionSource:
       name: source
       in: query
@@ -5615,7 +5727,191 @@ components:
 
     JobType:
       type: string
-      enum: [export, deploy, ingestion, rebuild, activity-refresh, bulk-operation, csv-export, smus-export, planner, assistant, asset-refresh]
+      enum: [export, deploy, ingestion, rebuild, activity-refresh, bulk-operation, csv-export, smus-export, planner, assistant, asset-refresh, playbook]
+
+    Playbook:
+      type: object
+      required: [id, title, description, category, params, gates, writes, deletes]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+          enum: [repair, data, cleanup]
+        params:
+          type: array
+          items:
+            type: object
+            required: [key, label, kind]
+            properties:
+              key:
+                type: string
+              label:
+                type: string
+              kind:
+                type: string
+                enum: [datasource, text, boolean]
+              help:
+                type: string
+              required:
+                type: boolean
+              dataSourceType:
+                type: string
+                description: datasource only - offer only data sources of this engine.
+              default: {}
+        gates:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlaybookGate'
+        writes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetType'
+        deletes:
+          type: boolean
+          description: Applying it deletes; each asset is archived first and can be restored.
+
+    PlaybookGate:
+      type: object
+      description: A condition an asset must pass; what it holds back is listed as skipped, with the reason.
+      required: [key, label, kind]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        kind:
+          type: string
+          enum: [number, text, boolean]
+        help:
+          type: string
+        default:
+          description: On unless the request sets it to null.
+
+    PlaybookItemStatus:
+      type: string
+      enum: [pending, planned, done, failed, skipped, review]
+
+    PlaybookVerdict:
+      type: string
+      enum: [change, review, skip]
+
+    PlaybookItem:
+      type: object
+      required: [key, stage, assetType, assetId, name, status, updatedAt]
+      properties:
+        key:
+          type: string
+        stage:
+          type: integer
+        assetType:
+          $ref: '#/components/schemas/AssetType'
+        assetId:
+          type: string
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/PlaybookItemStatus'
+        verdict:
+          $ref: '#/components/schemas/PlaybookVerdict'
+        summary:
+          type: string
+        changes:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        error:
+          type: string
+        attempts:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+        plan:
+          description: The playbook's own plan for this asset.
+
+    PlaybookItemCounts:
+      type: object
+      required: [total, pending, planned, done, failed, skipped, review, verdicts]
+      properties:
+        total:
+          type: integer
+        pending:
+          type: integer
+        planned:
+          type: integer
+        done:
+          type: integer
+        failed:
+          type: integer
+        skipped:
+          type: integer
+        review:
+          type: integer
+        verdicts:
+          type: object
+          required: [change, review, skip]
+          properties:
+            change:
+              type: integer
+            review:
+              type: integer
+            skip:
+              type: integer
+
+    PlaybookItemsPage:
+      type: object
+      required: [jobId, playbookId, mode, status, items, counts]
+      properties:
+        jobId:
+          type: string
+        playbookId:
+          type: string
+        mode:
+          type: string
+          enum: [preview, run]
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlaybookItem'
+        counts:
+          $ref: '#/components/schemas/PlaybookItemCounts'
+        cursor:
+          type: string
+          description: Pass back for the next page; absent on the last.
+
+    PlaybookJobInfo:
+      type: object
+      description: What a playbook job was asked to do.
+      required: [mode, playbookId]
+      additionalProperties: true
+      properties:
+        mode:
+          type: string
+          enum: [preview, run]
+        playbookId:
+          type: string
+        params:
+          type: object
+          additionalProperties: true
+        gates:
+          type: object
+          additionalProperties: true
+        previewJobId:
+          type: string
+        retryOf:
+          type: string
+
 
     SourceRestorePreview:
       type: object
@@ -5754,6 +6050,8 @@ components:
               format: date-time
         jobId:
           type: string
+        playbook:
+          $ref: '#/components/schemas/PlaybookJobInfo'
         jobType:
           $ref: '#/components/schemas/JobType'
         status:
@@ -10653,6 +10951,20 @@ components:
                 items:
                   $ref: '#/components/schemas/AssetRef'
   responses:
+    PlaybookJobAccepted:
+      description: The job is queued; poll /api/jobs/{jobId} and read its rows
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [success, jobId, status]
+            properties:
+              success:
+                type: boolean
+              jobId:
+                type: string
+              status:
+                type: string
     Acknowledged:
       description: Done
       content:

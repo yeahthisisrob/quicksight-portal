@@ -7,13 +7,6 @@ import pLimit from 'p-limit';
 
 import { EXPORT_CONFIG } from '../../../shared/config/exportConfig';
 import { LOGGING_CONFIG } from '../../../shared/constants';
-import type {
-  BatchContext,
-  BatchError,
-  BatchProcessingOptions,
-  BatchProcessingResult,
-  BatchProgressCallback,
-} from '../../../shared/models/batch.model';
 import type { S3Service } from '../../../shared/services/aws/S3Service';
 import type { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { logger } from '../../../shared/utils/logger';
@@ -22,6 +15,13 @@ import {
   type EnhancedProcessingResult,
 } from '../processors/BaseAssetProcessor';
 import type { AssetType, ProcessingContext } from '../types';
+import type {
+  BatchContext,
+  BatchError,
+  BatchProcessingOptions,
+  BatchProcessingResult,
+  BatchProgressCallback,
+} from '../types/batch';
 
 /**
  * Service for processing assets in batches with proper error handling and progress tracking

@@ -22,6 +22,7 @@ import { JOB_CONFIG, JOB_LIMITS, TIME_UNITS } from '../../constants';
 import type { BulkItemFailure } from '../../types/bulkOperationTypes';
 import { logger } from '../../utils/logger';
 import { DynamoDBService, isConditionalCheckFailed } from '../aws/DynamoDBService';
+import { JOB_TTL_GRACE_DAYS, jobsTableName } from './jobsTable';
 
 export type JobType =
   | 'export'
@@ -34,7 +35,8 @@ export type JobType =
   | 'smus-export'
   | 'planner'
   | 'assistant'
-  | 'asset-refresh';
+  | 'asset-refresh'
+  | 'playbook';
 type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'stopping' | 'stopped';
 
 type JobPhaseStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';
@@ -106,6 +108,8 @@ export interface JobMetadata {
   assetId?: string; // For deploy jobs
   deploymentType?: string; // For deploy jobs
   exportOptions?: any; // For export jobs
+  /** Playbook jobs: what it was asked (the playbooks slice owns the shape). */
+  playbook?: { mode: 'preview' | 'run'; playbookId: string } & Record<string, unknown>;
 
   // Stats
   stats?: {
@@ -169,7 +173,7 @@ const EXPORT_LOCK_ID = '__export-lock__';
 const RESULT_MAX_BYTES = 358400; // 350 KB
 /** TTL grace beyond retention so cleanupOldJobs normally wins the race
  *  against the TTL backstop (TTL deletion can lag up to ~48h) */
-const TTL_GRACE_DAYS = 7;
+const TTL_GRACE_DAYS = JOB_TTL_GRACE_DAYS;
 const QUERY_FETCH_LIMIT = 500;
 const MS_PER_SECOND = 1000;
 const SECONDS_PER_DAY = 86400;
@@ -188,8 +192,7 @@ export class JobRepository {
 
   public constructor() {
     this.dynamo = new DynamoDBService();
-    const accountId = process.env.AWS_ACCOUNT_ID || '';
-    this.tableName = process.env.JOBS_TABLE_NAME || `quicksight-portal-jobs-${accountId}`;
+    this.tableName = jobsTableName();
   }
 
   /**

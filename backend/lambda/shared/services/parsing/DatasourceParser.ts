@@ -14,6 +14,38 @@ interface DatasourceMetadata {
   datasourceType?: string;
   sourceType?: string;
   connectionMode?: string;
+  /** S3: the bucket its manifest lives in. */
+  bucket?: string;
+  /** Athena: the workgroup its queries run in (QuickSight's default is 'primary'). */
+  workGroup?: string;
+  /** VPC connection it reaches its database through, if any. */
+  vpcConnectionArn?: string;
+  /** Where its credentials come from: none needed, a Secrets Manager secret, or stored in QuickSight. */
+  credentials?: 'none' | 'secret' | 'stored';
+}
+
+/** Engines QuickSight reaches with its own role: no password to keep. */
+const ROLE_ONLY_TYPES = new Set(['ATHENA', 'S3', 'TIMESTREAM', 'AWS_IOT_ANALYTICS']);
+
+/** The connection facts that decide whether two data sources are interchangeable. */
+function connectionFacts(type: string | undefined, describeData: any) {
+  const params = describeData?.DataSourceParameters ?? {};
+  const bucket = params.S3Parameters?.ManifestFileLocation?.Bucket;
+  const athena = params.AthenaParameters;
+  const vpc = describeData?.VpcConnectionProperties?.VpcConnectionArn;
+  const credentials: DatasourceMetadata['credentials'] = describeData?.SecretArn
+    ? 'secret'
+    : type && ROLE_ONLY_TYPES.has(type)
+      ? 'none'
+      : describeData
+        ? 'stored'
+        : undefined;
+  return {
+    ...(bucket ? { bucket } : {}),
+    ...(athena ? { workGroup: athena.WorkGroup || 'primary' } : {}),
+    ...(vpc ? { vpcConnectionArn: vpc } : {}),
+    ...(credentials ? { credentials } : {}),
+  };
 }
 
 /**
@@ -37,15 +69,17 @@ export class DatasourceParser extends BaseAssetParser {
    * Extract comprehensive datasource metadata from individual data components
    */
   public extractDatasourceMetadata(listData: any, describeData: any): DatasourceMetadata {
+    const type = listData?.Type || describeData?.Type;
     return {
       assetId: listData?.DataSourceId || describeData?.DataSourceId,
       name: listData?.Name || describeData?.Name,
       arn: listData?.Arn || describeData?.Arn,
       createdTime: listData?.CreatedTime || describeData?.CreatedTime,
       lastUpdatedTime: listData?.LastUpdatedTime || describeData?.LastUpdatedTime,
-      datasourceType: listData?.Type || describeData?.Type,
-      sourceType: listData?.Type || describeData?.Type,
+      datasourceType: type,
+      sourceType: type,
       connectionMode: describeData?.DataSourceParameters?.S3Parameters ? 'FILE' : 'DIRECT',
+      ...connectionFacts(type, describeData),
     };
   }
 

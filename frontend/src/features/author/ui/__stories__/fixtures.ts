@@ -541,6 +541,91 @@ const SOURCE_RESTORE_PREVIEWS = {
   },
 } as const;
 
+const ATHENA = 'arn:aws:quicksight:us-east-1:1:datasource/athena-main';
+const ATHENA_CRM = 'arn:aws:quicksight:us-east-1:1:datasource/athena-crm';
+
+/** A dataset's sources, what reads it and what it defines, for the dataset editor. */
+function datasetRoutes(): MockRoute[] {
+  return [
+    {
+      method: 'get',
+      url: /\/assets\/dataset\/[^/]+\/source$/,
+      respond: () => ({
+        body: {
+          success: true,
+          data: {
+            dataSetId: 'sales-gold',
+            name: 'sales_gold',
+            importMode: 'SPICE',
+            tables: [
+              {
+                id: 't-orders',
+                kind: 'RELATIONAL',
+                dataSourceArn: ATHENA_CRM,
+                name: 'orders',
+                catalog: 'AwsDataCatalog',
+                schema: 'sales',
+                columnCount: 14,
+                editable: true,
+              },
+              {
+                id: 't-targets',
+                kind: 'CUSTOM_SQL',
+                dataSourceArn: ATHENA,
+                name: 'targets',
+                sqlQuery: 'SELECT region, month, target FROM finance.targets WHERE year = 2026',
+                columnCount: 3,
+                editable: true,
+              },
+            ],
+            dataSources: [
+              { id: 'athena-main', name: 'Athena (primary)', arn: ATHENA, type: 'ATHENA' },
+              { id: 'athena-crm', name: 'Athena CRM', arn: ATHENA_CRM, type: 'ATHENA' },
+            ],
+          },
+        },
+      }),
+    },
+    {
+      method: 'get',
+      url: /\/context\/entities\/[^/]+\/related$/,
+      respond: (config) => {
+        const relations = String(config.params?.relations ?? '');
+        const hit = (entityId: string, type: string, name: string, summary = '') => ({
+          entityId,
+          type,
+          name,
+          summary,
+          attributes: {},
+          depth: 1,
+          via: [],
+        });
+        const hits = relations.includes('defined-in')
+          ? [
+              hit(
+                'calculated-field:margin',
+                'calculated-field',
+                'c_ds_margin',
+                '{revenue} - {cost}'
+              ),
+              hit(
+                'calculated-field:is_closed',
+                'calculated-field',
+                'c_ds_is_closed',
+                "ifelse({status} = 'C', 1, 0)"
+              ),
+            ]
+          : [
+              hit('dashboard:sales-overview', 'dashboard', 'Sales overview'),
+              hit('analysis:pipeline-review', 'analysis', 'Pipeline review'),
+              hit('dashboard:exec', 'dashboard', 'Executive summary'),
+            ];
+        return { body: { success: true, data: { from: 'dataset:sales-gold', hits } } };
+      },
+    },
+  ];
+}
+
 function archivedRoutes(): MockRoute[] {
   return [
     {
@@ -569,6 +654,7 @@ export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
   return [
     ...overrides,
     ...archivedRoutes(),
+    ...datasetRoutes(),
     searchRoute(),
     ...smusRoutes(),
     ...templateLibraryRoutes(TEMPLATES),
@@ -829,6 +915,8 @@ interface FakeStudioOptions {
   closed?: boolean;
   /** An archived dataset or data source open for restoring. */
   archivedData?: Studio['archivedData'];
+  /** A live dataset open in the dataset editor. */
+  dataset?: Studio['dataset'];
   panel?: StudioState['panel'];
   /** Edits on the canvas; the preview, changes and outline follow from them. */
   ops?: DefinitionOp[];
@@ -923,6 +1011,8 @@ export function fakeStudio(options: FakeStudioOptions = {}): Studio {
     open: noop,
     openArchived: noop,
     archivedData: options.archivedData ?? null,
+    openDataset: noop,
+    dataset: options.dataset ?? null,
     setPanel: noop,
     addOps: noop,
     removeOp: noop,

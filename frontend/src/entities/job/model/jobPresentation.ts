@@ -18,6 +18,7 @@ export const JOB_TYPE_LABELS: Record<JobType, string> = {
   ingestion: 'Ingestion',
   rebuild: 'Rebuild',
   'asset-refresh': 'Asset refresh',
+  playbook: 'Playbook',
 };
 
 export const JOB_STATUS_TONE: Record<JobStatus, { type: StatusType; label: string }> = {
@@ -37,9 +38,14 @@ export function isActive(status: JobStatus | undefined): boolean {
 }
 
 /** Ingestion exports run as jobType 'export'; tell them apart by their options. */
-export function jobTypeLabel(job: Pick<JobMetadata, 'jobType' | 'exportOptions'>): string {
+export function jobTypeLabel(
+  job: Pick<JobMetadata, 'jobType' | 'exportOptions' | 'playbook'>
+): string {
   if (job.jobType === 'export' && job.exportOptions?.exportIngestions) {
     return 'Export (ingestions)';
+  }
+  if (job.jobType === 'playbook' && job.playbook) {
+    return `Playbook ${job.playbook.mode}`;
   }
   return JOB_TYPE_LABELS[job.jobType] ?? job.jobType ?? 'Unknown';
 }

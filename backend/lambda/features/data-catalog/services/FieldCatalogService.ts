@@ -8,9 +8,9 @@
  */
 import { createHash } from 'node:crypto';
 
-import type { SmusAsset, SmusMatchType } from '../../../features/smus/types';
 import type { FieldInfo } from '../../../shared/services/cache/types';
 import type { SmusService } from '../../../shared/services/smus/SmusService';
+import type { SmusAsset, SmusMatchType } from '../../../shared/types/smus';
 import { type ColumnMatchKind, matchListingColumn } from '../lib/columnIdentity';
 import { canonicalExpression, extractFieldReferences } from '../lib/expressionAnalysis';
 import {

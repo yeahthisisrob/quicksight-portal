@@ -171,7 +171,10 @@ export interface CacheEntry {
     // Datasource specific
     connectionMode?: string;
     datasourceType?: string;
-    bucket?: string; // S3 bucket name for demo asset identification
+    bucket?: string; // S3: the bucket its manifest lives in
+    workGroup?: string; // Athena: the workgroup its queries run in
+    vpcConnectionArn?: string;
+    credentials?: 'none' | 'secret' | 'stored';
 
     // User specific
     email?: string;

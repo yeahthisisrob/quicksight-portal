@@ -656,7 +656,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/scripts/demo-cleanup/preview": {
+    "/api/playbooks": {
         parameters: {
             query?: never;
             header?: never;
@@ -664,10 +664,15 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Preview demo assets that would be deleted
-         * @description Returns a list of all QuickSight demo assets that would be deleted without actually deleting them
+         * The playbooks - fixes across the account, previewed before they run
+         * @description Each playbook finds the assets it could touch, checks each one live
+         *     (change, review or skip) and applies the changes through the same
+         *     endpoints this API offers, as whoever started it. Gates hold assets
+         *     back (recently edited ones, those tagged `portal:playbook-skip`, a
+         *     canary of the first few); what a gate held back is listed as skipped
+         *     with the reason.
          */
-        get: operations["getScriptsDemoCleanupPreview"];
+        get: operations["getPlaybooks"];
         put?: never;
         post?: never;
         delete?: never;
@@ -676,7 +681,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/scripts/demo-cleanup/execute": {
+    "/api/playbooks/{playbookId}/preview": {
         parameters: {
             query?: never;
             header?: never;
@@ -686,10 +691,53 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Delete all QuickSight demo assets
-         * @description Deletes all demo datasources, datasets, and analyses, then archives them
+         * Preview a playbook (a job)
+         * @description Scopes the playbook, applies the gates and checks every asset, writing
+         *     nothing. Returns a job; read its rows from
+         *     `/api/playbooks/runs/{jobId}/items`.
          */
-        post: operations["postScriptsDemoCleanupExecute"];
+        post: operations["postPlaybooksByPlaybookIdPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/playbooks/{playbookId}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a finished preview (a job)
+         * @description Applies the preview's `change` rows (or only `keys`, or with `retryOf`
+         *     only the rows an earlier run of the same preview failed). Each asset
+         *     is checked again first: one fixed by hand since is skipped, one that
+         *     now needs a decision goes to review. The run stops starting new
+         *     assets once more than `failureThreshold` of those tried have failed.
+         */
+        post: operations["postPlaybooksByPlaybookIdRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/playbooks/runs/{jobId}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A preview's or run's rows, one per asset */
+        get: operations["getPlaybooksRunsByJobIdItems"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -808,6 +856,30 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assets/{assetType}/{assetId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete one asset, archiving it first
+         * @description Re-exports the asset (so the archive holds what QuickSight has now),
+         *     keeps a copy in the archive, then deletes it from QuickSight. If
+         *     QuickSight refuses, the archive is put back as it was. Restore it
+         *     from the archive later. For many assets at once use
+         *     `/api/assets/bulk-delete`, which queues a job.
+         */
+        delete: operations["deleteAssetsByAssetTypeByAssetId"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2580,7 +2652,102 @@ export interface components {
             rounds: number;
         };
         /** @enum {string} */
-        JobType: "export" | "deploy" | "ingestion" | "rebuild" | "activity-refresh" | "bulk-operation" | "csv-export" | "smus-export" | "planner" | "assistant" | "asset-refresh";
+        JobType: "export" | "deploy" | "ingestion" | "rebuild" | "activity-refresh" | "bulk-operation" | "csv-export" | "smus-export" | "planner" | "assistant" | "asset-refresh" | "playbook";
+        Playbook: {
+            id: string;
+            title: string;
+            description: string;
+            /** @enum {string} */
+            category: "repair" | "data" | "cleanup";
+            params: {
+                key: string;
+                label: string;
+                /** @enum {string} */
+                kind: "datasource" | "text" | "boolean";
+                help?: string;
+                required?: boolean;
+                /** @description datasource only - offer only data sources of this engine. */
+                dataSourceType?: string;
+                default?: unknown;
+            }[];
+            gates: components["schemas"]["PlaybookGate"][];
+            writes: components["schemas"]["AssetType"][];
+            /** @description Applying it deletes; each asset is archived first and can be restored. */
+            deletes: boolean;
+        };
+        /** @description A condition an asset must pass; what it holds back is listed as skipped, with the reason. */
+        PlaybookGate: {
+            key: string;
+            label: string;
+            /** @enum {string} */
+            kind: "number" | "text" | "boolean";
+            help?: string;
+            /** @description On unless the request sets it to null. */
+            default?: unknown;
+        };
+        /** @enum {string} */
+        PlaybookItemStatus: "pending" | "planned" | "done" | "failed" | "skipped" | "review";
+        /** @enum {string} */
+        PlaybookVerdict: "change" | "review" | "skip";
+        PlaybookItem: {
+            key: string;
+            stage: number;
+            assetType: components["schemas"]["AssetType"];
+            assetId: string;
+            name: string;
+            status: components["schemas"]["PlaybookItemStatus"];
+            verdict?: components["schemas"]["PlaybookVerdict"];
+            summary?: string;
+            changes?: string[];
+            warnings?: string[];
+            error?: string;
+            attempts?: number;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description The playbook's own plan for this asset. */
+            plan?: unknown;
+        };
+        PlaybookItemCounts: {
+            total: number;
+            pending: number;
+            planned: number;
+            done: number;
+            failed: number;
+            skipped: number;
+            review: number;
+            verdicts: {
+                change: number;
+                review: number;
+                skip: number;
+            };
+        };
+        PlaybookItemsPage: {
+            jobId: string;
+            playbookId: string;
+            /** @enum {string} */
+            mode: "preview" | "run";
+            status: components["schemas"]["JobStatus"];
+            items: components["schemas"]["PlaybookItem"][];
+            counts: components["schemas"]["PlaybookItemCounts"];
+            /** @description Pass back for the next page; absent on the last. */
+            cursor?: string;
+        };
+        /** @description What a playbook job was asked to do. */
+        PlaybookJobInfo: {
+            /** @enum {string} */
+            mode: "preview" | "run";
+            playbookId: string;
+            params?: {
+                [key: string]: unknown;
+            };
+            gates?: {
+                [key: string]: unknown;
+            };
+            previewJobId?: string;
+            retryOf?: string;
+        } & {
+            [key: string]: unknown;
+        };
         SourceRestorePreview: {
             /** @enum {string} */
             assetType: "dataset" | "datasource";
@@ -2659,6 +2826,7 @@ export interface components {
                 updatedAt?: string;
             };
             jobId: string;
+            playbook?: components["schemas"]["PlaybookJobInfo"];
             jobType: components["schemas"]["JobType"];
             status: components["schemas"]["JobStatus"];
             progress?: number;
@@ -5255,6 +5423,19 @@ export interface components {
         };
     };
     responses: {
+        /** @description The job is queued; poll /api/jobs/{jobId} and read its rows */
+        PlaybookJobAccepted: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    success: boolean;
+                    jobId: string;
+                    status: string;
+                };
+            };
+        };
         /** @description Done */
         Acknowledged: {
             headers: {
@@ -5324,6 +5505,7 @@ export interface components {
         FieldName: string;
         AuthorableAssetType: components["schemas"]["AuthorableAssetType"];
         AuthoringAssetId: string;
+        PlaybookId: string;
         /** @description `archive` reads the copy the portal kept when the asset was deleted, instead of QuickSight, so an archived asset can be checked, repaired, edited and previewed before it is restored. */
         DefinitionSource: "live" | "archive";
     };
@@ -6441,7 +6623,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
-    getScriptsDemoCleanupPreview: {
+    getPlaybooks: {
         parameters: {
             query?: never;
             header?: never;
@@ -6450,79 +6632,113 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description List of demo assets to be deleted */
+            /** @description Every playbook, with its parameters and gates */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        success?: boolean;
-                        data?: {
-                            datasources: {
-                                id: string;
-                                name: string;
-                                bucket?: string;
-                            }[];
-                            datasets: {
-                                id: string;
-                                name: string;
-                                datasourceIds: string[];
-                            }[];
-                            analyses: {
-                                id: string;
-                                name: string;
-                            }[];
-                            totalCount: number;
-                        };
+                        success: boolean;
+                        data: components["schemas"]["Playbook"][];
                     };
                 };
             };
             401: components["responses"]["Unauthorized"];
-            500: components["responses"]["InternalServerError"];
         };
     };
-    postScriptsDemoCleanupExecute: {
+    postPlaybooksByPlaybookIdPreview: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                playbookId: components["parameters"]["PlaybookId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description The playbook's parameters, by key. */
+                    params?: {
+                        [key: string]: unknown;
+                    };
+                    /** @description Gate values by key; null turns off a gate that is on by default. */
+                    gates?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            202: components["responses"]["PlaybookJobAccepted"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postPlaybooksByPlaybookIdRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playbookId: components["parameters"]["PlaybookId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    previewJobId: string;
+                    keys?: string[];
+                    /** @description A run of this preview whose failures to try again. */
+                    retryOf?: string;
+                    limits?: {
+                        concurrency?: number;
+                        failureThreshold?: number;
+                        failureMinimum?: number;
+                    };
+                };
+            };
+        };
+        responses: {
+            202: components["responses"]["PlaybookJobAccepted"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPlaybooksRunsByJobIdItems: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["PlaybookItemStatus"];
+                verdict?: components["schemas"]["PlaybookVerdict"];
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                jobId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Demo cleanup completed successfully */
+            /** @description A page of rows and the counts for all of them */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        success?: boolean;
-                        data?: {
-                            deleted?: {
-                                datasources?: number;
-                                datasets?: number;
-                                analyses?: number;
-                                total?: number;
-                            };
-                            archived?: {
-                                datasources?: number;
-                                datasets?: number;
-                                analyses?: number;
-                                total?: number;
-                            };
-                            errors?: {
-                                assetType?: string;
-                                assetId?: string;
-                                error?: string;
-                            }[];
-                        };
+                        success: boolean;
+                        data: components["schemas"]["PlaybookItemsPage"];
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
-            500: components["responses"]["InternalServerError"];
+            404: components["responses"]["NotFound"];
         };
     };
     getActivitySummary: {
@@ -6699,6 +6915,41 @@ export interface operations {
                     };
                 };
             };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    deleteAssetsByAssetTypeByAssetId: {
+        parameters: {
+            query: {
+                /** @description Why it is deleted; kept with the archive. */
+                reason: string;
+            };
+            header?: never;
+            path: {
+                assetType: "dashboard" | "analysis" | "dataset" | "datasource";
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted and archived */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            assetType: string;
+                            assetId: string;
+                            archived: boolean;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
         };
     };

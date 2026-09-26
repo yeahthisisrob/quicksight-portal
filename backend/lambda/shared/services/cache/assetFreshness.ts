@@ -9,7 +9,13 @@
  *    folders they were put in.
  *
  * Neither may fail the write it follows.
+ *
+ * Inside `batchFreshness`, step 2 waits: the refs are gathered and one
+ * refresh is queued for all of them when the batch ends, so a playbook that
+ * writes three hundred datasets queues one job, not three hundred.
  */
+import { AsyncLocalStorage } from 'node:async_hooks';
+
 import { AssetStatus } from '../../models/asset.model';
 import type { AssetType } from '../../types/assetTypes';
 import { logger } from '../../utils/logger';
@@ -21,6 +27,25 @@ interface WrittenAssetRef {
   assetId: string;
   name?: string;
   arn?: string;
+}
+
+const batches = new AsyncLocalStorage<Map<string, WrittenAssetRef>>();
+
+/**
+ * Run `work`, holding back the refresh every write inside it asks for; then
+ * queue one refresh for all of them (also when `work` throws: what was
+ * written was written).
+ */
+export async function batchFreshness<T>(
+  work: () => Promise<T>,
+  context: { accountId?: string; userId?: string } = {}
+): Promise<T> {
+  const gathered = new Map<string, WrittenAssetRef>();
+  try {
+    return await batches.run(gathered, work);
+  } finally {
+    await queueRefresh([...gathered.values()], context);
+  }
 }
 
 export async function keepCacheFresh(
@@ -42,6 +67,23 @@ export async function keepCacheFresh(
     } catch (error) {
       logger.warn('Cache: the written asset could not be recorded at once', { ...asset, error });
     }
+  }
+  const batch = batches.getStore();
+  if (batch) {
+    for (const asset of assets) {
+      batch.set(`${asset.assetType}/${asset.assetId}`, asset);
+    }
+    return;
+  }
+  await queueRefresh(assets, context);
+}
+
+async function queueRefresh(
+  assets: WrittenAssetRef[],
+  context: { accountId?: string; userId?: string }
+): Promise<void> {
+  if (assets.length === 0) {
+    return;
   }
   const accountId = context.accountId ?? process.env.AWS_ACCOUNT_ID ?? '';
   try {

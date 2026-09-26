@@ -124,7 +124,8 @@ export class DatasetSourceService {
         id: entry.assetId,
         name: entry.assetName,
         arn: entry.arn,
-        type: (entry.metadata as { dataSourceType?: string } | undefined)?.dataSourceType,
+        // The parser records the engine as sourceType (datasourceType on older entries).
+        type: entry.metadata?.sourceType ?? entry.metadata?.datasourceType,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }

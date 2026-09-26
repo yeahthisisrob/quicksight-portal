@@ -107,6 +107,17 @@ const ROUTE_PATTERNS: readonly RoutePattern[] = [
     params: ['listingId'],
   },
   {
+    // Before '/playbooks/': a run's rows are read by its job id.
+    prefix: '/playbooks/runs/',
+    excludes: [],
+    params: ['jobId'],
+  },
+  {
+    prefix: '/playbooks/',
+    excludes: [],
+    params: ['playbookId'],
+  },
+  {
     prefix: '/jobs/',
     excludes: [],
     params: ['jobId'],

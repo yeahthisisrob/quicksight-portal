@@ -6,7 +6,7 @@ import { authoringRoutes } from '../features/authoring';
 import { dataCatalogRoutes } from '../features/data-catalog';
 import { dataExportRoutes } from '../features/data-export';
 import { organizationRoutes } from '../features/organization';
-import { scriptsRoutes } from '../features/scripts/routes';
+import { playbookRoutes } from '../features/playbooks';
 import { searchRoutes } from '../features/search';
 import { settingsRoutes } from '../features/settings';
 import { smusRoutes } from '../features/smus';
@@ -24,7 +24,7 @@ const featureRoutes: RouteHandler[] = [
   ...organizationRoutes,
   ...dataCatalogRoutes,
   ...activityRoutes,
-  ...scriptsRoutes,
+  ...playbookRoutes,
   ...settingsRoutes,
   ...smusRoutes,
   ...jobRoutes, // Shared job management routes

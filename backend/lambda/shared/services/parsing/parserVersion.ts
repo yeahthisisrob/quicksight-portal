@@ -25,5 +25,9 @@
  *     dataset calculated field on `undefined` (so a dataset kept one of
  *     them, nameless) and nothing an exploration computed could be joined to
  *     the dataset it came from.
+ * v6: a data source carries its connection facts - S3 bucket, Athena
+ *     workgroup, VPC connection, where its credentials come from - so
+ *     playbooks can tell which data sources are interchangeable and which
+ *     hold the sample data, without reading every export file.
  */
-export const PARSER_METADATA_VERSION = 5;
+export const PARSER_METADATA_VERSION = 6;

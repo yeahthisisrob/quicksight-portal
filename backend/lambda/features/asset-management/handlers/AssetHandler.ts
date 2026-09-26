@@ -7,15 +7,18 @@ import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import { S3Service } from '../../../shared/services/aws/S3Service';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
 import { jobFactory } from '../../../shared/services/jobs/JobFactory';
-import { ASSET_TYPES, ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
+import { ASSET_TYPES, ASSET_TYPES_PLURAL, type AssetType } from '../../../shared/types/assetTypes';
 import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { PermissionsService } from '../../organization/services/PermissionsService';
 import { AssetRestoreService, type RestorableSourceType } from '../services/AssetRestoreService';
 import { AssetService } from '../services/AssetService';
+import { BulkDeleteService } from '../services/BulkDeleteService';
 import { DatasetSourceService } from '../services/DatasetSourceService';
 import { isRenameableAssetType, RenameService } from '../services/RenameService';
 import type { AssetListRequest } from '../types';
+
+const DELETABLE = new Set<string>(['dashboard', 'analysis', 'dataset', 'datasource']);
 
 export class AssetHandler {
   private readonly accountId: string;
@@ -97,6 +100,58 @@ export class AssetHandler {
 
   private restoreService(): AssetRestoreService {
     return new AssetRestoreService(ClientFactory.getQuickSightService(this.accountId));
+  }
+
+  /**
+   * DELETE /assets/{type}/{id}?reason= - delete one asset now, archiving it
+   * first (re-exported, so the archive holds what QuickSight has). The
+   * bulk route queues a job; this answers when it is done, for playbooks
+   * and API callers that go one asset at a time.
+   */
+  public async deleteAsset(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const { assetType, assetId } = event.pathParameters || {};
+      const reason = event.queryStringParameters?.reason?.trim();
+      if (!DELETABLE.has(assetType as string) || !assetId) {
+        return errorResponse(
+          event,
+          STATUS_CODES.BAD_REQUEST,
+          'Only a dashboard, analysis, dataset or data source is deleted here'
+        );
+      }
+      if (!reason) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Say why it is deleted (?reason=)');
+      }
+      const type = assetType as AssetType;
+      const { actor, channel } = actorFromAuth(user);
+      await auditLog.record({
+        actor,
+        channel,
+        action: 'asset.delete',
+        assetType: type,
+        assetId,
+        details: { reason },
+      });
+      const result = await new BulkDeleteService(
+        ClientFactory.getQuickSightService(this.accountId)
+      ).deleteAssets({ assets: [{ type, id: assetId }], reason, deletedBy: actorLabel(user) });
+      const failure = result.errors[0];
+      if (failure) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, failure.error);
+      }
+      return successResponse(event, {
+        success: true,
+        data: { assetType: type, assetId, archived: result.archived.total > 0 },
+      });
+    } catch (error: any) {
+      logger.error('Delete failed', { error });
+      return errorResponse(
+        event,
+        STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error?.message || 'Failed to delete it'
+      );
+    }
   }
 
   public async bulkDelete(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {

@@ -99,13 +99,27 @@ interface AssistantJobConfig extends BaseJobConfig {
   state?: unknown;
   resume?: unknown[];
   /** The identity the assistant's own calls run as. */
-  auth: {
-    userId: string;
-    accountId: string;
-    email?: string;
-    groups?: string[];
-    apiKey?: { id: string; label: string };
-  };
+  auth: JobAuth;
+}
+
+/** Who a job acts as when it calls the portal's own routes. */
+interface JobAuth {
+  userId: string;
+  accountId: string;
+  email?: string;
+  groups?: string[];
+  apiKey?: { id: string; label: string };
+}
+
+/**
+ * A playbook preview or run. `request` is the playbook's own (the playbooks
+ * slice owns its shape); it is kept on the job record, so a run can read
+ * the preview it applies and a retry the run it repeats.
+ */
+interface PlaybookJobConfig extends BaseJobConfig {
+  jobType: 'playbook';
+  request: { mode: 'preview' | 'run'; playbookId: string } & Record<string, unknown>;
+  auth: JobAuth;
 }
 
 /** Re-export just these assets and upsert their cache entries (after the portal wrote them). */
@@ -122,7 +136,8 @@ type JobConfig =
   | SmusExportJobConfig
   | PlannerJobConfig
   | AssistantJobConfig
-  | AssetRefreshJobConfig;
+  | AssetRefreshJobConfig
+  | PlaybookJobConfig;
 
 export class JobFactory {
   private static instance: JobFactory;
@@ -178,6 +193,7 @@ export class JobFactory {
           assetType: config.assetType,
           exportOptions: config.options,
         }),
+        ...(config.jobType === 'playbook' && { playbook: config.request }),
         ...(config.jobType === 'planner' &&
           config.request.kind === 'propose' && {
             assetType: config.request.assetType,
@@ -276,6 +292,10 @@ export class JobFactory {
       return `CSV export job for ${config.assetType} queued`;
     } else if (config.jobType === 'assistant') {
       return 'Assistant thinking';
+    } else if (config.jobType === 'playbook') {
+      return config.request.mode === 'preview'
+        ? `Previewing playbook ${config.request.playbookId}`
+        : `Running playbook ${config.request.playbookId}`;
     } else if (config.jobType === 'asset-refresh') {
       return `Refreshing ${config.assets.length} written asset${config.assets.length === 1 ? '' : 's'} in the cache`;
     } else if (config.jobType === 'planner') {
@@ -309,6 +329,8 @@ export class JobFactory {
       return { request: config.request, model: config.model };
     } else if (config.jobType === 'asset-refresh') {
       return { assets: config.assets };
+    } else if (config.jobType === 'playbook') {
+      return { request: config.request, auth: config.auth };
     } else if (config.jobType === 'assistant') {
       return {
         model: config.model,
