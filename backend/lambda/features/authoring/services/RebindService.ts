@@ -29,6 +29,7 @@ import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import type { S3Service } from '../../../shared/services/aws/S3Service';
 import { cacheService } from '../../../shared/services/cache/CacheService';
+import { keepLivePrincipals } from '../../../shared/services/identity/livePrincipals';
 import { ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
 import { normalizePermissionsArray } from '../../../shared/utils/permissions';
@@ -71,9 +72,12 @@ import type {
   RestoreResult,
 } from '../types';
 import { createAsset, recordProvenance, updateAsset } from './assetWriter';
-import { audienceFor, fileInFolders, keepLivePrincipals } from './audience';
+import { audienceFor, fileInFolders } from './audience';
 
 const NAME_MAX_LENGTH = 200;
+/** Reading a new asset back: every two seconds for up to twenty. */
+const READBACK_ATTEMPTS = 10;
+const READBACK_INTERVAL_MS = 2000;
 
 interface LoadedDefinition {
   name: string;
@@ -790,6 +794,7 @@ export class RebindService {
       themeArn: loaded.themeArn,
       dashboardPublishOptions: loaded.dashboardPublishOptions,
     });
+    warnings.push(...(await this.errorsAfterWrite(assetType, written.assetId)));
     if (archived.extras.tags.length > 0) {
       try {
         await this.quickSightService.tagResource(assetType, written.assetId, archived.extras.tags);
@@ -841,6 +846,47 @@ export class RebindService {
       folderIds: filing.filed,
       ...(warnings.length ? { warnings } : {}),
     };
+  }
+
+  /**
+   * After a create: wait for QuickSight to finish, then read back its own
+   * errors, so a restore says the asset is back and clean - or exactly what
+   * QuickSight still objects to - instead of assuming.
+   */
+  private async errorsAfterWrite(
+    assetType: AuthorableAssetType,
+    assetId: string
+  ): Promise<string[]> {
+    for (let attempt = 0; attempt < READBACK_ATTEMPTS; attempt++) {
+      try {
+        const found =
+          assetType === 'dashboard'
+            ? await this.quickSightService.describeDashboard(assetId)
+            : await this.quickSightService.describeAnalysis(assetId);
+        const status: string | undefined =
+          assetType === 'dashboard' ? found?.Version?.Status : found?.Status;
+        const errors: Array<{ Type?: string; Message?: string }> =
+          (assetType === 'dashboard' ? found?.Version?.Errors : found?.Errors) ?? [];
+        if (status && !status.endsWith('IN_PROGRESS')) {
+          const words = errors.map((e) => `${e.Type ?? 'Error'}: ${e.Message ?? ''}`.trim());
+          if (status.endsWith('FAILED')) {
+            return [
+              `QuickSight could not finish creating it (${status})${words.length ? `: ${words.join('; ')}` : ''}. Open it in the Studio to fix what it names.`,
+            ];
+          }
+          return words.length > 0
+            ? [
+                `QuickSight still reports ${words.length} error${words.length === 1 ? '' : 's'}: ${words.join('; ')}. Open it in the Studio to fix them.`,
+              ]
+            : [];
+        }
+      } catch (error) {
+        logger.warn('Could not read the restored asset back', { assetType, assetId, error });
+        return [];
+      }
+      await new Promise((resolve) => setTimeout(resolve, READBACK_INTERVAL_MS));
+    }
+    return ['QuickSight is still creating it; check it in a minute.'];
   }
 
   private async planAgainst(

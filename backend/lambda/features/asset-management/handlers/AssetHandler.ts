@@ -3,6 +3,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { actorLabel, requireAuth } from '../../../shared/auth';
 import { PAGINATION, STATUS_CODES } from '../../../shared/constants';
 import { actorFromAuth, auditLog } from '../../../shared/services/audit/AuditLog';
+import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import { S3Service } from '../../../shared/services/aws/S3Service';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
 import { jobFactory } from '../../../shared/services/jobs/JobFactory';
@@ -10,6 +11,7 @@ import { ASSET_TYPES, ASSET_TYPES_PLURAL } from '../../../shared/types/assetType
 import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { PermissionsService } from '../../organization/services/PermissionsService';
+import { AssetRestoreService, type RestorableSourceType } from '../services/AssetRestoreService';
 import { AssetService } from '../services/AssetService';
 import { DatasetSourceService } from '../services/DatasetSourceService';
 import { isRenameableAssetType, RenameService } from '../services/RenameService';
@@ -32,6 +34,69 @@ export class AssetHandler {
 
     // Initialize S3 service
     this.s3Service = new S3Service(this.accountId);
+  }
+
+  /** POST /assets/{dataset|datasource}/{assetId}/restore/preview - what stands in the way. */
+  public async previewRestore(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const { assetType, assetId } = this.restoreTarget(event);
+      const body = JSON.parse(event.body || '{}');
+      const data = await this.restoreService().preview(assetType, assetId, body.newAssetId);
+      return successResponse(event, { success: true, data });
+    } catch (error: any) {
+      logger.error('Restore preview failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.BAD_REQUEST,
+        error?.message || 'Failed to check the restore'
+      );
+    }
+  }
+
+  /** POST /assets/{dataset|datasource}/{assetId}/restore - bring it back from the archive. */
+  public async restoreSource(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const { assetType, assetId } = this.restoreTarget(event);
+      const body = JSON.parse(event.body || '{}');
+      for (const key of ['newAssetId', 'name']) {
+        if (body[key] !== undefined && typeof body[key] !== 'string') {
+          return errorResponse(event, STATUS_CODES.BAD_REQUEST, `${key} must be a string`);
+        }
+      }
+      const data = await this.restoreService().restore(
+        assetType,
+        assetId,
+        { newAssetId: body.newAssetId, name: body.name },
+        user
+      );
+      return successResponse(event, { success: true, data });
+    } catch (error: any) {
+      logger.error('Restore failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.BAD_REQUEST,
+        error?.message || 'Failed to restore it'
+      );
+    }
+  }
+
+  private restoreTarget(event: APIGatewayProxyEvent): {
+    assetType: RestorableSourceType;
+    assetId: string;
+  } {
+    const { assetType, assetId } = event.pathParameters || {};
+    if ((assetType !== 'dataset' && assetType !== 'datasource') || !assetId) {
+      throw Object.assign(new Error('Only a dataset or a data source restores here'), {
+        statusCode: STATUS_CODES.BAD_REQUEST,
+      });
+    }
+    return { assetType, assetId };
+  }
+
+  private restoreService(): AssetRestoreService {
+    return new AssetRestoreService(ClientFactory.getQuickSightService(this.accountId));
   }
 
   public async bulkDelete(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {

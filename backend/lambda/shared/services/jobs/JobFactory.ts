@@ -35,18 +35,6 @@ export interface ExportJobConfig extends BaseJobConfig {
   };
 }
 
-export interface DeployJobConfig extends BaseJobConfig {
-  jobType: 'deploy';
-  assetType: AssetType;
-  assetId: string;
-  deploymentConfig: {
-    deploymentType: string;
-    source: string;
-    target?: Record<string, any>;
-    options?: Record<string, any>;
-  };
-}
-
 export interface ActivityRefreshJobConfig extends BaseJobConfig {
   jobType: 'activity-refresh';
   options: {
@@ -128,7 +116,6 @@ interface AssetRefreshJobConfig extends BaseJobConfig {
 
 type JobConfig =
   | ExportJobConfig
-  | DeployJobConfig
   | ActivityRefreshJobConfig
   | BulkOperationJobConfig
   | CSVExportJobConfig
@@ -177,11 +164,6 @@ export class JobFactory {
         userId: config.userId,
         ...(config.startedBy && { startedBy: config.startedBy }),
         accountId: config.accountId,
-        ...(config.jobType === 'deploy' && {
-          assetType: config.assetType,
-          assetId: config.assetId,
-          deploymentType: config.deploymentConfig?.deploymentType,
-        }),
         ...(config.jobType === 'export' && {
           exportOptions: config.options,
         }),
@@ -283,8 +265,6 @@ export class JobFactory {
         return 'Cache rebuild job queued';
       }
       return 'Export job queued';
-    } else if (config.jobType === 'deploy') {
-      return `Deployment job for ${config.assetType} ${config.assetId}`;
     } else if (config.jobType === 'activity-refresh') {
       return 'Activity refresh job queued';
     } else if (config.jobType === 'smus-export') {
@@ -309,12 +289,6 @@ export class JobFactory {
   private getJobSpecificFields(config: JobConfig): Record<string, any> {
     if (config.jobType === 'export') {
       return { options: config.options };
-    } else if (config.jobType === 'deploy') {
-      return {
-        assetType: config.assetType,
-        assetId: config.assetId,
-        deploymentConfig: config.deploymentConfig,
-      };
     } else if (config.jobType === 'activity-refresh') {
       return { options: config.options };
     } else if (config.jobType === 'smus-export') {

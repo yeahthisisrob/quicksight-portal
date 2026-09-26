@@ -241,6 +241,18 @@ broken asset behind.
 nothing:** `POST /api/authoring/new` with the preview's body plus
 `permissionsFrom` and `folderId`.
 
+**From the archive:** what was deleted through the portal is listed by
+`GET /api/assets/archived`. A dashboard or analysis comes back through the
+same pipeline as a transform: read it with `?source=archive` on
+`.../repair/plan`, `.../rebind/plan` and `.../rebind/preview`, then
+`POST /api/authoring/{type}/{id}/restore` with the `rebinds`, `ops` and
+`repairs` it needs (and `newAssetId` if QuickSight still holds its id). It
+comes back fixed, with its archived audience, theme and tags, or not at all;
+the result's `warnings` say what could not be carried and anything
+QuickSight still reports. A dataset or data source is checked with
+`POST /api/assets/{type}/{id}/restore/preview` and restored with
+`.../restore`.
+
 **Audience and housekeeping**, when the write itself is not enough:
 
 - `POST /api/assets/{type}/{id}/grant-permissions` and

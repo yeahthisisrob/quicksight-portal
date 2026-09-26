@@ -78,10 +78,108 @@ export const BrowseSearch: Story = {
   render: () => (
     <MockedApi routes={authorRoutes()}>
       <Box sx={{ p: 3, maxWidth: 960 }}>
-        <AssetBrowser onOpen={() => {}} initialSearch="sales revenue" />
+        <AssetBrowser onOpen={() => {}} onOpenArchived={() => {}} initialSearch="sales revenue" />
       </Box>
     </MockedApi>
   ),
+};
+
+export const BrowseArchived: Story = {
+  name: 'Editor · open something archived',
+  render: () => (
+    <MockedApi routes={authorRoutes()}>
+      <Box sx={{ p: 3, maxWidth: 960 }}>
+        <AssetBrowser onOpen={() => {}} onOpenArchived={() => {}} initialScope="archived" />
+      </Box>
+    </MockedApi>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Switched to Archived: what was deleted, newest first, who deleted it and why. Datasets and data sources are here too; each restores in its own panel.',
+      },
+    },
+  },
+};
+
+export const Archived: Story = {
+  name: 'Editor · an archived dashboard, with errors',
+  render: () => view(fakeStudio({ fromArchive: true, repairPlan: REPAIR_PLAN })),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Opened from the archive: the same issues and fixes as a live asset, then Restore. It comes back fixed, or not at all.',
+      },
+    },
+  },
+};
+
+export const RestoreDialog: Story = {
+  name: 'Editor · Restore',
+  render: () => (
+    <MockedApi routes={authorRoutes()}>
+      <SaveDialog studio={fakeStudio({ fromArchive: true })} open onClose={() => {}} />
+    </MockedApi>
+  ),
+};
+
+export const Restored: Story = {
+  name: 'Editor · Restored, with warnings',
+  render: () => (
+    <MockedApi routes={authorRoutes()}>
+      <SaveDialog
+        studio={fakeStudio({
+          fromArchive: true,
+          result: {
+            assetType: 'dashboard',
+            assetId: 'sales-overview-2024',
+            name: 'Sales overview (2024)',
+            mode: 'restore',
+            versionNumber: 1,
+            folderIds: [],
+            changes: [{ kind: 'rebind', description: 'Rebound sales_2024 to sales_gold' }],
+            warnings: [
+              '1 principal in its archived audience no longer exists and was left out',
+              'QuickSight reports 1 error on the restored dashboard: Column region not found',
+            ],
+          },
+        })}
+        open
+        onClose={() => {}}
+      />
+    </MockedApi>
+  ),
+};
+
+export const RestoreDataset: Story = {
+  name: 'Editor · Restore a dataset',
+  render: () =>
+    view(
+      fakeStudio({
+        closed: true,
+        archivedData: { type: 'dataset', id: 'orders-silver', name: 'orders_silver' },
+      })
+    ),
+};
+
+export const RestoreDataSourceBlocked: Story = {
+  name: 'Editor · Restore a data source, blocked',
+  render: () =>
+    view(
+      fakeStudio({
+        closed: true,
+        archivedData: { type: 'datasource', id: 'legacy-athena', name: 'Legacy Athena' },
+      })
+    ),
+  parameters: {
+    docs: {
+      description: {
+        story: 'QuickSight still holds its id: a new one clears the check.',
+      },
+    },
+  },
 };
 
 export const Issues: Story = {

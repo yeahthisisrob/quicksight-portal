@@ -1,5 +1,3 @@
-import type { components } from '@shared/generated';
-
 import type { PaginatedListParams } from '@/shared/api/modules/assets';
 
 export interface ColumnConfig {
@@ -25,33 +23,4 @@ export interface ColumnConfig {
   getActions?: (params: any) => any[];
   /** When set, this column appears as an option in the date filter dropdown. Value is the backend field name. */
   dateFilterField?: NonNullable<PaginatedListParams['dateField']>;
-}
-
-// Archive and deployment types — grounded in the generated OpenAPI schema
-export type ArchivedAssetItem = components['schemas']['ArchivedAssetItem'] & {
-  size?: number;
-  metadata?: {
-    importMode?: string;
-    rowCount?: number;
-    consumedSpiceCapacityInBytes?: number;
-  };
-};
-/**
- * Metadata extracted from an archived asset's stored API responses
- * (used by metadataExtractor and the restore flow)
- */
-export interface AssetMetadata {
-  permissions?: any[];
-  tags?: Array<{ key: string; value: string }>;
-  refreshSchedules?: any[];
-  refreshProperties?: any;
-  folderMemberships?: any[];
-  originalName?: string;
-  description?: string;
-  createdTime?: string;
-  lastUpdatedTime?: string;
-  importMode?: string;
-  rowCount?: number;
-  consumedSpiceCapacityInBytes?: number;
-  [key: string]: any;
 }

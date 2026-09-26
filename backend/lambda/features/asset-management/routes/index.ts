@@ -33,6 +33,18 @@ export const assetManagementRoutes: RouteHandler[] = [
 
   {
     method: 'POST',
+    path: /^\/assets\/(dataset|datasource)\/([^/]+)\/restore\/preview$/,
+    handler: (event) => handler.previewRestore(event),
+  },
+
+  {
+    method: 'POST',
+    path: /^\/assets\/(dataset|datasource)\/([^/]+)\/restore$/,
+    handler: (event) => handler.restoreSource(event),
+  },
+
+  {
+    method: 'POST',
     path: '/assets/rebuild-index',
     handler: (event) => handler.rebuildIndex(event),
   },

@@ -4,12 +4,10 @@ import type { Context, SQSEvent } from 'aws-lambda';
 import { ActivityRefreshProcessor } from './features/activity/processors/ActivityRefreshProcessor';
 import { warmCollectionSnapshots } from './features/asset-management/services/collectionSnapshotWarmer';
 import { ExportOrchestrator } from './features/data-export/services/ExportOrchestrator';
-import type { DeploymentConfig } from './features/deployment/services/deploy/types';
 import { SmusExportProcessor } from './features/smus/processors/SmusExportProcessor';
 import type { SmusConfig } from './shared/config/smusConfig';
 import { JOB_CONFIG, STORAGE_LIMITS, TIME_UNITS, WORKER_CONFIG } from './shared/constants';
 import type { AssetType } from './shared/models/asset.model';
-import { S3Service } from './shared/services/aws/S3Service';
 import { summarizeBulkResult } from './shared/services/bulk/bulkResultSummary';
 import { cacheService } from './shared/services/cache/CacheService';
 import { JobStateService } from './shared/services/jobs/JobStateService';
@@ -20,22 +18,6 @@ import { logger } from './shared/utils/logger';
 // feature slices (data-export, activity) trigger it via cacheService hooks
 // instead of importing asset-management's warmer directly (import cycle)
 cacheService.registerCacheRebuildHook(warmCollectionSnapshots);
-
-// Get AWS account ID from environment
-const accountId = process.env.AWS_ACCOUNT_ID || '';
-const s3Service = new S3Service(accountId);
-
-interface DeployMessage {
-  jobId: string;
-  jobType: 'deploy';
-  accountId: string;
-  bucketName: string;
-  assetType: AssetType;
-  assetId: string;
-  deploymentConfig: DeploymentConfig;
-  userId?: string;
-  initialMessage?: string;
-}
 
 interface ExportMessage {
   jobId: string;
@@ -156,7 +138,7 @@ interface CSVExportMessage {
 }
 
 /**
- * Worker Lambda handler for processing export and deployment jobs from SQS
+ * Worker Lambda handler for processing the portal's jobs from SQS
  */
 export const handler = async (event: SQSEvent, context: Context): Promise<void> => {
   logger.info('Worker handler started', {
@@ -233,9 +215,7 @@ async function processRecord(record: any, context: Context): Promise<void> {
     }
 
     // Route to appropriate job processor
-    if (rawMessage.jobType === 'deploy') {
-      await processDeploymentJob(rawMessage as DeployMessage, record);
-    } else if (rawMessage.jobType === 'activity-refresh') {
+    if (rawMessage.jobType === 'activity-refresh') {
       await processActivityRefreshJob(rawMessage as ActivityRefreshMessage, record);
     } else if (rawMessage.jobType === 'smus-export') {
       await processSmusExportJob(rawMessage as SmusExportMessage, record);
@@ -268,43 +248,6 @@ function computeInvocationDeadline(context: Context): number | null {
     return null;
   }
   return Date.now() + context.getRemainingTimeInMillis() - WORKER_CONFIG.EXPORT_DEADLINE_SAFETY_MS;
-}
-
-/**
- * Process a deployment job from SQS message
- */
-async function processDeploymentJob(message: DeployMessage, record: any): Promise<void> {
-  const { jobId, accountId: msgAccountId, assetType, assetId, deploymentConfig } = message;
-
-  logger.info('Starting deployment job from SQS', {
-    jobId,
-    accountId: msgAccountId,
-    assetType,
-    assetId,
-    deploymentType: deploymentConfig.deploymentType,
-    messageId: record.messageId,
-  });
-
-  const jobStateService = new JobStateService('deploy');
-
-  try {
-    await cleanupStuckJobs(jobStateService, 'deployment');
-
-    const shouldProcess = await initializeDeploymentJob(jobStateService, jobId, message);
-    if (!shouldProcess) {
-      return;
-    }
-
-    await jobStateService.updateJobStatus(jobId, {
-      status: 'processing',
-      message: `Executing ${message.deploymentConfig.deploymentType} for ${message.assetType} ${message.assetId}...`,
-      progress: 30,
-    });
-
-    await executeDeploymentJob(jobStateService, jobId, message);
-  } catch (error) {
-    await handleDeploymentError(jobStateService, jobId, error);
-  }
 }
 
 /**
@@ -1020,140 +963,6 @@ async function cleanupStuckJobs(jobStateService: JobStateService, jobType: strin
 }
 
 /**
- * Initialize a deployment job
- */
-async function initializeDeploymentJob(
-  jobStateService: JobStateService,
-  jobId: string,
-  message: DeployMessage
-): Promise<boolean> {
-  const { assetType, assetId, deploymentConfig } = message;
-
-  // Check if job already exists (created by API Lambda)
-  const existingJob = await jobStateService.getJobStatus(jobId);
-  if (existingJob) {
-    // Job already exists, just update it to processing
-    await jobStateService.updateJobStatus(jobId, {
-      status: 'processing',
-      message: `Starting ${deploymentConfig.deploymentType} of ${assetType} ${assetId}`,
-      progress: 0,
-    });
-    logger.info('Updated existing deploy job to processing', { jobId });
-  } else {
-    // Fallback: create the job if it doesn't exist (for backwards compatibility)
-    await jobStateService.createJob(jobId, {
-      status: 'processing',
-      message:
-        message.initialMessage ||
-        `Starting ${deploymentConfig.deploymentType} of ${assetType} ${assetId}`,
-      progress: 0,
-      startTime: new Date().toISOString(),
-    });
-    logger.info('Created new deploy job (fallback)', { jobId });
-  }
-
-  // Check for existing running deployment jobs (moved from API to worker)
-  const existingJobs = await jobStateService.getActiveJobs();
-  const runningDeployJobs = existingJobs.filter(
-    (job) =>
-      job.jobId !== jobId && // Don't count ourselves
-      job.jobType === 'deploy' &&
-      (job.status === 'processing' || job.status === 'queued')
-  );
-
-  if (runningDeployJobs.length > 0) {
-    const runningJob = runningDeployJobs[0];
-    if (runningJob) {
-      logger.warn('Deployment job blocked - another deployment is already running', {
-        blockedJobId: jobId,
-        existingJobId: runningJob.jobId,
-        existingJobStatus: runningJob.status,
-      });
-
-      // Update the job we just created to failed status
-      await jobStateService.updateJobStatus(jobId, {
-        status: 'failed',
-        endTime: new Date().toISOString(),
-        message: `Another deployment job is already running (${runningJob.jobId})`,
-        error: 'Duplicate job blocked',
-      });
-
-      return false; // Don't process this job
-    }
-  }
-
-  return true; // Process the job
-}
-
-/**
- * Execute a deployment job
- */
-async function executeDeploymentJob(
-  jobStateService: JobStateService,
-  jobId: string,
-  message: DeployMessage
-): Promise<void> {
-  const { accountId: msgAccountId, bucketName, assetType, assetId, deploymentConfig } = message;
-
-  // Dynamically import DeployService to avoid circular dependencies
-  const { DeployService } = await import('./features/deployment/services/deploy/DeployService');
-  const deployService = new DeployService(
-    s3Service,
-    cacheService,
-    bucketName,
-    msgAccountId,
-    process.env.AWS_REGION || 'us-east-1'
-  );
-
-  // Execute the deployment
-  const result = await deployService.deployAsset(assetType, assetId, deploymentConfig);
-
-  // Always save the result for inspection
-  const { JobRepository } = await import('./shared/services/jobs/JobRepository');
-  const jobRepository = new JobRepository();
-  await jobRepository.saveJobResult(jobId, result);
-
-  const verification = result.metadata?.verification;
-  const finalStatus = result.success ? 'completed' : 'failed';
-
-  let finalMessage: string;
-  if (!result.success) {
-    finalMessage = result.error || `${deploymentConfig.deploymentType} failed`;
-  } else if (verification) {
-    finalMessage = verification.verified
-      ? `${deploymentConfig.deploymentType} completed and verified in QuickSight (${verification.status || 'SUCCESS'})`
-      : `${deploymentConfig.deploymentType} completed (verification: ${verification.message || verification.status || 'unknown'})`;
-  } else {
-    finalMessage = `${deploymentConfig.deploymentType} completed successfully`;
-  }
-
-  // Mark job based on actual result + include verification info when available
-  await jobStateService.updateJobStatus(jobId, {
-    status: finalStatus,
-    progress: 100,
-    endTime: new Date().toISOString(),
-    message: finalMessage,
-    ...(result.success ? {} : { error: result.error }),
-  });
-
-  if (result.success) {
-    logger.info('Deployment job completed successfully', {
-      jobId,
-      assetType,
-      assetId,
-      deploymentType: deploymentConfig.deploymentType,
-    });
-  } else {
-    logger.warn('Deployment job completed with failure', {
-      jobId,
-      assetType,
-      assetId,
-      error: result.error,
-    });
-  }
-}
-
-/**
  * Initialize an export job. Returns false when this delivery must NOT be
  * processed - the message is then deleted (we return without throwing), which
  * is what kills zombie redelivery loops:
@@ -1440,24 +1249,6 @@ async function requeueExportContinuation(
     jobId,
     continuationCount,
     remainingAssetTypes,
-  });
-}
-
-/**
- * Handle deployment job errors
- */
-async function handleDeploymentError(
-  jobStateService: JobStateService,
-  jobId: string,
-  error: any
-): Promise<void> {
-  logger.error('Deployment job failed', { jobId, error: error.message || error });
-
-  await jobStateService.updateJobStatus(jobId, {
-    status: 'failed',
-    endTime: new Date().toISOString(),
-    message: `Deployment failed: ${error.message || error}`,
-    error: error.message || String(error),
   });
 }
 

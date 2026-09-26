@@ -565,6 +565,17 @@ describe('RebindService restoring an archived asset', () => {
     expect(result.warnings?.join(' ')).toContain('kept no audience');
   });
 
+  it('reads the new asset back and says what QuickSight still objects to', async () => {
+    mocks.qs.describeAnalysis.mockRejectedValueOnce(notFound()).mockResolvedValueOnce({
+      Status: 'CREATION_SUCCESSFUL',
+      Errors: [{ Type: 'COLUMN_NOT_FOUND', Message: 'Column margin was not found' }],
+    });
+    const result = await service.restore('analysis', 'a1', { rebinds: [] });
+    expect(result.warnings?.join(' ')).toContain(
+      'QuickSight still reports 1 error: COLUMN_NOT_FOUND: Column margin was not found'
+    );
+  });
+
   it('refuses an archive without a definition', async () => {
     mocks.archive.getArchivedAsset.mockResolvedValue({ apiResponses: {} });
     await expect(service.restore('analysis', 'a1', { rebinds: [] })).rejects.toThrow(

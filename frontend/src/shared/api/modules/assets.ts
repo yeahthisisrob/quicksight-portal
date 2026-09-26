@@ -297,7 +297,37 @@ export const assetsApi = {
     );
   },
 
-  /** An archived asset's export, for a restore preview. */
+  /** What stands between an archived dataset or data source and its restore. */
+  async previewSourceRestore(
+    assetType: 'dataset' | 'datasource',
+    assetId: string,
+    newAssetId?: string
+  ) {
+    return unwrap(
+      await client.POST('/api/assets/{assetType}/{assetId}/restore/preview', {
+        params: { path: { assetType, assetId } },
+        body: newAssetId ? { newAssetId } : {},
+      }),
+      'Failed to check the restore'
+    );
+  },
+
+  /** Restore an archived dataset or data source (refused while a check blocks it). */
+  async restoreSource(
+    assetType: 'dataset' | 'datasource',
+    assetId: string,
+    request: { newAssetId?: string; name?: string } = {}
+  ) {
+    return unwrap(
+      await client.POST('/api/assets/{assetType}/{assetId}/restore', {
+        params: { path: { assetType, assetId } },
+        body: request,
+      }),
+      'Failed to restore it'
+    );
+  },
+
+  /** An archived asset's export, for the Studio to open it. */
   async getArchivedAssetMetadata(assetType: AssetType, assetId: string) {
     return unwrap(
       await client.GET('/api/assets/archive/{assetType}/{assetId}/metadata', {

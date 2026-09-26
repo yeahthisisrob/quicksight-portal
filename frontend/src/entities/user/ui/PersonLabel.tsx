@@ -9,10 +9,18 @@ import { Link as RouterLink } from 'react-router-dom';
 
 type Person = components['schemas']['Person'];
 
-export function PersonLabel({ person, fallback = '-' }: { person?: Person; fallback?: string }) {
+export function PersonLabel({
+  person,
+  fallback = '-',
+  variant = 'body2',
+}: {
+  person?: Person;
+  fallback?: string;
+  variant?: 'body2' | 'caption';
+}) {
   if (!person) {
     return (
-      <Typography variant="body2" component="span" sx={{ color: 'text.secondary' }}>
+      <Typography variant={variant} component="span" sx={{ color: 'text.secondary' }}>
         {fallback}
       </Typography>
     );
@@ -28,14 +36,14 @@ export function PersonLabel({ person, fallback = '-' }: { person?: Person; fallb
       component={RouterLink}
       to={`/assets/users?search=${encodeURIComponent(person.quickSightUserName)}`}
       underline="hover"
-      variant="body2"
+      variant={variant}
       onClick={(e) => e.stopPropagation()}
     >
       {person.label}
     </Link>
   ) : (
     <Typography
-      variant="body2"
+      variant={variant}
       component="span"
       sx={{ color: person.kind === 'person' ? undefined : 'text.secondary' }}
     >

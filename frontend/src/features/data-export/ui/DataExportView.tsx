@@ -2,8 +2,8 @@
  * DataExportView - the Export tab of Operations.
  *
  * One top-down flow: cache facts, the export container (asset types, mode,
- * run), the live job, then the activity container (this job's log, followed
- * live, and the activity timeline). Every past job is on Operations > Jobs.
+ * run), the live job, then this export's log, followed live. Every past job
+ * is on Operations > Jobs; the account's activity has its own page.
  */
 import { Alert, Box, Button, Divider, Stack } from '@mui/material';
 import { type ReactNode, useState } from 'react';
@@ -11,7 +11,7 @@ import { Link as RouterLink } from 'react-router-dom';
 
 import { JobLogGrid, useJobLogs } from '@/entities/job';
 
-import { Container, EmptyState, TabBar } from '@/shared/design-system';
+import { Container, EmptyState } from '@/shared/design-system';
 import { PageLayout } from '@/shared/ui';
 
 import { useCacheSummary } from '../lib/useCacheSummary';
@@ -21,33 +21,20 @@ import type { AssetType, ExportMode } from '../model/types';
 import { AssetTypeSelector, ExportControls, ExportJobStatus, ExportStats } from './components';
 import { assetTypeConfig } from './constants';
 
-type ExportTab = 'current' | 'timeline';
-
-const TIMELINE_MAX_HEIGHT = 600;
 const LOG_HEIGHT = 400;
 
 const ALL_SELECTABLE_TYPES = Object.entries(assetTypeConfig)
   .filter(([, config]) => !config.disabled)
   .map(([assetType]) => assetType as AssetType);
 
-interface ExportTabBodyProps {
-  activeTab: ExportTab;
+function ExportLog({
+  currentJobId,
+  isRunning,
+}: {
   currentJobId: string | null;
   isRunning: boolean;
-  /** Activity timeline content, injected by the page (cross-feature composition). */
-  timelineFeed?: ReactNode;
-}
-
-function ExportTabBody({ activeTab, currentJobId, isRunning, timelineFeed }: ExportTabBodyProps) {
+}) {
   const log = useJobLogs(currentJobId, { follow: isRunning });
-
-  if (activeTab === 'timeline') {
-    return (
-      <Box sx={{ maxHeight: TIMELINE_MAX_HEIGHT, display: 'flex', flexDirection: 'column' }}>
-        {timelineFeed}
-      </Box>
-    );
-  }
 
   if (!currentJobId) {
     return (
@@ -79,16 +66,9 @@ function Frame({ embedded, children }: { embedded: boolean; children: ReactNode 
   );
 }
 
-export default function DataExportView({
-  timelineFeed,
-  embedded = false,
-}: {
-  timelineFeed?: ReactNode;
-  embedded?: boolean;
-}) {
+export default function DataExportView({ embedded = false }: { embedded?: boolean }) {
   const [selectedAssetTypes, setSelectedAssetTypes] = useState<AssetType[]>(ALL_SELECTABLE_TYPES);
   const [exportMode, setExportMode] = useState<ExportMode>('smart');
-  const [activeTab, setActiveTab] = useState<ExportTab>('current');
 
   const {
     cacheSummary,
@@ -197,31 +177,15 @@ export default function DataExportView({
         )}
 
         <Container
-          header="Activity"
-          description="This export's log, followed while it runs, and the account's activity timeline."
+          header="Log"
+          description="This export's log, followed while it runs."
           actions={
             <Button size="small" component={RouterLink} to="/operations?tab=jobs&type=export">
               All export jobs
             </Button>
           }
         >
-          <Stack spacing={2}>
-            <TabBar
-              ariaLabel="Export activity"
-              value={activeTab}
-              onChange={setActiveTab}
-              tabs={[
-                { value: 'current', label: 'This export' },
-                { value: 'timeline', label: 'Timeline' },
-              ]}
-            />
-            <ExportTabBody
-              activeTab={activeTab}
-              currentJobId={currentJobId}
-              isRunning={isRunning}
-              timelineFeed={timelineFeed}
-            />
-          </Stack>
+          <ExportLog currentJobId={currentJobId} isRunning={isRunning} />
         </Container>
       </Stack>
     </Frame>

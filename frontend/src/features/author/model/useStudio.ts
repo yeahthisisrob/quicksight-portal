@@ -34,6 +34,7 @@ import type {
   AssetInsights,
   DefinitionChange,
   DefinitionOp,
+  DefinitionSource,
   RebindPlan,
   RepairFix,
   RepairPlan,
@@ -119,11 +120,28 @@ interface SourceData {
   smusConfigured: boolean;
 }
 
-/** How to save: over the asset, or as a named copy in a folder. */
+/** How to save: over the asset, as a named copy in a folder, or (archived) restored. */
 interface SaveRequest {
-  mode: RebindMode;
+  mode: RebindMode | 'restore';
   name?: string;
+  /** Restore only: an id other than the archived one. */
+  newAssetId?: string;
   folder?: StudioFolder | null;
+}
+
+/** What can come back from the archive: the editable kinds and the data they read. */
+export type ArchivedType = RebindSource['type'] | 'dataset' | 'datasource';
+export interface ArchivedPick {
+  type: ArchivedType;
+  id: string;
+  name: string;
+}
+
+/** When, why and by whom an asset opened from the archive was archived. */
+interface ArchivedFacts {
+  archivedAt?: string;
+  archiveReason?: string;
+  archivedBy?: string;
 }
 
 export interface Studio {
@@ -136,7 +154,13 @@ export interface Studio {
   /** Slow or failing visuals of the source, keyed by visual id. */
   healthBadges: WireframeBadges;
   preview: EditedPreview;
-  open: (source: RebindSource | null) => void;
+  /** Set when the open asset came from the archive. */
+  archived: ArchivedFacts | null;
+  open: (source: RebindSource | null, origin?: DefinitionSource) => void;
+  /** Open something archived: a dashboard or analysis in the editor, data in its restore panel. */
+  openArchived: (pick: ArchivedPick) => void;
+  /** An archived dataset or data source being restored (from the URL). */
+  archivedData: ArchivedPick | null;
   setPanel: (panel: StudioPanel) => void;
   addOps: (ops: DefinitionOp[]) => void;
   removeOp: (index: number) => void;
@@ -160,10 +184,23 @@ const PREVIEW_STALE_MS = 60_000;
 const REPAIR_PLAN_STALE_MS = 60_000;
 const INSIGHTS_STALE_MS = 5 * 60_000;
 
+function originFromParams(params: URLSearchParams): DefinitionSource {
+  return params.get('source') === 'archive' ? 'archive' : 'live';
+}
+
 function sourceFromParams(params: URLSearchParams): RebindSource | null {
   const type = params.get('type');
   const id = params.get('id');
   if ((type === 'dashboard' || type === 'analysis') && id) {
+    return { type, id, name: params.get('name') ?? id };
+  }
+  return null;
+}
+
+function archivedDataFromParams(params: URLSearchParams): ArchivedPick | null {
+  const type = params.get('type');
+  const id = params.get('id');
+  if (params.get('source') === 'archive' && (type === 'dataset' || type === 'datasource') && id) {
     return { type, id, name: params.get('name') ?? id };
   }
   return null;
@@ -184,6 +221,7 @@ function tagsFromExport(exportData: any): Array<{ key: string; value: string }> 
 export interface StudioOptions {
   /** The asset to open when the URL carries none (stories, embedding). */
   initialSource?: RebindSource | null;
+  initialOrigin?: DefinitionSource;
 }
 
 export function useStudio(options: StudioOptions = {}): Studio {
@@ -191,19 +229,39 @@ export function useStudio(options: StudioOptions = {}): Studio {
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
 
-  const [state, dispatch] = useReducer(studioReducer, initialStudioState, (initial) => ({
-    ...initial,
-    source: sourceFromParams(params) ?? options.initialSource ?? null,
-  }));
+  const [state, dispatch] = useReducer(studioReducer, initialStudioState, (initial) => {
+    const fromUrl = sourceFromParams(params);
+    return {
+      ...initial,
+      source: fromUrl ?? options.initialSource ?? null,
+      origin: fromUrl ? originFromParams(params) : (options.initialOrigin ?? 'live'),
+    };
+  });
   const source = state.source;
-  const draft = useRebindDraft(source);
+  const origin = state.origin;
+  const fromArchive = origin === 'archive';
+  const draft = useRebindDraft(source, true, origin);
 
-  // --- the cached definition -------------------------------------------------
+  // --- the definition: the cached export, or the archived copy ---------------
   const sourceQuery = useQuery({
-    queryKey: ['asset-json', source?.type, source?.id],
-    queryFn: () => assetsApi.getCachedAsset(source!.type, source!.id),
+    queryKey: fromArchive
+      ? ['archived-asset', source?.type, source?.id]
+      : ['asset-json', source?.type, source?.id],
+    queryFn: () =>
+      fromArchive
+        ? assetsApi.getArchivedAssetMetadata(source!.type, source!.id)
+        : assetsApi.getCachedAsset(source!.type, source!.id),
     enabled: source !== null,
   });
+  const archived = useMemo<ArchivedFacts | null>(() => {
+    if (!fromArchive) return null;
+    const meta = (sourceQuery.data as any)?.archivedMetadata ?? {};
+    return {
+      archivedAt: meta.archivedAt,
+      archiveReason: meta.archiveReason,
+      archivedBy: meta.archivedBy,
+    };
+  }, [fromArchive, sourceQuery.data]);
   const sourceDefinition = definitionFromExport(sourceQuery.data);
   const sourceModel = useMemo(
     () => (sourceDefinition ? buildWireframeModel(sourceDefinition) : null),
@@ -218,15 +276,16 @@ export function useStudio(options: StudioOptions = {}): Studio {
     }
     const name = nameFromExport(sourceQuery.data, source.id);
     if (name !== source.name) {
-      dispatch({ type: 'open', source: { ...source, name } });
+      dispatch({ type: 'open', source: { ...source, name }, origin });
     }
-  }, [sourceQuery.data, source]);
+  }, [sourceQuery.data, source, origin]);
 
   // --- usage and health -------------------------------------------------------
   const insightsQuery = useQuery({
     queryKey: ['asset-insights', source?.type, source?.id],
     queryFn: () => authoringApi.getInsights(source!.type, source!.id),
-    enabled: source !== null,
+    // An archived asset has no views or CloudWatch health to read.
+    enabled: source !== null && !fromArchive,
     staleTime: INSIGHTS_STALE_MS,
     retry: false,
   });
@@ -256,9 +315,14 @@ export function useStudio(options: StudioOptions = {}): Studio {
     draft.rebinds.map((r) => ({ identifier: r.identifier, targetDataSetId: r.targetDataSetId }))
   );
   const repairQuery = useQuery({
-    queryKey: ['repair-plan', source?.type, source?.id, repairRebindsKey],
+    queryKey: ['repair-plan', origin, source?.type, source?.id, repairRebindsKey],
     queryFn: () =>
-      authoringApi.planRepair(source!.type, source!.id, { rebinds: JSON.parse(repairRebindsKey) }),
+      authoringApi.planRepair(
+        source!.type,
+        source!.id,
+        { rebinds: JSON.parse(repairRebindsKey) },
+        origin
+      ),
     enabled: source !== null,
     staleTime: REPAIR_PLAN_STALE_MS,
     retry: false,
@@ -314,15 +378,18 @@ export function useStudio(options: StudioOptions = {}): Studio {
     [effectiveRebinds, state.ops, repairRequest.repairs]
   );
   const previewKey = useDebounce(JSON.stringify(previewRequest), PREVIEW_DEBOUNCE_MS);
-  const dirty = effectiveRebinds.length > 0 || state.ops.length > 0 || hasRepairs;
+  const edited = effectiveRebinds.length > 0 || state.ops.length > 0 || hasRepairs;
+  // Restoring is itself the write, so an archived asset can be saved untouched.
+  const dirty = edited || fromArchive;
   const previewQuery = useQuery({
-    queryKey: ['rebind-preview', source?.type, source?.id, previewKey],
-    queryFn: () => authoringApi.previewRebind(source!.type, source!.id, JSON.parse(previewKey)),
-    enabled: source !== null && dirty,
+    queryKey: ['rebind-preview', origin, source?.type, source?.id, previewKey],
+    queryFn: () =>
+      authoringApi.previewRebind(source!.type, source!.id, JSON.parse(previewKey), origin),
+    enabled: source !== null && edited,
     staleTime: PREVIEW_STALE_MS,
     placeholderData: keepPreviousData,
   });
-  const previewData = dirty ? previewQuery.data : undefined;
+  const previewData = edited ? previewQuery.data : undefined;
   const previewModel = useMemo(
     () => (previewData ? buildWireframeModel(previewData.definition) : null),
     [previewData]
@@ -349,17 +416,28 @@ export function useStudio(options: StudioOptions = {}): Studio {
         return null;
       }
       const copy = request.mode === 'clone';
+      const restoring = request.mode === 'restore';
       setSaving(true);
       setSaveError(null);
       try {
-        const written = await authoringApi.applyRebind(source.type, source.id, {
-          mode: request.mode,
+        const edits = {
           rebinds: effectiveRebinds,
-          name: copy ? request.name?.trim() || undefined : undefined,
           ops: state.ops.length > 0 ? state.ops : undefined,
           repairs: repairRequest.repairs.length > 0 ? repairRequest.repairs : undefined,
-          folderId: copy && request.folder ? request.folder.id : undefined,
-        });
+        };
+        const written = restoring
+          ? await authoringApi.restore(source.type, source.id, {
+              ...edits,
+              name: request.name?.trim() || undefined,
+              newAssetId: request.newAssetId?.trim() || undefined,
+              folderId: request.folder?.id,
+            })
+          : await authoringApi.applyRebind(source.type, source.id, {
+              ...edits,
+              mode: request.mode as RebindMode,
+              name: copy ? request.name?.trim() || undefined : undefined,
+              folderId: copy && request.folder ? request.folder.id : undefined,
+            });
         const result: StudioResult = {
           assetType: written.assetType,
           assetId: written.assetId,
@@ -368,24 +446,30 @@ export function useStudio(options: StudioOptions = {}): Studio {
           versionNumber: written.versionNumber,
           folderIds: written.folderIds?.length
             ? written.folderIds
-            : copy && request.folder
+            : (copy || restoring) && request.folder
               ? [request.folder.id]
               : [],
           changes: written.changes,
+          ...(written.warnings?.length ? { warnings: written.warnings } : {}),
         };
         dispatch({ type: 'saved', result });
         setRepairChoices({});
         // In place, the asset changed under the cached export and the plan.
-        if (!copy) {
+        if (request.mode === 'update') {
           void queryClient.invalidateQueries({ queryKey: ['repair-plan', source.type, source.id] });
           void queryClient.invalidateQueries({ queryKey: ['asset-json', source.type, source.id] });
         }
         announceAssetChanges(
           result.folderIds.length > 0 ? [written.assetType, 'folder'] : [written.assetType]
         );
-        enqueueSnackbar(copy ? `Created "${written.name}"` : `Saved "${written.name}"`, {
-          variant: 'success',
-        });
+        enqueueSnackbar(
+          restoring
+            ? `Restored "${written.name}"`
+            : copy
+              ? `Created "${written.name}"`
+              : `Saved "${written.name}"`,
+          { variant: 'success' }
+        );
         return result;
       } catch (error) {
         setSaveError(getApiErrorMessage(error, 'QuickSight rejected the change'));
@@ -406,20 +490,23 @@ export function useStudio(options: StudioOptions = {}): Studio {
   );
 
   const open = useCallback(
-    (next: RebindSource | null) => {
-      dispatch({ type: 'open', source: next });
+    (next: RebindSource | null, nextOrigin: DefinitionSource = 'live') => {
+      dispatch({ type: 'open', source: next, origin: nextOrigin });
       setRepairChoices({});
       setSaveError(null);
       setParams(
         (prev) => {
           const copy = new URLSearchParams(prev);
-          for (const key of ['type', 'id', 'name']) {
+          for (const key of ['type', 'id', 'name', 'source']) {
             copy.delete(key);
           }
           if (next) {
             copy.set('type', next.type);
             copy.set('id', next.id);
             copy.set('name', next.name);
+            if (nextOrigin === 'archive') {
+              copy.set('source', 'archive');
+            }
           }
           return copy;
         },
@@ -429,11 +516,30 @@ export function useStudio(options: StudioOptions = {}): Studio {
     [setParams]
   );
 
+  const openArchived = useCallback(
+    (pick: ArchivedPick) => {
+      if (pick.type === 'dashboard' || pick.type === 'analysis') {
+        open({ type: pick.type, id: pick.id, name: pick.name }, 'archive');
+        return;
+      }
+      setParams((prev) => {
+        const copy = new URLSearchParams(prev);
+        copy.set('source', 'archive');
+        copy.set('type', pick.type);
+        copy.set('id', pick.id);
+        copy.set('name', pick.name);
+        return copy;
+      });
+    },
+    [open, setParams]
+  );
+  const archivedData = useMemo(() => archivedDataFromParams(params), [params]);
+
   const dismissResult = useCallback(() => dispatch({ type: 'dismissResult' }), []);
 
   const setTemplate = useCallback(
     async (on: boolean) => {
-      if (!source) {
+      if (!source || fromArchive) {
         return;
       }
       if (on) {
@@ -450,7 +556,7 @@ export function useStudio(options: StudioOptions = {}): Studio {
         { variant: 'success' }
       );
     },
-    [source, queryClient, enqueueSnackbar]
+    [source, fromArchive, queryClient, enqueueSnackbar]
   );
 
   return {
@@ -485,10 +591,11 @@ export function useStudio(options: StudioOptions = {}): Studio {
     },
     data: { loading: draft.loading, datasets, smusConfigured },
     healthBadges: badges,
+    archived,
     preview: {
       loading: previewQuery.isFetching,
       error:
-        dirty && previewQuery.error
+        edited && previewQuery.error
           ? getApiErrorMessage(previewQuery.error, 'Could not draw the edits')
           : null,
       plan: previewData?.plan ?? null,
@@ -499,6 +606,8 @@ export function useStudio(options: StudioOptions = {}): Studio {
       warnings: previewData?.warnings ?? [],
     },
     open,
+    openArchived,
+    archivedData,
     setPanel,
     addOps,
     removeOp,

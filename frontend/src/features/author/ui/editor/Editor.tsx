@@ -4,8 +4,17 @@
  * far, the datasets it reads and how it is used - then save over it or as a
  * copy. No steps: every panel is one click away the whole time.
  */
-import { ArrowBack, Save, Star, StarBorder, Undo } from '@mui/icons-material';
+import {
+  ArrowBack,
+  Inventory2Outlined,
+  RestoreOutlined,
+  Save,
+  Star,
+  StarBorder,
+  Undo,
+} from '@mui/icons-material';
 import { Box, Button, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
+import { formatDistanceToNow } from 'date-fns';
 import { useMemo, useState } from 'react';
 
 import { TabBar } from '@/shared/design-system';
@@ -23,6 +32,7 @@ import { Canvas, type CanvasView } from './Canvas';
 import { DataPanel } from './DataPanel';
 import { IssuesPanel } from './IssuesPanel';
 import { SaveDialog } from './SaveDialog';
+import { SourceRestorePanel } from './SourceRestorePanel';
 
 const SIDE_WIDTH = 420;
 
@@ -113,6 +123,8 @@ function SidePanel({ studio, sheetId }: { studio: Studio; sheetId: string }) {
 function EditorHeader({ studio, onSave }: { studio: Studio; onSave: () => void }) {
   const source = studio.state.source!;
   const views = studio.insights.data?.views;
+  const archived = studio.archived;
+  const archivedAt = archived?.archivedAt ? Date.parse(archived.archivedAt) : Number.NaN;
   return (
     <Stack
       direction="row"
@@ -134,38 +146,50 @@ function EditorHeader({ studio, onSave }: { studio: Studio; onSave: () => void }
             variant="outlined"
             label={source.type === 'dashboard' ? 'Dashboard' : 'Analysis'}
           />
-          <Tooltip
-            title={
-              studio.source.isTemplate
-                ? 'A layout template; click to unmark'
-                : 'Mark as a layout template, listed under Templates'
-            }
-          >
-            <IconButton
-              size="small"
-              onClick={() => void studio.setTemplate(!studio.source.isTemplate)}
-              aria-label={studio.source.isTemplate ? 'Unmark as template' : 'Mark as template'}
+          {archived && (
+            <Chip size="small" color="warning" icon={<Inventory2Outlined />} label="Archived" />
+          )}
+          {!archived && (
+            <Tooltip
+              title={
+                studio.source.isTemplate
+                  ? 'A layout template; click to unmark'
+                  : 'Mark as a layout template, listed under Templates'
+              }
             >
-              {studio.source.isTemplate ? (
-                <Star fontSize="small" sx={{ color: 'warning.main' }} />
-              ) : (
-                <StarBorder fontSize="small" />
-              )}
-            </IconButton>
-          </Tooltip>
+              <IconButton
+                size="small"
+                onClick={() => void studio.setTemplate(!studio.source.isTemplate)}
+                aria-label={studio.source.isTemplate ? 'Unmark as template' : 'Mark as template'}
+              >
+                {studio.source.isTemplate ? (
+                  <Star fontSize="small" sx={{ color: 'warning.main' }} />
+                ) : (
+                  <StarBorder fontSize="small" />
+                )}
+              </IconButton>
+            </Tooltip>
+          )}
         </Stack>
         <Typography variant="caption" sx={{ color: 'text.secondary' }} noWrap component="div">
           {source.id}
-          {views
-            ? ` · ${compactNumber(views.last30d)} views in 30 days · ${compactNumber(views.uniqueViewers)} viewers`
-            : ''}
+          {archived
+            ? ` · archived${Number.isFinite(archivedAt) ? ` ${formatDistanceToNow(archivedAt, { addSuffix: true })}` : ''}${archived.archivedBy ? ` by ${archived.archivedBy}` : ''}${archived.archiveReason ? ` · ${archived.archiveReason}` : ''}`
+            : views
+              ? ` · ${compactNumber(views.last30d)} views in 30 days · ${compactNumber(views.uniqueViewers)} viewers`
+              : ''}
         </Typography>
       </Box>
       <Button startIcon={<Undo />} onClick={studio.undoOp} disabled={studio.state.ops.length === 0}>
         Undo
       </Button>
-      <Button variant="contained" startIcon={<Save />} onClick={onSave} disabled={!studio.dirty}>
-        Save
+      <Button
+        variant="contained"
+        startIcon={archived ? <RestoreOutlined /> : <Save />}
+        onClick={onSave}
+        disabled={!studio.dirty}
+      >
+        {archived ? 'Restore' : 'Save'}
       </Button>
     </Stack>
   );
@@ -180,8 +204,15 @@ export function Editor({ studio }: { studio: Studio }) {
   const firstSheet = preview.outline?.[0]?.sheetId ?? source.model?.sheets[0]?.id ?? '';
   const currentSheetId = sheetId ?? firstSheet;
 
+  if (studio.archivedData) {
+    const pick = studio.archivedData;
+    const type = pick.type === 'dataset' || pick.type === 'datasource' ? pick.type : null;
+    if (type) {
+      return <SourceRestorePanel pick={{ ...pick, type }} onClose={() => studio.open(null)} />;
+    }
+  }
   if (!studio.state.source) {
-    return <AssetBrowser onOpen={studio.open} />;
+    return <AssetBrowser onOpen={studio.open} onOpenArchived={studio.openArchived} />;
   }
 
   return (

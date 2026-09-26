@@ -12,7 +12,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Deleted assets the portal kept a copy of, with restore and JSON viewing. Shown on the Operations page under the Archived assets tab.',
+          'The archive ledger on Operations: what was deleted, when, by whom (linked to their QuickSight user) and why, and each time it was restored. Restore in Studio opens it there, to fix its errors before it comes back; folders, users and groups are record only.',
       },
     },
   },

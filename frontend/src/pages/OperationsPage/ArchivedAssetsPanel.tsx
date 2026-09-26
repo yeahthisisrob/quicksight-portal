@@ -16,14 +16,14 @@ import type { GridRowSelectionModel } from '@mui/x-data-grid';
 import type { components } from '@shared/generated/types';
 import { format } from 'date-fns';
 import { useCallback, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-import type { ArchivedAssetItem as LocalArchivedAssetItem } from '@/features/asset-management';
+import { PersonLabel } from '@/entities/user';
 import {
   copyToClipboard,
   EnhancedAssetTable,
   type FetchAssetsOptions,
 } from '@/widgets/asset-table';
-import { RestoreAssetDialog } from '@/widgets/restore-asset-dialog';
 
 import { assetsApi } from '@/shared/api';
 import type { ArchivedQuery } from '@/shared/api/modules/assets';
@@ -38,13 +38,61 @@ type AssetType = components['schemas']['AssetType'];
 const DATE_FORMAT = 'MMM dd, yyyy HH:mm';
 const formatDate = (value?: string | null) => (value ? format(new Date(value), DATE_FORMAT) : '-');
 
+/** What the Studio can bring back; folders, users and groups are record only. */
+const RESTORABLE = new Set<AssetType>(['dashboard', 'analysis', 'dataset', 'datasource']);
+
+/** The Studio, opened on this archived asset. */
+function studioLink(asset: ArchivedAssetItem): string {
+  const params = new URLSearchParams({
+    tab: 'studio',
+    source: 'archive',
+    type: asset.type,
+    id: asset.id,
+    name: asset.name,
+  });
+  return `/author?${params.toString()}`;
+}
+
+/** Each time it came back: when, as what, and who brought it. */
+function Restorations({ asset }: { asset: ArchivedAssetItem }) {
+  const restorations = asset.restorations ?? [];
+  if (restorations.length === 0) {
+    return (
+      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+        -
+      </Typography>
+    );
+  }
+  const last = restorations[restorations.length - 1];
+  const title = restorations
+    .map(
+      (r) =>
+        `${formatDate(r.restoredAt)} as ${r.restoredAs} by ${r.restoredByPerson?.label ?? r.restoredBy}`
+    )
+    .join('\n');
+  return (
+    <Tooltip title={<Box sx={{ whiteSpace: 'pre-line' }}>{title}</Box>}>
+      <Chip
+        size="small"
+        color="success"
+        variant="outlined"
+        label={
+          restorations.length === 1
+            ? `Restored ${last ? format(new Date(last.restoredAt), 'MMM dd, yyyy') : ''}`
+            : `Restored ${restorations.length}×`
+        }
+      />
+    </Tooltip>
+  );
+}
+
 function ArchivedActionsMenu({
   asset,
   onRestore,
   onViewJson,
 }: {
   asset: ArchivedAssetItem;
-  onRestore: (a: ArchivedAssetItem) => void;
+  onRestore?: (a: ArchivedAssetItem) => void;
   onViewJson: (a: ArchivedAssetItem) => void;
 }) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -70,14 +118,16 @@ function ArchivedActionsMenu({
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <MenuItem
-          onClick={() => {
-            onRestore(asset);
-            setAnchorEl(null);
-          }}
-        >
-          Restore Asset
-        </MenuItem>
+        {onRestore && (
+          <MenuItem
+            onClick={() => {
+              onRestore(asset);
+              setAnchorEl(null);
+            }}
+          >
+            Restore in Studio
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => {
             onViewJson(asset);
@@ -114,7 +164,9 @@ interface ArchivedAssetsPanelProps {
 }
 
 /**
- * Deleted assets the portal kept a copy of, with restore and JSON viewing.
+ * The archive ledger: what was deleted through the portal, when, by whom
+ * and why, and each time it was restored. Restoring itself happens in the
+ * Studio, where an asset's errors are fixed before it comes back.
  */
 export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps) {
   const [assets, setAssets] = useState<ArchivedAssetItem[]>([]);
@@ -124,8 +176,7 @@ export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps)
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>(EMPTY_SELECTION);
   const [jsonViewerOpen, setJsonViewerOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<ArchivedAssetItem | null>(null);
-  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
-  const [assetToRestore, setAssetToRestore] = useState<LocalArchivedAssetItem | null>(null);
+  const navigate = useNavigate();
 
   const fetchAssets = useCallback(
     async (options: FetchAssetsOptions) => {
@@ -159,15 +210,7 @@ export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps)
     setJsonViewerOpen(true);
   };
 
-  const handleRestore = (asset: ArchivedAssetItem) => {
-    setAssetToRestore(asset);
-    setRestoreDialogOpen(true);
-  };
-
-  const handleRestoreSuccess = () => {
-    // Restore keeps the archive copy; the dialog invalidates the active lists.
-    fetchAssets({ page: 1, pageSize: 50 });
-  };
+  const handleRestore = (asset: ArchivedAssetItem) => navigate(studioLink(asset));
 
   const columns = [
     {
@@ -179,14 +222,57 @@ export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps)
       renderCell: (params: any) => (
         <ArchivedActionsMenu
           asset={params.row}
-          onRestore={handleRestore}
+          onRestore={RESTORABLE.has(params.row.type) ? handleRestore : undefined}
           onViewJson={handleViewJson}
         />
       ),
     },
     { id: 'name', label: 'Name', flex: 1, minWidth: 200, required: true },
     {
+      id: 'type',
+      label: 'Type',
+      width: 130,
+      required: true,
+      renderCell: (params: any) => <AssetTypeChip type={params.row.type} />,
+    },
+    {
+      id: 'archivedDate',
+      label: 'Archived',
+      width: 180,
+      required: true,
+      valueGetter: (params: any) => formatDate(params.row.archivedDate),
+    },
+    {
+      id: 'archivedBy',
+      label: 'Archived By',
+      width: 200,
+      renderCell: (params: any) => (
+        <PersonLabel person={params.row.archivedByPerson} fallback={params.row.archivedBy || '-'} />
+      ),
+    },
+    {
+      id: 'archiveReason',
+      label: 'Archive Reason',
+      flex: 1,
+      minWidth: 200,
+      renderCell: (params: any) => (
+        <Tooltip title={params.value || ''}>
+          <Typography variant="body2" noWrap>
+            {params.value}
+          </Typography>
+        </Tooltip>
+      ),
+    },
+    {
+      id: 'restorations',
+      label: 'Restored',
+      width: 180,
+      sortable: false,
+      renderCell: (params: any) => <Restorations asset={params.row} />,
+    },
+    {
       id: 'id',
+      visible: false,
       label: 'Asset ID',
       flex: 1,
       minWidth: 200,
@@ -221,20 +307,21 @@ export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps)
       },
     },
     {
-      id: 'type',
-      label: 'Type',
-      width: 130,
-      required: true,
-      renderCell: (params: any) => <AssetTypeChip type={params.row.type} />,
+      id: 'lastActivity',
+      label: 'Last Activity',
+      width: 180,
+      valueGetter: (params: any) => formatDate(params.row.lastActivity),
     },
     {
       id: 'createdTime',
+      visible: false,
       label: 'Created',
       width: 180,
       valueGetter: (params: any) => formatDate(params.row.createdTime),
     },
     {
       id: 'lastUpdatedTime',
+      visible: false,
       label: 'Last Updated',
       width: 180,
       valueGetter: (params: any) => formatDate(params.row.lastUpdatedTime),
@@ -246,33 +333,6 @@ export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps)
       visible: false,
       valueGetter: (params: any) => formatDate(params.row.lastExportTime),
     },
-    {
-      id: 'lastActivity',
-      label: 'Last Activity',
-      width: 180,
-      valueGetter: (params: any) => formatDate(params.row.lastActivity),
-    },
-    {
-      id: 'archivedDate',
-      label: 'Archived',
-      width: 180,
-      required: true,
-      valueGetter: (params: any) => formatDate(params.row.archivedDate),
-    },
-    {
-      id: 'archiveReason',
-      label: 'Archive Reason',
-      flex: 1,
-      minWidth: 200,
-      renderCell: (params: any) => (
-        <Tooltip title={params.value || ''}>
-          <Typography variant="body2" noWrap>
-            {params.value}
-          </Typography>
-        </Tooltip>
-      ),
-    },
-    { id: 'archivedBy', label: 'Archived By', width: 120 },
   ];
 
   const extraToolbarActions = (
@@ -324,16 +384,6 @@ export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps)
           assetName={selectedAsset.name}
         />
       )}
-
-      <RestoreAssetDialog
-        open={restoreDialogOpen}
-        onClose={() => {
-          setRestoreDialogOpen(false);
-          setAssetToRestore(null);
-        }}
-        onSuccess={handleRestoreSuccess}
-        asset={assetToRestore}
-      />
     </>
   );
 }
