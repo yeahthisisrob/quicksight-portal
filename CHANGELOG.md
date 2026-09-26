@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.19.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.18.0...v2.19.0) (2026-09-26)
+
+
+### Features
+
+* **authoring:** add filters to existing analyses by op, filter bar templates, and the planner's model in the chat ([#221](https://github.com/yeahthisisrob/quicksight-portal/issues/221)) ([24dcffa](https://github.com/yeahthisisrob/quicksight-portal/commit/24dcffa159e71a787db72d35460c974cdc8754a1))
+
 ## [2.18.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.17.1...v2.18.0) (2026-09-26)
 
 
