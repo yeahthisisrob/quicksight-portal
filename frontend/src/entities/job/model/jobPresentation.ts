@@ -85,6 +85,20 @@ export function apiCalls(job: Pick<JobMetadata, 'stats'>): number | null {
   return job.stats?.apiCalls ?? null;
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Who started it, in words. Jobs record a name (startedBy); older ones only
+ * kept an id, which is shown when it reads as one (an email, an API key)
+ * and not when it is an opaque sign-in id.
+ */
+export function startedByLabel(job: Pick<JobMetadata, 'startedBy' | 'userId'>): string {
+  if (job.startedBy) return job.startedBy;
+  if (!job.userId) return 'The portal';
+  if (job.userId.startsWith('api-key:')) return `${job.userId.slice('api-key:'.length)} (API key)`;
+  return UUID.test(job.userId) ? 'A portal user' : job.userId;
+}
+
 /** "412 / 500", "3 failed" - what it worked through, when it counts items. */
 export function itemsSummary(job: Pick<JobMetadata, 'stats'>): string {
   const { processedAssets, totalAssets, failedAssets } = job.stats ?? {};

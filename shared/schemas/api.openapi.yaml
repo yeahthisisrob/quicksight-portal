@@ -5699,6 +5699,9 @@ components:
           type: string
         userId:
           type: string
+        startedBy:
+          type: string
+          description: Who started it, in words - an email, or an API key's label. Absent when the portal started it itself.
         accountId:
           type: string
         assetType:

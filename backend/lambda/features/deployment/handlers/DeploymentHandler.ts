@@ -1,6 +1,6 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
-import { requireAuth } from '../../../shared/auth';
+import { actorLabel, requireAuth } from '../../../shared/auth';
 import { PAGINATION, STATUS_CODES } from '../../../shared/constants';
 import type { AssetType } from '../../../shared/models/asset.model';
 import { S3Service } from '../../../shared/services/aws/S3Service';
@@ -84,6 +84,7 @@ export class DeploymentHandler {
         assetId,
         deploymentConfig: deploymentConfig as DeploymentConfig,
         userId: user.userId || user.email || 'unknown',
+        startedBy: actorLabel(user),
       };
 
       const result = await jobFactory.createJob(jobConfig);

@@ -320,6 +320,7 @@ export class BulkOperationsService {
       accountId: this.accountId,
       bucketName: this.bucketName,
       userId: config.requestedBy,
+      startedBy: config.requestedBy,
       operationConfig: config,
       estimatedOperations,
       batchSize: BULK_OPERATION_LIMITS.DEFAULT_BATCH_SIZE,

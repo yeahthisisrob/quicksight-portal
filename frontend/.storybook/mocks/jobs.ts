@@ -22,7 +22,8 @@ const JOBS: JobMetadata[] = [
     message: 'Exporting datasets: 214 of 340',
     startTime: ago(6),
     lastUpdatedTime: ago(0),
-    userId: 'rob@example.com',
+    userId: '4f1c8a2e-9b3d-4e5f-8a6b-7c8d9e0f1a2b',
+    startedBy: 'rob@example.com',
     stats: {
       totalAssets: 1200,
       processedAssets: 744,
@@ -43,7 +44,8 @@ const JOBS: JobMetadata[] = [
     message: 'Swept 2 projects: 84 published listings, 61 linked to datasets',
     startTime: ago(95),
     endTime: ago(93),
-    userId: 'rob@example.com',
+    userId: '4f1c8a2e-9b3d-4e5f-8a6b-7c8d9e0f1a2b',
+    startedBy: 'rob@example.com',
     phases: [
       { key: 'list-projects', status: 'completed', message: '2 projects' },
       {
@@ -64,7 +66,8 @@ const JOBS: JobMetadata[] = [
     error: 'AccessDeniedException',
     startTime: ago(240),
     endTime: ago(238),
-    userId: 'analyst@example.com',
+    userId: '9a2b7c1d-0e3f-4a5b-8c6d-1e2f3a4b5c6d',
+    startedBy: 'analyst@example.com',
     stats: { totalAssets: 40, processedAssets: 40, failedAssets: 2 },
     failures: [
       { item: 'Finance close', error: 'AccessDeniedException: not an owner of this dashboard' },
@@ -79,7 +82,8 @@ const JOBS: JobMetadata[] = [
     error: 'ThrottlingException: Rate exceeded (DescribeDashboardDefinition)',
     startTime: ago(60 * 26),
     endTime: ago(60 * 26 - 4),
-    userId: 'rob@example.com',
+    userId: '4f1c8a2e-9b3d-4e5f-8a6b-7c8d9e0f1a2b',
+    startedBy: 'rob@example.com',
     stats: { totalAssets: 1200, processedAssets: 380, failedAssets: 1 },
   },
   {
@@ -90,7 +94,8 @@ const JOBS: JobMetadata[] = [
     message: 'Answered with a plan and a wireframe',
     startTime: ago(60 * 30),
     endTime: ago(60 * 30 - 1),
-    userId: 'rob@example.com',
+    userId: '4f1c8a2e-9b3d-4e5f-8a6b-7c8d9e0f1a2b',
+    startedBy: 'rob@example.com',
   },
   {
     jobId: 'planner-77c1',
@@ -99,7 +104,7 @@ const JOBS: JobMetadata[] = [
     message: 'Stopped by rob@example.com',
     startTime: ago(60 * 50),
     endTime: ago(60 * 50 - 2),
-    userId: 'rob@example.com',
+    userId: '4f1c8a2e-9b3d-4e5f-8a6b-7c8d9e0f1a2b',
   },
 ];
 

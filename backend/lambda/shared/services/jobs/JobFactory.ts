@@ -17,6 +17,8 @@ interface BaseJobConfig {
   accountId: string;
   bucketName: string;
   userId?: string;
+  /** Who started it, in words (actorLabel); absent for jobs the portal starts itself. */
+  startedBy?: string;
 }
 
 export interface ExportJobConfig extends BaseJobConfig {
@@ -173,6 +175,7 @@ export class JobFactory {
         message: initialMessage,
         startTime: new Date().toISOString(),
         userId: config.userId,
+        ...(config.startedBy && { startedBy: config.startedBy }),
         accountId: config.accountId,
         ...(config.jobType === 'deploy' && {
           assetType: config.assetType,

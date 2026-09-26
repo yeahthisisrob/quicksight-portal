@@ -1,6 +1,6 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
-import { requireAuth } from '../../../shared/auth';
+import { actorLabel, requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { JobHandler } from '../../../shared/handlers/JobHandler';
 import { cacheService } from '../../../shared/services/cache/CacheService';
@@ -57,6 +57,7 @@ export class ExportHandler {
         accountId,
         bucketName: this.bucketName,
         userId: auth.userId,
+        startedBy: actorLabel(auth),
         options: {
           forceRefresh,
           rebuildIndex,

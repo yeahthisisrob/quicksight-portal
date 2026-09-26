@@ -9,7 +9,7 @@
  */
 import { randomUUID } from 'node:crypto';
 
-import type { AuthContext } from '../../auth';
+import { type AuthContext, actorLabel } from '../../auth';
 import { TIME_UNITS } from '../../constants/timeConstants';
 import { logger } from '../../utils/logger';
 import { DynamoDBService } from '../aws/DynamoDBService';
@@ -59,7 +59,7 @@ export function actorFromAuth(auth: AuthContext): { actor: AuditActor; channel: 
     };
   }
   return {
-    actor: { kind: 'user', id: auth.userId, label: auth.email || auth.userId },
+    actor: { kind: 'user', id: auth.userId, label: actorLabel(auth) },
     channel: 'ui',
   };
 }

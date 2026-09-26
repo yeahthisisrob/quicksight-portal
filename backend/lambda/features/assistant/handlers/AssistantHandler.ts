@@ -6,7 +6,7 @@ import {
   DEFAULT_CHAT_MODEL,
   isAiModelKey,
 } from '../../../shared/ai/modelCatalog';
-import { requireAuth } from '../../../shared/auth';
+import { actorLabel, requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { jobFactory } from '../../../shared/services/jobs/JobFactory';
 import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
@@ -110,6 +110,7 @@ export async function chat(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
       accountId,
       bucketName: process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`,
       userId: user.userId,
+      startedBy: actorLabel(user),
       model,
       ...(authoringModel ? { authoringModel } : {}),
       messages: messages as ChatHistoryMessage[],

@@ -3,7 +3,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { CloudTrailAdapter } from '../../../adapters/aws/CloudTrailAdapter';
 import { type AssetHealth, CloudWatchAdapter } from '../../../adapters/aws/CloudWatchAdapter';
-import { requireAuth } from '../../../shared/auth';
+import { actorLabel, requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants/httpStatusCodes';
 import { ACTIVITY_LIMITS } from '../../../shared/constants/limits';
 import { CacheService } from '../../../shared/services/cache/CacheService';
@@ -99,6 +99,7 @@ export async function refreshActivity(event: APIGatewayProxyEvent): Promise<APIG
       accountId,
       bucketName,
       userId: authUser.userId,
+      startedBy: actorLabel(authUser),
       options: {
         assetTypes: body.assetTypes,
         days: body.days,

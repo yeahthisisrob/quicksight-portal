@@ -759,6 +759,7 @@ describe('BulkOperationsService - Job Creation', () => {
       accountId: TEST_ACCOUNT_ID,
       bucketName: TEST_BUCKET_NAME,
       userId: TEST_USER,
+      startedBy: TEST_USER,
       operationConfig: expect.objectContaining({
         operationType: 'delete',
       }),

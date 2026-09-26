@@ -31,6 +31,7 @@ import {
   JobStatusIndicator,
   jobDuration,
   jobTypeLabel,
+  startedByLabel,
 } from '@/entities/job';
 
 import { getApiErrorMessage } from '@/shared/api';
@@ -76,7 +77,8 @@ const COLUMNS: GridColDef<JobMetadata>[] = [
     field: 'message',
     headerName: 'What it did',
     flex: 1,
-    minWidth: 240,
+    minWidth: 200,
+    maxWidth: 380,
     valueGetter: (_value, row) => (row.status === 'failed' && row.error ? row.error : row.message),
     renderCell: ({ row, value }) => (
       <Box sx={{ display: 'flex', alignItems: 'center', height: '100%', minWidth: 0 }}>
@@ -129,10 +131,11 @@ const COLUMNS: GridColDef<JobMetadata>[] = [
     valueGetter: (_value, row) => apiCalls(row),
   },
   {
-    field: 'userId',
+    field: 'startedBy',
     headerName: 'Started by',
-    width: 180,
-    valueGetter: (value: string | undefined) => value ?? 'The portal',
+    flex: 1,
+    minWidth: 160,
+    valueGetter: (_value, row) => startedByLabel(row),
   },
 ];
 

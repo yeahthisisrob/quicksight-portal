@@ -1,6 +1,6 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
-import { requireAuth } from '../../../shared/auth';
+import { actorLabel, requireAuth } from '../../../shared/auth';
 import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { STATUS_CODES } from '../../../shared/constants/httpStatusCodes';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
@@ -60,6 +60,7 @@ export async function startSmusExport(event: APIGatewayProxyEvent): Promise<APIG
       accountId,
       bucketName: process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`,
       userId: user.userId,
+      startedBy: actorLabel(user),
       options: { smus: config },
     };
     const result = await jobFactory.createJob(jobConfig);

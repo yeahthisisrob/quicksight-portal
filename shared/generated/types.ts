@@ -2660,6 +2660,8 @@ export interface components {
             error?: string;
             errorStack?: string;
             userId?: string;
+            /** @description Who started it, in words - an email, or an API key's label. Absent when the portal started it itself. */
+            startedBy?: string;
             accountId?: string;
             /** @description Deploy jobs - the asset deployed. */
             assetType?: string;
