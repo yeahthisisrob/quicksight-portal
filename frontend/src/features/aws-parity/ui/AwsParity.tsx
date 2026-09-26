@@ -68,14 +68,14 @@ export const PARITY_ROWS: ParityRow[] = [
     status: 'none',
   },
   {
-    capability: 'Restoring deleted assets',
+    capability: 'Archive, restore and history',
     portal:
-      'Every dashboard, analysis and dataset archived as exported, and restorable from the Studio.',
-    aws: 'RestoreAnalysis brings back an analysis within its recovery window; dashboards and datasets have no restore.',
+      'A deleted dashboard, analysis or dataset is kept as its last exported definition and restored from the Studio. One copy per asset: no version history yet.',
+    aws: 'RestoreAnalysis brings back an analysis within its recovery window. Dashboards keep published versions (ListDashboardVersions); dataset versions are in the console only. Asset bundle jobs export and import assets as JSON or CloudFormation. A deleted dashboard or dataset has no restore.',
     status: 'partial',
     link: {
-      label: 'RestoreAnalysis',
-      href: 'https://docs.aws.amazon.com/quicksight/latest/APIReference/API_RestoreAnalysis.html',
+      label: 'Asset bundles',
+      href: 'https://docs.aws.amazon.com/quicksight/latest/developerguide/asset-bundle-ops.html',
     },
   },
 ];
