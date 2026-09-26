@@ -60,6 +60,7 @@ export const navigationConfig: NavigationSection[] = [
     items: [
       { text: 'Data Catalog', icon: 'dataCatalog', path: '/data-catalog' },
       { text: 'Operations', icon: 'operations', path: '/operations' },
+      { text: 'AWS parity', icon: 'parity', path: '/parity' },
     ],
   },
 ];

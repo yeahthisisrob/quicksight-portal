@@ -19,3 +19,4 @@ export const IngestionsPage = lazy(() => import('./IngestionsPage'));
 export const AuthorPage = lazy(() => import('./AuthorPage'));
 export const SettingsPage = lazy(() => import('./SettingsPage'));
 export const OperationsPage = lazy(() => import('./OperationsPage'));
+export const ParityPage = lazy(() => import('./ParityPage'));

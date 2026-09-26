@@ -12,6 +12,7 @@ import {
   IngestionsPage,
   LoginPage,
   OperationsPage,
+  ParityPage,
   SettingsPage,
 } from '../pages';
 import { ErrorBoundary, PageLoader } from '../shared/ui';
@@ -95,6 +96,16 @@ function App() {
                     <ErrorBoundary>
                       <Suspense fallback={<PageLoader />}>
                         <SettingsPage />
+                      </Suspense>
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="parity"
+                  element={
+                    <ErrorBoundary>
+                      <Suspense fallback={<PageLoader />}>
+                        <ParityPage />
                       </Suspense>
                     </ErrorBoundary>
                   }

@@ -6,7 +6,7 @@ import ApiTab from './ApiTab';
 
 /**
  * The Author page's API tab: use an agent with a key, the keys (a slot the
- * page fills from Settings), where this is heading, and every operation
+ * page fills from Settings), and every operation
  * from the contract the API serves, searchable.
  */
 const meta: Meta<typeof ApiTab> = {
@@ -20,7 +20,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
-  name: 'Quick start, keys slot, AWS Context, reference',
+  name: 'Quick start, keys slot, reference',
   args: {
     keysPanel: (
       <Container header="API keys" description="The Settings panel renders here on the page.">
