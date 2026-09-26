@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.16.3...v2.17.0) (2026-09-26)
+
+
+### Features
+
+* **assistant:** a context graph shaped like AWS Context, plans before building, and per-org authoring guidance ([#215](https://github.com/yeahthisisrob/quicksight-portal/issues/215)) ([5b5a064](https://github.com/yeahthisisrob/quicksight-portal/commit/5b5a06405b406952a1bbd0dbd1ead4020229ed79))
+
 ## [2.16.3](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.16.2...v2.16.3) (2026-09-25)
 
 
