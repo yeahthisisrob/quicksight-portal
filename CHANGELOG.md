@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.27.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.26.0...v2.27.0) (2026-09-26)
+
+
+### Features
+
+* **assistant:** tag what you mention by environment and lifecycle; tags written at creation ([#248](https://github.com/yeahthisisrob/quicksight-portal/issues/248)) ([9bdb17e](https://github.com/yeahthisisrob/quicksight-portal/commit/9bdb17eaac80e10820516bb8716d8dc167fa7b88))
+
 ## [2.26.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.25.0...v2.26.0) (2026-09-26)
 
 
