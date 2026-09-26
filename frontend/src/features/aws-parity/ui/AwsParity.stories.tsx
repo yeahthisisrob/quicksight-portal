@@ -13,6 +13,11 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
+/** A row opened: what the portal does, or what closing its gap means. */
+export const Opened: Story = {
+  args: { initiallyOpen: ['Version history', 'Expression kinds'] },
+};
+
 /** Narrow: the capability spans the row, the two sides sit under it. */
 export const Narrow: Story = {
   args: { rows: PARITY_ROWS.slice(0, 4) },
