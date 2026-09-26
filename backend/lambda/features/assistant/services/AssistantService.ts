@@ -16,6 +16,7 @@ import spec from '../../../../../shared/generated/openapi.json';
 import type { AuthoringGuidance } from '../../../shared/ai/authoringGuidance';
 import { type AiModel, costOf } from '../../../shared/ai/modelCatalog';
 import { logger } from '../../../shared/utils/logger';
+import { bodyErrors, bodyFields, matchOperation } from '../lib/bodyCheck';
 import { contextGet, contextRelated, contextSearch, datasetColumns } from '../lib/contextTools';
 import { judgeFields, parsePlan, verdictsMessage } from '../lib/planning';
 import { buildBrief, listTemplates } from '../lib/portalBrief';
@@ -376,6 +377,26 @@ export class AssistantService {
         };
       }
     }
+    const template = matchOperation(spec as never, method, path);
+    if (!template) {
+      return {
+        id,
+        content: `${method} ${path} is not an operation in the API. Take the path from the operations index and fill in its ids.`,
+        isError: true,
+      };
+    }
+    const problems = bodyErrors(spec as never, method, template, input.body);
+    if (problems.length > 0) {
+      return {
+        id,
+        content: `The body does not fit ${method} ${template}, so it would fail when the person runs it:\n${problems.map((p) => `- ${p}`).join('\n')}\nThe operation expects:\n${describeOperation(spec as never, method, template)}\nFix the body and prepare it again.`,
+        isError: true,
+      };
+    }
+    const rehearsal = await this.rehearse(method, path, template, input.body, out);
+    if (rehearsal) {
+      return { id, content: rehearsal, isError: true };
+    }
     const preview = [...out.artifacts].reverse().find((a) => a.kind === 'preview');
     const plan = [...out.artifacts].reverse().find((a) => a.kind === 'plan');
     out.actions.push({
@@ -389,6 +410,84 @@ export class AssistantService {
       ...(plan ? { planId: plan.id } : {}),
     });
     return { id, content: 'Prepared. The person will see it with a Run button; it has not run.' };
+  }
+
+  /**
+   * A write with a read-only /preview twin (create an analysis, rebind,
+   * publish a definition) is run through the preview first, with the same
+   * body, unless the answer already previewed exactly that. A failed or
+   * refused preview is returned as the reason; a good one is drawn.
+   */
+  private async rehearse(
+    method: string,
+    path: string,
+    template: string,
+    body: unknown,
+    out: Collected
+  ): Promise<string | undefined> {
+    const pathname = path.split('?')[0] ?? '';
+    const previewPath = `${pathname}/preview`;
+    if (method !== 'POST' || !(spec as any).paths?.[`${template}/preview`]?.post) {
+      return undefined;
+    }
+    // The write body adds its own fields (mode, name); what the preview reads must match.
+    const fields = bodyFields(spec as never, 'POST', `${template}/preview`);
+    const same = (a: unknown, b: unknown) =>
+      JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+    const already = out.artifacts.some(
+      (a) =>
+        a.kind === 'preview' &&
+        a.path === previewPath &&
+        fields.every((f) => same((a.body as any)?.[f], (body as any)?.[f]))
+    );
+    if (already) {
+      return undefined;
+    }
+    await this.progress('Checking the change with a preview');
+    const response = await this.run('POST', previewPath, body);
+    out.calls.push({
+      method: 'POST',
+      path: previewPath,
+      status: response.status,
+      ok: response.status < HTTP_ERROR_MIN,
+    });
+    if (response.status >= HTTP_ERROR_MIN) {
+      return `The preview of this change failed, so running it would too:\n${clip(response.body)}\nFix it and prepare it again.`;
+    }
+    let data: any;
+    try {
+      data = JSON.parse(response.body)?.data;
+    } catch {
+      data = undefined;
+    }
+    if (data?.canApply === false) {
+      return `The preview says QuickSight would refuse this as it stands:\n${clip(JSON.stringify({ issues: data.issues, warnings: data.warnings, summary: data.summary }))}\nFix it and prepare it again.`;
+    }
+    this.capture('POST', previewPath, body, out.artifacts);
+    return undefined;
+  }
+
+  /** Dispatch, waiting on a job when the call queued one. */
+  private async run(
+    method: string,
+    path: string,
+    body: unknown
+  ): Promise<{ status: number; body: string }> {
+    const response = await this.dispatch({ method, path, body });
+    if (response.status !== HTTP_ACCEPTED) {
+      return response;
+    }
+    let jobId: string | undefined;
+    try {
+      jobId = JSON.parse(response.body)?.data?.jobId;
+    } catch {
+      jobId = undefined;
+    }
+    if (!jobId) {
+      return response;
+    }
+    await this.progress(`${describeStep(method, path)}: waiting for it to answer`);
+    return this.awaitJob(jobId);
   }
 
   /** The datasets the graph says already read a listing, as "name (id)". */
@@ -439,20 +538,7 @@ export class AssistantService {
           ? { ...(input.body as Record<string, unknown>), model: this.options.authoringModel }
           : input.body;
       await this.progress(describeStep(method, path));
-      let response = await this.dispatch({ method, path, body });
-      if (response.status === HTTP_ACCEPTED) {
-        const jobId = (() => {
-          try {
-            return JSON.parse(response.body)?.data?.jobId as string | undefined;
-          } catch {
-            return undefined;
-          }
-        })();
-        if (jobId) {
-          await this.progress(`${describeStep(method, path)}: waiting for it to answer`);
-          response = await this.awaitJob(jobId);
-        }
-      }
+      const response = await this.run(method, path, body);
       const ok = response.status < HTTP_ERROR_MIN;
       out.calls.push({ method, path, status: response.status, ok });
       if (ok) {
