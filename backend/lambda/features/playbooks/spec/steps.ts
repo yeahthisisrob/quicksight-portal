@@ -6,9 +6,10 @@
  */
 import { repairErrors } from '../catalog/repairErrors';
 import type { ItemPlan, PlaybookContext, PlaybookTarget } from '../types';
+import { applyFieldOps, planDropUnused, planRenameToStandard } from './calcHygiene';
 import { inferMatch, type Offered } from './inferMatch';
 import { resolve, resolveBoolean, resolveText } from './inputs';
-import { applyReplaceMaterialised, planReplaceMaterialised } from './materialisedCalcs';
+import { planReplaceMaterialised } from './materialisedCalcs';
 import type { DatasetRef, SpecSession } from './session';
 import type { MatchDatasetStep, SpecStep, TagStep } from './types';
 
@@ -335,6 +336,10 @@ export async function planStep(
     }
     case 'replaceMaterialisedCalcs':
       return await planReplaceMaterialised(ctx, session, target, step);
+    case 'dropUnusedCalcs':
+      return await planDropUnused(ctx, target, step);
+    case 'renameCalcsToStandard':
+      return await planRenameToStandard(ctx, target, step);
     case 'repair': {
       const plan = await repairErrors.plan(ctx, target);
       return {
@@ -395,7 +400,11 @@ export async function applyStep(
       return 'Added to the folder';
     }
     case 'replaceMaterialisedCalcs':
-      return await applyReplaceMaterialised(ctx, target, plan);
+      return await applyFieldOps(ctx, target, plan, 'Replaced');
+    case 'dropUnusedCalcs':
+      return await applyFieldOps(ctx, target, plan, 'Dropped');
+    case 'renameCalcsToStandard':
+      return await applyFieldOps(ctx, target, plan, 'Renamed');
     case 'repair':
       return (await repairErrors.apply(ctx, target, plan.data as ItemPlan)).summary;
     default:

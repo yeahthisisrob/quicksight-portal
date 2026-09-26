@@ -45,6 +45,8 @@ const STEP_FIELDS: Record<SpecStep['kind'], { required: string[]; optional: stri
   tag: { required: ['target', 'key', 'value'], optional: [] },
   repair: { required: [], optional: [] },
   addToFolder: { required: ['folder'], optional: [] },
+  dropUnusedCalcs: { required: [], optional: [] },
+  renameCalcsToStandard: { required: [], optional: ['prefix'] },
   replaceMaterialisedCalcs: {
     required: [],
     optional: ['governed', 'infer', 'minConfidence', 'prefixes'],

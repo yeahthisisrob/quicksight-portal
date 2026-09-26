@@ -3,7 +3,7 @@
  * `ifelse({status} = 'C', 1, 0)` while the governed dataset it reads has
  * gained `is_closed`, materialised upstream. This step finds each such
  * field and proposes pointing everything at the column and dropping the
- * field (the `replaceCalculatedField` repair).
+ * field (the `replaceCalculatedField` op).
  *
  * Deciding that a column holds what an expression computes takes judgement,
  * so a name alone never changes anything: without a model a name match is
@@ -14,6 +14,7 @@
  * of the whole rewrite) accepts it.
  */
 import { type PlaybookContext, type PlaybookTarget, PortalCallError } from '../types';
+import { dryRun } from './calcHygiene';
 import { resolve, resolveBoolean } from './inputs';
 import { governedColumns, type SpecSession } from './session';
 import type { StepPlan } from './steps';
@@ -244,7 +245,7 @@ export async function planReplaceMaterialised(
       : skip('The data holds none of its calculated fields');
   }
 
-  const repairs = proposals.map((p) => ({
+  const ops = proposals.map((p) => ({
     op: 'replaceCalculatedField',
     identifier: p.field.identifier,
     name: p.field.name,
@@ -254,28 +255,9 @@ export async function planReplaceMaterialised(
     (p) =>
       `Replace ${p.field.name} with ${p.column} (confidence ${p.confidence.toFixed(2)}${p.why ? `: ${p.why}` : ''})`
   );
-  // The dry run: the whole rewrite, as QuickSight would be sent it.
-  try {
-    const preview = await ctx.call<{ plan?: { canApply?: boolean }; warnings?: string[] }>(
-      'POST',
-      `${assetPath(target)}/rebind/preview`,
-      { rebinds: [], repairs }
-    );
-    if (preview.plan?.canApply === false) {
-      return {
-        kind: step.kind,
-        verdict: 'review',
-        summary: 'The rewrite would not resolve every column',
-        changes,
-      };
-    }
-  } catch (error) {
-    return {
-      kind: step.kind,
-      verdict: 'review',
-      summary: `The rewrite was refused: ${error instanceof Error ? error.message : String(error)}`,
-      changes,
-    };
+  const refused = await dryRun(ctx, target, ops);
+  if (refused) {
+    return { kind: step.kind, verdict: 'review', summary: refused, changes };
   }
   // The sure ones go ahead; one left as a calculated field is harmless, and is named here.
   return {
@@ -283,20 +265,6 @@ export async function planReplaceMaterialised(
     verdict: 'change',
     summary: `${proposals.length} calculated field${proposals.length === 1 ? '' : 's'} the data now holds${doubts.length ? `; left for review: ${doubts.join('; ')}` : ''}`,
     changes,
-    data: { repairs },
+    data: { ops },
   };
-}
-
-export async function applyReplaceMaterialised(
-  ctx: PlaybookContext,
-  target: PlaybookTarget,
-  plan: StepPlan
-): Promise<string> {
-  const { repairs } = plan.data as { repairs: unknown[] };
-  const result = await ctx.call<{ versionNumber?: number }>('POST', `${assetPath(target)}/rebind`, {
-    mode: 'update',
-    rebinds: [],
-    repairs,
-  });
-  return `Replaced ${repairs.length} calculated field${repairs.length === 1 ? '' : 's'}${result.versionNumber ? ` (version ${result.versionNumber})` : ''}`;
 }

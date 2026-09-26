@@ -40,6 +40,7 @@ import {
   collectDefinitionDatasets,
   unresolvedCalculatedFieldColumns,
 } from '../lib/definitionColumns';
+import { calculatedFieldUses } from '../lib/definitionFields';
 import {
   applyOps,
   type ColumnLookup,
@@ -148,6 +149,25 @@ export class RebindService {
   }
 
   /** The sheets of the live definition, with ids, for editing and insights. */
+  /** Read-only. Each calculated field, with its expression and what reads it. */
+  public async calculatedFields(
+    assetType: AuthorableAssetType,
+    assetId: string,
+    source: DefinitionSource = 'live'
+  ) {
+    const loaded = await this.loadDefinition(assetType, assetId, source);
+    const declared = collectDefinitionDatasets(loaded.definition);
+    return {
+      assetType,
+      assetId,
+      name: loaded.name,
+      fields: calculatedFieldUses(loaded.definition).map((use) => ({
+        ...use,
+        dataSetId: declared.find((d) => d.identifier === use.identifier)?.dataSetId ?? '',
+      })),
+    };
+  }
+
   public async loadDefinitionOutline(assetType: AuthorableAssetType, assetId: string) {
     const loaded = await this.loadDefinition(assetType, assetId);
     return buildOutline(loaded.definition);

@@ -102,7 +102,7 @@ describe('use governed columns instead of calculated fields', () => {
     expect(posts[0]!.body).toEqual({
       mode: 'update',
       rebinds: [],
-      repairs: [
+      ops: [
         {
           op: 'replaceCalculatedField',
           identifier: 'orders',

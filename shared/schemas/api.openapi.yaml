@@ -2415,6 +2415,50 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/authoring/{assetType}/{assetId}/calculated-fields:
+    get:
+      operationId: getAuthoringByAssetTypeByAssetIdCalculatedFields
+      tags: [Authoring]
+      summary: Its calculated fields, each with its expression and what reads it
+      description: |
+        Where each is read (visuals, filters, controls, parameters, other
+        calculated fields), the fields that read it, and whether nothing
+        does. The ground for renaming, dropping or replacing one (the
+        calculated-field ops).
+      parameters:
+        - $ref: '#/components/parameters/AuthorableAssetType'
+        - $ref: '#/components/parameters/AuthoringAssetId'
+        - $ref: '#/components/parameters/DefinitionSource'
+      responses:
+        '200':
+          description: The fields
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [assetType, assetId, name, fields]
+                    properties:
+                      assetType:
+                        $ref: '#/components/schemas/AuthorableAssetType'
+                      assetId:
+                        type: string
+                      name:
+                        type: string
+                      fields:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CalculatedFieldUse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /api/authoring/{assetType}/{assetId}/rebind/plan:
     post:
       operationId: postAuthoringByAssetTypeByAssetIdRebindPlan
@@ -6238,11 +6282,15 @@ components:
         calculated fields the dataset now holds as columns are replaced by
         them and dropped; a model judges each (a name alone is only a
         suggestion for review), and the rewrite is dry-run first.
+        dropUnusedCalcs: calculated fields nothing reads are dropped (and ones
+        only such fields read). renameCalcsToStandard (prefix, default c_):
+        each calculated field gets the prefix and a snake_case name,
+        everywhere it is read; a name already in use goes to review.
       required: [kind]
       properties:
         kind:
           type: string
-          enum: [matchDataset, rebind, tag, repair, addToFolder, replaceMaterialisedCalcs]
+          enum: [matchDataset, rebind, tag, repair, addToFolder, replaceMaterialisedCalcs, dropUnusedCalcs, renameCalcsToStandard]
         engine:
           $ref: '#/components/schemas/PlaybookSpecValue'
         governed:
@@ -6261,6 +6309,8 @@ components:
         folder:
           $ref: '#/components/schemas/PlaybookSpecValue'
         prefixes:
+          $ref: '#/components/schemas/PlaybookSpecValue'
+        prefix:
           $ref: '#/components/schemas/PlaybookSpecValue'
 
     PlaybookSpec:
@@ -8141,26 +8191,22 @@ components:
         filter groups go too). dropParameter removes a parameter's
         declaration, controls and filters. declareParameter adds a
         declaration for a parameter that is referenced but never declared.
-        replaceCalculatedField points every reference to a calculated field
-        at a dataset column holding the same values (one materialised
-        upstream), rewrites calculated fields that read it, and drops it.
+        (Edits that are not fixes, like replacing or renaming a calculated
+        field, are ops.)
       required: [op]
       properties:
         op:
           type: string
-          enum: [dropColumn, dropParameter, declareParameter, replaceCalculatedField]
+          enum: [dropColumn, dropParameter, declareParameter]
         identifier:
           type: string
-          description: dropColumn / replaceCalculatedField - the dataset identifier.
+          description: dropColumn - the dataset identifier.
         columnName:
           type: string
           description: dropColumn - the column.
         name:
           type: string
-          description: dropParameter / declareParameter - the parameter name; replaceCalculatedField - the calculated field.
-        column:
-          type: string
-          description: replaceCalculatedField - the dataset column that replaces it.
+          description: dropParameter / declareParameter - the parameter name.
         type:
           type: string
           enum: [STRING, INTEGER, DECIMAL, DATETIME]
@@ -10290,6 +10336,29 @@ components:
         QuickSight puts controls by default. canvas - on the sheet grid,
         above the visuals.
 
+    CalculatedFieldUse:
+      type: object
+      required: [identifier, dataSetId, name, expression, usage, readBy, unused]
+      properties:
+        identifier:
+          type: string
+          description: The dataset identifier it is declared against.
+        dataSetId:
+          type: string
+        name:
+          type: string
+        expression:
+          type: string
+        usage:
+          $ref: '#/components/schemas/ColumnUsage'
+        readBy:
+          type: array
+          description: The calculated fields whose expressions read it.
+          items:
+            type: string
+        unused:
+          type: boolean
+
     DefinitionOp:
       type: object
       description: |
@@ -10302,13 +10371,25 @@ components:
         type keeps its field wells, title and subtitle and resets the rest of
         the chart configuration to defaults; only conversions whose field
         wells translate are allowed.
-      required: [op, sheetId]
+
+        Three ops change the whole definition rather than a sheet, so they
+        take no sheetId: replaceCalculatedField (identifier, name, column)
+        reads a dataset column instead of a calculated field that computes
+        the same and drops the field; renameCalculatedField (identifier,
+        name, to); dropCalculatedField (identifier, name), refused while
+        anything reads the field. Each follows every reference: visuals,
+        filters, controls and other calculated fields' expressions.
+      required: [op]
       properties:
         op:
           type: string
-          enum: [move, resize, retype, retitle, remove, duplicate, renameSheet, addFilter, addVisual, addAction]
+          enum: [move, resize, retype, retitle, remove, duplicate, renameSheet, addFilter, addVisual, addAction, replaceCalculatedField, renameCalculatedField, dropCalculatedField]
         sheetId:
           type: string
+          description: Every op but the calculated-field ones.
+        to:
+          type: string
+          description: renameCalculatedField. The new name.
         visual:
           $ref: '#/components/schemas/VisualSpec'
         action:

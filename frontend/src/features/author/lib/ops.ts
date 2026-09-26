@@ -84,14 +84,15 @@ export function typeWords(type: string | undefined): string {
 }
 
 function elementName(op: DefinitionOp, outline?: SheetOutline[] | null): string {
-  const hit = op.elementId ? findOutlineElement(outline, op.sheetId, op.elementId) : null;
+  const hit =
+    op.elementId && op.sheetId ? findOutlineElement(outline, op.sheetId, op.elementId) : null;
   const title = hit?.element.title;
   return title ? `"${title}"` : (op.elementId ?? 'element');
 }
 
 function sheetName(op: DefinitionOp, outline?: SheetOutline[] | null): string {
   const sheet = outline?.find((s) => s.sheetId === op.sheetId);
-  return sheet ? `"${sheet.name}"` : op.sheetId;
+  return sheet ? `"${sheet.name}"` : (op.sheetId ?? 'the sheet');
 }
 
 /** One op in plain language, for the edits list. */
@@ -124,6 +125,12 @@ export function describeOp(op: DefinitionOp, outline?: SheetOutline[] | null): s
         ? `Rename sheet to "${op.name ?? ''}"`
         : `Rename sheet ${current} to "${op.name ?? ''}"`;
     }
+    case 'replaceCalculatedField':
+      return `Use column ${op.column} instead of calculated field ${op.name}`;
+    case 'renameCalculatedField':
+      return `Rename calculated field ${op.name} to ${op.to}`;
+    case 'dropCalculatedField':
+      return `Drop unused calculated field ${op.name}`;
     default:
       return op.op;
   }
@@ -139,6 +146,10 @@ export function opChangeKind(op: DefinitionOp): DefinitionChange['kind'] {
       return 'layout';
     case 'renameSheet':
       return 'sheet';
+    case 'replaceCalculatedField':
+    case 'renameCalculatedField':
+    case 'dropCalculatedField':
+      return 'calculatedField';
     default:
       return 'visual';
   }

@@ -34,6 +34,11 @@ import { ValidationError } from '../../../shared/errors/ValidationError';
 import type { TargetColumn } from './columnResolution';
 import { controlBar, controlBarElements } from './controlBar';
 import {
+  dropCalculatedField,
+  renameCalculatedField,
+  replaceCalculatedField,
+} from './definitionFields';
+import {
   buildFilters,
   CONTROL_PLACEMENTS,
   type ControlPlacement,
@@ -59,7 +64,30 @@ export type EditableVisualType =
   | 'Table'
   | 'PivotTable';
 
+/**
+ * Edits to the whole definition rather than one sheet: its calculated
+ * fields. Each follows every reference, so nothing is left pointing at a
+ * name that is gone (see definitionFields).
+ */
+type DefinitionScopeOp =
+  /** The dataset now holds what the field computes: read the column, drop the field. */
+  | { op: 'replaceCalculatedField'; identifier: string; name: string; column: string }
+  | { op: 'renameCalculatedField'; identifier: string; name: string; to: string }
+  /** Refused while anything reads it. */
+  | { op: 'dropCalculatedField'; identifier: string; name: string };
+
+const DEFINITION_SCOPE_OPS = new Set([
+  'replaceCalculatedField',
+  'renameCalculatedField',
+  'dropCalculatedField',
+]);
+
+function isDefinitionScope(op: DefinitionOp): op is DefinitionScopeOp {
+  return DEFINITION_SCOPE_OPS.has(op.op);
+}
+
 export type DefinitionOp =
+  | DefinitionScopeOp
   | { op: 'move'; sheetId: string; elementId: string; col: number; row: number }
   | { op: 'resize'; sheetId: string; elementId: string; colSpan: number; rowSpan: number }
   | { op: 'retype'; sheetId: string; elementId: string; visualType: EditableVisualType }
@@ -369,6 +397,17 @@ export function applyOps(
   const changes: DefinitionChange[] = [];
 
   ops.forEach((op, index) => {
+    if (isDefinitionScope(op)) {
+      const at = `Op ${index + 1}`;
+      const description =
+        op.op === 'replaceCalculatedField'
+          ? replaceCalculatedField(definition, op, at)
+          : op.op === 'renameCalculatedField'
+            ? renameCalculatedField(definition, op, at)
+            : dropCalculatedField(definition, op, at);
+      changes.push({ kind: 'calculatedField', description });
+      return;
+    }
     const sheet = sheetOf(definition, op.sheetId, index);
     const sheetName = sheet.Name ?? op.sheetId;
 
@@ -824,6 +863,25 @@ function oneOf<T extends string>(value: unknown, allowed: readonly T[], at: stri
 }
 
 /** Validate a raw op list from a request or a planner. */
+function parseDefinitionScopeOp(entry: Record<string, unknown>, index: number): DefinitionScopeOp {
+  const text = (key: string) => {
+    const value = typeof entry[key] === 'string' ? (entry[key] as string).trim() : '';
+    if (!value)
+      throw new ValidationError(`ops[${index}].${key} is required for '${String(entry.op)}'`);
+    return value;
+  };
+  const identifier = text('identifier');
+  const name = text('name');
+  switch (entry.op) {
+    case 'replaceCalculatedField':
+      return { op: 'replaceCalculatedField', identifier, name, column: text('column') };
+    case 'renameCalculatedField':
+      return { op: 'renameCalculatedField', identifier, name, to: text('to') };
+    default:
+      return { op: 'dropCalculatedField', identifier, name };
+  }
+}
+
 export function parseOps(raw: unknown): DefinitionOp[] {
   if (raw === undefined) {
     return [];
@@ -834,6 +892,9 @@ export function parseOps(raw: unknown): DefinitionOp[] {
   return raw.map((item, index) => {
     const entry = (item ?? {}) as Record<string, unknown>;
     const op = entry.op;
+    if (typeof op === 'string' && DEFINITION_SCOPE_OPS.has(op)) {
+      return parseDefinitionScopeOp(entry, index);
+    }
     const sheetId = typeof entry.sheetId === 'string' ? entry.sheetId.trim() : '';
     if (!sheetId) {
       throw new ValidationError(`ops[${index}].sheetId is required`);
