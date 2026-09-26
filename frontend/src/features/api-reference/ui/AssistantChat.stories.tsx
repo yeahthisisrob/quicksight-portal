@@ -2,7 +2,13 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useEffect, useState } from 'react';
 
 import { type MockRoute, mockApi } from '../../../../.storybook/mocks/api';
-import { assistantRoutes, PLANNED_ANSWER, SCRIPTED_ANSWER } from './__stories__/assistant';
+import {
+  assistantRoutes,
+  DATASET_QUESTION,
+  PLANNED_ANSWER,
+  QUESTION_ANSWER,
+  SCRIPTED_ANSWER,
+} from './__stories__/assistant';
 import { AnswerView, AssistantChat } from './AssistantChat';
 import { ModelPicker } from './ModelPicker';
 
@@ -53,6 +59,31 @@ export const Answered: Story = {
 export const Planned: Story = {
   name: 'A plan on the governed dataset, with field verdicts',
   render: () => <AnswerView result={PLANNED_ANSWER as never} />,
+};
+
+/** Asks instead of guessing: the options are cards, each with what the portal knows about it. */
+export const AsksAQuestion: Story = {
+  name: 'Asks a question: options as cards',
+  render: () => <AnswerView result={QUESTION_ANSWER as never} onAnswer={() => undefined} />,
+};
+
+/** After the answer: the choice stays, locked. */
+export const QuestionAnswered: Story = {
+  name: 'A question already answered',
+  render: () => (
+    <AnswerView
+      result={QUESTION_ANSWER as never}
+      answerFor={(id) =>
+        id === DATASET_QUESTION.id
+          ? {
+              interruptId: id,
+              status: 'resolved',
+              payload: { selected: ['dataset:ds-orders-gold'] },
+            }
+          : undefined
+      }
+    />
+  ),
 };
 
 /** The same answer after Run: the card follows the job it started, then says how it ended. */

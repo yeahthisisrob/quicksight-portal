@@ -5,10 +5,15 @@
  * assistant prepared (so a running job is followed again). Pure: the hook
  * holds it, these functions change it, storage is injected.
  */
-import type { AssistantChatResult } from '@/shared/api/modules/assistant';
+import type {
+  AgUiResumeEntry,
+  AssistantChatResult,
+  AssistantWorkingState,
+} from '@/shared/api/modules/assistant';
 
 export type ConversationEntry =
-  | { role: 'user'; text: string }
+  /** `resume`: this message answers the previous answer's question (AG-UI resume). */
+  | { role: 'user'; text: string; resume?: AgUiResumeEntry[] }
   | { role: 'assistant'; text: string; result: AssistantChatResult };
 
 export type ActionRunStatus = 'running' | 'completed' | 'failed';
@@ -25,6 +30,8 @@ export interface ActionRun {
 
 export interface Conversation {
   version: 1;
+  /** The AG-UI thread; one per conversation, kept across reloads. */
+  threadId?: string;
   entries: ConversationEntry[];
   /** The answer being worked on, and since when (ms). */
   pending?: { jobId: string; since: number };
@@ -76,8 +83,22 @@ function trimmed(entries: ConversationEntry[]): ConversationEntry[] {
   return entries.length > MAX_ENTRIES ? entries.slice(-MAX_ENTRIES) : entries;
 }
 
-export function withQuestion(c: Conversation, text: string): Conversation {
-  return { ...c, entries: trimmed([...c.entries, { role: 'user', text }]) };
+export function withQuestion(
+  c: Conversation,
+  text: string,
+  resume?: AgUiResumeEntry[]
+): Conversation {
+  return {
+    ...c,
+    threadId: c.threadId ?? newThreadId(),
+    entries: trimmed([...c.entries, { role: 'user', text, ...(resume?.length ? { resume } : {}) }]),
+  };
+}
+
+function newThreadId(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `thread-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 export function withPending(c: Conversation, jobId: string, since: number): Conversation {
@@ -101,48 +122,61 @@ export function withRun(c: Conversation, actionId: string, run: ActionRun): Conv
   return { ...c, runs: { ...c.runs, [actionId]: run } };
 }
 
-/** How much of an action's result goes back to the assistant with the history. */
-export const MAX_RUN_RESULT_CHARS = 1_500;
-
-function clip(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max)}…` : text;
+/** The history the assistant is sent: text only. State and answers travel as data. */
+export function historyOf(c: Conversation): Array<{ role: 'user' | 'assistant'; text: string }> {
+  return c.entries.map((e) => ({ role: e.role, text: e.text }));
 }
 
 /**
- * What the person ran from one answer, as a line the assistant reads with
- * the history: without it the assistant cannot know an action ran, and
- * prepares it again.
+ * The page's working state (AG-UI state), sent with every message: the
+ * latest answer's actions that were not run are the working draft (earlier
+ * unrun ones were superseded), and every action that ran is reported with
+ * its result, most recent last.
  */
-export function runsNote(result: AssistantChatResult, runs: Record<string, ActionRun>): string {
-  const lines = result.actions.flatMap((action) => {
-    const run = runs[action.id];
-    if (!run) {
-      return [];
-    }
-    const outcome =
-      run.status === 'running'
-        ? `still running${run.jobId ? ` (job ${run.jobId})` : ''}`
-        : run.status === 'failed'
-          ? `failed: ${run.error ?? run.message ?? 'no reason given'}`
-          : 'done';
-    const detail =
-      run.result === undefined
-        ? ''
-        : ` Result: ${clip(JSON.stringify(run.result), MAX_RUN_RESULT_CHARS)}`;
-    return [`- "${action.title}" (${action.method} ${action.path}): ${outcome}.${detail}`];
-  });
-  return lines.length ? `[The person ran, after this answer:\n${lines.join('\n')}]` : '';
+export function workingStateOf(c: Conversation): AssistantWorkingState {
+  const answers = c.entries.filter(
+    (e): e is Extract<ConversationEntry, { role: 'assistant' }> => e.role === 'assistant'
+  );
+  const latest = answers[answers.length - 1];
+  const drafts = (latest?.result.actions ?? [])
+    .filter((a) => !c.runs[a.id])
+    .map((a) => ({
+      title: a.title,
+      method: a.method,
+      path: a.path,
+      ...(a.body !== undefined ? { body: a.body } : {}),
+    }));
+  const ran = answers.flatMap((e) =>
+    e.result.actions.flatMap((a) => {
+      const run = c.runs[a.id];
+      if (!run) return [];
+      return [
+        {
+          title: a.title,
+          method: a.method,
+          path: a.path,
+          status: run.status === 'completed' ? ('done' as const) : run.status,
+          ...(run.result !== undefined ? { result: run.result } : {}),
+          ...(run.error ? { error: run.error } : {}),
+          ...(run.jobId ? { jobId: run.jobId } : {}),
+        },
+      ];
+    })
+  );
+  return { drafts, ran: ran.slice(-MAX_RAN) };
 }
 
-/** The history the assistant is sent: text, with what the person ran after each answer. */
-export function historyOf(c: Conversation): Array<{ role: 'user' | 'assistant'; text: string }> {
-  return c.entries.map((e) => {
+const MAX_RAN = 20;
+
+/** The answer a later message gave to one of this answer's questions, if any. */
+export function answerTo(c: Conversation, interruptId: string): AgUiResumeEntry | undefined {
+  for (const e of c.entries) {
     if (e.role === 'user') {
-      return { role: e.role, text: e.text };
+      const found = e.resume?.find((r) => r.interruptId === interruptId);
+      if (found) return found;
     }
-    const note = runsNote(e.result, c.runs);
-    return { role: e.role, text: note ? `${e.text}\n\n${note}` : e.text };
-  });
+  }
+  return undefined;
 }
 
 /** What a finished action created, when it created an asset. */

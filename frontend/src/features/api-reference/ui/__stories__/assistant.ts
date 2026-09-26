@@ -166,6 +166,7 @@ export const SCRIPTED_ANSWER = {
   usage: { inputTokens: 24_180, outputTokens: 912 },
   cost: 0.02874,
   rounds: 3,
+  outcome: { type: 'success' },
   helpers: [
     {
       role: 'planner',
@@ -275,6 +276,76 @@ export const PLANNED_ANSWER = {
       planId: PLAN_ON_GOVERNED.id,
     },
   ],
+};
+
+/** A question (AG-UI interrupt): which of two governed datasets, drawn as cards. */
+export const DATASET_QUESTION = {
+  id: 'int-dataset',
+  reason: 'input_required',
+  message: 'Which dataset should the margin analysis read?',
+  toolCallId: 'q1',
+  responseSchema: {
+    type: 'object',
+    properties: {
+      selected: {
+        type: 'array',
+        items: { type: 'string', enum: ['dataset:ds-orders-gold', 'dataset:ds-orders-direct'] },
+        minItems: 1,
+        maxItems: 1,
+      },
+    },
+    required: ['selected'],
+  },
+  metadata: {
+    multi: false,
+    allowOther: false,
+    options: [
+      {
+        id: 'dataset:ds-orders-gold',
+        label: 'Orders (gold)',
+        description: 'Linked to the orders_gold listing; refreshed nightly.',
+        entityId: 'dataset:ds-orders-gold',
+        summary:
+          'dataset: Orders (gold) (SPICE, 14 columns, used by 4 dashboards, project sales_prod)',
+        path: '/assets/datasets?search=Orders%20(gold)',
+      },
+      {
+        id: 'dataset:ds-orders-direct',
+        label: 'Orders gold (direct)',
+        description: 'Reads Athena live; slower, always current.',
+        entityId: 'dataset:ds-orders-direct',
+        summary: 'dataset: Orders gold (direct) (DIRECT_QUERY, 14 columns, no dashboards yet)',
+        path: '/assets/datasets?search=Orders%20gold%20(direct)',
+      },
+    ],
+  },
+} as const;
+
+/** Which filters, several at once, or something typed. */
+export const FILTERS_QUESTION = {
+  id: 'int-filters',
+  reason: 'input_required',
+  message: 'Which filters should the control bar carry?',
+  metadata: {
+    multi: true,
+    allowOther: true,
+    options: [
+      { id: 'order_date', label: 'Order date', description: 'A date-range picker.' },
+      { id: 'region', label: 'Region', description: 'A dropdown of the 6 regions.' },
+      { id: 'product_line', label: 'Product line', description: 'A dropdown.' },
+    ],
+  },
+} as const;
+
+/** An answer that stops on a question. */
+export const QUESTION_ANSWER = {
+  ...SCRIPTED_ANSWER,
+  reply: 'orders_gold has **two** linked datasets. The analysis can read either:',
+  calls: [{ method: 'GET', path: 'context_related listing:l-orders', status: 200, ok: true }],
+  artifacts: [],
+  actions: [],
+  helpers: undefined,
+  outcome: { type: 'interrupt', interrupts: [DATASET_QUESTION] },
 };
 
 export function assistantRoutes(): MockRoute[] {

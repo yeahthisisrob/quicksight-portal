@@ -6,8 +6,66 @@ export interface ChatHistoryMessage {
   text: string;
 }
 
+/**
+ * The run protocol follows AG-UI 1.0 (docs.ag-ui.com): a question the agent
+ * asks ends the run with an `interrupt` outcome; the next run carries the
+ * answer as a `resume` entry. Only the data model is adopted; the transport
+ * stays a job the page polls.
+ */
+export interface AgUiInterrupt {
+  id: string;
+  /** 'input_required' for a question to the person. */
+  reason: string;
+  message?: string;
+  toolCallId?: string;
+  /** JSON Schema of the answer the resume payload must match. */
+  responseSchema?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export type RunOutcome = { type: 'success' } | { type: 'interrupt'; interrupts: AgUiInterrupt[] };
+
+export interface ResumeEntry {
+  interruptId: string;
+  status: 'resolved' | 'cancelled';
+  payload?: unknown;
+}
+
+/** One option of a question, tied to an entity when it names one. */
+export interface QuestionOption {
+  id: string;
+  label: string;
+  description?: string;
+  /** A context-graph entity id (dataset:abc, folder:xyz). */
+  entityId?: string;
+  /** Filled in from the graph when entityId is known. */
+  summary?: string;
+  path?: string;
+}
+
+/**
+ * What the page holds between answers (AG-UI state): actions prepared and
+ * not run (the working draft), and actions the person ran, with results.
+ */
+export interface WorkingState {
+  drafts: Array<{ title: string; method: string; path: string; body?: unknown }>;
+  ran: Array<{
+    title: string;
+    method: string;
+    path: string;
+    status: 'done' | 'failed' | 'running';
+    result?: unknown;
+    error?: string;
+    jobId?: string;
+  }>;
+}
+
 export interface AssistantChatRequest {
   messages: ChatHistoryMessage[];
+  threadId?: string;
+  state?: WorkingState;
+  /** Answers to the interrupts the previous run ended with. */
+  resume?: ResumeEntry[];
   model?: AiModelKey;
   /** The model the planner uses when the assistant asks it to propose. */
   authoringModel?: AiModelKey;
@@ -87,6 +145,8 @@ export interface AssistantChatResult {
   /** Dollars at list price; a rough guide. */
   cost: number;
   rounds: number;
+  /** How the run ended: done, or waiting on the person's answer (AG-UI outcome). */
+  outcome: RunOutcome;
   /** Other models this answer used through the portal, such as the planner. */
   helpers?: Array<{ role: 'planner'; label: string; modelId: string; provider: string }>;
 }

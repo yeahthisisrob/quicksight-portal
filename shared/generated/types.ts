@@ -5534,6 +5534,75 @@ export interface components {
             }[];
             model?: components["schemas"]["AiModelKey"];
             authoringModel?: components["schemas"]["AiModelKey"];
+            /** @description The conversation (AG-UI threadId). */
+            threadId?: string;
+            state?: components["schemas"]["AssistantWorkingState"];
+            /** @description Answers to the interrupts the previous run ended with (AG-UI resume). */
+            resume?: components["schemas"]["AgUiResumeEntry"][];
+        };
+        /**
+         * @description What the page holds between answers (AG-UI state): actions the
+         *     assistant prepared that were not run (the working draft), and actions
+         *     the person ran, with their results. Large bodies are clipped.
+         */
+        AssistantWorkingState: {
+            drafts?: {
+                title: string;
+                method: string;
+                path: string;
+                body?: unknown;
+            }[];
+            ran?: {
+                title: string;
+                method: string;
+                path: string;
+                /** @enum {string} */
+                status: "done" | "failed" | "running";
+                result?: unknown;
+                error?: string;
+                jobId?: string;
+            }[];
+        };
+        /**
+         * @description Why a run paused (AG-UI 1.0 Interrupt). `input_required`: a question
+         *     to the person; `metadata.options` are drawn as cards and the answer
+         *     must match `responseSchema`.
+         */
+        AgUiInterrupt: {
+            id: string;
+            reason: string;
+            message?: string;
+            toolCallId?: string;
+            responseSchema?: {
+                [key: string]: unknown;
+            };
+            metadata?: {
+                options?: components["schemas"]["AssistantQuestionOption"][];
+                multi?: boolean;
+                allowOther?: boolean;
+            };
+        };
+        AssistantQuestionOption: {
+            /** @description The entity id when the option names one. */
+            id: string;
+            label: string;
+            description?: string;
+            entityId?: string;
+            summary?: string;
+            path?: string;
+        };
+        /** @description An answer to an interrupt (AG-UI 1.0 ResumeEntry). */
+        AgUiResumeEntry: {
+            interruptId: string;
+            /** @enum {string} */
+            status: "resolved" | "cancelled";
+            payload?: unknown;
+        };
+        /** @description How a run ended (AG-UI 1.0 RunFinished outcome). */
+        AgUiRunOutcome: {
+            /** @enum {string} */
+            type: "success" | "interrupt";
+            interrupts?: components["schemas"]["AgUiInterrupt"][];
         };
         SmusDataSourceChoice: {
             dataSource: {
@@ -5638,6 +5707,7 @@ export interface components {
             planId?: string;
         };
         AssistantChatResult: {
+            outcome: components["schemas"]["AgUiRunOutcome"];
             /** @description Other models the answer used through the portal, such as the planner. */
             helpers?: {
                 /** @enum {string} */

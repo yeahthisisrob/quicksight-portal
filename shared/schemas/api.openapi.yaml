@@ -4628,6 +4628,134 @@ components:
           $ref: '#/components/schemas/AiModelKey'
         authoringModel:
           $ref: '#/components/schemas/AiModelKey'
+        threadId:
+          type: string
+          description: The conversation (AG-UI threadId).
+        state:
+          $ref: '#/components/schemas/AssistantWorkingState'
+        resume:
+          type: array
+          maxItems: 20
+          description: Answers to the interrupts the previous run ended with (AG-UI resume).
+          items:
+            $ref: '#/components/schemas/AgUiResumeEntry'
+
+    AssistantWorkingState:
+      type: object
+      description: |
+        What the page holds between answers (AG-UI state): actions the
+        assistant prepared that were not run (the working draft), and actions
+        the person ran, with their results. Large bodies are clipped.
+      properties:
+        drafts:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            required: [title, method, path]
+            properties:
+              title:
+                type: string
+              method:
+                type: string
+              path:
+                type: string
+              body: {}
+        ran:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            required: [title, method, path, status]
+            properties:
+              title:
+                type: string
+              method:
+                type: string
+              path:
+                type: string
+              status:
+                type: string
+                enum: [done, failed, running]
+              result: {}
+              error:
+                type: string
+              jobId:
+                type: string
+
+    AgUiInterrupt:
+      type: object
+      description: |
+        Why a run paused (AG-UI 1.0 Interrupt). `input_required`: a question
+        to the person; `metadata.options` are drawn as cards and the answer
+        must match `responseSchema`.
+      required: [id, reason]
+      properties:
+        id:
+          type: string
+        reason:
+          type: string
+        message:
+          type: string
+        toolCallId:
+          type: string
+        responseSchema:
+          type: object
+          additionalProperties: true
+        metadata:
+          type: object
+          properties:
+            options:
+              type: array
+              items:
+                $ref: '#/components/schemas/AssistantQuestionOption'
+            multi:
+              type: boolean
+            allowOther:
+              type: boolean
+
+    AssistantQuestionOption:
+      type: object
+      required: [id, label]
+      properties:
+        id:
+          type: string
+          description: The entity id when the option names one.
+        label:
+          type: string
+        description:
+          type: string
+        entityId:
+          type: string
+        summary:
+          type: string
+        path:
+          type: string
+
+    AgUiResumeEntry:
+      type: object
+      description: An answer to an interrupt (AG-UI 1.0 ResumeEntry).
+      required: [interruptId, status]
+      properties:
+        interruptId:
+          type: string
+        status:
+          type: string
+          enum: [resolved, cancelled]
+        payload: {}
+
+    AgUiRunOutcome:
+      type: object
+      description: How a run ended (AG-UI 1.0 RunFinished outcome).
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [success, interrupt]
+        interrupts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgUiInterrupt'
 
     SmusDataSourceChoice:
       type: object
@@ -4813,8 +4941,10 @@ components:
 
     AssistantChatResult:
       type: object
-      required: [reply, calls, actions, artifacts, model, usage, cost, rounds]
+      required: [reply, calls, actions, artifacts, model, usage, cost, rounds, outcome]
       properties:
+        outcome:
+          $ref: '#/components/schemas/AgUiRunOutcome'
         helpers:
           type: array
           description: Other models the answer used through the portal, such as the planner.

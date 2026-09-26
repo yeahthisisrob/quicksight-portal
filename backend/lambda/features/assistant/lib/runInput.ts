@@ -1,0 +1,120 @@
+/**
+ * The run input beyond the messages (AG-UI RunAgentInput's threadId, state
+ * and resume), validated and bounded: it rides in an SQS message, so large
+ * draft bodies are clipped rather than refused. Pure.
+ */
+import type { ResumeEntry, WorkingState } from '../types';
+
+const MAX_ENTRIES = 20;
+const MAX_BODY_CHARS = 8_000;
+const MAX_RESULT_CHARS = 2_000;
+const MAX_TEXT = 300;
+
+export interface RunInput {
+  threadId?: string;
+  state?: WorkingState;
+  resume?: ResumeEntry[];
+}
+
+function text(value: unknown, max = MAX_TEXT): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim().slice(0, max) : undefined;
+}
+
+/** A body or result small enough to carry, or a note that it was too large. */
+function bounded(value: unknown, max: number): unknown {
+  if (value === undefined) return undefined;
+  const json = JSON.stringify(value);
+  return json.length <= max ? value : `[${json.length} characters, not carried; read it again if needed]`;
+}
+
+export function parseRunInput(body: Record<string, unknown>): RunInput | string {
+  const out: RunInput = {};
+  if (body.threadId !== undefined) {
+    const threadId = text(body.threadId, 100);
+    if (!threadId) return 'threadId must be a non-empty string';
+    out.threadId = threadId;
+  }
+  if (body.resume !== undefined) {
+    if (!Array.isArray(body.resume) || body.resume.length > MAX_ENTRIES) {
+      return `resume must be an array of at most ${MAX_ENTRIES} entries`;
+    }
+    const resume: ResumeEntry[] = [];
+    for (const raw of body.resume as unknown[]) {
+      const entry = (raw ?? {}) as Record<string, unknown>;
+      const interruptId = text(entry.interruptId, 100);
+      if (!interruptId || (entry.status !== 'resolved' && entry.status !== 'cancelled')) {
+        return "each resume entry needs interruptId and status 'resolved' or 'cancelled'";
+      }
+      resume.push({
+        interruptId,
+        status: entry.status,
+        ...(entry.payload !== undefined ? { payload: bounded(entry.payload, MAX_RESULT_CHARS) } : {}),
+      });
+    }
+    out.resume = resume;
+  }
+  if (body.state !== undefined) {
+    const raw = (body.state ?? {}) as Record<string, unknown>;
+    const list = (value: unknown) => (Array.isArray(value) ? value.slice(-MAX_ENTRIES) : []);
+    out.state = {
+      drafts: list(raw.drafts).flatMap((d: any) => {
+        const title = text(d?.title);
+        const method = text(d?.method, 10);
+        const path = text(d?.path, 500);
+        return title && method && path
+          ? [{ title, method, path, ...(d.body !== undefined ? { body: bounded(d.body, MAX_BODY_CHARS) } : {}) }]
+          : [];
+      }),
+      ran: list(raw.ran).flatMap((r: any) => {
+        const title = text(r?.title);
+        const method = text(r?.method, 10);
+        const path = text(r?.path, 500);
+        const status = r?.status === 'done' || r?.status === 'failed' || r?.status === 'running' ? r.status : undefined;
+        return title && method && path && status
+          ? [
+              {
+                title,
+                method,
+                path,
+                status,
+                ...(r.result !== undefined ? { result: bounded(r.result, MAX_RESULT_CHARS) } : {}),
+                ...(text(r.error, 1000) ? { error: text(r.error, 1000) } : {}),
+                ...(text(r.jobId, 100) ? { jobId: text(r.jobId, 100) } : {}),
+              },
+            ]
+          : [];
+      }),
+    };
+  }
+  return out;
+}
+
+/** The working state and any answers, as the context block the model reads. */
+export function describeRunInput(input: RunInput): string {
+  const lines: string[] = [];
+  const drafts = input.state?.drafts ?? [];
+  const ran = input.state?.ran ?? [];
+  if (drafts.length) {
+    lines.push(
+      'Working draft - actions you prepared that the person has NOT run, so nothing exists from them yet. A change they ask for revises these: prepare the action again with the change and preview it. Do not look for these assets.',
+      ...drafts.map((d) => `- "${d.title}" ${d.method} ${d.path}${d.body !== undefined ? ` body: ${JSON.stringify(d.body)}` : ''}`)
+    );
+  }
+  if (ran.length) {
+    lines.push(
+      'What the person ran (treat as done; use the ids in the results):',
+      ...ran.map(
+        (r) =>
+          `- "${r.title}" ${r.method} ${r.path}: ${r.status}${r.jobId ? ` (job ${r.jobId})` : ''}${r.error ? `: ${r.error}` : ''}${r.result !== undefined ? ` result: ${JSON.stringify(r.result)}` : ''}`
+      )
+    );
+  }
+  for (const entry of input.resume ?? []) {
+    lines.push(
+      entry.status === 'cancelled'
+        ? `The person dismissed your question ${entry.interruptId} without answering; do not ask it again unless you must.`
+        : `The person answered your question ${entry.interruptId}: ${JSON.stringify(entry.payload ?? {})}. Carry on from there.`
+    );
+  }
+  return lines.join('\n');
+}

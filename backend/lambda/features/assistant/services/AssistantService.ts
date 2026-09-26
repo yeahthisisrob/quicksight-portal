@@ -21,13 +21,16 @@ import { contextGet, contextRelated, contextSearch, datasetColumns } from '../li
 import { judgeFields, parsePlan, verdictsMessage } from '../lib/planning';
 import { buildBrief, listTemplates } from '../lib/portalBrief';
 import { classifyCall, describeOperation } from '../lib/portalCalls';
+import { describeRunInput, type RunInput } from '../lib/runInput';
 import { announcesMore, CONTINUE_NUDGE, describeStep, MAX_NUDGES } from '../lib/steps';
 import type {
+  AgUiInterrupt,
   AssistantAction,
   AssistantArtifact,
   AssistantCall,
   AssistantChatResult,
   ChatHistoryMessage,
+  QuestionOption,
 } from '../types';
 import { NO_GUIDANCE, systemPrompt } from './assistantPrompt';
 import { ASSISTANT_TOOLS } from './assistantTools';
@@ -88,6 +91,19 @@ interface Collected {
   actions: AssistantAction[];
   artifacts: AssistantArtifact[];
   helpers: NonNullable<AssistantChatResult['helpers']>;
+  /** Questions to the person; the run ends once one is asked (AG-UI interrupt). */
+  interrupts: AgUiInterrupt[];
+}
+
+const MAX_OPTIONS = 12;
+
+function slug(label: string): string {
+  return (
+    label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'option'
+  );
 }
 
 /** The model the planner reported in its answer (a proposal, or a from-nothing preview), if any. */
@@ -160,7 +176,10 @@ export class AssistantService {
     this.now = options.now ?? (() => Date.now());
   }
 
-  public async respond(history: ChatHistoryMessage[]): Promise<AssistantChatResult> {
+  public async respond(
+    history: ChatHistoryMessage[],
+    run: RunInput = {}
+  ): Promise<AssistantChatResult> {
     const turns: ChatTurn[] = history
       .slice(-MAX_HISTORY)
       .map((m) =>
@@ -168,7 +187,7 @@ export class AssistantService {
           ? { role: 'user', text: m.text.slice(0, MAX_MESSAGE_CHARS) }
           : { role: 'assistant', text: m.text.slice(0, MAX_MESSAGE_CHARS), toolCalls: [] }
       );
-    const out: Collected = { calls: [], actions: [], artifacts: [], helpers: [] };
+    const out: Collected = { calls: [], actions: [], artifacts: [], helpers: [], interrupts: [] };
     const usage = { inputTokens: 0, outputTokens: 0 };
     let reply = '';
     let rounds = 0;
@@ -179,12 +198,15 @@ export class AssistantService {
       await this.progress('Reading the portal');
       brief = await buildBrief(this.dispatch).catch(() => undefined);
     }
+    // The live part of the prompt: the account at a glance, then the page's
+    // working state and any answers to the previous run's questions.
+    const context = [brief, describeRunInput(run)].filter(Boolean).join('\n\n');
     const prompt: ChatSystem = {
       stable: systemPrompt({
         smus: this.options.smus ?? true,
         guidance: this.options.guidance ?? NO_GUIDANCE,
       }),
-      ...(brief ? { context: brief } : {}),
+      ...(context ? { context } : {}),
     };
 
     while (rounds < MAX_ROUNDS) {
@@ -212,6 +234,11 @@ export class AssistantService {
         results.push(await this.runTool(call.id, call.name, call.input, out));
       }
       turns.push({ role: 'tool', results });
+      if (out.interrupts.length > 0) {
+        // A question ends the run; the answer starts the next one.
+        reply ||= out.interrupts[0]!.message ?? '';
+        break;
+      }
       if (rounds === MAX_ROUNDS) {
         reply ||= 'I ran out of steps before finishing; ask me to continue from here.';
       }
@@ -233,6 +260,9 @@ export class AssistantService {
       usage,
       cost: costOf(this.model, usage),
       rounds,
+      outcome: out.interrupts.length
+        ? { type: 'interrupt', interrupts: out.interrupts }
+        : { type: 'success' },
       ...(out.helpers.length ? { helpers: out.helpers } : {}),
     };
   }
@@ -271,6 +301,8 @@ export class AssistantService {
         };
       case 'show_plan':
         return this.showPlan(id, input, out);
+      case 'ask_person':
+        return this.askPerson(id, input, out);
       case 'show_to_person':
         return this.showToPerson(id, input, out);
       case 'propose_action':
@@ -351,6 +383,98 @@ export class AssistantService {
       });
     }
     return { id, content: verdictsMessage(judged) };
+  }
+
+  /**
+   * A question with options, as an AG-UI interrupt: the page draws the
+   * options as cards (with the graph's summary of any entity they name) and
+   * sends the choice back as a resume entry matching responseSchema.
+   */
+  private async askPerson(
+    id: string,
+    input: Record<string, unknown>,
+    out: Collected
+  ): Promise<ToolResult> {
+    if (out.interrupts.length > 0) {
+      return { id, content: 'One question per answer; you already asked one.', isError: true };
+    }
+    const question = str(input, 'question');
+    const raw = Array.isArray(input.options) ? (input.options as unknown[]) : [];
+    const multi = input.multi === true;
+    const allowOther = input.allowOther === true;
+    if (
+      !question ||
+      raw.length === 0 ||
+      raw.length > MAX_OPTIONS ||
+      (raw.length < 2 && !allowOther)
+    ) {
+      return {
+        id,
+        content: `ask_person needs a question and 2-${MAX_OPTIONS} options (or 1 with allowOther). For an open question, just ask it in your reply.`,
+        isError: true,
+      };
+    }
+    const seen = new Set<string>();
+    const options: QuestionOption[] = [];
+    for (const item of raw) {
+      const o = (item ?? {}) as Record<string, unknown>;
+      const label = str(o, 'label');
+      if (!label) continue;
+      const entityId = str(o, 'entityId') || undefined;
+      const optionId = entityId ?? (str(o, 'id') || slug(label));
+      if (seen.has(optionId)) continue;
+      seen.add(optionId);
+      options.push({
+        id: optionId,
+        label,
+        ...(str(o, 'description') ? { description: str(o, 'description') } : {}),
+        ...(entityId ? { entityId } : {}),
+      });
+    }
+    // Options that name an entity get its one-line summary and portal path from the graph.
+    await Promise.all(
+      options
+        .filter((o) => o.entityId)
+        .map(async (o) => {
+          try {
+            const response = await this.dispatch({
+              method: 'GET',
+              path: `/api/context/entities/${encodeURIComponent(o.entityId!)}`,
+            });
+            const entity = JSON.parse(response.body)?.data?.entity;
+            if (entity?.summary) o.summary = String(entity.summary);
+            if (entity?.path) o.path = String(entity.path);
+          } catch {
+            // An option without a summary still works.
+          }
+        })
+    );
+    const ids = options.map((o) => o.id);
+    out.interrupts.push({
+      id: randomUUID(),
+      reason: 'input_required',
+      message: question,
+      toolCallId: id,
+      responseSchema: {
+        type: 'object',
+        properties: {
+          selected: {
+            type: 'array',
+            items: { type: 'string', enum: ids },
+            minItems: allowOther ? 0 : 1,
+            maxItems: multi ? ids.length : 1,
+          },
+          ...(allowOther ? { other: { type: 'string' } } : {}),
+        },
+        required: ['selected'],
+      },
+      metadata: { options, multi, allowOther },
+    });
+    return {
+      id,
+      content:
+        "Asked. This answer ends here; the person's choice arrives with their next message as an answer to this question.",
+    };
   }
 
   private showToPerson(id: string, input: Record<string, unknown>, out: Collected): ToolResult {
