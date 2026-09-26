@@ -259,7 +259,11 @@ export const PLANNED_ANSWER = {
       why: 'Creates "Margin by region" on Orders (gold) with Unit price and Share of region.',
       method: 'POST',
       path: '/api/authoring/new',
-      body: { name: 'Margin by region', dataSetIds: ['ds-orders-gold'] },
+      body: {
+        assetType: 'analysis',
+        name: 'Margin by region',
+        datasets: [{ identifier: 'orders', dataSetId: 'ds-orders-gold' }],
+      },
       planId: PLAN_ON_GOVERNED.id,
     },
   ],

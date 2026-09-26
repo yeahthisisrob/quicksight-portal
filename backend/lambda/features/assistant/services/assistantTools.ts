@@ -217,7 +217,7 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
   {
     name: 'propose_action',
     description:
-      'Prepare a write (apply, create, grant, tag, delete) for the person to run. Show the plan and preview it first when you can. It is not run until they click it.',
+      "Prepare a write (apply, create, grant, tag, delete) for the person to run. The body is checked against the operation's schema (use describe_operation first), and a write with a /preview twin is previewed with the same body; either failing comes back to you to fix. It is not run until they click it.",
     inputSchema: {
       type: 'object',
       properties: {

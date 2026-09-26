@@ -140,3 +140,32 @@ describe('context tools', () => {
     );
   });
 });
+
+describe('the body check', () => {
+  it('matches concrete paths to operations and reports what a body lacks', async () => {
+    const { bodyErrors, bodyFields, matchOperation } = await import('../lib/bodyCheck');
+    const spec = (await import('../../../../../shared/generated/openapi.json')).default as never;
+    expect(matchOperation(spec, 'POST', '/api/authoring/new')).toBe('/api/authoring/new');
+    expect(matchOperation(spec, 'POST', '/api/authoring/dashboard/d1/rebind')).toBe(
+      '/api/authoring/{assetType}/{assetId}/rebind'
+    );
+    expect(matchOperation(spec, 'POST', '/api/nope')).toBeUndefined();
+    expect(
+      bodyErrors(spec, 'POST', '/api/authoring/new', {
+        assetType: 'report',
+        name: 'x',
+        datasets: [],
+      })
+    ).toEqual(['assetType: must be one of dashboard, analysis', 'datasets: needs at least 1 item']);
+    expect(
+      bodyErrors(spec, 'POST', '/api/authoring/new', {
+        assetType: 'analysis',
+        name: 'x',
+        datasets: [{ identifier: 'o', dataSetId: 'ds', extra: true }],
+      })
+    ).toEqual([]);
+    expect(
+      bodyFields(spec, 'POST', '/api/authoring/{assetType}/{assetId}/rebind/preview')
+    ).toContain('rebinds');
+  });
+});

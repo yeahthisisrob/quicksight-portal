@@ -142,7 +142,7 @@ describe('AssistantService', () => {
               why: 'Clones onto gold.',
               method: 'POST',
               path: '/api/authoring/dashboard/d1/rebind',
-              body: { mode: 'clone' },
+              body: { mode: 'clone', rebinds: [] },
             },
           },
           {
@@ -440,14 +440,16 @@ describe('AssistantService', () => {
 
   it('draws the plan, judges each new field, and ties the action to the plan', async () => {
     const dispatch = vi.fn(async ({ path }: { method: string; path: string }) =>
-      path === '/api/authoring/datasets/ds-gold/columns'
-        ? {
-            status: 200,
-            body: JSON.stringify({
-              data: { columns: [{ name: 'net_margin' }, { name: 'revenue' }] },
-            }),
-          }
-        : { status: 404, body: '' }
+      path === '/api/authoring/dashboard/d1/rebind/preview'
+        ? { status: 200, body: JSON.stringify({ data: { canApply: true, definition: {} } }) }
+        : path === '/api/authoring/datasets/ds-gold/columns'
+          ? {
+              status: 200,
+              body: JSON.stringify({
+                data: { columns: [{ name: 'net_margin' }, { name: 'revenue' }] },
+              }),
+            }
+          : { status: 404, body: '' }
     );
     let told = '';
     const chat: ChatModel = {
@@ -466,6 +468,10 @@ describe('AssistantService', () => {
                   why: 'Copy on gold',
                   method: 'POST',
                   path: '/api/authoring/dashboard/d1/rebind',
+                  body: {
+                    mode: 'clone',
+                    rebinds: [{ identifier: 'orders', targetDataSetId: 'ds-gold' }],
+                  },
                 },
               },
             ],
@@ -553,5 +559,59 @@ describe('AssistantService', () => {
         asset: { kind: 'analysis', name: 'x', status: 'new' },
       })
     ).toContain('needs its id');
+  });
+
+  it('sends a malformed write back to the model, and previews a write before preparing it', async () => {
+    const dispatch = vi.fn(async ({ path }: { method: string; path: string }) =>
+      path === '/api/authoring/new/preview'
+        ? {
+            status: 200,
+            body: JSON.stringify({
+              data: { canApply: false, issues: [{ message: 'dataset ds-x not found' }] },
+            }),
+          }
+        : { status: 404, body: '' }
+    );
+    const create = (body: unknown) => ({
+      toolCalls: [
+        {
+          id: 'c',
+          name: 'propose_action',
+          input: {
+            title: 'Create the analysis',
+            why: 'x',
+            method: 'POST',
+            path: '/api/authoring/new',
+            body,
+          },
+        },
+      ],
+    });
+    const chat = scripted([
+      create({ assetType: 'analysis', name: 'Margin', dataSetIds: ['ds-x'] }),
+      create({
+        assetType: 'analysis',
+        name: 'Margin',
+        datasets: [{ identifier: 'orders', dataSetId: 'ds-x' }],
+      }),
+      { text: 'The dataset does not exist.' },
+    ]);
+    const told: string[] = [];
+    const spy = chat.turn.bind(chat);
+    chat.turn = async (system, turns, tools) => {
+      const last = turns[turns.length - 1];
+      if (last?.role === 'tool') told.push(last.results[0]?.content ?? '');
+      return spy(system, turns, tools);
+    };
+    const result = await new AssistantService(chat, model, dispatch).respond([
+      { role: 'user', text: 'make it' },
+    ]);
+
+    expect(result.actions).toEqual([]);
+    expect(told[0]).toContain('datasets: required');
+    expect(told[0]).toContain('The operation expects');
+    expect(told[1]).toContain('dataset ds-x not found');
+    // The malformed one never reached the API; the second was only previewed.
+    expect(dispatch.mock.calls.map((c) => c[0].path)).toEqual(['/api/authoring/new/preview']);
   });
 });
