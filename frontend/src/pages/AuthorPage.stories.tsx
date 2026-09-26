@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { assistantRoutes } from '@/features/api-reference/ui/__stories__/assistant';
+import { assistantRoutes } from '@/features/assistant/ui/__stories__/assistant';
 import {
   authorRoutes,
   REPAIR_PLAN,
@@ -80,15 +80,26 @@ export const ApiTab: Story = {
   name: 'API tab',
   parameters: { router: { initialEntries: ['/author?tab=api'] } },
   render: () => (
-    <AppShell path="author" routes={authorRoutes([...assistantRoutes(), ...settingsRoutes()])}>
+    <AppShell path="author" routes={authorRoutes(settingsRoutes())}>
+      <AuthorPage />
+    </AppShell>
+  ),
+};
+
+/** /author - the Assistant tab, first: ask, see the plan and the preview, run. */
+export const AssistantTab: Story = {
+  name: 'Assistant tab (the default)',
+  parameters: { router: { initialEntries: ['/author'] } },
+  render: () => (
+    <AppShell path="author" routes={authorRoutes(assistantRoutes())}>
       <AuthorPage />
     </AppShell>
   ),
 };
 
 export const Start: Story = {
-  name: 'Fresh, nothing chosen',
-  parameters: { router: { initialEntries: ['/author'] } },
+  name: 'Studio: fresh, nothing chosen',
+  parameters: { router: { initialEntries: ['/author?tab=studio'] } },
   render: () => (
     <AppShell path="author" routes={authorRoutes()}>
       <AuthorPage />

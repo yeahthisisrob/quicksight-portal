@@ -96,8 +96,8 @@ export interface AuthorResult {
   /** How it was written: in place, as a copy, or created from nothing. */
   mode: RebindMode | 'create';
   versionNumber?: number;
-  /** The folder the copy was placed in, when one was chosen. */
-  folderId?: string;
+  /** The folders it was filed in: the one chosen and the defaults from Settings. */
+  folderIds: string[];
   /** What the server wrote, in plain language. */
   changes?: DefinitionChange[];
 }

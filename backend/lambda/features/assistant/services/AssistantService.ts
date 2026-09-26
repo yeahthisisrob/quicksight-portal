@@ -140,28 +140,6 @@ function int(input: Record<string, unknown>, key: string): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : undefined;
 }
 
-/** Creates that make a new asset, which only account admins can see without an audience. */
-const CREATES_ASSET = new Set(['/api/authoring/new', '/api/authoring/definition']);
-
-/**
- * A new asset with no audience (permissionsFrom, template, or a folder to
- * put it in) is visible to account admins only. The model has to choose
- * one, or say the person asked for exactly that (adminsOnly).
- */
-export function audienceProblem(
-  template: string,
-  input: Record<string, unknown>
-): string | undefined {
-  if (!CREATES_ASSET.has(template) || input.adminsOnly === true) {
-    return undefined;
-  }
-  const body = (input.body ?? {}) as Record<string, unknown>;
-  if (body.permissionsFrom || body.template || body.folderId) {
-    return undefined;
-  }
-  return 'This creates an asset with no audience, so only account admins would see it. Give it one: permissionsFrom an asset whose audience fits (the dashboards that already use this dataset are a good start: context_related on the dataset, relations uses-dataset, direction in), or folderId of a shared folder the person named (find it with context_search, types folder). If neither is clear, ask the person who should see it. Set adminsOnly only when they said admins only.';
-}
-
 const ASKS_FOR_FILTER = /\b(filter(s|ed|ing)?|slicer|dropdown|date range|control bar)\b/i;
 const CREATE_NEW = '/api/authoring/new';
 const EDIT_OPS = '/api/authoring/{assetType}/{assetId}/rebind';
@@ -610,10 +588,6 @@ export class AssistantService {
         content: `The body does not fit ${method} ${template}, so it would fail when the person runs it:\n${problems.map((p) => `- ${p}`).join('\n')}\nThe operation expects:\n${describeOperation(spec as never, method, template)}\nFix the body and prepare it again.`,
         isError: true,
       };
-    }
-    const audience = audienceProblem(template, input);
-    if (audience) {
-      return { id, content: audience, isError: true };
     }
     const unasked = missingFilters(template, input.body, this.lastAsk, out.artifacts);
     if (unasked) {

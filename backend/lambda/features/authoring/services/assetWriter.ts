@@ -116,8 +116,8 @@ export async function recordProvenance(
     assetId: string;
     name: string;
     arn?: string;
-    /** The folder it was filed in, whose members changed. */
-    folderId?: string;
+    /** The folders it was filed in, whose members changed. */
+    folderIds?: string[];
     details: Record<string, unknown>;
   },
   auth?: AuthContext
@@ -125,7 +125,7 @@ export async function recordProvenance(
   await keepCacheFresh(
     [
       { assetType: entry.assetType, assetId: entry.assetId, name: entry.name, arn: entry.arn },
-      ...(entry.folderId ? [{ assetType: 'folder' as const, assetId: entry.folderId }] : []),
+      ...(entry.folderIds ?? []).map((assetId) => ({ assetType: 'folder' as const, assetId })),
     ],
     { accountId: auth?.accountId, userId: auth?.userId }
   );

@@ -204,7 +204,8 @@ export interface ApplyResult {
   versionNumber?: number;
   plan: RebindPlan;
   changes: DefinitionChange[];
-  folderId?: string;
+  /** Clone only: the folders it was filed in (the request's and the defaults from Settings). */
+  folderIds?: string[];
   warnings?: string[];
 }
 
@@ -315,6 +316,7 @@ export interface DefinitionApplyResult {
   arn: string;
   versionNumber?: number;
   mode: ApplyMode | 'create';
-  folderId?: string;
+  /** The folders it was filed in (the request's and the defaults from Settings). */
+  folderIds?: string[];
   warnings: string[];
 }

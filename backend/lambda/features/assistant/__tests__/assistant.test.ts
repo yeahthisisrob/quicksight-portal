@@ -624,28 +624,6 @@ describe('AssistantService', () => {
     expect(dispatch.mock.calls.map((c) => c[0].path)).toEqual(['/api/authoring/new/preview']);
   });
 
-  it('asks for an audience before creating an asset only admins could see', async () => {
-    const { audienceProblem } = await import('../services/AssistantService');
-    const body = {
-      assetType: 'analysis',
-      name: 'x',
-      datasets: [{ identifier: 'o', dataSetId: 'd' }],
-    };
-    expect(audienceProblem('/api/authoring/new', { body })).toContain('only account admins');
-    expect(
-      audienceProblem('/api/authoring/new', { body: { ...body, folderId: 'f' } })
-    ).toBeUndefined();
-    expect(
-      audienceProblem('/api/authoring/new', {
-        body: { ...body, permissionsFrom: { assetType: 'dashboard', assetId: 'd1' } },
-      })
-    ).toBeUndefined();
-    expect(audienceProblem('/api/authoring/new', { body, adminsOnly: true })).toBeUndefined();
-    expect(
-      audienceProblem('/api/authoring/{assetType}/{assetId}/rebind', { body })
-    ).toBeUndefined();
-  });
-
   it('names the planner model an answer used', async () => {
     const { plannerModelOf } = await import('../services/AssistantService');
     expect(

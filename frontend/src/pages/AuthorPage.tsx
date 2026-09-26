@@ -4,37 +4,48 @@ import { useSearchParams } from 'react-router-dom';
 
 import { SmusGate } from '@/entities/smus';
 import { loadApiTab } from '@/features/api-reference';
+import { loadAssistantTab } from '@/features/assistant';
 import { AuthorStudio } from '@/features/author';
 import { ApiKeysPanel } from '@/features/settings';
 
 import { TabBar } from '@/shared/design-system';
 import { PageLoader } from '@/shared/ui';
 
-type AuthorTab = 'studio' | 'api';
+type AuthorTab = 'assistant' | 'studio' | 'api';
 
+const AssistantTab = lazy(loadAssistantTab);
 const ApiTab = lazy(loadApiTab);
 
 const TABS: Array<{ value: AuthorTab; label: string }> = [
+  { value: 'assistant', label: 'Assistant' },
   { value: 'studio', label: 'Studio' },
   { value: 'api', label: 'API' },
 ];
 
+/** Params only the Studio reads: a link carrying any of them opens the Studio. */
+const STUDIO_PARAMS = ['id', 'type', 'new'];
+
+/** The tab in the URL, else Studio when the link is a Studio link, else the Assistant. */
+export function authorTabOf(params: URLSearchParams): AuthorTab {
+  const tab = params.get('tab');
+  if (tab === 'assistant' || tab === 'studio' || tab === 'api') {
+    return tab;
+  }
+  return STUDIO_PARAMS.some((p) => params.has(p)) ? 'studio' : 'assistant';
+}
+
 /**
- * /author?type=dashboard|analysis&id=<assetId> - the Studio, only with an
- * active SMUS project. /author?tab=api - the same authoring by API: how to
- * use an agent with a key, the keys, and every operation. Not gated: a key
- * works whether or not SMUS is configured.
+ * /author - the Assistant: ask, and it plans, previews and prepares the
+ * change. ?tab=studio (or ?type=&id=) - the Studio, only with an active SMUS
+ * project. ?tab=api - the same authoring by API: the keys and every
+ * operation; not gated, a key works whether or not SMUS is configured.
  */
 export default function AuthorPage() {
   const [params, setParams] = useSearchParams();
-  const tab: AuthorTab = params.get('tab') === 'api' ? 'api' : 'studio';
+  const tab = authorTabOf(params);
   const select = (next: AuthorTab) => {
     const copy = new URLSearchParams(params);
-    if (next === 'api') {
-      copy.set('tab', 'api');
-    } else {
-      copy.delete('tab');
-    }
+    copy.set('tab', next);
     setParams(copy, { replace: true });
   };
 
@@ -46,6 +57,10 @@ export default function AuthorPage() {
       {tab === 'api' ? (
         <Suspense fallback={<PageLoader />}>
           <ApiTab keysPanel={<ApiKeysPanel />} />
+        </Suspense>
+      ) : tab === 'assistant' ? (
+        <Suspense fallback={<PageLoader />}>
+          <AssistantTab />
         </Suspense>
       ) : (
         <SmusGate subject="Author">

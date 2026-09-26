@@ -80,4 +80,13 @@ export const settingsApi = {
       'Failed to list SMUS projects'
     );
   },
+
+  listFolders(): Promise<{ folders: Array<{ id: string; name: string; sharedWith: number }> }> {
+    return unwrap(
+      apiClient.get<
+        ApiResponse<{ folders: Array<{ id: string; name: string; sharedWith: number }> }>
+      >('/settings/quicksight/folders'),
+      'Failed to list folders'
+    );
+  },
 };

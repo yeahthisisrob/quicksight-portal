@@ -4,7 +4,13 @@ import type { components } from '@shared/generated/types';
 
 // Use OpenAPI generated types for consistency
 type TagFilter = components['schemas']['TagFilter'];
-type AssetFilter = components['schemas']['AssetFilter'];
+/** An asset picked in the filter bar: UI state, never sent as such. */
+interface AssetFilter {
+  id: string;
+  name: string;
+  /** dashboard, analysis, dataset, ... */
+  type: string;
+}
 
 /**
  * Options for the useFilters hook

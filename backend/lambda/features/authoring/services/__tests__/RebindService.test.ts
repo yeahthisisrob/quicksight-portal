@@ -398,7 +398,7 @@ describe('RebindService', () => {
       );
       expect(moved).toMatchObject({ ColumnIndex: 0, RowIndex: 12 });
       expect(mocks.qs.createFolderMembership).toHaveBeenCalledWith('f-1', 'new', 'DASHBOARD');
-      expect(result.folderId).toBe('f-1');
+      expect(result.folderIds).toEqual(['f-1']);
       expect(result.changes.map((c) => c.kind)).toEqual(['rebind', 'rename', 'visual', 'layout']);
     });
 

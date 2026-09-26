@@ -16,3 +16,4 @@ allowBuilds:
   '@parcel/watcher': true # Storybook/Vite file watching
   unrs-resolver: true # eslint import resolver
   aws-sdk: false # deprecated v2, pulled in transitively; its build is not needed
+  vue-demi: set this to true or false

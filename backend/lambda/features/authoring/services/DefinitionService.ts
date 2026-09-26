@@ -27,6 +27,7 @@ import type {
   NewDefinitionRequest,
 } from '../types';
 import { createAsset, recordProvenance, updateAsset } from './assetWriter';
+import { audienceFor, fileInFolders } from './audience';
 import type { RebindService, TargetDataset } from './RebindService';
 
 const NAME_MAX_LENGTH = 200;
@@ -104,6 +105,7 @@ export class DefinitionService {
     });
 
     let written: { assetId: string; arn: string; versionNumber?: number };
+    let filed: string[] = [];
     if (request.mode === 'update') {
       written = await updateAsset(this.quickSightService, {
         assetType: target.assetType,
@@ -114,24 +116,29 @@ export class DefinitionService {
         dashboardPublishOptions: loaded.dashboardPublishOptions,
       });
     } else {
+      // A copy keeps the source's audience, adds its builder as owner, and is filed.
       const from = request.permissionsFrom ?? target;
-      const permissions = await this.rebindService.permissionsOf(from.assetType, from.assetId);
-      if (!permissions) {
-        warnings.push(
-          `${from.assetId} has no permissions to inherit, so only account admins will see the copy.`
-        );
-      }
+      const inherited = await this.rebindService.permissionsOf(from.assetType, from.assetId);
+      const audience = await audienceFor(target.assetType, inherited, auth, request.folderId);
+      warnings.push(...audience.warnings);
       written = await createAsset(this.quickSightService, {
         assetType: target.assetType,
         assetId: request.newAssetId?.trim() || randomUUID(),
         name,
         definition,
-        permissions,
+        permissions: audience.permissions,
         themeArn,
         dashboardPublishOptions: loaded.dashboardPublishOptions,
       });
+      const filing = await fileInFolders(
+        this.quickSightService,
+        audience.folderIds,
+        written.assetId,
+        target.assetType
+      );
+      filed = filing.filed;
+      warnings.push(...filing.warnings);
     }
-    const folderId = await this.file(target.assetType, written.assetId, request.folderId);
     await recordProvenance(
       this.quickSightService,
       {
@@ -140,7 +147,7 @@ export class DefinitionService {
         assetId: written.assetId,
         name,
         arn: written.arn,
-        folderId,
+        folderIds: filed,
         details: { definition: true, sheets: definition.Sheets.length },
       },
       auth
@@ -150,7 +157,7 @@ export class DefinitionService {
       ...written,
       name,
       mode: request.mode,
-      ...(folderId ? { folderId } : {}),
+      folderIds: filed,
       warnings,
     };
   }
@@ -165,17 +172,15 @@ export class DefinitionService {
     const checked = await this.check(definition);
     this.assertApplicable(checked.preview);
     const warnings = [...checked.preview.warnings];
-    const permissions = request.permissionsFrom
+    const inherited = request.permissionsFrom
       ? await this.rebindService.permissionsOf(
           request.permissionsFrom.assetType,
           request.permissionsFrom.assetId
         )
       : undefined;
-    if (!permissions) {
-      warnings.push(
-        'No audience was given (permissionsFrom), so only account admins will see this asset.'
-      );
-    }
+    const audience = await audienceFor(request.assetType, inherited, auth, request.folderId);
+    const permissions = audience.permissions;
+    warnings.push(...audience.warnings);
     logger.info('Creating asset from a definition', {
       assetType: request.assetType,
       name,
@@ -189,7 +194,13 @@ export class DefinitionService {
       permissions,
       themeArn: request.themeArn?.trim() || undefined,
     });
-    const folderId = await this.file(request.assetType, written.assetId, request.folderId);
+    const { filed, warnings: filing } = await fileInFolders(
+      this.quickSightService,
+      audience.folderIds,
+      written.assetId,
+      request.assetType
+    );
+    warnings.push(...filing);
     await recordProvenance(
       this.quickSightService,
       {
@@ -198,7 +209,7 @@ export class DefinitionService {
         assetId: written.assetId,
         name,
         arn: written.arn,
-        folderId,
+        folderIds: filed,
         details: { definition: true, sheets: definition.Sheets.length },
       },
       auth
@@ -208,7 +219,7 @@ export class DefinitionService {
       ...written,
       name,
       mode: 'create',
-      ...(folderId ? { folderId } : {}),
+      folderIds: filed,
       warnings,
     };
   }
@@ -302,21 +313,5 @@ export class DefinitionService {
       throw new ValidationError(`Name must be at most ${NAME_MAX_LENGTH} characters`);
     }
     return name;
-  }
-
-  private async file(
-    assetType: AuthorableAssetType,
-    assetId: string,
-    folderId: string | undefined
-  ): Promise<string | undefined> {
-    if (!folderId) {
-      return undefined;
-    }
-    await this.quickSightService.createFolderMembership(
-      folderId,
-      assetId,
-      assetType === 'dashboard' ? 'DASHBOARD' : 'ANALYSIS'
-    );
-    return folderId;
   }
 }

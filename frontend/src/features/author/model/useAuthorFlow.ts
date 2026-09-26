@@ -702,7 +702,11 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
       name: result.name,
       mode: 'create',
       versionNumber: result.versionNumber,
-      folderId: result.folderId ?? state.folder?.id,
+      folderIds: result.folderIds?.length
+        ? result.folderIds
+        : state.folder
+          ? [state.folder.id]
+          : [],
       changes: result.changes,
     };
     dispatch({ type: 'published', result: published });
@@ -749,7 +753,11 @@ export function useAuthorFlow(options: AuthorFlowOptions = {}): AuthorFlow {
         name: result.name,
         mode: draft.mode,
         versionNumber: result.versionNumber,
-        folderId: result.folderId ?? (draft.mode === 'clone' ? state.folder?.id : undefined),
+        folderIds: result.folderIds?.length
+          ? result.folderIds
+          : draft.mode === 'clone' && state.folder
+            ? [state.folder.id]
+            : [],
         changes: result.changes,
       };
       dispatch({ type: 'published', result: published });

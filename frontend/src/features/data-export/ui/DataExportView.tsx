@@ -217,7 +217,7 @@ export default function DataExportView({
         {jobStatus && (
           <ExportJobStatus
             status={jobStatus.status}
-            progress={jobStatus.progress}
+            progress={jobStatus.progress ?? 0}
             message={jobStatus.message}
             stats={jobStatus.stats}
             lastUpdatedTime={jobStatus.lastUpdatedTime}

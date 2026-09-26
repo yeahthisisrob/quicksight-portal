@@ -1,5 +1,5 @@
 /**
- * Shared API types and client
+ * Shared API types
  * Single source of truth for API contracts
  */
 
@@ -18,9 +18,6 @@ export type FolderMember = components['schemas']['FolderMember'];
 export type DashboardListItem = components['schemas']['DashboardListItem'];
 export type DatasetListItem = components['schemas']['DatasetListItem'];
 export type UserListItem = components['schemas']['UserListItem'];
-export type AssetLineage = components['schemas']['AssetLineage'];
-export type LineageRelationship = components['schemas']['LineageRelationship'];
-export type FieldInfo = components['schemas']['FieldInfo'];
 export type Tag = components['schemas']['Tag'];
 export type AssetType = components['schemas']['AssetType'];
 export type AssetStatus = components['schemas']['AssetStatus'];

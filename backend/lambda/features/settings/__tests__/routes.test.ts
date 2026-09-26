@@ -22,6 +22,7 @@ describe('settingsRoutes', () => {
       'GET /settings',
       'PUT /settings',
       'GET /settings/smus/projects',
+      'GET /settings/quicksight/folders',
       'GET /settings/api-keys',
       'POST /settings/api-keys',
       'DELETE /^\\/settings\\/api-keys\\/([^/]+)$/',

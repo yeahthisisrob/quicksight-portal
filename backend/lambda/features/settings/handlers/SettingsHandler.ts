@@ -8,6 +8,7 @@ import { apiKeyStore } from '../../../shared/services/auth/ApiKeyStore';
 import { CacheService } from '../../../shared/services/cache/CacheService';
 import { settingsStore } from '../../../shared/services/settings/SettingsStore';
 import { SmusService } from '../../../shared/services/smus/SmusService';
+import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 
@@ -74,6 +75,36 @@ export class SettingsHandler {
         event,
         error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
         error?.message || 'Failed to list SMUS projects'
+      );
+    }
+  }
+
+  /**
+   * GET /settings/quicksight/folders - the folders authored assets can be
+   * filed in, from the export cache, with the number of people or groups
+   * each is shared with.
+   */
+  public async listFolders(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const entries = await CacheService.getInstance().getCacheEntries({
+        assetType: 'folder',
+        statusFilter: AssetStatusFilter.ACTIVE,
+      });
+      const folders = entries
+        .map((f: any) => ({
+          id: String(f.assetId),
+          name: String(f.assetName ?? f.assetId),
+          sharedWith: Array.isArray(f.permissions) ? f.permissions.length : 0,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      return successResponse(event, { success: true, data: { folders } });
+    } catch (error: any) {
+      logger.error('List folders failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error?.message || 'Failed to list folders'
       );
     }
   }

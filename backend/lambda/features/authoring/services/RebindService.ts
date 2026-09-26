@@ -58,6 +58,7 @@ import type {
   RebindRequest,
 } from '../types';
 import { createAsset, recordProvenance, updateAsset } from './assetWriter';
+import { audienceFor, fileInFolders } from './audience';
 
 const NAME_MAX_LENGTH = 200;
 
@@ -452,7 +453,7 @@ export class RebindService {
 
   private recordProvenance(
     assetType: AuthorableAssetType,
-    written: { assetId: string; name: string; arn?: string; folderId?: string },
+    written: { assetId: string; name: string; arn?: string; folderIds?: string[] },
     request: ApplyRequest,
     changeCount: number,
     auth?: AuthContext
@@ -465,7 +466,7 @@ export class RebindService {
         assetId: written.assetId,
         name: written.name,
         arn: written.arn,
-        folderId: written.folderId,
+        folderIds: written.folderIds,
         details: {
           rebinds: request.rebinds.length,
           ops: request.ops?.length ?? 0,
@@ -522,24 +523,40 @@ export class RebindService {
       renamed: name !== loaded.name,
     });
 
-    const written =
-      request.mode === 'clone'
-        ? await this.clone(assetType, assetId, request.newAssetId, name, definition, target)
-        : await this.update(assetType, assetId, name, definition, target);
-
-    let folderId: string | undefined;
-    if (request.folderId && request.mode === 'clone') {
-      await this.quickSightService.createFolderMembership(
-        request.folderId,
-        written.assetId,
-        assetType === 'dashboard' ? 'DASHBOARD' : 'ANALYSIS'
+    let written: { assetId: string; arn: string; versionNumber?: number };
+    let filed: string[] = [];
+    if (request.mode === 'clone') {
+      // A copy keeps the source's audience, adds its builder as owner, and is filed.
+      const audience = await audienceFor(
+        assetType,
+        await this.sourcePermissions(assetType, assetId),
+        auth,
+        request.folderId
       );
-      folderId = request.folderId;
+      applyWarnings.push(...audience.warnings);
+      written = await this.clone(
+        assetType,
+        request.newAssetId,
+        name,
+        definition,
+        target,
+        audience.permissions
+      );
+      const filing = await fileInFolders(
+        this.quickSightService,
+        audience.folderIds,
+        written.assetId,
+        assetType
+      );
+      filed = filing.filed;
+      applyWarnings.push(...filing.warnings);
+    } else {
+      written = await this.update(assetType, assetId, name, definition, target);
     }
 
     await this.recordProvenance(
       assetType,
-      { assetId: written.assetId, name, arn: written.arn, folderId },
+      { assetId: written.assetId, name, arn: written.arn, folderIds: filed },
       request,
       changes.length,
       auth
@@ -552,7 +569,7 @@ export class RebindService {
       mode: request.mode,
       plan,
       changes,
-      folderId,
+      folderIds: filed,
       ...(applyWarnings.length ? { warnings: applyWarnings } : {}),
     };
   }
@@ -748,20 +765,20 @@ export class RebindService {
     });
   }
 
-  private async clone(
+  private clone(
     assetType: AuthorableAssetType,
-    sourceId: string,
     requestedId: string | undefined,
     name: string,
     definition: Record<string, any>,
-    loaded: LoadedDefinition
+    loaded: LoadedDefinition,
+    permissions: any[] | undefined
   ): Promise<{ assetId: string; arn: string; versionNumber?: number }> {
     return createAsset(this.quickSightService, {
       assetType,
       assetId: requestedId?.trim() || randomUUID(),
       name,
       definition,
-      permissions: await this.sourcePermissions(assetType, sourceId),
+      permissions,
       themeArn: loaded.themeArn,
       dashboardPublishOptions: loaded.dashboardPublishOptions,
     });

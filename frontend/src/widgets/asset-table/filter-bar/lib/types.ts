@@ -57,7 +57,9 @@ export interface AssetOption {
   fieldCount?: number;
 }
 
-export type AssetFilter = components['schemas']['AssetFilter'];
+import type { AssetFilter } from '@/shared/lib/useFilters';
+
+export type { AssetFilter };
 
 /** Option for the user-access filter dropdown (value = QuickSight user name) */
 export interface UserAccessOption {

@@ -7,6 +7,16 @@
  * to the end and can be handed back to the assistant. The conversation is
  * kept in the browser, so a reload picks it up where it was.
  */
+
+import {
+  type AppendMessage,
+  AssistantRuntimeProvider,
+  ComposerPrimitive,
+  MessagePrimitive,
+  type ThreadMessageLike,
+  ThreadPrimitive,
+  useExternalStoreRuntime,
+} from '@assistant-ui/react';
 import {
   AddComment,
   ArrowForward,
@@ -25,12 +35,19 @@ import {
   Collapse,
   LinearProgress,
   Stack,
-  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { assistantApi, getApiErrorMessage, jobsApi } from '@/shared/api';
 import type {
@@ -47,6 +64,7 @@ import {
   type ActionRun,
   answerTo,
   CONTINUE_MESSAGE,
+  type ConversationEntry,
   createdAsset,
   endsOnAPromise,
   followUpFor,
@@ -313,6 +331,20 @@ function ActionCard({
   );
 }
 
+/** The questions an answer asked (AG-UI input_required interrupts). */
+function questionsOf(result: AssistantChatResult) {
+  return result.outcome?.type === 'interrupt'
+    ? (result.outcome.interrupts ?? []).filter((i) => i.reason === 'input_required')
+    : [];
+}
+
+/** The reply as prose; empty when it only repeats the question drawn as a card. */
+function replyText(result: AssistantChatResult): string {
+  return questionsOf(result).some((q) => q.message?.trim() === result.reply.trim())
+    ? ''
+    : result.reply;
+}
+
 /** One answer: the reply, what it drew, the changes to confirm, and what it cost. */
 export function AnswerView({
   result,
@@ -321,22 +353,19 @@ export function AnswerView({
   onFollowUp,
   answerFor = () => undefined,
   onAnswer,
+  showReply = true,
 }: {
   result: AssistantChatResult;
   /** The answer a later message gave to one of this answer's questions. */
   answerFor?: (interruptId: string) => AgUiResumeEntry | undefined;
   onAnswer?: (interrupt: AgUiInterrupt, selected: string[], other?: string) => void;
+  /** False inside the thread, which renders the reply as the message's text. */
+  showReply?: boolean;
 } & Partial<ActionCallbacks>) {
   const linked = new Set(result.actions.map((a) => a.previewId).filter(Boolean));
   const loose = result.artifacts.filter((a) => !linked.has(a.id));
-  const questions =
-    result.outcome?.type === 'interrupt'
-      ? (result.outcome.interrupts ?? []).filter((i) => i.reason === 'input_required')
-      : [];
-  // The question is drawn as a card; do not repeat it as prose.
-  const reply = questions.some((q) => q.message?.trim() === result.reply.trim())
-    ? ''
-    : result.reply;
+  const questions = questionsOf(result);
+  const reply = showReply ? replyText(result) : '';
   return (
     <Stack spacing={1.25} sx={{ minWidth: 0 }}>
       {reply && <Markdown>{reply}</Markdown>}
@@ -411,22 +440,134 @@ function Working({ status, since }: { status: string; since?: number }) {
   );
 }
 
+/** What the thread's message parts need from the conversation. */
+interface ChatContextValue {
+  conversation: ReturnType<typeof useConversation>['conversation'];
+  busy: boolean;
+  recordRun: ReturnType<typeof useConversation>['recordRun'];
+  answer: ReturnType<typeof useConversation>['answer'];
+  submit: (text: string) => void;
+}
+
+const ChatContext = createContext<ChatContextValue | null>(null);
+
+function useChat(): ChatContextValue {
+  const value = useContext(ChatContext);
+  if (!value) throw new Error('Assistant message parts render inside AssistantChat');
+  return value;
+}
+
+/**
+ * One conversation entry as an assistant-ui message: the person's text, or
+ * the reply as markdown text plus an `answer` data part that draws
+ * everything else the answer carries (cards, plan, actions, questions).
+ */
+export function toThreadMessage(entry: ConversationEntry, index: number): ThreadMessageLike {
+  if (entry.role === 'user') {
+    return { id: `u${index}`, role: 'user', content: entry.text };
+  }
+  const text = replyText(entry.result);
+  return {
+    id: `a${index}`,
+    role: 'assistant',
+    content: [
+      ...(text ? [{ type: 'text' as const, text }] : []),
+      { type: 'data-answer' as const, data: { index } },
+    ],
+  };
+}
+
+function MarkdownPart({ text }: { text: string }) {
+  return <Markdown>{text}</Markdown>;
+}
+
+function AnswerPart({ data }: { data: { index: number } }) {
+  const { conversation, busy, recordRun, answer, submit } = useChat();
+  const entry = conversation.entries[data.index];
+  if (entry?.role !== 'assistant') return null;
+  return (
+    <AnswerView
+      result={entry.result}
+      showReply={false}
+      runs={conversation.runs}
+      onRun={recordRun}
+      onFollowUp={busy ? undefined : submit}
+      answerFor={(id) => answerTo(conversation, id)}
+      onAnswer={busy ? undefined : answer}
+    />
+  );
+}
+
+const ASSISTANT_PARTS = { Text: MarkdownPart, data: { by_name: { answer: AnswerPart } } };
+
+function UserMessage() {
+  return (
+    <MessagePrimitive.Root>
+      <Box
+        sx={{
+          ml: 'auto',
+          width: 'fit-content',
+          maxWidth: '80%',
+          bgcolor: 'action.selected',
+          borderRadius: 2,
+          px: 1.5,
+          py: 1,
+          typography: 'body2',
+          whiteSpace: 'pre-wrap',
+        }}
+      >
+        <MessagePrimitive.Parts />
+      </Box>
+    </MessagePrimitive.Root>
+  );
+}
+
+function AssistantMessage() {
+  return (
+    <MessagePrimitive.Root>
+      <Stack spacing={1.25} sx={{ minWidth: 0 }}>
+        <MessagePrimitive.Parts components={ASSISTANT_PARTS} />
+      </Stack>
+    </MessagePrimitive.Root>
+  );
+}
+
+/**
+ * The chat, on assistant-ui: its thread, message list, auto-scroll and
+ * composer, fed from our conversation (an external store: the job and its
+ * polling stay ours). Each answer's cards render as a message part.
+ */
 export function AssistantChat() {
   const { conversation, status, error, busy, ask, answer, retry, recordRun, reset } =
     useConversation();
-  const [draft, setDraft] = useState('');
   const entries = conversation.entries;
   const total = entries.reduce((sum, e) => sum + (e.role === 'assistant' ? e.result.cost : 0), 0);
   const last = entries[entries.length - 1];
   const lastAnswerPromises = last?.role === 'assistant' && endsOnAPromise(last.text);
 
-  const submit = (text: string) => {
-    if (!text.trim() || busy) {
-      return;
-    }
-    ask(text);
-    setDraft('');
-  };
+  const submit = useCallback(
+    (text: string) => {
+      if (text.trim() && !busy) ask(text);
+    },
+    [ask, busy]
+  );
+
+  const runtime = useExternalStoreRuntime<ConversationEntry>({
+    messages: entries,
+    isRunning: busy,
+    convertMessage: toThreadMessage,
+    onNew: async (message: AppendMessage) => {
+      const text = message.content
+        .map((part) => (part.type === 'text' ? part.text : ''))
+        .join('\n');
+      submit(text);
+    },
+  });
+
+  const chat = useMemo(
+    () => ({ conversation, busy, recordRun, answer, submit }),
+    [conversation, busy, recordRun, answer, submit]
+  );
 
   return (
     <Container
@@ -440,110 +581,114 @@ export function AssistantChat() {
         ) : undefined
       }
     >
-      <Stack spacing={2}>
-        {entries.length === 0 && !busy ? (
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-            {SUGGESTIONS.map((s) => (
-              <Chip key={s} label={s} onClick={() => submit(s)} variant="outlined" />
-            ))}
-          </Stack>
-        ) : (
-          <Stack spacing={2}>
-            {entries.map((entry, index) =>
-              entry.role === 'user' ? (
-                <Box
-                  key={`u-${index}-${entry.text.slice(0, 16)}`}
-                  sx={{
-                    alignSelf: 'flex-end',
-                    maxWidth: '80%',
-                    bgcolor: 'action.selected',
-                    borderRadius: 2,
-                    px: 1.5,
-                    py: 1,
-                  }}
-                >
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                    {entry.text}
-                  </Typography>
-                </Box>
-              ) : (
-                <AnswerView
-                  key={`a-${index}-${entry.result.rounds}`}
-                  result={entry.result}
-                  runs={conversation.runs}
-                  onRun={recordRun}
-                  onFollowUp={busy ? undefined : submit}
-                  answerFor={(id) => answerTo(conversation, id)}
-                  onAnswer={busy ? undefined : answer}
-                />
-              )
-            )}
-            {!busy && lastAnswerPromises && (
-              <Alert
-                severity="info"
-                action={
-                  <Button
-                    color="inherit"
-                    size="small"
-                    startIcon={<ArrowForward />}
-                    onClick={() => submit(CONTINUE_MESSAGE)}
+      <AssistantRuntimeProvider runtime={runtime}>
+        <ChatContext.Provider value={chat}>
+          <ThreadPrimitive.Root>
+            <Stack spacing={2}>
+              <ThreadPrimitive.Viewport
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 16,
+                  maxHeight: '70vh',
+                  overflowY: 'auto',
+                }}
+              >
+                <ThreadPrimitive.Empty>
+                  <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                    {SUGGESTIONS.map((s) => (
+                      <Chip key={s} label={s} onClick={() => submit(s)} variant="outlined" />
+                    ))}
+                  </Stack>
+                </ThreadPrimitive.Empty>
+                <ThreadPrimitive.Messages>
+                  {({ message }) =>
+                    message.role === 'user' ? <UserMessage /> : <AssistantMessage />
+                  }
+                </ThreadPrimitive.Messages>
+                {!busy && lastAnswerPromises && (
+                  <Alert
+                    severity="info"
+                    action={
+                      <Button
+                        color="inherit"
+                        size="small"
+                        startIcon={<ArrowForward />}
+                        onClick={() => submit(CONTINUE_MESSAGE)}
+                      >
+                        Continue
+                      </Button>
+                    }
                   >
-                    Continue
-                  </Button>
-                }
-              >
-                It stopped after saying what it would do next. Nothing is running.
-              </Alert>
-            )}
-            {busy && <Working status={status ?? 'Thinking'} since={conversation.pending?.since} />}
-            {error && (
-              <Alert
-                severity="error"
-                action={
-                  entries[entries.length - 1]?.role === 'user' ? (
-                    <Button color="inherit" size="small" startIcon={<Replay />} onClick={retry}>
-                      Try again
+                    It stopped after saying what it would do next. Nothing is running.
+                  </Alert>
+                )}
+                {busy && (
+                  <Working status={status ?? 'Thinking'} since={conversation.pending?.since} />
+                )}
+                {error && (
+                  <Alert
+                    severity="error"
+                    action={
+                      last?.role === 'user' ? (
+                        <Button color="inherit" size="small" startIcon={<Replay />} onClick={retry}>
+                          Try again
+                        </Button>
+                      ) : undefined
+                    }
+                  >
+                    {error}
+                  </Alert>
+                )}
+              </ThreadPrimitive.Viewport>
+              <ComposerPrimitive.Root>
+                <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-end' }}>
+                  <Box
+                    sx={(theme) => ({
+                      flex: 1,
+                      display: 'flex',
+                      border: 1,
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                      px: 1.5,
+                      py: 1,
+                      '&:focus-within': { borderColor: 'primary.main' },
+                      '& textarea': {
+                        flex: 1,
+                        border: 0,
+                        outline: 0,
+                        resize: 'none',
+                        background: 'transparent',
+                        color: 'inherit',
+                        font: 'inherit',
+                        fontSize: theme.typography.body2.fontSize,
+                      },
+                    })}
+                  >
+                    <ComposerPrimitive.Input
+                      rows={1}
+                      maxRows={6}
+                      placeholder="Ask about a dashboard, a dataset, a calculated field, or what you want built"
+                      aria-label="Message the assistant"
+                      submitMode="enter"
+                    />
+                  </Box>
+                  <ComposerPrimitive.Send asChild>
+                    <Button variant="contained" startIcon={<Send />}>
+                      Send
                     </Button>
-                  ) : undefined
-                }
-              >
-                {error}
-              </Alert>
-            )}
-          </Stack>
-        )}
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-end' }}>
-          <TextField
-            fullWidth
-            multiline
-            maxRows={6}
-            size="small"
-            placeholder="Ask about a dashboard, a dataset, a calculated field, or what you want built"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                submit(draft);
-              }
-            }}
-            slotProps={{ htmlInput: { 'aria-label': 'Message the assistant' } }}
-          />
-          <Button
-            variant="contained"
-            onClick={() => submit(draft)}
-            disabled={!draft.trim() || busy}
-            startIcon={<Send />}
-          >
-            Send
-          </Button>
-        </Stack>
-        {total > 0 && (
-          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            This conversation so far: about {formatCost(total)} at list price.
-          </Typography>
-        )}
-      </Stack>
+                  </ComposerPrimitive.Send>
+                </Stack>
+              </ComposerPrimitive.Root>
+            </Stack>
+          </ThreadPrimitive.Root>
+        </ChatContext.Provider>
+      </AssistantRuntimeProvider>
+      {total > 0 && (
+        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 1 }}>
+          This conversation so far: about {formatCost(total)} at list price.
+        </Typography>
+      )}
     </Container>
   );
 }
