@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.27.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.27.1...v2.27.2) (2026-09-26)
+
+
+### Bug Fixes
+
+* **studio,auth:** a revoked key stops a run it started; the asset list pages and remembers its place ([#252](https://github.com/yeahthisisrob/quicksight-portal/issues/252)) ([f2ef45b](https://github.com/yeahthisisrob/quicksight-portal/commit/f2ef45b6470719f7f3cca97a5e1b049920f26851))
+
+
+### Code Refactoring
+
+* **backend:** no slice imports another; shared services and ports instead ([#254](https://github.com/yeahthisisrob/quicksight-portal/issues/254)) ([251672c](https://github.com/yeahthisisrob/quicksight-portal/commit/251672c8825bb7d1189f54fffb71bb76c0c9992c))
+
 ## [2.27.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.27.0...v2.27.1) (2026-09-26)
 
 
