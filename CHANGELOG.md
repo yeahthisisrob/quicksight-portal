@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.30.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.29.0...v2.30.0) (2026-09-26)
+
+
+### Features
+
+* **authoring,playbooks:** rename dataset calculated fields to the standard without breaking readers ([#259](https://github.com/yeahthisisrob/quicksight-portal/issues/259)) ([67cd6fd](https://github.com/yeahthisisrob/quicksight-portal/commit/67cd6fddd72238e90cbe13228d9e7e0309d47f9e))
+* **parity:** a top-level page setting what the portal adds beside what AWS offers today ([#261](https://github.com/yeahthisisrob/quicksight-portal/issues/261)) ([056a07c](https://github.com/yeahthisisrob/quicksight-portal/commit/056a07c9f8885a189fcd0e0c16390c2e6a7cf09d))
+
 ## [2.29.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.28.0...v2.29.0) (2026-09-26)
 
 
