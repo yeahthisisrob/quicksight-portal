@@ -41,6 +41,11 @@ export const authoringRoutes: RouteHandler[] = [
     handler: (event) => handler.getDatasets(event),
   },
   {
+    method: 'GET',
+    path: /^\/authoring\/(analysis|dashboard)\/([^/]+)\/calculated-fields$/,
+    handler: (event) => handler.getCalculatedFields(event),
+  },
+  {
     method: 'POST',
     path: /^\/authoring\/(analysis|dashboard)\/([^/]+)\/rebind\/plan$/,
     handler: (event) => handler.planRebind(event),

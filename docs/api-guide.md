@@ -184,7 +184,8 @@ theme and never write a definition QuickSight would refuse:
 | Migrate onto a template dashboard's layout standard | `template` on `.../rebind/preview` |
 | Convert chart families, standardise KPIs, add casts for changed column types | `typeRules` on `.../rebind/preview` |
 | Add calculated fields from the template library | `addCalculatedFields` on `.../rebind/preview` |
-| Replace a calculated field with a column the dataset now has, and drop it | `repairs: [{ "op": "replaceCalculatedField", "identifier", "name", "column" }]` on the preview and apply |
+| See each calculated field, its expression and what reads it | `GET /api/authoring/{type}/{id}/calculated-fields` |
+| Replace a calculated field with a column the dataset now has, rename one, or drop one nothing reads | `ops`: `replaceCalculatedField` (identifier, name, column), `renameCalculatedField` (identifier, name, to), `dropCalculatedField` (identifier, name); no sheetId, they follow every reference |
 | Repair an asset QuickSight refuses to write | `POST /api/authoring/{type}/{id}/repair/plan`, then `repairs` on the preview |
 | A dashboard from nothing, by naming columns | `POST /api/authoring/new/preview` with `visuals` |
 
@@ -422,8 +423,9 @@ curl -sS -X POST "$QSP_API_URL/api/playbooks/consolidate-athena/run" \
   reads, SMUS-governed, shared with, tagged, name, errors) and the `steps`
   (match a replacement dataset, optionally letting a model map names that
   differ, then rebind; tag; repair; add to a folder; replace calculated
-  fields the governed dataset now holds as columns, judged by a model and
-  dry-run first). Any value can be
+  fields the governed dataset now holds as columns, judged by a model; drop
+  calculated fields nothing reads; rename them to a prefix and snake_case;
+  each dry-run first). Any value can be
   `{{inputKey}}`. `GET /api/playbooks/custom/{id}` returns a shipped
   example's spec too, to copy. A saved one previews and runs like the rest;
   pass `model` on the preview when it asks a model.

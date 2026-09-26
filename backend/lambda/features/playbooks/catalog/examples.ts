@@ -131,4 +131,32 @@ export const EXAMPLE_SPECS: PlaybookSpec[] = [
     createdAt: SHIPPED_AT,
     updatedAt: SHIPPED_AT,
   },
+  {
+    id: 'drop-unused-calcs',
+    name: 'Drop calculated fields nothing reads',
+    description:
+      'Calculated fields no visual, filter, control, parameter or other field reads, in every dashboard and analysis (a leftover read only by other leftovers goes too). A field anything reads is never dropped, and every rewrite is dry-run first.',
+    inputs: [],
+    category: 'cleanup',
+    select: { assetTypes: ['dashboard', 'analysis'], where: [] },
+    steps: [{ kind: 'dropUnusedCalcs' }],
+    gates: { editedWithinDays: 7 },
+    createdBy: 'The portal',
+    createdAt: SHIPPED_AT,
+    updatedAt: SHIPPED_AT,
+  },
+  {
+    id: 'calcs-to-standard-names',
+    name: 'Name calculated fields to the standard',
+    description:
+      'Every calculated field in dashboards and analyses gets the organisation\'s prefix and a snake_case name ("Order Margin %" becomes c_order_margin_pct), everywhere it is read. A name already in use is left for review. Bookmarks that named the old field may need saving again.',
+    inputs: [{ key: 'prefix', label: 'Prefix', kind: 'text', default: 'c_', required: true }],
+    category: 'cleanup',
+    select: { assetTypes: ['dashboard', 'analysis'], where: [] },
+    steps: [{ kind: 'renameCalcsToStandard', prefix: '{{prefix}}' }],
+    gates: { editedWithinDays: 7 },
+    createdBy: 'The portal',
+    createdAt: SHIPPED_AT,
+    updatedAt: SHIPPED_AT,
+  },
 ];

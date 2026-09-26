@@ -54,6 +54,23 @@ export class AuthoringHandler {
     }
   }
 
+  /** GET /authoring/{assetType}/{assetId}/calculated-fields */
+  public async getCalculatedFields(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const target = this.target(event);
+      const result = await this.service().calculatedFields(
+        target.assetType,
+        target.assetId,
+        this.source(event)
+      );
+      return successResponse(event, { success: true, data: result });
+    } catch (error: any) {
+      logger.error('Read calculated fields failed', { error });
+      return this.failure(event, error, 'Failed to read the definition');
+    }
+  }
+
   /** POST /authoring/{assetType}/{assetId}/repair/plan */
   public async planRepair(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {

@@ -85,6 +85,18 @@ export interface ReplaceMaterialisedStep {
   prefixes?: Templated<string>;
 }
 
+/** Drop the calculated fields nothing reads (and those only such fields read). */
+export interface DropUnusedStep {
+  kind: 'dropUnusedCalcs';
+}
+
+/** Rename calculated fields to the standard: the prefix, then snake_case. */
+export interface RenameToStandardStep {
+  kind: 'renameCalcsToStandard';
+  /** Default c_ (the analysis and dashboard prefix; datasets use c_ds_). */
+  prefix?: Templated<string>;
+}
+
 /** Put the asset in a folder (a shared folder then carries its audience). */
 interface AddToFolderStep {
   kind: 'addToFolder';
@@ -97,7 +109,9 @@ export type SpecStep =
   | TagStep
   | RepairStep
   | AddToFolderStep
-  | ReplaceMaterialisedStep;
+  | ReplaceMaterialisedStep
+  | DropUnusedStep
+  | RenameToStandardStep;
 
 export interface PlaybookSpec {
   id: string;

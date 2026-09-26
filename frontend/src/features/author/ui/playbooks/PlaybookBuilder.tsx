@@ -82,6 +82,14 @@ const STEPS: Record<PlaybookSpecStep['kind'], { label: string; help: string }> =
     label: 'Use governed columns instead of calculated fields',
     help: 'A calculated field the dataset now holds as a column is replaced by it and dropped. A model judges each against the governed descriptions; a name match alone only goes to review. Every rewrite is dry-run first.',
   },
+  dropUnusedCalcs: {
+    label: 'Drop calculated fields nothing reads',
+    help: 'Fields no visual, filter, control, parameter or other field reads (and ones only such fields read). A field anything reads is never dropped.',
+  },
+  renameCalcsToStandard: {
+    label: 'Rename calculated fields to the standard',
+    help: 'Each gets the prefix and a snake_case name, everywhere it is read. A name already in use goes to review.',
+  },
   addToFolder: {
     label: 'Add to a folder',
     help: 'A shared folder then carries its audience. Anything already in it is skipped; nothing is removed from other folders.',
@@ -383,6 +391,11 @@ function StepCard({
           {field('infer', 'Use a model', 'true or false')}
           {field('minConfidence', 'Min confidence', '0.85')}
           {field('prefixes', 'Name prefixes', 'c_ds_,c_')}
+        </Stack>
+      )}
+      {step.kind === 'renameCalcsToStandard' && (
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+          {field('prefix', 'Prefix', 'c_')}
         </Stack>
       )}
       {step.kind === 'addToFolder' && (

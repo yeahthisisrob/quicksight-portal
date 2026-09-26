@@ -21,13 +21,7 @@ type ParameterValueType = 'STRING' | 'INTEGER' | 'DECIMAL' | 'DATETIME';
 export type RepairOp =
   | { op: 'dropColumn'; identifier: string; columnName: string }
   | { op: 'dropParameter'; name: string }
-  | { op: 'declareParameter'; name: string; type: ParameterValueType; defaultValue?: string }
-  /**
-   * The dataset now has a column holding what a calculated field computes
-   * (materialised upstream, say in gold): point everything at the column
-   * and drop the calculated field.
-   */
-  | { op: 'replaceCalculatedField'; identifier: string; name: string; column: string };
+  | { op: 'declareParameter'; name: string; type: ParameterValueType; defaultValue?: string };
 
 const PARAMETER_DECLARATION_KEY: Record<ParameterValueType, string> = {
   STRING: 'StringParameterDeclaration',
@@ -100,30 +94,6 @@ function pruneColumn(node: unknown, identifier: string, columnName: string): num
     }
   }
   return removed;
-}
-
-/** Point every reference to one column of a dataset at another name; how many changed. */
-function renameColumnReferences(
-  node: unknown,
-  identifier: string,
-  from: string,
-  to: string
-): number {
-  if (Array.isArray(node)) {
-    return node.reduce((n, item) => n + renameColumnReferences(item, identifier, from, to), 0);
-  }
-  if (!isObject(node)) return 0;
-  if (isColumnIdentifier(node)) {
-    if (node.DataSetIdentifier === identifier && node.ColumnName === from) {
-      node.ColumnName = to;
-      return 1;
-    }
-    return 0;
-  }
-  return Object.values(node).reduce(
-    (n: number, value) => n + renameColumnReferences(value, identifier, from, to),
-    0
-  );
 }
 
 function dropEmptyFilterGroups(definition: Record<string, any>): number {
@@ -309,46 +279,6 @@ export function applyRepairs(
         changes.push({
           kind: 'repair',
           description: `Declared parameter ${repair.name} as ${repair.type}${repair.defaultValue !== undefined ? ` defaulting to ${repair.defaultValue}` : ''}`,
-        });
-        break;
-      }
-      case 'replaceCalculatedField': {
-        const { identifier, name, column } = repair;
-        if (!identifier || !name || !column) {
-          throw new ValidationError(
-            `Repair ${index + 1}: replaceCalculatedField needs identifier, name and column`
-          );
-        }
-        const fields: any[] = definition.CalculatedFields ?? [];
-        const field = fields.find((f) => f?.DataSetIdentifier === identifier && f?.Name === name);
-        if (!field) {
-          throw new ValidationError(
-            `Repair ${index + 1}: ${identifier} has no calculated field ${name}`
-          );
-        }
-        if (
-          fields.some(
-            (f) => f !== field && f?.DataSetIdentifier === identifier && f?.Name === column
-          )
-        ) {
-          throw new ValidationError(
-            `Repair ${index + 1}: ${identifier} already has a calculated field named ${column}`
-          );
-        }
-        definition.CalculatedFields = fields.filter((f) => f !== field);
-        const references = renameColumnReferences(definition, identifier, name, column);
-        // Other calculated fields that read it read the column instead.
-        const token = `{${name}}`;
-        const readers = definition.CalculatedFields.filter(
-          (f: any) =>
-            f?.DataSetIdentifier === identifier && String(f?.Expression ?? '').includes(token)
-        );
-        for (const reader of readers) {
-          reader.Expression = String(reader.Expression).split(token).join(`{${column}}`);
-        }
-        changes.push({
-          kind: 'repair',
-          description: `Replaced calculated field ${name} with column ${column} of ${identifier}: ${references} reference${references === 1 ? '' : 's'}${readers.length ? `, ${readers.length} calculated field${readers.length === 1 ? '' : 's'} reading it (${readers.map((r: any) => r.Name).join(', ')})` : ''}`,
         });
         break;
       }

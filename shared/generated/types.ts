@@ -1065,6 +1065,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/authoring/{assetType}/{assetId}/calculated-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Its calculated fields, each with its expression and what reads it
+         * @description Where each is read (visuals, filters, controls, parameters, other
+         *     calculated fields), the fields that read it, and whether nothing
+         *     does. The ground for renaming, dropping or replacing one (the
+         *     calculated-field ops).
+         */
+        get: operations["getAuthoringByAssetTypeByAssetIdCalculatedFields"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/authoring/{assetType}/{assetId}/rebind/plan": {
         parameters: {
             query?: never;
@@ -2884,10 +2907,14 @@ export interface components {
          *     calculated fields the dataset now holds as columns are replaced by
          *     them and dropped; a model judges each (a name alone is only a
          *     suggestion for review), and the rewrite is dry-run first.
+         *     dropUnusedCalcs: calculated fields nothing reads are dropped (and ones
+         *     only such fields read). renameCalcsToStandard (prefix, default c_):
+         *     each calculated field gets the prefix and a snake_case name,
+         *     everywhere it is read; a name already in use goes to review.
          */
         PlaybookSpecStep: {
             /** @enum {string} */
-            kind: "matchDataset" | "rebind" | "tag" | "repair" | "addToFolder" | "replaceMaterialisedCalcs";
+            kind: "matchDataset" | "rebind" | "tag" | "repair" | "addToFolder" | "replaceMaterialisedCalcs" | "dropUnusedCalcs" | "renameCalcsToStandard";
             engine?: components["schemas"]["PlaybookSpecValue"];
             governed?: components["schemas"]["PlaybookSpecValue"];
             infer?: components["schemas"]["PlaybookSpecValue"];
@@ -2898,6 +2925,7 @@ export interface components {
             value?: components["schemas"]["PlaybookSpecValue"];
             folder?: components["schemas"]["PlaybookSpecValue"];
             prefixes?: components["schemas"]["PlaybookSpecValue"];
+            prefix?: components["schemas"]["PlaybookSpecValue"];
         };
         PlaybookSpec: components["schemas"]["PlaybookSpecInput"] & {
             id: string;
@@ -3967,21 +3995,18 @@ export interface components {
          *     filter groups go too). dropParameter removes a parameter's
          *     declaration, controls and filters. declareParameter adds a
          *     declaration for a parameter that is referenced but never declared.
-         *     replaceCalculatedField points every reference to a calculated field
-         *     at a dataset column holding the same values (one materialised
-         *     upstream), rewrites calculated fields that read it, and drops it.
+         *     (Edits that are not fixes, like replacing or renaming a calculated
+         *     field, are ops.)
          */
         RepairOp: {
             /** @enum {string} */
-            op: "dropColumn" | "dropParameter" | "declareParameter" | "replaceCalculatedField";
-            /** @description dropColumn / replaceCalculatedField - the dataset identifier. */
+            op: "dropColumn" | "dropParameter" | "declareParameter";
+            /** @description dropColumn - the dataset identifier. */
             identifier?: string;
             /** @description dropColumn - the column. */
             columnName?: string;
-            /** @description dropParameter / declareParameter - the parameter name; replaceCalculatedField - the calculated field. */
+            /** @description dropParameter / declareParameter - the parameter name. */
             name?: string;
-            /** @description replaceCalculatedField - the dataset column that replaces it. */
-            column?: string;
             /**
              * @description declareParameter - the value type.
              * @enum {string}
@@ -5048,6 +5073,17 @@ export interface components {
          * @enum {string}
          */
         ControlPlacement: "controlBar" | "canvas";
+        CalculatedFieldUse: {
+            /** @description The dataset identifier it is declared against. */
+            identifier: string;
+            dataSetId: string;
+            name: string;
+            expression: string;
+            usage: components["schemas"]["ColumnUsage"];
+            /** @description The calculated fields whose expressions read it. */
+            readBy: string[];
+            unused: boolean;
+        };
         /**
          * @description One edit to a definition, applied by deterministic code after
          *     validation. Element and visual ids are the definition's own; a sheet
@@ -5058,11 +5094,22 @@ export interface components {
          *     type keeps its field wells, title and subtitle and resets the rest of
          *     the chart configuration to defaults; only conversions whose field
          *     wells translate are allowed.
+         *
+         *     Three ops change the whole definition rather than a sheet, so they
+         *     take no sheetId: replaceCalculatedField (identifier, name, column)
+         *     reads a dataset column instead of a calculated field that computes
+         *     the same and drops the field; renameCalculatedField (identifier,
+         *     name, to); dropCalculatedField (identifier, name), refused while
+         *     anything reads the field. Each follows every reference: visuals,
+         *     filters, controls and other calculated fields' expressions.
          */
         DefinitionOp: {
             /** @enum {string} */
-            op: "move" | "resize" | "retype" | "retitle" | "remove" | "duplicate" | "renameSheet" | "addFilter" | "addVisual" | "addAction";
-            sheetId: string;
+            op: "move" | "resize" | "retype" | "retitle" | "remove" | "duplicate" | "renameSheet" | "addFilter" | "addVisual" | "addAction" | "replaceCalculatedField" | "renameCalculatedField" | "dropCalculatedField";
+            /** @description Every op but the calculated-field ones. */
+            sheetId?: string;
+            /** @description renameCalculatedField. The new name. */
+            to?: string;
             visual?: components["schemas"]["VisualSpec"];
             action?: components["schemas"]["VisualAction"];
             control?: components["schemas"]["FilterControlKind"];
@@ -7533,6 +7580,42 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    getAuthoringByAssetTypeByAssetIdCalculatedFields: {
+        parameters: {
+            query?: {
+                /** @description `archive` reads the copy the portal kept when the asset was deleted, instead of QuickSight, so an archived asset can be checked, repaired, edited and previewed before it is restored. */
+                source?: components["parameters"]["DefinitionSource"];
+            };
+            header?: never;
+            path: {
+                assetType: components["parameters"]["AuthorableAssetType"];
+                assetId: components["parameters"]["AuthoringAssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The fields */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            assetType: components["schemas"]["AuthorableAssetType"];
+                            assetId: string;
+                            name: string;
+                            fields: components["schemas"]["CalculatedFieldUse"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     postAuthoringByAssetTypeByAssetIdRebindPlan: {
