@@ -377,7 +377,44 @@ state (`state.plans`), so "go" in a later message carries out the plan
 drawn earlier. A proposal's `problems` lists edits it proposed that do not
 apply, each with the reason.
 
-## 7. A typical agent loop
+## 7. Fixes across the account: playbooks
+
+A playbook finds the assets it could touch, checks each one against what
+QuickSight has now, and changes only what you choose. Every change goes
+through the same endpoints as above, as the key that started it.
+
+```bash
+# What there is: each playbook's parameters and gates
+curl -sS "$QSP_API_URL/api/playbooks" -H "Authorization: Bearer $QSP_API_KEY"
+
+# Preview (a job): nothing is written
+curl -sS -X POST "$QSP_API_URL/api/playbooks/consolidate-athena/preview" \
+  -H "Authorization: Bearer $QSP_API_KEY" -H "Content-Type: application/json" \
+  --data '{"params":{"target":"<athena-data-source-id>"},"gates":{"editedWithinDays":7}}'
+# -> { jobId } ; wait on /api/jobs/{jobId}
+
+# Every asset it found: verdict change, review or skip, and why
+curl -sS "$QSP_API_URL/api/playbooks/runs/<preview-job-id>/items?verdict=change" \
+  -H "Authorization: Bearer $QSP_API_KEY"
+
+# Run the preview's changes (or only `keys`), a few at a time
+curl -sS -X POST "$QSP_API_URL/api/playbooks/consolidate-athena/run" \
+  -H "Authorization: Bearer $QSP_API_KEY" -H "Content-Type: application/json" \
+  --data '{"previewJobId":"<preview-job-id>","limits":{"concurrency":4,"failureThreshold":0.2}}'
+```
+
+- **Gates** hold assets back: recent edits, only tagged assets, a canary
+  of the first few. Tag an asset `portal:playbook-skip` and no playbook
+  touches it. Held-back assets are listed as skipped, with the reason.
+- **A run checks each asset again** just before it changes it: one fixed
+  by hand since the preview is skipped, one that now needs a decision is
+  left for review. It stops starting new assets once more than
+  `failureThreshold` of those tried have failed.
+- **Retry** the failures of a run with `"retryOf":"<run-job-id>"`.
+- **Deleting one asset** outside a playbook: `DELETE
+  /api/assets/{type}/{id}?reason=...` archives it first; restore it later.
+
+## 8. A typical agent loop
 
 1. `GET /api/search?q=...` or `GET /api/context/search?q=...` to find the
    asset and the dataset, and `.../related` to follow the lineage.
@@ -390,7 +427,7 @@ apply, each with the reason.
 5. Apply with `mode: "clone"`, then open the result in QuickSight.
 6. `GET /api/activity/timeline?origins=portal-api` shows what the key did.
 
-## 8. Where this is heading
+## 9. Where this is heading
 
 AWS Context, announced in June 2026 and not yet available, is an
 identity-aware knowledge graph over an organisation's data that agents
@@ -400,9 +437,3 @@ just as it points at SMUS today. The `/api/context` calls above are shaped
 the same way now, so moving over is a change of URL. What stays here is what
 a graph does not do: the parsed definitions, the checks, and the write paths
 above.
-
----
-
-*From this repository:* `just api GET /search?q=...` wraps curl with the
-header and the base URL, and `shared/schemas/api.openapi.yaml` is the
-source of the served contract.
