@@ -55,6 +55,13 @@ export const PARITY_ROWS: ParityRow[] = [
       'Build or edit a dashboard from a sentence through the API an agent can call: planned against the datasets, previewed, then written. AWS offers this in the console only.',
   },
   {
+    capability: 'Field-level lineage',
+    portal: { level: 'partial', note: 'Fields to governed columns, by name' },
+    aws: { level: 'no', note: 'None in QuickSight' },
+    detail:
+      'To close: every dataset column traced through renames and casts to its source column, each calculated field to the fields it reads, and each visual and filter to the fields it shows, so a person or an agent sees what a change touches before making it.',
+  },
+  {
     capability: 'Calculated fields as metadata',
     portal: { level: 'yes', note: 'Indexed, with who reads each' },
     aws: { level: 'no', note: 'Not in Glue or SMUS catalogs' },
