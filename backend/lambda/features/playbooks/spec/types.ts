@@ -70,13 +70,34 @@ interface RepairStep {
   kind: 'repair';
 }
 
+/**
+ * Replace calculated fields the dataset now holds as columns (materialised
+ * upstream) with those columns, and drop them. Needs a model to be sure;
+ * without one, name matches are listed for review.
+ */
+export interface ReplaceMaterialisedStep {
+  kind: 'replaceMaterialisedCalcs';
+  /** Only fields over a SMUS-governed dataset (default true). */
+  governed?: Templated<boolean>;
+  infer?: Templated<boolean>;
+  minConfidence?: Templated<number>;
+  /** Prefixes to set aside when matching names, comma-separated (default "c_ds_,c_"). */
+  prefixes?: Templated<string>;
+}
+
 /** Put the asset in a folder (a shared folder then carries its audience). */
 interface AddToFolderStep {
   kind: 'addToFolder';
   folder: Templated<string>;
 }
 
-export type SpecStep = MatchDatasetStep | RebindStep | TagStep | RepairStep | AddToFolderStep;
+export type SpecStep =
+  | MatchDatasetStep
+  | RebindStep
+  | TagStep
+  | RepairStep
+  | AddToFolderStep
+  | ReplaceMaterialisedStep;
 
 export interface PlaybookSpec {
   id: string;

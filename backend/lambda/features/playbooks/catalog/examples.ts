@@ -100,4 +100,35 @@ export const EXAMPLE_SPECS: PlaybookSpec[] = [
     createdAt: SHIPPED_AT,
     updatedAt: SHIPPED_AT,
   },
+  {
+    id: 'use-governed-columns',
+    name: 'Use governed columns instead of calculated fields',
+    description:
+      'Dashboards and analyses that compute something their governed dataset now holds as a column (materialised upstream): each such calculated field is replaced by the column and dropped. A model judges every one against the governed column descriptions; only confident, dry-run-checked replacements are made, and the rest are listed for review.',
+    inputs: [
+      {
+        key: 'minConfidence',
+        label: 'Replace only at this confidence or above (0-1)',
+        kind: 'number',
+        default: 0.85,
+      },
+    ],
+    category: 'repair',
+    select: {
+      assetTypes: ['dashboard', 'analysis'],
+      where: [{ kind: 'readsGoverned', value: true }],
+    },
+    steps: [
+      {
+        kind: 'replaceMaterialisedCalcs',
+        governed: true,
+        infer: true,
+        minConfidence: '{{minConfidence}}',
+      },
+    ],
+    gates: { editedWithinDays: 7 },
+    createdBy: 'The portal',
+    createdAt: SHIPPED_AT,
+    updatedAt: SHIPPED_AT,
+  },
 ];
