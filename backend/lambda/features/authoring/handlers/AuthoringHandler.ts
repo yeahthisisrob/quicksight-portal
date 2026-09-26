@@ -436,7 +436,11 @@ export class AuthoringHandler {
     ) {
       throw badRequest('permissionsFrom needs assetType and assetId');
     }
+    // The contract checked the whole body at the API boundary, so the whole
+    // body is the request; only fields that need normalising are re-read.
+    // (Re-picking fields one by one is how filters went missing.)
     return {
+      ...(body as Partial<NewAssetRequest>),
       assetType: body.assetType,
       name: body.name,
       datasets: datasets as NewAssetRequest['datasets'],

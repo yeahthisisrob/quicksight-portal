@@ -277,6 +277,13 @@ export class NewAssetService {
     ];
 
     const built = buildDefinition({ datasets, visuals, filters, sheetName: request.sheetName });
+    if (built.errors.length > 0) {
+      // What was asked for and cannot be built refuses the whole preview:
+      // an asset quietly missing a filter or a field is worse than an error.
+      throw new ValidationError(
+        `Cannot build this as asked:\n${built.errors.map((e) => `- ${e}`).join('\n')}`
+      );
+    }
     const changes: DefinitionChange[] = [
       {
         kind: 'visual',
@@ -300,6 +307,11 @@ export class NewAssetService {
         controls: request.template.controls,
         sheetNames: request.template.sheetNames,
         kpisFirst: request.template.kpisFirst,
+        // The filters the person asked for keep their controls under a
+        // template that brings its own.
+        keepControls: (definition.Sheets?.[0]?.FilterControls ?? []).map(
+          (c: any) => (Object.values(c ?? {})[0] as any)?.FilterControlId
+        ),
         columnsByIdentifier,
         themeArn: request.template.theme === false ? undefined : template.themeArn,
       });

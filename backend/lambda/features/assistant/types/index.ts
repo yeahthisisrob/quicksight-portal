@@ -44,10 +44,12 @@ export interface QuestionOption {
 }
 
 /**
- * What the page holds between answers (AG-UI state): actions prepared and
- * not run (the working draft), and actions the person ran, with results.
+ * What the page holds between answers (AG-UI state): plans drawn so far,
+ * actions prepared and not run (the working draft), and actions the person
+ * ran, with results.
  */
 export interface WorkingState {
+  plans?: Array<{ id: string; title: string; build: PlanBuild }>;
   drafts: Array<{ title: string; method: string; path: string; body?: unknown }>;
   ran: Array<{
     title: string;
@@ -86,7 +88,15 @@ export type AssistantArtifact =
       assetId: string;
     }
   | { id: string; kind: 'lineage'; title: string; fieldKey: string }
-  | ({ id: string; kind: 'plan'; title: string } & BuildPlan)
+  | ({
+      id: string;
+      kind: 'plan';
+      title: string;
+      /** The model that drew it. */
+      model: { key: string; label: string };
+      /** Its build's filters, for drawing. */
+      filters?: Array<{ column: string; title?: string; control?: string; placement?: string }>;
+    } & BuildPlan)
   | { id: string; kind: 'fields'; title: string; fields: FieldVerdict[] };
 
 type PlanStatus = 'existing' | 'new' | 'edited';
@@ -107,10 +117,26 @@ export interface BuildPlan {
     /** The id of the dataset it is computed on, when that dataset exists. */
     dataset?: string;
   }>;
-  /** The filters the asset will carry, each a control in the sheet's control bar. */
-  filters?: Array<{ column: string; title?: string }>;
   asset: { kind: 'dashboard' | 'analysis'; name: string; id?: string; status: PlanStatus };
+  /** The exact write that carries it out; the person's Run sends it unchanged. */
+  build: PlanBuild;
 }
+
+/**
+ * A plan's write: a new asset (POST /api/authoring/new), or a change to an
+ * existing one (POST /api/authoring/{assetType}/{assetId}/rebind: ops, a
+ * rebind, a copy).
+ */
+export type PlanBuild =
+  | { create: Record<string, any> }
+  | {
+      edit: {
+        assetType: 'dashboard' | 'analysis';
+        assetId: string;
+        /** The rebind endpoint's body: mode, rebinds, ops, template... */
+        request: Record<string, any>;
+      };
+    };
 
 /** A write the assistant prepared; the person runs it, under their own session. */
 export interface AssistantAction {

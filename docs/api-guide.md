@@ -305,15 +305,37 @@ why). The `fields` artifact places each calculated field the plan adds:
 | `row-level` | Row-level; your guidance states no preference |
 | `analysis` | Aggregates, table or level-aware calculations, or parameters |
 
-**Filters and filter bars.** Building from nothing (`POST /api/authoring/new`),
-send `filters` by column name: a text column gets a dropdown, a date a
-date-range picker, a number a slider (give `min` and `max`). Each control
-goes in the sheet's control bar, where QuickSight puts controls by default.
-To filter an existing analysis, send an `addFilter` op (the dataset
-identifier and the column) to `.../rebind` with `mode: "update"`. The
-organisation's standard bars live at `/api/data-catalog/templates/filter-bars`.
-The default bar is applied to every new analysis unless `filterBarTemplateId`
-names another or `none`.
+**Filters, controls and interactions.** Building from nothing
+(`POST /api/authoring/new`), send `filters` by column name, each with the
+control you want: text columns take `dropdown` (the default), `singleSelect`
+or `list`; dates take `dateRange` (the default) or `relativeDate` with
+`lastDays`; numbers take `slider` with `min` and `max`. A control goes in the
+sheet's control bar (`placement: "controlBar"`, the collapsible strip at the
+top, the default) or on the canvas above the visuals (`"canvas"`). A filter
+narrows every visual unless `appliesTo` names some, by their `key` or title.
+A visual's `actions` give it interactions: `{ "kind": "filter" }` filters the
+other visuals (or its `targets`) when a data point is clicked - an action
+filter - and `{ "kind": "navigate", "sheet": "Detail" }` opens another sheet;
+one action runs on click, the rest go in the visual's menu
+(`"trigger": "menu"`).
+
+To change an existing analysis, send ops to `.../rebind` with
+`mode: "update"`: `addVisual` (a VisualSpec), `addFilter` (the dataset
+identifier, the column, and the same control, placement and `appliesTo`) and
+`addAction` (a visual by element id or title, and the action), alongside
+`move`, `resize`, `retype`, `retitle` and `remove`.
+
+Anything that cannot be built as asked - a column the dataset does not
+have, a control that does not fit its column, a slider without its range -
+refuses the whole preview or create with the reason. Nothing you ask for is
+left out quietly. Every request body is also checked against this contract
+before it reaches its handler: a body that does not fit is a `400` naming
+each field.
+
+The organisation's standard filter bars live at
+`/api/data-catalog/templates/filter-bars`. The default bar is applied to
+every new analysis unless `filterBarTemplateId` names another or `none`; its
+controls come first, and yours follow.
 Saved visuals live at `/api/data-catalog/templates/visuals`, stored by
 column name. Add them to a new analysis with `visualTemplates: [{ "templateId":
 "...", "identifier": "orders" }]`. They work on any dataset that has the
@@ -324,7 +346,18 @@ organisation builds: a calculated-field strategy (materialise in the
 source, in the dataset, or no preference) and free text about your
 architecture, datasets, explorations and visuals. The assistant and the
 planner follow it. Each prompt carries only the parts that apply, and
-nothing when it is empty.
+nothing when it is empty. Its vocabulary setting adds your organisation's
+words for what to build ("slicer = a dropdown filter in the control bar"),
+read ahead of the built-in vocabulary that maps requests such as "a table
+with a filter" or "add an action filter" onto the constructs above.
+
+**Plans are the write.** The assistant draws every authoring change as a
+plan whose `build` is the exact request - `create` (a new asset's body) or
+`edit` (`assetType`, `assetId` and the rebind body). The build is checked
+against this contract and previewed before the plan is shown, and the Run
+button under it sends that build unchanged. The page keeps the plans in its
+working state (`state.plans`), so "go" in a later message carries out the
+plan drawn earlier.
 
 ## 7. A typical agent loop
 

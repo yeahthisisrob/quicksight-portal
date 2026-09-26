@@ -45,6 +45,8 @@ interface ConversationState {
   answer: (interrupt: AgUiInterrupt, selected: string[], other?: string) => void;
   retry: () => void;
   recordRun: (actionId: string, run: ActionRun) => void;
+  /** Stop waiting for the answer in flight. */
+  cancel: () => void;
   reset: () => void;
 }
 
@@ -177,6 +179,17 @@ export function useConversation(): ConversationState {
     setConversation((c) => withRun(c, actionId, run));
   }, []);
 
+  /**
+   * Stop waiting for the answer being worked on. The job finishes on the
+   * server regardless; its answer is simply not added, and the question
+   * stays so it can be asked again.
+   */
+  const cancel = useCallback(() => {
+    waiting.current = null;
+    setStatus(null);
+    setConversation((c) => withoutPending(c));
+  }, []);
+
   const reset = useCallback(() => {
     waiting.current = null;
     setStatus(null);
@@ -184,5 +197,5 @@ export function useConversation(): ConversationState {
     setConversation(EMPTY_CONVERSATION);
   }, []);
 
-  return { conversation, status, error, busy, ask, answer, retry, recordRun, reset };
+  return { conversation, status, error, busy, ask, answer, retry, recordRun, cancel, reset };
 }

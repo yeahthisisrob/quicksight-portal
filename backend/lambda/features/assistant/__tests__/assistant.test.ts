@@ -136,15 +136,21 @@ describe('AssistantService', () => {
           },
           {
             id: 't4',
-            name: 'propose_action',
+            name: 'show_plan',
             input: {
-              title: 'Publish the copy',
-              why: 'Clones onto gold.',
-              method: 'POST',
-              path: '/api/authoring/dashboard/d1/rebind',
-              body: { mode: 'clone', rebinds: [] },
+              title: 'The copy on gold',
+              datasets: [{ name: 'Orders (gold)', id: 'ds-gold', status: 'existing' }],
+              asset: { kind: 'dashboard', name: 'Margin', id: 'd1', status: 'new' },
+              build: {
+                edit: {
+                  assetType: 'dashboard',
+                  assetId: 'd1',
+                  request: { mode: 'clone', rebinds: [] },
+                },
+              },
             },
           },
+          { id: 't4b', name: 'prepare_plan', input: { why: 'Clones onto gold.' } },
           {
             id: 't5',
             name: 'show_to_person',
@@ -165,11 +171,19 @@ describe('AssistantService', () => {
       '/api/authoring/dashboard/d1/rebind/preview',
     ]);
     const kinds = result.artifacts.map((a) => a.kind);
-    expect(kinds).toEqual(['lineage', 'preview', 'asset']);
+    expect(kinds).toEqual(['lineage', 'preview', 'plan', 'asset']);
     expect(result.artifacts[0]).toMatchObject({ fieldKey: 'margin::abc' });
     const preview = result.artifacts[1]!;
+    // The plan's build was already previewed with the same body: not previewed twice.
     expect(result.actions).toEqual([
-      expect.objectContaining({ title: 'Publish the copy', previewId: preview.id }),
+      expect.objectContaining({
+        title: 'Copy the dashboard',
+        why: 'Clones onto gold.',
+        path: '/api/authoring/dashboard/d1/rebind',
+        body: { mode: 'clone', rebinds: [] },
+        previewId: preview.id,
+        planId: result.artifacts[2]!.id,
+      }),
     ]);
     expect(dispatch).toHaveBeenCalledTimes(3);
     expect(result.rounds).toBe(3);
@@ -467,22 +481,7 @@ describe('AssistantService', () => {
           told ||= last.results[0]?.content ?? '';
           return {
             text: '',
-            toolCalls: [
-              {
-                id: 'a',
-                name: 'propose_action',
-                input: {
-                  title: 'Publish',
-                  why: 'Copy on gold',
-                  method: 'POST',
-                  path: '/api/authoring/dashboard/d1/rebind',
-                  body: {
-                    mode: 'clone',
-                    rebinds: [{ identifier: 'orders', targetDataSetId: 'ds-gold' }],
-                  },
-                },
-              },
-            ],
+            toolCalls: [{ id: 'a', name: 'prepare_plan', input: { why: 'Copy on gold' } }],
             raw: undefined,
             usage: { inputTokens: 1, outputTokens: 1 },
           };
@@ -528,6 +527,17 @@ describe('AssistantService', () => {
                   },
                 ],
                 asset: { kind: 'dashboard', name: 'Sales (gold)', status: 'new' },
+                build: {
+                  edit: {
+                    assetType: 'dashboard',
+                    assetId: 'd1',
+                    request: {
+                      mode: 'clone',
+                      name: 'Sales (gold)',
+                      rebinds: [{ identifier: 'orders', targetDataSetId: 'ds-gold' }],
+                    },
+                  },
+                },
               },
             },
           ],
@@ -584,13 +594,12 @@ describe('AssistantService', () => {
       toolCalls: [
         {
           id: 'c',
-          name: 'propose_action',
+          name: 'show_plan',
           input: {
-            title: 'Create the analysis',
-            why: 'x',
-            method: 'POST',
-            path: '/api/authoring/new',
-            body,
+            title: 'Margin',
+            datasets: [{ name: 'Orders', id: 'ds-x', status: 'existing' }],
+            asset: { kind: 'analysis', name: 'Margin', status: 'new' },
+            build: { create: body },
           },
         },
       ],
@@ -617,6 +626,7 @@ describe('AssistantService', () => {
     ]);
 
     expect(result.actions).toEqual([]);
+    expect(result.artifacts.some((a) => a.kind === 'plan')).toBe(false);
     expect(told[0]).toContain('datasets: required');
     expect(told[0]).toContain('The operation expects');
     expect(told[1]).toContain('dataset ds-x not found');

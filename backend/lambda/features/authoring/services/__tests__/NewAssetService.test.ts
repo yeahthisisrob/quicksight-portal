@@ -170,7 +170,7 @@ describe('NewAssetService', () => {
     expect(mocks.qs.updateDataSetPermissions).toHaveBeenCalledTimes(1);
   });
 
-  it('previews given visuals: builds the definition, outline and warnings without writing', async () => {
+  it('previews given visuals: builds the definition and outline without writing', async () => {
     const preview = await service().preview({
       assetType: 'dashboard',
       name: 'Sales',
@@ -184,16 +184,28 @@ describe('NewAssetService', () => {
           category: 'order_date',
           values: [{ column: 'revenue' }],
         },
-        { type: 'Table', title: 'Bad', identifier: 'orders', values: [{ column: 'nope' }] },
       ],
     });
     expect(preview.definition.DataSetIdentifierDeclarations).toEqual([
       { Identifier: 'orders', DataSetArn: 'arn:ds-1' },
     ]);
     expect(preview.outline[0]!.elements).toHaveLength(2);
-    expect(preview.warnings.some((w) => w.includes("'Bad' skipped"))).toBe(true);
     expect(preview.proposal).toBeUndefined();
     expect(mocks.qs.createDashboard).not.toHaveBeenCalled();
+  });
+
+  it('refuses a preview with anything it cannot build, so nothing asked for is quietly dropped', async () => {
+    await expect(
+      service().preview({
+        assetType: 'dashboard',
+        name: 'Sales',
+        datasets: [{ identifier: 'orders', dataSetId: 'ds-1' }],
+        visuals: [
+          { type: 'Table', title: 'Bad', identifier: 'orders', values: [{ column: 'nope' }] },
+        ],
+        filters: [{ identifier: 'orders', column: 'region' }],
+      })
+    ).rejects.toThrow("'Bad': 'nope' is not in 'orders'.");
   });
 
   it('asks the planner for visuals when only an ask is given', async () => {

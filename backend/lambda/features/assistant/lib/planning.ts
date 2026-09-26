@@ -5,7 +5,7 @@
  */
 import { placementOf, sameFieldName } from '../../../../../shared/lib/expressionPlacement';
 import type { FieldStrategy } from '../../../shared/ai/authoringGuidance';
-import type { BuildPlan, FieldVerdict } from '../types';
+import type { BuildPlan, FieldVerdict, PlanBuild } from '../types';
 
 /** A column the dataset has, with what the catalog says about it. */
 export interface KnownColumn {
@@ -24,7 +24,6 @@ export function parsePlan(input: Record<string, unknown>): BuildPlan | string {
   const sources = Array.isArray(input.sources) ? (input.sources as any[]) : [];
   const datasets = Array.isArray(input.datasets) ? (input.datasets as any[]) : [];
   const fields = Array.isArray(input.calculatedFields) ? (input.calculatedFields as any[]) : [];
-  const filters = Array.isArray(input.filters) ? (input.filters as any[]) : [];
   const asset = input.asset as any;
   if (
     datasets.length === 0 ||
@@ -36,6 +35,10 @@ export function parsePlan(input: Record<string, unknown>): BuildPlan | string {
   const missingId = datasets.find((d) => d?.status === 'existing' && !d?.id);
   if (missingId) {
     return `Existing dataset "${missingId.name}" needs its id; find it with context_search.`;
+  }
+  const build = parseBuild(input.build);
+  if (typeof build === 'string') {
+    return build;
   }
   return {
     sources: sources
@@ -61,16 +64,7 @@ export function parsePlan(input: Record<string, unknown>): BuildPlan | string {
           })),
         }
       : {}),
-    ...(filters.some((f) => typeof f?.column === 'string')
-      ? {
-          filters: filters
-            .filter((f) => typeof f?.column === 'string' && f.column.trim())
-            .map((f) => ({
-              column: String(f.column).trim(),
-              ...(typeof f.title === 'string' && f.title.trim() ? { title: f.title.trim() } : {}),
-            })),
-        }
-      : {}),
+    build,
     asset: {
       kind: asset.kind,
       name: String(asset.name),
@@ -182,4 +176,75 @@ export function verdictsMessage(judged: FieldVerdict[]): string {
   ]
     .filter(Boolean)
     .join('\n');
+}
+
+/** A plan's build from the model's input, or why it is not one. */
+function parseBuild(raw: unknown): PlanBuild | string {
+  const b = (raw ?? {}) as Record<string, any>;
+  if (b.create && typeof b.create === 'object' && !Array.isArray(b.create)) {
+    return { create: b.create };
+  }
+  const edit = b.edit;
+  if (
+    edit &&
+    typeof edit === 'object' &&
+    (edit.assetType === 'dashboard' || edit.assetType === 'analysis') &&
+    typeof edit.assetId === 'string' &&
+    edit.request &&
+    typeof edit.request === 'object'
+  ) {
+    return { edit };
+  }
+  return 'A plan needs its build: `create` (the body for a new analysis or dashboard) or `edit` ({ assetType, assetId, request }: the rebind body with its ops) - the exact write that carries it out.';
+}
+
+/** The request a build is: what the person's Run sends. */
+export function writeOf(build: PlanBuild): {
+  method: 'POST';
+  path: string;
+  body: Record<string, unknown>;
+  title: string;
+} {
+  if ('create' in build) {
+    const c = build.create;
+    return {
+      method: 'POST',
+      path: '/api/authoring/new',
+      body: c,
+      title: `Create ${c.assetType === 'dashboard' ? 'dashboard' : 'analysis'} "${c.name}"`,
+    };
+  }
+  const e = build.edit;
+  const ops: unknown[] = Array.isArray(e.request.ops) ? e.request.ops : [];
+  const clone = e.request.mode === 'clone';
+  return {
+    method: 'POST',
+    path: `/api/authoring/${e.assetType}/${encodeURIComponent(e.assetId)}/rebind`,
+    body: e.request,
+    title: clone
+      ? `Copy the ${e.assetType}${e.request.name ? ` as "${e.request.name}"` : ''}`
+      : `Edit the ${e.assetType}${ops.length ? ` (${ops.length} change${ops.length === 1 ? '' : 's'})` : ''}`,
+  };
+}
+
+/** The filters a build adds, for drawing the plan. */
+export function filtersOf(
+  build: PlanBuild
+): Array<{ column: string; title?: string; control?: string; placement?: string }> {
+  const raw: any[] =
+    'create' in build
+      ? Array.isArray(build.create.filters)
+        ? build.create.filters
+        : []
+      : Array.isArray(build.edit.request.ops)
+        ? build.edit.request.ops.filter((o: any) => o?.op === 'addFilter')
+        : [];
+  return raw
+    .filter((f) => typeof f?.column === 'string')
+    .map((f) => ({
+      column: f.column,
+      ...(typeof f.title === 'string' ? { title: f.title } : {}),
+      ...(typeof f.control === 'string' ? { control: f.control } : {}),
+      placement: typeof f.placement === 'string' ? f.placement : 'controlBar',
+    }));
 }

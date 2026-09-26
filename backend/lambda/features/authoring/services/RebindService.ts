@@ -34,7 +34,12 @@ import {
   collectDefinitionDatasets,
   unresolvedCalculatedFieldColumns,
 } from '../lib/definitionColumns';
-import { applyOps, type DefinitionChange, type DefinitionOp } from '../lib/definitionOps';
+import {
+  applyOps,
+  type ColumnLookup,
+  type DefinitionChange,
+  type DefinitionOp,
+} from '../lib/definitionOps';
 import { buildOutline } from '../lib/definitionOutline';
 import {
   type RebindSpec,
@@ -148,12 +153,14 @@ export class RebindService {
     const plan = await this.planAgainst(assetType, assetId, repaired.loaded, request.rebinds);
     const template = await this.loadTemplate(request.template, repaired.loaded.definition, plan);
     const currentColumns = await this.currentColumnsFor(request, plan);
+    const columnOf = await this.columnLookup(repaired.loaded.definition, plan, request.ops);
     const { definition, changes, warnings, themeArn } = this.rewrite(
       repaired.loaded.definition,
       plan,
       request,
       template,
-      currentColumns
+      currentColumns,
+      columnOf
     );
     const allWarnings = [
       ...warnings,
@@ -285,6 +292,38 @@ export class RebindService {
     return out;
   }
 
+  /**
+   * Column names and types for ops that build from columns the definition
+   * may not use yet (addVisual, addFilter), read after the plan's rebinds.
+   * Only loaded when such an op is present.
+   */
+  private async columnLookup(
+    definition: Record<string, any>,
+    plan: RebindPlan,
+    ops: DefinitionOp[] = []
+  ): Promise<ColumnLookup> {
+    if (!ops.some((o) => o.op === 'addVisual' || o.op === 'addFilter')) {
+      return () => undefined;
+    }
+    const rebound = new Map(plan.datasets.map((d) => [d.identifier, d.target.dataSetId]));
+    const byIdentifier = new Map<string, TargetColumn[]>();
+    for (const dataset of collectDefinitionDatasets(definition)) {
+      try {
+        const target = await this.loadTargetDataset(
+          rebound.get(dataset.identifier) ?? dataset.dataSetId
+        );
+        byIdentifier.set(dataset.identifier, target.columns);
+      } catch (error) {
+        logger.warn('Ops: dataset columns cannot be read', {
+          identifier: dataset.identifier,
+          error,
+        });
+      }
+    }
+    return (identifier, name) =>
+      byIdentifier.get(identifier)?.find((c) => c.name.toLowerCase() === name.toLowerCase());
+  }
+
   /** What every declared dataset has after the plan's rebinds, by identifier. */
   private async columnsByIdentifier(
     definition: Record<string, any>,
@@ -345,7 +384,8 @@ export class RebindService {
       typeRules?: PreviewRequest['typeRules'];
     },
     template: LoadedTemplate | null = null,
-    currentColumns: Map<string, TargetColumn[]> = new Map()
+    currentColumns: Map<string, TargetColumn[]> = new Map(),
+    columnOf: ColumnLookup = () => undefined
   ): {
     definition: Record<string, any>;
     changes: DefinitionChange[];
@@ -410,7 +450,7 @@ export class RebindService {
       changes.push(...ruled.changes);
       warnings.push(...ruled.warnings);
     }
-    const edited = applyOps(definition, request.ops ?? []);
+    const edited = applyOps(definition, request.ops ?? [], columnOf);
     return {
       definition: edited.definition,
       changes: [...changes, ...edited.changes],
@@ -498,7 +538,15 @@ export class RebindService {
     const name = this.resolveName(request, loaded.name);
     const template = await this.loadTemplate(request.template, loaded.definition, plan);
     const currentColumns = await this.currentColumnsFor(request, plan);
-    const rewritten = this.rewrite(loaded.definition, plan, request, template, currentColumns);
+    const columnOf = await this.columnLookup(loaded.definition, plan, request.ops);
+    const rewritten = this.rewrite(
+      loaded.definition,
+      plan,
+      request,
+      template,
+      currentColumns,
+      columnOf
+    );
     const definition = rewritten.definition;
     const changes = [...repaired.changes, ...rewritten.changes];
     const applyWarnings = [

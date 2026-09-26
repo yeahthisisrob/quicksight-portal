@@ -199,11 +199,41 @@ const PLAN_ON_GOVERNED = {
     },
     { name: 'Share of region', expression: 'sum({revenue}) / sum({revenue}, [])', status: 'new' },
   ],
-  filters: [
-    { column: 'order_date', title: 'Period' },
-    { column: 'region', title: 'Region' },
-  ],
   asset: { kind: 'analysis', name: 'Margin by region', status: 'new' },
+  model: { key: 'sonnet-4-6', label: 'Claude Sonnet 4.6' },
+  build: {
+    create: {
+      assetType: 'analysis',
+      name: 'Margin by region',
+      datasets: [{ identifier: 'orders', dataSetId: 'ds-orders-gold' }],
+      visuals: [
+        {
+          type: 'KPI',
+          title: 'Net margin',
+          identifier: 'orders',
+          values: [{ column: 'net_margin' }],
+        },
+        {
+          type: 'BarChart',
+          title: 'Margin by region',
+          identifier: 'orders',
+          category: 'region',
+          values: [{ column: 'net_margin' }],
+        },
+        {
+          type: 'Table',
+          title: 'Orders',
+          identifier: 'orders',
+          category: 'region',
+          values: [{ column: 'revenue' }],
+        },
+      ],
+      filters: [
+        { identifier: 'orders', column: 'order_date', title: 'Period' },
+        { identifier: 'orders', column: 'region', title: 'Region' },
+      ],
+    },
+  },
 } as const;
 
 /** A plan that needs a dataset: a new one over the listing, through the Athena source the portal picked. */
@@ -214,6 +244,13 @@ export const PLAN_NEW_DATASET = {
   sources: [{ listing: 'dim_customer', project: 'sales_prod', table: 'published.dim_customer' }],
   datasets: [{ name: 'dim_customer', status: 'new', dataSource: 'Athena (primary)' }],
   asset: { kind: 'dashboard', name: 'Customer overview', id: 'cust-overview', status: 'edited' },
+  build: {
+    edit: {
+      assetType: 'dashboard',
+      assetId: 'cust-overview',
+      ops: [{ op: 'addFilter', sheetId: 's1', identifier: 'customers', column: 'segment' }],
+    },
+  },
 } as const;
 
 /** Without SMUS: straight from datasets to the asset. */
@@ -340,6 +377,46 @@ export const FILTERS_QUESTION = {
     ],
   },
 } as const;
+
+/** A reply that leans on markdown: a table, a list, inline code and a block. */
+export const MARKDOWN_ANSWER = {
+  ...SCRIPTED_ANSWER,
+  reply: [
+    'Three dashboards read **orders_gold**. Sales overview is the busiest:',
+    '',
+    '| Dashboard | Views (30d) | Owner | Refreshed |',
+    '| --- | ---: | --- | --- |',
+    '| Sales overview | 1,284 | sales-bi | daily |',
+    '| Margin by region | 402 | finance | daily |',
+    '| Orders QA | 17 | data-eng | hourly |',
+    '',
+    'What they have in common:',
+    '',
+    '- all three filter on `order_date`',
+    '- two of them compute `margin` themselves, from the same expression:',
+    '',
+    '```sql',
+    '{revenue} - {cost}',
+    '```',
+    '',
+    '> Orders QA reads the dataset directly; the others read SPICE.',
+    '',
+    "Next I'll check which of them compute margin differently.",
+  ].join('\n'),
+  artifacts: [],
+  actions: [],
+  helpers: undefined,
+};
+
+/** A preview drawn on its own: a copy onto the gold dataset, before anything is prepared. */
+export const WIREFRAME_ANSWER = {
+  ...SCRIPTED_ANSWER,
+  reply:
+    'Here is Sales overview on **sales_gold**. Every column resolves after two renames. Expand it to check each sheet.',
+  artifacts: [SCRIPTED_ANSWER.artifacts[1]],
+  actions: [],
+  helpers: undefined,
+};
 
 /** An answer that stops on a question. */
 export const QUESTION_ANSWER = {

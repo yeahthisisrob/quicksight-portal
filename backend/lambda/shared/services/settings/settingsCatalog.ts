@@ -208,6 +208,14 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
         type: 'text',
         envVar: '',
       },
+      {
+        key: 'guidance.vocabulary',
+        label: 'Vocabulary',
+        description:
+          'Your organisation\'s words for what to build, one per line as "phrase = meaning", e.g. "slicer = a dropdown filter in the control bar" or "scorecard = a KPI band of revenue, orders and margin". They are read before the built-in vocabulary.',
+        type: 'text',
+        envVar: '',
+      },
     ],
   },
   {

@@ -93,6 +93,35 @@ describe('conversation model', () => {
   });
 });
 
+describe('workingStateOf plans', () => {
+  it('holds every plan drawn so far that says what it writes, latest last', () => {
+    const plan = (id: string, build?: unknown) => ({
+      id,
+      kind: 'plan',
+      title: `Plan ${id}`,
+      ...(build ? { build } : {}),
+    });
+    let c = withAnswer(withQuestion(EMPTY_CONVERSATION, 'plan it'), {
+      ...ANSWER,
+      artifacts: [plan('p1', { create: { name: 'A' } }), { id: 'x', kind: 'lineage', title: 'm' }],
+    } as never);
+    c = withAnswer(withQuestion(c, 'and another'), {
+      ...ANSWER,
+      artifacts: [plan('no-build'), plan('p2', { edit: { assetId: 'd' } })],
+    } as never);
+    expect(workingStateOf(c).plans).toEqual([
+      { id: 'p1', title: 'Plan p1', build: { create: { name: 'A' } } },
+      { id: 'p2', title: 'Plan p2', build: { edit: { assetId: 'd' } } },
+    ]);
+    for (let i = 0; i < 12; i += 1) {
+      c = withAnswer(c, { ...ANSWER, artifacts: [plan(`q${i}`, { create: {} })] } as never);
+    }
+    const plans = workingStateOf(c).plans;
+    expect(plans).toHaveLength(5);
+    expect(plans[plans.length - 1]!.id).toBe('q11');
+  });
+});
+
 describe('endsOnAPromise', () => {
   it('spots an answer that stops on what it will do next, not a question back', () => {
     expect(
@@ -131,7 +160,7 @@ describe('useConversation', () => {
       model: 'haiku-4-5',
       authoringModel: 'sonnet-4-6',
       threadId: expect.any(String),
-      state: { drafts: [], ran: [] },
+      state: { drafts: [], ran: [], plans: [] },
     });
     expect(result.current.busy).toBe(true);
     expect(JSON.parse(window.localStorage.getItem(CONVERSATION_KEY) ?? '{}').pending.jobId).toBe(
@@ -206,6 +235,7 @@ describe('useConversation', () => {
         { title: 'Share it', method: 'POST', path: '/api/x' },
       ],
       ran: [],
+      plans: [],
     });
     c = withRun(c, 'a1', {
       status: 'completed',
@@ -222,6 +252,7 @@ describe('useConversation', () => {
           result: { assetType: 'analysis', assetId: 'an-9', name: 'Orders' },
         },
       ],
+      plans: [],
     });
     expect(createdAsset(c.runs.a1!.result)).toEqual({
       assetType: 'analysis',

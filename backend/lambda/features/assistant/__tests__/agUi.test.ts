@@ -178,40 +178,8 @@ describe('AG-UI run protocol', () => {
     expect(describeRunInput({})).toBe('');
   });
 
-  it('sends back a write that leaves out a filter the person asked for or the plan promised', async () => {
-    const { missingFilters, describeBuilt } = await import('../services/AssistantService');
-    const create = { assetType: 'analysis', name: 'x', datasets: [] };
-    expect(
-      missingFilters('/api/authoring/new', create, 'one table and a region filter', [])
-    ).toContain('asked for a filter');
-    expect(
-      missingFilters(
-        '/api/authoring/new',
-        { ...create, filters: [{ identifier: 'o', column: 'region' }] },
-        'a region filter',
-        []
-      )
-    ).toBeUndefined();
-    expect(missingFilters('/api/authoring/new', create, 'one simple table', [])).toBeUndefined();
-    const plan = {
-      id: 'p',
-      kind: 'plan',
-      title: 't',
-      sources: [],
-      datasets: [],
-      asset: { kind: 'analysis', name: 'x', status: 'new' },
-      filters: [{ column: 'Region' }, { column: 'order_date' }],
-    };
-    expect(
-      missingFilters(
-        '/api/authoring/{assetType}/{assetId}/rebind',
-        { mode: 'update', rebinds: [], ops: [{ op: 'addFilter', column: 'region' }] },
-        'go',
-        [plan as never]
-      )
-    ).toContain('promised filters on order_date');
-    expect(missingFilters('/api/folders/{folderId}/members', {}, 'filter', [])).toBeUndefined();
-
+  it('describes what a preview built, controls and all', async () => {
+    const { describeBuilt } = await import('../services/AssistantService');
     expect(
       describeBuilt({
         outline: [
@@ -226,29 +194,139 @@ describe('AG-UI run protocol', () => {
     ).toBe('1 visual; controls: Region');
   });
 
-  it('in a real run, sends a create without the asked-for filter back to the model', async () => {
-    const told: string[] = [];
-    const create = {
-      toolCalls: [
+  const CREATE = {
+    assetType: 'analysis',
+    name: 'Orders',
+    datasets: [{ identifier: 'orders', dataSetId: 'ds-1' }],
+    visuals: [
+      {
+        key: 'detail',
+        type: 'Table',
+        title: 'Orders',
+        identifier: 'orders',
+        category: 'order_id',
+        values: [{ column: 'revenue' }],
+      },
+    ],
+    filters: [{ identifier: 'orders', column: 'region', control: 'dropdown' }],
+  };
+  const PLAN = {
+    id: 'p1',
+    name: 'show_plan',
+    input: {
+      title: 'Orders with a region filter',
+      datasets: [{ name: 'Orders', id: 'ds-1', status: 'existing' }],
+      asset: { kind: 'analysis', name: 'Orders', status: 'new' },
+      build: { create: CREATE },
+    },
+  };
+  const OUTLINE = {
+    success: true,
+    data: {
+      outline: [
         {
-          id: 'c1',
-          name: 'propose_action',
-          input: {
-            title: 'Create',
-            why: 'x',
-            method: 'POST',
-            path: '/api/authoring/new',
-            body: {
-              assetType: 'analysis',
-              name: 'x',
-              datasets: [{ identifier: 'o', dataSetId: 'd' }],
-              folderId: 'f',
-            },
-          },
+          elements: [
+            { kind: 'visual', elementId: 'v1' },
+            { kind: 'filterControl', elementId: 'c1', title: 'region', placement: 'controlBar' },
+          ],
         },
       ],
+    },
+  };
+
+  it("previews a plan's build before showing it, and prepares exactly that build, with the model that drew it", async () => {
+    const chat = scripted([
+      { toolCalls: [PLAN] },
+      { toolCalls: [{ id: 'r1', name: 'prepare_plan', input: {} }] },
+      { text: 'Ready to run.' },
+    ]);
+    const dispatch = vi.fn(async () => ({ status: 200, body: JSON.stringify(OUTLINE) }));
+    const result = await new AssistantService(chat, model, dispatch).respond([
+      { role: 'user', text: 'one table with a region filter' },
+    ]);
+    expect(dispatch).toHaveBeenCalledWith({
+      method: 'POST',
+      path: '/api/authoring/new/preview',
+      body: CREATE,
+    });
+    const plan = result.artifacts.find((a) => a.kind === 'plan') as any;
+    expect(plan.model).toEqual({ key: model.key, label: model.label });
+    expect(plan.filters).toEqual([
+      { column: 'region', control: 'dropdown', placement: 'controlBar' },
+    ]);
+    expect(result.actions).toEqual([
+      expect.objectContaining({
+        method: 'POST',
+        path: '/api/authoring/new',
+        body: CREATE,
+        planId: plan.id,
+      }),
+    ]);
+  });
+
+  it('does not show a plan whose build fails its preview, and tells the model why', async () => {
+    const told: string[] = [];
+    const chat = scripted([{ toolCalls: [PLAN] }, { text: 'Fixing it.' }]);
+    const turn = chat.turn.bind(chat);
+    chat.turn = async (system, turns, tools) => {
+      const last = turns[turns.length - 1];
+      if (last?.role === 'tool') told.push(last.results[0]?.content ?? '');
+      return turn(system, turns, tools);
     };
-    const chat = scripted([create, { text: 'Adding the filter.' }]);
+    const dispatch = vi.fn(async () => ({
+      status: 400,
+      body: JSON.stringify({
+        success: false,
+        error: "Filter on 'region': 'orders' has no such column.",
+      }),
+    }));
+    const result = await new AssistantService(chat, model, dispatch).respond([
+      { role: 'user', text: 'one table with a region filter' },
+    ]);
+    expect(result.artifacts.some((a) => a.kind === 'plan')).toBe(false);
+    expect(told[0]).toContain('has no such column');
+  });
+
+  it('carries out a plan drawn in an earlier answer when the person says go', async () => {
+    const chat = scripted([
+      { toolCalls: [{ id: 'r1', name: 'prepare_plan', input: {} }] },
+      { text: 'Ready.' },
+    ]);
+    const dispatch = vi.fn(async () => ({ status: 200, body: JSON.stringify(OUTLINE) }));
+    const service = new AssistantService(chat, model, dispatch);
+    const result = await service.respond([{ role: 'user', text: 'go' }], {
+      state: {
+        plans: [{ id: 'earlier', title: 'Orders', build: { create: CREATE } }],
+        drafts: [],
+        ran: [],
+      },
+    });
+    expect(chat.systems[0]!.context).toContain('earlier: "Orders"');
+    expect(result.actions).toEqual([
+      expect.objectContaining({ path: '/api/authoring/new', body: CREATE, planId: 'earlier' }),
+    ]);
+  });
+
+  it('refuses to prepare an authoring write by hand: it has to come from a plan', async () => {
+    const told: string[] = [];
+    const chat = scripted([
+      {
+        toolCalls: [
+          {
+            id: 'c1',
+            name: 'propose_action',
+            input: {
+              title: 'Create',
+              why: 'x',
+              method: 'POST',
+              path: '/api/authoring/new',
+              body: CREATE,
+            },
+          },
+        ],
+      },
+      { text: 'Drawing the plan.' },
+    ]);
     const turn = chat.turn.bind(chat);
     chat.turn = async (system, turns, tools) => {
       const last = turns[turns.length - 1];
@@ -256,9 +334,23 @@ describe('AG-UI run protocol', () => {
       return turn(system, turns, tools);
     };
     const result = await new AssistantService(chat, model, vi.fn()).respond([
-      { role: 'user', text: 'one simple table and a region filter' },
+      { role: 'user', text: 'one table with a region filter' },
     ]);
     expect(result.actions).toEqual([]);
-    expect(told[0]).toContain('asked for a filter');
+    expect(told[0]).toContain('comes from a plan');
+  });
+
+  it('keeps the plans in the working state, and drops one too big to carry whole', () => {
+    const parsed = parseRunInput({
+      state: {
+        plans: [
+          { id: 'a', title: 'A', build: { create: CREATE } },
+          { id: 'b', title: 'B', build: { create: { ...CREATE, name: 'x'.repeat(30_000) } } },
+          { id: 'c', title: 'C', build: {} },
+        ],
+      },
+    });
+    if (typeof parsed === 'string') throw new Error(parsed);
+    expect(parsed.state!.plans!.map((p) => p.id)).toEqual(['a']);
   });
 });

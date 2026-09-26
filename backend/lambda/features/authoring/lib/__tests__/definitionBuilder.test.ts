@@ -114,8 +114,8 @@ describe('buildDefinition', () => {
     expect(buildOutline(definition)[0]!.elements).toHaveLength(4);
   });
 
-  it('leaves out what it cannot build and says why', () => {
-    const { definition, warnings } = buildDefinition({
+  it('refuses what it cannot build as asked, each with the reason, rather than leaving it out', () => {
+    const { errors } = buildDefinition({
       datasets,
       visuals: [
         {
@@ -127,17 +127,10 @@ describe('buildDefinition', () => {
         },
         {
           type: 'Table',
-          title: 'Missing values',
-          identifier: 'orders',
-          category: 'region',
-          values: [{ column: 'nope' }],
-        },
-        {
-          type: 'Table',
           title: 'Partial',
           identifier: 'orders',
           category: 'nope',
-          values: [{ column: 'revenue' }, { column: 'nope' }],
+          values: [{ column: 'revenue' }, { column: 'gone' }],
         },
         {
           type: 'Sparkline' as any,
@@ -146,24 +139,28 @@ describe('buildDefinition', () => {
           values: [{ column: 'revenue' }],
         },
       ],
+      filters: [
+        { identifier: 'orders', column: 'revenue' },
+        { identifier: 'orders', column: 'nope' },
+        { identifier: 'orders', column: 'region', control: 'slider' },
+      ],
     });
-    expect(definition.Sheets[0].Visuals).toHaveLength(1);
-    expect(warnings).toEqual([
+    expect(errors).toEqual([
       expect.stringContaining("no dataset 'customers'"),
-      expect.stringContaining("'nope' is not in 'orders' and was left out"),
-      expect.stringContaining('none of its values exist'),
-      expect.stringContaining('so it has no category'),
-      expect.stringContaining("'nope' is not in 'orders' and was left out"),
+      "'Partial': 'nope', 'gone' are not in 'orders'.",
       expect.stringContaining('is not a type that can be built'),
+      "Filter on 'revenue': a slider on 'revenue' needs min and max (min below max).",
+      "Filter on 'nope': 'orders' has no such column.",
+      "Filter on 'region': a slider control does not fit a text column; use dropdown or singleSelect or list.",
     ]);
     expect(() => buildDefinition({ datasets: [], visuals: [] })).toThrow('At least one dataset');
     expect(buildDefinition({ datasets, visuals: [] }).warnings).toEqual([
-      'No visual could be built; the sheet is empty.',
+      'No visuals were asked for; the sheet is empty.',
     ]);
   });
 
   it('puts a lone table across the page and every filter in the control bar, typed by its column', () => {
-    const { definition, warnings } = buildDefinition({
+    const { definition, warnings, errors } = buildDefinition({
       datasets,
       visuals: [
         {
@@ -177,10 +174,11 @@ describe('buildDefinition', () => {
       filters: [
         { identifier: 'orders', column: 'Region', values: ['West'] },
         { identifier: 'orders', column: 'order_date' },
-        { identifier: 'orders', column: 'revenue' },
-        { identifier: 'orders', column: 'nope' },
+        { identifier: 'orders', column: 'revenue', min: 0, max: 1000 },
       ],
     });
+    expect(errors).toEqual([]);
+    expect(warnings).toEqual([]);
     const sheet = definition.Sheets[0];
     const grid = sheet.Layouts[0].Configuration.GridLayout.Elements;
     expect(grid).toEqual([
@@ -196,6 +194,7 @@ describe('buildDefinition', () => {
     expect(sheet.FilterControls.map((c: any) => Object.keys(c)[0])).toEqual([
       'Dropdown',
       'DateTimePicker',
+      'Slider',
     ]);
     const bar = sheet.SheetControlLayouts[0].Configuration.GridLayout.Elements;
     expect(bar.map((e: any) => e.ElementId)).toEqual(
@@ -215,16 +214,138 @@ describe('buildDefinition', () => {
     expect(
       definition.FilterGroups[0].ScopeConfiguration.SelectedSheets.SheetVisualScopingConfigurations
     ).toEqual([{ SheetId: sheet.SheetId, Scope: 'ALL_VISUALS' }]);
-    expect(warnings).toEqual([
-      "Filter on 'revenue' left out: a number filter needs min and max for its slider.",
-      "Filter on 'nope' left out: 'orders' has no such column.",
-    ]);
 
     const outline = buildOutline(definition)[0]!.elements;
     expect(outline.filter((e) => e.kind === 'filterControl').map((e) => e.placement)).toEqual([
       'controlBar',
       'controlBar',
+      'controlBar',
     ]);
+  });
+
+  it('builds the control asked for, on the canvas when placed there, narrowing only the visuals named', () => {
+    const { definition, errors } = buildDefinition({
+      datasets,
+      visuals: [
+        {
+          key: 'trend',
+          type: 'LineChart',
+          title: 'Revenue over time',
+          identifier: 'orders',
+          category: 'order_date',
+          values: [{ column: 'revenue' }],
+        },
+        {
+          key: 'detail',
+          type: 'Table',
+          title: 'Orders',
+          identifier: 'orders',
+          category: 'order_id',
+          values: [{ column: 'revenue' }],
+        },
+      ],
+      filters: [
+        { identifier: 'orders', column: 'region', control: 'singleSelect', placement: 'canvas' },
+        {
+          identifier: 'orders',
+          column: 'order_date',
+          control: 'relativeDate',
+          lastDays: 90,
+          appliesTo: ['detail'],
+        },
+        { identifier: 'orders', column: 'order_id', control: 'list', appliesTo: ['nothing'] },
+      ],
+    });
+    expect(errors).toEqual([
+      "Filter on 'order_id' applies to 'nothing', which is not a visual on the sheet.",
+    ]);
+    const sheet = definition.Sheets[0];
+    const [region, date] = sheet.FilterControls;
+    expect(region.Dropdown.Type).toBe('SINGLE_SELECT');
+    expect(date.RelativeDateTime.Title).toBe('order_date');
+    expect(definition.FilterGroups[1].Filters[0].RelativeDatesFilter).toMatchObject({
+      RelativeDateType: 'LAST',
+      RelativeDateValue: 90,
+    });
+
+    // The canvas control sits above the visuals; the date control is in the bar.
+    const grid = sheet.Layouts[0].Configuration.GridLayout.Elements;
+    expect(grid[0]).toMatchObject({
+      ElementId: region.Dropdown.FilterControlId,
+      ElementType: 'FILTER_CONTROL',
+      RowIndex: 0,
+    });
+    expect(grid.slice(1).every((e: any) => e.RowIndex >= 3)).toBe(true);
+    expect(sheet.SheetControlLayouts[0].Configuration.GridLayout.Elements).toEqual([
+      expect.objectContaining({ ElementId: date.RelativeDateTime.FilterControlId }),
+    ]);
+
+    const detailId = sheet.Visuals[1].TableVisual.VisualId;
+    expect(
+      definition.FilterGroups[1].ScopeConfiguration.SelectedSheets.SheetVisualScopingConfigurations
+    ).toEqual([{ SheetId: sheet.SheetId, Scope: 'SELECTED_VISUALS', VisualIds: [detailId] }]);
+  });
+
+  it('gives a visual its interactions: a click that filters the others, or the visuals named', () => {
+    const { definition, errors } = buildDefinition({
+      datasets,
+      sheetName: 'Sales',
+      visuals: [
+        {
+          key: 'byRegion',
+          type: 'BarChart',
+          title: 'Revenue by region',
+          identifier: 'orders',
+          category: 'region',
+          values: [{ column: 'revenue' }],
+          actions: [
+            { kind: 'filter', targets: ['detail'], fields: ['region'] },
+            { kind: 'navigate', trigger: 'menu', sheet: 'Sales' },
+          ],
+        },
+        {
+          key: 'detail',
+          type: 'Table',
+          title: 'Orders',
+          identifier: 'orders',
+          category: 'order_id',
+          values: [{ column: 'revenue' }],
+          actions: [{ kind: 'filter' }, { kind: 'filter' }],
+        },
+      ],
+    });
+    expect(errors).toEqual([
+      "'detail' has more than one action on select; a visual runs one on click, so make the others 'menu'.",
+    ]);
+    const [bar, table] = definition.Sheets[0].Visuals;
+    const [filter, navigate] = bar.BarChartVisual.Actions;
+    expect(filter).toMatchObject({
+      Trigger: 'DATA_POINT_CLICK',
+      Status: 'ENABLED',
+      ActionOperations: [
+        {
+          FilterOperation: {
+            SelectedFieldsConfiguration: {
+              SelectedColumns: [{ DataSetIdentifier: 'orders', ColumnName: 'region' }],
+            },
+            TargetVisualsConfiguration: {
+              SameSheetTargetVisualConfiguration: { TargetVisuals: [table.TableVisual.VisualId] },
+            },
+          },
+        },
+      ],
+    });
+    expect(navigate).toMatchObject({
+      Trigger: 'DATA_POINT_MENU',
+      ActionOperations: [
+        {
+          NavigationOperation: {
+            LocalNavigationConfiguration: { TargetSheetId: definition.Sheets[0].SheetId },
+          },
+        },
+      ],
+    });
+    expect(table.TableVisual.Actions).toHaveLength(1);
   });
 
   it('gives a number filter a slider when its bounds are known', () => {

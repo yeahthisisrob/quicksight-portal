@@ -130,10 +130,11 @@ export function historyOf(c: Conversation): Array<{ role: 'user' | 'assistant'; 
 /**
  * The page's working state (AG-UI state), sent with every message: the
  * latest answer's actions that were not run are the working draft (earlier
- * unrun ones were superseded), and every action that ran is reported with
- * its result, most recent last.
+ * unrun ones were superseded), every action that ran is reported with its
+ * result, most recent last, and every plan drawn so far that says what it
+ * writes, latest last, so a later "go" can act on a plan drawn earlier.
  */
-export function workingStateOf(c: Conversation): AssistantWorkingState {
+export function workingStateOf(c: Conversation): Required<AssistantWorkingState> {
   const answers = c.entries.filter(
     (e): e is Extract<ConversationEntry, { role: 'assistant' }> => e.role === 'assistant'
   );
@@ -163,10 +164,17 @@ export function workingStateOf(c: Conversation): AssistantWorkingState {
       ];
     })
   );
-  return { drafts, ran: ran.slice(-MAX_RAN) };
+  const plans = answers.flatMap((e) =>
+    e.result.artifacts.flatMap((a) =>
+      a.kind === 'plan' && a.build ? [{ id: a.id, title: a.title, build: a.build }] : []
+    )
+  );
+  return { drafts, ran: ran.slice(-MAX_RAN), plans: plans.slice(-MAX_PLANS) };
 }
 
 const MAX_RAN = 20;
+/** As many as the run input carries (the API keeps the latest five). */
+const MAX_PLANS = 5;
 
 /** The answer a later message gave to one of this answer's questions, if any. */
 export function answerTo(c: Conversation, interruptId: string): AgUiResumeEntry | undefined {

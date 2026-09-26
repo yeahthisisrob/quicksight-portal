@@ -3,6 +3,7 @@
  */
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
+import { requestErrors } from '../shared/api/contract';
 import { getAuthContext, UnauthorizedError } from '../shared/auth';
 import { STATUS_CODES } from '../shared/constants/httpStatusCodes';
 import { settingsStore } from '../shared/services/settings/SettingsStore';
@@ -44,6 +45,17 @@ const handleRequest = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
     // Check feature-based routes
     const routeMatch = findRoute(method, path);
     if (routeMatch) {
+      // Every body is checked against the contract before a handler sees
+      // it, so handlers take the whole body rather than re-picking fields
+      // (which is how fields went missing).
+      const problems = contractProblems(event);
+      if (problems.length > 0) {
+        return errorResponse(
+          event,
+          STATUS_CODES.BAD_REQUEST,
+          `The request does not fit the API contract:\n${problems.map((p) => `- ${p}`).join('\n')}`
+        );
+      }
       // Add extracted path parameters to event
       const eventWithParams = {
         ...event,
@@ -111,3 +123,19 @@ const handleRequest = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
     return errorResponse(event, STATUS_CODES.INTERNAL_SERVER_ERROR, 'Internal server error');
   }
 };
+
+/** Contract problems with a JSON body; none when there is no body or it is not JSON (the handler says so). */
+function contractProblems(event: APIGatewayProxyEvent): string[] {
+  if (!event.body || !['POST', 'PUT', 'PATCH', 'DELETE'].includes(event.httpMethod)) {
+    return [];
+  }
+  let body: unknown;
+  try {
+    body = JSON.parse(
+      event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString() : event.body
+    );
+  } catch {
+    return [];
+  }
+  return requestErrors(event.httpMethod, event.path, body);
+}

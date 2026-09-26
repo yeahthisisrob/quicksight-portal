@@ -5158,10 +5158,24 @@ components:
     AssistantWorkingState:
       type: object
       description: |
-        What the page holds between answers (AG-UI state): actions the
-        assistant prepared that were not run (the working draft), and actions
-        the person ran, with their results. Large bodies are clipped.
+        What the page holds between answers (AG-UI state): plans drawn so
+        far (so "go" acts on the plan drawn earlier), actions the assistant
+        prepared that were not run (the working draft), and actions the
+        person ran, with their results. Large bodies are clipped.
       properties:
+        plans:
+          type: array
+          maxItems: 5
+          items:
+            type: object
+            required: [id, title, build]
+            properties:
+              id:
+                type: string
+              title:
+                type: string
+              build:
+                $ref: '#/components/schemas/AssistantPlanBuild'
         drafts:
           type: array
           maxItems: 20
@@ -5342,9 +5356,10 @@ components:
         preview call and draw its definition as a wireframe. `asset`: draw
         the dashboard or analysis as it is. `lineage`: draw the calculated
         field's lineage from GET /api/data-catalog/calculated-fields/{fieldKey}.
-        `plan`: the lineage of what a change builds (listings, datasets, the
-        analysis or dashboard). `fields`: the calculated fields it adds, each
-        placed by the organisation's field strategy.
+        `plan`: what a change builds - its lineage (listings, datasets, the
+        analysis or dashboard) and `build`, the exact write that carries it
+        out, which is what the person runs. `fields`: the calculated fields
+        it adds, each placed by the organisation's field strategy.
       required: [id, kind, title]
       properties:
         id:
@@ -5407,9 +5422,11 @@ components:
               type: string
             status:
               $ref: '#/components/schemas/PlanStatus'
+        build:
+          $ref: '#/components/schemas/AssistantPlanBuild'
         filters:
           type: array
-          description: plan - the filters the asset will carry, each a control in the control bar.
+          description: plan - the filters its build adds, for drawing (the build is what runs).
           items:
             type: object
             required: [column]
@@ -5418,6 +5435,19 @@ components:
                 type: string
               title:
                 type: string
+              control:
+                $ref: '#/components/schemas/FilterControlKind'
+              placement:
+                $ref: '#/components/schemas/ControlPlacement'
+        model:
+          description: plan - the model that drew it.
+          type: object
+          required: [key, label]
+          properties:
+            key:
+              $ref: '#/components/schemas/AiModelKey'
+            label:
+              type: string
         fields:
           type: array
           items:
@@ -5438,6 +5468,33 @@ components:
           type: string
         fieldKey:
           type: string
+
+    AssistantPlanBuild:
+      type: object
+      description: |
+        The exact write a plan carries out: a new asset (`create`, the body
+        of POST /api/authoring/new), or a change to an existing one (`edit`:
+        the body of POST /api/authoring/{assetType}/{assetId}/rebind - ops,
+        a rebind onto other datasets, a copy, a template). Checked against
+        the contract and rehearsed through the matching preview when the plan
+        is drawn; the Run button sends it unchanged.
+      oneOf:
+        - required: [create]
+        - required: [edit]
+      properties:
+        create:
+          $ref: '#/components/schemas/NewAssetRequest'
+        edit:
+          type: object
+          required: [assetType, assetId, request]
+          properties:
+            assetType:
+              type: string
+              enum: [dashboard, analysis]
+            assetId:
+              type: string
+            request:
+              $ref: '#/components/schemas/ApplyRebindRequest'
 
     AssistantAction:
       type: object
@@ -7347,9 +7404,15 @@ components:
 
     VisualSpec:
       type: object
-      description: One visual by column names; the builder decides the field wells from the columns' types.
+      description: |
+        One visual by column names; the builder decides the field wells from
+        the columns' types. A column the dataset does not have refuses the
+        build (it is never left out quietly).
       required: [type, title, identifier, values]
       properties:
+        key:
+          type: string
+          description: How filters (`appliesTo`) and actions (`targets`) refer to this visual; its title works too.
         type:
           type: string
           enum: [KPI, BarChart, ColumnChart, LineChart, PieChart, DonutChart, Table, PivotTable]
@@ -7379,16 +7442,57 @@ components:
         color:
           type: string
           description: A second dimension (colours, pivot columns).
+        actions:
+          type: array
+          description: Interactions on this visual - a click that filters other visuals, or opens a sheet.
+          items:
+            $ref: '#/components/schemas/VisualAction'
+
+    VisualAction:
+      type: object
+      description: |
+        An interaction on a visual (a QuickSight custom action). `filter` is
+        what people call an action filter, click-to-filter or cross-filter:
+        selecting a data point filters other visuals by it. `navigate` opens
+        another sheet (drill to a detail sheet). A visual runs one action on
+        select (click); others go in its data point menu.
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [filter, navigate]
+        name:
+          type: string
+          description: Shown in the visual's menu.
+        trigger:
+          type: string
+          enum: [select, menu]
+          description: select (default) - clicking a data point runs it; menu - offered in the data point's menu.
+        targets:
+          type: array
+          items:
+            type: string
+          description: filter. Keys (or titles) of the visuals it filters; every other visual on the sheet when omitted.
+        fields:
+          type: array
+          items:
+            type: string
+          description: filter. Columns the selection filters by; every field of the visual when omitted.
+        sheet:
+          type: string
+          description: navigate. The name of the sheet it opens.
 
     FilterSpec:
       type: object
       description: |
-        A column the person filters on. The column's type decides the rest:
-        text gets a multi-select dropdown, a date a date-range picker, a
-        number a range slider (needs min and max). The filter applies to
-        every visual on the sheet, and its control goes in the sheet's
-        control bar (the collapsible strip at the top), where QuickSight
-        puts controls by default.
+        A column the person filters on, with its control. Controls by column
+        type - text: dropdown (multi-select, the default), singleSelect or
+        list; date: dateRange (the default) or relativeDate ("last N days");
+        number: slider (needs min and max). The control goes in the sheet's
+        control bar (the collapsible strip at the top, the default) or on the
+        canvas above the visuals. The filter narrows every visual on the
+        sheet, or only those named in `appliesTo`. A filter that cannot be
+        built as asked refuses the build with the reason.
       required: [identifier, column]
       properties:
         identifier:
@@ -7396,6 +7500,19 @@ components:
           description: The dataset identifier the column belongs to.
         column:
           type: string
+        control:
+          $ref: '#/components/schemas/FilterControlKind'
+        placement:
+          $ref: '#/components/schemas/ControlPlacement'
+        appliesTo:
+          type: array
+          items:
+            type: string
+          description: Keys (or titles) of the visuals it narrows; every visual on the sheet when omitted.
+        lastDays:
+          type: integer
+          minimum: 1
+          description: relativeDate. The last N days selected to start with (30 when omitted).
         title:
           type: string
           description: The control's title; the column name when omitted.
@@ -9213,12 +9330,31 @@ components:
           items:
             $ref: '#/components/schemas/SmusCatalogAssetSummary'
 
+    FilterControlKind:
+      type: string
+      enum: [dropdown, singleSelect, list, dateRange, relativeDate, slider]
+      description: |
+        The control a filter gets. Text columns: dropdown (multi-select),
+        singleSelect, list. Dates: dateRange, relativeDate. Numbers: slider
+        (needs min and max). The column type's default when omitted.
+
+    ControlPlacement:
+      type: string
+      enum: [controlBar, canvas]
+      description: |
+        controlBar - the collapsible strip at the top of the sheet, where
+        QuickSight puts controls by default. canvas - on the sheet grid,
+        above the visuals.
+
     DefinitionOp:
       type: object
       description: |
         One edit to a definition, applied by deterministic code after
         validation. Element and visual ids are the definition's own; a sheet
-        outline (see RebindPreview.outline) lists them. Changing a visual's
+        outline (see RebindPreview.outline) lists them. addVisual builds a
+        visual from column names (as VisualSpec) below the last tile;
+        addFilter adds a filter with its control; addAction gives a visual an
+        interaction (VisualAction). Changing a visual's
         type keeps its field wells, title and subtitle and resets the rest of
         the chart configuration to defaults; only conversions whose field
         wells translate are allowed.
@@ -9226,15 +9362,32 @@ components:
       properties:
         op:
           type: string
-          enum: [move, resize, retype, retitle, remove, duplicate, renameSheet, addFilter]
+          enum: [move, resize, retype, retitle, remove, duplicate, renameSheet, addFilter, addVisual, addAction]
         sheetId:
           type: string
+        visual:
+          $ref: '#/components/schemas/VisualSpec'
+        action:
+          $ref: '#/components/schemas/VisualAction'
+        control:
+          $ref: '#/components/schemas/FilterControlKind'
+        placement:
+          $ref: '#/components/schemas/ControlPlacement'
+        appliesTo:
+          type: array
+          items:
+            type: string
+          description: addFilter. Visuals it narrows, by element id or title; every visual on the sheet when omitted.
+        lastDays:
+          type: integer
+          minimum: 1
+          description: addFilter with relativeDate.
         identifier:
           type: string
           description: addFilter. The dataset identifier the definition declares (not the dataset ARN).
         column:
           type: string
-          description: addFilter. The column to filter on; the filter applies to every visual on the sheet and its control goes in the control bar.
+          description: addFilter. The column to filter on.
         columnType:
           type: string
           enum: [STRING, INTEGER, DECIMAL, DATETIME]
@@ -9251,7 +9404,7 @@ components:
           type: number
         elementId:
           type: string
-          description: move, resize, remove, duplicate, retype, retitle. The layout element id (the visual id for visuals, the control id for controls, wherever they sit).
+          description: move, resize, remove, duplicate, retype, retitle, addAction. The layout element id (the visual id for visuals, the control id for controls, wherever they sit); addAction also takes the visual's title.
         col:
           type: integer
           minimum: 0
