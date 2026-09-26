@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.26.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.25.0...v2.26.0) (2026-09-26)
+
+
+### Features
+
+* **playbooks:** compose your own from generic blocks, with inference, folders and reports ([#246](https://github.com/yeahthisisrob/quicksight-portal/issues/246)) ([fdddcf4](https://github.com/yeahthisisrob/quicksight-portal/commit/fdddcf479e636964843a5df3c0d4d750431e55f8))
+
 ## [2.25.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.24.1...v2.25.0) (2026-09-26)
 
 
