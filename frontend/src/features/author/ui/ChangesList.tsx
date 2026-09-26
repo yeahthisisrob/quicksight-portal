@@ -20,6 +20,7 @@ const KIND_COLOR: Record<
   layout: 'secondary',
   visual: 'warning',
   sheet: 'default',
+  filter: 'info',
 };
 
 interface ChangesListProps {

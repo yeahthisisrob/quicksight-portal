@@ -1,7 +1,9 @@
 import type { RouteHandler } from '../../../api/types';
 import { DataCatalogHandler } from '../handlers/DataCatalogHandler';
+import { FilterBarTemplateHandler } from '../handlers/FilterBarTemplateHandler';
 
 const handler = new DataCatalogHandler();
+const filterBars = new FilterBarTemplateHandler();
 
 export const dataCatalogRoutes: RouteHandler[] = [
   // Main data catalog endpoint with pagination
@@ -130,5 +132,27 @@ export const dataCatalogRoutes: RouteHandler[] = [
     method: 'DELETE',
     path: /^\/data-catalog\/templates\/calculated-fields\/([^/]+)$/,
     handler: (event) => handler.deleteCalculatedFieldTemplate(event),
+  },
+
+  // Filter bar templates: the standard filters, order and widths of a control bar
+  {
+    method: 'GET',
+    path: '/data-catalog/templates/filter-bars',
+    handler: (event) => filterBars.list(event),
+  },
+  {
+    method: 'POST',
+    path: '/data-catalog/templates/filter-bars',
+    handler: (event) => filterBars.create(event),
+  },
+  {
+    method: 'PUT',
+    path: /^\/data-catalog\/templates\/filter-bars\/([^/]+)$/,
+    handler: (event) => filterBars.update(event),
+  },
+  {
+    method: 'DELETE',
+    path: /^\/data-catalog\/templates\/filter-bars\/([^/]+)$/,
+    handler: (event) => filterBars.remove(event),
   },
 ];

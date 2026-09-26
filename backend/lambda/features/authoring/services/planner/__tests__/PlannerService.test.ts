@@ -594,4 +594,45 @@ describe('PlannerService edits', () => {
     );
     expect(plain.requests[0]?.system).not.toContain('authoring guidance');
   });
+
+  it('reads an addFilter op from the planner and drops one without a column', () => {
+    const outline = [{ sheetId: 's1', name: 'Sheet', layout: 'grid' as const, elements: [] }];
+    const blank = {
+      elementId: '',
+      col: -1,
+      row: -1,
+      colSpan: -1,
+      rowSpan: -1,
+      visualType: '',
+      title: '',
+      name: '',
+    };
+    expect(
+      parseEditOps(
+        {
+          ops: [
+            {
+              ...blank,
+              op: 'addFilter',
+              sheetId: 's1',
+              identifier: 'orders',
+              column: 'region',
+              values: ['West'],
+            },
+            {
+              ...blank,
+              op: 'addFilter',
+              sheetId: 's1',
+              identifier: 'orders',
+              column: '',
+              values: [],
+            },
+          ],
+        },
+        outline
+      )
+    ).toEqual([
+      { op: 'addFilter', sheetId: 's1', identifier: 'orders', column: 'region', values: ['West'] },
+    ]);
+  });
 });

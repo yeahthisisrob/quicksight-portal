@@ -94,7 +94,7 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
   {
     name: 'list_templates',
     description:
-      'The calculated-field template library and the dashboards tagged as layout standards, with their ids.',
+      'The template library, with ids: calculated-field templates, layout standards (tagged dashboards) and filter bar templates. To add, change or remove a template, prepare the write (POST/PUT/DELETE /api/data-catalog/templates/...) with propose_action.',
     inputSchema: { type: 'object', properties: {} },
   },
   {

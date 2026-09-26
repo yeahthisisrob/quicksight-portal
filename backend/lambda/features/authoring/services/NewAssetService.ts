@@ -5,12 +5,18 @@
  * an audience inherited from an existing asset. Same preview-then-create
  * shape as the rest of authoring; nothing is written by preview.
  */
+
 import { randomUUID } from 'node:crypto';
 
 import type { AuthContext } from '../../../shared/auth';
 import { ValidationError } from '../../../shared/errors/ValidationError';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
+import {
+  type FilterBarTemplate,
+  FilterBarTemplateStore,
+  filtersFromTemplate,
+} from '../../../shared/services/templates/FilterBarTemplateStore';
 import { logger } from '../../../shared/utils/logger';
 import { datasetPermissionsFor } from '../../../shared/utils/permissions';
 import {
@@ -52,8 +58,14 @@ export interface NewAssetRequest {
   }>;
   /** Visuals to build; when absent and `ask` is given, the planner proposes them. */
   visuals?: VisualSpec[];
-  /** Columns the person filters on; each gets a control at the top of the sheet. */
+  /** Columns the person filters on; each gets a control in the sheet's control bar. */
   filters?: FilterSpec[];
+  /**
+   * The filter bar template to start from; the organisation's default when
+   * omitted, none with 'none'. Its controls come first, in its order and
+   * widths; filters asked for besides follow.
+   */
+  filterBarTemplateId?: string;
   ask?: string;
   sheetName?: string;
   addCalculatedFields?: AddedCalculatedField[];
@@ -93,7 +105,11 @@ export class NewAssetService {
   public constructor(
     accountId: string,
     private readonly rebindService: RebindService,
-    private readonly planner?: PlannerService
+    private readonly planner?: PlannerService,
+    private readonly filterBars: Pick<
+      FilterBarTemplateStore,
+      'get' | 'getDefault'
+    > = new FilterBarTemplateStore()
   ) {
     this.quickSightService = ClientFactory.getQuickSightService(accountId);
   }
@@ -242,9 +258,17 @@ export class NewAssetService {
       const planned = await this.planner.planVisuals(request.ask, datasets);
       visuals = planned.visuals;
       // Filters the caller gave win over the planner's.
-      filters = filters.length > 0 ? filters : planned.filters;
+      filters = filters.length > 0 ? filters : (planned.filters ?? []);
       proposal = { reason: planned.reason, model: planned.model };
     }
+
+    const bar = await this.filterBar(request.filterBarTemplateId, datasets);
+    filters = [
+      ...bar.filters,
+      ...filters.filter(
+        (f) => !bar.filters.some((b) => b.column.toLowerCase() === f.column.toLowerCase())
+      ),
+    ];
 
     const built = buildDefinition({ datasets, visuals, filters, sheetName: request.sheetName });
     const changes: DefinitionChange[] = [
@@ -253,7 +277,7 @@ export class NewAssetService {
         description: `Built ${built.definition.Sheets[0].Visuals.length} visual${built.definition.Sheets[0].Visuals.length === 1 ? '' : 's'} on ${datasets.map((d) => d.identifier).join(', ')}`,
       },
     ];
-    const warnings = [...built.warnings];
+    const warnings = [...bar.warnings, ...built.warnings];
     let definition = built.definition;
     let themeArn: string | undefined;
 
@@ -318,6 +342,39 @@ export class NewAssetService {
         ...(themeArn ? { themeArn } : {}),
       },
       blocking,
+    };
+  }
+
+  /** The filter bar template's controls on these datasets, and what it could not place. */
+  private async filterBar(
+    templateId: string | undefined,
+    datasets: BuilderDataset[]
+  ): Promise<{ filters: FilterSpec[]; warnings: string[] }> {
+    if (templateId === 'none') {
+      return { filters: [], warnings: [] };
+    }
+    let template: FilterBarTemplate | null = null;
+    try {
+      template = templateId
+        ? await this.filterBars.get(templateId)
+        : await this.filterBars.getDefault();
+    } catch (error) {
+      logger.warn('Filter bar template could not be read', { templateId, error });
+    }
+    if (!template) {
+      return {
+        filters: [],
+        warnings: templateId ? [`No filter bar template '${templateId}'; built without one.`] : [],
+      };
+    }
+    const { filters, skipped } = filtersFromTemplate(template, datasets);
+    return {
+      filters,
+      warnings: skipped.length
+        ? [
+            `Filter bar '${template.name}': ${skipped.join(', ')} ${skipped.length === 1 ? 'is' : 'are'} not on these datasets, so ${skipped.length === 1 ? 'it was' : 'they were'} left out.`,
+          ]
+        : [],
     };
   }
 

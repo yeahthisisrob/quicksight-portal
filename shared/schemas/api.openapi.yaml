@@ -2554,6 +2554,123 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/data-catalog/templates/filter-bars:
+    get:
+      tags: [Data Catalog]
+      operationId: listFilterBarTemplates
+      summary: The filter bar templates
+      description: |
+        The organisation's standard filter bars: which filters a sheet's
+        control bar carries, in what order and how wide. The default one is
+        applied to every analysis built from nothing (POST /api/authoring/new)
+        unless the request names another or 'none'.
+      responses:
+        '200':
+          description: The templates, the default first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [templates]
+                    properties:
+                      templates:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FilterBarTemplate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Data Catalog]
+      operationId: createFilterBarTemplate
+      summary: Save a filter bar template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FilterBarTemplateInput'
+      responses:
+        '200':
+          description: The saved template
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/FilterBarTemplate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/data-catalog/templates/filter-bars/{templateId}:
+    put:
+      tags: [Data Catalog]
+      operationId: updateFilterBarTemplate
+      summary: Change a filter bar template
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FilterBarTemplateInput'
+      responses:
+        '200':
+          description: The updated template
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/FilterBarTemplate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [Data Catalog]
+      operationId: deleteFilterBarTemplate
+      summary: Delete a filter bar template
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/data-catalog/templates/calculated-fields:
     get:
       summary: The calculated-field template library
@@ -4698,6 +4815,22 @@ components:
       type: object
       required: [reply, calls, actions, artifacts, model, usage, cost, rounds]
       properties:
+        helpers:
+          type: array
+          description: Other models the answer used through the portal, such as the planner.
+          items:
+            type: object
+            required: [role, label, modelId, provider]
+            properties:
+              role:
+                type: string
+                enum: [planner]
+              label:
+                type: string
+              modelId:
+                type: string
+              provider:
+                type: string
         reply:
           type: string
         calls:
@@ -6859,6 +6992,12 @@ components:
             tables and pivot tables full width.
           items:
             $ref: '#/components/schemas/VisualSpec'
+        filterBarTemplateId:
+          type: string
+          description: |
+            The filter bar template to start from; the organisation's default
+            when omitted, none with 'none'. Its controls come first, in its
+            order and widths; `filters` follow.
         filters:
           type: array
           description: Columns to filter on, each a control in the sheet's control bar.
@@ -7835,6 +7974,85 @@ components:
             id:
               type: string
 
+    FilterBarControl:
+      type: object
+      required: [column, span]
+      properties:
+        column:
+          type: string
+          description: Matched case-insensitively against the datasets' columns; a column no dataset has is skipped.
+        title:
+          type: string
+        span:
+          type: integer
+          minimum: 1
+          maximum: 6
+          description: Width in the control bar.
+        values:
+          type: array
+          items:
+            type: string
+          description: Text columns - values selected to start with.
+
+    FilterBarTemplateInput:
+      type: object
+      required: [name, controls]
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        isDefault:
+          type: boolean
+          description: Make this the default; the previous default stops being it.
+        controls:
+          type: array
+          minItems: 1
+          maxItems: 12
+          description: The controls, in bar order.
+          items:
+            type: object
+            required: [column]
+            properties:
+              column:
+                type: string
+              title:
+                type: string
+              span:
+                type: integer
+                minimum: 1
+                maximum: 6
+              values:
+                type: array
+                items:
+                  type: string
+
+    FilterBarTemplate:
+      type: object
+      required: [id, name, isDefault, controls, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        isDefault:
+          type: boolean
+        controls:
+          type: array
+          items:
+            $ref: '#/components/schemas/FilterBarControl'
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
     CalculatedFieldTemplate:
       type: object
       description: |
@@ -8416,12 +8634,32 @@ components:
       properties:
         op:
           type: string
-          enum: [move, resize, retype, retitle, remove, duplicate, renameSheet]
+          enum: [move, resize, retype, retitle, remove, duplicate, renameSheet, addFilter]
         sheetId:
           type: string
+        identifier:
+          type: string
+          description: addFilter. The dataset identifier the definition declares (not the dataset ARN).
+        column:
+          type: string
+          description: addFilter. The column to filter on; the filter applies to every visual on the sheet and its control goes in the control bar.
+        columnType:
+          type: string
+          enum: [STRING, INTEGER, DECIMAL, DATETIME]
+          description: addFilter. Read from how the definition uses the column when omitted.
+        values:
+          type: array
+          items:
+            type: string
+          description: addFilter on a text column. Values selected to start with.
+        min:
+          type: number
+          description: addFilter on a number column. Slider minimum (required with max).
+        max:
+          type: number
         elementId:
           type: string
-          description: move, resize, remove, duplicate, retype, retitle. The layout element id (the visual id for visuals).
+          description: move, resize, remove, duplicate, retype, retitle. The layout element id (the visual id for visuals, the control id for controls, wherever they sit).
         col:
           type: integer
           minimum: 0
@@ -8461,7 +8699,7 @@ components:
       properties:
         kind:
           type: string
-          enum: [template, repair, rebind, rename, calculatedField, layout, visual, sheet]
+          enum: [template, repair, rebind, rename, calculatedField, layout, visual, sheet, filter]
         description:
           type: string
         sheetId:

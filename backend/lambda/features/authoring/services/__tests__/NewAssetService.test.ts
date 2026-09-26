@@ -45,10 +45,13 @@ describe('NewAssetService', () => {
     permissionsOf: vi.fn(),
   };
   const planner = { planVisuals: vi.fn() };
-  const service = () => new NewAssetService('1', rebind as any, planner as any);
+  const filterBars = { get: vi.fn(), getDefault: vi.fn() };
+  const service = () => new NewAssetService('1', rebind as any, planner as any, filterBars);
 
   beforeEach(() => {
     vi.clearAllMocks();
+    filterBars.get.mockResolvedValue(null);
+    filterBars.getDefault.mockResolvedValue(null);
     rebind.describeTargetDataset.mockResolvedValue({
       dataSetId: 'ds-1',
       dataSetArn: 'arn:ds-1',
@@ -323,5 +326,46 @@ describe('NewAssetService', () => {
       expect.stringContaining('only account admins will see this asset'),
     ]);
     expect(mocks.qs.createAnalysis).toHaveBeenCalled();
+  });
+
+  it("starts every sheet from the organisation's filter bar, in its order and widths, then the filters asked for", async () => {
+    filterBars.getDefault.mockResolvedValue({
+      id: 'bar-1',
+      name: 'Standard',
+      isDefault: true,
+      controls: [
+        { column: 'Region', span: 3, title: 'Region' },
+        { column: 'segment', span: 2 },
+      ],
+    });
+    const preview = await service().preview({
+      assetType: 'analysis',
+      name: 'x',
+      datasets: [{ identifier: 'orders', dataSetId: 'ds-1' }],
+      visuals: [TABLE],
+      filters: [
+        { identifier: 'orders', column: 'region' },
+        { identifier: 'orders', column: 'order_date' },
+      ],
+    });
+    const sheet = preview.definition.Sheets[0];
+    const bar = sheet.SheetControlLayouts[0].Configuration.GridLayout.Elements;
+    expect(sheet.FilterControls.map((c: any) => (Object.values(c)[0] as any).Title)).toEqual([
+      'Region',
+      'order_date',
+    ]);
+    expect(bar.map((e: any) => e.ColumnSpan)).toEqual([3, 2]);
+    expect(preview.warnings).toContain(
+      "Filter bar 'Standard': segment is not on these datasets, so it was left out."
+    );
+
+    const none = await service().preview({
+      assetType: 'analysis',
+      name: 'x',
+      datasets: [{ identifier: 'orders', dataSetId: 'ds-1' }],
+      visuals: [TABLE],
+      filterBarTemplateId: 'none',
+    });
+    expect(none.definition.Sheets[0].FilterControls).toBeUndefined();
   });
 });

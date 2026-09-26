@@ -218,7 +218,9 @@ export function buildDefinition(input: {
   };
   if (filters.filterControls.length > 0) {
     sheet.FilterControls = filters.filterControls;
-    sheet.SheetControlLayouts = controlBar(filters.controlIds.map((id) => ({ id, type: 'FILTER_CONTROL' })));
+    sheet.SheetControlLayouts = controlBar(
+      filters.controlIds.map((id, i) => ({ id, type: 'FILTER_CONTROL', span: filters.spans[i] }))
+    );
   }
   const definition: Record<string, any> = {
     DataSetIdentifierDeclarations: input.datasets.map((d) => ({ Identifier: d.identifier, DataSetArn: d.dataSetArn })),

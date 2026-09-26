@@ -3055,6 +3055,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data-catalog/templates/filter-bars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The filter bar templates
+         * @description The organisation's standard filter bars: which filters a sheet's
+         *     control bar carries, in what order and how wide. The default one is
+         *     applied to every analysis built from nothing (POST /api/authoring/new)
+         *     unless the request names another or 'none'.
+         */
+        get: operations["listFilterBarTemplates"];
+        put?: never;
+        /** Save a filter bar template */
+        post: operations["createFilterBarTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data-catalog/templates/filter-bars/{templateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change a filter bar template */
+        put: operations["updateFilterBarTemplate"];
+        post?: never;
+        /** Delete a filter bar template */
+        delete: operations["deleteFilterBarTemplate"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/data-catalog/templates/calculated-fields": {
         parameters: {
             query?: never;
@@ -5596,6 +5638,14 @@ export interface components {
             planId?: string;
         };
         AssistantChatResult: {
+            /** @description Other models the answer used through the portal, such as the planner. */
+            helpers?: {
+                /** @enum {string} */
+                role: "planner";
+                label: string;
+                modelId: string;
+                provider: string;
+            }[];
             reply: string;
             calls: {
                 method: string;
@@ -6843,6 +6893,12 @@ export interface components {
              *     tables and pivot tables full width.
              */
             visuals?: components["schemas"]["VisualSpec"][];
+            /**
+             * @description The filter bar template to start from; the organisation's default
+             *     when omitted, none with 'none'. Its controls come first, in its
+             *     order and widths; `filters` follow.
+             */
+            filterBarTemplateId?: string;
             /** @description Columns to filter on, each a control in the sheet's control bar. */
             filters?: components["schemas"]["FilterSpec"][];
             /** @description When visuals are absent, the planner proposes them (and filters, unless given) from this. */
@@ -7337,6 +7393,40 @@ export interface components {
                 id: string;
             };
         };
+        FilterBarControl: {
+            /** @description Matched case-insensitively against the datasets' columns; a column no dataset has is skipped. */
+            column: string;
+            title?: string;
+            /** @description Width in the control bar. */
+            span: number;
+            /** @description Text columns - values selected to start with. */
+            values?: string[];
+        };
+        FilterBarTemplateInput: {
+            name: string;
+            description?: string;
+            /** @description Make this the default; the previous default stops being it. */
+            isDefault?: boolean;
+            /** @description The controls, in bar order. */
+            controls: {
+                column: string;
+                title?: string;
+                span?: number;
+                values?: string[];
+            }[];
+        };
+        FilterBarTemplate: {
+            id: string;
+            name: string;
+            description?: string;
+            isDefault: boolean;
+            controls: components["schemas"]["FilterBarControl"][];
+            createdBy?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         /**
          * @description A calculated field saved for reuse. Author can add it to a copy it
          *     creates; the catalog shows which fields already match it.
@@ -7605,9 +7695,23 @@ export interface components {
          */
         DefinitionOp: {
             /** @enum {string} */
-            op: "move" | "resize" | "retype" | "retitle" | "remove" | "duplicate" | "renameSheet";
+            op: "move" | "resize" | "retype" | "retitle" | "remove" | "duplicate" | "renameSheet" | "addFilter";
             sheetId: string;
-            /** @description move, resize, remove, duplicate, retype, retitle. The layout element id (the visual id for visuals). */
+            /** @description addFilter. The dataset identifier the definition declares (not the dataset ARN). */
+            identifier?: string;
+            /** @description addFilter. The column to filter on; the filter applies to every visual on the sheet and its control goes in the control bar. */
+            column?: string;
+            /**
+             * @description addFilter. Read from how the definition uses the column when omitted.
+             * @enum {string}
+             */
+            columnType?: "STRING" | "INTEGER" | "DECIMAL" | "DATETIME";
+            /** @description addFilter on a text column. Values selected to start with. */
+            values?: string[];
+            /** @description addFilter on a number column. Slider minimum (required with max). */
+            min?: number;
+            max?: number;
+            /** @description move, resize, remove, duplicate, retype, retitle. The layout element id (the visual id for visuals, the control id for controls, wherever they sit). */
             elementId?: string;
             /** @description move, duplicate. Grid column, 0-35. */
             col?: number;
@@ -7632,7 +7736,7 @@ export interface components {
         /** @description One change in plain language, for review before publishing. */
         DefinitionChange: {
             /** @enum {string} */
-            kind: "template" | "repair" | "rebind" | "rename" | "calculatedField" | "layout" | "visual" | "sheet";
+            kind: "template" | "repair" | "rebind" | "rename" | "calculatedField" | "layout" | "visual" | "sheet" | "filter";
             description: string;
             sheetId?: string;
             elementId?: string;
@@ -8436,6 +8540,117 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listFilterBarTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The templates, the default first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            templates: components["schemas"]["FilterBarTemplate"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createFilterBarTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FilterBarTemplateInput"];
+            };
+        };
+        responses: {
+            /** @description The saved template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["FilterBarTemplate"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateFilterBarTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FilterBarTemplateInput"];
+            };
+        };
+        responses: {
+            /** @description The updated template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["FilterBarTemplate"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    deleteFilterBarTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     getAuthoringDatasetColumns: {

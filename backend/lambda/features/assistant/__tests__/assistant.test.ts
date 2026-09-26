@@ -645,4 +645,24 @@ describe('AssistantService', () => {
       audienceProblem('/api/authoring/{assetType}/{assetId}/rebind', { body })
     ).toBeUndefined();
   });
+
+  it('names the planner model an answer used', async () => {
+    const { plannerModelOf } = await import('../services/AssistantService');
+    expect(
+      plannerModelOf(
+        JSON.stringify({
+          data: { model: { provider: 'bedrock', model: 'us.anthropic.claude-sonnet-4-6' } },
+        })
+      )
+    ).toEqual({
+      provider: 'bedrock',
+      model: 'us.anthropic.claude-sonnet-4-6',
+    });
+    expect(
+      plannerModelOf(
+        JSON.stringify({ data: { proposal: { model: { provider: 'openai', model: 'gpt-5' } } } })
+      )?.model
+    ).toBe('gpt-5');
+    expect(plannerModelOf('not json')).toBeUndefined();
+  });
 });
