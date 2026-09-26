@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.18.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.17.1...v2.18.0) (2026-09-26)
+
+
+### Features
+
+* **authoring:** filters as control-bar controls, layout by rule, an audience for every create, and the cache kept fresh after writes ([#219](https://github.com/yeahthisisrob/quicksight-portal/issues/219)) ([061530a](https://github.com/yeahthisisrob/quicksight-portal/commit/061530af17b1a2f9be1881c20823c41f80dda29a))
+
 ## [2.17.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.17.0...v2.17.1) (2026-09-26)
 
 
