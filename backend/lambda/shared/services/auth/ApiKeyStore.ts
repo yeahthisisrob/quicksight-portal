@@ -86,6 +86,15 @@ export class ApiKeyStore {
     return { key: toPublic(item), secret };
   }
 
+  /** Whether the key is still there (revoking deletes it). */
+  public async exists(id: string): Promise<boolean> {
+    const item = await this.dynamo.getItem<StoredApiKey>(this.tableName, {
+      pk: API_KEY_PK,
+      sk: id,
+    });
+    return item !== null && item !== undefined;
+  }
+
   public async revoke(id: string): Promise<void> {
     await this.dynamo.deleteItem(this.tableName, { pk: API_KEY_PK, sk: id });
   }

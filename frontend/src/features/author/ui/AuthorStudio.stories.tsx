@@ -63,6 +63,7 @@ export const BrowseSearch: Story = {
           onOpen={() => {}}
           onOpenArchived={() => {}}
           onOpenDataset={() => {}}
+          remember={false}
           initialSearch="sales revenue"
         />
       </Box>
@@ -79,6 +80,7 @@ export const BrowseDatasets: Story = {
           onOpen={() => {}}
           onOpenArchived={() => {}}
           onOpenDataset={() => {}}
+          remember={false}
           initialType="dataset"
         />
       </Box>
@@ -109,6 +111,7 @@ export const BrowseArchived: Story = {
           onOpen={() => {}}
           onOpenArchived={() => {}}
           onOpenDataset={() => {}}
+          remember={false}
           initialScope="archived"
         />
       </Box>
