@@ -1,17 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useEffect, useState } from 'react';
 
 import { Container } from '@/shared/design-system';
 
-import { mockApi } from '../../../../.storybook/mocks/api';
-import { assistantRoutes } from './__stories__/assistant';
 import ApiTab from './ApiTab';
-
-function Mocked({ children }: { children: React.ReactNode }) {
-  const [restore] = useState(() => mockApi(assistantRoutes()));
-  useEffect(() => restore, [restore]);
-  return <>{children}</>;
-}
 
 /**
  * The Author page's API tab: use an agent with a key, the keys (a slot the
@@ -23,13 +14,6 @@ const meta: Meta<typeof ApiTab> = {
   component: ApiTab,
   parameters: { layout: 'fullscreen' },
   args: { origin: 'https://d1234abcd.cloudfront.net' },
-  decorators: [
-    (Story) => (
-      <Mocked>
-        <Story />
-      </Mocked>
-    ),
-  ],
 };
 
 export default meta;

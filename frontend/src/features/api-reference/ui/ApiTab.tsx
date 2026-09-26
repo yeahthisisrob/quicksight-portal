@@ -6,14 +6,11 @@
  */
 import { Box, Stack, Typography } from '@mui/material';
 import spec from '@shared/generated/openapi.json';
-import { type ReactNode, useMemo } from 'react';
+import type { ReactNode } from 'react';
 
-import { type OpenApiDocument, parseOperations } from '../model/operations';
 import { ApiQuickStart } from './ApiQuickStart';
 import { ApiReference } from './ApiReference';
-import { AssistantChat } from './AssistantChat';
 import { AwsContextNote } from './AwsContextNote';
-import { ModelPicker } from './ModelPicker';
 
 export interface ApiTabProps {
   /** The API keys panel, owned by Settings; the page passes it in. */
@@ -23,7 +20,6 @@ export interface ApiTabProps {
 }
 
 export default function ApiTab({ keysPanel, origin }: ApiTabProps) {
-  const operations = useMemo(() => parseOperations(spec as unknown as OpenApiDocument), []);
   const base = origin ?? (typeof window === 'undefined' ? '' : window.location.origin);
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0 }}>
@@ -37,12 +33,10 @@ export default function ApiTab({ keysPanel, origin }: ApiTabProps) {
         </Typography>
       </Box>
       <Stack spacing={3}>
-        <AssistantChat />
-        <ModelPicker />
         <ApiQuickStart origin={base} />
         {keysPanel}
         <AwsContextNote />
-        <ApiReference operations={operations} />
+        <ApiReference spec={spec} baseUrl={base} />
       </Stack>
     </Box>
   );

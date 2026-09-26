@@ -15,48 +15,7 @@ export interface paths {
          * List archived assets
          * @description Returns all archived assets across all asset types with archive metadata, with server-side pagination and filtering
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Filter by asset type (optional) */
-                    type?: components["schemas"]["AssetType"];
-                    /** @description Page number */
-                    page?: number;
-                    /** @description Number of items per page */
-                    pageSize?: number;
-                    /** @description Search term to filter assets by name, ID, or archive reason */
-                    search?: string;
-                    /** @description Field to sort by */
-                    sortBy?: "name" | "type" | "createdTime" | "lastUpdatedTime" | "lastExportTime" | "archivedDate" | "archiveReason" | "archivedBy" | "lastActivity";
-                    /** @description Sort order */
-                    sortOrder?: "asc" | "desc";
-                    /** @description Filter by archive date range */
-                    dateRange?: "all" | "24h" | "7d" | "30d" | "90d";
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Paginated list of archived assets */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                items: components["schemas"]["ArchivedAssetItem"][];
-                                nextToken?: string | null;
-                                totalCount: number;
-                            };
-                        };
-                    };
-                };
-            };
-        };
+        get: operations["getAssetsArchived"];
         put?: never;
         post?: never;
         delete?: never;
@@ -73,28 +32,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get folder details */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    folderId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Folder details */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["FolderDetails"];
-                    };
-                };
-            };
-        };
+        get: operations["getFoldersByFolderId"];
         put?: never;
         post?: never;
         delete?: never;
@@ -111,68 +49,10 @@ export interface paths {
             cookie?: never;
         };
         /** Get folder members */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    folderId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Folder members */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["FolderMember"][];
-                    };
-                };
-            };
-        };
+        get: operations["getFoldersByFolderIdMembers"];
         put?: never;
         /** Add member to folder */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    folderId: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        memberId: string;
-                        /** @enum {string} */
-                        memberType: "DASHBOARD" | "ANALYSIS" | "DATASET" | "DATASOURCE" | "USER" | "GROUP";
-                        /**
-                         * @description Required for USER and GROUP member types
-                         * @enum {string}
-                         */
-                        role?: "ADMIN" | "AUTHOR" | "VIEWER";
-                    };
-                };
-            };
-            responses: {
-                /** @description Member added successfully */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            message?: string;
-                        };
-                    };
-                };
-            };
-        };
+        post: operations["postFoldersByFolderIdMembers"];
         delete?: never;
         options?: never;
         head?: never;
@@ -193,46 +73,7 @@ export interface paths {
          * Remove member from folder
          * @description Removes an asset (dashboard, analysis, dataset, datasource) from a folder
          */
-        delete: {
-            parameters: {
-                query: {
-                    /** @description The type of asset to remove from the folder */
-                    type: "DASHBOARD" | "ANALYSIS" | "DATASET" | "DATASOURCE";
-                };
-                header?: never;
-                path: {
-                    folderId: string;
-                    memberId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Member removed successfully */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            data?: {
-                                message?: string;
-                            };
-                        };
-                    };
-                };
-                /** @description Bad request - missing required parameters */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                401: components["responses"]["Unauthorized"];
-                500: components["responses"]["InternalServerError"];
-            };
-        };
+        delete: operations["deleteFoldersByFolderIdMembersByMemberId"];
         options?: never;
         head?: never;
         patch?: never;
@@ -249,43 +90,7 @@ export interface paths {
          * Get paginated assets by type
          * @description Returns paginated list of assets for a specific type
          */
-        get: {
-            parameters: {
-                query?: {
-                    page?: number;
-                    pageSize?: number;
-                    search?: string;
-                    sortBy?: string;
-                    sortOrder?: "asc" | "desc" | "ASC" | "DESC";
-                    filters?: string;
-                    /** @description Which date field to filter on */
-                    dateField?: "lastUpdatedTime" | "createdTime" | "lastActivity";
-                    /** @description Date range filter value */
-                    dateRange?: "all" | "24h" | "7d" | "30d" | "90d";
-                    /** @description JSON-encoded array of {key, value} tag filters to include */
-                    includeTags?: string;
-                    /** @description JSON-encoded array of {key, value} tag filters to exclude */
-                    excludeTags?: string;
-                };
-                header?: never;
-                path: {
-                    assetType: "dashboards" | "datasets" | "analyses" | "datasources" | "folders" | "users" | "groups";
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Paginated asset list */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["PaginatedAssetResponse"];
-                    };
-                };
-            };
-        };
+        get: operations["getAssetsByAssetTypePaginated"];
         put?: never;
         post?: never;
         delete?: never;
@@ -305,48 +110,7 @@ export interface paths {
          * Export assets to CSV (queues a job)
          * @description Queues a background job to generate a CSV export of all assets of the specified type. Returns a job ID for polling progress.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Optional search term to filter assets */
-                    search?: string;
-                    /** @description Optional field to sort by */
-                    sortBy?: string;
-                    /** @description Optional sort order */
-                    sortOrder?: "asc" | "desc";
-                    filters?: string;
-                };
-                header?: never;
-                path: {
-                    assetType: "dashboards" | "datasets" | "analyses" | "datasources" | "folders" | "users" | "groups";
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description CSV export job queued successfully */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @example true */
-                            success?: boolean;
-                            /** @example csv-export-1234567890-abcd1234 */
-                            jobId?: string;
-                            /** @example queued */
-                            status?: string;
-                            /** @example CSV export job for dashboards queued */
-                            message?: string;
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                500: components["responses"]["InternalServerError"];
-            };
-        };
+        get: operations["getAssetsByAssetTypeExport"];
         put?: never;
         post?: never;
         delete?: never;
@@ -369,48 +133,7 @@ export interface paths {
          * Delete a QuickSight user
          * @description Deletes a user from QuickSight. Only READER and READER_PRO users can be deleted.
          */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description The name of the user to delete */
-                    userName: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description User deleted successfully */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            message: string;
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description User role not allowed for deletion */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description User not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                500: components["responses"]["InternalServerError"];
-            };
-        };
+        delete: operations["deleteUsersByUserName"];
         options?: never;
         head?: never;
         patch?: never;
@@ -427,40 +150,7 @@ export interface paths {
          * Get cached asset data from S3
          * @description Retrieves the full exported asset data from S3 storage
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "user" | "group";
-                    assetId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Cached asset data */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            /** @description Full asset data from S3 */
-                            data?: Record<string, never>;
-                        };
-                    };
-                };
-                /** @description Asset not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getAssetsByAssetTypeByAssetIdCached"];
         put?: never;
         post?: never;
         delete?: never;
@@ -480,28 +170,7 @@ export interface paths {
          * Get export summary statistics
          * @description Returns overall export statistics without detailed progress
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Export summary */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ExportSummaryResponse"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                500: components["responses"]["InternalServerError"];
-            };
-        };
+        get: operations["getExportSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -523,49 +192,7 @@ export interface paths {
          * Start a new export job
          * @description Queues an export job and returns immediately with job ID
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["ExportJobRequest"];
-                };
-            };
-            responses: {
-                /** @description Export job queued successfully */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ExportJobResponse"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description Another export job is already running (only one export may run at a time) */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @example false */
-                            success?: boolean;
-                            error?: string;
-                            data?: {
-                                /** @description ID of the export job currently running */
-                                activeJobId?: string;
-                            };
-                        };
-                    };
-                };
-                500: components["responses"]["InternalServerError"];
-            };
-        };
+        post: operations["postExport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -583,36 +210,7 @@ export interface paths {
          * Get cached ingestions
          * @description Returns cached ingestion data for all SPICE datasets
          */
-        get: {
-            parameters: {
-                query?: {
-                    search?: string;
-                    sortBy?: "createdTime" | "status" | "datasetName" | "ingestionTimeInSeconds" | "rowsIngested";
-                    sortOrder?: "asc" | "desc";
-                    page?: number;
-                    pageSize?: number;
-                    dateRange?: "all" | "24h" | "7d" | "30d" | "90d";
-                    dateField?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of ingestions with metadata */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["IngestionListResponse"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                500: components["responses"]["InternalServerError"];
-            };
-        };
+        get: operations["getIngestions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -632,67 +230,14 @@ export interface paths {
          * Get ingestion details
          * @description Returns detailed information about a specific ingestion
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    datasetId: string;
-                    ingestionId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Ingestion details */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Ingestion"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                404: components["responses"]["NotFound"];
-                500: components["responses"]["InternalServerError"];
-            };
-        };
+        get: operations["getIngestionsByDatasetIdByIngestionId"];
         put?: never;
         post?: never;
         /**
          * Cancel an ingestion
          * @description Cancels a running ingestion
          */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    datasetId: string;
-                    ingestionId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Ingestion cancelled successfully */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            message?: string;
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                404: components["responses"]["NotFound"];
-                500: components["responses"]["InternalServerError"];
-            };
-        };
+        delete: operations["deleteIngestionsByDatasetIdByIngestionId"];
         options?: never;
         head?: never;
         patch?: never;
@@ -711,48 +256,7 @@ export interface paths {
          * Refresh activity data for specified asset types
          * @description Fetches latest activity data from CloudTrail for dashboards, analyses, and users
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description Asset types to refresh activity for */
-                        assetTypes: ("dashboard" | "analysis" | "user" | "all")[];
-                        /**
-                         * @description Number of days of activity to fetch
-                         * @default 90
-                         */
-                        days?: number;
-                    };
-                };
-            };
-            responses: {
-                /** @description Activity refresh initiated successfully */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            message?: string;
-                            refreshed?: {
-                                dashboards?: number;
-                                analyses?: number;
-                                users?: number;
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                500: components["responses"]["InternalServerError"];
-            };
-        };
+        post: operations["postActivityRefresh"];
         delete?: never;
         options?: never;
         head?: never;
@@ -767,37 +271,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get activity data for a specific asset */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: "dashboard" | "analysis" | "dataset" | "user";
-                    assetId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Activity data for the asset */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ActivityData"] | components["schemas"]["UserActivity"] | components["schemas"]["DatasetActivityData"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description Asset not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getActivityByAssetTypeByAssetId"];
         put?: never;
         post?: never;
         delete?: never;
@@ -817,52 +291,7 @@ export interface paths {
          * Get a page of activity timeline events (global feed)
          * @description Returns a chronological feed of QuickSight mutation events (Create / Update / Delete / Publish / permission / membership / tagging / job events across all asset types and account settings). Cursor-based: pass the `nextCursor` returned in a previous response to fetch the next page. Reads (Get / Describe / List / Search) are NOT returned — the timeline only records events that touch assets or settings.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description ISO timestamp. Returns events strictly older than this. */
-                    cursor?: string;
-                    /** @description Page size. Default 50, max 200. */
-                    limit?: number;
-                    /** @description Comma-separated list of resource types to include. Catalog types (dashboard, analysis, dataset, datasource, folder, group, user) show hydrated asset names; `other` covers templates, themes, brands, topics, account settings, etc. */
-                    resourceTypes?: string;
-                    /** @description Comma-separated list of user names to include. */
-                    users?: string;
-                    /** @description Comma-separated list of CloudTrail event names to include. */
-                    eventNames?: string;
-                    /** @description Comma-separated list of CloudTrail event names to exclude. Used by default to hide noisy ingestion events. */
-                    excludeEventNames?: string;
-                    /** @description Comma-separated list of action categories to include. */
-                    actions?: string;
-                    /** @description Comma-separated origins to include (portal-ui, portal-api, portal, console, automation, unknown). */
-                    origins?: string;
-                    /** @description ISO timestamp. Returns events at or after this time. */
-                    startDate?: string;
-                    /** @description ISO timestamp. Returns events at or before this time. */
-                    endDate?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description A page of timeline events. */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            data?: components["schemas"]["TimelinePage"];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                500: components["responses"]["InternalServerError"];
-            };
-        };
+        get: operations["getActivityTimeline"];
         put?: never;
         post?: never;
         delete?: never;
@@ -882,49 +311,7 @@ export interface paths {
          * Get a page of activity timeline events for one catalog asset
          * @description Same as /api/activity/timeline but pre-filtered to a specific catalog asset. All other query params (cursor, limit, users, eventNames, actions, date range) still apply and further narrow the results.
          */
-        get: {
-            parameters: {
-                query?: {
-                    cursor?: string;
-                    limit?: number;
-                    users?: string;
-                    eventNames?: string;
-                    actions?: string;
-                    startDate?: string;
-                    endDate?: string;
-                };
-                header?: never;
-                path: {
-                    assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "group" | "user";
-                    assetId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description A page of timeline events for the specified asset. */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            data?: components["schemas"]["TimelinePage"];
-                        };
-                    };
-                };
-                /** @description Invalid assetType or assetId. */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                401: components["responses"]["Unauthorized"];
-                500: components["responses"]["InternalServerError"];
-            };
-        };
+        get: operations["getActivityTimelineByAssetTypeByAssetId"];
         put?: never;
         post?: never;
         delete?: never;
@@ -949,30 +336,7 @@ export interface paths {
          *     ask and a typical chat message. Send a model's `key` as `model` on
          *     the planner calls and on `/api/assistant/chat`.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The catalog */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["AiModelCatalog"];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getAssistantModels"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1002,35 +366,7 @@ export interface paths {
          *     is an `AssistantChatResult`. The client keeps the conversation and
          *     sends it whole, text only.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["AssistantChatRequest"];
-                };
-            };
-            responses: {
-                /** @description The assistant job was queued */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["JobQueued"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postAssistantChat"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1051,28 +387,7 @@ export interface paths {
          *     key and the portal's URL starts here: every path in it is callable
          *     with the key. Also on the Author page's API tab, searchable.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The OpenAPI 3 document */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: unknown;
-                        };
-                    };
-                };
-            };
-        };
+        get: operations["getApiDocsOpenapi"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1094,26 +409,7 @@ export interface paths {
          *     build a change, and publish it back. Written for a person or an
          *     agent with a key and nothing else.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Markdown */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/markdown": string;
-                    };
-                };
-            };
-        };
+        get: operations["getApiDocsGuide"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1144,39 +440,7 @@ export interface paths {
          *     Each hit carries `why` (which field matched which word), a one-line
          *     `summary` written for a person or an agent, and a portal `path`.
          */
-        get: {
-            parameters: {
-                query: {
-                    /** @description Plain words, e.g. "gold orders dataset with revenue by region". */
-                    q: string;
-                    /** @description Comma-separated subset of dashboard, analysis, dataset, datasource, folder, project, smus-listing, smus-column, calculated-field, visual, template. */
-                    types?: string;
-                    /** @description Keep to one SMUS project (its listings and columns, and the datasets linked to them). */
-                    projectId?: string;
-                    limit?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Ranked hits */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["SearchResponse"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getSearch"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1270,30 +534,7 @@ export interface paths {
          *     source. `athena` lists every Athena source with how many governed
          *     datasets read through it.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The choice */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["SmusDataSourceChoice"];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getSmusDataSource"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1313,27 +554,7 @@ export interface paths {
          * SMUS (SageMaker Unified Studio) integration status
          * @description Reports whether a SMUS domain is configured for this portal and what the last SMUS export captured. When not configured, all SMUS UI (link indicators, actions, filters) is hidden. Everything SMUS-related the portal shows comes from that export, never from a live DataZone call.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description SMUS integration status */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["SmusStatus"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getSmusStatus"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1360,43 +581,7 @@ export interface paths {
          *     Single-flight: if an export is already queued or running, its job id is
          *     returned instead of a new one.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description An export is already in flight; its job is returned */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["SmusExportQueued"];
-                        };
-                    };
-                };
-                /** @description Export job queued */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["SmusExportQueued"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postSmusExport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1416,36 +601,7 @@ export interface paths {
          * Resolve SMUS catalog links for QuickSight datasets
          * @description Matches cached QuickSight dataset metadata (name and source table names from lineage) against the live SMUS domain catalog and returns per-dataset link resolutions. Catalog data is fetched live (short in-memory TTL) — it is never persisted to the portal cache.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @description Dataset ids to resolve (all cached datasets when omitted) */
-                        datasetIds?: string[];
-                    };
-                };
-            };
-            responses: {
-                /** @description Per-dataset SMUS link resolutions */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            links: components["schemas"]["SmusDatasetLink"][];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postSmusDatasetLinks"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1463,47 +619,7 @@ export interface paths {
          * Preview demo assets that would be deleted
          * @description Returns a list of all QuickSight demo assets that would be deleted without actually deleting them
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of demo assets to be deleted */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            data?: {
-                                datasources?: {
-                                    id?: string;
-                                    name?: string;
-                                    bucket?: string;
-                                }[];
-                                datasets?: {
-                                    id?: string;
-                                    name?: string;
-                                    datasourceIds?: string[];
-                                }[];
-                                analyses?: {
-                                    id?: string;
-                                    name?: string;
-                                }[];
-                                totalCount?: number;
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                500: components["responses"]["InternalServerError"];
-            };
-        };
+        get: operations["getScriptsDemoCleanupPreview"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1525,49 +641,7 @@ export interface paths {
          * Delete all QuickSight demo assets
          * @description Deletes all demo datasources, datasets, and analyses, then archives them
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Demo cleanup completed successfully */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            data?: {
-                                deleted?: {
-                                    datasources?: number;
-                                    datasets?: number;
-                                    analyses?: number;
-                                    total?: number;
-                                };
-                                archived?: {
-                                    datasources?: number;
-                                    datasets?: number;
-                                    analyses?: number;
-                                    total?: number;
-                                };
-                                errors?: {
-                                    assetType?: string;
-                                    assetId?: string;
-                                    error?: string;
-                                }[];
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                500: components["responses"]["InternalServerError"];
-            };
-        };
+        post: operations["postScriptsDemoCleanupExecute"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1582,44 +656,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get activity summary across all asset types */
-        get: {
-            parameters: {
-                query?: {
-                    days?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Activity summary */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            dashboards?: {
-                                totalViews?: number;
-                                uniqueViewers?: number;
-                                activeAssets?: number;
-                            };
-                            analyses?: {
-                                totalViews?: number;
-                                uniqueViewers?: number;
-                                activeAssets?: number;
-                            };
-                            users?: {
-                                activeUsers?: number;
-                                totalActivities?: number;
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getActivitySummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1639,46 +676,7 @@ export interface paths {
          * Get full data catalog
          * @description Returns complete field catalog with pagination, filtering, and summary statistics
          */
-        get: {
-            parameters: {
-                query?: {
-                    page?: number;
-                    pageSize?: number;
-                    viewMode?: "all" | "fields" | "calculated";
-                    /** @description Single tag key filter (deprecated, use includeTags/excludeTags) */
-                    tagKey?: string;
-                    /** @description Single tag value filter (deprecated, use includeTags/excludeTags) */
-                    tagValue?: string;
-                    /** @description JSON array of tags to include, e.g. [{"key":"env","value":"prod"}]. Assets must have at least one of these tags. */
-                    includeTags?: string;
-                    /** @description JSON array of tags to exclude, e.g. [{"key":"env","value":"dev"}]. Assets must not have any of these tags. */
-                    excludeTags?: string;
-                    /** @description JSON array of asset IDs to filter by, e.g. ["dash-123","ds-456"]. Only fields from these assets are returned. */
-                    assetIds?: string;
-                    /** @description Catalog source scope. By default the catalog reflects the business-facing layer (datasets + dashboards). Set true to also include analyses (the authoring layer); datasets are always included. */
-                    includeAnalyses?: boolean;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Data catalog with fields and summary */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            data?: components["schemas"]["DataCatalogResponse"];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getDataCatalogFull"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1698,30 +696,7 @@ export interface paths {
          * Get available tags
          * @description Returns all available tags across assets with usage counts
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Available tags with counts */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            data?: components["schemas"]["TagWithCount"][];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getDataCatalogTags"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1741,30 +716,7 @@ export interface paths {
          * Get available assets for filtering
          * @description Returns all assets (dashboards, analyses, datasets) that have fields in the catalog
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Available assets with field counts */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            data?: components["schemas"]["CatalogAsset"][];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getDataCatalogAssets"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1784,30 +736,7 @@ export interface paths {
          * Get catalog statistics
          * @description Returns high-level statistics about the data catalog
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Catalog statistics */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            data?: components["schemas"]["CatalogStats"];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getDataCatalogStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1827,30 +756,7 @@ export interface paths {
          * Get visual field mappings
          * @description Returns field usage in visuals across dashboards and analyses
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Visual field mappings */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success?: boolean;
-                            data?: components["schemas"]["VisualFieldCatalogResponse"];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getDataCatalogVisualFields"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1870,46 +776,7 @@ export interface paths {
          * Get permission sources for an asset
          * @description Returns how each user has access to an asset - direct, via group, or via shared folder
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description The type of asset */
-                    assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder";
-                    /** @description The asset identifier */
-                    assetId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Permission sources for the asset */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                permissions: components["schemas"]["Permission"][];
-                                userAccessSources: components["schemas"]["UserAccessInfo"][];
-                                groupAccessSources: components["schemas"]["GroupAccessInfo"][];
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description Asset not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getAssetsByAssetTypeByAssetIdPermissionSources"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1934,41 +801,7 @@ export interface paths {
          *     Uploaded (flat file) datasets have no queryable specification and
          *     return 400.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The dataset's current sources */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["DatasetSource"] & {
-                                /**
-                                 * @description Every data source in the account. A table's data
-                                 *     source is always chosen from this list - ARNs are
-                                 *     never entered by hand - and the server re-checks
-                                 *     membership on update.
-                                 */
-                                dataSources: components["schemas"]["DataSourceOption"][];
-                            };
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getAssetsDatasetByAssetIdSource"];
         /**
          * Repoint a dataset's physical tables and/or rename it
          * @description Applies the given edits and writes the whole specification back to
@@ -1983,41 +816,7 @@ export interface paths {
          *     A table cannot change kind - relational stays relational, custom SQL
          *     stays custom SQL.
          */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetId: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description Rename the dataset at the same time */
-                        name?: string;
-                        tables?: components["schemas"]["DatasetTableEdit"][];
-                    };
-                };
-            };
-            responses: {
-                /** @description The dataset's sources after the update */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["DatasetSource"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        put: operations["putAssetsDatasetByAssetIdSource"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2044,34 +843,7 @@ export interface paths {
          *     This is the read side of a rebind. A caller (the UI, a CLI, or a
          *     planner) uses it to decide which identifier to repoint and at what.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: components["parameters"]["AuthorableAssetType"];
-                    assetId: components["parameters"]["AuthoringAssetId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The definition's datasets */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["DefinitionDatasets"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getAuthoringByAssetTypeByAssetIdDatasets"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2106,40 +878,7 @@ export interface paths {
          *     planning again, so every rename is explicit and readable in the
          *     request.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: components["parameters"]["AuthorableAssetType"];
-                    assetId: components["parameters"]["AuthoringAssetId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        rebinds: components["schemas"]["RebindRequest"][];
-                    };
-                };
-            };
-            responses: {
-                /** @description The plan */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["RebindPlan"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postAuthoringByAssetTypeByAssetIdRebindPlan"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2172,38 +911,7 @@ export interface paths {
          *     error is returned verbatim if the new dataset still cannot satisfy the
          *     definition.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: components["parameters"]["AuthorableAssetType"];
-                    assetId: components["parameters"]["AuthoringAssetId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["ApplyRebindRequest"];
-                };
-            };
-            responses: {
-                /** @description The asset that was written */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["ApplyRebindResult"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postAuthoringByAssetTypeByAssetIdRebind"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2236,42 +944,7 @@ export interface paths {
          *     result, then to the rebind endpoint with `mode: update` to fix the
          *     asset in place, or `mode: clone` to fix a copy.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: "dashboard" | "analysis";
-                    assetId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @description Datasets already chosen for identifiers whose own dataset is gone. */
-                        rebinds?: components["schemas"]["RebindRequest"][];
-                    };
-                };
-            };
-            responses: {
-                /** @description The repair plan */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["RepairPlan"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                404: components["responses"]["NotFound"];
-            };
-        };
+        post: operations["postAuthoringByAssetTypeByAssetIdRepairPlan"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2309,38 +982,7 @@ export interface paths {
          *     a local Claude or Codex CLI, or any OpenAI-compatible endpoint, in
          *     development) and is reported in the proposal's `model`.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: components["parameters"]["AuthorableAssetType"];
-                    assetId: components["parameters"]["AuthoringAssetId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["ProposeRequest"];
-                };
-            };
-            responses: {
-                /** @description The planner job was queued; its result is the Proposal */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["JobQueued"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postAuthoringByAssetTypeByAssetIdPropose"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2365,46 +1007,7 @@ export interface paths {
          *     Renames that are only suggested are not applied, so the preview
          *     mirrors what apply would refuse or accept.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: components["parameters"]["AuthorableAssetType"];
-                    assetId: components["parameters"]["AuthoringAssetId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        rebinds: components["schemas"]["RebindRequest"][];
-                        addCalculatedFields?: components["schemas"]["AddedCalculatedField"][];
-                        ops?: components["schemas"]["DefinitionOp"][];
-                        /** @description Applied first, before the rebind plan, so the plan sees the repaired definition. */
-                        repairs?: components["schemas"]["RepairOp"][];
-                        template?: components["schemas"]["TemplateRequest"];
-                        typeRules?: components["schemas"]["TypeRules"];
-                    };
-                };
-            };
-            responses: {
-                /** @description The plan and the rewritten definition */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["RebindPreview"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postAuthoringByAssetTypeByAssetIdRebindPreview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2426,65 +1029,14 @@ export interface paths {
          *     reports its `source`. Secrets are never stored here: a sensitive
          *     setting is read-only and shows only whether its env var is set.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Grouped settings */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["SettingsSnapshot"];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getSettings"];
         /**
          * Store settings
          * @description Writes the given values to DynamoDB. A null value clears the stored
          *     value, so the setting falls back to its env var or default again.
          *     Unknown keys and sensitive keys are rejected.
          */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["SettingsUpdate"];
-                };
-            };
-            responses: {
-                /** @description The settings after the update */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["SettingsSnapshot"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        put: operations["putSettings"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2507,39 +1059,29 @@ export interface paths {
          *     Returns an empty list with `configured: false` when no domain is set;
          *     `exportedAt` is null when no export has run yet.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The domain's projects */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                configured: boolean;
-                                /**
-                                 * Format: date-time
-                                 * @description When the snapshot these projects come from was taken; null when no export has run.
-                                 */
-                                exportedAt: string | null;
-                                projects: components["schemas"]["SmusProject"][];
-                                diagnostics?: components["schemas"]["SmusProjectDiagnostics"];
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
+        get: operations["getSettingsSmusProjects"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/quicksight/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
+        /**
+         * Folders authored assets can be filed in
+         * @description The account's folders from the export cache, for the "Put authored
+         *     assets in these folders" setting, with how many people or groups
+         *     each is shared with.
+         */
+        get: operations["listSettingsFolders"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2563,69 +1105,13 @@ export interface paths {
          *     needs a person. Only the label, a display prefix and usage dates are
          *     stored and listed; the secret is shown once, at creation.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The keys */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                keys: components["schemas"]["ApiKey"][];
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getSettingsApiKeys"];
         put?: never;
         /**
          * Create an API key
          * @description The secret is in this response only and cannot be recovered later.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description What the key is for, e.g. "claude cli" or "nightly export". */
-                        label: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description The key and its one-time secret */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["ApiKeyCreated"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postSettingsApiKeys"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2643,31 +1129,7 @@ export interface paths {
         put?: never;
         post?: never;
         /** Revoke an API key */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Revoked */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        delete: operations["deleteSettingsApiKeysById"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2688,43 +1150,7 @@ export interface paths {
          *     portal has matched to it. The point is reuse: before creating a
          *     dataset for a SMUS asset, see the ones that already exist.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Case-insensitive match on the listing name or description */
-                    search?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Published assets */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                configured: boolean;
-                                /**
-                                 * Format: date-time
-                                 * @description When the snapshot was taken; null when no SMUS export has run.
-                                 */
-                                exportedAt: string | null;
-                                /** @description The project ids the sweep was limited to; empty means all. */
-                                projectFilter: string[];
-                                assets: components["schemas"]["SmusAsset"][];
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getSmusAssets"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2751,46 +1177,7 @@ export interface paths {
          *     so the new one has an audience; without that, a created dataset is
          *     visible to nobody.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    listingId: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CreateSmusDatasetRequest"];
-                };
-            };
-            responses: {
-                /** @description The created dataset */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                dataSetId: string;
-                                name: string;
-                                arn: string;
-                                /** @description The data source the dataset reads through. */
-                                dataSource: {
-                                    id: string;
-                                    name: string;
-                                };
-                            };
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postSmusAssetsByListingIdDataset"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2813,39 +1200,7 @@ export interface paths {
          *     analyses use each field. Nothing outside the selected projects is
          *     listed; that scope is the same one Author uses.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Case-insensitive match on listing name, description, table or a column name */
-                    search?: string;
-                    /** @description Only assets carrying this glossary term */
-                    term?: string;
-                    /** @description Only assets owned by this project (within the selected projects) */
-                    projectId?: string;
-                    /** @description `projects` returns only the project list with counts, straight from the SMUS snapshot, without building the QuickSight field index. The page asks for this first; the per-project listing follows. */
-                    scope?: "projects" | "full";
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The catalog listing */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["SmusCatalog"];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getDataCatalogSmus"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2862,34 +1217,7 @@ export interface paths {
             cookie?: never;
         };
         /** One published asset with everything the portal knows about it */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    listingId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The asset */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["SmusCatalogAsset"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                404: components["responses"]["NotFound"];
-            };
-        };
+        get: operations["getDataCatalogSmusByListingId"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2915,44 +1243,7 @@ export interface paths {
          *     portal note. Counts across the top. This is what the portal knows and
          *     SMUS does not.
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Only fields on datasets whose SMUS listing belongs to this project. */
-                    projectId?: string;
-                    datasetId?: string;
-                    /** @description Case-insensitive match on the name or the expression. */
-                    search?: string;
-                    conflictsOnly?: boolean;
-                    /**
-                     * @description Which datasets to read. `smus` (the default) is the selected SMUS
-                     *     projects; `outside` is the datasets that matched no listing, so they
-                     *     are reachable rather than silently dropped; `all` ignores the
-                     *     distinction. Naming a projectId implies `smus`.
-                     */
-                    scope?: "smus" | "outside" | "all";
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The calculated field catalog */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["CalculatedFieldCatalog"];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getDataCatalogCalculatedFields"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2969,33 +1260,7 @@ export interface paths {
             cookie?: never;
         };
         /** One calculated field, with its lineage both ways and its variants */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    key: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The calculated field */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["CalculatedFieldDetail"];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                404: components["responses"]["NotFound"];
-            };
-        };
+        get: operations["getDataCatalogCalculatedFieldsByKey"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3012,41 +1277,7 @@ export interface paths {
             cookie?: never;
         };
         /** Plain columns across datasets, tied back to their SMUS listing column */
-        get: {
-            parameters: {
-                query?: {
-                    projectId?: string;
-                    datasetId?: string;
-                    search?: string;
-                    /**
-                     * @description Which datasets to read. `smus` (the default) is the selected SMUS
-                     *     projects; `outside` is the datasets that matched no listing, so they
-                     *     are reachable rather than silently dropped; `all` ignores the
-                     *     distinction. Naming a projectId implies `smus`.
-                     */
-                    scope?: "smus" | "outside" | "all";
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The column catalog */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["ColumnCatalog"];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getDataCatalogColumns"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3151,63 +1382,10 @@ export interface paths {
          *     has no home for them. Author offers them when creating a copy; the
          *     catalog marks fields that match one.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The library */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                templates: components["schemas"]["CalculatedFieldTemplate"][];
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getDataCatalogTemplatesCalculatedFields"];
         put?: never;
         /** Save a calculated field as a template */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CalculatedFieldTemplateInput"];
-                };
-            };
-            responses: {
-                /** @description The saved template */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["CalculatedFieldTemplate"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postDataCatalogTemplatesCalculatedFields"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3223,66 +1401,10 @@ export interface paths {
         };
         get?: never;
         /** Update a template */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    templateId: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CalculatedFieldTemplateInput"];
-                };
-            };
-            responses: {
-                /** @description The updated template */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["CalculatedFieldTemplate"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                404: components["responses"]["NotFound"];
-            };
-        };
+        put: operations["putDataCatalogTemplatesCalculatedFieldsByTemplateId"];
         post?: never;
         /** Delete a template */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    templateId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Deleted */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                404: components["responses"]["NotFound"];
-            };
-        };
+        delete: operations["deleteDataCatalogTemplatesCalculatedFieldsByTemplateId"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3329,35 +1451,7 @@ export interface paths {
          *     `NewAssetPreview` whose `visuals` can be edited and sent to the
          *     preview and create endpoints as they are.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["NewAssetRequest"];
-                };
-            };
-            responses: {
-                /** @description The planner job was queued; its result is a NewAssetPreview */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["JobQueued"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postAuthoringNewPropose"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3383,35 +1477,7 @@ export interface paths {
          *     no `visuals` is refused here: it is the planner's job, see
          *     `/api/authoring/new/propose`.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["NewAssetRequest"];
-                };
-            };
-            responses: {
-                /** @description The definition as create would write it */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["NewAssetPreview"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postAuthoringNewPreview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3433,35 +1499,7 @@ export interface paths {
          *     `permissionsFrom` (or the template's), puts it in `folderId` when
          *     given, records the write and tags the asset with provenance.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["NewAssetRequest"];
-                };
-            };
-            responses: {
-                /** @description The created asset */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["NewAssetResult"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postAuthoringNew"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3476,33 +1514,7 @@ export interface paths {
             cookie?: never;
         };
         /** How an asset is used and how healthy it is, for choosing what to start from */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: components["parameters"]["AuthorableAssetType"];
-                    assetId: components["parameters"]["AuthoringAssetId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Views and, for dashboards with metrics, health */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["AssetInsights"];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getAuthoringByAssetTypeByAssetIdInsights"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3526,35 +1538,7 @@ export interface paths {
          *     rows. Ids without metrics come back with only their id. Cached per
          *     Lambda container for a few minutes.
          */
-        get: {
-            parameters: {
-                query: {
-                    assetType: "dashboard" | "dataset";
-                    /** @description Comma-separated asset ids, at most 100. */
-                    ids: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Health per asset */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["AssetHealthBatch"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getActivityHealth"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3581,45 +1565,7 @@ export interface paths {
          *     cannot be renamed. The exported asset file refreshes on the next
          *     Smart Sync.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: "dashboard" | "analysis" | "dataset" | "folder";
-                    assetId: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description The new asset name */
-                        name: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Asset renamed */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                /** @description The applied (trimmed) name */
-                                name: string;
-                            };
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                500: components["responses"]["InternalServerError"];
-            };
-        };
+        post: operations["postAssetsByAssetTypeByAssetIdRename"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3639,43 +1585,7 @@ export interface paths {
          * Bulk revoke direct permissions from an asset
          * @description Queues a bulk operation to remove direct permissions for multiple principals from the specified asset. Does not affect inherited permissions from folders or groups. Returns a job ID for tracking progress.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder";
-                    assetId: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        revocations: {
-                            /** @description The ARN of the principal to revoke */
-                            principal: string;
-                            /** @description The actions to revoke */
-                            actions: string[];
-                        }[];
-                    };
-                };
-            };
-            responses: {
-                /** @description Permission revoke job queued */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["BulkJobAccepted"];
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                500: components["responses"]["InternalServerError"];
-            };
-        };
+        post: operations["postAssetsByAssetTypeByAssetIdRevokePermissions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3717,68 +1627,7 @@ export interface paths {
          * Get assets accessible by a group
          * @description Returns all assets that a group has access to through direct permissions or folder membership
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Filter by asset type (optional) */
-                    assetType?: components["schemas"]["AssetType"];
-                };
-                header?: never;
-                path: {
-                    /** @description The name of the group */
-                    groupName: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of accessible assets */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                groupName: string;
-                                totalAssets: number;
-                                assetsByType?: {
-                                    dashboards?: number;
-                                    datasets?: number;
-                                    analyses?: number;
-                                    datasources?: number;
-                                    folders?: number;
-                                };
-                                assets: {
-                                    assetId: string;
-                                    assetType: components["schemas"]["AssetType"];
-                                    assetName: string;
-                                    arn?: string;
-                                    /**
-                                     * @description How the group has access to this asset
-                                     * @enum {string}
-                                     */
-                                    accessType: "direct" | "folder_inherited";
-                                    /** @description Folder path if access is inherited from folder */
-                                    folderPath?: string;
-                                    /** @description List of permissions the group has on this asset */
-                                    permissions?: string[];
-                                }[];
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description Group not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getGroupsByGroupNameAssets"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3798,43 +1647,7 @@ export interface paths {
          * Get assets accessible by a user
          * @description Returns all assets that a user has access to through direct permissions, group membership, or folder membership
          */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Filter by asset type (optional) */
-                    assetType?: components["schemas"]["AssetType"];
-                };
-                header?: never;
-                path: {
-                    /** @description The name of the user */
-                    userName: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of accessible assets with access sources */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["UserAssetAccessResponse"];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description User not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getUsersByUserNameAssetAccess"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3856,41 +1669,7 @@ export interface paths {
          * Get inactive analyses owned by a specific user
          * @description Returns analyses where the user has owner-level permissions and activity is below threshold
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description The username to find inactive analyses for */
-                        userName: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description List of inactive analyses */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                analyses: components["schemas"]["UserInactiveAnalysis"][];
-                            };
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                500: components["responses"]["InternalServerError"];
-            };
-        };
+        post: operations["postActivityUserInactiveAnalyses"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3910,41 +1689,7 @@ export interface paths {
          * Get unused datasets owned by a specific user
          * @description Returns datasets where the user has owner-level permissions and no dashboards or analyses reference them
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description The username to find unused datasets for */
-                        userName: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description List of unused datasets */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                datasets: components["schemas"]["UserUnusedDataset"][];
-                            };
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-                500: components["responses"]["InternalServerError"];
-            };
-        };
+        post: operations["postActivityUserUnusedDatasets"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3964,45 +1709,7 @@ export interface paths {
          * Resolve asset permissions to recipient emails
          * @description Given an asset, resolves its permission principals (users/groups) into email addresses for mailto composition
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        assetType: "dashboard" | "analysis";
-                        assetId: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Resolved recipients */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                users: components["schemas"]["ResolvedRecipient"][];
-                                groups: {
-                                    groupName: string;
-                                    members: components["schemas"]["ResolvedRecipient"][];
-                                }[];
-                            };
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postActivityRecipients"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4022,36 +1729,7 @@ export interface paths {
          *     exports, deployments and planner calls, newest first. Anything that
          *     returned a `jobId` can be followed here.
          */
-        get: {
-            parameters: {
-                query?: {
-                    type?: components["schemas"]["JobType"];
-                    status?: components["schemas"]["JobStatus"];
-                    limit?: number;
-                    afterDate?: string;
-                    beforeDate?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Jobs */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["Job"][];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getJobs"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4071,51 +1749,11 @@ export interface paths {
          * One job's status and progress
          * @description Poll this until `status` is `completed`, `failed` or `stopped`.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    jobId: components["parameters"]["JobId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The job */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["Job"];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                404: components["responses"]["NotFound"];
-            };
-        };
+        get: operations["getJobsByJobId"];
         put?: never;
         post?: never;
         /** Delete a finished job's record */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    jobId: components["parameters"]["JobId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: components["responses"]["Acknowledged"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        delete: operations["deleteJobsByJobId"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4129,35 +1767,7 @@ export interface paths {
             cookie?: never;
         };
         /** A job's log lines */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    jobId: components["parameters"]["JobId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Logs */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                jobId?: string;
-                                logs?: components["schemas"]["JobLog"][];
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getJobsByJobIdLogs"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4180,35 +1790,7 @@ export interface paths {
          *     a download descriptor for a CSV export, a summary for a bulk
          *     operation. 404 until the job completes, or when it produced nothing.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    jobId: components["parameters"]["JobId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The result */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                [key: string]: unknown;
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                404: components["responses"]["NotFound"];
-            };
-        };
+        get: operations["getJobsByJobIdResult"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4227,21 +1809,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Ask a running job to stop at its next checkpoint */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    jobId: components["parameters"]["JobId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: components["responses"]["Acknowledged"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postJobsByJobIdStop"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4265,35 +1833,7 @@ export interface paths {
          *     QuickSight would refuse is listed with a fix where one is clear
          *     (the same checks the Author page runs). Nothing is written.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["DefinitionRequest"];
-                };
-            };
-            responses: {
-                /** @description What would stop a write, and the sheets as they would be */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["DefinitionPreview"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postAuthoringDefinitionPreview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4317,35 +1857,7 @@ export interface paths {
          *     provenance recorded and tagged. Refused, with the issues, when the
          *     preview would show any.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["NewDefinitionRequest"];
-                };
-            };
-            responses: {
-                /** @description The asset that was created */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["DefinitionApplyResult"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postAuthoringDefinition"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4365,38 +1877,7 @@ export interface paths {
          * Check a definition you built for an existing asset
          * @description Same as `/api/authoring/definition/preview`; the path names the asset it is for.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: components["parameters"]["AuthorableAssetType"];
-                    assetId: components["parameters"]["AuthoringAssetId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["DefinitionRequest"];
-                };
-            };
-            responses: {
-                /** @description What would stop a write, and the sheets as they would be */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["DefinitionPreview"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postAuthoringByAssetTypeByAssetIdDefinitionPreview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4420,38 +1901,7 @@ export interface paths {
          *     `permissionsFrom`), optionally in a folder. Refused, with the
          *     issues, when the preview would show any.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: components["parameters"]["AuthorableAssetType"];
-                    assetId: components["parameters"]["AuthoringAssetId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["DefinitionApplyRequest"];
-                };
-            };
-            responses: {
-                /** @description The asset that was written */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["DefinitionApplyResult"];
-                        };
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postAuthoringByAssetTypeByAssetIdDefinition"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4473,29 +1923,7 @@ export interface paths {
          *     user or a group) and the actions to grant; the portal's cache learns
          *     the new principals when the job completes.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder";
-                    assetId: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        grants: components["schemas"]["PrincipalActions"][];
-                    };
-                };
-            };
-            responses: {
-                202: components["responses"]["BulkJobQueued"];
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postAssetsByAssetTypeByAssetIdGrantPermissions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4510,36 +1938,7 @@ export interface paths {
             cookie?: never;
         };
         /** An archived asset's export, for a restore preview */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "user" | "group";
-                    assetId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The archived export */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                [key: string]: unknown;
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                404: components["responses"]["NotFound"];
-            };
-        };
+        get: operations["getAssetsArchiveByAssetTypeByAssetIdMetadata"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4558,19 +1957,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Rebuild the portal's asset index from the exports (queues a job) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: components["responses"]["Acknowledged"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postAssetsRebuildIndex"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4587,27 +1974,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Delete assets and archive their exports (queues a job) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        assets: components["schemas"]["AssetRef"][];
-                        reason?: string;
-                    };
-                };
-            };
-            responses: {
-                202: components["responses"]["BulkJobQueued"];
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postAssetsBulkDelete"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4624,38 +1991,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** What still depends on these assets, before deleting them */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        assets: components["schemas"]["AssetRef"][];
-                    };
-                };
-            };
-            responses: {
-                /** @description Dependencies per asset */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                [key: string]: unknown;
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postAssetsBulkDeleteValidate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4670,90 +2006,13 @@ export interface paths {
             cookie?: never;
         };
         /** An asset's tags, live from QuickSight */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: components["parameters"]["TaggableAssetType"];
-                    assetId: components["parameters"]["TaggedAssetId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Tags */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: components["schemas"]["Tag"][];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getTagsByAssetTypeByAssetId"];
         /** Replace an asset's tags */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: components["parameters"]["TaggableAssetType"];
-                    assetId: components["parameters"]["TaggedAssetId"];
-                };
-                cookie?: never;
-            };
-            requestBody: components["requestBodies"]["Tags"];
-            responses: {
-                200: components["responses"]["Acknowledged"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        put: operations["putTagsByAssetTypeByAssetId"];
         /** Add tags to an asset */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: components["parameters"]["TaggableAssetType"];
-                    assetId: components["parameters"]["TaggedAssetId"];
-                };
-                cookie?: never;
-            };
-            requestBody: components["requestBodies"]["Tags"];
-            responses: {
-                200: components["responses"]["Acknowledged"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postTagsByAssetTypeByAssetId"];
         /** Remove tags from an asset by key */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    assetType: components["parameters"]["TaggableAssetType"];
-                    assetId: components["parameters"]["TaggedAssetId"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        tagKeys: string[];
-                    };
-                };
-            };
-            responses: {
-                200: components["responses"]["Acknowledged"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        delete: operations["deleteTagsByAssetTypeByAssetId"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4769,38 +2028,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Tags for many assets in one call */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        assets: components["schemas"]["AssetRef"][];
-                    };
-                };
-            };
-            responses: {
-                /** @description Tags per asset */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                [key: string]: unknown;
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postTagsBatch"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4817,33 +2045,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Add, replace or remove tags on many assets (queues a job) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        assetType: string;
-                        assetIds: string[];
-                        /** @enum {string} */
-                        operation: "add" | "update" | "remove";
-                        /** @description For add and update. */
-                        tags?: components["schemas"]["Tag"][];
-                        /** @description For remove. */
-                        tagKeys?: string[];
-                    };
-                };
-            };
-            responses: {
-                202: components["responses"]["BulkJobQueued"];
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postTagsBulk"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4860,26 +2062,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Re-read tags from QuickSight into the cache */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        assetType?: string;
-                        assetIds?: string[];
-                    };
-                };
-            };
-            responses: {
-                200: components["responses"]["Acknowledged"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postTagsRefresh"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4896,37 +2079,9 @@ export interface paths {
         get?: never;
         put?: never;
         /** Add many assets to a folder (queues a job) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    folderId: string;
-                };
-                cookie?: never;
-            };
-            requestBody: components["requestBodies"]["AssetRefs"];
-            responses: {
-                202: components["responses"]["BulkJobQueued"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postFoldersByFolderIdAssetsBulk"];
         /** Remove many assets from a folder (queues a job) */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    folderId: string;
-                };
-                cookie?: never;
-            };
-            requestBody: components["requestBodies"]["AssetRefs"];
-            responses: {
-                202: components["responses"]["BulkJobQueued"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        delete: operations["deleteFoldersByFolderIdAssetsBulk"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4942,27 +2097,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Create a QuickSight group */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        groupName: string;
-                        description?: string;
-                    };
-                };
-            };
-            responses: {
-                200: components["responses"]["Acknowledged"];
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postGroups"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4978,50 +2113,10 @@ export interface paths {
         };
         get?: never;
         /** Change a group's description */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    groupName: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        description: string;
-                    };
-                };
-            };
-            responses: {
-                200: components["responses"]["Acknowledged"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        put: operations["putGroupsByGroupName"];
         post?: never;
         /** Delete a group */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    groupName: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        reason?: string;
-                    };
-                };
-            };
-            responses: {
-                200: components["responses"]["Acknowledged"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        delete: operations["deleteGroupsByGroupName"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5037,20 +2132,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Deploy (restore) an asset from its archived export (queues a job) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: components["requestBodies"]["Deployment"];
-            responses: {
-                202: components["responses"]["BulkJobQueued"];
-                400: components["responses"]["BadRequest"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postDeployments"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5067,32 +2149,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Check a deployment without running it */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: components["requestBodies"]["Deployment"];
-            responses: {
-                /** @description Validation findings */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                [key: string]: unknown;
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postDeploymentsValidate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5107,36 +2164,7 @@ export interface paths {
             cookie?: never;
         };
         /** Past deployments */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                    assetType?: string;
-                    assetId?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Deployments, newest first */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                [key: string]: unknown;
-                            }[];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getDeploymentsHistory"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5153,32 +2181,7 @@ export interface paths {
             cookie?: never;
         };
         /** Manifest templates for common deployments */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Templates */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                [key: string]: unknown;
-                            }[];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getDeploymentsTemplates"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5195,29 +2198,7 @@ export interface paths {
             cookie?: never;
         };
         /** A deployment job's status (same record as /api/jobs/{jobId}) */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    jobId: components["parameters"]["JobId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The job */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Job"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getDeploymentsJobsByJobId"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5236,21 +2217,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Stop a deployment job */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    jobId: components["parameters"]["JobId"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: components["responses"]["Acknowledged"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postDeploymentsJobsByJobIdStop"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5265,42 +2232,7 @@ export interface paths {
             cookie?: never;
         };
         /** The field catalog, paginated (the older view; prefer /api/data-catalog/full) */
-        get: {
-            parameters: {
-                query?: {
-                    page?: number;
-                    pageSize?: number;
-                    viewMode?: string;
-                    forceRebuild?: boolean;
-                    tagFilter?: string;
-                    includeTags?: string;
-                    excludeTags?: string;
-                    assetIds?: string;
-                    includeAnalyses?: boolean;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description A page of fields */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                [key: string]: unknown;
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getDataCatalog"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5317,39 +2249,7 @@ export interface paths {
             cookie?: never;
         };
         /** Fields across datasets, analyses and dashboards, paginated */
-        get: {
-            parameters: {
-                query?: {
-                    page?: number;
-                    pageSize?: number;
-                    sourceType?: string;
-                    dataType?: string;
-                    isCalculated?: boolean;
-                    searchTerm?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description A page of fields */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                [key: string]: unknown;
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getDataCatalogFields"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5368,19 +2268,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Rebuild the cache behind the visual field catalog */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: components["responses"]["Acknowledged"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postDataCatalogVisualFieldsRebuild"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5395,96 +2283,13 @@ export interface paths {
             cookie?: never;
         };
         /** One field's portal metadata (tags, notes) */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    sourceType: components["parameters"]["FieldSourceType"];
-                    sourceId: components["parameters"]["FieldSourceId"];
-                    fieldName: components["parameters"]["FieldName"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The metadata */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                [key: string]: unknown;
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        get: operations["getDataCatalogFieldBySourceTypeBySourceIdByFieldName"];
         /** Replace a field's portal metadata */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    sourceType: components["parameters"]["FieldSourceType"];
-                    sourceId: components["parameters"]["FieldSourceId"];
-                    fieldName: components["parameters"]["FieldName"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            responses: {
-                200: components["responses"]["Acknowledged"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        put: operations["putDataCatalogFieldBySourceTypeBySourceIdByFieldName"];
         /** Add tags to a field */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    sourceType: components["parameters"]["FieldSourceType"];
-                    sourceId: components["parameters"]["FieldSourceId"];
-                    fieldName: components["parameters"]["FieldName"];
-                };
-                cookie?: never;
-            };
-            requestBody: components["requestBodies"]["FieldTags"];
-            responses: {
-                200: components["responses"]["Acknowledged"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postDataCatalogFieldBySourceTypeBySourceIdByFieldName"];
         /** Remove tags from a field */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    sourceType: components["parameters"]["FieldSourceType"];
-                    sourceId: components["parameters"]["FieldSourceId"];
-                    fieldName: components["parameters"]["FieldName"];
-                };
-                cookie?: never;
-            };
-            requestBody: components["requestBodies"]["FieldTags"];
-            responses: {
-                200: components["responses"]["Acknowledged"];
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        delete: operations["deleteDataCatalogFieldBySourceTypeBySourceIdByFieldName"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5500,32 +2305,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Fields carrying any of these tags */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: components["requestBodies"]["FieldTags"];
-            responses: {
-                /** @description Matching fields */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            success: boolean;
-                            data: {
-                                [key: string]: unknown;
-                            };
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
+        post: operations["postDataCatalogFieldsSearchByTags"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5788,6 +2568,44 @@ export interface components {
         JobType: "export" | "deploy" | "ingestion" | "rebuild" | "activity-refresh" | "bulk-operation" | "csv-export" | "smus-export" | "planner" | "assistant" | "asset-refresh";
         /** @description One background job, as /api/jobs returns it. */
         Job: {
+            /**
+             * Format: date-time
+             * @description Heartbeat - stamped on every job write. The UI uses it to show
+             *     worker liveness ("active Ns ago") and flag stalled jobs.
+             */
+            lastUpdatedTime?: string;
+            /** @description Duration in milliseconds */
+            duration?: number | null;
+            stats?: {
+                totalAssets?: number;
+                processedAssets?: number;
+                failedAssets?: number;
+                apiCalls?: number;
+            };
+            /**
+             * @description Item-level failures for bulk jobs (capped; the full list is on
+             *     the job result). Present only when at least one item failed.
+             */
+            failures?: components["schemas"]["BulkItemFailure"][];
+            /**
+             * @description Optional step-based progress. Present for jobs that emit phases
+             *     (e.g. activity-refresh). Older job types omit this field.
+             */
+            phases?: components["schemas"]["JobPhase"][];
+            /**
+             * @description Resumable-export progress (export jobs only). Written after
+             *     each asset type completes so continuation invocations resume
+             *     where the previous one paused; the UI renders it as per-type
+             *     progress.
+             */
+            checkpoint?: {
+                completedAssetTypes?: string[];
+                hydratedAssetTypes?: string[];
+                catalogPending?: boolean;
+                totalProcessed?: number;
+                /** Format: date-time */
+                updatedAt?: string;
+            };
             jobId: string;
             jobType: components["schemas"]["JobType"];
             status: components["schemas"]["JobStatus"];
@@ -5885,7 +2703,8 @@ export interface components {
             versionNumber?: number;
             /** @enum {string} */
             mode: "update" | "clone" | "create";
-            folderId?: string;
+            /** @description The folders it was filed in - the request's folderId and the default folders from Settings. */
+            folderIds?: string[];
             warnings: string[];
         };
         /** @enum {string} */
@@ -5927,36 +2746,6 @@ export interface components {
             key: string;
             /** @description Tag value */
             value: string;
-        };
-        /** @description Filter for selecting specific assets */
-        AssetFilter: {
-            /** @description Asset ID */
-            id: string;
-            /** @description Asset display name */
-            name: string;
-            /** @description Asset type (dashboard, analysis, dataset, etc.) */
-            type: string;
-        };
-        /** @description Parameters for searching and filtering catalog fields */
-        FieldSearchParams: {
-            /** @description Text search on field name, display name, or description */
-            query?: string;
-            /** @description Filter by data type (STRING, INTEGER, DECIMAL, etc.) */
-            dataType?: string;
-            /** @description Filter by source asset type (dashboard, analysis, dataset) */
-            assetType?: string;
-            /** @description Filter for calculated fields only */
-            isCalculated?: boolean;
-            /**
-             * @description Page number (1-indexed)
-             * @default 1
-             */
-            page: number;
-            /**
-             * @description Number of items per page
-             * @default 50
-             */
-            pageSize: number;
         };
         AssetListItem: {
             /** @description Asset unique identifier */
@@ -6253,78 +3042,6 @@ export interface components {
                 analysisCount?: number;
             };
         };
-        AssetLineage: {
-            assetId: string;
-            assetType: components["schemas"]["AssetType"];
-            assetName: string;
-            /** @description Whether this asset is archived */
-            isArchived?: boolean;
-            relationships: components["schemas"]["LineageRelationship"][];
-            metadata?: {
-                /** @description Type of datasource (S3, ATHENA, etc.) */
-                datasourceType?: string;
-            };
-        };
-        LineageRelationship: {
-            sourceAssetId: string;
-            sourceAssetType: components["schemas"]["AssetType"];
-            sourceAssetName: string;
-            /** @description Whether the source asset is archived */
-            sourceIsArchived?: boolean;
-            targetAssetId: string;
-            targetAssetType: components["schemas"]["AssetType"];
-            targetAssetName: string;
-            /** @description Whether the target asset is archived */
-            targetIsArchived?: boolean;
-            /** @enum {string} */
-            relationshipType: "uses" | "used_by";
-            /** @description Activity data for dashboard and analysis relationships */
-            activity?: {
-                /** @description Total number of views */
-                totalViews?: number;
-                /** @description Number of unique viewers */
-                uniqueViewers?: number;
-                /**
-                 * Format: date-time
-                 * @description Last time the asset was viewed
-                 */
-                lastViewed?: string | null;
-            };
-            /** @description Tags associated with the target asset */
-            tags?: components["schemas"]["Tag"][];
-        };
-        FieldInfo: {
-            fieldId: string;
-            fieldName: string;
-            displayName?: string;
-            /** @description Field data type */
-            dataType: string;
-            description?: string;
-            /** @description Whether this is a calculated field */
-            isCalculated: boolean;
-            /** @description Calculation expression (if calculated field) */
-            expression?: string;
-            /** @enum {string} */
-            sourceAssetType: "dataset" | "analysis" | "dashboard";
-            sourceAssetId: string;
-            sourceAssetName: string;
-            datasetId?: string;
-            datasetName?: string;
-            /** @description Source column name */
-            columnName?: string;
-            /** @description Field IDs this calculated field depends on */
-            dependencies?: string[];
-            /** @description Total usage count */
-            usageCount: number;
-            /** @description Number of analyses using this field */
-            analysisCount: number;
-            /** @description Number of dashboards using this field */
-            dashboardCount: number;
-            /** Format: date-time */
-            lastUpdated: string;
-            /** @default [] */
-            tags: components["schemas"]["Tag"][];
-        };
         Tag: {
             /** @description Tag key */
             key: string;
@@ -6610,80 +3327,6 @@ export interface components {
                  */
                 lastViewed: string;
             }[];
-        };
-        ExportStatusResponse: {
-            success: boolean;
-            data: {
-                /** @description Whether initial asset inventory is complete */
-                inventoryComplete: boolean;
-                /** @description Whether an export is currently running */
-                enrichmentInProgress: boolean;
-                /** @description Total number of assets in inventory */
-                totalAssets: number;
-                /** @description Number of fully enriched assets */
-                enrichedAssets: number;
-                /** @description Number of skeleton-only assets */
-                skeletonAssets: number;
-                /** @description Percentage of assets fully enriched */
-                percentEnriched: number;
-                /** @description Count of assets by type */
-                assetsByType: {
-                    [key: string]: number;
-                };
-                /**
-                 * Format: date-time
-                 * @description When the cache was last updated
-                 */
-                lastUpdated: string;
-                nextSteps: {
-                    /** @enum {string} */
-                    phase: "inventory" | "enrichment" | "complete";
-                    action: string;
-                    description: string;
-                };
-                /** @description Current export state if an export is running */
-                exportState?: {
-                    /** @enum {string} */
-                    status?: "idle" | "running" | "completed" | "error";
-                    /** @description Current stage of export process */
-                    currentStage?: string;
-                    /** @description Unix timestamp when export started */
-                    startedAt?: number;
-                    /** @description Unix timestamp when export completed */
-                    completedAt?: number | null;
-                    totalAssets?: number;
-                    enrichedAssets?: number;
-                    failedAssets?: number;
-                    assetProgress?: {
-                        [key: string]: {
-                            listed?: number;
-                            enriched?: number;
-                            failed?: number;
-                        };
-                    };
-                } | null;
-                /** @description Recent export log entries */
-                logs: components["schemas"]["ExportLogEntry"][];
-                /** @description Suggested milliseconds until next poll */
-                nextPollInMs: number;
-            };
-        };
-        ExportLogEntry: {
-            /** @description Unix timestamp in milliseconds */
-            ts: number;
-            /** @description Log message */
-            msg: string;
-            /**
-             * @default info
-             * @enum {string}
-             */
-            level: "info" | "warn" | "error";
-            /** @description Asset type context */
-            assetType?: string;
-            /** @description Asset ID context */
-            assetId?: string;
-            /** @description Number of API calls made in this operation */
-            apiCalls?: number;
         };
         ExportSummaryResponse: {
             success: boolean;
@@ -7068,7 +3711,10 @@ export interface components {
             versionNumber?: number;
             changes: components["schemas"]["DefinitionChange"][];
             warnings: string[];
-            folderId?: string;
+            /** @description Every folder it was filed in - the request's folderId and the default folders from Settings. */
+            folderIds?: string[];
+            /** @description The QuickSight user made its owner - the person who built it, matched by sign-in email. */
+            owner?: string;
         };
         /**
          * @description Conversions applied to every visual at once. chartFamily: retypes
@@ -7220,8 +3866,8 @@ export interface components {
             versionNumber?: number;
             plan: components["schemas"]["RebindPlan"];
             changes?: components["schemas"]["DefinitionChange"][];
-            /** @description The folder the clone was placed in, when requested. */
-            folderId?: string;
+            /** @description Clone only - the folders it was filed in (the request's folderId and the default folders from Settings). */
+            folderIds?: string[];
             warnings?: string[];
         };
         ProposeRequest: {
@@ -7985,85 +4631,6 @@ export interface components {
             /** @description Failure reason as reported by the underlying operation */
             error: string;
         };
-        ExportJobStatus: {
-            success: boolean;
-            data: {
-                jobId: string;
-                status: components["schemas"]["JobStatus"];
-                /** @description Completion percentage */
-                progress: number;
-                /** @description Current operation or status message */
-                message?: string;
-                /** Format: date-time */
-                startTime: string;
-                /**
-                 * Format: date-time
-                 * @description Heartbeat - stamped on every job write. The UI uses it to show
-                 *     worker liveness ("active Ns ago") and flag stalled jobs.
-                 */
-                lastUpdatedTime?: string;
-                /** Format: date-time */
-                endTime?: string | null;
-                /** @description Duration in milliseconds */
-                duration?: number | null;
-                stats?: {
-                    totalAssets?: number;
-                    processedAssets?: number;
-                    failedAssets?: number;
-                    apiCalls?: number;
-                };
-                /**
-                 * @description Why the job failed, or - for a completed bulk job with partial
-                 *     failures - the distinct per-item failure reasons with counts.
-                 */
-                error?: string;
-                /**
-                 * @description Item-level failures for bulk jobs (capped; the full list is on
-                 *     the job result). Present only when at least one item failed.
-                 */
-                failures?: components["schemas"]["BulkItemFailure"][];
-                /**
-                 * @description Optional step-based progress. Present for jobs that emit phases
-                 *     (e.g. activity-refresh). Older job types omit this field.
-                 */
-                phases?: components["schemas"]["JobPhase"][];
-                /**
-                 * @description Resumable-export progress (export jobs only). Written after
-                 *     each asset type completes so continuation invocations resume
-                 *     where the previous one paused; the UI renders it as per-type
-                 *     progress.
-                 */
-                checkpoint?: {
-                    completedAssetTypes?: string[];
-                    hydratedAssetTypes?: string[];
-                    catalogPending?: boolean;
-                    totalProcessed?: number;
-                    /** Format: date-time */
-                    updatedAt?: string;
-                };
-            };
-        };
-        ExportJobList: {
-            success: boolean;
-            data: {
-                jobs: components["schemas"]["JobStatus"][];
-            };
-        };
-        ExportJobLogs: {
-            success: boolean;
-            data: {
-                jobId: string;
-                logs: {
-                    /** Format: date-time */
-                    timestamp: string;
-                    /** @enum {string} */
-                    level: "info" | "warn" | "error";
-                    message: string;
-                    /** @description Additional context or metadata */
-                    details?: Record<string, never>;
-                }[];
-            };
-        };
         Ingestion: {
             /** @description Ingestion ID */
             id: string;
@@ -8601,6 +5168,765 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getAssetsArchived: {
+        parameters: {
+            query?: {
+                /** @description Filter by asset type (optional) */
+                type?: components["schemas"]["AssetType"];
+                /** @description Page number */
+                page?: number;
+                /** @description Number of items per page */
+                pageSize?: number;
+                /** @description Search term to filter assets by name, ID, or archive reason */
+                search?: string;
+                /** @description Field to sort by */
+                sortBy?: "name" | "type" | "createdTime" | "lastUpdatedTime" | "lastExportTime" | "archivedDate" | "archiveReason" | "archivedBy" | "lastActivity";
+                /** @description Sort order */
+                sortOrder?: "asc" | "desc";
+                /** @description Filter by archive date range */
+                dateRange?: "all" | "24h" | "7d" | "30d" | "90d";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated list of archived assets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            items: components["schemas"]["ArchivedAssetItem"][];
+                            nextToken?: string | null;
+                            totalCount: number;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getFoldersByFolderId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                folderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Folder details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderDetails"];
+                };
+            };
+        };
+    };
+    getFoldersByFolderIdMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                folderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Folder members */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderMember"][];
+                };
+            };
+        };
+    };
+    postFoldersByFolderIdMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                folderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    memberId: string;
+                    /** @enum {string} */
+                    memberType: "DASHBOARD" | "ANALYSIS" | "DATASET" | "DATASOURCE" | "USER" | "GROUP";
+                    /**
+                     * @description Required for USER and GROUP member types
+                     * @enum {string}
+                     */
+                    role?: "ADMIN" | "AUTHOR" | "VIEWER";
+                };
+            };
+        };
+        responses: {
+            /** @description Member added successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                    };
+                };
+            };
+        };
+    };
+    deleteFoldersByFolderIdMembersByMemberId: {
+        parameters: {
+            query: {
+                /** @description The type of asset to remove from the folder */
+                type: "DASHBOARD" | "ANALYSIS" | "DATASET" | "DATASOURCE";
+            };
+            header?: never;
+            path: {
+                folderId: string;
+                memberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Member removed successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        data?: {
+                            message?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Bad request - missing required parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getAssetsByAssetTypePaginated: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                search?: string;
+                sortBy?: string;
+                sortOrder?: "asc" | "desc" | "ASC" | "DESC";
+                filters?: string;
+                /** @description Which date field to filter on */
+                dateField?: "lastUpdatedTime" | "createdTime" | "lastActivity";
+                /** @description Date range filter value */
+                dateRange?: "all" | "24h" | "7d" | "30d" | "90d";
+                /** @description JSON-encoded array of {key, value} tag filters to include */
+                includeTags?: string;
+                /** @description JSON-encoded array of {key, value} tag filters to exclude */
+                excludeTags?: string;
+            };
+            header?: never;
+            path: {
+                assetType: "dashboards" | "datasets" | "analyses" | "datasources" | "folders" | "users" | "groups";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated asset list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedAssetResponse"];
+                };
+            };
+        };
+    };
+    getAssetsByAssetTypeExport: {
+        parameters: {
+            query?: {
+                /** @description Optional search term to filter assets */
+                search?: string;
+                /** @description Optional field to sort by */
+                sortBy?: string;
+                /** @description Optional sort order */
+                sortOrder?: "asc" | "desc";
+                filters?: string;
+            };
+            header?: never;
+            path: {
+                assetType: "dashboards" | "datasets" | "analyses" | "datasources" | "folders" | "users" | "groups";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CSV export job queued successfully */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example true */
+                        success?: boolean;
+                        /** @example csv-export-1234567890-abcd1234 */
+                        jobId?: string;
+                        /** @example queued */
+                        status?: string;
+                        /** @example CSV export job for dashboards queued */
+                        message?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteUsersByUserName: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the user to delete */
+                userName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User deleted successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description User role not allowed for deletion */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getAssetsByAssetTypeByAssetIdCached: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "user" | "group";
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cached asset data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        /** @description Full asset data from S3 */
+                        data?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Asset not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getExportSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Export summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportSummaryResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    postExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ExportJobRequest"];
+            };
+        };
+        responses: {
+            /** @description Export job queued successfully */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportJobResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Another export job is already running (only one export may run at a time) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example false */
+                        success?: boolean;
+                        error?: string;
+                        data?: {
+                            /** @description ID of the export job currently running */
+                            activeJobId?: string;
+                        };
+                    };
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getIngestions: {
+        parameters: {
+            query?: {
+                search?: string;
+                sortBy?: "createdTime" | "status" | "datasetName" | "ingestionTimeInSeconds" | "rowsIngested";
+                sortOrder?: "asc" | "desc";
+                page?: number;
+                pageSize?: number;
+                dateRange?: "all" | "24h" | "7d" | "30d" | "90d";
+                dateField?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of ingestions with metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestionListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getIngestionsByDatasetIdByIngestionId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                datasetId: string;
+                ingestionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ingestion details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ingestion"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    deleteIngestionsByDatasetIdByIngestionId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                datasetId: string;
+                ingestionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ingestion cancelled successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    postActivityRefresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Asset types to refresh activity for */
+                    assetTypes: ("dashboard" | "analysis" | "user" | "all")[];
+                    /**
+                     * @description Number of days of activity to fetch
+                     * @default 90
+                     */
+                    days?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Activity refresh initiated successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        refreshed?: {
+                            dashboards?: number;
+                            analyses?: number;
+                            users?: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getActivityByAssetTypeByAssetId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: "dashboard" | "analysis" | "dataset" | "user";
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Activity data for the asset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityData"] | components["schemas"]["UserActivity"] | components["schemas"]["DatasetActivityData"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Asset not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getActivityTimeline: {
+        parameters: {
+            query?: {
+                /** @description ISO timestamp. Returns events strictly older than this. */
+                cursor?: string;
+                /** @description Page size. Default 50, max 200. */
+                limit?: number;
+                /** @description Comma-separated list of resource types to include. Catalog types (dashboard, analysis, dataset, datasource, folder, group, user) show hydrated asset names; `other` covers templates, themes, brands, topics, account settings, etc. */
+                resourceTypes?: string;
+                /** @description Comma-separated list of user names to include. */
+                users?: string;
+                /** @description Comma-separated list of CloudTrail event names to include. */
+                eventNames?: string;
+                /** @description Comma-separated list of CloudTrail event names to exclude. Used by default to hide noisy ingestion events. */
+                excludeEventNames?: string;
+                /** @description Comma-separated list of action categories to include. */
+                actions?: string;
+                /** @description Comma-separated origins to include (portal-ui, portal-api, portal, console, automation, unknown). */
+                origins?: string;
+                /** @description ISO timestamp. Returns events at or after this time. */
+                startDate?: string;
+                /** @description ISO timestamp. Returns events at or before this time. */
+                endDate?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of timeline events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        data?: components["schemas"]["TimelinePage"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getActivityTimelineByAssetTypeByAssetId: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                users?: string;
+                eventNames?: string;
+                actions?: string;
+                startDate?: string;
+                endDate?: string;
+            };
+            header?: never;
+            path: {
+                assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "group" | "user";
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of timeline events for the specified asset. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        data?: components["schemas"]["TimelinePage"];
+                    };
+                };
+            };
+            /** @description Invalid assetType or assetId. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getAssistantModels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The catalog */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["AiModelCatalog"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAssistantChat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantChatRequest"];
+            };
+        };
+        responses: {
+            /** @description The assistant job was queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["JobQueued"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getApiDocsOpenapi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The OpenAPI 3 document */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    getApiDocsGuide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Markdown */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/markdown": string;
+                };
+            };
+        };
+    };
+    getSearch: {
+        parameters: {
+            query: {
+                /** @description Plain words, e.g. "gold orders dataset with revenue by region". */
+                q: string;
+                /** @description Comma-separated subset of dashboard, analysis, dataset, datasource, folder, project, smus-listing, smus-column, calculated-field, visual, template. */
+                types?: string;
+                /** @description Keep to one SMUS project (its listings and columns, and the datasets linked to them). */
+                projectId?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ranked hits */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["SearchResponse"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
     searchContext: {
         parameters: {
             query: {
@@ -8694,6 +6020,1126 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getSmusDataSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The choice */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["SmusDataSourceChoice"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getSmusStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description SMUS integration status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmusStatus"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postSmusExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description An export is already in flight; its job is returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["SmusExportQueued"];
+                    };
+                };
+            };
+            /** @description Export job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["SmusExportQueued"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postSmusDatasetLinks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Dataset ids to resolve (all cached datasets when omitted) */
+                    datasetIds?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Per-dataset SMUS link resolutions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        links: components["schemas"]["SmusDatasetLink"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getScriptsDemoCleanupPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of demo assets to be deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        data?: {
+                            datasources?: {
+                                id?: string;
+                                name?: string;
+                                bucket?: string;
+                            }[];
+                            datasets?: {
+                                id?: string;
+                                name?: string;
+                                datasourceIds?: string[];
+                            }[];
+                            analyses?: {
+                                id?: string;
+                                name?: string;
+                            }[];
+                            totalCount?: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    postScriptsDemoCleanupExecute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Demo cleanup completed successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        data?: {
+                            deleted?: {
+                                datasources?: number;
+                                datasets?: number;
+                                analyses?: number;
+                                total?: number;
+                            };
+                            archived?: {
+                                datasources?: number;
+                                datasets?: number;
+                                analyses?: number;
+                                total?: number;
+                            };
+                            errors?: {
+                                assetType?: string;
+                                assetId?: string;
+                                error?: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    getActivitySummary: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Activity summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dashboards?: {
+                            totalViews?: number;
+                            uniqueViewers?: number;
+                            activeAssets?: number;
+                        };
+                        analyses?: {
+                            totalViews?: number;
+                            uniqueViewers?: number;
+                            activeAssets?: number;
+                        };
+                        users?: {
+                            activeUsers?: number;
+                            totalActivities?: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getDataCatalogFull: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                viewMode?: "all" | "fields" | "calculated";
+                /** @description Single tag key filter (deprecated, use includeTags/excludeTags) */
+                tagKey?: string;
+                /** @description Single tag value filter (deprecated, use includeTags/excludeTags) */
+                tagValue?: string;
+                /** @description JSON array of tags to include, e.g. [{"key":"env","value":"prod"}]. Assets must have at least one of these tags. */
+                includeTags?: string;
+                /** @description JSON array of tags to exclude, e.g. [{"key":"env","value":"dev"}]. Assets must not have any of these tags. */
+                excludeTags?: string;
+                /** @description JSON array of asset IDs to filter by, e.g. ["dash-123","ds-456"]. Only fields from these assets are returned. */
+                assetIds?: string;
+                /** @description Catalog source scope. By default the catalog reflects the business-facing layer (datasets + dashboards). Set true to also include analyses (the authoring layer); datasets are always included. */
+                includeAnalyses?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Data catalog with fields and summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        data?: components["schemas"]["DataCatalogResponse"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getDataCatalogTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Available tags with counts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        data?: components["schemas"]["TagWithCount"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getDataCatalogAssets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Available assets with field counts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        data?: components["schemas"]["CatalogAsset"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getDataCatalogStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Catalog statistics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        data?: components["schemas"]["CatalogStats"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getDataCatalogVisualFields: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Visual field mappings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        data?: components["schemas"]["VisualFieldCatalogResponse"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getAssetsByAssetTypeByAssetIdPermissionSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The type of asset */
+                assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder";
+                /** @description The asset identifier */
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Permission sources for the asset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            permissions: components["schemas"]["Permission"][];
+                            userAccessSources: components["schemas"]["UserAccessInfo"][];
+                            groupAccessSources: components["schemas"]["GroupAccessInfo"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Asset not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAssetsDatasetByAssetIdSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The dataset's current sources */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["DatasetSource"] & {
+                            /**
+                             * @description Every data source in the account. A table's data
+                             *     source is always chosen from this list - ARNs are
+                             *     never entered by hand - and the server re-checks
+                             *     membership on update.
+                             */
+                            dataSources: components["schemas"]["DataSourceOption"][];
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    putAssetsDatasetByAssetIdSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Rename the dataset at the same time */
+                    name?: string;
+                    tables?: components["schemas"]["DatasetTableEdit"][];
+                };
+            };
+        };
+        responses: {
+            /** @description The dataset's sources after the update */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["DatasetSource"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getAuthoringByAssetTypeByAssetIdDatasets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: components["parameters"]["AuthorableAssetType"];
+                assetId: components["parameters"]["AuthoringAssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The definition's datasets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["DefinitionDatasets"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthoringByAssetTypeByAssetIdRebindPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: components["parameters"]["AuthorableAssetType"];
+                assetId: components["parameters"]["AuthoringAssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    rebinds: components["schemas"]["RebindRequest"][];
+                };
+            };
+        };
+        responses: {
+            /** @description The plan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["RebindPlan"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthoringByAssetTypeByAssetIdRebind: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: components["parameters"]["AuthorableAssetType"];
+                assetId: components["parameters"]["AuthoringAssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyRebindRequest"];
+            };
+        };
+        responses: {
+            /** @description The asset that was written */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["ApplyRebindResult"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthoringByAssetTypeByAssetIdRepairPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: "dashboard" | "analysis";
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Datasets already chosen for identifiers whose own dataset is gone. */
+                    rebinds?: components["schemas"]["RebindRequest"][];
+                };
+            };
+        };
+        responses: {
+            /** @description The repair plan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["RepairPlan"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postAuthoringByAssetTypeByAssetIdPropose: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: components["parameters"]["AuthorableAssetType"];
+                assetId: components["parameters"]["AuthoringAssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposeRequest"];
+            };
+        };
+        responses: {
+            /** @description The planner job was queued; its result is the Proposal */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["JobQueued"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthoringByAssetTypeByAssetIdRebindPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: components["parameters"]["AuthorableAssetType"];
+                assetId: components["parameters"]["AuthoringAssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    rebinds: components["schemas"]["RebindRequest"][];
+                    addCalculatedFields?: components["schemas"]["AddedCalculatedField"][];
+                    ops?: components["schemas"]["DefinitionOp"][];
+                    /** @description Applied first, before the rebind plan, so the plan sees the repaired definition. */
+                    repairs?: components["schemas"]["RepairOp"][];
+                    template?: components["schemas"]["TemplateRequest"];
+                    typeRules?: components["schemas"]["TypeRules"];
+                };
+            };
+        };
+        responses: {
+            /** @description The plan and the rewritten definition */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["RebindPreview"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Grouped settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["SettingsSnapshot"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    putSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description The settings after the update */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["SettingsSnapshot"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getSettingsSmusProjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The domain's projects */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            configured: boolean;
+                            /**
+                             * Format: date-time
+                             * @description When the snapshot these projects come from was taken; null when no export has run.
+                             */
+                            exportedAt: string | null;
+                            projects: components["schemas"]["SmusProject"][];
+                            diagnostics?: components["schemas"]["SmusProjectDiagnostics"];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listSettingsFolders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The folders */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            folders: {
+                                id: string;
+                                name: string;
+                                /** @description Principals the folder is shared with. */
+                                sharedWith: number;
+                            }[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getSettingsApiKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The keys */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            keys: components["schemas"]["ApiKey"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postSettingsApiKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description What the key is for, e.g. "claude cli" or "nightly export". */
+                    label: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The key and its one-time secret */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["ApiKeyCreated"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    deleteSettingsApiKeysById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getSmusAssets: {
+        parameters: {
+            query?: {
+                /** @description Case-insensitive match on the listing name or description */
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published assets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            configured: boolean;
+                            /**
+                             * Format: date-time
+                             * @description When the snapshot was taken; null when no SMUS export has run.
+                             */
+                            exportedAt: string | null;
+                            /** @description The project ids the sweep was limited to; empty means all. */
+                            projectFilter: string[];
+                            assets: components["schemas"]["SmusAsset"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postSmusAssetsByListingIdDataset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSmusDatasetRequest"];
+            };
+        };
+        responses: {
+            /** @description The created dataset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            dataSetId: string;
+                            name: string;
+                            arn: string;
+                            /** @description The data source the dataset reads through. */
+                            dataSource: {
+                                id: string;
+                                name: string;
+                            };
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getDataCatalogSmus: {
+        parameters: {
+            query?: {
+                /** @description Case-insensitive match on listing name, description, table or a column name */
+                search?: string;
+                /** @description Only assets carrying this glossary term */
+                term?: string;
+                /** @description Only assets owned by this project (within the selected projects) */
+                projectId?: string;
+                /** @description `projects` returns only the project list with counts, straight from the SMUS snapshot, without building the QuickSight field index. The page asks for this first; the per-project listing follows. */
+                scope?: "projects" | "full";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The catalog listing */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["SmusCatalog"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getDataCatalogSmusByListingId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The asset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["SmusCatalogAsset"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getDataCatalogCalculatedFields: {
+        parameters: {
+            query?: {
+                /** @description Only fields on datasets whose SMUS listing belongs to this project. */
+                projectId?: string;
+                datasetId?: string;
+                /** @description Case-insensitive match on the name or the expression. */
+                search?: string;
+                conflictsOnly?: boolean;
+                /**
+                 * @description Which datasets to read. `smus` (the default) is the selected SMUS
+                 *     projects; `outside` is the datasets that matched no listing, so they
+                 *     are reachable rather than silently dropped; `all` ignores the
+                 *     distinction. Naming a projectId implies `smus`.
+                 */
+                scope?: "smus" | "outside" | "all";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The calculated field catalog */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["CalculatedFieldCatalog"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getDataCatalogCalculatedFieldsByKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The calculated field */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["CalculatedFieldDetail"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getDataCatalogColumns: {
+        parameters: {
+            query?: {
+                projectId?: string;
+                datasetId?: string;
+                search?: string;
+                /**
+                 * @description Which datasets to read. `smus` (the default) is the selected SMUS
+                 *     projects; `outside` is the datasets that matched no listing, so they
+                 *     are reachable rather than silently dropped; `all` ignores the
+                 *     distinction. Naming a projectId implies `smus`.
+                 */
+                scope?: "smus" | "outside" | "all";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The column catalog */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["ColumnCatalog"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     listFilterBarTemplates: {
@@ -8918,6 +7364,119 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
+    getDataCatalogTemplatesCalculatedFields: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The library */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            templates: components["schemas"]["CalculatedFieldTemplate"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postDataCatalogTemplatesCalculatedFields: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalculatedFieldTemplateInput"];
+            };
+        };
+        responses: {
+            /** @description The saved template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["CalculatedFieldTemplate"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    putDataCatalogTemplatesCalculatedFieldsByTemplateId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalculatedFieldTemplateInput"];
+            };
+        };
+        responses: {
+            /** @description The updated template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["CalculatedFieldTemplate"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteDataCatalogTemplatesCalculatedFieldsByTemplateId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getAuthoringDatasetColumns: {
         parameters: {
             query?: never;
@@ -8944,6 +7503,225 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    postAuthoringNewPropose: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewAssetRequest"];
+            };
+        };
+        responses: {
+            /** @description The planner job was queued; its result is a NewAssetPreview */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["JobQueued"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthoringNewPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewAssetRequest"];
+            };
+        };
+        responses: {
+            /** @description The definition as create would write it */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["NewAssetPreview"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthoringNew: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewAssetRequest"];
+            };
+        };
+        responses: {
+            /** @description The created asset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["NewAssetResult"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getAuthoringByAssetTypeByAssetIdInsights: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: components["parameters"]["AuthorableAssetType"];
+                assetId: components["parameters"]["AuthoringAssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Views and, for dashboards with metrics, health */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["AssetInsights"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getActivityHealth: {
+        parameters: {
+            query: {
+                assetType: "dashboard" | "dataset";
+                /** @description Comma-separated asset ids, at most 100. */
+                ids: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Health per asset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["AssetHealthBatch"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAssetsByAssetTypeByAssetIdRename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: "dashboard" | "analysis" | "dataset" | "folder";
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The new asset name */
+                    name: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Asset renamed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            /** @description The applied (trimmed) name */
+                            name: string;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    postAssetsByAssetTypeByAssetIdRevokePermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder";
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    revocations: {
+                        /** @description The ARN of the principal to revoke */
+                        principal: string;
+                        /** @description The actions to revoke */
+                        actions: string[];
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Permission revoke job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkJobAccepted"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
         };
     };
     addUsersToGroup: {
@@ -9008,6 +7786,1182 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             500: components["responses"]["InternalServerError"];
+        };
+    };
+    getGroupsByGroupNameAssets: {
+        parameters: {
+            query?: {
+                /** @description Filter by asset type (optional) */
+                assetType?: components["schemas"]["AssetType"];
+            };
+            header?: never;
+            path: {
+                /** @description The name of the group */
+                groupName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of accessible assets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            groupName: string;
+                            totalAssets: number;
+                            assetsByType?: {
+                                dashboards?: number;
+                                datasets?: number;
+                                analyses?: number;
+                                datasources?: number;
+                                folders?: number;
+                            };
+                            assets: {
+                                assetId: string;
+                                assetType: components["schemas"]["AssetType"];
+                                assetName: string;
+                                arn?: string;
+                                /**
+                                 * @description How the group has access to this asset
+                                 * @enum {string}
+                                 */
+                                accessType: "direct" | "folder_inherited";
+                                /** @description Folder path if access is inherited from folder */
+                                folderPath?: string;
+                                /** @description List of permissions the group has on this asset */
+                                permissions?: string[];
+                            }[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Group not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getUsersByUserNameAssetAccess: {
+        parameters: {
+            query?: {
+                /** @description Filter by asset type (optional) */
+                assetType?: components["schemas"]["AssetType"];
+            };
+            header?: never;
+            path: {
+                /** @description The name of the user */
+                userName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of accessible assets with access sources */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["UserAssetAccessResponse"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description User not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    postActivityUserInactiveAnalyses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The username to find inactive analyses for */
+                    userName: string;
+                };
+            };
+        };
+        responses: {
+            /** @description List of inactive analyses */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            analyses: components["schemas"]["UserInactiveAnalysis"][];
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    postActivityUserUnusedDatasets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The username to find unused datasets for */
+                    userName: string;
+                };
+            };
+        };
+        responses: {
+            /** @description List of unused datasets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            datasets: components["schemas"]["UserUnusedDataset"][];
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    postActivityRecipients: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    assetType: "dashboard" | "analysis";
+                    assetId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Resolved recipients */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            users: components["schemas"]["ResolvedRecipient"][];
+                            groups: {
+                                groupName: string;
+                                members: components["schemas"]["ResolvedRecipient"][];
+                            }[];
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getJobs: {
+        parameters: {
+            query?: {
+                type?: components["schemas"]["JobType"];
+                status?: components["schemas"]["JobStatus"];
+                limit?: number;
+                afterDate?: string;
+                beforeDate?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Jobs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["Job"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getJobsByJobId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jobId: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["Job"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteJobsByJobId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jobId: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["Acknowledged"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getJobsByJobIdLogs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jobId: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Logs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            jobId?: string;
+                            logs?: components["schemas"]["JobLog"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getJobsByJobIdResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jobId: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["AssistantChatResult"] | components["schemas"]["Proposal"] | components["schemas"]["NewAssetPreview"] | {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postJobsByJobIdStop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jobId: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["Acknowledged"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthoringDefinitionPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DefinitionRequest"];
+            };
+        };
+        responses: {
+            /** @description What would stop a write, and the sheets as they would be */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["DefinitionPreview"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthoringDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDefinitionRequest"];
+            };
+        };
+        responses: {
+            /** @description The asset that was created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["DefinitionApplyResult"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthoringByAssetTypeByAssetIdDefinitionPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: components["parameters"]["AuthorableAssetType"];
+                assetId: components["parameters"]["AuthoringAssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DefinitionRequest"];
+            };
+        };
+        responses: {
+            /** @description What would stop a write, and the sheets as they would be */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["DefinitionPreview"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthoringByAssetTypeByAssetIdDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: components["parameters"]["AuthorableAssetType"];
+                assetId: components["parameters"]["AuthoringAssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DefinitionApplyRequest"];
+            };
+        };
+        responses: {
+            /** @description The asset that was written */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["DefinitionApplyResult"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAssetsByAssetTypeByAssetIdGrantPermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder";
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    grants: components["schemas"]["PrincipalActions"][];
+                };
+            };
+        };
+        responses: {
+            202: components["responses"]["BulkJobQueued"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getAssetsArchiveByAssetTypeByAssetIdMetadata: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "user" | "group";
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The archived export */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postAssetsRebuildIndex: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["Acknowledged"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAssetsBulkDelete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assets: components["schemas"]["AssetRef"][];
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            202: components["responses"]["BulkJobQueued"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAssetsBulkDeleteValidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assets: components["schemas"]["AssetRef"][];
+                };
+            };
+        };
+        responses: {
+            /** @description Dependencies per asset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getTagsByAssetTypeByAssetId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: components["parameters"]["TaggableAssetType"];
+                assetId: components["parameters"]["TaggedAssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tags */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["Tag"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    putTagsByAssetTypeByAssetId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: components["parameters"]["TaggableAssetType"];
+                assetId: components["parameters"]["TaggedAssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Tags"];
+        responses: {
+            200: components["responses"]["Acknowledged"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postTagsByAssetTypeByAssetId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: components["parameters"]["TaggableAssetType"];
+                assetId: components["parameters"]["TaggedAssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Tags"];
+        responses: {
+            200: components["responses"]["Acknowledged"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    deleteTagsByAssetTypeByAssetId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: components["parameters"]["TaggableAssetType"];
+                assetId: components["parameters"]["TaggedAssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    tagKeys: string[];
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["Acknowledged"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postTagsBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assets: components["schemas"]["AssetRef"][];
+                };
+            };
+        };
+        responses: {
+            /** @description Tags per asset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postTagsBulk: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assetType: string;
+                    assetIds: string[];
+                    /** @enum {string} */
+                    operation: "add" | "update" | "remove";
+                    /** @description For add and update. */
+                    tags?: components["schemas"]["Tag"][];
+                    /** @description For remove. */
+                    tagKeys?: string[];
+                };
+            };
+        };
+        responses: {
+            202: components["responses"]["BulkJobQueued"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postTagsRefresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    assetType?: string;
+                    assetIds?: string[];
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["Acknowledged"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postFoldersByFolderIdAssetsBulk: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                folderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["AssetRefs"];
+        responses: {
+            202: components["responses"]["BulkJobQueued"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    deleteFoldersByFolderIdAssetsBulk: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                folderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["AssetRefs"];
+        responses: {
+            202: components["responses"]["BulkJobQueued"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postGroups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    groupName: string;
+                    description?: string;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["Acknowledged"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    putGroupsByGroupName: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    description: string;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["Acknowledged"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    deleteGroupsByGroupName: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["Acknowledged"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postDeployments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Deployment"];
+        responses: {
+            202: components["responses"]["BulkJobQueued"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postDeploymentsValidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Deployment"];
+        responses: {
+            /** @description Validation findings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getDeploymentsHistory: {
+        parameters: {
+            query?: {
+                limit?: number;
+                assetType?: string;
+                assetId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deployments, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            [key: string]: unknown;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getDeploymentsTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Templates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            [key: string]: unknown;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getDeploymentsJobsByJobId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jobId: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postDeploymentsJobsByJobIdStop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jobId: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["Acknowledged"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getDataCatalog: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                viewMode?: string;
+                forceRebuild?: boolean;
+                tagFilter?: string;
+                includeTags?: string;
+                excludeTags?: string;
+                assetIds?: string;
+                includeAnalyses?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of fields */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getDataCatalogFields: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                sourceType?: string;
+                dataType?: string;
+                isCalculated?: boolean;
+                searchTerm?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of fields */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postDataCatalogVisualFieldsRebuild: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["Acknowledged"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getDataCatalogFieldBySourceTypeBySourceIdByFieldName: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sourceType: components["parameters"]["FieldSourceType"];
+                sourceId: components["parameters"]["FieldSourceId"];
+                fieldName: components["parameters"]["FieldName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    putDataCatalogFieldBySourceTypeBySourceIdByFieldName: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sourceType: components["parameters"]["FieldSourceType"];
+                sourceId: components["parameters"]["FieldSourceId"];
+                fieldName: components["parameters"]["FieldName"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["Acknowledged"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postDataCatalogFieldBySourceTypeBySourceIdByFieldName: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sourceType: components["parameters"]["FieldSourceType"];
+                sourceId: components["parameters"]["FieldSourceId"];
+                fieldName: components["parameters"]["FieldName"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["FieldTags"];
+        responses: {
+            200: components["responses"]["Acknowledged"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    deleteDataCatalogFieldBySourceTypeBySourceIdByFieldName: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sourceType: components["parameters"]["FieldSourceType"];
+                sourceId: components["parameters"]["FieldSourceId"];
+                fieldName: components["parameters"]["FieldName"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["FieldTags"];
+        responses: {
+            200: components["responses"]["Acknowledged"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postDataCatalogFieldsSearchByTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["FieldTags"];
+        responses: {
+            /** @description Matching fields */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
 }

@@ -211,6 +211,23 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
     ],
   },
   {
+    id: 'authoring',
+    title: 'Authored assets',
+    description:
+      'Who can see what the portal builds (in Studio, through the assistant, or through the API). The person who builds it always owns it: their sign-in email is matched to their QuickSight user.',
+    settings: [
+      {
+        key: 'authoring.defaultFolderIds',
+        label: 'Put authored assets in these folders',
+        description:
+          'Every dashboard and analysis the portal creates is filed in these folders. A shared folder gives its members access, so this is how authored work reaches its audience without anyone being asked.',
+        type: 'multiselect',
+        envVar: '',
+        optionsFrom: '/settings/quicksight/folders',
+      },
+    ],
+  },
+  {
     id: 'provenance',
     title: 'Provenance',
     description:

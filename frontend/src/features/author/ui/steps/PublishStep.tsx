@@ -41,10 +41,10 @@ export function ResultPanel({ flow }: { flow: AuthorFlow }) {
   const noun = result.assetType === 'dashboard' ? 'Dashboard' : 'Analysis';
   const folder = flow.state.folder;
   const created = result.mode !== 'update';
-  const folderLabel = result.folderId
-    ? folder && folder.id === result.folderId
-      ? (folder.path ?? folder.name)
-      : result.folderId
+  const folderLabel = result.folderIds.length
+    ? result.folderIds
+        .map((id) => (folder && folder.id === id ? (folder.path ?? folder.name) : id))
+        .join(', ')
     : 'Root (no folder)';
 
   return (

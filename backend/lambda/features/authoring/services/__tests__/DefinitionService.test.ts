@@ -261,7 +261,7 @@ describe('DefinitionService', () => {
       })
     );
     expect(mocks.qs.createFolderMembership).toHaveBeenCalledWith('f-1', 'new-a', 'ANALYSIS');
-    expect(result).toMatchObject({ mode: 'clone', folderId: 'f-1', assetId: 'new-a' });
+    expect(result).toMatchObject({ mode: 'clone', folderIds: ['f-1'], assetId: 'new-a' });
     expect(mocks.audit.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'authoring.clone' })
     );
@@ -277,7 +277,9 @@ describe('DefinitionService', () => {
       expect.objectContaining({ name: 'Fresh', permissions: undefined })
     );
     expect(result).toMatchObject({ mode: 'create', assetId: 'new-d', versionNumber: 1 });
-    expect(result.warnings).toContainEqual(expect.stringContaining('only account admins'));
+    expect(result.warnings).toContainEqual(
+      expect.stringContaining('Only account admins will see this')
+    );
     expect(rebind.loadDefinitionWithTheme).not.toHaveBeenCalled();
   });
 });

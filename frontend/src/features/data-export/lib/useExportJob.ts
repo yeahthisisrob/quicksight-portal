@@ -18,7 +18,7 @@ import type { components } from '@shared/generated';
 // lastUpdatedTime drives the worker-liveness display; checkpoint drives
 // data-driven per-asset-type progress (instead of inferring from logs).
 type JobStatus = Pick<
-  components['schemas']['ExportJobStatus']['data'],
+  components['schemas']['Job'],
   'status' | 'progress' | 'message' | 'stats' | 'lastUpdatedTime' | 'checkpoint'
 >;
 

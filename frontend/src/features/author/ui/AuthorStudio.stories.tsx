@@ -614,6 +614,7 @@ export const NewCreated: Story = {
             name: 'Regional sales',
             mode: 'create',
             versionNumber: 1,
+            folderIds: [],
             changes: [
               { kind: 'visual', description: 'Added KPI "Revenue": sum of net_revenue' },
               {
@@ -643,7 +644,7 @@ export const StepPublished: Story = {
           name: 'Sales overview (gold)',
           mode: 'clone',
           versionNumber: 1,
-          folderId: 'fld-sales-eu',
+          folderIds: ['fld-sales-eu'],
           changes: [
             { kind: 'rebind', description: 'Dataset "sales" now reads sales_gold' },
             { kind: 'rename', description: 'Column revenue renamed to net_revenue in "sales"' },

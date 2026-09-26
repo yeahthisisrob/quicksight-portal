@@ -18,6 +18,7 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
+    "@assistant-ui/react": "^0.15.22",
     "@aws-sdk/client-sts": "^3.1134.0",
     "@aws-sdk/credential-providers": "^3.1134.0",
     "@emotion/react": "^11.14.0",
@@ -28,6 +29,7 @@
     "@mui/x-data-grid": "^9.13.0",
     "@mui/x-date-pickers": "^9.13.0",
     "@quicksight-portal/shared": "workspace:*",
+    "@scalar/api-reference-react": "^0.9.74",
     "@tanstack/react-query": "^5.102.8",
     "@tanstack/react-query-devtools": "^5.102.8",
     "axios": "^1.20.0",

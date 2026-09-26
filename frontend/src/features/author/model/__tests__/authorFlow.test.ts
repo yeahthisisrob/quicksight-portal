@@ -35,7 +35,13 @@ describe('authorFlowReducer', () => {
     state = authorFlowReducer(state, { type: 'setFolder', folder: { id: 'f', name: 'Finance' } });
     state = authorFlowReducer(state, {
       type: 'published',
-      result: { assetType: 'dashboard', assetId: 'new', name: 'Copy', mode: 'clone' },
+      result: {
+        assetType: 'dashboard',
+        assetId: 'new',
+        name: 'Copy',
+        mode: 'clone',
+        folderIds: [],
+      },
     });
 
     const other = authorFlowReducer(state, {
@@ -63,7 +69,7 @@ describe('authorFlowReducer', () => {
     expect(state.visited).toEqual(['source', 'mockup']);
     state = authorFlowReducer(state, {
       type: 'published',
-      result: { assetType: 'analysis', assetId: 'a', name: 'n', mode: 'update' },
+      result: { assetType: 'analysis', assetId: 'a', name: 'n', mode: 'update', folderIds: [] },
     });
     expect(state.step).toBe('publish');
     expect(state.result?.assetId).toBe('a');

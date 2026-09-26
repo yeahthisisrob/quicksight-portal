@@ -40,6 +40,7 @@ import type {
   TypeRules,
 } from '../types';
 import { createAsset, recordProvenance } from './assetWriter';
+import { audienceFor, fileInFolders } from './audience';
 import type { PlannerService } from './planner/PlannerService';
 import type { RebindService, TargetDataset } from './RebindService';
 
@@ -99,7 +100,10 @@ export interface NewAssetResult {
   versionNumber?: number;
   changes: DefinitionChange[];
   warnings: string[];
-  folderId?: string;
+  /** The folders it was filed in (the request's and the defaults from Settings). */
+  folderIds?: string[];
+  /** The QuickSight user made its owner: the person who built it. */
+  owner?: string;
 }
 
 export class NewAssetService {
@@ -138,14 +142,12 @@ export class NewAssetService {
       throw new ValidationError(blocking.join(' '));
     }
     const from = request.permissionsFrom ?? request.template;
-    const permissions = from
+    const inherited = from
       ? await this.rebindService.permissionsOf(from.assetType, from.assetId)
       : undefined;
-    if (!permissions) {
-      composed.warnings.push(
-        'No audience was given (permissionsFrom or a template), so only account admins will see this asset.'
-      );
-    }
+    const audience = await audienceFor(request.assetType, inherited, auth, request.folderId);
+    const permissions = audience.permissions;
+    composed.warnings.push(...audience.warnings);
     await this.shareDatasets(request, permissions, composed.warnings);
     const newId = request.newAssetId?.trim() || randomUUID();
     logger.info('Creating asset from scratch', {
@@ -165,23 +167,22 @@ export class NewAssetService {
       themeArn: composed.themeArn,
     });
 
-    let folderId: string | undefined;
-    if (request.folderId) {
-      await this.quickSightService.createFolderMembership(
-        request.folderId,
-        written.assetId,
-        request.assetType === 'dashboard' ? 'DASHBOARD' : 'ANALYSIS'
-      );
-      folderId = request.folderId;
-    }
-    await this.recordProvenance(request.assetType, written, name, composed, auth, folderId);
+    const { filed, warnings: filing } = await fileInFolders(
+      this.quickSightService,
+      audience.folderIds,
+      written.assetId,
+      request.assetType
+    );
+    composed.warnings.push(...filing);
+    await this.recordProvenance(request.assetType, written, name, composed, auth, filed);
     return {
       assetType: request.assetType,
       ...written,
       name,
       changes: composed.changes,
       warnings: composed.warnings,
-      folderId,
+      folderIds: filed,
+      ...(audience.owner ? { owner: audience.owner.userName } : {}),
     };
   }
 
@@ -410,7 +411,7 @@ export class NewAssetService {
     name: string,
     composed: NewAssetPreview,
     auth?: AuthContext,
-    folderId?: string
+    folderIds: string[] = []
   ): Promise<void> {
     return recordProvenance(
       this.quickSightService,
@@ -419,7 +420,7 @@ export class NewAssetService {
         assetType,
         assetId: written.assetId,
         arn: written.arn,
-        folderId,
+        folderIds,
         name,
         details: { visuals: composed.visuals.length, changes: composed.changes.length },
       },

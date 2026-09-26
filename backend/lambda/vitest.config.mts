@@ -63,15 +63,10 @@ export default defineConfig({
     clearMocks: true,
     maxConcurrency: 2, // Limit concurrent tests to reduce memory usage
     pool: 'forks', // Use forked processes for better isolation
-    poolOptions: {
-      forks: {
-        singleFork: true, // Use single fork to reduce memory usage
-      },
-    },
   },
   resolve: {
     alias: {
-      '@': __dirname,
+      '@': import.meta.dirname,
     },
   },
 });

@@ -11,6 +11,11 @@ export const settingsRoutes: RouteHandler[] = [
     path: '/settings/smus/projects',
     handler: (event) => handler.listSmusProjects(event),
   },
+  {
+    method: 'GET',
+    path: '/settings/quicksight/folders',
+    handler: (event) => handler.listFolders(event),
+  },
   { method: 'GET', path: '/settings/api-keys', handler: (event) => handler.listApiKeys(event) },
   { method: 'POST', path: '/settings/api-keys', handler: (event) => handler.createApiKey(event) },
   {

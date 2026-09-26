@@ -164,7 +164,7 @@ describe('NewAssetService', () => {
       visuals: [{ ...TABLE, identifier: 'fresh' }],
     });
     expect(nobody.warnings).toEqual([
-      expect.stringContaining('only account admins will see this asset'),
+      expect.stringContaining('Only account admins will see this'),
       expect.stringContaining('A dataset created for this asset has no audience either'),
     ]);
     expect(mocks.qs.updateDataSetPermissions).toHaveBeenCalledTimes(1);
@@ -298,7 +298,7 @@ describe('NewAssetService', () => {
         expect.objectContaining({ key: 'portal:authored-by', value: 'api-key:claude cli' }),
       ])
     );
-    expect(result).toMatchObject({ assetId: 'new-1', versionNumber: 1, folderId: 'f-1' });
+    expect(result).toMatchObject({ assetId: 'new-1', versionNumber: 1, folderIds: ['f-1'] });
   });
 
   it('refuses an empty build and warns when nobody will see the asset', async () => {
@@ -325,9 +325,7 @@ describe('NewAssetService', () => {
         },
       ],
     });
-    expect(result.warnings).toEqual([
-      expect.stringContaining('only account admins will see this asset'),
-    ]);
+    expect(result.warnings).toEqual([expect.stringContaining('Only account admins will see this')]);
     expect(mocks.qs.createAnalysis).toHaveBeenCalled();
   });
 

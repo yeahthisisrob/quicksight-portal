@@ -1,14 +1,15 @@
 openapi: 3.0.3
 info:
   title: QuickSight Assets Portal API
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
   description: API for managing and viewing QuickSight assets
   version: 1.0.0
   
 servers:
-  - url: https://api.quicksight-portal.example.com
-    description: Production API
-  - url: http://localhost:3000
-    description: Local development
+  - url: /
+    description: This portal (the API is served from the same origin as the page)
 
 # Global security - applies to all endpoints unless overridden
 security:
@@ -19,6 +20,8 @@ paths:
 
   /api/assets/archived:
     get:
+      operationId: getAssetsArchived
+      tags: [Assets]
       summary: List archived assets
       description: Returns all archived assets across all asset types with archive metadata, with server-side pagination and filtering
       parameters:
@@ -95,6 +98,8 @@ paths:
 
   /api/folders/{folderId}:
     get:
+      operationId: getFoldersByFolderId
+      tags: [Folders]
       summary: Get folder details
       parameters:
         - name: folderId
@@ -112,6 +117,8 @@ paths:
 
   /api/folders/{folderId}/members:
     get:
+      operationId: getFoldersByFolderIdMembers
+      tags: [Folders]
       summary: Get folder members
       parameters:
         - name: folderId
@@ -129,6 +136,8 @@ paths:
                 items:
                   $ref: '#/components/schemas/FolderMember'
     post:
+      operationId: postFoldersByFolderIdMembers
+      tags: [Folders]
       summary: Add member to folder
       parameters:
         - name: folderId
@@ -170,6 +179,8 @@ paths:
   
   /api/folders/{folderId}/members/{memberId}:
     delete:
+      operationId: deleteFoldersByFolderIdMembersByMemberId
+      tags: [Folders]
       summary: Remove member from folder
       description: Removes an asset (dashboard, analysis, dataset, datasource) from a folder
       parameters:
@@ -214,6 +225,8 @@ paths:
 
   /api/assets/{assetType}/paginated:
     get:
+      operationId: getAssetsByAssetTypePaginated
+      tags: [Assets]
       summary: Get paginated assets by type
       description: Returns paginated list of assets for a specific type
       parameters:
@@ -270,14 +283,22 @@ paths:
           description: Date range filter value
         - name: includeTags
           in: query
-          schema:
-            type: string
           description: JSON-encoded array of {key, value} tag filters to include
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TagFilter'
         - name: excludeTags
           in: query
-          schema:
-            type: string
           description: JSON-encoded array of {key, value} tag filters to exclude
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TagFilter'
       responses:
         '200':
           description: Paginated asset list
@@ -288,6 +309,8 @@ paths:
 
   /api/assets/{assetType}/export:
     get:
+      operationId: getAssetsByAssetTypeExport
+      tags: [Assets]
       summary: Export assets to CSV (queues a job)
       description: Queues a background job to generate a CSV export of all assets of the specified type. Returns a job ID for polling progress.
       parameters:
@@ -347,6 +370,8 @@ paths:
 
   /api/users/{userName}:
     delete:
+      operationId: deleteUsersByUserName
+      tags: [Users]
       summary: Delete a QuickSight user
       description: Deletes a user from QuickSight. Only READER and READER_PRO users can be deleted.
       parameters:
@@ -381,6 +406,8 @@ paths:
   # Lineage endpoints
   /api/assets/{assetType}/{assetId}/cached:
     get:
+      operationId: getAssetsByAssetTypeByAssetIdCached
+      tags: [Assets]
       summary: Get cached asset data from S3
       description: Retrieves the full exported asset data from S3 storage
       parameters:
@@ -416,6 +443,8 @@ paths:
           
   /api/export/summary:
     get:
+      operationId: getExportSummary
+      tags: [Export]
       summary: Get export summary statistics
       description: Returns overall export statistics without detailed progress
       responses:
@@ -432,6 +461,8 @@ paths:
 
   /api/export:
     post:
+      operationId: postExport
+      tags: [Export]
       summary: Start a new export job
       description: Queues an export job and returns immediately with job ID
       requestBody:
@@ -473,6 +504,8 @@ paths:
   # Export file access (for JSON viewer)
   /api/ingestions:
     get:
+      operationId: getIngestions
+      tags: [Ingestions]
       summary: Get cached ingestions
       description: Returns cached ingestion data for all SPICE datasets
       parameters:
@@ -544,6 +577,8 @@ paths:
 
   /api/ingestions/{datasetId}/{ingestionId}:
     get:
+      operationId: getIngestionsByDatasetIdByIngestionId
+      tags: [Ingestions]
       summary: Get ingestion details
       description: Returns detailed information about a specific ingestion
       parameters:
@@ -574,6 +609,8 @@ paths:
           $ref: '#/components/responses/InternalServerError'
     
     delete:
+      operationId: deleteIngestionsByDatasetIdByIngestionId
+      tags: [Ingestions]
       summary: Cancel an ingestion
       description: Cancels a running ingestion
       parameters:
@@ -611,6 +648,8 @@ paths:
   # Activity endpoints
   /api/activity/refresh:
     post:
+      operationId: postActivityRefresh
+      tags: [Activity]
       summary: Refresh activity data for specified asset types
       description: Fetches latest activity data from CloudTrail for dashboards, analyses, and users
       requestBody:
@@ -661,6 +700,8 @@ paths:
 
   /api/activity/{assetType}/{assetId}:
     get:
+      operationId: getActivityByAssetTypeByAssetId
+      tags: [Activity]
       summary: Get activity data for a specific asset
       parameters:
         - name: assetType
@@ -691,6 +732,8 @@ paths:
 
   /api/activity/timeline:
     get:
+      operationId: getActivityTimeline
+      tags: [Activity]
       summary: Get a page of activity timeline events (global feed)
       description: >
         Returns a chronological feed of QuickSight mutation events (Create /
@@ -779,6 +822,8 @@ paths:
 
   /api/activity/timeline/{assetType}/{assetId}:
     get:
+      operationId: getActivityTimelineByAssetTypeByAssetId
+      tags: [Activity]
       summary: Get a page of activity timeline events for one catalog asset
       description: >
         Same as /api/activity/timeline but pre-filtered to a specific catalog
@@ -851,6 +896,7 @@ paths:
 
   /api/assistant/models:
     get:
+      operationId: getAssistantModels
       summary: The models that can be picked for authoring and for the assistant, with rough costs
       description: |
         Five: Claude Haiku 4.5 (the assistant's default), Claude Sonnet 4.6
@@ -878,6 +924,7 @@ paths:
 
   /api/assistant/chat:
     post:
+      operationId: postAssistantChat
       summary: One message to the assistant, which reads and previews through this API (a job)
       description: |
         The assistant answers using this portal's API as the person who
@@ -916,6 +963,7 @@ paths:
 
   /api/api-docs/openapi:
     get:
+      operationId: getApiDocsOpenapi
       summary: This API's contract, as OpenAPI JSON
       description: |
         The same document every endpoint is validated against, with
@@ -933,6 +981,7 @@ paths:
                 additionalProperties: true
   /api/api-docs/guide:
     get:
+      operationId: getApiDocsGuide
       summary: The API guide, as markdown
       description: |
         Which calls to make in which order to read what the portal knows,
@@ -948,6 +997,8 @@ paths:
                 type: string
   /api/search:
     get:
+      operationId: getSearch
+      tags: [Search]
       summary: Find anything the portal knows, in plain words
       description: |
         One ranked search over everything in the caches: dashboards,
@@ -1169,6 +1220,7 @@ paths:
 
   /api/smus/data-source:
     get:
+      operationId: getSmusDataSource
       summary: The Athena data source a new dataset over a SMUS listing reads through
       description: |
         SMUS tables are Glue tables read by Athena. The data source chosen is
@@ -1195,6 +1247,8 @@ paths:
 
   /api/smus/status:
     get:
+      operationId: getSmusStatus
+      tags: [SMUS]
       summary: SMUS (SageMaker Unified Studio) integration status
       description: >
         Reports whether a SMUS domain is configured for this portal and what
@@ -1213,6 +1267,8 @@ paths:
 
   /api/smus/export:
     post:
+      operationId: postSmusExport
+      tags: [SMUS]
       summary: Start a SMUS export
       description: |
         Queues a job that sweeps the configured DataZone domain once (projects,
@@ -1253,6 +1309,8 @@ paths:
 
   /api/smus/dataset-links:
     post:
+      operationId: postSmusDatasetLinks
+      tags: [SMUS]
       summary: Resolve SMUS catalog links for QuickSight datasets
       description: >
         Matches cached QuickSight dataset metadata (name and source table
@@ -1288,6 +1346,8 @@ paths:
 
   /api/scripts/demo-cleanup/preview:
     get:
+      operationId: getScriptsDemoCleanupPreview
+      tags: [Scripts]
       summary: Preview demo assets that would be deleted
       description: Returns a list of all QuickSight demo assets that would be deleted without actually deleting them
       responses:
@@ -1345,6 +1405,8 @@ paths:
 
   /api/scripts/demo-cleanup/execute:
     post:
+      operationId: postScriptsDemoCleanupExecute
+      tags: [Scripts]
       summary: Delete all QuickSight demo assets
       description: Deletes all demo datasources, datasets, and analyses, then archives them
       responses:
@@ -1400,6 +1462,8 @@ paths:
 
   /api/activity/summary:
     get:
+      operationId: getActivitySummary
+      tags: [Activity]
       summary: Get activity summary across all asset types
       parameters:
         - name: days
@@ -1448,6 +1512,8 @@ paths:
   # Data Catalog endpoints
   /api/data-catalog/full:
     get:
+      operationId: getDataCatalogFull
+      tags: [Data Catalog]
       summary: Get full data catalog
       description: Returns complete field catalog with pagination, filtering, and summary statistics
       parameters:
@@ -1518,6 +1584,8 @@ paths:
 
   /api/data-catalog/tags:
     get:
+      operationId: getDataCatalogTags
+      tags: [Data Catalog]
       summary: Get available tags
       description: Returns all available tags across assets with usage counts
       responses:
@@ -1539,6 +1607,8 @@ paths:
 
   /api/data-catalog/assets:
     get:
+      operationId: getDataCatalogAssets
+      tags: [Data Catalog]
       summary: Get available assets for filtering
       description: Returns all assets (dashboards, analyses, datasets) that have fields in the catalog
       responses:
@@ -1560,6 +1630,8 @@ paths:
 
   /api/data-catalog/stats:
     get:
+      operationId: getDataCatalogStats
+      tags: [Data Catalog]
       summary: Get catalog statistics
       description: Returns high-level statistics about the data catalog
       responses:
@@ -1579,6 +1651,8 @@ paths:
 
   /api/data-catalog/visual-fields:
     get:
+      operationId: getDataCatalogVisualFields
+      tags: [Data Catalog]
       summary: Get visual field mappings
       description: Returns field usage in visuals across dashboards and analyses
       responses:
@@ -1599,6 +1673,8 @@ paths:
   # Permission sources endpoint
   /api/assets/{assetType}/{assetId}/permission-sources:
     get:
+      operationId: getAssetsByAssetTypeByAssetIdPermissionSources
+      tags: [Assets]
       summary: Get permission sources for an asset
       description: Returns how each user has access to an asset - direct, via group, or via shared folder
       parameters:
@@ -1649,6 +1725,8 @@ paths:
 
   /api/assets/dataset/{assetId}/source:
     get:
+      operationId: getAssetsDatasetByAssetIdSource
+      tags: [Assets]
       summary: Where a dataset reads its data from
       description: |
         Returns the dataset's physical tables, read live from QuickSight (not
@@ -1694,6 +1772,8 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
     put:
+      operationId: putAssetsDatasetByAssetIdSource
+      tags: [Assets]
       summary: Repoint a dataset's physical tables and/or rename it
       description: |
         Applies the given edits and writes the whole specification back to
@@ -1750,6 +1830,8 @@ paths:
 
   /api/authoring/{assetType}/{assetId}/datasets:
     get:
+      operationId: getAuthoringByAssetTypeByAssetIdDatasets
+      tags: [Authoring]
       summary: The datasets a definition declares and what it reads from each
       description: |
         Reads the analysis or dashboard definition live from QuickSight and
@@ -1784,6 +1866,8 @@ paths:
 
   /api/authoring/{assetType}/{assetId}/rebind/plan:
     post:
+      operationId: postAuthoringByAssetTypeByAssetIdRebindPlan
+      tags: [Authoring]
       summary: Dry-run a rebind - what would change and whether it can be applied
       description: |
         Read-only. For each requested rebind, resolves every column the
@@ -1835,6 +1919,8 @@ paths:
 
   /api/authoring/{assetType}/{assetId}/rebind:
     post:
+      operationId: postAuthoringByAssetTypeByAssetIdRebind
+      tags: [Authoring]
       summary: Apply a rebind in place, or as a clone
       description: |
         Plans again, refuses unless every column resolves, then writes the
@@ -1880,6 +1966,8 @@ paths:
 
   /api/authoring/{assetType}/{assetId}/repair/plan:
     post:
+      operationId: postAuthoringByAssetTypeByAssetIdRepairPlan
+      tags: [Authoring]
       summary: Everything that stops QuickSight from writing this definition, with a fix for each
       description: |
         Assets with definition errors cannot be published or updated as code.
@@ -1942,6 +2030,8 @@ paths:
 
   /api/authoring/{assetType}/{assetId}/propose:
     post:
+      operationId: postAuthoringByAssetTypeByAssetIdPropose
+      tags: [Authoring]
       summary: Turn a natural-language ask into a validated rebind proposal
       description: |
         "Copy this onto the orders_gold dataset", "switch this analysis to the
@@ -1992,6 +2082,8 @@ paths:
 
   /api/authoring/{assetType}/{assetId}/rebind/preview:
     post:
+      operationId: postAuthoringByAssetTypeByAssetIdRebindPreview
+      tags: [Authoring]
       summary: Dry-run a rebind and edits, and return the rewritten definition
       description: |
         The plan endpoint plus the definition as it would be written: the
@@ -2052,6 +2144,8 @@ paths:
 
   /api/settings:
     get:
+      operationId: getSettings
+      tags: [Settings]
       summary: Portal settings with their effective values and where each comes from
       description: |
         Settings live in DynamoDB and fall back to the Lambda's environment,
@@ -2075,6 +2169,8 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
     put:
+      operationId: putSettings
+      tags: [Settings]
       summary: Store settings
       description: |
         Writes the given values to DynamoDB. A null value clears the stored
@@ -2106,6 +2202,8 @@ paths:
 
   /api/settings/smus/projects:
     get:
+      operationId: getSettingsSmusProjects
+      tags: [Settings]
       summary: Projects in the configured SMUS domain
       description: |
         The projects to choose from: a live, bounded ListProjects unioned with
@@ -2144,8 +2242,50 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/settings/quicksight/folders:
+    get:
+      tags: [Settings]
+      operationId: listSettingsFolders
+      summary: Folders authored assets can be filed in
+      description: |
+        The account's folders from the export cache, for the "Put authored
+        assets in these folders" setting, with how many people or groups
+        each is shared with.
+      responses:
+        '200':
+          description: The folders
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [folders]
+                    properties:
+                      folders:
+                        type: array
+                        items:
+                          type: object
+                          required: [id, name, sharedWith]
+                          properties:
+                            id:
+                              type: string
+                            name:
+                              type: string
+                            sharedWith:
+                              type: integer
+                              description: Principals the folder is shared with.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/settings/api-keys:
     get:
+      operationId: getSettingsApiKeys
+      tags: [Settings]
       summary: API keys for machine callers
       description: |
         Long-lived credentials for a CLI, a script or an agent. A key is sent
@@ -2175,6 +2315,8 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
     post:
+      operationId: postSettingsApiKeys
+      tags: [Settings]
       summary: Create an API key
       description: The secret is in this response only and cannot be recovered later.
       requestBody:
@@ -2208,6 +2350,8 @@ paths:
 
   /api/settings/api-keys/{id}:
     delete:
+      operationId: deleteSettingsApiKeysById
+      tags: [Settings]
       summary: Revoke an API key
       parameters:
         - name: id
@@ -2231,6 +2375,8 @@ paths:
 
   /api/smus/assets:
     get:
+      operationId: getSmusAssets
+      tags: [SMUS]
       summary: Published SMUS assets and the QuickSight datasets that already read them
       description: |
         Every published listing in the selected projects (all projects when
@@ -2281,6 +2427,8 @@ paths:
 
   /api/smus/assets/{listingId}/dataset:
     post:
+      operationId: postSmusAssetsByListingIdDataset
+      tags: [SMUS]
       summary: Create a QuickSight dataset that reads a published SMUS asset
       description: |
         Creates a relational-table dataset over the listing's Glue table
@@ -2338,6 +2486,8 @@ paths:
 
   /api/data-catalog/smus:
     get:
+      operationId: getDataCatalogSmus
+      tags: [Data Catalog]
       summary: The catalog, SMUS first
       description: |
         Every published asset in the selected SMUS projects, carrying what
@@ -2393,6 +2543,8 @@ paths:
 
   /api/data-catalog/smus/{listingId}:
     get:
+      operationId: getDataCatalogSmusByListingId
+      tags: [Data Catalog]
       summary: One published asset with everything the portal knows about it
       parameters:
         - name: listingId
@@ -2422,6 +2574,8 @@ paths:
 
   /api/data-catalog/calculated-fields:
     get:
+      operationId: getDataCatalogCalculatedFields
+      tags: [Data Catalog]
       summary: Every calculated field in the account, grouped by what it computes
       description: |
         The catalog field-first. One row per distinct (name, expression):
@@ -2483,6 +2637,8 @@ paths:
 
   /api/data-catalog/calculated-fields/{key}:
     get:
+      operationId: getDataCatalogCalculatedFieldsByKey
+      tags: [Data Catalog]
       summary: One calculated field, with its lineage both ways and its variants
       parameters:
         - name: key
@@ -2510,6 +2666,8 @@ paths:
 
   /api/data-catalog/columns:
     get:
+      operationId: getDataCatalogColumns
+      tags: [Data Catalog]
       summary: Plain columns across datasets, tied back to their SMUS listing column
       parameters:
         - name: projectId
@@ -2788,6 +2946,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
   /api/data-catalog/templates/calculated-fields:
     get:
+      operationId: getDataCatalogTemplatesCalculatedFields
+      tags: [Data Catalog]
       summary: The calculated-field template library
       description: |
         Calculated fields saved for reuse, stored by the portal because SMUS
@@ -2815,6 +2975,8 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
     post:
+      operationId: postDataCatalogTemplatesCalculatedFields
+      tags: [Data Catalog]
       summary: Save a calculated field as a template
       requestBody:
         required: true
@@ -2842,6 +3004,8 @@ paths:
 
   /api/data-catalog/templates/calculated-fields/{templateId}:
     put:
+      operationId: putDataCatalogTemplatesCalculatedFieldsByTemplateId
+      tags: [Data Catalog]
       summary: Update a template
       parameters:
         - name: templateId
@@ -2875,6 +3039,8 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     delete:
+      operationId: deleteDataCatalogTemplatesCalculatedFieldsByTemplateId
+      tags: [Data Catalog]
       summary: Delete a template
       parameters:
         - name: templateId
@@ -2936,6 +3102,8 @@ paths:
 
   /api/authoring/new/propose:
     post:
+      operationId: postAuthoringNewPropose
+      tags: [Authoring]
       summary: A dashboard or analysis from nothing - the planner proposes the visuals
       description: |
         The same body as the preview, with `ask` and no `visuals`: the planner
@@ -2970,6 +3138,8 @@ paths:
 
   /api/authoring/new/preview:
     post:
+      operationId: postAuthoringNewPreview
+      tags: [Authoring]
       summary: A dashboard or analysis from nothing - preview
       description: |
         The datasets it should read and the visuals it should show, described
@@ -3005,6 +3175,8 @@ paths:
 
   /api/authoring/new:
     post:
+      operationId: postAuthoringNew
+      tags: [Authoring]
       summary: A dashboard or analysis from nothing - create
       description: |
         Same body as the preview. Creates the asset with the audience of
@@ -3036,6 +3208,8 @@ paths:
 
   /api/authoring/{assetType}/{assetId}/insights:
     get:
+      operationId: getAuthoringByAssetTypeByAssetIdInsights
+      tags: [Authoring]
       summary: How an asset is used and how healthy it is, for choosing what to start from
       parameters:
         - $ref: '#/components/parameters/AuthorableAssetType'
@@ -3058,6 +3232,8 @@ paths:
 
   /api/activity/health:
     get:
+      operationId: getActivityHealth
+      tags: [Activity]
       summary: QuickSight CloudWatch health for a page of dashboards or datasets
       description: |
         One batched CloudWatch read for the ids given (up to 100): for
@@ -3098,6 +3274,8 @@ paths:
 
   /api/assets/{assetType}/{assetId}/rename:
     post:
+      operationId: postAssetsByAssetTypeByAssetIdRename
+      tags: [Assets]
       summary: Rename an asset live in QuickSight
       description: |
         Renames the asset in QuickSight and updates the portal cache
@@ -3158,6 +3336,8 @@ paths:
 
   /api/assets/{assetType}/{assetId}/revoke-permissions:
     post:
+      operationId: postAssetsByAssetTypeByAssetIdRevokePermissions
+      tags: [Assets]
       summary: Bulk revoke direct permissions from an asset
       description: Queues a bulk operation to remove direct permissions for multiple principals from the specified asset. Does not affect inherited permissions from folders or groups. Returns a job ID for tracking progress.
       parameters:
@@ -3211,6 +3391,7 @@ paths:
   # Group management endpoints
   /api/groups/{groupName}/members:
     post:
+      tags: [Groups]
       summary: Add users to a group
       description: Queues a bulk job that adds the given users to the group; poll the returned jobId for completion
       operationId: addUsersToGroup
@@ -3247,6 +3428,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
     delete:
+      tags: [Groups]
       summary: Remove users from a group
       description: Queues a bulk job that removes the given users from the group; poll the returned jobId for completion
       operationId: removeUsersFromGroup
@@ -3285,6 +3467,8 @@ paths:
 
   /api/groups/{groupName}/assets:
     get:
+      operationId: getGroupsByGroupNameAssets
+      tags: [Groups]
       summary: Get assets accessible by a group
       description: Returns all assets that a group has access to through direct permissions or folder membership
       parameters:
@@ -3364,6 +3548,8 @@ paths:
 
   /api/users/{userName}/asset-access:
     get:
+      operationId: getUsersByUserNameAssetAccess
+      tags: [Users]
       summary: Get assets accessible by a user
       description: Returns all assets that a user has access to through direct permissions, group membership, or folder membership
       parameters:
@@ -3398,6 +3584,8 @@ paths:
 
   /api/activity/user-inactive-analyses:
     post:
+      operationId: postActivityUserInactiveAnalyses
+      tags: [Activity]
       summary: Get inactive analyses owned by a specific user
       description: Returns analyses where the user has owner-level permissions and activity is below threshold
       requestBody:
@@ -3439,6 +3627,8 @@ paths:
 
   /api/activity/user-unused-datasets:
     post:
+      operationId: postActivityUserUnusedDatasets
+      tags: [Activity]
       summary: Get unused datasets owned by a specific user
       description: Returns datasets where the user has owner-level permissions and no dashboards or analyses reference them
       requestBody:
@@ -3480,6 +3670,8 @@ paths:
 
   /api/activity/recipients:
     post:
+      operationId: postActivityRecipients
+      tags: [Activity]
       summary: Resolve asset permissions to recipient emails
       description: Given an asset, resolves its permission principals (users/groups) into email addresses for mailto composition
       requestBody:
@@ -3536,6 +3728,7 @@ paths:
   # ---------------------------------------------------------------------------
   /api/jobs:
     get:
+      operationId: getJobs
       summary: Recent jobs
       description: |
         Exports, activity refreshes, SMUS exports, bulk operations, CSV
@@ -3585,6 +3778,7 @@ paths:
 
   /api/jobs/{jobId}:
     get:
+      operationId: getJobsByJobId
       summary: One job's status and progress
       description: Poll this until `status` is `completed`, `failed` or `stopped`.
       tags: [Jobs]
@@ -3608,6 +3802,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
     delete:
+      operationId: deleteJobsByJobId
       summary: Delete a finished job's record
       tags: [Jobs]
       parameters:
@@ -3620,6 +3815,7 @@ paths:
 
   /api/jobs/{jobId}/logs:
     get:
+      operationId: getJobsByJobIdLogs
       summary: A job's log lines
       tags: [Jobs]
       parameters:
@@ -3649,6 +3845,7 @@ paths:
 
   /api/jobs/{jobId}/result:
     get:
+      operationId: getJobsByJobIdResult
       summary: What a job produced
       description: |
         The shape depends on the job: a `Proposal` for a planner asked about
@@ -3670,8 +3867,13 @@ paths:
                   success:
                     type: boolean
                   data:
-                    type: object
-                    additionalProperties: true
+                    anyOf:
+                      - $ref: '#/components/schemas/AssistantChatResult'
+                      - $ref: '#/components/schemas/Proposal'
+                      - $ref: '#/components/schemas/NewAssetPreview'
+                      - type: object
+                        additionalProperties: true
+                        description: Other jobs' results (a CSV download, a bulk summary).
         '404':
           $ref: '#/components/responses/NotFound'
         '401':
@@ -3679,6 +3881,7 @@ paths:
 
   /api/jobs/{jobId}/stop:
     post:
+      operationId: postJobsByJobIdStop
       summary: Ask a running job to stop at its next checkpoint
       tags: [Jobs]
       parameters:
@@ -3694,6 +3897,7 @@ paths:
   # ---------------------------------------------------------------------------
   /api/authoring/definition/preview:
     post:
+      operationId: postAuthoringDefinitionPreview
       summary: Check a definition you built, before writing it anywhere
       description: |
         For an agent that read a cached export, edited the JSON itself, and
@@ -3728,6 +3932,7 @@ paths:
 
   /api/authoring/definition:
     post:
+      operationId: postAuthoringDefinition
       summary: A new dashboard or analysis from a definition you built
       description: |
         The preview's checks, then the write through the same path as every
@@ -3762,6 +3967,7 @@ paths:
 
   /api/authoring/{assetType}/{assetId}/definition/preview:
     post:
+      operationId: postAuthoringByAssetTypeByAssetIdDefinitionPreview
       summary: Check a definition you built for an existing asset
       description: Same as `/api/authoring/definition/preview`; the path names the asset it is for.
       tags: [Authoring]
@@ -3794,6 +4000,7 @@ paths:
 
   /api/authoring/{assetType}/{assetId}/definition:
     post:
+      operationId: postAuthoringByAssetTypeByAssetIdDefinition
       summary: Write a definition you built onto an existing asset, in place or as a copy
       description: |
         `mode: update` rewrites the asset (name, theme and publish options
@@ -3834,6 +4041,7 @@ paths:
   # ---------------------------------------------------------------------------
   /api/assets/{assetType}/{assetId}/grant-permissions:
     post:
+      operationId: postAssetsByAssetTypeByAssetIdGrantPermissions
       summary: Give principals actions on an asset (queues a job)
       description: |
         The mirror of revoke. Each grant is a QuickSight principal ARN (a
@@ -3875,6 +4083,7 @@ paths:
 
   /api/assets/archive/{assetType}/{assetId}/metadata:
     get:
+      operationId: getAssetsArchiveByAssetTypeByAssetIdMetadata
       summary: An archived asset's export, for a restore preview
       tags: [Assets]
       parameters:
@@ -3910,6 +4119,7 @@ paths:
 
   /api/assets/rebuild-index:
     post:
+      operationId: postAssetsRebuildIndex
       summary: Rebuild the portal's asset index from the exports (queues a job)
       tags: [Assets]
       responses:
@@ -3920,6 +4130,7 @@ paths:
 
   /api/assets/bulk-delete:
     post:
+      operationId: postAssetsBulkDelete
       summary: Delete assets and archive their exports (queues a job)
       tags: [Assets]
       requestBody:
@@ -3947,6 +4158,7 @@ paths:
 
   /api/assets/bulk-delete/validate:
     post:
+      operationId: postAssetsBulkDeleteValidate
       summary: What still depends on these assets, before deleting them
       tags: [Assets]
       requestBody:
@@ -3984,6 +4196,7 @@ paths:
   # ---------------------------------------------------------------------------
   /api/tags/{assetType}/{assetId}:
     get:
+      operationId: getTagsByAssetTypeByAssetId
       summary: An asset's tags, live from QuickSight
       tags: [Tags]
       parameters:
@@ -4007,6 +4220,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
     put:
+      operationId: putTagsByAssetTypeByAssetId
       summary: Replace an asset's tags
       tags: [Tags]
       parameters:
@@ -4020,6 +4234,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
     post:
+      operationId: postTagsByAssetTypeByAssetId
       summary: Add tags to an asset
       tags: [Tags]
       parameters:
@@ -4033,6 +4248,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
     delete:
+      operationId: deleteTagsByAssetTypeByAssetId
       summary: Remove tags from an asset by key
       tags: [Tags]
       parameters:
@@ -4058,6 +4274,7 @@ paths:
 
   /api/tags/batch:
     post:
+      operationId: postTagsBatch
       summary: Tags for many assets in one call
       tags: [Tags]
       requestBody:
@@ -4091,6 +4308,7 @@ paths:
 
   /api/tags/bulk:
     post:
+      operationId: postTagsBulk
       summary: Add, replace or remove tags on many assets (queues a job)
       tags: [Tags]
       requestBody:
@@ -4130,6 +4348,7 @@ paths:
 
   /api/tags/refresh:
     post:
+      operationId: postTagsRefresh
       summary: Re-read tags from QuickSight into the cache
       tags: [Tags]
       requestBody:
@@ -4155,6 +4374,7 @@ paths:
   # ---------------------------------------------------------------------------
   /api/folders/{folderId}/assets/bulk:
     post:
+      operationId: postFoldersByFolderIdAssetsBulk
       summary: Add many assets to a folder (queues a job)
       tags: [Folders]
       parameters:
@@ -4171,6 +4391,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
     delete:
+      operationId: deleteFoldersByFolderIdAssetsBulk
       summary: Remove many assets from a folder (queues a job)
       tags: [Folders]
       parameters:
@@ -4189,6 +4410,7 @@ paths:
 
   /api/groups:
     post:
+      operationId: postGroups
       summary: Create a QuickSight group
       tags: [Groups]
       requestBody:
@@ -4213,6 +4435,7 @@ paths:
 
   /api/groups/{groupName}:
     put:
+      operationId: putGroupsByGroupName
       summary: Change a group's description
       tags: [Groups]
       parameters:
@@ -4237,6 +4460,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
     delete:
+      operationId: deleteGroupsByGroupName
       summary: Delete a group
       tags: [Groups]
       parameters:
@@ -4264,6 +4488,7 @@ paths:
   # ---------------------------------------------------------------------------
   /api/deployments:
     post:
+      operationId: postDeployments
       summary: Deploy (restore) an asset from its archived export (queues a job)
       tags: [Deployments]
       requestBody:
@@ -4278,6 +4503,7 @@ paths:
 
   /api/deployments/validate:
     post:
+      operationId: postDeploymentsValidate
       summary: Check a deployment without running it
       tags: [Deployments]
       requestBody:
@@ -4301,6 +4527,7 @@ paths:
 
   /api/deployments/history:
     get:
+      operationId: getDeploymentsHistory
       summary: Past deployments
       tags: [Deployments]
       parameters:
@@ -4337,6 +4564,7 @@ paths:
 
   /api/deployments/templates:
     get:
+      operationId: getDeploymentsTemplates
       summary: Manifest templates for common deployments
       tags: [Deployments]
       responses:
@@ -4360,6 +4588,7 @@ paths:
 
   /api/deployments/jobs/{jobId}:
     get:
+      operationId: getDeploymentsJobsByJobId
       summary: A deployment job's status (same record as /api/jobs/{jobId})
       tags: [Deployments]
       parameters:
@@ -4376,6 +4605,7 @@ paths:
 
   /api/deployments/jobs/{jobId}/stop:
     post:
+      operationId: postDeploymentsJobsByJobIdStop
       summary: Stop a deployment job
       tags: [Deployments]
       parameters:
@@ -4391,8 +4621,9 @@ paths:
   # ---------------------------------------------------------------------------
   /api/data-catalog:
     get:
+      operationId: getDataCatalog
       summary: The field catalog, paginated (the older view; prefer /api/data-catalog/full)
-      tags: [Data catalog]
+      tags: [Data Catalog]
       parameters:
         - name: page
           in: query
@@ -4449,8 +4680,9 @@ paths:
 
   /api/data-catalog/fields:
     get:
+      operationId: getDataCatalogFields
       summary: Fields across datasets, analyses and dashboards, paginated
-      tags: [Data catalog]
+      tags: [Data Catalog]
       parameters:
         - name: page
           in: query
@@ -4495,8 +4727,9 @@ paths:
 
   /api/data-catalog/visual-fields/rebuild:
     post:
+      operationId: postDataCatalogVisualFieldsRebuild
       summary: Rebuild the cache behind the visual field catalog
-      tags: [Data catalog]
+      tags: [Data Catalog]
       responses:
         '200':
           $ref: '#/components/responses/Acknowledged'
@@ -4505,8 +4738,9 @@ paths:
 
   /api/data-catalog/field/{sourceType}/{sourceId}/{fieldName}:
     get:
+      operationId: getDataCatalogFieldBySourceTypeBySourceIdByFieldName
       summary: One field's portal metadata (tags, notes)
-      tags: [Data catalog]
+      tags: [Data Catalog]
       parameters:
         - $ref: '#/components/parameters/FieldSourceType'
         - $ref: '#/components/parameters/FieldSourceId'
@@ -4528,8 +4762,9 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
     put:
+      operationId: putDataCatalogFieldBySourceTypeBySourceIdByFieldName
       summary: Replace a field's portal metadata
-      tags: [Data catalog]
+      tags: [Data Catalog]
       parameters:
         - $ref: '#/components/parameters/FieldSourceType'
         - $ref: '#/components/parameters/FieldSourceId'
@@ -4547,8 +4782,9 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
     post:
+      operationId: postDataCatalogFieldBySourceTypeBySourceIdByFieldName
       summary: Add tags to a field
-      tags: [Data catalog]
+      tags: [Data Catalog]
       parameters:
         - $ref: '#/components/parameters/FieldSourceType'
         - $ref: '#/components/parameters/FieldSourceId'
@@ -4561,8 +4797,9 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
     delete:
+      operationId: deleteDataCatalogFieldBySourceTypeBySourceIdByFieldName
       summary: Remove tags from a field
-      tags: [Data catalog]
+      tags: [Data Catalog]
       parameters:
         - $ref: '#/components/parameters/FieldSourceType'
         - $ref: '#/components/parameters/FieldSourceId'
@@ -4577,8 +4814,9 @@ paths:
 
   /api/data-catalog/fields/search-by-tags:
     post:
+      operationId: postDataCatalogFieldsSearchByTags
       summary: Fields carrying any of these tags
-      tags: [Data catalog]
+      tags: [Data Catalog]
       requestBody:
         $ref: '#/components/requestBodies/FieldTags'
       responses:
@@ -5145,6 +5383,64 @@ components:
       required: [jobId, jobType, status, startTime]
       additionalProperties: true
       properties:
+        lastUpdatedTime:
+          type: string
+          format: date-time
+          description: |
+            Heartbeat - stamped on every job write. The UI uses it to show
+            worker liveness ("active Ns ago") and flag stalled jobs.
+        duration:
+          type: integer
+          description: Duration in milliseconds
+          nullable: true
+        stats:
+          type: object
+          properties:
+            totalAssets:
+              type: integer
+            processedAssets:
+              type: integer
+            failedAssets:
+              type: integer
+            apiCalls:
+              type: integer
+        failures:
+          type: array
+          description: |
+            Item-level failures for bulk jobs (capped; the full list is on
+            the job result). Present only when at least one item failed.
+          items:
+            $ref: '#/components/schemas/BulkItemFailure'
+        phases:
+          type: array
+          description: |
+            Optional step-based progress. Present for jobs that emit phases
+            (e.g. activity-refresh). Older job types omit this field.
+          items:
+            $ref: '#/components/schemas/JobPhase'
+        checkpoint:
+          type: object
+          description: |
+            Resumable-export progress (export jobs only). Written after
+            each asset type completes so continuation invocations resume
+            where the previous one paused; the UI renders it as per-type
+            progress.
+          properties:
+            completedAssetTypes:
+              type: array
+              items:
+                type: string
+            hydratedAssetTypes:
+              type: array
+              items:
+                type: string
+            catalogPending:
+              type: boolean
+            totalProcessed:
+              type: integer
+            updatedAt:
+              type: string
+              format: date-time
         jobId:
           type: string
         jobType:
@@ -5342,8 +5638,11 @@ components:
         mode:
           type: string
           enum: [update, clone, create]
-        folderId:
-          type: string
+        folderIds:
+          type: array
+          description: The folders it was filed in - the request's folderId and the default folders from Settings.
+          items:
+            type: string
         warnings:
           type: array
           items:
@@ -5451,51 +5750,6 @@ components:
           type: string
           description: Tag value
 
-    AssetFilter:
-      type: object
-      description: Filter for selecting specific assets
-      required: [id, name, type]
-      properties:
-        id:
-          type: string
-          description: Asset ID
-        name:
-          type: string
-          description: Asset display name
-        type:
-          type: string
-          description: Asset type (dashboard, analysis, dataset, etc.)
-
-    # Field search parameters for data catalog
-    FieldSearchParams:
-      type: object
-      description: Parameters for searching and filtering catalog fields
-      properties:
-        query:
-          type: string
-          description: Text search on field name, display name, or description
-        dataType:
-          type: string
-          description: Filter by data type (STRING, INTEGER, DECIMAL, etc.)
-        assetType:
-          type: string
-          description: Filter by source asset type (dashboard, analysis, dataset)
-        isCalculated:
-          type: boolean
-          description: Filter for calculated fields only
-        page:
-          type: integer
-          minimum: 1
-          default: 1
-          description: Page number (1-indexed)
-        pageSize:
-          type: integer
-          minimum: 1
-          maximum: 1000
-          default: 50
-          description: Number of items per page
-
-    # Base asset response
     AssetListItem:
       type: object
       required: [id, name, type, status, createdTime, lastUpdatedTime, lastExportTime, enrichmentStatus]
@@ -5968,139 +6222,6 @@ components:
                   minimum: 0
 
     # Lineage types
-    AssetLineage:
-      type: object
-      required: [assetId, assetType, assetName, relationships]
-      properties:
-        assetId:
-          type: string
-        assetType:
-          $ref: '#/components/schemas/AssetType'
-        assetName:
-          type: string
-        isArchived:
-          type: boolean
-          description: Whether this asset is archived
-        relationships:
-          type: array
-          items:
-            $ref: '#/components/schemas/LineageRelationship'
-        metadata:
-          type: object
-          properties:
-            datasourceType:
-              type: string
-              description: Type of datasource (S3, ATHENA, etc.)
-
-    LineageRelationship:
-      type: object
-      required: [sourceAssetId, sourceAssetType, sourceAssetName, targetAssetId, targetAssetType, targetAssetName, relationshipType]
-      properties:
-        sourceAssetId:
-          type: string
-        sourceAssetType:
-          $ref: '#/components/schemas/AssetType'
-        sourceAssetName:
-          type: string
-        sourceIsArchived:
-          type: boolean
-          description: Whether the source asset is archived
-        targetAssetId:
-          type: string
-        targetAssetType:
-          $ref: '#/components/schemas/AssetType'
-        targetAssetName:
-          type: string
-        targetIsArchived:
-          type: boolean
-          description: Whether the target asset is archived
-        relationshipType:
-          type: string
-          enum: [uses, used_by]
-        activity:
-          type: object
-          description: Activity data for dashboard and analysis relationships
-          properties:
-            totalViews:
-              type: integer
-              description: Total number of views
-            uniqueViewers:
-              type: integer
-              description: Number of unique viewers
-            lastViewed:
-              type: string
-              format: date-time
-              nullable: true
-              description: Last time the asset was viewed
-        tags:
-          type: array
-          description: Tags associated with the target asset
-          items:
-            $ref: '#/components/schemas/Tag'
-
-    # Field catalog types
-    FieldInfo:
-      type: object
-      required: [fieldId, fieldName, dataType, isCalculated, sourceAssetType, sourceAssetId, sourceAssetName, usageCount, analysisCount, dashboardCount, lastUpdated]
-      properties:
-        fieldId:
-          type: string
-        fieldName:
-          type: string
-        displayName:
-          type: string
-        dataType:
-          type: string
-          description: Field data type
-        description:
-          type: string
-        isCalculated:
-          type: boolean
-          description: Whether this is a calculated field
-        expression:
-          type: string
-          description: Calculation expression (if calculated field)
-        sourceAssetType:
-          type: string
-          enum: [dataset, analysis, dashboard]
-        sourceAssetId:
-          type: string
-        sourceAssetName:
-          type: string
-        datasetId:
-          type: string
-        datasetName:
-          type: string
-        columnName:
-          type: string
-          description: Source column name
-        dependencies:
-          type: array
-          items:
-            type: string
-          description: Field IDs this calculated field depends on
-        usageCount:
-          type: integer
-          description: Total usage count
-          minimum: 0
-        analysisCount:
-          type: integer
-          description: Number of analyses using this field
-          minimum: 0
-        dashboardCount:
-          type: integer
-          description: Number of dashboards using this field
-          minimum: 0
-        lastUpdated:
-          type: string
-          format: date-time
-        tags:
-          type: array
-          items:
-            $ref: '#/components/schemas/Tag'
-          default: []
-
-    # Common types
     Tag:
       type: object
       required: [key, value]
@@ -6449,8 +6570,9 @@ components:
         origin:
           $ref: '#/components/schemas/TimelineOrigin'
         provenance:
-          $ref: '#/components/schemas/TimelineProvenance'
           description: For portal events, who was behind it, from the portal's own audit log.
+          allOf:
+            - $ref: '#/components/schemas/TimelineProvenance'
         resourceType:
           type: string
           enum: [dashboard, analysis, dataset, datasource, folder, group, user, other]
@@ -6564,126 +6686,6 @@ components:
                 description: Last time viewed (YYYY-MM-DD)
 
     # Export status types
-    ExportStatusResponse:
-      type: object
-      required: [success, data]
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          required: [inventoryComplete, enrichmentInProgress, totalAssets, enrichedAssets, skeletonAssets, percentEnriched, assetsByType, lastUpdated, nextSteps, logs, nextPollInMs]
-          properties:
-            inventoryComplete:
-              type: boolean
-              description: Whether initial asset inventory is complete
-            enrichmentInProgress:
-              type: boolean
-              description: Whether an export is currently running
-            totalAssets:
-              type: integer
-              description: Total number of assets in inventory
-            enrichedAssets:
-              type: integer
-              description: Number of fully enriched assets
-            skeletonAssets:
-              type: integer
-              description: Number of skeleton-only assets
-            percentEnriched:
-              type: integer
-              description: Percentage of assets fully enriched
-              minimum: 0
-              maximum: 100
-            assetsByType:
-              type: object
-              additionalProperties:
-                type: integer
-              description: Count of assets by type
-            lastUpdated:
-              type: string
-              format: date-time
-              description: When the cache was last updated
-            nextSteps:
-              type: object
-              required: [phase, action, description]
-              properties:
-                phase:
-                  type: string
-                  enum: [inventory, enrichment, complete]
-                action:
-                  type: string
-                description:
-                  type: string
-            exportState:
-              type: object
-              nullable: true
-              description: Current export state if an export is running
-              properties:
-                status:
-                  type: string
-                  enum: [idle, running, completed, error]
-                currentStage:
-                  type: string
-                  description: Current stage of export process
-                startedAt:
-                  type: integer
-                  description: Unix timestamp when export started
-                completedAt:
-                  type: integer
-                  nullable: true
-                  description: Unix timestamp when export completed
-                totalAssets:
-                  type: integer
-                enrichedAssets:
-                  type: integer
-                failedAssets:
-                  type: integer
-                assetProgress:
-                  type: object
-                  additionalProperties:
-                    type: object
-                    properties:
-                      listed:
-                        type: integer
-                      enriched:
-                        type: integer
-                      failed:
-                        type: integer
-            logs:
-              type: array
-              description: Recent export log entries
-              items:
-                $ref: '#/components/schemas/ExportLogEntry'
-            nextPollInMs:
-              type: integer
-              description: Suggested milliseconds until next poll
-              minimum: 1000
-              maximum: 60000
-
-    ExportLogEntry:
-      type: object
-      required: [ts, msg]
-      properties:
-        ts:
-          type: integer
-          description: Unix timestamp in milliseconds
-        msg:
-          type: string
-          description: Log message
-        level:
-          type: string
-          enum: [info, warn, error]
-          default: info
-        assetType:
-          type: string
-          description: Asset type context
-        assetId:
-          type: string
-          description: Asset ID context
-        apiCalls:
-          type: integer
-          description: Number of API calls made in this operation
-
     ExportSummaryResponse:
       type: object
       required: [success, data]
@@ -7109,8 +7111,9 @@ components:
               items:
                 type: string
         fix:
-          $ref: '#/components/schemas/RepairFix'
           description: The proposed fix; absent when the caller must choose or nothing can be done.
+          allOf:
+            - $ref: '#/components/schemas/RepairFix'
         alternatives:
           type: array
           items:
@@ -7371,8 +7374,14 @@ components:
           type: array
           items:
             type: string
-        folderId:
+        folderIds:
+          type: array
+          description: Every folder it was filed in - the request's folderId and the default folders from Settings.
+          items:
+            type: string
+        owner:
           type: string
+          description: The QuickSight user made its owner - the person who built it, matched by sign-in email.
 
     TypeRules:
       type: object
@@ -7648,9 +7657,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DefinitionChange'
-        folderId:
-          type: string
-          description: The folder the clone was placed in, when requested.
+        folderIds:
+          type: array
+          description: Clone only - the folders it was filed in (the request's folderId and the default folders from Settings).
+          items:
+            type: string
         warnings:
           type: array
           items:
@@ -9208,145 +9219,6 @@ components:
           type: string
           description: Failure reason as reported by the underlying operation
 
-    ExportJobStatus:
-      type: object
-      required: [success, data]
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          required: [jobId, status, progress, startTime]
-          properties:
-            jobId:
-              type: string
-            status:
-              $ref: '#/components/schemas/JobStatus'
-            progress:
-              type: integer
-              minimum: 0
-              maximum: 100
-              description: Completion percentage
-            message:
-              type: string
-              description: Current operation or status message
-            startTime:
-              type: string
-              format: date-time
-            lastUpdatedTime:
-              type: string
-              format: date-time
-              description: |
-                Heartbeat - stamped on every job write. The UI uses it to show
-                worker liveness ("active Ns ago") and flag stalled jobs.
-            endTime:
-              type: string
-              format: date-time
-              nullable: true
-            duration:
-              type: integer
-              description: Duration in milliseconds
-              nullable: true
-            stats:
-              type: object
-              properties:
-                totalAssets:
-                  type: integer
-                processedAssets:
-                  type: integer
-                failedAssets:
-                  type: integer
-                apiCalls:
-                  type: integer
-            error:
-              type: string
-              description: |
-                Why the job failed, or - for a completed bulk job with partial
-                failures - the distinct per-item failure reasons with counts.
-            failures:
-              type: array
-              description: |
-                Item-level failures for bulk jobs (capped; the full list is on
-                the job result). Present only when at least one item failed.
-              items:
-                $ref: '#/components/schemas/BulkItemFailure'
-            phases:
-              type: array
-              description: |
-                Optional step-based progress. Present for jobs that emit phases
-                (e.g. activity-refresh). Older job types omit this field.
-              items:
-                $ref: '#/components/schemas/JobPhase'
-            checkpoint:
-              type: object
-              description: |
-                Resumable-export progress (export jobs only). Written after
-                each asset type completes so continuation invocations resume
-                where the previous one paused; the UI renders it as per-type
-                progress.
-              properties:
-                completedAssetTypes:
-                  type: array
-                  items:
-                    type: string
-                hydratedAssetTypes:
-                  type: array
-                  items:
-                    type: string
-                catalogPending:
-                  type: boolean
-                totalProcessed:
-                  type: integer
-                updatedAt:
-                  type: string
-                  format: date-time
-
-    ExportJobList:
-      type: object
-      required: [success, data]
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          required: [jobs]
-          properties:
-            jobs:
-              type: array
-              items:
-                $ref: '#/components/schemas/JobStatus'
-                
-    ExportJobLogs:
-      type: object
-      required: [success, data]
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          required: [jobId, logs]
-          properties:
-            jobId:
-              type: string
-            logs:
-              type: array
-              items:
-                type: object
-                required: [timestamp, level, message]
-                properties:
-                  timestamp:
-                    type: string
-                    format: date-time
-                  level:
-                    type: string
-                    enum: [info, warn, error]
-                  message:
-                    type: string
-                  details:
-                    type: object
-                    description: Additional context or metadata
-
-    # Ingestion schemas
     Ingestion:
       type: object
       required: [id, datasetId, status, createdTime]
@@ -9467,8 +9339,9 @@ components:
           type: string
           description: Calculated fields and templates - the expression.
         parent:
-          $ref: '#/components/schemas/SearchAssetRef'
           description: The asset a calculated field or visual belongs to.
+          allOf:
+            - $ref: '#/components/schemas/SearchAssetRef'
         definedIn:
           type: array
           description: Calculated fields - every asset that defines this exact expression.
@@ -9667,8 +9540,9 @@ components:
           type: string
           description: Base URL of the SMUS portal used for deep links
         snapshot:
-          $ref: '#/components/schemas/SmusSnapshotSummary'
           description: The last SMUS export; absent when none has run.
+          allOf:
+            - $ref: '#/components/schemas/SmusSnapshotSummary'
 
     SmusSnapshotSummary:
       type: object

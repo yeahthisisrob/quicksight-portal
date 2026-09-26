@@ -71,6 +71,21 @@ const LOADERS: Record<string, () => Promise<RemoteOptions>> = {
       })),
     };
   },
+  '/settings/quicksight/folders': async () => {
+    const { folders } = await settingsApi.listFolders();
+    return {
+      configured: true,
+      emptyDetail: 'No folders in the export yet.',
+      emptyAction: { label: 'Run an export from Operations', to: '/operations' },
+      sourceNote:
+        'From the last export. A shared folder gives its members access to what is filed in it.',
+      options: folders.map((f) => ({
+        value: f.id,
+        label: f.name,
+        description: f.sharedWith ? `Shared with ${f.sharedWith}` : 'Not shared with anyone yet',
+      })),
+    };
+  },
 };
 
 export interface RemoteMultiSelectProps {
