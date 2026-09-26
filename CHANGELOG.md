@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.20.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.19.0...v2.20.0) (2026-09-26)
+
+
+### Features
+
+* **catalog:** a Templates tab for everything repeatable - filter bars, calculated-field templates and layouts ([#223](https://github.com/yeahthisisrob/quicksight-portal/issues/223)) ([c17d6ae](https://github.com/yeahthisisrob/quicksight-portal/commit/c17d6aeb24cfc75bf783c6bf6cb3219e8133d6c5))
+
 ## [2.19.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.18.0...v2.19.0) (2026-09-26)
 
 
