@@ -49,6 +49,8 @@ const NAME_MAX_LENGTH = 200;
 export interface NewAssetRequest {
   assetType: AuthorableAssetType;
   name: string;
+  /** Tags it is created with, beside the organisation's defaults. */
+  tags?: Array<{ key: string; value: string }>;
   datasets: Array<{
     identifier: string;
     dataSetId: string;
@@ -165,6 +167,8 @@ export class NewAssetService {
       definition: composed.definition,
       permissions,
       themeArn: composed.themeArn,
+      ...(request.tags ? { tags: request.tags } : {}),
+      auth,
     });
 
     const { filed, warnings: filing } = await fileInFolders(

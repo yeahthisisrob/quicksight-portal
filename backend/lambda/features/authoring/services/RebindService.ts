@@ -70,6 +70,7 @@ import type {
   RebindRequest,
   RestoreRequest,
   RestoreResult,
+  TagInput,
 } from '../types';
 import { createAsset, recordProvenance, updateAsset } from './assetWriter';
 import { audienceFor, fileInFolders } from './audience';
@@ -615,7 +616,8 @@ export class RebindService {
         name,
         definition,
         target,
-        audience.permissions
+        audience.permissions,
+        { tags: request.tags, auth }
       );
       const filing = await fileInFolders(
         this.quickSightService,
@@ -785,6 +787,7 @@ export class RebindService {
       droppedPrincipals: live.dropped,
     });
 
+    // Its archived tags come back in the create call, with who restored it.
     const written = await createAsset(this.quickSightService, {
       assetType,
       assetId: targetId,
@@ -793,15 +796,10 @@ export class RebindService {
       permissions: audience.permissions,
       themeArn: loaded.themeArn,
       dashboardPublishOptions: loaded.dashboardPublishOptions,
+      tags: archived.extras.tags,
+      auth,
     });
     warnings.push(...(await this.errorsAfterWrite(assetType, written.assetId)));
-    if (archived.extras.tags.length > 0) {
-      try {
-        await this.quickSightService.tagResource(assetType, written.assetId, archived.extras.tags);
-      } catch (error: any) {
-        warnings.push(`Its tags could not be put back: ${error?.message ?? 'unknown error'}.`);
-      }
-    }
     const filing = await fileInFolders(
       this.quickSightService,
       audience.folderIds,
@@ -1090,7 +1088,8 @@ export class RebindService {
     name: string,
     definition: Record<string, any>,
     loaded: LoadedDefinition,
-    permissions: any[] | undefined
+    permissions: any[] | undefined,
+    extras: { tags?: TagInput[]; auth?: AuthContext } = {}
   ): Promise<{ assetId: string; arn: string; versionNumber?: number }> {
     return createAsset(this.quickSightService, {
       assetType,
@@ -1100,6 +1099,8 @@ export class RebindService {
       permissions,
       themeArn: loaded.themeArn,
       dashboardPublishOptions: loaded.dashboardPublishOptions,
+      ...(extras.tags ? { tags: extras.tags } : {}),
+      auth: extras.auth,
     });
   }
 

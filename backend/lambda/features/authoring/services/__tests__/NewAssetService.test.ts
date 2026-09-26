@@ -303,13 +303,13 @@ describe('NewAssetService', () => {
     expect(mocks.audit.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'authoring.create', assetId: 'new-1' })
     );
-    expect(mocks.qs.tagResource).toHaveBeenCalledWith(
-      'dashboard',
-      'new-1',
+    // Created with its provenance, not tagged after: it never exists untagged.
+    expect(mocks.qs.createDashboard.mock.calls[0]?.[0].tags).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: 'portal:authored-by', value: 'api-key:claude cli' }),
       ])
     );
+    expect(mocks.qs.tagResource).not.toHaveBeenCalled();
     expect(result).toMatchObject({ assetId: 'new-1', versionNumber: 1, folderIds: ['f-1'] });
   });
 

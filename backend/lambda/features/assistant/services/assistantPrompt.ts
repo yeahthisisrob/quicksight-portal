@@ -8,6 +8,7 @@
 import spec from '../../../../../shared/generated/openapi.json';
 import { type AuthoringGuidance, guidanceSection } from '../../../shared/ai/authoringGuidance';
 import { type VocabularyEntry, vocabularySection } from '../../../shared/ai/authoringVocabulary';
+import { type TagStandard, tagStandardsSection } from '../../../shared/tags/tagStandards';
 import { portalConcepts } from '../lib/portalBrief';
 import { apiIndex } from '../lib/portalCalls';
 
@@ -24,6 +25,8 @@ interface PromptContext {
   guidance: AuthoringGuidance;
   /** The organisation's own words, from Settings. */
   vocabulary?: VocabularyEntry[];
+  /** The tag keys the organisation uses and their values, from Settings. */
+  tagStandards?: TagStandard[];
 }
 
 const WORKING_RULES = [
@@ -35,6 +38,8 @@ const WORKING_RULES = [
   '- When the planner fails (for example on column names), read the columns yourself (GET /api/authoring/datasets/{dataSetId}/columns, and the listing columns the dataset exposes through context_related), then try again with a columnMap or build the preview yourself.',
   '- Other calls that return a jobId run in the background; tell the person.',
   "- The page tells you its working state (in the context above): plans you drew (with their builds), the working draft (actions you prepared that were not run; nothing exists from them yet) and what the person ran, with results. When they say go, prepare the latest plan with prepare_plan. When they ask for a change before running (add a filter, another visual, a new name), draw the plan again with the change in its build and say what changed; do not look for the asset. What they ran is done: never prepare it again, and use the ids in its result (a new analysis's assetId, a job id) for what comes next, like filing it in a folder (POST /api/folders/{folderId}/members with memberId the asset id and memberType ANALYSIS or DASHBOARD) or sharing it.",
+  "- Tagging (an environment, a lifecycle stage, an owner): find every asset the person means - the ones they name, or a set they describe (every dashboard in a folder, every dataset reading Redshift) through context_search and context_related - and when you inferred the set, list it back with ask_person (multi) so they can drop any. Then prepare ONE propose_action: POST /api/tags/bulk with assets [{ assetType, assetId }] of any types together, operation add (keeps their other tags; moving a stage, draft to active, is an add of the same key), and the organisation's keys and values. Use update only when they ask to replace every tag, and remove with tagKeys to take one off. It runs as a job over all of them.",
+  "- A new asset can carry its tags from the start: put them in the plan's target (create.tags) and they are written when it is created. Never plan a separate tag write for something the plan creates.",
   '- When the next step depends on a choice only the person can make, ask with ask_person (options as cards, tied to entity ids) rather than in prose. Their answer comes back in the context; carry on from it.',
   '- Something the portal just wrote is added to the cache at once and fully refreshed within a minute or so, without an export; until then search may miss its details, so use its id from the conversation.',
   '- Never ask leave to read, preview or prepare; do it. The person confirms a change by running it. Ask only what only they can answer.',
@@ -57,6 +62,7 @@ export function systemPrompt(context: PromptContext): string {
       guidanceSection(context.guidance, ['architecture', 'datasets', 'explorations', 'visuals']),
       WORKING_RULES,
       vocabularySection(context.vocabulary),
+      tagStandardsSection(context.tagStandards ?? []),
       `Operations (method, path, summary), for call_portal_api:\n${apiIndex(spec as never)}`,
     ]
       .filter(Boolean)

@@ -50,6 +50,14 @@ const DERIVED_FROM = new Set<AssetType>([
   ASSET_TYPES.datasource,
 ]);
 
+/** How long a refresh waits for QuickSight to finish writing what it refreshes. */
+const SETTLE_ATTEMPTS = 20;
+const SETTLE_INTERVAL_MS = 3_000;
+const REFRESH_LIST_RETRY_MS = 5_000;
+const IN_PROGRESS = /_IN_PROGRESS$/;
+
+const sleep = (ms: number) => new Promise((resolve) => globalThis.setTimeout(resolve, ms));
+
 export class ExportOrchestrator {
   private archiveService: ArchiveService;
   private readonly assetComparisonService: AssetComparisonService;
@@ -804,10 +812,14 @@ export class ExportOrchestrator {
         out.failed.push(...[...ids].map((id) => `${assetType}:${id}`));
         continue;
       }
-      const { assets: listed } = await this.quickSightService.listAllAssetsOfType(assetType);
-      const found = listed.filter((summary) =>
-        ids.has(this.getAssetIdFromSummary(summary, assetType))
-      );
+      // Just written: let QuickSight finish, or the export keeps a half-made asset.
+      await this.waitUntilSettled(assetType, ids);
+      let found = await this.listedOf(assetType, ids);
+      if (found.length < ids.size) {
+        // A list can lag a create by a few seconds; look once more before giving up.
+        await sleep(REFRESH_LIST_RETRY_MS);
+        found = await this.listedOf(assetType, ids);
+      }
       const foundIds = new Set(
         found.map((summary) => this.getAssetIdFromSummary(summary, assetType))
       );
@@ -844,6 +856,37 @@ export class ExportOrchestrator {
       await this.rebuildDerivedIndexes();
     }
     return out;
+  }
+
+  private async listedOf(assetType: AssetType, ids: Set<string>) {
+    const { assets: listed } = await this.quickSightService.listAllAssetsOfType(assetType);
+    return listed.filter((summary) => ids.has(this.getAssetIdFromSummary(summary, assetType)));
+  }
+
+  /**
+   * Wait while QuickSight is still creating or updating a dashboard or
+   * analysis (a minute at most), so what the refresh exports is what
+   * QuickSight ends up with. A describe that fails ends the wait: the
+   * refresh then says what it could not read.
+   */
+  private async waitUntilSettled(assetType: AssetType, ids: Set<string>): Promise<void> {
+    if (assetType !== 'dashboard' && assetType !== 'analysis') return;
+    for (const id of ids) {
+      for (let attempt = 0; attempt < SETTLE_ATTEMPTS; attempt++) {
+        let status: string | undefined;
+        try {
+          const described =
+            assetType === 'dashboard'
+              ? await this.quickSightService.describeDashboard(id)
+              : await this.quickSightService.describeAnalysis(id);
+          status = described?.Version?.Status ?? described?.Status;
+        } catch {
+          break;
+        }
+        if (!status || !IN_PROGRESS.test(status)) break;
+        await sleep(SETTLE_INTERVAL_MS);
+      }
+    }
   }
 
   /**

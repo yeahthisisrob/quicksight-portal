@@ -504,9 +504,9 @@ describe('RebindService restoring an archived asset', () => {
     expect(call.name).toBe('Sales analysis');
     expect(call.themeArn).toBe('arn:theme');
     expect(call.permissions.map((p: any) => p.Principal)).toEqual([ROB, ANALYSTS]);
-    expect(mocks.qs.tagResource).toHaveBeenCalledWith('analysis', 'a1', [
-      { key: 'team', value: 'sales' },
-    ]);
+    // Its tags come back in the create call.
+    expect(call.tags).toEqual(expect.arrayContaining([{ key: 'team', value: 'sales' }]));
+    expect(mocks.qs.tagResource).not.toHaveBeenCalled();
     expect(mocks.archive.markRestored).toHaveBeenCalledWith(
       'analysis',
       'a1',

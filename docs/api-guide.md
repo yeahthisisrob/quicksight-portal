@@ -258,7 +258,12 @@ QuickSight still reports. A dataset or data source is checked with
 - `POST /api/assets/{type}/{id}/grant-permissions` and
   `.../revoke-permissions` with `{ "grants": [{ "principal": "<user or group ARN>", "actions": [...] }] }`
   (a job).
-- `POST /api/tags/{type}/{id}`, `PUT`, `DELETE`; `POST /api/tags/bulk` for many.
+- `POST /api/tags/{type}/{id}`, `PUT`, `DELETE`; `POST /api/tags/bulk` for many,
+  of any types at once (`"assets": [{ "assetType", "assetId" }]`, a job).
+- Tags on something new go in the create call itself (`tags` on
+  `/api/authoring/new`, `/api/authoring/definition`, and a clone), so it
+  never exists untagged; the organisation's default tags from Settings are
+  added, and `portal:` keys are the portal's own.
 - `POST /api/folders/{folderId}/members` and `.../assets/bulk`.
 - `POST /api/assets/{type}/{id}/rename`, `PUT /api/assets/dataset/{id}/source`.
 - `POST /api/smus/assets/{listingId}/dataset`: a QuickSight dataset over a

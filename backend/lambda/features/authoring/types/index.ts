@@ -120,9 +120,17 @@ export type ApplyMode =
   /** Create a new asset with the rewritten definition and the source's permissions. */
   | 'clone';
 
+/** Tags a new asset is created with (QuickSight's key and value). */
+export interface TagInput {
+  key: string;
+  value: string;
+}
+
 export interface ApplyRequest {
   mode: ApplyMode;
   rebinds: RebindRequest[];
+  /** Clone only: tags the copy is created with. */
+  tags?: TagInput[];
   /** Required for clone. Optional rename for update. */
   name?: string;
   /** Clone only. Generated when omitted. */
@@ -303,11 +311,14 @@ export interface DefinitionApplyRequest extends DefinitionRequest {
   themeArn?: string;
   /** Clone only: inherit this asset's audience instead of the source's. */
   permissionsFrom?: { assetType: AuthorableAssetType; assetId: string };
+  /** Clone only: tags the copy is created with. */
+  tags?: TagInput[];
 }
 
 export interface NewDefinitionRequest extends DefinitionRequest {
   assetType: AuthorableAssetType;
   name: string;
+  tags?: TagInput[];
   newAssetId?: string;
   folderId?: string;
   themeArn?: string;

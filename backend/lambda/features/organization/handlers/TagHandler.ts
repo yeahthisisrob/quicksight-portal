@@ -11,6 +11,8 @@ import { createResponse, errorResponse, successResponse } from '../../../shared/
 import { logger } from '../../../shared/utils/logger';
 import { TagService } from '../services/TagService';
 
+const TAGGABLE = new Set<string>(['dashboard', 'analysis', 'dataset', 'datasource', 'folder']);
+
 export class TagHandler {
   private readonly bulkOperationsService: BulkOperationsService;
   private readonly tagService: TagService;
@@ -55,13 +57,31 @@ export class TagHandler {
   public async bulkUpdateTags(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       const user = await requireAuth(event);
-      const { assetType, assetIds, operation, tags, tagKeys } = JSON.parse(event.body || '{}');
+      const {
+        assetType,
+        assetIds,
+        assets: mixed,
+        operation,
+        tags,
+        tagKeys,
+      } = JSON.parse(event.body || '{}');
 
-      if (!assetType || !assetIds || !Array.isArray(assetIds) || !operation) {
+      // Either one type and its ids, or a list of any types at once.
+      const targets: Array<{ type: AssetType; id: string }> = (
+        Array.isArray(mixed)
+          ? mixed.map((a: any) => ({ type: a?.assetType, id: a?.assetId }))
+          : Array.isArray(assetIds) && assetType
+            ? assetIds.map((id: string) => ({ type: assetType, id }))
+            : []
+      ).filter(
+        (t: { type: unknown; id: unknown }): t is { type: AssetType; id: string } =>
+          TAGGABLE.has(t.type as string) && typeof t.id === 'string' && t.id.length > 0
+      );
+      if (targets.length === 0 || !operation) {
         return errorResponse(
           event,
           STATUS_CODES.BAD_REQUEST,
-          'Asset type, assetIds array, and operation are required'
+          'Give assets (a list of { assetType, assetId }) or assetType with assetIds, and an operation'
         );
       }
 
@@ -82,11 +102,7 @@ export class TagHandler {
       }
 
       // Use BulkOperationsService for tag updates
-      const assets = assetIds.map((id: string) => ({
-        type: assetType,
-        id,
-        name: `${assetType}-${id}`, // Placeholder name
-      }));
+      const assets = targets.map(({ type, id }) => ({ type, id, name: id }));
 
       // add: these keys on top of what each asset has; update: exactly these
       // tags; remove: these keys. Tags arrive as {key, value} or {Key, Value}.
