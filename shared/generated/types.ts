@@ -2740,13 +2740,6 @@ export interface components {
             totalPages: number;
             hasMore?: boolean;
         };
-        /** @description Filter for tags with key-value pairs */
-        TagFilter: {
-            /** @description Tag key */
-            key: string;
-            /** @description Tag value */
-            value: string;
-        };
         AssetListItem: {
             /** @description Asset unique identifier */
             id: string;
@@ -4874,6 +4867,11 @@ export interface components {
             success: boolean;
             data: {
                 ingestions: components["schemas"]["Ingestion"][];
+                /** @description The data source types among these ingestions, with counts, for the filter. */
+                availableSourceTypes: {
+                    value: string;
+                    count: number;
+                }[];
                 metadata: components["schemas"]["IngestionMetadata"];
                 pagination: {
                     page: number;
@@ -5249,7 +5247,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["FolderMember"][];
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["FolderMember"][];
+                    };
                 };
             };
         };
@@ -5345,9 +5346,9 @@ export interface operations {
                 dateField?: "lastUpdatedTime" | "createdTime" | "lastActivity";
                 /** @description Date range filter value */
                 dateRange?: "all" | "24h" | "7d" | "30d" | "90d";
-                /** @description JSON-encoded array of {key, value} tag filters to include */
+                /** @description JSON-encoded array of {key, value} tag filters to include, e.g. [{"key":"env","value":"prod"}] */
                 includeTags?: string;
-                /** @description JSON-encoded array of {key, value} tag filters to exclude */
+                /** @description JSON-encoded array of {key, value} tag filters to exclude, e.g. [{"key":"env","value":"prod"}] */
                 excludeTags?: string;
             };
             header?: never;
@@ -5562,6 +5563,8 @@ export interface operations {
                 pageSize?: number;
                 dateRange?: "all" | "24h" | "7d" | "30d" | "90d";
                 dateField?: string;
+                /** @description JSON-encoded array of data source types to keep, e.g. ["ATHENA","S3"]. */
+                sourceTypeFilter?: string;
             };
             header?: never;
             path?: never;
@@ -5600,7 +5603,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Ingestion"];
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["Ingestion"];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -6152,21 +6158,21 @@ export interface operations {
                     "application/json": {
                         success?: boolean;
                         data?: {
-                            datasources?: {
-                                id?: string;
-                                name?: string;
+                            datasources: {
+                                id: string;
+                                name: string;
                                 bucket?: string;
                             }[];
-                            datasets?: {
-                                id?: string;
-                                name?: string;
-                                datasourceIds?: string[];
+                            datasets: {
+                                id: string;
+                                name: string;
+                                datasourceIds: string[];
                             }[];
-                            analyses?: {
-                                id?: string;
-                                name?: string;
+                            analyses: {
+                                id: string;
+                                name: string;
                             }[];
-                            totalCount?: number;
+                            totalCount: number;
                         };
                     };
                 };

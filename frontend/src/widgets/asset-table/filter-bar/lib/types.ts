@@ -1,4 +1,4 @@
-import type { components } from '@shared/generated';
+import type { AssetFilter, TagFilter } from '@/shared/lib/useFilters';
 
 export type DateFieldOption = string;
 export type DateRangeOption = 'all' | '24h' | '7d' | '30d' | '90d';
@@ -14,7 +14,7 @@ export interface TagOption {
   count: number;
 }
 
-export type TagFilter = components['schemas']['TagFilter'];
+export type { AssetFilter, TagFilter };
 
 export type ErrorFilterState = 'all' | 'with_errors' | 'without_errors';
 
@@ -56,10 +56,6 @@ export interface AssetOption {
   type: string;
   fieldCount?: number;
 }
-
-import type { AssetFilter } from '@/shared/lib/useFilters';
-
-export type { AssetFilter };
 
 /** Option for the user-access filter dropdown (value = QuickSight user name) */
 export interface UserAccessOption {

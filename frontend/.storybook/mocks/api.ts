@@ -1,6 +1,8 @@
 import type { AxiosAdapter, AxiosRequestConfig, AxiosResponse } from 'axios';
+import type { Middleware } from 'openapi-fetch';
 
 import { api } from '../../src/shared/api/client';
+import { client } from '../../src/shared/api/typed';
 
 export interface MockRoute {
   method?: 'get' | 'post' | 'put' | 'delete';
@@ -58,9 +60,44 @@ export function mockApi(routes: MockRoute[]): () => void {
     return response;
   };
 
+  // The typed client (openapi-fetch) speaks fetch: a middleware answers its
+  // requests from the same routes, with the same request shape (the url
+  // relative to /api, params from the query string, the body as text).
+  const fetchMock: Middleware = {
+    async onRequest({ request }) {
+      const parsed = new URL(request.url);
+      const relative = parsed.pathname.replace(/^\/api(?=\/)/, '') + parsed.search;
+      const body = request.body ? await request.clone().text() : undefined;
+      const config = {
+        method: request.method.toLowerCase(),
+        url: relative,
+        params: Object.fromEntries(parsed.searchParams.entries()),
+        data: body,
+      } as AxiosRequestConfig;
+      const method = config.method ?? 'get';
+      const route = routes.find(
+        (r) =>
+          (!r.method || r.method === method) &&
+          (typeof r.url === 'string' ? relative.includes(r.url) : r.url.test(relative))
+      );
+      const result = route
+        ? await route.respond(config)
+        : {
+            status: 404,
+            body: { success: false, error: `No mock for ${method.toUpperCase()} ${relative}` },
+          };
+      return new Response(JSON.stringify(result.body), {
+        status: result.status ?? 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
+  };
+
   api.defaults.adapter = adapter;
+  client.use(fetchMock);
   return () => {
     api.defaults.adapter = previous;
+    client.eject(fetchMock);
   };
 }
 

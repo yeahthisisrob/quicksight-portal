@@ -78,7 +78,13 @@ export default function FolderMembersDialog({ open, onClose, folder }: FolderMem
   });
 
   const removeMemberMutation = useMutation({
-    mutationFn: async ({ memberId, memberType }: { memberId: string; memberType: string }) => {
+    mutationFn: async ({
+      memberId,
+      memberType,
+    }: {
+      memberId: string;
+      memberType: Parameters<typeof foldersApi.removeMember>[2];
+    }) => {
       return foldersApi.removeMember(folderId, memberId, memberType);
     },
     onMutate: async ({ memberId }) => {

@@ -1,9 +1,19 @@
 import { useState, useCallback, useMemo } from 'react';
 
-import type { components } from '@shared/generated/types';
+/**
+ * A tag to filter by. Lists take these JSON-encoded in `includeTags` /
+ * `excludeTags` (see encodeTagFilters).
+ */
+interface TagFilter {
+  key: string;
+  value: string;
+}
 
-// Use OpenAPI generated types for consistency
-type TagFilter = components['schemas']['TagFilter'];
+/** The wire form of tag filters: a JSON string, as the list endpoints parse it. */
+export function encodeTagFilters(tags: TagFilter[]): string | undefined {
+  return tags.length ? JSON.stringify(tags.map(({ key, value }) => ({ key, value }))) : undefined;
+}
+
 /** An asset picked in the filter bar: UI state, never sent as such. */
 interface AssetFilter {
   id: string;

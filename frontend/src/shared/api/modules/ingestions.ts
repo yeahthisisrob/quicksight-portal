@@ -1,60 +1,39 @@
-import type { components } from '@shared/generated/types';
+import type { paths } from '@shared/generated/types';
 
-import { api } from '../client';
+import { client, unwrap } from '../typed';
 
+export type IngestionListQuery = NonNullable<
+  paths['/api/ingestions']['get']['parameters']['query']
+>;
+
+/** SPICE ingestions: the refresh history, one ingestion's detail, and cancelling one. */
 export const ingestionsApi = {
-  /**
-   * List ingestions with pagination and filtering
-   */
-  list: async (params?: {
-    page?: number;
-    pageSize?: number;
-    search?: string;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-    dateRange?: string;
-    dateField?: string;
-    sourceTypeFilter?: string;
-  }): Promise<
-    components['schemas']['IngestionListResponse']['data'] & {
-      availableSourceTypes?: Array<{ value: string; count: number }>;
-    }
-  > => {
-    const queryParams = new URLSearchParams();
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
-    if (params?.search) queryParams.append('search', params.search);
-    if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
-    if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder);
-    if (params?.dateRange && params.dateRange !== 'all')
-      queryParams.append('dateRange', params.dateRange);
-    if (params?.dateField) queryParams.append('dateField', params.dateField);
-    if (params?.sourceTypeFilter) queryParams.append('sourceTypeFilter', params.sourceTypeFilter);
-
-    const query = queryParams.toString();
-    const url = `/ingestions${query ? `?${query}` : ''}`;
-
-    const response = await api.get<components['schemas']['IngestionListResponse']>(url);
-    return response.data.data;
-  },
-
-  /**
-   * Get ingestion details
-   */
-  getDetails: async (
-    datasetId: string,
-    ingestionId: string
-  ): Promise<components['schemas']['Ingestion']> => {
-    const response = await api.get<{ success: boolean; data: components['schemas']['Ingestion'] }>(
-      `/ingestions/${datasetId}/${ingestionId}`
+  async list(query: IngestionListQuery = {}) {
+    return unwrap(
+      await client.GET('/api/ingestions', {
+        params: {
+          query: { ...query, dateRange: query.dateRange === 'all' ? undefined : query.dateRange },
+        },
+      }),
+      'Failed to list ingestions'
     );
-    return response.data.data;
   },
 
-  /**
-   * Cancel an ingestion
-   */
-  cancel: async (datasetId: string, ingestionId: string): Promise<void> => {
-    await api.delete(`/ingestions/${datasetId}/${ingestionId}`);
+  async getDetails(datasetId: string, ingestionId: string) {
+    return unwrap(
+      await client.GET('/api/ingestions/{datasetId}/{ingestionId}', {
+        params: { path: { datasetId, ingestionId } },
+      }),
+      'Failed to load the ingestion'
+    );
+  },
+
+  async cancel(datasetId: string, ingestionId: string): Promise<void> {
+    unwrap(
+      await client.DELETE('/api/ingestions/{datasetId}/{ingestionId}', {
+        params: { path: { datasetId, ingestionId } },
+      }),
+      'Failed to cancel the ingestion'
+    );
   },
 };

@@ -1,41 +1,34 @@
-import { api as apiClient } from '../client';
-import type { ApiResponse } from '../types';
+import { client, unwrap } from '../typed';
 
 /**
  * Groups API - handles group management operations
  * Note: For listing groups, use assetsApi.getGroupsPaginated()
  */
 export const groupsApi = {
-  // Create a new group
-  async createGroup(groupName: string, description?: string): Promise<any> {
-    const response = await apiClient.post<ApiResponse<any>>('/groups', { groupName, description });
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to create group');
-    }
-    return response.data.data;
+  async createGroup(groupName: string, description?: string) {
+    return unwrap(
+      await client.POST('/api/groups', { body: { groupName, description } }),
+      'Failed to create group'
+    );
   },
 
-  // Update group description
-  async updateGroup(groupName: string, description: string): Promise<any> {
-    const response = await apiClient.put<ApiResponse<any>>(
-      `/groups/${encodeURIComponent(groupName)}`,
-      { description }
+  async updateGroup(groupName: string, description: string) {
+    return unwrap(
+      await client.PUT('/api/groups/{groupName}', {
+        params: { path: { groupName } },
+        body: { description },
+      }),
+      'Failed to update group'
     );
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to update group');
-    }
-    return response.data.data;
   },
 
-  // Delete a group
-  async deleteGroup(groupName: string, reason?: string): Promise<any> {
-    const response = await apiClient.delete<ApiResponse<any>>(
-      `/groups/${encodeURIComponent(groupName)}`,
-      { data: { reason } }
+  async deleteGroup(groupName: string, reason?: string) {
+    return unwrap(
+      await client.DELETE('/api/groups/{groupName}', {
+        params: { path: { groupName } },
+        body: { reason },
+      }),
+      'Failed to delete group'
     );
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to delete group');
-    }
-    return response.data.data;
   },
 };

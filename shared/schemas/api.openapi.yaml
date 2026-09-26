@@ -132,9 +132,15 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/FolderMember'
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FolderMember'
     post:
       operationId: postFoldersByFolderIdMembers
       tags: [Folders]
@@ -283,22 +289,14 @@ paths:
           description: Date range filter value
         - name: includeTags
           in: query
-          description: JSON-encoded array of {key, value} tag filters to include
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TagFilter'
+          schema:
+            type: string
+          description: JSON-encoded array of {key, value} tag filters to include, e.g. [{"key":"env","value":"prod"}]
         - name: excludeTags
           in: query
-          description: JSON-encoded array of {key, value} tag filters to exclude
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TagFilter'
+          schema:
+            type: string
+          description: JSON-encoded array of {key, value} tag filters to exclude, e.g. [{"key":"env","value":"prod"}]
       responses:
         '200':
           description: Paginated asset list
@@ -563,6 +561,12 @@ paths:
             type: string
             default: createdTime
             description: Date field to filter on
+        - name: sourceTypeFilter
+          in: query
+          required: false
+          schema:
+            type: string
+          description: JSON-encoded array of data source types to keep, e.g. ["ATHENA","S3"].
       responses:
         '200':
           description: List of ingestions with metadata
@@ -600,7 +604,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Ingestion'
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Ingestion'
         '404':
           $ref: '#/components/responses/NotFound'
         '401':
@@ -1362,11 +1372,13 @@ paths:
                     type: boolean
                   data:
                     type: object
+                    required: [datasources, datasets, analyses, totalCount]
                     properties:
                       datasources:
                         type: array
                         items:
                           type: object
+                          required: [id, name]
                           properties:
                             id:
                               type: string
@@ -1378,6 +1390,7 @@ paths:
                         type: array
                         items:
                           type: object
+                          required: [id, name, datasourceIds]
                           properties:
                             id:
                               type: string
@@ -1391,6 +1404,7 @@ paths:
                         type: array
                         items:
                           type: object
+                          required: [id, name]
                           properties:
                             id:
                               type: string
@@ -5738,18 +5752,6 @@ components:
           type: boolean
 
     # Filter types (shared across frontend and backend)
-    TagFilter:
-      type: object
-      description: Filter for tags with key-value pairs
-      required: [key, value]
-      properties:
-        key:
-          type: string
-          description: Tag key
-        value:
-          type: string
-          description: Tag value
-
     AssetListItem:
       type: object
       required: [id, name, type, status, createdTime, lastUpdatedTime, lastExportTime, enrichmentStatus]
@@ -9655,12 +9657,23 @@ components:
           type: boolean
         data:
           type: object
-          required: [ingestions, metadata, pagination]
+          required: [ingestions, metadata, pagination, availableSourceTypes]
           properties:
             ingestions:
               type: array
               items:
                 $ref: '#/components/schemas/Ingestion'
+            availableSourceTypes:
+              type: array
+              description: The data source types among these ingestions, with counts, for the filter.
+              items:
+                type: object
+                required: [value, count]
+                properties:
+                  value:
+                    type: string
+                  count:
+                    type: integer
             metadata:
               $ref: '#/components/schemas/IngestionMetadata'
             pagination:

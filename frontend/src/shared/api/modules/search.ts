@@ -1,7 +1,6 @@
 import type { components } from '@shared/generated/types';
 
-import { api as apiClient } from '../client';
-import type { ApiResponse } from '../types';
+import { client, unwrap } from '../typed';
 
 type Schemas = components['schemas'];
 
@@ -16,16 +15,17 @@ export const searchApi = {
     q: string,
     options: { types?: SearchableType[]; limit?: number } = {}
   ): Promise<SearchResponse> {
-    const response = await apiClient.get<ApiResponse<SearchResponse>>('/search', {
-      params: {
-        q,
-        types: options.types?.length ? options.types.join(',') : undefined,
-        limit: options.limit,
-      },
-    });
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.error || 'Search failed');
-    }
-    return response.data.data;
+    return unwrap(
+      await client.GET('/api/search', {
+        params: {
+          query: {
+            q,
+            ...(options.types?.length ? { types: options.types.join(',') } : {}),
+            ...(options.limit ? { limit: options.limit } : {}),
+          },
+        },
+      }),
+      'Search failed'
+    );
   },
 };
