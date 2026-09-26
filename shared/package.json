@@ -12,6 +12,6 @@
     "test": "echo \"no tests in shared\" && exit 0"
   },
   "devDependencies": {
-    "@types/node": "^26.6.1"
+    "@types/node": "^26.6.2"
   }
 }
