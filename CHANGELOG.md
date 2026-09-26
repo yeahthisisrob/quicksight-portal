@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.24.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.24.0...v2.24.1) (2026-09-26)
+
+
+### Bug Fixes
+
+* **author:** the authoring model drafts every build; model choice moves into the composer ([#237](https://github.com/yeahthisisrob/quicksight-portal/issues/237)) ([d73d8ba](https://github.com/yeahthisisrob/quicksight-portal/commit/d73d8ba7104dadadb0c4cc62073b59c741a37eda))
+
 ## [2.24.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.23.1...v2.24.0) (2026-09-26)
 
 
