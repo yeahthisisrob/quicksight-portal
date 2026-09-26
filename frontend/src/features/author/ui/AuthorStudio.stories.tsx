@@ -1,44 +1,28 @@
 import { Box } from '@mui/material';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
+import type { MockRoute } from '../../../../.storybook/mocks/api';
 import { MockedApi } from '../../../../.storybook/mocks/api';
-import { draftsFromSpecs, newVisual } from '../model/newAsset';
-import {
-  authorRoutes,
-  EDITOR_OPS,
-  FRESH_DATASETS,
-  FRESH_PROPOSAL,
-  FULL_MAP,
-  fakeFlow,
-  PROPOSED_OPS,
-  PROPOSED_VISUALS,
-  previewModelFor,
-  REPAIR_PLAN,
-  repairPlanRoute,
-  resolvedDraft,
-  SMUS_NOT_CONFIGURED,
-  STANDARD_RULES,
-  STANDARD_TEMPLATE,
-  undecidedDraft,
-} from './__stories__/fixtures';
-import { AuthorStudioView } from './AuthorStudio';
-import { SourceStep } from './steps/SourceStep';
+import { authorRoutes, EDITOR_OPS, fakeStudio, REPAIR_PLAN } from './__stories__/fixtures';
+import { AuthorStudioView, type StudioView } from './AuthorStudio';
+import { AssetBrowser } from './editor/AssetBrowser';
+import { SaveDialog } from './editor/SaveDialog';
 
 /**
- * Each story hands `AuthorStudioView` a canned flow so each step can be looked
- * at in a known state. The real hook, clicked through end to end, is covered
- * by the Pages/Author stories.
+ * Each story hands `AuthorStudioView` a canned studio so each view and
+ * panel can be looked at in a known state. The real hook, clicked through,
+ * is covered by the Pages/Author stories.
  */
 
 const meta: Meta<typeof AuthorStudioView> = {
-  title: 'Features/Author/AuthorStudio',
+  title: 'Features/Author/Studio',
   component: AuthorStudioView,
   parameters: {
     layout: 'fullscreen',
     docs: {
       description: {
         component:
-          'The Author page: pick a source ranked by use, choose datasets (SMUS published assets first), describe the change and review the columns, see and edit a before/after mockup, publish into a folder.',
+          'The Studio edits and fixes what exists, by function rather than by steps: the Editor (issues and their fixes, the canvas, the inspector, the datasets and their SMUS governance, usage; save over it or as a copy), the Templates everything reuses, and account-wide Scripts. New assets come from the Assistant.',
       },
     },
   },
@@ -47,455 +31,199 @@ const meta: Meta<typeof AuthorStudioView> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// --- steps, canned flow -----------------------------------------------------
-
-export const StepRepair: Story = {
-  name: '1b · Repair: issues found',
-  render: () => (
-    <MockedApi routes={authorRoutes([repairPlanRoute(REPAIR_PLAN)])}>
-      <AuthorStudioView flow={fakeFlow({ step: 'repair', repairPlan: REPAIR_PLAN })} />
-    </MockedApi>
-  ),
+/** A demo-cleanup preview, so the Scripts view has something to show. */
+const DEMO_CLEANUP: MockRoute = {
+  method: 'get',
+  url: '/scripts/demo-cleanup/preview',
+  respond: () => ({
+    body: {
+      success: true,
+      data: {
+        datasources: [{ id: 'ds-sample', name: 'Sample data', bucket: 'spaceneedle-samplefiles' }],
+        datasets: [
+          { id: 'people', name: 'People Overview' },
+          { id: 'sales-pipeline', name: 'Sales Pipeline' },
+        ],
+        analyses: [{ id: 'business-review', name: 'Business Review' }],
+      },
+    },
+  }),
 };
 
-export const StepSource: Story = {
-  name: '1 · Source, ranked with badges',
-  render: () => (
-    <MockedApi routes={authorRoutes()}>
-      <AuthorStudioView flow={fakeFlow({ step: 'source' })} />
+function view(studio: ReturnType<typeof fakeStudio>, current: StudioView = 'editor') {
+  return (
+    <MockedApi routes={authorRoutes([DEMO_CLEANUP])}>
+      <AuthorStudioView studio={studio} view={current} onViewChange={() => {}} />
     </MockedApi>
-  ),
-};
+  );
+}
 
-export const StepSourceSearch: Story = {
-  name: '1 · Source, searched in plain words',
+// --- editor -------------------------------------------------------------------
+
+export const Browse: Story = {
+  name: 'Editor · open something (errors first)',
+  render: () => view(fakeStudio({ closed: true })),
   parameters: {
     docs: {
       description: {
         story:
-          'Typing searches dashboards by name, column, calculated field, tag or folder through /search; each hit says why it matched.',
+          'Nothing open: what needs fixing comes first (Marketing funnel has two definition errors), then templates, then the most viewed. A click opens it.',
       },
     },
   },
+};
+
+export const BrowseSearch: Story = {
+  name: 'Editor · open something, searched',
   render: () => (
     <MockedApi routes={authorRoutes()}>
-      <Box sx={{ p: 3, maxWidth: 1200 }}>
-        <SourceStep flow={fakeFlow({ step: 'source' })} initialSearch="sales revenue" />
+      <Box sx={{ p: 3, maxWidth: 960 }}>
+        <AssetBrowser onOpen={() => {}} initialSearch="sales revenue" />
       </Box>
     </MockedApi>
   ),
 };
 
-export const StepSourceNoInsights: Story = {
-  name: '1 · Source, no insights available',
-  render: () => (
-    <MockedApi routes={authorRoutes()}>
-      <AuthorStudioView flow={fakeFlow({ step: 'source', insights: null })} />
-    </MockedApi>
-  ),
-};
-
-export const StepTargets: Story = {
-  name: '2 · Datasets (SMUS assets)',
-  render: () => (
-    <MockedApi routes={authorRoutes()}>
-      <AuthorStudioView flow={fakeFlow({ step: 'targets', draft: undecidedDraft() })} />
-    </MockedApi>
-  ),
-};
-
-export const StepTargetsSmusNotConfigured: Story = {
-  name: '2 · Datasets, SMUS not configured',
-  render: () => (
-    <MockedApi routes={authorRoutes([SMUS_NOT_CONFIGURED])}>
-      <AuthorStudioView flow={fakeFlow({ step: 'targets' })} />
-    </MockedApi>
-  ),
-};
-
-export const StepReviewUndecided: Story = {
-  name: '3 · Review, columns to decide',
-  render: () => (
-    <MockedApi routes={authorRoutes()}>
-      <AuthorStudioView flow={fakeFlow({ step: 'review', draft: undecidedDraft() })} />
-    </MockedApi>
-  ),
-};
-
-export const StepReviewProposed: Story = {
-  name: '3 · Review, after a proposal',
-  render: () => (
-    <MockedApi routes={authorRoutes()}>
-      <AuthorStudioView
-        flow={fakeFlow({
-          step: 'review',
-          draft: resolvedDraft(),
-          ops: PROPOSED_OPS,
-          proposal: {
-            ask: 'copy this onto sales gold',
-            intent: 'rebind',
-            mode: 'clone',
-            problems: [],
-            name: 'Sales overview (gold)',
-            reason:
-              'The ask names the gold sales table; every column resolves after two renames. Revenue by region reads better as columns.',
-            rebinds: [
-              {
-                identifier: 'sales',
-                targetDataSetId: 'sales-gold',
-                columnMap: FULL_MAP,
-                reason: 'named',
-              },
-            ],
-            unmapped: [],
-            ops: PROPOSED_OPS,
-            plan: resolvedDraft().plan ?? null,
-            model: { provider: 'bedrock', model: 'us.anthropic.claude-sonnet-4-6' },
-          },
-        })}
-      />
-    </MockedApi>
-  ),
-};
-
-export const StepStandardRules: Story = {
-  name: '4 · Standard: rules',
-  render: () => (
-    <AuthorStudioView
-      flow={fakeFlow({
-        step: 'standard',
-        draft: resolvedDraft(),
-        template: STANDARD_TEMPLATE,
-        typeRules: STANDARD_RULES,
-      })}
-    />
-  ),
-};
-
-export const StepStandardEmpty: Story = {
-  name: '4 · Standard: nothing chosen (skippable)',
-  render: () => <AuthorStudioView flow={fakeFlow({ step: 'standard', draft: resolvedDraft() })} />,
-};
-
-export const StepMockupMigrated: Story = {
-  name: '5 · Mockup: migrated with warnings',
-  render: () => (
-    <AuthorStudioView
-      flow={fakeFlow({
-        step: 'mockup',
-        draft: resolvedDraft(),
-        template: STANDARD_TEMPLATE,
-        typeRules: STANDARD_RULES,
-      })}
-    />
-  ),
-};
-
-export const StepPublishMigration: Story = {
-  name: '6 · Publish: migration summary',
-  render: () => (
-    <AuthorStudioView
-      flow={fakeFlow({
-        step: 'publish',
-        draft: resolvedDraft(),
-        template: STANDARD_TEMPLATE,
-        typeRules: STANDARD_RULES,
-        folder: { id: 'fld-sales-eu', name: 'EMEA', path: '/Sales/EMEA' },
-      })}
-    />
-  ),
-};
-
-export const StepMockupEditor: Story = {
-  name: '5 · Mockup editor, inspector open',
-  render: () => (
-    <MockedApi routes={authorRoutes()}>
-      <AuthorStudioView
-        flow={fakeFlow({
-          step: 'mockup',
-          draft: resolvedDraft(),
-          ops: EDITOR_OPS.slice(0, 2),
-          selectedElement: { sheetId: 'sheet-overview', elementId: 'bar-region' },
-        })}
-      />
-    </MockedApi>
-  ),
+export const Issues: Story = {
+  name: 'Editor · Issues',
+  render: () => view(fakeStudio({ repairPlan: REPAIR_PLAN })),
   parameters: {
     docs: {
       description: {
         story:
-          'The bar chart is selected: the inspector shows its title, type, position and size. It has already been retitled and retyped, so the card carries a "bar chart → line chart" chip.',
+          'Every kind of issue with its proposed fix, already applied to the canvas until you choose otherwise ("Fix all" takes back any "leave as is"), and the slow or failing visuals from CloudWatch below: a click selects one on the canvas.',
       },
     },
   },
 };
 
-export const StepMockupChanges: Story = {
-  name: '5 · Mockup, every kind of change',
-  render: () => (
-    <MockedApi routes={authorRoutes()}>
-      <AuthorStudioView
-        flow={fakeFlow({
-          step: 'mockup',
-          draft: resolvedDraft(),
-          ops: EDITOR_OPS,
-          addedFields: [
-            {
-              templateId: 't-net-margin',
-              identifier: 'sales',
-              name: 'net_margin',
-              expression: '{revenue} - {cost} - {returns}',
-            },
-          ],
-        })}
-      />
-    </MockedApi>
-  ),
+export const Inspect: Story = {
+  name: 'Editor · Inspect a visual',
+  render: () =>
+    view(
+      fakeStudio({
+        panel: 'inspect',
+        ops: EDITOR_OPS.slice(0, 2),
+        selectedElement: { sheetId: 'sheet-overview', elementId: 'bar-region' },
+      })
+    ),
   parameters: {
     docs: {
       description: {
         story:
-          'Renamed fields, a retyped chart, a moved KPI, a resized KPI, a removed line chart (a ghost on the Before view), a duplicated table and a renamed sheet: the change list and the diff chips say it all.',
+          'The bar chart is selected: the inspector shows its title, type, position and size. It has been retitled and retyped, so the canvas carries the change.',
       },
     },
   },
 };
 
-export const StepMockupBlocked: Story = {
-  name: '5 · Mockup, publishing blocked',
-  render: () => (
-    <AuthorStudioView
-      flow={fakeFlow({
-        step: 'mockup',
-        draft: undecidedDraft(),
-        previewModel: previewModelFor({}),
-      })}
-    />
-  ),
+export const Changes: Story = {
+  name: 'Editor · Changes',
+  render: () => view(fakeStudio({ panel: 'changes', ops: EDITOR_OPS })),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A retitle, a retype, a move, a resize, a removal, a duplicate and a sheet rename: each edit can be taken back, and the list below says what a save writes.',
+      },
+    },
+  },
 };
 
-export const StepPublishFolder: Story = {
-  name: '6 · Publish, into a folder with edits',
+export const Data: Story = {
+  name: 'Editor · Data and usage, with SMUS',
+  render: () => view(fakeStudio({ panel: 'data' })),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The datasets the dashboard reads: targets is governed by a SMUS asset, sales is not, and the Assistant is one click away to move it.',
+      },
+    },
+  },
+};
+
+export const DataWithoutSmus: Story = {
+  name: 'Editor · Data, SMUS not configured',
+  render: () => view(fakeStudio({ panel: 'data', smus: false })),
+};
+
+export const NotCached: Story = {
+  name: 'Editor · no cached definition',
+  render: () => view(fakeStudio({ noDefinition: true, repairPlan: REPAIR_PLAN })),
+};
+
+export const Save: Story = {
+  name: 'Editor · Save',
   render: () => (
     <MockedApi routes={authorRoutes()}>
-      <AuthorStudioView
-        flow={fakeFlow({
-          step: 'publish',
-          draft: resolvedDraft(),
-          ops: EDITOR_OPS.slice(0, 3),
-          folder: { id: 'fld-sales-eu', name: 'EMEA', path: '/Sales/EMEA' },
-          addedFields: [
-            {
-              templateId: 't-net-margin',
-              identifier: 'sales',
-              name: 'net_margin',
-              expression: '{revenue} - {cost} - {returns}',
-            },
-          ],
-        })}
-      />
+      <SaveDialog studio={fakeStudio({ ops: EDITOR_OPS.slice(0, 3) })} open onClose={() => {}} />
     </MockedApi>
   ),
 };
 
-export const StepPublishRejected: Story = {
-  name: '6 · Publish, rejected by QuickSight',
+export const SaveRejected: Story = {
+  name: 'Editor · Save, rejected by QuickSight',
   render: () => (
     <MockedApi routes={authorRoutes()}>
-      <AuthorStudioView
-        flow={fakeFlow({
-          step: 'publish',
-          draft: resolvedDraft(),
-          publishError:
+      <SaveDialog
+        studio={fakeStudio({
+          ops: EDITOR_OPS.slice(0, 1),
+          saveError:
             'Column net_revenue in dataset sales has type DECIMAL but the visual expects DATETIME',
         })}
+        open
+        onClose={() => {}}
       />
     </MockedApi>
   ),
 };
 
-// --- from nothing -----------------------------------------------------------
-
-/** The planner's five visuals as editable cards. */
-const proposedDrafts = () => draftsFromSpecs(PROPOSED_VISUALS);
-
-export const NewDatasets: Story = {
-  name: 'New · Datasets',
+export const Saved: Story = {
+  name: 'Editor · Saved as a copy',
   render: () => (
     <MockedApi routes={authorRoutes()}>
-      <AuthorStudioView flow={fakeFlow({ step: 'targets', fresh: { datasets: FRESH_DATASETS } })} />
-    </MockedApi>
-  ),
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'Two datasets chosen, each under the identifier its columns are addressed by, with the columns read from the export cache. A third can be added from SMUS or QuickSight below.',
-      },
-    },
-  },
-};
-
-export const NewVisualsProposed: Story = {
-  name: 'New · Visuals: proposed',
-  render: () => (
-    <MockedApi routes={authorRoutes()}>
-      <AuthorStudioView
-        flow={fakeFlow({
-          step: 'visuals',
-          ask: 'revenue and orders this year, revenue by region and channel, a monthly trend, top customers',
-          freshProposal: FRESH_PROPOSAL,
-          fresh: { datasets: FRESH_DATASETS, visuals: proposedDrafts() },
-        })}
-      />
-    </MockedApi>
-  ),
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'The ask went to the planner and its five visuals came back as cards: two KPIs, a bar chart by region coloured by channel, a monthly trend on a date column with its granularity, and a table. Every field is editable and each edit re-previews.',
-      },
-    },
-  },
-};
-
-export const NewVisualsByHand: Story = {
-  name: 'New · Visuals: by hand',
-  render: () => (
-    <MockedApi routes={authorRoutes()}>
-      <AuthorStudioView
-        flow={fakeFlow({
-          step: 'visuals',
-          fresh: {
-            datasets: FRESH_DATASETS,
-            visuals: [{ ...proposedDrafts()[2]!, color: undefined }, newVisual('targets')],
-          },
-        })}
-      />
-    </MockedApi>
-  ),
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'One visual built by naming columns, and a fresh card that still needs a title and a value: it is outlined in warning until it is complete, and the Continue button waits for it.',
-      },
-    },
-  },
-};
-
-export const NewMockup: Story = {
-  name: 'New · Mockup',
-  render: () => (
-    <MockedApi routes={authorRoutes()}>
-      <AuthorStudioView
-        flow={fakeFlow({
-          step: 'mockup',
-          fresh: { datasets: FRESH_DATASETS, visuals: proposedDrafts() },
-        })}
-      />
-    </MockedApi>
-  ),
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'The definition the publish step would write, drawn: KPIs first in their band, the rest in standard tiles. There is no Before view and no inspector, because there is nothing to compare it with.',
-      },
-    },
-  },
-};
-
-export const NewPublish: Story = {
-  name: 'New · Publish',
-  render: () => (
-    <MockedApi routes={authorRoutes()}>
-      <AuthorStudioView
-        flow={fakeFlow({
-          step: 'publish',
-          template: STANDARD_TEMPLATE,
-          folder: { id: 'fld-sales-eu', name: 'EMEA', path: '/Sales/EMEA' },
-          fresh: {
-            datasets: FRESH_DATASETS,
-            visuals: proposedDrafts(),
-            name: 'Regional sales',
-            audience: { type: 'dashboard', id: 'exec-summary', name: 'Executive summary' },
-          },
-        })}
-      />
-    </MockedApi>
-  ),
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'Name it, say whose readers it gets, pick a folder. The summary names every dataset, visual and piece of the standard before anything is written.',
-      },
-    },
-  },
-};
-
-export const NewCreated: Story = {
-  name: 'New · Created',
-  render: () => (
-    <MockedApi routes={authorRoutes()}>
-      <AuthorStudioView
-        flow={fakeFlow({
-          step: 'publish',
-          fresh: {
-            datasets: FRESH_DATASETS,
-            visuals: proposedDrafts(),
-            name: 'Regional sales',
-          },
+      <SaveDialog
+        studio={fakeStudio({
           result: {
             assetType: 'dashboard',
-            assetId: 'regional-sales-new',
-            name: 'Regional sales',
-            mode: 'create',
+            assetId: 'sales-overview-copy',
+            name: 'Sales overview (EMEA)',
+            mode: 'clone',
             versionNumber: 1,
-            folderIds: [],
+            folderIds: ['fld-sales-eu'],
             changes: [
-              { kind: 'visual', description: 'Added KPI "Revenue": sum of net_revenue' },
               {
                 kind: 'visual',
-                description:
-                  'Added Bar chart "Revenue by region": sum of net_revenue, by region, coloured by channel',
+                description: '"Revenue by region" changed from bar chart to line chart',
               },
+              { kind: 'layout', description: 'Moved "Orders" to column 0, row 6' },
             ],
           },
         })}
+        open
+        onClose={() => {}}
       />
     </MockedApi>
   ),
 };
 
-export const StepPublished: Story = {
-  name: '6 · Published',
-  render: () => (
-    <AuthorStudioView
-      flow={fakeFlow({
-        step: 'publish',
-        draft: resolvedDraft(),
-        folder: { id: 'fld-sales-eu', name: 'EMEA', path: '/Sales/EMEA' },
-        result: {
-          assetType: 'dashboard',
-          assetId: 'sales-overview-gold',
-          name: 'Sales overview (gold)',
-          mode: 'clone',
-          versionNumber: 1,
-          folderIds: ['fld-sales-eu'],
-          changes: [
-            { kind: 'rebind', description: 'Dataset "sales" now reads sales_gold' },
-            { kind: 'rename', description: 'Column revenue renamed to net_revenue in "sales"' },
-            { kind: 'rename', description: 'Column order_date renamed to Order Date in "sales"' },
-            {
-              kind: 'visual',
-              description: '"Revenue by region" changed from bar chart to line chart',
-            },
-          ],
-        },
-      })}
-    />
-  ),
+// --- templates and scripts -------------------------------------------------------
+
+export const Templates: Story = {
+  name: 'Templates',
+  render: () => view(fakeStudio({ closed: true }), 'templates'),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'The naming standard (c_ in analyses and dashboards, c_ds_ in datasets), the filter bars, visuals, calculated fields and layouts everything reuses.',
+      },
+    },
+  },
+};
+
+export const Scripts: Story = {
+  name: 'Scripts',
+  render: () => view(fakeStudio({ closed: true }), 'scripts'),
 };

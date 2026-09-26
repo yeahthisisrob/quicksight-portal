@@ -1,6 +1,6 @@
 // Export all utilities
 
-export { readAiModel, useAiModel } from './aiModelChoice';
+export { useAiModel } from './aiModelChoice';
 export * from './assetTypeUtils';
 export * from './exportUtils';
 export * from './functionCategories';

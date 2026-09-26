@@ -1,0 +1,80 @@
+/**
+ * Everything repeatable the organisation standardises, in one place: how
+ * calculated fields are named, the filter bars every analysis starts from, the visuals and calculated fields
+ * worth reusing, and the dashboards whose layout new assets follow. The
+ * Assistant and the portal's write paths apply them; changes here reach both.
+ */
+import { Box, Stack, Typography } from '@mui/material';
+
+import { pal } from '@/shared/design-system';
+
+import { CalculatedFieldTemplateList } from './CalculatedFieldTemplateList';
+import { FilterBarTemplates } from './FilterBarTemplates';
+import { LayoutStandards } from './LayoutStandards';
+import { NamingStandardForm } from './NamingStandardForm';
+import { VisualTemplates } from './VisualTemplates';
+
+function Section({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Box
+      component="section"
+      sx={(theme) => ({
+        p: 2,
+        border: `1px solid ${pal(theme).line.divider}`,
+        borderRadius: `${theme.shape.borderRadius}px`,
+        bgcolor: 'background.paper',
+      })}
+    >
+      <Typography variant="h6">{title}</Typography>
+      <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5 }}>
+        {description}
+      </Typography>
+      {children}
+    </Box>
+  );
+}
+
+export function TemplatesView() {
+  return (
+    <Stack spacing={2}>
+      <Section
+        title="Naming"
+        description="The prefix every calculated field starts with, by where it is defined, so a name says whether the field lives in the dataset or the analysis. The Assistant names new fields this way."
+      >
+        <NamingStandardForm />
+      </Section>
+      <Section
+        title="Filter bars"
+        description="The filters a sheet's control bar carries, in order and at their widths. The default one starts every analysis the portal builds."
+      >
+        <FilterBarTemplates />
+      </Section>
+      <Section
+        title="Visuals"
+        description="Visuals by column name, reusable on any dataset with those columns. The assistant adds them instead of composing the same visual again."
+      >
+        <VisualTemplates />
+      </Section>
+      <Section
+        title="Calculated fields"
+        description="Expressions saved for reuse. The portal keeps these; SMUS has no home for them."
+      >
+        <CalculatedFieldTemplateList />
+      </Section>
+      <Section
+        title="Layouts"
+        description="Dashboards and analyses whose layout, text, controls and theme new assets can follow."
+      >
+        <LayoutStandards />
+      </Section>
+    </Stack>
+  );
+}

@@ -10,12 +10,12 @@ import { useState } from 'react';
 import { assetsApi } from '@/shared/api';
 import { useDebounce } from '@/shared/lib/useDebounce';
 
-import type { AuthorFolder } from '../model/authorFlow';
+import type { StudioFolder } from '../model/studio';
 
 const SEARCH_DEBOUNCE_MS = 300;
 const PAGE_SIZE = 25;
 
-async function listFolders(search: string): Promise<AuthorFolder[]> {
+async function listFolders(search: string): Promise<StudioFolder[]> {
   const result = await assetsApi.getFoldersPaginated({
     search: search || undefined,
     page: 1,
@@ -25,8 +25,8 @@ async function listFolders(search: string): Promise<AuthorFolder[]> {
 }
 
 interface FolderPickerProps {
-  value: AuthorFolder | null;
-  onChange: (folder: AuthorFolder | null) => void;
+  value: StudioFolder | null;
+  onChange: (folder: StudioFolder | null) => void;
   disabled?: boolean;
 }
 
@@ -43,7 +43,7 @@ export function FolderPicker({ value, onChange, disabled = false }: FolderPicker
   const all = value && !options.some((f) => f.id === value.id) ? [value, ...options] : options;
 
   return (
-    <Autocomplete<AuthorFolder>
+    <Autocomplete<StudioFolder>
       options={all}
       value={value}
       onChange={(_, next) => onChange(next)}

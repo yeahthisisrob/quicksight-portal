@@ -68,7 +68,7 @@ const sampleErrors = [
   },
 ];
 
-/** The primary action sends you to Author's Repair step for this asset. */
+/** The primary action opens this asset in the Studio, on its Issues panel. */
 export const DashboardErrors: Story = {
   args: {
     assetName: 'Sales Dashboard',

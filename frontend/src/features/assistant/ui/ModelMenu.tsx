@@ -3,7 +3,7 @@
  * apps do it. Two pills: Chat (reads, finds, answers; the cheapest is usually
  * enough) and Builds (drafts what gets built; worth a stronger model). Each
  * opens a menu of models with a rough cost for that kind of work. The choice
- * is kept in the person's browser and followed by the Studio's planner too.
+ * is kept in the person's browser, so it follows them across the page.
  */
 import { AutoAwesome, ChatBubbleOutlineOutlined, Check, ExpandMore } from '@mui/icons-material';
 import {

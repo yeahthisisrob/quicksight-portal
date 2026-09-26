@@ -8,7 +8,6 @@ import {
   OPERATIONS_TAB_PARAM,
   type OperationsTab,
   parseOperationsTab,
-  ScriptsPanel,
 } from '@/widgets/operations';
 
 import { PageHeader, TabBar } from '@/shared/design-system';
@@ -22,12 +21,11 @@ const TABS: Array<{ value: OperationsTab; label: string; icon: keyof typeof navi
   { value: 'export', label: 'Export', icon: 'exportManagement' },
   { value: 'smus', label: 'SageMaker Unified Studio', icon: 'dataCatalog' },
   { value: 'archived', label: 'Archived assets', icon: 'archive' },
-  { value: 'scripts', label: 'Scripts', icon: 'code' },
 ];
 
 /**
- * Exports, the SMUS export, archived assets and maintenance scripts: the
- * things an operator does to the account rather than to one asset. The tab
+ * Exports, the SMUS export and archived assets: the things an operator does
+ * to the account rather than to one asset. The tab
  * is in the URL.
  */
 export default function OperationsPage() {
@@ -56,7 +54,7 @@ export default function OperationsPage() {
     <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0 }}>
       <PageHeader
         title="Operations"
-        description="Exports, the SageMaker Unified Studio snapshot, archived assets and maintenance scripts for the whole account."
+        description="Exports, the SageMaker Unified Studio snapshot and archived assets for the whole account."
       >
         <TabBar
           ariaLabel="Operations"
@@ -73,7 +71,6 @@ export default function OperationsPage() {
         {tab === 'export' && <ExportPanel />}
         {tab === 'smus' && <SmusExportPanel />}
         {tab === 'archived' && <ArchivedAssetsPanel />}
-        {tab === 'scripts' && <ScriptsPanel />}
       </Box>
     </Box>
   );

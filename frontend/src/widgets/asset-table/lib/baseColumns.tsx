@@ -7,9 +7,9 @@ import type { NavigateFunction } from 'react-router-dom';
 
 import { PermissionsCell } from '@/entities/asset';
 import { FoldersCell } from '@/entities/folder';
+import { SmusLinkBadge } from '@/entities/smus';
 import { TagsCell } from '@/entities/tag';
 import type { ColumnConfig } from '@/features/asset-management';
-import { SmusLinkBadge } from '@/features/smus';
 
 import { ActionsDropdown } from '../ui/ActionsDropdown';
 import { type AssetRow, copyToClipboard, renderDateCell } from './createAssetColumns';

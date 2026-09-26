@@ -9,7 +9,7 @@ import { archivedRoutes, ITEMS } from './OperationsPage/__stories__/fixtures';
 
 /**
  * The Operations page in the app shell, API stubbed: the QuickSight export,
- * the SageMaker Unified Studio export, archived assets and scripts as tabs.
+ * the SageMaker Unified Studio export and archived assets as tabs.
  */
 const meta: Meta<typeof OperationsPage> = {
   title: 'Pages/Operations',
@@ -43,15 +43,6 @@ export const ArchivedAssets: Story = {
   parameters: { router: { initialEntries: ['/operations?tab=archived'] } },
   render: () => (
     <AppShell path="operations" routes={archivedRoutes(ITEMS)}>
-      <OperationsPage />
-    </AppShell>
-  ),
-};
-
-export const Scripts: Story = {
-  parameters: { router: { initialEntries: ['/operations?tab=scripts'] } },
-  render: () => (
-    <AppShell path="operations" routes={[]}>
       <OperationsPage />
     </AppShell>
   ),

@@ -1,25 +1,16 @@
 /**
- * Whether SageMaker Unified Studio is usable from this portal. Author and the
- * catalog are built on SMUS projects, so there is nothing to show until a
- * domain is set and at least one project is selected in Settings. Both come
+ * Whether SageMaker Unified Studio is usable from this portal. The catalog is
+ * built on SMUS projects, so there is nothing to show until a domain is set
+ * and at least one project is selected in Settings. Both come
  * from the settings snapshot, so no catalog sweep is needed to decide.
  */
 import type { SettingsSnapshot, SmusProjectDiagnostics } from '@/shared/api/modules/settings';
+import { settingValue } from '@/shared/lib/useSettingsSnapshot';
 
 type SmusReadiness = 'not-configured' | 'no-projects' | 'ready';
 
 const SMUS_DOMAIN_KEY = 'smus.domainId';
 const SMUS_PROJECTS_KEY = 'smus.projectIds';
-
-function settingValue(snapshot: SettingsSnapshot, key: string): unknown {
-  for (const group of snapshot.groups) {
-    const found = group.settings.find((s) => s.key === key);
-    if (found) {
-      return found.value;
-    }
-  }
-  return undefined;
-}
 
 /** The project ids selected in Settings (env or stored). */
 export function selectedProjectIds(snapshot: SettingsSnapshot): string[] {

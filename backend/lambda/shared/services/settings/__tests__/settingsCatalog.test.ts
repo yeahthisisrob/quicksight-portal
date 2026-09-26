@@ -90,5 +90,20 @@ describe('validateUpdate', () => {
     ).toThrow('at most');
     expect(() => validateUpdate({ 'guidance.fieldStrategy': 'gold' })).toThrow('must be one of');
     expect(() => validateUpdate({ 'smus.domainId': 5 })).toThrow('must be a string');
+    expect(() => validateUpdate({ 'guidance.calcFieldPrefix': 'c-' })).toThrow('underscores');
+    expect(() => validateUpdate({ 'guidance.datasetCalcFieldPrefix': '_ds' })).toThrow(
+      'starting with a letter'
+    );
+  });
+
+  it('defaults the calculated-field prefixes to c_ and c_ds_, and accepts another', () => {
+    const settings = buildSnapshot({}, {}).groups.flatMap((g) => g.settings);
+    const value = (key: string) => settings.find((s) => s.key === key)?.value;
+    expect(value('guidance.calcFieldPrefix')).toBe('c_');
+    expect(value('guidance.datasetCalcFieldPrefix')).toBe('c_ds_');
+    expect(settings.some((s) => 'pattern' in s)).toBe(false);
+    expect(validateUpdate({ 'guidance.calcFieldPrefix': ' calc_ ' })).toEqual({
+      'guidance.calcFieldPrefix': 'calc_',
+    });
   });
 });

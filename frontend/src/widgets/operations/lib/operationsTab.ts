@@ -1,4 +1,4 @@
-const OPERATIONS_TABS = ['export', 'smus', 'archived', 'scripts'] as const;
+const OPERATIONS_TABS = ['export', 'smus', 'archived'] as const;
 export type OperationsTab = (typeof OPERATIONS_TABS)[number];
 
 const DEFAULT_OPERATIONS_TAB: OperationsTab = 'export';
@@ -28,5 +28,4 @@ export const LEGACY_OPERATIONS_ROUTES: Record<string, OperationsTab> = {
   '/export': 'export',
   '/smus': 'smus',
   '/archived-assets': 'archived',
-  '/scripts': 'scripts',
 };

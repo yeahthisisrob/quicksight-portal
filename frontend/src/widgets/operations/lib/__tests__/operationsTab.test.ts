@@ -10,7 +10,7 @@ import {
 describe('operations tab URL sync', () => {
   it('reads a known tab from the query parameter', () => {
     expect(parseOperationsTab('archived')).toBe('archived');
-    expect(parseOperationsTab('scripts')).toBe('scripts');
+    expect(parseOperationsTab('smus')).toBe('smus');
   });
 
   it('falls back to export for anything unknown or missing', () => {
@@ -18,6 +18,8 @@ describe('operations tab URL sync', () => {
     expect(parseOperationsTab(undefined)).toBe('export');
     expect(parseOperationsTab('nope')).toBe('export');
     expect(parseOperationsTab('')).toBe('export');
+    // Scripts moved to the Author Studio.
+    expect(parseOperationsTab('scripts')).toBe('export');
   });
 
   it('leaves the default tab out of the URL', () => {
@@ -26,7 +28,7 @@ describe('operations tab URL sync', () => {
   });
 
   it('round-trips every tab', () => {
-    for (const tab of ['export', 'smus', 'archived', 'scripts'] as const) {
+    for (const tab of ['export', 'smus', 'archived'] as const) {
       const search = new URLSearchParams(operationsTabSearch(tab));
       expect(parseOperationsTab(search.get('tab'))).toBe(tab);
     }

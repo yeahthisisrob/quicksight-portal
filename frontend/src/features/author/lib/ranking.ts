@@ -7,7 +7,7 @@
  */
 import type { components } from '@shared/generated/types';
 
-import { isTemplate } from '../model/templateTag';
+import { isTemplate } from '@/shared/lib/templateTag';
 
 type ViewActivitySummary = components['schemas']['ViewActivitySummary'];
 
@@ -16,6 +16,8 @@ export interface RankableSource {
   name: string;
   tags?: Array<{ key: string; value: string }>;
   activity?: ViewActivitySummary | null;
+  /** What QuickSight reports wrong with the definition, when anything. */
+  definitionErrors?: unknown[] | null;
 }
 
 export type SourceSort = 'views' | 'recent' | 'name';
@@ -26,9 +28,9 @@ export const SOURCE_SORTS: ReadonlyArray<{ value: SourceSort; label: string }> =
   { value: 'name', label: 'Name' },
 ];
 
-export type SourceBadge = 'template' | 'popular' | 'unused';
+export type SourceBadge = 'errors' | 'template' | 'popular' | 'unused';
 
-export type SourceGroup = 'templates' | 'popular' | 'rest';
+export type SourceGroup = 'errors' | 'templates' | 'popular' | 'rest';
 
 export interface RankedSource<T extends RankableSource = RankableSource> {
   item: T;
@@ -43,6 +45,7 @@ const QUARTILE = 4;
 
 export const views = (item: RankableSource): number => item.activity?.totalViews ?? 0;
 export const viewers = (item: RankableSource): number => item.activity?.uniqueViewers ?? 0;
+export const errorCount = (item: RankableSource): number => item.definitionErrors?.length ?? 0;
 
 function lastViewedMs(item: RankableSource): number | null {
   const raw = item.activity?.lastViewed;
@@ -80,6 +83,9 @@ export function badgesFor(
   now = Date.now()
 ): SourceBadge[] {
   const out: SourceBadge[] = [];
+  if (errorCount(item) > 0) {
+    out.push('errors');
+  }
   if (isTemplate(item.tags)) {
     out.push('template');
   }
@@ -105,7 +111,10 @@ function compare(sort: SourceSort) {
   };
 }
 
-/** Templates, then popular, then the rest; each group in the chosen order. */
+/**
+ * What needs fixing, then templates, then popular, then the rest; each group
+ * in the chosen order. An editing studio opens on what is broken.
+ */
 export function rankSources<T extends RankableSource>(
   items: T[],
   sort: SourceSort = 'views',
@@ -114,19 +123,22 @@ export function rankSources<T extends RankableSource>(
   const threshold = popularThreshold(items);
   const ranked = items.map((item) => {
     const badges = badgesFor(item, threshold, now);
-    const group: SourceGroup = badges.includes('template')
-      ? 'templates'
-      : badges.includes('popular')
-        ? 'popular'
-        : 'rest';
+    const group: SourceGroup = badges.includes('errors')
+      ? 'errors'
+      : badges.includes('template')
+        ? 'templates'
+        : badges.includes('popular')
+          ? 'popular'
+          : 'rest';
     return { item, group, badges };
   });
-  const order: Record<SourceGroup, number> = { templates: 0, popular: 1, rest: 2 };
+  const order: Record<SourceGroup, number> = { errors: 0, templates: 1, popular: 2, rest: 3 };
   const by = compare(sort);
   return ranked.sort((a, b) => order[a.group] - order[b.group] || by(a.item, b.item));
 }
 
 export const GROUP_LABELS: Record<SourceGroup, string> = {
+  errors: 'Needs fixing',
   templates: 'Templates',
   popular: 'Popular',
   rest: 'Everything else',

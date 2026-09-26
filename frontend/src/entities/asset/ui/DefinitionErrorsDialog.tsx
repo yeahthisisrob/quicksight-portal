@@ -24,18 +24,18 @@ interface DefinitionErrorsDialogProps {
   onClose: () => void;
   assetName: string;
   assetType: 'dashboard' | 'analysis';
-  /** The asset, so the dialog can send you to Author to repair it. */
+  /** The asset, so the dialog can send you to the Studio to fix it. */
   assetId?: string;
   errors: DefinitionError[];
 }
 
-/** Author opens on its Repair step for this asset. */
+/** The Studio opens this asset on its Issues panel, every fix proposed. */
 function repairUrl(
   assetType: 'dashboard' | 'analysis',
   assetId: string | undefined,
   assetName: string
 ): string {
-  return `/author?type=${assetType}&id=${encodeURIComponent(assetId ?? '')}&name=${encodeURIComponent(assetName)}&repair=1`;
+  return `/author?tab=studio&type=${assetType}&id=${encodeURIComponent(assetId ?? '')}&name=${encodeURIComponent(assetName)}`;
 }
 
 const getErrorSeverity = (errorType: string): 'error' | 'warning' => {
@@ -190,7 +190,7 @@ export function DefinitionErrorsDialog({
           startIcon={<BuildIcon />}
           onClick={onClose}
         >
-          Repair in Author
+          Fix in Studio
         </Button>
       </DialogActions>
     </Dialog>

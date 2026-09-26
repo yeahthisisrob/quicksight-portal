@@ -28,8 +28,9 @@ export default function ApiTab({ keysPanel, origin }: ApiTabProps) {
           Author by API
         </Typography>
         <Typography variant="body1" sx={{ color: 'text.secondary', mt: 0.5 }}>
-          Everything the Studio does is a call a key can make. Read what the portal knows, build the
-          change with whatever you like, and publish it back through the same checks.
+          Everything the Assistant and the Studio do is a call a key can make. Read what the portal
+          knows, build the change with whatever you like, and publish it back through the same
+          checks.
         </Typography>
       </Box>
       <Stack spacing={3}>

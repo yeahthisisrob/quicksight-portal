@@ -33,6 +33,7 @@ import { useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 
 import { FieldLineageGraph } from '@/entities/field';
+import { SaveTemplateDialog } from '@/entities/template';
 
 import type {
   CalculatedFieldRef,
@@ -44,7 +45,6 @@ import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 
 import { prettyExpression } from '../../model/fieldCatalog';
 import FieldMetadataEditDialog from '../dialogs/FieldMetadataEditDialog';
-import { SaveTemplateDialog } from '../templates/SaveTemplateDialog';
 import { assetPath } from './assetPath';
 import { FieldUsagePanel } from './FieldUsagePanel';
 
@@ -280,7 +280,7 @@ export function CalculatedFieldDetail({
               icon={<CollectionsBookmark />}
               label="Template"
               component={RouterLink}
-              to="/data-catalog?tab=templates"
+              to="/author?tab=studio&view=templates"
               clickable
             />
           ) : null}

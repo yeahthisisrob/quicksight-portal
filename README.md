@@ -4,43 +4,36 @@
 [![Build](https://github.com/yeahthisisrob/quicksight-portal/actions/workflows/build.yml/badge.svg)](https://github.com/yeahthisisrob/quicksight-portal/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A self-hosted portal for Amazon QuickSight that goes past inventory: it can **author**. Describe a change in plain language, watch a hybrid planner turn it into a validated plan, see the result as a wireframe before anything is written, then publish a copy or an in-place update. Underneath sits the full admin toolset: every dashboard, analysis, dataset, data source, folder, user and group in the account, with lineage, activity analytics, safe export and restore, and a growing SageMaker Unified Studio integration. Deploys into your own AWS account with one CDK command.
+A self-hosted portal for Amazon QuickSight that goes past inventory: it can **author**. Describe a change in plain language, watch a hybrid planner turn it into a validated plan, see the result as a wireframe before anything is written, then publish a copy or an in-place update. Or open an existing dashboard in the Studio and fix it by hand: its errors, its visuals, its layout. Underneath sits the full admin toolset: every dashboard, analysis, dataset, data source, folder, user and group in the account, with lineage, activity analytics, safe export and restore, and a growing SageMaker Unified Studio integration. Deploys into your own AWS account with one CDK command.
 
 ![Author: the mockup step](docs/screenshots/author-mockup.png)
 
 ## Features
 
-### Author: the way dashboards get made
+### Author: the Assistant makes, the Studio fixes
 
-Author is built for the people who make dashboards and analyses all day. Start from something that already works, change it with clicks or with words, see the result before it exists, then publish it into the right folder with the right audience. Or start from nothing at all.
+Author has two halves with one job each.
 
-1. **Source** - dashboards and analyses ranked by real use: templates first, then the most viewed, with views, viewers, last-viewed dates, and an insights card for the selected one. Dashboards with QuickSight CloudWatch metrics show their p90 load time, and visuals that are slow or erroring are flagged on the preview so nobody clones a broken one.
-2. **Repair** - when QuickSight refuses an asset (a column the dataset no longer has, a parameter never declared, a dataset that is gone), the plan lists every issue with a fix: rename to the column that took its place, remove every reference, declare or drop the parameter, choose another dataset. Accept the proposal or pick alternatives, see the result in the mockup, and publish in place. Broken assets stop being unpublishable as code.
-3. **Datasets** - for each dataset the definition reads, choose what it should read instead, scoped by SMUS project: a **published SMUS asset** (with the QuickSight datasets already reading it, or create one in place through an existing data source), or any QuickSight dataset.
-4. **Describe & review** - type what you want, or fill the form by hand. Every referenced column is resolved against the target as matched, renamed, suggested or missing; suggestions are never applied silently. Add calculated fields from the template library.
-5. **Standard** - migrate onto a template dashboard's layout standard: its title band, notes and links, its controls rebound by column name, its sheet names and theme, with the visuals reflowed into its tile size, KPIs first. Convert visual types in bulk (table to pivot, bar to column, pie to donut), standardise KPIs, and cast columns whose type changed in the new dataset. What could not be carried is listed on the mockup, never silently dropped.
-6. **Mockup and edit** - a before/after wireframe of the exact definition that would be written. Click any visual to retitle it, change its type (bar, column, line, pie, donut, table, pivot), move and resize it on the grid, duplicate or remove it, rename sheets. Every edit is a validated operation, listed in plain English, highlighted on the wireframe.
-7. **Publish** - a summary of every change, a folder to publish into, then create the copy (keeping the source's theme and permissions) or apply in place. "Open in QuickSight" to fine-tune, or start another from the result.
+**The Assistant** is where things get made and moved: a new dashboard or analysis from a sentence, a copy onto other datasets, a migration onto a layout standard, a bulk chart-type conversion. It finds what it needs through the context graph, draws a plan and a wireframe before anything is written, and prepares the write for you to run. Or build in the QuickSight console; the Studio picks the result up either way.
 
-**From nothing.** "Start from nothing" on the Source step swaps the flow for a shorter one: pick the datasets the new asset reads, then describe what you want and let the planner propose the visuals, or name the columns yourself. Proposed visuals land as cards you can change - type, title, dataset, category and granularity, values and aggregations, colour - and every edit redraws the mockup. From there it rejoins the same Standard, Mockup and Publish steps, so a dashboard made from scratch lands on the same layout standard, in the same folder, with the same audience as one that was cloned.
+**The Studio** edits and fixes what already exists, by hand and deterministically: no model is asked anything. It is organised by function, not steps:
 
-![Author: sources ranked by use, with insights and flagged visuals](docs/screenshots/author-source.png)
+- **Editor** - open a dashboard or analysis: the ones QuickSight reports errors on come first, then templates, then the most viewed. The asset is drawn on a canvas, and every function is one click away beside it:
+  - **Issues** - everything that stops QuickSight writing it (a column the dataset no longer has, a parameter never declared, a dataset that is gone), each with the fix already proposed and applied to the canvas: rename to the column that took its place, remove every reference, declare or drop the parameter, choose another dataset. Below them, the visuals CloudWatch says are slow or failing.
+  - **Inspect** - click any visual to retitle it, change its type (bar, column, line, pie, donut, table, pivot), move and resize it on the grid, swap it with a neighbour, duplicate or remove it; rename sheets.
+  - **Changes** - every edit, each one removable, and what a save will write in plain English.
+  - **Data** - the datasets it reads and which a published SMUS asset governs, plus views, viewers and load times.
+  - **Save** - over the asset (a new version for a dashboard), or as a named copy in a folder.
+- **Templates** - what the organisation reuses: the calculated-field naming standard (`c_` in analyses and dashboards, `c_ds_` in datasets by default, followed by the Assistant too), filter bars, visual templates, calculated-field templates and layout standards.
+- **Scripts** - fixes across the whole account, each previewed before it runs.
 
-![Author: repairing a dashboard QuickSight refuses to write](docs/screenshots/author-repair.png)
+![Author: the Studio editor with the inspector and the change list](docs/screenshots/author-mockup.png)
 
-![Author: choosing targets from published SMUS assets](docs/screenshots/author-targets.png)
-
-![Author: the Standard step - a template dashboard and bulk type rules](docs/screenshots/author-standard.png)
-
-![Author: a dashboard from nothing - the planner's visuals, every one editable](docs/screenshots/author-new-visuals.png)
-
-![Author: the mockup editor with the inspector and the change list](docs/screenshots/author-mockup.png)
-
-![Author: publish with every change spelled out and a folder to land in](docs/screenshots/author-publish.png)
+![Author: fixing a dashboard QuickSight refuses to write](docs/screenshots/author-repair.png)
 
 ### Search: everything, in plain words
 
-Cmd+K anywhere, or `GET /search?q=`. One ranked search over dashboards, analyses, datasets, data sources, folders, SMUS listings, calculated fields, visuals and the template library. Calculated fields match on their expressions, so the business rules buried in them are findable, and one hit per distinct expression lists every asset that defines it. Visuals match on title, chart type, sheet and the fields in their wells. Every hit says why it matched and carries a one-line summary that reads well for a person and drops straight into an agent's prompt. No model call: the index is built from the caches and reused until an export changes them. Author's source and dataset pickers and the catalog search are the same call.
+Cmd+K anywhere, or `GET /search?q=`. One ranked search over dashboards, analyses, datasets, data sources, folders, SMUS listings, calculated fields, visuals and the template library. Calculated fields match on their expressions, so the business rules buried in them are findable, and one hit per distinct expression lists every asset that defines it. Visuals match on title, chart type, sheet and the fields in their wells. Every hit says why it matched and carries a one-line summary that reads well for a person and drops straight into an agent's prompt. No model call: the index is built from the caches and reused until an export changes them. The Studio's asset search and the catalog search are the same call.
 
 ![Search: the command palette](docs/screenshots/search-palette.png)
 
