@@ -1,17 +1,10 @@
-import { Close, Delete, Edit } from '@mui/icons-material';
-import {
-  Alert,
-  Box,
-  Chip,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  Skeleton,
-  Stack,
-  Tooltip,
-  Typography,
-} from '@mui/material';
+/**
+ * The calculated-field template library: expressions saved for reuse, kept
+ * by the portal because SMUS has no home for them. Edit and delete here;
+ * save a new one from a calculated field in the catalog.
+ */
+import { Delete, Edit } from '@mui/icons-material';
+import { Alert, Box, Chip, IconButton, Skeleton, Stack, Tooltip, Typography } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { useState } from 'react';
 
@@ -21,11 +14,6 @@ import { EmptyState, pal } from '@/shared/design-system';
 
 import { useDeleteTemplate, useTemplates } from '../../lib/useTemplates';
 import { SaveTemplateDialog } from './SaveTemplateDialog';
-
-interface TemplateLibraryDialogProps {
-  open: boolean;
-  onClose: () => void;
-}
 
 function TemplateRow({
   template,
@@ -97,8 +85,7 @@ function TemplateRow({
   );
 }
 
-/** The saved calculated-field templates, with edit and delete. */
-export function TemplateLibraryDialog({ open, onClose }: TemplateLibraryDialogProps) {
+export function CalculatedFieldTemplateList() {
   const { enqueueSnackbar } = useSnackbar();
   const templates = useTemplates();
   const remove = useDeleteTemplate();
@@ -119,51 +106,34 @@ export function TemplateLibraryDialog({ open, onClose }: TemplateLibraryDialogPr
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ pr: 6 }}>
-        Template library
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          Calculated-field expressions saved for reuse. The portal keeps these; SMUS has no home for
-          them.
-        </Typography>
-        <IconButton
-          aria-label="Close"
-          onClick={onClose}
-          sx={{ position: 'absolute', right: 8, top: 8 }}
-        >
-          <Close />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent dividers>
-        {templates.isLoading ? (
-          <Stack spacing={1.5}>
-            <Skeleton variant="rounded" height={88} />
-            <Skeleton variant="rounded" height={88} />
-          </Stack>
-        ) : templates.isError ? (
-          <Alert severity="error">
-            {getApiErrorMessage(templates.error, 'The library could not be loaded')}
-          </Alert>
-        ) : (templates.data?.length ?? 0) === 0 ? (
-          <EmptyState
-            compact
-            title="No templates yet"
-            description='Open a calculated field in the catalog and choose "Save as template".'
-          />
-        ) : (
-          <Stack spacing={1.5}>
-            {templates.data?.map((template) => (
-              <TemplateRow
-                key={template.id}
-                template={template}
-                onEdit={() => setEditing(template)}
-                onDelete={() => handleDelete(template)}
-              />
-            ))}
-          </Stack>
-        )}
-      </DialogContent>
-
+    <>
+      {templates.isLoading ? (
+        <Stack spacing={1.5}>
+          <Skeleton variant="rounded" height={88} />
+          <Skeleton variant="rounded" height={88} />
+        </Stack>
+      ) : templates.isError ? (
+        <Alert severity="error">
+          {getApiErrorMessage(templates.error, 'The library could not be loaded')}
+        </Alert>
+      ) : (templates.data?.length ?? 0) === 0 ? (
+        <EmptyState
+          compact
+          title="No calculated-field templates yet"
+          description='Open a calculated field in the catalog and choose "Save as template".'
+        />
+      ) : (
+        <Stack spacing={1.5}>
+          {templates.data?.map((template) => (
+            <TemplateRow
+              key={template.id}
+              template={template}
+              onEdit={() => setEditing(template)}
+              onDelete={() => handleDelete(template)}
+            />
+          ))}
+        </Stack>
+      )}
       {editing && (
         <SaveTemplateDialog
           open
@@ -179,6 +149,6 @@ export function TemplateLibraryDialog({ open, onClose }: TemplateLibraryDialogPr
           }}
         />
       )}
-    </Dialog>
+    </>
   );
 }

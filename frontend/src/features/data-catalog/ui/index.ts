@@ -17,4 +17,4 @@ export { FromSmusSection } from './FromSmusSection';
 export { InQuickSightSection } from './InQuickSightSection';
 export { default as MultipleExpressionsDisplay } from './MultipleExpressionsDisplay';
 export { ProjectSelect } from './ProjectSelect';
-export { SaveTemplateDialog, TemplateLibraryDialog } from './templates';
+export { SaveTemplateDialog, TemplatesView } from './templates';

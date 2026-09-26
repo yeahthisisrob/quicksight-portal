@@ -158,6 +158,9 @@ export type MetadataForm = CatalogSchemas['MetadataForm'];
 export type PortalFieldMetadata = CatalogSchemas['PortalFieldMetadata'];
 export type CalculatedFieldTemplate = CatalogSchemas['CalculatedFieldTemplate'];
 export type CalculatedFieldTemplateInput = CatalogSchemas['CalculatedFieldTemplateInput'];
+export type FilterBarTemplate = CatalogSchemas['FilterBarTemplate'];
+export type FilterBarTemplateInput = CatalogSchemas['FilterBarTemplateInput'];
+export type FilterBarControl = CatalogSchemas['FilterBarControl'];
 export type FieldVisualUsage = CatalogSchemas['FieldVisualUsage'];
 export type FieldConflict = CatalogSchemas['FieldConflict'];
 export type ExpressionVariant = CatalogSchemas['ExpressionVariant'];
@@ -319,5 +322,48 @@ export const smusCatalogApi = {
       throw new Error(response.data.error || 'Failed to load the asset');
     }
     return response.data.data;
+  },
+};
+
+const FILTER_BARS = '/data-catalog/templates/filter-bars';
+
+/**
+ * Filter bar templates: the standard filters, order and widths of a
+ * sheet's control bar. The default is applied to every analysis the portal
+ * builds from nothing.
+ */
+export const filterBarTemplatesApi = {
+  async list(): Promise<FilterBarTemplate[]> {
+    const response =
+      await apiClient.get<ApiResponse<{ templates: FilterBarTemplate[] }>>(FILTER_BARS);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to load the filter bars');
+    }
+    return response.data.data.templates;
+  },
+
+  async save(
+    templateId: string | undefined,
+    input: FilterBarTemplateInput
+  ): Promise<FilterBarTemplate> {
+    const response = templateId
+      ? await apiClient.put<ApiResponse<FilterBarTemplate>>(
+          `${FILTER_BARS}/${encodeURIComponent(templateId)}`,
+          input
+        )
+      : await apiClient.post<ApiResponse<FilterBarTemplate>>(FILTER_BARS, input);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to save the filter bar');
+    }
+    return response.data.data;
+  },
+
+  async remove(templateId: string): Promise<void> {
+    const response = await apiClient.delete<ApiResponse<unknown>>(
+      `${FILTER_BARS}/${encodeURIComponent(templateId)}`
+    );
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to delete the filter bar');
+    }
   },
 };

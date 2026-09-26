@@ -1,7 +1,9 @@
 /**
- * The catalog, field-first. Three views under one header and one project
+ * The catalog, field-first. Four views under one header and one project
  * select: calculated fields (what SMUS does not have), columns tied to SMUS,
- * and the per-project SMUS assets. Tab and filters live in the URL.
+ * the per-project SMUS assets, and the templates the organisation
+ * standardises (filter bars, calculated fields, layouts). Tab and filters
+ * live in the URL.
  */
 import {
   CloudSync,
@@ -29,12 +31,13 @@ import { CatalogPage } from './CatalogPage';
 import { CalculatedFieldsView } from './calculated-fields/CalculatedFieldsView';
 import { ColumnsView } from './columns/ColumnsView';
 import { ProjectSelect } from './ProjectSelect';
-import { TemplateLibraryDialog } from './templates/TemplateLibraryDialog';
+import { TemplatesView } from './templates/TemplatesView';
 
 const TABS: Array<{ value: CatalogTab; label: string; icon: React.ReactElement }> = [
   { value: 'calculated-fields', label: 'Calculated fields', icon: <Functions fontSize="small" /> },
   { value: 'columns', label: 'Columns', icon: <ViewColumn fontSize="small" /> },
   { value: 'smus', label: 'SMUS assets', icon: <TableChart fontSize="small" /> },
+  { value: 'templates', label: 'Templates', icon: <CollectionsBookmark fontSize="small" /> },
 ];
 
 function NoExport() {
@@ -61,13 +64,12 @@ export function CatalogTabsPage({
   const [url, setUrl] = useCatalogUrlState();
   const tab: CatalogTab = url.tab ?? initialTab ?? DEFAULT_CATALOG_TAB;
   const [search, setSearch] = useState(url.q ?? '');
-  const [libraryOpen, setLibraryOpen] = useState(url.templates === '1');
   const [outsideCount, setOutsideCount] = useState<number | undefined>();
 
   const projects = useCatalogProjects();
   // Calculated fields and columns are QuickSight's own; only the SMUS tab is
   // bound to one project, so the others span every project by default.
-  const spansProjects = tab !== 'smus';
+  const spansProjects = tab !== 'smus' && tab !== 'templates';
   // The SMUS tab falls back to a project without writing it down, so leaving
   // that tab does not leave the field-first tabs scoped to it.
   // The picker's value is a scope as much as a project: every selected
@@ -112,6 +114,8 @@ export function CatalogTabsPage({
     );
   } else if (projects.data && !projects.data.exportedAt && tab === 'smus') {
     body = <NoExport />;
+  } else if (tab === 'templates') {
+    body = <TemplatesView />;
   } else if (tab === 'smus') {
     body = <CatalogPage embedded />;
   } else if (tab === 'columns') {
@@ -150,14 +154,7 @@ export function CatalogTabsPage({
         description="What SMUS does not have: every calculated field, its lineage and its conflicts, tied back to the SMUS columns it reads."
         actions={
           <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
-            <Button
-              variant="outlined"
-              startIcon={<CollectionsBookmark />}
-              onClick={() => setLibraryOpen(true)}
-            >
-              Template library
-            </Button>
-            {configured && projectOptions.length > 0 && (
+            {configured && projectOptions.length > 0 && tab !== 'templates' && (
               <ProjectSelect
                 projects={projectOptions}
                 allowAll={spansProjects}
@@ -178,21 +175,18 @@ export function CatalogTabsPage({
           value={tab}
           onChange={(next) => {
             setSearch('');
-            setUrl({ tab: next, q: undefined, field: undefined, conflicts: undefined });
+            setUrl({
+              tab: next,
+              q: undefined,
+              field: undefined,
+              conflicts: undefined,
+              templates: undefined,
+            });
           }}
           ariaLabel="Catalog views"
         />
       </Box>
       {body}
-      {libraryOpen && (
-        <TemplateLibraryDialog
-          open
-          onClose={() => {
-            setLibraryOpen(false);
-            if (url.templates) setUrl({ templates: undefined });
-          }}
-        />
-      )}
     </Box>
   );
 }
