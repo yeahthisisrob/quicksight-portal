@@ -77,3 +77,20 @@ export function dataTransformsOf(definition: any): LegacyTransform[] {
   }
   return transforms;
 }
+
+/**
+ * Each renamed column's name before the renames, so lineage can follow
+ * `amt` -> `revenue` back to the source's `amt`. A column that was never
+ * renamed is absent. Renames chain in order: a -> b -> c maps c to a.
+ */
+export function sourceColumnNames(definition: any): Map<string, string> {
+  const original = new Map<string, string>();
+  for (const transform of dataTransformsOf(definition)) {
+    const rename = transform.RenameColumnOperation;
+    if (!rename?.ColumnName || !rename.NewColumnName) continue;
+    const source = original.get(rename.ColumnName) ?? rename.ColumnName;
+    original.delete(rename.ColumnName);
+    original.set(rename.NewColumnName, source);
+  }
+  return original;
+}

@@ -74,6 +74,40 @@ function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
+/**
+ * What field-level lineage needs from the field cache: every dataset column
+ * with its name before renames, and the dataset each exploration's
+ * calculated field is declared against.
+ */
+function fieldLineageInput(fields: FieldInfo[]) {
+  const columns: Array<{
+    datasetId: string;
+    name: string;
+    sourceName?: string;
+    dataType?: string;
+  }> = [];
+  const calcDatasets = new Map<string, string>();
+  for (const field of fields) {
+    if (!field.fieldName) continue;
+    if (field.sourceAssetType === 'dataset' && !field.isCalculated) {
+      columns.push({
+        datasetId: field.sourceAssetId,
+        name: field.fieldName,
+        ...(field.columnName && field.columnName !== field.fieldName
+          ? { sourceName: field.columnName }
+          : {}),
+        ...(field.dataType ? { dataType: field.dataType } : {}),
+      });
+    } else if (field.isCalculated && field.datasetId && field.sourceAssetType !== 'dataset') {
+      calcDatasets.set(
+        `${field.sourceAssetType}:${field.sourceAssetId}:${field.fieldName}`,
+        field.datasetId
+      );
+    }
+  }
+  return { columns, calcDatasets };
+}
+
 export class SearchService {
   private static index: IndexEntry | null = null;
 
@@ -277,7 +311,8 @@ export class SearchService {
           sheetId: string;
           sheetName?: string;
         };
-        fields: Set<string>;
+        /** Field name -> the dataset it is read from, when the export recorded it. */
+        fields: Map<string, string | undefined>;
       }
     >();
     for (const field of fields) {
@@ -294,9 +329,9 @@ export class SearchService {
         const existing = visualFields.get(id) ?? {
           asset: { type: parentType, id: field.sourceAssetId, name: field.sourceAssetName },
           visual,
-          fields: new Set<string>(),
+          fields: new Map<string, string | undefined>(),
         };
-        existing.fields.add(field.fieldName);
+        existing.fields.set(field.fieldName, field.datasetId);
         visualFields.set(id, existing);
       }
     }
@@ -311,12 +346,12 @@ export class SearchService {
         type: 'visual',
         id,
         name: title,
-        columns: [...v.fields],
+        columns: [...v.fields.keys()],
         calculatedFields: [],
         tags: [],
         context: [chart, v.visual.sheetName ?? '', v.asset.name].filter(Boolean),
         parent: v.asset,
-        summary: `visual: ${title}, a ${chart} on ${v.visual.sheetName ?? 'a sheet'} of ${v.asset.type} ${v.asset.name}, using ${[...v.fields].slice(0, SUMMARY_FIELDS).join(', ')}${v.fields.size > SUMMARY_FIELDS ? ', …' : ''}`,
+        summary: `visual: ${title}, a ${chart} on ${v.visual.sheetName ?? 'a sheet'} of ${v.asset.type} ${v.asset.name}, using ${[...v.fields.keys()].slice(0, SUMMARY_FIELDS).join(', ')}${v.fields.size > SUMMARY_FIELDS ? ', …' : ''}`,
         path: `/author?type=${v.asset.type}&id=${encodeURIComponent(v.asset.id)}&name=${encodeURIComponent(v.asset.name)}`,
       });
     }
@@ -431,6 +466,7 @@ export class SearchService {
       listings,
       calculatedFields: byExpression,
       visuals: visualFields,
+      ...fieldLineageInput(fields),
     });
     const index = new SearchIndex(docs);
     logger.info('Search index and context graph built', {

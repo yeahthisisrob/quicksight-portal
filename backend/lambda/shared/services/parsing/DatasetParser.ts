@@ -6,7 +6,7 @@ import {
   type Field,
   type ParserCapabilities,
 } from './BaseAssetParser';
-import { dataTransformsOf, parentDataSetArnsOf } from './dataPrepTransforms';
+import { dataTransformsOf, parentDataSetArnsOf, sourceColumnNames } from './dataPrepTransforms';
 
 /**
  * Dataset metadata extracted from API responses
@@ -187,6 +187,7 @@ export class DatasetParser extends BaseAssetParser {
 
     // First priority: Use OutputColumns if available (these have the final transformed field names and types)
     if (definition.OutputColumns && definition.OutputColumns.length > 0) {
+      const sources = sourceColumnNames(definition);
       definition.OutputColumns.forEach((col: any) => {
         if (this.isValidFieldName(col.Name)) {
           fields.push({
@@ -195,6 +196,8 @@ export class DatasetParser extends BaseAssetParser {
             name: col.Name,
             dataType: col.Type,
             type: col.Type,
+            // The name upstream, before any rename, for field lineage.
+            columnName: sources.get(col.Name) ?? col.Name,
           });
         }
       });
@@ -594,6 +597,9 @@ export class DatasetParser extends BaseAssetParser {
       name: field.name,
       dataType: field.dataType,
       type: field.type,
+      ...(field.columnName && field.columnName !== field.fieldName
+        ? { columnName: field.columnName }
+        : {}),
     }));
   }
 }

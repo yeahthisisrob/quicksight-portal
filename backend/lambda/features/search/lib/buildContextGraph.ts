@@ -47,8 +47,15 @@ interface GraphInput {
       dataType?: string;
     }
   >;
-  /** Visuals by `${assetType}:${assetId}:${visualId}`, with their asset. */
-  visuals: Map<string, { asset: { type: string; id: string } }>;
+  /** Visuals by `${assetType}:${assetId}:${visualId}`, with their asset and the fields they use. */
+  visuals: Map<
+    string,
+    { asset: { type: string; id: string }; fields?: Map<string, string | undefined> }
+  >;
+  /** Every dataset column, with its name before the dataset renamed it. */
+  columns?: Array<{ datasetId: string; name: string; sourceName?: string; dataType?: string }>;
+  /** `${assetType}:${assetId}:${fieldName}` -> the dataset an exploration's calculated field is declared against. */
+  calcDatasets?: Map<string, string>;
 }
 
 /**
@@ -248,5 +255,122 @@ export function buildContextGraph(input: GraphInput): ContextGraph {
     );
   }
 
+  linkFieldLineage(graph, input, byId);
   return graph;
+}
+
+const columnKey = (datasetId: string, name: string) => `${datasetId}/${name}`;
+
+/**
+ * Field-level lineage: every dataset column as an entity, traced to the
+ * parent dataset's column or the SMUS listing column it carries (through
+ * renames), each calculated field to the columns and fields it reads, and
+ * each visual to the fields it shows. Resolution is by name within the
+ * asset (and the dataset a field is declared against), the way QuickSight
+ * itself resolves them.
+ */
+function linkFieldLineage(graph: ContextGraph, input: GraphInput, byId: Map<string, any>): void {
+  const columnsOf = new Map<string, Map<string, string>>();
+  for (const column of input.columns ?? []) {
+    const id = entityId('dataset-column', columnKey(column.datasetId, column.name));
+    const dataset = entityId('dataset', column.datasetId);
+    graph.add({
+      id,
+      type: 'dataset-column',
+      name: column.name,
+      summary: `column ${column.name}${column.dataType ? ` (${column.dataType})` : ''} of dataset ${graph.get(dataset)?.name ?? column.datasetId}${column.sourceName ? `, renamed from ${column.sourceName}` : ''}`,
+      attributes: {
+        dataSetId: column.datasetId,
+        ...(column.dataType ? { dataType: column.dataType } : {}),
+        ...(column.sourceName ? { sourceName: column.sourceName } : {}),
+      },
+    });
+    graph.link(id, 'column-of', dataset);
+    const names = columnsOf.get(column.datasetId) ?? new Map<string, string>();
+    names.set(column.name, id);
+    columnsOf.set(column.datasetId, names);
+  }
+
+  // Upstream: the parent dataset's column, else the governed listing column.
+  for (const column of input.columns ?? []) {
+    const id = entityId('dataset-column', columnKey(column.datasetId, column.name));
+    const upstreamName = column.sourceName ?? column.name;
+    const parents: string[] =
+      byId.get(entityId('dataset', column.datasetId))?.metadata?.lineageData?.datasetIds ?? [];
+    const parentColumn = parents
+      .map((parent) => columnsOf.get(parent)?.get(upstreamName))
+      .find(Boolean);
+    if (parentColumn) {
+      graph.link(id, 'derived-from', parentColumn, column.sourceName ? 'renamed' : undefined);
+      continue;
+    }
+    for (const hit of graph.related(entityId('dataset', column.datasetId), {
+      relations: ['reads-listing'],
+      direction: 'out',
+    })) {
+      const listingColumn = graph
+        .related(hit.entity.id, { relations: ['has-column'], direction: 'out', limit: 1000 })
+        .find((c) => normalName(c.entity.name) === normalName(upstreamName));
+      if (listingColumn) {
+        graph.link(
+          id,
+          'derived-from',
+          listingColumn.entity.id,
+          column.sourceName ? 'renamed' : undefined
+        );
+      }
+    }
+  }
+
+  // The calculated fields each asset defines, by name. Assets are keyed as
+  // their entity ids (`type:id`), which is also how byId is keyed.
+  const calcsOf = new Map<string, Map<string, string>>();
+  for (const [key, field] of input.calculatedFields) {
+    const fieldId = entityId('calculated-field', key);
+    const name = graph.get(fieldId)?.name;
+    if (!name) continue;
+    for (const definer of field.definedIn) {
+      const asset = entityId(definer.type as EntityType, definer.id);
+      const names = calcsOf.get(asset) ?? new Map<string, string>();
+      names.set(name, fieldId);
+      calcsOf.set(asset, names);
+    }
+  }
+  const datasetsOf = (asset: string): string[] =>
+    asset.startsWith('dataset:')
+      ? [asset.slice('dataset:'.length)]
+      : (byId.get(asset)?.metadata?.lineageData?.datasetIds ?? []);
+
+  /** What a name read in `asset` (declared against `datasetId`, when known) is. */
+  const resolve = (asset: string, name: string, datasetId?: string): string | undefined => {
+    const own = calcsOf.get(asset)?.get(name);
+    if (own) return own;
+    for (const dataset of datasetId ? [datasetId] : datasetsOf(asset)) {
+      const target =
+        calcsOf.get(entityId('dataset', dataset))?.get(name) ?? columnsOf.get(dataset)?.get(name);
+      if (target) return target;
+    }
+    return undefined;
+  };
+
+  for (const [key, field] of input.calculatedFields) {
+    const fieldId = entityId('calculated-field', key);
+    const name = graph.get(fieldId)?.name;
+    for (const definer of field.definedIn) {
+      const asset = entityId(definer.type as EntityType, definer.id);
+      const declaredOn = name ? input.calcDatasets?.get(`${asset}:${name}`) : undefined;
+      for (const read of expressionColumnNames(field.expression)) {
+        const target = resolve(asset, read, declaredOn);
+        if (target && target !== fieldId) graph.link(fieldId, 'reads-field', target);
+      }
+    }
+  }
+
+  for (const [key, visual] of input.visuals) {
+    const asset = entityId(visual.asset.type as EntityType, visual.asset.id);
+    for (const [name, datasetId] of visual.fields ?? []) {
+      const target = resolve(asset, name, datasetId);
+      if (target) graph.link(entityId('visual', key), 'shows', target);
+    }
+  }
 }

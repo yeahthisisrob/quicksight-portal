@@ -29,5 +29,8 @@
  *     workgroup, VPC connection, where its credentials come from - so
  *     playbooks can tell which data sources are interchangeable and which
  *     hold the sample data, without reading every export file.
+ * v7: a dataset column renamed in the dataset carries its name before the
+ *     renames (columnName), so field lineage follows it to the source
+ *     column or the parent dataset's column instead of losing it.
  */
-export const PARSER_METADATA_VERSION = 6;
+export const PARSER_METADATA_VERSION = 7;

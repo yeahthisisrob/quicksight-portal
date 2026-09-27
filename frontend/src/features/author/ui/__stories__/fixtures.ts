@@ -591,15 +591,66 @@ function datasetRoutes(): MockRoute[] {
       url: /\/context\/entities\/[^/]+\/related$/,
       respond: (config) => {
         const relations = String(config.params?.relations ?? '');
-        const hit = (entityId: string, type: string, name: string, summary = '') => ({
+        const hit = (
+          entityId: string,
+          type: string,
+          name: string,
+          summary = '',
+          attributes: Record<string, string> = {}
+        ) => ({
           entityId,
           type,
           name,
           summary,
-          attributes: {},
+          attributes,
           depth: 1,
           via: [],
         });
+        // Field lineage: a dataset's columns, where one comes from, what it touches.
+        if (relations.includes('column-of')) {
+          const hits = [
+            hit('dataset-column:sales-gold/revenue', 'dataset-column', 'revenue', '', {
+              dataType: 'DECIMAL',
+              sourceName: 'amt',
+            }),
+            hit('dataset-column:sales-gold/cost', 'dataset-column', 'cost', '', {
+              dataType: 'DECIMAL',
+            }),
+            hit('dataset-column:sales-gold/status', 'dataset-column', 'status', '', {
+              dataType: 'STRING',
+            }),
+          ];
+          return { body: { success: true, data: { from: 'dataset:sales-gold', hits } } };
+        }
+        if (relations.includes('derived-from')) {
+          const hits = [
+            hit(
+              'listing-column:orders/amt',
+              'listing-column',
+              'amt',
+              'SMUS column: orders_gold.amt (decimal)'
+            ),
+          ];
+          return { body: { success: true, data: { from: 'x', hits } } };
+        }
+        if (relations.includes('shows')) {
+          const hits = [
+            hit('calculated-field:margin', 'calculated-field', 'c_ds_margin'),
+            hit(
+              'visual:dashboard:sales-overview:v1',
+              'visual',
+              'Revenue by region',
+              'visual: Revenue by region, a bar chart on Overview of dashboard Sales overview, using revenue'
+            ),
+            hit(
+              'visual:analysis:pipeline-review:v2',
+              'visual',
+              'Margin trend',
+              'visual: Margin trend, a line chart on Trends of analysis Pipeline review, using c_ds_margin'
+            ),
+          ];
+          return { body: { success: true, data: { from: 'x', hits } } };
+        }
         const hits = relations.includes('defined-in')
           ? [
               hit(
