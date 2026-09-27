@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.35.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.34.0...v2.35.0) (2026-09-27)
+
+
+### Features
+
+* **activity:** a theme's timeline, and theme events filed under the theme ([#282](https://github.com/yeahthisisrob/quicksight-portal/issues/282)) ([d78252b](https://github.com/yeahthisisrob/quicksight-portal/commit/d78252b7c6c27556414828f31e91dd37e9eef71a))
+
 ## [2.34.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.33.0...v2.34.0) (2026-09-27)
 
 
