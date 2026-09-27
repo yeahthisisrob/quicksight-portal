@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.34.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.33.0...v2.34.0) (2026-09-27)
+
+
+### Features
+
+* **themes:** themes across the product, and a theme drawn from a picture ([#281](https://github.com/yeahthisisrob/quicksight-portal/issues/281)) ([9a611df](https://github.com/yeahthisisrob/quicksight-portal/commit/9a611df7fd48ee1fc81a117dd52781e977c8718e))
+
+
+### Bug Fixes
+
+* **catalog:** the field panel scrolls itself, and where a field lives scales ([#279](https://github.com/yeahthisisrob/quicksight-portal/issues/279)) ([859d15e](https://github.com/yeahthisisrob/quicksight-portal/commit/859d15e90602fe65c6be9b509a769ec72d747dd4))
+
 ## [2.33.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.32.0...v2.33.0) (2026-09-27)
 
 
