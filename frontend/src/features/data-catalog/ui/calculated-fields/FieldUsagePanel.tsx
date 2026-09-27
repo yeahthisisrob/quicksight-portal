@@ -202,6 +202,7 @@ export function FieldUsagePanel({ usedIn, visuals }: FieldUsagePanelProps) {
           initialState={{ pagination: { paginationModel: { pageSize: PAGE_SIZE, page: 0 } } }}
           pageSizeOptions={[PAGE_SIZE, 50, 100]}
           aria-label="Where this field is used"
+          sx={{ '& .MuiDataGrid-cell': { display: 'flex', alignItems: 'center' } }}
         />
       </Box>
     </Stack>

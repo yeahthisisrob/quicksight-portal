@@ -236,7 +236,18 @@ export function CalculatedFieldsView({
           )}
         </Container>
         {open && (
-          <Box sx={{ minWidth: 0, position: { lg: 'sticky' }, top: { lg: 16 } }}>
+          <Box
+            sx={{
+              minWidth: 0,
+              position: { lg: 'sticky' },
+              top: { lg: 16 },
+              // Taller than the window, a sticky panel's bottom was out of reach: the wheel
+              // scrolled the list behind it. It scrolls itself, and never hands the wheel on.
+              maxHeight: { lg: 'calc(100vh - 32px)' },
+              overflowY: { lg: 'auto' },
+              overscrollBehavior: 'contain',
+            }}
+          >
             <CalculatedFieldDetail
               detail={detail.data}
               loading={detail.isPending}
