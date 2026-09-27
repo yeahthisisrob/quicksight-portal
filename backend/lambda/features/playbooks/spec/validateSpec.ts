@@ -28,7 +28,7 @@ const INPUT_KINDS = new Set<SpecInput['kind']>([
   'engine',
   'folder',
 ]);
-const TYPES = new Set<SelectableType>(['dashboard', 'analysis', 'dataset', 'datasource']);
+const TYPES = new Set<SelectableType>(['dashboard', 'analysis', 'dataset', 'datasource', 'user']);
 const CONDITION_FIELDS: Record<SpecCondition['kind'], string[]> = {
   views: ['min'],
   viewsAtMost: ['max'],
@@ -38,7 +38,21 @@ const CONDITION_FIELDS: Record<SpecCondition['kind'], string[]> = {
   readsEngine: ['engine'],
   readsGoverned: ['value'],
   sharedWith: ['principal'],
+  role: ['roles'],
+  inactiveForDays: ['days'],
+  noAccess: [],
 };
+const OPTIONAL_CONDITION_FIELDS: Partial<Record<SpecCondition['kind'], string[]>> = {
+  noAccess: ['ignoreGroups', 'ignoreFolders'],
+};
+/** What only users have, and what only assets have: a spec selects one or the other. */
+const USER_CONDITIONS = new Set<SpecCondition['kind']>([
+  'role',
+  'inactiveForDays',
+  'noAccess',
+  'nameContains',
+]);
+const USER_STEPS = new Set<SpecStep['kind']>(['deleteUser']);
 const STEP_FIELDS: Record<SpecStep['kind'], { required: string[]; optional: string[] }> = {
   matchDataset: { required: [], optional: ['engine', 'governed', 'infer', 'minConfidence'] },
   rebind: { required: [], optional: [] },
@@ -48,6 +62,7 @@ const STEP_FIELDS: Record<SpecStep['kind'], { required: string[]; optional: stri
   dropUnusedCalcs: { required: [], optional: [] },
   renameCalcsToStandard: { required: [], optional: ['prefix'] },
   renameDatasetCalcsToStandard: { required: [], optional: ['prefix'] },
+  deleteUser: { required: ['inactiveDays'], optional: [] },
   replaceMaterialisedCalcs: {
     required: [],
     optional: ['governed', 'infer', 'minConfidence', 'prefixes'],
@@ -128,6 +143,8 @@ export function validateSpec(raw: unknown): PlaybookSpecInput {
   ) {
     fail(`select.assetTypes must list one or more of ${[...TYPES].join(', ')}`);
   }
+  const users = assetTypes.includes('user');
+  if (users && assetTypes.length > 1) fail('select.assetTypes: users are selected on their own');
   const where = (select.where ?? []) as unknown[];
   if (!Array.isArray(where) || where.length > MAX_CONDITIONS) {
     fail(`select.where must be a list of at most ${MAX_CONDITIONS} conditions`);
@@ -139,6 +156,17 @@ export function validateSpec(raw: unknown): PlaybookSpecInput {
       fail(`select.where[${i}].kind must be one of ${Object.keys(CONDITION_FIELDS).join(', ')}`);
     for (const field of fields)
       checkValue(condition[field], `select.where[${i}].${field}`, declared);
+    for (const field of OPTIONAL_CONDITION_FIELDS[condition.kind as SpecCondition['kind']] ?? []) {
+      if (condition[field] !== undefined) {
+        checkValue(condition[field], `select.where[${i}].${field}`, declared);
+      }
+    }
+    const kind = condition.kind as SpecCondition['kind'];
+    if (users && !USER_CONDITIONS.has(kind))
+      fail(`select.where[${i}] (${kind}) does not apply to users`);
+    if (!users && USER_CONDITIONS.has(kind) && kind !== 'nameContains') {
+      fail(`select.where[${i}] (${kind}) applies only to users`);
+    }
   });
 
   const steps = (body.steps ?? []) as unknown[];
@@ -156,6 +184,11 @@ export function validateSpec(raw: unknown): PlaybookSpecInput {
     }
     if (step.kind === 'tag' && !TAG_TARGETS.has(String(step.target))) {
       fail(`steps[${i}].target must be one of ${[...TAG_TARGETS].join(', ')}`);
+    }
+    if (users !== USER_STEPS.has(step.kind as SpecStep['kind'])) {
+      fail(
+        `steps[${i}] (${String(step.kind)}) ${users ? 'does not apply to users' : 'applies only to users'}`
+      );
     }
     if (step.kind === 'matchDataset') matched = true;
     const needsMatch =

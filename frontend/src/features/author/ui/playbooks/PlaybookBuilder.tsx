@@ -46,23 +46,62 @@ type Value = string | number | boolean | undefined;
 
 const PLACEHOLDER = /^\{\{\s*([\w-]+)\s*\}\}$/;
 
+type ConditionField = { key: keyof PlaybookSpecCondition; hint: string };
+
+/** `users`: a condition only users have; `both`: users and assets alike. */
 const CONDITIONS: Record<
   PlaybookSpecCondition['kind'],
-  { label: string; field?: keyof PlaybookSpecCondition; hint?: string }
+  { label: string; fields?: ConditionField[]; applies?: 'users' | 'both' }
 > = {
-  views: { label: 'Viewed at least', field: 'min', hint: 'views' },
-  viewsAtMost: { label: 'Viewed at most', field: 'max', hint: 'views' },
+  views: { label: 'Viewed at least', fields: [{ key: 'min', hint: 'views' }] },
+  viewsAtMost: { label: 'Viewed at most', fields: [{ key: 'max', hint: 'views' }] },
   readsEngine: {
     label: 'Reads a data source of engine',
-    field: 'engine',
-    hint: 'REDSHIFT, ATHENA…',
+    fields: [{ key: 'engine', hint: 'REDSHIFT, ATHENA…' }],
   },
-  readsGoverned: { label: 'Reads a SMUS-governed dataset', field: 'value', hint: 'true or false' },
-  tagged: { label: 'Tagged', field: 'tag', hint: 'key or key=value' },
-  sharedWith: { label: 'Shared with', field: 'principal', hint: 'group or user name' },
-  nameContains: { label: 'Name contains', field: 'text' },
+  readsGoverned: {
+    label: 'Reads a SMUS-governed dataset',
+    fields: [{ key: 'value', hint: 'true or false' }],
+  },
+  tagged: { label: 'Tagged', fields: [{ key: 'tag', hint: 'key or key=value' }] },
+  sharedWith: { label: 'Shared with', fields: [{ key: 'principal', hint: 'group or user name' }] },
+  nameContains: {
+    label: 'Name contains',
+    fields: [{ key: 'text', hint: 'Value' }],
+    applies: 'both',
+  },
   hasErrors: { label: 'Has definition errors' },
+  role: {
+    label: 'Role is',
+    fields: [{ key: 'roles', hint: 'READER,READER_PRO' }],
+    applies: 'users',
+  },
+  inactiveForDays: {
+    label: 'Not active for',
+    fields: [{ key: 'days', hint: 'days' }],
+    applies: 'users',
+  },
+  noAccess: {
+    label: 'In no group, reaching nothing',
+    fields: [
+      { key: 'ignoreGroups', hint: 'groups that do not count' },
+      { key: 'ignoreFolders', hint: 'folders that do not count' },
+    ],
+    applies: 'users',
+  },
 };
+
+const USER_STEPS = new Set<PlaybookSpecStep['kind']>(['deleteUser']);
+
+/** The entries of a menu that fit what is selected: users, or assets. */
+function fitting<K extends string, V>(
+  options: Record<K, V>,
+  fits: (key: K, value: V) => boolean
+): Record<K, V> {
+  return Object.fromEntries(
+    (Object.entries(options) as Array<[K, V]>).filter(([k, v]) => fits(k, v))
+  ) as Record<K, V>;
+}
 
 const STEPS: Record<PlaybookSpecStep['kind'], { label: string; help: string }> = {
   matchDataset: {
@@ -89,6 +128,10 @@ const STEPS: Record<PlaybookSpecStep['kind'], { label: string; help: string }> =
   renameCalcsToStandard: {
     label: 'Rename calculated fields to the standard',
     help: 'Each gets the prefix and a snake_case name, everywhere it is read. A name already in use goes to review.',
+  },
+  deleteUser: {
+    label: 'Delete the user',
+    help: "Readers only. Runs only while the activity covers the window and is fresh, and reads the user's activity again first. A reader who signs in again is provisioned again by the identity provider.",
   },
   renameDatasetCalcsToStandard: {
     label: "Rename a dataset's calculated fields to the standard",
@@ -402,6 +445,11 @@ function StepCard({
           {field('prefix', 'Prefix', 'c_')}
         </Stack>
       )}
+      {step.kind === 'deleteUser' && (
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+          {field('inactiveDays', 'Inactive for (days)', '90')}
+        </Stack>
+      )}
       {step.kind === 'renameDatasetCalcsToStandard' && (
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
           {field('prefix', 'Prefix', 'c_ds_')}
@@ -456,6 +504,7 @@ export function PlaybookBuilder({
   const [spec, setSpec] = useState<PlaybookSpecInput>(initial);
   const set = (patch: Partial<PlaybookSpecInput>) => setSpec((prev) => ({ ...prev, ...patch }));
   const where = spec.select.where;
+  const users = spec.select.assetTypes.includes('user');
   const setWhere = (next: PlaybookSpecCondition[]) =>
     set({ select: { ...spec.select, where: next } });
   const steps = spec.steps;
@@ -513,15 +562,24 @@ export function PlaybookBuilder({
           <ToggleButtonGroup
             size="small"
             value={spec.select.assetTypes}
-            onChange={(_, next: PlaybookSpecInput['select']['assetTypes']) =>
-              next.length > 0 && set({ select: { ...spec.select, assetTypes: next } })
-            }
+            onChange={(_, next: PlaybookSpecInput['select']['assetTypes']) => {
+              if (next.length === 0) return;
+              // Users are selected on their own: picking them clears assets, and the other way round.
+              const pickedUsers = next.includes('user') && !users;
+              set({
+                select: {
+                  ...spec.select,
+                  assetTypes: pickedUsers ? ['user'] : next.filter((t) => t !== 'user' || !users),
+                },
+              });
+            }}
             aria-label="Asset types"
           >
             <ToggleButton value="dashboard">Dashboards</ToggleButton>
             <ToggleButton value="analysis">Analyses</ToggleButton>
             <ToggleButton value="dataset">Datasets</ToggleButton>
             <ToggleButton value="datasource">Data sources</ToggleButton>
+            <ToggleButton value="user">Users</ToggleButton>
           </ToggleButtonGroup>
           {where.map((condition, i) => {
             const meta = CONDITIONS[condition.kind];
@@ -536,16 +594,17 @@ export function PlaybookBuilder({
                 <Typography variant="body2" sx={{ minWidth: 240 }}>
                   {meta.label}
                 </Typography>
-                {meta.field && (
+                {meta.fields?.map((f) => (
                   <ValueField
-                    label={meta.hint ?? 'Value'}
-                    value={condition[meta.field] as Value}
+                    key={f.key}
+                    label={f.hint}
+                    value={condition[f.key] as Value}
                     inputs={spec.inputs}
                     onChange={(value) =>
-                      setWhere(where.map((c, j) => (j === i ? { ...c, [meta.field!]: value } : c)))
+                      setWhere(where.map((c, j) => (j === i ? { ...c, [f.key]: value } : c)))
                     }
                   />
-                )}
+                ))}
                 <IconButton
                   aria-label="Remove condition"
                   onClick={() => setWhere(where.filter((_, j) => j !== i))}
@@ -558,7 +617,9 @@ export function PlaybookBuilder({
           <Box>
             <AddMenu
               label="Add condition"
-              options={CONDITIONS}
+              options={fitting(CONDITIONS, (_, c) =>
+                users ? c.applies !== undefined : c.applies !== 'users'
+              )}
               onAdd={(kind) => setWhere([...where, { kind }])}
             />
           </Box>
@@ -590,7 +651,7 @@ export function PlaybookBuilder({
           <Box>
             <AddMenu
               label="Add step"
-              options={STEPS}
+              options={fitting(STEPS, (kind) => users === USER_STEPS.has(kind))}
               onAdd={(kind) =>
                 set({
                   steps: [

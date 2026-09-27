@@ -1,6 +1,8 @@
 import { Box, Stack } from '@mui/material';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
+import type { PlaybookSpecInput } from '@/shared/api/modules/playbooks';
+
 import { MockedApi } from '../../../../../.storybook/mocks/api';
 import { BLANK_SPEC } from '../../model/usePlaybookBuilder';
 import { EXAMPLE_SPEC, fakeFlow, PLAYBOOKS, playbookRoutes } from './__stories__/fixtures';
@@ -207,4 +209,60 @@ export const RanCanary: Story = {
 export const Ran: Story = {
   name: 'Done, with a failure',
   render: () => <PlaybookFlowView flow={fakeFlow('ran')} />,
+};
+
+const IDLE_READERS_SPEC: PlaybookSpecInput = {
+  name: 'Remove idle readers',
+  description:
+    'Readers in no group, reaching nothing and inactive for the window, deleted; one who signs in again is provisioned again.',
+  inputs: [
+    { key: 'days', label: 'Inactive for (days)', kind: 'number', default: 90, required: true },
+    { key: 'ignoreGroups', label: 'Groups that do not count', kind: 'text' },
+    { key: 'ignoreFolders', label: 'Folders that do not count', kind: 'text' },
+  ],
+  select: {
+    assetTypes: ['user'],
+    where: [
+      { kind: 'role', roles: 'READER,READER_PRO' },
+      { kind: 'inactiveForDays', days: '{{days}}' },
+      { kind: 'noAccess', ignoreGroups: '{{ignoreGroups}}', ignoreFolders: '{{ignoreFolders}}' },
+    ],
+  },
+  steps: [{ kind: 'deleteUser', inactiveDays: '{{days}}' }],
+  gates: { canary: 5 },
+};
+
+export const BuilderUsers: Story = {
+  name: 'Builder · idle readers',
+  render: () => (
+    <PlaybookBuilder
+      initial={IDLE_READERS_SPEC}
+      title="Copy a playbook"
+      saving={false}
+      error={null}
+      onSave={noop}
+      onCancel={noop}
+    />
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Users are selected on their own: role, not active for the window, and in no group reaching nothing, with the groups and folders that do not count. Only user conditions and steps are offered.',
+      },
+    },
+  },
+};
+
+export const ConfirmDeleteUsers: Story = {
+  name: 'Confirm deleting users',
+  render: () => (
+    <RunConfirmDialog
+      open
+      playbook={{ ...PLAYBOOKS[2]!, title: 'Remove idle readers', writes: ['user'], deletes: true }}
+      count={5}
+      onClose={() => {}}
+      onConfirm={() => {}}
+    />
+  ),
 };

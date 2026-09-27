@@ -35,6 +35,7 @@ const PLURAL: Record<string, string> = {
   dataset: 'datasets',
   datasource: 'data sources',
   folder: 'folders',
+  user: 'users',
 };
 
 export function RunConfirmDialog({
@@ -61,24 +62,28 @@ export function RunConfirmDialog({
   const runCount = canary && offerCanary ? CANARY_SIZE : count;
   const confirmed = !playbook.deletes || typed.trim() === String(runCount);
   const kinds = playbook.writes.map((w) => PLURAL[w] ?? w).join(', ');
+  const onUsers = playbook.writes.includes('user');
+  const noun = onUsers ? 'user' : 'asset';
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        {playbook.deletes ? 'Delete' : 'Change'} {runCount} asset{runCount === 1 ? '' : 's'}
+        {playbook.deletes ? 'Delete' : 'Change'} {runCount} {noun}
+        {runCount === 1 ? '' : 's'}
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2.5}>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            {playbook.title} writes to {kinds}. Each asset is checked again just before it is
-            changed: one fixed by hand since the preview is skipped, one that now needs a decision
-            is left for review.
+            {playbook.title} writes to {kinds}. Each {noun} is checked again just before it is
+            changed: one that changed since the preview is skipped, one that now needs a decision is
+            left for review.
           </Typography>
 
           {playbook.deletes && (
             <Alert severity="warning">
-              Each is archived first and can be restored from the Studio, but it disappears from
-              QuickSight for everyone at once.
+              {onUsers
+                ? 'Each loses their QuickSight seat at once. One who signs in again is provisioned again by your identity provider; personal settings such as bookmarks are not kept.'
+                : 'Each is archived first and can be restored from the Studio, but it disappears from QuickSight for everyone at once.'}
             </Alert>
           )}
 

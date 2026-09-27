@@ -17,8 +17,8 @@ export interface SpecInput {
   default?: string | number | boolean;
 }
 
-/** An asset type a spec can select. */
-export type SelectableType = 'dashboard' | 'analysis' | 'dataset' | 'datasource';
+/** What a spec can select: assets, or QuickSight users. */
+export type SelectableType = 'dashboard' | 'analysis' | 'dataset' | 'datasource' | 'user';
 
 /** A condition an asset must meet to be selected. Cheap ones read the list; lineage ones follow the graph. */
 export type SpecCondition =
@@ -34,7 +34,17 @@ export type SpecCondition =
   /** Reads (through its datasets) a data source of this engine: REDSHIFT, ATHENA, S3... */
   | { kind: 'readsEngine'; engine: Templated<string> }
   /** Reads a dataset a SMUS listing governs (or, with value false, one it does not). */
-  | { kind: 'readsGoverned'; value: Templated<boolean> };
+  | { kind: 'readsGoverned'; value: Templated<boolean> }
+  /** Users: one of these roles, comma-separated (READER, READER_PRO, AUTHOR...). */
+  | { kind: 'role'; roles: Templated<string> }
+  /** Users: never active, or last active more than this many days ago. */
+  | { kind: 'inactiveForDays'; days: Templated<number> }
+  /**
+   * Users: in no group and reaching no asset, directly or through a group or
+   * folder. Groups and folders named here (comma-separated) do not count,
+   * e.g. an everyone group or a folder shared with all readers.
+   */
+  | { kind: 'noAccess'; ignoreGroups?: Templated<string>; ignoreFolders?: Templated<string> };
 
 /**
  * For each dataset the asset reads (or, for a dataset, itself), find another
@@ -107,6 +117,16 @@ export interface RenameDatasetCalcsStep {
   prefix?: Templated<string>;
 }
 
+/**
+ * Delete a user the selection found idle. Only readers can be deleted, and
+ * only while the portal's activity covers `inactiveDays`; a reader who signs
+ * in again is provisioned again by the identity provider.
+ */
+export interface DeleteUserStep {
+  kind: 'deleteUser';
+  inactiveDays: Templated<number>;
+}
+
 /** Put the asset in a folder (a shared folder then carries its audience). */
 interface AddToFolderStep {
   kind: 'addToFolder';
@@ -122,7 +142,8 @@ export type SpecStep =
   | ReplaceMaterialisedStep
   | DropUnusedStep
   | RenameToStandardStep
-  | RenameDatasetCalcsStep;
+  | RenameDatasetCalcsStep
+  | DeleteUserStep;
 
 export interface PlaybookSpec {
   id: string;

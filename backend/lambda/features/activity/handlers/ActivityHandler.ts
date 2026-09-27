@@ -428,6 +428,27 @@ export async function getActivitySummary(
   }
 }
 
+/**
+ * How far back the activity reaches and when it was refreshed
+ * GET /api/activity/coverage
+ */
+export async function getActivityCoverage(
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> {
+  try {
+    requireAuth(event);
+    const coverage = await getActivityService().getCoverage();
+    return successResponse(event, { success: true, data: coverage });
+  } catch (error: any) {
+    logger.error('Failed to read activity coverage', { error });
+    return errorResponse(
+      event,
+      STATUS_CODES.INTERNAL_SERVER_ERROR,
+      error.message || 'Internal server error'
+    );
+  }
+}
+
 type ResolvedUser = { userName: string; email: string };
 
 const SAMPLE_LOG_LIMIT = 3;

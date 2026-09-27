@@ -30,6 +30,7 @@ const WRITES: Record<string, Playbook['writes']> = {
   dropUnusedCalcs: ['dashboard', 'analysis'],
   renameCalcsToStandard: ['dashboard', 'analysis'],
   renameDatasetCalcsToStandard: ['dataset', 'dashboard', 'analysis'],
+  deleteUser: ['user'],
 };
 
 function paramOf(input: SpecInput): PlaybookParam {
@@ -101,6 +102,7 @@ export function specPlaybook(spec: PlaybookSpec): Playbook {
     ),
     params: spec.inputs.map(paramOf),
     writes,
+    ...(spec.steps.some((s) => s.kind === 'deleteUser') ? { deletes: true } : {}),
     gateDefaults: spec.gates ?? {},
 
     scope: (ctx) => selectTargets(ctx, sessionOf(ctx), spec.select.assetTypes, spec.select.where),

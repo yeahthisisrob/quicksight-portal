@@ -122,7 +122,7 @@ export function PlaybookFlowView({ flow }: { flow: PlaybookFlow }) {
             {playbook.description}
           </Typography>
         </Box>
-        {playbook.deletes && <Chip color="warning" size="small" label="Deletes (archived first)" />}
+        {playbook.deletes && <Chip color="warning" size="small" label="Deletes" />}
       </Stack>
 
       {flow.error && <Alert severity="error">{flow.error}</Alert>}

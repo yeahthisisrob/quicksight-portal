@@ -437,6 +437,26 @@ export class ActivityService {
   }
 
   /**
+   * How far back the activity the portal holds reaches, and how fresh it is:
+   * "no activity in N days" only means something when this covers N days.
+   */
+  public async getCoverage(): Promise<{
+    start: string | null;
+    end: string | null;
+    lastUpdated: string | null;
+    days: number;
+  }> {
+    const cache = await this.cacheService.getActivityCache();
+    const start = cache?.dateRange?.start ?? null;
+    const end = cache?.dateRange?.end ?? null;
+    const days =
+      start && end
+        ? Math.max(0, Math.floor((Date.parse(end) - Date.parse(start)) / TIME_UNITS.DAY))
+        : 0;
+    return { start, end, lastUpdated: cache?.lastUpdated ?? null, days };
+  }
+
+  /**
    * Get user activity data
    */
   public async getUserActivity(userName: string): Promise<UserActivityData | null> {

@@ -6,6 +6,7 @@
 import pLimit from 'p-limit';
 
 import { type PlaybookContext, PortalCallError } from '../types';
+import type { ActivityCoverage } from './idleUsers';
 
 interface RelatedHit {
   entityId: string;
@@ -75,6 +76,7 @@ export class SpecSession {
   private readonly columnsCache = new Map<string, Promise<DatasetColumns>>();
   private candidatesPromise: Promise<Candidate[]> | null = null;
   private readonly folderCache = new Map<string, Promise<FolderFacts>>();
+  private coveragePromise: Promise<ActivityCoverage> | null = null;
 
   public constructor(private readonly ctx: PlaybookContext) {}
 
@@ -144,6 +146,12 @@ export class SpecSession {
       `/api/context/entities/${encodeURIComponent(`datasource:${datasourceId}`)}/related?${query.toString()}`
     );
     return (result.hits ?? []).map((h) => ({ id: idOf(h.entityId), name: h.name }));
+  }
+
+  /** How far back the portal's activity reaches, asked once per run. */
+  public activityCoverage(): Promise<ActivityCoverage> {
+    this.coveragePromise ??= this.ctx.call<ActivityCoverage>('GET', '/api/activity/coverage');
+    return this.coveragePromise;
   }
 
   /** A folder's name and members, asked once however many assets go into it. */

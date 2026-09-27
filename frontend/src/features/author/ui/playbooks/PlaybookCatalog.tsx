@@ -94,9 +94,7 @@ function PlaybookCard({
               label={WRITES[type] ?? `Changes ${type}`}
             />
           ))}
-          {playbook.deletes && (
-            <Chip size="small" color="warning" label="Deletes (archived first)" />
-          )}
+          {playbook.deletes && <Chip size="small" color="warning" label="Deletes" />}
           {playbook.infers && (
             <Chip size="small" variant="outlined" color="info" label="Asks a model" />
           )}

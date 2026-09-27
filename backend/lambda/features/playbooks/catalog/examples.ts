@@ -173,4 +173,39 @@ export const EXAMPLE_SPECS: PlaybookSpec[] = [
     createdAt: SHIPPED_AT,
     updatedAt: SHIPPED_AT,
   },
+  {
+    id: 'remove-idle-readers',
+    name: 'Remove idle readers',
+    description:
+      'Readers who are in no group, reach no dashboard (directly, through a group or through a folder) and have not been active for the window are paid for and unused. Each is deleted; with an identity provider that provisions readers on sign-in, one who comes back gets a seat again. Groups and folders listed as not counting (an everyone group, a folder shared with all readers) are ignored. Nothing runs unless the portal activity covers the whole window and was refreshed in the last two days.',
+    inputs: [
+      { key: 'days', label: 'Inactive for (days)', kind: 'number', default: 90, required: true },
+      {
+        key: 'ignoreGroups',
+        label: 'Groups that do not count',
+        kind: 'text',
+        help: 'Comma-separated group names, e.g. a group every reader is in',
+      },
+      {
+        key: 'ignoreFolders',
+        label: 'Folders that do not count',
+        kind: 'text',
+        help: 'Comma-separated folder names or paths',
+      },
+    ],
+    category: 'cleanup',
+    select: {
+      assetTypes: ['user'],
+      where: [
+        { kind: 'role', roles: 'READER,READER_PRO' },
+        { kind: 'inactiveForDays', days: '{{days}}' },
+        { kind: 'noAccess', ignoreGroups: '{{ignoreGroups}}', ignoreFolders: '{{ignoreFolders}}' },
+      ],
+    },
+    steps: [{ kind: 'deleteUser', inactiveDays: '{{days}}' }],
+    gates: { canary: 5 },
+    createdBy: 'The portal',
+    createdAt: SHIPPED_AT,
+    updatedAt: SHIPPED_AT,
+  },
 ];
