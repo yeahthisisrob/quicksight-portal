@@ -23,9 +23,7 @@ import { assetTypeConfig } from './constants';
 
 const LOG_HEIGHT = 400;
 
-const ALL_SELECTABLE_TYPES = Object.entries(assetTypeConfig)
-  .filter(([, config]) => !config.disabled)
-  .map(([assetType]) => assetType as AssetType);
+const ALL_SELECTABLE_TYPES = Object.keys(assetTypeConfig) as AssetType[];
 
 function ExportLog({
   currentJobId,

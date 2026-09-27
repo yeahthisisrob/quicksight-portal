@@ -27,7 +27,7 @@ type JobStatus = Pick<
  * Convert plural UI asset types to singular backend asset types
  */
 function convertAssetTypes(selectedTypes: AssetType[]): ExportableAssetType[] {
-  const mapping: Record<AssetType, ExportableAssetType | undefined> = {
+  const mapping: Record<AssetType, ExportableAssetType> = {
     dashboards: 'dashboard',
     datasets: 'dataset',
     analyses: 'analysis',
@@ -35,10 +35,10 @@ function convertAssetTypes(selectedTypes: AssetType[]): ExportableAssetType[] {
     folders: 'folder',
     groups: 'group',
     users: 'user',
-    themes: undefined, // coming soon: the export does not read themes yet
+    themes: 'theme',
   };
 
-  return selectedTypes.flatMap((type) => mapping[type] ?? []);
+  return selectedTypes.map((type) => mapping[type]);
 }
 
 /**

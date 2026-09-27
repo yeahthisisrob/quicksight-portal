@@ -172,7 +172,16 @@ describe('useExportJob', () => {
       expect(exportApi.startExportJob).toHaveBeenCalledWith({
         forceRefresh: false,
         rebuildIndex: false,
-        assetTypes: ['dashboard', 'dataset', 'analysis', 'datasource', 'folder', 'group', 'user'],
+        assetTypes: [
+          'dashboard',
+          'dataset',
+          'analysis',
+          'datasource',
+          'folder',
+          'group',
+          'user',
+          'theme',
+        ],
         refreshOptions: {
           definitions: true,
           permissions: true,
