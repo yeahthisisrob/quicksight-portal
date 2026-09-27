@@ -33,7 +33,9 @@ export function portalCall(dispatch: Dispatch): PortalCall {
       parsed = undefined;
     }
     if (response.status < OK_MIN || response.status > OK_MAX || parsed?.success === false) {
-      throw new PortalCallError(response.status, messageOf(parsed, response.status));
+      // Name the call: a playbook's failure has to say which request failed, not only why.
+      const call = `${method} ${path.split('?')[0]}`;
+      throw new PortalCallError(response.status, `${messageOf(parsed, response.status)} (${call})`);
     }
     return (parsed && typeof parsed === 'object' && 'data' in parsed ? parsed.data : parsed) as T;
   };
