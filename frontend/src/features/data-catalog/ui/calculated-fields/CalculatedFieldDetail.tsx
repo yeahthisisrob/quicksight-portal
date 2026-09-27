@@ -12,13 +12,13 @@ import {
   Edit,
   Notes,
   OpenInFull,
-  OpenInNew,
 } from '@mui/icons-material';
 import {
   Alert,
   Box,
   Button,
   Chip,
+  Collapse,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -26,6 +26,8 @@ import {
   Link,
   Skeleton,
   Stack,
+  Tab,
+  Tabs,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -36,16 +38,14 @@ import { FieldLineageGraph } from '@/entities/field';
 import { SaveTemplateDialog } from '@/entities/template';
 
 import type {
-  CalculatedFieldRef,
   CalculatedFieldDetail as Detail,
   LineageRead,
 } from '@/shared/api/modules/data-catalog';
 import { Container, EmptyState, pal } from '@/shared/design-system';
-import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 
 import { prettyExpression } from '../../model/fieldCatalog';
 import FieldMetadataEditDialog from '../dialogs/FieldMetadataEditDialog';
-import { assetPath } from './assetPath';
+import { AssetRefGrid } from './AssetRefGrid';
 import { FieldUsagePanel } from './FieldUsagePanel';
 
 interface CalculatedFieldDetailProps {
@@ -59,41 +59,8 @@ interface CalculatedFieldDetailProps {
 
 const SKELETON_LINES = 6;
 const CHAIN_DIALOG_HEIGHT = 640;
-
-function AssetChip({ asset }: { asset: CalculatedFieldRef }) {
-  const consoleUrl = getQuickSightConsoleUrl(asset.type, asset.id);
-  return (
-    <Stack direction="row" spacing={0} sx={{ alignItems: 'center' }}>
-      <Chip
-        size="small"
-        variant="outlined"
-        component={RouterLink}
-        to={assetPath(asset)}
-        clickable
-        label={asset.name}
-        icon={
-          <Typography variant="caption" component="span" sx={{ pl: 0.75 }}>
-            {asset.type}
-          </Typography>
-        }
-      />
-      {consoleUrl && (
-        <Tooltip title="Open in QuickSight">
-          <IconButton
-            size="small"
-            component="a"
-            href={consoleUrl}
-            target="_blank"
-            rel="noreferrer"
-            aria-label={`Open ${asset.name} in QuickSight`}
-          >
-            <OpenInNew fontSize="inherit" />
-          </IconButton>
-        </Tooltip>
-      )}
-    </Stack>
-  );
-}
+const EXPRESSION_LINES = 6;
+const EXPRESSION_CHARS = 360;
 
 function Expression({ expression }: { expression: string }) {
   return (
@@ -203,6 +170,103 @@ function ReadRow({
           Not tied to a SMUS column
         </Typography>
       )}
+    </Box>
+  );
+}
+
+/** An expression that stays a few lines tall until asked for the rest. */
+function ClampedExpression({ expression }: { expression: string }) {
+  const [all, setAll] = useState(false);
+  const long =
+    expression.split('\n').length > EXPRESSION_LINES || expression.length > EXPRESSION_CHARS;
+  return (
+    <Box>
+      <Box
+        sx={
+          all || !long
+            ? undefined
+            : {
+                maxHeight: `${EXPRESSION_LINES * 1.6}em`,
+                overflow: 'hidden',
+                maskImage: 'linear-gradient(black 70%, transparent)',
+              }
+        }
+      >
+        <Expression expression={expression} />
+      </Box>
+      {long && (
+        <Button size="small" onClick={() => setAll((v) => !v)} sx={{ mt: 0.5 }}>
+          {all ? 'Show less' : 'Show all'}
+        </Button>
+      )}
+    </Box>
+  );
+}
+
+/** Where the field is defined and where it is used, one tab each, one size however many. */
+function WhereItLives({ detail }: { detail: Detail }) {
+  const used = detail.usedIn.length;
+  const [tab, setTab] = useState<'defined' | 'used'>(used > 0 ? 'used' : 'defined');
+  return (
+    <Box>
+      <Tabs
+        value={tab}
+        onChange={(_, next) => setTab(next)}
+        sx={{ minHeight: 36, mb: 1, '& .MuiTab-root': { minHeight: 36, textTransform: 'none' } }}
+      >
+        <Tab value="used" label={`Used in · ${used}`} />
+        <Tab value="defined" label={`Defined in · ${detail.definedIn.length}`} />
+      </Tabs>
+      {tab === 'defined' ? (
+        <AssetRefGrid assets={detail.definedIn} />
+      ) : (
+        <FieldUsagePanel usedIn={detail.usedIn} visuals={detail.visuals} />
+      )}
+    </Box>
+  );
+}
+
+/** One variant: its expression, and where it is defined only when asked. */
+function VariantCard({
+  variant,
+  current,
+  onOpen,
+}: {
+  variant: Detail['variants'][number];
+  current: boolean;
+  onOpen: () => void;
+}) {
+  const [where, setWhere] = useState(false);
+  return (
+    <Box
+      sx={(theme) => ({
+        p: 1.5,
+        minWidth: 0,
+        border: `1px solid ${current ? pal(theme).brand.primary : pal(theme).line.divider}`,
+        borderRadius: `${theme.shape.borderRadius}px`,
+        bgcolor: current ? pal(theme).surface.selected : undefined,
+      })}
+    >
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
+        <Typography variant="caption" sx={{ flex: 1, color: 'text.secondary' }}>
+          {current ? 'This one · ' : ''}defined in {variant.definedIn.length}{' '}
+          {variant.definedIn.length === 1 ? 'asset' : 'assets'}
+        </Typography>
+        <Button size="small" onClick={() => setWhere((v) => !v)}>
+          {where ? 'Hide where' : 'Show where'}
+        </Button>
+        {!current && (
+          <Button size="small" onClick={onOpen}>
+            Open
+          </Button>
+        )}
+      </Stack>
+      <ClampedExpression expression={variant.expression} />
+      <Collapse in={where} unmountOnExit>
+        <Box sx={{ mt: 1 }}>
+          <AssetRefGrid assets={variant.definedIn} />
+        </Box>
+      </Collapse>
     </Box>
   );
 }
@@ -441,23 +505,7 @@ export function CalculatedFieldDetail({
           </Box>
         </Box>
 
-        <Box>
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            Defined in
-          </Typography>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-            {detail.definedIn.map((asset) => (
-              <AssetChip key={`${asset.type}:${asset.id}`} asset={asset} />
-            ))}
-          </Stack>
-        </Box>
-
-        <Box>
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            Used in
-          </Typography>
-          <FieldUsagePanel usedIn={detail.usedIn} visuals={detail.visuals} />
-        </Box>
+        <WhereItLives detail={detail} />
 
         {detail.variants.length > 1 && (
           <Box>
@@ -471,46 +519,23 @@ export function CalculatedFieldDetail({
             <Box
               sx={{
                 display: 'grid',
-                gridTemplateColumns: { xs: '1fr', md: 'repeat(auto-fit, minmax(280px, 1fr))' },
+                gridTemplateColumns: {
+                  xs: 'minmax(0, 1fr)',
+                  md: 'repeat(auto-fill, minmax(280px, 1fr))',
+                },
+                // Each card its own height: a one-line variant does not stretch to a long one.
+                alignItems: 'start',
                 gap: 1.5,
               }}
             >
-              {detail.variants.map((variant) => {
-                const current = variant.key === detail.key;
-                return (
-                  <Box
-                    key={variant.key}
-                    sx={(theme) => ({
-                      p: 1.5,
-                      border: `1px solid ${current ? pal(theme).brand.primary : pal(theme).line.divider}`,
-                      borderRadius: `${theme.shape.borderRadius}px`,
-                      bgcolor: current ? pal(theme).surface.selected : undefined,
-                    })}
-                  >
-                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
-                      <Typography variant="caption" sx={{ flex: 1, color: 'text.secondary' }}>
-                        {current ? 'This one' : `Defined in ${variant.definedIn.length}`}
-                      </Typography>
-                      {!current && (
-                        <Button size="small" onClick={() => onOpenField(variant.key)}>
-                          Open
-                        </Button>
-                      )}
-                    </Stack>
-                    <Expression expression={variant.expression} />
-                    <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
-                      {variant.definedIn.map((asset) => (
-                        <Chip
-                          key={`${asset.type}:${asset.id}`}
-                          size="small"
-                          variant="outlined"
-                          label={`${asset.type}: ${asset.name}`}
-                        />
-                      ))}
-                    </Stack>
-                  </Box>
-                );
-              })}
+              {detail.variants.map((variant) => (
+                <VariantCard
+                  key={variant.key}
+                  variant={variant}
+                  current={variant.key === detail.key}
+                  onOpen={() => onOpenField(variant.key)}
+                />
+              ))}
             </Box>
           </Box>
         )}

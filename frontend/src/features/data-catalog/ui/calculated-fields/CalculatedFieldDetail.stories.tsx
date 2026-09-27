@@ -73,3 +73,44 @@ export const LoadError: Story = {
     />
   ),
 };
+
+/** A field everywhere: sixty assets define it and four variants disagree, and it stays one screen. */
+export const AtScale: Story = {
+  name: 'active_status: defined in 60 assets, four variants',
+  render: () => {
+    const base = CALCULATED_FIELD_DETAILS[KEYS.margin]!;
+    const assets = (n: number, prefix: string) =>
+      Array.from({ length: n }, (_, i) => ({
+        type: i % 3 === 0 ? ('dataset' as const) : ('analysis' as const),
+        id: `${prefix}-${i}`,
+        name: `${prefix} ${i + 1}`,
+      }));
+    const long = `ifelse(\n  {status} = 'A', 'Active',\n  {status} = 'P', 'Pending',\n  {status} = 'S', 'Suspended',\n  {status} = 'C', 'Closed',\n  {status} = 'X', 'Cancelled',\n  {status} = 'R', 'Reopened',\n  'Unknown'\n)`;
+    const detail = {
+      ...base,
+      name: 'active_status',
+      expression: long,
+      definedIn: assets(60, 'Orders'),
+      variants: [
+        { key: base.key, expression: long, definedIn: assets(60, 'Orders') },
+        {
+          key: 'cf_v2',
+          expression: "ifelse({status} = 'A', 1, 0)",
+          definedIn: assets(12, 'Pipeline'),
+        },
+        { key: 'cf_v3', expression: "{status} = 'A'", definedIn: assets(3, 'Legacy') },
+        { key: 'cf_v4', expression: "in({status}, ['A', 'R'])", definedIn: assets(1, 'Ops') },
+      ],
+      conflict: { variants: 3 },
+    };
+    return (
+      <MockedApi routes={catalogRoutes()}>
+        <CalculatedFieldDetail
+          detail={detail as never}
+          onOpenField={() => {}}
+          onOpenListing={() => {}}
+        />
+      </MockedApi>
+    );
+  },
+};
