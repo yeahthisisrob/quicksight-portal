@@ -17,8 +17,6 @@ interface ExportAssetTypeConfig {
   hue: AssetHueKey;
   description: string;
   icon: typeof Dashboard;
-  disabled?: boolean;
-  comingSoon?: boolean;
 }
 
 export const assetTypeConfig: Record<string, ExportAssetTypeConfig> = {
@@ -66,10 +64,8 @@ export const assetTypeConfig: Record<string, ExportAssetTypeConfig> = {
   },
   themes: {
     label: 'Themes',
-    hue: 'namespace',
-    description: 'Export custom theme definitions (Coming Soon)',
+    hue: 'theme',
+    description: 'Export custom themes: colors, fonts, permissions and tags',
     icon: Palette,
-    disabled: true,
-    comingSoon: true,
   },
 };

@@ -27,10 +27,8 @@ export default function AssetTypeSelector({
   counts,
   disabled = false,
 }: AssetTypeSelectorProps) {
-  const selectableTypes = Object.entries(assetTypeConfig).filter(([, config]) => !config.disabled);
-  const allSelected = selectableTypes.every(([assetType]) =>
-    selectedTypes.includes(assetType as AssetType)
-  );
+  const selectableTypes = Object.keys(assetTypeConfig) as AssetType[];
+  const allSelected = selectableTypes.every((assetType) => selectedTypes.includes(assetType));
 
   return (
     <Box>
@@ -63,20 +61,14 @@ export default function AssetTypeSelector({
         {Object.entries(assetTypeConfig).map(([assetType, config]) => {
           const isSelected = selectedTypes.includes(assetType as AssetType);
           const count = counts?.[assetType as AssetType] || 0;
-          const isAssetDisabled = disabled || Boolean(config.disabled);
+          const isAssetDisabled = disabled;
           const Icon = config.icon;
 
           const chip = (
             <Chip
               key={assetType}
               icon={<Icon fontSize="small" />}
-              label={
-                config.comingSoon
-                  ? `${config.label} (soon)`
-                  : count > 0
-                    ? `${config.label} · ${count.toLocaleString()}`
-                    : config.label
-              }
+              label={count > 0 ? `${config.label} · ${count.toLocaleString()}` : config.label}
               clickable={!isAssetDisabled}
               disabled={isAssetDisabled}
               onClick={() => !isAssetDisabled && onToggle(assetType as AssetType)}
