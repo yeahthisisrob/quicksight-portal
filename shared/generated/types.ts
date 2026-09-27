@@ -1834,6 +1834,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/activity/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How far back the activity reaches, and when it was refreshed
+         * @description "No activity in N days" only means something when the activity the
+         *     portal holds covers N days; `days` is that span and `lastUpdated`
+         *     the last refresh. Empty (days 0) before the first refresh.
+         */
+        get: operations["getActivityCoverage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/activity/health": {
         parameters: {
             query?: never;
@@ -2915,7 +2937,8 @@ export interface components {
                 default?: components["schemas"]["PlaybookSpecValue"];
             }[];
             select: {
-                assetTypes: ("dashboard" | "analysis" | "dataset" | "datasource")[];
+                /** @description Assets, or users on their own (user conditions and steps apply only to users). */
+                assetTypes: ("dashboard" | "analysis" | "dataset" | "datasource" | "user")[];
                 where: components["schemas"]["PlaybookSpecCondition"][];
             };
             steps: components["schemas"]["PlaybookSpecStep"][];
@@ -2927,11 +2950,16 @@ export interface components {
          * @description views (min), viewsAtMost (max), tagged (tag: key or key=value),
          *     nameContains (text), hasErrors, readsEngine (engine: REDSHIFT, ATHENA...),
          *     readsGoverned (value: true or false), sharedWith (principal: a group or
-         *     user name, matched in the asset's permissions).
+         *     user name, matched in the asset's permissions). For users: role (roles:
+         *     comma-separated, e.g. READER,READER_PRO), inactiveForDays (days: never
+         *     active, or not in this many days), noAccess (in no group and reaching
+         *     no asset directly or through a group or folder; ignoreGroups and
+         *     ignoreFolders, comma-separated, name groups and folders that do not
+         *     count), and nameContains.
          */
         PlaybookSpecCondition: {
             /** @enum {string} */
-            kind: "views" | "viewsAtMost" | "tagged" | "nameContains" | "hasErrors" | "readsEngine" | "readsGoverned" | "sharedWith";
+            kind: "views" | "viewsAtMost" | "tagged" | "nameContains" | "hasErrors" | "readsEngine" | "readsGoverned" | "sharedWith" | "role" | "inactiveForDays" | "noAccess";
             min?: components["schemas"]["PlaybookSpecValue"];
             max?: components["schemas"]["PlaybookSpecValue"];
             tag?: components["schemas"]["PlaybookSpecValue"];
@@ -2939,6 +2967,10 @@ export interface components {
             engine?: components["schemas"]["PlaybookSpecValue"];
             value?: components["schemas"]["PlaybookSpecValue"];
             principal?: components["schemas"]["PlaybookSpecValue"];
+            roles?: components["schemas"]["PlaybookSpecValue"];
+            days?: components["schemas"]["PlaybookSpecValue"];
+            ignoreGroups?: components["schemas"]["PlaybookSpecValue"];
+            ignoreFolders?: components["schemas"]["PlaybookSpecValue"];
         };
         /**
          * @description matchDataset (engine, governed, infer, minConfidence): for each dataset
@@ -2961,11 +2993,14 @@ export interface components {
          *     reading the old name is moved to the new one (on SPICE once a refresh
          *     has loaded it), and the old name is removed once nothing reads it.
          *     Each phase is read from live state, so a later run finishes what an
-         *     earlier one started.
+         *     earlier one started. deleteUser (inactiveDays; users only): deletes an
+         *     idle reader, only while the portal's activity covers inactiveDays and
+         *     was refreshed in the last two days, after reading the user's activity
+         *     again; the portal refuses to delete anyone who is not a reader.
          */
         PlaybookSpecStep: {
             /** @enum {string} */
-            kind: "matchDataset" | "rebind" | "tag" | "repair" | "addToFolder" | "replaceMaterialisedCalcs" | "dropUnusedCalcs" | "renameCalcsToStandard" | "renameDatasetCalcsToStandard";
+            kind: "matchDataset" | "rebind" | "tag" | "repair" | "addToFolder" | "replaceMaterialisedCalcs" | "dropUnusedCalcs" | "renameCalcsToStandard" | "renameDatasetCalcsToStandard" | "deleteUser";
             engine?: components["schemas"]["PlaybookSpecValue"];
             governed?: components["schemas"]["PlaybookSpecValue"];
             infer?: components["schemas"]["PlaybookSpecValue"];
@@ -2977,6 +3012,7 @@ export interface components {
             folder?: components["schemas"]["PlaybookSpecValue"];
             prefixes?: components["schemas"]["PlaybookSpecValue"];
             prefix?: components["schemas"]["PlaybookSpecValue"];
+            inactiveDays?: components["schemas"]["PlaybookSpecValue"];
         };
         PlaybookSpec: components["schemas"]["PlaybookSpecInput"] & {
             id: string;
@@ -8908,6 +8944,35 @@ export interface operations {
                     "application/json": {
                         success: boolean;
                         data: components["schemas"]["AssetInsights"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getActivityCoverage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Coverage */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            start: string | null;
+                            end: string | null;
+                            lastUpdated: string | null;
+                            days: number;
+                        };
                     };
                 };
             };

@@ -1,5 +1,6 @@
 import type { RouteHandler } from '../../api/types';
 import {
+  getActivityCoverage,
   getActivityData,
   getActivitySummary,
   getAssetHealth,
@@ -43,6 +44,11 @@ export const activityRoutes: RouteHandler[] = [
     path: '/activity/summary',
     method: 'GET',
     handler: getActivitySummary,
+  },
+  {
+    path: '/activity/coverage',
+    method: 'GET',
+    handler: getActivityCoverage,
   },
   {
     path: '/activity/recipients',

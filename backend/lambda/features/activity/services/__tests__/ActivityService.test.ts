@@ -1615,3 +1615,28 @@ describe('ActivityService - Payload shape drift', () => {
     expect(updateEvent?.resourceId).toBe(TEST_ANALYSIS_ID);
   });
 });
+
+describe('ActivityService - coverage', () => {
+  it('reports the span the activity reaches and when it was refreshed, or nothing yet', async () => {
+    const cacheService = { getActivityCache: vi.fn() } as any;
+    const service = new ActivityService(cacheService, {} as any);
+    cacheService.getActivityCache.mockResolvedValue({
+      lastUpdated: '2026-09-26T10:00:00.000Z',
+      dateRange: { start: '2026-06-28T00:00:00.000Z', end: '2026-09-26T00:00:00.000Z' },
+      events: {},
+    });
+    expect(await service.getCoverage()).toEqual({
+      start: '2026-06-28T00:00:00.000Z',
+      end: '2026-09-26T00:00:00.000Z',
+      lastUpdated: '2026-09-26T10:00:00.000Z',
+      days: 90,
+    });
+    cacheService.getActivityCache.mockResolvedValue(null);
+    expect(await service.getCoverage()).toEqual({
+      start: null,
+      end: null,
+      lastUpdated: null,
+      days: 0,
+    });
+  });
+});

@@ -442,7 +442,12 @@ curl -sS -X POST "$QSP_API_URL/api/playbooks/consolidate-athena/run" \
   fields the governed dataset now holds as columns, judged by a model; drop
   calculated fields nothing reads; rename them to a prefix and snake_case,
   in dashboards and analyses or, migrated reader by reader, in datasets;
-  each dry-run first). Any value can be
+  each dry-run first). A spec can select users instead of assets, with
+  `role`, `inactiveForDays` and `noAccess` (in no group and reaching no
+  asset; `ignoreGroups` and `ignoreFolders` name the ones that do not
+  count) and the `deleteUser` step, which deletes idle readers only while
+  `GET /api/activity/coverage` shows the activity covers the window and
+  was refreshed in the last two days. Any value can be
   `{{inputKey}}`. `GET /api/playbooks/custom/{id}` returns a shipped
   example's spec too, to copy. A saved one previews and runs like the rest;
   pass `model` on the preview when it asks a model.
