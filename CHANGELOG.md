@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.35.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.35.0...v2.35.1) (2026-09-27)
+
+
+### Bug Fixes
+
+* **export:** themes can be picked on the export page ([#284](https://github.com/yeahthisisrob/quicksight-portal/issues/284)) ([8ca65bd](https://github.com/yeahthisisrob/quicksight-portal/commit/8ca65bd91c6e1143e4612eaae188e7ee9529f726))
+
 ## [2.35.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.34.0...v2.35.0) (2026-09-27)
 
 
