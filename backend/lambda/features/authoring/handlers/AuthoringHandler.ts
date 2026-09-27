@@ -3,6 +3,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { CloudWatchAdapter } from '../../../adapters/aws/CloudWatchAdapter';
 import { aiModelViews, isAiModelKey } from '../../../shared/ai/modelCatalog';
 import { actorLabel, requireAuth } from '../../../shared/auth';
+import { metadataBucketName } from '../../../shared/config/metadataBucket';
 import { STATUS_CODES } from '../../../shared/constants';
 import { activityReader } from '../../../shared/services/activity/activityReader';
 import { jobFactory } from '../../../shared/services/jobs/JobFactory';
@@ -318,7 +319,7 @@ export class AuthoringHandler {
       const queued = await jobFactory.createJob({
         jobType: 'planner',
         accountId: this.accountId,
-        bucketName: process.env.BUCKET_NAME || `quicksight-metadata-bucket-${this.accountId}`,
+        bucketName: metadataBucketName(this.accountId),
         userId: user.userId,
         startedBy: actorLabel(user),
         model: this.parseModel(body.model),
@@ -352,7 +353,7 @@ export class AuthoringHandler {
       const queued = await jobFactory.createJob({
         jobType: 'planner',
         accountId: this.accountId,
-        bucketName: process.env.BUCKET_NAME || `quicksight-metadata-bucket-${this.accountId}`,
+        bucketName: metadataBucketName(this.accountId),
         userId: user.userId,
         startedBy: actorLabel(user),
         model: this.parseModel(body.model),

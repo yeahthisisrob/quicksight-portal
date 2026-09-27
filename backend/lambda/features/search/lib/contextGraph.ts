@@ -217,13 +217,3 @@ export class ContextGraph {
     return { ...counts, edges: this.seenEdges.size };
   }
 }
-
-/** Column and field names compared the way people write them: case, spaces and underscores ignored. */
-export function normalName(name: string): string {
-  return name.toLowerCase().replace(/[\s_-]+/g, '');
-}
-
-/** `{column}` tokens in a calculated-field expression; `${param}` is a parameter and skipped. */
-export function expressionColumnNames(expression: string): string[] {
-  return [...new Set([...expression.matchAll(/(?<!\$)\{([^{}]+)\}/g)].map((m) => m[1]!.trim()))];
-}

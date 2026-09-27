@@ -6,14 +6,10 @@
  * with the assets that define them. Pure.
  */
 import { classifyFields, type ExpressionVerdict } from '../../../../../shared/lib/expressionKinds';
+import { expressionFields } from '../../../../../shared/lib/expressionParser';
+import { normalFieldName } from '../../../../../shared/lib/expressionPlacement';
 import type { SearchDocument } from '../types';
-import {
-  ContextGraph,
-  type EntityType,
-  entityId,
-  expressionColumnNames,
-  normalName,
-} from './contextGraph';
+import { ContextGraph, type EntityType, entityId } from './contextGraph';
 
 const TEMPLATE_TAG_KEY = 'quicksight-portal:template';
 const COLUMN_ATTRIBUTE_LIMIT = 60;
@@ -106,6 +102,11 @@ export function buildContextGraph(input: GraphInput): ContextGraph {
     if (doc.projectId) attributes.projectId = doc.projectId;
     if (doc.expression) attributes.expression = doc.expression;
     if (doc.views) attributes.views = doc.views;
+    if (type === 'visual' && doc.parent) {
+      attributes.assetType = doc.parent.type;
+      attributes.assetId = doc.parent.id;
+      attributes.assetName = doc.parent.name;
+    }
     const kind = type === 'calculated-field' ? kinds.get(doc.id) : undefined;
     if (kind) {
       attributes.kind = kind.kind;
@@ -163,12 +164,12 @@ export function buildContextGraph(input: GraphInput): ContextGraph {
           },
         });
         graph.link(listingId, 'has-column', columnId);
-        columnsByName.set(normalName(column.name), columnId);
+        columnsByName.set(normalFieldName(column.name), columnId);
       }
     }
     for (const term of listing.glossaryTerms ?? []) {
       if (!term?.name) continue;
-      const termId = entityId('glossary-term', normalName(term.name));
+      const termId = entityId('glossary-term', normalFieldName(term.name));
       graph.add({
         id: termId,
         type: 'glossary-term',
@@ -187,7 +188,7 @@ export function buildContextGraph(input: GraphInput): ContextGraph {
       for (const name of (byId.get(datasetId)?.metadata?.fields ?? []).map(
         (f: any) => f.fieldName ?? f.name
       )) {
-        const columnId = name ? columnsByName.get(normalName(name)) : undefined;
+        const columnId = name ? columnsByName.get(normalFieldName(name)) : undefined;
         if (columnId) {
           graph.link(datasetId, 'exposes', columnId);
         }
@@ -221,7 +222,7 @@ export function buildContextGraph(input: GraphInput): ContextGraph {
   // 4. Calculated fields: where they are defined, and the governed columns they read.
   for (const [key, field] of input.calculatedFields) {
     const fieldId = entityId('calculated-field', key);
-    const reads = expressionColumnNames(field.expression).map(normalName);
+    const reads = expressionFields(field.expression).map(normalFieldName);
     for (const definer of field.definedIn) {
       const assetId = entityId(definer.type as EntityType, definer.id);
       graph.link(fieldId, 'defined-in', assetId);
@@ -238,7 +239,7 @@ export function buildContextGraph(input: GraphInput): ContextGraph {
           direction: 'out',
           limit: 500,
         })) {
-          if (reads.includes(normalName(hit.entity.name))) {
+          if (reads.includes(normalFieldName(hit.entity.name))) {
             graph.link(fieldId, 'reads-column', hit.entity.id);
           }
         }
@@ -310,7 +311,7 @@ function linkFieldLineage(graph: ContextGraph, input: GraphInput, byId: Map<stri
     })) {
       const listingColumn = graph
         .related(hit.entity.id, { relations: ['has-column'], direction: 'out', limit: 1000 })
-        .find((c) => normalName(c.entity.name) === normalName(upstreamName));
+        .find((c) => normalFieldName(c.entity.name) === normalFieldName(upstreamName));
       if (listingColumn) {
         graph.link(
           id,
@@ -359,7 +360,7 @@ function linkFieldLineage(graph: ContextGraph, input: GraphInput, byId: Map<stri
     for (const definer of field.definedIn) {
       const asset = entityId(definer.type as EntityType, definer.id);
       const declaredOn = name ? input.calcDatasets?.get(`${asset}:${name}`) : undefined;
-      for (const read of expressionColumnNames(field.expression)) {
+      for (const read of expressionFields(field.expression)) {
         const target = resolve(asset, read, declaredOn);
         if (target && target !== fieldId) graph.link(fieldId, 'reads-field', target);
       }

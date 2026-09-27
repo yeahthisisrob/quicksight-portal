@@ -3,6 +3,7 @@
  * This module provides clean separation between production and local dev code
  */
 
+import { errorMessage } from './errorMessage';
 import { logger } from './logger';
 
 interface LocalJobExecutionConfig {
@@ -66,7 +67,7 @@ async function executeJobLocally(config: LocalJobExecutionConfig): Promise<void>
     logger.error('Local job execution failed', {
       jobId: config.jobId,
       jobType: config.jobType,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
       stack: error instanceof Error ? error.stack : undefined,
     });
 
@@ -98,7 +99,7 @@ export function executeJobLocallyAsync(config: LocalJobExecutionConfig): void {
       logger.error('Async local job execution failed', {
         jobId: config.jobId,
         jobType: config.jobType,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage(error),
       });
     });
   }, 0);

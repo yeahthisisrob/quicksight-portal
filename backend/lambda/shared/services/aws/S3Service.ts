@@ -6,6 +6,7 @@ import { EXPORT_CONFIG } from '../../config/exportConfig';
 import { S3_LIMITS, STATUS_CODES } from '../../constants';
 import type { OperationTracker } from '../../models/operations.model';
 import { withRetry } from '../../utils/awsRetry';
+import { errorMessage } from '../../utils/errorMessage';
 import { logger } from '../../utils/logger';
 
 /**
@@ -407,7 +408,7 @@ export class S3Service {
           bucket: metadata.bucket,
           key: metadata.key,
           duration: `${duration}ms`,
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage(error),
         });
       }
 

@@ -7,6 +7,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { isAiModelKey } from '../../../shared/ai/modelCatalog';
 import { type AuthContext, actorLabel, requireAuth } from '../../../shared/auth';
+import { metadataBucketName } from '../../../shared/config/metadataBucket';
 import { STATUS_CODES } from '../../../shared/constants';
 import { jobFactory } from '../../../shared/services/jobs/JobFactory';
 import { type JobItemStatus, JobItemStore } from '../../../shared/services/jobs/JobItemStore';
@@ -99,8 +100,7 @@ function jobAuth(user: AuthContext) {
 
 export class PlaybooksHandler {
   private readonly accountId = process.env.AWS_ACCOUNT_ID || '';
-  private readonly bucketName =
-    process.env.BUCKET_NAME || `quicksight-metadata-bucket-${process.env.AWS_ACCOUNT_ID || ''}`;
+  private readonly bucketName = metadataBucketName();
 
   /** GET /playbooks */
   public async list(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {

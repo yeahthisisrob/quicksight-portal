@@ -13,8 +13,16 @@
  * there, the confidence clears the bar, and the rebind preview (a dry run
  * of the whole rewrite) accepts it.
  */
+
+import { normalFieldName } from '../../../../../shared/lib/expressionPlacement';
+import { authoringPath } from '../portalPaths';
 import { type PlaybookContext, type PlaybookTarget, PortalCallError } from '../types';
-import { dryRun } from './calcHygiene';
+import {
+  DEFAULT_CALC_PREFIX,
+  DEFAULT_DATASET_CALC_PREFIX,
+  dryRun,
+  withoutPrefix,
+} from './calcHygiene';
 import { resolve, resolveBoolean } from './inputs';
 import { governedColumns, type SpecSession } from './session';
 import type { StepPlan } from './steps';
@@ -42,16 +50,8 @@ const MAX_TOKENS = 3000;
 const RELATED_LIMIT = 200;
 const NOT_FOUND = 404;
 
-const normal = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '');
 /** A calculated field's name without the organisation's prefixes, for a name match. */
-const bare = (name: string, prefixes: string[]) => {
-  const lower = name.toLowerCase();
-  const prefix = prefixes.find((p) => p && lower.startsWith(p.toLowerCase()));
-  return normal(prefix ? name.slice(prefix.length) : name);
-};
-
-const assetPath = (t: PlaybookTarget) =>
-  `/api/authoring/${t.assetType}/${encodeURIComponent(t.assetId)}`;
+const bare = (name: string, prefixes: string[]) => normalFieldName(withoutPrefix(name, prefixes));
 
 /** The asset's calculated fields, each with its dataset and expression. */
 async function calculatedFields(
@@ -61,7 +61,7 @@ async function calculatedFields(
   const [definition, related] = await Promise.all([
     ctx.call<{
       datasets: Array<{ identifier: string; dataSetId: string; calculatedFields: string[] }>;
-    }>('GET', `${assetPath(target)}/datasets`),
+    }>('GET', `${authoringPath(target)}/datasets`),
     ctx
       .call<{
         hits: Array<{ name: string; attributes: Record<string, unknown>; summary?: string }>;
@@ -188,7 +188,7 @@ async function nameMatches(session: SpecSession, fields: CalcField[], prefixes: 
   for (const field of fields) {
     const { columns } = await session.columns(field.dataSetId);
     const match = columns.find(
-      (c) => normal(c.name) === bare(field.name, prefixes) && c.name !== field.name
+      (c) => normalFieldName(c.name) === bare(field.name, prefixes) && c.name !== field.name
     );
     if (match)
       doubts.push(`${field.name} may be ${match.name} (a name match; check before replacing)`);
@@ -224,11 +224,12 @@ export async function planReplaceMaterialised(
     );
   }
 
-  const prefixes = [String(resolve(step.prefixes, ctx.params) ?? 'c_ds_,c_')]
-    .flatMap((p) => p.split(','))
+  const prefixes = String(
+    resolve(step.prefixes, ctx.params) ?? `${DEFAULT_DATASET_CALC_PREFIX},${DEFAULT_CALC_PREFIX}`
+  )
+    .split(',')
     .map((p) => p.trim())
-    .filter(Boolean)
-    .sort((a, b) => b.length - a.length);
+    .filter(Boolean);
   const minConfidence = Number(resolve(step.minConfidence, ctx.params)) || DEFAULT_MIN_CONFIDENCE;
 
   if (!resolveBoolean(step.infer, ctx.params) || !ctx.infer) {

@@ -4,6 +4,8 @@
  * cannot tell it from a built-in, so previews, gates, the failure threshold,
  * pausing and retry all work the same way.
  */
+
+import { errorMessage } from '../../../shared/utils/errorMessage';
 import {
   type ItemPlan,
   type Playbook,
@@ -46,16 +48,12 @@ const BACKOFF_MS = 1_000;
 const TOO_MANY = 429;
 const SERVER_ERROR = 500;
 
-function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /** Throttling and server errors pass; a refusal (4xx) is the answer. */
 function transient(error: unknown): boolean {
   if (error instanceof PortalCallError) {
     return error.status === TOO_MANY || error.status >= SERVER_ERROR;
   }
-  return /throttl|rate exceeded|timed? ?out/i.test(errorText(error));
+  return /throttl|rate exceeded|timed? ?out/i.test(errorMessage(error));
 }
 
 async function withRetries<T>(work: () => Promise<T>): Promise<T> {
@@ -141,7 +139,7 @@ export function specPlaybook(spec: PlaybookSpec): Playbook {
           // now and cannot see what was left, so say exactly what that is.
           const left = todo.slice(i).flatMap((s) => s.changes);
           throw new Error(
-            `${done.join('; ')}; then this failed: ${errorText(error)}. Not done, do it by hand: ${left.join('; ')}`
+            `${done.join('; ')}; then this failed: ${errorMessage(error)}. Not done, do it by hand: ${left.join('; ')}`
           );
         }
       }

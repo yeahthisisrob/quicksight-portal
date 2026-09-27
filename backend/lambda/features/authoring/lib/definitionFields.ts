@@ -9,14 +9,10 @@
  * as `{name}`; every edit here follows both, so nothing is left pointing at
  * a name that is gone.
  */
+import { expressionFields, renameFields } from '../../../../../shared/lib/expressionParser';
 import { ValidationError } from '../../../shared/errors/ValidationError';
 import type { ColumnUsage } from '../types';
-import {
-  emptyUsage,
-  expressionColumns,
-  isColumnIdentifier,
-  walkColumnIdentifiers,
-} from './definitionColumns';
+import { emptyUsage, isColumnIdentifier, walkColumnIdentifiers } from './definitionColumns';
 
 export interface CalculatedFieldUse {
   identifier: string;
@@ -66,7 +62,7 @@ export function calculatedFieldUses(definition: Record<string, any>): Calculated
     if (use) use.usage[site] += 1;
   });
   for (const reader of fields) {
-    for (const name of expressionColumns(String(reader.Expression ?? ''))) {
+    for (const name of expressionFields(String(reader.Expression ?? ''))) {
       const use = uses.get(key(reader.DataSetIdentifier, name));
       if (use && use.name !== reader.Name) {
         use.usage.calculatedField += 1;
@@ -103,13 +99,13 @@ function renameInExpressions(
   from: string,
   to: string
 ): string[] {
-  const token = `{${from}}`;
   const rewritten: string[] = [];
   for (const field of fields) {
-    if (field.DataSetIdentifier !== identifier || !String(field.Expression ?? '').includes(token)) {
+    const expression = String(field.Expression ?? '');
+    if (field.DataSetIdentifier !== identifier || !expressionFields(expression).includes(from)) {
       continue;
     }
-    field.Expression = String(field.Expression).split(token).join(`{${to}}`);
+    field.Expression = renameFields(expression, { [from]: to });
     rewritten.push(String(field.Name));
   }
   return rewritten;

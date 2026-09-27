@@ -3,6 +3,7 @@ import type { AssetType } from '../../models/asset.model';
 import type { ArchiveResult, ArchiveStats } from '../../types/archiveTypes';
 import { AssetStatusFilter } from '../../types/assetFilterTypes';
 import { ASSET_TYPES, ASSET_TYPES_PLURAL, isCollectionType } from '../../types/assetTypes';
+import { errorMessage } from '../../utils/errorMessage';
 import { logger } from '../../utils/logger';
 import { S3Service } from '../aws/S3Service';
 import type { CacheService } from '../cache/CacheService';
@@ -372,7 +373,7 @@ export class ArchiveService {
       });
       return { kept: true, replaced };
     } catch (error) {
-      return { kept: false, error: error instanceof Error ? error.message : String(error) };
+      return { kept: false, error: errorMessage(error) };
     }
   }
 

@@ -21,6 +21,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { type AuthContext, actorLabel } from '../../../shared/auth';
+import { metadataBucketName } from '../../../shared/config/metadataBucket';
 import { STATUS_CODES } from '../../../shared/constants';
 import { ValidationError } from '../../../shared/errors/ValidationError';
 import type { AssetExportData } from '../../../shared/models/asset-export.model';
@@ -129,7 +130,7 @@ export class RebindService {
   public constructor(accountId: string) {
     this.quickSightService = ClientFactory.getQuickSightService(accountId);
     this.s3Service = ClientFactory.getS3Service();
-    this.bucketName = process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`;
+    this.bucketName = metadataBucketName(accountId);
     this.archive = new ArchiveService(this.bucketName, cacheService);
   }
 

@@ -10,15 +10,7 @@
  * So identity is the same idea the dataset-to-listing matcher uses: case,
  * separators and camel-case humps carry no meaning, everything else does.
  */
-
-/** `Customer ID`, `customer-id` and `CustomerId` all normalize to `customer_id`. */
-export function normalizeColumnName(value: string): string {
-  return value
-    .trim()
-    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
-    .toLowerCase()
-    .replace(/[\s_-]+/g, '_');
-}
+import { normalFieldName } from '../../../../../shared/lib/expressionPlacement';
 
 /**
  * How a QuickSight column found its listing column. The two failures are kept
@@ -54,7 +46,7 @@ export function matchListingColumn(
   if (exact) {
     return { column: exact, match: 'exact' };
   }
-  const needle = normalizeColumnName(columnName);
-  const loose = named.find((c) => normalizeColumnName(c.name) === needle);
+  const needle = normalFieldName(columnName);
+  const loose = named.find((c) => normalFieldName(c.name) === needle);
   return loose ? { column: loose, match: 'normalized' } : undefined;
 }

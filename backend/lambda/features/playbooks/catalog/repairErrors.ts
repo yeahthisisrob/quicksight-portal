@@ -5,7 +5,9 @@
  * (a dataset that is gone, a column with no clear match) is left for review
  * in the Editor.
  */
-import type { Playbook, PlaybookTarget } from '../types';
+
+import { authoringPath } from '../portalPaths';
+import type { Playbook } from '../types';
 import { liveEntries } from './cache';
 
 interface RepairPlanResponse {
@@ -13,9 +15,6 @@ interface RepairPlanResponse {
   summary: { fixable: number; needsChoice: number; unfixable: number };
   proposed: { repairs: unknown[]; rebinds: unknown[] };
 }
-
-const path = (t: PlaybookTarget) =>
-  `/api/authoring/${t.assetType}/${encodeURIComponent(t.assetId)}`;
 
 export const repairErrors: Playbook = {
   id: 'repair-errors',
@@ -61,7 +60,11 @@ export const repairErrors: Playbook = {
   },
 
   async plan(ctx, target) {
-    const plan = await ctx.call<RepairPlanResponse>('POST', `${path(target)}/repair/plan`, {});
+    const plan = await ctx.call<RepairPlanResponse>(
+      'POST',
+      `${authoringPath(target)}/repair/plan`,
+      {}
+    );
     const { fixable, needsChoice, unfixable } = plan.summary;
     const changes = plan.issues.filter((i) => i.fix).map((i) => i.message);
     if (plan.issues.length === 0) {
@@ -86,7 +89,7 @@ export const repairErrors: Playbook = {
     const proposed = plan.data as RepairPlanResponse['proposed'];
     const result = await ctx.call<{ versionNumber?: number; warnings?: string[] }>(
       'POST',
-      `${path(target)}/rebind`,
+      `${authoringPath(target)}/rebind`,
       { mode: 'update', rebinds: proposed.rebinds, repairs: proposed.repairs }
     );
     return {

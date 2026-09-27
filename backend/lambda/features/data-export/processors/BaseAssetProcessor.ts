@@ -1,11 +1,13 @@
 import pLimit from 'p-limit';
 
 import { EXPORT_CONFIG } from '../../../shared/config/exportConfig';
+import { metadataBucketName } from '../../../shared/config/metadataBucket';
 import type { AssetExportData } from '../../../shared/models/asset-export.model';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import type { S3Service } from '../../../shared/services/aws/S3Service';
 import type { TagService } from '../../../shared/services/organization/TagService';
 import type { AssetParserService } from '../../../shared/services/parsing/AssetParserService';
+import { errorMessage } from '../../../shared/utils/errorMessage';
 import { logger } from '../../../shared/utils/logger';
 import { buildAssetCacheKey } from '../../../shared/utils/s3KeyUtils';
 import type { AssetSummary, AssetType, ProcessingContext } from '../types';
@@ -218,8 +220,7 @@ export abstract class BaseAssetProcessor {
    */
   protected async ensureBucketName(): Promise<string> {
     if (!this.bucketName) {
-      this.bucketName =
-        process.env.BUCKET_NAME || `quicksight-metadata-bucket-${this.awsAccountId}`;
+      this.bucketName = metadataBucketName(this.awsAccountId);
       // Ensure bucket exists
       await this.s3Service.ensureBucketExists(this.bucketName);
     }
@@ -381,7 +382,7 @@ export abstract class BaseAssetProcessor {
       return result;
     } catch (error) {
       result.status = 'error';
-      result.error = error instanceof Error ? error.message : String(error);
+      result.error = errorMessage(error);
       this.finalizeResult(result, startTime, context);
 
       logger.error(`Failed to process ${this.assetType} ${assetId}`, {

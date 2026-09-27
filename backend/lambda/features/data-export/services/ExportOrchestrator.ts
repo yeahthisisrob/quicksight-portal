@@ -1,6 +1,7 @@
 import pLimit from 'p-limit';
 
 import { EXPORT_CONFIG } from '../../../shared/config/exportConfig';
+import { metadataBucketName } from '../../../shared/config/metadataBucket';
 import { WORKER_CONFIG } from '../../../shared/constants';
 import type {
   AssetTypeSummary,
@@ -24,6 +25,7 @@ import { OperationTrackingService } from '../../../shared/services/operations/Op
 import { TagService } from '../../../shared/services/organization/TagService';
 import { AssetParserService } from '../../../shared/services/parsing/AssetParserService';
 import { ASSET_TYPES, isCollectionType } from '../../../shared/types/assetTypes';
+import { errorMessage } from '../../../shared/utils/errorMessage';
 import { logger } from '../../../shared/utils/logger';
 import { AnalysisProcessor } from '../processors/AnalysisProcessor';
 import {
@@ -476,7 +478,7 @@ export class ExportOrchestrator {
         {
           assetId: 'N/A',
           assetName: `${assetType} export`,
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage(error),
           timestamp: new Date().toISOString(),
         },
       ],
@@ -565,8 +567,7 @@ export class ExportOrchestrator {
 
   private async ensureBucketName(): Promise<string> {
     if (!this.bucketName) {
-      this.bucketName =
-        process.env.BUCKET_NAME || `quicksight-metadata-bucket-${this.awsAccountId}`;
+      this.bucketName = metadataBucketName(this.awsAccountId);
       await this.s3Service.ensureBucketExists(this.bucketName);
 
       if (!this.archiveService) {
@@ -1289,7 +1290,7 @@ export class ExportOrchestrator {
         if (this.jobStateService) {
           await this.jobStateService.logError(
             this.jobId,
-            `Failed to export ${assetType}: ${error instanceof Error ? error.message : String(error)}`,
+            `Failed to export ${assetType}: ${errorMessage(error)}`,
             { assetType }
           );
         }

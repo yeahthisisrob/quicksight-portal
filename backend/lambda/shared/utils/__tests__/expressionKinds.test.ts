@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { classifyExpression, classifyFields } from '../../../../../shared/lib/expressionKinds';
-import { parseExpression } from '../../../../../shared/lib/expressionParser';
+import {
+  classifyExpression,
+  classifyFields,
+  functionSpans,
+} from '../../../../../shared/lib/expressionKinds';
+import {
+  expressionFields,
+  parseExpression,
+  renameFields,
+} from '../../../../../shared/lib/expressionParser';
 
 describe('parseExpression', () => {
   it('binds the way QuickSight does', () => {
@@ -166,5 +174,37 @@ describe('classifyFields', () => {
     expect(verdicts.get('plain')?.materialisable).toBe(true);
     expect(verdicts.get('a')?.kind).toBe('row-level');
     expect(verdicts.has('revenue')).toBe(false);
+  });
+});
+
+describe('expressionFields and renameFields', () => {
+  it('reads and renames fields, never parameters or text in strings', () => {
+    const expression = "ifelse({ margin } > ${floor}, concat('{margin}', {status}), {margin})";
+    expect(expressionFields(expression)).toEqual(['margin', 'status']);
+    expect(renameFields(expression, { margin: 'c_margin' })).toBe(
+      "ifelse({c_margin} > ${floor}, concat('{margin}', {status}), {c_margin})"
+    );
+    expect(renameFields(expression, { other: 'x' })).toBe(expression);
+  });
+
+  it('falls back to the tokens it can see when the text will not tokenize', () => {
+    expect(expressionFields("{a} + 'unclosed")).toEqual(['a']);
+    expect(renameFields("{a} + 'unclosed", { a: 'b' })).toBe("{b} + 'unclosed");
+  });
+});
+
+describe('functionSpans', () => {
+  it('finds calls outside strings and fields, with doc links for known ones', () => {
+    const expression = "sum({x}) + mystery({y}) + len('sum(z)')";
+    expect(functionSpans(expression)).toEqual([
+      expect.objectContaining({
+        name: 'sum',
+        start: 0,
+        end: 3,
+        docUrl: expect.stringContaining('sum'),
+      }),
+      { name: 'mystery', start: 11, end: 18 },
+      expect.objectContaining({ name: 'len', start: 26 }),
+    ]);
   });
 });

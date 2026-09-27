@@ -4,6 +4,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { CloudTrailAdapter } from '../../../adapters/aws/CloudTrailAdapter';
 import { type AssetHealth, CloudWatchAdapter } from '../../../adapters/aws/CloudWatchAdapter';
 import { actorLabel, requireAuth } from '../../../shared/auth';
+import { metadataBucketName } from '../../../shared/config/metadataBucket';
 import { STATUS_CODES } from '../../../shared/constants/httpStatusCodes';
 import { ACTIVITY_LIMITS } from '../../../shared/constants/limits';
 import { CacheService } from '../../../shared/services/cache/CacheService';
@@ -71,7 +72,7 @@ export async function refreshActivity(event: APIGatewayProxyEvent): Promise<APIG
     });
 
     const accountId = process.env.AWS_ACCOUNT_ID || '';
-    const bucketName = process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`;
+    const bucketName = metadataBucketName(accountId);
 
     // Single-flight: if an activity-refresh job is already queued or in flight,
     // return its jobId rather than enqueuing a duplicate. The FE polls by

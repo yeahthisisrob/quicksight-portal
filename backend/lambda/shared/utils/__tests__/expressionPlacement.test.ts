@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { placementOf, sameFieldName } from '../../../../../shared/lib/expressionPlacement';
+import {
+  normalFieldName,
+  placementOf,
+  sameFieldName,
+} from '../../../../../shared/lib/expressionPlacement';
 
 describe('placementOf', () => {
   it('keeps row-level logic materialisable', () => {
@@ -34,5 +38,18 @@ describe('sameFieldName', () => {
   it('matches the way people write column names', () => {
     expect(sameFieldName('net_margin', 'Net Margin')).toBe(true);
     expect(sameFieldName('margin', 'margin_pct')).toBe(false);
+  });
+});
+
+describe('normalFieldName', () => {
+  it('treats case, spaces, separators and camel humps as noise', () => {
+    const forms = ['customer_id', 'Customer ID', 'customer-id', 'CustomerId', '  CUSTOMER_ID  '];
+    expect(new Set(forms.map(normalFieldName))).toEqual(new Set(['customerid']));
+    expect(normalFieldName('ORDER-DATE')).toBe(normalFieldName('Order Date'));
+  });
+
+  it('keeps names that really differ apart', () => {
+    expect(normalFieldName('customer_id')).not.toBe(normalFieldName('customerid2'));
+    expect(normalFieldName('net_revenue')).not.toBe(normalFieldName('gross_revenue'));
   });
 });

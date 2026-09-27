@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ReferencedColumn } from '../../types';
-import { normalizeColumnName, resolveColumns } from '../columnResolution';
+import { resolveColumns } from '../columnResolution';
 import { emptyUsage } from '../definitionColumns';
 
 const ref = (name: string): ReferencedColumn => ({ name, usage: emptyUsage() });
@@ -12,14 +12,6 @@ const TARGET = [
   { name: 'Order Date', type: 'DATETIME' },
   { name: 'customer_id', type: 'STRING' },
 ];
-
-describe('normalizeColumnName', () => {
-  it('ignores case, spaces and separators', () => {
-    expect(normalizeColumnName('Order Date')).toBe('orderdate');
-    expect(normalizeColumnName('order_date')).toBe('orderdate');
-    expect(normalizeColumnName('ORDER-DATE')).toBe('orderdate');
-  });
-});
 
 describe('resolveColumns', () => {
   it('matches identical names', () => {

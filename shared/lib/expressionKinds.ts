@@ -229,3 +229,25 @@ export function classifyFields(
   for (const name of byName.keys()) verdictOf(name);
   return verdicts;
 }
+
+/**
+ * Where each function call's name sits in an expression, with its docs
+ * link when the catalog knows it: for highlighting and linking the text.
+ * Names inside strings and field names are never matched.
+ */
+export function functionSpans(
+  expression: string
+): Array<{ name: string; start: number; end: number; docUrl?: string }> {
+  let tokens: ReturnType<typeof tokenize>;
+  try {
+    tokens = tokenize(expression);
+  } catch {
+    return [];
+  }
+  return tokens
+    .filter((t, i) => t.kind === 'name' && tokens[i + 1]?.kind === '(')
+    .map((t) => {
+      const docUrl = functionNamed(t.text)?.docUrl;
+      return { name: t.text, start: t.start, end: t.end, ...(docUrl ? { docUrl } : {}) };
+    });
+}

@@ -21,6 +21,7 @@ import { registerCatalogIndexer } from './shared/services/catalog/catalogIndexer
 import { JobStateService } from './shared/services/jobs/JobStateService';
 import { queueService } from './shared/services/jobs/QueueService';
 import { GroupService } from './shared/services/organization/GroupService';
+import { errorMessage } from './shared/utils/errorMessage';
 import { logger } from './shared/utils/logger';
 
 // Composition root: wire cross-slice derived-data recomputation here so
@@ -678,7 +679,7 @@ async function processPlannerJob(message: PlannerMessage, record: any): Promise<
     });
     logger.info('Planner job completed', { jobId, kind: request.kind });
   } catch (error) {
-    const messageText = error instanceof Error ? error.message : String(error);
+    const messageText = errorMessage(error);
     logger.error('Planner job failed', { jobId, error: messageText });
     await jobStateService.updateJobStatus(jobId, {
       status: 'failed',
@@ -734,7 +735,7 @@ async function processAssetRefreshJob(message: AssetRefreshMessage): Promise<voi
         .join('; '),
     });
   } catch (error) {
-    const text = error instanceof Error ? error.message : String(error);
+    const text = errorMessage(error);
     logger.error('Asset refresh failed', { jobId, error: text });
     await jobStateService.updateJobStatus(jobId, {
       status: 'failed',
@@ -838,7 +839,7 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       progress: 100,
     });
   } catch (error) {
-    const text = error instanceof Error ? error.message : String(error);
+    const text = errorMessage(error);
     logger.error('Assistant job failed', { jobId, error: text });
     await jobStateService.updateJobStatus(jobId, {
       status: 'failed',
@@ -906,7 +907,7 @@ async function processPlaybookJob(
       await requeueContinuation(jobId, message);
     }
   } catch (error) {
-    const text = error instanceof Error ? error.message : String(error);
+    const text = errorMessage(error);
     logger.error('Playbook job failed', { jobId, error: text });
     await jobStateService.updateJobStatus(jobId, {
       status: 'failed',

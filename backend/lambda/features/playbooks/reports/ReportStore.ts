@@ -2,6 +2,8 @@
  * Saved reports, kept beyond the jobs' retention: the full report and a
  * summary beside it, so the list reads small files.
  */
+
+import { metadataBucketName } from '../../../shared/config/metadataBucket';
 import { S3Service } from '../../../shared/services/aws/S3Service';
 import type { PlaybookReport, PlaybookReportSummary } from './report';
 import { summarize } from './report';
@@ -15,7 +17,7 @@ export class ReportStore {
 
   public constructor(accountId = process.env.AWS_ACCOUNT_ID || '') {
     this.s3 = new S3Service(accountId);
-    this.bucket = process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`;
+    this.bucket = metadataBucketName(accountId);
   }
 
   public async save(report: PlaybookReport, savedBy: string): Promise<PlaybookReportSummary> {

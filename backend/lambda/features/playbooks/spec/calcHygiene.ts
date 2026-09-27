@@ -6,6 +6,9 @@
  * that is still read), and both dry-run the whole rewrite through the
  * rebind preview before anything is written.
  */
+
+import { errorMessage } from '../../../shared/utils/errorMessage';
+import { authoringPath } from '../portalPaths';
 import type { PlaybookContext, PlaybookTarget } from '../types';
 import { resolveText } from './inputs';
 import type { StepPlan } from './steps';
@@ -19,17 +22,25 @@ interface FieldUse {
   unused: boolean;
 }
 
+/** The organisation's default prefixes: exploration fields and dataset fields. */
+export const DEFAULT_CALC_PREFIX = 'c_';
+export const DEFAULT_DATASET_CALC_PREFIX = 'c_ds_';
 /** Prefixes a name may already carry, set aside before the standard one goes on. */
-const KNOWN_PREFIXES = ['c_ds_', 'cds_', 'c_', 'calc_', 'cf_'];
-const DEFAULT_PREFIX = 'c_';
+const KNOWN_PREFIXES = [DEFAULT_DATASET_CALC_PREFIX, 'cds_', DEFAULT_CALC_PREFIX, 'calc_', 'cf_'];
 
-const assetPath = (t: PlaybookTarget) =>
-  `/api/authoring/${t.assetType}/${encodeURIComponent(t.assetId)}`;
+/** A name without the longest prefix it carries: c_ds_revenue loses c_ds_, not just c_. */
+export function withoutPrefix(name: string, prefixes: string[] = KNOWN_PREFIXES): string {
+  const lower = name.toLowerCase();
+  const known = prefixes
+    .filter((p) => p && lower.startsWith(p.toLowerCase()))
+    .sort((a, b) => b.length - a.length)[0];
+  return known ? name.slice(known.length) : name;
+}
 
 async function fieldsOf(ctx: PlaybookContext, target: PlaybookTarget): Promise<FieldUse[]> {
   const data = await ctx.call<{ fields: FieldUse[] }>(
     'GET',
-    `${assetPath(target)}/calculated-fields`
+    `${authoringPath(target)}/calculated-fields`
   );
   return data.fields ?? [];
 }
@@ -43,12 +54,12 @@ export async function dryRun(
   try {
     const preview = await ctx.call<{ plan?: { canApply?: boolean } }>(
       'POST',
-      `${assetPath(target)}/rebind/preview`,
+      `${authoringPath(target)}/rebind/preview`,
       { rebinds: [], ops }
     );
     return preview.plan?.canApply === false ? 'The rewrite would not resolve every column' : null;
   } catch (error) {
-    return `The rewrite was refused: ${error instanceof Error ? error.message : String(error)}`;
+    return `The rewrite was refused: ${errorMessage(error)}`;
   }
 }
 
@@ -121,13 +132,7 @@ export async function planDropUnused(
 
 /** "Order Margin %", "orderMargin", "calc_order-margin" -> "c_order_margin". */
 export function standardName(name: string, prefix: string): string {
-  const lower = name.toLowerCase();
-  // The longest that fits: c_ds_revenue loses c_ds_, not just c_.
-  const known = [prefix.toLowerCase(), ...KNOWN_PREFIXES]
-    .filter((p) => p && lower.startsWith(p))
-    .sort((a, b) => b.length - a.length)[0];
-  const rest = known ? name.slice(known.length) : name;
-  const snake = rest
+  const snake = withoutPrefix(name, [prefix, ...KNOWN_PREFIXES])
     .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
     .replace(/%/g, '_pct')
     .replace(/[^A-Za-z0-9]+/g, '_')
@@ -150,7 +155,7 @@ export async function planRenameToStandard(
       changes: [],
     };
   }
-  const prefix = resolveText(step.prefix, ctx.params) || DEFAULT_PREFIX;
+  const prefix = resolveText(step.prefix, ctx.params) || DEFAULT_CALC_PREFIX;
   const fields = await fieldsOf(ctx, target);
   const taken = new Set(fields.map((f) => `${f.identifier}\u0000${f.name}`));
   const renames: Array<{ field: FieldUse; to: string }> = [];
@@ -203,10 +208,14 @@ export async function applyFieldOps(
   verb: string
 ): Promise<string> {
   const { ops } = plan.data as { ops: unknown[] };
-  const result = await ctx.call<{ versionNumber?: number }>('POST', `${assetPath(target)}/rebind`, {
-    mode: 'update',
-    rebinds: [],
-    ops,
-  });
+  const result = await ctx.call<{ versionNumber?: number }>(
+    'POST',
+    `${authoringPath(target)}/rebind`,
+    {
+      mode: 'update',
+      rebinds: [],
+      ops,
+    }
+  );
   return `${verb} ${ops.length} calculated field${ops.length === 1 ? '' : 's'}${result.versionNumber ? ` (version ${result.versionNumber})` : ''}`;
 }

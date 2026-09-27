@@ -8,6 +8,7 @@ import { getAuthContext, UnauthorizedError } from '../shared/auth';
 import { STATUS_CODES } from '../shared/constants/httpStatusCodes';
 import { settingsStore } from '../shared/services/settings/SettingsStore';
 import { createResponse, errorResponse, successResponse } from '../shared/utils/cors';
+import { errorMessage } from '../shared/utils/errorMessage';
 import { logger } from '../shared/utils/logger';
 import { findRoute } from './router';
 import { applyHttpCaching } from './utils/httpCaching';
@@ -117,7 +118,7 @@ const handleRequest = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
     logger.error('API handler unhandled error', {
       path: event.path,
       method: event.httpMethod,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
       stack: error instanceof Error ? error.stack : undefined,
     });
     return errorResponse(event, STATUS_CODES.INTERNAL_SERVER_ERROR, 'Internal server error');

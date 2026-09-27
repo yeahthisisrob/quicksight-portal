@@ -10,7 +10,7 @@
  */
 import { ValidationError } from '../../../shared/errors/ValidationError';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
-import { resendDataSet } from '../../../shared/services/aws/datasetUpdate';
+import { describeDataSetForEdit, resendDataSet } from '../../../shared/services/aws/datasetUpdate';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
 import { LineageService } from '../../../shared/services/lineage/LineageService';
@@ -197,18 +197,7 @@ export class DatasetFieldService {
     }
   }
 
-  private async describe(dataSetId: string): Promise<Record<string, any>> {
-    let described: Record<string, any> | undefined;
-    try {
-      described = await this.quickSightService.describeDataset(dataSetId);
-    } catch (error) {
-      logger.warn('DescribeDataSet failed', { dataSetId, error });
-    }
-    if (!described?.PhysicalTableMap || !described?.ImportMode) {
-      throw new ValidationError(
-        `Dataset '${dataSetId}' could not be read from QuickSight; uploaded (flat file) datasets cannot be edited`
-      );
-    }
-    return described;
+  private describe(dataSetId: string): Promise<Record<string, any>> {
+    return describeDataSetForEdit(this.quickSightService, dataSetId);
   }
 }

@@ -16,6 +16,7 @@
  */
 import { AsyncLocalStorage } from 'node:async_hooks';
 
+import { metadataBucketName } from '../../config/metadataBucket';
 import { AssetStatus } from '../../models/asset.model';
 import type { AssetType } from '../../types/assetTypes';
 import { logger } from '../../utils/logger';
@@ -97,7 +98,7 @@ async function queueRefresh(
       await JobFactory.getInstance().createJob({
         jobType: 'asset-refresh',
         accountId,
-        bucketName: process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`,
+        bucketName: metadataBucketName(accountId),
         userId: context.userId ?? 'system',
         assets: chunk.map(({ assetType, assetId }) => ({ assetType, assetId })),
       });

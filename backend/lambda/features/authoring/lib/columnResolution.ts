@@ -9,6 +9,7 @@
  * planner that has to state its choices in the map where they can be read.
  */
 
+import { normalFieldName } from '../../../../../shared/lib/expressionPlacement';
 import type { ColumnResolution, ColumnResolutionStatus, ReferencedColumn } from '../types';
 
 export interface TargetColumn {
@@ -23,11 +24,6 @@ interface ColumnResolutionResult {
   canApply: boolean;
 }
 
-/** Case, whitespace and separator insensitive: `Order Date` ~ `order_date`. */
-export function normalizeColumnName(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-
 function emptySummary(): Record<ColumnResolutionStatus, number> {
   return { matched: 0, mapped: 0, suggested: 0, missing: 0 };
 }
@@ -40,13 +36,13 @@ export function resolveColumns(
   const byName = new Map(target.map((c) => [c.name, c]));
   const byNormalized = new Map<string, TargetColumn[]>();
   for (const column of target) {
-    const key = normalizeColumnName(column.name);
+    const key = normalFieldName(column.name);
     byNormalized.set(key, [...(byNormalized.get(key) ?? []), column]);
   }
 
   /** A near match is only offered when it is unambiguous. */
   const suggestFor = (name: string): TargetColumn | undefined => {
-    const candidates = byNormalized.get(normalizeColumnName(name)) ?? [];
+    const candidates = byNormalized.get(normalFieldName(name)) ?? [];
     return candidates.length === 1 ? candidates[0] : undefined;
   };
 

@@ -24,6 +24,7 @@ import {
 } from '../../../shared/ai/modelCatalog';
 import { bodyErrors, bodyFields, matchOperation, queryErrors } from '../../../shared/api/contract';
 import type { TagStandard } from '../../../shared/tags/tagStandards';
+import { errorMessage } from '../../../shared/utils/errorMessage';
 import { logger } from '../../../shared/utils/logger';
 import { contextGet, contextRelated, contextSearch, datasetColumns } from '../lib/contextTools';
 import {
@@ -988,7 +989,7 @@ export class AssistantService {
       out.calls.push({ method, path, status: HTTP_SERVER_ERROR, ok: false });
       return {
         id,
-        content: `The call failed: ${error instanceof Error ? error.message : String(error)}`,
+        content: `The call failed: ${errorMessage(error)}`,
         isError: true,
       };
     }

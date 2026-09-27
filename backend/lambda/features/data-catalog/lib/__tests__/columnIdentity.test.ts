@@ -1,19 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { matchListingColumn, normalizeColumnName } from '../columnIdentity';
-
-describe('normalizeColumnName', () => {
-  it('treats case, separators and camel humps as noise', () => {
-    const forms = ['customer_id', 'Customer ID', 'customer-id', 'CustomerId', '  CUSTOMER_ID  '];
-    expect(new Set(forms.map(normalizeColumnName)).size).toBe(1);
-    expect(normalizeColumnName('Customer ID')).toBe('customer_id');
-  });
-
-  it('keeps columns that really are different apart', () => {
-    expect(normalizeColumnName('customer_id')).not.toBe(normalizeColumnName('customerid2'));
-    expect(normalizeColumnName('net_revenue')).not.toBe(normalizeColumnName('gross_revenue'));
-  });
-});
+import { matchListingColumn } from '../columnIdentity';
 
 describe('matchListingColumn', () => {
   const columns = [
