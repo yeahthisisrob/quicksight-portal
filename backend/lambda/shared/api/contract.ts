@@ -49,9 +49,33 @@ function deref(spec: SpecLike, node: any): any {
 
 function typeOf(value: unknown): string {
   if (Array.isArray(value)) return 'array';
+  // A Date in a body goes out as its ISO string.
+  if (value instanceof Date) return 'string';
   if (value === null) return 'null';
   if (typeof value === 'number') return Number.isInteger(value) ? 'integer' : 'number';
   return typeof value;
+}
+
+interface CheckOptions {
+  /** Check only the first N items of an array (responses can be thousands of rows). */
+  sample?: number;
+  /** Report fields the schema does not declare (responses: the contract must say all of it). */
+  strict?: boolean;
+}
+
+/** Every property an object schema declares, across its allOf parts. */
+function declaredProperties(spec: SpecLike, schema: any, depth = 0): Set<string> | null {
+  if (!schema || depth > MAX_DEPTH) return new Set();
+  if (schema.additionalProperties === true || typeof schema.additionalProperties === 'object') {
+    return null; // an open map: anything goes
+  }
+  const names = new Set<string>(Object.keys(schema.properties ?? {}));
+  for (const part of schema.allOf ?? []) {
+    const inner = declaredProperties(spec, deref(spec, part), depth + 1);
+    if (inner === null) return null;
+    for (const n of inner) names.add(n);
+  }
+  return names;
 }
 
 function check(
@@ -60,7 +84,8 @@ function check(
   value: unknown,
   at: string,
   errors: string[],
-  depth: number
+  depth: number,
+  options: CheckOptions = {}
 ): void {
   const schema = deref(spec, schemaNode);
   if (!schema || typeof schema !== 'object' || depth > MAX_DEPTH || errors.length >= MAX_ERRORS) {
@@ -68,13 +93,16 @@ function check(
   }
   const where = at || 'body';
   if (Array.isArray(schema.allOf)) {
-    for (const part of schema.allOf) check(spec, part, value, at, errors, depth + 1);
+    // Each part checks its own fields; undeclared ones are judged once, over all parts, below.
+    for (const part of schema.allOf) {
+      check(spec, part, value, at, errors, depth + 1, { ...options, strict: false });
+    }
   }
   const alternatives = schema.oneOf ?? schema.anyOf;
   if (Array.isArray(alternatives) && alternatives.length > 0) {
     const fits = alternatives.some((alt: any) => {
       const trial: string[] = [];
-      check(spec, alt, value, at, trial, depth + 1);
+      check(spec, alt, value, at, trial, depth + 1, options);
       return trial.length === 0;
     });
     if (!fits) errors.push(`${where}: matches none of the allowed shapes`);
@@ -101,8 +129,9 @@ function check(
       );
     }
     if (schema.items) {
-      items.forEach((item, i) =>
-        check(spec, schema.items, item, `${where}[${i}]`, errors, depth + 1)
+      const checked = options.sample === undefined ? items : items.slice(0, options.sample);
+      checked.forEach((item, i) =>
+        check(spec, schema.items, item, `${where}[${i}]`, errors, depth + 1, options)
       );
     }
   }
@@ -113,7 +142,17 @@ function check(
     }
     for (const [key, sub] of Object.entries(schema.properties ?? {})) {
       if (record[key] !== undefined) {
-        check(spec, sub, record[key], at ? `${at}.${key}` : key, errors, depth + 1);
+        check(spec, sub, record[key], at ? `${at}.${key}` : key, errors, depth + 1, options);
+      }
+    }
+  }
+  if (options.strict && actual === 'object' && !(schema.oneOf ?? schema.anyOf)) {
+    const declared = declaredProperties(spec, schema);
+    if (declared && declared.size > 0) {
+      for (const key of Object.keys(value as Record<string, unknown>)) {
+        if (!declared.has(key)) {
+          errors.push(`${at ? `${at}.` : ''}${key}: not in the contract`);
+        }
       }
     }
   }
@@ -180,4 +219,47 @@ export function requestErrors(method: string, path: string, body: unknown): stri
   const contract = served as SpecLike;
   const template = matchOperation(contract, method, path);
   return template ? bodyErrors(contract, method, template, body) : [];
+}
+
+const RESPONSE_SAMPLE = 25;
+
+/** The documented response schema for a status: its own, its class (4XX), or default. */
+function responseSchema(spec: SpecLike, method: string, template: string, status: number) {
+  const responses = spec.paths?.[template]?.[method.toLowerCase()]?.responses ?? {};
+  const response =
+    responses[String(status)] ?? responses[`${String(status)[0]}XX`] ?? responses.default;
+  const resolved =
+    typeof response?.$ref === 'string'
+      ? spec.components?.responses?.[response.$ref.split('/').pop() as string]
+      : response;
+  return resolved ? { schema: resolved.content?.['application/json']?.schema } : undefined;
+}
+
+/**
+ * What is wrong with a response for the served contract: a status it does
+ * not document, a field it does not declare, a declared field missing or of
+ * the wrong type. Errors are held to the shared Error envelope when the
+ * operation does not document that status. `path` may leave out /api.
+ */
+export function responseErrors(
+  method: string,
+  path: string,
+  status: number,
+  body: unknown,
+  spec: SpecLike = served as SpecLike
+): string[] {
+  const full = path.startsWith('/api') ? path : `/api${path}`;
+  const template = matchOperation(spec, method, full);
+  if (!template) return [];
+  const documented = responseSchema(spec, method, template, status);
+  const HTTP_ERROR = 400;
+  const schema =
+    documented?.schema ??
+    (status >= HTTP_ERROR ? { $ref: '#/components/schemas/Error' } : undefined);
+  if (!schema) {
+    return documented ? [] : [`${status}: not a documented response`];
+  }
+  const errors: string[] = [];
+  check(spec, schema, body, '', errors, 0, { sample: RESPONSE_SAMPLE, strict: true });
+  return errors.slice(0, MAX_ERRORS);
 }

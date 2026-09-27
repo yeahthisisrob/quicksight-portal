@@ -913,8 +913,9 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get full data catalog
-         * @description Returns complete field catalog with pagination, filtering, and summary statistics
+         * How many assets and fields the catalog holds, and when it was counted
+         * @description Three numbers, not the catalog itself: for the fields, their
+         *     lineage and filters, use `GET /api/data-catalog`.
          */
         get: operations["getDataCatalogFull"];
         put?: never;
@@ -3356,9 +3357,38 @@ export interface components {
             totalPages: number;
             hasMore?: boolean;
         };
+        AssetFolderRef: {
+            id: string;
+            name: string;
+            path: string;
+        };
+        AssetRelationship: {
+            sourceAssetId: string;
+            sourceAssetType: string;
+            sourceAssetName?: string;
+            sourceIsArchived?: boolean;
+            targetAssetId: string;
+            targetAssetType: string;
+            targetAssetName?: string;
+            targetIsArchived?: boolean;
+            /** @enum {string} */
+            relationshipType: "uses" | "used_by";
+            activity?: {
+                totalViews?: number;
+                uniqueViewers?: number;
+                lastViewed?: string | null;
+            };
+            tags?: components["schemas"]["Tag"][];
+        };
         AssetListItem: {
             /** @description Asset unique identifier */
             id: string;
+            arn?: string;
+            /** @description Dashboards, analyses, datasets and data sources - the folders it is in. */
+            folders?: components["schemas"]["AssetFolderRef"][];
+            folderCount?: number;
+            /** @description Dashboards, analyses, datasets and data sources - what it uses and what uses it. */
+            relatedAssets?: components["schemas"]["AssetRelationship"][];
             /** @description Asset display name */
             name: string;
             type: components["schemas"]["AssetType"];
@@ -3519,6 +3549,8 @@ export interface components {
             definitionErrors?: components["schemas"]["DefinitionError"][];
         };
         AnalysisListItem: components["schemas"]["AssetListItem"] & {
+            /** @description Whether a dashboard was published from it. */
+            dashboardStatus?: string;
             /** @description Number of sheets in the analysis */
             sheetCount: number;
             /** @description Total number of visuals across all sheets */
@@ -3616,6 +3648,13 @@ export interface components {
             };
         };
         GroupListItem: components["schemas"]["AssetListItem"] & {
+            /** @description How many assets the group reaches. */
+            assetsCount?: number;
+            members?: {
+                memberName: string;
+                arn: string;
+                email?: string;
+            }[];
             /** @description Number of members in the group */
             memberCount: number;
             /** @description Group description */
@@ -5839,7 +5878,8 @@ export interface components {
             lastUpdated?: string;
         };
         VisualFieldCatalogResponse: {
-            visualFields?: {
+            /** @description The first page of visual field mappings. */
+            items: {
                 fieldId?: string;
                 visualId?: string;
                 visualName?: string;
@@ -5852,7 +5892,7 @@ export interface components {
                 isCalculated?: boolean;
                 lastUpdated?: string;
             }[];
-            summary?: {
+            summary: {
                 totalVisualFields?: number;
                 totalVisuals?: number;
                 totalSheets?: number;
@@ -7560,38 +7600,27 @@ export interface operations {
     };
     getDataCatalogFull: {
         parameters: {
-            query?: {
-                page?: number;
-                pageSize?: number;
-                viewMode?: "all" | "fields" | "calculated";
-                /** @description Single tag key filter (deprecated, use includeTags/excludeTags) */
-                tagKey?: string;
-                /** @description Single tag value filter (deprecated, use includeTags/excludeTags) */
-                tagValue?: string;
-                /** @description JSON array of tags to include, e.g. [{"key":"env","value":"prod"}]. Assets must have at least one of these tags. */
-                includeTags?: string;
-                /** @description JSON array of tags to exclude, e.g. [{"key":"env","value":"dev"}]. Assets must not have any of these tags. */
-                excludeTags?: string;
-                /** @description JSON array of asset IDs to filter by, e.g. ["dash-123","ds-456"]. Only fields from these assets are returned. */
-                assetIds?: string;
-                /** @description Catalog source scope. By default the catalog reflects the business-facing layer (datasets + dashboards). Set true to also include analyses (the authoring layer); datasets are always included. */
-                includeAnalyses?: boolean;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Data catalog with fields and summary */
+            /** @description The counts */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        success?: boolean;
-                        data?: components["schemas"]["DataCatalogResponse"];
+                        success: boolean;
+                        data: {
+                            totalAssets: number;
+                            totalFields: number;
+                            /** Format: date-time */
+                            lastUpdated: string;
+                        };
                     };
                 };
             };
@@ -9996,7 +10025,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Tags per asset */
+            /** @description Tags per asset, in the order asked; one that could not be read says so */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -10005,8 +10034,12 @@ export interface operations {
                     "application/json": {
                         success: boolean;
                         data: {
-                            [key: string]: unknown;
-                        };
+                            type: string;
+                            id: string;
+                            tags: components["schemas"]["Tag"][];
+                            success: boolean;
+                            error?: string;
+                        }[];
                     };
                 };
             };

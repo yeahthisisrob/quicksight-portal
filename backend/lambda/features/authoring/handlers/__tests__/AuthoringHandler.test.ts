@@ -32,7 +32,15 @@ const event = (body: unknown) =>
 
 describe('AuthoringHandler', () => {
   beforeEach(() => {
-    preview.mockReset().mockResolvedValue({ definition: {} });
+    // Shaped like the real NewAssetPreview: the response is held to the contract.
+    preview.mockReset().mockResolvedValue({
+      definition: {},
+      visuals: [],
+      filters: [],
+      changes: [],
+      outline: [],
+      warnings: [],
+    });
   });
 
   it('hands the whole new-asset body to the service: filters, their controls and visual actions survive', async () => {

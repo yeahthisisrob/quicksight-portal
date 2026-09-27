@@ -257,6 +257,7 @@ describe('JobHandler - getJob', () => {
       mockRepository.getJob.mockResolvedValue(mockJob);
 
       const event = createMockEvent({
+        path: '/jobs/export-123',
         pathParameters: {
           jobId: 'export-123',
         },

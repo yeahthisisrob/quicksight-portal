@@ -1,4 +1,6 @@
-import { vi } from 'vitest';
+import { afterEach, vi } from 'vitest';
+
+import { takeContractDrift } from './shared/utils/cors';
 
 // Vitest setup file
 // Suppress console logs during tests unless explicitly needed
@@ -52,3 +54,13 @@ vi.mock('aws-sdk', () => ({
 
 // Prevent QuickSightAdapter from trying to initialize v2 client in tests
 process.env.NODE_ENV = 'test';
+
+// Every response a test produces is held to the served contract: drift fails
+// the test that made it (see checkAgainstContract in shared/utils/cors).
+process.env.CONTRACT_RESPONSES = 'strict';
+afterEach(() => {
+  const found = takeContractDrift();
+  if (found.length > 0) {
+    throw new Error(`A response does not fit the served contract:\n${found.join('\n')}`);
+  }
+});
