@@ -9,7 +9,7 @@
     "generate": "openapi-typescript ../../shared/schemas/api.openapi.yaml -o ../../shared/generated/types.ts && node openapi-json.mjs"
   },
   "devDependencies": {
-    "@redocly/cli": "^2.53.2",
+    "@redocly/cli": "^2.54.2",
     "@types/js-yaml": "^4.0.9",
     "js-yaml": "^4.3.2",
     "openapi-typescript": "^7.13.0",
