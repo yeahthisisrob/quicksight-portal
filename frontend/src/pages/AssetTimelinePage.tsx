@@ -17,6 +17,7 @@ const PLURAL_TO_SINGULAR: Record<string, TimelineAssetType> = {
   folders: 'folder',
   groups: 'group',
   users: 'user',
+  themes: 'theme',
 };
 
 const CHIP_TYPE: Record<TimelineAssetType, ChipType> = {
@@ -27,6 +28,7 @@ const CHIP_TYPE: Record<TimelineAssetType, ChipType> = {
   folder: 'FOLDER',
   group: 'GROUP',
   user: 'USER',
+  theme: 'THEME',
 };
 
 const FEED_HEIGHT = 'calc(100vh - 220px)';

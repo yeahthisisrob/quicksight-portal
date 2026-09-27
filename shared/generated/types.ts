@@ -6804,7 +6804,7 @@ export interface operations {
                 cursor?: string;
                 /** @description Page size. Default 50, max 200. */
                 limit?: number;
-                /** @description Comma-separated list of resource types to include. Catalog types (dashboard, analysis, dataset, datasource, folder, group, user) show hydrated asset names; `other` covers templates, themes, brands, topics, account settings, etc. */
+                /** @description Comma-separated list of resource types to include. Catalog types (dashboard, analysis, dataset, datasource, folder, group, user, theme) show hydrated asset names; `other` covers templates, theme aliases, brands, topics, account settings, etc. */
                 resourceTypes?: string;
                 /** @description Comma-separated list of user names to include. */
                 users?: string;
@@ -6860,7 +6860,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "group" | "user";
+                assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "group" | "user" | "theme";
                 assetId: string;
             };
             cookie?: never;

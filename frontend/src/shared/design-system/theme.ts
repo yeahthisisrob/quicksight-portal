@@ -38,6 +38,7 @@ export const colors = {
     folder: assetTriplet('folder'),
     user: assetTriplet('user'),
     group: assetTriplet('group'),
+    theme: assetTriplet('theme'),
     namespace: assetTriplet('namespace'),
     public: assetTriplet('public'),
   },

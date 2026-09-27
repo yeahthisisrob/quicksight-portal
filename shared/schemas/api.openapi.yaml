@@ -1017,9 +1017,9 @@ paths:
           in: query
           description: >
             Comma-separated list of resource types to include. Catalog types
-            (dashboard, analysis, dataset, datasource, folder, group, user)
-            show hydrated asset names; `other` covers templates, themes,
-            brands, topics, account settings, etc.
+            (dashboard, analysis, dataset, datasource, folder, group, user,
+            theme) show hydrated asset names; `other` covers templates, theme
+            aliases, brands, topics, account settings, etc.
           schema:
             type: string
         - name: users
@@ -1092,7 +1092,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [dashboard, analysis, dataset, datasource, folder, group, user]
+            enum: [dashboard, analysis, dataset, datasource, folder, group, user, theme]
         - name: assetId
           in: path
           required: true

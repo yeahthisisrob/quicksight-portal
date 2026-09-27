@@ -48,7 +48,8 @@ const RESOURCE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'folder', label: 'Folder' },
   { value: 'group', label: 'Group' },
   { value: 'user', label: 'User' },
-  { value: 'other', label: 'Other (settings, templates, themes)' },
+  { value: 'theme', label: 'Theme' },
+  { value: 'other', label: 'Other (settings, templates, brands)' },
 ];
 
 const ACTION_OPTIONS: Array<{ value: string; label: string }> = [

@@ -194,6 +194,18 @@ export const TIMELINE_EVENTS: TimelineEvent[] = [
     actor: { kind: 'service', label: 'quicksight', raw: 'quicksight.amazonaws.com' },
     origin: 'automation',
   }),
+  event({
+    timestamp: daysAgo(2, 4),
+    eventName: 'UpdateTheme',
+    action: 'update',
+    resourceType: 'theme',
+    assetType: 'theme',
+    assetId: 'brand',
+    assetName: 'Brand',
+    user: 'rob',
+    actor: { kind: 'user', label: 'rob', raw: 'rob' },
+    origin: 'portal',
+  }),
   // Three days ago.
   event({
     timestamp: daysAgo(3, 1),

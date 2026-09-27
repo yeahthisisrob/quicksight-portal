@@ -101,18 +101,16 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
             View in SMUS
           </MenuItem>
         )}
-        {assetType !== 'theme' && (
-          <MenuItem
-            onClick={() =>
-              handleAction(() =>
-                handlers.navigate(`/assets/${PLURAL[assetType as AssetType]}/${asset.id}/timeline`)
-              )
-            }
-          >
-            <TimelineIcon fontSize="small" sx={{ mr: 1 }} />
-            View Timeline
-          </MenuItem>
-        )}
+        <MenuItem
+          onClick={() =>
+            handleAction(() =>
+              handlers.navigate(`/assets/${PLURAL[assetType as AssetType]}/${asset.id}/timeline`)
+            )
+          }
+        >
+          <TimelineIcon fontSize="small" sx={{ mr: 1 }} />
+          View Timeline
+        </MenuItem>
         <MenuItem
           onClick={() => handleAction(() => handlers.onJsonViewerClick?.(asset, assetType))}
         >

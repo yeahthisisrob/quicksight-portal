@@ -74,6 +74,7 @@ export const assetIcons = {
   FOLDER: FolderIcon,
   USER: UserIcon,
   GROUP: GroupIcon,
+  THEME: ThemeIcon,
   NAMESPACE: NamespaceIcon,
   PUBLIC: PublicIcon,
   // Lowercase variants for backward compatibility
@@ -84,6 +85,7 @@ export const assetIcons = {
   folder: FolderIcon,
   user: UserIcon,
   group: GroupIcon,
+  theme: ThemeIcon,
   namespace: NamespaceIcon,
   public: PublicIcon,
 } as const;
