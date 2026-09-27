@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.33.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.32.0...v2.33.0) (2026-09-27)
+
+
+### Features
+
+* **contract:** responses are held to the contract, so drift fails the build ([#278](https://github.com/yeahthisisrob/quicksight-portal/issues/278)) ([3fc0b09](https://github.com/yeahthisisrob/quicksight-portal/commit/3fc0b09945de10e30c332f1240a0f19c12e77404))
+* **errors:** every error says what went wrong, and offers what failed underneath ([#277](https://github.com/yeahthisisrob/quicksight-portal/issues/277)) ([576c535](https://github.com/yeahthisisrob/quicksight-portal/commit/576c535e4f244a7019c10b8ef22a760a86b7d899))
+
+
+### Bug Fixes
+
+* **archive:** a deleted user is archived once, not again on every export ([#275](https://github.com/yeahthisisrob/quicksight-portal/issues/275)) ([1a3c185](https://github.com/yeahthisisrob/quicksight-portal/commit/1a3c1859478a10df1199c2f4e4c413e66ff77286))
+
 ## [2.32.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.31.0...v2.32.0) (2026-09-27)
 
 
