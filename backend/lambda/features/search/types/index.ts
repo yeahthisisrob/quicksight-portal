@@ -10,7 +10,8 @@ export type SearchableType =
   | 'project'
   | 'calculated-field'
   | 'visual'
-  | 'template';
+  | 'template'
+  | 'theme';
 
 export const SEARCHABLE_TYPES: readonly SearchableType[] = [
   'dashboard',
@@ -24,6 +25,7 @@ export const SEARCHABLE_TYPES: readonly SearchableType[] = [
   'calculated-field',
   'visual',
   'template',
+  'theme',
 ];
 
 /** One indexed thing. Field lists are what scoring reads; `summary` is one line for people and agents. */

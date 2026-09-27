@@ -605,7 +605,7 @@ export interface paths {
          *     derived-from the parent dataset's column or the listing-column it
          *     carries (through renames); calculated-field reads-field
          *     dataset-column or calculated-field; visual shows dataset-column or
-         *     calculated-field.
+         *     calculated-field. Themes: analysis or dashboard uses-theme theme.
          *     `direction=in` follows them backwards (the datasets that read a
          *     listing).
          */
@@ -1791,6 +1791,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/authoring/themes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a theme
+         * @description Creates the theme in QuickSight, owned by whoever asked (their
+         *     sign-in email matched to their QuickSight user). Every color must be
+         *     a hex color and every interface role one QuickSight knows; anything
+         *     else is refused with every reason.
+         */
+        post: operations["postAuthoringThemes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/authoring/themes/propose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A theme drawn from a picture (brand colors, a logo, a layout)
+         * @description A model that reads images proposes a theme from the picture. It runs
+         *     as a job: poll `GET /api/jobs/{jobId}` until `completed`, then
+         *     `GET /api/jobs/{jobId}/result` is `{ draft, rationale?, model }`.
+         *     Nothing is created: send the draft (edited or not) to
+         *     `POST /api/authoring/themes`.
+         */
+        post: operations["postAuthoringThemesPropose"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/authoring/new/propose": {
         parameters: {
             query?: never;
@@ -2900,7 +2947,7 @@ export interface components {
                 key: string;
                 label: string;
                 /** @enum {string} */
-                kind: "datasource" | "text" | "boolean" | "number" | "engine" | "folder";
+                kind: "datasource" | "text" | "boolean" | "number" | "engine" | "folder" | "theme";
                 help?: string;
                 required?: boolean;
                 /** @description datasource only - offer only data sources of this engine. */
@@ -2978,7 +3025,7 @@ export interface components {
                 key: string;
                 label: string;
                 /** @enum {string} */
-                kind: "number" | "text" | "boolean" | "datasource" | "engine" | "folder";
+                kind: "number" | "text" | "boolean" | "datasource" | "engine" | "folder" | "theme";
                 help?: string;
                 required?: boolean;
                 default?: components["schemas"]["PlaybookSpecValue"];
@@ -3002,11 +3049,13 @@ export interface components {
          *     active, or not in this many days), noAccess (in no group and reaching
          *     no asset directly or through a group or folder; ignoreGroups and
          *     ignoreFolders, comma-separated, name groups and folders that do not
-         *     count), and nameContains.
+         *     count), and nameContains. For dashboards and analyses: usesTheme (theme:
+         *     a custom theme's id or a QuickSight one by name; value false selects
+         *     those not wearing it).
          */
         PlaybookSpecCondition: {
             /** @enum {string} */
-            kind: "views" | "viewsAtMost" | "tagged" | "nameContains" | "hasErrors" | "readsEngine" | "readsGoverned" | "sharedWith" | "role" | "inactiveForDays" | "noAccess";
+            kind: "views" | "viewsAtMost" | "tagged" | "nameContains" | "hasErrors" | "readsEngine" | "readsGoverned" | "sharedWith" | "role" | "inactiveForDays" | "noAccess" | "usesTheme";
             min?: components["schemas"]["PlaybookSpecValue"];
             max?: components["schemas"]["PlaybookSpecValue"];
             tag?: components["schemas"]["PlaybookSpecValue"];
@@ -3018,6 +3067,7 @@ export interface components {
             days?: components["schemas"]["PlaybookSpecValue"];
             ignoreGroups?: components["schemas"]["PlaybookSpecValue"];
             ignoreFolders?: components["schemas"]["PlaybookSpecValue"];
+            theme?: components["schemas"]["PlaybookSpecValue"];
         };
         /**
          * @description matchDataset (engine, governed, infer, minConfidence): for each dataset
@@ -3044,10 +3094,11 @@ export interface components {
          *     idle reader, only while the portal's activity covers inactiveDays and
          *     was refreshed in the last two days, after reading the user's activity
          *     again; the portal refuses to delete anyone who is not a reader.
+         *     applyTheme (theme): gives a dashboard or analysis the theme.
          */
         PlaybookSpecStep: {
             /** @enum {string} */
-            kind: "matchDataset" | "rebind" | "tag" | "repair" | "addToFolder" | "replaceMaterialisedCalcs" | "dropUnusedCalcs" | "renameCalcsToStandard" | "renameDatasetCalcsToStandard" | "deleteUser";
+            kind: "matchDataset" | "rebind" | "tag" | "repair" | "addToFolder" | "replaceMaterialisedCalcs" | "dropUnusedCalcs" | "renameCalcsToStandard" | "renameDatasetCalcsToStandard" | "deleteUser" | "applyTheme";
             engine?: components["schemas"]["PlaybookSpecValue"];
             governed?: components["schemas"]["PlaybookSpecValue"];
             infer?: components["schemas"]["PlaybookSpecValue"];
@@ -3060,6 +3111,7 @@ export interface components {
             prefixes?: components["schemas"]["PlaybookSpecValue"];
             prefix?: components["schemas"]["PlaybookSpecValue"];
             inactiveDays?: components["schemas"]["PlaybookSpecValue"];
+            theme?: components["schemas"]["PlaybookSpecValue"];
         };
         PlaybookSpec: components["schemas"]["PlaybookSpecInput"] & {
             id: string;
@@ -3236,7 +3288,7 @@ export interface components {
         };
         AssetRef: {
             /** @enum {string} */
-            type: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "user" | "group";
+            type: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "user" | "group" | "theme";
             id: string;
             name?: string;
         };
@@ -3314,7 +3366,7 @@ export interface components {
             warnings: string[];
         };
         /** @enum {string} */
-        AssetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "user" | "group";
+        AssetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "user" | "group" | "theme";
         /** @enum {string} */
         AssetStatus: "active" | "archived" | "deleted";
         /** @enum {string} */
@@ -3336,6 +3388,7 @@ export interface components {
                 folders?: components["schemas"]["FolderListItem"][];
                 users?: components["schemas"]["UserListItem"][];
                 groups?: components["schemas"]["GroupListItem"][];
+                themes?: components["schemas"]["ThemeListItem"][];
                 pagination: components["schemas"]["PaginationInfo"];
                 fromCache: boolean;
                 /** @description Users - the roles in use, with counts, for the role filter. */
@@ -3531,6 +3584,8 @@ export interface components {
             }[];
         };
         DashboardListItem: components["schemas"]["AssetListItem"] & {
+            /** @description The theme it wears. */
+            themeArn?: string;
             /**
              * @description Dashboard creation status
              * @example CREATION_SUCCESSFUL
@@ -3549,6 +3604,8 @@ export interface components {
             definitionErrors?: components["schemas"]["DefinitionError"][];
         };
         AnalysisListItem: components["schemas"]["AssetListItem"] & {
+            /** @description The theme it wears. */
+            themeArn?: string;
             /** @description Whether a dashboard was published from it. */
             dashboardStatus?: string;
             /** @description Number of sheets in the analysis */
@@ -3645,6 +3702,40 @@ export interface components {
             dataSourceParameters?: Record<string, never>;
             vpcConnectionProperties?: {
                 vpcConnectionArn?: string;
+            };
+        };
+        ThemeDraft: {
+            name: string;
+            /** @enum {string} */
+            baseThemeId?: "CLASSIC" | "MIDNIGHT" | "SEASIDE" | "RAINIER";
+            /** @description The colors data takes, in order, as hex. */
+            dataColors: string[];
+            /** @description Interface colors by role (PrimaryBackground, PrimaryForeground, Accent...), as hex. */
+            uiColors?: {
+                [key: string]: string;
+            };
+            fontFamily?: string;
+        };
+        ThemeProposal: {
+            draft: components["schemas"]["ThemeDraft"];
+            rationale?: string;
+            model: string;
+        };
+        ThemeListItem: components["schemas"]["AssetListItem"] & {
+            /** @description The QuickSight theme it starts from (CLASSIC, MIDNIGHT, SEASIDE...). */
+            baseThemeId: string;
+            versionNumber?: number;
+            /** @description The colors data takes, in order. */
+            dataColors: string[];
+            /** @description The interface colors by role (PrimaryBackground, Accent...). */
+            uiColors: {
+                [key: string]: string;
+            };
+            fontFamily?: string;
+            /** @description How many dashboards and analyses use it. */
+            usedBy: {
+                dashboards: number;
+                analyses: number;
             };
         };
         GroupListItem: components["schemas"]["AssetListItem"] & {
@@ -3941,15 +4032,15 @@ export interface components {
             /** @description For portal events, who was behind it, from the portal's own audit log. */
             provenance?: components["schemas"]["TimelineProvenance"];
             /**
-             * @description Resource type the event targets. Catalog types (dashboard / analysis / dataset / datasource / folder / group / user) are hydrated with asset names; `other` covers templates, themes, brands, topics, action connectors, VPC connections, namespaces, and account-level settings.
+             * @description Resource type the event targets. Catalog types (dashboard / analysis / dataset / datasource / folder / group / user / theme) are hydrated with asset names; `other` covers templates, brands, topics, action connectors, VPC connections, namespaces, and account-level settings.
              * @enum {string}
              */
-            resourceType?: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "group" | "user" | "other";
+            resourceType?: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "group" | "user" | "theme" | "other";
             /**
              * @description Catalog asset type (only set when resourceType is a catalog asset).
              * @enum {string}
              */
-            assetType?: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "group" | "user";
+            assetType?: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "group" | "user" | "theme";
             /** @description Resource identifier (dashboardId, analysisId, ...). Absent for some account-level settings events. */
             assetId?: string;
             /** @description Asset name from the portal catalog. Absent if the catalog does not know this asset. */
@@ -4573,6 +4664,12 @@ export interface components {
             typeRules?: components["schemas"]["TypeRules"];
             /** @description Clone only. Put the new asset in this QuickSight folder. */
             folderId?: string;
+            /**
+             * @description Give it this theme: a custom theme's id or ARN, or one QuickSight
+             *     ships by name (CLASSIC, MIDNIGHT, SEASIDE, RAINIER). Absent, it
+             *     keeps its own (or the template's, when migrating onto one).
+             */
+            theme?: string;
         };
         AddedCalculatedField: {
             identifier: string;
@@ -5559,7 +5656,7 @@ export interface components {
             };
         };
         /** @enum {string} */
-        SearchableType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "project" | "smus-listing" | "smus-column" | "calculated-field" | "visual" | "template";
+        SearchableType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "project" | "smus-listing" | "smus-column" | "calculated-field" | "visual" | "template" | "theme";
         SearchAssetRef: {
             /** @enum {string} */
             type: "dashboard" | "analysis" | "dataset";
@@ -5603,9 +5700,9 @@ export interface components {
             indexedAt: string;
         };
         /** @enum {string} */
-        ContextEntityType: "project" | "listing" | "listing-column" | "glossary-term" | "datasource" | "dataset" | "dataset-column" | "calculated-field" | "analysis" | "dashboard" | "visual" | "template" | "folder";
+        ContextEntityType: "project" | "listing" | "listing-column" | "glossary-term" | "datasource" | "dataset" | "dataset-column" | "calculated-field" | "analysis" | "dashboard" | "visual" | "template" | "folder" | "theme";
         /** @enum {string} */
-        ContextRelation: "in-project" | "has-column" | "tagged" | "reads-listing" | "through-datasource" | "exposes" | "uses-dataset" | "defined-in" | "reads-column" | "in-asset" | "in-folder" | "column-of" | "derived-from" | "reads-field" | "shows";
+        ContextRelation: "in-project" | "has-column" | "tagged" | "reads-listing" | "through-datasource" | "exposes" | "uses-dataset" | "defined-in" | "reads-column" | "in-asset" | "in-folder" | "column-of" | "derived-from" | "reads-field" | "shows" | "uses-theme";
         ContextEntity: {
             id: string;
             type: components["schemas"]["ContextEntityType"];
@@ -5785,88 +5882,6 @@ export interface components {
             /** @description Number of fields from this asset in the catalog */
             fieldCount: number;
         };
-        CatalogField: {
-            fieldId: string;
-            fieldName: string;
-            dataType: string;
-            description?: string;
-            isCalculated: boolean;
-            sourceAssetType: string;
-            sourceAssetId: string;
-            sourceAssetName: string;
-            datasetId?: string;
-            datasetName?: string;
-            columnName?: string | null;
-            expression?: string | null;
-            expressions?: {
-                expression?: string;
-                sources?: {
-                    assetType?: string;
-                    assetId?: string;
-                    assetName?: string;
-                    dataType?: string;
-                    lastUpdated?: string;
-                }[];
-            }[];
-            dependencies?: string[];
-            lastUpdated?: string;
-            sources?: components["schemas"]["CatalogFieldSource"][];
-            variants?: components["schemas"]["CatalogFieldSource"][];
-            hasVariants?: boolean;
-            usageCount?: number;
-            analysisCount?: number;
-            dashboardCount?: number;
-            datasetCount?: number;
-            /** @description Trimmed character length of the representative expression. */
-            expressionLength?: number;
-            /** @description Whether any in-scope variant of this calculated field contains author comments. */
-            hasComments?: boolean;
-            /** @description Field names referenced by this calculated field's expression(s). */
-            fieldReferences?: string[];
-            /** @description True when the same field name resolves to more than one distinct expression across assets. */
-            hasExpressionConflict?: boolean;
-            /** @description Number of distinct expressions found for this field name. */
-            conflictCount?: number;
-            /** @description Names of calculated fields that reference this field (reverse lineage). */
-            usedBy?: string[];
-        };
-        CatalogFieldSource: {
-            assetType?: string;
-            assetId?: string;
-            assetName?: string;
-            datasetId?: string;
-            datasetName?: string;
-            dataType?: string;
-            lastUpdated?: string;
-        };
-        DataCatalogResponse: {
-            items?: components["schemas"]["CatalogField"][];
-            pagination?: {
-                page?: number;
-                pageSize?: number;
-                totalItems?: number;
-                totalPages?: number;
-                hasMore?: boolean;
-            };
-            summary?: {
-                totalFields?: number;
-                distinctFields?: number;
-                totalCalculatedFields?: number;
-                calculatedDatasetFields?: number;
-                calculatedAnalysisFields?: number;
-                visualFields?: number;
-                fieldsByDataType?: {
-                    [key: string]: number;
-                };
-                fieldsWithVariants?: number;
-                fieldsWithComments?: number;
-                fieldsWithConflicts?: number;
-                avgExpressionLength?: number;
-                /** Format: date-time */
-                lastUpdated?: string;
-                processingTimeMs?: number;
-            };
-        };
         CatalogStats: {
             totalAssets?: number;
             assetsByType?: {
@@ -6030,7 +6045,7 @@ export interface components {
     };
     parameters: {
         JobId: string;
-        TaggableAssetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "user" | "group";
+        TaggableAssetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "user" | "group" | "theme";
         TaggedAssetId: string;
         FieldSourceType: "dataset" | "analysis" | "dashboard";
         FieldSourceId: string;
@@ -6354,7 +6369,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                assetType: "dashboards" | "datasets" | "analyses" | "datasources" | "folders" | "users" | "groups";
+                assetType: "dashboards" | "datasets" | "analyses" | "datasources" | "folders" | "users" | "groups" | "themes";
             };
             cookie?: never;
         };
@@ -6384,7 +6399,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                assetType: "dashboards" | "datasets" | "analyses" | "datasources" | "folders" | "users" | "groups";
+                assetType: "dashboards" | "datasets" | "analyses" | "datasources" | "folders" | "users" | "groups" | "themes";
             };
             cookie?: never;
         };
@@ -6521,7 +6536,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "user" | "group";
+                assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "user" | "group" | "theme";
                 assetId: string;
             };
             cookie?: never;
@@ -6975,7 +6990,7 @@ export interface operations {
             query: {
                 /** @description Plain words, e.g. "gold orders dataset with revenue by region". */
                 q: string;
-                /** @description Comma-separated subset of dashboard, analysis, dataset, datasource, folder, project, smus-listing, smus-column, calculated-field, visual, template. */
+                /** @description Comma-separated subset of dashboard, analysis, dataset, datasource, folder, project, smus-listing, smus-column, calculated-field, visual, template, theme. */
                 types?: string;
                 /** @description Keep to one SMUS project (its listings and columns, and the datasets linked to them). */
                 projectId?: string;
@@ -7731,7 +7746,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                assetType: "dashboard" | "analysis" | "dataset" | "datasource";
+                assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "theme";
                 assetId: string;
             };
             cookie?: never;
@@ -9018,6 +9033,74 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
+    postAuthoringThemes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ThemeDraft"];
+            };
+        };
+        responses: {
+            /** @description The created theme */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            themeId: string;
+                            arn: string;
+                            warnings: string[];
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthoringThemesPropose: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description A PNG, JPEG, GIF or WebP data URL, at most 3.5 MB. */
+                    image: string;
+                    /** @description Anything the picture does not say (dark mode, a color to lead with). */
+                    note?: string;
+                    model?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The proposal job was queued; its result is `{ draft, rationale?, model }` */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["JobQueued"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
     postAuthoringNewPropose: {
         parameters: {
             query?: never;
@@ -9663,7 +9746,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         success: boolean;
-                        data: components["schemas"]["AssistantChatResult"] | components["schemas"]["Proposal"] | components["schemas"]["NewAssetPreview"] | {
+                        data: components["schemas"]["AssistantChatResult"] | components["schemas"]["Proposal"] | components["schemas"]["NewAssetPreview"] | components["schemas"]["ThemeProposal"] | {
                             [key: string]: unknown;
                         };
                     };
@@ -9838,7 +9921,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "user" | "group";
+                assetType: "dashboard" | "analysis" | "dataset" | "datasource" | "folder" | "user" | "group" | "theme";
                 assetId: string;
             };
             cookie?: never;

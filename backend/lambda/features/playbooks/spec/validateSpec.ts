@@ -27,6 +27,7 @@ const INPUT_KINDS = new Set<SpecInput['kind']>([
   'datasource',
   'engine',
   'folder',
+  'theme',
 ]);
 const TYPES = new Set<SelectableType>(['dashboard', 'analysis', 'dataset', 'datasource', 'user']);
 const CONDITION_FIELDS: Record<SpecCondition['kind'], string[]> = {
@@ -41,9 +42,11 @@ const CONDITION_FIELDS: Record<SpecCondition['kind'], string[]> = {
   role: ['roles'],
   inactiveForDays: ['days'],
   noAccess: [],
+  usesTheme: ['theme'],
 };
 const OPTIONAL_CONDITION_FIELDS: Partial<Record<SpecCondition['kind'], string[]>> = {
   noAccess: ['ignoreGroups', 'ignoreFolders'],
+  usesTheme: ['value'],
 };
 /** What only users have, and what only assets have: a spec selects one or the other. */
 const USER_CONDITIONS = new Set<SpecCondition['kind']>([
@@ -63,6 +66,7 @@ const STEP_FIELDS: Record<SpecStep['kind'], { required: string[]; optional: stri
   renameCalcsToStandard: { required: [], optional: ['prefix'] },
   renameDatasetCalcsToStandard: { required: [], optional: ['prefix'] },
   deleteUser: { required: ['inactiveDays'], optional: [] },
+  applyTheme: { required: ['theme'], optional: [] },
   replaceMaterialisedCalcs: {
     required: [],
     optional: ['governed', 'infer', 'minConfidence', 'prefixes'],
@@ -162,6 +166,9 @@ export function validateSpec(raw: unknown): PlaybookSpecInput {
       }
     }
     const kind = condition.kind as SpecCondition['kind'];
+    if (kind === 'usesTheme' && assetTypes.some((t) => t !== 'dashboard' && t !== 'analysis')) {
+      fail(`select.where[${i}] (usesTheme) applies to dashboards and analyses only`);
+    }
     if (users && !USER_CONDITIONS.has(kind))
       fail(`select.where[${i}] (${kind}) does not apply to users`);
     if (!users && USER_CONDITIONS.has(kind) && kind !== 'nameContains') {

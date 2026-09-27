@@ -22,6 +22,16 @@ export const authoringRoutes: RouteHandler[] = [
   },
   {
     method: 'POST',
+    path: '/authoring/themes/propose',
+    handler: (event) => handler.proposeTheme(event),
+  },
+  {
+    method: 'POST',
+    path: '/authoring/themes',
+    handler: (event) => handler.createTheme(event),
+  },
+  {
+    method: 'POST',
     path: '/authoring/definition/preview',
     handler: (event) => handler.previewDefinition(event),
   },

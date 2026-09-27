@@ -13,7 +13,8 @@ export type ChangedAssetType =
   | 'datasource'
   | 'folder'
   | 'user'
-  | 'group';
+  | 'group'
+  | 'theme';
 
 export const ALL_ASSET_TYPES: readonly ChangedAssetType[] = [
   'dashboard',
@@ -23,6 +24,7 @@ export const ALL_ASSET_TYPES: readonly ChangedAssetType[] = [
   'folder',
   'user',
   'group',
+  'theme',
 ];
 
 type Listener = (types: readonly ChangedAssetType[]) => void;

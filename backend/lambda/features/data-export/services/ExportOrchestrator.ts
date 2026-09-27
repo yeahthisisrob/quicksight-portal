@@ -38,6 +38,7 @@ import { DatasourceProcessor } from '../processors/DatasourceProcessor';
 import { FolderProcessor } from '../processors/organizational/FolderProcessor';
 import { GroupProcessor } from '../processors/organizational/GroupProcessor';
 import { UserProcessor } from '../processors/organizational/UserProcessor';
+import { ThemeProcessor } from '../processors/ThemeProcessor';
 import type { AssetSummary, AssetType, ProcessingContext } from '../types';
 import { AssetComparisonService } from './AssetComparisonService';
 import { BatchProcessingService } from './BatchProcessingService';
@@ -959,6 +960,18 @@ export class ExportOrchestrator {
     this.processors.set(
       ASSET_TYPES.datasource,
       new DatasourceProcessor(
+        this.quickSightService,
+        this.s3Service,
+        this.tagService,
+        this.assetParserService,
+        this.awsAccountId,
+        maxConcurrency
+      )
+    );
+
+    this.processors.set(
+      ASSET_TYPES.theme,
+      new ThemeProcessor(
         this.quickSightService,
         this.s3Service,
         this.tagService,

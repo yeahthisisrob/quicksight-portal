@@ -1,6 +1,7 @@
 // Shared UI components
 
 // DataGrid cell components
+export { ColorSwatches } from './ColorSwatches';
 export { ErrorBoundary } from './ErrorBoundary';
 export { ErrorDetailsHost, ErrorSnackbar } from './ErrorDetails';
 export * from './icons';

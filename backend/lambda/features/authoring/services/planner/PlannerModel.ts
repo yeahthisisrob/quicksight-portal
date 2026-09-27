@@ -17,6 +17,8 @@ export interface StructuredRequest {
   /** JSON Schema (draft 2020-12 subset every provider accepts). */
   schema: Record<string, unknown>;
   maxTokens: number;
+  /** Pictures the model should look at (a brand palette, a layout), sent beside the text. */
+  images?: Array<{ format: 'png' | 'jpeg' | 'gif' | 'webp'; bytes: Uint8Array }>;
 }
 
 export interface StructuredResult {

@@ -52,6 +52,7 @@ function createMockMasterCache(
       folder: 0,
       user: 0,
       group: 0,
+      theme: 0,
     },
     entries: {
       dashboard: dashboards,
@@ -61,6 +62,7 @@ function createMockMasterCache(
       folder: [],
       user: [],
       group: [],
+      theme: [],
     },
   };
 }

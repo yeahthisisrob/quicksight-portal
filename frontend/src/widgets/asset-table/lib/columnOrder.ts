@@ -59,6 +59,18 @@ const PREFERRED_COLUMN_ORDER: Record<string, readonly string[]> = {
   folder: [...IDENTITY, ...DATES, 'permissions', 'tags', 'path', 'memberCount', ...HIDDEN_LAST],
   user: [...IDENTITY, 'email', 'activity', 'permissions', 'groups', 'role', 'tags', ...HIDDEN_LAST],
   group: ['actions', 'name', 'description', 'tags', 'memberCount', 'assetsCount', ...HIDDEN_LAST],
+  theme: [
+    ...IDENTITY,
+    'dataColors',
+    'uiColors',
+    'baseThemeId',
+    'themeUsedBy',
+    ...DATES,
+    'permissions',
+    'tags',
+    'fontFamily',
+    ...HIDDEN_LAST,
+  ],
 };
 
 /**

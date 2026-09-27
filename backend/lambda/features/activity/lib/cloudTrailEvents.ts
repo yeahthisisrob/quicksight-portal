@@ -274,12 +274,12 @@ export const extractParam = (event: any, ...keys: string[]): string | null => {
 
 /**
  * Mutation event configuration — one entry per QuickSight catalog asset type
- * (the 7 types the portal tracks in its catalog: dashboard, analysis, dataset,
- * datasource, folder, group, user) with the event names to track and a
+ * (the types the portal tracks in its catalog: dashboard, analysis, dataset,
+ * datasource, folder, group, user, theme) with the event names to track and a
  * per-asset-type id extractor. Used by the activity timeline to ingest
  * CloudTrail mutation events into the shared ActivityCache.
  *
- * Events for QuickSight resources NOT in the catalog (templates, themes,
+ * Events for QuickSight resources NOT in the catalog (templates,
  * brands, topics, action connectors, VPC connections, namespaces) and
  * account-level settings mutations are captured separately via
  * OTHER_MUTATION_EVENTS below.
@@ -288,6 +288,10 @@ export const ASSET_MUTATION_CONFIG: Record<
   Exclude<AssetType, never>,
   { events: readonly string[]; extractId: (event: any) => string | null }
 > = {
+  theme: {
+    events: ['CreateTheme', 'UpdateTheme', 'UpdateThemePermissions', 'DeleteTheme'],
+    extractId: (event) => extractParam(event, 'themeId', 'ThemeId'),
+  },
   dashboard: {
     events: [
       'CreateDashboard',
@@ -388,13 +392,9 @@ const OTHER_MUTATION_EVENTS: readonly string[] = [
   'DeleteTemplateAlias',
   'UpdateTemplatePermissions',
 
-  // Themes
-  'CreateTheme',
-  'UpdateTheme',
-  'DeleteTheme',
+  // Theme aliases (themes themselves are catalog assets, above)
   'CreateThemeAlias',
   'DeleteThemeAlias',
-  'UpdateThemePermissions',
 
   // Brands
   'CreateBrand',

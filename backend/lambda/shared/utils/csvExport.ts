@@ -318,6 +318,23 @@ const ASSET_CONFIGS: Record<string, CSVColumn[]> = {
     },
     { header: 'Tags', field: 'tags', format: formatTags },
   ],
+
+  theme: [
+    { header: 'Name', field: 'name' },
+    { header: 'ID', field: 'id' },
+    { header: 'Based On', field: 'baseThemeId' },
+    { header: 'Version', field: 'versionNumber' },
+    {
+      header: 'Data Colors',
+      field: 'dataColors',
+      format: (v) => (Array.isArray(v) ? v.join(' ') : ''),
+    },
+    { header: 'Font', field: 'fontFamily' },
+    { header: 'Dashboards', field: 'usedBy.dashboards', format: (v) => v ?? 0 },
+    { header: 'Analyses', field: 'usedBy.analyses', format: (v) => v ?? 0 },
+    { header: 'Last Modified', field: 'lastUpdatedTime', format: formatDate },
+    { header: 'Tags', field: 'tags', format: formatTags },
+  ],
 };
 
 // Helper functions

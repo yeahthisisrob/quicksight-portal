@@ -8,13 +8,13 @@ const ingestionHandler = new IngestionHandler();
 export const assetManagementRoutes: RouteHandler[] = [
   {
     method: 'GET',
-    path: /^\/assets\/(dashboards|analyses|datasets|datasources|folders|groups|users)\/paginated$/,
+    path: /^\/assets\/(dashboards|analyses|datasets|datasources|folders|groups|users|themes)\/paginated$/,
     handler: (event) => handler.list(event),
   },
 
   {
     method: 'GET',
-    path: /^\/assets\/(dashboards|analyses|datasets|datasources|folders|groups|users)\/export$/,
+    path: /^\/assets\/(dashboards|analyses|datasets|datasources|folders|groups|users|themes)\/export$/,
     handler: (event) => handler.exportAssets(event),
   },
 
@@ -45,7 +45,7 @@ export const assetManagementRoutes: RouteHandler[] = [
 
   {
     method: 'DELETE',
-    path: /^\/assets\/(dashboard|analysis|dataset|datasource)\/([^/]+)$/,
+    path: /^\/assets\/(dashboard|analysis|dataset|datasource|theme)\/([^/]+)$/,
     handler: (event) => handler.deleteAsset(event),
   },
 
@@ -57,7 +57,7 @@ export const assetManagementRoutes: RouteHandler[] = [
 
   {
     method: 'GET',
-    path: /^\/assets\/(dashboard|analysis|dataset|datasource|folder|user|group)\/([^/]+)\/cached$/,
+    path: /^\/assets\/(dashboard|analysis|dataset|datasource|folder|user|group|theme)\/([^/]+)\/cached$/,
     handler: (event) => handler.getExportedAsset(event),
   },
 

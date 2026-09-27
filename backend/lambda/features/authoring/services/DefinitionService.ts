@@ -13,6 +13,7 @@ import type { AuthContext } from '../../../shared/auth';
 import { ValidationError } from '../../../shared/errors/ValidationError';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
+import { defaultThemeArn } from '../../../shared/services/aws/themeArn';
 import { logger } from '../../../shared/utils/logger';
 import { crossDatasetFilterColumns, crossDatasetFilterWarnings } from '../lib/crossDatasetFilters';
 import { collectDefinitionDatasets } from '../lib/definitionColumns';
@@ -194,7 +195,7 @@ export class DefinitionService {
       name,
       definition,
       permissions,
-      themeArn: request.themeArn?.trim() || undefined,
+      themeArn: request.themeArn?.trim() || defaultThemeArn(),
       ...(request.tags ? { tags: request.tags } : {}),
       auth,
     });

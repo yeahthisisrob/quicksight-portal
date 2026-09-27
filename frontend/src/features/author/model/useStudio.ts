@@ -70,6 +70,8 @@ interface SourceDefinition {
   model: WireframeModel | null;
   tags: Array<{ key: string; value: string }>;
   isTemplate: boolean;
+  /** The theme the definition wears; absent means QuickSight's default. */
+  themeArn?: string;
 }
 
 export interface SourceInsights {
@@ -221,6 +223,11 @@ function datasetFromParams(params: URLSearchParams): { id: string; name: string 
 /** The export's list record carries the display name; fall back to the id. */
 function nameFromExport(exportData: any, fallback: string): string {
   return exportData?.apiResponses?.list?.data?.Name ?? exportData?.Name ?? fallback;
+}
+
+/** The theme the definition wears, when it names one. */
+function themeArnFromExport(exportData: any): string | undefined {
+  return exportData?.apiResponses?.definition?.data?.ThemeArn ?? exportData?.ThemeArn ?? undefined;
 }
 
 function tagsFromExport(exportData: any): Array<{ key: string; value: string }> {
@@ -633,6 +640,7 @@ export function useStudio(options: StudioOptions = {}): Studio {
       model: sourceModel,
       tags: sourceTags,
       isTemplate: isTemplate(sourceTags),
+      themeArn: themeArnFromExport(sourceQuery.data),
     },
     insights: {
       loading: insightsQuery.isLoading,

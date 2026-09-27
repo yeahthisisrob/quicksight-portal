@@ -97,6 +97,13 @@ export const PARITY_ROWS: ParityRow[] = [
       "Every export keeps each asset's definition; a deleted dashboard, analysis or dataset is restored from the Studio with its permissions. A deleted user's groups and direct permissions are archived, and given back when they return (a reader does on signing in again).",
   },
   {
+    capability: 'Themes across assets',
+    portal: { level: 'yes', note: 'Who wears what; apply many' },
+    aws: { level: 'partial', note: 'Applied per analysis' },
+    detail:
+      'Every custom theme with its colors and the dashboards and analyses wearing it; one applied in the Studio or across the account by playbook (a standard theme, or moving off an old one); a default for new assets; and a new theme drafted from a picture of a brand, a logo or a layout, checked before it is created.',
+  },
+  {
     capability: 'Expression kinds',
     portal: { level: 'yes', note: 'Kind, stage, SPICE or not' },
     aws: { level: 'partial', note: 'Checked in the console only' },
@@ -116,12 +123,6 @@ export const PARITY_ROWS: ParityRow[] = [
     aws: { level: 'yes', note: 'Asset bundles' },
     detail:
       "To close: asset bundles as the transport between accounts, with the portal's remap of data sources and datasets, a dry run and a report around them.",
-  },
-  {
-    capability: 'Themes across assets',
-    portal: { level: 'no', note: 'Kept on copy only' },
-    aws: { level: 'partial', note: 'Applied per analysis' },
-    detail: 'To close: which assets use which theme, and applying one across many as a playbook.',
   },
   {
     capability: 'Namespaces',

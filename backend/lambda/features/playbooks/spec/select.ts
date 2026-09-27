@@ -20,6 +20,13 @@ const PLURAL: Record<SelectableType, string> = {
 
 const DAY_MS = TIME_UNITS.DAY;
 
+/** A theme's id from its ARN, id or QuickSight name, compared case aside. */
+const themeIdOf = (theme: string) =>
+  theme
+    .slice(theme.lastIndexOf('/') + 1)
+    .trim()
+    .toUpperCase();
+
 /** A comma-separated list as lower-case names. */
 const names = (value: unknown) =>
   new Set(
@@ -42,6 +49,8 @@ interface ListRow {
   /** Users: role, groups, how many assets they reach, and when last active. */
   role?: string;
   groups?: string[];
+  /** Dashboards and analyses: the theme they wear. */
+  themeArn?: string;
   assetAccessCount?: number;
 }
 
@@ -88,6 +97,13 @@ function cheap(
       return row.name.toLowerCase().includes(String(resolve(condition.text, params)).toLowerCase());
     case 'hasErrors':
       return (row.definitionErrors?.length ?? 0) > 0;
+    case 'usesTheme': {
+      const want = themeIdOf(String(resolve(condition.theme, params)));
+      const wears = themeIdOf(row.themeArn ?? '') === want;
+      return condition.value === undefined || resolveBoolean(condition.value, params)
+        ? wears
+        : !wears;
+    }
     case 'role':
       return names(resolve(condition.roles, params)).has(String(row.role ?? '').toLowerCase());
     case 'inactiveForDays': {

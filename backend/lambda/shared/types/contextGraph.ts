@@ -18,6 +18,7 @@ export const CONTEXT_ENTITY_TYPES = [
   'visual',
   'template',
   'folder',
+  'theme',
 ] as const;
 
 export const CONTEXT_RELATIONS = [
@@ -36,6 +37,7 @@ export const CONTEXT_RELATIONS = [
   'derived-from',
   'reads-field',
   'shows',
+  'uses-theme',
 ] as const;
 
 export type ContextEntityType = (typeof CONTEXT_ENTITY_TYPES)[number];

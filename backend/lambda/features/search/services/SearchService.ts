@@ -22,11 +22,15 @@ import type { FieldInfo } from '../../../shared/services/cache/types';
 import { SmusService } from '../../../shared/services/smus/SmusService';
 import { CalculatedFieldTemplateStore } from '../../../shared/services/templates/CalculatedFieldTemplateStore';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
+import { ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
-import { buildContextGraph } from '../lib/buildContextGraph';
+import { buildContextGraph, ENTITY_TYPE } from '../lib/buildContextGraph';
 import { type ContextGraph, entityId } from '../lib/contextGraph';
 import { SearchIndex } from '../lib/searchIndex';
 import type { SearchDocument, SearchHit, SearchRequest, SearchResponse } from '../types';
+
+/** A theme's first colors, named in its search summary. */
+const THEME_COLORS_IN_SUMMARY = 4;
 
 const INDEX_TTL_MS = CACHE_TTL.SHORT;
 /** How many names a summary lists before "…". */
@@ -47,19 +51,6 @@ interface IndexEntry {
 }
 
 /** Search document kinds to graph entity kinds. */
-const ENTITY_TYPE = {
-  dashboard: 'dashboard',
-  analysis: 'analysis',
-  dataset: 'dataset',
-  datasource: 'datasource',
-  folder: 'folder',
-  'smus-listing': 'listing',
-  'smus-column': 'listing-column',
-  project: 'project',
-  'calculated-field': 'calculated-field',
-  visual: 'visual',
-  template: 'template',
-} as const;
 
 type ParentType = 'dashboard' | 'analysis' | 'dataset';
 
@@ -185,7 +176,14 @@ export class SearchService {
     const docs: SearchDocument[] = [];
 
     // 1. Assets.
-    for (const type of ['dashboard', 'analysis', 'dataset', 'datasource', 'folder'] as const) {
+    for (const type of [
+      'dashboard',
+      'analysis',
+      'dataset',
+      'datasource',
+      'folder',
+      'theme',
+    ] as const) {
       for (const entry of entries[type] ?? []) {
         const assetName = String(entry.assetName ?? entry.assetId ?? '');
         if (!entry.assetId || !assetName) {
@@ -213,6 +211,13 @@ export class SearchService {
           if (columns.length) facts.push(plural(columns.length, 'column'));
           if (calculated.length) facts.push(plural(calculated.length, 'calculated field'));
           if (meta.sourceType) facts.push(String(meta.sourceType).toLowerCase());
+        } else if (type === 'theme') {
+          if (meta.baseThemeId) facts.push(`based on ${meta.baseThemeId}`);
+          if (meta.dataColors?.length)
+            facts.push(
+              `${meta.dataColors.length} data colors: ${meta.dataColors.slice(0, THEME_COLORS_IN_SUMMARY).join(' ')}`
+            );
+          if (meta.fontFamily) facts.push(`font ${meta.fontFamily}`);
         } else if (type === 'datasource') {
           if (meta.datasourceType ?? meta.sourceType)
             facts.push(String(meta.datasourceType ?? meta.sourceType));
@@ -235,7 +240,7 @@ export class SearchService {
           path:
             type === 'dashboard' || type === 'analysis'
               ? `/author?type=${type}&id=${encodeURIComponent(entry.assetId)}&name=${encodeURIComponent(assetName)}`
-              : `/${type}s?search=${encodeURIComponent(assetName)}`,
+              : `/assets/${ASSET_TYPES_PLURAL[type]}?search=${encodeURIComponent(assetName)}`,
         });
       }
     }

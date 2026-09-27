@@ -103,6 +103,7 @@ export class PermissionsService {
       [ASSET_TYPES.dataset]: () => this.getDataSetPermissions(assetId),
       [ASSET_TYPES.datasource]: () => this.getDataSourcePermissions(assetId),
       [ASSET_TYPES.folder]: () => this.getFolderPermissions(assetId),
+      [ASSET_TYPES.theme]: () => this.getThemePermissions(assetId),
       // Users and groups don't have permissions in QuickSight
       [ASSET_TYPES.user]: () => Promise.resolve([]),
       [ASSET_TYPES.group]: () => Promise.resolve([]),
@@ -258,6 +259,17 @@ export class PermissionsService {
       return this.transformPermissions(response.Permissions || []);
     } catch (error) {
       logger.error(`Error fetching folder permissions for ${folderId}:`, error);
+      return [];
+    }
+  }
+
+  public async getThemePermissions(themeId: string): Promise<AssetPermission[]> {
+    try {
+      return this.transformPermissions(
+        await this.quickSightService.describeThemePermissions(themeId)
+      );
+    } catch (error) {
+      logger.error(`Error fetching theme permissions for ${themeId}:`, error);
       return [];
     }
   }

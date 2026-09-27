@@ -10,6 +10,7 @@ export const ASSET_TYPES = {
   folder: 'folder',
   user: 'user',
   group: 'group',
+  theme: 'theme',
 } as const;
 
 export type AssetType = (typeof ASSET_TYPES)[keyof typeof ASSET_TYPES];
@@ -25,6 +26,7 @@ export const ASSET_TYPES_PLURAL = {
   folder: 'folders',
   user: 'users',
   group: 'groups',
+  theme: 'themes',
 } as const;
 
 type AssetTypePlural = (typeof ASSET_TYPES_PLURAL)[keyof typeof ASSET_TYPES_PLURAL];

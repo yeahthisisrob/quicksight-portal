@@ -147,6 +147,8 @@ export interface ApplyRequest {
   typeRules?: TypeRules;
   /** Clone only: put the new asset in this folder. */
   folderId?: string;
+  /** Give it this theme: a custom theme's id or ARN, or a QuickSight one (CLASSIC, MIDNIGHT...). */
+  theme?: string;
 }
 
 /** Migrate onto a template dashboard's layout standard (see definitionTemplate). */

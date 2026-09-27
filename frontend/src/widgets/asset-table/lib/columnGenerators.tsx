@@ -8,7 +8,7 @@ import { formatDatasourceType } from '@/entities/field';
 import type { ColumnConfig } from '@/features/asset-management';
 
 import { colors } from '@/shared/design-system/theme';
-import { TypedChip } from '@/shared/ui';
+import { ColorSwatches, TypedChip } from '@/shared/ui';
 
 import { ActivityCountCell, ErrorsCell, LoadTimeCell } from '../ui/components/HealthCell';
 import { type AssetRow, formatBytes, formatRelativeDate } from './createAssetColumns';
@@ -748,6 +748,79 @@ export function generateDatasourceColumns(): ColumnConfig[] {
       },
       valueGetter: (params) =>
         isDatasource(params.row) ? params.row.sourceType || 'UNKNOWN' : 'UNKNOWN',
+    },
+  ];
+}
+
+/** A theme: its colors, what it starts from, its font, and what wears it. */
+export function generateThemeColumns(): ColumnConfig[] {
+  const row = (r: AssetRow) =>
+    r as AssetRow & {
+      dataColors?: string[];
+      uiColors?: Record<string, string>;
+      baseThemeId?: string;
+      fontFamily?: string;
+      usedBy?: { dashboards?: number; analyses?: number };
+    };
+  return [
+    {
+      id: 'dataColors',
+      label: 'Data colors',
+      flex: 2,
+      minWidth: 220,
+      visible: true,
+      sortable: false,
+      renderCell: (params: { row: AssetRow }) => (
+        <ColorSwatches colors={row(params.row).dataColors ?? []} />
+      ),
+    },
+    {
+      id: 'uiColors',
+      label: 'Interface',
+      width: 160,
+      visible: true,
+      sortable: false,
+      renderCell: (params: { row: AssetRow }) => (
+        <ColorSwatches
+          colors={Object.entries(row(params.row).uiColors ?? {}).map(([label, color]) => ({
+            label,
+            color,
+          }))}
+          max={6}
+        />
+      ),
+    },
+    {
+      id: 'baseThemeId',
+      label: 'Based on',
+      width: 120,
+      visible: true,
+      valueGetter: (params: { row: AssetRow }) => row(params.row).baseThemeId ?? '',
+    },
+    {
+      id: 'fontFamily',
+      label: 'Font',
+      width: 140,
+      visible: false,
+      valueGetter: (params: { row: AssetRow }) => row(params.row).fontFamily ?? '',
+    },
+    {
+      id: 'themeUsedBy',
+      label: 'Used by',
+      width: 170,
+      visible: true,
+      sortable: false,
+      renderCell: (params: { row: AssetRow }) => {
+        const used = row(params.row).usedBy ?? {};
+        const total = (used.dashboards ?? 0) + (used.analyses ?? 0);
+        return (
+          <Typography variant="body2" sx={{ color: total ? 'text.primary' : 'text.secondary' }}>
+            {total
+              ? `${used.dashboards ?? 0} dashboards, ${used.analyses ?? 0} analyses`
+              : 'Nothing'}
+          </Typography>
+        );
+      },
     },
   ];
 }

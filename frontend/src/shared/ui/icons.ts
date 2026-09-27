@@ -58,6 +58,7 @@ import {
   // Special
   Storage as StorageIcon,
   LocalOffer as TagIcon,
+  Palette as ThemeIcon,
   Timeline as TimelineNavIcon,
   HelpOutlined as UnknownIcon,
   Person as UserIcon,
@@ -145,6 +146,7 @@ export const navigationIcons = {
   author: AuthorIcon,
   operations: OperationsIcon,
   parity: ParityIcon,
+  theme: ThemeIcon,
   settings: Settings,
   account: AccountIcon,
   collapse: CollapseNavIcon,

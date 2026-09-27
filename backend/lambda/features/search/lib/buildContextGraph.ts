@@ -14,7 +14,8 @@ import { ContextGraph, type EntityType, entityId } from './contextGraph';
 const TEMPLATE_TAG_KEY = 'quicksight-portal:template';
 const COLUMN_ATTRIBUTE_LIMIT = 60;
 
-const ENTITY_TYPE: Record<SearchDocument['type'], EntityType> = {
+/** Each search document's type as a graph entity type (one table; SearchService reads it too). */
+export const ENTITY_TYPE: Record<SearchDocument['type'], EntityType> = {
   dashboard: 'dashboard',
   analysis: 'analysis',
   dataset: 'dataset',
@@ -26,6 +27,7 @@ const ENTITY_TYPE: Record<SearchDocument['type'], EntityType> = {
   'calculated-field': 'calculated-field',
   visual: 'visual',
   template: 'template',
+  theme: 'theme',
 };
 
 interface GraphInput {
@@ -85,7 +87,7 @@ function calculatedFieldKinds(docs: SearchDocument[]): Map<string, ExpressionVer
 export function buildContextGraph(input: GraphInput): ContextGraph {
   const graph = new ContextGraph();
   const byId = new Map<string, any>();
-  for (const type of ['dashboard', 'analysis', 'dataset', 'datasource', 'folder']) {
+  for (const type of ['dashboard', 'analysis', 'dataset', 'datasource', 'folder', 'theme']) {
     for (const entry of input.entries[type] ?? []) {
       byId.set(entityId(type as EntityType, entry.assetId), entry);
     }
@@ -211,6 +213,14 @@ export function buildContextGraph(input: GraphInput): ContextGraph {
     if (id.startsWith('dashboard:') || id.startsWith('analysis:')) {
       for (const dataset of lineage.datasetIds ?? []) {
         graph.link(id, 'uses-dataset', entityId('dataset', dataset));
+      }
+      const themeArn = entry.metadata?.themeArn;
+      if (typeof themeArn === 'string') {
+        graph.link(
+          id,
+          'uses-theme',
+          entityId('theme', themeArn.slice(themeArn.lastIndexOf('/') + 1))
+        );
       }
     }
     for (const arn of entry.metadata?.folderPath ?? []) {

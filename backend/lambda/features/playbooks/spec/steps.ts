@@ -345,6 +345,26 @@ export async function planStep(
       return await planRenameDatasetCalcs(ctx, target, step);
     case 'deleteUser':
       return await planDeleteUser(ctx, session, target, step);
+    case 'applyTheme': {
+      if (target.assetType !== 'dashboard' && target.assetType !== 'analysis') {
+        return {
+          kind: step.kind,
+          verdict: 'skip',
+          summary: 'Applies to dashboards and analyses',
+          changes: [],
+        };
+      }
+      const theme = resolveText(step.theme, ctx.params);
+      if (!theme)
+        return { kind: step.kind, verdict: 'review', summary: 'No theme was given', changes: [] };
+      return {
+        kind: step.kind,
+        verdict: 'change',
+        summary: `Give it theme ${theme}`,
+        changes: [`Theme: ${theme}`],
+        data: { theme },
+      };
+    }
     case 'repair': {
       const plan = await repairErrors.plan(ctx, target);
       return {
@@ -414,6 +434,15 @@ export async function applyStep(
       return await applyRenameDatasetCalcs(ctx, target, plan);
     case 'deleteUser':
       return await applyDeleteUser(ctx, target);
+    case 'applyTheme': {
+      const { theme } = plan.data as { theme: string };
+      const result = await ctx.call<{ versionNumber?: number }>(
+        'POST',
+        `${authoringPath(target)}/rebind`,
+        { mode: 'update', rebinds: [], theme }
+      );
+      return `Theme ${theme} applied${result?.versionNumber ? ` (version ${result.versionNumber})` : ''}`;
+    }
     case 'repair':
       return (await repairErrors.apply(ctx, target, plan.data as ItemPlan)).summary;
     default:

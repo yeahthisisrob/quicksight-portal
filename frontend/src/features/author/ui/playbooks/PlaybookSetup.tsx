@@ -19,6 +19,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 
 import { ModelPill, useAiModels } from '@/entities/ai-model';
+import { ThemePicker } from '@/entities/theme';
 
 import { assetsApi } from '@/shared/api';
 import type { GateValues, Playbook, PlaybookGate } from '@/shared/api/modules/playbooks';
@@ -227,6 +228,14 @@ export function PlaybookSetup({
                   onChange={(folder) => onParam(param.key, folder ?? undefined)}
                 />
               </Box>
+            ) : param.kind === 'theme' ? (
+              <ThemePicker
+                key={param.key}
+                label={`${param.label}${param.required ? ' *' : ''}`}
+                value={(params[param.key] as string | undefined) ?? ''}
+                onChange={(theme) => onParam(param.key, theme)}
+                width={360}
+              />
             ) : param.kind === 'engine' ? (
               <Autocomplete
                 key={param.key}

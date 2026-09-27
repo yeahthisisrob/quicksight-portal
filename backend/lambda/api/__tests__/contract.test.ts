@@ -46,6 +46,7 @@ const CACHE = {
         visualCount: 2,
         datasetCount: 1,
         lineageData: { datasetIds: ['ds1'] },
+        themeArn: 'arn:aws:quicksight:us-east-1:123456789012:theme/brand',
       }),
     ],
     analysis: [entry('analysis', 'a1', 'Sales draft', { lineageData: { datasetIds: ['ds1'] } })],
@@ -67,6 +68,15 @@ const CACHE = {
     folder: [entry('folder', 'f1', 'Finance', { memberCount: 0 })],
     user: [entry('user', 'pat', 'pat', { role: 'READER', email: 'pat@example.com', active: true })],
     group: [entry('group', 'finance', 'finance', { memberCount: 1 })],
+    theme: [
+      entry('theme', 'brand', 'Brand', {
+        baseThemeId: 'CLASSIC',
+        versionNumber: 3,
+        dataColors: ['#1F77B4', '#FF7F0E'],
+        uiColors: { PrimaryBackground: '#FFFFFF', Accent: '#1F77B4' },
+        fontFamily: 'Inter',
+      }),
+    ],
   },
 };
 
@@ -136,7 +146,16 @@ function get(path: string, query: Record<string, string> = {}): APIGatewayProxyE
 }
 
 describe('the API answers as its contract says', () => {
-  const lists = ['dashboards', 'analyses', 'datasets', 'datasources', 'folders', 'users', 'groups'];
+  const lists = [
+    'dashboards',
+    'analyses',
+    'datasets',
+    'datasources',
+    'folders',
+    'users',
+    'groups',
+    'themes',
+  ];
 
   it.each(lists)('GET /api/assets/%s/paginated', async (type) => {
     const path = `/api/assets/${type}/paginated`;
@@ -202,5 +221,21 @@ describe('every GET answers in a shape its contract documents', () => {
     if (response.headers?.['Content-Type'] !== 'application/json') return; // a guide, a spec
     const body = JSON.parse(response.body || 'null');
     expect(responseErrors('GET', path, response.statusCode, body)).toEqual([]);
+  });
+});
+
+describe('themes', () => {
+  it('lists each custom theme with its colors and what uses it', async () => {
+    const response = await apiHandler(
+      get('/api/assets/themes/paginated', { page: '1', pageSize: '50' })
+    );
+    const [theme] = JSON.parse(response.body).data.themes;
+    expect(theme).toMatchObject({
+      id: 'brand',
+      baseThemeId: 'CLASSIC',
+      dataColors: ['#1F77B4', '#FF7F0E'],
+      uiColors: { Accent: '#1F77B4' },
+      usedBy: { dashboards: 1, analyses: 0 },
+    });
   });
 });

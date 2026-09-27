@@ -90,6 +90,10 @@ export class CliPlannerModel implements PlannerModel {
   }
 
   public async complete(request: StructuredRequest): Promise<StructuredResult> {
+    if (request.images?.length) {
+      // A local CLI session is given text only: say so rather than answer blind.
+      throw new Error(`${this.provider} cannot read images here; choose a Bedrock or API model`);
+    }
     const prompt = [
       request.system,
       '',

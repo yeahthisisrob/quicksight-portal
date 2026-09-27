@@ -69,7 +69,8 @@ export const isRenamable = oneOf<RenamableAssetType>([
   'folder',
 ]);
 
-const PLURAL: Record<AssetType, PluralAssetType> = {
+/** The plural each asset type's list, export and page URLs use. */
+export const PLURAL: Record<AssetType, PluralAssetType> = {
   dashboard: 'dashboards',
   analysis: 'analyses',
   dataset: 'datasets',
@@ -77,6 +78,7 @@ const PLURAL: Record<AssetType, PluralAssetType> = {
   folder: 'folders',
   user: 'users',
   group: 'groups',
+  theme: 'themes',
 };
 
 /**
@@ -201,6 +203,10 @@ export const assetsApi = {
 
   getGroupsPaginated(params?: PaginatedListParams) {
     return getPaginatedList<PaginatedList<'groups', Schemas['GroupListItem']>>('groups', params);
+  },
+
+  getThemesPaginated(params?: PaginatedListParams) {
+    return getPaginatedList<PaginatedList<'themes', Schemas['ThemeListItem']>>('themes', params);
   },
 
   getUsersPaginated(params?: PaginatedListParams) {

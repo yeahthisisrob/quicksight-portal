@@ -10,6 +10,7 @@ import {
   Tabs,
   Typography,
 } from '@mui/material';
+import type { AssetType } from '@shared/generated';
 import { useQuery } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import type React from 'react';
@@ -26,7 +27,7 @@ interface JsonViewerModalProps {
   onClose: () => void;
   assetId: string;
   assetName: string;
-  assetType: 'dashboard' | 'analysis' | 'dataset' | 'datasource' | 'folder' | 'user' | 'group';
+  assetType: AssetType;
 }
 
 interface TabPanelProps {

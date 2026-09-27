@@ -12,6 +12,7 @@ import type { AuthContext } from '../../../shared/auth';
 import { ValidationError } from '../../../shared/errors/ValidationError';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
+import { defaultThemeArn } from '../../../shared/services/aws/themeArn';
 import {
   type FilterBarTemplate,
   FilterBarTemplateStore,
@@ -166,7 +167,8 @@ export class NewAssetService {
       name,
       definition: composed.definition,
       permissions,
-      themeArn: composed.themeArn,
+      // A template's theme first; otherwise the organisation's (Settings).
+      themeArn: composed.themeArn ?? defaultThemeArn(),
       ...(request.tags ? { tags: request.tags } : {}),
       auth,
     });

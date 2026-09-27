@@ -76,7 +76,7 @@ interface GenericAssetPageProps {
  * Determine if asset type allows deletion
  */
 function canDeleteAssetType(assetType: AssetType): boolean {
-  return ['dashboard', 'analysis', 'dataset', 'datasource'].includes(assetType);
+  return ['dashboard', 'analysis', 'dataset', 'datasource', 'theme'].includes(assetType);
 }
 
 /**
@@ -305,7 +305,9 @@ export default function GenericAssetPage({
       defaultSortModel={defaultSortModel}
       onExportCSV={handleExportCSV}
       exportLabel="Export"
-      onAddToFolder={assetType !== 'group' ? handleFolderAction : undefined}
+      onAddToFolder={
+        assetType !== 'group' && assetType !== 'theme' ? handleFolderAction : undefined
+      }
       onBulkTag={() => setBulkTagOpen(true)}
       onBulkDelete={canDelete ? () => setBulkDeleteOpen(true) : undefined}
       showDeleteAction={canDelete}

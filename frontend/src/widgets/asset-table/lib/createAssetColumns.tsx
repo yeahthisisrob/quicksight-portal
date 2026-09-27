@@ -1,4 +1,5 @@
 import { Tooltip, Typography } from '@mui/material';
+import type { AssetType } from '@shared/generated';
 import type { components } from '@shared/generated/types';
 import type { useNavigate } from 'react-router-dom';
 
@@ -12,6 +13,7 @@ import {
   generateFolderColumns,
   generateGroupColumns,
   generateHealthColumns,
+  generateThemeColumns,
   generateUsedByColumn,
   generateUserColumns,
   generateUsesColumn,
@@ -202,7 +204,7 @@ export const formatBytes = (bytes: number): string => {
  * Main function to create asset columns with reduced complexity
  */
 export const createAssetColumns = (
-  assetType: 'dashboard' | 'dataset' | 'analysis' | 'datasource' | 'folder' | 'user' | 'group',
+  assetType: AssetType,
   navigate: ReturnType<typeof useNavigate>,
   handlers: {
     onPermissionsClick?: (asset: any) => void;
@@ -257,6 +259,8 @@ function getSpecificColumnsForAssetType(assetType: string, handlers: any): Colum
       return [...generateDashboardAnalysisColumns(handlers), ...generateHealthColumns('dashboard')];
     case 'analysis':
       return generateDashboardAnalysisColumns(handlers);
+    case 'theme':
+      return generateThemeColumns();
     default:
       return [];
   }
@@ -269,12 +273,12 @@ function getRelationshipColumns(assetType: string, handlers: any): ColumnConfig[
   const columns: ColumnConfig[] = [];
 
   // Add usedBy column for certain types
-  if (!['dashboard', 'folder', 'user', 'group'].includes(assetType)) {
+  if (!['dashboard', 'folder', 'user', 'group', 'theme'].includes(assetType)) {
     columns.push(generateUsedByColumn(handlers));
   }
 
   // Add uses column for certain types
-  if (!['datasource', 'folder', 'user', 'group'].includes(assetType)) {
+  if (!['datasource', 'folder', 'user', 'group', 'theme'].includes(assetType)) {
     columns.push(generateUsesColumn(handlers));
   }
 

@@ -244,11 +244,13 @@ export class BulkDeleteService {
     // Extract IDs for different asset types
     const datasetIds = assets.filter((a) => a.type === ASSET_TYPES.dataset).map((a) => a.id);
     const datasourceIds = assets.filter((a) => a.type === ASSET_TYPES.datasource).map((a) => a.id);
+    const themeIds = assets.filter((a) => a.type === ASSET_TYPES.theme).map((a) => a.id);
 
     // Check dependencies in parallel where possible
     await Promise.all([
       this.checkDatasetDependencies(datasetIds, warnings),
       this.checkDatasourceDependencies(datasourceIds, warnings),
+      this.checkThemeDependencies(themeIds, warnings),
     ]);
 
     // Validate collection assets
@@ -301,6 +303,27 @@ export class BulkDeleteService {
 
     this.checkAssetDependencies(dashboards, datasetIds, 'Dashboard', 'dataset', warnings);
     this.checkAssetDependencies(analyses, datasetIds, 'Analysis', 'dataset', warnings);
+  }
+
+  /** Dashboards and analyses wearing a theme being deleted fall back to the default one. */
+  private async checkThemeDependencies(themeIds: string[], warnings: string[]): Promise<void> {
+    if (themeIds.length === 0) return;
+    const [dashboards, analyses] = await Promise.all([
+      cacheService.getAssetsByType(ASSET_TYPES.dashboard),
+      cacheService.getAssetsByType(ASSET_TYPES.analysis),
+    ]);
+    const deleting = new Set(themeIds.map((id) => id.toLowerCase()));
+    for (const asset of [...(dashboards.assets ?? []), ...(analyses.assets ?? [])]) {
+      const themeId = String(asset.metadata?.themeArn ?? '')
+        .split('/')
+        .pop()
+        ?.toLowerCase();
+      if (themeId && deleting.has(themeId)) {
+        warnings.push(
+          `${asset.assetType === ASSET_TYPES.dashboard ? 'Dashboard' : 'Analysis'} "${asset.assetName}" uses theme "${themeId}" and would fall back to the default theme`
+        );
+      }
+    }
   }
 
   /**
@@ -362,6 +385,10 @@ export class BulkDeleteService {
 
       case ASSET_TYPES.datasource:
         await this.quickSightService.deleteDatasource(assetId);
+        break;
+
+      case ASSET_TYPES.theme:
+        await this.quickSightService.deleteTheme(assetId);
         break;
 
       default:

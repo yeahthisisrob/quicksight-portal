@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 
-import type { AssetListItem, components } from '@shared/generated';
+import type { AssetListItem, AssetType, components } from '@shared/generated';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type React from 'react';
 import {
@@ -104,6 +104,10 @@ interface AssetsContextType {
   groupsLoading: boolean;
   groupsPagination: PaginationInfo | null;
 
+  themes: AssetData[];
+  themesLoading: boolean;
+  themesPagination: PaginationInfo | null;
+
   // Available filter options (from cache)
   availableRoles: Array<{ value: string; count: number }>;
   availableGroups: Array<{ value: string; count: number }>;
@@ -120,10 +124,9 @@ interface AssetsContextType {
   fetchFolders: AssetFetchFn;
   fetchUsers: AssetFetchFn;
   fetchGroups: AssetFetchFn;
+  fetchThemes: AssetFetchFn;
   refreshExportSummary: () => Promise<void>;
-  refreshAssetType: (
-    assetType: 'dashboard' | 'dataset' | 'analysis' | 'datasource' | 'folder' | 'user' | 'group'
-  ) => Promise<void>;
+  refreshAssetType: (assetType: AssetType) => Promise<void>;
 
   // Tag updates
   updateAssetTags: (assetType: string, assetId: string, tags: any[]) => void;
@@ -202,6 +205,12 @@ const ASSET_CONFIGS: Record<string, AssetTypeConfig> = {
     dataKey: 'groups',
     queryKey: 'groups',
   },
+  themes: {
+    key: 'themes',
+    apiMethod: (params: FetchParams) => assetsApi.getThemesPaginated(params),
+    dataKey: 'themes',
+    queryKey: 'themes-list',
+  },
 };
 
 /** Views built from assets rather than listing one kind: stale whenever assets change. */
@@ -226,6 +235,7 @@ const ASSET_TYPE_MAP: Record<string, string> = {
   folder: 'folders',
   user: 'users',
   group: 'groups',
+  theme: 'themes',
 };
 
 export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
@@ -259,6 +269,10 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
   const [groups, setGroups] = useState<AssetData[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [groupsPagination, setGroupsPagination] = useState<PaginationInfo | null>(null);
+
+  const [themes, setThemes] = useState<AssetData[]>([]);
+  const [themesLoading, setThemesLoading] = useState(false);
+  const [themesPagination, setThemesPagination] = useState<PaginationInfo | null>(null);
 
   const [availableRoles, setAvailableRoles] = useState<Array<{ value: string; count: number }>>([]);
   const [availableGroups, setAvailableGroups] = useState<Array<{ value: string; count: number }>>(
@@ -318,11 +332,16 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
         setLoading: setGroupsLoading,
         setPagination: setGroupsPagination,
       },
+      themes: {
+        setData: setThemes,
+        setLoading: setThemesLoading,
+        setPagination: setThemesPagination,
+      },
     }),
     []
   );
 
-  // Factory function to create fetch methods - eliminates 7 duplicate implementations
+  // Factory function to create fetch methods - one implementation for every asset type
   const createAssetFetcher = useCallback(
     (assetType: keyof typeof ASSET_CONFIGS): AssetFetchFn => {
       const config = ASSET_CONFIGS[assetType];
@@ -384,6 +403,7 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
   const fetchFolders = useMemo(() => createAssetFetcher('folders'), [createAssetFetcher]);
   const fetchUsers = useMemo(() => createAssetFetcher('users'), [createAssetFetcher]);
   const fetchGroups = useMemo(() => createAssetFetcher('groups'), [createAssetFetcher]);
+  const fetchThemes = useMemo(() => createAssetFetcher('themes'), [createAssetFetcher]);
 
   // Refresh export summary
   const refreshExportSummary = useCallback(async () => {
@@ -392,9 +412,7 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
 
   // Refresh specific asset type - invalidates cache and signals tables to re-fetch with current params
   const refreshAssetType = useCallback(
-    async (
-      assetType: 'dashboard' | 'dataset' | 'analysis' | 'datasource' | 'folder' | 'user' | 'group'
-    ) => {
+    async (assetType: AssetType) => {
       const pluralType = ASSET_TYPE_MAP[assetType] as keyof typeof ASSET_CONFIGS;
       const config = ASSET_CONFIGS[pluralType];
 
@@ -511,6 +529,9 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
       groups,
       groupsLoading,
       groupsPagination,
+      themes,
+      themesLoading,
+      themesPagination,
       fetchDashboards,
       fetchDatasets,
       fetchAnalyses,
@@ -518,6 +539,7 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
       fetchFolders,
       fetchUsers,
       fetchGroups,
+      fetchThemes,
       availableRoles,
       availableGroups,
       availableSourceTypes,
@@ -551,6 +573,9 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
       groups,
       groupsLoading,
       groupsPagination,
+      themes,
+      themesLoading,
+      themesPagination,
       fetchDashboards,
       fetchDatasets,
       fetchAnalyses,
@@ -558,6 +583,7 @@ export const AssetsProvider: React.FC<AssetsProviderProps> = ({ children }) => {
       fetchFolders,
       fetchUsers,
       fetchGroups,
+      fetchThemes,
       availableRoles,
       availableGroups,
       availableSourceTypes,

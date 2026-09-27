@@ -1,7 +1,7 @@
 /**
  * The Editor: open a dashboard or analysis, see it drawn, and work on it by
  * function - its issues and their fixes, the selected visual, the edits so
- * far, the datasets it reads and how it is used - then save over it or as a
+ * far, the datasets it reads and how it is used, the theme it wears - then save over it or as a
  * copy. No steps: every panel is one click away the whole time.
  */
 import {
@@ -34,6 +34,7 @@ import { DataPanel } from './DataPanel';
 import { IssuesPanel } from './IssuesPanel';
 import { SaveDialog } from './SaveDialog';
 import { SourceRestorePanel } from './SourceRestorePanel';
+import { ThemePanel } from './ThemePanel';
 
 const SIDE_WIDTH = 420;
 
@@ -86,6 +87,7 @@ function SidePanel({ studio, sheetId }: { studio: Studio; sheetId: string }) {
     { value: 'inspect', label: 'Inspect' },
     { value: 'changes', label: 'Changes', badge: state.ops.length || undefined },
     { value: 'data', label: 'Data', badge: ungoverned || undefined },
+    { value: 'theme', label: 'Theme' },
   ];
 
   return (
@@ -116,6 +118,7 @@ function SidePanel({ studio, sheetId }: { studio: Studio; sheetId: string }) {
           ))}
         {state.panel === 'changes' && <ChangesPanel studio={studio} />}
         {state.panel === 'data' && <DataPanel studio={studio} />}
+        {state.panel === 'theme' && <ThemePanel studio={studio} />}
       </Box>
     </Panel>
   );
