@@ -55,10 +55,20 @@ function DataSourceParam({
 }) {
   const sources = useQuery({
     queryKey: ['playbook-datasources', param.dataSourceType ?? 'any'],
-    queryFn: async () =>
-      (await assetsApi.getDatasourcesPaginated({ pageSize: DATASOURCE_PAGE, page: 1 })).datasources
-        .filter((d) => !param.dataSourceType || d.type === param.dataSourceType)
-        .map((d) => ({ id: d.id, name: d.name })),
+    queryFn: async () => {
+      const wanted = param.dataSourceType?.toUpperCase();
+      const rows: Array<{ id: string; name: string }> = [];
+      // Every page: an account can have more data sources than one page holds.
+      for (let page = 1; ; page += 1) {
+        const data = await assetsApi.getDatasourcesPaginated({ pageSize: DATASOURCE_PAGE, page });
+        for (const d of data.datasources) {
+          if (!wanted || d.sourceType.toUpperCase() === wanted)
+            rows.push({ id: d.id, name: d.name });
+        }
+        if (page >= (data.pagination.totalPages ?? 1) || data.datasources.length === 0) break;
+      }
+      return rows;
+    },
   });
   const options = sources.data ?? [];
   return (

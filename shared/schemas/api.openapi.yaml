@@ -7548,11 +7548,11 @@ components:
       allOf:
         - $ref: '#/components/schemas/AssetListItem'
         - type: object
-          required: [type, connectionMode]
+          required: [sourceType, connectionMode]
           properties:
-            type:
+            sourceType:
               type: string
-              description: Type of datasource (e.g., ATHENA, REDSHIFT, S3)
+              description: The engine it connects to (ATHENA, REDSHIFT, S3...); UNKNOWN when it could not be read.
             connectionMode:
               type: string
               description: Connection mode (DIRECT_QUERY or IMPORT)
