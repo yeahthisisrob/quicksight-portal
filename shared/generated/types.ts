@@ -179,9 +179,55 @@ export interface paths {
         post?: never;
         /**
          * Delete a QuickSight user
-         * @description Deletes a user from QuickSight. Only READER and READER_PRO users can be deleted.
+         * @description Deletes a user from QuickSight. Only READER and READER_PRO users can
+         *     be deleted. The groups they were in and the permissions granted to
+         *     them directly are archived first (and nothing is deleted if that
+         *     fails), so once they are back in QuickSight (a reader is, on signing
+         *     in through the identity provider) `POST /api/users/{userName}/restore`
+         *     gives them back.
          */
         delete: operations["deleteUsersByUserName"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/{userName}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What a deleted user had */
+        get: operations["getUsersByUserNameArchive"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/{userName}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a returned user their groups and permissions back
+         * @description The user must exist in QuickSight again (a reader does once they sign
+         *     in through the identity provider); until then this answers 409. Each
+         *     archived group is rejoined and each direct permission granted again;
+         *     a group or asset that no longer exists is reported, not fatal. What
+         *     QuickSight keeps per person (bookmarks, subscriptions) is not restored.
+         */
+        post: operations["postUsersByUserNameRestore"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3632,6 +3678,38 @@ export interface components {
             /** @description List of allowed actions */
             actions: string[];
         };
+        ArchivedUser: {
+            userName: string;
+            email?: string;
+            role: string;
+            arn: string;
+            archivedAt: string;
+            archivedBy?: string;
+            groups: string[];
+            /** @description Permissions granted to the user directly (group and folder access comes back with the groups). */
+            permissions: {
+                assetType: string;
+                assetId: string;
+                assetName: string;
+                actions: string[];
+            }[];
+            restoredAt?: string;
+            restoredBy?: string;
+        };
+        UserRestoreResult: {
+            userName: string;
+            groups: {
+                restored: string[];
+                missing: string[];
+            };
+            permissions: {
+                restored: number;
+                failed: {
+                    asset: string;
+                    error: string;
+                }[];
+            };
+        };
         AccessSource: {
             /**
              * @description How the user has access
@@ -6321,6 +6399,67 @@ export interface operations {
                 content?: never;
             };
             500: components["responses"]["InternalServerError"];
+        };
+    };
+    getUsersByUserNameArchive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The archived groups and direct permissions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["ArchivedUser"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postUsersByUserNameRestore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What was restored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["UserRestoreResult"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description The user is not in QuickSight yet */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     getAssetsByAssetTypeByAssetIdCached: {

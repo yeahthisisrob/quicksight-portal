@@ -547,7 +547,13 @@ paths:
       operationId: deleteUsersByUserName
       tags: [Users]
       summary: Delete a QuickSight user
-      description: Deletes a user from QuickSight. Only READER and READER_PRO users can be deleted.
+      description: |
+        Deletes a user from QuickSight. Only READER and READER_PRO users can
+        be deleted. The groups they were in and the permissions granted to
+        them directly are archived first (and nothing is deleted if that
+        fails), so once they are back in QuickSight (a reader is, on signing
+        in through the identity provider) `POST /api/users/{userName}/restore`
+        gives them back.
       parameters:
         - name: userName
           in: path
@@ -576,6 +582,72 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalServerError'
+
+  /api/users/{userName}/archive:
+    get:
+      operationId: getUsersByUserNameArchive
+      tags: [Users]
+      summary: What a deleted user had
+      parameters:
+        - name: userName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The archived groups and direct permissions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/ArchivedUser'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/users/{userName}/restore:
+    post:
+      operationId: postUsersByUserNameRestore
+      tags: [Users]
+      summary: Give a returned user their groups and permissions back
+      description: |
+        The user must exist in QuickSight again (a reader does once they sign
+        in through the identity provider); until then this answers 409. Each
+        archived group is rejoined and each direct permission granted again;
+        a group or asset that no longer exists is reported, not fatal. What
+        QuickSight keeps per person (bookmarks, subscriptions) is not restored.
+      parameters:
+        - name: userName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: What was restored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/UserRestoreResult'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The user is not in QuickSight yet
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   # Lineage endpoints
   /api/assets/{assetType}/{assetId}/cached:
@@ -7594,6 +7666,83 @@ components:
           items:
             type: string
           description: List of allowed actions
+
+    ArchivedUser:
+      type: object
+      required: [userName, role, arn, archivedAt, groups, permissions]
+      properties:
+        userName:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        arn:
+          type: string
+        archivedAt:
+          type: string
+        archivedBy:
+          type: string
+        groups:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          description: Permissions granted to the user directly (group and folder access comes back with the groups).
+          items:
+            type: object
+            required: [assetType, assetId, assetName, actions]
+            properties:
+              assetType:
+                type: string
+              assetId:
+                type: string
+              assetName:
+                type: string
+              actions:
+                type: array
+                items:
+                  type: string
+        restoredAt:
+          type: string
+        restoredBy:
+          type: string
+
+    UserRestoreResult:
+      type: object
+      required: [userName, groups, permissions]
+      properties:
+        userName:
+          type: string
+        groups:
+          type: object
+          required: [restored, missing]
+          properties:
+            restored:
+              type: array
+              items:
+                type: string
+            missing:
+              type: array
+              items:
+                type: string
+        permissions:
+          type: object
+          required: [restored, failed]
+          properties:
+            restored:
+              type: integer
+            failed:
+              type: array
+              items:
+                type: object
+                required: [asset, error]
+                properties:
+                  asset:
+                    type: string
+                  error:
+                    type: string
 
     AccessSource:
       type: object

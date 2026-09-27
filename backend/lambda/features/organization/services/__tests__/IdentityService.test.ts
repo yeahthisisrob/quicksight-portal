@@ -664,7 +664,7 @@ describe('IdentityService - Export and Refresh', () => {
 
       const result = await identityService.refreshUserActivity();
 
-      expect(result.errors).toContain('Refresh failed');
+      expect(result.errors).toEqual([{ userName: '*', error: 'Refresh failed' }]);
       expect(logger.error).toHaveBeenCalled();
     });
   });

@@ -177,7 +177,7 @@ export const EXAMPLE_SPECS: PlaybookSpec[] = [
     id: 'remove-idle-readers',
     name: 'Remove idle readers',
     description:
-      'Readers who are in no group, reach no dashboard (directly, through a group or through a folder) and have not been active for the window are paid for and unused. Each is deleted; with an identity provider that provisions readers on sign-in, one who comes back gets a seat again. Groups and folders listed as not counting (an everyone group, a folder shared with all readers) are ignored. Nothing runs unless the portal activity covers the whole window and was refreshed in the last two days.',
+      'Readers who are in no group, reach no dashboard (directly, through a group or through a folder) and have not been active for the window are paid for and unused. Each is deleted with their groups and permissions archived first; with an identity provider that provisions readers on sign-in, one who comes back gets a seat again, and Restore access on the Operations archive gives them what they had. Groups and folders listed as not counting (an everyone group, a folder shared with all readers) are ignored. Nothing runs unless the portal activity covers the whole window and was refreshed in the last two days.',
     inputs: [
       { key: 'days', label: 'Inactive for (days)', kind: 'number', default: 90, required: true },
       {

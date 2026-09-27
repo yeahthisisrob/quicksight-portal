@@ -87,6 +87,47 @@ export class IdentityHandler {
     }
   }
 
+  /** GET /users/{userName}/archive: what a deleted user had. */
+  public async getArchivedUser(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const userName = decodeURIComponent(
+        event.path.match(/\/users\/([^/]+)\/archive$/)?.[1] ?? ''
+      );
+      const archived = await this.identityService.archivedUser(userName);
+      if (!archived) {
+        return errorResponse(
+          event,
+          STATUS_CODES.NOT_FOUND,
+          `Nothing was archived for "${userName}"`
+        );
+      }
+      return successResponse(event, { success: true, data: archived });
+    } catch (error: any) {
+      logger.error('Failed to read archived user', { error: error.message });
+      return errorResponse(event, STATUS_CODES.INTERNAL_SERVER_ERROR, error.message);
+    }
+  }
+
+  /** POST /users/{userName}/restore: give a returned user their groups and permissions back. */
+  public async restoreUser(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const auth = await requireAuth(event);
+      const userName = decodeURIComponent(
+        event.path.match(/\/users\/([^/]+)\/restore$/)?.[1] ?? ''
+      );
+      const result = await this.identityService.restoreUser(userName, auth.userId);
+      return successResponse(event, { success: true, data: result });
+    } catch (error: any) {
+      logger.error('Failed to restore user', { error: error.message });
+      return errorResponse(
+        event,
+        error.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error.message || 'Failed to restore the user'
+      );
+    }
+  }
+
   public async getGroup(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       await requireAuth(event); // Validate authentication

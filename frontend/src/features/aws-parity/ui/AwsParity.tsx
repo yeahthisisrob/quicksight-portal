@@ -91,10 +91,10 @@ export const PARITY_ROWS: ParityRow[] = [
   },
   {
     capability: 'Restore deleted assets',
-    portal: { level: 'yes', note: 'Dashboards, analyses, datasets' },
+    portal: { level: 'yes', note: "Assets, and users' access" },
     aws: { level: 'partial', note: 'Analyses, within a window' },
     detail:
-      "Every export keeps each asset's definition; a deleted dashboard, analysis or dataset is restored from the Studio with its permissions.",
+      "Every export keeps each asset's definition; a deleted dashboard, analysis or dataset is restored from the Studio with its permissions. A deleted user's groups and direct permissions are archived, and given back when they return (a reader does on signing in again).",
   },
   {
     capability: 'Expression kinds',

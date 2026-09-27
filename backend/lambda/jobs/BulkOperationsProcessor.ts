@@ -29,6 +29,8 @@ import type {
 } from '../shared/types/bulkOperationTypes';
 import { logger } from '../shared/utils/logger';
 
+const PERMISSIONED_TYPES = new Set(['dashboard', 'analysis', 'dataset', 'datasource', 'folder']);
+
 // Processing constants
 const PROCESSING_CONSTANTS = {
   DEFAULT_BATCH_SIZE: 10,
@@ -543,18 +545,13 @@ export class BulkOperationsProcessor {
   }
 
   /** Update*Permissions per asset type: (id, grants, revocations). */
-  private permissionUpdaters(): Record<
-    string,
-    (id: string, grants: any[], revocations: any[]) => Promise<any>
-  > {
+  private permissionUpdater(
+    assetType: string
+  ): ((id: string, grants: any[], revocations: any[]) => Promise<any>) | undefined {
+    if (!PERMISSIONED_TYPES.has(assetType)) return undefined;
     const quickSightService = new QuickSightService(process.env.AWS_ACCOUNT_ID || '');
-    return {
-      dashboard: (id, p, r) => quickSightService.updateDashboardPermissions(id, p, r),
-      analysis: (id, p, r) => quickSightService.updateAnalysisPermissions(id, p, r),
-      dataset: (id, p, r) => quickSightService.updateDataSetPermissions(id, p, r),
-      datasource: (id, p, r) => quickSightService.updateDataSourcePermissions(id, p, r),
-      folder: (id, p, r) => quickSightService.updateFolderPermissions(id, p, r),
-    };
+    return (id, grants, revocations) =>
+      quickSightService.updatePermissions(assetType, id, grants, revocations);
   }
 
   /**
@@ -569,7 +566,7 @@ export class BulkOperationsProcessor {
     batchSize: number,
     maxConcurrency: number
   ): Promise<BulkOperationResult> {
-    const updateFn = this.permissionUpdaters()[config.assetType];
+    const updateFn = this.permissionUpdater(config.assetType);
     if (!updateFn) {
       throw new Error(`Unsupported asset type for permission revoke: ${config.assetType}`);
     }
@@ -607,7 +604,7 @@ export class BulkOperationsProcessor {
     batchSize: number,
     maxConcurrency: number
   ): Promise<BulkOperationResult> {
-    const updateFn = this.permissionUpdaters()[config.assetType];
+    const updateFn = this.permissionUpdater(config.assetType);
     if (!updateFn) {
       throw new Error(`Unsupported asset type for permission grant: ${config.assetType}`);
     }
