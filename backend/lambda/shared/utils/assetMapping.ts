@@ -13,6 +13,9 @@ type FolderListItem = components['schemas']['FolderListItem'];
 type DashboardListItem = components['schemas']['DashboardListItem'];
 type DatasetListItem = components['schemas']['DatasetListItem'];
 type UserListItem = components['schemas']['UserListItem'];
+type AnalysisListItem = components['schemas']['AnalysisListItem'];
+type DatasourceListItem = components['schemas']['DatasourceListItem'];
+type GroupListItem = components['schemas']['GroupListItem'];
 
 /**
  * Base mapping for all asset types from cache entry
@@ -78,7 +81,7 @@ function mapDashboardFromCache(entry: CacheEntry): DashboardListItem & { arn: st
 /**
  * Map analysis cache entry to analysis list item
  */
-function mapAnalysisFromCache(entry: CacheEntry): DashboardListItem & { arn: string } {
+function mapAnalysisFromCache(entry: CacheEntry): AnalysisListItem & { arn: string } {
   const base = mapBaseAssetFields(entry);
 
   return {
@@ -146,14 +149,14 @@ function mapDatasetFromCache(entry: CacheEntry): DatasetListItem & { arn: string
 /**
  * Map datasource cache entry to datasource list item
  */
-function mapDatasourceFromCache(entry: CacheEntry): AssetListItem & { arn: string } {
+function mapDatasourceFromCache(entry: CacheEntry): DatasourceListItem & { arn: string } {
   const base = mapBaseAssetFields(entry);
 
   return {
     ...base,
     sourceType: entry.metadata.sourceType || entry.metadata.datasourceType || 'UNKNOWN',
     connectionMode: entry.metadata.connectionMode || 'UNKNOWN',
-  } as any;
+  };
 }
 
 /**
@@ -176,15 +179,22 @@ function mapUserFromCache(entry: CacheEntry): UserListItem & { arn: string } {
 /**
  * Map group cache entry to asset list item
  */
-function mapGroupFromCache(entry: CacheEntry): AssetListItem & { arn: string } {
+function mapGroupFromCache(entry: CacheEntry): GroupListItem & { arn: string } {
   const base = mapBaseAssetFields(entry);
 
   return {
     ...base,
     description: entry.metadata?.description || '',
     memberCount: entry.metadata?.memberCount || 0,
-    members: entry.metadata?.members || [],
-  } as any;
+    // The parser writes `arn`; older cache entries may say `memberArn`.
+    members: ((entry.metadata?.members ?? []) as Array<Record<string, string | undefined>>)
+      .filter((m) => m.memberName)
+      .map((m) => ({
+        memberName: String(m.memberName),
+        arn: String(m.arn ?? m.memberArn ?? ''),
+        ...(m.email ? { email: m.email } : {}),
+      })),
+  };
 }
 
 /**

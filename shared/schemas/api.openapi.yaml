@@ -2085,71 +2085,32 @@ paths:
     get:
       operationId: getDataCatalogFull
       tags: [Data Catalog]
-      summary: Get full data catalog
-      description: Returns complete field catalog with pagination, filtering, and summary statistics
-      parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-            default: 1
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-            default: 50
-        - name: viewMode
-          in: query
-          schema:
-            type: string
-            enum: [all, fields, calculated]
-            default: all
-        - name: tagKey
-          in: query
-          schema:
-            type: string
-          description: Single tag key filter (deprecated, use includeTags/excludeTags)
-        - name: tagValue
-          in: query
-          schema:
-            type: string
-          description: Single tag value filter (deprecated, use includeTags/excludeTags)
-        - name: includeTags
-          in: query
-          schema:
-            type: string
-          description: JSON array of tags to include, e.g. [{"key":"env","value":"prod"}]. Assets must have at least one of these tags.
-        - name: excludeTags
-          in: query
-          schema:
-            type: string
-          description: JSON array of tags to exclude, e.g. [{"key":"env","value":"dev"}]. Assets must not have any of these tags.
-        - name: assetIds
-          in: query
-          schema:
-            type: string
-          description: JSON array of asset IDs to filter by, e.g. ["dash-123","ds-456"]. Only fields from these assets are returned.
-        - name: includeAnalyses
-          in: query
-          schema:
-            type: boolean
-            default: false
-          description: >-
-            Catalog source scope. By default the catalog reflects the business-facing
-            layer (datasets + dashboards). Set true to also include analyses (the
-            authoring layer); datasets are always included.
+      summary: How many assets and fields the catalog holds, and when it was counted
+      description: |
+        Three numbers, not the catalog itself: for the fields, their
+        lineage and filters, use `GET /api/data-catalog`.
       responses:
         '200':
-          description: Data catalog with fields and summary
+          description: The counts
           content:
             application/json:
               schema:
                 type: object
+                required: [success, data]
                 properties:
                   success:
                     type: boolean
                   data:
-                    $ref: '#/components/schemas/DataCatalogResponse'
+                    type: object
+                    required: [totalAssets, totalFields, lastUpdated]
+                    properties:
+                      totalAssets:
+                        type: integer
+                      totalFields:
+                        type: integer
+                      lastUpdated:
+                        type: string
+                        format: date-time
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -5158,7 +5119,7 @@ paths:
                     $ref: '#/components/schemas/AssetRef'
       responses:
         '200':
-          description: Tags per asset
+          description: Tags per asset, in the order asked; one that could not be read says so
           content:
             application/json:
               schema:
@@ -5168,8 +5129,23 @@ paths:
                   success:
                     type: boolean
                   data:
-                    type: object
-                    additionalProperties: true
+                    type: array
+                    items:
+                      type: object
+                      required: [type, id, tags, success]
+                      properties:
+                        type:
+                          type: string
+                        id:
+                          type: string
+                        tags:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/Tag'
+                        success:
+                          type: boolean
+                        error:
+                          type: string
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -7148,6 +7124,55 @@ components:
           type: boolean
 
     # Filter types (shared across frontend and backend)
+    AssetFolderRef:
+      type: object
+      required: [id, name, path]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        path:
+          type: string
+
+    AssetRelationship:
+      type: object
+      required: [sourceAssetId, sourceAssetType, targetAssetId, targetAssetType, relationshipType]
+      properties:
+        sourceAssetId:
+          type: string
+        sourceAssetType:
+          type: string
+        sourceAssetName:
+          type: string
+        sourceIsArchived:
+          type: boolean
+        targetAssetId:
+          type: string
+        targetAssetType:
+          type: string
+        targetAssetName:
+          type: string
+        targetIsArchived:
+          type: boolean
+        relationshipType:
+          type: string
+          enum: [uses, used_by]
+        activity:
+          type: object
+          properties:
+            totalViews:
+              type: integer
+            uniqueViewers:
+              type: integer
+            lastViewed:
+              type: string
+              nullable: true
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+
     AssetListItem:
       type: object
       required: [id, name, type, status, createdTime, lastUpdatedTime, lastExportTime, enrichmentStatus]
@@ -7155,6 +7180,20 @@ components:
         id:
           type: string
           description: Asset unique identifier
+        arn:
+          type: string
+        folders:
+          type: array
+          description: Dashboards, analyses, datasets and data sources - the folders it is in.
+          items:
+            $ref: '#/components/schemas/AssetFolderRef'
+        folderCount:
+          type: integer
+        relatedAssets:
+          type: array
+          description: Dashboards, analyses, datasets and data sources - what it uses and what uses it.
+          items:
+            $ref: '#/components/schemas/AssetRelationship'
         name:
           type: string
           description: Asset display name
@@ -7401,6 +7440,9 @@ components:
         - type: object
           required: [sheetCount, visualCount, datasetCount]
           properties:
+            dashboardStatus:
+              type: string
+              description: Whether a dashboard was published from it.
             sheetCount:
               type: integer
               description: Number of sheets in the analysis
@@ -7571,6 +7613,21 @@ components:
         - type: object
           required: [memberCount]
           properties:
+            assetsCount:
+              type: integer
+              description: How many assets the group reaches.
+            members:
+              type: array
+              items:
+                type: object
+                required: [memberName, arn]
+                properties:
+                  memberName:
+                    type: string
+                  arn:
+                    type: string
+                  email:
+                    type: string
             memberCount:
               type: integer
               description: Number of members in the group
@@ -11761,9 +11818,11 @@ components:
 
     VisualFieldCatalogResponse:
       type: object
+      required: [items, summary]
       properties:
-        visualFields:
+        items:
           type: array
+          description: The first page of visual field mappings.
           items:
             type: object
             properties:

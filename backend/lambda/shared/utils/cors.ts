@@ -1,9 +1,13 @@
+import { appendFileSync } from 'node:fs';
+
 /**
  * CORS and response utilities
  */
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
+import { responseErrors } from '../api/contract';
 import { STATUS_CODES } from '../constants';
+import { logger } from './logger';
 import { currentErrorDetail } from './requestContext';
 
 // Shared across all CORS branches. If-None-Match and Expose-Headers: ETag
@@ -52,11 +56,46 @@ const corsHeaders = (event: APIGatewayProxyEvent): Record<string, string> => {
 /**
  * Creates a response with CORS headers and Content-Type
  */
+/** Drift found in `strict` mode, for the test setup to fail on (a throw would be caught by the handler). */
+const drift: string[] = [];
+
+/** Take (and clear) the drift strict mode recorded. */
+export function takeContractDrift(): string[] {
+  return drift.splice(0, drift.length);
+}
+
+/**
+ * Every response is held to the served contract. `strict` (the tests)
+ * records drift and the test setup fails on it; `warn` (the default) logs
+ * it, so real traffic finds what tests miss; `report` appends it to a file;
+ * `off` skips it. A string body (a spec, a guide) is not checked.
+ */
+function checkAgainstContract(event: APIGatewayProxyEvent, statusCode: number, body: unknown) {
+  const mode = process.env.CONTRACT_RESPONSES ?? 'warn';
+  if (mode === 'off' || typeof body === 'string' || !event?.path || !event.httpMethod) return;
+  const problems = responseErrors(event.httpMethod, event.path, statusCode, body);
+  if (problems.length === 0) return;
+  const where = `${event.httpMethod} ${event.path} ${statusCode}`;
+  if (mode === 'strict') {
+    drift.push(`${where}:\n  - ${problems.join('\n  - ')}`);
+    return;
+  }
+  if (mode === 'report' && process.env.CONTRACT_REPORT_FILE) {
+    appendFileSync(process.env.CONTRACT_REPORT_FILE, `${JSON.stringify({ where, problems })}\n`);
+    return;
+  }
+  logger.warn('Contract drift: a response does not fit the served contract', {
+    where,
+    problems,
+  });
+}
+
 export function createResponse(
   event: APIGatewayProxyEvent,
   statusCode: number,
   body: any
 ): APIGatewayProxyResult {
+  checkAgainstContract(event, statusCode, body);
   return {
     statusCode,
     headers: {

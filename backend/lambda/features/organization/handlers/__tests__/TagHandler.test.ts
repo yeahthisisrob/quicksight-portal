@@ -109,6 +109,10 @@ describe('TagHandler', () => {
   });
 
   describe('addTags', () => {
+    beforeEach(() => {
+      mockEvent.httpMethod = 'POST';
+    });
+
     it('should add tags successfully', async () => {
       mockEvent.body = JSON.stringify({
         tags: [
@@ -147,6 +151,10 @@ describe('TagHandler', () => {
   });
 
   describe('updateTags', () => {
+    beforeEach(() => {
+      mockEvent.httpMethod = 'PUT';
+    });
+
     it('should update tags successfully with Key/Value format', async () => {
       mockEvent.body = JSON.stringify({
         tags: [
@@ -192,6 +200,10 @@ describe('TagHandler', () => {
   });
 
   describe('removeTags', () => {
+    beforeEach(() => {
+      mockEvent.httpMethod = 'DELETE';
+    });
+
     it('should remove tags successfully', async () => {
       mockEvent.body = JSON.stringify({
         tagKeys: ['Environment', 'Owner'],
@@ -271,6 +283,10 @@ describe('TagHandler - Batch Operations', () => {
   });
 
   describe('bulkUpdateTags', () => {
+    beforeEach(() => {
+      mockEvent.path = '/tags/bulk';
+    });
+
     it('should bulk update tags for add operation', async () => {
       mockEvent.body = JSON.stringify({
         assetType: 'dashboard',
@@ -403,6 +419,10 @@ describe('TagHandler - Batch Operations', () => {
   });
 
   describe('refreshTags', () => {
+    beforeEach(() => {
+      mockEvent.path = '/tags/refresh';
+    });
+
     it('should refresh tags successfully', async () => {
       mockEvent.body = JSON.stringify({
         assetType: 'dashboards',

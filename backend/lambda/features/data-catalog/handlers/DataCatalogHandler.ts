@@ -25,6 +25,14 @@ import { FieldMetadataService } from '../services/FieldMetadataService';
 import { SmusCatalogService } from '../services/SmusCatalogService';
 import type { CatalogField, DataCatalogResult } from '../types';
 
+/** The visual-field summary's documented shape, for a catalog that has none yet. */
+const EMPTY_VISUAL_SUMMARY = {
+  totalVisualFields: 0,
+  totalVisuals: 0,
+  totalSheets: 0,
+  totalDashboards: 0,
+};
+
 /** An unknown scope reads as the default rather than as an error. */
 function catalogScope(value: string | undefined): CatalogScope | undefined {
   return value === 'outside' || value === 'all' || value === 'smus' ? value : undefined;
@@ -299,13 +307,7 @@ export class DataCatalogHandler {
         logger.info('No visual field catalog data available');
         return successResponse(event, {
           success: true,
-          data: {
-            items: [],
-            summary: {
-              totalMappings: 0,
-              mappingsByAssetType: { dashboards: 0, analyses: 0 },
-            },
-          },
+          data: { items: [], summary: EMPTY_VISUAL_SUMMARY },
         });
       }
 
@@ -315,8 +317,8 @@ export class DataCatalogHandler {
         data: {
           items: visualFieldCatalog.visualFields.slice(0, PAGINATION.DEFAULT_PAGE_SIZE), // Simple pagination
           summary: visualFieldCatalog.summary || {
-            totalMappings: visualFieldCatalog.visualFields.length,
-            mappingsByAssetType: { dashboards: 0, analyses: 0 },
+            ...EMPTY_VISUAL_SUMMARY,
+            totalVisualFields: visualFieldCatalog.visualFields.length,
           },
         },
       });
