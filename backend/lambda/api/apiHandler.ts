@@ -10,6 +10,7 @@ import { settingsStore } from '../shared/services/settings/SettingsStore';
 import { createResponse, errorResponse, successResponse } from '../shared/utils/cors';
 import { errorMessage } from '../shared/utils/errorMessage';
 import { logger } from '../shared/utils/logger';
+import { runWithRequestContext } from '../shared/utils/requestContext';
 import { findRoute } from './router';
 import { applyHttpCaching } from './utils/httpCaching';
 
@@ -18,7 +19,10 @@ export const apiHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewa
   return applyHttpCaching(event, await handleRequest(event));
 };
 
-const handleRequest = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+const handleRequest = (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> =>
+  runWithRequestContext(event.requestContext?.requestId, () => answer(event));
+
+const answer = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   // Handle CORS preflight
   if (event.httpMethod === 'OPTIONS') {
     return createResponse(event, STATUS_CODES.OK, '');

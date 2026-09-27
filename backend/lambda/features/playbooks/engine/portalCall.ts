@@ -15,12 +15,15 @@ const OK_MIN = 200;
 const OK_MAX = 299;
 
 function messageOf(body: any, status: number): string {
-  return (
+  const message =
     body?.error?.message ??
     (typeof body?.error === 'string' ? body.error : undefined) ??
     body?.message ??
-    `The portal answered ${status}`
-  );
+    `The portal answered ${status}`;
+  // What failed underneath, when the route's message hides it.
+  const cause = body?.detail?.cause;
+  const name = body?.detail?.name;
+  return cause && cause !== message ? `${message}: ${name ? `${name}: ` : ''}${cause}` : message;
 }
 
 export function portalCall(dispatch: Dispatch): PortalCall {

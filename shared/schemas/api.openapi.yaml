@@ -11872,17 +11872,37 @@ components:
     # Error responses
     Error:
       type: object
-      required: [message]
+      description: |
+        Every error the API answers with. `error` is a short message for
+        people; `detail`, when present, is for whoever debugs it.
+      required: [success, error]
       properties:
-        message:
+        success:
+          type: boolean
+          enum: [false]
+        error:
           type: string
-          description: Error message
-        code:
+          description: What went wrong, in a sentence.
+        detail:
+          $ref: '#/components/schemas/ErrorDetail'
+
+    ErrorDetail:
+      type: object
+      properties:
+        name:
           type: string
-          description: Error code
-        details:
-          type: object
-          description: Additional error details
+          description: The underlying error's name (ValidationException, AccessDeniedException...).
+        cause:
+          type: string
+          description: The underlying error's own message.
+        awsRequestId:
+          type: string
+          description: AWS's id for the failing call.
+        awsStatus:
+          type: integer
+        requestId:
+          type: string
+          description: This request's id, to find its logs by.
 
   requestBodies:
     Tags:

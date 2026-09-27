@@ -34,3 +34,26 @@ describe('portalCall', () => {
     await expect(portalCall(dispatch)('GET', '/api/x')).rejects.toThrow('nope');
   });
 });
+
+describe('portalCall error detail', () => {
+  it('adds what failed underneath when the route message hides it', async () => {
+    const dispatch = vi.fn(async () => ({
+      status: 500,
+      body: JSON.stringify({
+        success: false,
+        error: 'Could not read the rows',
+        detail: {
+          name: 'ValidationException',
+          cause: 'STRING_VALUE can not be converted to an Integer',
+          requestId: 'r-1',
+        },
+      }),
+    }));
+    const error = (await portalCall(dispatch)('GET', '/api/playbooks/runs/j/items').catch(
+      (e) => e
+    )) as Error;
+    expect(error.message).toBe(
+      'Could not read the rows: ValidationException: STRING_VALUE can not be converted to an Integer (GET /api/playbooks/runs/j/items)'
+    );
+  });
+});

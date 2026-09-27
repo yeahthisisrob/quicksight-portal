@@ -5891,13 +5891,27 @@ export interface components {
             userName: string;
             email: string;
         };
+        /**
+         * @description Every error the API answers with. `error` is a short message for
+         *     people; `detail`, when present, is for whoever debugs it.
+         */
         Error: {
-            /** @description Error message */
-            message: string;
-            /** @description Error code */
-            code?: string;
-            /** @description Additional error details */
-            details?: Record<string, never>;
+            /** @enum {boolean} */
+            success: false;
+            /** @description What went wrong, in a sentence. */
+            error: string;
+            detail?: components["schemas"]["ErrorDetail"];
+        };
+        ErrorDetail: {
+            /** @description The underlying error's name (ValidationException, AccessDeniedException...). */
+            name?: string;
+            /** @description The underlying error's own message. */
+            cause?: string;
+            /** @description AWS's id for the failing call. */
+            awsRequestId?: string;
+            awsStatus?: number;
+            /** @description This request's id, to find its logs by. */
+            requestId?: string;
         };
     };
     responses: {
