@@ -82,7 +82,7 @@ export function RunConfirmDialog({
           {playbook.deletes && (
             <Alert severity="warning">
               {onUsers
-                ? 'Each loses their QuickSight seat at once. One who signs in again is provisioned again by your identity provider; personal settings such as bookmarks are not kept.'
+                ? 'Each loses their QuickSight seat at once. Their groups and permissions are archived first: one who signs in again is provisioned by your identity provider, and Restore access on the Operations archive gives them back. Personal settings such as bookmarks are not kept.'
                 : 'Each is archived first and can be restored from the Studio, but it disappears from QuickSight for everyone at once.'}
             </Alert>
           )}

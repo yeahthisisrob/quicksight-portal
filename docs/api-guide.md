@@ -454,6 +454,10 @@ curl -sS -X POST "$QSP_API_URL/api/playbooks/consolidate-athena/run" \
 - **Reports.** `GET /api/playbooks/runs/{jobId}/report` has every row and
   how it went; `POST` the same path keeps it beyond the jobs' 30 days
   (`GET /api/playbooks/reports` lists what was kept).
+- **Deleting a user** (`DELETE /api/users/{userName}`, readers only)
+  archives their groups and direct permissions first; once they are back
+  in QuickSight, `POST /api/users/{userName}/restore` gives them back
+  (`GET /api/users/{userName}/archive` shows what was kept).
 - **Deleting one asset** outside a playbook: `DELETE
   /api/assets/{type}/{id}?reason=...` archives it first; restore it later.
 

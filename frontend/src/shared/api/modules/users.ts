@@ -1,6 +1,6 @@
 import type { components } from '@shared/generated';
 
-import { accepted, client } from '../typed';
+import { accepted, client, unwrap } from '../typed';
 
 /**
  * Users and group membership. For listing users and groups, use
@@ -11,6 +11,8 @@ import { accepted, client } from '../typed';
  * caller polls the jobId.
  */
 type GroupMembershipJobResponse = components['schemas']['BulkJobAccepted'];
+
+type UserRestoreResult = components['schemas']['UserRestoreResult'];
 
 interface DeleteUserResult {
   success: boolean;
@@ -49,6 +51,18 @@ export const usersApi = {
     return accepted(
       await client.DELETE('/api/users/{userName}', { params: { path: { userName } } }),
       'Failed to delete user'
+    );
+  },
+
+  /**
+   * Give a deleted user their groups and direct permissions back. They must be
+   * in QuickSight again first (a reader is, once they sign in); until then
+   * this fails with a message saying so.
+   */
+  async restoreUser(userName: string): Promise<UserRestoreResult> {
+    return unwrap(
+      await client.POST('/api/users/{userName}/restore', { params: { path: { userName } } }),
+      'Failed to restore the user'
     );
   },
 };

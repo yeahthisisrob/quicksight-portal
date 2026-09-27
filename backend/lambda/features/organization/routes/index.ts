@@ -69,6 +69,16 @@ export const organizationRoutes: RouteHandler[] = [
   },
   {
     method: 'GET',
+    path: /^\/users\/([^/]+)\/archive$/,
+    handler: (event) => identityHandler.getArchivedUser(event),
+  },
+  {
+    method: 'POST',
+    path: /^\/users\/([^/]+)\/restore$/,
+    handler: (event) => identityHandler.restoreUser(event),
+  },
+  {
+    method: 'GET',
     path: /^\/users\/(.+)\/asset-access$/,
     handler: (event) => identityHandler.getUserAssetAccess(event),
   },

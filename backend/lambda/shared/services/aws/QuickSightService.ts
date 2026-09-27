@@ -1435,6 +1435,29 @@ export class QuickSightService {
     );
   }
 
+  /** Grant and revoke on any asset type that has permissions. */
+  public updatePermissions(
+    assetType: string,
+    id: string,
+    grants: any[],
+    revocations: any[] = []
+  ): Promise<any> {
+    switch (assetType) {
+      case 'dashboard':
+        return this.updateDashboardPermissions(id, grants, revocations);
+      case 'analysis':
+        return this.updateAnalysisPermissions(id, grants, revocations);
+      case 'dataset':
+        return this.updateDataSetPermissions(id, grants, revocations);
+      case 'datasource':
+        return this.updateDataSourcePermissions(id, grants, revocations);
+      case 'folder':
+        return this.updateFolderPermissions(id, grants, revocations);
+      default:
+        return Promise.reject(new Error(`Permissions cannot be changed on a ${assetType}`));
+    }
+  }
+
   public async updateDataSourcePermissions(
     dataSourceId: string,
     permissions: any[],

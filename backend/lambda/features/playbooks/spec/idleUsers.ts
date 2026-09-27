@@ -7,7 +7,8 @@
  * this step is the last look before a delete, and it trusts nothing it can
  * check again: the activity must cover the window and be fresh, and the
  * user's own activity is read again. The delete itself is the portal's,
- * which refuses anyone who is not a reader.
+ * which refuses anyone who is not a reader and archives their groups and
+ * direct permissions first, so a returning reader's access can be restored.
  */
 import { TIME_UNITS } from '../../../shared/constants';
 import { type PlaybookContext, type PlaybookTarget, PortalCallError } from '../types';

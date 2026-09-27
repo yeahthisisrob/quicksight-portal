@@ -230,11 +230,11 @@ describe('organizationRoutes - organization', () => {
       expect(groupRoutes.length).toBeGreaterThan(0);
       expect(tagRoutes.length).toBeGreaterThan(0);
 
-      // We have 21 total routes:
+      // We have 23 total routes:
       // - 6 folder routes
-      // - 7 group/identity routes (including DELETE /users/:userName)
+      // - 9 group/identity routes (including DELETE /users/:userName and its archive and restore)
       // - 7 tag routes
-      const TOTAL_ROUTES = 21;
+      const TOTAL_ROUTES = 23;
       expect(organizationRoutes.length).toBe(TOTAL_ROUTES);
     });
 
@@ -262,7 +262,7 @@ describe('organizationRoutes - organization', () => {
       getRoutes.forEach((route) => {
         const pathStr = route.path instanceof RegExp ? route.path.source : route.path;
         // GET should be for fetching data - folders, members, assets, tags, or asset-access
-        expect(pathStr).toMatch(/(folders|members|assets|tags|groups|asset-access)/i);
+        expect(pathStr).toMatch(/(folders|members|assets|tags|groups|asset-access|archive)/i);
       });
 
       // POST for creating
@@ -271,7 +271,7 @@ describe('organizationRoutes - organization', () => {
       postRoutes.forEach((route) => {
         const pathStr = route.path instanceof RegExp ? route.path.source : route.path;
         // POST should be for creating or batch operations
-        expect(pathStr).toMatch(/(batch|bulk|members|tags|groups|folders|assets)/i);
+        expect(pathStr).toMatch(/(batch|bulk|members|tags|groups|folders|assets|restore)/i);
       });
 
       // DELETE for removing

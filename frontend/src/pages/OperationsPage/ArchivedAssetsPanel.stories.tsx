@@ -12,7 +12,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'The archive ledger on Operations: what was deleted, when, by whom (linked to their QuickSight user) and why, and each time it was restored. Restore in Studio opens it there, to fix its errors before it comes back; folders, users and groups are record only.',
+          'The archive ledger on Operations: what was deleted, when, by whom (linked to their QuickSight user) and why, and each time it was restored. Restore in Studio opens it there, to fix its errors before it comes back; Restore access gives a deleted user their groups and permissions once they are in QuickSight again; folders and groups are record only.',
       },
     },
   },

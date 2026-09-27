@@ -15,6 +15,7 @@ import {
 import type { GridRowSelectionModel } from '@mui/x-data-grid';
 import type { components } from '@shared/generated/types';
 import { format } from 'date-fns';
+import { useSnackbar } from 'notistack';
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -25,7 +26,7 @@ import {
   type FetchAssetsOptions,
 } from '@/widgets/asset-table';
 
-import { assetsApi } from '@/shared/api';
+import { assetsApi, usersApi } from '@/shared/api';
 import type { ArchivedQuery } from '@/shared/api/modules/assets';
 import { pal } from '@/shared/design-system';
 import { EMPTY_SELECTION } from '@/shared/lib/gridSelection';
@@ -125,7 +126,7 @@ function ArchivedActionsMenu({
               setAnchorEl(null);
             }}
           >
-            Restore in Studio
+            {asset.type === 'user' ? 'Restore access' : 'Restore in Studio'}
           </MenuItem>
         )}
         <MenuItem
@@ -169,6 +170,7 @@ interface ArchivedAssetsPanelProps {
  * Studio, where an asset's errors are fixed before it comes back.
  */
 export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps) {
+  const { enqueueSnackbar } = useSnackbar();
   const [assets, setAssets] = useState<ArchivedAssetItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [totalRows, setTotalRows] = useState(0);
@@ -212,6 +214,22 @@ export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps)
 
   const handleRestore = (asset: ArchivedAssetItem) => navigate(studioLink(asset));
 
+  /** A user comes back through the identity provider; this gives them their groups and permissions. */
+  const handleRestoreUser = async (asset: ArchivedAssetItem) => {
+    try {
+      const result = await usersApi.restoreUser(asset.id);
+      const skipped = result.groups.missing.length + result.permissions.failed.length;
+      enqueueSnackbar(
+        `${asset.name}: ${result.groups.restored.length} group${result.groups.restored.length === 1 ? '' : 's'} and ${result.permissions.restored} permission${result.permissions.restored === 1 ? '' : 's'} restored${skipped ? `, ${skipped} no longer there` : ''}`,
+        { variant: skipped ? 'warning' : 'success' }
+      );
+    } catch (error) {
+      enqueueSnackbar(error instanceof Error ? error.message : 'The user could not be restored', {
+        variant: 'error',
+      });
+    }
+  };
+
   const columns = [
     {
       id: 'actions',
@@ -222,7 +240,13 @@ export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps)
       renderCell: (params: any) => (
         <ArchivedActionsMenu
           asset={params.row}
-          onRestore={RESTORABLE.has(params.row.type) ? handleRestore : undefined}
+          onRestore={
+            params.row.type === 'user'
+              ? handleRestoreUser
+              : RESTORABLE.has(params.row.type)
+                ? handleRestore
+                : undefined
+          }
           onViewJson={handleViewJson}
         />
       ),

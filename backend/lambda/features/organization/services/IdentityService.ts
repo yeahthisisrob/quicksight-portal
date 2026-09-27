@@ -2,6 +2,7 @@ import { STATUS_CODES } from '../../../shared/constants';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { cacheService } from '../../../shared/services/cache/CacheService';
+import { PermissionsService } from '../../../shared/services/organization/PermissionsService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
 import type {
@@ -12,13 +13,25 @@ import type {
   UserActivityRefreshResult,
   UsersAndGroupsExport,
 } from '../../../shared/types/organization';
+import { errorMessage } from '../../../shared/utils/errorMessage';
 import { logger } from '../../../shared/utils/logger';
+import { type ArchivedUser, UserArchive } from './UserArchive';
+
+export interface UserRestoreResult {
+  userName: string;
+  groups: { restored: string[]; missing: string[] };
+  permissions: { restored: number; failed: Array<{ asset: string; error: string }> };
+}
 
 export class IdentityService {
   private readonly quickSightService: QuickSightService;
+  private readonly archive: UserArchive;
+  private readonly permissions: PermissionsService;
 
   public constructor(accountId: string) {
     this.quickSightService = ClientFactory.getQuickSightService(accountId);
+    this.archive = new UserArchive(accountId);
+    this.permissions = new PermissionsService(accountId);
   }
 
   // Bulk operations from old users.service
@@ -37,8 +50,7 @@ export class IdentityService {
         successful.push(userName);
         logger.debug(`Successfully added user ${userName} to group ${groupName}`);
       } catch (error: any) {
-        const errorMessage = error.message || 'Unknown error';
-        failed.push({ userName, error: errorMessage });
+        failed.push({ userName, error: errorMessage(error) || 'Unknown error' });
         logger.error(`Failed to add user ${userName} to group ${groupName}:`, error);
       }
     }
@@ -76,6 +88,9 @@ export class IdentityService {
         throw error;
       }
 
+      // Keep what they had before it is gone, or do not delete at all.
+      await this.archive.save(await this.snapshot(user, deletedBy));
+
       // Delete user from QuickSight
       await this.quickSightService.deleteUser(userName);
 
@@ -99,6 +114,101 @@ export class IdentityService {
       logger.error(`Failed to delete user ${userName}:`, error);
       throw error;
     }
+  }
+
+  /** The groups a user is in and what is granted to them directly, for the archive. */
+  private async snapshot(user: User, archivedBy?: string): Promise<ArchivedUser> {
+    const [groups, access] = await Promise.all([
+      this.quickSightService.listUserGroups(user.userName),
+      this.permissions.getUserAssetAccess(user.userName).catch(() => ({ assets: [] })),
+    ]);
+    return {
+      userName: user.userName,
+      ...(user.email ? { email: user.email } : {}),
+      role: user.role ?? 'READER',
+      arn: user.arn ?? '',
+      archivedAt: new Date().toISOString(),
+      ...(archivedBy ? { archivedBy } : {}),
+      groups: (groups ?? [])
+        .map((g: { GroupName?: string }) => g.GroupName)
+        .filter((name: string | undefined): name is string => Boolean(name)),
+      permissions: access.assets.flatMap((asset) => {
+        const direct = asset.sources.filter((source) => source.type === 'direct');
+        return direct.length
+          ? [
+              {
+                assetType: asset.assetType,
+                assetId: asset.assetId,
+                assetName: asset.assetName,
+                actions: [...new Set(direct.flatMap((source) => source.actions))],
+              },
+            ]
+          : [];
+      }),
+    };
+  }
+
+  /** What a deleted user had, as archived; null when nothing was kept. */
+  public archivedUser(userName: string): Promise<ArchivedUser | null> {
+    return this.archive.get(userName);
+  }
+
+  /**
+   * Give a user back what they had: their groups and their direct
+   * permissions. They must exist in QuickSight again first (a reader does
+   * once they sign in through the identity provider). A group that no
+   * longer exists, or an asset that is gone, is reported and skipped.
+   */
+  public async restoreUser(userName: string, restoredBy?: string): Promise<UserRestoreResult> {
+    const archived = await this.archive.get(userName);
+    if (!archived) {
+      throw Object.assign(new Error(`Nothing was archived for "${userName}"`), {
+        statusCode: STATUS_CODES.NOT_FOUND,
+      });
+    }
+    let user: User;
+    try {
+      user = await this.getUser(userName);
+    } catch {
+      throw Object.assign(
+        new Error(
+          `"${userName}" is not in QuickSight yet. A reader comes back when they sign in; restore their access then.`
+        ),
+        { statusCode: STATUS_CODES.CONFLICT }
+      );
+    }
+
+    const groups = { restored: [] as string[], missing: [] as string[] };
+    for (const group of archived.groups) {
+      try {
+        await this.quickSightService.createGroupMembership(group, userName);
+        groups.restored.push(group);
+      } catch (error) {
+        logger.warn('Group not restored', { userName, group, error });
+        groups.missing.push(group);
+      }
+    }
+    const permissions = { restored: 0, failed: [] as Array<{ asset: string; error: string }> };
+    for (const grant of archived.permissions) {
+      try {
+        await this.quickSightService.updatePermissions(grant.assetType, grant.assetId, [
+          { Principal: user.arn, Actions: grant.actions },
+        ]);
+        permissions.restored += 1;
+      } catch (error) {
+        permissions.failed.push({
+          asset: `${grant.assetType} ${grant.assetName}`,
+          error: errorMessage(error),
+        });
+      }
+    }
+    await this.archive.save({
+      ...archived,
+      restoredAt: new Date().toISOString(),
+      ...(restoredBy ? { restoredBy } : {}),
+    });
+    logger.info('Restored user access', { userName, groups, restored: permissions.restored });
+    return { userName, groups, permissions };
   }
 
   public async exportUsersAndGroups(): Promise<UsersAndGroupsExport> {
@@ -270,8 +380,7 @@ export class IdentityService {
       logger.info('User activity refresh completed (placeholder implementation)');
       usersUpdated = totalUsers; // Placeholder
     } catch (error: any) {
-      const errorMessage = error.message || 'Unknown error';
-      errors.push(errorMessage);
+      errors.push({ userName: '*', error: errorMessage(error) || 'Unknown error' });
       logger.error('Failed to refresh user activity:', error);
     }
 
@@ -309,8 +418,7 @@ export class IdentityService {
         successful.push(userName);
         logger.debug(`Successfully removed user ${userName} from group ${groupName}`);
       } catch (error: any) {
-        const errorMessage = error.message || 'Unknown error';
-        failed.push({ userName, error: errorMessage });
+        failed.push({ userName, error: errorMessage(error) || 'Unknown error' });
         logger.error(`Failed to remove user ${userName} from group ${groupName}:`, error);
       }
     }
