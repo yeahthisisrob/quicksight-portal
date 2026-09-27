@@ -532,12 +532,13 @@ describe('ArchiveService - edge cases', () => {
     ).rejects.toThrow('dashboard is not a collection type');
   });
 
-  it('should handle missing item in collection', async () => {
+  it('treats an item no longer in the active collection as archived, and writes nothing', async () => {
     const activeCollection = {
       'user-456': { name: 'Other User' },
     };
 
     mockS3Service.getObject = vi.fn().mockResolvedValue(activeCollection);
+    mockS3Service.putObject = vi.fn();
 
     const result = await archiveService.archiveCollectionItem(
       'user',
@@ -546,8 +547,8 @@ describe('ArchiveService - edge cases', () => {
       'admin'
     );
 
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('not found in user collection');
+    expect(result.success).toBe(true);
+    expect(mockS3Service.putObject).not.toHaveBeenCalled();
   });
 
   it('should verify archive creation before deleting original', async () => {
@@ -567,5 +568,68 @@ describe('ArchiveService - edge cases', () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain('Failed to verify archive creation');
     expect(mockS3Service.deleteObject).not.toHaveBeenCalled();
+  });
+});
+
+describe('ArchiveService - a user archived half-way is archived once, not every export', () => {
+  const ACTIVE = 'assets/organization/users.json';
+  const ARCHIVED = 'archived/organization/users.json';
+
+  function files(active: Record<string, unknown>, archived: Record<string, unknown>) {
+    mockS3Service.getObject = vi.fn(async (_bucket: string, key: string) =>
+      key === ACTIVE ? active : key === ARCHIVED ? archived : null
+    ) as any;
+    mockS3Service.putObject = vi.fn(async () => undefined) as any;
+  }
+
+  it('prefers the live entry when an archived copy of the same user is also cached', async () => {
+    mockCacheService.getCacheEntries.mockResolvedValue([
+      { assetId: 'pat', status: 'archived', exportFilePath: ARCHIVED },
+      { assetId: 'pat', status: 'active', exportFilePath: ACTIVE },
+    ] as any);
+    files({ pat: { UserName: 'pat' } }, {});
+
+    const result = await archiveService.archiveAsset(
+      'user',
+      'pat',
+      'Gone from QuickSight',
+      'system'
+    );
+
+    expect(result.success).toBe(true);
+    expect(mockS3Service.putObject).toHaveBeenCalledWith(TEST_BUCKET, ACTIVE, {});
+    expect(mockCacheService.archiveAssetsInCache).toHaveBeenCalled();
+  });
+
+  it('marks the cache when the record already left the active file, so the next export skips it', async () => {
+    // Deleted through the portal long ago: the cache says archived, the path never moved.
+    mockCacheService.getCacheEntries.mockResolvedValue([
+      { assetId: 'pat', status: 'archived', exportFilePath: ACTIVE },
+    ] as any);
+    files({}, { pat: { UserName: 'pat' } });
+
+    const result = await archiveService.archiveAsset(
+      'user',
+      'pat',
+      'Gone from QuickSight',
+      'system'
+    );
+
+    expect(result.success).toBe(true);
+    expect(mockCacheService.archiveAssetsInCache).toHaveBeenCalledWith([
+      expect.objectContaining({ assetType: 'user', assetId: 'pat' }),
+    ]);
+  });
+
+  it('still settles a record that is in neither file', async () => {
+    mockCacheService.getCacheEntries.mockResolvedValue([
+      { assetId: 'pat', status: 'archived', exportFilePath: ACTIVE },
+    ] as any);
+    files({}, {});
+
+    const result = await archiveService.archiveAsset('user', 'pat');
+
+    expect(result.success).toBe(true);
+    expect(mockCacheService.archiveAssetsInCache).toHaveBeenCalled();
   });
 });

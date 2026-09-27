@@ -1,4 +1,6 @@
+import { metadataBucketName } from '../../../shared/config/metadataBucket';
 import { STATUS_CODES } from '../../../shared/constants';
+import { ArchiveService } from '../../../shared/services/archive/ArchiveService';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { cacheService } from '../../../shared/services/cache/CacheService';
@@ -100,11 +102,15 @@ export class IdentityService {
         deletedBy,
       });
 
-      // Update cache - mark as archived
-      await cacheService.updateAsset(ASSET_TYPES.user, userName, {
-        status: 'archived',
-        lastUpdatedTime: new Date(),
-      });
+      // Archive it the way an export would: the record moves to the archived
+      // collection and the cache follows. Flipping only the cache status left a
+      // half-archived user that every export found and archived again.
+      await new ArchiveService(metadataBucketName(), cacheService).archiveAsset(
+        ASSET_TYPES.user,
+        userName,
+        'Deleted via portal',
+        deletedBy
+      );
 
       return {
         success: true,
