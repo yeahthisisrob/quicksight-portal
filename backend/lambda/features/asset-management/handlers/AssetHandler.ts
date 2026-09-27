@@ -19,7 +19,7 @@ import { DatasetSourceService } from '../services/DatasetSourceService';
 import { isRenameableAssetType, RenameService } from '../services/RenameService';
 import type { AssetListRequest } from '../types';
 
-const DELETABLE = new Set<string>(['dashboard', 'analysis', 'dataset', 'datasource']);
+const DELETABLE = new Set<string>(['dashboard', 'analysis', 'dataset', 'datasource', 'theme']);
 
 export class AssetHandler {
   private readonly accountId: string;

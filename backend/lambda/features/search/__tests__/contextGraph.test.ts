@@ -217,3 +217,47 @@ describe('field-level lineage', () => {
     ]);
   });
 });
+
+describe('themes in the graph', () => {
+  it('links each dashboard and analysis to the theme it wears', () => {
+    const doc = (type: string, id: string, name: string) =>
+      ({
+        type,
+        id,
+        name,
+        columns: [],
+        calculatedFields: [],
+        tags: [],
+        context: [],
+        summary: name,
+        path: '',
+      }) as unknown as SearchDocument;
+    const entry = (assetId: string, metadata: Record<string, unknown> = {}) => ({
+      assetId,
+      metadata,
+    });
+    const graph = buildContextGraph({
+      docs: [
+        doc('theme', 'brand', 'Brand'),
+        doc('dashboard', 'd1', 'Sales'),
+        doc('analysis', 'a1', 'Draft'),
+      ],
+      entries: {
+        theme: [entry('brand')],
+        dashboard: [entry('d1', { themeArn: 'arn:aws:quicksight:us-east-1:1:theme/brand' })],
+        analysis: [entry('a1')],
+      },
+      listings: [],
+      calculatedFields: new Map(),
+      visuals: new Map(),
+    });
+    expect(graph.related('theme:brand', { direction: 'in' }).map((h) => h.entity.id)).toEqual([
+      'dashboard:d1',
+    ]);
+    expect(graph.relationCounts('dashboard:d1')).toContainEqual({
+      relation: 'uses-theme',
+      direction: 'out',
+      count: 1,
+    });
+  });
+});

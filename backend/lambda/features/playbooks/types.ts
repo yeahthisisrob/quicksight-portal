@@ -70,7 +70,7 @@ interface ItemOutcome {
 export interface PlaybookParam {
   key: string;
   label: string;
-  kind: 'datasource' | 'text' | 'boolean' | 'number' | 'engine' | 'folder';
+  kind: 'datasource' | 'text' | 'boolean' | 'number' | 'engine' | 'folder' | 'theme';
   help?: string;
   required?: boolean;
   /** datasource only: offer only data sources of this engine. */

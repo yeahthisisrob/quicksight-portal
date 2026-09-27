@@ -29,6 +29,7 @@ import { ArchiveService } from '../../../shared/services/archive/ArchiveService'
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import type { S3Service } from '../../../shared/services/aws/S3Service';
+import { themeArnOf } from '../../../shared/services/aws/themeArn';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { keepLivePrincipals } from '../../../shared/services/identity/livePrincipals';
 import { ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
@@ -127,7 +128,7 @@ export class RebindService {
 
   private readonly archive: ArchiveService;
 
-  public constructor(accountId: string) {
+  public constructor(private readonly accountId: string) {
     this.quickSightService = ClientFactory.getQuickSightService(accountId);
     this.s3Service = ClientFactory.getS3Service();
     this.bucketName = metadataBucketName(accountId);
@@ -602,9 +603,9 @@ export class RebindService {
       ...rewritten.warnings,
       ...(await this.crossDatasetWarnings(definition, plan)),
     ];
-    const target: LoadedDefinition = rewritten.themeArn
-      ? { ...loaded, themeArn: rewritten.themeArn }
-      : loaded;
+    const chosenTheme = request.theme ? themeArnOf(request.theme, this.accountId) : undefined;
+    const themeArn = chosenTheme ?? rewritten.themeArn;
+    const target: LoadedDefinition = themeArn ? { ...loaded, themeArn } : loaded;
     if (request.folderId && request.mode !== 'clone') {
       throw new ValidationError('A folder can only be chosen when creating a copy');
     }
@@ -998,9 +999,10 @@ export class RebindService {
       (request.repairs?.length ?? 0) +
       (request.template ? 1 : 0) +
       (request.typeRules ? 1 : 0) +
+      (request.theme?.trim() ? 1 : 0) +
       (request.addCalculatedFields?.length ?? 0);
     if (request.mode === 'update' && !name && edits === 0) {
-      throw new ValidationError('Nothing to do: no rebinds, no edits and no new name');
+      throw new ValidationError('Nothing to do: no rebinds, no edits, no theme and no new name');
     }
     if (name && name.length > NAME_MAX_LENGTH) {
       throw new ValidationError(`Name must be at most ${NAME_MAX_LENGTH} characters`);

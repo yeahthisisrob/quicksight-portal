@@ -11,7 +11,7 @@ type Templated<T> = T | `{{${string}}}`;
 export interface SpecInput {
   key: string;
   label: string;
-  kind: 'number' | 'text' | 'boolean' | 'datasource' | 'engine' | 'folder';
+  kind: 'number' | 'text' | 'boolean' | 'datasource' | 'engine' | 'folder' | 'theme';
   help?: string;
   required?: boolean;
   default?: string | number | boolean;
@@ -35,6 +35,11 @@ export type SpecCondition =
   | { kind: 'readsEngine'; engine: Templated<string> }
   /** Reads a dataset a SMUS listing governs (or, with value false, one it does not). */
   | { kind: 'readsGoverned'; value: Templated<boolean> }
+  /**
+   * Dashboards and analyses wearing this theme (a custom theme's id or a
+   * QuickSight one by name), or with value false, not wearing it.
+   */
+  | { kind: 'usesTheme'; theme: Templated<string>; value?: Templated<boolean> }
   /** Users: one of these roles, comma-separated (READER, READER_PRO, AUTHOR...). */
   | { kind: 'role'; roles: Templated<string> }
   /** Users: never active, or last active more than this many days ago. */
@@ -127,6 +132,12 @@ export interface DeleteUserStep {
   inactiveDays: Templated<number>;
 }
 
+/** Give a dashboard or analysis this theme (a custom theme's id, or a QuickSight one by name). */
+interface ApplyThemeStep {
+  kind: 'applyTheme';
+  theme: Templated<string>;
+}
+
 /** Put the asset in a folder (a shared folder then carries its audience). */
 interface AddToFolderStep {
   kind: 'addToFolder';
@@ -143,7 +154,8 @@ export type SpecStep =
   | DropUnusedStep
   | RenameToStandardStep
   | RenameDatasetCalcsStep
-  | DeleteUserStep;
+  | DeleteUserStep
+  | ApplyThemeStep;
 
 export interface PlaybookSpec {
   id: string;

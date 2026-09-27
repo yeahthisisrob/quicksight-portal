@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { CloudWatchAdapter } from '../../../adapters/aws/CloudWatchAdapter';
@@ -6,6 +8,7 @@ import { actorLabel, requireAuth } from '../../../shared/auth';
 import { metadataBucketName } from '../../../shared/config/metadataBucket';
 import { STATUS_CODES } from '../../../shared/constants';
 import { activityReader } from '../../../shared/services/activity/activityReader';
+import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import { jobFactory } from '../../../shared/services/jobs/JobFactory';
 import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
@@ -18,6 +21,7 @@ import { type NewAssetRequest, NewAssetService } from '../services/NewAssetServi
 import { createPlannerModel } from '../services/planner/createPlannerModel';
 import { PlannerService } from '../services/planner/PlannerService';
 import { RebindService } from '../services/RebindService';
+import { ThemeService } from '../services/ThemeService';
 import {
   type ApplyRequest,
   type AuthorableAssetType,
@@ -27,6 +31,9 @@ import {
   type TemplateRequest,
   type TypeRules,
 } from '../types';
+
+/** Bedrock reads images up to 3.75 MB; leave room. */
+const MAX_THEME_IMAGE_BYTES = 3_500_000;
 
 const APPLY_MODES = new Set(['update', 'clone']);
 
@@ -430,6 +437,63 @@ export class AuthoringHandler {
     } catch (error: any) {
       logger.error('Dataset calculated field ops failed', { error });
       return this.failure(event, error, 'Failed to update the dataset');
+    }
+  }
+
+  /** POST /authoring/themes  body: a theme draft. Creates it in QuickSight, owned by whoever asked. */
+  public async createTheme(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const created = await new ThemeService(this.accountId).create(this.parseBody(event), user);
+      return successResponse(event, { success: true, data: created });
+    } catch (error: any) {
+      logger.error('Create theme failed', { error });
+      return this.failure(event, error, 'Failed to create the theme');
+    }
+  }
+
+  /**
+   * POST /authoring/themes/propose  body: { image: data URL, note? }
+   * A model reads the picture and proposes a theme, as a job: nothing is
+   * created until someone creates the draft it returns.
+   */
+  public async proposeTheme(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const body = this.parseBody(event);
+      const match = /^data:image\/(png|jpeg|jpg|gif|webp);base64,([A-Za-z0-9+/=]+)$/.exec(
+        String(body.image ?? '')
+      );
+      if (!match) {
+        throw badRequest('image must be a PNG, JPEG, GIF or WebP data URL');
+      }
+      const format = match[1] === 'jpg' ? 'jpeg' : match[1]!;
+      const data = match[2]!;
+      if (Buffer.byteLength(data, 'base64') > MAX_THEME_IMAGE_BYTES) {
+        throw badRequest('The image is larger than 3.5 MB; a smaller one says the same');
+      }
+      const imageKey = `uploads/theme-images/${randomUUID()}.json`;
+      await ClientFactory.getS3Service().putObject(metadataBucketName(this.accountId), imageKey, {
+        format,
+        data,
+      });
+      const queued = await jobFactory.createJob({
+        jobType: 'planner',
+        accountId: this.accountId,
+        bucketName: metadataBucketName(this.accountId),
+        userId: user.userId,
+        startedBy: actorLabel(user),
+        model: this.parseModel(body.model),
+        request: {
+          kind: 'theme-from-image',
+          imageKey,
+          ...(typeof body.note === 'string' && body.note.trim() ? { note: body.note } : {}),
+        },
+      });
+      return createResponse(event, STATUS_CODES.ACCEPTED, { success: true, data: queued });
+    } catch (error: any) {
+      logger.error('Propose theme failed', { error });
+      return this.failure(event, error, 'Failed to queue the theme proposal');
     }
   }
 

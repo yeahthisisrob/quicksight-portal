@@ -208,4 +208,41 @@ export const EXAMPLE_SPECS: PlaybookSpec[] = [
     createdAt: SHIPPED_AT,
     updatedAt: SHIPPED_AT,
   },
+  {
+    id: 'apply-standard-theme',
+    name: 'Give dashboards the standard theme',
+    description:
+      "Every dashboard and analysis not yet wearing the organisation's theme is given it, so the look is one across the account. Recently edited ones are left to whoever is editing them, and a canary goes first.",
+    inputs: [{ key: 'theme', label: 'The standard theme', kind: 'theme', required: true }],
+    category: 'cleanup',
+    select: {
+      assetTypes: ['dashboard', 'analysis'],
+      where: [{ kind: 'usesTheme', theme: '{{theme}}', value: false }],
+    },
+    steps: [{ kind: 'applyTheme', theme: '{{theme}}' }],
+    gates: { editedWithinDays: 7, canary: 5 },
+    createdBy: 'The portal',
+    createdAt: SHIPPED_AT,
+    updatedAt: SHIPPED_AT,
+  },
+  {
+    id: 'move-to-new-theme',
+    name: 'Move from one theme to another',
+    description:
+      'Every dashboard and analysis wearing the old theme is given the new one: a rebrand, or retiring a theme. Recently edited ones are left to whoever is editing them, and a canary goes first.',
+    inputs: [
+      { key: 'from', label: 'The theme they wear now', kind: 'theme', required: true },
+      { key: 'to', label: 'The theme to give them', kind: 'theme', required: true },
+    ],
+    category: 'cleanup',
+    select: {
+      assetTypes: ['dashboard', 'analysis'],
+      where: [{ kind: 'usesTheme', theme: '{{from}}' }],
+    },
+    steps: [{ kind: 'applyTheme', theme: '{{to}}' }],
+    gates: { editedWithinDays: 7, canary: 5 },
+    createdBy: 'The portal',
+    createdAt: SHIPPED_AT,
+    updatedAt: SHIPPED_AT,
+  },
 ];

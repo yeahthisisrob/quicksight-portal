@@ -17,6 +17,7 @@ const SEARCH_TYPE_LABELS: Record<SearchableType, string> = {
   'calculated-field': 'Calculated fields',
   visual: 'Visuals',
   template: 'Templates',
+  theme: 'Themes',
 };
 
 export const SEARCH_TYPE_SINGULAR: Record<SearchableType, string> = {
@@ -31,6 +32,7 @@ export const SEARCH_TYPE_SINGULAR: Record<SearchableType, string> = {
   'calculated-field': 'calculated field',
   visual: 'visual',
   template: 'template',
+  theme: 'theme',
 };
 
 /** Groups appear in this order, whatever the scores; within a group, by score. */
@@ -44,6 +46,7 @@ const SEARCH_TYPE_ORDER: readonly SearchableType[] = [
   'calculated-field',
   'visual',
   'template',
+  'theme',
   'datasource',
   'folder',
 ];

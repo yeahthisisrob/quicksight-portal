@@ -52,6 +52,7 @@ export const navigationConfig: NavigationSection[] = [
       { text: 'Folders', icon: 'folder', path: '/assets/folders', colorKey: 'folder' },
       { text: 'Users', icon: 'user', path: '/assets/users', colorKey: 'user' },
       { text: 'Groups', icon: 'group', path: '/assets/groups', colorKey: 'group' },
+      { text: 'Themes', icon: 'theme', path: '/assets/themes' },
       { text: 'Ingestions', icon: 'storage', path: '/ingestions' },
     ],
   },

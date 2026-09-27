@@ -71,6 +71,13 @@ const CONDITIONS: Record<
     applies: 'both',
   },
   hasErrors: { label: 'Has definition errors' },
+  usesTheme: {
+    label: 'Uses the theme',
+    fields: [
+      { key: 'theme', hint: 'theme id or CLASSIC, MIDNIGHT…' },
+      { key: 'value', hint: 'false: does not use it' },
+    ],
+  },
   role: {
     label: 'Role is',
     fields: [{ key: 'roles', hint: 'READER,READER_PRO' }],
@@ -136,6 +143,10 @@ const STEPS: Record<PlaybookSpecStep['kind'], { label: string; help: string }> =
   renameDatasetCalcsToStandard: {
     label: "Rename a dataset's calculated fields to the standard",
     help: 'Copied under the new name, every dashboard and analysis reading the old one moved over (on SPICE once a refresh has loaded it), and the old name removed once nothing reads it. A reader opted out of playbooks holds its field back.',
+  },
+  applyTheme: {
+    label: 'Apply a theme',
+    help: 'A custom theme or one of QuickSight’s own. Only the theme changes; the definition is dry-run first like any rebind.',
   },
   addToFolder: {
     label: 'Add to a folder',
@@ -304,7 +315,7 @@ function InputsEditor({
             onChange={(e) => set(i, { kind: e.target.value as Input['kind'] })}
             sx={{ width: 140 }}
           >
-            {['number', 'text', 'boolean', 'engine', 'datasource', 'folder'].map((k) => (
+            {['number', 'text', 'boolean', 'engine', 'datasource', 'folder', 'theme'].map((k) => (
               <MenuItem key={k} value={k}>
                 {k}
               </MenuItem>
@@ -453,6 +464,11 @@ function StepCard({
       {step.kind === 'renameDatasetCalcsToStandard' && (
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
           {field('prefix', 'Prefix', 'c_ds_')}
+        </Stack>
+      )}
+      {step.kind === 'applyTheme' && (
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+          {field('theme', 'Theme', 'theme id, or take it from a theme input')}
         </Stack>
       )}
       {step.kind === 'addToFolder' && (

@@ -206,6 +206,7 @@ export class CacheService extends EventEmitter {
       folders: 0,
       users: 0,
       groups: 0,
+      themes: 0,
       total: 0,
     };
 
@@ -333,6 +334,7 @@ export class CacheService extends EventEmitter {
         folders: metadata.assetCounts?.folder || 0,
         users: metadata.assetCounts?.user || 0,
         groups: metadata.assetCounts?.group || 0,
+        themes: metadata.assetCounts?.theme || 0,
       };
 
       // Get archived counts efficiently using the filtering system
@@ -658,6 +660,7 @@ export class CacheService extends EventEmitter {
       datasource: 'datasources',
       folder: 'folders',
       user: 'users',
+      theme: 'themes',
       group: 'groups',
     };
     return mapping[assetType] || null;
@@ -681,6 +684,7 @@ export class CacheService extends EventEmitter {
         folders: 0,
         users: 0,
         groups: 0,
+        themes: 0,
       },
       archivedAssetCounts: {
         dashboards: 0,
@@ -690,6 +694,7 @@ export class CacheService extends EventEmitter {
         folders: 0,
         users: 0,
         groups: 0,
+        themes: 0,
         total: 0,
       },
       fieldStatistics: null,

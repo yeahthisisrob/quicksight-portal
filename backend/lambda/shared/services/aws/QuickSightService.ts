@@ -330,6 +330,14 @@ export class QuickSightService {
     );
   }
 
+  public async deleteTheme(themeId: string): Promise<void> {
+    await this.executeWithTracking(
+      () => this.adapter.deleteTheme(themeId),
+      { operation: 'DeleteTheme', assetType: ASSET_TYPES.theme },
+      'other'
+    );
+  }
+
   public async deleteDataset(datasetId: string): Promise<void> {
     await this.executeWithTracking(
       () => this.adapter.deleteDataset(datasetId),
@@ -1016,6 +1024,81 @@ export class QuickSightService {
     );
   }
 
+  public async listThemesPaginated(
+    nextToken?: string,
+    maxResults: number = 100
+  ): Promise<ListResult<any>> {
+    return await this.executeWithTracking(
+      async () => {
+        const result = await this.adapter.listThemes({ nextToken, maxResults });
+        return {
+          items: result.items
+            .filter((t: any) => t?.ThemeId)
+            .map((t: any) => ({
+              themeId: t.ThemeId,
+              arn: t.Arn,
+              name: t.Name ?? t.ThemeId,
+              latestVersionNumber: t.LatestVersionNumber,
+              createdTime: t.CreatedTime,
+              lastUpdatedTime: t.LastUpdatedTime,
+            })),
+          nextToken: result.nextToken,
+        };
+      },
+      { operation: 'ListThemes', assetType: ASSET_TYPES.theme },
+      'list'
+    );
+  }
+
+  public async describeTheme(themeId: string, themeName?: string): Promise<any> {
+    return await this.executeWithTracking(
+      () => this.adapter.describeTheme(themeId),
+      {
+        operation: 'DescribeTheme',
+        assetType: ASSET_TYPES.theme,
+        assetId: themeId,
+        assetName: themeName,
+      },
+      'describe'
+    );
+  }
+
+  public async describeThemePermissions(themeId: string): Promise<any> {
+    return await this.executeWithTracking(
+      () => this.adapter.describeThemePermissions(themeId),
+      { operation: 'DescribeThemePermissions', assetType: ASSET_TYPES.theme, assetId: themeId },
+      'describe'
+    );
+  }
+
+  public async updateThemePermissions(
+    themeId: string,
+    permissions: any[],
+    revokations: any[] = []
+  ): Promise<any> {
+    return await this.executeWithTracking(
+      () => this.adapter.updateThemePermissions(themeId, permissions, revokations),
+      { operation: 'UpdateThemePermissions', assetType: ASSET_TYPES.theme, assetId: themeId },
+      'other'
+    );
+  }
+
+  public async createTheme(params: Parameters<QuickSightAdapter['createTheme']>[0]) {
+    return await this.executeWithTracking(
+      () => this.adapter.createTheme(params),
+      { operation: 'CreateTheme', assetType: ASSET_TYPES.theme, assetId: params.themeId },
+      'other'
+    );
+  }
+
+  public async updateTheme(params: Parameters<QuickSightAdapter['updateTheme']>[0]) {
+    return await this.executeWithTracking(
+      () => this.adapter.updateTheme(params),
+      { operation: 'UpdateTheme', assetType: ASSET_TYPES.theme, assetId: params.themeId },
+      'other'
+    );
+  }
+
   public async listFolderMembers(
     folderId: string,
     nextToken?: string,
@@ -1453,6 +1536,8 @@ export class QuickSightService {
         return this.updateDataSourcePermissions(id, grants, revocations);
       case 'folder':
         return this.updateFolderPermissions(id, grants, revocations);
+      case 'theme':
+        return this.updateThemePermissions(id, grants, revocations);
       default:
         return Promise.reject(new Error(`Permissions cannot be changed on a ${assetType}`));
     }
@@ -1655,6 +1740,7 @@ export class QuickSightService {
       folder: this.listFoldersPaginated.bind(this),
       user: this.listUsersPaginated.bind(this),
       group: this.listGroupsPaginated.bind(this),
+      theme: this.listThemesPaginated.bind(this),
     };
 
     return methodMap[assetType] || null;

@@ -85,7 +85,9 @@ interface PlannerJobConfig extends BaseJobConfig {
         ask: string;
         candidateDataSetIds?: string[];
       }
-    | { kind: 'new-visuals'; newAsset: Record<string, unknown> };
+    | { kind: 'new-visuals'; newAsset: Record<string, unknown> }
+    /** A theme drawn from a picture, stored in the bucket (too big for a queue message). */
+    | { kind: 'theme-from-image'; imageKey: string; note?: string };
 }
 
 /** One message to the assistant; the result is its answer. */

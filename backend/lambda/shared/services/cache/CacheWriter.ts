@@ -1245,6 +1245,7 @@ export class CacheWriter {
         folder: 0,
         user: 0,
         group: 0,
+        theme: 0,
       },
       entries: {
         dashboard: [],
@@ -1254,6 +1255,7 @@ export class CacheWriter {
         folder: [],
         user: [],
         group: [],
+        theme: [],
       },
     };
   }

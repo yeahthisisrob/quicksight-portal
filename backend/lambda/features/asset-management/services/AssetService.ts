@@ -855,11 +855,33 @@ export class AssetService {
       tagsMap,
     };
 
-    return Promise.all(
+    const enriched = await Promise.all(
       cachedAssets.map((cacheEntry: CacheEntry) =>
         this.mapCacheEntryToEnrichedAsset(cacheEntry, enrichmentContext)
       )
     );
+    return assetType === ASSET_TYPES.theme ? this.withThemeUsage(enriched, cache) : enriched;
+  }
+
+  /** How many live dashboards and analyses use each theme, from the ARN each one records. */
+  private withThemeUsage(themes: Asset[], cache: CacheData): Asset[] {
+    const counts = new Map<string, { dashboards: number; analyses: number }>();
+    const themeIdOf = (arn: unknown) =>
+      typeof arn === 'string' ? arn.slice(arn.lastIndexOf('/') + 1) : undefined;
+    for (const type of [ASSET_TYPES.dashboard, ASSET_TYPES.analysis] as const) {
+      for (const entry of (cache.entries[type] ?? []) as CacheEntry[]) {
+        const id = entry.status === 'archived' ? undefined : themeIdOf(entry.metadata?.themeArn);
+        if (!id) continue;
+        const count = counts.get(id) ?? { dashboards: 0, analyses: 0 };
+        if (type === ASSET_TYPES.dashboard) count.dashboards += 1;
+        else count.analyses += 1;
+        counts.set(id, count);
+      }
+    }
+    return themes.map((theme) => ({
+      ...theme,
+      usedBy: counts.get(theme.id) ?? { dashboards: 0, analyses: 0 },
+    })) as Asset[];
   }
 
   /**
@@ -1850,6 +1872,7 @@ export class AssetService {
       ASSET_TYPES.dataset,
       ASSET_TYPES.analysis,
       ASSET_TYPES.datasource,
+      ASSET_TYPES.theme,
     ];
     if (!validAssetTypes.includes(assetType as any)) {
       throw new Error(`Unsupported asset type: ${assetType}`);

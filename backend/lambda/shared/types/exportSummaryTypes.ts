@@ -10,6 +10,7 @@ export interface AssetTypeCounts {
   folders: number;
   users: number;
   groups: number;
+  themes: number;
 }
 
 export interface FieldStatistics {

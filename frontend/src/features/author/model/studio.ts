@@ -15,7 +15,7 @@ import type {
 } from '@/shared/api/modules/authoring';
 
 /** The side panels, one per thing the Studio does. */
-export type StudioPanel = 'issues' | 'inspect' | 'changes' | 'data';
+export type StudioPanel = 'issues' | 'inspect' | 'changes' | 'data' | 'theme';
 
 /** The card the inspector is showing. */
 export interface SelectedElement {

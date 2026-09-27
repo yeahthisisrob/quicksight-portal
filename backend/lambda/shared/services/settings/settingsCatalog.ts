@@ -278,6 +278,14 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
         type: 'text',
         envVar: '',
       },
+      {
+        key: 'authoring.defaultTheme',
+        label: 'Theme for authored assets',
+        description:
+          'The theme every new dashboard and analysis the portal builds from nothing wears: a custom theme\'s id (see Themes, where "Make default" sets it) or one QuickSight ships by name (CLASSIC, MIDNIGHT, SEASIDE, RAINIER). A copy keeps its source\'s theme.',
+        type: 'string',
+        envVar: '',
+      },
     ],
   },
   {

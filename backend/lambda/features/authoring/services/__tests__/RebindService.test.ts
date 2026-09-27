@@ -349,6 +349,19 @@ describe('RebindService', () => {
       expect(call.definition).toEqual(sampleDefinition());
     });
 
+    it('gives it a theme and changes nothing else', async () => {
+      await service.apply('analysis', 'a1', { mode: 'update', rebinds: [], theme: 'brand' });
+      const call = mocks.qs.updateAnalysis.mock.calls[0]?.[0];
+      expect(call.themeArn).toMatch(/^arn:aws:quicksight:[a-z0-9-]+:1:theme\/brand$/);
+      expect(call.name).toBe('Sales analysis');
+      expect(call.definition).toEqual(sampleDefinition());
+
+      await service.apply('analysis', 'a1', { mode: 'update', rebinds: [], theme: 'midnight' });
+      expect(mocks.qs.updateAnalysis.mock.calls[1]?.[0].themeArn).toBe(
+        'arn:aws:quicksight::aws:theme/MIDNIGHT'
+      );
+    });
+
     it('refuses an update that changes nothing', async () => {
       await expect(
         service.apply('analysis', 'a1', { mode: 'update', rebinds: [] })

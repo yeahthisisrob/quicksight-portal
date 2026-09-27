@@ -20,4 +20,5 @@ export { jobsApi } from './modules/jobs';
 export { playbooksApi } from './modules/playbooks';
 export { settingsApi } from './modules/settings';
 export { tagsApi } from './modules/tags';
+export { themesApi } from './modules/themes';
 export { usersApi } from './modules/users';

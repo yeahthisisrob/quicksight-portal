@@ -1,5 +1,5 @@
 import { Add as AddIcon } from '@mui/icons-material';
-import { Button } from '@mui/material';
+import { Button, Stack } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
@@ -7,6 +7,7 @@ import { Navigate, useParams } from 'react-router-dom';
 import { useAssets } from '@/entities/asset';
 import { useSmusDatasetLinks, useSmusStatus } from '@/entities/smus';
 import { CreateGroupDialog } from '@/features/organization';
+import { DefaultThemeControl, NewThemeDialog } from '@/features/themes';
 import {
   ActivityStatsDialog,
   DatasetActivityDialog,
@@ -25,6 +26,7 @@ const assetConfigs = {
   folders: { title: 'Folders', assetType: 'folder' as const },
   users: { title: 'Users', assetType: 'user' as const },
   groups: { title: 'Groups', assetType: 'group' as const },
+  themes: { title: 'Themes', assetType: 'theme' as const },
 };
 
 export default function AssetsPage() {
@@ -59,6 +61,10 @@ export default function AssetsPage() {
     groupsLoading,
     groupsPagination,
     fetchGroups,
+    themes,
+    themesLoading,
+    themesPagination,
+    fetchThemes,
     refreshAssetType,
     updateAssetTags,
     availableRoles,
@@ -76,6 +82,7 @@ export default function AssetsPage() {
 
   // Group creation state
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  const [newThemeOpen, setNewThemeOpen] = useState(false);
 
   // Fetch available tags for filtering
   const { data: availableTags = [], isLoading: tagsLoading } = useQuery({
@@ -162,6 +169,12 @@ export default function AssetsPage() {
       pagination: groupsPagination,
       fetch: fetchGroups,
     },
+    theme: {
+      assets: themes,
+      loading: themesLoading,
+      pagination: themesPagination,
+      fetch: fetchThemes,
+    },
   };
 
   const { assets, loading, pagination, fetch } = assetData[config.assetType] || assetData.dashboard;
@@ -176,6 +189,18 @@ export default function AssetsPage() {
       >
         Create Group
       </Button>
+    ) : config.assetType === 'theme' ? (
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+        <DefaultThemeControl />
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setNewThemeOpen(true)}
+          size="small"
+        >
+          New theme
+        </Button>
+      </Stack>
     ) : undefined;
 
   return (
@@ -271,6 +296,10 @@ export default function AssetsPage() {
             refreshAssetType('group');
           }}
         />
+      )}
+
+      {config.assetType === 'theme' && (
+        <NewThemeDialog open={newThemeOpen} onClose={() => setNewThemeOpen(false)} />
       )}
     </>
   );

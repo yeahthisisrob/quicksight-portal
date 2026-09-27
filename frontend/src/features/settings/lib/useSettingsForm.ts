@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { getApiErrorMessage, settingsApi } from '@/shared/api';
 import type { SettingsSnapshot } from '@/shared/api/modules/settings';
+import { SETTINGS_SNAPSHOT_QUERY_KEY } from '@/shared/lib/useSettingsSnapshot';
 
 import {
   changedKeys,
@@ -11,8 +12,6 @@ import {
   settingsFormReducer,
   toUpdate,
 } from '../model/settingsForm';
-
-const SETTINGS_QUERY_KEY = ['settings'] as const;
 
 export interface UseSettingsFormOptions {
   /** Pre-filled changes (stories, tests). */
@@ -28,7 +27,10 @@ export interface UseSettingsFormOptions {
  */
 export function useSettingsForm({ initialDraft = {}, onSaved }: UseSettingsFormOptions = {}) {
   const queryClient = useQueryClient();
-  const query = useQuery({ queryKey: SETTINGS_QUERY_KEY, queryFn: () => settingsApi.get() });
+  const query = useQuery({
+    queryKey: SETTINGS_SNAPSHOT_QUERY_KEY,
+    queryFn: () => settingsApi.get(),
+  });
   const snapshot: SettingsSnapshot | undefined = query.data;
 
   const [draft, setDraft] = useState<SettingsDraft>(initialDraft);
@@ -42,7 +44,7 @@ export function useSettingsForm({ initialDraft = {}, onSaved }: UseSettingsFormO
   const mutation = useMutation({
     mutationFn: () => settingsApi.update(toUpdate(draft)),
     onSuccess: (next) => {
-      queryClient.setQueryData(SETTINGS_QUERY_KEY, next);
+      queryClient.setQueryData(SETTINGS_SNAPSHOT_QUERY_KEY, next);
       setDraft({});
       onSaved?.();
     },

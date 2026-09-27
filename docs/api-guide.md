@@ -57,8 +57,8 @@ and cached. One call answers what would take many rate-limited calls
 against QuickSight itself. Read before you write.
 
 **Search in plain words.** One ranked search over dashboards, analyses,
-datasets, data sources, folders, SMUS listings, calculated fields (matched
-on the expression too), visuals and the template library, each hit with
+datasets, data sources, folders, themes, SMUS listings, calculated fields
+(matched on the expression too), visuals and the template library, each hit with
 the reason it matched and a one-line summary:
 
 ```bash
@@ -93,6 +93,7 @@ Relations read subject to object:
 | `through-datasource` | dataset | datasource |
 | `exposes` | dataset | listing-column |
 | `uses-dataset` | analysis, dashboard | dataset |
+| `uses-theme` | analysis, dashboard | theme |
 | `defined-in` | calculated-field | analysis, dashboard, dataset |
 | `reads-column` | calculated-field | listing-column |
 | `in-asset` | visual | analysis, dashboard |
@@ -271,6 +272,30 @@ QuickSight still reports. A dataset or data source is checked with
 `POST /api/assets/{type}/{id}/restore/preview` and restored with
 `.../restore`.
 
+**A theme.** Custom themes are listed with their colors, the theme they
+start from and how many dashboards and analyses wear each one:
+`GET /api/assets/themes/paginated`. Put one on a dashboard or analysis
+with `POST /api/authoring/{type}/{id}/rebind` and
+`{"mode":"update","rebinds":[],"theme":"<theme-id>"}` (a theme's id, its
+ARN, or `CLASSIC`, `MIDNIGHT`, `SEASIDE`, `RAINIER`); `theme` goes with any
+other transform or clone too. New ones:
+
+```bash
+# From a draft
+curl -sS -X POST "$QSP_API_URL/api/authoring/themes" \
+  -H "Authorization: Bearer $QSP_API_KEY" -H "Content-Type: application/json" \
+  --data '{"name":"Acme","baseThemeId":"CLASSIC","dataColors":["#0B6E4F","#F2A541","#1F77B4"],"uiColors":{"Accent":"#0B6E4F"}}'
+
+# From a picture of a brand, a logo or a layout (a job; the result is a draft, nothing is created)
+curl -sS -X POST "$QSP_API_URL/api/authoring/themes/propose" \
+  -H "Authorization: Bearer $QSP_API_KEY" -H "Content-Type: application/json" \
+  --data "{\"image\":\"data:image/png;base64,$(base64 < brand.png)\",\"note\":\"dark mode\"}"
+# -> { jobId } ; the result is { draft, rationale, model }: send the draft to /api/authoring/themes
+```
+
+The theme new assets wear, when they are built from nothing, is the
+`authoring.defaultTheme` setting.
+
 **Audience and housekeeping**, when the write itself is not enough:
 
 - `POST /api/assets/{type}/{id}/grant-permissions` and
@@ -442,7 +467,8 @@ curl -sS -X POST "$QSP_API_URL/api/playbooks/consolidate-athena/run" \
   fields the governed dataset now holds as columns, judged by a model; drop
   calculated fields nothing reads; rename them to a prefix and snake_case,
   in dashboards and analyses or, migrated reader by reader, in datasets;
-  each dry-run first). A spec can select users instead of assets, with
+  each dry-run first; give a theme with `applyTheme`, choosing by
+  `usesTheme`, with `"value": false` for the ones not wearing it). A spec can select users instead of assets, with
   `role`, `inactiveForDays` and `noAccess` (in no group and reaching no
   asset; `ignoreGroups` and `ignoreFolders` name the ones that do not
   count) and the `deleteUser` step, which deletes idle readers only while

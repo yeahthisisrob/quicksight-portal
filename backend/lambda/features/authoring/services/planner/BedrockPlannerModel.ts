@@ -22,6 +22,7 @@ export class BedrockPlannerModel implements PlannerModel {
       inputSchema: request.schema,
       maxTokens: request.maxTokens,
       capabilities: this.capabilities,
+      ...(request.images?.length ? { images: request.images } : {}),
     });
     return {
       output: result.output,

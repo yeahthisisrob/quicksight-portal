@@ -16,6 +16,7 @@ type UserListItem = components['schemas']['UserListItem'];
 type AnalysisListItem = components['schemas']['AnalysisListItem'];
 type DatasourceListItem = components['schemas']['DatasourceListItem'];
 type GroupListItem = components['schemas']['GroupListItem'];
+type ThemeListItem = components['schemas']['ThemeListItem'];
 
 /**
  * Base mapping for all asset types from cache entry
@@ -75,6 +76,7 @@ function mapDashboardFromCache(entry: CacheEntry): DashboardListItem & { arn: st
     datasetCount: entry.metadata.datasetCount || 0,
     activity: entry.metadata.activity || undefined,
     definitionErrors: entry.metadata.definitionErrors || undefined,
+    ...(entry.metadata.themeArn ? { themeArn: String(entry.metadata.themeArn) } : {}),
   };
 }
 
@@ -92,6 +94,7 @@ function mapAnalysisFromCache(entry: CacheEntry): AnalysisListItem & { arn: stri
     datasetCount: entry.metadata.datasetCount || 0,
     activity: entry.metadata.activity || undefined,
     definitionErrors: entry.metadata.definitionErrors || undefined,
+    ...(entry.metadata.themeArn ? { themeArn: String(entry.metadata.themeArn) } : {}),
   };
 }
 
@@ -198,6 +201,26 @@ function mapGroupFromCache(entry: CacheEntry): GroupListItem & { arn: string } {
 }
 
 /**
+ * Map theme cache entry to theme list item. How many dashboards and
+ * analyses use it is counted over the whole cache (see AssetService).
+ */
+function mapThemeFromCache(entry: CacheEntry): ThemeListItem & { arn: string } {
+  const base = mapBaseAssetFields(entry);
+  const metadata = entry.metadata as Record<string, any>;
+  return {
+    ...base,
+    baseThemeId: metadata.baseThemeId || 'CLASSIC',
+    ...(typeof metadata.versionNumber === 'number'
+      ? { versionNumber: metadata.versionNumber }
+      : {}),
+    dataColors: Array.isArray(metadata.dataColors) ? metadata.dataColors : [],
+    uiColors: metadata.uiColors && typeof metadata.uiColors === 'object' ? metadata.uiColors : {},
+    ...(metadata.fontFamily ? { fontFamily: metadata.fontFamily } : {}),
+    usedBy: { dashboards: 0, analyses: 0 },
+  };
+}
+
+/**
  * Asset type to mapper function mapping
  */
 const ASSET_MAPPERS: Record<string, (entry: CacheEntry) => AssetListItem & { arn: string }> = {
@@ -208,6 +231,7 @@ const ASSET_MAPPERS: Record<string, (entry: CacheEntry) => AssetListItem & { arn
   [ASSET_TYPES.datasource]: mapDatasourceFromCache,
   [ASSET_TYPES.user]: mapUserFromCache,
   [ASSET_TYPES.group]: mapGroupFromCache,
+  [ASSET_TYPES.theme]: mapThemeFromCache,
 };
 
 /**

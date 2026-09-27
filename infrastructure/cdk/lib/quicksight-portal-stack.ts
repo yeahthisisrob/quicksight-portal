@@ -203,6 +203,8 @@ export class QuicksightPortalStack extends Stack {
           'quicksight:DeleteDashboard',
           'quicksight:DeleteDataSet',
           'quicksight:DeleteDataSource',
+          'quicksight:CreateTheme',
+          'quicksight:DeleteTheme',
           'quicksight:ListIngestions',
           'quicksight:DescribeIngestion',
           'quicksight:CancelIngestion',

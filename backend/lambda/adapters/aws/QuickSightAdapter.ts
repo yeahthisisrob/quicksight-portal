@@ -12,6 +12,7 @@ import {
   CreateGroupCommand,
   CreateGroupMembershipCommand,
   CreateRefreshScheduleCommand,
+  CreateThemeCommand,
   DeleteAnalysisCommand,
   DeleteDashboardCommand,
   DeleteDataSetCommand,
@@ -19,6 +20,7 @@ import {
   DeleteFolderMembershipCommand,
   DeleteGroupCommand,
   DeleteGroupMembershipCommand,
+  DeleteThemeCommand,
   DeleteUserCommand,
   DescribeAnalysisCommand,
   DescribeAnalysisDefinitionCommand,
@@ -36,6 +38,8 @@ import {
   DescribeGroupCommand,
   DescribeGroupMembershipCommand,
   DescribeIngestionCommand,
+  DescribeThemeCommand,
+  DescribeThemePermissionsCommand,
   DescribeUserCommand,
   ListAnalysesCommand,
   ListDashboardsCommand,
@@ -48,6 +52,7 @@ import {
   ListIngestionsCommand,
   ListRefreshSchedulesCommand,
   ListTagsForResourceCommand,
+  ListThemesCommand,
   ListUserGroupsCommand,
   ListUsersCommand,
   PutDataSetRefreshPropertiesCommand,
@@ -67,6 +72,8 @@ import {
   UpdateFolderCommand,
   UpdateFolderPermissionsCommand,
   UpdateGroupCommand,
+  UpdateThemeCommand,
+  UpdateThemePermissionsCommand,
   UpdateUserCommand,
 } from '@aws-sdk/client-quicksight';
 // AWS SDK v2 imports (for bug workaround)
@@ -418,6 +425,11 @@ export class QuickSightAdapter {
     await this.sendWithRateLimit(command);
   }
 
+  public async deleteTheme(themeId: string): Promise<void> {
+    const command = new DeleteThemeCommand({ AwsAccountId: this.awsAccountId, ThemeId: themeId });
+    await this.sendWithRateLimit(command);
+  }
+
   public async deleteDataset(datasetId: string): Promise<void> {
     const command = new DeleteDataSetCommand({
       AwsAccountId: this.awsAccountId,
@@ -669,6 +681,97 @@ export class QuickSightAdapter {
 
     const response = await this.sendWithPermissionsRateLimit<any>(command);
     return response.Permissions || [];
+  }
+
+  /** Custom themes: the built-in QuickSight ones are fixed and need no export. */
+  public async listThemes(options?: ListOptions): Promise<ListResult<any>> {
+    const command = new ListThemesCommand({
+      AwsAccountId: this.awsAccountId,
+      Type: 'CUSTOM',
+      MaxResults: options?.maxResults,
+      NextToken: options?.nextToken,
+    });
+    const response = await this.sendWithRateLimit(command);
+    return { items: response.ThemeSummaryList || [], nextToken: response.NextToken };
+  }
+
+  public async describeTheme(themeId: string): Promise<any> {
+    const command = new DescribeThemeCommand({ AwsAccountId: this.awsAccountId, ThemeId: themeId });
+    const response = await this.sendWithRateLimit(command);
+    return response.Theme;
+  }
+
+  public async describeThemePermissions(themeId: string): Promise<any> {
+    const command = new DescribeThemePermissionsCommand({
+      AwsAccountId: this.awsAccountId,
+      ThemeId: themeId,
+    });
+    const response = await this.sendWithPermissionsRateLimit<any>(command);
+    return response.Permissions || [];
+  }
+
+  public async updateThemePermissions(
+    themeId: string,
+    permissions: any[],
+    revokations: any[]
+  ): Promise<any> {
+    const command = new UpdateThemePermissionsCommand({
+      AwsAccountId: this.awsAccountId,
+      ThemeId: themeId,
+      ...(permissions.length > 0 && { GrantPermissions: permissions }),
+      ...(revokations.length > 0 && { RevokePermissions: revokations }),
+    });
+    const response = await this.sendWithRateLimit(command);
+    return {
+      Status: response.Status,
+      ThemeId: response.ThemeId,
+      Permissions: response.Permissions,
+    };
+  }
+
+  public async createTheme(params: {
+    themeId: string;
+    name: string;
+    baseThemeId: string;
+    configuration: any;
+    permissions?: any[];
+    tags?: Array<{ Key: string; Value: string }>;
+  }): Promise<{ arn: string; themeId: string; versionArn?: string }> {
+    const command = new CreateThemeCommand({
+      AwsAccountId: this.awsAccountId,
+      ThemeId: params.themeId,
+      Name: params.name,
+      BaseThemeId: params.baseThemeId,
+      Configuration: params.configuration,
+      ...(params.permissions?.length ? { Permissions: params.permissions } : {}),
+      ...(params.tags?.length ? { Tags: params.tags } : {}),
+    });
+    const response = await this.sendWithRateLimit(command);
+    return {
+      arn: response.Arn ?? '',
+      themeId: response.ThemeId ?? params.themeId,
+      ...(response.VersionArn ? { versionArn: response.VersionArn } : {}),
+    };
+  }
+
+  public async updateTheme(params: {
+    themeId: string;
+    name: string;
+    baseThemeId: string;
+    configuration: any;
+  }): Promise<{ arn: string; versionArn?: string }> {
+    const command = new UpdateThemeCommand({
+      AwsAccountId: this.awsAccountId,
+      ThemeId: params.themeId,
+      Name: params.name,
+      BaseThemeId: params.baseThemeId,
+      Configuration: params.configuration,
+    });
+    const response = await this.sendWithRateLimit(command);
+    return {
+      arn: response.Arn ?? '',
+      ...(response.VersionArn ? { versionArn: response.VersionArn } : {}),
+    };
   }
 
   /**

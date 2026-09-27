@@ -31,6 +31,7 @@ const WRITES: Record<string, Playbook['writes']> = {
   renameCalcsToStandard: ['dashboard', 'analysis'],
   renameDatasetCalcsToStandard: ['dataset', 'dashboard', 'analysis'],
   deleteUser: ['user'],
+  applyTheme: ['dashboard', 'analysis'],
 };
 
 function paramOf(input: SpecInput): PlaybookParam {

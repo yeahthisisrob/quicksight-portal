@@ -351,7 +351,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [dashboards, datasets, analyses, datasources, folders, users, groups]
+            enum: [dashboards, datasets, analyses, datasources, folders, users, groups, themes]
         - name: page
           in: query
           schema:
@@ -493,7 +493,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [dashboards, datasets, analyses, datasources, folders, users, groups]
+            enum: [dashboards, datasets, analyses, datasources, folders, users, groups, themes]
         - name: search
           in: query
           schema:
@@ -662,7 +662,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [dashboard, analysis, dataset, datasource, folder, user, group]
+            enum: [dashboard, analysis, dataset, datasource, folder, user, group, theme]
             description: Asset type (singular form)
         - name: assetId
           in: path
@@ -1294,7 +1294,7 @@ paths:
           required: false
           schema:
             type: string
-          description: Comma-separated subset of dashboard, analysis, dataset, datasource, folder, project, smus-listing, smus-column, calculated-field, visual, template.
+          description: Comma-separated subset of dashboard, analysis, dataset, datasource, folder, project, smus-listing, smus-column, calculated-field, visual, template, theme.
         - name: projectId
           in: query
           required: false
@@ -1428,7 +1428,7 @@ paths:
         derived-from the parent dataset's column or the listing-column it
         carries (through renames); calculated-field reads-field
         dataset-column or calculated-field; visual shows dataset-column or
-        calculated-field.
+        calculated-field. Themes: analysis or dashboard uses-theme theme.
         `direction=in` follows them backwards (the datasets that read a
         listing).
       parameters:
@@ -2220,7 +2220,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [dashboard, analysis, dataset, datasource]
+            enum: [dashboard, analysis, dataset, datasource, theme]
         - name: assetId
           in: path
           required: true
@@ -3878,6 +3878,95 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/authoring/themes:
+    post:
+      operationId: postAuthoringThemes
+      tags: [Authoring]
+      summary: Create a theme
+      description: |
+        Creates the theme in QuickSight, owned by whoever asked (their
+        sign-in email matched to their QuickSight user). Every color must be
+        a hex color and every interface role one QuickSight knows; anything
+        else is refused with every reason.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ThemeDraft'
+      responses:
+        '200':
+          description: The created theme
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [themeId, arn, warnings]
+                    properties:
+                      themeId:
+                        type: string
+                      arn:
+                        type: string
+                      warnings:
+                        type: array
+                        items:
+                          type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/authoring/themes/propose:
+    post:
+      operationId: postAuthoringThemesPropose
+      tags: [Authoring]
+      summary: A theme drawn from a picture (brand colors, a logo, a layout)
+      description: |
+        A model that reads images proposes a theme from the picture. It runs
+        as a job: poll `GET /api/jobs/{jobId}` until `completed`, then
+        `GET /api/jobs/{jobId}/result` is `{ draft, rationale?, model }`.
+        Nothing is created: send the draft (edited or not) to
+        `POST /api/authoring/themes`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  description: A PNG, JPEG, GIF or WebP data URL, at most 3.5 MB.
+                note:
+                  type: string
+                  description: Anything the picture does not say (dark mode, a color to lead with).
+                model:
+                  type: string
+      responses:
+        '202':
+          description: The proposal job was queued; its result is `{ draft, rationale?, model }`
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/JobQueued'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/authoring/new/propose:
     post:
       operationId: postAuthoringNewPropose
@@ -4699,6 +4788,7 @@ paths:
                       - $ref: '#/components/schemas/AssistantChatResult'
                       - $ref: '#/components/schemas/Proposal'
                       - $ref: '#/components/schemas/NewAssetPreview'
+                      - $ref: '#/components/schemas/ThemeProposal'
                       - type: object
                         additionalProperties: true
                         description: Other jobs' results (a CSV download, a bulk summary).
@@ -4920,7 +5010,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [dashboard, analysis, dataset, datasource, folder, user, group]
+            enum: [dashboard, analysis, dataset, datasource, folder, user, group, theme]
         - name: assetId
           in: path
           required: true
@@ -5613,7 +5703,7 @@ components:
       required: true
       schema:
         type: string
-        enum: [dashboard, analysis, dataset, datasource, folder, user, group]
+        enum: [dashboard, analysis, dataset, datasource, folder, user, group, theme]
     TaggedAssetId:
       name: assetId
       in: path
@@ -6245,7 +6335,7 @@ components:
                 type: string
               kind:
                 type: string
-                enum: [datasource, text, boolean, number, engine, folder]
+                enum: [datasource, text, boolean, number, engine, folder, theme]
               help:
                 type: string
               required:
@@ -6407,7 +6497,7 @@ components:
                 type: string
               kind:
                 type: string
-                enum: [number, text, boolean, datasource, engine, folder]
+                enum: [number, text, boolean, datasource, engine, folder, theme]
               help:
                 type: string
               required:
@@ -6451,12 +6541,14 @@ components:
         active, or not in this many days), noAccess (in no group and reaching
         no asset directly or through a group or folder; ignoreGroups and
         ignoreFolders, comma-separated, name groups and folders that do not
-        count), and nameContains.
+        count), and nameContains. For dashboards and analyses: usesTheme (theme:
+        a custom theme's id or a QuickSight one by name; value false selects
+        those not wearing it).
       required: [kind]
       properties:
         kind:
           type: string
-          enum: [views, viewsAtMost, tagged, nameContains, hasErrors, readsEngine, readsGoverned, sharedWith, role, inactiveForDays, noAccess]
+          enum: [views, viewsAtMost, tagged, nameContains, hasErrors, readsEngine, readsGoverned, sharedWith, role, inactiveForDays, noAccess, usesTheme]
         min:
           $ref: '#/components/schemas/PlaybookSpecValue'
         max:
@@ -6478,6 +6570,8 @@ components:
         ignoreGroups:
           $ref: '#/components/schemas/PlaybookSpecValue'
         ignoreFolders:
+          $ref: '#/components/schemas/PlaybookSpecValue'
+        theme:
           $ref: '#/components/schemas/PlaybookSpecValue'
 
     PlaybookSpecStep:
@@ -6507,11 +6601,12 @@ components:
         idle reader, only while the portal's activity covers inactiveDays and
         was refreshed in the last two days, after reading the user's activity
         again; the portal refuses to delete anyone who is not a reader.
+        applyTheme (theme): gives a dashboard or analysis the theme.
       required: [kind]
       properties:
         kind:
           type: string
-          enum: [matchDataset, rebind, tag, repair, addToFolder, replaceMaterialisedCalcs, dropUnusedCalcs, renameCalcsToStandard, renameDatasetCalcsToStandard, deleteUser]
+          enum: [matchDataset, rebind, tag, repair, addToFolder, replaceMaterialisedCalcs, dropUnusedCalcs, renameCalcsToStandard, renameDatasetCalcsToStandard, deleteUser, applyTheme]
         engine:
           $ref: '#/components/schemas/PlaybookSpecValue'
         governed:
@@ -6534,6 +6629,8 @@ components:
         prefix:
           $ref: '#/components/schemas/PlaybookSpecValue'
         inactiveDays:
+          $ref: '#/components/schemas/PlaybookSpecValue'
+        theme:
           $ref: '#/components/schemas/PlaybookSpecValue'
 
     PlaybookSpec:
@@ -6836,7 +6933,7 @@ components:
       properties:
         type:
           type: string
-          enum: [dashboard, analysis, dataset, datasource, folder, user, group]
+          enum: [dashboard, analysis, dataset, datasource, folder, user, group, theme]
         id:
           type: string
         name:
@@ -7011,7 +7108,7 @@ components:
     # Core types
     AssetType:
       type: string
-      enum: [dashboard, analysis, dataset, datasource, folder, user, group]
+      enum: [dashboard, analysis, dataset, datasource, folder, user, group, theme]
 
     AssetStatus:
       type: string
@@ -7079,6 +7176,10 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/GroupListItem'
+            themes:
+              type: array
+              items:
+                $ref: '#/components/schemas/ThemeListItem'
             pagination:
               $ref: '#/components/schemas/PaginationInfo'
             fromCache:
@@ -7406,6 +7507,9 @@ components:
         - type: object
           required: [dashboardStatus, visualCount, sheetCount, datasetCount]
           properties:
+            themeArn:
+              type: string
+              description: The theme it wears.
             dashboardStatus:
               type: string
               description: Dashboard creation status
@@ -7440,6 +7544,9 @@ components:
         - type: object
           required: [sheetCount, visualCount, datasetCount]
           properties:
+            themeArn:
+              type: string
+              description: The theme it wears.
             dashboardStatus:
               type: string
               description: Whether a dashboard was published from it.
@@ -7607,6 +7714,74 @@ components:
                 vpcConnectionArn:
                   type: string
     
+    ThemeDraft:
+      type: object
+      required: [name, dataColors]
+      properties:
+        name:
+          type: string
+        baseThemeId:
+          type: string
+          enum: [CLASSIC, MIDNIGHT, SEASIDE, RAINIER]
+        dataColors:
+          type: array
+          minItems: 2
+          maxItems: 20
+          description: The colors data takes, in order, as hex.
+          items:
+            type: string
+        uiColors:
+          type: object
+          description: Interface colors by role (PrimaryBackground, PrimaryForeground, Accent...), as hex.
+          additionalProperties:
+            type: string
+        fontFamily:
+          type: string
+
+    ThemeProposal:
+      type: object
+      required: [draft, model]
+      properties:
+        draft:
+          $ref: '#/components/schemas/ThemeDraft'
+        rationale:
+          type: string
+        model:
+          type: string
+
+    ThemeListItem:
+      allOf:
+        - $ref: '#/components/schemas/AssetListItem'
+        - type: object
+          required: [baseThemeId, dataColors, uiColors, usedBy]
+          properties:
+            baseThemeId:
+              type: string
+              description: The QuickSight theme it starts from (CLASSIC, MIDNIGHT, SEASIDE...).
+            versionNumber:
+              type: integer
+            dataColors:
+              type: array
+              description: The colors data takes, in order.
+              items:
+                type: string
+            uiColors:
+              type: object
+              description: The interface colors by role (PrimaryBackground, Accent...).
+              additionalProperties:
+                type: string
+            fontFamily:
+              type: string
+            usedBy:
+              type: object
+              required: [dashboards, analyses]
+              description: How many dashboards and analyses use it.
+              properties:
+                dashboards:
+                  type: integer
+                analyses:
+                  type: integer
+
     GroupListItem:
       allOf:
         - $ref: '#/components/schemas/AssetListItem'
@@ -8126,15 +8301,15 @@ components:
             - $ref: '#/components/schemas/TimelineProvenance'
         resourceType:
           type: string
-          enum: [dashboard, analysis, dataset, datasource, folder, group, user, other]
+          enum: [dashboard, analysis, dataset, datasource, folder, group, user, theme, other]
           description: >
             Resource type the event targets. Catalog types (dashboard / analysis / dataset /
-            datasource / folder / group / user) are hydrated with asset names; `other` covers
-            templates, themes, brands, topics, action connectors, VPC connections, namespaces,
+            datasource / folder / group / user / theme) are hydrated with asset names; `other` covers
+            templates, brands, topics, action connectors, VPC connections, namespaces,
             and account-level settings.
         assetType:
           type: string
-          enum: [dashboard, analysis, dataset, datasource, folder, group, user]
+          enum: [dashboard, analysis, dataset, datasource, folder, group, user, theme]
           description: Catalog asset type (only set when resourceType is a catalog asset).
         assetId:
           type: string
@@ -9239,6 +9414,12 @@ components:
         folderId:
           type: string
           description: Clone only. Put the new asset in this QuickSight folder.
+        theme:
+          type: string
+          description: |
+            Give it this theme: a custom theme's id or ARN, or one QuickSight
+            ships by name (CLASSIC, MIDNIGHT, SEASIDE, RAINIER). Absent, it
+            keeps its own (or the template's, when migrating onto one).
 
     AddedCalculatedField:
       type: object
@@ -11189,7 +11370,7 @@ components:
     # SMUS (SageMaker Unified Studio) schemas
     SearchableType:
       type: string
-      enum: [dashboard, analysis, dataset, datasource, folder, project, smus-listing, smus-column, calculated-field, visual, template]
+      enum: [dashboard, analysis, dataset, datasource, folder, project, smus-listing, smus-column, calculated-field, visual, template, theme]
 
     SearchAssetRef:
       type: object
@@ -11273,11 +11454,11 @@ components:
 
     ContextEntityType:
       type: string
-      enum: [project, listing, listing-column, glossary-term, datasource, dataset, dataset-column, calculated-field, analysis, dashboard, visual, template, folder]
+      enum: [project, listing, listing-column, glossary-term, datasource, dataset, dataset-column, calculated-field, analysis, dashboard, visual, template, folder, theme]
 
     ContextRelation:
       type: string
-      enum: [in-project, has-column, tagged, reads-listing, through-datasource, exposes, uses-dataset, defined-in, reads-column, in-asset, in-folder, column-of, derived-from, reads-field, shows]
+      enum: [in-project, has-column, tagged, reads-listing, through-datasource, exposes, uses-dataset, defined-in, reads-column, in-asset, in-folder, column-of, derived-from, reads-field, shows, uses-theme]
 
     ContextEntity:
       type: object
@@ -11628,176 +11809,6 @@ components:
         fieldCount:
           type: integer
           description: Number of fields from this asset in the catalog
-
-    CatalogField:
-      type: object
-      required: [fieldId, fieldName, dataType, isCalculated, sourceAssetType, sourceAssetId, sourceAssetName]
-      properties:
-        fieldId:
-          type: string
-        fieldName:
-          type: string
-        dataType:
-          type: string
-        description:
-          type: string
-        isCalculated:
-          type: boolean
-        sourceAssetType:
-          type: string
-        sourceAssetId:
-          type: string
-        sourceAssetName:
-          type: string
-        datasetId:
-          type: string
-        datasetName:
-          type: string
-        columnName:
-          type: string
-          nullable: true
-        expression:
-          type: string
-          nullable: true
-        expressions:
-          type: array
-          items:
-            type: object
-            properties:
-              expression:
-                type: string
-              sources:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    assetType:
-                      type: string
-                    assetId:
-                      type: string
-                    assetName:
-                      type: string
-                    dataType:
-                      type: string
-                    lastUpdated:
-                      type: string
-        dependencies:
-          type: array
-          items:
-            type: string
-        lastUpdated:
-          type: string
-        sources:
-          type: array
-          items:
-            $ref: '#/components/schemas/CatalogFieldSource'
-        variants:
-          type: array
-          items:
-            $ref: '#/components/schemas/CatalogFieldSource'
-        hasVariants:
-          type: boolean
-        usageCount:
-          type: integer
-        analysisCount:
-          type: integer
-        dashboardCount:
-          type: integer
-        datasetCount:
-          type: integer
-        expressionLength:
-          type: integer
-          description: Trimmed character length of the representative expression.
-        hasComments:
-          type: boolean
-          description: Whether any in-scope variant of this calculated field contains author comments.
-        fieldReferences:
-          type: array
-          description: Field names referenced by this calculated field's expression(s).
-          items:
-            type: string
-        hasExpressionConflict:
-          type: boolean
-          description: True when the same field name resolves to more than one distinct expression across assets.
-        conflictCount:
-          type: integer
-          description: Number of distinct expressions found for this field name.
-        usedBy:
-          type: array
-          description: Names of calculated fields that reference this field (reverse lineage).
-          items:
-            type: string
-
-    CatalogFieldSource:
-      type: object
-      properties:
-        assetType:
-          type: string
-        assetId:
-          type: string
-        assetName:
-          type: string
-        datasetId:
-          type: string
-        datasetName:
-          type: string
-        dataType:
-          type: string
-        lastUpdated:
-          type: string
-
-    DataCatalogResponse:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/CatalogField'
-        pagination:
-          type: object
-          properties:
-            page:
-              type: integer
-            pageSize:
-              type: integer
-            totalItems:
-              type: integer
-            totalPages:
-              type: integer
-            hasMore:
-              type: boolean
-        summary:
-          type: object
-          properties:
-            totalFields:
-              type: integer
-            distinctFields:
-              type: integer
-            totalCalculatedFields:
-              type: integer
-            calculatedDatasetFields:
-              type: integer
-            calculatedAnalysisFields:
-              type: integer
-            visualFields:
-              type: integer
-            fieldsByDataType:
-              type: object
-              additionalProperties:
-                type: integer
-            fieldsWithVariants:
-              type: integer
-            fieldsWithComments:
-              type: integer
-            fieldsWithConflicts:
-              type: integer
-            avgExpressionLength:
-              type: integer
-            lastUpdated:
-              type: string
-              format: date-time
-            processingTimeMs:
-              type: integer
 
     CatalogStats:
       type: object

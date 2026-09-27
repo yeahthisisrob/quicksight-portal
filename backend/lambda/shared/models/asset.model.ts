@@ -3,14 +3,10 @@
  * Cache = fast lookups, Export files = complete data
  */
 
-export type AssetType =
-  | 'dashboard'
-  | 'analysis'
-  | 'dataset'
-  | 'datasource'
-  | 'folder'
-  | 'user'
-  | 'group';
+import type { AssetType } from '../types/assetTypes';
+
+// One list of asset types: ../types/assetTypes owns it.
+export type { AssetType };
 
 /**
  * Asset status enum for consistent status management

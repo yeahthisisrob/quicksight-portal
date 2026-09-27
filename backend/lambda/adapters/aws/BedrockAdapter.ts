@@ -34,6 +34,8 @@ interface StructuredOutputRequest {
   inputSchema: Record<string, unknown>;
   maxTokens: number;
   capabilities?: ConverseCapabilities;
+  /** Pictures sent beside the text, for a model that reads images. */
+  images?: Array<{ format: 'png' | 'jpeg' | 'gif' | 'webp'; bytes: Uint8Array }>;
 }
 
 interface StructuredOutputResult {
@@ -84,7 +86,17 @@ export class BedrockAdapter {
     const input: ConverseCommandInput = {
       modelId: req.modelId,
       system: [{ text: system }],
-      messages: [{ role: 'user', content: [{ text: req.user }] }],
+      messages: [
+        {
+          role: 'user',
+          content: [
+            ...(req.images ?? []).map((image) => ({
+              image: { format: image.format, source: { bytes: image.bytes } },
+            })),
+            { text: req.user },
+          ],
+        },
+      ],
       inferenceConfig: {
         maxTokens: req.maxTokens,
         ...(caps.temperature ? { temperature: 0 } : {}),

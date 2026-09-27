@@ -3,6 +3,7 @@
  */
 import { ContentCopy as CopyIcon } from '@mui/icons-material';
 import { Box, Chip, IconButton, Tooltip, Typography } from '@mui/material';
+import type { AssetType } from '@shared/generated';
 import type { NavigateFunction } from 'react-router-dom';
 
 import { PermissionsCell } from '@/entities/asset';
@@ -27,7 +28,7 @@ type BaseHandlers = {
  * Generate the base columns present in all asset tables
  */
 export function generateBaseColumns(
-  assetType: 'dashboard' | 'dataset' | 'analysis' | 'datasource' | 'folder' | 'user' | 'group',
+  assetType: AssetType,
   handlers: BaseHandlers & Record<string, any>
 ): ColumnConfig[] {
   const columns: ColumnConfig[] = [];

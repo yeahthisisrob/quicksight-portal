@@ -125,7 +125,9 @@ interface PlannerMessage {
         ask: string;
         candidateDataSetIds?: string[];
       }
-    | { kind: 'new-visuals'; newAsset: Record<string, unknown> };
+    | { kind: 'new-visuals'; newAsset: Record<string, unknown> }
+    /** A theme drawn from a picture, stored in the bucket (too big for a queue message). */
+    | { kind: 'theme-from-image'; imageKey: string; note?: string };
 }
 
 interface AssetRefreshMessage {
@@ -657,7 +659,22 @@ async function processPlannerJob(message: PlannerMessage, record: any): Promise<
     );
 
     let result: unknown;
-    if (request.kind === 'propose') {
+    if (request.kind === 'theme-from-image') {
+      const [{ ThemeService }, { S3Service }, { metadataBucketName }] = await Promise.all([
+        import('./features/authoring/services/ThemeService'),
+        import('./shared/services/aws/S3Service'),
+        import('./shared/config/metadataBucket'),
+      ]);
+      const stored = await new S3Service(msgAccountId).getObject<{ format: string; data: string }>(
+        metadataBucketName(msgAccountId),
+        request.imageKey
+      );
+      result = await new ThemeService(msgAccountId).propose(
+        createPlannerModel(undefined, isAiModelKey(message.model) ? message.model : undefined),
+        { format: stored.format as 'png', bytes: Buffer.from(stored.data, 'base64') },
+        request.note
+      );
+    } else if (request.kind === 'propose') {
       result = await planner.propose(request.assetType, request.assetId, {
         ask: request.ask,
         candidateDataSetIds: request.candidateDataSetIds,

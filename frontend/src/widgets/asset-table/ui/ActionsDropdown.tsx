@@ -11,10 +11,12 @@ import {
   ViewQuilt as WireframeIcon,
 } from '@mui/icons-material';
 import { IconButton, Menu, MenuItem } from '@mui/material';
+import type { AssetType } from '@shared/generated';
 import { memo, useState } from 'react';
 
 import { SMUS_ACCENT } from '@/entities/smus';
 
+import { PLURAL } from '@/shared/api/modules/assets';
 import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 
 interface ActionsDropdownProps {
@@ -80,12 +82,7 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <MenuItem
-          onClick={() => handleAction(() => handlers.navigate(`/assets/${assetType}s/${asset.id}`))}
-        >
-          View Details
-        </MenuItem>
-        {!['user', 'group'].includes(assetType) && (
+        {getQuickSightConsoleUrl(assetType, asset.id) && (
           <MenuItem
             onClick={() =>
               handleAction(() => {
@@ -104,14 +101,18 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
             View in SMUS
           </MenuItem>
         )}
-        <MenuItem
-          onClick={() =>
-            handleAction(() => handlers.navigate(`/assets/${assetType}s/${asset.id}/timeline`))
-          }
-        >
-          <TimelineIcon fontSize="small" sx={{ mr: 1 }} />
-          View Timeline
-        </MenuItem>
+        {assetType !== 'theme' && (
+          <MenuItem
+            onClick={() =>
+              handleAction(() =>
+                handlers.navigate(`/assets/${PLURAL[assetType as AssetType]}/${asset.id}/timeline`)
+              )
+            }
+          >
+            <TimelineIcon fontSize="small" sx={{ mr: 1 }} />
+            View Timeline
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => handleAction(() => handlers.onJsonViewerClick?.(asset, assetType))}
         >

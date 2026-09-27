@@ -14,6 +14,7 @@ import { DashboardParser } from './explorations/DashboardParser';
 import { FolderParser } from './organization/FolderParser';
 import { GroupParser } from './organization/GroupParser';
 import { UserParser } from './organization/UserParser';
+import { ThemeParser } from './ThemeParser';
 // Re-export types for convenience
 
 /**
@@ -25,6 +26,7 @@ export class AssetParserService {
   private readonly dashboardParser: DashboardParser;
   private readonly datasetParser: DatasetParser;
   private readonly datasourceParser: DatasourceParser;
+  private readonly themeParser: ThemeParser;
   private readonly folderParser: FolderParser;
   private readonly groupParser: GroupParser;
   private readonly parsers: Map<AssetType, BaseAssetParser>;
@@ -35,6 +37,7 @@ export class AssetParserService {
     this.analysisParser = new AnalysisParser();
     this.datasetParser = new DatasetParser();
     this.datasourceParser = new DatasourceParser();
+    this.themeParser = new ThemeParser();
     this.folderParser = new FolderParser();
     this.groupParser = new GroupParser();
     this.userParser = new UserParser();
@@ -44,6 +47,7 @@ export class AssetParserService {
     this.parsers.set(ASSET_TYPES.analysis, this.analysisParser);
     this.parsers.set(ASSET_TYPES.dataset, this.datasetParser);
     this.parsers.set(ASSET_TYPES.datasource, this.datasourceParser);
+    this.parsers.set(ASSET_TYPES.theme, this.themeParser);
     this.parsers.set(ASSET_TYPES.folder, this.folderParser);
     this.parsers.set(ASSET_TYPES.group, this.groupParser);
     this.parsers.set(ASSET_TYPES.user, this.userParser);
@@ -131,6 +135,8 @@ export class AssetParserService {
           return this.userParser.extractMetadata(assetData);
         case ASSET_TYPES.group:
           return this.groupParser.extractMetadata(assetData);
+        case ASSET_TYPES.theme:
+          return this.themeParser.extractMetadata(assetData);
         default:
           return null;
       }

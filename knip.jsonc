@@ -6,7 +6,7 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "workspaces": {
     "backend/lambda": {
-      "entry": ["index.ts", "worker.ts", "vitest.setup.ts", "**/__tests__/**/*.test.ts"],
+      "entry": ["index.ts", "worker.ts", "**/__tests__/**/*.test.ts"],
       "project": ["**/*.ts"],
       "ignore": ["shared/types/raw-imports.ts"]
     },

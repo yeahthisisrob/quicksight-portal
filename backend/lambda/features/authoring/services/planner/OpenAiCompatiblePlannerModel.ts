@@ -51,7 +51,20 @@ export class OpenAiCompatiblePlannerModel implements PlannerModel {
         [this.options.maxTokensParam ?? 'max_tokens']: request.maxTokens,
         messages: [
           { role: 'system', content: request.system },
-          { role: 'user', content: request.user },
+          {
+            role: 'user',
+            content: request.images?.length
+              ? [
+                  ...request.images.map((image) => ({
+                    type: 'image_url',
+                    image_url: {
+                      url: `data:image/${image.format};base64,${Buffer.from(image.bytes).toString('base64')}`,
+                    },
+                  })),
+                  { type: 'text', text: request.user },
+                ]
+              : request.user,
+          },
         ],
         response_format: {
           type: 'json_schema',
