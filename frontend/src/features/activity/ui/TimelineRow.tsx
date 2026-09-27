@@ -21,11 +21,13 @@ import {
   Edit as UpdateIcon,
 } from '@mui/icons-material';
 import { Box, Collapse, IconButton, Stack, type Theme, Tooltip, Typography } from '@mui/material';
+import type { AssetType } from '@shared/generated';
 import { format, formatDistanceToNow } from 'date-fns';
 import { type MouseEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import type { TimelineEvent } from '@/shared/api/modules/activity';
+import { PLURAL } from '@/shared/api/modules/assets';
 import { pal } from '@/shared/design-system';
 import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 import TypedChip, { type ChipType } from '@/shared/ui/TypedChip';
@@ -95,6 +97,7 @@ const RESOURCE_TYPE_TO_CHIP: Record<string, ChipType> = {
   folder: 'FOLDER',
   user: 'USER',
   group: 'GROUP',
+  theme: 'THEME',
 };
 
 const DOT_SIZE = 26;
@@ -180,7 +183,9 @@ function AssetLink({ event }: { event: TimelineEvent }) {
       customLabel={label}
       size="small"
       onClick={() =>
-        navigate(`/assets/${event.assetType}s/${encodeURIComponent(event.assetId ?? '')}`)
+        navigate(
+          `/assets/${PLURAL[event.assetType as AssetType]}/${encodeURIComponent(event.assetId ?? '')}/timeline`
+        )
       }
       sx={{ cursor: 'pointer' }}
     />

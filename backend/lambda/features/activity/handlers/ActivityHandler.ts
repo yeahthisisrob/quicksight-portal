@@ -141,6 +141,7 @@ const TIMELINE_RESOURCE_TYPES: readonly TimelineResourceType[] = [
   'folder',
   'group',
   'user',
+  'theme',
   'other',
 ] as const;
 
@@ -152,6 +153,7 @@ const TIMELINE_CATALOG_TYPES: readonly AssetType[] = [
   'folder',
   'group',
   'user',
+  'theme',
 ] as const;
 
 const TIMELINE_ACTIONS: readonly ActionCategory[] = [

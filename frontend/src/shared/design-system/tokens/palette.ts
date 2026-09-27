@@ -67,6 +67,7 @@ export const assetHue = {
   folder: { main: '#5F6B7A', subtle: '#EEF0F2', strong: '#414D5C' },
   user: { main: '#C13A8A', subtle: '#FBEAF3', strong: '#8A2862' },
   group: { main: '#0E8A85', subtle: '#E6F5F4', strong: '#0A605D' },
+  theme: { main: '#C2410C', subtle: '#FCEEE6', strong: '#8A2E08' },
   namespace: { main: '#8F3BB8', subtle: '#F4EAF9', strong: '#662A84' },
   public: { main: '#2A7DE1', subtle: '#E8F1FC', strong: '#1B5AA6' },
 } as const;

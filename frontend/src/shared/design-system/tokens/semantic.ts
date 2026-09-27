@@ -97,6 +97,7 @@ const darkAssets: Record<AssetHueKey, AssetColor> = {
   folder: { main: '#A6B4C5', subtle: '#2A3441', strong: '#D8DFE8' },
   user: { main: '#E884BF', subtle: '#3F1F31', strong: '#F8C9E3' },
   group: { main: '#4DC1BC', subtle: '#11302F', strong: '#B5EAE7' },
+  theme: { main: '#F0875A', subtle: '#3F1E10', strong: '#FAD2C0' },
   namespace: { main: '#C48AE3', subtle: '#331F41', strong: '#E7CDF5' },
   public: { main: '#6FA9EA', subtle: '#152B47', strong: '#C4DBF6' },
 };

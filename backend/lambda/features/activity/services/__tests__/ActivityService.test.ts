@@ -1527,6 +1527,36 @@ describe('ActivityService — name extraction from CloudTrail events', () => {
     expect(stored?.name).toBe('Cohort Analysis');
   });
 
+  it('files a theme change under the theme, and its timeline finds it', async () => {
+    const event = {
+      eventTime: '2024-06-01T12:00:00.000Z',
+      eventSource: 'quicksight.amazonaws.com',
+      eventName: 'UpdateTheme',
+      userIdentity: { userName: 'alice' },
+      requestParameters: { themeId: 'brand', name: 'Brand' },
+    };
+    mockCloudTrailAdapter.getEventsByName.mockImplementation(async (n: string) =>
+      n === 'UpdateTheme' ? [event] : []
+    );
+    await activityService.refreshActivity({ assetTypes: ['all'], days: 1 });
+
+    const cached = mockCacheService.putActivityCache.mock.calls[0]?.[0] as ActivityCache;
+    const stored = Object.values(cached.events)
+      .flat()
+      .find((e) => e.eventName === 'UpdateTheme');
+    expect(stored).toMatchObject({ resourceType: 'theme', resourceId: 'brand', action: 'update' });
+
+    mockCacheService.getActivityCache.mockResolvedValue(cached);
+    const page = await activityService.getTimelinePage({
+      limit: 10,
+      assetType: 'theme',
+      assetId: 'brand',
+    });
+    expect(page.items.map((e) => [e.eventName, e.assetType, e.assetName])).toEqual([
+      ['UpdateTheme', 'theme', 'Brand'],
+    ]);
+  });
+
   it('prefers event name over catalog name during hydration', async () => {
     const cache = createMockCache([
       {

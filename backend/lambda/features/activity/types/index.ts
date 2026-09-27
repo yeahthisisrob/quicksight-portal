@@ -68,8 +68,8 @@ export type ActionCategory =
 type EventKind = 'view' | 'mutation';
 
 /**
- * Resource type for a timeline event. Extends the portal's AssetType (7 catalog types)
- * with 'other' for QuickSight resources the catalog doesn't track — templates, themes,
+ * Resource type for a timeline event. Extends the portal's AssetType (the catalog types)
+ * with 'other' for QuickSight resources the catalog doesn't track — templates, theme aliases,
  * brands, topics, action connectors, VPC connections, namespaces, and account-level
  * settings mutations. 'other' events render in the timeline but without an asset chip
  * or click-through link.
@@ -131,8 +131,11 @@ export interface MinimalEvent {
  * v5: stored events use readable field names (timestamp/eventName/user/...)
  *     instead of single-char keys, and mutation id extraction gained an
  *     ARN-scan fallback. Full rescan rewrites the window in the new shape.
+ * v6: themes are catalog assets: CreateTheme/UpdateTheme/UpdateThemePermissions/
+ *     DeleteTheme carry `resourceType: 'theme'` and the theme id instead of
+ *     'other'. Full rescan reclassifies the window so a theme's history is whole.
  */
-export const ACTIVITY_CACHE_SCHEMA_VERSION = 5;
+export const ACTIVITY_CACHE_SCHEMA_VERSION = 6;
 
 // Activity cache - stores raw events grouped by date
 export interface ActivityCache {

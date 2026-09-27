@@ -9,6 +9,7 @@ export type ChipType =
   | 'FOLDER'
   | 'USER'
   | 'GROUP'
+  | 'THEME'
   | 'NAMESPACE'
   | 'PUBLIC'
   | 'FIELDS'
@@ -65,6 +66,11 @@ export const chipConfig = {
     icon: chipIcons.GROUP,
     colorKey: 'group' as const,
     label: 'Group',
+  },
+  THEME: {
+    icon: chipIcons.THEME,
+    colorKey: 'theme' as const,
+    label: 'Theme',
   },
   NAMESPACE: {
     icon: chipIcons.NAMESPACE,

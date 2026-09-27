@@ -14,7 +14,8 @@ export type TimelineAssetType =
   | 'datasource'
   | 'folder'
   | 'group'
-  | 'user';
+  | 'user'
+  | 'theme';
 
 /** Filter state for the timeline feed — serializable so it can drive the query key. */
 export interface TimelineFilters {
