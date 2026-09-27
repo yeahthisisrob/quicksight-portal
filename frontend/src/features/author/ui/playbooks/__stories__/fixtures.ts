@@ -492,9 +492,15 @@ export function playbookRoutes(): MockRoute[] {
           success: true,
           data: {
             datasources: [
-              { id: 'athena-main', name: 'Athena (primary)', type: 'ATHENA' },
-              { id: 'athena-crm', name: 'Athena CRM', type: 'ATHENA' },
-              { id: 'warehouse', name: 'Warehouse', type: 'REDSHIFT' },
+              // What the API sends: `type` is the asset type, the engine is `sourceType`.
+              {
+                id: 'athena-main',
+                name: 'Athena (primary)',
+                type: 'datasource',
+                sourceType: 'ATHENA',
+              },
+              { id: 'athena-crm', name: 'Athena CRM', type: 'datasource', sourceType: 'ATHENA' },
+              { id: 'warehouse', name: 'Warehouse', type: 'datasource', sourceType: 'REDSHIFT' },
             ],
             pagination: { page: 1, pageSize: 100, totalItems: 3, totalPages: 1 },
           },

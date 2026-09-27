@@ -295,7 +295,9 @@ export class DynamoDBService {
                 after !== undefined && { ':after': after, ':end': `${prefix.prefix}\uffff` }),
             },
             ConsistentRead: true,
-            Limit: limit - items.length,
+            // Infinity reads every page: DynamoDB takes only an integer, and
+            // "Infinity" goes over the wire as a string it rejects.
+            ...(Number.isFinite(limit) ? { Limit: limit - items.length } : {}),
             ExclusiveStartKey: exclusiveStartKey,
           })
         );

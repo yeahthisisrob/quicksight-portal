@@ -13,14 +13,17 @@ describe('portalCall', () => {
     expect(dispatch).toHaveBeenCalledWith({ method: 'GET', path: '/api/x' });
   });
 
-  it('throws the route’s own message with its status', async () => {
+  it('throws the route’s own message with its status, naming the call', async () => {
     const dispatch = vi.fn(async () => ({
       status: 400,
       body: JSON.stringify({ success: false, error: 'Column revenue not found' }),
     }));
-    const error = await portalCall(dispatch)('PUT', '/api/x', {}).catch((e) => e);
+    const error = await portalCall(dispatch)('PUT', '/api/x?page=2', {}).catch((e) => e);
     expect(error).toBeInstanceOf(PortalCallError);
-    expect(error).toMatchObject({ status: 400, message: 'Column revenue not found' });
+    expect(error).toMatchObject({
+      status: 400,
+      message: 'Column revenue not found (PUT /api/x)',
+    });
   });
 
   it('treats success:false as a failure even on 200', async () => {

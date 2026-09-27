@@ -3605,8 +3605,8 @@ export interface components {
             arn: string;
         };
         DatasourceListItem: components["schemas"]["AssetListItem"] & {
-            /** @description Type of datasource (e.g., ATHENA, REDSHIFT, S3) */
-            type: string;
+            /** @description The engine it connects to (ATHENA, REDSHIFT, S3...); UNKNOWN when it could not be read. */
+            sourceType: string;
             /** @description Connection mode (DIRECT_QUERY or IMPORT) */
             connectionMode: string;
             /** @description Connection parameters */
