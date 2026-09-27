@@ -13,49 +13,24 @@
  * Pure, and shared by the backend (the assistant and the planner) and the
  * frontend (the catalog), so both classify a field the same way.
  */
-import { functionCategories, isLACFunction } from './functionCategories';
+import { classifyExpression } from './expressionKinds';
 
 export type FieldPlacement = 'row-level' | 'query-time';
 
 export interface PlacementVerdict {
   placement: FieldPlacement;
-  /** The functions that forced query-time, if any. */
+  /** The functions that forced query-time, and 'a parameter' when one is read. */
   reasons: string[];
 }
 
-const QUERY_TIME_CATEGORIES = new Set(['Aggregate Functions', 'Table Calculation Functions']);
-
-/** Every function name as it appears in an expression, lower-cased, mapped to its category. */
-const CATEGORY_BY_NAME = new Map<string, string>(
-  Object.entries(functionCategories).flatMap(([key, value]) => [
-    [key.toLowerCase(), value.category],
-    [value.standardFunction.toLowerCase(), value.category],
-  ])
-);
-
-/** `name(` calls in an expression, ignoring string literals and `{column}` tokens. */
-function calledFunctions(expression: string): string[] {
-  const stripped = expression.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|\{[^{}]*\}/g, ' ');
-  return [...stripped.matchAll(/([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)].map((m) => m[1]!);
-}
-
+/** Row-level or query-time; ./expressionKinds has the full verdict (kind, stage, calc level). */
 export function placementOf(expression: string): PlacementVerdict {
-  const reasons: string[] = [];
-  for (const fn of calledFunctions(expression)) {
-    const category = CATEGORY_BY_NAME.get(fn.toLowerCase());
-    if (category && QUERY_TIME_CATEGORIES.has(category)) {
-      reasons.push(fn);
-    } else if (/_?lac$/i.test(fn) || (isLACFunction(fn) && /\[/.test(expression))) {
-      reasons.push(fn);
-    }
-  }
-  if (/\$\{[^}]+\}/.test(expression)) {
-    reasons.push('a parameter');
-  }
-  return {
-    placement: reasons.length > 0 ? 'query-time' : 'row-level',
-    reasons: [...new Set(reasons)],
-  };
+  const verdict = classifyExpression(expression);
+  const reasons = [
+    ...verdict.functions.filter((f) => f.kind !== 'scalar').map((f) => f.name),
+    ...(verdict.parameters.length ? ['a parameter'] : []),
+  ];
+  return { placement: verdict.materialisable ? 'row-level' : 'query-time', reasons };
 }
 
 /** Column and field names compared the way people write them: case, spaces and underscores ignored. */

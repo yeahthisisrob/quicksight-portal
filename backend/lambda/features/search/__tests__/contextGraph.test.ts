@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { buildContextGraph } from '../lib/buildContextGraph';
 import { ContextGraph, entityId, expressionColumnNames, MAX_DEPTH } from '../lib/contextGraph';
+import type { SearchDocument } from '../types';
 
 function chain(length: number): ContextGraph {
   const graph = new ContextGraph();
@@ -49,5 +51,44 @@ describe('ContextGraph', () => {
     expect(
       expressionColumnNames("ifelse({status} = 'x', {Net Revenue} - {cost}, 0)").sort()
     ).toEqual(['Net Revenue', 'cost', 'status']);
+  });
+});
+
+describe('buildContextGraph', () => {
+  it('gives each calculated field its kind, read with the other fields of its asset', () => {
+    const calc = (id: string, name: string, expression: string) =>
+      ({
+        type: 'calculated-field',
+        id,
+        name,
+        expression,
+        columns: [],
+        calculatedFields: [name],
+        tags: [],
+        context: [],
+        summary: name,
+        path: '',
+        definedIn: [{ type: 'analysis', id: 'a1', name: 'Sales' }],
+      }) as unknown as SearchDocument;
+    const graph = buildContextGraph({
+      docs: [
+        calc('k1', 'total', 'sum({revenue})'),
+        calc('k2', 'share', '{total} / 2'),
+        calc('k3', 'margin', '{revenue} - {cost}'),
+        calc('k4', 'rolling', 'sumOver({revenue}, [{region}], PRE_FILTER)'),
+      ],
+      entries: {},
+      listings: [],
+      calculatedFields: new Map(),
+      visuals: new Map(),
+    });
+    const attrs = (key: string) => graph.get(entityId('calculated-field', key))?.attributes;
+    expect(attrs('k2')).toMatchObject({ kind: 'aggregate', materialisable: false });
+    expect(attrs('k3')).toMatchObject({
+      kind: 'row-level',
+      stage: 'simple-calculations',
+      materialisable: true,
+    });
+    expect(attrs('k4')).toMatchObject({ kind: 'lac-w', calcLevel: 'PRE_FILTER' });
   });
 });

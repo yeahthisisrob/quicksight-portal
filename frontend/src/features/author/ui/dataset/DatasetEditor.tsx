@@ -29,13 +29,15 @@ import {
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { DatasetSourceTables, useDatasetSourceDraft } from '@/entities/dataset';
 import type { RebindSource } from '@/entities/definition';
+import { FieldKindChip } from '@/entities/field';
 import { SmusLinkBadge, useSmusDatasetLinks, useSmusStatus } from '@/entities/smus';
 
 import { type ContextHit, contextApi } from '@/shared/api/modules/search';
+import { classifyFields } from '@/shared/lib';
 import { announceAssetChanges } from '@/shared/lib/assetChanges';
 import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 
@@ -110,23 +112,36 @@ function ReadersPanel({
 function CalculatedFieldsPanel({ datasetId }: { datasetId: string }) {
   const fields = useRelated(datasetId, 'defined-in', ['calculated-field']);
   const hits = fields.data?.hits ?? [];
+  const verdicts = useMemo(
+    () =>
+      classifyFields(
+        hits.map((h) => ({ name: h.name, expression: String(h.attributes?.expression ?? '') }))
+      ),
+    [hits]
+  );
   if (fields.isLoading || hits.length === 0) return null;
   return (
     <Panel title={`Calculated fields (${hits.length})`}>
       <Stack spacing={1}>
-        {hits.map((hit) => (
-          <Box key={hit.entityId}>
-            <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'monospace' }}>
-              {hit.name}
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{ color: 'text.secondary', fontFamily: 'monospace', wordBreak: 'break-word' }}
-            >
-              {hit.summary}
-            </Typography>
-          </Box>
-        ))}
+        {hits.map((hit) => {
+          const verdict = verdicts.get(hit.name);
+          return (
+            <Box key={hit.entityId}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'monospace' }}>
+                  {hit.name}
+                </Typography>
+                {verdict && <FieldKindChip verdict={verdict} />}
+              </Stack>
+              <Typography
+                variant="caption"
+                sx={{ color: 'text.secondary', fontFamily: 'monospace', wordBreak: 'break-word' }}
+              >
+                {hit.summary}
+              </Typography>
+            </Box>
+          );
+        })}
       </Stack>
     </Panel>
   );
