@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.32.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.31.0...v2.32.0) (2026-09-27)
+
+
+### Features
+
+* **playbooks:** remove idle readers, with user conditions that ignore named groups and folders ([#272](https://github.com/yeahthisisrob/quicksight-portal/issues/272)) ([2942ec2](https://github.com/yeahthisisrob/quicksight-portal/commit/2942ec25b67d8e94a6e50e58d97c3055f225688f))
+* **users:** archive a deleted user's access and give it back when they return ([#273](https://github.com/yeahthisisrob/quicksight-portal/issues/273)) ([8ab4aa0](https://github.com/yeahthisisrob/quicksight-portal/commit/8ab4aa0f2a1633a687a71125de15ae93a154fa7b))
+
+
+### Bug Fixes
+
+* **playbooks:** previews run again, and the data source picker finds data sources ([#274](https://github.com/yeahthisisrob/quicksight-portal/issues/274)) ([8e48140](https://github.com/yeahthisisrob/quicksight-portal/commit/8e48140cfc6481a7cf8c388a35ee484a9d81a3e1))
+
+
+### Code Refactoring
+
+* one helper for each thing the session's features did several ways ([#270](https://github.com/yeahthisisrob/quicksight-portal/issues/270)) ([0737135](https://github.com/yeahthisisrob/quicksight-portal/commit/0737135d0ac1ca57f8065243f41ac7f361de4371))
+
 ## [2.31.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.30.0...v2.31.0) (2026-09-27)
 
 
