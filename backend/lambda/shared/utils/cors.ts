@@ -4,6 +4,7 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { STATUS_CODES } from '../constants';
+import { currentErrorDetail } from './requestContext';
 
 // Shared across all CORS branches. If-None-Match and Expose-Headers: ETag
 // support conditional GETs from cross-origin local dev (deployed topology is
@@ -84,7 +85,14 @@ export function errorResponse(
   statusCode: number,
   message: string
 ): APIGatewayProxyResult {
-  return createResponse(event, statusCode, { success: false, error: message });
+  // A short message for people; the detail (what failed underneath, and the
+  // ids to find it by) for whoever has to debug it.
+  const detail = currentErrorDetail();
+  return createResponse(event, statusCode, {
+    success: false,
+    error: message,
+    ...(detail ? { detail } : {}),
+  });
 }
 
 /**

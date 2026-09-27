@@ -6,6 +6,8 @@ import * as path from 'node:path';
 
 import { Logger, LogLevel } from '@aws-lambda-powertools/logger';
 
+import { recordError } from './requestContext';
+
 // Map string log levels to PowerTools LogLevel enum
 const getLogLevel = (): (typeof LogLevel)[keyof typeof LogLevel] => {
   const envLevel = process.env.LOG_LEVEL?.toUpperCase();
@@ -98,6 +100,8 @@ export const logger = {
 
   error: (message: string, data?: any): void => {
     powertoolsLogger.error(message, data);
+    // The error response for this request can then say what went wrong underneath.
+    recordError(data);
     writeToLocalFile('ERROR', message, data);
   },
 

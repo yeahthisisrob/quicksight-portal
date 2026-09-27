@@ -7,6 +7,7 @@ import { BrowserRouter } from 'react-router-dom';
 
 import App from './app/App';
 import { theme } from './app/theme';
+import { ErrorDetailsHost, ErrorSnackbar } from './shared/ui';
 
 // The single QueryClient lives in AppProviders (rendered inside App) — a
 // second one here would shadow it and bind Devtools to a dead cache.
@@ -27,9 +28,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             horizontal: 'right',
           }}
           autoHideDuration={3000}
+          Components={{ error: ErrorSnackbar }}
         >
           <CssBaseline />
           {AppWrapper}
+          <ErrorDetailsHost />
         </SnackbarProvider>
       </LocalizationProvider>
     </ThemeProvider>

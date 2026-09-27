@@ -2,6 +2,7 @@
 
 // DataGrid cell components
 export { ErrorBoundary } from './ErrorBoundary';
+export { ErrorDetailsHost, ErrorSnackbar } from './ErrorDetails';
 export * from './icons';
 export { JsonViewerModal } from './JsonViewer';
 export { markdownComponents, markdownSx, remarkPlugins } from './Markdown';

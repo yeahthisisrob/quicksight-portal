@@ -11,6 +11,16 @@ import createFetchClient, { type Middleware } from 'openapi-fetch';
 
 import { config } from '@/shared/config';
 
+import { type ErrorDetail, noteDetail, recordFailure } from './failures';
+
+const pathOf = (response: Response) => {
+  try {
+    return new URL(response.url).pathname;
+  } catch {
+    return '';
+  }
+};
+
 /** The contract's paths already carry /api; the client's base is the origin part. */
 const BASE_URL = config.API_URL.replace(/\/api\/?$/, '');
 
@@ -23,6 +33,31 @@ const auth: Middleware = {
     return request;
   },
   onResponse({ response, request }) {
+    if (!response.ok) {
+      const url = new URL(request.url);
+      recordFailure({
+        at: Date.now(),
+        method: request.method,
+        path: url.pathname,
+        status: response.status,
+        error: response.statusText,
+      });
+      // The body says what failed underneath; read a copy, the caller reads the original.
+      response
+        .clone()
+        .json()
+        .then((body: { error?: string; detail?: ErrorDetail }) =>
+          recordFailure({
+            at: Date.now(),
+            method: request.method,
+            path: url.pathname,
+            status: response.status,
+            error: body?.error ?? response.statusText,
+            ...(body?.detail ? { detail: body.detail } : {}),
+          })
+        )
+        .catch(() => undefined);
+    }
     if (response.status === 401 && !/\/(auth|identity)\b/.test(new URL(request.url).pathname)) {
       localStorage.removeItem('idToken');
       localStorage.removeItem('refreshToken');
@@ -41,7 +76,9 @@ client.use(auth);
 export class ApiError extends Error {
   public constructor(
     message: string,
-    public readonly status: number
+    public readonly status: number,
+    /** What failed underneath, for whoever debugs it. */
+    public readonly detail?: ErrorDetail
   ) {
     super(message);
     this.name = 'ApiError';
@@ -55,7 +92,7 @@ export class ApiError extends Error {
  */
 export function unwrap<T>(
   result: {
-    data?: { success?: boolean; data?: T; error?: string };
+    data?: { success?: boolean; data?: T; error?: string; detail?: ErrorDetail };
     error?: unknown;
     response: Response;
   },
@@ -68,7 +105,9 @@ export function unwrap<T>(
       (result.error as { message?: string } | undefined)?.message ??
       body?.error ??
       fallback;
-    throw new ApiError(message, result.response.status);
+    const detail = (result.error as { detail?: ErrorDetail } | undefined)?.detail ?? body?.detail;
+    noteDetail(pathOf(result.response), message, detail);
+    throw new ApiError(message, result.response.status, detail);
   }
   return body.data as T;
 }
@@ -83,7 +122,9 @@ export function accepted<T extends { success?: boolean }>(
 ): T {
   if (result.error !== undefined || !result.data?.success) {
     const message = (result.error as { error?: string } | undefined)?.error ?? fallback;
-    throw new ApiError(message, result.response.status);
+    const detail = (result.error as { detail?: ErrorDetail } | undefined)?.detail;
+    noteDetail(pathOf(result.response), message, detail);
+    throw new ApiError(message, result.response.status, detail);
   }
   return result.data;
 }
