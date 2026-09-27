@@ -105,6 +105,13 @@ Every hit carries the path that reached it. `/api/search` and
 Without SMUS the graph still holds everything QuickSight knows; only the
 SMUS entities are missing.
 
+A `calculated-field` entity's attributes carry its `expression`, its
+`kind` (`row-level`, `aggregate`, `lac-a`, `lac-w`, `table-calc`), its
+`stage` in QuickSight's order of evaluation, its `calcLevel` where it has
+one, and `materialisable`: true when SPICE computes it once at ingestion
+(row-level and reading no parameter). Only a materialisable field can move
+into a dataset or upstream.
+
 **Lists, one type at a time**, paginated, filtered, sorted:
 
 ```bash

@@ -5,6 +5,7 @@
  * the scoped SMUS listings with their links, and the calculated fields
  * with the assets that define them. Pure.
  */
+import { classifyFields, type ExpressionVerdict } from '../../../../../shared/lib/expressionKinds';
 import type { SearchDocument } from '../types';
 import {
   ContextGraph,
@@ -50,6 +51,34 @@ interface GraphInput {
   visuals: Map<string, { asset: { type: string; id: string } }>;
 }
 
+/**
+ * Each calculated field's kind, stage and whether SPICE materialises it,
+ * classified with the other fields of the asset that defines it, so one
+ * reading an aggregate is an aggregate too.
+ */
+function calculatedFieldKinds(docs: SearchDocument[]): Map<string, ExpressionVerdict> {
+  const byAsset = new Map<string, Array<{ id: string; name: string; expression: string }>>();
+  for (const doc of docs) {
+    if (doc.type !== 'calculated-field' || !doc.expression) continue;
+    for (const definer of doc.definedIn ?? []) {
+      const key = `${definer.type}:${definer.id}`;
+      byAsset.set(key, [
+        ...(byAsset.get(key) ?? []),
+        { id: doc.id, name: doc.name, expression: doc.expression },
+      ]);
+    }
+  }
+  const kinds = new Map<string, ExpressionVerdict>();
+  for (const fields of byAsset.values()) {
+    const verdicts = classifyFields(fields);
+    for (const field of fields) {
+      const verdict = verdicts.get(field.name);
+      if (verdict && !kinds.has(field.id)) kinds.set(field.id, verdict);
+    }
+  }
+  return kinds;
+}
+
 export function buildContextGraph(input: GraphInput): ContextGraph {
   const graph = new ContextGraph();
   const byId = new Map<string, any>();
@@ -58,6 +87,8 @@ export function buildContextGraph(input: GraphInput): ContextGraph {
       byId.set(entityId(type as EntityType, entry.assetId), entry);
     }
   }
+
+  const kinds = calculatedFieldKinds(input.docs);
 
   // 1. Every searchable thing is an entity, with the facts worth reasoning on.
   for (const doc of input.docs) {
@@ -68,6 +99,13 @@ export function buildContextGraph(input: GraphInput): ContextGraph {
     if (doc.projectId) attributes.projectId = doc.projectId;
     if (doc.expression) attributes.expression = doc.expression;
     if (doc.views) attributes.views = doc.views;
+    const kind = type === 'calculated-field' ? kinds.get(doc.id) : undefined;
+    if (kind) {
+      attributes.kind = kind.kind;
+      attributes.stage = kind.stage;
+      attributes.materialisable = kind.materialisable;
+      if (kind.calcLevel) attributes.calcLevel = kind.calcLevel;
+    }
     if (type === 'dataset') {
       if (meta.importMode) attributes.importMode = meta.importMode;
       if (doc.columns.length)

@@ -21,9 +21,11 @@ import {
 import type React from 'react';
 import { useMemo, useState } from 'react';
 
+import { EvaluationOrder, FieldKindChip } from '@/entities/field';
+
 import type { CatalogDataset, DatasetCatalogField } from '@/shared/api/modules/data-catalog';
 import { pal } from '@/shared/design-system';
-import { functionCategories, getDocLink } from '@/shared/lib/functionCategories';
+import { classifyFields, type ExpressionVerdict, functionNamed } from '@/shared/lib';
 
 interface ExpressionGraphDialogProps {
   open: boolean;
@@ -44,8 +46,7 @@ function expressionWithDocLinks(expression: string): React.ReactNode[] {
   while (match !== null) {
     const [, name, paren] = match;
     if (match.index > last) parts.push(expression.slice(last, match.index));
-    const doc = functionCategories[(name ?? '').toUpperCase()]?.standardFunction;
-    const href = doc ? getDocLink(doc) : undefined;
+    const href = functionNamed(name ?? '')?.docUrl;
     parts.push(
       href ? (
         <a key={match.index} href={href} target="_blank" rel="noopener noreferrer">
@@ -100,10 +101,12 @@ function NodeCard({
   node,
   focused,
   onFocus,
+  verdict,
 }: {
   node: LineageNode;
   focused: boolean;
   onFocus: () => void;
+  verdict?: ExpressionVerdict;
 }) {
   const field = node.field;
   return (
@@ -135,6 +138,7 @@ function NodeCard({
         ) : (
           <Chip size="small" variant="outlined" color="warning" label="not in this dataset" />
         )}
+        {verdict && <FieldKindChip verdict={verdict} />}
         {field && field.usage.dashboards + field.usage.analyses > 0 && (
           <Typography variant="caption" sx={{ color: 'text.secondary' }}>
             {field.usage.dashboards} dashboards, {field.usage.analyses} analyses
@@ -163,6 +167,8 @@ export default function ExpressionGraphDialog({
   const field = dataset.fields.find((f) => f.name === focus);
   const upstream = useMemo(() => walkLineage(dataset, focus, 'up'), [dataset, focus]);
   const downstream = useMemo(() => walkLineage(dataset, focus, 'down'), [dataset, focus]);
+  const verdicts = useMemo(() => classifyFields(dataset.fields), [dataset]);
+  const verdict = verdicts.get(focus);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -201,6 +207,14 @@ export default function ExpressionGraphDialog({
               {expressionWithDocLinks(field.expression)}
             </Box>
           )}
+          {verdict && (
+            <Stack spacing={1.5}>
+              <Box>
+                <FieldKindChip verdict={verdict} />
+              </Box>
+              <EvaluationOrder verdict={verdict} />
+            </Stack>
+          )}
 
           <Box>
             <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', mb: 1 }}>
@@ -221,6 +235,7 @@ export default function ExpressionGraphDialog({
                   node={node}
                   focused={false}
                   onFocus={() => setFocus(node.name)}
+                  verdict={verdicts.get(node.name)}
                 />
               ))}
             </Stack>
@@ -243,6 +258,7 @@ export default function ExpressionGraphDialog({
                   node={node}
                   focused={false}
                   onFocus={() => setFocus(node.name)}
+                  verdict={verdicts.get(node.name)}
                 />
               ))}
             </Stack>

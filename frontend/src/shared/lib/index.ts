@@ -3,7 +3,7 @@
 export { type AiWork, useAiModel } from './aiModelChoice';
 export * from './assetTypeUtils';
 export * from './exportUtils';
-export * from './functionCategories';
+export * from './expressionKinds';
 export { useDebounce } from './useDebounce';
 export { useExportCSV } from './useExportCSV';
 export { usePagination } from './usePagination';

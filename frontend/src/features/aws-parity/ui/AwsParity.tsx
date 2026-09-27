@@ -98,10 +98,10 @@ export const PARITY_ROWS: ParityRow[] = [
   },
   {
     capability: 'Expression kinds',
-    portal: { level: 'partial', note: 'Row-level or query-time' },
+    portal: { level: 'yes', note: 'Kind, stage, SPICE or not' },
     aws: { level: 'partial', note: 'Checked in the console only' },
     detail:
-      'To close: a light local parser giving each field its kind (row-level, aggregate, LAC-A, LAC-W, table calculation), its stage in the order of evaluation, and whether SPICE materialises it. AWS has no API for this.',
+      'A light local parser gives each calculated field its kind (row-level, aggregate, LAC-A, LAC-W, table calculation), its stage in the order of evaluation and whether SPICE materialises it, for people in the Studio and the catalog, and for the assistant and playbooks through the context graph. AWS has no API for this.',
   },
   {
     capability: 'Version history',
