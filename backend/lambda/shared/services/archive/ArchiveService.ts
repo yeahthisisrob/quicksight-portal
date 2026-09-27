@@ -40,7 +40,10 @@ export class ArchiveService {
           assetType,
           statusFilter: AssetStatusFilter.ALL,
         });
-        const asset = assets.find((a) => a.assetId === assetId);
+        // The live entry decides: an older archived copy of the same id (archived,
+        // restored, archived again) must not make a live one look done.
+        const matching = assets.filter((a) => a.assetId === assetId);
+        const asset = matching.find((a) => a.status !== 'archived') ?? matching[0];
 
         if (!asset) {
           throw new Error(`Asset ${assetType}/${assetId} not found`);
@@ -145,10 +148,6 @@ export class ArchiveService {
       const activeCollection =
         (await this.s3Service.getObject(this.bucketName, collectionPath)) || {};
 
-      if (!activeCollection[itemId]) {
-        throw new Error(`Item ${itemId} not found in ${assetType} collection`);
-      }
-
       // Get or create the archived collection
       let archivedCollection: Record<string, any> = {};
       try {
@@ -156,6 +155,27 @@ export class ArchiveService {
       } catch (_error) {
         // Archive collection doesn't exist yet, start with empty
         archivedCollection = {};
+      }
+
+      if (!activeCollection[itemId]) {
+        // Nothing left to move (moved already, or gone from both files): that is
+        // archived, and saying so lets the cache record it. Failing here left a
+        // half-archived entry that every export found and "archived" again.
+        logger.info(
+          `${assetType} ${itemId} is no longer in the active collection; nothing to move`,
+          {
+            inArchive: Boolean(archivedCollection[itemId]),
+          }
+        );
+        return {
+          success: true,
+          assetId: itemId,
+          assetType,
+          originalPath: `${collectionPath}#${itemId}`,
+          archivePath: `${archivePath}#${itemId}`,
+          archivedAt:
+            archivedCollection[itemId]?.archivedMetadata?.archivedAt ?? new Date().toISOString(),
+        };
       }
 
       // Move the item to archived collection with metadata

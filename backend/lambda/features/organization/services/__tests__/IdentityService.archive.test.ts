@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
     updatePermissions: vi.fn(),
   },
   archive: { save: vi.fn(), get: vi.fn() },
+  archiveAsset: vi.fn(),
   access: vi.fn(),
 }));
 
@@ -23,6 +24,11 @@ vi.mock('../../../../shared/services/cache/CacheService', () => ({
 vi.mock('../../../../shared/services/organization/PermissionsService', () => ({
   PermissionsService: vi.fn(function PermissionsService() {
     return { getUserAssetAccess: mocks.access };
+  }),
+}));
+vi.mock('../../../../shared/services/archive/ArchiveService', () => ({
+  ArchiveService: vi.fn(function ArchiveService() {
+    return { archiveAsset: mocks.archiveAsset };
   }),
 }));
 vi.mock('../UserArchive', () => ({
@@ -87,6 +93,8 @@ describe('deleting a user archives what they had first', () => {
     expect(mocks.archive.save.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.qs.deleteUser.mock.invocationCallOrder[0]!
     );
+    // The record moves to the archived collection, not just a status flip in the cache.
+    expect(mocks.archiveAsset).toHaveBeenCalledWith('user', 'pat', 'Deleted via portal', 'admin');
   });
 
   it('deletes nothing when the archive cannot be kept', async () => {
