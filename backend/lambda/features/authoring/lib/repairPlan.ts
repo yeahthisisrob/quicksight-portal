@@ -6,8 +6,10 @@
  * reports on the asset. Nothing here writes; the client sends the fixes it
  * accepts to preview and apply as `repairs` and `rebinds`.
  */
+
+import { normalFieldName } from '../../../../../shared/lib/expressionPlacement';
 import type { ColumnUsage, DefinitionDataset, RebindRequest } from '../types';
-import { normalizeColumnName, type TargetColumn } from './columnResolution';
+import type { TargetColumn } from './columnResolution';
 import { declaredParameters, type RepairOp, referencedParameters } from './definitionRepairs';
 
 type RepairIssueKind =
@@ -85,8 +87,8 @@ export function quotedNames(message: string): string[] {
 }
 
 function suggestFor(name: string, columns: TargetColumn[]): TargetColumn | undefined {
-  const key = normalizeColumnName(name);
-  const candidates = columns.filter((c) => normalizeColumnName(c.name) === key);
+  const key = normalFieldName(name);
+  const candidates = columns.filter((c) => normalFieldName(c.name) === key);
   return candidates.length === 1 ? candidates[0] : undefined;
 }
 

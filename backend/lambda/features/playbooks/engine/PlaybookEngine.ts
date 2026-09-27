@@ -12,6 +12,7 @@ import {
   type JobItemCounts,
   jobItemKey,
 } from '../../../shared/services/jobs/JobItemStore';
+import { errorMessage } from '../../../shared/utils/errorMessage';
 import {
   DEFAULT_RUN_LIMITS,
   type ItemPlan,
@@ -50,10 +51,6 @@ export type EngineOutcome =
 const PROGRESS_EVERY_MS = 2_000;
 const PERCENT = 100;
 const STOP_CHECK_EVERY_MS = 5_000;
-
-function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 function targetOf(row: JobItem): PlaybookTarget {
   return { assetType: row.assetType, assetId: row.assetId, name: row.name };
@@ -227,7 +224,7 @@ export class PlaybookEngine {
         updatedAt,
       };
     } catch (error) {
-      return { ...row, status: 'failed', error: errorText(error), updatedAt };
+      return { ...row, status: 'failed', error: errorMessage(error), updatedAt };
     }
   }
 
@@ -242,7 +239,7 @@ export class PlaybookEngine {
     try {
       plan = await this.playbook.plan(this.ctx, targetOf(row));
     } catch (error) {
-      return { ...row, status: 'failed', error: errorText(error), attempts, updatedAt: stamp() };
+      return { ...row, status: 'failed', error: errorMessage(error), attempts, updatedAt: stamp() };
     }
     if (plan.verdict !== 'change') {
       return {
@@ -272,7 +269,7 @@ export class PlaybookEngine {
         ...row,
         status: 'failed',
         verdict: 'change',
-        error: errorText(error),
+        error: errorMessage(error),
         ...(plan.changes?.length ? { changes: plan.changes } : {}),
         attempts,
         updatedAt: stamp(),

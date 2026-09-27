@@ -5,6 +5,7 @@
 import pLimit from 'p-limit';
 
 import { EXPORT_CONFIG } from '../../../config/exportConfig';
+import { metadataBucketName } from '../../../config/metadataBucket';
 import { FIELD_LIMITS } from '../../../constants';
 import type { AssetType, CacheEntry } from '../../../models/asset.model';
 import { ASSET_TYPES_PLURAL } from '../../../types/assetTypes';
@@ -343,8 +344,7 @@ export class S3CacheAdapter {
    */
   private async getBucket(): Promise<string> {
     if (!this.bucketName) {
-      this.bucketName =
-        process.env.BUCKET_NAME || `quicksight-metadata-bucket-${process.env.AWS_ACCOUNT_ID}`;
+      this.bucketName = metadataBucketName();
       await this.s3Service.ensureBucketExists(this.bucketName);
     }
     return this.bucketName;

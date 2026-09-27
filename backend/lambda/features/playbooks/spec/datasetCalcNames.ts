@@ -18,9 +18,12 @@
  * direct query the whole way; on SPICE it copies, and the next run (after
  * the refresh) moves the readers and retires the old name.
  */
+
+import { errorMessage } from '../../../shared/utils/errorMessage';
 import { OPT_OUT_TAG } from '../engine/gates';
+import { authoringPath, datasetFieldsPath } from '../portalPaths';
 import type { PlaybookContext, PlaybookTarget } from '../types';
-import { standardName } from './calcHygiene';
+import { DEFAULT_DATASET_CALC_PREFIX, standardName } from './calcHygiene';
 import { resolveText } from './inputs';
 import type { StepPlan } from './steps';
 import type { RenameDatasetCalcsStep } from './types';
@@ -52,17 +55,11 @@ type Move =
   | { phase: 'retire'; from: string; to: string }
   | { phase: 'hold'; from: string; to: string; why: string };
 
-const DEFAULT_PREFIX = 'c_ds_';
 /** copy, repoint, retire: a direct-query dataset finishes in three rounds. */
 const MAX_ROUNDS = 3;
 
-const datasetPath = (id: string) =>
-  `/api/authoring/datasets/${encodeURIComponent(id)}/calculated-fields`;
-const assetPath = (r: Pick<Reader, 'assetType' | 'assetId'>) =>
-  `/api/authoring/${r.assetType}/${encodeURIComponent(r.assetId)}`;
-
 const live = (ctx: PlaybookContext, dataSetId: string) =>
-  ctx.call<LiveDataset>('GET', `${datasetPath(dataSetId)}?readers=true`);
+  ctx.call<LiveDataset>('GET', `${datasetFieldsPath(dataSetId)}?readers=true`);
 
 /** Where each field that is off-standard stands, from the dataset as it is now. */
 export function movesOf(
@@ -187,28 +184,26 @@ function describe(move: Move): string {
   }
 }
 
-const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
-
 async function dryRun(ctx: PlaybookContext, dataSetId: string, moves: Move[]): Promise<string[]> {
   const refusals: string[] = [];
   const ops = datasetOps(moves);
   if (ops.length > 0) {
     await ctx
-      .call('POST', datasetPath(dataSetId), { ops, dryRun: true })
-      .catch((error) => refusals.push(`The dataset change was refused: ${errorText(error)}`));
+      .call('POST', datasetFieldsPath(dataSetId), { ops, dryRun: true })
+      .catch((error) => refusals.push(`The dataset change was refused: ${errorMessage(error)}`));
   }
   for (const { reader, rebinds } of rebindsByAsset(dataSetId, moves)) {
     try {
       const preview = await ctx.call<{ plan?: { canApply?: boolean } }>(
         'POST',
-        `${assetPath(reader)}/rebind/preview`,
+        `${authoringPath(reader)}/rebind/preview`,
         { rebinds }
       );
       if (preview.plan?.canApply === false) {
         refusals.push(`${reader.name} would not resolve every column`);
       }
     } catch (error) {
-      refusals.push(`${reader.name} was refused: ${errorText(error)}`);
+      refusals.push(`${reader.name} was refused: ${errorMessage(error)}`);
     }
   }
   return refusals;
@@ -222,7 +217,7 @@ export async function planRenameDatasetCalcs(
   if (target.assetType !== 'dataset') {
     return { kind: step.kind, verdict: 'skip', summary: 'Applies to datasets', changes: [] };
   }
-  const prefix = resolveText(step.prefix, ctx.params) || DEFAULT_PREFIX;
+  const prefix = resolveText(step.prefix, ctx.params) || DEFAULT_DATASET_CALC_PREFIX;
   const dataset = await live(ctx, target.assetId);
   const moves = movesOf(dataset, prefix, await optedOutReaders(ctx, dataset));
   const held = moves.filter((m) => m.phase === 'hold');
@@ -284,15 +279,15 @@ export async function applyRenameDatasetCalcs(
     if (copies.length + repoints.length + retires.length === 0) break;
 
     if (copies.length > 0) {
-      await ctx.call('POST', datasetPath(target.assetId), { ops: datasetOps(copies) });
+      await ctx.call('POST', datasetFieldsPath(target.assetId), { ops: datasetOps(copies) });
       done.copied += copies.length;
     }
     for (const { reader, rebinds } of rebindsByAsset(target.assetId, repoints)) {
-      await ctx.call('POST', `${assetPath(reader)}/rebind`, { mode: 'update', rebinds });
+      await ctx.call('POST', `${authoringPath(reader)}/rebind`, { mode: 'update', rebinds });
       done.moved += 1;
     }
     if (retires.length > 0) {
-      await ctx.call('POST', datasetPath(target.assetId), { ops: datasetOps(retires) });
+      await ctx.call('POST', datasetFieldsPath(target.assetId), { ops: datasetOps(retires) });
       done.removed += retires.length;
     }
   }

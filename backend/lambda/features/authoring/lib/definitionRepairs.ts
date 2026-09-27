@@ -12,8 +12,10 @@
  * - declareParameter: add a declaration for a parameter that is referenced
  *   but never declared.
  */
+
+import { expressionFields } from '../../../../../shared/lib/expressionParser';
 import { ValidationError } from '../../../shared/errors/ValidationError';
-import { expressionColumns, isColumnIdentifier } from './definitionColumns';
+import { isColumnIdentifier } from './definitionColumns';
 import type { DefinitionChange } from './definitionOps';
 
 type ParameterValueType = 'STRING' | 'INTEGER' | 'DECIMAL' | 'DATETIME';
@@ -213,7 +215,7 @@ export function applyRepairs(
         const calculated = (definition.CalculatedFields ?? []).filter(
           (f: any) =>
             f?.DataSetIdentifier === identifier &&
-            expressionColumns(f?.Expression ?? '').includes(columnName)
+            expressionFields(f?.Expression ?? '').includes(columnName)
         );
         definition.CalculatedFields = (definition.CalculatedFields ?? []).filter(
           (f: any) => !calculated.includes(f)

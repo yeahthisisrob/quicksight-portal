@@ -1,28 +1,28 @@
 import { describe, expect, it } from 'vitest';
 
+import { expressionFields } from '../../../../../../shared/lib/expressionParser';
 import {
   collectDefinitionDatasets,
-  expressionColumns,
   unresolvedCalculatedFieldColumns,
   walkColumnIdentifiers,
 } from '../definitionColumns';
 import { ORDERS_ARN, sampleDefinition } from './fixtures';
 
-describe('expressionColumns', () => {
+describe('expressionFields', () => {
   it('finds {column} tokens once each, in order', () => {
-    expect(expressionColumns('{revenue} - {cost} + {revenue}')).toEqual(['revenue', 'cost']);
+    expect(expressionFields('{revenue} - {cost} + {revenue}')).toEqual(['revenue', 'cost']);
   });
 
   it('skips ${parameter} tokens', () => {
-    expect(expressionColumns('{margin} / {revenue} * ${scale}')).toEqual(['margin', 'revenue']);
+    expect(expressionFields('{margin} / {revenue} * ${scale}')).toEqual(['margin', 'revenue']);
   });
 
   it('keeps names with spaces and trims padding', () => {
-    expect(expressionColumns('sum({ Order Total })')).toEqual(['Order Total']);
+    expect(expressionFields('sum({ Order Total })')).toEqual(['Order Total']);
   });
 
   it('returns nothing for an expression without columns', () => {
-    expect(expressionColumns('1 + 1')).toEqual([]);
+    expect(expressionFields('1 + 1')).toEqual([]);
   });
 });
 

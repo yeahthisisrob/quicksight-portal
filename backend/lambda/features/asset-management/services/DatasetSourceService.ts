@@ -32,7 +32,7 @@
 
 import { ValidationError } from '../../../shared/errors/ValidationError';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
-import { resendDataSet } from '../../../shared/services/aws/datasetUpdate';
+import { describeDataSetForEdit, resendDataSet } from '../../../shared/services/aws/datasetUpdate';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
 import { cacheService } from '../../../shared/services/cache/CacheService';
@@ -93,10 +93,6 @@ interface DataSourceOption {
   arn: string;
   type?: string;
 }
-
-const CANNOT_DESCRIBE =
-  'Could not load this dataset from QuickSight. Uploaded (flat file) datasets have no ' +
-  'queryable specification and cannot be edited here.';
 
 export class DatasetSourceService {
   private readonly quickSightService: QuickSightService;
@@ -278,18 +274,8 @@ export class DatasetSourceService {
     }
   }
 
-  private async describeOrThrow(dataSetId: string): Promise<Record<string, any>> {
-    let current: Record<string, any> | undefined;
-    try {
-      current = await this.quickSightService.describeDataset(dataSetId);
-    } catch (error) {
-      logger.warn('DescribeDataSet failed', { dataSetId, error });
-      throw new ValidationError(CANNOT_DESCRIBE);
-    }
-    if (!current?.PhysicalTableMap || !current?.ImportMode) {
-      throw new ValidationError(CANNOT_DESCRIBE);
-    }
-    return current;
+  private describeOrThrow(dataSetId: string): Promise<Record<string, any>> {
+    return describeDataSetForEdit(this.quickSightService, dataSetId);
   }
 
   private toView(id: string, table: Record<string, any>): DatasetPhysicalTable {

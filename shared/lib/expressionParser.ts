@@ -380,3 +380,46 @@ export function walkExpression(node: ExpressionNode, visit: (node: ExpressionNod
       break;
   }
 }
+
+/** `{name}` tokens outside strings; `${name}` is a parameter. The fallback for text that will not tokenize. */
+const FIELD_TOKEN = /(?<!\$)\{([^{}]+)\}/g;
+
+function fieldTokens(expression: string): Token[] | null {
+  try {
+    return tokenize(expression).filter((t) => t.kind === 'field');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The fields an expression reads, once each, in order: `{name}` tokens,
+ * never a parameter and never text inside a string literal.
+ */
+export function expressionFields(expression: string): string[] {
+  const tokens = fieldTokens(expression);
+  const names = tokens
+    ? tokens.map((t) => t.text)
+    : [...expression.matchAll(FIELD_TOKEN)].map((m) => m[1]!.trim());
+  return [...new Set(names.filter(Boolean))];
+}
+
+/** Rename fields everywhere an expression reads them, leaving strings and parameters alone. */
+export function renameFields(expression: string, renames: Record<string, string>): string {
+  const tokens = fieldTokens(expression);
+  if (!tokens) {
+    return expression.replace(FIELD_TOKEN, (token, raw: string) => {
+      const to = renames[raw.trim()];
+      return to === undefined ? token : `{${to}}`;
+    });
+  }
+  let out = '';
+  let at = 0;
+  for (const token of tokens) {
+    const to = renames[token.text];
+    if (to === undefined) continue;
+    out += `${expression.slice(at, token.start)}{${to}}`;
+    at = token.end;
+  }
+  return at === 0 ? expression : out + expression.slice(at);
+}

@@ -33,8 +33,15 @@ export function placementOf(expression: string): PlacementVerdict {
   return { placement: verdict.materialisable ? 'row-level' : 'query-time', reasons };
 }
 
-/** Column and field names compared the way people write them: case, spaces and underscores ignored. */
+/**
+ * A column or field name as people mean it: case, spaces, separators and
+ * camel-case humps carry no meaning, so `Customer ID`, `customer-id`,
+ * `CustomerId` and `customer_id` are one name.
+ */
+export function normalFieldName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
 export function sameFieldName(a: string, b: string): boolean {
-  const norm = (s: string) => s.toLowerCase().replace(/[\s_-]+/g, '');
-  return norm(a) === norm(b);
+  return normalFieldName(a) === normalFieldName(b);
 }

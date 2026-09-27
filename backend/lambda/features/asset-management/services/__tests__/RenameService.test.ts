@@ -129,7 +129,7 @@ describe('RenameService', () => {
   it('refuses to rename datasets it cannot describe (e.g. flat-file uploads)', async () => {
     mocks.qs.describeDataset.mockResolvedValue(undefined);
 
-    await expect(service.renameAsset('dataset', 'ds-1', 'Name')).rejects.toThrow(/flat-file/);
+    await expect(service.renameAsset('dataset', 'ds-1', 'Name')).rejects.toThrow(/flat file/i);
     expect(mocks.qs.updateDataSet).not.toHaveBeenCalled();
   });
 

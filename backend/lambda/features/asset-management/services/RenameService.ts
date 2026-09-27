@@ -20,7 +20,7 @@
  * Smart Sync re-exports the asset file automatically.
  */
 
-import { resendDataSet } from '../../../shared/services/aws/datasetUpdate';
+import { describeDataSetForEdit, resendDataSet } from '../../../shared/services/aws/datasetUpdate';
 import { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import type { AssetType } from '../../../shared/types/assetTypes';
@@ -138,13 +138,7 @@ export class RenameService {
   }
 
   private async renameDataset(dataSetId: string, name: string): Promise<void> {
-    const current = await this.quickSightService.describeDataset(dataSetId);
-    if (!current?.PhysicalTableMap || !current?.ImportMode) {
-      throw new Error(
-        'Could not load the current dataset specification from QuickSight ' +
-          '(flat-file datasets cannot be described via the API and cannot be renamed here)'
-      );
-    }
+    const current = await describeDataSetForEdit(this.quickSightService, dataSetId);
     await resendDataSet(this.quickSightService, dataSetId, current, { name });
   }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildContextGraph } from '../lib/buildContextGraph';
-import { ContextGraph, entityId, expressionColumnNames, MAX_DEPTH } from '../lib/contextGraph';
+import { ContextGraph, entityId, MAX_DEPTH } from '../lib/contextGraph';
 import type { SearchDocument } from '../types';
 
 function chain(length: number): ContextGraph {
@@ -45,12 +45,6 @@ describe('ContextGraph', () => {
         .sort()
     ).toEqual(['dataset:n2', 'dataset:n4']);
     expect(graph.related('dataset:n0', { direction: 'out', depth: 3, limit: 2 })).toHaveLength(2);
-  });
-
-  it('reads the column names out of an expression', () => {
-    expect(
-      expressionColumnNames("ifelse({status} = 'x', {Net Revenue} - {cost}, 0)").sort()
-    ).toEqual(['Net Revenue', 'cost', 'status']);
   });
 });
 
@@ -123,7 +117,9 @@ describe('field-level lineage', () => {
           expression: '{margin} / {revenue}',
           definedIn: [{ type: 'analysis', id: 'a1', name: 'Sales' }],
         }),
-        doc('visual', 'analysis:a1:v1', 'Share by region'),
+        doc('visual', 'analysis:a1:v1', 'Share by region', {
+          parent: { type: 'analysis', id: 'a1', name: 'Sales' },
+        }),
       ],
       entries: {
         dataset: [
@@ -197,6 +193,14 @@ describe('field-level lineage', () => {
         via: [{ relation: 'derived-from', direction: 'out', note: 'renamed' }],
       }),
     ]);
+  });
+
+  it('a visual names the asset it sits on', () => {
+    expect(lineage().get(entityId('visual', 'analysis:a1:v1'))?.attributes).toMatchObject({
+      assetType: 'analysis',
+      assetId: 'a1',
+      assetName: 'Sales',
+    });
   });
 
   it('answers what a change to a source column touches, three hops up', () => {

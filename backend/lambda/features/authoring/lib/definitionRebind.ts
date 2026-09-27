@@ -14,10 +14,11 @@
  * unique within the definition, and renaming a column does not change that.
  */
 
+import { renameFields } from '../../../../../shared/lib/expressionParser';
 import { ValidationError } from '../../../shared/errors/ValidationError';
 import { canonicalExpression } from '../../../shared/lib/expressionAnalysis';
 import type { AddedCalculatedField } from '../types';
-import { expressionColumns, isColumnIdentifier } from './definitionColumns';
+import { isColumnIdentifier } from './definitionColumns';
 
 export interface RebindSpec {
   identifier: string;
@@ -26,17 +27,9 @@ export interface RebindSpec {
   columnMap?: Record<string, string>;
 }
 
-/** `${param}` is a parameter token; only bare `{column}` tokens are rewritten. */
-const EXPRESSION_COLUMN_TOKEN = /(?<!\$)\{([^{}]+)\}/g;
-
+/** Fields renamed through the map; parameters and text in strings are left alone. */
 export function rewriteExpression(expression: string, columnMap: Record<string, string>): string {
-  if (expressionColumns(expression).every((name) => columnMap[name] === undefined)) {
-    return expression;
-  }
-  return expression.replace(EXPRESSION_COLUMN_TOKEN, (token, rawName: string) => {
-    const mapped = columnMap[rawName.trim()];
-    return mapped === undefined ? token : `{${mapped}}`;
-  });
+  return renameFields(expression, columnMap);
 }
 
 export function renameColumns(

@@ -2,6 +2,7 @@ import { CognitoJwtVerifier } from 'aws-jwt-verify';
 import type { CognitoJwtVerifierSingleUserPool } from 'aws-jwt-verify/cognito-verifier';
 import type { APIGatewayProxyEvent } from 'aws-lambda';
 
+import { errorMessage } from '../../utils/errorMessage';
 import { logger } from '../../utils/logger';
 
 interface AuthResult {
@@ -90,7 +91,7 @@ export class JWTAuth {
       };
     } catch (error) {
       logger.warn('JWT verification failed', {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage(error),
       });
       return {
         authenticated: false,

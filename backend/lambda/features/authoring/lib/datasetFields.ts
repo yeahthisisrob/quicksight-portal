@@ -26,8 +26,8 @@
  */
 import { randomUUID } from 'node:crypto';
 
+import { expressionFields, renameFields } from '../../../../../shared/lib/expressionParser';
 import { ValidationError } from '../../../shared/errors/ValidationError';
-import { expressionColumns } from './definitionColumns';
 
 export type DatasetShape = 'legacy' | 'dataPrep';
 
@@ -116,7 +116,7 @@ export function datasetCalculatedFields(spec: Spec): DatasetCalculatedField[] {
       .filter(
         (other) =>
           other !== column &&
-          expressionColumns(String(other.Expression ?? '')).includes(column.ColumnName)
+          expressionFields(String(other.Expression ?? '')).includes(column.ColumnName)
       )
       .map((other) => other.ColumnName),
     restricted: restricted.has(column.ColumnName),
@@ -181,8 +181,8 @@ function removeKnownReferences(spec: Spec, name: string, replacedBy: string): vo
   const { column, list } = findField(spec, name);
   list.splice(list.indexOf(column), 1);
   for (const other of allColumns(spec)) {
-    if (typeof other.Expression === 'string' && other.Expression.includes(token(name))) {
-      other.Expression = other.Expression.split(token(name)).join(token(replacedBy));
+    if (typeof other.Expression === 'string') {
+      other.Expression = renameFields(other.Expression, { [name]: replacedBy });
     }
   }
   for (const op of operations(spec)) {

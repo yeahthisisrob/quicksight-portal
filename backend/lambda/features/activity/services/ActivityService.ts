@@ -13,6 +13,7 @@ import type { GroupService } from '../../../shared/services/organization/GroupSe
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES, type AssetType } from '../../../shared/types/assetTypes';
 import { pLimit } from '../../../shared/utils/concurrency';
+import { errorMessage } from '../../../shared/utils/errorMessage';
 import { logger } from '../../../shared/utils/logger';
 import {
   describeActor,
@@ -1365,7 +1366,7 @@ export class ActivityService {
           return;
         }
         failedEventNames.push(eventName);
-        const message = error instanceof Error ? error.message : String(error);
+        const message = errorMessage(error);
         logger.warn(`CloudTrail fetch failed for ${eventName}; continuing`, { error: message });
         onEventNameProgress?.({
           eventName,

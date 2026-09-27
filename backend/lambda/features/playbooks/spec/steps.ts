@@ -4,7 +4,10 @@
  * run in order and share what they found: a match step's matches are what
  * a rebind step rebinds and a tag step tags.
  */
+
+import { normalFieldName } from '../../../../../shared/lib/expressionPlacement';
 import { repairErrors } from '../catalog/repairErrors';
+import { authoringPath } from '../portalPaths';
 import type { ItemPlan, PlaybookContext, PlaybookTarget } from '../types';
 import { applyFieldOps, planDropUnused, planRenameToStandard } from './calcHygiene';
 import { applyRenameDatasetCalcs, planRenameDatasetCalcs } from './datasetCalcNames';
@@ -50,10 +53,6 @@ const OFFERED = 3;
 const DEFAULT_MIN_CONFIDENCE = 0.8;
 
 /** Names that differ only in case, spacing or separators are the same column. */
-const normalName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-const assetPath = (t: PlaybookTarget) =>
-  `/api/authoring/${t.assetType}/${encodeURIComponent(t.assetId)}`;
 
 /** Candidates ordered by how many name words they share with the dataset being replaced. */
 function closestFirst<T extends { name: string }>(candidates: T[], name: string): T[] {
@@ -71,11 +70,11 @@ function closestFirst<T extends { name: string }>(candidates: T[], name: string)
 
 /** How well a candidate's columns cover the used ones, and the renames exact names need. */
 function coverage(used: string[], columns: Array<{ name: string }>) {
-  const byNormal = new Map(columns.map((c) => [normalName(c.name), c.name]));
+  const byNormal = new Map(columns.map((c) => [normalFieldName(c.name), c.name]));
   const columnMap: Record<string, string> = {};
   const missing: string[] = [];
   for (const name of used) {
-    const found = byNormal.get(normalName(name));
+    const found = byNormal.get(normalFieldName(name));
     if (!found) missing.push(name);
     else if (found !== name) columnMap[name] = found;
   }
@@ -103,7 +102,7 @@ async function planMatch(
     (!engine || c.engines.includes(engine)) && (!governed || c.governed);
 
   const [definition, candidates] = await Promise.all([
-    ctx.call<DefinitionDatasets>('GET', `${assetPath(target)}/datasets`),
+    ctx.call<DefinitionDatasets>('GET', `${authoringPath(target)}/datasets`),
     session.candidates(),
   ]);
   const byId = new Map(candidates.map((c) => [c.id, c]));
@@ -217,7 +216,7 @@ async function planRebind(
   const plan = await ctx.call<{
     canApply: boolean;
     datasets: Array<{ identifier: string; columns: Array<{ name: string; status: string }> }>;
-  }>('POST', `${assetPath(target)}/rebind/plan`, { rebinds });
+  }>('POST', `${authoringPath(target)}/rebind/plan`, { rebinds });
   const changes = state.matches.map((m) => `Rebind ${m.identifier}: ${m.from.name} → ${m.to.name}`);
   if (!plan.canApply) {
     const missing = plan.datasets.flatMap((d) =>
@@ -373,7 +372,7 @@ export async function applyStep(
       const { rebinds } = plan.data as { rebinds: unknown[] };
       const result = await ctx.call<{ versionNumber?: number }>(
         'POST',
-        `${assetPath(target)}/rebind`,
+        `${authoringPath(target)}/rebind`,
         {
           mode: 'update',
           rebinds,

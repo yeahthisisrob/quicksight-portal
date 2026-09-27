@@ -12,10 +12,10 @@ import { type ContextHit, contextApi } from '@/shared/api/modules/search';
 const TRACE_DEPTH = 3;
 const TRACE_LIMIT = 200;
 
-/** The asset a visual sits on, from its summary ("... of analysis Sales"). */
+/** The analysis or dashboard a visual sits on. */
 function visualAsset(hit: ContextHit): string {
-  const match = / of (analysis|dashboard) (.+?)(, using|$)/.exec(hit.summary ?? '');
-  return match ? `${match[1]} ${match[2]}` : 'another asset';
+  const { assetType, assetName } = hit.attributes ?? {};
+  return assetName ? `${assetType} ${assetName}` : 'another asset';
 }
 
 export function FieldTrace({ entityId }: { entityId: string }) {

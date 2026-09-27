@@ -4,6 +4,7 @@
  */
 import { EventEmitter } from 'node:events';
 
+import { metadataBucketName } from '../../config/metadataBucket';
 import { CACHE_CONFIG, STATUS_CODES } from '../../constants';
 import type { AssetType, CacheEntry, MasterCache } from '../../models/asset.model';
 import {
@@ -72,7 +73,7 @@ export class CacheService extends EventEmitter {
 
     // Get bucket name from environment
     const accountId = process.env.AWS_ACCOUNT_ID || '';
-    this.bucketName = process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`;
+    this.bucketName = metadataBucketName(accountId);
 
     // Initialize reader and writer services
     this.cacheReader = new CacheReader(this.s3Adapter, this.memoryAdapter);

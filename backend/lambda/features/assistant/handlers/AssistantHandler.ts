@@ -7,6 +7,7 @@ import {
   isAiModelKey,
 } from '../../../shared/ai/modelCatalog';
 import { actorLabel, requireAuth } from '../../../shared/auth';
+import { metadataBucketName } from '../../../shared/config/metadataBucket';
 import { STATUS_CODES } from '../../../shared/constants';
 import { jobFactory } from '../../../shared/services/jobs/JobFactory';
 import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
@@ -108,7 +109,7 @@ export async function chat(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
     const queued = await jobFactory.createJob({
       jobType: 'assistant',
       accountId,
-      bucketName: process.env.BUCKET_NAME || `quicksight-metadata-bucket-${accountId}`,
+      bucketName: metadataBucketName(accountId),
       userId: user.userId,
       startedBy: actorLabel(user),
       model,

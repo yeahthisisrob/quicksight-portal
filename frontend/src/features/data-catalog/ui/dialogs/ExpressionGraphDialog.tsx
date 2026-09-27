@@ -25,7 +25,7 @@ import { EvaluationOrder, FieldKindChip } from '@/entities/field';
 
 import type { CatalogDataset, DatasetCatalogField } from '@/shared/api/modules/data-catalog';
 import { pal } from '@/shared/design-system';
-import { classifyFields, type ExpressionVerdict, functionNamed } from '@/shared/lib';
+import { classifyFields, type ExpressionVerdict, functionSpans } from '@/shared/lib';
 
 interface ExpressionGraphDialogProps {
   open: boolean;
@@ -39,28 +39,19 @@ const MAX_DEPTH = 8;
 
 /** Function names in an expression become links to the QuickSight docs. */
 function expressionWithDocLinks(expression: string): React.ReactNode[] {
-  const pattern = /\b(\w+)\s*(\()/g;
   const parts: React.ReactNode[] = [];
   let last = 0;
-  let match: RegExpExecArray | null = pattern.exec(expression);
-  while (match !== null) {
-    const [, name, paren] = match;
-    if (match.index > last) parts.push(expression.slice(last, match.index));
-    const href = functionNamed(name ?? '')?.docUrl;
+  for (const span of functionSpans(expression)) {
+    if (!span.docUrl) continue;
+    parts.push(expression.slice(last, span.start));
     parts.push(
-      href ? (
-        <a key={match.index} href={href} target="_blank" rel="noopener noreferrer">
-          {name}
-        </a>
-      ) : (
-        name
-      )
+      <a key={span.start} href={span.docUrl} target="_blank" rel="noopener noreferrer">
+        {span.name}
+      </a>
     );
-    parts.push(paren);
-    last = pattern.lastIndex;
-    match = pattern.exec(expression);
+    last = span.end;
   }
-  if (last < expression.length) parts.push(expression.slice(last));
+  parts.push(expression.slice(last));
   return parts;
 }
 

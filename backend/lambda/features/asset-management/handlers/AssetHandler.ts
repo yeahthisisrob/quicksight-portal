@@ -1,6 +1,7 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { actorLabel, requireAuth } from '../../../shared/auth';
+import { metadataBucketName } from '../../../shared/config/metadataBucket';
 import { PAGINATION, STATUS_CODES } from '../../../shared/constants';
 import { actorFromAuth, auditLog } from '../../../shared/services/audit/AuditLog';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
@@ -30,7 +31,7 @@ export class AssetHandler {
   public constructor() {
     this.accountId = process.env.AWS_ACCOUNT_ID || '';
     this.assetService = new AssetService(this.accountId);
-    this.bucketName = process.env.BUCKET_NAME || `quicksight-metadata-bucket-${this.accountId}`;
+    this.bucketName = metadataBucketName(this.accountId);
 
     // Initialize bulk operations service for all bulk operations
     this.bulkOperationsService = new BulkOperationsService(this.accountId);

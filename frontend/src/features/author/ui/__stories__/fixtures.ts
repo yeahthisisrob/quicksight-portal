@@ -640,13 +640,15 @@ function datasetRoutes(): MockRoute[] {
               'visual:dashboard:sales-overview:v1',
               'visual',
               'Revenue by region',
-              'visual: Revenue by region, a bar chart on Overview of dashboard Sales overview, using revenue'
+              'visual: Revenue by region, a bar chart on Overview of dashboard Sales overview, using revenue',
+              { assetType: 'dashboard', assetId: 'sales-overview', assetName: 'Sales overview' }
             ),
             hit(
               'visual:analysis:pipeline-review:v2',
               'visual',
               'Margin trend',
-              'visual: Margin trend, a line chart on Trends of analysis Pipeline review, using c_ds_margin'
+              'visual: Margin trend, a line chart on Trends of analysis Pipeline review, using c_ds_margin',
+              { assetType: 'analysis', assetId: 'pipeline-review', assetName: 'Pipeline review' }
             ),
           ];
           return { body: { success: true, data: { from: 'x', hits } } };

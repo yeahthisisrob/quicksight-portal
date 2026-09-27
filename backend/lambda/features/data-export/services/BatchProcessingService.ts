@@ -9,6 +9,7 @@ import { EXPORT_CONFIG } from '../../../shared/config/exportConfig';
 import { LOGGING_CONFIG } from '../../../shared/constants';
 import type { S3Service } from '../../../shared/services/aws/S3Service';
 import type { JobStateService } from '../../../shared/services/jobs/JobStateService';
+import { errorMessage } from '../../../shared/utils/errorMessage';
 import { logger } from '../../../shared/utils/logger';
 import {
   BaseAssetProcessor,
@@ -163,7 +164,7 @@ export class BatchProcessingService {
       assetId: asset.id,
       assetName: asset.name,
       status: 'error',
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
       processingTimeMs: 0,
       timing: {
         startTime: Date.now(),
@@ -192,7 +193,7 @@ export class BatchProcessingService {
         errors.push({
           assetId: 'BATCH_FLUSH',
           assetName: `${assetType} collection flush`,
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage(error),
           timestamp: new Date().toISOString(),
         });
       }

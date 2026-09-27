@@ -15,6 +15,7 @@
  * calculated field's own name is never mistaken for a dataset column.
  */
 
+import { expressionFields } from '../../../../../shared/lib/expressionParser';
 import type { ColumnUsage, ColumnUsageSite, DefinitionDataset, ReferencedColumn } from '../types';
 
 /** Top-level definition keys and the usage site they represent. */
@@ -26,12 +27,6 @@ const SECTION_SITES: Record<string, ColumnUsageSite> = {
 
 /** Keys inside a sheet that hold controls rather than visuals. */
 const SHEET_CONTROL_KEYS = new Set(['FilterControls', 'ParameterControls', 'SheetControlLayouts']);
-
-/**
- * `{name}` tokens in a calculated-field expression. `${name}` is a parameter
- * and is skipped by the negative lookbehind.
- */
-const EXPRESSION_COLUMN_TOKEN = /(?<!\$)\{([^{}]+)\}/g;
 
 interface ColumnIdentifier {
   DataSetIdentifier: string;
@@ -49,18 +44,6 @@ export function isColumnIdentifier(node: unknown): node is ColumnIdentifier {
 
 export function emptyUsage(): ColumnUsage {
   return { visual: 0, filter: 0, calculatedField: 0, parameter: 0, control: 0, other: 0 };
-}
-
-/** Column names an expression refers to, in order of first appearance. */
-export function expressionColumns(expression: string): string[] {
-  const names: string[] = [];
-  for (const match of expression.matchAll(EXPRESSION_COLUMN_TOKEN)) {
-    const name = match[1]?.trim();
-    if (name && !names.includes(name)) {
-      names.push(name);
-    }
-  }
-  return names;
 }
 
 /**
@@ -184,7 +167,7 @@ export function collectDefinitionDatasets(definition: unknown): DefinitionDatase
 
   for (const [identifier, fields] of calculated) {
     for (const field of fields) {
-      for (const name of expressionColumns(field.Expression ?? '')) {
+      for (const name of expressionFields(field.Expression ?? '')) {
         record(identifier, name, 'calculatedField');
       }
     }
@@ -245,7 +228,7 @@ export function unresolvedCalculatedFieldColumns(
       ...(existing.get(field.identifier) ?? []).map((f) => f.Name ?? ''),
       ...fields.filter((f) => f.identifier === field.identifier).map((f) => f.name),
     ]);
-    const missing = expressionColumns(field.expression).filter((name) => !known.has(name));
+    const missing = expressionFields(field.expression).filter((name) => !known.has(name));
     if (missing.length > 0) {
       out.push({ identifier: field.identifier, name: field.name, columns: missing });
     }
