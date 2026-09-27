@@ -97,9 +97,17 @@ Relations read subject to object:
 | `reads-column` | calculated-field | listing-column |
 | `in-asset` | visual | analysis, dashboard |
 | `in-folder` | asset | folder |
+| `column-of` | dataset-column | dataset |
+| `derived-from` | dataset-column | the parent dataset's column, or the listing-column it carries (followed through renames) |
+| `reads-field` | calculated-field | dataset-column, calculated-field |
+| `shows` | visual | dataset-column, calculated-field |
 
 `direction=in` follows a relation backwards: the datasets that read a
-listing, the dashboards that use a dataset. `depth` goes up to three hops.
+listing, the dashboards that use a dataset. Field lineage works the same
+way: from a dataset column, `relations=reads-field,shows&direction=in&depth=3`
+is everything a change to it touches; from a visual,
+`relations=shows,reads-field,derived-from&direction=out&depth=3` traces it
+to its source columns. `depth` goes up to three hops.
 Every hit carries the path that reached it. `/api/search` and
 `/api/context/search` both take `projectId` to keep to one SMUS project.
 Without SMUS the graph still holds everything QuickSight knows; only the

@@ -10,36 +10,11 @@
  * The chat model briefs; the authoring model drafts the build (through the
  * planner), so the stronger model does the creative work.
  */
+import { CONTEXT_ENTITY_TYPES, CONTEXT_RELATIONS } from '../../../shared/types/contextGraph';
 import type { ChatTool } from './ChatModel';
 
-const ENTITY_TYPES = [
-  'project',
-  'listing',
-  'listing-column',
-  'glossary-term',
-  'datasource',
-  'dataset',
-  'calculated-field',
-  'analysis',
-  'dashboard',
-  'visual',
-  'template',
-  'folder',
-];
-
-const RELATIONS = [
-  'in-project',
-  'has-column',
-  'tagged',
-  'reads-listing',
-  'through-datasource',
-  'exposes',
-  'uses-dataset',
-  'defined-in',
-  'reads-column',
-  'in-asset',
-  'in-folder',
-];
+const ENTITY_TYPES = [...CONTEXT_ENTITY_TYPES];
+const RELATIONS = [...CONTEXT_RELATIONS];
 
 export const ASSISTANT_TOOLS: ChatTool[] = [
   {
@@ -81,7 +56,7 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
   {
     name: 'context_related',
     description:
-      "Follow an entity's relationships, up to three hops. Relations read subject -> object: listing in-project project; listing has-column listing-column; listing tagged glossary-term; dataset reads-listing listing; dataset through-datasource datasource; dataset exposes listing-column; analysis|dashboard uses-dataset dataset; calculated-field defined-in asset; calculated-field reads-column listing-column; visual in-asset asset; asset in-folder folder. Use direction 'in' to go the other way (the datasets that read a listing: listing, relations reads-listing, direction in).",
+      "Follow an entity's relationships, up to three hops. Relations read subject -> object: listing in-project project; listing has-column listing-column; listing tagged glossary-term; dataset reads-listing listing; dataset through-datasource datasource; dataset exposes listing-column; analysis|dashboard uses-dataset dataset; calculated-field defined-in asset; calculated-field reads-column listing-column; visual in-asset asset; asset in-folder folder. Field lineage: dataset-column column-of dataset; dataset-column derived-from the parent dataset's column or the listing-column it carries (through renames); calculated-field reads-field dataset-column|calculated-field; visual shows dataset-column|calculated-field. Use direction 'in' to go the other way (the datasets that read a listing: listing, relations reads-listing, direction in; everything a change to a column touches: the dataset-column, relations reads-field,shows, direction in, depth 3).",
     inputSchema: {
       type: 'object',
       properties: {

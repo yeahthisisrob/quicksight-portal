@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { dataTransformsOf, isNewDataPrep, parentDataSetArnsOf } from '../dataPrepTransforms';
+import {
+  dataTransformsOf,
+  isNewDataPrep,
+  parentDataSetArnsOf,
+  sourceColumnNames,
+} from '../dataPrepTransforms';
 
 const NEW_EXPERIENCE = {
   OutputColumns: [{ Name: 'revenue', Type: 'DECIMAL' }],
@@ -105,5 +110,23 @@ describe('parentDataSetArnsOf', () => {
   it('is empty for a legacy dataset', () => {
     expect(parentDataSetArnsOf({ LogicalTableMap: {} })).toEqual([]);
     expect(parentDataSetArnsOf(undefined)).toEqual([]);
+  });
+});
+
+describe('sourceColumnNames', () => {
+  it('follows chained renames back to the first name, in either experience', () => {
+    const legacy = {
+      LogicalTableMap: {
+        l1: {
+          DataTransforms: [
+            { RenameColumnOperation: { ColumnName: 'amt', NewColumnName: 'amount' } },
+            { RenameColumnOperation: { ColumnName: 'amount', NewColumnName: 'revenue' } },
+            { CastColumnTypeOperation: { ColumnName: 'revenue', NewColumnType: 'DECIMAL' } },
+          ],
+        },
+      },
+    };
+    expect([...sourceColumnNames(legacy)]).toEqual([['revenue', 'amt']]);
+    expect(sourceColumnNames(NEW_EXPERIENCE).get('units')).toBe('qty');
   });
 });

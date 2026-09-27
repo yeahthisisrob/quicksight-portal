@@ -14,6 +14,8 @@ export interface Field {
   dataType?: string;
   type?: string; // Frontend compatibility
   dataSetIdentifier?: string;
+  /** A dataset column's name before the dataset renamed it. */
+  columnName?: string;
 }
 
 export interface VisualFieldMapping {

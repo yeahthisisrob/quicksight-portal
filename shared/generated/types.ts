@@ -555,6 +555,11 @@ export interface paths {
          *     exposes listing-column; analysis or dashboard uses-dataset dataset;
          *     calculated-field defined-in asset; calculated-field reads-column
          *     listing-column; visual in-asset asset; asset in-folder folder.
+         *     Field lineage: dataset-column column-of dataset; dataset-column
+         *     derived-from the parent dataset's column or the listing-column it
+         *     carries (through renames); calculated-field reads-field
+         *     dataset-column or calculated-field; visual shows dataset-column or
+         *     calculated-field.
          *     `direction=in` follows them backwards (the datasets that read a
          *     listing).
          */
@@ -5445,9 +5450,9 @@ export interface components {
             indexedAt: string;
         };
         /** @enum {string} */
-        ContextEntityType: "project" | "listing" | "listing-column" | "glossary-term" | "datasource" | "dataset" | "calculated-field" | "analysis" | "dashboard" | "visual" | "template" | "folder";
+        ContextEntityType: "project" | "listing" | "listing-column" | "glossary-term" | "datasource" | "dataset" | "dataset-column" | "calculated-field" | "analysis" | "dashboard" | "visual" | "template" | "folder";
         /** @enum {string} */
-        ContextRelation: "in-project" | "has-column" | "tagged" | "reads-listing" | "through-datasource" | "exposes" | "uses-dataset" | "defined-in" | "reads-column" | "in-asset" | "in-folder";
+        ContextRelation: "in-project" | "has-column" | "tagged" | "reads-listing" | "through-datasource" | "exposes" | "uses-dataset" | "defined-in" | "reads-column" | "in-asset" | "in-folder" | "column-of" | "derived-from" | "reads-field" | "shows";
         ContextEntity: {
             id: string;
             type: components["schemas"]["ContextEntityType"];

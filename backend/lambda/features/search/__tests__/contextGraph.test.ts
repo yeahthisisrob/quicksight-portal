@@ -92,3 +92,124 @@ describe('buildContextGraph', () => {
     expect(attrs('k4')).toMatchObject({ kind: 'lac-w', calcLevel: 'PRE_FILTER' });
   });
 });
+
+describe('field-level lineage', () => {
+  const doc = (type: string, id: string, name: string, extra: Record<string, unknown> = {}) =>
+    ({
+      type,
+      id,
+      name,
+      columns: [],
+      calculatedFields: [],
+      tags: [],
+      context: [],
+      summary: name,
+      path: '',
+      ...extra,
+    }) as unknown as SearchDocument;
+
+  /** gold (amt) <- orders (revenue, renamed from amt; margin) <- analysis Sales (share) <- a visual. */
+  function lineage() {
+    return buildContextGraph({
+      docs: [
+        doc('dataset', 'gold', 'orders_gold'),
+        doc('dataset', 'orders', 'orders'),
+        doc('analysis', 'a1', 'Sales'),
+        doc('calculated-field', 'k-margin', 'margin', {
+          expression: '{revenue} - {cost}',
+          definedIn: [{ type: 'dataset', id: 'orders', name: 'orders' }],
+        }),
+        doc('calculated-field', 'k-share', 'share', {
+          expression: '{margin} / {revenue}',
+          definedIn: [{ type: 'analysis', id: 'a1', name: 'Sales' }],
+        }),
+        doc('visual', 'analysis:a1:v1', 'Share by region'),
+      ],
+      entries: {
+        dataset: [
+          { assetId: 'gold', metadata: {} },
+          { assetId: 'orders', metadata: { lineageData: { datasetIds: ['gold'] } } },
+        ],
+        analysis: [{ assetId: 'a1', metadata: { lineageData: { datasetIds: ['orders'] } } }],
+      },
+      listings: [],
+      calculatedFields: new Map([
+        [
+          'k-margin',
+          {
+            expression: '{revenue} - {cost}',
+            definedIn: [{ type: 'dataset', id: 'orders', name: 'orders' }],
+          },
+        ],
+        [
+          'k-share',
+          {
+            expression: '{margin} / {revenue}',
+            definedIn: [{ type: 'analysis', id: 'a1', name: 'Sales' }],
+          },
+        ],
+      ]),
+      visuals: new Map([
+        [
+          'analysis:a1:v1',
+          {
+            asset: { type: 'analysis', id: 'a1' },
+            fields: new Map([
+              ['share', undefined],
+              ['region', 'orders'],
+            ]),
+          },
+        ],
+      ]),
+      columns: [
+        { datasetId: 'gold', name: 'amt' },
+        { datasetId: 'gold', name: 'cost' },
+        { datasetId: 'orders', name: 'revenue', sourceName: 'amt' },
+        { datasetId: 'orders', name: 'cost' },
+        { datasetId: 'orders', name: 'region' },
+      ],
+      calcDatasets: new Map([['analysis:a1:share', 'orders']]),
+    });
+  }
+
+  const names = (hits: Array<{ entity: { id: string } }>) => hits.map((h) => h.entity.id).sort();
+
+  it('traces a visual down to the source column, through fields and a rename', () => {
+    const graph = lineage();
+    const visual = entityId('visual', 'analysis:a1:v1');
+    expect(names(graph.related(visual, { relations: ['shows'], direction: 'out' }))).toEqual([
+      'calculated-field:k-share',
+      'dataset-column:orders/region',
+    ]);
+    expect(
+      names(
+        graph.related('calculated-field:k-share', { relations: ['reads-field'], direction: 'out' })
+      )
+    ).toEqual(['calculated-field:k-margin', 'dataset-column:orders/revenue']);
+    expect(
+      graph.related('dataset-column:orders/revenue', {
+        relations: ['derived-from'],
+        direction: 'out',
+      })
+    ).toEqual([
+      expect.objectContaining({
+        entity: expect.objectContaining({ id: 'dataset-column:gold/amt' }),
+        via: [{ relation: 'derived-from', direction: 'out', note: 'renamed' }],
+      }),
+    ]);
+  });
+
+  it('answers what a change to a source column touches, three hops up', () => {
+    const graph = lineage();
+    const touched = graph.related('dataset-column:orders/revenue', {
+      relations: ['reads-field', 'shows'],
+      direction: 'in',
+      depth: 3,
+    });
+    expect(names(touched)).toEqual([
+      'calculated-field:k-margin',
+      'calculated-field:k-share',
+      'visual:analysis:a1:v1',
+    ]);
+  });
+});

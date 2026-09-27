@@ -56,10 +56,10 @@ export const PARITY_ROWS: ParityRow[] = [
   },
   {
     capability: 'Field-level lineage',
-    portal: { level: 'partial', note: 'Fields to governed columns, by name' },
+    portal: { level: 'yes', note: 'Source column to visual' },
     aws: { level: 'no', note: 'None in QuickSight' },
     detail:
-      'To close: every dataset column traced through renames and casts to its source column, each calculated field to the fields it reads, and each visual and filter to the fields it shows, so a person or an agent sees what a change touches before making it.',
+      'Every dataset column is traced through renames to the parent dataset column or the governed listing column, each calculated field to what it reads, and each visual to the fields it shows. Open a column or field in the Studio to see what a change touches; agents follow the same relations in the context graph.',
   },
   {
     capability: 'Calculated fields as metadata',

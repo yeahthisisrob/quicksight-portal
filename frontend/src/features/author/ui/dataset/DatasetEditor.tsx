@@ -11,8 +11,10 @@ import {
   AlertTitle,
   Box,
   Button,
+  ButtonBase,
   Chip,
   CircularProgress,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -29,6 +31,7 @@ import {
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
+import type React from 'react';
 import { useMemo, useState } from 'react';
 
 import { DatasetSourceTables, useDatasetSourceDraft } from '@/entities/dataset';
@@ -42,8 +45,9 @@ import { announceAssetChanges } from '@/shared/lib/assetChanges';
 import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 
 import { Panel } from '../primitives/Panel';
+import { FieldTrace } from './FieldTrace';
 
-const RELATED_LIMIT = 100;
+const RELATED_LIMIT = 200;
 
 function idOf(hit: ContextHit): string {
   return hit.entityId.slice(hit.entityId.indexOf(':') + 1);
@@ -109,6 +113,26 @@ function ReadersPanel({
   );
 }
 
+/** A field that opens to its lineage: where it comes from, what a change touches. */
+function TracedField({ hit, children }: { hit: ContextHit; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Box>
+      <ButtonBase
+        onClick={() => setOpen((o) => !o)}
+        sx={{ display: 'block', width: '100%', textAlign: 'left', borderRadius: 1 }}
+      >
+        {children}
+      </ButtonBase>
+      <Collapse in={open} unmountOnExit>
+        <Box sx={{ pl: 1.5, borderLeft: 2, borderColor: 'divider', mt: 0.5 }}>
+          <FieldTrace entityId={hit.entityId} />
+        </Box>
+      </Collapse>
+    </Box>
+  );
+}
+
 function CalculatedFieldsPanel({ datasetId }: { datasetId: string }) {
   const fields = useRelated(datasetId, 'defined-in', ['calculated-field']);
   const hits = fields.data?.hits ?? [];
@@ -121,12 +145,15 @@ function CalculatedFieldsPanel({ datasetId }: { datasetId: string }) {
   );
   if (fields.isLoading || hits.length === 0) return null;
   return (
-    <Panel title={`Calculated fields (${hits.length})`}>
+    <Panel
+      title={`Calculated fields (${hits.length})`}
+      description="Open one to see where it comes from and what a change touches."
+    >
       <Stack spacing={1}>
         {hits.map((hit) => {
           const verdict = verdicts.get(hit.name);
           return (
-            <Box key={hit.entityId}>
+            <TracedField key={hit.entityId} hit={hit}>
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                 <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'monospace' }}>
                   {hit.name}
@@ -139,9 +166,41 @@ function CalculatedFieldsPanel({ datasetId }: { datasetId: string }) {
               >
                 {hit.summary}
               </Typography>
-            </Box>
+            </TracedField>
           );
         })}
+      </Stack>
+    </Panel>
+  );
+}
+
+function ColumnsPanel({ datasetId }: { datasetId: string }) {
+  const columns = useRelated(datasetId, 'column-of', ['dataset-column']);
+  const hits = columns.data?.hits ?? [];
+  if (columns.isLoading || hits.length === 0) return null;
+  return (
+    <Panel
+      title={`Columns (${hits.length})`}
+      description="Open one to trace it to its source and see what a change to it touches."
+    >
+      <Stack spacing={0.5}>
+        {hits.map((hit) => (
+          <TracedField key={hit.entityId} hit={hit}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline' }}>
+              <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                {hit.name}
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {[
+                  hit.attributes?.dataType,
+                  hit.attributes?.sourceName && `from ${hit.attributes.sourceName}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Typography>
+            </Stack>
+          </TracedField>
+        ))}
       </Stack>
     </Panel>
   );
@@ -293,6 +352,7 @@ export function DatasetEditor({
         <Stack spacing={2}>
           <ReadersPanel datasetId={dataset.id} onOpen={onOpen} />
           <GovernancePanel datasetId={dataset.id} />
+          <ColumnsPanel datasetId={dataset.id} />
           <CalculatedFieldsPanel datasetId={dataset.id} />
         </Stack>
       </Box>

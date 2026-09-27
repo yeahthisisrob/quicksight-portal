@@ -10,20 +10,9 @@
  *
  * Pure: data in, graph out. No I/O.
  */
+import type { ContextEntityType, ContextRelation } from '../../../shared/types/contextGraph';
 
-export type EntityType =
-  | 'project'
-  | 'listing'
-  | 'listing-column'
-  | 'glossary-term'
-  | 'datasource'
-  | 'dataset'
-  | 'calculated-field'
-  | 'analysis'
-  | 'dashboard'
-  | 'visual'
-  | 'template'
-  | 'folder';
+export type EntityType = ContextEntityType;
 
 /**
  * Relations read from the subject to the object:
@@ -38,19 +27,12 @@ export type EntityType =
  *   calculated-field reads-column listing-column
  *   visual in-asset analysis|dashboard
  *   analysis|dashboard|dataset in-folder folder
+ *   dataset-column column-of dataset
+ *   dataset-column derived-from dataset-column|listing-column  (through renames)
+ *   calculated-field reads-field dataset-column|calculated-field
+ *   visual shows dataset-column|calculated-field
  */
-export type Relation =
-  | 'in-project'
-  | 'has-column'
-  | 'tagged'
-  | 'reads-listing'
-  | 'through-datasource'
-  | 'exposes'
-  | 'uses-dataset'
-  | 'defined-in'
-  | 'reads-column'
-  | 'in-asset'
-  | 'in-folder';
+export type Relation = ContextRelation;
 
 interface ContextEntity {
   /** `${type}:${key}`, stable across rebuilds. */
