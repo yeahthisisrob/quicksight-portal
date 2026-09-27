@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.31.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.30.0...v2.31.0) (2026-09-27)
+
+
+### Features
+
+* **expressions:** a light parser and classifier for calculated fields, from the AWS function reference ([#268](https://github.com/yeahthisisrob/quicksight-portal/issues/268)) ([6cf6a82](https://github.com/yeahthisisrob/quicksight-portal/commit/6cf6a82a842cfba22a6392bc19e7df3efdfc23fe))
+* **lineage:** field-level lineage from source column to visual, in the graph and the Studio ([#269](https://github.com/yeahthisisrob/quicksight-portal/issues/269)) ([1ecb227](https://github.com/yeahthisisrob/quicksight-portal/commit/1ecb22769e23f0ea3be9a47fb0cf5e4d45b3b11b))
+* **parity:** every row opens to one sentence, and expression kinds join the matrix ([#266](https://github.com/yeahthisisrob/quicksight-portal/issues/266)) ([7b8b120](https://github.com/yeahthisisrob/quicksight-portal/commit/7b8b120241c097d962dd0b6987d4315e0ea57a86))
+* **parity:** field-level lineage row ([#267](https://github.com/yeahthisisrob/quicksight-portal/issues/267)) ([0458a18](https://github.com/yeahthisisrob/quicksight-portal/commit/0458a18a7565b833d4f5495670c938c9fab58fea))
+
+
+### Bug Fixes
+
+* **parity:** a compact matrix with gaps on both sides ([#264](https://github.com/yeahthisisrob/quicksight-portal/issues/264)) ([260b2e9](https://github.com/yeahthisisrob/quicksight-portal/commit/260b2e956aa5ebddc34db159a167e85498c221a9))
+* **parity:** archive, restore and history row states dashboard versions, console-only dataset versions and asset bundles ([#262](https://github.com/yeahthisisrob/quicksight-portal/issues/262)) ([e53cf17](https://github.com/yeahthisisrob/quicksight-portal/commit/e53cf17c88281a23e058d6b66a6acd533901b516))
+* **parity:** themes across assets, and the rule for what earns a row ([#265](https://github.com/yeahthisisrob/quicksight-portal/issues/265)) ([91710fb](https://github.com/yeahthisisrob/quicksight-portal/commit/91710fb307d7b9c7ceb1ae7a6e146d271a05e5d3))
+
 ## [2.30.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.29.0...v2.30.0) (2026-09-26)
 
 
