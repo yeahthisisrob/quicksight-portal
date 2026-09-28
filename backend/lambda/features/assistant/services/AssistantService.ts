@@ -26,12 +26,20 @@ import { bodyErrors, bodyFields, matchOperation, queryErrors } from '../../../sh
 import type { TagStandard } from '../../../shared/tags/tagStandards';
 import { errorMessage } from '../../../shared/utils/errorMessage';
 import { logger } from '../../../shared/utils/logger';
-import { contextGet, contextRelated, contextSearch, datasetColumns } from '../lib/contextTools';
 import {
-  filtersOf,
+  contextGet,
+  contextRelated,
+  contextSearch,
+  datasetColumns,
+  entityNames,
+} from '../lib/contextTools';
+import {
+  builtFilters,
   judgeFields,
   type PlanTarget,
   parsePlan,
+  resolveLineage,
+  unbuiltClaims,
   verdictsMessage,
   writeOf,
 } from '../lib/planning';
@@ -114,6 +122,12 @@ interface Collected {
   helpers: NonNullable<AssistantChatResult['helpers']>;
   /** Questions to the person; the run ends once one is asked (AG-UI interrupt). */
   interrupts: AgUiInterrupt[];
+  /**
+   * What each preview artifact of this answer built, by its id. A plan and
+   * the write it prepares name their preview by id, so what the person
+   * sees under Run is that write's own preview, never merely the latest.
+   */
+  previews: Map<string, unknown>;
 }
 
 const MAX_OPTIONS = 12;
@@ -182,6 +196,27 @@ export function describeBuilt(data: any): string | undefined {
   return `${visuals} visual${visuals === 1 ? '' : 's'}; ${controls.length ? `controls: ${controls.join(', ')}` : 'no filter controls'}`;
 }
 
+/** The `data` of a portal answer, when it has one. */
+function dataOf(body: string): any {
+  try {
+    return JSON.parse(body)?.data;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Why a preview's result means the write would not go through; empty when it would. */
+function previewProblem(data: any): string | undefined {
+  if (data?.canRestore === false) {
+    const blocking = (data.checks ?? []).filter((c: any) => c?.blocking && !c?.ok);
+    return `The restore cannot go ahead:\n${blocking.map((c: any) => `- ${c.label}: ${c.detail}`).join('\n')}\nTell the person what stands in the way, or fix it (a new id, say) and prepare it again.`;
+  }
+  if (data?.canApply === false) {
+    return `The preview says QuickSight would refuse this as it stands:\n${clip(JSON.stringify({ issues: data.issues, warnings: data.warnings, summary: data.summary }))}\nFix it and prepare it again.`;
+  }
+  return undefined;
+}
+
 export class AssistantService {
   /** Plans drawn in earlier answers (the page's working state), for prepare_plan. */
   private earlierPlans: NonNullable<NonNullable<RunInput['state']>['plans']> = [];
@@ -210,7 +245,14 @@ export class AssistantService {
           ? { role: 'user', text: m.text.slice(0, MAX_MESSAGE_CHARS) }
           : { role: 'assistant', text: m.text.slice(0, MAX_MESSAGE_CHARS), toolCalls: [] }
       );
-    const out: Collected = { calls: [], actions: [], artifacts: [], helpers: [], interrupts: [] };
+    const out: Collected = {
+      calls: [],
+      actions: [],
+      artifacts: [],
+      helpers: [],
+      interrupts: [],
+      previews: new Map(),
+    };
     const usage = { inputTokens: 0, outputTokens: 0 };
     let reply = '';
     let rounds = 0;
@@ -399,16 +441,22 @@ export class AssistantService {
         isError: true,
       };
     }
-    const plan = { ...parsed.lineage, build: drafted.build };
+    // Names from the cached graph, so the plan never shows a bare id.
+    const lineage = await resolveLineage(parsed.lineage, (entityId) =>
+      entityNames(this.dispatch, entityId)
+    );
+    const plan = { ...lineage, build: drafted.build };
     const checked = { built: drafted.built };
     const planId = randomUUID();
-    const filters = filtersOf(plan.build);
+    // What the plan shows is what its preview built, not what was asked for.
+    const filters = builtFilters(drafted.definition);
     out.artifacts.push({
       id: planId,
       kind: 'plan',
       title: str(input, 'title') || 'The plan',
       ...plan,
       model: drafted.model,
+      previewId: drafted.previewId,
       ...(filters.length ? { filters } : {}),
     });
     await this.progress('Checking the calculated fields');
@@ -442,7 +490,14 @@ export class AssistantService {
     brief: string,
     out: Collected
   ): Promise<
-    | { build: PlanBuild; model: { key: string; label: string }; built?: string; reason?: string }
+    | {
+        build: PlanBuild;
+        model: { key: string; label: string };
+        built?: string;
+        reason?: string;
+        previewId: string;
+        definition: unknown;
+      }
     | { problem: string }
   > {
     const key = this.options.authoringModel;
@@ -457,8 +512,8 @@ export class AssistantService {
       if ('problem' in proposed) {
         problem = proposed.problem;
       } else {
-        const checked = await this.checkWrite(writeOf(proposed.build), out);
-        if (!checked.problem) {
+        const checked = await this.checkPlanned(proposed.build, out);
+        if ('previewId' in checked) {
           const helper = out.helpers.at(-1);
           return {
             build: proposed.build,
@@ -467,6 +522,8 @@ export class AssistantService {
               : { key: helper?.modelId ?? 'planner', label: helper?.label ?? 'The planner' },
             ...(checked.built ? { built: checked.built } : {}),
             ...(proposed.reason ? { reason: proposed.reason } : {}),
+            previewId: checked.previewId,
+            definition: checked.definition,
           };
         }
         problem = checked.problem;
@@ -595,13 +652,17 @@ export class AssistantService {
       };
     }
     const write = writeOf(plan.build);
-    if (!here.some((p) => p.id === plan.id)) {
-      const checked = await this.checkWrite(write, out);
-      if (checked.problem) {
+    // The Run button shows the plan's own preview. A plan from an earlier
+    // answer is checked again (the account may have moved on) and bound to
+    // that fresh preview.
+    let previewId = here.find((p) => p.id === plan.id)?.previewId;
+    if (!previewId) {
+      const checked = await this.checkPlanned(plan.build, out);
+      if ('problem' in checked) {
         return { id, content: checked.problem, isError: true };
       }
+      previewId = checked.previewId;
     }
-    const preview = [...out.artifacts].reverse().find((a) => a.kind === 'preview');
     out.actions.push({
       id: randomUUID(),
       title: write.title,
@@ -610,7 +671,7 @@ export class AssistantService {
       path: write.path,
       body: write.body,
       planId: plan.id,
-      ...(preview ? { previewId: preview.id } : {}),
+      previewId,
     });
     return {
       id,
@@ -622,7 +683,7 @@ export class AssistantService {
   private async checkWrite(
     write: { method: string; path: string; body: unknown },
     out: Collected
-  ): Promise<{ problem?: string; built?: string }> {
+  ): Promise<{ problem?: string; built?: string; previewId?: string; data?: any }> {
     const template = matchOperation(spec as never, write.method, write.path);
     if (!template) {
       return { problem: `${write.method} ${write.path} is not an operation in the API.` };
@@ -634,6 +695,35 @@ export class AssistantService {
       };
     }
     return await this.rehearse(write.method, write.path, template, write.body, out);
+  }
+
+  /**
+   * A plan's build, checked as its write and held to what it claims: the
+   * preview it is bound to, by id, must build every filter the build asks
+   * for. Anything else is a problem, so a plan never shows a control the
+   * change will not add.
+   */
+  private async checkPlanned(
+    build: PlanBuild,
+    out: Collected
+  ): Promise<{ previewId: string; definition: unknown; built?: string } | { problem: string }> {
+    const checked = await this.checkWrite(writeOf(build), out);
+    if (checked.problem) {
+      return { problem: checked.problem };
+    }
+    const definition = checked.data?.definition;
+    if (!checked.previewId || !definition) {
+      return { problem: 'The preview of this build drew no definition, so it cannot be checked.' };
+    }
+    const unbuilt = unbuiltClaims(build, definition);
+    if (unbuilt.length > 0) {
+      return { problem: unbuilt.join('\n') };
+    }
+    return {
+      previewId: checked.previewId,
+      definition,
+      ...(checked.built ? { built: checked.built } : {}),
+    };
   }
 
   /**
@@ -821,8 +911,7 @@ export class AssistantService {
     if (rehearsal.problem) {
       return { id, content: rehearsal.problem, isError: true };
     }
-    const preview = [...out.artifacts].reverse().find((a) => a.kind === 'preview');
-    const plan = [...out.artifacts].reverse().find((a) => a.kind === 'plan');
+    // Bound to its own preview, if it has one; never to whatever was drawn last.
     out.actions.push({
       id: randomUUID(),
       title: str(input, 'title') || `${method} ${path}`,
@@ -830,8 +919,7 @@ export class AssistantService {
       method: method as AssistantAction['method'],
       path,
       ...(input.body !== undefined ? { body: input.body } : {}),
-      ...(preview ? { previewId: preview.id } : {}),
-      ...(plan ? { planId: plan.id } : {}),
+      ...(rehearsal.previewId ? { previewId: rehearsal.previewId } : {}),
     });
     return {
       id,
@@ -842,8 +930,9 @@ export class AssistantService {
   /**
    * A write with a read-only /preview twin (create an analysis, rebind,
    * publish a definition) is run through the preview first, with the same
-   * body, unless the answer already previewed exactly that. A failed or
-   * refused preview is returned as the reason; a good one is drawn.
+   * body, unless the answer already previewed exactly that. Either way the
+   * result is judged the same, and the preview is returned by id with what
+   * it built, so the caller binds the write to its own preview.
    */
   private async rehearse(
     method: string,
@@ -851,7 +940,7 @@ export class AssistantService {
     template: string,
     body: unknown,
     out: Collected
-  ): Promise<{ problem?: string; built?: string }> {
+  ): Promise<{ problem?: string; built?: string; previewId?: string; data?: any }> {
     const pathname = path.split('?')[0] ?? '';
     const previewPath = `${pathname}/preview`;
     if (method !== 'POST' || !(spec as any).paths?.[`${template}/preview`]?.post) {
@@ -861,14 +950,19 @@ export class AssistantService {
     const fields = bodyFields(spec as never, 'POST', `${template}/preview`);
     const same = (a: unknown, b: unknown) =>
       JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-    const already = out.artifacts.some(
-      (a) =>
-        a.kind === 'preview' &&
-        a.path === previewPath &&
-        fields.every((f) => same((a.body as any)?.[f], (body as any)?.[f]))
-    );
-    if (already) {
-      return {};
+    const earlier = [...out.artifacts]
+      .reverse()
+      .find(
+        (a) =>
+          a.kind === 'preview' &&
+          a.path === previewPath &&
+          out.previews.has(a.id) &&
+          fields.every((f) => same((a.body as any)?.[f], (body as any)?.[f]))
+      );
+    if (earlier) {
+      const data = out.previews.get(earlier.id) as any;
+      const problem = previewProblem(data);
+      return problem ? { problem } : { built: describeBuilt(data), previewId: earlier.id, data };
     }
     await this.progress('Checking the change with a preview');
     const response = await this.run('POST', previewPath, body);
@@ -883,25 +977,13 @@ export class AssistantService {
         problem: `The preview of this change failed, so running it would too:\n${clip(response.body)}\nFix it and prepare it again.`,
       };
     }
-    let data: any;
-    try {
-      data = JSON.parse(response.body)?.data;
-    } catch {
-      data = undefined;
+    const data = dataOf(response.body);
+    const problem = previewProblem(data);
+    if (problem) {
+      return { problem };
     }
-    if (data?.canRestore === false) {
-      const blocking = (data.checks ?? []).filter((c: any) => c?.blocking && !c?.ok);
-      return {
-        problem: `The restore cannot go ahead:\n${blocking.map((c: any) => `- ${c.label}: ${c.detail}`).join('\n')}\nTell the person what stands in the way, or fix it (a new id, say) and prepare it again.`,
-      };
-    }
-    if (data?.canApply === false) {
-      return {
-        problem: `The preview says QuickSight would refuse this as it stands:\n${clip(JSON.stringify({ issues: data.issues, warnings: data.warnings, summary: data.summary }))}\nFix it and prepare it again.`,
-      };
-    }
-    this.capture('POST', previewPath, body, out.artifacts);
-    return { built: describeBuilt(data) };
+    const previewId = this.capture('POST', previewPath, body, out, data);
+    return { built: describeBuilt(data), ...(previewId ? { previewId } : {}), data };
   }
 
   /** Dispatch, waiting on a job when the call queued one. */
@@ -982,7 +1064,7 @@ export class AssistantService {
       out.calls.push({ method, path, status: response.status, ok });
       if (ok) {
         this.recordPlanner(response.body, out);
-        this.capture(method, path, body, out.artifacts);
+        this.capture(method, path, body, out, dataOf(response.body));
       }
       return { id, content: clip(`HTTP ${response.status}\n${response.body}`), isError: !ok };
     } catch (error) {
@@ -1038,19 +1120,23 @@ export class AssistantService {
     method: string,
     path: string,
     body: unknown,
-    artifacts: AssistantArtifact[]
-  ): void {
+    out: Collected,
+    data?: unknown
+  ): string | undefined {
+    const { artifacts } = out;
     const pathname = path.split('?')[0] ?? '';
     if (method === 'POST' && DRAWABLE_PREVIEW.test(pathname)) {
+      const previewId = randomUUID();
       artifacts.push({
-        id: randomUUID(),
+        id: previewId,
         kind: 'preview',
         title: 'Preview',
         method: 'POST',
         path: pathname,
         ...(body !== undefined ? { body } : {}),
       });
-      return;
+      if (data !== undefined) out.previews.set(previewId, data);
+      return previewId;
     }
     const field = method === 'GET' ? pathname.match(CALCULATED_FIELD) : null;
     if (field?.[1] && !artifacts.some((a) => a.kind === 'lineage' && a.fieldKey === field[1])) {
@@ -1061,5 +1147,6 @@ export class AssistantService {
         fieldKey: decodeURIComponent(field[1]),
       });
     }
+    return undefined;
   }
 }

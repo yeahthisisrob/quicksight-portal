@@ -120,7 +120,11 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
           items: {
             type: 'object',
             properties: {
-              listing: { type: 'string' },
+              listing: {
+                type: 'string',
+                description:
+                  "The listing's id from the graph (listing:<id> or <id>); its name and project are filled in from the catalog.",
+              },
               project: { type: 'string' },
               table: { type: 'string' },
             },

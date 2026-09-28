@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { contextGet, contextRelated, contextSearch, datasetColumns } from '../lib/contextTools';
-import { judgeFields, parsePlan, verdictsMessage } from '../lib/planning';
+import {
+  builtFilters,
+  judgeFields,
+  parsePlan,
+  resolveLineage,
+  unbuiltClaims,
+  verdictsMessage,
+} from '../lib/planning';
 import { describeStep } from '../lib/steps';
 
 const ok = (data: unknown) => ({ status: 200, body: JSON.stringify({ success: true, data }) });
@@ -175,5 +182,95 @@ describe('the body check', () => {
     expect(
       bodyFields(spec, 'POST', '/api/authoring/{assetType}/{assetId}/rebind/preview')
     ).toContain('rebinds');
+  });
+});
+
+describe('what a plan shows is what its preview built', () => {
+  const definition = {
+    FilterGroups: [
+      { Filters: [{ CategoryFilter: { FilterId: 'f-region', Column: { ColumnName: 'Region' } } }] },
+      {
+        Filters: [{ NumericRangeFilter: { FilterId: 'f-rev', Column: { ColumnName: 'revenue' } } }],
+      },
+      { Filters: [{ TimeRangeFilter: { FilterId: 'f-orphan', Column: { ColumnName: 'day' } } }] },
+    ],
+    Sheets: [
+      {
+        FilterControls: [
+          {
+            Dropdown: {
+              FilterControlId: 'c1',
+              SourceFilterId: 'f-region',
+              Title: 'Region',
+              Type: 'SINGLE_SELECT',
+            },
+          },
+          { Slider: { FilterControlId: 'c2', SourceFilterId: 'f-rev', Title: 'Revenue' } },
+        ],
+        SheetControlLayouts: [
+          {
+            Configuration: {
+              GridLayout: { Elements: [{ ElementId: 'c1', ElementType: 'FILTER_CONTROL' }] },
+            },
+          },
+        ],
+      },
+    ],
+  };
+
+  it('reads each control, its column, its kind and where it sits; a filter with no control is not one', () => {
+    expect(builtFilters(definition)).toEqual([
+      { column: 'Region', title: 'Region', control: 'singleSelect', placement: 'controlBar' },
+      { column: 'revenue', title: 'Revenue', control: 'slider', placement: 'canvas' },
+    ]);
+    expect(builtFilters(undefined)).toEqual([]);
+  });
+
+  it('names every filter the build asks for that the preview has no control for', () => {
+    const build = {
+      create: {
+        assetType: 'analysis',
+        name: 'x',
+        datasets: [],
+        filters: [
+          { identifier: 'o', column: 'region', control: 'dropdown' },
+          { identifier: 'o', column: 'day', control: 'dateRange' },
+        ],
+      },
+    } as any;
+    expect(unbuiltClaims(build, definition)).toEqual([
+      'The build asks for a filter on day with a dateRange control, but the previewed definition has no control on day.',
+    ]);
+  });
+});
+
+describe('the plan names what the portal knows', () => {
+  const graph: Record<string, { name: string; project?: string }> = {
+    'listing:l-123': { name: 'orders_gold', project: 'Sales analytics' },
+    'dataset:ds-1': { name: 'Orders (gold)' },
+  };
+  const lookup = async (id: string) => graph[id] ?? null;
+
+  it('shows a SMUS listing by its name and project, and an existing dataset by its name', async () => {
+    const resolved = await resolveLineage(
+      {
+        sources: [
+          { listing: 'l-123' },
+          { listing: 'listing:l-123' },
+          { listing: 'unknown-listing' },
+        ],
+        datasets: [
+          { name: 'ds-1', id: 'ds-1', status: 'existing' },
+          { name: 'New one', status: 'new' },
+        ],
+      },
+      lookup
+    );
+    expect(resolved.sources).toEqual([
+      { listing: 'orders_gold', project: 'Sales analytics' },
+      { listing: 'orders_gold', project: 'Sales analytics' },
+      { listing: 'unknown-listing' },
+    ]);
+    expect(resolved.datasets.map((d) => d.name)).toEqual(['Orders (gold)', 'New one']);
   });
 });

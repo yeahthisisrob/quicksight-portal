@@ -261,8 +261,8 @@ export function writeOf(build: PlanBuild): {
   };
 }
 
-/** The filters a build adds, for drawing the plan. */
-export function filtersOf(
+/** The filters a build asks for: its claims, checked against what the preview built. */
+function filtersOf(
   build: PlanBuild
 ): Array<{ column: string; title?: string; control?: string; placement?: string }> {
   const raw: any[] =
@@ -281,4 +281,121 @@ export function filtersOf(
       ...(typeof f.control === 'string' ? { control: f.control } : {}),
       placement: typeof f.placement === 'string' ? f.placement : 'controlBar',
     }));
+}
+
+/** A filter as a definition holds it: the column, and the control people use it by. */
+export interface BuiltFilter {
+  column: string;
+  title?: string;
+  /** The control, in the portal's vocabulary (dropdown, dateRange, slider...). */
+  control?: 'dropdown' | 'singleSelect' | 'list' | 'dateRange' | 'relativeDate' | 'slider';
+  placement: 'controlBar' | 'canvas';
+}
+
+/** A QuickSight filter control, named the way a build asks for it. */
+function controlKind(kind: string, body: any): BuiltFilter['control'] {
+  switch (kind) {
+    case 'Dropdown':
+      return body?.Type === 'SINGLE_SELECT' ? 'singleSelect' : 'dropdown';
+    case 'List':
+      return 'list';
+    case 'DateTimePicker':
+      return 'dateRange';
+    case 'RelativeDateTime':
+      return 'relativeDate';
+    case 'Slider':
+      return 'slider';
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * The filters a definition really has controls for, read from the
+ * definition itself: each control's source filter, that filter's column,
+ * and whether the control sits in the control bar or on the canvas. What a
+ * plan shows is taken from here, never from the request that asked for it.
+ */
+export function builtFilters(definition: unknown): BuiltFilter[] {
+  const def = (definition ?? {}) as any;
+  const columnByFilterId = new Map<string, string>();
+  for (const group of Array.isArray(def.FilterGroups) ? def.FilterGroups : []) {
+    for (const filter of Array.isArray(group?.Filters) ? group.Filters : []) {
+      const body = Object.values(filter ?? {})[0] as any;
+      if (body?.FilterId && body?.Column?.ColumnName) {
+        columnByFilterId.set(body.FilterId, body.Column.ColumnName);
+      }
+    }
+  }
+  const out: BuiltFilter[] = [];
+  for (const sheet of Array.isArray(def.Sheets) ? def.Sheets : []) {
+    const inBar = new Set<string>(
+      (Array.isArray(sheet?.SheetControlLayouts) ? sheet.SheetControlLayouts : []).flatMap(
+        (l: any) => (l?.Configuration?.GridLayout?.Elements ?? []).map((e: any) => e?.ElementId)
+      )
+    );
+    for (const control of Array.isArray(sheet?.FilterControls) ? sheet.FilterControls : []) {
+      const [kind, body] = (Object.entries(control ?? {})[0] ?? []) as [string, any];
+      const column = body?.SourceFilterId ? columnByFilterId.get(body.SourceFilterId) : undefined;
+      if (!column) continue;
+      const named = controlKind(kind, body);
+      out.push({
+        column,
+        ...(typeof body.Title === 'string' ? { title: body.Title } : {}),
+        ...(named ? { control: named } : {}),
+        placement: inBar.has(body.FilterControlId) ? 'controlBar' : 'canvas',
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * What a plan's build asks for that its preview did not build: each filter
+ * it adds must have a control on its column in the previewed definition. A
+ * plan is only shown once this is empty, so it never claims what the
+ * change will not do.
+ */
+export function unbuiltClaims(build: PlanBuild, definition: unknown): string[] {
+  const built = builtFilters(definition);
+  return filtersOf(build)
+    .filter((f) => !built.some((b) => b.column.toLowerCase() === f.column.toLowerCase()))
+    .map(
+      (f) =>
+        `The build asks for a filter on ${f.column} with a ${f.control || 'default'} control, but the previewed definition has no control on ${f.column}.`
+    );
+}
+
+type NameLookup = (entityId: string) => Promise<{ name: string; project?: string } | null>;
+
+/** `listing:abc` or `abc` as the graph's id for it. */
+function entityIdOf(type: string, value: string): string {
+  return value.startsWith(`${type}:`) ? value : `${type}:${value}`;
+}
+
+/**
+ * The lineage as the portal knows it, not as the chat model wrote it: each
+ * listing by its SMUS name and project, each existing dataset by its name,
+ * from the cached graph. What the graph does not know is left as given.
+ */
+export async function resolveLineage<T extends Pick<BuildPlan, 'sources' | 'datasets'>>(
+  lineage: T,
+  lookup: NameLookup
+): Promise<T> {
+  const sources = await Promise.all(
+    lineage.sources.map(async (s) => {
+      const known = await lookup(entityIdOf('listing', s.listing)).catch(() => null);
+      return known
+        ? { ...s, listing: known.name, ...(known.project ? { project: known.project } : {}) }
+        : s;
+    })
+  );
+  const datasets = await Promise.all(
+    lineage.datasets.map(async (d) => {
+      if (d.status !== 'existing' || !d.id) return d;
+      const known = await lookup(entityIdOf('dataset', d.id)).catch(() => null);
+      return known ? { ...d, name: known.name } : d;
+    })
+  );
+  return { ...lineage, sources, datasets };
 }
