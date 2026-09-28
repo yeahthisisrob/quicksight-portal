@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.35.3](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.35.2...v2.35.3) (2026-09-28)
+
+
+### Bug Fixes
+
+* **assistant:** what the person asks for is data the plan is held to, by code ([#289](https://github.com/yeahthisisrob/quicksight-portal/issues/289)) ([52195a2](https://github.com/yeahthisisrob/quicksight-portal/commit/52195a23c9781761baf772361d65d2a749aba02e))
+
 ## [2.35.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.35.1...v2.35.2) (2026-09-28)
 
 
