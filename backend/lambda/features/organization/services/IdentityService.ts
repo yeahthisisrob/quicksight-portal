@@ -25,6 +25,16 @@ export interface UserRestoreResult {
   permissions: { restored: number; failed: Array<{ asset: string; error: string }> };
 }
 
+/** QuickSight (or the lookup) says the user does not exist. */
+function isNotFound(error: any): boolean {
+  return (
+    error?.name === 'ResourceNotFoundException' ||
+    error?.statusCode === STATUS_CODES.NOT_FOUND ||
+    error?.$metadata?.httpStatusCode === STATUS_CODES.NOT_FOUND ||
+    /not found|does not exist/i.test(String(error?.message ?? ''))
+  );
+}
+
 export class IdentityService {
   private readonly quickSightService: QuickSightService;
   private readonly archive: UserArchive;
@@ -78,7 +88,19 @@ export class IdentityService {
   ): Promise<{ success: boolean; message: string }> {
     try {
       // Get user details before deleting for validation and logging
-      const user = await this.getUser(userName);
+      let user: User;
+      try {
+        user = await this.getUser(userName);
+      } catch (error) {
+        if (!isNotFound(error)) throw error;
+        // Already gone from QuickSight (an earlier delete got that far): finish
+        // recording it, so the portal agrees instead of failing on every retry.
+        await this.recordDeleted(userName, deletedBy);
+        return {
+          success: true,
+          message: `User "${userName}" was already deleted in QuickSight; the portal now agrees`,
+        };
+      }
 
       // Only allow deletion of READER and READER_PRO roles
       const allowedRoles = ['READER', 'READER_PRO'];
@@ -102,15 +124,7 @@ export class IdentityService {
         deletedBy,
       });
 
-      // Archive it the way an export would: the record moves to the archived
-      // collection and the cache follows. Flipping only the cache status left a
-      // half-archived user that every export found and archived again.
-      await new ArchiveService(metadataBucketName(), cacheService).archiveAsset(
-        ASSET_TYPES.user,
-        userName,
-        'Deleted via portal',
-        deletedBy
-      );
+      await this.recordDeleted(userName, deletedBy);
 
       return {
         success: true,
@@ -118,6 +132,28 @@ export class IdentityService {
       };
     } catch (error: any) {
       logger.error(`Failed to delete user ${userName}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Archive a deleted user the way an export would: the record moves to the
+   * archived collection and the cache follows. A failure is thrown, never
+   * swallowed: a user gone from QuickSight but still listed is the state
+   * that made every retry fail.
+   */
+  private async recordDeleted(userName: string, deletedBy?: string): Promise<void> {
+    const result = await new ArchiveService(metadataBucketName(), cacheService).archiveAsset(
+      ASSET_TYPES.user,
+      userName,
+      'Deleted via portal',
+      deletedBy
+    );
+    if (!result.success) {
+      const error: any = new Error(
+        `User "${userName}" is deleted in QuickSight, but the portal could not record it: ${result.error ?? 'unknown error'}. Deleting it again finishes it.`
+      );
+      error.statusCode = STATUS_CODES.INTERNAL_SERVER_ERROR;
       throw error;
     }
   }

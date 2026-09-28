@@ -1625,80 +1625,81 @@ export class CacheWriter {
     items: Array<{ assetId: string; archiveReason?: string; archivedBy?: string }>,
     now: Date
   ): Promise<boolean> {
-    // Load the current authoritative list for this type (bypassing ACTIVE filter)
-    const currentEntries = await this.cacheReader.getCacheEntries({
-      assetType,
-      statusFilter: AssetStatusFilter.ALL,
-    });
-
+    // Read-modify-write straight on S3, conflict-safe: archives running at
+    // once (a playbook deleting users in parallel) each land instead of the
+    // last whole-list write undoing the others.
     let changed = false;
+    const updated = await this.s3Adapter.updateTypeCache(assetType, (currentEntries) => {
+      changed = false;
 
-    for (const item of items) {
-      // The live entry is the one being archived; an older archived copy of
-      // the same id (archived, restored, archived again) gives way to it.
-      const live = currentEntries.findIndex(
-        (e: CacheEntry) => e.assetId === item.assetId && (e.status as string) !== 'archived'
-      );
-      if (live >= 0) {
-        for (let i = currentEntries.length - 1; i >= 0; i--) {
-          const e = currentEntries[i] as CacheEntry;
-          if (i !== live && e.assetId === item.assetId && (e.status as string) === 'archived') {
-            currentEntries.splice(i, 1);
+      for (const item of items) {
+        // The live entry is the one being archived; an older archived copy of
+        // the same id (archived, restored, archived again) gives way to it.
+        const live = currentEntries.findIndex(
+          (e: CacheEntry) => e.assetId === item.assetId && (e.status as string) !== 'archived'
+        );
+        if (live >= 0) {
+          for (let i = currentEntries.length - 1; i >= 0; i--) {
+            const e = currentEntries[i] as CacheEntry;
+            if (i !== live && e.assetId === item.assetId && (e.status as string) === 'archived') {
+              currentEntries.splice(i, 1);
+            }
           }
         }
+        const idx = currentEntries.findIndex(
+          (e: CacheEntry) =>
+            e.assetId === item.assetId && (live < 0 || (e.status as string) !== 'archived')
+        );
+        const archiveInfo = {
+          archivedAt: now.toISOString(),
+          archiveReason: item.archiveReason || 'Deleted via portal',
+          archivedBy: item.archivedBy || 'system',
+        };
+
+        const archivedExportPath = isCollectionType(assetType)
+          ? `archived/organization/${ASSET_TYPES_PLURAL[assetType]}.json`
+          : `archived/${ASSET_TYPES_PLURAL[assetType]}/${item.assetId}.json`;
+
+        if (idx >= 0) {
+          const existing = currentEntries[idx] as CacheEntry;
+          currentEntries[idx] = {
+            ...existing,
+            status: 'archived' as any,
+            lastUpdatedTime: now,
+            exportFilePath: archivedExportPath,
+            metadata: {
+              ...((existing as any)?.metadata || {}),
+              archived: archiveInfo,
+            } as any,
+          } as CacheEntry;
+          changed = true;
+        } else {
+          // Asset wasn't in cache yet (rare for a just-deleted one); create a skeleton so archived view works
+          currentEntries.push({
+            assetId: item.assetId,
+            assetType,
+            assetName: item.assetId,
+            arn: '',
+            status: 'archived' as any,
+            enrichmentStatus: 'skeleton' as any,
+            createdTime: now,
+            lastUpdatedTime: now,
+            exportedAt: now,
+            exportFilePath: archivedExportPath,
+            storageType: 'individual' as any,
+            tags: [],
+            permissions: [],
+            metadata: { archived: archiveInfo } as any,
+          } as CacheEntry);
+          changed = true;
+        }
       }
-      const idx = currentEntries.findIndex(
-        (e: CacheEntry) =>
-          e.assetId === item.assetId && (live < 0 || (e.status as string) !== 'archived')
-      );
-      const archiveInfo = {
-        archivedAt: now.toISOString(),
-        archiveReason: item.archiveReason || 'Deleted via portal',
-        archivedBy: item.archivedBy || 'system',
-      };
 
-      const archivedExportPath = isCollectionType(assetType)
-        ? `archived/organization/${ASSET_TYPES_PLURAL[assetType]}.json`
-        : `archived/${ASSET_TYPES_PLURAL[assetType]}/${item.assetId}.json`;
+      return changed;
+    });
 
-      if (idx >= 0) {
-        const existing = currentEntries[idx] as CacheEntry;
-        currentEntries[idx] = {
-          ...existing,
-          status: 'archived' as any,
-          lastUpdatedTime: now,
-          exportFilePath: archivedExportPath,
-          metadata: {
-            ...((existing as any)?.metadata || {}),
-            archived: archiveInfo,
-          } as any,
-        } as CacheEntry;
-        changed = true;
-      } else {
-        // Asset wasn't in cache yet (rare for a just-deleted one); create a skeleton so archived view works
-        currentEntries.push({
-          assetId: item.assetId,
-          assetType,
-          assetName: item.assetId,
-          arn: '',
-          status: 'archived' as any,
-          enrichmentStatus: 'skeleton' as any,
-          createdTime: now,
-          lastUpdatedTime: now,
-          exportedAt: now,
-          exportFilePath: archivedExportPath,
-          storageType: 'individual' as any,
-          tags: [],
-          permissions: [],
-          metadata: { archived: archiveInfo } as any,
-        } as CacheEntry);
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      await this.s3Adapter.saveTypeCache(assetType, currentEntries);
-
+    if (changed && updated) {
+      const currentEntries = updated;
       // Update counts in metadata
       const metadata = (await this.s3Adapter.getCacheMetadata()) || {
         version: '2.0',

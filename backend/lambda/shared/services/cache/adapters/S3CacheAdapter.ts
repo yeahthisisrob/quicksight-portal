@@ -330,6 +330,29 @@ export class S3CacheAdapter {
   }
 
   /**
+   * Change a type's cache without losing a concurrent change: read from S3
+   * with its ETag (never a memory copy), apply `change` (entries with their
+   * dates), write only if nobody wrote in between, else read and re-apply.
+   * `change` returns false to leave it as it is.
+   */
+  public async updateTypeCache(
+    assetType: AssetType,
+    change: (entries: CacheEntry[]) => boolean
+  ): Promise<CacheEntry[] | undefined> {
+    const bucketName = await this.getBucket();
+    const cacheKey = `${this.CACHE_BASE_PATH}/${assetType}.json`;
+    return await this.s3Service.updateObject<CacheEntry[]>(bucketName, cacheKey, (current) => {
+      const entries = (Array.isArray(current) ? current : []).map((entry: any) => ({
+        ...entry,
+        createdTime: new Date(entry.createdTime),
+        lastUpdatedTime: new Date(entry.lastUpdatedTime),
+        exportedAt: new Date(entry.exportedAt),
+      }));
+      return change(entries) ? entries : undefined;
+    });
+  }
+
+  /**
    * Save cache for a specific asset type
    */
   public async saveTypeCache(assetType: AssetType, entries: CacheEntry[]): Promise<void> {

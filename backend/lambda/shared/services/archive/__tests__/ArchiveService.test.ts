@@ -31,6 +31,13 @@ beforeEach(() => {
 
   // Create mock instances
   mockS3Service = new S3Service('test-account') as Mocked<S3Service>;
+  // A read-change-write over the mocked get and put, as the real one does (less the ETags).
+  mockS3Service.updateObject = vi.fn(async (bucket: string, key: string, change: any) => {
+    const current = (await mockS3Service.getObject(bucket, key)) ?? undefined;
+    const next = change(current);
+    if (next !== undefined) await mockS3Service.putObject(bucket, key, next);
+    return next ?? current;
+  }) as any;
   mockCacheService = {
     getCacheEntries: vi.fn(),
     updateAsset: vi.fn(),
@@ -207,10 +214,9 @@ describe('ArchiveService - archiveAsset collection', () => {
       } as any,
     ]);
 
-    mockS3Service.getObject = vi
-      .fn()
-      .mockResolvedValueOnce(activeCollection) // Get active collection
-      .mockResolvedValueOnce({}); // Get archived collection (empty)
+    mockS3Service.getObject = vi.fn(async (_bucket: string, key: string) =>
+      key === collectionPath ? activeCollection : {}
+    ) as any;
 
     mockS3Service.putObject = vi.fn().mockResolvedValue(undefined);
 

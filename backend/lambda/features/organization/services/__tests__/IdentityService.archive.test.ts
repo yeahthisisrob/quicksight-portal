@@ -46,6 +46,7 @@ const reader = { UserName: 'pat', Role: 'READER', Arn: ARN, Email: 'pat@example.
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.archive.save.mockResolvedValue(undefined);
+  mocks.archiveAsset.mockResolvedValue({ success: true });
   mocks.qs.describeUser.mockResolvedValue(reader);
   mocks.qs.listUserGroups.mockResolvedValue([{ GroupName: 'All Readers' }]);
   mocks.access.mockResolvedValue({
@@ -95,6 +96,25 @@ describe('deleting a user archives what they had first', () => {
     );
     // The record moves to the archived collection, not just a status flip in the cache.
     expect(mocks.archiveAsset).toHaveBeenCalledWith('user', 'pat', 'Deleted via portal', 'admin');
+  });
+
+  it('finishes a delete QuickSight already did, instead of failing on every retry', async () => {
+    // An earlier run deleted pat in QuickSight but the portal never recorded it.
+    mocks.qs.describeUser.mockRejectedValue(
+      Object.assign(new Error('User pat not found'), { name: 'ResourceNotFoundException' })
+    );
+    const result = await new IdentityService('1').deleteUser('pat', 'admin');
+    expect(result).toMatchObject({ success: true });
+    expect(result.message).toContain('already deleted');
+    expect(mocks.qs.deleteUser).not.toHaveBeenCalled();
+    expect(mocks.archiveAsset).toHaveBeenCalledWith('user', 'pat', 'Deleted via portal', 'admin');
+  });
+
+  it('says so when QuickSight deleted the user but the portal could not record it', async () => {
+    mocks.archiveAsset.mockResolvedValue({ success: false, error: 'S3 throttled' });
+    await expect(new IdentityService('1').deleteUser('pat', 'admin')).rejects.toThrow(
+      /deleted in QuickSight, but the portal could not record it: S3 throttled/
+    );
   });
 
   it('deletes nothing when the archive cannot be kept', async () => {

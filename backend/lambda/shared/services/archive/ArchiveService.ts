@@ -178,23 +178,33 @@ export class ArchiveService {
         };
       }
 
-      // Move the item to archived collection with metadata
-      archivedCollection[itemId] = {
+      // Move it with conflict-safe updates: several archives at once (a
+      // playbook deleting users in parallel) each land, instead of the last
+      // whole-file write undoing the others.
+      const archivedAt = new Date().toISOString();
+      const archivedEntry = {
         ...activeCollection[itemId],
         archivedMetadata: {
-          archivedAt: new Date().toISOString(),
+          archivedAt,
           archiveReason,
           archivedBy,
           originalPath: `${collectionPath}#${itemId}`,
         },
       };
-
-      // Remove from active collection
-      delete activeCollection[itemId];
-
-      // Save both collections
-      await this.s3Service.putObject(this.bucketName, collectionPath, activeCollection);
-      await this.s3Service.putObject(this.bucketName, archivePath, archivedCollection);
+      await this.s3Service.updateObject<Record<string, any>>(
+        this.bucketName,
+        archivePath,
+        (current) => ({ ...(current ?? {}), [itemId]: archivedEntry })
+      );
+      await this.s3Service.updateObject<Record<string, any>>(
+        this.bucketName,
+        collectionPath,
+        (current) => {
+          if (!current?.[itemId]) return undefined;
+          const { [itemId]: _moved, ...rest } = current;
+          return rest;
+        }
+      );
 
       logger.info(`Archived ${assetType} item ${itemId}`, {
         originalPath: collectionPath,
@@ -208,7 +218,7 @@ export class ArchiveService {
         assetType,
         originalPath: `${collectionPath}#${itemId}`,
         archivePath: `${archivePath}#${itemId}`,
-        archivedAt: archivedCollection[itemId].archivedMetadata.archivedAt,
+        archivedAt,
       };
     } catch (error) {
       logger.error(`Failed to archive ${assetType} item ${itemId}`, { error });
