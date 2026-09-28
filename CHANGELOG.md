@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.35.4](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.35.3...v2.35.4) (2026-09-28)
+
+
+### Bug Fixes
+
+* **state:** concurrent writes can no longer undo each other — the catalog and portal state move to one DynamoDB table ([#291](https://github.com/yeahthisisrob/quicksight-portal/issues/291)) ([0951705](https://github.com/yeahthisisrob/quicksight-portal/commit/09517055e891d298583f583fd5f316db258879cc))
+
 ## [2.35.3](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.35.2...v2.35.3) (2026-09-28)
 
 
