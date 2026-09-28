@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.35.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.35.1...v2.35.2) (2026-09-28)
+
+
+### Bug Fixes
+
+* **assistant:** a plan is bound to its own preview and shows only what it built ([#287](https://github.com/yeahthisisrob/quicksight-portal/issues/287)) ([11dfbda](https://github.com/yeahthisisrob/quicksight-portal/commit/11dfbda54d092f8fa45462d761ca316bc4d121ad))
+
 ## [2.35.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.35.0...v2.35.1) (2026-09-27)
 
 
