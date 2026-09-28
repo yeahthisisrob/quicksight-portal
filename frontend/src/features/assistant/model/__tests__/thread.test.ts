@@ -59,6 +59,37 @@ describe('threadOf', () => {
     expect(answerMetaOf(messages[1]!.metadata?.custom)?.model.label).toBe('Claude Haiku 4.5');
   });
 
+  it('draws a plan with its own preview, and never that preview on its own or twice', () => {
+    const planPreview = {
+      id: 'plan-pv',
+      kind: 'preview',
+      title: 'Preview',
+      path: '/api/authoring/new/preview',
+    };
+    const { messages } = thread({
+      ...BASE,
+      reply: 'Here is the plan.',
+      artifacts: [planPreview, { ...PLAN, previewId: 'plan-pv' }],
+      actions: [
+        {
+          id: 'run',
+          title: 'Create',
+          why: '',
+          method: 'POST',
+          path: '/c',
+          planId: 'plan',
+          previewId: 'plan-pv',
+        },
+      ],
+    });
+    const content = partsOf(messages[1]);
+    expect(content.map((p) => p.toolName ?? p.type)).toEqual(['text', TOOL.plan, TOOL.action]);
+    expect(content[1]!.args.preview.id).toBe('plan-pv');
+    // The Run card is bound to the same preview, and leaves drawing it to the plan above.
+    expect(content[2]!.args.preview.id).toBe('plan-pv');
+    expect(content[2]!.args.drawnByPlan).toBe(true);
+  });
+
   it("gives an action its run as the tool call's result", () => {
     const { messages } = thread(ANSWER, { create: { status: 'completed' } as never });
     const content = partsOf(messages[1]);

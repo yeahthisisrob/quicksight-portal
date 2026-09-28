@@ -35,12 +35,17 @@ import {
 } from '../lib/contextTools';
 import {
   builtFilters,
+  declaredDatasets,
+  type FilterTargets,
   judgeFields,
+  missingRequested,
   type PlanTarget,
   parsePlan,
+  type RequestedFilter,
   resolveLineage,
   unbuiltClaims,
   verdictsMessage,
+  withRequestedFilters,
   writeOf,
 } from '../lib/planning';
 import { buildBrief, listTemplates } from '../lib/portalBrief';
@@ -80,10 +85,13 @@ const MS_PER_MINUTE = 60_000;
 const MAX_JOB_WAIT_MINUTES = 5;
 const MAX_JOB_WAIT_MS = MAX_JOB_WAIT_MINUTES * MS_PER_MINUTE;
 const JOB_POLL_MS = 2_000;
-const PROPOSE = /\/propose$/;
 const CREATE_DATASET = /^\/api\/smus\/assets\/([^/?]+)\/dataset$/;
 const TERMINAL = new Set(['completed', 'failed', 'stopped']);
 const CALCULATED_FIELD = /^\/api\/data-catalog\/calculated-fields\/([^/?]+)$/;
+/** Builds only a plan drafts and previews, so there is one wireframe per change: the plan's. */
+const PLAN_OWNED =
+  /^\/api\/authoring\/(new|(analysis|dashboard)\/[^/]+)\/(propose|preview|rebind\/preview)$/;
+
 const DRAWABLE_PREVIEW =
   /^\/api\/authoring\/(new|definition|(analysis|dashboard)\/[^/]+\/(rebind|definition))\/preview$/;
 
@@ -433,7 +441,7 @@ export class AssistantService {
     }
     // The authoring model drafts the build from the brief; it is checked and
     // previewed before the plan is shown, so a plan the person sees runs.
-    const drafted = await this.draft(parsed.target, parsed.brief, out);
+    const drafted = await this.draft(parsed.target, parsed.brief, parsed.filters, out);
     if ('problem' in drafted) {
       return {
         id,
@@ -488,6 +496,7 @@ export class AssistantService {
   private async draft(
     target: PlanTarget,
     brief: string,
+    requested: RequestedFilter[],
     out: Collected
   ): Promise<
     | {
@@ -502,7 +511,17 @@ export class AssistantService {
   > {
     const key = this.options.authoringModel;
     const chosen = key && isAiModelKey(key) ? aiModel(key) : undefined;
-    let ask = brief;
+    // The authoring model hears the requirements too; code holds the build to them either way.
+    const required = requested.length
+      ? `\n\nFilters the person asked for, each required with its control: ${requested
+          .map(
+            (f) =>
+              `${f.column}${f.dataset ? ` (${f.dataset})` : ''}${f.control ? ` as ${f.control}` : ''}${f.placement ? ` in the ${f.placement}` : ''}`
+          )
+          .join('; ')}.`
+      : '';
+    const withRequired = `${brief}${required}`;
+    let ask = withRequired;
     let problem = '';
     for (let attempt = 1; attempt <= MAX_DRAFTS; attempt++) {
       await this.progress(
@@ -512,11 +531,11 @@ export class AssistantService {
       if ('problem' in proposed) {
         problem = proposed.problem;
       } else {
-        const checked = await this.checkPlanned(proposed.build, out);
+        const checked = await this.checkPlanned(proposed.build, requested, out);
         if ('previewId' in checked) {
           const helper = out.helpers.at(-1);
           return {
-            build: proposed.build,
+            build: checked.build,
             model: chosen
               ? { key: chosen.key, label: chosen.label }
               : { key: helper?.modelId ?? 'planner', label: helper?.label ?? 'The planner' },
@@ -529,7 +548,7 @@ export class AssistantService {
         problem = checked.problem;
       }
       ask =
-        `${brief}\n\nYour previous draft could not be built:\n${problem}\nDraft it again so that it can.`.slice(
+        `${withRequired}\n\nYour previous draft could not be built:\n${problem}\nDraft it again so that it can.`.slice(
           0,
           MAX_BRIEF_CHARS
         );
@@ -657,7 +676,7 @@ export class AssistantService {
     // that fresh preview.
     let previewId = here.find((p) => p.id === plan.id)?.previewId;
     if (!previewId) {
-      const checked = await this.checkPlanned(plan.build, out);
+      const checked = await this.checkPlanned(plan.build, [], out);
       if ('problem' in checked) {
         return { id, content: checked.problem, isError: true };
       }
@@ -698,32 +717,82 @@ export class AssistantService {
   }
 
   /**
-   * A plan's build, checked as its write and held to what it claims: the
-   * preview it is bound to, by id, must build every filter the build asks
-   * for. Anything else is a problem, so a plan never shows a control the
-   * change will not add.
+   * A plan's build, checked as its write and held to what the person asked
+   * for. Its preview is run; every requested filter the preview did not
+   * build is put into the build by code (on the dataset that has the
+   * column, with the control asked for) and it is previewed again. The
+   * result is bound to that preview by id. Anything that still is not
+   * built, or that the build claims and the preview lacks, is a problem:
+   * a plan is never shown saying what the change will not do.
    */
   private async checkPlanned(
     build: PlanBuild,
+    requested: RequestedFilter[],
     out: Collected
-  ): Promise<{ previewId: string; definition: unknown; built?: string } | { problem: string }> {
-    const checked = await this.checkWrite(writeOf(build), out);
+  ): Promise<
+    | { build: PlanBuild; previewId: string; definition: unknown; built?: string }
+    | { problem: string }
+  > {
+    let current = build;
+    let checked = await this.checkWrite(writeOf(current), out);
     if (checked.problem) {
       return { problem: checked.problem };
+    }
+    const missing = missingRequested(requested, checked.data?.definition);
+    if (missing.length > 0) {
+      const targets = await this.filterTargets(current, checked.data?.definition);
+      const placed = withRequestedFilters(current, missing, targets);
+      if (placed.problems.length > 0) {
+        return { problem: placed.problems.join('\n') };
+      }
+      current = placed.build;
+      checked = await this.checkWrite(writeOf(current), out);
+      if (checked.problem) {
+        return { problem: checked.problem };
+      }
     }
     const definition = checked.data?.definition;
     if (!checked.previewId || !definition) {
       return { problem: 'The preview of this build drew no definition, so it cannot be checked.' };
     }
-    const unbuilt = unbuiltClaims(build, definition);
+    const unbuilt = [
+      ...missingRequested(requested, definition).map(
+        (f) =>
+          `The person asked for a filter on ${f.column}${f.control ? ` with a ${f.control} control` : ''}, and the preview still does not build it.`
+      ),
+      ...unbuiltClaims(current, definition),
+    ];
     if (unbuilt.length > 0) {
       return { problem: unbuilt.join('\n') };
     }
     return {
+      build: current,
       previewId: checked.previewId,
       definition,
       ...(checked.built ? { built: checked.built } : {}),
     };
+  }
+
+  /** The datasets a build reads (with their columns) and its first sheet, from its preview. */
+  private async filterTargets(build: PlanBuild, definition: unknown): Promise<FilterTargets> {
+    const declared = declaredDatasets(definition);
+    const fromBuild: Array<{ identifier: string; dataSetId: string }> =
+      'create' in build && Array.isArray(build.create.datasets)
+        ? build.create.datasets.filter((d: any) => d?.identifier && d?.dataSetId)
+        : [];
+    const byIdentifier = new Map(
+      [...declared.datasets, ...fromBuild].map((d) => [d.identifier, d.dataSetId])
+    );
+    const datasets = await Promise.all(
+      [...byIdentifier].map(async ([identifier, dataSetId]) => ({
+        identifier,
+        dataSetId,
+        columns: (await datasetColumns(this.dispatch, dataSetId).catch(() => [])).map(
+          (c) => c.name
+        ),
+      }))
+    );
+    return { datasets, ...(declared.sheetId ? { sheetId: declared.sheetId } : {}) };
   }
 
   /**
@@ -1048,16 +1117,18 @@ export class AssistantService {
         isError: true,
       };
     }
+    if (method === 'POST' && PLAN_OWNED.test(path.split('?')[0] ?? '')) {
+      // A second draft or preview of a build beside the plan's would show the
+      // person something the plan does not run.
+      return {
+        id,
+        content:
+          'Drafting and previewing an analysis or dashboard belong to the plan: draw it with show_plan (name every filter in `filters`), and its preview is drawn with it.',
+        isError: true,
+      };
+    }
     try {
-      const pathname = path.split('?')[0] ?? '';
-      const body =
-        PROPOSE.test(pathname) &&
-        this.options.authoringModel &&
-        input.body &&
-        typeof input.body === 'object' &&
-        !('model' in (input.body as Record<string, unknown>))
-          ? { ...(input.body as Record<string, unknown>), model: this.options.authoringModel }
-          : input.body;
+      const body = input.body;
       await this.progress(describeStep(method, path));
       const response = await this.run(method, path, body);
       const ok = response.status < HTTP_ERROR_MIN;

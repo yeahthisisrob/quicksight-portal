@@ -394,41 +394,103 @@ describe('AG-UI run protocol', () => {
     expect(asks[1]).toContain('no control on region');
   });
 
-  it("binds Run to the plan's own preview, even when another preview was drawn after it", async () => {
+  it('puts a filter the person asked for into the build when the authoring model leaves it out', async () => {
+    // The person asked for a region dropdown; the authoring model drafts only the table.
+    const draftedWithout = {
+      status: 200,
+      body: JSON.stringify({
+        success: true,
+        data: { visuals: CREATE.visuals, filters: [], proposal: { reason: 'A table.' } },
+      }),
+    };
+    const previews: any[] = [];
+    const dispatch = vi.fn(async ({ path, body }: { path: string; body?: any }) => {
+      if (path.endsWith('/propose')) return draftedWithout;
+      if (path === '/api/authoring/new/preview') {
+        previews.push(body);
+        const columns = (body?.filters ?? []).map((f: any) => f.column);
+        return {
+          status: 200,
+          body: JSON.stringify({
+            success: true,
+            data: {
+              ...OUTLINE.data,
+              definition: {
+                ...withControls(columns),
+                DataSetIdentifierDeclarations: [
+                  {
+                    Identifier: 'orders',
+                    DataSetArn: 'arn:aws:quicksight:us-east-1:1:dataset/ds-1',
+                  },
+                ],
+              },
+            },
+          }),
+        };
+      }
+      if (path === '/api/authoring/datasets/ds-1/columns') {
+        return {
+          status: 200,
+          body: JSON.stringify({ data: { columns: [{ name: 'order_id' }, { name: 'Region' }] } }),
+        };
+      }
+      return { status: 404, body: '' };
+    });
     const chat = scripted([
-      { toolCalls: [PLAN] },
       {
-        // The chat model previews something else (no filter) before preparing.
         toolCalls: [
           {
-            id: 'other',
-            name: 'call_portal_api',
-            input: {
-              method: 'POST',
-              path: '/api/authoring/new/preview',
-              body: { ...CREATE, filters: [] },
-            },
+            ...PLAN,
+            input: { ...PLAN.input, filters: [{ column: 'region', control: 'dropdown' }] },
           },
         ],
       },
       { toolCalls: [{ id: 'r1', name: 'prepare_plan', input: {} }] },
-      { text: 'Ready to run.' },
+      { text: 'Ready.' },
     ]);
-    const dispatch = vi.fn(async ({ path }: { path: string }) =>
-      path.endsWith('/propose') ? PROPOSED : { status: 200, body: JSON.stringify(OUTLINE) }
-    );
-    const result = await new AssistantService(chat, model, dispatch, {
-      authoringModel: 'sonnet-4-6',
-    }).respond([{ role: 'user', text: 'one table with a region filter' }]);
+    const result = await new AssistantService(chat, model, dispatch).respond([
+      { role: 'user', text: 'orders with a region dropdown' },
+    ]);
     const plan = result.artifacts.find((a) => a.kind === 'plan') as any;
-    const previews = result.artifacts.filter((a) => a.kind === 'preview');
-    expect(previews).toHaveLength(2);
-    const planPreview = previews.find((p) => p.id === plan.previewId) as any;
-    expect(planPreview.body.filters).toEqual(CREATE.filters);
-    expect(result.actions).toEqual([
-      expect.objectContaining({ planId: plan.id, previewId: plan.previewId }),
+    // Placed by code, on the dataset that has the column, with its real name and the control asked for.
+    const filter = { identifier: 'orders', column: 'Region', control: 'dropdown' };
+    expect(plan.build.create.filters).toEqual([filter]);
+    expect(previews.at(-1).filters).toEqual([filter]);
+    expect(plan.filters).toEqual([
+      expect.objectContaining({ column: 'Region', control: 'dropdown', placement: 'controlBar' }),
     ]);
-    expect(result.actions[0]!.previewId).not.toBe(previews.at(-1)!.id);
+    expect(result.actions).toEqual([
+      expect.objectContaining({
+        body: expect.objectContaining({ filters: [filter] }),
+        previewId: plan.previewId,
+      }),
+    ]);
+  });
+
+  it('does not show a plan for a filter on a column no dataset has, and says so', async () => {
+    const told: string[] = [];
+    const chat = scripted([
+      { toolCalls: [{ ...PLAN, input: { ...PLAN.input, filters: [{ column: 'planet' }] } }] },
+      { text: 'There is no planet column.' },
+    ]);
+    const turn = chat.turn.bind(chat);
+    chat.turn = async (system, turns, tools) => {
+      const last = turns[turns.length - 1];
+      if (last?.role === 'tool') told.push(last.results[0]?.content ?? '');
+      return turn(system, turns, tools);
+    };
+    const dispatch = vi.fn(async ({ path }: { path: string }) =>
+      path.endsWith('/propose')
+        ? PROPOSED
+        : path === '/api/authoring/datasets/ds-1/columns'
+          ? { status: 200, body: JSON.stringify({ data: { columns: [{ name: 'region' }] } }) }
+          : { status: 200, body: JSON.stringify(OUTLINE) }
+    );
+    const result = await new AssistantService(chat, model, dispatch).respond([
+      { role: 'user', text: 'filter by planet' },
+    ]);
+    expect(result.artifacts.some((a) => a.kind === 'plan')).toBe(false);
+    expect(told[0]).toContain('no dataset this reads has that column');
   });
 
   it('carries out a plan drawn in an earlier answer when the person says go', async () => {

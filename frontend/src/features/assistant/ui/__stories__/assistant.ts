@@ -177,11 +177,14 @@ export const SCRIPTED_ANSWER = {
   ],
 };
 
+const PLAN_PREVIEW_ID = 'art-plan-preview';
+
 /** A plan on the governed dataset: the listing, the linked dataset it reuses, and a new analysis. */
 const PLAN_ON_GOVERNED = {
   id: 'art-plan',
   kind: 'plan',
   title: 'Margin by region on orders_gold',
+  previewId: PLAN_PREVIEW_ID,
   sources: [{ listing: 'orders_gold', project: 'sales_prod', table: 'published.orders_gold' }],
   datasets: [{ name: 'Orders (gold)', id: 'ds-orders-gold', status: 'existing' }],
   calculatedFields: [
@@ -201,6 +204,11 @@ const PLAN_ON_GOVERNED = {
   ],
   asset: { kind: 'analysis', name: 'Margin by region', status: 'new' },
   model: { key: 'sonnet-4-6', label: 'Claude Sonnet 4.6' },
+  // Read from what the preview built.
+  filters: [
+    { column: 'order_date', title: 'Period', control: 'dateRange', placement: 'controlBar' },
+    { column: 'region', title: 'Region', control: 'dropdown', placement: 'controlBar' },
+  ],
   build: {
     create: {
       assetType: 'analysis',
@@ -301,7 +309,18 @@ export const PLANNED_ANSWER = {
     { method: 'GET', path: 'context_search "orders gold"', status: 200, ok: true },
     { method: 'GET', path: 'context_related listing:l-orders', status: 200, ok: true },
   ],
-  artifacts: [PLAN_ON_GOVERNED, FIELD_VERDICTS],
+  artifacts: [
+    {
+      id: PLAN_PREVIEW_ID,
+      kind: 'preview',
+      title: 'Preview',
+      method: 'POST',
+      path: '/api/authoring/new/preview',
+      body: PLAN_ON_GOVERNED.build.create,
+    },
+    PLAN_ON_GOVERNED,
+    FIELD_VERDICTS,
+  ],
   actions: [
     {
       id: 'act-plan',
@@ -315,6 +334,7 @@ export const PLANNED_ANSWER = {
         datasets: [{ identifier: 'orders', dataSetId: 'ds-orders-gold' }],
       },
       planId: PLAN_ON_GOVERNED.id,
+      previewId: PLAN_PREVIEW_ID,
     },
   ],
 };
@@ -497,6 +517,16 @@ export function assistantRoutes(): MockRoute[] {
             message: 'Granting 2 of 5 principals',
             startTime: '2026-09-25T10:00:00Z',
           },
+        },
+      }),
+    },
+    {
+      method: 'post',
+      url: /\/authoring\/new\/preview$/,
+      respond: () => ({
+        body: {
+          success: true,
+          data: { definition: definitionFixtures.gridDashboardDefinition, warnings: [] },
         },
       }),
     },

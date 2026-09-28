@@ -163,15 +163,6 @@ describe('AssistantService', () => {
       {
         toolCalls: [
           {
-            id: 't3',
-            name: 'call_portal_api',
-            input: {
-              method: 'POST',
-              path: '/api/authoring/dashboard/d1/rebind/preview',
-              body: { rebinds: [] },
-            },
-          },
-          {
             id: 't4',
             name: 'show_plan',
             input: {
@@ -179,6 +170,7 @@ describe('AssistantService', () => {
               datasets: [{ name: 'Orders (gold)', id: 'ds-gold', status: 'existing' }],
               asset: { kind: 'dashboard', name: 'Margin', id: 'd1', status: 'new' },
               brief: 'A copy of the margin dashboard reading orders gold, nothing else changed.',
+              filters: [],
               target: { edit: { assetType: 'dashboard', assetId: 'd1' } },
             },
           },
@@ -200,14 +192,15 @@ describe('AssistantService', () => {
     expect(result.calls.map((c) => c.path)).toEqual([
       '/api/search?q=margin',
       '/api/data-catalog/calculated-fields/margin%3A%3Aabc',
-      '/api/authoring/dashboard/d1/rebind/preview',
       '/api/authoring/dashboard/d1/propose',
+      '/api/authoring/dashboard/d1/rebind/preview',
     ]);
     const kinds = result.artifacts.map((a) => a.kind);
     expect(kinds).toEqual(['lineage', 'preview', 'plan', 'asset']);
     expect(result.artifacts[0]).toMatchObject({ fieldKey: 'margin::abc' });
     const preview = result.artifacts[1]!;
-    // The plan's build was already previewed with the same body: not previewed twice.
+    // The plan draws its own preview, and Run is bound to it.
+    expect(result.artifacts[2]).toMatchObject({ previewId: preview.id });
     expect(result.actions).toEqual([
       expect.objectContaining({
         title: 'Copy the dashboard',
@@ -268,73 +261,104 @@ describe('AssistantService', () => {
     expect(result.reply).toContain('ran out of steps');
   });
 
-  it('runs the planner itself, with the authoring model, waits for its job, and says what it is doing', async () => {
+  /** A plan for a new analysis, whose draft the planner answers as a job. */
+  const drawPlan = {
+    toolCalls: [
+      {
+        id: 'p',
+        name: 'show_plan',
+        input: {
+          title: 'Orders',
+          datasets: [{ name: 'Orders', id: 'ds-1', status: 'existing' }],
+          asset: { kind: 'analysis', name: 'Orders', status: 'new' },
+          brief: 'One table of orders by id with revenue.',
+          filters: [],
+          target: {
+            create: {
+              assetType: 'analysis',
+              name: 'Orders',
+              datasets: [{ identifier: 'orders', dataSetId: 'ds-1' }],
+            },
+          },
+        },
+      },
+    ],
+  };
+  const DRAFT = {
+    visuals: [
+      { type: 'Table', title: 'Orders', identifier: 'orders', values: [{ column: 'revenue' }] },
+    ],
+    filters: [],
+  };
+
+  it('waits for the planner job that drafts a plan, with the authoring model, and says what it is doing', async () => {
     const statuses = ['queued', 'processing', 'completed'];
     const dispatch = vi.fn(
       async ({ method, path }: { method: string; path: string; body?: unknown }) => {
-        if (method === 'POST') {
+        if (method === 'POST' && path.endsWith('/propose')) {
           return {
             status: 202,
             body: JSON.stringify({ success: true, data: { jobId: 'planner-1' } }),
           };
         }
+        if (method === 'POST' && path.endsWith('/preview')) {
+          return { status: 200, body: JSON.stringify({ success: true, data: { definition: {} } }) };
+        }
         if (path.endsWith('/result')) {
+          return { status: 200, body: JSON.stringify({ success: true, data: DRAFT }) };
+        }
+        if (path.startsWith('/api/jobs/')) {
           return {
             status: 200,
-            body: JSON.stringify({ success: true, data: { reason: 'gold fits' } }),
+            body: JSON.stringify({
+              success: true,
+              data: { status: statuses.shift() ?? 'completed' },
+            }),
           };
         }
-        return {
-          status: 200,
-          body: JSON.stringify({
-            success: true,
-            data: { status: statuses.shift() ?? 'completed' },
-          }),
-        };
+        return { status: 404, body: '' };
       }
     );
-    const chat = scripted([
-      {
-        toolCalls: [
-          {
-            id: 'p',
-            name: 'call_portal_api',
-            input: {
-              method: 'POST',
-              path: '/api/authoring/dashboard/d1/propose',
-              body: { ask: 'onto gold' },
-            },
-          },
-        ],
-      },
-      { text: 'The planner says gold fits.' },
-    ]);
     const steps: string[] = [];
-    const result = await new AssistantService(chat, model, dispatch, {
-      authoringModel: 'opus-5',
-      onProgress: (s) => {
-        steps.push(s);
-      },
-      sleep: async () => {},
-    }).respond([{ role: 'user', text: 'run the propose' }]);
+    const result = await new AssistantService(
+      scripted([drawPlan, { text: 'Here is the plan.' }]),
+      model,
+      dispatch,
+      {
+        authoringModel: 'opus-5',
+        onProgress: (s) => {
+          steps.push(s);
+        },
+        sleep: async () => {},
+      }
+    ).respond([{ role: 'user', text: 'a table of orders' }]);
 
-    expect(dispatch.mock.calls[0]![0]).toMatchObject({
-      method: 'POST',
-      body: { ask: 'onto gold', model: 'opus-5' },
-    });
-    expect(dispatch.mock.calls.at(-1)![0]).toMatchObject({ path: '/api/jobs/planner-1/result' });
-    expect(result.calls[0]).toMatchObject({ status: 200, ok: true });
-    expect(steps).toEqual([
-      'Thinking',
-      'Asking the planner',
-      'Asking the planner: waiting for it to answer',
-      'Thinking about what it found',
-    ]);
-    expect(result.reply).toBe('The planner says gold fits.');
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        path: '/api/authoring/new/propose',
+        body: expect.objectContaining({ model: 'opus-5' }),
+      })
+    );
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ path: '/api/jobs/planner-1/result' })
+    );
+    expect(result.artifacts.some((a) => a.kind === 'plan')).toBe(true);
+    expect(steps).toContain('Asking the planner: waiting for it to answer');
   });
 
-  it("hands the model a failed job's reason, and gives up waiting at the deadline", async () => {
+  it("hands the model a failed draft job's reason, and gives up waiting at the deadline", async () => {
     let clock = 0;
+    const told: string[] = [];
+    const listen = (chat: ReturnType<typeof scripted>) => {
+      const turn = chat.turn.bind(chat);
+      chat.turn = async (system, turns, tools) => {
+        const last = turns[turns.length - 1];
+        if (last?.role === 'tool') told.push(last.results[0]?.content ?? '');
+        return turn(system, turns, tools);
+      };
+      return chat;
+    };
     const failing = vi.fn(async ({ method }: { method: string }) =>
       method === 'POST'
         ? { status: 202, body: JSON.stringify({ data: { jobId: 'j' } }) }
@@ -343,24 +367,15 @@ describe('AssistantService', () => {
             body: JSON.stringify({ data: { status: 'failed', message: 'AccessDenied' } }),
           }
     );
-    const propose = {
-      toolCalls: [
-        {
-          id: 'p',
-          name: 'call_portal_api',
-          input: { method: 'POST', path: '/api/authoring/new/propose', body: {} },
-        },
-      ],
-    };
     const failed = await new AssistantService(
-      scripted([propose, { text: 'It failed.' }]),
+      listen(scripted([drawPlan, { text: 'It failed.' }])),
       model,
       failing,
-      {
-        sleep: async () => {},
-      }
+      { sleep: async () => {} }
     ).respond([{ role: 'user', text: 'go' }]);
     expect(failed.calls[0]).toMatchObject({ status: 500, ok: false });
+    expect(told[0]).toContain('AccessDenied');
+    expect(failed.artifacts.some((a) => a.kind === 'plan')).toBe(false);
 
     const slow = vi.fn(async ({ method }: { method: string }) =>
       method === 'POST'
@@ -368,7 +383,7 @@ describe('AssistantService', () => {
         : { status: 200, body: JSON.stringify({ data: { status: 'processing' } }) }
     );
     const waited = await new AssistantService(
-      scripted([propose, { text: 'Still going.' }]),
+      scripted([drawPlan, { text: 'Still going.' }]),
       model,
       slow,
       {
@@ -382,33 +397,55 @@ describe('AssistantService', () => {
     expect(clock).toBeGreaterThanOrEqual(5 * 60 * 1000);
   });
 
-  it('waits on a job whose id comes back at the top level', async () => {
+  it('waits on a draft job whose id comes back at the top level', async () => {
     const dispatch = vi.fn(async ({ method, path }: { method: string; path: string }) =>
-      method === 'POST'
+      method === 'POST' && path.endsWith('/propose')
         ? { status: 202, body: JSON.stringify({ success: true, jobId: 'top-1', status: 'queued' }) }
-        : path.endsWith('/result')
-          ? { status: 200, body: JSON.stringify({ success: true, data: { answer: 42 } }) }
-          : { status: 200, body: JSON.stringify({ data: { status: 'completed' } }) }
+        : method === 'POST'
+          ? { status: 200, body: JSON.stringify({ success: true, data: { definition: {} } }) }
+          : path.endsWith('/result')
+            ? { status: 200, body: JSON.stringify({ success: true, data: DRAFT }) }
+            : { status: 200, body: JSON.stringify({ data: { status: 'completed' } }) }
     );
     const result = await new AssistantService(
-      scripted([
-        {
-          toolCalls: [
-            {
-              id: 'p',
-              name: 'call_portal_api',
-              input: { method: 'POST', path: '/api/authoring/new/propose', body: {} },
-            },
-          ],
-        },
-        { text: 'Done.' },
-      ]),
+      scripted([drawPlan, { text: 'Done.' }]),
       model,
       dispatch,
       { sleep: async () => {} }
     ).respond([{ role: 'user', text: 'go' }]);
-    expect(dispatch.mock.calls.at(-1)![0]).toMatchObject({ path: '/api/jobs/top-1/result' });
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ path: '/api/jobs/top-1/result' })
+    );
     expect(result.calls[0]).toMatchObject({ status: 200, ok: true });
+  });
+
+  it('will not draft or preview a build beside the plan', async () => {
+    const dispatch = vi.fn();
+    const told: string[] = [];
+    const chat = scripted([
+      {
+        toolCalls: [
+          {
+            id: 'x',
+            name: 'call_portal_api',
+            input: { method: 'POST', path: '/api/authoring/new/preview', body: {} },
+          },
+        ],
+      },
+      { text: 'I will draw a plan.' },
+    ]);
+    const turn = chat.turn.bind(chat);
+    chat.turn = async (system, turns, tools) => {
+      const last = turns[turns.length - 1];
+      if (last?.role === 'tool') told.push(last.results[0]?.content ?? '');
+      return turn(system, turns, tools);
+    };
+    const result = await new AssistantService(chat, model, dispatch).respond([
+      { role: 'user', text: 'preview it' },
+    ]);
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(told[0]).toContain('show_plan');
+    expect(result.artifacts).toEqual([]);
   });
 
   it('will not prepare a restore its own check says cannot go ahead', async () => {
