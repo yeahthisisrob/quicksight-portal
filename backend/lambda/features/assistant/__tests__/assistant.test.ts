@@ -142,7 +142,7 @@ describe('AssistantService', () => {
         // The planner proposes a copy onto gold with no edits.
         data: path.endsWith('/propose')
           ? { intent: 'rebind', mode: 'clone', rebinds: [], ops: [], problems: [], unmapped: [] }
-          : { path },
+          : { path, definition: {} },
       }),
     }));
     const chat = scripted([
@@ -218,7 +218,11 @@ describe('AssistantService', () => {
         planId: result.artifacts[2]!.id,
       }),
     ]);
-    expect(dispatch).toHaveBeenCalledTimes(4);
+    // The four calls, and the dataset's name read from the graph for the plan.
+    expect(dispatch).toHaveBeenCalledTimes(5);
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ path: '/api/context/entities/dataset%3Ads-gold' })
+    );
     expect(result.rounds).toBe(3);
     expect(result.cost).toBeCloseTo(costOf(model, { inputTokens: 3_000, outputTokens: 300 }));
   });

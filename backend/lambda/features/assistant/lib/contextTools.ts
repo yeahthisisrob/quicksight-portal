@@ -176,3 +176,19 @@ export async function datasetColumns(
     };
   });
 }
+
+/** An entity's name as the graph knows it, with its project's for a listing; null when unknown. */
+export async function entityNames(
+  dispatch: Dispatch,
+  entityId: string
+): Promise<{ name: string; project?: string } | null> {
+  const result = await data(dispatch, `/api/context/entities/${encodeURIComponent(entityId)}`);
+  const entity = result.data?.entity;
+  if (result.status >= FIRST_ERROR_STATUS || typeof entity?.name !== 'string') {
+    return null;
+  }
+  const project = (result.data.relations as any[] | undefined)?.find(
+    (r) => r.relation === 'in-project' && r.direction === 'out'
+  )?.examples?.[0]?.name;
+  return { name: entity.name, ...(typeof project === 'string' ? { project } : {}) };
+}

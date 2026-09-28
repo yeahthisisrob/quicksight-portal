@@ -2840,7 +2840,9 @@ export interface components {
                 status: components["schemas"]["PlanStatus"];
             };
             build?: components["schemas"]["AssistantPlanBuild"];
-            /** @description plan - the filters its build adds, for drawing (the build is what runs). */
+            /** @description plan - the preview it was checked against; its Run button shows this one. */
+            previewId?: string;
+            /** @description plan - the filters its preview built, with their controls, read from the previewed definition (not from the request). */
             filters?: {
                 column: string;
                 title?: string;

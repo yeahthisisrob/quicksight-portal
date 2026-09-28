@@ -238,9 +238,40 @@ describe('AG-UI run protocol', () => {
       },
     }),
   };
+  /** A definition as the preview builds it: a region filter, its dropdown in the control bar. */
+  const withControls = (columns: string[]) => ({
+    FilterGroups: columns.map((column, i) => ({
+      Filters: [{ CategoryFilter: { FilterId: `f${i}`, Column: { ColumnName: column } } }],
+    })),
+    Sheets: [
+      {
+        FilterControls: columns.map((column, i) => ({
+          Dropdown: {
+            FilterControlId: `c${i}`,
+            SourceFilterId: `f${i}`,
+            Title: column,
+            Type: 'MULTI_SELECT',
+          },
+        })),
+        SheetControlLayouts: [
+          {
+            Configuration: {
+              GridLayout: {
+                Elements: columns.map((_, i) => ({
+                  ElementId: `c${i}`,
+                  ElementType: 'FILTER_CONTROL',
+                })),
+              },
+            },
+          },
+        ],
+      },
+    ],
+  });
   const OUTLINE = {
     success: true,
     data: {
+      definition: withControls(['region']),
       outline: [
         {
           elements: [
@@ -286,8 +317,9 @@ describe('AG-UI run protocol', () => {
     expect(result.helpers).toEqual([
       expect.objectContaining({ role: 'planner', label: aiModel('sonnet-4-6').label }),
     ]);
+    // Read from what the preview built, not from what was asked for.
     expect(plan.filters).toEqual([
-      { column: 'region', control: 'dropdown', placement: 'controlBar' },
+      { column: 'region', title: 'region', control: 'dropdown', placement: 'controlBar' },
     ]);
     expect(result.actions).toEqual([
       expect.objectContaining({
@@ -324,6 +356,79 @@ describe('AG-UI run protocol', () => {
     ]);
     expect(result.artifacts.some((a) => a.kind === 'plan')).toBe(false);
     expect(told[0]).toContain('has no such column');
+  });
+
+  it('never shows a plan claiming a control its preview did not build; the draft goes back with why', async () => {
+    const told: string[] = [];
+    const chat = scripted([{ toolCalls: [PLAN] }, { text: 'Fixing it.' }]);
+    const turn = chat.turn.bind(chat);
+    chat.turn = async (system, turns, tools) => {
+      const last = turns[turns.length - 1];
+      if (last?.role === 'tool') told.push(last.results[0]?.content ?? '');
+      return turn(system, turns, tools);
+    };
+    // The build asks for a region dropdown; the preview builds the table and no control.
+    const dispatch = vi.fn(async ({ path }: { path: string }) =>
+      path.endsWith('/propose')
+        ? PROPOSED
+        : {
+            status: 200,
+            body: JSON.stringify({
+              success: true,
+              data: { ...OUTLINE.data, definition: withControls([]) },
+            }),
+          }
+    );
+    const result = await new AssistantService(chat, model, dispatch).respond([
+      { role: 'user', text: 'one table with a region filter' },
+    ]);
+    expect(result.artifacts.some((a) => a.kind === 'plan')).toBe(false);
+    expect(result.actions).toEqual([]);
+    expect(told[0]).toContain('no control on region');
+    // Each draft went back to the authoring model with the reason.
+    const asks = dispatch.mock.calls
+      .map(([call]) => call as { path: string; body?: any })
+      .filter((c) => c.path.endsWith('/propose'))
+      .map((c) => c.body.ask as string);
+    expect(asks.length).toBeGreaterThan(1);
+    expect(asks[1]).toContain('no control on region');
+  });
+
+  it("binds Run to the plan's own preview, even when another preview was drawn after it", async () => {
+    const chat = scripted([
+      { toolCalls: [PLAN] },
+      {
+        // The chat model previews something else (no filter) before preparing.
+        toolCalls: [
+          {
+            id: 'other',
+            name: 'call_portal_api',
+            input: {
+              method: 'POST',
+              path: '/api/authoring/new/preview',
+              body: { ...CREATE, filters: [] },
+            },
+          },
+        ],
+      },
+      { toolCalls: [{ id: 'r1', name: 'prepare_plan', input: {} }] },
+      { text: 'Ready to run.' },
+    ]);
+    const dispatch = vi.fn(async ({ path }: { path: string }) =>
+      path.endsWith('/propose') ? PROPOSED : { status: 200, body: JSON.stringify(OUTLINE) }
+    );
+    const result = await new AssistantService(chat, model, dispatch, {
+      authoringModel: 'sonnet-4-6',
+    }).respond([{ role: 'user', text: 'one table with a region filter' }]);
+    const plan = result.artifacts.find((a) => a.kind === 'plan') as any;
+    const previews = result.artifacts.filter((a) => a.kind === 'preview');
+    expect(previews).toHaveLength(2);
+    const planPreview = previews.find((p) => p.id === plan.previewId) as any;
+    expect(planPreview.body.filters).toEqual(CREATE.filters);
+    expect(result.actions).toEqual([
+      expect.objectContaining({ planId: plan.id, previewId: plan.previewId }),
+    ]);
+    expect(result.actions[0]!.previewId).not.toBe(previews.at(-1)!.id);
   });
 
   it('carries out a plan drawn in an earlier answer when the person says go', async () => {

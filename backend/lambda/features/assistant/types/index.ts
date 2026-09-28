@@ -94,7 +94,9 @@ export type AssistantArtifact =
       title: string;
       /** The model that drew it. */
       model: { key: string; label: string };
-      /** Its build's filters, for drawing. */
+      /** The preview it was checked against, by id: what its Run button shows. */
+      previewId?: string;
+      /** The filters its preview built (with their controls), for drawing. */
       filters?: Array<{ column: string; title?: string; control?: string; placement?: string }>;
     } & BuildPlan)
   | { id: string; kind: 'fields'; title: string; fields: FieldVerdict[] };
