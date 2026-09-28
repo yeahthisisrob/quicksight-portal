@@ -105,7 +105,8 @@ describe('S3Service - Basic Operations', () => {
         bucket,
         key,
         JSON.stringify(body, null, 2),
-        'application/json'
+        'application/json',
+        undefined
       );
       expect(mockS3Adapter.putObject).toHaveBeenCalledTimes(1);
     });
@@ -135,7 +136,8 @@ describe('S3Service - Basic Operations', () => {
         bucket,
         key,
         JSON.stringify(body, null, 2),
-        'application/json'
+        'application/json',
+        undefined
       );
     });
 
@@ -148,7 +150,13 @@ describe('S3Service - Basic Operations', () => {
 
       await s3Service.putObject(bucket, key, body);
 
-      expect(mockS3Adapter.putObject).toHaveBeenCalledWith(bucket, key, body, 'application/json');
+      expect(mockS3Adapter.putObject).toHaveBeenCalledWith(
+        bucket,
+        key,
+        body,
+        'application/json',
+        undefined
+      );
     });
 
     it(
@@ -724,5 +732,48 @@ describe('S3Service - Async operation validation', () => {
       },
       TEST_CONSTANTS.TEST_TIMEOUT_MS
     );
+  });
+});
+
+describe('S3Service.updateObject', () => {
+  it('writes only over the version it read, and re-applies the change after a conflict', async () => {
+    const service = new S3Service('test-account');
+    const versions = [{ a: 1 }, { a: 1, b: 2 }];
+    const etags = ['"v1"', '"v2"'];
+    let read = 0;
+    vi.spyOn(service, 'getObjectWithETag').mockImplementation(async () => {
+      const i = Math.min(read++, 1);
+      return { data: versions[i], etag: etags[i] } as any;
+    });
+    const put = vi
+      .spyOn(service, 'putObject')
+      .mockRejectedValueOnce(
+        Object.assign(new Error('conflict'), {
+          name: 'PreconditionFailed',
+          $metadata: { httpStatusCode: 412 },
+        })
+      )
+      .mockResolvedValue('"v3"');
+
+    const written = await service.updateObject<Record<string, number>>('b', 'k', (c) => ({
+      ...c,
+      c: 3,
+    }));
+
+    expect(written).toEqual({ a: 1, b: 2, c: 3 });
+    expect(put.mock.calls[0]![4]).toEqual({ ifMatch: '"v1"' });
+    // The second attempt applied the change to the newer version, conditioned on it.
+    expect(put.mock.calls[1]![2]).toEqual({ a: 1, b: 2, c: 3 });
+    expect(put.mock.calls[1]![4]).toEqual({ ifMatch: '"v2"' });
+  });
+
+  it('creates only if nobody else created it first', async () => {
+    const service = new S3Service('test-account');
+    vi.spyOn(service, 'getObjectWithETag').mockRejectedValue(
+      Object.assign(new Error('missing'), { name: 'NoSuchKey' })
+    );
+    const put = vi.spyOn(service, 'putObject').mockResolvedValue('"v1"');
+    await service.updateObject('b', 'k', () => ({ first: true }));
+    expect(put.mock.calls[0]![4]).toEqual({ ifNoneMatch: '*' });
   });
 });

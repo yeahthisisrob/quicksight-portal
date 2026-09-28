@@ -34,8 +34,8 @@ import { ValidationError } from '../../../shared/errors/ValidationError';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import { describeDataSetForEdit, resendDataSet } from '../../../shared/services/aws/datasetUpdate';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
-import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
-import { cacheService } from '../../../shared/services/cache/CacheService';
+import { keepCatalogFresh } from '../../../shared/services/catalog/assetFreshness';
+import { catalog } from '../../../shared/services/catalog/catalogStore';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
@@ -110,10 +110,7 @@ export class DatasetSourceService {
    * why `updateSource` re-checks membership rather than trusting the input.
    */
   public async listDataSourceOptions(): Promise<DataSourceOption[]> {
-    const entries = await cacheService.getCacheEntries({
-      assetType: ASSET_TYPES.datasource,
-      statusFilter: AssetStatusFilter.ACTIVE,
-    });
+    const entries = await catalog.list(ASSET_TYPES.datasource, AssetStatusFilter.ACTIVE);
 
     return entries
       .filter((entry) => Boolean(entry.arn))
@@ -182,7 +179,7 @@ export class DatasetSourceService {
     // (its sources, lineage and fields changed too) without waiting for an export.
     if (name !== current.Name) {
       try {
-        await cacheService.updateAsset(ASSET_TYPES.dataset, dataSetId, { assetName: name });
+        await catalog.patch(ASSET_TYPES.dataset, dataSetId, { assetName: name });
       } catch (error) {
         logger.warn('Dataset updated but the cached name could not be refreshed', {
           dataSetId,
@@ -190,7 +187,7 @@ export class DatasetSourceService {
         });
       }
     }
-    await keepCacheFresh([{ assetType: ASSET_TYPES.dataset, assetId: dataSetId, name }]);
+    await keepCatalogFresh([{ assetType: ASSET_TYPES.dataset, assetId: dataSetId, name }]);
 
     return {
       dataSetId,
@@ -264,9 +261,9 @@ export class DatasetSourceService {
       if (edit.catalog !== undefined) {
         // An empty catalog means "this engine has none"; send nothing rather
         // than an empty string, which QuickSight rejects.
-        const catalog = edit.catalog.trim();
-        if (catalog) {
-          relational.Catalog = catalog;
+        const catalogName = edit.catalog.trim();
+        if (catalogName) {
+          relational.Catalog = catalogName;
         } else {
           delete relational.Catalog;
         }

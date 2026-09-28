@@ -6,6 +6,9 @@ vi.mock('../../../../shared/utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
+const readFields = vi.hoisted(() => vi.fn());
+vi.mock('../../../../shared/services/catalog/fieldCache', () => ({ readFields }));
+
 const ASSET = {
   listingId: 'l-orders',
   assetId: 'a-orders',
@@ -105,7 +108,6 @@ const FIELDS = [
 
 describe('SmusCatalogService', () => {
   const smus = { listAssets: vi.fn() };
-  const cache = { searchFields: vi.fn() };
   const notes = { getAllFieldMetadata: vi.fn() };
   const templates = { list: vi.fn() };
   let service: SmusCatalogService;
@@ -118,7 +120,7 @@ describe('SmusCatalogService', () => {
       projectFilter: ['p-prod', 'p-dev'],
       assets: [ASSET, OTHER],
     });
-    cache.searchFields.mockResolvedValue(FIELDS);
+    readFields.mockResolvedValue(FIELDS);
     notes.getAllFieldMetadata.mockResolvedValue([
       {
         sourceType: 'dataset',
@@ -137,7 +139,7 @@ describe('SmusCatalogService', () => {
         updatedAt: '',
       },
     ]);
-    service = new SmusCatalogService(smus as any, cache as any, notes as any, templates as any);
+    service = new SmusCatalogService(smus as any, notes as any, templates as any);
   });
 
   it('lists assets with per-project and per-term counts and QuickSight rollups', async () => {
@@ -165,7 +167,7 @@ describe('SmusCatalogService', () => {
     );
     expect(result.assets).toEqual([]);
     expect(result.glossaryTerms).toEqual([]);
-    expect(cache.searchFields).not.toHaveBeenCalled();
+    expect(readFields).not.toHaveBeenCalled();
   });
 
   it('scopes to a project and a term', async () => {
@@ -240,9 +242,7 @@ describe('SmusCatalogService', () => {
   it('keeps working when notes and templates are unavailable, and without recorded visuals', async () => {
     notes.getAllFieldMetadata.mockRejectedValue(new Error('no metadata'));
     templates.list.mockRejectedValue(new Error('no table'));
-    cache.searchFields.mockResolvedValue(
-      (FIELDS as any[]).map(({ visuals: _visuals, ...rest }) => rest)
-    );
+    readFields.mockResolvedValue((FIELDS as any[]).map(({ visuals: _visuals, ...rest }) => rest));
     const asset = await service.get('l-orders');
     const margin = asset.datasets[0]!.fields.find((f) => f.name === 'margin')!;
     expect(margin.portal).toBeUndefined();

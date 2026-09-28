@@ -244,7 +244,6 @@ describe('organizationRoutes - organization', () => {
         '/assets/refresh-tags',
         '/assets/refresh-views',
         '/assets/bulk-delete',
-        '/assets/rebuild-index',
       ];
 
       for (const path of assetManagementRoutes) {

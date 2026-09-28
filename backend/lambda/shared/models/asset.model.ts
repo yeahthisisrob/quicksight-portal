@@ -3,6 +3,7 @@
  * Cache = fast lookups, Export files = complete data
  */
 
+import type { ArchiveRecord } from '../types/archiveTypes';
 import type { AssetType } from '../types/assetTypes';
 
 // One list of asset types: ../types/assetTypes owns it.
@@ -22,7 +23,7 @@ type EnrichmentStatus = 'skeleton' | 'enriched' | 'partial' | 'metadata-update';
  * Lightweight cache entry for fast queries
  * Contains only what's needed for filtering, search, and basic display
  */
-export interface CacheEntry {
+export interface CatalogEntry {
   // Identity
   assetId: string;
   assetType: AssetType;
@@ -188,10 +189,11 @@ export interface CacheEntry {
           memberArn: string;
           email?: string;
         }>
+      // Folder members, as QuickSight lists them (the type inferred from the ARN when missing)
       | Array<{
-          memberId: string;
-          memberType: string;
-          memberArn: string;
+          MemberId: string;
+          MemberArn: string;
+          MemberType?: string;
         }>;
 
     // Lineage data (to avoid reading S3 files during lineage rebuild)
@@ -227,6 +229,9 @@ export interface CacheEntry {
       datasources?: Array<{ id: string; name: string }>;
     };
 
+    /** Archived entries: why and when, and every restore since. */
+    archived?: ArchiveRecord;
+
     // Common
     description?: string;
     owner?: string;
@@ -242,15 +247,10 @@ export interface CacheEntry {
 }
 
 /**
- * Master cache - lightweight index of all assets
+ * Every asset in the catalog, by type, and a version that changes whenever
+ * any type's entries change (a safe key for memoizing what is derived from them).
  */
-export interface MasterCache {
+export interface CatalogSnapshot {
+  entries: Record<AssetType, CatalogEntry[]>;
   version: string;
-  lastUpdated: Date;
-
-  // Quick counts
-  assetCounts: Record<AssetType, number>;
-
-  // Lightweight entries for fast queries
-  entries: Record<AssetType, CacheEntry[]>;
 }

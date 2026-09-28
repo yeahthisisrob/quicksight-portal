@@ -8,7 +8,7 @@
 import type { AuthContext } from '../../../shared/auth';
 import { actorFromAuth, auditLog } from '../../../shared/services/audit/AuditLog';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
-import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
+import { keepCatalogFresh } from '../../../shared/services/catalog/assetFreshness';
 import { settingsStore } from '../../../shared/services/settings/SettingsStore';
 import { mergeTags, readDefaultTags, type TagPair } from '../../../shared/tags/tagStandards';
 import { logger } from '../../../shared/utils/logger';
@@ -171,7 +171,7 @@ export async function recordProvenance(
   },
   auth?: AuthContext
 ): Promise<void> {
-  await keepCacheFresh(
+  await keepCatalogFresh(
     [
       { assetType: entry.assetType, assetId: entry.assetId, name: entry.name, arn: entry.arn },
       ...(entry.folderIds ?? []).map((assetId) => ({ assetType: 'folder' as const, assetId })),

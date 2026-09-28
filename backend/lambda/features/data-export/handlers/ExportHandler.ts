@@ -4,11 +4,11 @@ import { actorLabel, requireAuth } from '../../../shared/auth';
 import { metadataBucketName } from '../../../shared/config/metadataBucket';
 import { STATUS_CODES } from '../../../shared/constants';
 import { JobHandler } from '../../../shared/handlers/JobHandler';
-import { cacheService } from '../../../shared/services/cache/CacheService';
 import { type ExportJobConfig, jobFactory } from '../../../shared/services/jobs/JobFactory';
 import { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
+import { exportSummary } from '../services/exportSummary';
 
 export class ExportHandler {
   private readonly bucketName: string;
@@ -91,9 +91,7 @@ export class ExportHandler {
     try {
       await requireAuth(event);
 
-      const exportSummary = await cacheService.getExportSummary();
-
-      return successResponse(event, { success: true, data: exportSummary });
+      return successResponse(event, { success: true, data: await exportSummary() });
     } catch (error: any) {
       logger.error('Failed to get export summary', { error });
       return errorResponse(

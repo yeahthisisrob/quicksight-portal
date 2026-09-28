@@ -2,6 +2,8 @@ import type { APIGatewayProxyEvent } from 'aws-lambda';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { STATUS_CODES } from '../../../../shared/constants';
+import { catalog } from '../../../../shared/services/catalog/catalogStore';
+import { catalogEntry, useTestCatalog } from '../../../../shared/utils/testUtils/testCatalog';
 import { TagHandler } from '../TagHandler';
 
 vi.mock('../../../../shared/auth', async (importOriginal) => ({
@@ -37,17 +39,10 @@ vi.mock('../../../../shared/services/bulk/BulkOperationsService', () => ({
   }),
 }));
 
-vi.mock('../../../../shared/services/cache/CacheService', () => ({
-  CacheService: {
-    getInstance: vi.fn().mockReturnValue({
-      clearMemoryCache: vi.fn().mockResolvedValue(undefined),
-      updateAssetTags: vi.fn().mockResolvedValue(undefined),
-    }),
-  },
-  cacheService: {
-    clearMemoryCache: vi.fn().mockResolvedValue(undefined),
-    updateAssetTags: vi.fn().mockResolvedValue(undefined),
-  },
+vi.mock('../../../../shared/services/aws/S3Service', () => ({
+  S3Service: vi.fn().mockImplementation(function () {
+    return { updateObject: vi.fn().mockResolvedValue(undefined) };
+  }),
 }));
 
 vi.mock('../../../../shared/utils/logger', () => ({
@@ -59,12 +54,17 @@ vi.mock('../../../../shared/utils/logger', () => ({
   },
 }));
 
+const { seed } = useTestCatalog();
+
+const catalogTags = async () => (await catalog.get('dashboard', 'dash-123'))?.tags;
+
 describe('TagHandler', () => {
   let handler: TagHandler;
   let mockEvent: APIGatewayProxyEvent;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    await seed([catalogEntry('dashboard', 'dash-123', { tags: [{ key: 'Old', value: 'x' }] })]);
     handler = new TagHandler();
     mockEvent = {
       body: '',
@@ -127,6 +127,7 @@ describe('TagHandler', () => {
       expect(result.statusCode).toBe(STATUS_CODES.OK);
       expect(body.success).toBe(true);
       expect(body.data.message).toBe('Tags added successfully');
+      expect(await catalogTags()).toEqual([{ key: 'Project', value: 'Alpha' }]);
     });
 
     it('should return error when tags array is missing', async () => {
@@ -169,6 +170,10 @@ describe('TagHandler', () => {
       expect(result.statusCode).toBe(STATUS_CODES.OK);
       expect(body.success).toBe(true);
       expect(body.data.message).toBe('Tags updated successfully');
+      expect(await catalogTags()).toEqual([
+        { key: 'Environment', value: 'Staging' },
+        { key: 'Owner', value: 'Team B' },
+      ]);
     });
 
     it('should update tags successfully with key/value format', async () => {
@@ -215,6 +220,7 @@ describe('TagHandler', () => {
       expect(result.statusCode).toBe(STATUS_CODES.OK);
       expect(body.success).toBe(true);
       expect(body.data.message).toBe('Tags removed successfully');
+      expect(await catalogTags()).toEqual([{ key: 'Project', value: 'Alpha' }]);
     });
 
     it('should return error when tag keys array is missing', async () => {

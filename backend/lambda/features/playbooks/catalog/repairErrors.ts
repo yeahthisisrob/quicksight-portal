@@ -6,9 +6,9 @@
  * in the Editor.
  */
 
+import { catalog } from '../../../shared/services/catalog/catalogStore';
 import { authoringPath } from '../portalPaths';
 import type { Playbook } from '../types';
-import { liveEntries } from './cache';
 
 interface RepairPlanResponse {
   issues: Array<{ message: string; fix?: unknown }>;
@@ -46,8 +46,8 @@ export const repairErrors: Playbook = {
 
   async scope() {
     const [dashboards, analyses] = await Promise.all([
-      liveEntries('dashboard'),
-      liveEntries('analysis'),
+      catalog.list('dashboard'),
+      catalog.list('analysis'),
     ]);
     return [...dashboards, ...analyses]
       .filter((entry) => (entry.metadata?.definitionErrors?.length ?? 0) > 0)

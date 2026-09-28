@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { catalogEntry, useTestCatalog } from '../../../../shared/utils/testUtils/testCatalog';
 import {
   GOLD_COLUMNS,
   ORDERS_ARN,
@@ -27,7 +28,6 @@ const mocks = vi.hoisted(() => ({
   },
   s3: { getObject: vi.fn() },
   archive: { getArchivedAsset: vi.fn(), markRestored: vi.fn() },
-  cache: { getCacheEntries: vi.fn() },
 }));
 
 vi.mock('../../../../shared/services/archive/ArchiveService', () => ({
@@ -35,10 +35,11 @@ vi.mock('../../../../shared/services/archive/ArchiveService', () => ({
     return mocks.archive;
   }),
 }));
-vi.mock('../../../../shared/services/cache/CacheService', () => ({ cacheService: mocks.cache }));
 
 const freshness = vi.hoisted(() => vi.fn());
-vi.mock('../../../../shared/services/cache/assetFreshness', () => ({ keepCacheFresh: freshness }));
+vi.mock('../../../../shared/services/catalog/assetFreshness', () => ({
+  keepCatalogFresh: freshness,
+}));
 vi.mock('../../../../shared/services/aws/ClientFactory', () => ({
   ClientFactory: { getQuickSightService: () => mocks.qs, getS3Service: () => mocks.s3 },
 }));
@@ -46,6 +47,8 @@ vi.mock('../../../../shared/services/aws/ClientFactory', () => ({
 vi.mock('../../../../shared/utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
+
+const { seed } = useTestCatalog();
 
 const GOLD_ARN = 'arn:aws:quicksight:us-east-1:1:dataset/orders-gold';
 const FULL_MAP = { order_date: 'Order Date' };
@@ -89,7 +92,6 @@ describe('RebindService', () => {
       dashboardId: 'new',
       versionArn: 'arn:dashboard/new/version/1',
     });
-    mocks.cache.getCacheEntries.mockResolvedValue([]);
     service = new RebindService('1');
   });
 
@@ -485,7 +487,7 @@ describe('RebindService restoring an archived asset', () => {
     };
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     mocks.archive.getArchivedAsset.mockResolvedValue(archivedRecord());
     mocks.qs.describeAnalysis.mockRejectedValue(notFound());
@@ -496,9 +498,10 @@ describe('RebindService restoring an archived asset', () => {
       OutputColumns: GOLD_COLUMNS,
     });
     mocks.qs.createAnalysis.mockResolvedValue({ arn: 'arn:analysis/a1', analysisId: 'a1' });
-    mocks.cache.getCacheEntries.mockImplementation(async ({ assetType }: any) =>
-      assetType === 'user' ? [{ arn: ROB }] : [{ arn: ANALYSTS }]
-    );
+    await seed([
+      catalogEntry('user', 'rob', { arn: ROB }),
+      catalogEntry('group', 'analysts', { arn: ANALYSTS }),
+    ]);
     service = new RebindService('1');
   });
 

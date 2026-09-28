@@ -4,16 +4,13 @@
  * A filter bar template says which filters a sheet's control bar carries,
  * in what order and how wide: "Date, then Region, then Product line". One
  * can be the default, which every analysis the portal builds starts from;
- * a control whose column the datasets do not have is skipped. Stored like
- * the calculated-field templates: one DynamoDB item per template in the
- * jobs table, under the FILTER_BAR_TEMPLATE partition. Shared, because
- * the catalog edits them and authoring applies them.
+ * a control whose column the datasets do not have is skipped. Kept in the
+ * library, like the other templates. Shared, because the catalog edits them
+ * and authoring applies them.
  */
 import { ValidationError } from '../../errors/ValidationError';
-import type { DynamoDBService } from '../aws/DynamoDBService';
 import { type TemplateMeta, TemplateStore } from './TemplateStore';
 
-const TEMPLATE_PK = 'FILTER_BAR_TEMPLATE';
 const NAME_MAX_LENGTH = 200;
 const MAX_CONTROLS = 12;
 /** Control-bar widths, in the bar's grid units. */
@@ -93,8 +90,8 @@ export class FilterBarTemplateStore extends TemplateStore<
   FilterBarTemplate,
   FilterBarTemplateInput
 > {
-  public constructor(dynamo?: DynamoDBService, tableName?: string) {
-    super(TEMPLATE_PK, 'Filter bar template', dynamo, tableName);
+  public constructor() {
+    super('filter-bar', 'Filter bar template');
   }
 
   /** The one every built analysis starts from, if the organisation set one. */
@@ -117,13 +114,7 @@ export class FilterBarTemplateStore extends TemplateStore<
       return;
     }
     for (const other of (await this.list()).filter((t) => t.isDefault && t.id !== item.id)) {
-      await this.dynamo.putItem(this.tableName, {
-        ...other,
-        pk: this.partition,
-        sk: other.id,
-        isDefault: false,
-        updatedAt: new Date().toISOString(),
-      });
+      await this.save({ ...other, isDefault: false, updatedAt: new Date().toISOString() });
     }
   }
 }

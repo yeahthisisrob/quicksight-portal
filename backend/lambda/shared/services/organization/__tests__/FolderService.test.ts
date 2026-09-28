@@ -12,7 +12,7 @@ vi.mock('../../cache/CacheService');
 vi.mock('../../../utils/logger');
 vi.mock('../TagService');
 const freshness = vi.hoisted(() => vi.fn());
-vi.mock('../../cache/assetFreshness', () => ({ keepCacheFresh: freshness }));
+vi.mock('../../catalog/assetFreshness', () => ({ keepCatalogFresh: freshness }));
 
 describe('FolderService', () => {
   let folderService: FolderService;

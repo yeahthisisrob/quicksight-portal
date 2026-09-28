@@ -5,8 +5,8 @@ import { metadataBucketName } from '../../../shared/config/metadataBucket';
 import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { STATUS_CODES } from '../../../shared/constants/httpStatusCodes';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
-import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
 import { CacheService } from '../../../shared/services/cache/CacheService';
+import { keepCatalogFresh } from '../../../shared/services/catalog/assetFreshness';
 import { jobFactory, type SmusExportJobConfig } from '../../../shared/services/jobs/JobFactory';
 import { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { SmusService } from '../../../shared/services/smus/SmusService';
@@ -146,7 +146,7 @@ export async function createSmusDataset(
           : undefined,
     });
     // The new dataset joins the cache (and its SMUS link resolves) without an export.
-    await keepCacheFresh([
+    await keepCatalogFresh([
       { assetType: 'dataset', assetId: result.dataSetId, name: result.name, arn: result.arn },
     ]);
     return successResponse(event, { success: true, data: result });

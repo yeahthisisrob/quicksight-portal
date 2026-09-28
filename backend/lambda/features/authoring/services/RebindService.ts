@@ -30,7 +30,6 @@ import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import type { S3Service } from '../../../shared/services/aws/S3Service';
 import { themeArnOf } from '../../../shared/services/aws/themeArn';
-import { cacheService } from '../../../shared/services/cache/CacheService';
 import { keepLivePrincipals } from '../../../shared/services/identity/livePrincipals';
 import { ASSET_TYPES_PLURAL } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
@@ -132,7 +131,7 @@ export class RebindService {
     this.quickSightService = ClientFactory.getQuickSightService(accountId);
     this.s3Service = ClientFactory.getS3Service();
     this.bucketName = metadataBucketName(accountId);
-    this.archive = new ArchiveService(this.bucketName, cacheService);
+    this.archive = new ArchiveService(this.bucketName);
   }
 
   /** The datasets a definition declares and the columns it reads from each. */

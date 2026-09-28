@@ -1,4 +1,4 @@
-import { type Mock, type Mocked, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
 import { ASSET_TYPES } from '../../../types/assetTypes';
 import type {
@@ -11,14 +11,16 @@ import type {
   BulkTagUpdateConfig,
 } from '../../../types/bulkOperationTypes';
 import { logger } from '../../../utils/logger';
-import { CacheService } from '../../cache/CacheService';
+import { catalogEntry, useTestCatalog } from '../../../utils/testUtils/testCatalog';
+import { catalog } from '../../catalog/catalogStore';
 import { jobFactory } from '../../jobs/JobFactory';
 import { BulkOperationsService } from '../BulkOperationsService';
 
 // Mock dependencies
 vi.mock('../../../utils/logger');
-vi.mock('../../cache/CacheService');
 vi.mock('../../jobs/JobFactory');
+
+const { seed } = useTestCatalog();
 
 // Test constants
 const TEST_ACCOUNT_ID = '123456789012';
@@ -48,18 +50,12 @@ const createMockJobResponse = () => ({
 
 describe('BulkOperationsService - Initialization', () => {
   let service: BulkOperationsService;
-  let mockCacheService: Mocked<CacheService>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.AWS_ACCOUNT_ID = TEST_ACCOUNT_ID;
     process.env.BUCKET_NAME = TEST_BUCKET_NAME;
 
-    mockCacheService = {
-      getCacheEntries: vi.fn(),
-    } as any;
-
-    (CacheService.getInstance as Mock).mockReturnValue(mockCacheService);
     (jobFactory.createJob as Mock).mockResolvedValue(createMockJobResponse());
   });
 
@@ -88,17 +84,11 @@ describe('BulkOperationsService - Initialization', () => {
 
 describe('BulkOperationsService - Folder Operations', () => {
   let service: BulkOperationsService;
-  let mockCacheService: Mocked<CacheService>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.AWS_ACCOUNT_ID = TEST_ACCOUNT_ID;
 
-    mockCacheService = {
-      getCacheEntries: vi.fn(),
-    } as any;
-
-    (CacheService.getInstance as Mock).mockReturnValue(mockCacheService);
     (jobFactory.createJob as Mock).mockResolvedValue(createMockJobResponse());
 
     service = new BulkOperationsService();
@@ -221,17 +211,11 @@ describe('BulkOperationsService - Folder Operations', () => {
 
 describe('BulkOperationsService - Group Operations', () => {
   let service: BulkOperationsService;
-  let mockCacheService: Mocked<CacheService>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.AWS_ACCOUNT_ID = TEST_ACCOUNT_ID;
 
-    mockCacheService = {
-      getCacheEntries: vi.fn(),
-    } as any;
-
-    (CacheService.getInstance as Mock).mockReturnValue(mockCacheService);
     (jobFactory.createJob as Mock).mockResolvedValue(createMockJobResponse());
 
     service = new BulkOperationsService();
@@ -359,17 +343,11 @@ describe('BulkOperationsService - Group Operations', () => {
 
 describe('BulkOperationsService - Tag Operations', () => {
   let service: BulkOperationsService;
-  let mockCacheService: Mocked<CacheService>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.AWS_ACCOUNT_ID = TEST_ACCOUNT_ID;
 
-    mockCacheService = {
-      getCacheEntries: vi.fn(),
-    } as any;
-
-    (CacheService.getInstance as Mock).mockReturnValue(mockCacheService);
     (jobFactory.createJob as Mock).mockResolvedValue(createMockJobResponse());
 
     service = new BulkOperationsService();
@@ -464,17 +442,11 @@ describe('BulkOperationsService - Tag Operations', () => {
 
 describe('BulkOperationsService - Delete Operations', () => {
   let service: BulkOperationsService;
-  let mockCacheService: Mocked<CacheService>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.AWS_ACCOUNT_ID = TEST_ACCOUNT_ID;
 
-    mockCacheService = {
-      getCacheEntries: vi.fn(),
-    } as any;
-
-    (CacheService.getInstance as Mock).mockReturnValue(mockCacheService);
     (jobFactory.createJob as Mock).mockResolvedValue(createMockJobResponse());
 
     service = new BulkOperationsService();
@@ -535,17 +507,11 @@ describe('BulkOperationsService - Delete Operations', () => {
 
 describe('BulkOperationsService - Delete Validation', () => {
   let service: BulkOperationsService;
-  let mockCacheService: Mocked<CacheService>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.AWS_ACCOUNT_ID = TEST_ACCOUNT_ID;
 
-    mockCacheService = {
-      getCacheEntries: vi.fn(),
-    } as any;
-
-    (CacheService.getInstance as Mock).mockReturnValue(mockCacheService);
     (jobFactory.createJob as Mock).mockResolvedValue(createMockJobResponse());
 
     service = new BulkOperationsService();
@@ -557,8 +523,6 @@ describe('BulkOperationsService - Delete Validation', () => {
         createMockAsset(ASSET_TYPES.dashboard, 'dash-1'),
         createMockAsset(ASSET_TYPES.analysis, 'anal-1'),
       ];
-
-      mockCacheService.getCacheEntries.mockResolvedValue([]);
 
       const result = await service.validateBulkDelete(assets);
 
@@ -572,28 +536,16 @@ describe('BulkOperationsService - Delete Validation', () => {
     it('should detect dashboard dependencies on datasets', async () => {
       const assets = [createMockAsset(ASSET_TYPES.dataset, 'data-1')];
 
-      mockCacheService.getCacheEntries.mockResolvedValue([
-        {
-          assetId: 'dash-1',
-          assetType: ASSET_TYPES.dashboard,
+      await seed([
+        catalogEntry('dashboard', 'dash-1', {
           assetName: 'Sales Dashboard',
-          metadata: {
-            lineageData: {
-              datasetIds: ['data-1', 'data-2'],
-            },
-          },
-        },
-        {
-          assetId: 'anal-1',
-          assetType: ASSET_TYPES.analysis,
+          metadata: { lineageData: { datasetIds: ['data-1', 'data-2'] } },
+        }),
+        catalogEntry('analysis', 'anal-1', {
           assetName: 'Revenue Analysis',
-          metadata: {
-            lineageData: {
-              datasetIds: ['data-1'],
-            },
-          },
-        },
-      ] as any);
+          metadata: { lineageData: { datasetIds: ['data-1'] } },
+        }),
+      ]);
 
       const result = await service.validateBulkDelete(assets);
 
@@ -608,21 +560,30 @@ describe('BulkOperationsService - Delete Validation', () => {
       expect(result.errors).toHaveLength(0);
     });
 
+    it('should not warn about archived dependents', async () => {
+      await seed([
+        catalogEntry('dashboard', 'dash-old', {
+          status: 'archived',
+          metadata: { lineageData: { datasetIds: ['data-1'] } },
+        }),
+      ]);
+
+      const result = await service.validateBulkDelete([
+        createMockAsset(ASSET_TYPES.dataset, 'data-1'),
+      ]);
+
+      expect(result.warnings).toEqual([]);
+    });
+
     it('should detect dataset dependencies on datasources', async () => {
       const assets = [createMockAsset(ASSET_TYPES.datasource, 'ds-1')];
 
-      mockCacheService.getCacheEntries.mockResolvedValue([
-        {
-          assetId: 'data-1',
-          assetType: ASSET_TYPES.dataset,
+      await seed([
+        catalogEntry('dataset', 'data-1', {
           assetName: 'Customer Dataset',
-          metadata: {
-            lineageData: {
-              datasourceIds: ['ds-1', 'ds-2'],
-            },
-          },
-        },
-      ] as any);
+          metadata: { lineageData: { datasourceIds: ['ds-1', 'ds-2'] } },
+        }),
+      ]);
 
       const result = await service.validateBulkDelete(assets);
 
@@ -640,8 +601,6 @@ describe('BulkOperationsService - Delete Validation', () => {
         createMockAsset(ASSET_TYPES.dataset, 'collection_datasets'),
       ];
 
-      mockCacheService.getCacheEntries.mockResolvedValue([]);
-
       const result = await service.validateBulkDelete(assets);
 
       expect(result.canDelete).toBe(false);
@@ -651,10 +610,10 @@ describe('BulkOperationsService - Delete Validation', () => {
       expect(result.errors).toContain('Cannot delete collection asset: collection_datasets');
     });
 
-    it('should handle cache service errors gracefully', async () => {
+    it('should handle catalog errors gracefully', async () => {
       const assets = [createMockAsset(ASSET_TYPES.dataset, 'data-1')];
 
-      mockCacheService.getCacheEntries.mockRejectedValue(new Error('Cache error'));
+      vi.spyOn(catalog, 'all').mockRejectedValueOnce(new Error('Catalog error'));
 
       const result = await service.validateBulkDelete(assets);
 
@@ -673,28 +632,16 @@ describe('BulkOperationsService - Delete Validation', () => {
         createMockAsset(ASSET_TYPES.datasource, 'ds-1'),
       ];
 
-      mockCacheService.getCacheEntries.mockResolvedValue([
-        {
-          assetId: 'dash-1',
-          assetType: ASSET_TYPES.dashboard,
+      await seed([
+        catalogEntry('dashboard', 'dash-1', {
           assetName: 'Dashboard 1',
-          metadata: {
-            lineageData: {
-              datasetIds: ['data-1'],
-            },
-          },
-        },
-        {
-          assetId: 'data-2',
-          assetType: ASSET_TYPES.dataset,
+          metadata: { lineageData: { datasetIds: ['data-1'] } },
+        }),
+        catalogEntry('dataset', 'data-2', {
           assetName: 'Dataset 2',
-          metadata: {
-            lineageData: {
-              datasourceIds: ['ds-1'],
-            },
-          },
-        },
-      ] as any);
+          metadata: { lineageData: { datasourceIds: ['ds-1'] } },
+        }),
+      ]);
 
       const result = await service.validateBulkDelete(assets);
 
@@ -708,18 +655,12 @@ describe('BulkOperationsService - Delete Validation', () => {
 
 describe('BulkOperationsService - Job Creation', () => {
   let service: BulkOperationsService;
-  let mockCacheService: Mocked<CacheService>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.AWS_ACCOUNT_ID = TEST_ACCOUNT_ID;
     process.env.BUCKET_NAME = TEST_BUCKET_NAME;
 
-    mockCacheService = {
-      getCacheEntries: vi.fn(),
-    } as any;
-
-    (CacheService.getInstance as Mock).mockReturnValue(mockCacheService);
     (jobFactory.createJob as Mock).mockResolvedValue(createMockJobResponse());
 
     service = new BulkOperationsService();
@@ -781,17 +722,11 @@ describe('BulkOperationsService - Job Creation', () => {
 
 describe('BulkOperationsService - Edge Cases', () => {
   let service: BulkOperationsService;
-  let mockCacheService: Mocked<CacheService>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.AWS_ACCOUNT_ID = TEST_ACCOUNT_ID;
 
-    mockCacheService = {
-      getCacheEntries: vi.fn(),
-    } as any;
-
-    (CacheService.getInstance as Mock).mockReturnValue(mockCacheService);
     (jobFactory.createJob as Mock).mockResolvedValue(createMockJobResponse());
 
     service = new BulkOperationsService();
@@ -827,29 +762,10 @@ describe('BulkOperationsService - Edge Cases', () => {
     expect(result.estimatedOperations).toBe(SINGLE_ITEM);
   });
 
-  it('should handle empty cache entries in validation', async () => {
+  it('should handle assets without lineage in validation', async () => {
     const assets = [createMockAsset(ASSET_TYPES.dataset, 'data-1')];
 
-    mockCacheService.getCacheEntries.mockResolvedValue(null as any);
-
-    const result = await service.validateBulkDelete(assets);
-
-    expect(result.canDelete).toBe(true);
-    expect(result.warnings).toHaveLength(0);
-    expect(result.errors).toHaveLength(0);
-  });
-
-  it('should handle assets without metadata in validation', async () => {
-    const assets = [createMockAsset(ASSET_TYPES.dataset, 'data-1')];
-
-    mockCacheService.getCacheEntries.mockResolvedValue([
-      {
-        assetId: 'dash-1',
-        assetType: ASSET_TYPES.dashboard,
-        assetName: 'Dashboard',
-        // No metadata field
-      },
-    ] as any);
+    await seed([catalogEntry('dashboard', 'dash-1', { assetName: 'Dashboard' })]);
 
     const result = await service.validateBulkDelete(assets);
 
@@ -860,18 +776,12 @@ describe('BulkOperationsService - Edge Cases', () => {
   it('should handle assets with empty lineage data', async () => {
     const assets = [createMockAsset(ASSET_TYPES.dataset, 'data-1')];
 
-    mockCacheService.getCacheEntries.mockResolvedValue([
-      {
-        assetId: 'dash-1',
-        assetType: ASSET_TYPES.dashboard,
+    await seed([
+      catalogEntry('dashboard', 'dash-1', {
         assetName: 'Dashboard',
-        metadata: {
-          lineageData: {
-            datasetIds: [], // Empty array
-          },
-        },
-      },
-    ] as any);
+        metadata: { lineageData: { datasetIds: [] } },
+      }),
+    ]);
 
     const result = await service.validateBulkDelete(assets);
 

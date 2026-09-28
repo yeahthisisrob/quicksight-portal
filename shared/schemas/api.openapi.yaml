@@ -5035,17 +5035,6 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/assets/rebuild-index:
-    post:
-      operationId: postAssetsRebuildIndex
-      summary: Rebuild the portal's asset index from the exports (queues a job)
-      tags: [Assets]
-      responses:
-        '200':
-          $ref: '#/components/responses/Acknowledged'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
   /api/assets/bulk-delete:
     post:
       operationId: postAssetsBulkDelete
@@ -8437,7 +8426,7 @@ components:
               type: boolean
             needsInitialExport:
               type: boolean
-              description: Indicates if initial export is needed (no cache exists)
+              description: True until an export has filled the catalog
             message:
               type: string
               description: Optional message providing export status context
@@ -8458,6 +8447,8 @@ components:
                   type: integer
                 groups:
                   type: integer
+                themes:
+                  type: integer
             archivedAssetCounts:
               type: object
               properties:
@@ -8475,6 +8466,8 @@ components:
                   type: integer
                 groups:
                   type: integer
+                themes:
+                  type: integer
                 total:
                   type: integer
             fieldStatistics:
@@ -8487,11 +8480,6 @@ components:
                   type: integer
                 totalUniqueFields:
                   type: integer
-            totalSize:
-              type: integer
-              description: Total storage size in bytes
-            cacheVersion:
-              type: string
 
     # Export job schemas
     ExportJobRequest:

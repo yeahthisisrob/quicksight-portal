@@ -1,11 +1,11 @@
-import type { CacheEntry, MasterCache } from '../../models/asset.model';
+import type { CatalogEntry, CatalogSnapshot } from '../../models/asset.model';
 import { ASSET_TYPES, type AssetType } from '../../types/assetTypes';
 import type { AssetPermission } from '../../types/organization';
 import { logger } from '../../utils/logger';
 import { principalMatchesGroup, principalMatchesUser } from '../../utils/quicksightUtils';
 import { ClientFactory } from '../aws/ClientFactory';
 import type { QuickSightService } from '../aws/QuickSightService';
-import { cacheService } from '../cache/CacheService';
+import { catalog } from '../catalog/catalogStore';
 
 /**
  * Describes how a user has access to an asset
@@ -51,8 +51,8 @@ type GroupAccessMap = Map<string, GroupAccessInfo>;
  */
 interface BulkAccessResolvers {
   collectPermissionUsers: (permissions: any[], into: Set<string>) => void;
-  foldersByMemberKey: Map<string, CacheEntry[]>;
-  resolveFolderUsers: (folder: CacheEntry) => Set<string>;
+  foldersByMemberKey: Map<string, CatalogEntry[]>;
+  resolveFolderUsers: (folder: CatalogEntry) => Set<string>;
 }
 
 export class PermissionsService {
@@ -70,10 +70,10 @@ export class PermissionsService {
    */
   public buildUserAccessChecker(
     userNames: string[],
-    cache: MasterCache
-  ): (entry: CacheEntry) => boolean {
+    cache: CatalogSnapshot
+  ): (entry: CatalogEntry) => boolean {
     const resolvers = this.buildBulkAccessResolvers(cache, userNames);
-    return (entry: CacheEntry) => this.resolveEntryAccessUsers(entry, resolvers).size > 0;
+    return (entry: CatalogEntry) => this.resolveEntryAccessUsers(entry, resolvers).size > 0;
   }
 
   /**
@@ -132,9 +132,9 @@ export class PermissionsService {
    */
   public async getBulkGroupAssetCounts(
     groupNames?: string[],
-    prefetchedCache?: MasterCache
+    prefetchedCache?: CatalogSnapshot
   ): Promise<Map<string, number>> {
-    const cache = prefetchedCache ?? (await cacheService.getMasterCache());
+    const cache = prefetchedCache ?? (await catalog.snapshot());
     const allGroups = cache.entries.group || [];
     const folders = cache.entries.folder || [];
 
@@ -178,9 +178,9 @@ export class PermissionsService {
    */
   public async getBulkUserAssetCounts(
     userNames: string[],
-    prefetchedCache?: MasterCache
+    prefetchedCache?: CatalogSnapshot
   ): Promise<Map<string, number>> {
-    const cache = prefetchedCache ?? (await cacheService.getMasterCache());
+    const cache = prefetchedCache ?? (await catalog.snapshot());
     const resolvers = this.buildBulkAccessResolvers(cache, userNames);
 
     const counts = new Map<string, number>();
@@ -286,8 +286,8 @@ export class PermissionsService {
     userAccessSources: UserAccessInfo[];
     groupAccessSources: GroupAccessInfo[];
   }> {
-    const cache = await cacheService.getMasterCache();
-    const asset = (cache.entries[assetType] || []).find((e: CacheEntry) => e.assetId === assetId);
+    const cache = await catalog.snapshot();
+    const asset = (cache.entries[assetType] || []).find((e: CatalogEntry) => e.assetId === assetId);
 
     if (!asset) {
       throw new Error(`Asset ${assetType}/${assetId} not found`);
@@ -332,12 +332,12 @@ export class PermissionsService {
       sources: AccessSource[];
     }>;
   }> {
-    const cache = await cacheService.getMasterCache();
+    const cache = await catalog.snapshot();
     const users = cache.entries.user || [];
     const groups = cache.entries.group || [];
     const folders = cache.entries.folder || [];
 
-    const userEntry = users.find((u: CacheEntry) => u.assetName === userName);
+    const userEntry = users.find((u: CatalogEntry) => u.assetName === userName);
     if (!userEntry) {
       throw new Error(`User ${userName} not found`);
     }
@@ -385,7 +385,10 @@ export class PermissionsService {
    * one principal string can match several users, so resolution stays a linear
    * scan — but memoized per distinct principal instead of run per (asset × user).
    */
-  private buildBulkAccessResolvers(cache: MasterCache, userNames: string[]): BulkAccessResolvers {
+  private buildBulkAccessResolvers(
+    cache: CatalogSnapshot,
+    userNames: string[]
+  ): BulkAccessResolvers {
     const groups = cache.entries.group || [];
     const requestedUsers = this.buildRequestedUsers(userNames, cache.entries.user || []);
     const requestedMembersByGroupArn = this.buildRequestedMembersByGroupArn(
@@ -453,7 +456,7 @@ export class PermissionsService {
 
     // Folder permissions are asset-independent: resolve each folder's users once
     const folderUsersMemo = new Map<string, Set<string>>();
-    const resolveFolderUsers = (folder: CacheEntry): Set<string> => {
+    const resolveFolderUsers = (folder: CatalogEntry): Set<string> => {
       let matched = folderUsersMemo.get(folder.arn);
       if (!matched) {
         matched = new Set<string>();
@@ -473,8 +476,8 @@ export class PermissionsService {
   /**
    * Index folders by member id/arn so the asset scan avoids rescanning all folders
    */
-  private buildFoldersByMemberKey(folders: CacheEntry[]): Map<string, CacheEntry[]> {
-    const foldersByMemberKey = new Map<string, CacheEntry[]>();
+  private buildFoldersByMemberKey(folders: CatalogEntry[]): Map<string, CatalogEntry[]> {
+    const foldersByMemberKey = new Map<string, CatalogEntry[]>();
     for (const folder of folders) {
       const members = (folder.metadata?.members as any[]) || [];
       for (const m of members) {
@@ -499,7 +502,7 @@ export class PermissionsService {
    * or "/name" suffix). Linear scan per DISTINCT principal string only.
    */
   private buildGroupPrincipalResolver(
-    requestedGroups: CacheEntry[]
+    requestedGroups: CatalogEntry[]
   ): (principal: string | undefined) => Set<string> {
     const memo = new Map<string, Set<string>>();
     const empty = new Set<string>();
@@ -525,7 +528,7 @@ export class PermissionsService {
    * Map group arn → requested member names (same member keys findUserGroups matches on)
    */
   private buildRequestedMembersByGroupArn(
-    groups: CacheEntry[],
+    groups: CatalogEntry[],
     requestedNames: Set<string>
   ): Map<string, Set<string>> {
     const requestedMembersByGroupArn = new Map<string, Set<string>>();
@@ -552,9 +555,9 @@ export class PermissionsService {
    */
   private buildRequestedUsers(
     userNames: string[],
-    users: CacheEntry[]
+    users: CatalogEntry[]
   ): Array<{ userName: string; userArn: string }> {
-    const userByName = new Map<string, CacheEntry>();
+    const userByName = new Map<string, CatalogEntry>();
     for (const u of users) {
       userByName.set(u.assetName, u);
     }
@@ -574,7 +577,7 @@ export class PermissionsService {
    * check). Returns folder.arn → group names for the member scan.
    */
   private collectFolderAccessForGroups(
-    folders: CacheEntry[],
+    folders: CatalogEntry[],
     resolveGroupPrincipal: (principal: string | undefined) => Set<string>,
     countedByGroup: Map<string, Set<string>>
   ): Map<string, Set<string>> {
@@ -600,8 +603,8 @@ export class PermissionsService {
    * Collect all access sources for a single asset entry for a given user
    */
   private collectUserAccessSources(
-    entry: CacheEntry,
-    ctx: { userArn: string; userName: string; userGroups: CacheEntry[]; folders: CacheEntry[] }
+    entry: CatalogEntry,
+    ctx: { userArn: string; userName: string; userGroups: CatalogEntry[]; folders: CatalogEntry[] }
   ): AccessSource[] {
     const sources: AccessSource[] = [];
     const permissions = entry.permissions || [];
@@ -638,8 +641,8 @@ export class PermissionsService {
    * Collect folder-based access sources for a user on a specific asset
    */
   private collectUserFolderAccess(
-    entry: CacheEntry,
-    ctx: { userArn: string; userName: string; userGroups: CacheEntry[]; folders: CacheEntry[] },
+    entry: CatalogEntry,
+    ctx: { userArn: string; userName: string; userGroups: CatalogEntry[]; folders: CatalogEntry[] },
     sources: AccessSource[]
   ): void {
     for (const folder of ctx.folders) {
@@ -666,7 +669,7 @@ export class PermissionsService {
           });
         }
         if (fp.principalType === 'GROUP') {
-          const matchingGroup = ctx.userGroups.find((g: CacheEntry) =>
+          const matchingGroup = ctx.userGroups.find((g: CatalogEntry) =>
             principalMatchesGroup(fp.principal, g.arn, g.assetName)
           );
           if (matchingGroup) {
@@ -709,16 +712,16 @@ export class PermissionsService {
   /**
    * Find a user's ARN from the users cache
    */
-  private findUserArn(users: CacheEntry[], name: string): string {
-    const entry = users.find((u: CacheEntry) => u.assetName === name);
+  private findUserArn(users: CatalogEntry[], name: string): string {
+    const entry = users.find((u: CatalogEntry) => u.assetName === name);
     return entry?.arn || name;
   }
 
   /**
    * Find all groups a user belongs to
    */
-  private findUserGroups(userName: string, groups: CacheEntry[]): CacheEntry[] {
-    return groups.filter((g: CacheEntry) => {
+  private findUserGroups(userName: string, groups: CatalogEntry[]): CatalogEntry[] {
+    return groups.filter((g: CatalogEntry) => {
       const members = (g.metadata?.members as any[]) || [];
       return members.some((m: any) => m.memberName === userName || m.userName === userName);
     });
@@ -727,10 +730,10 @@ export class PermissionsService {
   /**
    * Resolve direct user permissions on the asset
    */
-  private resolveDirectAccess(permissions: any[], users: CacheEntry[], map: UserAccessMap): void {
+  private resolveDirectAccess(permissions: any[], users: CatalogEntry[], map: UserAccessMap): void {
     for (const perm of permissions) {
       if (perm.principalType === 'USER') {
-        const userEntry = users.find((u: CacheEntry) =>
+        const userEntry = users.find((u: CatalogEntry) =>
           principalMatchesUser(perm.principal, u.arn, u.assetName)
         );
         const userName = userEntry?.assetName || perm.principal.split('/').pop() || perm.principal;
@@ -766,12 +769,15 @@ export class PermissionsService {
    * All requested users with access to one asset entry: its own permissions
    * plus permissions inherited from every folder containing it
    */
-  private resolveEntryAccessUsers(entry: CacheEntry, resolvers: BulkAccessResolvers): Set<string> {
+  private resolveEntryAccessUsers(
+    entry: CatalogEntry,
+    resolvers: BulkAccessResolvers
+  ): Set<string> {
     const usersWithAccess = new Set<string>();
     resolvers.collectPermissionUsers(entry.permissions || [], usersWithAccess);
 
     // Folder-inherited access (dedupe: a folder can index an asset by both id and arn)
-    const containingFolders = new Set<CacheEntry>([
+    const containingFolders = new Set<CatalogEntry>([
       ...(resolvers.foldersByMemberKey.get(entry.assetId) || []),
       ...(resolvers.foldersByMemberKey.get(entry.arn) || []),
     ]);
@@ -787,11 +793,11 @@ export class PermissionsService {
    * Resolve folder-based access for a single folder permission entry
    */
   private resolveFolderAccess(
-    folders: CacheEntry[],
+    folders: CatalogEntry[],
     assetId: string,
     assetArn: string,
-    groups: CacheEntry[],
-    users: CacheEntry[],
+    groups: CatalogEntry[],
+    users: CatalogEntry[],
     map: UserAccessMap
   ): void {
     for (const folder of folders) {
@@ -815,10 +821,10 @@ export class PermissionsService {
    * Resolve folder-based access for groups
    */
   private resolveFolderGroupAccess(
-    folders: CacheEntry[],
+    folders: CatalogEntry[],
     assetId: string,
     assetArn: string,
-    groups: CacheEntry[],
+    groups: CatalogEntry[],
     map: GroupAccessMap
   ): void {
     for (const folder of folders) {
@@ -836,7 +842,7 @@ export class PermissionsService {
         if (fp.principalType !== 'GROUP') {
           continue;
         }
-        const group = groups.find((g: CacheEntry) =>
+        const group = groups.find((g: CatalogEntry) =>
           principalMatchesGroup(fp.principal, g.arn, g.assetName)
         );
         const groupName = group?.assetName || fp.principal.split('/').pop() || fp.principal;
@@ -872,12 +878,12 @@ export class PermissionsService {
   private resolveFolderPermission(
     fp: any,
     folderName: string,
-    groups: CacheEntry[],
-    users: CacheEntry[],
+    groups: CatalogEntry[],
+    users: CatalogEntry[],
     map: UserAccessMap
   ): void {
     if (fp.principalType === 'USER') {
-      const userEntry = users.find((u: CacheEntry) =>
+      const userEntry = users.find((u: CatalogEntry) =>
         principalMatchesUser(fp.principal, u.arn, u.assetName)
       );
       const userName = userEntry?.assetName || fp.principal.split('/').pop() || fp.principal;
@@ -898,8 +904,8 @@ export class PermissionsService {
    */
   private resolveGroupAccess(
     permissions: any[],
-    groups: CacheEntry[],
-    users: CacheEntry[],
+    groups: CatalogEntry[],
+    users: CatalogEntry[],
     map: UserAccessMap
   ): void {
     for (const perm of permissions) {
@@ -907,7 +913,7 @@ export class PermissionsService {
         continue;
       }
 
-      const group = groups.find((g: CacheEntry) =>
+      const group = groups.find((g: CatalogEntry) =>
         principalMatchesGroup(perm.principal, g.arn, g.assetName)
       );
       if (!group?.metadata?.members) {
@@ -936,11 +942,11 @@ export class PermissionsService {
   private resolveGroupMembersForFolder(
     fp: any,
     folderName: string,
-    groups: CacheEntry[],
-    users: CacheEntry[],
+    groups: CatalogEntry[],
+    users: CatalogEntry[],
     map: UserAccessMap
   ): void {
-    const folderGroup = groups.find((g: CacheEntry) =>
+    const folderGroup = groups.find((g: CatalogEntry) =>
       principalMatchesGroup(fp.principal, g.arn, g.assetName)
     );
     if (!folderGroup?.metadata?.members) {
@@ -969,7 +975,7 @@ export class PermissionsService {
    * each asset to groups with direct permission or folder-inherited access.
    */
   private scanAssetsForGroupCounts(
-    cache: MasterCache,
+    cache: CatalogSnapshot,
     resolveGroupPrincipal: (principal: string | undefined) => Set<string>,
     groupsByFolderArn: Map<string, Set<string>>,
     countedByGroup: Map<string, Set<string>>
@@ -989,7 +995,7 @@ export class PermissionsService {
           }
         }
         // Folder-inherited access via containing folders
-        const containingFolders = new Set<CacheEntry>([
+        const containingFolders = new Set<CatalogEntry>([
           ...(foldersByMemberKey.get(entry.assetId) || []),
           ...(foldersByMemberKey.get(entry.arn) || []),
         ]);

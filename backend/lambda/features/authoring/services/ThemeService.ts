@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 import type { AuthContext } from '../../../shared/auth';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
-import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
+import { keepCatalogFresh } from '../../../shared/services/catalog/assetFreshness';
 import { quickSightUserFor } from '../../../shared/services/identity/IdentityResolver';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
@@ -119,7 +119,7 @@ export class ThemeService {
       ...(owner ? { permissions: [{ Principal: owner.arn, Actions: THEME_OWNER_ACTIONS }] } : {}),
     });
     logger.info('Created a theme', { themeId, name: draft.name, owner: owner?.userName });
-    await keepCacheFresh([{ assetType: ASSET_TYPES.theme, assetId: themeId, name: draft.name }]);
+    await keepCatalogFresh([{ assetType: ASSET_TYPES.theme, assetId: themeId, name: draft.name }]);
     return { themeId, arn: created.arn, warnings };
   }
 }

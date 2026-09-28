@@ -9,7 +9,7 @@ import { CognitoAdapter, type CognitoPerson } from '../../../adapters/aws/Cognit
 import { TIME_UNITS } from '../../constants';
 import { AssetStatusFilter } from '../../types/assetFilterTypes';
 import { logger } from '../../utils/logger';
-import { cacheService } from '../cache/CacheService';
+import { catalog } from '../catalog/catalogStore';
 
 export interface Person {
   /** How to show them: an email, an API key's label, a user name. */
@@ -66,10 +66,7 @@ async function lookUpSub(sub: string): Promise<CognitoPerson | null> {
 
 async function quickSightUsers(): Promise<QuickSightUser[]> {
   try {
-    const users = await cacheService.getCacheEntries({
-      assetType: 'user',
-      statusFilter: AssetStatusFilter.ACTIVE,
-    });
+    const users = await catalog.list('user', AssetStatusFilter.ACTIVE);
     return users
       .filter((u: any) => u.arn)
       .map((u: any) => ({

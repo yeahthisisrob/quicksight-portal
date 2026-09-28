@@ -5,7 +5,7 @@
 
 import type { AssetType } from '../../../types/assetTypes';
 import { logger } from '../../../utils/logger';
-import type { FieldVisualRef } from '../../cache/types';
+import type { FieldVisualRef } from '../../catalog/fieldTypes';
 import {
   BaseAssetParser,
   type CalculatedField,

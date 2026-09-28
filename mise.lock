@@ -42,6 +42,39 @@ checksum = "sha256:d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332af
 url = "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_windows_x64.zip"
 url_api = "https://api.github.com/repos/gitleaks/gitleaks/releases/assets/378333178"
 
+[[tools.java]]
+version = "corretto-21.0.12.12.1"
+backend = "core:java"
+specifiers = ["corretto-21"]
+
+[tools.java."platforms.linux-arm64"]
+checksum = "sha256:d1206a81145e1ac3f45677f83ecd5e780428848f21f314be33691d62dde761c1"
+url = "https://corretto.aws/downloads/resources/21.0.12.12.1/amazon-corretto-21.0.12.12.1-linux-aarch64.tar.gz"
+
+[tools.java."platforms.linux-arm64-musl"]
+checksum = "sha256:d04e612fb8ef835efa6dec2aaae1d1eb92949f097002b0d6a5543827614f93e2"
+url = "https://corretto.aws/downloads/resources/21.0.12.12.1/amazon-corretto-21.0.12.12.1-alpine-linux-aarch64.tar.gz"
+
+[tools.java."platforms.linux-x64"]
+checksum = "sha256:8785082c2fb999c024c8821e4a7c5391bda28f1667cceadafd78e2965b7669d2"
+url = "https://corretto.aws/downloads/resources/21.0.12.12.1/amazon-corretto-21.0.12.12.1-linux-x64.tar.gz"
+
+[tools.java."platforms.linux-x64-musl"]
+checksum = "sha256:4e6869b69f2e0d4623548c205ad335ef8cfee5339233377fe9c1e704082c2e05"
+url = "https://corretto.aws/downloads/resources/21.0.12.12.1/amazon-corretto-21.0.12.12.1-alpine-linux-x64.tar.gz"
+
+[tools.java."platforms.macos-arm64"]
+checksum = "sha256:8594556550766865662411ef3a7a71a66df9a9065f28a7b318a5352bda91b6a4"
+url = "https://corretto.aws/downloads/resources/21.0.12.12.1/amazon-corretto-21.0.12.12.1-macosx-aarch64.tar.gz"
+
+[tools.java."platforms.macos-x64"]
+checksum = "sha256:cc9cd6f9b8c34dc3d4df7e5468b810cdfe34ff7517a7d5df0cdbe2b5c22f1cdc"
+url = "https://corretto.aws/downloads/resources/21.0.12.12.1/amazon-corretto-21.0.12.12.1-macosx-x64.tar.gz"
+
+[tools.java."platforms.windows-x64"]
+checksum = "sha256:8945e414866b498f0587ee78411e0abff5071770d56eab8fe6d13eb3766a8631"
+url = "https://corretto.aws/downloads/resources/21.0.12.12.1/amazon-corretto-21.0.12.12.1-windows-x64-jdk.zip"
+
 [[tools.just]]
 version = "1.58.0"
 backend = "aqua:casey/just"

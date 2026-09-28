@@ -9,6 +9,7 @@ import { ACTIVITY_LIMITS } from '../../../shared/constants';
 import { TIME_UNITS } from '../../../shared/constants/timeConstants';
 import { type AuditLog, type AuditRecord, auditLog } from '../../../shared/services/audit/AuditLog';
 import type { CacheService } from '../../../shared/services/cache/CacheService';
+import { catalog } from '../../../shared/services/catalog/catalogStore';
 import type { GroupService } from '../../../shared/services/organization/GroupService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES, type AssetType } from '../../../shared/types/assetTypes';
@@ -792,8 +793,8 @@ export class ActivityService {
     try {
       const entriesPerType = await Promise.all(
         Array.from(assetTypes).map((assetType) =>
-          this.cacheService
-            .getCacheEntries({ assetType, statusFilter: AssetStatusFilter.ALL })
+          catalog
+            .list(assetType, AssetStatusFilter.ALL)
             .then((entries) => ({ assetType, entries }))
             .catch(() => ({ assetType, entries: [] as any[] }))
         )
@@ -1453,10 +1454,7 @@ export class ActivityService {
     assetId: string
   ): Promise<string | undefined> {
     try {
-      const assetEntries = await this.cacheService.getCacheEntries({
-        assetType,
-        statusFilter: AssetStatusFilter.ALL,
-      });
+      const assetEntries = await catalog.list(assetType, AssetStatusFilter.ALL);
       const asset = assetEntries.find((a: any) => a.assetId === assetId);
       return asset?.assetName;
     } catch (error) {
@@ -1477,14 +1475,8 @@ export class ActivityService {
 
     try {
       const [dashboards, analyses] = await Promise.all([
-        this.cacheService.getCacheEntries({
-          assetType: ASSET_TYPES.dashboard,
-          statusFilter: AssetStatusFilter.ALL,
-        }),
-        this.cacheService.getCacheEntries({
-          assetType: ASSET_TYPES.analysis,
-          statusFilter: AssetStatusFilter.ALL,
-        }),
+        catalog.list(ASSET_TYPES.dashboard, AssetStatusFilter.ALL),
+        catalog.list(ASSET_TYPES.analysis, AssetStatusFilter.ALL),
       ]);
 
       dashboards.forEach((d: any) => {
@@ -1580,7 +1572,7 @@ export class ActivityService {
     }
 
     // Resolve all users' groups in one pass over the group cache
-    const cache = await this.cacheService.getMasterCache();
+    const cache = await catalog.snapshot();
     const bulkGroups = this.groupService.getUserGroupsBulk(userNames, cache);
     for (const userName of userNames) {
       const groupNames = (bulkGroups.get(userName) || []).map((g) => g.groupName);

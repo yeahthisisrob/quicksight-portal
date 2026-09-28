@@ -1,8 +1,9 @@
 import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { DEBUG_CONFIG, QUICKSIGHT_LIMITS } from '../../../shared/constants';
-import type { CacheEntry, MasterCache } from '../../../shared/models/asset.model';
+import type { CatalogEntry, CatalogSnapshot } from '../../../shared/models/asset.model';
 import { activityReader } from '../../../shared/services/activity/activityReader';
 import { cacheService } from '../../../shared/services/cache/CacheService';
+import { catalog } from '../../../shared/services/catalog/catalogStore';
 import { resolvePeople } from '../../../shared/services/identity/IdentityResolver';
 import { LineageService } from '../../../shared/services/lineage';
 import { GroupService } from '../../../shared/services/organization/GroupService';
@@ -85,9 +86,9 @@ export class AssetService {
     const { page, pageSize, search, assetType, sortBy, sortOrder, dateRange } = params;
 
     // Get archived assets using the new status filter pattern
-    const archivedAssets = await cacheService.getAssetsByStatus(AssetStatusFilter.ARCHIVED, {
-      assetType,
-    });
+    const archivedAssets = await (assetType
+      ? catalog.list(assetType, AssetStatusFilter.ARCHIVED)
+      : catalog.all(AssetStatusFilter.ARCHIVED));
 
     // Get activity persistence data for last activity dates
     let activityPersistence: any = null;
@@ -168,9 +169,8 @@ export class AssetService {
 
   public async list(assetType: string, request: AssetListRequest): Promise<AssetListResponse> {
     try {
-      const { cache, version: cacheVersion } = await cacheService.getMasterCacheWithVersion({
-        statusFilter: AssetStatusFilter.ACTIVE,
-      });
+      const cache = await catalog.snapshot(AssetStatusFilter.ACTIVE);
+      const cacheVersion = cache.version;
 
       if (!cache?.entries) {
         logger.warn('No cached data found, returning empty results');
@@ -228,9 +228,8 @@ export class AssetService {
    * the enrichment cost (see collectionSnapshotWarmer).
    */
   public async warmCollectionSnapshots(): Promise<void> {
-    const { cache, version: cacheVersion } = await cacheService.getMasterCacheWithVersion({
-      statusFilter: AssetStatusFilter.ACTIVE,
-    });
+    const cache = await catalog.snapshot(AssetStatusFilter.ACTIVE);
+    const cacheVersion = cache.version;
 
     const userVersion = await this.buildUserSnapshotVersion(cacheVersion);
     await collectionListSnapshotCache.getOrCompute('user', userVersion, () =>
@@ -278,35 +277,6 @@ export class AssetService {
           analysisCount: activityData.analysisCount || 0,
         };
       }
-    }
-  }
-
-  /**
-   * Add folder member count for folder assets
-   */
-  private addFolderMemberCount(
-    mappedAsset: any,
-    assetType: string,
-    cacheEntry: CacheEntry,
-    cache: any
-  ): void {
-    if (assetType === ASSET_TYPES.folder && cacheEntry.metadata?.members) {
-      let activeMembers = 0;
-      for (const member of cacheEntry.metadata.members) {
-        const memberType = ('memberType' in member ? member.memberType : '').toLowerCase();
-        const memberId = 'memberId' in member ? member.memberId : '';
-
-        if (memberType && memberId) {
-          const memberCache = cache.entries[memberType as keyof typeof cache.entries];
-          if (memberCache) {
-            const memberAsset = memberCache.find((a: any) => a.assetId === memberId);
-            if (memberAsset && memberAsset.status !== 'archived') {
-              activeMembers++;
-            }
-          }
-        }
-      }
-      mappedAsset.memberCount = activeMembers;
     }
   }
 
@@ -362,7 +332,7 @@ export class AssetService {
   private async addUserGroups(
     mappedAsset: any,
     assetType: string,
-    cacheEntry: CacheEntry
+    cacheEntry: CatalogEntry
   ): Promise<void> {
     if (assetType !== ASSET_TYPES.user) {
       return;
@@ -625,8 +595,8 @@ export class AssetService {
       const members = folderData.members || [];
 
       members.forEach((member: any) => {
-        const memberId = member.memberId || member.MemberId;
-        const memberType = member.memberType || member.MemberType;
+        const memberId = member.MemberId;
+        const memberType = member.MemberType;
 
         if (memberType && memberType.toLowerCase() === assetType.toLowerCase()) {
           if (!assetFolderMap.has(memberId)) {
@@ -697,7 +667,7 @@ export class AssetService {
    */
   private async collectActivityData(
     assetType: string,
-    cachedAssets: CacheEntry[],
+    cachedAssets: CatalogEntry[],
     lineageMap: Map<string, any>
   ): Promise<Map<string, any>> {
     const { dashboardIds, analysisIds } = this.collectAssetIds(assetType, cachedAssets, lineageMap);
@@ -722,7 +692,7 @@ export class AssetService {
    */
   private collectAssetIds(
     assetType: string,
-    cachedAssets: CacheEntry[],
+    cachedAssets: CatalogEntry[],
     lineageMap: Map<string, any>
   ): { dashboardIds: Set<string>; analysisIds: Set<string> } {
     const dashboardIds = new Set<string>();
@@ -772,8 +742,8 @@ export class AssetService {
    * single scan, then mapped into fresh objects (non-mutating).
    */
   private async computeGroupSnapshotBody(
-    items: CacheEntry[],
-    cache: MasterCache
+    items: CatalogEntry[],
+    cache: CatalogSnapshot
   ): Promise<{ items: any[] }> {
     let counts = new Map<string, number>();
     try {
@@ -794,8 +764,8 @@ export class AssetService {
    * role/group filter options computed from them.
    */
   private async computeUserSnapshotBody(
-    items: CacheEntry[],
-    cache: MasterCache
+    items: CatalogEntry[],
+    cache: CatalogSnapshot
   ): Promise<{ items: any[]; availableRoles: FilterOption[]; availableGroups: FilterOption[] }> {
     const mapped = items.map((item) => mapCacheEntryToAsset(item));
     const enriched = await this.enrichUserItems(mapped, cache);
@@ -811,8 +781,8 @@ export class AssetService {
    */
   private determineSourceType(
     datasourceArns: string[],
-    datasourceEntries: CacheEntry[],
-    cacheEntry: CacheEntry
+    datasourceEntries: CatalogEntry[],
+    cacheEntry: CatalogEntry
   ): string {
     if (datasourceArns.length === 0) {
       return this.resolveFlatFileDatasetType(cacheEntry, datasourceEntries);
@@ -834,7 +804,7 @@ export class AssetService {
    */
   private async enrichCachedAssets(
     assetType: string,
-    cachedAssets: CacheEntry[],
+    cachedAssets: CatalogEntry[],
     cache: CacheData
   ): Promise<Asset[]> {
     const lineageMap = await this.lineageService.getLineageMapForAssets(
@@ -856,7 +826,7 @@ export class AssetService {
     };
 
     const enriched = await Promise.all(
-      cachedAssets.map((cacheEntry: CacheEntry) =>
+      cachedAssets.map((cacheEntry: CatalogEntry) =>
         this.mapCacheEntryToEnrichedAsset(cacheEntry, enrichmentContext)
       )
     );
@@ -869,7 +839,7 @@ export class AssetService {
     const themeIdOf = (arn: unknown) =>
       typeof arn === 'string' ? arn.slice(arn.lastIndexOf('/') + 1) : undefined;
     for (const type of [ASSET_TYPES.dashboard, ASSET_TYPES.analysis] as const) {
-      for (const entry of (cache.entries[type] ?? []) as CacheEntry[]) {
+      for (const entry of (cache.entries[type] ?? []) as CatalogEntry[]) {
         const id = entry.status === 'archived' ? undefined : themeIdOf(entry.metadata?.themeArn);
         if (!id) continue;
         const count = counts.get(id) ?? { dashboards: 0, analyses: 0 };
@@ -887,7 +857,7 @@ export class AssetService {
   /**
    * Enrich user items with activity data, groups, and asset access counts
    */
-  private async enrichUserItems(mappedItems: any[], cache: MasterCache): Promise<any[]> {
+  private async enrichUserItems(mappedItems: any[], cache: CatalogSnapshot): Promise<any[]> {
     try {
       const userNames = mappedItems.map((item: any) => item.name || item.userName || item.id);
       if (userNames.length === 0) {
@@ -975,7 +945,7 @@ export class AssetService {
    */
   private async fetchDatasetActivity(
     assetType: string,
-    cachedAssets: CacheEntry[],
+    cachedAssets: CatalogEntry[],
     lineageMap: Map<string, any>,
     activityMap: Map<string, any>
   ): Promise<void> {
@@ -1013,7 +983,7 @@ export class AssetService {
    */
   private async fetchUserActivity(
     assetType: string,
-    cachedAssets: CacheEntry[],
+    cachedAssets: CatalogEntry[],
     activityMap: Map<string, any>
   ): Promise<void> {
     if (assetType === ASSET_TYPES.user) {
@@ -1085,7 +1055,7 @@ export class AssetService {
   /**
    * Get last activity for asset from activity persistence
    */
-  private getLastActivityForAsset(asset: CacheEntry, activityPersistence: any): string | null {
+  private getLastActivityForAsset(asset: CatalogEntry, activityPersistence: any): string | null {
     if (!activityPersistence || !['dashboard', 'analysis'].includes(asset.assetType)) {
       return null;
     }
@@ -1433,7 +1403,7 @@ export class AssetService {
   private async listCollectionType(
     assetType: AssetType,
     request: AssetListRequest,
-    cache: MasterCache,
+    cache: CatalogSnapshot,
     cacheVersion: string
   ): Promise<AssetListResponse> {
     try {
@@ -1576,7 +1546,7 @@ export class AssetService {
    * Map cache entry to enriched asset with all related data
    */
   private async mapCacheEntryToEnrichedAsset(
-    cacheEntry: CacheEntry,
+    cacheEntry: CatalogEntry,
     context: EnrichmentContext
   ): Promise<any> {
     const { assetType, cache, assetFolderMap, lineageMap, activityMap, tagsMap } = context;
@@ -1589,9 +1559,6 @@ export class AssetService {
 
     // Use the appropriate mapping function based on asset type
     const mappedAsset = mapCacheEntryToAsset(resolvedCacheEntry);
-
-    // Add folder-specific data
-    this.addFolderMemberCount(mappedAsset, assetType, cacheEntry, cache);
 
     // Add folder membership data
     this.addFolderMembership(mappedAsset, cacheEntry.assetId, assetFolderMap);
@@ -1653,7 +1620,7 @@ export class AssetService {
   /**
    * Resolve dataset source type from datasource ARNs
    */
-  private resolveDatasetSourceType(cacheEntry: CacheEntry, cache: CacheData): CacheEntry {
+  private resolveDatasetSourceType(cacheEntry: CatalogEntry, cache: CacheData): CatalogEntry {
     const datasourceArns = cacheEntry.metadata?.datasourceArns || [];
     const datasourceEntries = cache.entries[ASSET_TYPES.datasource] || [];
 
@@ -1672,8 +1639,8 @@ export class AssetService {
    * Resolve source type for datasets without datasource ARNs (flat file datasets)
    */
   private resolveFlatFileDatasetType(
-    cacheEntry: CacheEntry,
-    datasourceEntries: CacheEntry[]
+    cacheEntry: CatalogEntry,
+    datasourceEntries: CatalogEntry[]
   ): string {
     const matchResult = findMatchingFlatFileDatasource({
       datasetName: cacheEntry.assetName,
@@ -1702,7 +1669,7 @@ export class AssetService {
    */
   private resolveMultipleDatasourcesType(
     datasourceArns: string[],
-    datasourceEntries: CacheEntry[]
+    datasourceEntries: CatalogEntry[]
   ): string {
     const datasourceTypes = new Set<string>();
 
@@ -1732,8 +1699,8 @@ export class AssetService {
    */
   private resolveSingleDatasourceType(
     datasourceArn: string,
-    datasourceEntries: CacheEntry[],
-    cacheEntry: CacheEntry
+    datasourceEntries: CatalogEntry[],
+    cacheEntry: CatalogEntry
   ): string {
     const datasourceId = datasourceArn.split(':datasource/')[1];
 
@@ -1789,7 +1756,7 @@ export class AssetService {
    * Transform archived asset to ArchivedAssetItem format
    */
   private transformArchivedAsset(
-    asset: CacheEntry,
+    asset: CatalogEntry,
     activityPersistence: Record<string, any>
   ): ArchivedAssetItem {
     const archivedMetadata = (asset.metadata as any)?.archived || {};

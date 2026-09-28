@@ -608,31 +608,6 @@ export class AssetHandler {
     }
   }
 
-  public async rebuildIndex(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-    try {
-      const user = await requireAuth(event);
-      logger.info('Rebuilding index', { user: user.email });
-
-      // Import and rebuild cache
-      const { cacheService } = await import('../../../shared/services/cache/CacheService');
-      await cacheService.rebuildCache();
-
-      // Cache service handles all cache rebuilding in one operation
-      logger.info('Cache rebuilt successfully');
-
-      return successResponse(event, {
-        success: true,
-        data: {
-          message: 'Cache rebuilt successfully',
-          timestamp: new Date().toISOString(),
-        },
-      });
-    } catch (error) {
-      logger.error('Failed to rebuild index', { error });
-      return errorResponse(event, STATUS_CODES.INTERNAL_SERVER_ERROR, 'Failed to rebuild index');
-    }
-  }
-
   /**
    * Rename an asset live in QuickSight (dashboard/analysis/dataset/folder).
    * POST /assets/{assetType}/{assetId}/rename  body: { name }

@@ -1,6 +1,6 @@
+/** A field as the catalog's field cache records it: where it is defined, what it reads, who reads it. */
 import type { AssetType } from '../../types/assetTypes';
 
-// Legacy field and lineage types (keeping as-is for now)
 /** One visual that reads a field, recorded at export time from the definition. */
 export interface FieldVisualRef {
   visualId: string;

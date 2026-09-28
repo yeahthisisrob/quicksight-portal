@@ -493,6 +493,25 @@ describe('AG-UI run protocol', () => {
     expect(told[0]).toContain('no dataset this reads has that column');
   });
 
+  it('gives a follow-up plan its Run button without a second step from the chat model', async () => {
+    const chat = scripted([{ toolCalls: [PLAN] }, { text: 'Here it is.' }]);
+    const dispatch = vi.fn(async ({ path }: { path: string }) =>
+      path.endsWith('/propose') ? PROPOSED : { status: 200, body: JSON.stringify(OUTLINE) }
+    );
+    const result = await new AssistantService(chat, model, dispatch).respond([
+      { role: 'user', text: 'one table with a region filter' },
+    ]);
+    const plan = result.artifacts.find((a) => a.kind === 'plan') as any;
+    expect(result.actions).toEqual([
+      expect.objectContaining({
+        path: '/api/authoring/new',
+        body: CREATE,
+        planId: plan.id,
+        previewId: plan.previewId,
+      }),
+    ]);
+  });
+
   it('carries out a plan drawn in an earlier answer when the person says go', async () => {
     const chat = scripted([
       { toolCalls: [{ id: 'r1', name: 'prepare_plan', input: {} }] },

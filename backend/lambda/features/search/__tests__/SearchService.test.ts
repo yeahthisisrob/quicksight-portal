@@ -4,46 +4,43 @@ vi.mock('../../../shared/utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
+const readFields = vi.hoisted(() => vi.fn());
+vi.mock('../../../shared/services/catalog/fieldCache', () => ({ readFields }));
+
+import { catalogEntry, useTestCatalog } from '../../../shared/utils/testUtils/testCatalog';
 import { SearchService } from '../services/SearchService';
 
-const entries = {
-  dashboard: [
-    {
-      assetId: 'd-1',
-      assetName: 'Sales overview',
-      arn: 'arn:d1',
-      tags: [{ key: 'team', value: 'sales' }],
-      lastUpdatedTime: new Date('2026-09-01T00:00:00Z'),
-      metadata: {
-        sheetCount: 1,
-        visualCount: 2,
-        datasetCount: 1,
-        viewStats: { totalViews: 120, uniqueViewers: 9 },
-        folderPath: ['arn:folder:sales'],
-        lineageData: { datasetIds: ['ds-1'] },
-        fields: [{ fieldName: 'revenue' }, { fieldName: 'region' }],
-        calculatedFields: [{ fieldName: 'margin' }],
-      },
-    },
-  ],
-  analysis: [],
-  dataset: [
-    {
-      assetId: 'ds-1',
-      assetName: 'orders_gold',
-      arn: 'arn:ds1',
-      tags: [],
-      metadata: {
-        importMode: 'SPICE',
-        sourceType: 'ATHENA',
-        fields: [{ fieldName: 'revenue' }, { fieldName: 'region' }],
-        calculatedFields: [],
-      },
-    },
-  ],
-  datasource: [],
-  folder: [{ assetId: 'f-1', assetName: 'Sales', arn: 'arn:folder:sales', tags: [], metadata: {} }],
-};
+const { seed } = useTestCatalog();
+
+const entries = [
+  catalogEntry('dashboard', 'd-1', {
+    assetName: 'Sales overview',
+    arn: 'arn:d1',
+    tags: [{ key: 'team', value: 'sales' }],
+    lastUpdatedTime: new Date('2026-09-01T00:00:00Z'),
+    metadata: {
+      sheetCount: 1,
+      visualCount: 2,
+      datasetCount: 1,
+      viewStats: { totalViews: 120, uniqueViewers: 9 },
+      folderPath: ['arn:folder:sales'],
+      lineageData: { datasetIds: ['ds-1'] },
+      fields: [{ fieldName: 'revenue' }, { fieldName: 'region' }],
+      calculatedFields: [{ fieldName: 'margin' }],
+    } as any,
+  }),
+  catalogEntry('dataset', 'ds-1', {
+    assetName: 'orders_gold',
+    arn: 'arn:ds1',
+    metadata: {
+      importMode: 'SPICE',
+      sourceType: 'ATHENA',
+      fields: [{ fieldName: 'revenue' }, { fieldName: 'region' }],
+      calculatedFields: [],
+    } as any,
+  }),
+  catalogEntry('folder', 'f-1', { assetName: 'Sales', arn: 'arn:folder:sales' }),
+];
 
 const fields = [
   {
@@ -124,19 +121,15 @@ const fields = [
 ];
 
 describe('SearchService', () => {
-  const cache = {
-    getMasterCacheWithVersion: vi.fn(),
-    searchFields: vi.fn(),
-  };
   const smus = { getSnapshot: vi.fn(), listAssets: vi.fn() };
   const templates = { list: vi.fn() };
-  const service = () => new SearchService(cache as any, smus as any, templates as any);
+  const service = () => new SearchService(smus as any, templates as any);
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     SearchService.invalidate();
-    cache.getMasterCacheWithVersion.mockResolvedValue({ cache: { entries }, version: 'v1' });
-    cache.searchFields.mockResolvedValue(fields);
+    await seed(entries);
+    readFields.mockResolvedValue(fields);
     smus.getSnapshot.mockResolvedValue({
       exportedAt: '2026-09-18T00:00:00Z',
       projects: [{ id: 'p-1', name: 'sales_prod' }],
@@ -203,7 +196,7 @@ describe('SearchService', () => {
   });
 
   it('skips entries with no name instead of failing the whole index', async () => {
-    cache.searchFields.mockResolvedValue([
+    readFields.mockResolvedValue([
       ...fields,
       {
         fieldId: 'ghost',
@@ -230,15 +223,7 @@ describe('SearchService', () => {
         { listingId: 'lst-1', name: 'dim_customer', glossaryTerms: [] },
       ],
     });
-    cache.getMasterCacheWithVersion.mockResolvedValue({
-      cache: {
-        entries: {
-          ...entries,
-          datasource: [{ assetId: 'src-1', arn: 'arn:src', tags: [], metadata: {} }],
-        },
-      },
-      version: 'v9',
-    });
+    await seed([catalogEntry('datasource', 'src-1', { assetName: '', arn: 'arn:src' })]);
 
     const result = await service().search({ q: 'novis untitled src-1 dim_customer' });
 
@@ -251,10 +236,10 @@ describe('SearchService', () => {
   it('builds the index once per cache version and snapshot', async () => {
     await service().search({ q: 'sales' });
     await service().search({ q: 'orders' });
-    expect(cache.searchFields).toHaveBeenCalledTimes(1);
-    cache.getMasterCacheWithVersion.mockResolvedValue({ cache: { entries }, version: 'v2' });
+    expect(readFields).toHaveBeenCalledTimes(1);
+    await seed([catalogEntry('dashboard', 'd-2', { assetName: 'Ops' })]);
     await service().search({ q: 'sales' });
-    expect(cache.searchFields).toHaveBeenCalledTimes(2);
+    expect(readFields).toHaveBeenCalledTimes(2);
   });
 
   it('finds SMUS columns by description and keeps to a project', async () => {

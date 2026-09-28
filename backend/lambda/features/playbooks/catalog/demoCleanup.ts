@@ -6,10 +6,11 @@
  * sources; each is archived before it is deleted, and nothing is deleted
  * that something outside the sample set still reads.
  */
-import type { CacheEntry } from '../../../shared/models/asset.model';
+import type { CatalogEntry } from '../../../shared/models/asset.model';
+import { catalog } from '../../../shared/services/catalog/catalogStore';
 import type { AssetType } from '../../../shared/types/assetTypes';
 import type { Playbook, PlaybookTarget, ScopedTarget } from '../types';
-import { datasourceIdsOf, liveEntries } from './cache';
+import { datasourceIdsOf } from './cache';
 
 const SAMPLE_BUCKET = 'spaceneedle';
 const REASON = 'Demo cleanup';
@@ -53,21 +54,21 @@ const DEMO_VISUAL_TITLES = [
 const STAGE: Partial<Record<AssetType, number>> = { analysis: 0, dataset: 1, datasource: 2 };
 
 interface DemoSet {
-  datasources: CacheEntry[];
-  datasets: CacheEntry[];
-  analyses: CacheEntry[];
+  datasources: CatalogEntry[];
+  datasets: CatalogEntry[];
+  analyses: CatalogEntry[];
   /** Everything else that reads a dataset or data source, for the "still in use" check. */
-  dashboards: CacheEntry[];
-  otherAnalyses: CacheEntry[];
-  otherDatasets: CacheEntry[];
+  dashboards: CatalogEntry[];
+  otherAnalyses: CatalogEntry[];
+  otherDatasets: CatalogEntry[];
 }
 
-function isSampleSource(entry: CacheEntry): boolean {
+function isSampleSource(entry: CatalogEntry): boolean {
   const type = entry.metadata?.sourceType ?? entry.metadata?.datasourceType;
   return type === 'S3' && Boolean(entry.metadata?.bucket?.includes(SAMPLE_BUCKET));
 }
 
-function looksLikeDemoDataset(entry: CacheEntry, sampleSources: Set<string>): boolean {
+function looksLikeDemoDataset(entry: CatalogEntry, sampleSources: Set<string>): boolean {
   if (datasourceIdsOf(entry).some((id) => sampleSources.has(id))) return true;
   const names = (entry.metadata?.fields ?? []).map((f) => f.fieldName);
   return DEMO_DATASET_FIELDS.some(
@@ -76,7 +77,7 @@ function looksLikeDemoDataset(entry: CacheEntry, sampleSources: Set<string>): bo
   );
 }
 
-function looksLikeDemoAnalysis(entry: CacheEntry): boolean {
+function looksLikeDemoAnalysis(entry: CatalogEntry): boolean {
   if (!DEMO_ANALYSES.has(entry.assetName)) return false;
   const sheet = entry.metadata?.sheets?.[0];
   const shaped =
@@ -89,10 +90,10 @@ function looksLikeDemoAnalysis(entry: CacheEntry): boolean {
 
 async function findDemoSet(): Promise<DemoSet> {
   const [datasources, datasets, analyses, dashboards] = await Promise.all([
-    liveEntries('datasource'),
-    liveEntries('dataset'),
-    liveEntries('analysis'),
-    liveEntries('dashboard'),
+    catalog.list('datasource'),
+    catalog.list('dataset'),
+    catalog.list('analysis'),
+    catalog.list('dashboard'),
   ]);
   const sampleSources = datasources.filter(isSampleSource);
   const sampleIds = new Set(sampleSources.map((d) => d.assetId));
@@ -124,7 +125,7 @@ function readersOf(target: PlaybookTarget, demo: DemoSet): string[] {
   return [];
 }
 
-const scoped = (entry: CacheEntry): ScopedTarget => ({
+const scoped = (entry: CatalogEntry): ScopedTarget => ({
   assetType: entry.assetType,
   assetId: entry.assetId,
   name: entry.assetName,

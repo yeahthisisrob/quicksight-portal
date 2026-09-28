@@ -1,18 +1,17 @@
 /**
  * One row per thing a job works through: an asset a playbook checks or
- * changes, with what was found, what was done and why it failed. Rows live
- * in the job's own partition (pk = jobId, sk = ITEM#<key>), so they are
- * written one at a time as work finishes (no 400KB job item to outgrow),
- * read back in order, and deleted with the job.
+ * changes, with what was found, what was done and why it failed. Rows are
+ * their own items under the job, so they are written one at a time as work
+ * finishes (no 400KB job item to outgrow), read back in order, and deleted
+ * with the job.
  *
  * Keys sort by stage first, so a job that must finish one kind of change
  * before the next (analyses before the datasets they read) reads its rows
  * back in the order it has to do them.
  */
-import { JOB_CONFIG } from '../../constants';
 import type { AssetType } from '../../types/assetTypes';
-import { DynamoDBService } from '../aws/DynamoDBService';
-import { JOB_TTL_GRACE_DAYS, jobsTableName } from './jobsTable';
+import { type JobItemRow, portal } from '../store/portalTable';
+import { jobExpiresAt } from './jobRetention';
 
 export type JobItemStatus = 'pending' | 'planned' | 'done' | 'failed' | 'skipped' | 'review';
 /** What a check found: something to change, something a person must decide, or nothing to do. */
@@ -44,10 +43,7 @@ export type JobItemCounts = Record<JobItemStatus, number> & {
   verdicts: Record<JobItemVerdict, number>;
 };
 
-const ITEM_SK_PREFIX = 'ITEM#';
 const STAGE_PAD = 3;
-const MS_PER_SECOND = 1000;
-const SECONDS_PER_DAY = 86_400;
 const DEFAULT_PAGE = 100;
 
 export function jobItemKey(stage: number, assetType: string, assetId: string): string {
@@ -73,38 +69,26 @@ export function countItems(items: Array<Pick<JobItem, 'status' | 'verdict'>>): J
 }
 
 export class JobItemStore {
-  private readonly dynamo: DynamoDBService;
-  private readonly tableName: string;
-
-  public constructor(dynamo: DynamoDBService = new DynamoDBService()) {
-    this.dynamo = dynamo;
-    this.tableName = jobsTableName();
-  }
-
   public async putAll(jobId: string, items: JobItem[]): Promise<void> {
     if (items.length === 0) return;
-    await this.dynamo.ensureJobsTableExists(this.tableName);
-    await this.dynamo.batchPut(
-      this.tableName,
-      items.map((item) => this.toRow(jobId, item))
-    );
+    const { unprocessed } = await portal()
+      .jobItem.put(items.map((item) => toRow(jobId, item)))
+      .go();
+    if (unprocessed.length > 0) {
+      throw new Error(`${unprocessed.length} job item(s) could not be written for ${jobId}`);
+    }
   }
 
   public async put(jobId: string, item: JobItem): Promise<void> {
-    await this.dynamo.putItem(this.tableName, this.toRow(jobId, item));
+    await portal().jobItem.put(toRow(jobId, item)).go();
   }
 
   /** Every row, in key order (stage, then type, then id). */
   public async all(jobId: string): Promise<JobItem[]> {
-    await this.dynamo.ensureJobsTableExists(this.tableName);
-    // Every row, however many: the default partition read stops at 5,000.
-    const rows = await this.dynamo.queryPartition<Record<string, any>>(
-      this.tableName,
-      'pk',
-      jobId,
-      { sortKeyBeginsWith: { name: 'sk', prefix: ITEM_SK_PREFIX }, limit: Number.POSITIVE_INFINITY }
-    );
-    return rows.map((row) => this.fromRow(row));
+    const { data } = await portal()
+      .jobItem.query.byJob({ jobId })
+      .go({ pages: 'all', consistent: true });
+    return data.map(fromRow);
   }
 
   /**
@@ -133,20 +117,17 @@ export class JobItemStore {
       ...(last && from + limit < matching.length ? { cursor: last.key } : {}),
     };
   }
+}
 
-  private toRow(jobId: string, item: JobItem): Record<string, any> {
-    return {
-      ...JSON.parse(JSON.stringify(item)),
-      pk: jobId,
-      sk: `${ITEM_SK_PREFIX}${item.key}`,
-      expiresAt:
-        Math.ceil(Date.now() / MS_PER_SECOND) +
-        (JOB_CONFIG.DEFAULT_RETENTION_DAYS + JOB_TTL_GRACE_DAYS) * SECONDS_PER_DAY,
-    };
-  }
+function toRow(jobId: string, { key, ...item }: JobItem): JobItemRow {
+  return {
+    ...(JSON.parse(JSON.stringify(item)) as Omit<JobItem, 'key'>),
+    jobId,
+    itemKey: key,
+    expiresAt: jobExpiresAt(),
+  } as JobItemRow;
+}
 
-  private fromRow(row: Record<string, any>): JobItem {
-    const { pk: _pk, sk: _sk, expiresAt: _e, ...item } = row;
-    return item as JobItem;
-  }
+function fromRow({ jobId: _jobId, itemKey, expiresAt: _expiresAt, ...row }: JobItemRow): JobItem {
+  return { key: itemKey, ...row } as JobItem;
 }

@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     setupFiles: ['./vitest.setup.ts'],
+    globalSetup: ['./vitest.dynamodb.ts'],
     include: ['**/__tests__/**/*.test.ts', '**/?(*.)+(spec|test).ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/coverage/**'],
     coverage: {

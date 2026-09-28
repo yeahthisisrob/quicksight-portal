@@ -13,6 +13,7 @@ import { CloudTrailAdapter } from '../../../adapters/aws/CloudTrailAdapter';
 import { ACTIVITY_LIMITS } from '../../../shared/constants';
 import { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { CacheService } from '../../../shared/services/cache/CacheService';
+import { runCatalogRebuiltHooks } from '../../../shared/services/catalog/catalogHooks';
 import { IngestionRefreshService } from '../../../shared/services/ingestions/IngestionRefreshService';
 import type { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { GroupService } from '../../../shared/services/organization/GroupService';
@@ -324,8 +325,8 @@ export class ActivityRefreshProcessor {
       await this.markCompleted(result.message, { refreshed: result.refreshed, duration });
       // Activity ETags are part of the user snapshot version key, so a
       // successful refresh invalidates it — precompute the replacement now.
-      // runCacheRebuildHooks never throws.
-      await CacheService.getInstance().runCacheRebuildHooks();
+      // The hooks never throw.
+      await runCatalogRebuiltHooks();
     }
   }
 

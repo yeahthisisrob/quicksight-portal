@@ -13,7 +13,7 @@
  * rest: rows per asset, concurrency, a failure threshold, resuming after the
  * Lambda time limit, retrying what failed.
  */
-import type { CacheEntry } from '../../shared/models/asset.model';
+import type { CatalogEntry } from '../../shared/models/asset.model';
 import type { AssetType } from '../../shared/types/assetTypes';
 
 export interface PlaybookTarget {
@@ -29,7 +29,7 @@ export interface ScopedTarget extends PlaybookTarget {
   /** When it last changed (editedWithinDays). */
   lastUpdatedTime?: string | Date;
   /** The cache entry, when scope read one (a playbook's own gates may read more of it). */
-  entry?: CacheEntry;
+  entry?: CatalogEntry;
 }
 
 /**

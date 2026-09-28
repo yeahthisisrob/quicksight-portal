@@ -2,13 +2,13 @@ import pLimit from 'p-limit';
 
 import { EXPORT_CONFIG } from '../../config/exportConfig';
 import { FIELD_LIMITS } from '../../constants';
-import type { AssetType, CacheEntry } from '../../models/asset.model';
+import type { AssetType, CatalogEntry } from '../../models/asset.model';
 import { AssetStatusFilter } from '../../types/assetFilterTypes';
 import { ASSET_TYPES } from '../../types/assetTypes';
 import { findMatchingFlatFileDatasource } from '../../utils/flatFileDatasetMatcher';
 import { logger } from '../../utils/logger';
 import { S3Service } from '../aws/S3Service';
-import type { CacheService } from '../cache/CacheService';
+import { catalog } from '../catalog/catalogStore';
 
 export interface LineageRelationship {
   sourceAssetId: string;
@@ -44,24 +44,23 @@ interface AssetInfo {
   type: AssetType;
   exportFilePath: string;
   isArchived?: boolean;
+  entry: CatalogEntry;
 }
 
 export class LineageService {
   private readonly bucketName: string;
   private readonly CACHE_TTL_MS = FIELD_LIMITS.CACHE_TTL_MS;
   private cacheExpiry: Date | null = null;
-  private cacheService: CacheService | null = null;
   private lineageCache: Map<string, AssetLineage> | null = null;
   private readonly s3Service: S3Service;
 
-  public constructor(cacheServiceInstance?: CacheService) {
+  public constructor() {
     this.s3Service = s3Service; // Use singleton
     const bucketName = process.env.BUCKET_NAME;
     if (!bucketName) {
       throw new Error('BUCKET_NAME environment variable is not set');
     }
     this.bucketName = bucketName;
-    this.cacheService = cacheServiceInstance || null;
   }
 
   public async getAllLineage(): Promise<AssetLineage[]> {
@@ -180,21 +179,15 @@ export class LineageService {
     const lineageMap = new Map<string, AssetLineage>();
 
     try {
-      const cacheServiceInstance = await this.getCacheService();
-
       // Collect all assets for lineage processing
-      const allAssets = await this.collectAssetsForLineage(cacheServiceInstance);
+      const allAssets = await this.collectAssetsForLineage();
       logger.info(`Building lineage for ${allAssets.length} assets`);
 
       // Initialize lineage entries
-      await this.initializeLineageEntries(allAssets, lineageMap, cacheServiceInstance);
+      this.initializeLineageEntries(allAssets, lineageMap);
 
       // Process relationships for each asset
-      const processedCount = await this.processAssetRelationships(
-        allAssets,
-        lineageMap,
-        cacheServiceInstance
-      );
+      const processedCount = await this.processAssetRelationships(allAssets, lineageMap);
 
       logger.info(`Processed lineage for ${processedCount}/${allAssets.length} assets`);
 
@@ -352,7 +345,7 @@ export class LineageService {
   /**
    * Collect all assets from cache for lineage processing
    */
-  private async collectAssetsForLineage(cacheServiceInstance: CacheService): Promise<AssetInfo[]> {
+  private async collectAssetsForLineage(): Promise<AssetInfo[]> {
     const allAssets: AssetInfo[] = [];
     const lineageAssetTypes = [
       ASSET_TYPES.dashboard,
@@ -362,10 +355,7 @@ export class LineageService {
     ];
 
     for (const assetType of lineageAssetTypes) {
-      const assets = await cacheServiceInstance.getCacheEntries({
-        assetType,
-        statusFilter: AssetStatusFilter.ALL,
-      });
+      const assets = await catalog.list(assetType, AssetStatusFilter.ALL);
 
       for (const asset of assets) {
         if (!asset.exportFilePath) {
@@ -383,6 +373,7 @@ export class LineageService {
           type: assetType,
           exportFilePath: asset.exportFilePath,
           isArchived: asset.status === 'archived',
+          entry: asset,
         });
       }
     }
@@ -393,10 +384,7 @@ export class LineageService {
   /**
    * Create a lineage entry for an asset
    */
-  private async createLineageEntry(
-    asset: any,
-    cacheServiceInstance: CacheService
-  ): Promise<AssetLineage> {
+  private createLineageEntry(asset: AssetInfo): AssetLineage {
     const assetType = String(asset.type);
     const lineageEntry: AssetLineage = {
       assetId: asset.id,
@@ -408,10 +396,9 @@ export class LineageService {
 
     // For datasources, get the specific type from cache metadata
     if (asset.type === ASSET_TYPES.datasource) {
-      const cacheEntry = await cacheServiceInstance.getAsset(ASSET_TYPES.datasource, asset.id);
-      if (cacheEntry?.metadata?.sourceType) {
+      if (asset.entry.metadata?.sourceType) {
         lineageEntry.metadata = {
-          datasourceType: cacheEntry.metadata.sourceType,
+          datasourceType: asset.entry.metadata.sourceType,
         };
       }
     }
@@ -419,26 +406,15 @@ export class LineageService {
     return lineageEntry;
   }
 
-  private async getCacheService(): Promise<CacheService> {
-    if (!this.cacheService) {
-      // Lazy load to avoid circular dependency
-
-      const { cacheService } = await import('../cache/CacheService');
-      this.cacheService = cacheService;
-    }
-    return this.cacheService;
-  }
-
   /**
    * Initialize lineage entries for all assets
    */
-  private async initializeLineageEntries(
-    allAssets: any[],
-    lineageMap: Map<string, AssetLineage>,
-    cacheServiceInstance: CacheService
-  ): Promise<void> {
+  private initializeLineageEntries(
+    allAssets: AssetInfo[],
+    lineageMap: Map<string, AssetLineage>
+  ): void {
     for (const asset of allAssets) {
-      const lineageEntry = await this.createLineageEntry(asset, cacheServiceInstance);
+      const lineageEntry = this.createLineageEntry(asset);
       lineageMap.set(asset.id, lineageEntry);
     }
   }
@@ -485,7 +461,7 @@ export class LineageService {
 
   private async processAnalysisLineageFromCache(
     analysis: { id: string; name: string; type: AssetType; exportFilePath: string },
-    cacheEntry: CacheEntry,
+    cacheEntry: CatalogEntry,
     lineageMap: Map<string, AssetLineage>
   ): Promise<void> {
     const analysisLineage = lineageMap.get(analysis.id);
@@ -556,7 +532,7 @@ export class LineageService {
    */
   private async processAssetLineage(
     asset: any,
-    cacheEntry: CacheEntry,
+    cacheEntry: CatalogEntry,
     lineageMap: Map<string, AssetLineage>
   ): Promise<void> {
     if (asset.type === ASSET_TYPES.dashboard) {
@@ -572,9 +548,8 @@ export class LineageService {
    * Process relationships for all assets
    */
   private async processAssetRelationships(
-    allAssets: any[],
-    lineageMap: Map<string, AssetLineage>,
-    cacheServiceInstance: CacheService
+    allAssets: AssetInfo[],
+    lineageMap: Map<string, AssetLineage>
   ): Promise<number> {
     const limit = pLimit(EXPORT_CONFIG.concurrency.operations);
     let processedCount = 0;
@@ -582,14 +557,7 @@ export class LineageService {
     const processPromises = allAssets.map((asset) =>
       limit(async () => {
         try {
-          const cacheEntry = await cacheServiceInstance.getAsset(asset.type as AssetType, asset.id);
-
-          if (!cacheEntry) {
-            logger.warn(`No cache entry found for ${asset.type} ${asset.id}`);
-            return;
-          }
-
-          await this.processAssetLineage(asset, cacheEntry, lineageMap);
+          await this.processAssetLineage(asset, asset.entry, lineageMap);
           processedCount++;
         } catch (error: any) {
           logger.warn(`Failed to process lineage for ${asset.type} ${asset.id}:`, error);
@@ -603,7 +571,7 @@ export class LineageService {
 
   private async processDashboardLineageFromCache(
     dashboard: { id: string; name: string; type: AssetType; exportFilePath: string },
-    cacheEntry: CacheEntry,
+    cacheEntry: CatalogEntry,
     lineageMap: Map<string, AssetLineage>
   ): Promise<void> {
     const dashboardLineage = lineageMap.get(dashboard.id);
@@ -710,7 +678,7 @@ export class LineageService {
 
   private async processDatasetLineageFromCache(
     dataset: { id: string; name: string; type: AssetType; exportFilePath: string },
-    cacheEntry: CacheEntry,
+    cacheEntry: CatalogEntry,
     lineageMap: Map<string, AssetLineage>
   ): Promise<void> {
     const datasetLineage = lineageMap.get(dataset.id);
@@ -810,11 +778,7 @@ export class LineageService {
       const datasetCreatedTime = cacheEntry.createdTime;
 
       // Get all datasources from cache
-      const cacheServiceInst = await this.getCacheService();
-      const datasourceEntries = await cacheServiceInst.getCacheEntries({
-        assetType: ASSET_TYPES.datasource,
-        statusFilter: AssetStatusFilter.ALL,
-      });
+      const datasourceEntries = await catalog.list(ASSET_TYPES.datasource, AssetStatusFilter.ALL);
 
       const matchResult = findMatchingFlatFileDatasource({
         datasetName: dataset.name,

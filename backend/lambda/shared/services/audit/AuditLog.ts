@@ -5,16 +5,15 @@
  * the UI, or an API key (which is what an agent runs as). The timeline
  * enriches the role's events from these records.
  *
- * Stored in the jobs table under one partition, newest first by sort key.
+ * One item per record, ordered by time; records past retention expire.
  */
 import { randomUUID } from 'node:crypto';
 
 import { type AuthContext, actorLabel } from '../../auth';
 import { TIME_UNITS } from '../../constants/timeConstants';
 import { logger } from '../../utils/logger';
-import { DynamoDBService } from '../aws/DynamoDBService';
+import { portal } from '../store/portalTable';
 
-const AUDIT_PK = 'AUDIT';
 const ID_LENGTH = 8;
 /** Records older than this are dropped by the table's TTL attribute. */
 const RETENTION_DAYS = 400;
@@ -44,12 +43,6 @@ export interface AuditRecord {
   details?: Record<string, unknown>;
 }
 
-interface StoredAudit extends AuditRecord {
-  pk: string;
-  sk: string;
-  ttl: number;
-}
-
 /** The actor and channel behind a request, from its auth context. */
 export function actorFromAuth(auth: AuthContext): { actor: AuditActor; channel: AuditChannel } {
   if (auth.apiKey) {
@@ -65,17 +58,7 @@ export function actorFromAuth(auth: AuthContext): { actor: AuditActor; channel: 
 }
 
 export class AuditLog {
-  private readonly tableName: string;
-
-  public constructor(
-    private readonly dynamo: DynamoDBService = new DynamoDBService(),
-    tableName?: string,
-    private readonly now: () => Date = () => new Date()
-  ) {
-    const env = process.env;
-    this.tableName =
-      tableName || env.JOBS_TABLE_NAME || `quicksight-portal-jobs-${env.AWS_ACCOUNT_ID || ''}`;
-  }
+  public constructor(private readonly now: () => Date = () => new Date()) {}
 
   /** Never throws: a failed audit write must not fail the write it describes. */
   public async record(entry: Omit<AuditRecord, 'id' | 'at'>): Promise<AuditRecord | null> {
@@ -85,14 +68,15 @@ export class AuditLog {
       at: at.toISOString(),
       ...entry,
     };
-    const item: StoredAudit = {
-      pk: AUDIT_PK,
-      sk: `${record.at}#${record.id}`,
-      ttl: Math.floor((at.getTime() + RETENTION_DAYS * TIME_UNITS.DAY) / TIME_UNITS.SECOND),
-      ...record,
-    };
     try {
-      await this.dynamo.putItem(this.tableName, item);
+      await portal()
+        .auditRecord.put({
+          ...record,
+          expiresAt: Math.floor(
+            (at.getTime() + RETENTION_DAYS * TIME_UNITS.DAY) / TIME_UNITS.SECOND
+          ),
+        })
+        .go();
       return record;
     } catch (error) {
       logger.warn('Audit record could not be written', { action: entry.action, error });
@@ -100,21 +84,21 @@ export class AuditLog {
     }
   }
 
-  /** Records in [since, until], newest first. */
+  /** Records in [since, until], newest first; the window is a key range, read in full. */
   public async list(range: {
     since: string;
     until?: string;
     limit?: number;
   }): Promise<AuditRecord[]> {
-    const items = await this.dynamo.queryPartition<StoredAudit>(this.tableName, 'pk', AUDIT_PK, {
-      sortKeyBeginsWith: undefined,
-      limit: range.limit ?? DEFAULT_LIST_LIMIT,
-    });
     const until = range.until ?? this.now().toISOString();
-    return items
-      .filter((i) => i.at >= range.since && i.at <= until)
-      .map(({ pk: _pk, sk: _sk, ttl: _ttl, ...record }) => record)
-      .sort((a, b) => b.at.localeCompare(a.at));
+    const { data } = await portal()
+      .auditRecord.query.byTime({})
+      .gte({ at: range.since })
+      .go({ order: 'desc', pages: 'all' });
+    return data
+      .filter((item) => item.at <= until)
+      .slice(0, range.limit ?? DEFAULT_LIST_LIMIT)
+      .map(({ expiresAt: _expiresAt, ...record }) => record as AuditRecord);
   }
 }
 

@@ -2377,23 +2377,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/assets/rebuild-index": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Rebuild the portal's asset index from the exports (queues a job) */
-        post: operations["postAssetsRebuildIndex"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/assets/bulk-delete": {
         parameters: {
             query?: never;
@@ -4119,7 +4102,7 @@ export interface components {
                 /** Format: date-time */
                 lastExportDate: string | null;
                 exportInProgress: boolean;
-                /** @description Indicates if initial export is needed (no cache exists) */
+                /** @description True until an export has filled the catalog */
                 needsInitialExport?: boolean;
                 /** @description Optional message providing export status context */
                 message?: string;
@@ -4131,6 +4114,7 @@ export interface components {
                     folders?: number;
                     users?: number;
                     groups?: number;
+                    themes?: number;
                 };
                 archivedAssetCounts?: {
                     dashboards?: number;
@@ -4140,6 +4124,7 @@ export interface components {
                     folders?: number;
                     users?: number;
                     groups?: number;
+                    themes?: number;
                     total?: number;
                 };
                 fieldStatistics: {
@@ -4147,9 +4132,6 @@ export interface components {
                     totalCalculatedFields?: number;
                     totalUniqueFields?: number;
                 } | null;
-                /** @description Total storage size in bytes */
-                totalSize?: number;
-                cacheVersion?: string;
             };
         };
         /** @description Every field is optional; the defaults are an incremental export of every asset type. */
@@ -9946,19 +9928,6 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
-        };
-    };
-    postAssetsRebuildIndex: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["Acknowledged"];
-            401: components["responses"]["Unauthorized"];
         };
     };
     postAssetsBulkDelete: {

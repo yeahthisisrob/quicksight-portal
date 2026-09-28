@@ -20,7 +20,7 @@ import type {
   BulkTagUpdateConfig,
 } from '../../types/bulkOperationTypes';
 import { logger } from '../../utils/logger';
-import { CacheService } from '../cache/CacheService';
+import { catalog } from '../catalog/catalogStore';
 import { jobFactory } from '../jobs/JobFactory';
 
 // Constants for bulk operations
@@ -40,12 +40,10 @@ interface BulkOperationJobResponse {
 export class BulkOperationsService {
   private readonly accountId: string;
   private readonly bucketName: string;
-  private readonly cacheService: CacheService;
 
   public constructor(accountId?: string) {
     this.accountId = accountId || process.env.AWS_ACCOUNT_ID || '';
     this.bucketName = metadataBucketName(this.accountId);
-    this.cacheService = CacheService.getInstance();
   }
 
   /**
@@ -249,7 +247,7 @@ export class BulkOperationsService {
         .map((a) => a.id);
 
       // Check dependencies by looking at cached metadata
-      const cachedAssets = await this.cacheService.getCacheEntries();
+      const cachedAssets = await catalog.all();
 
       // Check which dashboards/analyses depend on datasets being deleted
       if (datasetIds.length > 0 && cachedAssets) {

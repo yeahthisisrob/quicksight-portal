@@ -270,7 +270,7 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
   {
     name: 'prepare_plan',
     description:
-      "Put the Run button under a plan: the action is the plan's build, exactly. Use it for every authoring write (a new analysis or dashboard, edits to one) - after show_plan in this answer, or for a plan drawn earlier (the working state lists them) when the person says go. Change the plan by drawing it again, never by preparing something else.",
+      'Put the Run button under a plan drawn in an EARLIER answer (the working state lists them), when the person says go: it is checked again and bound to a fresh preview. A plan drawn in this answer already has its Run button. Change a plan by drawing it again, never by preparing something else.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -335,7 +335,7 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
   {
     name: 'propose_action',
     description:
-      "Prepare a write that is not authoring (grant, tag, share, delete, a dataset, a template) for the person to run. Authoring writes - creating or editing an analysis or dashboard - come from a plan: show_plan, then prepare_plan. The body is checked against the operation's schema (use describe_operation first), and a write with a /preview twin is previewed with the same body; either failing comes back to you to fix. It is not run until they click it.",
+      "Prepare a write that is not authoring (grant, tag, share, delete, a dataset, a template) for the person to run. Authoring writes - creating or editing an analysis or dashboard - come from a plan: show_plan (which puts the Run button under it). The body is checked against the operation's schema (use describe_operation first), and a write with a /preview twin is previewed with the same body; either failing comes back to you to fix. It is not run until they click it.",
     inputSchema: {
       type: 'object',
       properties: {

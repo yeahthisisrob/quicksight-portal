@@ -1,5 +1,6 @@
-import { AssetStatus, type CacheEntry } from '../../../shared/models/asset.model';
-import { CacheService } from '../../../shared/services/cache/CacheService';
+import { AssetStatus, type CatalogEntry } from '../../../shared/models/asset.model';
+import { rebuildCatalogType } from '../../../shared/services/catalog/catalogBuilder';
+import { catalog } from '../../../shared/services/catalog/catalogStore';
 import type { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { PARSER_METADATA_VERSION } from '../../../shared/services/parsing/parserVersion';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
@@ -21,20 +22,10 @@ function hasStaleParserMetadata(cachedEntry: any): boolean {
 }
 
 export class AssetComparisonService {
-  private readonly cacheService: CacheService;
   /** Types whose per-type cache had to be restored from S3 exports this run */
   private readonly hydratedTypes = new Set<AssetType>();
   private jobId: string = '';
   private jobStateService: JobStateService | null = null;
-
-  /**
-   * Constructor allows dependency injection for testing while maintaining Lambda optimization
-   * @param cacheService - Optional cache service instance (defaults to singleton for production)
-   */
-  public constructor(cacheService?: CacheService) {
-    // Use injected service for testing, or lazy-load singleton for production Lambda
-    this.cacheService = cacheService || CacheService.getInstance();
-  }
 
   /**
    * Compare assets with cache and detect all changes including deletions
@@ -139,7 +130,7 @@ export class AssetComparisonService {
     }
 
     // Get only the specific asset type cache we need (not all types)
-    const cachedEntries = await this.cacheService.getTypeCache(assetType);
+    const cachedEntries = await catalog.list(assetType);
 
     if (!cachedEntries || cachedEntries.length === 0) {
       // No cache exists yet - all assets need export
@@ -199,9 +190,7 @@ export class AssetComparisonService {
 
     try {
       // Get ALL assets from cache (including archived ones)
-      const masterCache = await this.cacheService.getMasterCache({
-        statusFilter: AssetStatusFilter.ALL,
-      });
+      const masterCache = await catalog.snapshot(AssetStatusFilter.ALL);
       const allCachedAssets = masterCache.entries[assetType] || [];
 
       if (!allCachedAssets || allCachedAssets.length === 0) {
@@ -303,7 +292,7 @@ export class AssetComparisonService {
   private classifyAsset(
     assetType: AssetType,
     asset: { id: string; lastModified: string | undefined },
-    cachedEntry: CacheEntry | undefined,
+    cachedEntry: CatalogEntry | undefined,
     isOrganizationalAsset: boolean
   ): 'update' | 'reparse' | 'unchanged' {
     if (!cachedEntry) {
@@ -328,8 +317,8 @@ export class AssetComparisonService {
    * Deduplicate cache entries by assetId, keeping the most recent entry
    * This handles cases where there are duplicate entries (e.g., active + archived)
    */
-  private deduplicateCacheEntries(assets: CacheEntry[]): CacheEntry[] {
-    const assetMap = new Map<string, CacheEntry>();
+  private deduplicateCacheEntries(assets: CatalogEntry[]): CatalogEntry[] {
+    const assetMap = new Map<string, CatalogEntry>();
 
     for (const asset of assets) {
       const existingAsset = assetMap.get(asset.assetId);
@@ -369,7 +358,7 @@ export class AssetComparisonService {
    * (timestamp comparison; a one-sided missing timestamp counts as changed)
    */
   private hasAssetChanged(
-    cachedEntry: CacheEntry,
+    cachedEntry: CatalogEntry,
     asset: { id: string; lastModified: string | undefined }
   ): boolean {
     if (!cachedEntry.lastUpdatedTime && !asset.lastModified) {
@@ -390,15 +379,14 @@ export class AssetComparisonService {
   }
 
   /**
-   * When the per-type cache has no entries but exported files exist under
-   * assets/, rebuild the cache for that type by re-parsing the files
-   * (CacheWriter.rebuildCacheForAssetType - no QuickSight API calls). This
-   * restores the lastUpdatedTime / parserVersion / enrichment metadata the
+   * When the catalog has no entries of a type but exported files exist under
+   * assets/, rebuild that type by re-parsing the files (rebuildCatalogType -
+   * no QuickSight API calls). This restores the lastUpdatedTime / parserVersion / enrichment metadata the
    * comparison ladder needs after a cache clear.
    */
   private async hydrateCacheFromS3IfMissing(assetType: AssetType): Promise<void> {
     try {
-      const cachedEntries = await this.cacheService.getTypeCache(assetType);
+      const cachedEntries = await catalog.list(assetType);
       if (cachedEntries && cachedEntries.length > 0) {
         return;
       }
@@ -409,8 +397,8 @@ export class AssetComparisonService {
         this.jobId,
         `Restoring ${assetType} cache from existing S3 exports...`
       );
-      await this.cacheService.rebuildCacheForAssetType(assetType, progressLogger);
-      const hydrated = await this.cacheService.getTypeCache(assetType);
+      await rebuildCatalogType(assetType, progressLogger);
+      const hydrated = await catalog.list(assetType);
       if (hydrated && hydrated.length > 0) {
         this.hydratedTypes.add(assetType);
         const message = `Cache for ${assetType} was missing - restored ${hydrated.length} entries from existing S3 exports (no API calls); comparing incrementally`;
@@ -431,7 +419,7 @@ export class AssetComparisonService {
    * Process hard-deleted assets (in cache but not in current list)
    */
   private async processHardDeletedAssets(
-    allCachedAssets: CacheEntry[],
+    allCachedAssets: CatalogEntry[],
     currentAssetIds: Set<string>,
     assetType: AssetType,
     deletedAssetIds: Set<string>
@@ -493,7 +481,7 @@ export class AssetComparisonService {
    * Process soft-deleted assets (analyses with Status='DELETED')
    */
   private async processSoftDeletedAssets(
-    allCachedAssets: CacheEntry[],
+    allCachedAssets: CatalogEntry[],
     softDeletedAssets: AssetSummary[],
     assetType: AssetType,
     deletedAssetIds: Set<string>
@@ -512,7 +500,10 @@ export class AssetComparisonService {
       }
 
       await this.trackDeletedAsset(
-        { assetId, assetName: (asset as any).Name || (asset as any).name || assetId } as CacheEntry,
+        {
+          assetId,
+          assetName: (asset as any).Name || (asset as any).name || assetId,
+        } as CatalogEntry,
         assetType,
         deletedAssetIds,
         true
@@ -525,7 +516,7 @@ export class AssetComparisonService {
    * This method only detects and tracks - actual archiving is handled by ArchiveService
    */
   private async trackDeletedAsset(
-    asset: Pick<CacheEntry, 'assetId' | 'assetName'>,
+    asset: Pick<CatalogEntry, 'assetId' | 'assetName'>,
     assetType: AssetType,
     deletedAssetIds: Set<string>,
     isSoftDeleted: boolean

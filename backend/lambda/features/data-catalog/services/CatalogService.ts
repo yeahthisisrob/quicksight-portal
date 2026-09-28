@@ -1,7 +1,8 @@
 import { detectConflict } from '../../../shared/lib/expressionAnalysis';
-import type { CacheEntry } from '../../../shared/models/asset.model';
-import { cacheService } from '../../../shared/services/cache/CacheService';
-import type { FieldInfo } from '../../../shared/services/cache/types';
+import type { CatalogEntry } from '../../../shared/models/asset.model';
+import { catalog } from '../../../shared/services/catalog/catalogStore';
+import { readFields } from '../../../shared/services/catalog/fieldCache';
+import type { FieldInfo } from '../../../shared/services/catalog/fieldTypes';
 import { FolderService } from '../../../shared/services/organization/FolderService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
@@ -144,12 +145,8 @@ export class CatalogService {
     }
   }
 
-  public async getAllAssets(): Promise<CacheEntry[]> {
-    // Use getCacheEntries for unpaginated access to all assets
-    // (getAssets/searchAssets applies DEFAULT_MAX_RESULTS=100 limit)
-    return await cacheService.getCacheEntries({
-      statusFilter: AssetStatusFilter.ALL,
-    });
+  public async getAllAssets(): Promise<CatalogEntry[]> {
+    return await catalog.all(AssetStatusFilter.ALL);
   }
 
   /**
@@ -159,7 +156,7 @@ export class CatalogService {
     Array<{ id: string; name: string; type: string; fieldCount: number }>
   > {
     const allAssets = await this.getAllAssets();
-    const fieldData = await cacheService.searchFields({});
+    const fieldData = await readFields({});
 
     // Count fields per asset
     const fieldCounts = new Map<string, number>();
@@ -190,29 +187,19 @@ export class CatalogService {
    */
   public async getAvailableTags(): Promise<Array<{ key: string; value: string; count: number }>> {
     const allAssets = await this.getAllAssets();
-    const tagCounts = new Map<string, number>();
-
-    // Count occurrences of each tag key-value pair
+    // By key and value as a pair: a key may itself hold a colon (aws:cloudformation:stack-name).
+    const tagCounts = new Map<string, { key: string; value: string; count: number }>();
     for (const asset of allAssets) {
-      const tags = asset.tags || [];
-      for (const tag of tags) {
-        const tagKey = `${tag.key}:${tag.value}`;
-        tagCounts.set(tagKey, (tagCounts.get(tagKey) || 0) + 1);
+      for (const { key, value } of asset.tags || []) {
+        if (!key || !value) continue;
+        const pair = JSON.stringify([key, value]);
+        const counted = tagCounts.get(pair) ?? { key, value, count: 0 };
+        counted.count++;
+        tagCounts.set(pair, counted);
       }
     }
 
-    // Convert to array and sort by count
-    return Array.from(tagCounts.entries())
-      .map(([tagKey, count]) => {
-        const parts = tagKey.split(':', 2);
-        return {
-          key: parts[0] || '',
-          value: parts[1] || '',
-          count,
-        };
-      })
-      .filter((tag) => tag.key && tag.value) // Filter out malformed tags
-      .sort((a, b) => b.count - a.count);
+    return [...tagCounts.values()].sort((a, b) => b.count - a.count);
   }
 
   /**
@@ -226,7 +213,7 @@ export class CatalogService {
     lastUpdated: Date;
   }> {
     const allAssets = await this.getAllAssets();
-    const fieldData = await cacheService.searchFields({});
+    const fieldData = await readFields({});
     const tags = await this.getAvailableTags();
 
     // Count assets by type
@@ -324,7 +311,7 @@ export class CatalogService {
   }> {
     // Use cache-level filtering for efficiency
     // Pass filters directly to searchFields to filter at cache layer
-    const filteredFieldData = await cacheService.searchFields({
+    const filteredFieldData = await readFields({
       query: filters?.query,
       dataType: filters?.dataType,
       assetTypes: filters?.assetType ? [filters.assetType as any] : undefined,
@@ -380,7 +367,7 @@ export class CatalogService {
    * persist it. Called after exports/cache rebuilds so the index stays fresh.
    */
   public async rebuildCatalogIndex(): Promise<CatalogIndex> {
-    const fieldData = await cacheService.searchFields({});
+    const fieldData = await readFields({});
     const index = catalogIndexBuilder.build(fieldData);
     await catalogIndexBuilder.persist(index);
     this.indexCache = index;
@@ -396,7 +383,7 @@ export class CatalogService {
    */
   private addFieldToCatalog(
     field: FieldInfo,
-    asset: CacheEntry,
+    asset: CatalogEntry,
     fieldMap: Map<string, CatalogField>
   ): void {
     let catalogField = fieldMap.get(field.fieldName);
@@ -417,7 +404,7 @@ export class CatalogService {
   private addFieldVariantFromSharedData(
     catalogField: CatalogField,
     field: FieldInfo,
-    asset: CacheEntry
+    asset: CatalogEntry
   ): void {
     const sourceInfo = {
       assetType: asset.assetType,
@@ -643,9 +630,9 @@ export class CatalogService {
   }
 
   /**
-   * Create catalog field from shared FieldInfo and CacheEntry types with proper usage counting
+   * Create catalog field from shared FieldInfo and CatalogEntry types with proper usage counting
    */
-  private createCatalogFieldFromSharedData(field: FieldInfo, asset: CacheEntry): CatalogField {
+  private createCatalogFieldFromSharedData(field: FieldInfo, asset: CatalogEntry): CatalogField {
     const sourceInfo = {
       assetType: asset.assetType,
       assetId: asset.assetId,
@@ -732,14 +719,10 @@ export class CatalogService {
       (excludeTags && excludeTags.length > 0) ||
       (assetIds && assetIds.length > 0);
 
-    // getCacheEntries gives unpaginated access to all assets
-    // (getAssets/searchAssetsWithFilters silently cap at DEFAULT_MAX_RESULTS=100)
-    let allowedAssets = await cacheService.getCacheEntries({
-      statusFilter: AssetStatusFilter.ACTIVE,
-    });
+    let allowedAssets = await catalog.all(AssetStatusFilter.ACTIVE);
 
     if (hasFilters) {
-      allowedAssets = allowedAssets.filter((asset: CacheEntry) => {
+      allowedAssets = allowedAssets.filter((asset: CatalogEntry) => {
         const assetTags: TagFilter[] = (asset.tags || []).map((t) => ({
           key: t.key,
           value: t.value,
@@ -760,8 +743,8 @@ export class CatalogService {
 
     return new Set(
       allowedAssets
-        .filter((asset: CacheEntry) => !excludedAssets.has(asset.assetId))
-        .map((asset: CacheEntry) => asset.assetId)
+        .filter((asset: CatalogEntry) => !excludedAssets.has(asset.assetId))
+        .map((asset: CatalogEntry) => asset.assetId)
     );
   }
 

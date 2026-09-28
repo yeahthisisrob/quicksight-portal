@@ -204,7 +204,8 @@ describe('AssistantService', () => {
     expect(result.actions).toEqual([
       expect.objectContaining({
         title: 'Copy the dashboard',
-        why: 'Clones onto gold.',
+        // Put there by the plan itself, not by a second step the model had to remember.
+        why: 'The copy on gold',
         path: '/api/authoring/dashboard/d1/rebind',
         body: { mode: 'clone', rebinds: [] },
         previewId: preview.id,

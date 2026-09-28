@@ -5,7 +5,7 @@
 
 import type { components } from '@shared/generated/types';
 
-import type { CacheEntry } from '../models/asset.model';
+import type { CatalogEntry } from '../models/asset.model';
 import { ASSET_TYPES } from '../types/assetTypes';
 
 type AssetListItem = components['schemas']['AssetListItem'];
@@ -21,7 +21,7 @@ type ThemeListItem = components['schemas']['ThemeListItem'];
 /**
  * Base mapping for all asset types from cache entry
  */
-function mapBaseAssetFields(entry: CacheEntry): AssetListItem & { arn: string } {
+function mapBaseAssetFields(entry: CatalogEntry): AssetListItem & { arn: string } {
   return {
     id: entry.assetId,
     name: entry.assetName,
@@ -51,7 +51,7 @@ function mapBaseAssetFields(entry: CacheEntry): AssetListItem & { arn: string } 
 /**
  * Map folder cache entry to folder list item
  */
-export function mapFolderFromCache(entry: CacheEntry): FolderListItem & { arn: string } {
+export function mapFolderFromCache(entry: CatalogEntry): FolderListItem & { arn: string } {
   const base = mapBaseAssetFields(entry);
 
   return {
@@ -65,7 +65,7 @@ export function mapFolderFromCache(entry: CacheEntry): FolderListItem & { arn: s
 /**
  * Map dashboard cache entry to dashboard list item
  */
-function mapDashboardFromCache(entry: CacheEntry): DashboardListItem & { arn: string } {
+function mapDashboardFromCache(entry: CatalogEntry): DashboardListItem & { arn: string } {
   const base = mapBaseAssetFields(entry);
 
   return {
@@ -83,7 +83,7 @@ function mapDashboardFromCache(entry: CacheEntry): DashboardListItem & { arn: st
 /**
  * Map analysis cache entry to analysis list item
  */
-function mapAnalysisFromCache(entry: CacheEntry): AnalysisListItem & { arn: string } {
+function mapAnalysisFromCache(entry: CatalogEntry): AnalysisListItem & { arn: string } {
   const base = mapBaseAssetFields(entry);
 
   return {
@@ -126,7 +126,7 @@ function extractDatasetSchemas(metadata: any): string[] {
 /**
  * Map dataset cache entry to dataset list item
  */
-function mapDatasetFromCache(entry: CacheEntry): DatasetListItem & { arn: string } {
+function mapDatasetFromCache(entry: CatalogEntry): DatasetListItem & { arn: string } {
   const base = mapBaseAssetFields(entry);
 
   // Extract refresh data from the correct location
@@ -152,7 +152,7 @@ function mapDatasetFromCache(entry: CacheEntry): DatasetListItem & { arn: string
 /**
  * Map datasource cache entry to datasource list item
  */
-function mapDatasourceFromCache(entry: CacheEntry): DatasourceListItem & { arn: string } {
+function mapDatasourceFromCache(entry: CatalogEntry): DatasourceListItem & { arn: string } {
   const base = mapBaseAssetFields(entry);
 
   return {
@@ -165,7 +165,7 @@ function mapDatasourceFromCache(entry: CacheEntry): DatasourceListItem & { arn: 
 /**
  * Map user cache entry to user list item
  */
-function mapUserFromCache(entry: CacheEntry): UserListItem & { arn: string } {
+function mapUserFromCache(entry: CatalogEntry): UserListItem & { arn: string } {
   const base = mapBaseAssetFields(entry);
 
   return {
@@ -182,7 +182,7 @@ function mapUserFromCache(entry: CacheEntry): UserListItem & { arn: string } {
 /**
  * Map group cache entry to asset list item
  */
-function mapGroupFromCache(entry: CacheEntry): GroupListItem & { arn: string } {
+function mapGroupFromCache(entry: CatalogEntry): GroupListItem & { arn: string } {
   const base = mapBaseAssetFields(entry);
 
   return {
@@ -204,7 +204,7 @@ function mapGroupFromCache(entry: CacheEntry): GroupListItem & { arn: string } {
  * Map theme cache entry to theme list item. How many dashboards and
  * analyses use it is counted over the whole cache (see AssetService).
  */
-function mapThemeFromCache(entry: CacheEntry): ThemeListItem & { arn: string } {
+function mapThemeFromCache(entry: CatalogEntry): ThemeListItem & { arn: string } {
   const base = mapBaseAssetFields(entry);
   const metadata = entry.metadata as Record<string, any>;
   return {
@@ -223,7 +223,7 @@ function mapThemeFromCache(entry: CacheEntry): ThemeListItem & { arn: string } {
 /**
  * Asset type to mapper function mapping
  */
-const ASSET_MAPPERS: Record<string, (entry: CacheEntry) => AssetListItem & { arn: string }> = {
+const ASSET_MAPPERS: Record<string, (entry: CatalogEntry) => AssetListItem & { arn: string }> = {
   [ASSET_TYPES.folder]: mapFolderFromCache,
   [ASSET_TYPES.dashboard]: mapDashboardFromCache,
   [ASSET_TYPES.analysis]: mapAnalysisFromCache,
@@ -237,7 +237,7 @@ const ASSET_MAPPERS: Record<string, (entry: CacheEntry) => AssetListItem & { arn
 /**
  * Main mapping function - routes to appropriate mapper based on asset type
  */
-export function mapCacheEntryToAsset(entry: CacheEntry): AssetListItem & { arn: string } {
+export function mapCacheEntryToAsset(entry: CatalogEntry): AssetListItem & { arn: string } {
   const mapper = ASSET_MAPPERS[entry.assetType];
   return mapper ? mapper(entry) : mapBaseAssetFields(entry);
 }

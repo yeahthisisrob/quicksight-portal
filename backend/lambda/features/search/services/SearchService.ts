@@ -1,6 +1,6 @@
 /**
  * SearchService - what the portal knows, two ways, built in one pass from
- * the caches already in memory (the master cache, the field cache, the SMUS
+ * what the portal already holds (the catalog, the field cache, the SMUS
  * snapshot, the template library) and kept per container until any of
  * them changes:
  *
@@ -18,7 +18,9 @@
 import { CACHE_TTL } from '../../../shared/constants/timeConstants';
 import { calculatedFieldKey } from '../../../shared/lib/expressionAnalysis';
 import { CacheService } from '../../../shared/services/cache/CacheService';
-import type { FieldInfo } from '../../../shared/services/cache/types';
+import { catalog } from '../../../shared/services/catalog/catalogStore';
+import { readFields } from '../../../shared/services/catalog/fieldCache';
+import type { FieldInfo } from '../../../shared/services/catalog/fieldTypes';
 import { SmusService } from '../../../shared/services/smus/SmusService';
 import { CalculatedFieldTemplateStore } from '../../../shared/services/templates/CalculatedFieldTemplateStore';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
@@ -108,7 +110,6 @@ export class SearchService {
   }
 
   public constructor(
-    private readonly cacheService: CacheService = CacheService.getInstance(),
     private readonly smusService: SmusService = new SmusService(CacheService.getInstance()),
     private readonly templateStore: CalculatedFieldTemplateStore = new CalculatedFieldTemplateStore()
   ) {}
@@ -130,9 +131,8 @@ export class SearchService {
 
   /** One index and graph per container, rebuilt when the caches they read have changed. */
   private async getBuilt(): Promise<Built> {
-    const { cache, version } = await this.cacheService.getMasterCacheWithVersion({
-      statusFilter: AssetStatusFilter.ACTIVE,
-    });
+    const cache = await catalog.snapshot(AssetStatusFilter.ACTIVE);
+    const version = cache.version;
     const snapshot = await this.smusService.getSnapshot();
     const key = `${version}|${snapshot?.exportedAt ?? ''}`;
     const cached = SearchService.index;
@@ -161,7 +161,7 @@ export class SearchService {
   ): Promise<Built> {
     const started = Date.now();
     const [fields, templates] = await Promise.all([
-      this.cacheService.searchFields({}) as Promise<FieldInfo[]>,
+      readFields({}) as Promise<FieldInfo[]>,
       this.templateStore.list().catch((error) => {
         logger.warn('Search: template library unavailable', { error });
         return [];

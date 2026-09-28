@@ -4,7 +4,7 @@
  */
 import { AssetStatusFilter } from '../../types/assetFilterTypes';
 import { logger } from '../../utils/logger';
-import { cacheService } from '../cache/CacheService';
+import { catalog } from '../catalog/catalogStore';
 
 const PRINCIPAL_KIND = /:(user|group)\//;
 
@@ -24,7 +24,7 @@ export async function keepLivePrincipals(
   try {
     const [users, groups] = await Promise.all(
       (['user', 'group'] as const).map((assetType) =>
-        cacheService.getCacheEntries({ assetType, statusFilter: AssetStatusFilter.ACTIVE })
+        catalog.list(assetType, AssetStatusFilter.ACTIVE)
       )
     );
     known = new Set([...(users ?? []), ...(groups ?? [])].map((e: any) => String(e.arn ?? '')));

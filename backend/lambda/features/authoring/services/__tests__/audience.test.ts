@@ -1,31 +1,29 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getCacheEntries, get } = vi.hoisted(() => ({ getCacheEntries: vi.fn(), get: vi.fn() }));
+const { get } = vi.hoisted(() => ({ get: vi.fn() }));
 
 vi.mock('../../../../shared/utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
-vi.mock('../../../../shared/services/cache/CacheService', () => ({
-  cacheService: { getCacheEntries },
-}));
 vi.mock('../../../../shared/services/settings/SettingsStore', () => ({ settingsStore: { get } }));
 
 import { quickSightUserFor } from '../../../../shared/services/identity/IdentityResolver';
+import { catalogEntry, useTestCatalog } from '../../../../shared/utils/testUtils/testCatalog';
 import { audienceFor, fileInFolders, OWNER_ACTIONS, withOwner } from '../audience';
 
-const ROB = {
-  assetId: 'rob',
-  assetName: 'rob',
+const { seed } = useTestCatalog();
+
+const ROB = catalogEntry('user', 'rob', {
   arn: 'arn:aws:quicksight:us-east-1:1:user/default/rob',
   metadata: { email: 'Rob@Example.com' },
-};
+});
 
 describe('who sees what the portal builds', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
-    getCacheEntries.mockResolvedValue([
+    await seed([
       ROB,
-      { assetId: 'x', arn: 'arn:x', metadata: { email: 'x@example.com' } },
+      catalogEntry('user', 'x', { arn: 'arn:x', metadata: { email: 'x@example.com' } }),
     ]);
     get.mockReturnValue(['f-shared']);
   });

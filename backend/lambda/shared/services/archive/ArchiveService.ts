@@ -1,12 +1,11 @@
 import { STORAGE_CONVERSION } from '../../constants';
 import type { AssetType } from '../../models/asset.model';
 import type { ArchiveResult, ArchiveStats } from '../../types/archiveTypes';
-import { AssetStatusFilter } from '../../types/assetFilterTypes';
 import { ASSET_TYPES, ASSET_TYPES_PLURAL, isCollectionType } from '../../types/assetTypes';
 import { errorMessage } from '../../utils/errorMessage';
 import { logger } from '../../utils/logger';
 import { S3Service } from '../aws/S3Service';
-import type { CacheService } from '../cache/CacheService';
+import { catalog } from '../catalog/catalogStore';
 
 /**
  * Service for handling asset archiving operations
@@ -15,10 +14,7 @@ import type { CacheService } from '../cache/CacheService';
 export class ArchiveService {
   private readonly s3Service: S3Service;
 
-  public constructor(
-    private readonly bucketName: string,
-    private readonly cacheService?: CacheService
-  ) {
+  public constructor(private readonly bucketName: string) {
     // Create S3Service internally - proper service layer encapsulation
     const accountId = process.env.AWS_ACCOUNT_ID || '';
     this.s3Service = new S3Service(accountId);
@@ -34,38 +30,22 @@ export class ArchiveService {
     archivedBy?: string
   ): Promise<ArchiveResult> {
     try {
-      // First check if asset exists and isn't already archived
-      if (this.cacheService) {
-        const assets = await this.cacheService.getCacheEntries({
+      // The live entry decides: an older archived copy of the same id (archived,
+      // restored, archived again) must not make a live one look done.
+      const asset = await catalog.get(assetType, assetId);
+      if (!asset) {
+        throw new Error(`Asset ${assetType}/${assetId} not found`);
+      }
+      if (asset.status === 'archived' && asset.exportFilePath?.includes('archived/')) {
+        logger.info(`Asset ${assetType}/${assetId} is already archived, skipping`);
+        return {
+          success: true,
+          assetId,
           assetType,
-          statusFilter: AssetStatusFilter.ALL,
-        });
-        // The live entry decides: an older archived copy of the same id (archived,
-        // restored, archived again) must not make a live one look done.
-        const matching = assets.filter((a) => a.assetId === assetId);
-        const asset = matching.find((a) => a.status !== 'archived') ?? matching[0];
-
-        if (!asset) {
-          throw new Error(`Asset ${assetType}/${assetId} not found`);
-        }
-
-        // Check if truly archived (both status AND file location)
-        if (asset.status === 'archived' && asset.exportFilePath?.includes('archived/')) {
-          logger.info(`Asset ${assetType}/${assetId} is already properly archived, skipping`);
-          return {
-            success: true,
-            assetId,
-            assetType,
-            originalPath: asset.exportFilePath,
-            archivePath: asset.exportFilePath,
-            archivedAt: asset.lastUpdatedTime?.toISOString() || new Date().toISOString(),
-          };
-        } else if (asset.status === 'archived' && !asset.exportFilePath?.includes('archived/')) {
-          logger.warn(
-            `Asset ${assetType}/${assetId} marked as archived but file at ${asset.exportFilePath} - proceeding with archive`
-          );
-          // Continue with archiving to fix the inconsistency
-        }
+          originalPath: asset.exportFilePath,
+          archivePath: asset.exportFilePath,
+          archivedAt: asset.metadata.archived?.archivedAt ?? asset.lastUpdatedTime.toISOString(),
+        };
       }
 
       // Archive the file
@@ -78,9 +58,8 @@ export class ArchiveService {
           )
         : await this.archiveIndividualAsset(assetType, assetId, archiveReason, archivedBy);
 
-      // Update cache metadata to mark as archived
-      if (this.cacheService && fileResult.success) {
-        await this.updateCacheAfterArchive(assetType, assetId, archiveReason, archivedBy);
+      if (fileResult.success) {
+        await catalog.archive([{ assetType, assetId, archiveReason, archivedBy }]);
       }
 
       return fileResult;
@@ -178,23 +157,33 @@ export class ArchiveService {
         };
       }
 
-      // Move the item to archived collection with metadata
-      archivedCollection[itemId] = {
+      // Move it with conflict-safe updates: several archives at once (a
+      // playbook deleting users in parallel) each land, instead of the last
+      // whole-file write undoing the others.
+      const archivedAt = new Date().toISOString();
+      const archivedEntry = {
         ...activeCollection[itemId],
         archivedMetadata: {
-          archivedAt: new Date().toISOString(),
+          archivedAt,
           archiveReason,
           archivedBy,
           originalPath: `${collectionPath}#${itemId}`,
         },
       };
-
-      // Remove from active collection
-      delete activeCollection[itemId];
-
-      // Save both collections
-      await this.s3Service.putObject(this.bucketName, collectionPath, activeCollection);
-      await this.s3Service.putObject(this.bucketName, archivePath, archivedCollection);
+      await this.s3Service.updateObject<Record<string, any>>(
+        this.bucketName,
+        archivePath,
+        (current) => ({ ...(current ?? {}), [itemId]: archivedEntry })
+      );
+      await this.s3Service.updateObject<Record<string, any>>(
+        this.bucketName,
+        collectionPath,
+        (current) => {
+          if (!current?.[itemId]) return undefined;
+          const { [itemId]: _moved, ...rest } = current;
+          return rest;
+        }
+      );
 
       logger.info(`Archived ${assetType} item ${itemId}`, {
         originalPath: collectionPath,
@@ -208,7 +197,7 @@ export class ArchiveService {
         assetType,
         originalPath: `${collectionPath}#${itemId}`,
         archivePath: `${archivePath}#${itemId}`,
-        archivedAt: archivedCollection[itemId].archivedMetadata.archivedAt,
+        archivedAt,
       };
     } catch (error) {
       logger.error(`Failed to archive ${assetType} item ${itemId}`, { error });
@@ -408,7 +397,7 @@ export class ArchiveService {
       this.bucketName,
       `assets/${ASSET_TYPES_PLURAL[assetType]}/${assetId}.json`
     );
-    await this.updateCacheAfterArchive(assetType, assetId, archiveReason, archivedBy);
+    await catalog.archive([{ assetType, assetId, archiveReason, archivedBy }]);
   }
 
   /** Delete step 2, when QuickSight refused the delete: the archive is put back as it was. */
@@ -438,15 +427,22 @@ export class ArchiveService {
   ): Promise<void> {
     const archivePath = `archived/${ASSET_TYPES_PLURAL[assetType]}/${assetId}.json`;
     try {
-      const record = await this.s3Service.getObject(this.bucketName, archivePath);
-      const metadata = record?.archivedMetadata ?? {};
-      const restorations = [...(metadata.restorations ?? []), restoration];
-      await this.s3Service.putObject(this.bucketName, archivePath, {
-        ...record,
-        archivedMetadata: { ...metadata, restorations },
-      });
-      await this.cacheService?.updateArchivedEntryMetadata(assetType, assetId, {
-        restorations,
+      const record = await this.s3Service.updateObject<any>(
+        this.bucketName,
+        archivePath,
+        (current) =>
+          current
+            ? {
+                ...current,
+                archivedMetadata: {
+                  ...current.archivedMetadata,
+                  restorations: [...(current.archivedMetadata?.restorations ?? []), restoration],
+                },
+              }
+            : undefined
+      );
+      await catalog.patchArchived(assetType, assetId, {
+        restorations: record?.archivedMetadata?.restorations ?? [restoration],
       });
     } catch (error) {
       // The asset is back either way; the ledger line is what is missing.
@@ -556,50 +552,6 @@ export class ArchiveService {
     } catch (error) {
       logger.error('Failed to get archive statistics', { error });
       throw error;
-    }
-  }
-
-  /**
-   * Update cache index after successful archive operation.
-   *
-   * Delegates to the shared CacheService.archiveAssetsInCache() so that
-   * all live mutation paths (bulk delete, archive during export detection,
-   * demo cleanup, etc.) use the exact same DRY logic for:
-   *   - status flip to 'archived' (ACTIVE lists hide it)
-   *   - correct exportFilePath + archive metadata
-   *   - persisting the per-type S3 cache files (readers' source of truth)
-   *   - evicting memory keys + freshness for the current process
-   *
-   * The file move (assets/ → archived/) is already performed by the caller.
-   * Keeping the CacheEntry (with archived status) allows archived listings,
-   * restore previews, and stats to continue working from the unified cache.
-   */
-  private async updateCacheAfterArchive(
-    assetType: AssetType,
-    assetId: string,
-    archiveReason?: string,
-    archivedBy?: string
-  ): Promise<void> {
-    if (!this.cacheService) {
-      return;
-    }
-
-    try {
-      await this.cacheService.archiveAssetsInCache([
-        {
-          assetType,
-          assetId,
-          archiveReason,
-          archivedBy,
-        },
-      ]);
-
-      logger.info(
-        `Updated cache index for archived asset ${assetType}/${assetId} (via shared archiveAssetsInCache)`
-      );
-    } catch (error) {
-      logger.error(`Failed to update cache after archiving ${assetType}/${assetId}`, { error });
-      // Don't throw - the file was successfully moved to archived/; cache index update is best-effort
     }
   }
 }

@@ -7,8 +7,8 @@ import { mapFolderFromCache } from '../../utils/assetMapping';
 import { logger } from '../../utils/logger';
 import { ClientFactory } from '../aws/ClientFactory';
 import type { QuickSightService } from '../aws/QuickSightService';
-import { keepCacheFresh } from '../cache/assetFreshness';
-import { cacheService } from '../cache/CacheService';
+import { keepCatalogFresh } from '../catalog/assetFreshness';
+import { catalog } from '../catalog/catalogStore';
 import { TagService } from './TagService';
 
 // Use shared API types for consistency
@@ -75,7 +75,7 @@ export class FolderService {
     try {
       await this.quickSightService.createFolderMembership(folderId, assetId, memberType);
       if (refresh) {
-        await keepCacheFresh([
+        await keepCatalogFresh([
           { assetType: 'folder', assetId: folderId },
           { assetType: memberType.toLowerCase() as AssetType, assetId },
         ]);
@@ -117,10 +117,7 @@ export class FolderService {
 
   public async get(folderId: string): Promise<FolderDetails> {
     try {
-      const folders = await cacheService.getCacheEntries({
-        assetType: 'folder',
-        statusFilter: AssetStatusFilter.ALL,
-      });
+      const folders = await catalog.list('folder', AssetStatusFilter.ALL);
       const cachedFolder = folders.find((f: any) => f.assetId === folderId);
 
       if (!cachedFolder) {
@@ -221,9 +218,7 @@ export class FolderService {
       );
 
       // Get master cache once for all lookups (exclude archived so we don't show archived members)
-      const masterCache = await cacheService.getMasterCache({
-        statusFilter: AssetStatusFilter.ACTIVE,
-      });
+      const masterCache = await catalog.snapshot(AssetStatusFilter.ACTIVE);
 
       // Enrich members with asset names from cache
       const enrichedMembers = await Promise.all(
@@ -289,9 +284,7 @@ export class FolderService {
   public async list(): Promise<FolderListItem[]> {
     try {
       // Use cache with archived folders filtered out
-      const masterCache = await cacheService.getMasterCache({
-        statusFilter: AssetStatusFilter.ACTIVE,
-      });
+      const masterCache = await catalog.snapshot(AssetStatusFilter.ACTIVE);
       const cachedFolders = masterCache.entries.folder || [];
 
       // Map cache entries to folder interface
@@ -317,7 +310,7 @@ export class FolderService {
     try {
       await this.quickSightService.deleteFolderMembership(folderId, assetId, memberType);
       if (refresh) {
-        await keepCacheFresh([
+        await keepCatalogFresh([
           { assetType: 'folder', assetId: folderId },
           { assetType: memberType.toLowerCase() as AssetType, assetId },
         ]);

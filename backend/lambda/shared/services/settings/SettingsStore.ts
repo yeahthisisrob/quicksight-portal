@@ -1,16 +1,15 @@
 /**
- * SettingsStore - the portal's stored settings, one DynamoDB item.
+ * SettingsStore - the portal's stored settings, one item per setting.
  *
- * Lives in the jobs table (single-table, pk/sk) as { pk: 'SETTINGS', sk:
- * 'portal' } so no new infrastructure is needed. Loaded once per request
- * (warmed by the API handler) and cached for a short while in the Lambda
- * container, so config readers can be synchronous. A missing table or a
- * failed read is not fatal: the portal then runs from environment variables
- * exactly as it did before settings existed.
+ * Each key is its own item, so a save writes or deletes only the keys it
+ * changes: two people saving different settings at once both land. Loaded
+ * once per request (warmed by the API handler) and cached for a short while
+ * in the Lambda container, so config readers can be synchronous. A failed
+ * read is not fatal: the portal then runs from environment variables.
  */
 
 import { logger } from '../../utils/logger';
-import { DynamoDBService } from '../aws/DynamoDBService';
+import { portal } from '../store/portalTable';
 import {
   buildSnapshot,
   effectiveValue,
@@ -19,17 +18,15 @@ import {
   validateUpdate,
 } from './settingsCatalog';
 
-const SETTINGS_PK = 'SETTINGS';
-const SETTINGS_SK = 'portal';
 const CACHE_TTL_MS = 30_000;
 
-interface StoredItem {
-  pk: string;
-  sk: string;
+interface Loaded {
   values: Record<string, SettingValue>;
   updatedAt?: string;
   updatedBy?: string;
 }
+
+const EMPTY: Loaded = { values: {} };
 
 export class SettingsStore {
   private static instance: SettingsStore | null = null;
@@ -46,21 +43,13 @@ export class SettingsStore {
     SettingsStore.instance = null;
   }
 
-  private readonly tableName: string;
-  private item: StoredItem | null = null;
+  private loaded: Loaded = EMPTY;
   private loadedAt = 0;
   private inFlight: Promise<void> | null = null;
 
-  public constructor(
-    private readonly dynamo: DynamoDBService = new DynamoDBService(),
-    tableName?: string,
-    private readonly env: NodeJS.ProcessEnv = process.env
-  ) {
-    this.tableName =
-      tableName || env.JOBS_TABLE_NAME || `quicksight-portal-jobs-${env.AWS_ACCOUNT_ID || ''}`;
-  }
+  public constructor(private readonly env: NodeJS.ProcessEnv = process.env) {}
 
-  /** Load (or refresh) the stored item. Never throws; a failure means env-only. */
+  /** Load (or refresh) the stored settings. Never throws; a failure means env-only. */
   public async load(force = false): Promise<void> {
     if (!force && this.loadedAt && Date.now() - this.loadedAt < CACHE_TTL_MS) {
       return;
@@ -68,25 +57,30 @@ export class SettingsStore {
     if (this.inFlight) {
       return await this.inFlight;
     }
-    this.inFlight = this.dynamo
-      .getItem<StoredItem>(this.tableName, { pk: SETTINGS_PK, sk: SETTINGS_SK })
-      .then((item) => {
-        this.item = item;
-      })
-      .catch((error) => {
+    this.inFlight = (async () => {
+      try {
+        const { data } = await portal().setting.query.byKey({}).go({ pages: 'all' });
+        const latest = data.reduce<(typeof data)[number] | undefined>(
+          (last, item) => (!last || item.updatedAt > last.updatedAt ? item : last),
+          undefined
+        );
+        this.loaded = {
+          values: Object.fromEntries(data.map((item) => [item.key, item.value as SettingValue])),
+          ...(latest ? { updatedAt: latest.updatedAt, updatedBy: latest.updatedBy } : {}),
+        };
+      } catch (error) {
         logger.warn('Settings could not be read; running from environment only', { error });
-        this.item = this.item ?? null;
-      })
-      .finally(() => {
+      } finally {
         this.loadedAt = Date.now();
         this.inFlight = null;
-      });
+      }
+    })();
     return await this.inFlight;
   }
 
   /** Stored values as last loaded. Empty before the first load. */
   public stored(): Record<string, SettingValue> {
-    return this.item?.values ?? {};
+    return this.loaded.values;
   }
 
   /** Effective value of one key (stored -> env -> default). Sync; call load() first. */
@@ -106,36 +100,26 @@ export class SettingsStore {
 
   public snapshot(): SettingsSnapshot {
     return buildSnapshot(this.stored(), this.env, {
-      updatedAt: this.item?.updatedAt,
-      updatedBy: this.item?.updatedBy,
+      updatedAt: this.loaded.updatedAt,
+      updatedBy: this.loaded.updatedBy,
     });
   }
 
-  /** Merge an update into the stored item. null clears a key. */
+  /** Write each changed key as its own item. null, '' or [] clears a key. */
   public async save(values: Record<string, unknown>, updatedBy: string): Promise<SettingsSnapshot> {
     const validated = validateUpdate(values);
+    const updatedAt = new Date().toISOString();
+    const cleared = (value: unknown) =>
+      value === null || value === '' || (Array.isArray(value) && value.length === 0);
+    const entries = Object.entries(validated);
+    const puts = entries
+      .filter(([, value]) => !cleared(value))
+      .map(([key, value]) => ({ key, value, updatedAt, updatedBy }));
+    const deletes = entries.filter(([, value]) => cleared(value)).map(([key]) => ({ key }));
+    if (puts.length) await portal().setting.put(puts).go();
+    if (deletes.length) await portal().setting.delete(deletes).go();
     await this.load(true);
-
-    const next: Record<string, SettingValue> = { ...this.stored() };
-    for (const [key, value] of Object.entries(validated)) {
-      if (value === null || value === '' || (Array.isArray(value) && value.length === 0)) {
-        delete next[key];
-      } else {
-        next[key] = value;
-      }
-    }
-
-    const item: StoredItem = {
-      pk: SETTINGS_PK,
-      sk: SETTINGS_SK,
-      values: next,
-      updatedAt: new Date().toISOString(),
-      updatedBy,
-    };
-    await this.dynamo.putItem(this.tableName, item);
-    this.item = item;
-    this.loadedAt = Date.now();
-    logger.info('Settings saved', { keys: Object.keys(validated), updatedBy });
+    logger.info('Settings saved', { keys: entries.map(([key]) => key), updatedBy });
     return this.snapshot();
   }
 }

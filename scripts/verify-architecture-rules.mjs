@@ -43,6 +43,24 @@ const CASES = [
     expect: null,
   },
   {
+    name: 'backend reaches DynamoDB only through the portal table',
+    file: 'backend/lambda/features/__archcheck__/dynamo.ts',
+    source: `import { DynamoDBClient } from '@aws-sdk/client-dynamodb';\nexport const c = DynamoDBClient;\n`,
+    expect: 'noRestrictedImports',
+  },
+  {
+    name: 'a store uses the entities, not ElectroDB itself',
+    file: 'backend/lambda/shared/services/store/__archcheck__.ts',
+    source: `import { Entity } from 'electrodb';\nexport const e = Entity;\n`,
+    expect: 'noRestrictedImports',
+  },
+  {
+    name: 'a one-time script MAY scan a table (negative case)',
+    file: 'backend/lambda/scripts/__archcheck__.ts',
+    source: `import { DynamoDBClient } from '@aws-sdk/client-dynamodb';\nexport const c = DynamoDBClient;\n`,
+    expect: null,
+  },
+  {
     name: 'shared may not import a feature slice (upward)',
     file: 'backend/lambda/shared/__archcheck__/up.ts',
     source: `import { playbookRoutes } from '../../features/playbooks';\nexport const r = playbookRoutes;\n`,

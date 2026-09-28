@@ -16,7 +16,7 @@ import {
   extractFieldReferences,
   hasComments,
 } from '../../../shared/lib/expressionAnalysis';
-import type { FieldInfo } from '../../../shared/services/cache/types';
+import type { FieldInfo } from '../../../shared/services/catalog/fieldTypes';
 import { logger } from '../../../shared/utils/logger';
 import type { CatalogIndex, IndexedCatalogField, IndexedFieldSource } from '../types';
 

@@ -138,7 +138,8 @@ export class S3Adapter {
     bucket: string,
     key: string,
     body: string,
-    contentType?: string
+    contentType?: string,
+    condition?: { ifMatch?: string; ifNoneMatch?: '*' }
   ): Promise<unknown> {
     return await this.sendWithRateLimit(
       new PutObjectCommand({
@@ -146,6 +147,8 @@ export class S3Adapter {
         Key: key,
         Body: body,
         ContentType: contentType,
+        ...(condition?.ifMatch ? { IfMatch: condition.ifMatch } : {}),
+        ...(condition?.ifNoneMatch ? { IfNoneMatch: condition.ifNoneMatch } : {}),
       })
     );
   }

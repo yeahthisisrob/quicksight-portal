@@ -1,14 +1,16 @@
-import { type Mocked, type MockedClass, vi } from 'vitest';
+import { beforeEach, describe, expect, it, type Mocked, type MockedClass, vi } from 'vitest';
 
+import { AssetStatusFilter } from '../../../types/assetFilterTypes';
 import { logger } from '../../../utils/logger';
+import { catalogEntry, useTestCatalog } from '../../../utils/testUtils/testCatalog';
 import { S3Service } from '../../aws/S3Service';
-import type { CacheService } from '../../cache/CacheService';
+import { catalog } from '../../catalog/catalogStore';
 import { ArchiveService } from '../ArchiveService';
 
-// Mock dependencies
 vi.mock('../../aws/S3Service');
-vi.mock('../../cache/CacheService');
 vi.mock('../../../utils/logger');
+
+const { seed } = useTestCatalog();
 
 // Test constants
 const TEST_BUCKET = 'test-bucket';
@@ -24,56 +26,35 @@ const MAX_DASHBOARD_COUNT = 2;
 // Shared test setup
 let archiveService: ArchiveService;
 let mockS3Service: Mocked<S3Service>;
-let mockCacheService: Mocked<CacheService>;
 
 beforeEach(() => {
   vi.clearAllMocks();
 
-  // Create mock instances
   mockS3Service = new S3Service('test-account') as Mocked<S3Service>;
-  mockCacheService = {
-    getCacheEntries: vi.fn(),
-    updateAsset: vi.fn(),
-    // New shared DRY method for archive/delete cache maintenance (all live mutations should use this)
-    archiveAssetsInCache: vi.fn(),
-    invalidateMemoryForTypes: vi.fn(),
-    clearMemoryCache: vi.fn(),
-  } as any;
+  // A read-change-write over the mocked get and put, as the real one does (less the ETags).
+  mockS3Service.updateObject = vi.fn(async (bucket: string, key: string, change: any) => {
+    const current = (await mockS3Service.getObject(bucket, key)) ?? undefined;
+    const next = change(current);
+    if (next !== undefined) await mockS3Service.putObject(bucket, key, next);
+    return next ?? current;
+  }) as any;
 
-  // Mock S3Service constructor to return our mock
   (S3Service as MockedClass<typeof S3Service>).mockImplementation(function () {
     return mockS3Service;
   });
 
-  archiveService = new ArchiveService(TEST_BUCKET, mockCacheService);
+  archiveService = new ArchiveService(TEST_BUCKET);
 });
 
 describe('ArchiveService - archiveAsset individual', () => {
-  it('should successfully archive an individual asset', async () => {
+  it('moves the file to archived/ and archives the catalog entry', async () => {
     const assetType = 'dashboard';
     const assetId = 'dash-123';
     const originalPath = 'assets/dashboards/dash-123.json';
     const archivePath = 'archived/dashboards/dash-123.json';
     const assetData = { id: assetId, name: 'Test Dashboard' };
 
-    mockCacheService.getCacheEntries.mockResolvedValue([
-      {
-        assetId,
-        assetType,
-        assetName: 'Test Dashboard',
-        arn: `arn:aws:quicksight:us-east-1:123456789012:dashboard/${assetId}`,
-        status: 'active',
-        enrichmentStatus: 'enriched',
-        createdTime: new Date(),
-        lastUpdatedTime: new Date(),
-        exportedAt: new Date(),
-        exportFilePath: originalPath,
-        storageType: 'individual',
-        tags: [],
-        permissions: [],
-        metadata: {},
-      } as any,
-    ]);
+    await seed([catalogEntry(assetType, assetId, { assetName: 'Test Dashboard' })]);
 
     mockS3Service.objectExists = vi
       .fn()
@@ -107,33 +88,25 @@ describe('ArchiveService - archiveAsset individual', () => {
       })
     );
     expect(mockS3Service.deleteObject).toHaveBeenCalledWith(TEST_BUCKET, originalPath);
-    // Now delegates to the shared DRY method for all live archive/delete cache maintenance
-    expect(mockCacheService.archiveAssetsInCache).toHaveBeenCalled();
+
+    const entry = await catalog.get(assetType, assetId);
+    expect(entry).toMatchObject({
+      status: 'archived',
+      assetName: 'Test Dashboard',
+      exportFilePath: archivePath,
+      metadata: {
+        archived: { archiveReason: 'Test archive reason', archivedBy: 'user@example.com' },
+      },
+    });
+    expect(await catalog.list(assetType)).toEqual([]);
   });
 
-  it('should skip archiving if asset is already archived', async () => {
+  it('skips archiving if the asset is already archived', async () => {
     const assetType = 'dashboard';
     const assetId = 'dash-123';
     const archivePath = 'archived/dashboards/dash-123.json';
 
-    mockCacheService.getCacheEntries.mockResolvedValue([
-      {
-        assetId,
-        assetType,
-        assetName: 'Test Dashboard',
-        arn: `arn:aws:quicksight:us-east-1:123456789012:dashboard/${assetId}`,
-        status: 'archived',
-        enrichmentStatus: 'enriched',
-        createdTime: new Date(),
-        lastUpdatedTime: new Date(),
-        exportedAt: new Date(),
-        exportFilePath: archivePath,
-        storageType: 'individual',
-        tags: [],
-        permissions: [],
-        metadata: {},
-      } as any,
-    ]);
+    await seed([catalogEntry(assetType, assetId, { status: 'archived' })]);
 
     const result = await archiveService.archiveAsset(assetType, assetId);
 
@@ -143,29 +116,11 @@ describe('ArchiveService - archiveAsset individual', () => {
     expect(mockS3Service.deleteObject).not.toHaveBeenCalled();
   });
 
-  it('should handle archive failure gracefully', async () => {
+  it('handles archive failure gracefully and leaves the entry live', async () => {
     const assetType = 'dashboard';
     const assetId = 'dash-123';
 
-    mockCacheService.getCacheEntries.mockResolvedValue([
-      {
-        assetId,
-        assetType,
-        assetName: 'Test Dashboard',
-        arn: `arn:aws:quicksight:us-east-1:123456789012:dashboard/${assetId}`,
-        status: 'active',
-        enrichmentStatus: 'enriched',
-        createdTime: new Date(),
-        lastUpdatedTime: new Date(),
-        exportedAt: new Date(),
-        exportFilePath: '',
-        storageType: 'individual',
-        tags: [],
-        permissions: [],
-        metadata: {},
-      } as any,
-    ]);
-
+    await seed([catalogEntry(assetType, assetId)]);
     mockS3Service.objectExists = vi.fn().mockResolvedValue(false);
 
     const result = await archiveService.archiveAsset(assetType, assetId);
@@ -173,11 +128,21 @@ describe('ArchiveService - archiveAsset individual', () => {
     expect(result.success).toBe(false);
     expect(result.error).toBeDefined();
     expect(logger.error).toHaveBeenCalled();
+    expect((await catalog.get(assetType, assetId))?.status).toBe('active');
+  });
+
+  it('fails for an asset the catalog does not know, touching no files', async () => {
+    const result = await archiveService.archiveAsset('dashboard', 'ghost');
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('not found');
+    expect(mockS3Service.putObject).not.toHaveBeenCalled();
+    expect(await catalog.get('dashboard', 'ghost')).toBeNull();
   });
 });
 
 describe('ArchiveService - archiveAsset collection', () => {
-  it('should archive collection items correctly', async () => {
+  it('archives collection items correctly', async () => {
     const assetType = 'user';
     const itemId = 'user-123';
     const collectionPath = 'assets/organization/users.json';
@@ -187,31 +152,11 @@ describe('ArchiveService - archiveAsset collection', () => {
       'user-456': { name: 'Other User', email: 'other@example.com' },
     };
 
-    // Need to provide a cache entry so archiveAsset doesn't think the asset doesn't exist
-    mockCacheService.getCacheEntries.mockResolvedValue([
-      {
-        assetId: itemId,
-        assetType,
-        assetName: 'Test User',
-        arn: `arn:aws:quicksight:us-east-1:123456789012:user/default/${itemId}`,
-        status: 'active',
-        enrichmentStatus: 'enriched',
-        createdTime: new Date(),
-        lastUpdatedTime: new Date(),
-        exportedAt: new Date(),
-        exportFilePath: `${collectionPath}#${itemId}`,
-        storageType: 'collection',
-        tags: [],
-        permissions: [],
-        metadata: {},
-      } as any,
-    ]);
+    await seed([catalogEntry(assetType, itemId, { storageType: 'collection' })]);
 
-    mockS3Service.getObject = vi
-      .fn()
-      .mockResolvedValueOnce(activeCollection) // Get active collection
-      .mockResolvedValueOnce({}); // Get archived collection (empty)
-
+    mockS3Service.getObject = vi.fn(async (_bucket: string, key: string) =>
+      key === collectionPath ? activeCollection : {}
+    ) as any;
     mockS3Service.putObject = vi.fn().mockResolvedValue(undefined);
 
     const result = await archiveService.archiveAsset(
@@ -224,12 +169,10 @@ describe('ArchiveService - archiveAsset collection', () => {
     expect(result.success).toBe(true);
     expect(result.assetId).toBe(itemId);
 
-    // Verify item was removed from active collection
     expect(mockS3Service.putObject).toHaveBeenCalledWith(TEST_BUCKET, collectionPath, {
       'user-456': activeCollection['user-456'],
     });
 
-    // Verify item was added to archived collection
     const archivedPath = 'archived/organization/users.json';
     expect(mockS3Service.putObject).toHaveBeenCalledWith(
       TEST_BUCKET,
@@ -244,72 +187,23 @@ describe('ArchiveService - archiveAsset collection', () => {
         }),
       })
     );
+    expect(await catalog.get(assetType, itemId)).toMatchObject({
+      status: 'archived',
+      exportFilePath: archivedPath,
+    });
   });
 });
 
 describe('ArchiveService - bulk operations', () => {
   describe('archiveAssetsBulk', () => {
-    it('should archive multiple assets in bulk', async () => {
+    it('archives multiple assets in bulk', async () => {
       const assetsToArchive = [
         { assetType: 'dashboard' as const, assetId: 'dash-1' },
         { assetType: 'analysis' as const, assetId: 'anal-1' },
         { assetType: 'dataset' as const, assetId: 'data-1' },
       ];
 
-      // Provide cache entries for each asset so they are found
-      mockCacheService.getCacheEntries.mockImplementation(async (filter: any) => {
-        const assetMap: Record<string, any> = {
-          dashboard: {
-            assetId: 'dash-1',
-            assetType: 'dashboard',
-            assetName: 'Dashboard 1',
-            arn: 'arn:aws:quicksight:us-east-1:123456789012:dashboard/dash-1',
-            status: 'active',
-            enrichmentStatus: 'enriched',
-            createdTime: new Date(),
-            lastUpdatedTime: new Date(),
-            exportedAt: new Date(),
-            exportFilePath: 'assets/dashboards/dash-1.json',
-            storageType: 'individual',
-            tags: [],
-            permissions: [],
-            metadata: {},
-          },
-          analysis: {
-            assetId: 'anal-1',
-            assetType: 'analysis',
-            assetName: 'Analysis 1',
-            arn: 'arn:aws:quicksight:us-east-1:123456789012:analysis/anal-1',
-            status: 'active',
-            enrichmentStatus: 'enriched',
-            createdTime: new Date(),
-            lastUpdatedTime: new Date(),
-            exportedAt: new Date(),
-            exportFilePath: 'assets/analyses/anal-1.json',
-            storageType: 'individual',
-            tags: [],
-            permissions: [],
-            metadata: {},
-          },
-          dataset: {
-            assetId: 'data-1',
-            assetType: 'dataset',
-            assetName: 'Dataset 1',
-            arn: 'arn:aws:quicksight:us-east-1:123456789012:dataset/data-1',
-            status: 'active',
-            enrichmentStatus: 'enriched',
-            createdTime: new Date(),
-            lastUpdatedTime: new Date(),
-            exportedAt: new Date(),
-            exportFilePath: 'assets/datasets/data-1.json',
-            storageType: 'individual',
-            tags: [],
-            permissions: [],
-            metadata: {},
-          },
-        };
-        return filter?.assetType && assetMap[filter.assetType] ? [assetMap[filter.assetType]] : [];
-      });
+      await seed(assetsToArchive.map((a) => catalogEntry(a.assetType, a.assetId)));
 
       mockS3Service.objectExists = vi.fn().mockResolvedValue(true);
       mockS3Service.getObject = vi.fn().mockResolvedValue({ id: 'test' });
@@ -322,6 +216,29 @@ describe('ArchiveService - bulk operations', () => {
       expect(results.every((r) => r.success)).toBe(true);
       expect(mockS3Service.putObject).toHaveBeenCalledTimes(EXPECTED_CALLS);
       expect(mockS3Service.deleteObject).toHaveBeenCalledTimes(EXPECTED_CALLS);
+      for (const { assetType, assetId } of assetsToArchive) {
+        expect((await catalog.get(assetType, assetId))?.status).toBe('archived');
+      }
+    });
+
+    it('lands every archive when many run at once', async () => {
+      const ids = Array.from({ length: 8 }, (_, i) => `dash-${i}`);
+      await seed(ids.map((id) => catalogEntry('dashboard', id)));
+
+      mockS3Service.objectExists = vi.fn().mockResolvedValue(true);
+      mockS3Service.getObject = vi.fn().mockResolvedValue({ id: 'test' });
+      mockS3Service.putObject = vi.fn().mockResolvedValue(undefined);
+      mockS3Service.deleteObject = vi.fn().mockResolvedValue(undefined);
+
+      const results = await Promise.all(
+        ids.map((id) => archiveService.archiveAsset('dashboard', id))
+      );
+
+      expect(results.every((r) => r.success)).toBe(true);
+      expect(await catalog.list('dashboard')).toEqual([]);
+      expect(
+        (await catalog.list('dashboard', AssetStatusFilter.ARCHIVED)).map((e) => e.assetId).sort()
+      ).toEqual([...ids].sort());
     });
   });
 });
@@ -508,23 +425,6 @@ describe('ArchiveService - statistics', () => {
 });
 
 describe('ArchiveService - edge cases', () => {
-  it('should handle archiving when cache service is not available', async () => {
-    const serviceWithoutCache = new ArchiveService(TEST_BUCKET);
-    const assetType = 'dashboard';
-    const assetId = 'dash-123';
-
-    mockS3Service.objectExists = vi.fn().mockResolvedValue(true);
-    mockS3Service.getObject = vi.fn().mockResolvedValue({ id: assetId });
-    mockS3Service.putObject = vi.fn().mockResolvedValue(undefined);
-    mockS3Service.deleteObject = vi.fn().mockResolvedValue(undefined);
-
-    const result = await serviceWithoutCache.archiveAsset(assetType, assetId);
-
-    expect(result.success).toBe(true);
-    expect(mockCacheService.getCacheEntries).not.toHaveBeenCalled();
-    expect(mockCacheService.updateAsset).not.toHaveBeenCalled();
-  });
-
   it('should handle invalid asset type for collection archiving', async () => {
     // archiveCollectionItem throws an error for invalid types, it doesn't return a result
     await expect(
@@ -555,7 +455,6 @@ describe('ArchiveService - edge cases', () => {
     const assetType = 'dashboard';
     const assetId = 'dash-123';
 
-    mockCacheService.getCacheEntries.mockResolvedValue([]);
     mockS3Service.objectExists = vi
       .fn()
       .mockResolvedValueOnce(true) // Original exists
@@ -571,6 +470,51 @@ describe('ArchiveService - edge cases', () => {
   });
 });
 
+describe('ArchiveService - delete and restore ledger', () => {
+  it('finishArchive removes the live file and archives the entry', async () => {
+    await seed([catalogEntry('dataset', 'ds-1')]);
+    mockS3Service.deleteObject = vi.fn().mockResolvedValue(undefined);
+
+    await archiveService.finishArchive('dataset', 'ds-1', 'Deleted via portal', 'pat');
+
+    expect(mockS3Service.deleteObject).toHaveBeenCalledWith(
+      TEST_BUCKET,
+      'assets/datasets/ds-1.json'
+    );
+    expect(await catalog.get('dataset', 'ds-1')).toMatchObject({
+      status: 'archived',
+      metadata: { archived: { archiveReason: 'Deleted via portal', archivedBy: 'pat' } },
+    });
+  });
+
+  it('markRestored records the restore on the archive file and the archived entry', async () => {
+    await seed([catalogEntry('dashboard', 'dash-1', { status: 'archived' })]);
+    const restoration = {
+      restoredAt: '2026-09-28T00:00:00.000Z',
+      restoredBy: 'pat',
+      restoredAs: 'dash-2',
+    };
+    mockS3Service.getObject = vi.fn().mockResolvedValue({
+      id: 'dash-1',
+      archivedMetadata: { archivedAt: '2026-09-01T00:00:00.000Z' },
+    });
+    mockS3Service.putObject = vi.fn().mockResolvedValue(undefined);
+
+    await archiveService.markRestored('dashboard', 'dash-1', restoration);
+
+    expect(mockS3Service.putObject).toHaveBeenCalledWith(
+      TEST_BUCKET,
+      'archived/dashboards/dash-1.json',
+      expect.objectContaining({
+        archivedMetadata: expect.objectContaining({ restorations: [restoration] }),
+      })
+    );
+    expect((await catalog.get('dashboard', 'dash-1'))?.metadata.archived).toMatchObject({
+      restorations: [restoration],
+    });
+  });
+});
+
 describe('ArchiveService - a user archived half-way is archived once, not every export', () => {
   const ACTIVE = 'assets/organization/users.json';
   const ARCHIVED = 'archived/organization/users.json';
@@ -582,11 +526,8 @@ describe('ArchiveService - a user archived half-way is archived once, not every 
     mockS3Service.putObject = vi.fn(async () => undefined) as any;
   }
 
-  it('prefers the live entry when an archived copy of the same user is also cached', async () => {
-    mockCacheService.getCacheEntries.mockResolvedValue([
-      { assetId: 'pat', status: 'archived', exportFilePath: ARCHIVED },
-      { assetId: 'pat', status: 'active', exportFilePath: ACTIVE },
-    ] as any);
+  it('prefers the live entry when an archived copy of the same user is also in the catalog', async () => {
+    await seed([catalogEntry('user', 'pat', { status: 'archived' }), catalogEntry('user', 'pat')]);
     files({ pat: { UserName: 'pat' } }, {});
 
     const result = await archiveService.archiveAsset(
@@ -598,14 +539,17 @@ describe('ArchiveService - a user archived half-way is archived once, not every 
 
     expect(result.success).toBe(true);
     expect(mockS3Service.putObject).toHaveBeenCalledWith(TEST_BUCKET, ACTIVE, {});
-    expect(mockCacheService.archiveAssetsInCache).toHaveBeenCalled();
+    expect(await catalog.list('user')).toEqual([]);
+    expect(await catalog.get('user', 'pat')).toMatchObject({
+      status: 'archived',
+      exportFilePath: ARCHIVED,
+      metadata: { archived: { archiveReason: 'Gone from QuickSight' } },
+    });
   });
 
-  it('marks the cache when the record already left the active file, so the next export skips it', async () => {
-    // Deleted through the portal long ago: the cache says archived, the path never moved.
-    mockCacheService.getCacheEntries.mockResolvedValue([
-      { assetId: 'pat', status: 'archived', exportFilePath: ACTIVE },
-    ] as any);
+  it('marks the catalog when the record already left the active file, so the next export skips it', async () => {
+    // Deleted through the portal long ago: the entry says archived, the path never moved.
+    await seed([catalogEntry('user', 'pat', { status: 'archived', exportFilePath: ACTIVE })]);
     files({}, { pat: { UserName: 'pat' } });
 
     const result = await archiveService.archiveAsset(
@@ -616,20 +560,19 @@ describe('ArchiveService - a user archived half-way is archived once, not every 
     );
 
     expect(result.success).toBe(true);
-    expect(mockCacheService.archiveAssetsInCache).toHaveBeenCalledWith([
-      expect.objectContaining({ assetType: 'user', assetId: 'pat' }),
-    ]);
+    expect(await catalog.get('user', 'pat')).toMatchObject({
+      status: 'archived',
+      exportFilePath: ARCHIVED,
+    });
   });
 
   it('still settles a record that is in neither file', async () => {
-    mockCacheService.getCacheEntries.mockResolvedValue([
-      { assetId: 'pat', status: 'archived', exportFilePath: ACTIVE },
-    ] as any);
+    await seed([catalogEntry('user', 'pat', { status: 'archived', exportFilePath: ACTIVE })]);
     files({}, {});
 
     const result = await archiveService.archiveAsset('user', 'pat');
 
     expect(result.success).toBe(true);
-    expect(mockCacheService.archiveAssetsInCache).toHaveBeenCalled();
+    expect((await catalog.get('user', 'pat'))?.exportFilePath).toBe(ARCHIVED);
   });
 });

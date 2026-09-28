@@ -25,8 +25,7 @@ import { ValidationError } from '../../../shared/errors/ValidationError';
 import { ArchiveService } from '../../../shared/services/archive/ArchiveService';
 import { actorFromAuth, auditLog } from '../../../shared/services/audit/AuditLog';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
-import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
-import { cacheService } from '../../../shared/services/cache/CacheService';
+import { keepCatalogFresh } from '../../../shared/services/catalog/assetFreshness';
 import { quickSightUserFor } from '../../../shared/services/identity/IdentityResolver';
 import { keepLivePrincipals } from '../../../shared/services/identity/livePrincipals';
 import { logger } from '../../../shared/utils/logger';
@@ -106,7 +105,7 @@ export class AssetRestoreService {
 
   public constructor(private readonly quickSight: QuickSightService) {
     const bucketName = process.env.BUCKET_NAME || 'quicksight-metadata-bucket';
-    this.archive = new ArchiveService(bucketName, cacheService);
+    this.archive = new ArchiveService(bucketName);
   }
 
   private async loadArchived(assetType: RestorableSourceType, assetId: string) {
@@ -336,7 +335,7 @@ export class AssetRestoreService {
       restoredBy: auth ? actorLabel(auth) : 'the portal',
       restoredAs: targetId,
     });
-    await keepCacheFresh([{ assetType, assetId: targetId, name, arn: created.arn }], {
+    await keepCatalogFresh([{ assetType, assetId: targetId, name, arn: created.arn }], {
       accountId: auth?.accountId,
       userId: auth?.userId,
     });

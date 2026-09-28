@@ -34,6 +34,7 @@ import type {
 import { logger } from '../../utils/logger';
 import { normalizePermissionsArray } from '../../utils/permissions';
 import { withTimeout } from '../../utils/withTimeout';
+import { catalog } from '../catalog/catalogStore';
 import {
   SMUS_SNAPSHOT_KEY,
   type SmusExportDiagnostics,
@@ -216,10 +217,7 @@ export class SmusService {
       };
     }
 
-    const [linkMap, datasets] = await Promise.all([
-      this.getLinkMap(),
-      this.cacheService.getAllDatasets(),
-    ]);
+    const [linkMap, datasets] = await Promise.all([this.getLinkMap(), catalog.list('dataset')]);
     const { listings, projects } = snapshot;
 
     const projectNames = new Map(projects.map((p) => [p.id, p.name]));
@@ -239,6 +237,10 @@ export class SmusService {
         ...(link.via ? { via: link.via } : {}),
       });
       datasetsByListing.set(link.listingId, list);
+    }
+    // The catalog's order is storage order; people read these by name.
+    for (const list of datasetsByListing.values()) {
+      list.sort((a, b) => a.name.localeCompare(b.name));
     }
 
     const projectFilter = new Set(this.config.projectIds);
@@ -320,10 +322,7 @@ export class SmusService {
       }
       dataSourceId = choice.dataSource.id;
     }
-    const dataSources = await this.cacheService.getCacheEntries({
-      assetType: ASSET_TYPES.datasource,
-      statusFilter: AssetStatusFilter.ACTIVE,
-    });
+    const dataSources = await catalog.list(ASSET_TYPES.datasource, AssetStatusFilter.ACTIVE);
     const dataSource = dataSources.find((d) => d.assetId === dataSourceId);
     if (!dataSource?.arn) {
       throw new ValidationError(
@@ -404,11 +403,8 @@ export class SmusService {
    */
   public async defaultDataSource(): Promise<SmusDataSourceChoice> {
     const [dataSources, datasets, links] = await Promise.all([
-      this.cacheService.getCacheEntries({
-        assetType: ASSET_TYPES.datasource,
-        statusFilter: AssetStatusFilter.ACTIVE,
-      }),
-      this.cacheService.getAllDatasets(),
+      catalog.list(ASSET_TYPES.datasource, AssetStatusFilter.ACTIVE),
+      catalog.list('dataset'),
       this.config.enabled ? this.getLinkMap() : Promise.resolve(new Map<string, SmusDatasetLink>()),
     ]);
     const athena = dataSources.filter(
@@ -595,10 +591,7 @@ export class SmusService {
   }
 
   private async buildLinkMap(): Promise<Map<string, SmusDatasetLink>> {
-    const [snapshot, datasets] = await Promise.all([
-      this.getSnapshot(),
-      this.cacheService.getAllDatasets(),
-    ]);
+    const [snapshot, datasets] = await Promise.all([this.getSnapshot(), catalog.list('dataset')]);
     const all = snapshot?.listings ?? [];
     const listings = this.scopedListings(all);
 

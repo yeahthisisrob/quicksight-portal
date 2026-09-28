@@ -22,6 +22,32 @@ interface S3Operation {
  * S3 service that provides business logic for S3 operations
  * Handles data transformation, operation tracking, retry logic, and error handling
  */
+const UPDATE_ATTEMPTS = 8;
+const CONFLICT_BACKOFF_MS = 150;
+const HTTP_PRECONDITION_FAILED = 412;
+const HTTP_CONFLICT = 409;
+const HTTP_NOT_FOUND = 404;
+
+/** The object is not there (yet). */
+function isMissing(error: any): boolean {
+  return (
+    error?.name === 'NoSuchKey' ||
+    error?.$metadata?.httpStatusCode === HTTP_NOT_FOUND ||
+    String(error?.message ?? '').includes('does not exist')
+  );
+}
+
+/** Another writer changed the object between our read and our write. */
+function isWriteConflict(error: any): boolean {
+  const status = error?.$metadata?.httpStatusCode;
+  return (
+    error?.name === 'PreconditionFailed' ||
+    error?.name === 'ConditionalRequestConflict' ||
+    status === HTTP_PRECONDITION_FAILED ||
+    status === HTTP_CONFLICT
+  );
+}
+
 export class S3Service {
   private readonly operationTracker?: OperationTracker;
   private readonly s3Adapter: S3Adapter;
@@ -348,7 +374,8 @@ export class S3Service {
     bucket: string,
     key: string,
     body: any,
-    contentType = 'application/json'
+    contentType = 'application/json',
+    condition?: { ifMatch?: string; ifNoneMatch?: '*' }
   ): Promise<string | undefined> {
     const response = await this.executeWithTracking(
       async () =>
@@ -356,12 +383,56 @@ export class S3Service {
           bucket,
           key,
           typeof body === 'string' ? body : JSON.stringify(body, null, 2),
-          contentType
+          contentType,
+          condition
         ),
       { operation: 'PutObject', bucket, key },
       'put'
     );
     return (response as any)?.ETag;
+  }
+
+  /**
+   * Change a JSON object without losing anyone else's change: read it with
+   * its ETag, apply `change`, and write only if nobody wrote in between
+   * (If-Match; If-None-Match when it did not exist). On a conflict it reads
+   * again and re-applies, so concurrent writers (a playbook deleting several
+   * users at once, two Lambdas) each land. `change` returns undefined to
+   * leave the object as it is.
+   */
+  public async updateObject<T>(
+    bucket: string,
+    key: string,
+    change: (current: T | undefined) => T | undefined,
+    attempts = UPDATE_ATTEMPTS
+  ): Promise<T | undefined> {
+    for (let attempt = 1; ; attempt++) {
+      let current: T | undefined;
+      let etag: string | undefined;
+      try {
+        ({ data: current, etag } = await this.getObjectWithETag<T>(bucket, key));
+      } catch (error) {
+        if (!isMissing(error)) throw error;
+      }
+      const next = change(current);
+      if (next === undefined) return current;
+      try {
+        await this.putObject(
+          bucket,
+          key,
+          next,
+          'application/json',
+          etag ? { ifMatch: etag } : { ifNoneMatch: '*' }
+        );
+        return next;
+      } catch (error) {
+        if (!isWriteConflict(error) || attempt >= attempts) throw error;
+        // Someone wrote first: back off a little (jittered) and apply to theirs.
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.random() * CONFLICT_BACKOFF_MS * attempt)
+        );
+      }
+    }
   }
 
   /**

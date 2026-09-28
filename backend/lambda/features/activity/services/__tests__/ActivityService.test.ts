@@ -5,6 +5,7 @@ import type { CloudTrailAdapter } from '../../../../adapters/aws/CloudTrailAdapt
 import type { CacheService } from '../../../../shared/services/cache/CacheService';
 import type { GroupService } from '../../../../shared/services/organization/GroupService';
 import { logger } from '../../../../shared/utils/logger';
+import { catalogEntry, useTestCatalog } from '../../../../shared/utils/testUtils/testCatalog';
 import { classifyAction } from '../../lib/cloudTrailEvents';
 import type { ActivityCache, ActivityRefreshRequest, MinimalEvent } from '../../types';
 import { ActivityService } from '../ActivityService';
@@ -14,6 +15,8 @@ vi.mock('../../../../adapters/aws/CloudTrailAdapter');
 vi.mock('../../../../shared/services/cache/CacheService');
 vi.mock('../../../../shared/services/organization/GroupService');
 vi.mock('../../../../shared/utils/logger');
+
+const { seed } = useTestCatalog();
 
 // Test constants
 const TEST_DASHBOARD_ID = 'dash-123';
@@ -116,7 +119,6 @@ describe('ActivityService - Summary', () => {
     mockCacheService = {
       getActivityCache: vi.fn(),
       getActivityPersistence: vi.fn(),
-      getCacheEntries: vi.fn(),
     } as any;
 
     activityService = new ActivityService(mockCacheService, {} as any);
@@ -170,8 +172,6 @@ describe('ActivityService - Asset Activity', () => {
     mockCacheService = {
       getActivityCache: vi.fn(),
       getActivityPersistence: vi.fn(),
-      getCacheEntries: vi.fn(),
-      getMasterCache: vi.fn().mockResolvedValue({ entries: { group: [] } }),
     } as any;
 
     mockGroupService = {
@@ -207,24 +207,7 @@ describe('ActivityService - Asset Activity', () => {
         analyses: {},
         users: {},
       });
-      mockCacheService.getCacheEntries.mockResolvedValue([
-        {
-          assetId: TEST_DASHBOARD_ID,
-          assetName: 'Test Dashboard',
-          assetType: 'dashboard',
-          arn: `arn:aws:quicksight:us-east-1:123456789012:dashboard/${TEST_DASHBOARD_ID}`,
-          status: 'active',
-          enrichmentStatus: 'enriched',
-          createdTime: new Date(),
-          lastUpdatedTime: new Date(),
-          exportedAt: new Date(),
-          exportFilePath: `assets/dashboards/${TEST_DASHBOARD_ID}.json`,
-          storageType: 'individual',
-          tags: [],
-          permissions: [],
-          metadata: {},
-        } as any,
-      ]);
+      await seed([catalogEntry('dashboard', TEST_DASHBOARD_ID, { assetName: 'Test Dashboard' })]);
       mockGroupService.getUserGroups.mockResolvedValue([]);
 
       const result = await activityService.getAssetActivity('dashboard', TEST_DASHBOARD_ID);
@@ -244,7 +227,6 @@ describe('ActivityService - Asset Activity', () => {
 
       mockCacheService.getActivityCache.mockResolvedValue(createMockCache(events));
       mockCacheService.getActivityPersistence.mockResolvedValue(null);
-      mockCacheService.getCacheEntries.mockResolvedValue([]);
       mockGroupService.getUserGroupsBulk.mockReturnValue(
         new Map([
           [
@@ -336,7 +318,6 @@ describe('ActivityService - User Activity', () => {
     mockCacheService = {
       getActivityCache: vi.fn(),
       getActivityPersistence: vi.fn(),
-      getCacheEntries: vi.fn(),
     } as any;
 
     mockCloudTrailAdapter = {
@@ -365,7 +346,6 @@ describe('ActivityService - User Activity', () => {
 
       mockCacheService.getActivityCache.mockResolvedValue(createMockCache(events));
       mockCacheService.getActivityPersistence.mockResolvedValue(null);
-      mockCacheService.getCacheEntries.mockResolvedValue([]);
 
       const result = await activityService.getUserActivity(TEST_USER_NAME);
 
@@ -453,7 +433,6 @@ describe('ActivityService - refreshActivity', () => {
       getActivityPersistence: vi.fn(),
       putActivityCache: vi.fn(),
       putActivityPersistence: vi.fn(),
-      getCacheEntries: vi.fn(),
     } as any;
 
     mockCloudTrailAdapter = {
@@ -614,7 +593,6 @@ describe('ActivityService - Edge cases', () => {
       getActivityPersistence: vi.fn(),
       putActivityCache: vi.fn(),
       putActivityPersistence: vi.fn(),
-      getCacheEntries: vi.fn(),
     } as any;
 
     mockCloudTrailAdapter = {
@@ -805,7 +783,6 @@ describe('ActivityService - Persistence', () => {
       getActivityPersistence: vi.fn(),
       putActivityCache: vi.fn(),
       putActivityPersistence: vi.fn(),
-      getCacheEntries: vi.fn(),
     } as any;
 
     mockCloudTrailAdapter = {
@@ -896,7 +873,6 @@ describe('ActivityService - Performance', () => {
     mockCacheService = {
       getActivityCache: vi.fn(),
       getActivityPersistence: vi.fn(),
-      getCacheEntries: vi.fn(),
     } as any;
 
     activityService = new ActivityService(mockCacheService, {} as any);
@@ -1036,21 +1012,17 @@ const timelineMutationEvent = (
 });
 
 const TIMELINE_CATALOG_ASSETS = [
-  { assetId: 'dash-1', assetName: 'Sales Q3', assetType: 'dashboard' },
-  { assetId: 'dash-2', assetName: 'Marketing', assetType: 'dashboard' },
-  { assetId: 'anal-1', assetName: 'Cohort Analysis', assetType: 'analysis' },
-  { assetId: 'ds-1', assetName: 'Customer Data', assetType: 'dataset' },
+  catalogEntry('dashboard', 'dash-1', { assetName: 'Sales Q3' }),
+  catalogEntry('dashboard', 'dash-2', { assetName: 'Marketing' }),
+  catalogEntry('analysis', 'anal-1', { assetName: 'Cohort Analysis' }),
+  catalogEntry('dataset', 'ds-1', { assetName: 'Customer Data' }),
 ];
 
-function makeTimelineServiceAndMocks() {
+async function makeTimelineServiceAndMocks() {
+  await seed(TIMELINE_CATALOG_ASSETS);
   const mockCacheService = {
     getActivityCache: vi.fn(),
     getActivityPersistence: vi.fn(),
-    getCacheEntries: vi
-      .fn()
-      .mockImplementation(async ({ assetType }: { assetType: string }) =>
-        TIMELINE_CATALOG_ASSETS.filter((a) => a.assetType === assetType)
-      ),
   } as unknown as Mocked<CacheService>;
   const activityService = new ActivityService(mockCacheService, {} as any);
   return { mockCacheService, activityService };
@@ -1060,9 +1032,9 @@ describe('ActivityService.getTimelinePage — basic', () => {
   let activityService: ActivityService;
   let mockCacheService: Mocked<CacheService>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
-    ({ activityService, mockCacheService } = makeTimelineServiceAndMocks());
+    ({ activityService, mockCacheService } = await makeTimelineServiceAndMocks());
   });
 
   it('returns an empty page when the cache is missing', async () => {
@@ -1145,9 +1117,9 @@ describe('ActivityService.getTimelinePage — pagination', () => {
   let activityService: ActivityService;
   let mockCacheService: Mocked<CacheService>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
-    ({ activityService, mockCacheService } = makeTimelineServiceAndMocks());
+    ({ activityService, mockCacheService } = await makeTimelineServiceAndMocks());
   });
 
   it('paginates via cursor (nextCursor returns older events only)', async () => {
@@ -1189,9 +1161,9 @@ describe('ActivityService.getTimelinePage — filters', () => {
   let activityService: ActivityService;
   let mockCacheService: Mocked<CacheService>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
-    ({ activityService, mockCacheService } = makeTimelineServiceAndMocks());
+    ({ activityService, mockCacheService } = await makeTimelineServiceAndMocks());
   });
 
   it('filters by resourceTypes', async () => {
@@ -1298,9 +1270,9 @@ describe('ActivityService.getTimelinePage — exclusions and metadata', () => {
   let activityService: ActivityService;
   let mockCacheService: Mocked<CacheService>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
-    ({ activityService, mockCacheService } = makeTimelineServiceAndMocks());
+    ({ activityService, mockCacheService } = await makeTimelineServiceAndMocks());
   });
 
   it('excludes events listed in excludeEventNames', async () => {
@@ -1362,9 +1334,9 @@ describe('ActivityService.getTimelinePage — pinning and hydration', () => {
   let activityService: ActivityService;
   let mockCacheService: Mocked<CacheService>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
-    ({ activityService, mockCacheService } = makeTimelineServiceAndMocks());
+    ({ activityService, mockCacheService } = await makeTimelineServiceAndMocks());
   });
 
   it('pre-filters per-asset for the /timeline/{assetType}/{assetId} route', async () => {
@@ -1465,7 +1437,6 @@ describe('ActivityService — name extraction from CloudTrail events', () => {
     mockCacheService = {
       getActivityCache: vi.fn(),
       getActivityPersistence: vi.fn().mockResolvedValue(null),
-      getCacheEntries: vi.fn().mockResolvedValue([]),
       putActivityCache: vi.fn(),
       putActivityPersistence: vi.fn(),
     } as any;
@@ -1572,11 +1543,7 @@ describe('ActivityService — name extraction from CloudTrail events', () => {
     ]);
     mockCacheService.getActivityCache.mockResolvedValue(cache);
     // Catalog has a DIFFERENT name — confirm we still use the event name.
-    mockCacheService.getCacheEntries = vi
-      .fn()
-      .mockResolvedValue([
-        { assetId: 'abc-123', assetName: 'Catalog Name', assetType: 'analysis' },
-      ]) as any;
+    await seed([catalogEntry('analysis', 'abc-123', { assetName: 'Catalog Name' })]);
 
     const page = await activityService.getTimelinePage({ limit: 10 });
     expect(page.items[0]?.assetName).toBe('Name From Event');
@@ -1595,7 +1562,6 @@ describe('ActivityService - Payload shape drift', () => {
       getActivityPersistence: vi.fn(),
       putActivityCache: vi.fn(),
       putActivityPersistence: vi.fn(),
-      getCacheEntries: vi.fn(),
     } as any;
     mockCloudTrailAdapter = { getEventsByName: vi.fn() } as any;
     activityService = new ActivityService(mockCacheService, mockCloudTrailAdapter);

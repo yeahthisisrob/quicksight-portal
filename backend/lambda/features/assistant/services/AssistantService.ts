@@ -33,6 +33,7 @@ import {
   datasetColumns,
   entityNames,
 } from '../lib/contextTools';
+import { conversationOf } from '../lib/conversation';
 import {
   builtFilters,
   declaredDatasets,
@@ -72,8 +73,6 @@ export { announcesMore, CONTINUE_NUDGE, describeStep } from '../lib/steps';
 /** Enough for find, plan, preview, prepare, and a correction or two. */
 const MAX_ROUNDS = 12;
 const MAX_RESULT_CHARS = 12_000;
-const MAX_HISTORY = 20;
-const MAX_MESSAGE_CHARS = 8_000;
 const MAX_ARTIFACTS = 6;
 const HTTP_ERROR_MIN = 400;
 const HTTP_OK = 200;
@@ -246,13 +245,11 @@ export class AssistantService {
     run: RunInput = {}
   ): Promise<AssistantChatResult> {
     this.earlierPlans = run.state?.plans ?? [];
-    const turns: ChatTurn[] = history
-      .slice(-MAX_HISTORY)
-      .map((m) =>
-        m.role === 'user'
-          ? { role: 'user', text: m.text.slice(0, MAX_MESSAGE_CHARS) }
-          : { role: 'assistant', text: m.text.slice(0, MAX_MESSAGE_CHARS), toolCalls: [] }
-      );
+    const turns: ChatTurn[] = conversationOf(history).map((m) =>
+      m.role === 'user'
+        ? { role: 'user', text: m.text }
+        : { role: 'assistant', text: m.text, toolCalls: [] }
+    );
     const out: Collected = {
       calls: [],
       actions: [],
@@ -467,6 +464,20 @@ export class AssistantService {
       previewId: drafted.previewId,
       ...(filters.length ? { filters } : {}),
     });
+    // A plan is checked and bound to its preview, so it carries its Run button
+    // itself: whether the person can run it never depends on the chat model
+    // remembering a second step.
+    const write = writeOf(plan.build);
+    out.actions.push({
+      id: randomUUID(),
+      title: write.title,
+      why: str(input, 'title') || 'The plan',
+      method: write.method,
+      path: write.path,
+      body: write.body,
+      planId,
+      previewId: drafted.previewId,
+    });
     await this.progress('Checking the calculated fields');
     const judged = await judgeFields(
       plan,
@@ -483,7 +494,7 @@ export class AssistantService {
     }
     return {
       id,
-      content: `${verdictsMessage(judged)}\nPlan id ${planId}, drafted by ${drafted.model.label}${drafted.reason ? `: ${drafted.reason}` : ''}.${checked.built ? ` Its preview built: ${checked.built}.` : ''} Prepare it with prepare_plan (the person runs it), or draw it again with a changed brief.`,
+      content: `${verdictsMessage(judged)}\nPlan id ${planId}, drafted by ${drafted.model.label}${drafted.reason ? `: ${drafted.reason}` : ''}.${checked.built ? ` Its preview built: ${checked.built}.` : ''} Its Run button is under it for the person; to change it, draw it again with a changed brief.`,
     };
   }
 
@@ -669,6 +680,9 @@ export class AssistantService {
           : 'There is no plan to prepare. Draw one with show_plan first.',
         isError: true,
       };
+    }
+    if (out.actions.some((a) => a.planId === plan.id)) {
+      return { id, content: 'Its Run button is already under the plan; nothing more to prepare.' };
     }
     const write = writeOf(plan.build);
     // The Run button shows the plan's own preview. A plan from an earlier

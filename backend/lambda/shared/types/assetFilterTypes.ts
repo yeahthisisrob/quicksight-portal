@@ -12,17 +12,6 @@ export enum AssetStatusFilter {
 }
 
 /**
- * Standard cache options with consistent filtering
- */
-export interface CacheFilterOptions {
-  statusFilter?: AssetStatusFilter;
-  assetType?: string;
-  search?: string;
-  limit?: number;
-  offset?: number;
-}
-
-/**
  * Helper function to determine if an asset matches the status filter
  */
 export function matchesStatusFilter(assetStatus: string, filter: AssetStatusFilter): boolean {
