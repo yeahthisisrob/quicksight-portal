@@ -38,13 +38,17 @@ export const TOOL = {
 
 export interface ArtifactArgs {
   artifact: AssistantArtifact;
+  /** A plan's own preview (by its previewId): drawn inside the plan's card. */
+  preview?: AssistantArtifact;
   [key: string]: unknown;
 }
 
 export interface ActionArgs {
   action: AssistantAction;
-  /** The preview this action publishes, drawn inside its card until it runs. */
+  /** The preview this action publishes, by its id. */
   preview?: AssistantArtifact;
+  /** Its plan, right above it, already draws this preview. */
+  drawnByPlan?: boolean;
   [key: string]: unknown;
 }
 
@@ -94,9 +98,14 @@ function actionPart(
   messageId: string,
   action: AssistantAction,
   preview: AssistantArtifact | undefined,
-  run: ActionRun | undefined
+  run: ActionRun | undefined,
+  drawnByPlan = false
 ): Part {
-  const args: ActionArgs = { action, ...(preview ? { preview } : {}) };
+  const args: ActionArgs = {
+    action,
+    ...(preview ? { preview } : {}),
+    ...(drawnByPlan ? { drawnByPlan } : {}),
+  };
   return {
     type: 'tool-call',
     toolCallId: callId(messageId, action.id),
@@ -116,14 +125,21 @@ function answerParts(messageId: string, result: AssistantChatResult, c: Conversa
   const text = replyText(result);
   if (text) parts.push({ type: 'text', text });
 
-  const previewed = new Set(result.actions.map((a) => a.previewId).filter(Boolean));
+  // A preview belongs to what it checked: a plan, or an action. It is drawn
+  // there, never loose, so no wireframe stands apart from the change it is.
+  const previewed = new Set(
+    [...result.actions.map((a) => a.previewId), ...result.artifacts.map((a) => a.previewId)].filter(
+      Boolean
+    )
+  );
   const placed = new Set<string>();
-  const previewFor = (action: AssistantAction) =>
-    result.artifacts.find((a) => a.id === action.previewId);
+  const byId = (id: string | undefined) =>
+    id ? result.artifacts.find((a) => a.id === id) : undefined;
 
   for (const artifact of result.artifacts) {
     if (previewed.has(artifact.id)) continue;
-    const args: ArtifactArgs = { artifact };
+    const planPreview = artifact.kind === 'plan' ? byId(artifact.previewId) : undefined;
+    const args: ArtifactArgs = { artifact, ...(planPreview ? { preview: planPreview } : {}) };
     parts.push({
       type: 'tool-call',
       toolCallId: callId(messageId, artifact.id),
@@ -134,12 +150,20 @@ function answerParts(messageId: string, result: AssistantChatResult, c: Conversa
     if (artifact.kind === 'plan') {
       for (const action of result.actions.filter((a) => a.planId === artifact.id)) {
         placed.add(action.id);
-        parts.push(actionPart(messageId, action, previewFor(action), c.runs[action.id]));
+        parts.push(
+          actionPart(
+            messageId,
+            action,
+            byId(action.previewId),
+            c.runs[action.id],
+            Boolean(action.previewId) && action.previewId === artifact.previewId
+          )
+        );
       }
     }
   }
   for (const action of result.actions.filter((a) => !placed.has(a.id))) {
-    parts.push(actionPart(messageId, action, previewFor(action), c.runs[action.id]));
+    parts.push(actionPart(messageId, action, byId(action.previewId), c.runs[action.id]));
   }
   for (const interrupt of questionsOf(result)) {
     const args: QuestionArgs = { interrupt };

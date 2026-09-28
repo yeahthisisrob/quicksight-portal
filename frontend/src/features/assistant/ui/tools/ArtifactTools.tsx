@@ -300,17 +300,22 @@ function planSummary(plan: AssistantArtifact): string {
 export const PlanTool: ArtifactTool = ({ args }) => {
   const plan = args?.artifact;
   if (!plan) return null;
+  // The plan and the preview it was checked against are one thing, drawn together.
+  const preview = args?.preview;
   return (
-    <ArtifactCard
-      icon={<PlanIcon />}
-      kind="Plan"
-      title={plan.title}
-      summary={planSummary(plan)}
-      model={plan.model?.label}
-      preview={<PlanLineage plan={plan} />}
-      fit
-      expanded={<PlanLineage plan={plan} />}
-    />
+    <Stack spacing={1}>
+      <ArtifactCard
+        icon={<PlanIcon />}
+        kind="Plan"
+        title={plan.title}
+        summary={planSummary(plan)}
+        model={plan.model?.label}
+        preview={<PlanLineage plan={plan} />}
+        fit
+        expanded={<PlanLineage plan={plan} />}
+      />
+      {preview && <WireframeArtifact artifact={preview} />}
+    </Stack>
   );
 };
 

@@ -165,6 +165,7 @@ export const ActionTool: ToolCallMessagePartComponent<ActionArgs, ActionRun> = (
 }) => {
   const action = args?.action;
   const preview = args?.preview;
+  const drawnByPlan = args?.drawnByPlan === true;
   const aui = useAui();
   const busy = useAuiState((s) => s.thread.isRunning);
   const queryClient = useQueryClient();
@@ -266,7 +267,7 @@ export const ActionTool: ToolCallMessagePartComponent<ActionArgs, ActionRun> = (
             sx={{ borderRadius: 1 }}
           />
         )}
-        {preview && !run && <WireframeArtifact artifact={preview} />}
+        {preview && !run && !drawnByPlan && <WireframeArtifact artifact={preview} />}
         {run?.status === 'failed' && <Alert severity="error">{run.error}</Alert>}
         {run?.status === 'completed' && <CreatedNote result={run.result} />}
         {settled && run && (

@@ -169,6 +169,32 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
           description:
             "Exactly what the person asked for, in the vocabulary's terms, for the authoring model to draft: every visual, every filter with its control and placement, every interaction, and anything they ruled out. The build is drafted from this, so leave nothing implied.",
         },
+        filters: {
+          type: 'array',
+          description:
+            'Every filter the person asked for, as data (also in the brief). These are requirements: the build must have a control on each column, with the control named, or the plan is not shown. [] when they asked for none.',
+          items: {
+            type: 'object',
+            properties: {
+              column: { type: 'string', description: 'The column, as the dataset names it.' },
+              dataset: {
+                type: 'string',
+                description: 'Its dataset identifier or id, when the build reads more than one.',
+              },
+              control: {
+                type: 'string',
+                enum: ['dropdown', 'singleSelect', 'list', 'dateRange', 'relativeDate', 'slider'],
+              },
+              placement: { type: 'string', enum: ['controlBar', 'canvas'] },
+              values: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Values selected to start with, when the person named them.',
+              },
+            },
+            required: ['column'],
+          },
+        },
         target: {
           type: 'object',
           description:
@@ -238,7 +264,7 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
           required: ['kind', 'name', 'status'],
         },
       },
-      required: ['title', 'datasets', 'asset', 'brief', 'target'],
+      required: ['title', 'datasets', 'asset', 'brief', 'filters', 'target'],
     },
   },
   {

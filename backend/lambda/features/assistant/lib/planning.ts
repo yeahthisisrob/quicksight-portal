@@ -36,6 +36,8 @@ export interface ParsedPlan {
   lineage: Omit<BuildPlan, 'build'>;
   brief: string;
   target: PlanTarget;
+  /** Every filter the person asked for, as data: what the build is held to. */
+  filters: RequestedFilter[];
 }
 
 const MIN_BRIEF = 10;
@@ -96,7 +98,7 @@ export function parsePlan(input: Record<string, unknown>): ParsedPlan | string {
       ...(typeof asset.id === 'string' ? { id: asset.id } : {}),
     },
   };
-  return { lineage, brief, target };
+  return { lineage, brief, target, filters: requestedFiltersOf(input.filters) };
 }
 
 function describe(column: KnownColumn): string {
@@ -398,4 +400,165 @@ export async function resolveLineage<T extends Pick<BuildPlan, 'sources' | 'data
     })
   );
   return { ...lineage, sources, datasets };
+}
+
+type ControlKind = NonNullable<BuiltFilter['control']>;
+const CONTROL_KINDS: readonly ControlKind[] = [
+  'dropdown',
+  'singleSelect',
+  'list',
+  'dateRange',
+  'relativeDate',
+  'slider',
+];
+
+/**
+ * A filter the person asked for, as data: the requirement a plan is held
+ * to. The chat model names each one in show_plan; the build must have a
+ * control on its column (with this control, when one is named) or the
+ * plan is not shown.
+ */
+export interface RequestedFilter {
+  column: string;
+  /** The dataset's identifier or id, when the plan reads more than one. */
+  dataset?: string;
+  control?: ControlKind;
+  placement?: 'controlBar' | 'canvas';
+  values?: string[];
+}
+
+/** The filters the chat model asked for, as requirements; malformed entries are dropped. */
+function requestedFiltersOf(input: unknown): RequestedFilter[] {
+  return (Array.isArray(input) ? input : [])
+    .filter((f: any) => typeof f?.column === 'string' && f.column.trim())
+    .map((f: any) => ({
+      column: f.column.trim(),
+      ...(typeof f.dataset === 'string' && f.dataset.trim() ? { dataset: f.dataset.trim() } : {}),
+      ...(CONTROL_KINDS.includes(f.control) ? { control: f.control as ControlKind } : {}),
+      ...(f.placement === 'controlBar' || f.placement === 'canvas'
+        ? { placement: f.placement as RequestedFilter['placement'] }
+        : {}),
+      ...(Array.isArray(f.values) && f.values.length
+        ? { values: f.values.filter((v: unknown): v is string => typeof v === 'string') }
+        : {}),
+    }));
+}
+
+/**
+ * The requested filters a previewed definition does not have: no control
+ * on the column, or not the control that was asked for.
+ */
+export function missingRequested(
+  requested: RequestedFilter[],
+  definition: unknown
+): RequestedFilter[] {
+  const built = builtFilters(definition);
+  return requested.filter(
+    (r) =>
+      !built.some(
+        (b) =>
+          b.column.toLowerCase() === r.column.toLowerCase() &&
+          (!r.control || b.control === r.control)
+      )
+  );
+}
+
+/** What a build can place a filter on: the datasets it declares, with their columns, and its first sheet. */
+export interface FilterTargets {
+  datasets: Array<{ identifier: string; dataSetId: string; columns: string[] }>;
+  sheetId?: string;
+}
+
+/** The dataset identifiers a definition declares, by dataset id, and its first sheet. */
+export function declaredDatasets(definition: unknown): {
+  datasets: Array<{ identifier: string; dataSetId: string }>;
+  sheetId?: string;
+} {
+  const def = (definition ?? {}) as any;
+  const datasets = (
+    Array.isArray(def.DataSetIdentifierDeclarations) ? def.DataSetIdentifierDeclarations : []
+  )
+    .filter((d: any) => typeof d?.Identifier === 'string' && typeof d?.DataSetArn === 'string')
+    .map((d: any) => ({
+      identifier: d.Identifier as string,
+      dataSetId: String(d.DataSetArn).split('/').pop() as string,
+    }));
+  const sheetId = def.Sheets?.[0]?.SheetId;
+  return { datasets, ...(typeof sheetId === 'string' ? { sheetId } : {}) };
+}
+
+/**
+ * The build with every missing requested filter put in by code, not left
+ * to a model: on the dataset that has the column (the one named, or the
+ * only one that has it), with the control and placement asked for. A
+ * filter the build already adds on that column has its control corrected
+ * instead. What cannot be placed is a problem, named.
+ */
+export function withRequestedFilters(
+  build: PlanBuild,
+  missing: RequestedFilter[],
+  targets: FilterTargets
+): { build: PlanBuild; problems: string[] } {
+  const problems: string[] = [];
+  const placed: Array<{ identifier: string; column: string; filter: RequestedFilter }> = [];
+  for (const filter of missing) {
+    const wanted = filter.column.toLowerCase();
+    const named = filter.dataset?.toLowerCase();
+    const candidates = targets.datasets
+      .filter(
+        (d) => !named || d.identifier.toLowerCase() === named || d.dataSetId.toLowerCase() === named
+      )
+      .map((d) => ({ d, column: d.columns.find((c) => c.toLowerCase() === wanted) }))
+      .filter((c): c is { d: FilterTargets['datasets'][number]; column: string } =>
+        Boolean(c.column)
+      );
+    if (candidates.length === 0) {
+      problems.push(
+        `The person asked for a filter on ${filter.column}, but no dataset this reads${filter.dataset ? ` (${filter.dataset})` : ''} has that column.`
+      );
+      continue;
+    }
+    if (candidates.length > 1) {
+      problems.push(
+        `The person asked for a filter on ${filter.column}, which ${candidates.map((c) => c.d.identifier).join(' and ')} both have: name its dataset.`
+      );
+      continue;
+    }
+    placed.push({ identifier: candidates[0]!.d.identifier, column: candidates[0]!.column, filter });
+  }
+  if (problems.length > 0) {
+    return { build, problems };
+  }
+  const spec = (p: (typeof placed)[number]) => ({
+    identifier: p.identifier,
+    column: p.column,
+    ...(p.filter.control ? { control: p.filter.control } : {}),
+    ...(p.filter.placement ? { placement: p.filter.placement } : {}),
+    ...(p.filter.values ? { values: p.filter.values } : {}),
+  });
+  const sameColumn = (f: any, p: (typeof placed)[number]) =>
+    typeof f?.column === 'string' && f.column.toLowerCase() === p.column.toLowerCase();
+
+  if ('create' in build) {
+    const filters: any[] = [...((build.create.filters as any[] | undefined) ?? [])];
+    for (const p of placed) {
+      const at = filters.findIndex((f) => sameColumn(f, p));
+      if (at >= 0) filters[at] = { ...filters[at], ...spec(p) };
+      else filters.push(spec(p));
+    }
+    return { build: { create: { ...build.create, filters } }, problems };
+  }
+  if (!targets.sheetId) {
+    return { build, problems: ['The previewed definition has no sheet to add the filters to.'] };
+  }
+  const ops: any[] = [...((build.edit.request.ops as any[] | undefined) ?? [])];
+  for (const p of placed) {
+    const at = ops.findIndex((o) => o?.op === 'addFilter' && sameColumn(o, p));
+    if (at >= 0) ops[at] = { ...ops[at], ...spec(p) };
+    else ops.push({ op: 'addFilter', sheetId: targets.sheetId, ...spec(p) });
+  }
+  return {
+    build: { edit: { ...build.edit, request: { ...build.edit.request, ops } } },
+    problems,
+  };
 }
