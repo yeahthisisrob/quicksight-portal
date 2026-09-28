@@ -1,513 +1,193 @@
-import { vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { type JobLog, type JobMetadata, JobRepository } from '../JobRepository';
-
-const HOUR_MS = 3600000;
-const MEDIUM_BATCH = 10;
-const TEST_YEAR = 2025;
-const BIG_RESULT_BYTES = 400000; // past the 350KB truncation threshold
-const LOCK_KEY = { pk: '__export-lock__', sk: 'META' };
-
-// Shared DynamoDB mock (hoisted so the module factory can reference it)
-const mocks = vi.hoisted(() => ({
-  dynamo: {
-    getItem: vi.fn(),
-    putItem: vi.fn(),
-    deleteItem: vi.fn(),
-    updateItem: vi.fn(),
-    queryIndex: vi.fn(),
-    queryPartition: vi.fn(),
-    batchDelete: vi.fn(),
-    ensureJobsTableExists: vi.fn(),
-  },
+vi.mock('../../../utils/logger', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-vi.mock('../../aws/DynamoDBService', () => ({
-  DynamoDBService: vi.fn(function () {
-    return mocks.dynamo;
-  }),
-  isConditionalCheckFailed: (error: any) => error?.name === 'ConditionalCheckFailedException',
-}));
-vi.mock('../../../utils/logger');
+import { JOB_CONFIG, TIME_UNITS } from '../../../constants';
+import {
+  type PortalTestTable,
+  startPortalTestTable,
+} from '../../../utils/testUtils/portalTestTable';
+import { portal } from '../../store/portalTable';
+import { JobItemStore } from '../JobItemStore';
+import { type JobMetadata, JobRepository } from '../JobRepository';
 
-const conditionalFailure = () => {
-  const error = new Error('conditional check failed');
-  (error as any).name = 'ConditionalCheckFailedException';
-  return error;
-};
-
-const createMockJob = (overrides: Partial<JobMetadata> = {}): JobMetadata => ({
-  jobId: 'export-123',
-  jobType: 'export',
-  status: 'completed',
-  // Fresh heartbeat: keeps active-status fixtures from being auto-failed by
-  // the dead-job sweep that runs inside listJobs()/getJob().
-  lastUpdatedTime: new Date().toISOString(),
-  progress: 100,
-  message: 'Export completed successfully',
-  startTime: '2025-01-01T00:00:00.000Z',
-  endTime: '2025-01-01T00:05:00.000Z',
-  duration: 300000,
-  ...overrides,
+let table: PortalTestTable;
+beforeAll(async () => {
+  table = await startPortalTestTable();
+});
+afterAll(async () => {
+  await table.stop();
 });
 
-/** Point the mocks at a fixed set of stored jobs */
-function setStoredJobs(jobs: JobMetadata[]): void {
-  mocks.dynamo.getItem.mockImplementation(
-    async (_table: string, key: { pk: string; sk: string }) =>
-      jobs.find((j) => j.jobId === key.pk) || null
-  );
-  mocks.dynamo.queryIndex.mockResolvedValue(jobs);
+const repo = new JobRepository();
+const iso = (msAgo: number) => new Date(Date.now() - msAgo).toISOString();
+const MIN = TIME_UNITS.MINUTE;
+
+async function clear(): Promise<void> {
+  const { data } = await portal().job.query.byStartTime({}).go({ pages: 'all' });
+  for (const row of data) await repo.deleteJob(row.jobId);
+  await portal().exportLock.delete({ lock: 'export' }).go();
 }
 
-let repository: JobRepository;
-
-/** Fresh repository + clean mocks for every test */
-function setupRepository(): void {
-  vi.clearAllMocks();
-  (JobRepository as any).logCounters.clear();
-  repository = new JobRepository();
-  setStoredJobs([]);
-  mocks.dynamo.queryPartition.mockResolvedValue([]);
+function job(jobId: string, extra: Partial<JobMetadata> = {}): JobMetadata {
+  return {
+    jobId,
+    jobType: 'export',
+    status: 'completed',
+    startTime: iso(MIN),
+    lastUpdatedTime: iso(MIN),
+    ...extra,
+  };
 }
 
-const deadJob = (overrides: Partial<JobMetadata> = {}): JobMetadata =>
-  createMockJob({
-    jobId: 'dead-1',
-    status: 'processing',
-    startTime: new Date(Date.now() - 2 * HOUR_MS).toISOString(),
-    lastUpdatedTime: new Date(Date.now() - HOUR_MS).toISOString(),
-    endTime: undefined,
-    duration: undefined,
-    ...overrides,
-  });
+beforeEach(clear);
 
-describe('JobRepository - listJobs', () => {
-  beforeEach(setupRepository);
-
-  it('returns jobs newest first', async () => {
-    setStoredJobs([
-      createMockJob({ jobId: 'export-old', startTime: '2025-01-01T00:00:00.000Z' }),
-      createMockJob({ jobId: 'export-new', startTime: '2025-01-02T00:00:00.000Z' }),
-      createMockJob({ jobId: 'export-middle', startTime: '2025-01-01T12:00:00.000Z' }),
-    ]);
-
-    const result = await repository.listJobs({ jobType: 'export' });
-
-    expect(result.map((j) => j.jobId)).toEqual(['export-new', 'export-middle', 'export-old']);
-  });
-
-  it('filters by job type and status', async () => {
-    setStoredJobs([
-      createMockJob({ jobId: 'export-123', jobType: 'export', status: 'completed' }),
-      createMockJob({ jobId: 'deploy-456', jobType: 'deploy', status: 'completed' }),
-      createMockJob({ jobId: 'export-789', jobType: 'export', status: 'stopped' }),
-    ]);
-
-    const result = await repository.listJobs({ jobType: 'export', status: 'completed' });
-
-    expect(result).toHaveLength(1);
-    expect(result[0]?.jobId).toBe('export-123');
-  });
-
-  it('applies the limit', async () => {
-    setStoredJobs(
-      Array.from({ length: 100 }, (_, i) =>
-        createMockJob({
-          jobId: `export-${i}`,
-          startTime: new Date(TEST_YEAR, 0, 1, 0, i).toISOString(),
-        })
-      )
-    );
-
-    const result = await repository.listJobs({ limit: MEDIUM_BATCH });
-
-    expect(result).toHaveLength(MEDIUM_BATCH);
-  });
-
-  it('strips storage-only attributes from returned jobs', async () => {
-    setStoredJobs([
-      {
-        ...createMockJob(),
-        pk: 'export-123',
-        sk: 'META',
-        gsi1pk: 'JOB',
-        expiresAt: 1234567890,
-      } as unknown as JobMetadata,
-    ]);
-
-    const result = await repository.listJobs();
-
-    expect(result[0]).not.toHaveProperty('pk');
-    expect(result[0]).not.toHaveProperty('sk');
-    expect(result[0]).not.toHaveProperty('gsi1pk');
-    expect(result[0]).not.toHaveProperty('expiresAt');
-  });
-
-  it('returns an empty array when the query fails', async () => {
-    mocks.dynamo.queryIndex.mockRejectedValue(new Error('DynamoDB error'));
-
-    const result = await repository.listJobs();
-
-    expect(result).toEqual([]);
+describe('listing jobs', () => {
+  it('lists newest first, filtered by type and status, up to the limit', async () => {
+    await repo.createJob(job('old', { startTime: iso(3 * MIN) }));
+    await repo.createJob(job('mid', { startTime: iso(2 * MIN), jobType: 'playbook' }));
+    await repo.createJob(job('new', { startTime: iso(MIN), status: 'failed' }));
+    expect((await repo.listJobs()).map((j) => j.jobId)).toEqual(['new', 'mid', 'old']);
+    expect((await repo.listJobs({ jobType: 'playbook' })).map((j) => j.jobId)).toEqual(['mid']);
+    expect((await repo.listJobs({ status: 'failed' })).map((j) => j.jobId)).toEqual(['new']);
+    expect(await repo.listJobs({ limit: 2 })).toHaveLength(2);
+    expect((await repo.listJobs()).some((j) => 'expiresAt' in j)).toBe(false);
   });
 });
 
-describe('JobRepository - createJob and updateJob', () => {
-  beforeEach(setupRepository);
-
-  it('createJob writes one item with key, index, and TTL attributes plus a heartbeat', async () => {
-    await repository.createJob(
-      createMockJob({ jobId: 'export-789', status: 'queued', progress: 0 })
-    );
-
-    expect(mocks.dynamo.putItem).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        pk: 'export-789',
-        sk: 'META',
-        jobId: 'export-789',
-        status: 'queued',
-        gsi1pk: 'JOB',
-        expiresAt: expect.any(Number),
-        lastUpdatedTime: expect.any(String),
-      })
-    );
-  });
-
-  it('updateJob writes one atomic partial update and computes duration on terminal writes', async () => {
-    setStoredJobs([
-      createMockJob({
-        jobId: 'export-123',
-        status: 'processing',
-        progress: 50,
-        endTime: undefined,
-        duration: undefined,
-      }),
+describe('updating a job', () => {
+  it('writes only the fields given, so a heartbeat and a stop request both land', async () => {
+    await repo.createJob(job('j1', { status: 'processing', progress: 10 }));
+    await Promise.all([
+      repo.updateJob('j1', { progress: 55, message: 'halfway' }),
+      repo.updateJob('j1', { stopRequested: true }),
     ]);
-
-    await repository.updateJob('export-123', {
-      status: 'completed',
-      progress: 100,
-      endTime: '2025-01-01T00:01:00.000Z',
-    });
-
-    expect(mocks.dynamo.updateItem).toHaveBeenCalledWith(
-      expect.any(String),
-      { pk: 'export-123', sk: 'META' },
-      expect.objectContaining({
-        set: expect.objectContaining({
-          status: 'completed',
-          progress: 100,
-          endTime: '2025-01-01T00:01:00.000Z',
-          duration: 60000,
-          lastUpdatedTime: expect.any(String),
-        }),
-      })
-    );
-    // Partial update - never a whole-item put that could clobber other fields
-    expect(mocks.dynamo.putItem).not.toHaveBeenCalled();
-  });
-
-  it('heartbeat-style updates cost zero reads', async () => {
-    await repository.updateJob('export-123', { progress: 50, message: 'Enriching datasets' });
-
-    expect(mocks.dynamo.getItem).not.toHaveBeenCalled();
-    expect(mocks.dynamo.updateItem).toHaveBeenCalledTimes(1);
-  });
-
-  it('releases the export lock when an export job reaches a terminal status', async () => {
-    setStoredJobs([createMockJob({ jobId: 'export-123', status: 'processing' })]);
-
-    await repository.updateJob('export-123', { status: 'completed' });
-
-    expect(mocks.dynamo.deleteItem).toHaveBeenCalledWith(
-      expect.any(String),
-      LOCK_KEY,
-      'ownerJobId = :owner',
-      { ':owner': 'export-123' }
-    );
-  });
-
-  it('does not touch the lock for non-terminal updates', async () => {
-    setStoredJobs([createMockJob({ jobId: 'export-123', status: 'processing' })]);
-
-    await repository.updateJob('export-123', { progress: 50 });
-
-    expect(mocks.dynamo.deleteItem).not.toHaveBeenCalled();
-  });
-
-  it('upserts a minimal record when the job is missing', async () => {
-    setStoredJobs([]);
-
-    await repository.updateJob('ghost-1', { status: 'completed' });
-
-    expect(mocks.dynamo.updateItem).toHaveBeenCalledWith(
-      expect.any(String),
-      { pk: 'ghost-1', sk: 'META' },
-      expect.objectContaining({
-        set: expect.objectContaining({ status: 'completed' }),
-        setIfNotExists: expect.objectContaining({ jobId: 'ghost-1', gsi1pk: 'JOB' }),
-      })
-    );
-  });
-
-  it('drops a stale auto-fail error when a job completes successfully', async () => {
-    setStoredJobs([
-      createMockJob({
-        jobId: 'export-123',
-        status: 'processing',
-        error: 'No heartbeat since ... (stale sweep stamp)',
-      }),
-    ]);
-
-    await repository.updateJob('export-123', { status: 'completed' });
-
-    expect(mocks.dynamo.updateItem).toHaveBeenCalledWith(
-      expect.any(String),
-      { pk: 'export-123', sk: 'META' },
-      expect.objectContaining({ remove: ['error'] })
-    );
-  });
-});
-
-describe('JobRepository - export lock and logs', () => {
-  beforeEach(setupRepository);
-
-  it('acquires the lock via conditional write', async () => {
-    const acquired = await repository.acquireExportLock('export-1');
-
-    expect(acquired).toBe(true);
-    expect(mocks.dynamo.putItem).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({ ...LOCK_KEY, ownerJobId: 'export-1' }),
-      expect.stringContaining('attribute_not_exists(pk)'),
-      expect.objectContaining({ ':owner': 'export-1' })
-    );
-  });
-
-  it('returns false when another export holds the lock', async () => {
-    mocks.dynamo.putItem.mockRejectedValueOnce(conditionalFailure());
-
-    const acquired = await repository.acquireExportLock('export-2');
-
-    expect(acquired).toBe(false);
-  });
-
-  it('release swallows the conditional failure of not holding the lock', async () => {
-    mocks.dynamo.deleteItem.mockRejectedValueOnce(conditionalFailure());
-
-    await expect(repository.releaseExportLock('export-3')).resolves.toBeUndefined();
-  });
-
-  it('appendLog writes one item per entry - no reads', async () => {
-    const log: JobLog = {
-      timestamp: '2025-01-01T00:00:01.000Z',
-      level: 'info',
-      message: 'Listing dashboards',
-    };
-
-    await repository.appendLog('export-1', log);
-
-    expect(mocks.dynamo.putItem).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        pk: 'export-1',
-        sk: expect.stringMatching(/^LOG#2025-01-01T00:00:01\.000Z#\d{6}$/),
-        message: 'Listing dashboards',
-        level: 'info',
-        expiresAt: expect.any(Number),
-      })
-    );
-    expect(mocks.dynamo.getItem).not.toHaveBeenCalled();
-  });
-
-  it('getJobLogs queries the partition and strips storage attributes', async () => {
-    mocks.dynamo.queryPartition.mockResolvedValue([
-      {
-        pk: 'export-1',
-        sk: 'LOG#2025-01-01T00:00:01.000Z#000001',
-        timestamp: '2025-01-01T00:00:01.000Z',
-        level: 'info',
-        message: 'first',
-        expiresAt: 123,
-      },
-      {
-        pk: 'export-1',
-        sk: 'LOG#2025-01-01T00:00:02.000Z#000002',
-        timestamp: '2025-01-01T00:00:02.000Z',
-        level: 'warn',
-        message: 'second',
-        expiresAt: 123,
-      },
-    ]);
-
-    const logs = await repository.getJobLogs('export-1');
-
-    expect(logs).toEqual([
-      { timestamp: '2025-01-01T00:00:01.000Z', level: 'info', message: 'first' },
-      { timestamp: '2025-01-01T00:00:02.000Z', level: 'warn', message: 'second' },
-    ]);
-  });
-
-  it('getJobLogPage asks only for what came after the cursor, and hands the next one back', async () => {
-    const cursor = 'LOG#2025-01-01T00:00:01.000Z#000001';
-    mocks.dynamo.queryPartition.mockResolvedValue([
-      {
-        pk: 'export-1',
-        sk: 'LOG#2025-01-01T00:00:02.000Z#000002',
-        timestamp: '2025-01-01T00:00:02.000Z',
-        level: 'info',
-        message: 'second',
-      },
-    ]);
-
-    const page = await repository.getJobLogPage('export-1', cursor);
-
-    expect(mocks.dynamo.queryPartition).toHaveBeenCalledWith(expect.any(String), 'pk', 'export-1', {
-      sortKeyBeginsWith: { name: 'sk', prefix: 'LOG#' },
-      sortKeyAfter: cursor,
-    });
-    expect(page).toEqual({
-      logs: [{ timestamp: '2025-01-01T00:00:02.000Z', level: 'info', message: 'second' }],
-      cursor: 'LOG#2025-01-01T00:00:02.000Z#000002',
+    expect(await repo.getJob('j1')).toMatchObject({
+      progress: 55,
+      message: 'halfway',
+      stopRequested: true,
+      status: 'processing',
     });
   });
 
-  it('getJobLogPage keeps the cursor when nothing is new, and ignores one that is not a log key', async () => {
-    mocks.dynamo.queryPartition.mockResolvedValue([]);
-    const cursor = 'LOG#2025-01-01T00:00:02.000Z#000002';
-
-    expect(await repository.getJobLogPage('export-1', cursor)).toEqual({ logs: [], cursor });
-
-    await repository.getJobLogPage('export-1', 'META');
-    expect(mocks.dynamo.queryPartition).toHaveBeenLastCalledWith(
-      expect.any(String),
-      'pk',
-      'export-1',
-      { sortKeyBeginsWith: { name: 'sk', prefix: 'LOG#' } }
+  it('computes the duration on a terminal write and drops a stale auto-fail error', async () => {
+    const start = iso(10 * MIN);
+    await repo.createJob(
+      job('j1', { status: 'processing', startTime: start, error: 'no heartbeat' })
     );
+    const endTime = new Date().toISOString();
+    await repo.updateJob('j1', { status: 'completed', endTime });
+    const done = await repo.getJob('j1');
+    expect(done?.duration).toBe(Date.parse(endTime) - Date.parse(start));
+    expect(done).not.toHaveProperty('error');
+    expect(done?.startTime).toBe(start);
+  });
+
+  it('recreates a job that went missing rather than failing a finished run', async () => {
+    await repo.updateJob('ghost', { status: 'completed', message: 'done' });
+    expect(await repo.getJob('ghost')).toMatchObject({ status: 'completed', message: 'done' });
   });
 });
 
-describe('JobRepository - self-healing dead jobs', () => {
-  beforeEach(setupRepository);
-
-  it('listJobs auto-fails a job whose heartbeat stopped past the timeout', async () => {
-    setStoredJobs([deadJob()]);
-
-    const jobs = await repository.listJobs();
-
-    expect(jobs[0]?.status).toBe('failed');
-    expect(jobs[0]?.error).toContain('No heartbeat');
-    // The repaired job is written back as its own item
-    expect(mocks.dynamo.putItem).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({ jobId: 'dead-1', status: 'failed' })
-    );
+describe('the export lock', () => {
+  it('is held by one export at a time, re-entrant for the same job, and released by its holder', async () => {
+    expect(await repo.acquireExportLock('e1')).toBe(true);
+    expect(await repo.acquireExportLock('e2')).toBe(false);
+    expect(await repo.acquireExportLock('e1')).toBe(true);
+    await repo.releaseExportLock('e2'); // not the holder: nothing happens
+    expect(await repo.acquireExportLock('e2')).toBe(false);
+    await repo.releaseExportLock('e1');
+    expect(await repo.acquireExportLock('e2')).toBe(true);
   });
 
-  it('getJob flips a dead job to failed so pollers stop waiting', async () => {
-    setStoredJobs([deadJob({ jobId: 'dead-2' })]);
-
-    const job = await repository.getJob('dead-2');
-
-    expect(job?.status).toBe('failed');
-  });
-
-  it('releases the export lock held by a dead export job', async () => {
-    setStoredJobs([deadJob({ jobId: 'dead-3' })]);
-
-    await repository.listJobs();
-
-    expect(mocks.dynamo.deleteItem).toHaveBeenCalledWith(
-      expect.any(String),
-      LOCK_KEY,
-      'ownerJobId = :owner',
-      { ':owner': 'dead-3' }
-    );
-  });
-
-  it('does not touch active jobs with a recent heartbeat, even if started long ago', async () => {
-    setStoredJobs([deadJob({ jobId: 'alive-1', lastUpdatedTime: new Date().toISOString() })]);
-
-    const jobs = await repository.listJobs();
-
-    expect(jobs[0]?.status).toBe('processing');
-    expect(mocks.dynamo.putItem).not.toHaveBeenCalled();
-  });
-
-  it('falls back to startTime when a job has no heartbeat (queued but never picked up)', async () => {
-    setStoredJobs([deadJob({ jobId: 'orphan-1', status: 'queued', lastUpdatedTime: undefined })]);
-
-    const jobs = await repository.listJobs();
-
-    expect(jobs[0]?.status).toBe('failed');
-  });
-
-  it('leaves terminal jobs alone regardless of age', async () => {
-    setStoredJobs([deadJob({ jobId: 'done-1', status: 'completed' })]);
-
-    const jobs = await repository.listJobs();
-
-    expect(jobs[0]?.status).toBe('completed');
-    expect(mocks.dynamo.putItem).not.toHaveBeenCalled();
+  it('is freed when an export job ends', async () => {
+    await repo.createJob(job('e1', { status: 'processing' }));
+    await repo.acquireExportLock('e1');
+    await repo.updateJob('e1', { status: 'completed', endTime: new Date().toISOString() });
+    expect(await repo.acquireExportLock('e2')).toBe(true);
   });
 });
 
-describe('JobRepository - results and deletion', () => {
-  beforeEach(setupRepository);
+describe('logs', () => {
+  it('reads lines in order, then only what came after the cursor', async () => {
+    await repo.createJob(job('j1'));
+    await repo.appendLog('j1', { timestamp: iso(3000), level: 'info', message: 'one' });
+    await repo.appendLog('j1', { timestamp: iso(2000), level: 'warn', message: 'two' });
+    const first = await repo.getJobLogPage('j1');
+    expect(first.logs.map((l) => l.message)).toEqual(['one', 'two']);
+    expect(first.logs[0]).toEqual({ timestamp: expect.any(String), level: 'info', message: 'one' });
 
-  it('stores results on the job item', async () => {
-    setStoredJobs([createMockJob({ jobId: 'csv-1', status: 'processing' })]);
+    await repo.appendLog('j1', { timestamp: iso(1000), level: 'info', message: 'three' });
+    const next = await repo.getJobLogPage('j1', first.cursor);
+    expect(next.logs.map((l) => l.message)).toEqual(['three']);
+    const idle = await repo.getJobLogPage('j1', next.cursor);
+    expect(idle).toEqual({ logs: [], cursor: next.cursor });
+    // A cursor that is not a log key reads from the start.
+    expect((await repo.getJobLogPage('j1', 'META')).logs).toHaveLength(3);
+  });
+});
 
-    await repository.saveJobResult('csv-1', { count: 5 });
+describe('dead jobs', () => {
+  const stale = (JOB_CONFIG.STUCK_JOB_TIMEOUT_MINUTES + 5) * MIN;
 
-    expect(mocks.dynamo.updateItem).toHaveBeenCalledWith(
-      expect.any(String),
-      { pk: 'csv-1', sk: 'META' },
-      { set: { result: { count: 5 }, lastUpdatedTime: expect.any(String) } },
-      'attribute_exists(pk)'
-    );
+  it('auto-fails a job whose heartbeat stopped, on list and on get, and frees its lock', async () => {
+    await repo.createJob(job('dead', { status: 'processing', startTime: iso(stale) }));
+    await portal()
+      .job.patch({ jobId: 'dead' })
+      .set({ lastUpdatedTime: iso(stale) })
+      .go();
+    await repo.acquireExportLock('dead');
+    expect((await repo.getJob('dead'))?.status).toBe('failed');
+    expect((await repo.listJobs())[0]?.status).toBe('failed');
+    expect(await repo.acquireExportLock('next')).toBe(true);
   });
 
-  it('saveJobResult stores the result as JSON, so a Date cannot fail a finished job', async () => {
-    setStoredJobs([createMockJob({ jobId: 'deploy-1', status: 'processing' })]);
-    const startTime = new Date('2026-09-26T10:00:00.000Z');
+  it('leaves a long job with a recent heartbeat, and finished jobs, alone', async () => {
+    await repo.createJob(job('long', { status: 'processing', startTime: iso(stale) }));
+    await repo.createJob(job('done', { status: 'completed', startTime: iso(stale) }));
+    await portal()
+      .job.patch({ jobId: 'done' })
+      .set({ lastUpdatedTime: iso(stale) })
+      .go();
+    expect((await repo.getJob('long'))?.status).toBe('processing');
+    expect((await repo.getJob('done'))?.status).toBe('completed');
+  });
+});
 
-    await repository.saveJobResult('deploy-1', { success: true, startTime, note: undefined });
-
-    const written = mocks.dynamo.updateItem.mock.calls.find(
-      (call) => call[1]?.pk === 'deploy-1'
-    )?.[2];
-    expect(written.set.result).toEqual({ success: true, startTime: '2026-09-26T10:00:00.000Z' });
+describe('results and deletion', () => {
+  it('stores a result as JSON, so a Date cannot fail a finished job', async () => {
+    await repo.createJob(job('j1'));
+    await repo.saveJobResult('j1', { at: new Date('2026-01-01T00:00:00Z'), rows: [1, 2] });
+    expect(await repo.getJobResult('j1')).toEqual({ at: '2026-01-01T00:00:00.000Z', rows: [1, 2] });
   });
 
-  it('replaces an oversized result with a loud truncation marker (never S3, never a corrupt payload)', async () => {
-    const bigResult = { rows: 'x'.repeat(BIG_RESULT_BYTES) };
-    setStoredJobs([createMockJob({ jobId: 'bulk-1', status: 'processing' })]);
-
-    await repository.saveJobResult('bulk-1', bigResult);
-
-    const written = mocks.dynamo.updateItem.mock.calls.find(
-      (call) => call[1]?.pk === 'bulk-1'
-    )?.[2];
-    expect(written.set.result).toEqual(
-      expect.objectContaining({ truncated: true, message: expect.stringContaining('too large') })
-    );
+  it('replaces an oversized result with a truncation marker', async () => {
+    await repo.createJob(job('j1'));
+    await repo.saveJobResult('j1', { big: 'x'.repeat(400_000) });
+    expect(await repo.getJobResult('j1')).toMatchObject({ truncated: true });
   });
 
-  it('deleteJob removes the whole partition (meta + logs)', async () => {
-    mocks.dynamo.queryPartition.mockResolvedValue([
-      { pk: 'export-9', sk: 'META' },
-      { pk: 'export-9', sk: 'LOG#2025-01-01T00:00:01.000Z#000001' },
-    ]);
+  it('refuses a result for a job that does not exist', async () => {
+    await expect(repo.saveJobResult('nope', {})).rejects.toThrow('Job nope not found');
+  });
 
-    await repository.deleteJob('export-9');
-
-    expect(mocks.dynamo.batchDelete).toHaveBeenCalledWith(expect.any(String), [
-      { pk: 'export-9', sk: 'META' },
-      { pk: 'export-9', sk: 'LOG#2025-01-01T00:00:01.000Z#000001' },
-    ]);
+  it('deletes a job with its logs and its items', async () => {
+    await repo.createJob(job('j1'));
+    await repo.appendLog('j1', { timestamp: iso(1), level: 'info', message: 'x' });
+    await new JobItemStore().put('j1', {
+      key: '000#dashboard#d1',
+      stage: 0,
+      assetType: 'dashboard',
+      assetId: 'd1',
+      name: 'd1',
+      status: 'pending',
+      updatedAt: iso(1),
+    });
+    await repo.deleteJob('j1');
+    expect(await repo.getJob('j1')).toBeNull();
+    expect((await repo.getJobLogPage('j1')).logs).toEqual([]);
+    expect(await new JobItemStore().all('j1')).toEqual([]);
   });
 });

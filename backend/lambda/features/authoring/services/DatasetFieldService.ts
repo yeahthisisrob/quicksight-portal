@@ -12,7 +12,7 @@ import { ValidationError } from '../../../shared/errors/ValidationError';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import { describeDataSetForEdit, resendDataSet } from '../../../shared/services/aws/datasetUpdate';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
-import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
+import { keepCatalogFresh } from '../../../shared/services/catalog/assetFreshness';
 import { LineageService } from '../../../shared/services/lineage/LineageService';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
@@ -116,7 +116,7 @@ export class DatasetFieldService {
 
     logger.info('Updating dataset calculated fields', { dataSetId, ops: ops.length });
     await resendDataSet(this.quickSightService, dataSetId, patched);
-    await keepCacheFresh([
+    await keepCatalogFresh([
       { assetType: ASSET_TYPES.dataset, assetId: dataSetId, name: String(described.Name ?? '') },
     ]);
     return { dataSetId, changes, written: true };

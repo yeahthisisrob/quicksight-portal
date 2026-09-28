@@ -1,3 +1,19 @@
+/** One time an archived asset was brought back, and as what. */
+interface Restoration {
+  restoredAt: string;
+  restoredBy: string;
+  restoredAs: string;
+}
+
+/** Why and when an asset was archived, and every restore since: the archive's ledger line. */
+export interface ArchiveRecord {
+  archivedAt: string;
+  archiveReason?: string;
+  archivedBy?: string;
+  originalPath?: string;
+  restorations?: Restoration[];
+}
+
 /**
  * Shared archive types for consistent archive handling across services
  */

@@ -12,7 +12,7 @@ import {
   canonicalExpression,
   extractFieldReferences,
 } from '../../../shared/lib/expressionAnalysis';
-import type { FieldInfo } from '../../../shared/services/cache/types';
+import type { FieldInfo } from '../../../shared/services/catalog/fieldTypes';
 import type { SmusService } from '../../../shared/services/smus/SmusService';
 import type { SmusAsset, SmusMatchType } from '../../../shared/types/smus';
 import { type ColumnMatchKind, matchListingColumn } from '../lib/columnIdentity';

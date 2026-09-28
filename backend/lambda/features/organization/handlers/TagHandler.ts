@@ -4,8 +4,8 @@ import { actorLabel, requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { actorFromAuth, auditLog } from '../../../shared/services/audit/AuditLog';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
-import { keepCacheFresh } from '../../../shared/services/cache/assetFreshness';
-import { cacheService } from '../../../shared/services/cache/CacheService';
+import { keepCatalogFresh } from '../../../shared/services/catalog/assetFreshness';
+import { recordAssetTags } from '../../../shared/services/catalog/assetTags';
 import { TagService } from '../../../shared/services/organization/TagService';
 import { type AssetType, getSingularForm } from '../../../shared/types/assetTypes';
 import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
@@ -142,9 +142,9 @@ export class TagHandler {
   private async syncCachedTags(assetType: AssetType, assetId: string): Promise<void> {
     const tags = await this.tagService.readResourceTags(assetType, assetId);
     if (tags) {
-      await cacheService.updateAssetTags(assetType, assetId, tags);
+      await recordAssetTags(assetType, assetId, tags);
     } else {
-      await keepCacheFresh([{ assetType, assetId }]);
+      await keepCatalogFresh([{ assetType, assetId }]);
     }
   }
 
@@ -333,7 +333,7 @@ export class TagHandler {
         details: { tags: convertedTags.length },
       });
 
-      await cacheService.updateAssetTags(assetType as AssetType, assetId, convertedTags);
+      await recordAssetTags(assetType as AssetType, assetId, convertedTags);
 
       logger.info(`Updated tags for ${assetType} ${assetId} in both QuickSight and cache`);
 

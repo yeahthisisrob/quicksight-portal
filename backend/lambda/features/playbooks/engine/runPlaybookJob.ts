@@ -4,7 +4,7 @@
  * Returns 'paused' when the worker should hand the job on to a fresh
  * invocation.
  */
-import { batchFreshness } from '../../../shared/services/cache/assetFreshness';
+import { batchFreshness } from '../../../shared/services/catalog/assetFreshness';
 import { type JobItemCounts, JobItemStore } from '../../../shared/services/jobs/JobItemStore';
 import type { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { findPlaybook } from '../catalog';

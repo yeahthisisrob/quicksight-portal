@@ -1,38 +1,45 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
+import {
+  type PortalTestTable,
+  startPortalTestTable,
+} from '../../../utils/testUtils/portalTestTable';
+import { portal } from '../../store/portalTable';
 import { API_KEY_PREFIX, ApiKeyStore, hashApiKey, isApiKey } from '../ApiKeyStore';
 
-describe('ApiKeyStore', () => {
-  const dynamo = {
-    queryPartition: vi.fn(),
-    putItem: vi.fn(),
-    deleteItem: vi.fn(),
-    updateItem: vi.fn(),
-  };
-  let clock = new Date('2026-09-19T10:00:00.000Z');
-  const store = () => new ApiKeyStore(dynamo as any, 'jobs', () => clock);
+let table: PortalTestTable;
+beforeAll(async () => {
+  table = await startPortalTestTable();
+});
+afterAll(async () => {
+  await table.stop();
+});
 
-  beforeEach(() => {
-    vi.clearAllMocks();
+describe('ApiKeyStore', () => {
+  let clock = new Date('2026-09-19T10:00:00.000Z');
+  const store = () => new ApiKeyStore(() => clock);
+
+  beforeEach(async () => {
     clock = new Date('2026-09-19T10:00:00.000Z');
-    dynamo.putItem.mockResolvedValue(undefined);
-    dynamo.deleteItem.mockResolvedValue(undefined);
-    dynamo.updateItem.mockResolvedValue(undefined);
+    const { data } = await portal().apiKey.query.byId({}).go({ pages: 'all' });
+    if (data.length)
+      await portal()
+        .apiKey.delete(data.map(({ id }) => ({ id })))
+        .go();
   });
 
   it('creates a prefixed secret, stores only its hash, and never returns the hash', async () => {
-    const { key, secret } = await store().create('  claude cli ', 'rob');
-
+    const { key, secret } = await store().create(' ci ', 'rob');
     expect(secret.startsWith(API_KEY_PREFIX)).toBe(true);
     expect(isApiKey(secret)).toBe(true);
     expect(key).toEqual({
       id: expect.any(String),
-      label: 'claude cli',
+      label: 'ci',
       prefix: secret.slice(0, 12),
-      createdAt: '2026-09-19T10:00:00.000Z',
+      createdAt: clock.toISOString(),
       createdBy: 'rob',
     });
-    const stored = dynamo.putItem.mock.calls[0]![1];
+    const stored = (await portal().apiKey.get({ id: key.id }).go()).data!;
     expect(stored.hash).toBe(hashApiKey(secret));
     expect(JSON.stringify(stored)).not.toContain(secret);
   });
@@ -43,57 +50,36 @@ describe('ApiKeyStore', () => {
 
   it('authenticates by hash and touches lastUsedAt at most hourly', async () => {
     const { key, secret } = await store().create('ci', 'rob');
-    const stored = dynamo.putItem.mock.calls[0]![1];
-    dynamo.queryPartition.mockResolvedValue([stored]);
+    const lastUsed = async () => (await portal().apiKey.get({ id: key.id }).go()).data?.lastUsedAt;
 
     expect(await store().authenticate(secret)).toEqual(key);
-    expect(dynamo.updateItem).toHaveBeenCalledTimes(1);
+    expect(await lastUsed()).toBe(clock.toISOString());
 
-    stored.lastUsedAt = clock.toISOString();
-    clock = new Date(clock.getTime() + 10 * 60 * 1000);
+    const first = clock.toISOString();
+    clock = new Date(clock.getTime() + 30 * 60 * 1000);
     expect(await store().authenticate(secret)).toMatchObject({ id: key.id });
-    expect(dynamo.updateItem).toHaveBeenCalledTimes(1);
+    expect(await lastUsed()).toBe(first);
 
-    clock = new Date(clock.getTime() + 2 * 60 * 60 * 1000);
+    clock = new Date(clock.getTime() + 61 * 60 * 1000);
     await store().authenticate(secret);
-    expect(dynamo.updateItem).toHaveBeenCalledTimes(2);
+    expect(await lastUsed()).toBe(clock.toISOString());
   });
 
-  it('rejects unknown secrets and tokens without the prefix without a lookup', async () => {
-    dynamo.queryPartition.mockResolvedValue([]);
+  it('rejects unknown secrets and tokens without the prefix', async () => {
+    await store().create('ci', 'rob');
     expect(await store().authenticate('qsp_nope')).toBeNull();
     expect(await store().authenticate('eyJhbGciOi...')).toBeNull();
-    expect(dynamo.queryPartition).toHaveBeenCalledTimes(1);
   });
 
   it('lists newest first without hashes, and revokes by id', async () => {
-    dynamo.queryPartition.mockResolvedValue([
-      {
-        pk: 'API_KEY',
-        sk: 'a',
-        id: 'a',
-        label: 'old',
-        prefix: 'qsp_a',
-        createdAt: '2026-01-01T00:00:00Z',
-        createdBy: 'rob',
-        hash: 'x',
-      },
-      {
-        pk: 'API_KEY',
-        sk: 'b',
-        id: 'b',
-        label: 'new',
-        prefix: 'qsp_b',
-        createdAt: '2026-02-01T00:00:00Z',
-        createdBy: 'rob',
-        hash: 'y',
-      },
-    ]);
+    const a = (await store().create('a', 'rob')).key;
+    clock = new Date(clock.getTime() + 1000);
+    const b = (await store().create('b', 'rob')).key;
     const keys = await store().list();
-    expect(keys.map((k) => k.id)).toEqual(['b', 'a']);
+    expect(keys.map((k) => k.id)).toEqual([b.id, a.id]);
     expect(keys[0]).not.toHaveProperty('hash');
-
-    await store().revoke('a');
-    expect(dynamo.deleteItem).toHaveBeenCalledWith('jobs', { pk: 'API_KEY', sk: 'a' });
+    await store().revoke(a.id);
+    expect(await store().exists(a.id)).toBe(false);
+    expect(await store().exists(b.id)).toBe(true);
   });
 });

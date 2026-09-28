@@ -18,8 +18,8 @@ import {
   canonicalExpression,
   extractFieldReferences,
 } from '../../../shared/lib/expressionAnalysis';
-import type { CacheService } from '../../../shared/services/cache/CacheService';
-import type { FieldInfo } from '../../../shared/services/cache/types';
+import { readFields } from '../../../shared/services/catalog/fieldCache';
+import type { FieldInfo } from '../../../shared/services/catalog/fieldTypes';
 import type { SmusService } from '../../../shared/services/smus/SmusService';
 import {
   type CalculatedFieldTemplate,
@@ -137,7 +137,6 @@ export class SmusCatalogService {
 
   public constructor(
     private readonly smusService: SmusService,
-    private readonly cacheService: CacheService,
     private readonly fieldMetadataService: FieldMetadataService,
     private readonly templateStore: CalculatedFieldTemplateStore = new CalculatedFieldTemplateStore()
   ) {}
@@ -363,7 +362,7 @@ export class SmusCatalogService {
 
   private async buildFieldIndex(): Promise<FieldIndex> {
     const [fields, notes, templates] = await Promise.all([
-      this.cacheService.searchFields({}) as Promise<FieldInfo[]>,
+      readFields({}) as Promise<FieldInfo[]>,
       this.fieldMetadataService.getAllFieldMetadata({ sourceType: 'dataset' }).catch((error) => {
         logger.warn('Field notes unavailable', { error });
         return [] as FieldMetadata[];

@@ -1,8 +1,8 @@
 /**
- * Keep the cache current after the portal itself writes to QuickSight, so a
+ * Keep the catalog current after the portal itself writes to QuickSight, so a
  * dashboard or analysis it just created shows up without an export:
  *
- * 1. at once, a skeleton entry (name, ARN, active) goes into the cache, so
+ * 1. at once, a skeleton entry (name, ARN, active) goes into the catalog, so
  *    lists, search and the assistant can find it;
  * 2. then an `asset-refresh` job exports just those assets (definition,
  *    permissions, tags, lineage) and upserts their full entries, and the
@@ -21,7 +21,7 @@ import { AssetStatus } from '../../models/asset.model';
 import type { AssetType } from '../../types/assetTypes';
 import { logger } from '../../utils/logger';
 import { JobFactory } from '../jobs/JobFactory';
-import { cacheService } from './CacheService';
+import { catalog } from './catalogStore';
 
 interface WrittenAssetRef {
   assetType: AssetType;
@@ -52,7 +52,7 @@ export async function batchFreshness<T>(
   }
 }
 
-export async function keepCacheFresh(
+export async function keepCatalogFresh(
   assets: WrittenAssetRef[],
   context: { accountId?: string; userId?: string } = {}
 ): Promise<void> {
@@ -62,14 +62,14 @@ export async function keepCacheFresh(
   const now = new Date();
   for (const asset of assets.filter((a) => a.name)) {
     try {
-      await cacheService.updateAsset(asset.assetType, asset.assetId, {
+      await catalog.patch(asset.assetType, asset.assetId, {
         assetName: asset.name,
         ...(asset.arn ? { arn: asset.arn } : {}),
         status: AssetStatus.ACTIVE,
         lastUpdatedTime: now,
       } as never);
     } catch (error) {
-      logger.warn('Cache: the written asset could not be recorded at once', { ...asset, error });
+      logger.warn('Catalog: the written asset could not be recorded at once', { ...asset, error });
     }
   }
   const batch = batches.getStore();
@@ -103,7 +103,7 @@ async function queueRefresh(
         assets: chunk.map(({ assetType, assetId }) => ({ assetType, assetId })),
       });
     } catch (error) {
-      logger.warn('Cache: the refresh of written assets could not be queued', {
+      logger.warn('Catalog: the refresh of written assets could not be queued', {
         assets: chunk,
         error,
       });

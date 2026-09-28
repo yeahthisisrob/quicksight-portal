@@ -15,8 +15,8 @@ vi.mock('../../../../shared/services/archive/ArchiveService', () => ({
   }),
 }));
 vi.mock('../../../../shared/services/cache/CacheService', () => ({ cacheService: {} }));
-vi.mock('../../../../shared/services/cache/assetFreshness', () => ({
-  keepCacheFresh: mocks.freshness,
+vi.mock('../../../../shared/services/catalog/assetFreshness', () => ({
+  keepCatalogFresh: mocks.freshness,
 }));
 vi.mock('../../../../shared/services/identity/livePrincipals', () => ({
   keepLivePrincipals: mocks.live,

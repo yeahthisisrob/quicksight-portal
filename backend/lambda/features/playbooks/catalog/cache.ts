@@ -1,19 +1,12 @@
-/** What the export cache knows, the cheap way a playbook finds its scope. */
-import type { CacheEntry } from '../../../shared/models/asset.model';
-import { cacheService } from '../../../shared/services/cache/CacheService';
-import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
-import type { AssetType } from '../../../shared/types/assetTypes';
-
-export async function liveEntries(assetType: AssetType): Promise<CacheEntry[]> {
-  return await cacheService.getCacheEntries({ assetType, statusFilter: AssetStatusFilter.ACTIVE });
-}
+/** What a playbook reads off a catalog entry, the cheap way it finds its scope. */
+import type { CatalogEntry } from '../../../shared/models/asset.model';
 
 export function idFromArn(arn: string | undefined): string | undefined {
   return arn?.split('/').pop() || undefined;
 }
 
 /** Every data source id a dataset reads, from its cached lineage. */
-export function datasourceIdsOf(dataset: CacheEntry): string[] {
+export function datasourceIdsOf(dataset: CatalogEntry): string[] {
   const lineage = dataset.metadata?.lineageData;
   const ids = [
     ...(lineage?.datasourceIds ?? []),

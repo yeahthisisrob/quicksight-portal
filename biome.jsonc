@@ -176,6 +176,7 @@
     {
       "includes": [
         "backend/lambda/build.js",
+        "backend/lambda/scripts/**",
         "scripts/**",
         "frontend/scripts/**",
         "frontend/.storybook/**",
@@ -222,6 +223,10 @@
                   {
                     "group": ["**/adapters/aws/QuickSightAdapter"],
                     "message": "Do not import QuickSightAdapter directly. Use QuickSightService for QuickSight operations."
+                  },
+                  {
+                    "group": ["@aws-sdk/client-dynamodb", "@aws-sdk/lib-dynamodb", "electrodb"],
+                    "message": "Reach DynamoDB through the portal table's entities (shared/services/store/portalTable.ts), so every item has one shape and every write its conditions."
                   }
                 ]
               }
@@ -266,6 +271,10 @@
                     "message": "Do not import QuickSightAdapter directly. Use QuickSightService for QuickSight operations."
                   },
                   {
+                    "group": ["@aws-sdk/client-dynamodb", "@aws-sdk/lib-dynamodb", "electrodb"],
+                    "message": "Reach DynamoDB through the portal table's entities (shared/services/store/portalTable.ts), so every item has one shape and every write its conditions."
+                  },
+                  {
                     "group": ["**/features/**"],
                     "message": "shared/ may not import a feature slice. Move the code a slice needs into shared, or compose at a root (api/, jobs/, worker.ts)."
                   }
@@ -287,6 +296,37 @@
         "rules": {
           "style": {
             "noRestrictedImports": "off"
+          }
+        }
+      }
+    },
+    // The portal table's definition is where DynamoDB and ElectroDB belong, with the
+    // test table that stands it up and the one-time migration that fills it.
+    {
+      "includes": [
+        "backend/lambda/shared/services/store/portalTable.ts",
+        "backend/lambda/shared/utils/testUtils/portalTestTable.ts",
+        "backend/lambda/vitest.dynamodb.ts",
+        "backend/lambda/scripts/*.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@aws-sdk/client-quicksight"],
+                    "message": "Do not import @aws-sdk/client-quicksight directly. Use shared/types/aws-sdk-types.ts for types, or QuickSightAdapter for SDK operations."
+                  },
+                  {
+                    "group": ["**/features/**"],
+                    "message": "May not import a feature slice."
+                  }
+                ]
+              }
+            }
           }
         }
       }
@@ -538,13 +578,6 @@
           }
         }
       }
-    },
-    {
-      // DEBT: CacheWriter is 2,312 lines, over the 2,000 cap. Splitting it is
-      // its own change; exempting the one file keeps the cap meaningful for
-      // every other file instead of raising it for all of them.
-      "includes": ["backend/lambda/shared/services/cache/CacheWriter.ts"],
-      "linter": { "rules": { "style": { "noExcessiveLinesPerFile": "off" } } }
     }
   ]
 }

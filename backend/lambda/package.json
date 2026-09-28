@@ -37,6 +37,7 @@
     "aws-jwt-verify": "^5.2.1",
     "aws-sdk": "^2.1693.0",
     "date-fns": "^4.4.0",
+    "electrodb": "^3.9.3",
     "p-limit": "^7.3.1",
     "uuid": "^14.0.2"
   },
@@ -47,6 +48,7 @@
     "@vitest/coverage-v8": "^5.0.1",
     "@vitest/ui": "^5.0.1",
     "aws-sdk-client-mock": "^4.1.0",
+    "dynamodb-local": "^0.0.38",
     "esbuild": "^0.28.2",
     "nodemon": "^3.1.14",
     "vitest": "^5.0.1",

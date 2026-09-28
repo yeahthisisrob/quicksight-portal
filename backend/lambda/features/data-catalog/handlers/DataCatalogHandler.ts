@@ -339,10 +339,6 @@ export class DataCatalogHandler {
       await requireAuth(event); // Validate authentication
       logger.info('Force rebuilding visual field catalog');
 
-      // Rebuild the cache to refresh visual field data
-      await cacheService.rebuildCache();
-      logger.info('Rebuilt cache for visual field data');
-
       // Clear any cached visual field catalog
       try {
         const s3Service = ClientFactory.getS3Service();
@@ -729,12 +725,7 @@ export class DataCatalogHandler {
       config,
       ClientFactory.getQuickSightService(process.env.AWS_ACCOUNT_ID || '')
     );
-    return new SmusCatalogService(
-      smusService,
-      cacheService,
-      this.fieldMetadataService,
-      this.templateStore
-    );
+    return new SmusCatalogService(smusService, this.fieldMetadataService, this.templateStore);
   }
 
   /** GET /data-catalog/smus?search=&term=&projectId= */

@@ -6,11 +6,14 @@ import pLimit from 'p-limit';
 
 import { EXPORT_CONFIG } from '../../../shared/config/exportConfig';
 import { TIME_UNITS } from '../../../shared/constants';
-import type { CacheEntry } from '../../../shared/models/asset.model';
+import type { CatalogEntry } from '../../../shared/models/asset.model';
 import { ArchiveService } from '../../../shared/services/archive/ArchiveService';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
-import { assetRefresher, type RefreshAssets } from '../../../shared/services/cache/assetRefresher';
-import { cacheService } from '../../../shared/services/cache/CacheService';
+import {
+  assetRefresher,
+  type RefreshAssets,
+} from '../../../shared/services/catalog/assetRefresher';
+import { catalog } from '../../../shared/services/catalog/catalogStore';
 import {
   ASSET_TYPES,
   type AssetType,
@@ -54,7 +57,7 @@ export class BulkDeleteService {
     private readonly refreshAssets: RefreshAssets | undefined = assetRefresher()
   ) {
     const bucketName = process.env.BUCKET_NAME || 'quicksight-metadata-bucket';
-    this.archiveService = new ArchiveService(bucketName, cacheService);
+    this.archiveService = new ArchiveService(bucketName);
   }
 
   /**
@@ -267,7 +270,7 @@ export class BulkDeleteService {
    * Check asset dependencies for a specific dependency type
    */
   private checkAssetDependencies(
-    assets: CacheEntry[],
+    assets: CatalogEntry[],
     dependencyIds: string[],
     assetTypeLabel: string,
     dependencyTypeLabel: string,
@@ -293,13 +296,10 @@ export class BulkDeleteService {
       return;
     }
 
-    const [dashboardsResult, analysesResult] = await Promise.all([
-      cacheService.getAssetsByType(ASSET_TYPES.dashboard),
-      cacheService.getAssetsByType(ASSET_TYPES.analysis),
+    const [dashboards, analyses] = await Promise.all([
+      catalog.list(ASSET_TYPES.dashboard),
+      catalog.list(ASSET_TYPES.analysis),
     ]);
-
-    const dashboards = dashboardsResult.assets || [];
-    const analyses = analysesResult.assets || [];
 
     this.checkAssetDependencies(dashboards, datasetIds, 'Dashboard', 'dataset', warnings);
     this.checkAssetDependencies(analyses, datasetIds, 'Analysis', 'dataset', warnings);
@@ -309,11 +309,11 @@ export class BulkDeleteService {
   private async checkThemeDependencies(themeIds: string[], warnings: string[]): Promise<void> {
     if (themeIds.length === 0) return;
     const [dashboards, analyses] = await Promise.all([
-      cacheService.getAssetsByType(ASSET_TYPES.dashboard),
-      cacheService.getAssetsByType(ASSET_TYPES.analysis),
+      catalog.list(ASSET_TYPES.dashboard),
+      catalog.list(ASSET_TYPES.analysis),
     ]);
     const deleting = new Set(themeIds.map((id) => id.toLowerCase()));
-    for (const asset of [...(dashboards.assets ?? []), ...(analyses.assets ?? [])]) {
+    for (const asset of [...dashboards, ...analyses]) {
       const themeId = String(asset.metadata?.themeArn ?? '')
         .split('/')
         .pop()
@@ -337,8 +337,7 @@ export class BulkDeleteService {
       return;
     }
 
-    const datasetsResult = await cacheService.getAssetsByType(ASSET_TYPES.dataset);
-    const datasets = datasetsResult.assets || [];
+    const datasets = await catalog.list(ASSET_TYPES.dataset);
 
     for (const dataset of datasets) {
       const datasetDatasourceIds = dataset.metadata?.lineageData?.datasourceIds || [];

@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { AssetType } from '../../../models/asset.model';
+import { catalogEntry, useTestCatalog } from '../../../utils/testUtils/testCatalog';
+import { catalog } from '../../catalog/catalogStore';
 import { matchesGlob, SmusService, toQuickSightColumnType } from '../SmusService';
 
 vi.mock('../../../utils/logger', () => ({
@@ -51,6 +54,18 @@ const config = (over: Partial<any> = {}) => ({
   ...over,
 });
 
+useTestCatalog();
+
+/** Make these rows the catalog's whole list of one type. */
+const catalogOf =
+  (assetType: AssetType) => (rows: Array<{ assetId: string } & Record<string, any>>) =>
+    catalog.replaceType(
+      assetType,
+      rows.map(({ assetId, ...rest }) => catalogEntry(assetType, assetId, rest))
+    );
+const datasets = catalogOf('dataset');
+const dataSources = catalogOf('datasource');
+
 const EXPORTED_AT = '2026-09-18T12:00:00.000Z';
 
 /** The snapshot the export job would have written for dzd_1. */
@@ -76,14 +91,14 @@ const snapshot = (over: Partial<any> = {}) => ({
 });
 
 describe('SmusService assets', () => {
-  const cache = { get: vi.fn(), getAllDatasets: vi.fn(), getCacheEntries: vi.fn() };
+  const cache = { get: vi.fn() };
   const qs = { createDataSet: vi.fn(), describeDatasetPermissions: vi.fn() };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     SmusService.invalidateLinkMap();
     cache.get.mockResolvedValue(snapshot());
-    cache.getAllDatasets.mockResolvedValue([
+    await datasets([
       {
         assetId: 'ds-cust',
         assetName: 'Customers (gold)',
@@ -96,7 +111,7 @@ describe('SmusService assets', () => {
         },
       },
     ]);
-    cache.getCacheEntries.mockResolvedValue([
+    await dataSources([
       {
         assetId: 'athena-1',
         assetName: 'Athena',
@@ -204,7 +219,7 @@ describe('SmusService assets', () => {
   });
 
   it('builds over the Athena source the governed datasets read through when none is given', async () => {
-    cache.getCacheEntries.mockResolvedValue([
+    await dataSources([
       {
         assetId: 'athena-old',
         assetName: 'Athena (old)',
@@ -224,7 +239,7 @@ describe('SmusService assets', () => {
         metadata: { sourceType: 'REDSHIFT' },
       },
     ]);
-    cache.getAllDatasets.mockResolvedValue([
+    await datasets([
       {
         assetId: 'ds-cust',
         assetName: 'Customers (gold)',
@@ -264,7 +279,7 @@ describe('SmusService assets', () => {
   });
 
   it('says so when there is no Athena source to build through', async () => {
-    cache.getCacheEntries.mockResolvedValue([
+    await dataSources([
       {
         assetId: 'rs',
         assetName: 'Redshift',
@@ -317,7 +332,7 @@ describe('SmusService assets', () => {
 
     // Nothing in the dataset's name hints at the listing, so only the table
     // it reads can tie the two together.
-    cache.getAllDatasets.mockResolvedValue([
+    await datasets([
       {
         assetId: 'ds-cust',
         assetName: 'Prod customers v2',
@@ -341,7 +356,7 @@ describe('SmusService assets', () => {
     // The shape people actually have: a raw dataset over the Glue table, a
     // curated dataset joined off it, and the calculated fields sitting on the
     // curated one. Only the raw dataset has table identity.
-    cache.getAllDatasets.mockResolvedValue([
+    await datasets([
       {
         assetId: 'ds-mart',
         assetName: 'Customer mart',
@@ -398,7 +413,7 @@ describe('SmusService assets', () => {
         ],
       })
     );
-    cache.getAllDatasets.mockResolvedValue([
+    await datasets([
       {
         assetId: 'ds-sql',
         assetName: 'Customer mart',
@@ -428,7 +443,7 @@ describe('SmusService assets', () => {
   });
 
   it('does not tie a dataset to a listing outside the selected projects', async () => {
-    cache.getAllDatasets.mockResolvedValue([
+    await datasets([
       {
         assetId: 'ds-raw',
         assetName: 'Raw events',
@@ -447,7 +462,7 @@ describe('SmusService assets', () => {
   });
 
   it('inherits from the nearest matched ancestor and survives a cycle', async () => {
-    cache.getAllDatasets.mockResolvedValue([
+    await datasets([
       // Two parents, one of them linked, and a cycle back to the child.
       {
         assetId: 'ds-join',
@@ -522,11 +537,7 @@ describe('helpers', () => {
 });
 
 describe('SmusService projects', () => {
-  const cache = {
-    get: vi.fn(),
-    getAllDatasets: vi.fn().mockResolvedValue([]),
-    getCacheEntries: vi.fn(),
-  };
+  const cache = { get: vi.fn() };
 
   it('serves the projects and diagnostics the export captured, with its timestamp', async () => {
     cache.get.mockResolvedValue(snapshot());

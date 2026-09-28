@@ -4,8 +4,9 @@ import { type Mocked, vi } from 'vitest';
  * and prevent regression of dynamic import issues
  */
 
-import type { AssetType, CacheEntry } from '../../../../shared/models/asset.model';
 import { cacheService } from '../../../../shared/services/cache/CacheService';
+import { catalog } from '../../../../shared/services/catalog/catalogStore';
+import { catalogEntry, useTestCatalog } from '../../../../shared/utils/testUtils/testCatalog';
 import { AssetService } from '../AssetService';
 
 // Test constants
@@ -15,70 +16,11 @@ const TEST_CONSTANTS = {
   MAX_OPERATION_TIME_MS: 100,
 } as const;
 
-// Helper function to create mock cache entries
-function createMockCacheEntry(assetType: AssetType, assetId: string, name: string): CacheEntry {
-  return {
-    assetId,
-    assetType,
-    assetName: name,
-    arn: `arn:aws:quicksight:us-east-1:123456789012:${assetType}/${assetId}`,
-    status: 'active',
-    enrichmentStatus: 'enriched',
-    createdTime: new Date('2024-01-01T00:00:00Z'),
-    lastUpdatedTime: new Date('2024-01-01T00:00:00Z'),
-    exportedAt: new Date('2024-01-01T00:00:00Z'),
-    exportFilePath: `assets/${assetType}s/${assetId}.json`,
-    storageType: 'individual',
-    tags: [],
-    permissions: [],
-    metadata: {},
-  };
-}
-
-// Helper to create a complete MasterCache with some test data
-function createMockMasterCache(
-  dashboards: CacheEntry[] = [],
-  datasets: CacheEntry[] = [],
-  analyses: CacheEntry[] = []
-) {
-  return {
-    version: '1.0',
-    lastUpdated: new Date('2024-01-01T00:00:00Z'),
-    assetCounts: {
-      dashboard: dashboards.length,
-      analysis: analyses.length,
-      dataset: datasets.length,
-      datasource: 0,
-      folder: 0,
-      user: 0,
-      group: 0,
-      theme: 0,
-    },
-    entries: {
-      dashboard: dashboards,
-      analysis: analyses,
-      dataset: datasets,
-      datasource: [],
-      folder: [],
-      user: [],
-      group: [],
-      theme: [],
-    },
-  };
-}
+const { seed } = useTestCatalog();
 
 // Mock dependencies
 vi.mock('../../../../shared/services/cache/CacheService', () => ({
   cacheService: {
-    getCatalog: vi.fn(),
-    getBucketName: vi.fn().mockReturnValue('test-bucket'),
-    getMasterCache: vi.fn().mockResolvedValue({
-      entries: new Map(),
-    }),
-    getMasterCacheWithVersion: vi.fn().mockResolvedValue({
-      cache: { entries: new Map() },
-      version: 'test-version',
-    }),
     getActivityCacheWithEtag: vi.fn().mockResolvedValue({ value: null }),
     getActivityPersistenceWithEtag: vi.fn().mockResolvedValue({ value: null }),
   },
@@ -181,81 +123,67 @@ describe('AssetService', () => {
   });
 
   describe('list method', () => {
-    it('should use cached data instead of S3Client directly', async () => {
-      // Mock the cache service to return sample data
-      const mockCacheService = cacheService as Mocked<typeof cacheService>;
-      mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
-        cache: createMockMasterCache(
-          [
-            createMockCacheEntry('dashboard', 'dash-1', 'Dashboard 1'),
-            createMockCacheEntry('dashboard', 'dash-2', 'Dashboard 2'),
-          ],
-          [],
-          []
-        ),
-        version: 'v1',
-      });
+    it('lists a type from the catalog', async () => {
+      await seed([
+        catalogEntry('dashboard', 'dash-1', { assetName: 'Dashboard 1' }),
+        catalogEntry('dashboard', 'dash-2', { assetName: 'Dashboard 2' }),
+        catalogEntry('dataset', 'data-1', { assetName: 'Dataset 1' }),
+      ]);
 
-      // Call the list method with a valid asset type
-      const result = await service.list('dashboard', {
-        maxResults: 10,
-        nextToken: undefined,
-      });
+      const result = await service.list('dashboard', { maxResults: 10, nextToken: undefined });
 
-      // Verify it returned cached data
-      expect(result.items).toHaveLength(2);
-      expect(mockCacheService.getMasterCacheWithVersion).toHaveBeenCalled();
-
-      // Service should use cache instead of direct S3 access
-      expect((service as any).tagService).toBeDefined();
-      // No need to verify S3 wasn't called since we're using cache
+      expect(result.items.map((item) => item.id).sort()).toEqual(['dash-1', 'dash-2']);
     });
 
-    it('should handle multiple concurrent calls efficiently', async () => {
-      // Mock the cache service
-      const mockCacheService = cacheService as Mocked<typeof cacheService>;
-      mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
-        cache: createMockMasterCache(
-          [createMockCacheEntry('dashboard', 'dash-1', 'Dashboard 1')],
-          [createMockCacheEntry('dataset', 'data-1', 'Dataset 1')],
-          [createMockCacheEntry('analysis', 'anal-1', 'Analysis 1')]
-        ),
-        version: 'v1',
-      });
+    it('serves concurrent lists of different types', async () => {
+      await seed([
+        catalogEntry('dashboard', 'dash-1', { assetName: 'Dashboard 1' }),
+        catalogEntry('dataset', 'data-1', { assetName: 'Dataset 1' }),
+        catalogEntry('analysis', 'anal-1', { assetName: 'Analysis 1' }),
+      ]);
 
-      // Make multiple concurrent calls with valid asset types
-      const promises = [
+      const results = await Promise.all([
         service.list('dashboard', { maxResults: 10 }),
         service.list('dataset', { maxResults: 10 }),
         service.list('analysis', { maxResults: 10 }),
-      ];
+      ]);
 
-      const startTime = Date.now();
-      const results = await Promise.all(promises);
-      const duration = Date.now() - startTime;
-
-      // Should complete quickly (uses cached data)
-      expect(duration).toBeLessThan(TEST_CONSTANTS.MAX_OPERATION_TIME_MS);
       expect(results).toHaveLength(TEST_CONSTANTS.RETRY_COUNT);
-      expect(mockCacheService.getMasterCacheWithVersion).toHaveBeenCalled();
+      expect(results.map((r) => r.items.length)).toEqual([1, 1, 1]);
+    });
+  });
+
+  describe('folders', () => {
+    // Members are kept as QuickSight lists them: MemberId, MemberArn, MemberType.
+    const finance = catalogEntry('folder', 'f-finance', {
+      assetName: 'Finance',
+      metadata: {
+        members: [
+          { MemberId: 'dash-1', MemberArn: 'arn:dashboard/dash-1', MemberType: 'DASHBOARD' },
+          { MemberId: 'data-1', MemberArn: 'arn:dataset/data-1', MemberType: 'DATASET' },
+        ],
+      },
+    });
+
+    it('lists the folders an asset is in', async () => {
+      await seed([finance, catalogEntry('dashboard', 'dash-1')]);
+
+      const result = await service.list('dashboard', { maxResults: 10 });
+
+      expect(result.items.find((d) => d.id === 'dash-1')).toMatchObject({
+        folders: [expect.objectContaining({ id: 'f-finance', name: 'Finance' })],
+      });
     });
   });
 
   describe('Error handling', () => {
-    it('should handle cache errors gracefully', async () => {
-      const mockCacheService = cacheService as Mocked<typeof cacheService>;
-      mockCacheService.getMasterCacheWithVersion.mockRejectedValue(new Error('Cache error'));
+    it('should handle catalog errors gracefully', async () => {
+      vi.spyOn(catalog, 'snapshot').mockRejectedValueOnce(new Error('Catalog error'));
 
-      await expect(service.list('dashboard', { maxResults: 10 })).rejects.toThrow('Cache error');
+      await expect(service.list('dashboard', { maxResults: 10 })).rejects.toThrow('Catalog error');
     });
 
-    it('should handle empty cache gracefully', async () => {
-      const mockCacheService = cacheService as Mocked<typeof cacheService>;
-      mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
-        cache: { entries: {} } as any,
-        version: 'v-empty',
-      });
-
+    it('should handle an empty catalog gracefully', async () => {
       const result = await service.list('dashboard', { maxResults: 10 });
 
       expect(result).toEqual({ items: [], nextToken: undefined, totalCount: 0 });
@@ -266,6 +194,7 @@ describe('AssetService', () => {
 describe('AssetService collection snapshot memoization', () => {
   let service: AssetService;
   const mockAccountId = '123456789012';
+  const mockCacheService = cacheService as Mocked<typeof cacheService>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -278,74 +207,41 @@ describe('AssetService collection snapshot memoization', () => {
   });
 
   describe('user list enrichment memoization', () => {
-    const buildUserCache = () => {
-      const cache = createMockMasterCache();
-      (cache.entries as any).user = [createMockCacheEntry('user', 'u-alice', 'alice')];
-      return cache;
-    };
-
-    it('reuses the enrichment snapshot while the cache version is unchanged', async () => {
-      const mockCacheService = cacheService as Mocked<typeof cacheService>;
-      mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
-        cache: buildUserCache(),
-        version: 'memo-stable',
-      });
+    beforeEach(async () => {
       mockCacheService.getActivityCacheWithEtag.mockResolvedValue({ value: null, etag: 'act-1' });
       mockCacheService.getActivityPersistenceWithEtag.mockResolvedValue({
         value: null,
         etag: 'pers-1',
       });
+      await seed([catalogEntry('user', 'u-alice', { assetName: 'alice' })]);
+    });
 
-      const activitySpy = activity.getUserActivityCounts;
-
+    it('reuses the enrichment snapshot while the catalog version is unchanged', async () => {
       const first = await service.list('user', { maxResults: 10 });
       const second = await service.list('user', { maxResults: 10 });
 
       expect(first.items).toHaveLength(1);
       expect(second.items).toHaveLength(1);
       // Enrichment ran once; the second request served the memoized snapshot
-      expect(activitySpy).toHaveBeenCalledTimes(1);
+      expect(activity.getUserActivityCounts).toHaveBeenCalledTimes(1);
     });
 
-    it('recomputes enrichment when the cache version changes', async () => {
-      const mockCacheService = cacheService as Mocked<typeof cacheService>;
-      mockCacheService.getActivityCacheWithEtag.mockResolvedValue({ value: null, etag: 'act-1' });
-      mockCacheService.getActivityPersistenceWithEtag.mockResolvedValue({
-        value: null,
-        etag: 'pers-1',
-      });
-
-      const activitySpy = activity.getUserActivityCounts;
-
-      mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
-        cache: buildUserCache(),
-        version: 'memo-v1',
-      });
+    it('recomputes enrichment when the catalog version changes', async () => {
       await service.list('user', { maxResults: 10 });
+      await catalog.patch('user', 'u-alice', { assetName: 'alice-renamed' });
+      const second = await service.list('user', { maxResults: 10 });
 
-      mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
-        cache: buildUserCache(),
-        version: 'memo-v2',
-      });
-      await service.list('user', { maxResults: 10 });
-
-      expect(activitySpy).toHaveBeenCalledTimes(2);
+      expect(activity.getUserActivityCounts).toHaveBeenCalledTimes(2);
+      expect(second.items[0]?.name).toBe('alice-renamed');
     });
   });
 
   describe('group list snapshot memoization', () => {
-    const buildGroupCache = () => {
-      const cache = createMockMasterCache();
-      (cache.entries as any).group = [createMockCacheEntry('group', 'g-team-a', 'TeamA')];
-      return cache;
-    };
+    beforeEach(async () => {
+      await seed([catalogEntry('group', 'g-team-a', { assetName: 'TeamA' })]);
+    });
 
     it('attaches assetsCount and reuses the snapshot while the version is unchanged', async () => {
-      const mockCacheService = cacheService as Mocked<typeof cacheService>;
-      mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
-        cache: buildGroupCache(),
-        version: 'group-memo-stable',
-      });
       const bulkSpy = vi.spyOn((service as any).permissionsService, 'getBulkGroupAssetCounts');
 
       const first = await service.list('group', { maxResults: 10 });
@@ -358,20 +254,11 @@ describe('AssetService collection snapshot memoization', () => {
       expect(bulkSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('recomputes when the cache version changes', async () => {
-      const mockCacheService = cacheService as Mocked<typeof cacheService>;
+    it('recomputes when the catalog version changes', async () => {
       const bulkSpy = vi.spyOn((service as any).permissionsService, 'getBulkGroupAssetCounts');
 
-      mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
-        cache: buildGroupCache(),
-        version: 'group-memo-v1',
-      });
       await service.list('group', { maxResults: 10 });
-
-      mockCacheService.getMasterCacheWithVersion.mockResolvedValue({
-        cache: buildGroupCache(),
-        version: 'group-memo-v2',
-      });
+      await seed([catalogEntry('dashboard', 'd-new')]);
       await service.list('group', { maxResults: 10 });
 
       expect(bulkSpy).toHaveBeenCalledTimes(2);

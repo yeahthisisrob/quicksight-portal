@@ -1,4 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+import {
+  type PortalTestTable,
+  startPortalTestTable,
+} from '../../../utils/testUtils/portalTestTable';
 
 vi.mock('../../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -57,22 +62,14 @@ describe('filter bar templates', () => {
   });
 
   describe('the store', () => {
-    const items: any[] = [];
-    const dynamo = {
-      queryPartition: vi.fn(async () => items.map((i) => ({ ...i }))),
-      getItem: vi.fn(async (_t: string, key: any) => items.find((i) => i.sk === key.sk) ?? null),
-      putItem: vi.fn(async (_t: string, item: any) => {
-        const at = items.findIndex((i) => i.sk === item.sk);
-        if (at >= 0) items[at] = item;
-        else items.push(item);
-      }),
-      deleteItem: vi.fn(),
-    };
-    const store = new FilterBarTemplateStore(dynamo as any, 'jobs');
-
-    beforeEach(() => {
-      items.length = 0;
+    let table: PortalTestTable;
+    beforeAll(async () => {
+      table = await startPortalTestTable();
     });
+    afterAll(async () => {
+      await table.stop();
+    });
+    const store = new FilterBarTemplateStore();
 
     it('keeps one default, and lists it first', async () => {
       const a = await store.create(
@@ -90,7 +87,7 @@ describe('filter bar templates', () => {
       ]);
       expect((await store.getDefault())?.id).toBe(b.id);
       expect(listed[1]!.id).toBe(a.id);
-      expect(listed[0]).not.toHaveProperty('pk');
+      expect(listed[1]!.controls).toEqual([{ column: 'x', span: 2 }]);
     });
   });
 });

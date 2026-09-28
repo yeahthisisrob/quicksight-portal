@@ -1,28 +1,24 @@
 /**
- * JobRepository - Centralized job storage and retrieval
+ * JobRepository - where jobs, their logs and the export lock are kept.
  *
- * Storage model (single DynamoDB table, composite key pk/sk):
- * - Job records: item { pk: jobId, sk: 'META' }. Per-job items make every
- *   write atomic. A GSI (gsi1pk='JOB', sort key startTime) serves
- *   newest-first listings; a TTL attribute (expiresAt) is the retention
- *   backstop.
- * - Job logs: one item per entry { pk: jobId, sk: 'LOG#<ts>#<seq>' }. Each
- *   appendLog is a single atomic put; the poller reads them back
- *   chronologically with one consistent query, and TTL cleans them up with
- *   the job.
- * - Job results live on the job item too. A result that would threaten the
- *   400KB item limit is replaced with a truncation marker (loud in the logs;
- *   in practice results are small metadata - the CSV export is the one
- *   producer that can exceed it, and rarely).
- * - The single-export mutex is a conditional-write lock item - race-free,
- *   auto-expiring, re-entrant for continuation invocations of the same job.
+ * - A job is one item; every status or progress write is one atomic
+ *   partial update, so a worker's heartbeat and the API's stop request
+ *   never overwrite each other. The byStartTime index lists jobs newest
+ *   first; `expiresAt` is the retention backstop behind cleanupOldJobs.
+ * - Each log line is its own item, ordered by time and a sequence, so
+ *   appending never reads and a follower reads only what came after its
+ *   cursor.
+ * - A result that would threaten the 400 KB item limit is replaced with a
+ *   truncation marker (loud in the logs).
+ * - The single-export lock is a conditional write: race-free, expiring,
+ *   and re-entrant for continuation invocations of the same job.
  */
 
 import { JOB_CONFIG, JOB_LIMITS, TIME_UNITS } from '../../constants';
 import type { BulkItemFailure } from '../../types/bulkOperationTypes';
 import { logger } from '../../utils/logger';
-import { DynamoDBService, isConditionalCheckFailed } from '../aws/DynamoDBService';
-import { JOB_TTL_GRACE_DAYS, jobsTableName } from './jobsTable';
+import { isConditionFailed, type JobRow, portal } from '../store/portalTable';
+import { jobExpiresAt } from './jobRetention';
 
 export type JobType =
   | 'export'
@@ -161,39 +157,37 @@ export interface JobListOptions {
   beforeDate?: Date;
 }
 
-/** Item shape stored in DynamoDB: the job plus key/index/TTL attributes */
-type JobItem = JobMetadata & { pk?: string; sk?: string; gsi1pk?: string; expiresAt?: number };
-
-const GSI_NAME = 'byStartTime';
-const GSI_PARTITION_VALUE = 'JOB'; // constant partition: job volume is tiny
-const META_SK = 'META';
-const LOG_SK_PREFIX = 'LOG#';
-const EXPORT_LOCK_ID = '__export-lock__';
+const EXPORT_LOCK = 'export';
 /** DynamoDB items cap at 400KB - refuse results that would threaten it */
 const RESULT_MAX_BYTES = 358400; // 350 KB
-/** TTL grace beyond retention so cleanupOldJobs normally wins the race
- *  against the TTL backstop (TTL deletion can lag up to ~48h) */
-const TTL_GRACE_DAYS = JOB_TTL_GRACE_DAYS;
 const QUERY_FETCH_LIMIT = 500;
 const MS_PER_SECOND = 1000;
-const SECONDS_PER_DAY = 86400;
 /** Lock TTL backstop = 2x the lock's own expiry */
 const LOCK_TTL_FACTOR = 2;
-/** Sequence pad width keeps LOG# sort keys lexicographically ordered */
+/** Sequence pad width keeps log keys lexicographically ordered */
 const LOG_SEQ_PAD = 6;
+/** A log key: the entry's ISO time, then its sequence. */
+const LOG_KEY = /^\d{4}-\d{2}-\d{2}T[^#]+#\d{6}$/;
+
+/** A job as callers see it: the row without its storage attributes. */
+function toMetadata(row: JobRow): JobMetadata {
+  const { expiresAt: _expiresAt, ...job } = row;
+  return job as JobMetadata;
+}
+
+/** A job as stored: JSON-safe (Dates as strings), with its expiry. */
+function toRow(job: JobMetadata): JobRow {
+  return {
+    ...(JSON.parse(JSON.stringify(job)) as JobMetadata),
+    expiresAt: jobExpiresAt(new Date(job.startTime).getTime() || Date.now()),
+  } as JobRow;
+}
 
 export class JobRepository {
   /** Per-process log sequence + count per job: the worker is the only log
    *  writer for its job, so this both orders same-millisecond entries and
    *  caps runaway logging per invocation. */
   private static readonly logCounters = new Map<string, number>();
-  private readonly dynamo: DynamoDBService;
-  private readonly tableName: string;
-
-  public constructor() {
-    this.dynamo = new DynamoDBService();
-    this.tableName = jobsTableName();
-  }
 
   /**
    * Acquire the single-export lock via conditional write. Succeeds when the
@@ -202,28 +196,25 @@ export class JobRepository {
    * the stuck-job timeout, so a died worker can never wedge exports.
    */
   public async acquireExportLock(jobId: string): Promise<boolean> {
-    await this.ensureReady();
     const now = Date.now();
+    const holdMs = JOB_CONFIG.STUCK_JOB_TIMEOUT_MINUTES * TIME_UNITS.MINUTE;
     try {
-      await this.dynamo.putItem(
-        this.tableName,
-        {
-          pk: EXPORT_LOCK_ID,
-          sk: META_SK,
+      await portal()
+        .exportLock.put({
+          lock: EXPORT_LOCK,
           ownerJobId: jobId,
           acquiredAt: new Date(now).toISOString(),
-          lockExpiresAt: now + JOB_CONFIG.STUCK_JOB_TIMEOUT_MINUTES * TIME_UNITS.MINUTE,
-          expiresAt:
-            Math.ceil(now / MS_PER_SECOND) +
-            ((JOB_CONFIG.STUCK_JOB_TIMEOUT_MINUTES * TIME_UNITS.MINUTE) / MS_PER_SECOND) *
-              LOCK_TTL_FACTOR,
-        },
-        'attribute_not_exists(pk) OR lockExpiresAt < :now OR ownerJobId = :owner',
-        { ':now': now, ':owner': jobId }
-      );
+          lockExpiresAt: now + holdMs,
+          expiresAt: Math.ceil((now + holdMs * LOCK_TTL_FACTOR) / MS_PER_SECOND),
+        })
+        .where(
+          ({ lock, lockExpiresAt, ownerJobId }, { notExists, lt, eq }) =>
+            `${notExists(lock)} OR ${lt(lockExpiresAt, now)} OR ${eq(ownerJobId, jobId)}`
+        )
+        .go();
       return true;
     } catch (error) {
-      if (isConditionalCheckFailed(error)) {
+      if (isConditionFailed(error)) {
         return false;
       }
       throw error;
@@ -244,22 +235,20 @@ export class JobRepository {
       }
       return;
     }
-
-    await this.ensureReady();
-    await this.dynamo.putItem(this.tableName, {
-      pk: jobId,
-      sk: `${LOG_SK_PREFIX}${log.timestamp}#${String(seq).padStart(LOG_SEQ_PAD, '0')}`,
-      ...log,
-      expiresAt:
-        Math.ceil(Date.now() / MS_PER_SECOND) +
-        (JOB_CONFIG.DEFAULT_RETENTION_DAYS + TTL_GRACE_DAYS) * SECONDS_PER_DAY,
-    });
+    await portal()
+      .jobLog.put({
+        jobId,
+        logKey: `${log.timestamp}#${String(seq).padStart(LOG_SEQ_PAD, '0')}`,
+        ...JSON.parse(JSON.stringify(log)),
+        expiresAt: jobExpiresAt(),
+      })
+      .go();
   }
 
   /**
-   * Clean up jobs past the retention window (meta + log items). The table's
-   * TTL attribute is only the backstop - this sweep keeps listings tidy
-   * without waiting on TTL's up-to-48h lag.
+   * Clean up jobs past the retention window (the job, its logs, its items).
+   * The table's TTL attribute is only the backstop - this sweep keeps
+   * listings tidy without waiting on TTL's up-to-48h lag.
    */
   public async cleanupOldJobs(
     daysToKeep: number = JOB_CONFIG.DEFAULT_RETENTION_DAYS
@@ -299,60 +288,57 @@ export class JobRepository {
     return await this.repairDeadJobs(allJobs, timeoutMinutes);
   }
 
-  /**
-   * Create a new job with metadata (immediately visible to other Lambdas -
-   * per-job items need no separate persistence step)
-   */
+  /** Create a job (immediately visible to every Lambda). */
   public async createJob(metadata: JobMetadata): Promise<void> {
-    await this.ensureReady();
-    await this.putJob({ ...metadata, lastUpdatedTime: new Date().toISOString() });
+    await portal()
+      .job.put(toRow({ ...metadata, lastUpdatedTime: new Date().toISOString() }))
+      .go();
     logger.info('Job created', { jobId: metadata.jobId, jobType: metadata.jobType });
   }
 
-  /**
-   * Delete a job and all its data (meta + log items)
-   */
+  /** Delete a job and everything under it: its logs and its items. */
   public async deleteJob(jobId: string): Promise<void> {
-    // The whole partition: META item plus every LOG# item
-    const items = await this.dynamo.queryPartition<{ pk: string; sk: string }>(
-      this.tableName,
-      'pk',
-      jobId
-    );
-    if (items.length > 0) {
-      await this.dynamo.batchDelete(
-        this.tableName,
-        items.map(({ pk, sk }) => ({ pk, sk }))
-      );
+    const [logs, items] = await Promise.all([
+      portal().jobLog.query.byJob({ jobId }).go({ pages: 'all' }),
+      portal().jobItem.query.byJob({ jobId }).go({ pages: 'all' }),
+    ]);
+    if (logs.data.length) {
+      await portal()
+        .jobLog.delete(logs.data.map(({ logKey }) => ({ jobId, logKey })))
+        .go();
     }
-    logger.info('Job deleted', { jobId, itemsDeleted: items.length });
+    if (items.data.length) {
+      await portal()
+        .jobItem.delete(items.data.map(({ itemKey }) => ({ jobId, itemKey })))
+        .go();
+    }
+    await portal().job.delete({ jobId }).go();
+    logger.info('Job deleted', {
+      jobId,
+      itemsDeleted: 1 + logs.data.length + items.data.length,
+    });
   }
 
-  /**
-   * Get job metadata (strongly consistent read)
-   */
+  /** Get a job (strongly consistent read). */
   public async getJob(jobId: string): Promise<JobMetadata | null> {
     try {
-      await this.ensureReady();
-      const item = await this.dynamo.getItem<JobItem>(this.tableName, { pk: jobId, sk: META_SK });
-      if (!item) {
+      const { data } = await portal().job.get({ jobId }).go({ consistent: true });
+      if (!data) {
         return null;
       }
       // Self-healing: a poller watching a job whose worker died sees it flip
       // to 'failed' instead of spinning forever. The repair pass replaces
       // array slots, so read the (possibly repaired) job back from the array.
-      const jobs: JobItem[] = [item];
+      const jobs: JobMetadata[] = [toMetadata(data)];
       await this.repairDeadJobs(jobs);
-      return this.toMetadata(jobs[0] as JobItem);
+      return jobs[0] as JobMetadata;
     } catch (error: any) {
       logger.error('Failed to get job', { jobId, error: error.message });
       return null;
     }
   }
 
-  /**
-   * Get job logs, chronological (one consistent partition query)
-   */
+  /** Get job logs, chronological. */
   public async getJobLogs(jobId: string): Promise<JobLog[]> {
     return (await this.getJobLogPage(jobId)).logs;
   }
@@ -360,55 +346,46 @@ export class JobRepository {
   /**
    * A job's log lines after `cursor` (all of them without one), and the
    * cursor to ask with next: a view that follows a running job only fetches
-   * what is new. The cursor is opaque to callers (it is the last sort key).
+   * what is new. The cursor is opaque to callers (it is the last log key).
    */
   public async getJobLogPage(
     jobId: string,
     cursor?: string
   ): Promise<{ logs: JobLog[]; cursor?: string }> {
-    await this.ensureReady();
-    const valid = cursor?.startsWith(LOG_SK_PREFIX) ? cursor : undefined;
-    const items = await this.dynamo.queryPartition<JobLog & { pk: string; sk: string }>(
-      this.tableName,
-      'pk',
-      jobId,
-      {
-        sortKeyBeginsWith: { name: 'sk', prefix: LOG_SK_PREFIX },
-        ...(valid && { sortKeyAfter: valid }),
-      }
-    );
-    const last = items.at(-1)?.sk ?? valid;
+    // A cursor that is not a log key (a stale client's) reads from the start.
+    const valid = cursor && LOG_KEY.test(cursor) ? cursor : undefined;
+    const query = portal().jobLog.query.byJob({ jobId });
+    const { data } = await (valid ? query.gt({ logKey: valid }) : query).go({
+      pages: 'all',
+      consistent: true,
+    });
+    const last = data.at(-1)?.logKey ?? valid;
     return {
-      logs: items.map(({ pk: _pk, sk: _sk, expiresAt: _e, ...log }: any) => log as JobLog),
+      logs: data.map(
+        ({ jobId: _j, logKey: _k, expiresAt: _e, ...log }) => log as unknown as JobLog
+      ),
       ...(last && { cursor: last }),
     };
   }
 
-  /**
-   * Get job result data (if any)
-   */
+  /** Get job result data (if any). */
   public async getJobResult<T = any>(jobId: string): Promise<T | null> {
     try {
-      await this.ensureReady();
-      const item = await this.dynamo.getItem<JobItem>(this.tableName, { pk: jobId, sk: META_SK });
-      return (item?.result as T) || null;
+      const { data } = await portal().job.get({ jobId }).go({ consistent: true });
+      return (data?.result as T) || null;
     } catch (error: any) {
       logger.error('Failed to get job result', { jobId, error: error.message });
       return null;
     }
   }
 
-  /**
-   * Check if stop has been requested for a job
-   */
+  /** Check if stop has been requested for a job. */
   public async isStopRequested(jobId: string): Promise<boolean> {
     const job = await this.getJob(jobId);
     return job?.stopRequested === true || job?.status === 'stopping';
   }
 
-  /**
-   * List jobs with filtering (newest first via the byStartTime GSI)
-   */
+  /** List jobs with filtering, newest first. */
   public async listJobs(options: JobListOptions = {}): Promise<JobMetadata[]> {
     const { jobType, status, userId, limit = 50, afterDate, beforeDate } = options;
 
@@ -422,7 +399,6 @@ export class JobRepository {
       // 'processing' job as still active.
       await this.repairDeadJobs(allJobs);
 
-      // Single declarative pass: every provided option must match
       const matchesFilters = (job: JobMetadata): boolean =>
         (!jobType || job.jobType === jobType) &&
         (!status || job.status === status) &&
@@ -431,18 +407,13 @@ export class JobRepository {
         (!beforeDate || new Date(job.startTime) <= beforeDate);
       const filtered = allJobs.filter(matchesFilters);
 
-      // The GSI already returns newest-first; keep an explicit sort for
+      // The index already returns newest-first; keep an explicit sort for
       // determinism (equal timestamps)
       filtered.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
 
-      return filtered.slice(0, limit).map((job) => this.toMetadata(job as JobItem));
+      return filtered.slice(0, limit);
     } catch (error: any) {
-      logger.error('Failed to list jobs', {
-        error: error.message,
-        errorName: error.name,
-        options,
-        tableName: this.tableName,
-      });
+      logger.error('Failed to list jobs', { error: error.message, errorName: error.name, options });
       return [];
     }
   }
@@ -453,22 +424,18 @@ export class JobRepository {
    */
   public async releaseExportLock(jobId: string): Promise<void> {
     try {
-      await this.dynamo.deleteItem(
-        this.tableName,
-        { pk: EXPORT_LOCK_ID, sk: META_SK },
-        'ownerJobId = :owner',
-        { ':owner': jobId }
-      );
+      await portal()
+        .exportLock.delete({ lock: EXPORT_LOCK })
+        .where(({ ownerJobId }, { eq }) => eq(ownerJobId, jobId))
+        .go();
     } catch (error) {
-      if (!isConditionalCheckFailed(error)) {
+      if (!isConditionFailed(error)) {
         logger.warn('Failed to release export lock', { jobId, error });
       }
     }
   }
 
-  /**
-   * Request job to stop
-   */
+  /** Request job to stop. */
   public async requestStop(jobId: string): Promise<void> {
     const job = await this.getJob(jobId);
     if (!job) {
@@ -493,8 +460,6 @@ export class JobRepository {
    * already been done (every restore, for one).
    */
   public async saveJobResult<T = any>(jobId: string, result: T): Promise<void> {
-    await this.ensureReady();
-
     const json = JSON.stringify(result) ?? 'null';
     let stored: any = JSON.parse(json);
     const sizeBytes = json.length;
@@ -512,16 +477,13 @@ export class JobRepository {
       };
     }
 
-    // Atomic partial write onto the existing record (no read)
     try {
-      await this.dynamo.updateItem(
-        this.tableName,
-        { pk: jobId, sk: META_SK },
-        { set: { result: stored, lastUpdatedTime: new Date().toISOString() } },
-        'attribute_exists(pk)'
-      );
+      await portal()
+        .job.patch({ jobId })
+        .set({ result: stored, lastUpdatedTime: new Date().toISOString() })
+        .go();
     } catch (error) {
-      if (isConditionalCheckFailed(error)) {
+      if (isConditionFailed(error)) {
         throw new Error(`Job ${jobId} not found`);
       }
       throw error;
@@ -529,56 +491,56 @@ export class JobRepository {
   }
 
   /**
-   * Update job metadata as ONE atomic partial write (UpdateItem): only the
-   * provided fields are touched, so concurrent writers to the same job (a
-   * worker heartbeat vs. the API setting stopRequested) can never clobber
-   * each other, and a routine heartbeat costs zero reads. Terminal writes
-   * (endTime present) do one read to compute duration and learn the jobType.
+   * Update a job as ONE atomic partial write: only the provided fields are
+   * touched, so concurrent writers to the same job (a worker heartbeat vs.
+   * the API setting stopRequested) never clobber each other, and a routine
+   * heartbeat costs no reads. Terminal writes (endTime present) do one read
+   * to compute duration and learn the jobType.
    */
   public async updateJob(jobId: string, updates: Partial<JobMetadata>): Promise<void> {
-    await this.ensureReady();
     const now = new Date().toISOString();
-
-    const set: Record<string, any> = { ...updates, lastUpdatedTime: now };
+    const set: Record<string, any> = JSON.parse(
+      JSON.stringify({ ...updates, lastUpdatedTime: now })
+    );
     delete set.jobId;
+    delete set.startTime; // the start never moves, and it keys the byStartTime index
 
     let jobType: JobType | undefined = updates.jobType;
+    let startTime: string | undefined;
     if (updates.endTime) {
-      const current = await this.dynamo.getItem<JobItem>(this.tableName, {
-        pk: jobId,
-        sk: META_SK,
-      });
-      if (!current) {
-        // Upsert rather than throw: a lost record must not turn a SUCCESSFUL
-        // run into a spurious "failed" job via the caller's error handler
-        logger.warn('Job missing during update - upserting minimal record', { jobId });
-      }
+      const { data: current } = await portal().job.get({ jobId }).go({ consistent: true });
       set.duration =
         new Date(updates.endTime).getTime() - new Date(current?.startTime || now).getTime();
-      jobType = jobType || current?.jobType;
+      jobType = jobType || (current?.jobType as JobType | undefined);
+      startTime = current?.startTime;
     }
+    // A job completing successfully must not carry a stale auto-fail error
+    // (e.g. a "no heartbeat" stamp from the stuck-job sweep) forward
+    const remove = updates.status === 'completed' && updates.error === undefined ? ['error'] : [];
 
-    await this.dynamo.updateItem(
-      this.tableName,
-      { pk: jobId, sk: META_SK },
-      {
-        set,
-        // Upsert defaults so a recreated record is valid and queryable
-        setIfNotExists: {
-          jobId,
-          jobType: jobType || 'export',
-          status: 'processing',
-          startTime: now,
-          gsi1pk: GSI_PARTITION_VALUE,
-          expiresAt:
-            Math.ceil(Date.now() / MS_PER_SECOND) +
-            (JOB_CONFIG.DEFAULT_RETENTION_DAYS + TTL_GRACE_DAYS) * SECONDS_PER_DAY,
-        },
-        // A job completing successfully must not carry a stale auto-fail error
-        // (e.g. a "no heartbeat" stamp from the stuck-job sweep) forward
-        remove: updates.status === 'completed' && updates.error === undefined ? ['error'] : [],
-      }
-    );
+    try {
+      await portal()
+        .job.patch({ jobId })
+        .set(set)
+        .remove(remove as never[])
+        .go();
+    } catch (error) {
+      if (!isConditionFailed(error)) throw error;
+      // Upsert rather than throw: a lost record must not turn a SUCCESSFUL
+      // run into a spurious "failed" job via the caller's error handler
+      logger.warn('Job missing during update - recreating it', { jobId });
+      await portal()
+        .job.put(
+          toRow({
+            jobType: jobType || 'export',
+            status: 'processing',
+            ...set,
+            jobId,
+            startTime: startTime || now,
+          } as JobMetadata)
+        )
+        .go();
+    }
 
     // Terminal export jobs free the single-export mutex (conditional on
     // ownership, so this is a no-op for every other job type)
@@ -590,34 +552,14 @@ export class JobRepository {
     }
   }
 
-  /**
-   * Bootstrap: make sure the table exists (one-time, guarded per process)
-   */
-  private async ensureReady(): Promise<void> {
-    await this.dynamo.ensureJobsTableExists(this.tableName);
-  }
-
-  /** Persist one job item (stamps index + TTL attributes) */
-  private async putJob(job: JobMetadata): Promise<void> {
-    await this.ensureReady();
-    await this.dynamo.putItem(this.tableName, this.toItem(job));
-  }
-
-  /** All real job items, newest first (marker/lock items have no gsi1pk) */
+  /** Jobs newest first, at most QUERY_FETCH_LIMIT, optionally started before a time. */
   private async queryAllJobs(options: { sortKeyBefore?: string } = {}): Promise<JobMetadata[]> {
-    await this.ensureReady();
-    return await this.dynamo.queryIndex<JobItem>(
-      this.tableName,
-      GSI_NAME,
-      'gsi1pk',
-      GSI_PARTITION_VALUE,
-      {
-        limit: QUERY_FETCH_LIMIT,
-        ...(options.sortKeyBefore && {
-          sortKeyBefore: { name: 'startTime', value: options.sortKeyBefore },
-        }),
-      }
-    );
+    const query = portal().job.query.byStartTime({});
+    const { data } = await (options.sortKeyBefore
+      ? query.lt({ startTime: options.sortKeyBefore })
+      : query
+    ).go({ order: 'desc', limit: QUERY_FETCH_LIMIT });
+    return data.map(toMetadata);
   }
 
   /**
@@ -659,7 +601,7 @@ export class JobRepository {
       transitioned++;
 
       try {
-        await this.putJob(failed);
+        await portal().job.put(toRow(failed)).go();
         if (failed.jobType === 'export') {
           await this.releaseExportLock(failed.jobId);
         }
@@ -682,28 +624,5 @@ export class JobRepository {
       logger.info(`Marked ${transitioned} dead jobs as failed`);
     }
     return transitioned;
-  }
-
-  /** Stamp DynamoDB key + index + TTL attributes onto a job */
-  private toItem(job: JobMetadata): JobItem {
-    const startEpochSeconds = Math.ceil(new Date(job.startTime).getTime() / MS_PER_SECOND) || 0;
-    return {
-      ...job,
-      pk: job.jobId,
-      sk: META_SK,
-      gsi1pk: GSI_PARTITION_VALUE,
-      expiresAt:
-        startEpochSeconds + (JOB_CONFIG.DEFAULT_RETENTION_DAYS + TTL_GRACE_DAYS) * SECONDS_PER_DAY,
-    };
-  }
-
-  /** Strip storage-only attributes before handing a job to callers */
-  private toMetadata(item: JobItem): JobMetadata {
-    const job: JobItem = { ...item };
-    delete job.pk;
-    delete job.sk;
-    delete job.gsi1pk;
-    delete job.expiresAt;
-    return job;
   }
 }

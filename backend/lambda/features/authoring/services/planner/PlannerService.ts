@@ -31,7 +31,8 @@ import { vocabularySection } from '../../../../shared/ai/authoringVocabulary';
 import { getSmusConfig } from '../../../../shared/config/smusConfig';
 import { ValidationError } from '../../../../shared/errors/ValidationError';
 import { ClientFactory } from '../../../../shared/services/aws/ClientFactory';
-import { CacheService, cacheService } from '../../../../shared/services/cache/CacheService';
+import { CacheService } from '../../../../shared/services/cache/CacheService';
+import { catalog } from '../../../../shared/services/catalog/catalogStore';
 import { SmusService } from '../../../../shared/services/smus/SmusService';
 import { AssetStatusFilter } from '../../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES } from '../../../../shared/types/assetTypes';
@@ -471,10 +472,7 @@ interface Mapping {
 
 const defaultCandidateLoader: CandidateLoader = async () => {
   const [entries, governed] = await Promise.all([
-    cacheService.getCacheEntries({
-      assetType: ASSET_TYPES.dataset,
-      statusFilter: AssetStatusFilter.ACTIVE,
-    }),
+    catalog.list(ASSET_TYPES.dataset, AssetStatusFilter.ACTIVE),
     governedDatasetIndex(),
   ]);
   return rankCandidates(

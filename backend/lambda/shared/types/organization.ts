@@ -83,19 +83,3 @@ export interface BulkUserGroupResult {
     error: string;
   }>;
 }
-
-export interface UserActivityRefreshResult {
-  usersUpdated: number;
-  totalUsers: number;
-  processingTimeMs: number;
-  errors: Array<{
-    userName: string;
-    error: string;
-  }>;
-}
-
-export interface UsersAndGroupsExport {
-  users: User[];
-  groups: Group[];
-  exportTime: string;
-}

@@ -1,72 +1,60 @@
-import { type Mock, vi } from 'vitest';
+import { vi } from 'vitest';
 
-import { cacheService } from '../../cache/CacheService';
+import type { CatalogEntry, CatalogSnapshot } from '../../../models/asset.model';
+import { catalogEntry, useTestCatalog } from '../../../utils/testUtils/testCatalog';
 import { GroupService } from '../GroupService';
 
-vi.mock('../../cache/CacheService');
 vi.mock('../../aws/QuickSightService');
 vi.mock('../../aws/S3Service');
 vi.mock('../../../utils/logger');
 
+const { seed } = useTestCatalog();
+
+const folderMembers = (members: Array<{ MemberId: string; MemberArn: string }>) => ({ members });
+
 // Helper functions to create test data
-const createMockGroup = (name: string) => ({
-  assetId: name,
-  assetName: name,
-  arn: `arn:aws:quicksight:us-east-1:123456789012:group/default/${name}`,
-  status: 'active',
-});
+const createMockGroup = (name: string, members?: any[]) =>
+  catalogEntry('group', name, {
+    arn: `arn:aws:quicksight:us-east-1:123456789012:group/default/${name}`,
+    ...(members ? { metadata: { members } } : {}),
+  });
 
 const createMockFolder = (
   id: string,
   name: string,
   groupPrincipal: string,
   members: Array<{ id: string; arn: string }> = []
-) => ({
-  assetId: id,
-  assetName: name,
-  arn: `arn:aws:quicksight:us-east-1:123456789012:folder/${id}`,
-  status: 'active',
-  permissions: [
-    {
-      principal: groupPrincipal,
-      actions: ['VIEW', 'EDIT'],
-    },
-  ],
-  metadata: {
-    members: members.map((m) => ({
-      MemberId: m.id,
-      MemberArn: m.arn,
-    })),
-  },
-});
+) =>
+  catalogEntry('folder', id, {
+    assetName: name,
+    arn: `arn:aws:quicksight:us-east-1:123456789012:folder/${id}`,
+    permissions: [{ principal: groupPrincipal, principalType: 'GROUP', actions: ['VIEW', 'EDIT'] }],
+    metadata: folderMembers(members.map((m) => ({ MemberId: m.id, MemberArn: m.arn }))),
+  });
 
-const createMockDashboard = (id: string, name: string, permissions: any[] = []) => ({
-  assetId: id,
-  assetName: name,
-  arn: `arn:aws:quicksight:us-east-1:123456789012:dashboard/${id}`,
-  status: 'active',
-  permissions,
-});
+const createMockDashboard = (id: string, name: string, permissions: any[] = []) =>
+  catalogEntry('dashboard', id, {
+    assetName: name,
+    arn: `arn:aws:quicksight:us-east-1:123456789012:dashboard/${id}`,
+    permissions,
+  });
 
 // Shared test setup
 let groupService: GroupService;
-let mockCache: any;
+let mockCache: { entries: Partial<Record<string, CatalogEntry[]>> };
 
 const setupTest = () => {
   vi.clearAllMocks();
   groupService = new GroupService();
 
-  mockCache = {
-    entries: {
-      group: [],
-      folder: [],
-      dashboard: [],
-      dataset: [],
-      analysis: [],
-      datasource: [],
-    },
-  };
+  mockCache = { entries: {} };
 };
+
+/** Put the test's entries in the catalog. */
+const seedCache = () => seed(Object.values(mockCache.entries).flat() as CatalogEntry[]);
+
+/** The test's entries as a snapshot, for the methods that take one. */
+const snapshot = () => ({ entries: mockCache.entries, version: '1' }) as CatalogSnapshot;
 
 describe('GroupService - getGroupAssets - folder access', () => {
   beforeEach(setupTest);
@@ -90,7 +78,7 @@ describe('GroupService - getGroupAssets - folder access', () => {
     mockCache.entries.folder = [folderWithTeamAlphaAccess];
     mockCache.entries.dashboard = [dashboard1];
 
-    (cacheService.getMasterCache as Mock).mockResolvedValue(mockCache);
+    await seedCache();
 
     const teamAlphaAssets = await groupService.getGroupAssets('TeamAlpha');
 
@@ -122,7 +110,7 @@ describe('GroupService - getGroupAssets - folder access', () => {
     mockCache.entries.folder = [folderWithTeamAlpha1Access];
     mockCache.entries.dashboard = [dashboard2];
 
-    (cacheService.getMasterCache as Mock).mockResolvedValue(mockCache);
+    await seedCache();
 
     const teamAlpha1Assets = await groupService.getGroupAssets('TeamAlpha1');
 
@@ -160,7 +148,7 @@ describe('GroupService - getGroupAssets - folder access', () => {
     mockCache.entries.folder = [folderWithTeamAlphaAccess, folderWithTeamAlpha1Access];
     mockCache.entries.dashboard = [dashboard1, dashboard2];
 
-    (cacheService.getMasterCache as Mock).mockResolvedValue(mockCache);
+    await seedCache();
 
     // TeamAlpha should NOT see TeamAlpha1's assets
     const teamAlphaAssets = await groupService.getGroupAssets('TeamAlpha');
@@ -192,7 +180,7 @@ describe('GroupService - getGroupAssets - direct permissions', () => {
     mockCache.entries.dashboard = [dashboardWithTeam1Access];
     mockCache.entries.folder = [];
 
-    (cacheService.getMasterCache as Mock).mockResolvedValue(mockCache);
+    await seedCache();
 
     const team1Assets = await groupService.getGroupAssets('Team1');
     expect(team1Assets.assets).toHaveLength(1);
@@ -213,7 +201,7 @@ describe('GroupService - getGroupAssets - direct permissions', () => {
     mockCache.entries.dashboard = [dashboardWithTeam10Access];
     mockCache.entries.folder = [];
 
-    (cacheService.getMasterCache as Mock).mockResolvedValue(mockCache);
+    await seedCache();
 
     const team10Assets = await groupService.getGroupAssets('Team10');
     expect(team10Assets.assets).toHaveLength(1);
@@ -243,7 +231,7 @@ describe('GroupService - getGroupAssets - direct permissions', () => {
     mockCache.entries.dashboard = [dashboardWithTeam1Access, dashboardWithTeam10Access];
     mockCache.entries.folder = [];
 
-    (cacheService.getMasterCache as Mock).mockResolvedValue(mockCache);
+    await seedCache();
 
     // Team1 should only see dashboard1
     const team1Assets = await groupService.getGroupAssets('Team1');
@@ -263,26 +251,23 @@ describe('GroupService - getGroupAssets - mixed and special cases', () => {
   it('should handle mixed direct and folder-inherited permissions', async () => {
     const teamGroup = createMockGroup('TeamBeta');
 
-    const folder = {
-      assetId: 'folder1',
+    const folder = catalogEntry('folder', 'folder1', {
       assetName: 'Shared Folder',
       arn: 'arn:aws:quicksight:us-east-1:123456789012:folder/folder1',
-      status: 'active',
       permissions: [
         {
           principal: 'TeamBeta', // Using just the name
+          principalType: 'GROUP',
           actions: ['VIEW'],
         },
       ],
-      metadata: {
-        members: [
-          {
-            MemberId: 'dashboard2',
-            MemberArn: 'arn:aws:quicksight:us-east-1:123456789012:dashboard/dashboard2',
-          },
-        ],
-      },
-    };
+      metadata: folderMembers([
+        {
+          MemberId: 'dashboard2',
+          MemberArn: 'arn:aws:quicksight:us-east-1:123456789012:dashboard/dashboard2',
+        },
+      ]),
+    });
 
     const dashboardDirect = createMockDashboard('dashboard1', 'Direct Dashboard', [
       {
@@ -297,7 +282,7 @@ describe('GroupService - getGroupAssets - mixed and special cases', () => {
     mockCache.entries.folder = [folder];
     mockCache.entries.dashboard = [dashboardDirect, dashboardInherited];
 
-    (cacheService.getMasterCache as Mock).mockResolvedValue(mockCache);
+    await seedCache();
 
     const assets = await groupService.getGroupAssets('TeamBeta');
 
@@ -316,9 +301,6 @@ describe('GroupService - getGroupAssets - mixed and special cases', () => {
   });
 
   it('should throw error for non-existent group', async () => {
-    mockCache.entries.group = [];
-    (cacheService.getMasterCache as Mock).mockResolvedValue(mockCache);
-
     await expect(groupService.getGroupAssets('NonExistentGroup')).rejects.toThrow(
       'Group NonExistentGroup not found'
     );
@@ -337,7 +319,7 @@ describe('GroupService - getGroupAssets - mixed and special cases', () => {
     mockCache.entries.dashboard = [dashboard];
     mockCache.entries.folder = [];
 
-    (cacheService.getMasterCache as Mock).mockResolvedValue(mockCache);
+    await seedCache();
 
     const dashboardAssets = await groupService.getGroupAssets('TeamGamma', 'dashboard');
     expect(dashboardAssets.assets).toHaveLength(1);
@@ -346,24 +328,23 @@ describe('GroupService - getGroupAssets - mixed and special cases', () => {
 
   it('should filter by dataset type when specified', async () => {
     const teamGroup = createMockGroup('TeamGamma');
-    const dataset = {
-      assetId: 'dataset1',
+    const dataset = catalogEntry('dataset', 'dataset1', {
       assetName: 'Dataset 1',
       arn: 'arn:aws:quicksight:us-east-1:123456789012:dataset/dataset1',
-      status: 'active',
       permissions: [
         {
           principal: 'TeamGamma',
+          principalType: 'GROUP',
           actions: ['VIEW'],
         },
       ],
-    };
+    });
 
     mockCache.entries.group = [teamGroup];
     mockCache.entries.dataset = [dataset];
     mockCache.entries.folder = [];
 
-    (cacheService.getMasterCache as Mock).mockResolvedValue(mockCache);
+    await seedCache();
 
     const datasetAssets = await groupService.getGroupAssets('TeamGamma', 'dataset');
     expect(datasetAssets.assets).toHaveLength(1);
@@ -374,19 +355,14 @@ describe('GroupService - getGroupAssets - mixed and special cases', () => {
 describe('GroupService - getUserGroupsBulk', () => {
   beforeEach(setupTest);
 
-  const createGroupWithMembers = (name: string, members: any[]) => ({
-    ...createMockGroup(name),
-    metadata: { members },
-  });
-
   it('matches members via memberName, userName, and principalId keys', () => {
     mockCache.entries.group = [
-      createGroupWithMembers('ByMemberName', [{ memberName: 'alice' }]),
-      createGroupWithMembers('ByUserName', [{ userName: 'bob' }]),
-      createGroupWithMembers('ByPrincipalId', [{ principalId: 'carol' }]),
+      createMockGroup('ByMemberName', [{ memberName: 'alice' }]),
+      createMockGroup('ByUserName', [{ userName: 'bob' }]),
+      createMockGroup('ByPrincipalId', [{ principalId: 'carol' }]),
     ];
 
-    const result = groupService.getUserGroupsBulk(['alice', 'bob', 'carol'], mockCache);
+    const result = groupService.getUserGroupsBulk(['alice', 'bob', 'carol'], snapshot());
 
     expect(result.get('alice')?.map((g) => g.groupName)).toEqual(['ByMemberName']);
     expect(result.get('bob')?.map((g) => g.groupName)).toEqual(['ByUserName']);
@@ -395,11 +371,11 @@ describe('GroupService - getUserGroupsBulk', () => {
 
   it('returns all groups for a user in multiple groups', () => {
     mockCache.entries.group = [
-      createGroupWithMembers('Admins', [{ memberName: 'alice' }]),
-      createGroupWithMembers('Analysts', [{ memberName: 'alice' }, { memberName: 'bob' }]),
+      createMockGroup('Admins', [{ memberName: 'alice' }]),
+      createMockGroup('Analysts', [{ memberName: 'alice' }, { memberName: 'bob' }]),
     ];
 
-    const result = groupService.getUserGroupsBulk(['alice', 'bob'], mockCache);
+    const result = groupService.getUserGroupsBulk(['alice', 'bob'], snapshot());
 
     expect(result.get('alice')?.map((g) => g.groupName)).toEqual(['Admins', 'Analysts']);
     expect(result.get('bob')?.map((g) => g.groupName)).toEqual(['Analysts']);
@@ -407,33 +383,31 @@ describe('GroupService - getUserGroupsBulk', () => {
 
   it('dedupes a group matched under multiple member keys for the same user', () => {
     mockCache.entries.group = [
-      createGroupWithMembers('Admins', [
-        { memberName: 'alice', userName: 'alice', principalId: 'alice' },
-      ]),
+      createMockGroup('Admins', [{ memberName: 'alice', userName: 'alice', principalId: 'alice' }]),
     ];
 
-    const result = groupService.getUserGroupsBulk(['alice'], mockCache);
+    const result = groupService.getUserGroupsBulk(['alice'], snapshot());
 
     expect(result.get('alice')).toHaveLength(1);
   });
 
   it('returns an empty array for users in no groups', () => {
-    mockCache.entries.group = [createGroupWithMembers('Admins', [{ memberName: 'alice' }])];
+    mockCache.entries.group = [createMockGroup('Admins', [{ memberName: 'alice' }])];
 
-    const result = groupService.getUserGroupsBulk(['nobody'], mockCache);
+    const result = groupService.getUserGroupsBulk(['nobody'], snapshot());
 
     expect(result.get('nobody')).toEqual([]);
   });
 
   it('agrees with the per-user getUserGroups results', async () => {
     mockCache.entries.group = [
-      createGroupWithMembers('A', [{ memberName: 'u1' }]),
-      createGroupWithMembers('B', [{ userName: 'u1' }, { principalId: 'u2' }]),
-      createGroupWithMembers('C', [{ memberName: 'other' }]),
+      createMockGroup('A', [{ memberName: 'u1' }]),
+      createMockGroup('B', [{ userName: 'u1' }, { principalId: 'u2' }]),
+      createMockGroup('C', [{ memberName: 'other' }]),
     ];
-    (cacheService.getMasterCache as Mock).mockResolvedValue(mockCache);
+    await seedCache();
 
-    const bulk = groupService.getUserGroupsBulk(['u1', 'u2'], mockCache);
+    const bulk = groupService.getUserGroupsBulk(['u1', 'u2'], snapshot());
     const perUser1 = await groupService.getUserGroups('u1');
     const perUser2 = await groupService.getUserGroups('u2');
 

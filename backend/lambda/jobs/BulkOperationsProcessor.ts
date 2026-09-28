@@ -14,9 +14,9 @@ import { MATH_CONSTANTS, PAGINATION, TIME_UNITS } from '../shared/constants';
 import { ClientFactory } from '../shared/services/aws/ClientFactory';
 import { QuickSightService } from '../shared/services/aws/QuickSightService';
 import { summarizeBulkResult } from '../shared/services/bulk/bulkResultSummary';
-import { keepCacheFresh } from '../shared/services/cache/assetFreshness';
-import { assetRefresher } from '../shared/services/cache/assetRefresher';
-import { cacheService } from '../shared/services/cache/CacheService';
+import { keepCatalogFresh } from '../shared/services/catalog/assetFreshness';
+import { assetRefresher } from '../shared/services/catalog/assetRefresher';
+import { catalog } from '../shared/services/catalog/catalogStore';
 import type { JobStateService } from '../shared/services/jobs/JobStateService';
 import { FolderService } from '../shared/services/organization/FolderService';
 import { TagService } from '../shared/services/organization/TagService';
@@ -208,7 +208,7 @@ export class BulkOperationsProcessor {
           });
         }
       } else {
-        await keepCacheFresh(affected);
+        await keepCatalogFresh(affected);
       }
     } catch (error) {
       // The operation itself succeeded; the next export picks the change up.
@@ -382,7 +382,7 @@ export class BulkOperationsProcessor {
         archivedBy: config.requestedBy,
       }));
       try {
-        await cacheService.archiveAssetsInCache(archiveUpdates);
+        await catalog.archive(archiveUpdates);
       } catch (cacheErr) {
         // A failed index update means deleted assets keep showing as active
         // until the next full cache rebuild — retry once, then FAIL the job
@@ -391,7 +391,7 @@ export class BulkOperationsProcessor {
           error: cacheErr,
         });
         try {
-          await cacheService.archiveAssetsInCache(archiveUpdates);
+          await catalog.archive(archiveUpdates);
         } catch (retryErr) {
           logger.error('Cache index update failed after bulk delete (retry exhausted)', {
             error: retryErr,

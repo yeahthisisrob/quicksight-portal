@@ -8,7 +8,6 @@ vi.mock('../../handlers/AssetHandler', () => ({
       list: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
       listArchived: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
       getArchivedAssetMetadata: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
-      rebuildIndex: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
       clearMemoryCache: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
       getExportedAsset: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
       bulkDelete: vi.fn().mockResolvedValue({ statusCode: 200, body: '{}' }),
@@ -70,13 +69,6 @@ describe('assetManagementRoutes', () => {
       expect(route).toBeDefined();
     });
 
-    it('should have rebuild index route', () => {
-      const route = assetManagementRoutes.find(
-        (r) => r.method === 'POST' && r.path === '/assets/rebuild-index'
-      );
-      expect(route).toBeDefined();
-    });
-
     it('should not have legacy views routes (superseded by /activity endpoints)', () => {
       const legacyViewsRoute = assetManagementRoutes.find(
         (r) =>
@@ -92,7 +84,6 @@ describe('assetManagementRoutes', () => {
         { method: 'GET', path: '/assets/archived' },
         { method: 'GET', testPath: '/assets/archive/dashboards/test-id/metadata' },
         { method: 'GET', testPath: '/assets/archive/dashboard/test-id/metadata' },
-        { method: 'POST', path: '/assets/rebuild-index' },
         { method: 'GET', testPath: '/assets/dashboard/test-id/cached' },
         { method: 'POST', path: '/assets/bulk-delete' },
         { method: 'POST', path: '/assets/bulk-delete/validate' },

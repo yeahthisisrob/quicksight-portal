@@ -4,6 +4,7 @@ import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { cacheService } from '../../../shared/services/cache/CacheService';
+import { catalog } from '../../../shared/services/catalog/catalogStore';
 import { IngestionRefreshService } from '../../../shared/services/ingestions/IngestionRefreshService';
 import { errorResponse, successResponse } from '../../../shared/utils/cors';
 import { countByField, resolveSourceTypeFromArns } from '../../../shared/utils/filterUtils';
@@ -166,15 +167,14 @@ export class IngestionHandler {
 
       // Enrich ALL ingestions with dataset metadata before filtering/pagination
       // sourceType is resolved at runtime from datasource ARNs, not stored in dataset metadata
-      const datasourceResult = await cacheService.getAssetsByType('datasource');
-      const datasourceEntries = datasourceResult.assets || [];
+      const datasourceEntries = await catalog.list('datasource');
       const enrichedIngestions = await Promise.all(
         dateFiltered.map(async (ingestion) => {
           if (ingestion.datasourceType && ingestion.importMode && ingestion.sizeInBytes) {
             return ingestion;
           }
           try {
-            const dataset = await cacheService.getAsset('dataset', ingestion.datasetId);
+            const dataset = await catalog.get('dataset', ingestion.datasetId);
             if (!dataset) {
               return ingestion;
             }

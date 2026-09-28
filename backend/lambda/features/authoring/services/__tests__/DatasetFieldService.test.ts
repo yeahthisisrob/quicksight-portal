@@ -15,8 +15,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../../../../shared/services/aws/ClientFactory', () => ({
   ClientFactory: { getQuickSightService: () => mocks.qs },
 }));
-vi.mock('../../../../shared/services/cache/assetFreshness', () => ({
-  keepCacheFresh: mocks.freshness,
+vi.mock('../../../../shared/services/catalog/assetFreshness', () => ({
+  keepCatalogFresh: mocks.freshness,
 }));
 vi.mock('../../../../shared/utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },

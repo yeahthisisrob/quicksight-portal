@@ -8,6 +8,7 @@ import { metadataBucketName } from '../../../shared/config/metadataBucket';
 import { STATUS_CODES } from '../../../shared/constants/httpStatusCodes';
 import { ACTIVITY_LIMITS } from '../../../shared/constants/limits';
 import { CacheService } from '../../../shared/services/cache/CacheService';
+import { catalog } from '../../../shared/services/catalog/catalogStore';
 import {
   type ActivityRefreshJobConfig,
   jobFactory,
@@ -576,12 +577,10 @@ export async function resolveRecipients(
       );
     }
 
-    const cacheService = CacheService.getInstance();
-
     const [asset, allUsers, allGroups] = await Promise.all([
-      cacheService.getAsset(assetType, assetId),
-      cacheService.getAssetsByType('user').then((r) => r.assets || []),
-      cacheService.getAssetsByType('group').then((r) => r.assets || []),
+      catalog.get(assetType, assetId),
+      catalog.list('user'),
+      catalog.list('group'),
     ]);
 
     if (!asset) {
@@ -653,16 +652,12 @@ export async function getUserInactiveAnalyses(
       );
     }
 
-    const cacheService = CacheService.getInstance();
-
     // Load all cached analyses and users for name resolution
-    const [analysesResult, usersResult] = await Promise.all([
-      cacheService.getAssetsByType('analysis'),
-      cacheService.getAssetsByType('user'),
+    const [allAnalyses, allUsers] = await Promise.all([
+      catalog.list('analysis'),
+      catalog.list('user'),
     ]);
-
-    const allAnalyses = analysesResult.assets || [];
-    const userByKey = buildUserLookup(usersResult.assets || []);
+    const userByKey = buildUserLookup(allUsers);
 
     // Filter to analyses where this user has owner-level permissions
     const ownedAnalyses = allAnalyses.filter((analysis) => {
@@ -766,16 +761,12 @@ export async function getUserUnusedDatasets(
       );
     }
 
-    const cacheService = CacheService.getInstance();
-
     // Load cached datasets and users
-    const [datasetsResult, usersResult] = await Promise.all([
-      cacheService.getAssetsByType('dataset'),
-      cacheService.getAssetsByType('user'),
+    const [allDatasets, allUsers] = await Promise.all([
+      catalog.list('dataset'),
+      catalog.list('user'),
     ]);
-
-    const allDatasets = datasetsResult.assets || [];
-    const userByKey = buildUserLookup(usersResult.assets || []);
+    const userByKey = buildUserLookup(allUsers);
 
     // Filter to datasets where this user has owner-level permissions
     const ownedDatasets = allDatasets.filter((dataset) => {

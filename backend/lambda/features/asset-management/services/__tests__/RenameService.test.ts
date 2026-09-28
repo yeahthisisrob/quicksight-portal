@@ -1,6 +1,10 @@
 import { vi } from 'vitest';
 
+import { catalog } from '../../../../shared/services/catalog/catalogStore';
+import { catalogEntry, useTestCatalog } from '../../../../shared/utils/testUtils/testCatalog';
 import { isRenameableAssetType, RenameService } from '../RenameService';
+
+const { seed } = useTestCatalog();
 
 const OVER_MAX_NAME_LENGTH = 201;
 const PUBLISHED_VERSION = 7;
@@ -16,18 +20,12 @@ const mocks = vi.hoisted(() => ({
     updateDataSet: vi.fn(),
     updateFolder: vi.fn(),
   },
-  cache: {
-    updateAsset: vi.fn(),
-  },
 }));
 
 vi.mock('../../../../shared/services/aws/QuickSightService', () => ({
   QuickSightService: vi.fn(function () {
     return mocks.qs;
   }),
-}));
-vi.mock('../../../../shared/services/cache/CacheService', () => ({
-  cacheService: mocks.cache,
 }));
 vi.mock('../../../../shared/utils/logger');
 
@@ -59,16 +57,15 @@ describe('RenameService', () => {
     ).rejects.toThrow(/between 1 and 200/);
   });
 
-  it('renames a folder with the name-only API and updates the cache', async () => {
+  it('renames a folder with the name-only API and updates the catalog', async () => {
+    await seed([catalogEntry('folder', 'f-1', { assetName: 'Old Folder Name' })]);
     const result = await service.renameAsset('folder', 'f-1', '  New Folder Name  ');
 
     expect(mocks.qs.updateFolder).toHaveBeenCalledWith({
       folderId: 'f-1',
       name: 'New Folder Name',
     });
-    expect(mocks.cache.updateAsset).toHaveBeenCalledWith('folder', 'f-1', {
-      assetName: 'New Folder Name',
-    });
+    expect((await catalog.get('folder', 'f-1'))?.assetName).toBe('New Folder Name');
     expect(result).toEqual({ name: 'New Folder Name' });
   });
 
@@ -133,8 +130,8 @@ describe('RenameService', () => {
     expect(mocks.qs.updateDataSet).not.toHaveBeenCalled();
   });
 
-  it('treats a cache update failure as non-fatal after a successful rename', async () => {
-    mocks.cache.updateAsset.mockRejectedValue(new Error('cache down'));
+  it('treats a catalog update failure as non-fatal after a successful rename', async () => {
+    vi.spyOn(catalog, 'patch').mockRejectedValueOnce(new Error('catalog down'));
 
     const result = await service.renameAsset('folder', 'f-1', 'Still Renamed');
 

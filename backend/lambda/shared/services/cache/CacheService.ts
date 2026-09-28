@@ -1,36 +1,28 @@
 /**
- * CacheService - Main orchestrator for all caching operations
- * VSA Pattern - Service Layer
+ * A cache of documents derived from other data and stored in S3 - the
+ * activity cache, ingestions, the field cache, the SMUS snapshot. Each has
+ * one writer (the job that computes it) and many readers.
+ *
+ * Reads are memory-first: a copy is served as-is within a short window, and
+ * after it a cheap HEAD compares its ETag with S3's - matching serves
+ * memory, differing re-fetches. Every Lambda is therefore as fresh as S3
+ * with no invalidation. (The catalog is not here: many writers change it,
+ * so it lives in DynamoDB - see shared/services/catalog.)
  */
-import { EventEmitter } from 'node:events';
-
 import { metadataBucketName } from '../../config/metadataBucket';
 import { CACHE_CONFIG, STATUS_CODES } from '../../constants';
-import type { AssetType, CacheEntry, MasterCache } from '../../models/asset.model';
-import {
-  AssetStatusFilter,
-  type CacheFilterOptions,
-  DEFAULT_STATUS_FILTER,
-} from '../../types/assetFilterTypes';
-import { ASSET_TYPES } from '../../types/assetTypes';
-import type {
-  AssetTypeCounts,
-  ExportSummary,
-  FieldStatistics,
-} from '../../types/exportSummaryTypes';
 import { logger } from '../../utils/logger';
 import { SingleFlight } from '../../utils/singleFlight';
 import { S3Service } from '../aws/S3Service';
 import { MemoryCacheAdapter } from './adapters/MemoryCacheAdapter';
-import { S3CacheAdapter } from './adapters/S3CacheAdapter';
-import { CacheReader } from './CacheReader';
 
-/**
- * Main CacheService - coordinates all caching operations
- */
-export class CacheService extends EventEmitter {
+const ACTIVITY_CACHE_KEY = 'cache/activity-cache.json';
+const ACTIVITY_PERSISTENCE_KEY = 'cache/activity-persistence.json';
+const INGESTIONS_KEY = 'cache/ingestions.json';
+
+export class CacheService {
   private static instance: CacheService;
-  private static s3Service: S3Service | null = null;
+
   public static getInstance(): CacheService {
     if (!CacheService.instance) {
       CacheService.instance = new CacheService();
@@ -38,429 +30,44 @@ export class CacheService extends EventEmitter {
     return CacheService.instance;
   }
 
-  private bucketName: string;
-  private readonly cacheReader: CacheReader;
-  // Hooks run after a cache rebuild (export, activity refresh, bulk mutation)
-  // to recompute derived data. Registered by the composition root (worker.ts)
-  // so feature slices never import each other's services for this.
-  private readonly cacheRebuildHooks: Array<() => Promise<void>> = [];
-  private cacheWriter: any = null; // Type any to avoid circular import
-  // Coalesces concurrent get() calls for the same key (one S3 HEAD/GET per burst)
-  private readonly getSingleFlight = new SingleFlight();
-  private readonly memoryAdapter: MemoryCacheAdapter;
-  private readonly s3Adapter: S3CacheAdapter;
+  private readonly bucketName = metadataBucketName(process.env.AWS_ACCOUNT_ID || '');
+  private readonly s3Service = new S3Service(process.env.AWS_ACCOUNT_ID || '');
+  private readonly memory = new MemoryCacheAdapter({
+    maxSize: memoryCacheSize(),
+    ttlMs: CACHE_CONFIG.MEMORY_TTL_MS,
+    enableStats: true,
+  });
+  // Concurrent readers of one key share one S3 HEAD/GET
+  private readonly flights = new SingleFlight();
 
-  private readonly s3Service: S3Service;
-
-  private constructor() {
-    super();
-
-    // Create or reuse S3 client and service
-    if (!CacheService.s3Service) {
-      const accountId = process.env.AWS_ACCOUNT_ID || '';
-      CacheService.s3Service = new S3Service(accountId);
-    }
-
-    // Initialize adapters
-    this.s3Service = CacheService.s3Service;
-    this.s3Adapter = new S3CacheAdapter(this.s3Service);
-
-    this.memoryAdapter = new MemoryCacheAdapter({
-      maxSize: this.getMemoryCacheSize(),
-      ttlMs: CACHE_CONFIG.MEMORY_TTL_MS,
-      enableStats: true,
-    });
-
-    // Get bucket name from environment
-    const accountId = process.env.AWS_ACCOUNT_ID || '';
-    this.bucketName = metadataBucketName(accountId);
-
-    // Initialize reader and writer services
-    this.cacheReader = new CacheReader(this.s3Adapter, this.memoryAdapter);
-    // Lazy load CacheWriter to avoid circular dependency
-    this.cacheWriter = null;
-  }
-
-  /**
-   * High-level entry point for archiving assets in the index after a successful
-   * delete from QuickSight + move of definition to archived/.
-   *
-   * This is the shared, DRY method that all "live delete" paths should use
-   * (BulkDelete, future single deletes, demo cleanup, etc.).
-   * It ensures the cache entry is updated with archived status (so ACTIVE lists
-   * hide it while ARCHIVED lists + restore still see it) and that S3 type caches
-   * + memory are kept consistent.
-   */
-  public async archiveAssetsInCache(
-    assets: Array<{
-      assetType: AssetType;
-      assetId: string;
-      archiveReason?: string;
-      archivedBy?: string;
-    }>
-  ): Promise<void> {
-    const writer = await this.getCacheWriter();
-    return writer.archiveAssetsInCache(assets);
-  }
-
-  public async updateArchivedEntryMetadata(
-    assetType: AssetType,
-    assetId: string,
-    patch: Record<string, unknown>
-  ): Promise<void> {
-    const writer = await this.getCacheWriter();
-    return writer.updateArchivedEntryMetadata(assetType, assetId, patch);
-  }
-
-  public async bulkUpdateAssetTags(
-    assetType: AssetType,
-    assetIds: string[],
-    tags: Array<{ key: string; value: string }>
-  ): Promise<any> {
-    const writer = await this.getCacheWriter();
-    return writer.bulkUpdateAssetTags(assetType, assetIds, tags);
-  }
-
-  public async clearAllCaches(): Promise<any> {
-    const writer = await this.getCacheWriter();
-    return writer.clearAllCaches();
-  }
-
-  public async clearMemoryCache(): Promise<void> {
-    await Promise.resolve(this.memoryAdapter.clear());
-    logger.info('Cleared memory cache');
-  }
-
-  public async clearPendingSync(
-    assetType: AssetType,
-    assetId: string,
-    components: string[]
-  ): Promise<any> {
-    const writer = await this.getCacheWriter();
-    return writer.clearPendingSync(assetType, assetId, components);
-  }
-
-  public destroy(): void {
-    this.memoryAdapter.destroy();
-    this.removeAllListeners();
-  }
-
-  /**
-   * Get any object from cache by key.
-   *
-   * Memory-first with ETag revalidation: a memory hit is served directly only
-   * within a short validation window; after that, a cheap S3 HEAD compares
-   * ETags — matching serves memory, mismatching re-fetches. This keeps every
-   * Lambda instance exactly as fresh as S3 with no manual invalidation
-   * (no clear-memory endpoint, no per-mutation cache clearing).
-   */
+  /** A document, or null when there is none. */
   public async get<T = any>(key: string): Promise<T | null> {
     return (await this.getWithEtag<T>(key)).value;
   }
 
-  /**
-   * Get activity cache
-   */
-  public async getActivityCache(): Promise<any | null> {
-    return await this.get('cache/activity-cache.json');
-  }
-
-  /**
-   * Get activity cache with its S3 ETag (version identifier)
-   */
-  public async getActivityCacheWithEtag(): Promise<{ value: any | null; etag?: string }> {
-    return await this.getWithEtag('cache/activity-cache.json');
-  }
-
-  /**
-   * Get activity persistence (historical dates)
-   */
-  public async getActivityPersistence(): Promise<any | null> {
-    return await this.get('cache/activity-persistence.json');
-  }
-
-  /**
-   * Get activity persistence with its S3 ETag (version identifier)
-   */
-  public async getActivityPersistenceWithEtag(): Promise<{ value: any | null; etag?: string }> {
-    return await this.getWithEtag('cache/activity-persistence.json');
-  }
-
-  /**
-   * Get all datasets from cache
-   */
-  public async getAllDatasets(): Promise<any[]> {
-    const datasetsResult = await this.getAssetsByType(ASSET_TYPES.dataset);
-    return datasetsResult.assets || [];
-  }
-
-  /**
-   * Get archived asset counts using the filtering system
-   */
-  public async getArchivedAssetCounts(): Promise<AssetTypeCounts & { total: number }> {
-    const archivedCounts: AssetTypeCounts & { total: number } = {
-      dashboards: 0,
-      datasets: 0,
-      analyses: 0,
-      datasources: 0,
-      folders: 0,
-      users: 0,
-      groups: 0,
-      themes: 0,
-      total: 0,
-    };
-
-    try {
-      // Use the efficient filtering system to get archived assets
-      const archivedAssets = await this.getAssetsByStatus(AssetStatusFilter.ARCHIVED);
-
-      // Count by type
-      for (const asset of archivedAssets) {
-        const typeKey = this.getAssetTypeCountKey(asset.assetType);
-        if (typeKey && typeKey in archivedCounts) {
-          (archivedCounts[typeKey] as number)++;
-          archivedCounts.total++;
-        }
-      }
-    } catch (error) {
-      logger.debug('No archived assets found or error loading archived assets', { error });
-    }
-
-    return archivedCounts;
-  }
-
-  public async getAsset(assetType: AssetType, assetId: string): Promise<any> {
-    return await this.cacheReader.getAsset(assetType, assetId);
-  }
-
-  public async getAssetsByStatus(
-    statusFilter: AssetStatusFilter = DEFAULT_STATUS_FILTER,
-    options?: { assetType?: AssetType }
-  ): Promise<CacheEntry[]> {
-    return await this.getCacheEntries({
-      assetType: options?.assetType,
-      statusFilter,
-    });
-  }
-
-  public async getAssetsByType(
-    assetType: AssetType,
-    options?: CacheFilterOptions
-  ): Promise<{ assets: CacheEntry[]; metadata?: any }> {
-    const statusFilter = options?.statusFilter || DEFAULT_STATUS_FILTER;
-    return await this.cacheReader.getAssetsByType(assetType, { ...options, statusFilter });
-  }
-
-  public async getAssetsWithPendingSync(): Promise<any[]> {
-    const masterCache = await this.getMasterCache();
-    const assetsWithPendingSync: any[] = [];
-
-    for (const [assetType, assets] of Object.entries(masterCache.entries)) {
-      for (const asset of assets) {
-        if (asset.enrichmentStatus === 'partial') {
-          assetsWithPendingSync.push({
-            ...asset,
-            assetType,
-          });
-        }
-      }
-    }
-
-    return assetsWithPendingSync;
-  }
-
-  /**
-   * Get cache entries with unified filtering - can get single asset type or all types
-   * @param options.assetType - Get specific asset type, or omit for all types
-   * @param options.statusFilter - Filter by asset status (default: ACTIVE)
-   */
-  public async getCacheEntries(options?: {
-    assetType?: AssetType;
-    statusFilter?: AssetStatusFilter;
-  }): Promise<CacheEntry[]> {
-    return await this.cacheReader.getCacheEntries(options);
-  }
-
-  public getCacheReader(): any {
-    return this.cacheReader;
-  }
-
-  public async getCacheStats(): Promise<any> {
-    try {
-      const s3Stats = await this.s3Adapter.getCacheStatistics();
-      const memoryStats = this.memoryAdapter.getStats();
-
-      return {
-        s3: s3Stats,
-        memory: memoryStats,
-      };
-    } catch (error) {
-      logger.error('Failed to get cache stats', { error });
-      return null;
-    }
-  }
-
-  // Get cache writer for advanced operations
-  public async getCacheWriter(): Promise<any> {
-    if (!this.cacheWriter) {
-      const { CacheWriter } = await import('./CacheWriter');
-      this.cacheWriter = new CacheWriter(
-        this.s3Adapter,
-        this.memoryAdapter,
-        this.s3Service,
-        this.bucketName
-      );
-    }
-    return this.cacheWriter;
-  }
-
-  // Lineage operations are handled during cache rebuild by CacheWriter
-  // Deleted asset detection is handled during export by ExportOrchestrator
-
-  /**
-   * Get comprehensive export summary with asset counts and statistics
-   */
-  public async getExportSummary(): Promise<ExportSummary> {
-    try {
-      // Get metadata without loading all cache files
-      const metadata = await this.cacheReader.getCacheMetadata();
-
-      // Build asset type counts from metadata
-      const assetTypeCounts: AssetTypeCounts = {
-        dashboards: metadata.assetCounts?.dashboard || 0,
-        datasets: metadata.assetCounts?.dataset || 0,
-        analyses: metadata.assetCounts?.analysis || 0,
-        datasources: metadata.assetCounts?.datasource || 0,
-        folders: metadata.assetCounts?.folder || 0,
-        users: metadata.assetCounts?.user || 0,
-        groups: metadata.assetCounts?.group || 0,
-        themes: metadata.assetCounts?.theme || 0,
-      };
-
-      // Get archived counts efficiently using the filtering system
-      const archivedAssetCounts = await this.getArchivedAssetCounts();
-
-      // Get field statistics efficiently
-      const fieldStatistics = await this.getFieldStatistics();
-
-      const totalAssets = Object.values(assetTypeCounts).reduce((sum, count) => sum + count, 0);
-
-      return {
-        totalAssets,
-        exportedAssets: totalAssets,
-        lastExportDate: metadata.lastUpdated ? new Date(metadata.lastUpdated).toISOString() : null,
-        exportInProgress: false,
-        needsInitialExport: false,
-        assetTypeCounts,
-        archivedAssetCounts,
-        fieldStatistics,
-        cacheVersion: metadata.version || 1,
-        message: 'Export summary retrieved successfully',
-      };
-    } catch (error: any) {
-      // Handle case where no cache exists
-      if (error.message?.includes('No cache found') || error.name === 'NoSuchKey') {
-        return this.getEmptyExportSummary();
-      }
-      logger.error('Failed to get export summary', { error });
-      throw error;
-    }
-  }
-
-  /**
-   * Get field statistics efficiently from field cache
-   */
-  public async getFieldStatistics(): Promise<FieldStatistics | null> {
-    try {
-      const fieldCache = await this.searchFields({});
-      if (!fieldCache || fieldCache.length === 0) {
-        return null;
-      }
-
-      const calculatedFields = fieldCache.filter((f) => f.isCalculated).length;
-      return {
-        totalFields: fieldCache.length,
-        totalCalculatedFields: calculatedFields,
-        totalUniqueFields: fieldCache.length - calculatedFields,
-      };
-    } catch (error) {
-      logger.debug('No field cache available, field statistics will be null', { error });
-      return null;
-    }
-  }
-
-  /**
-   * Get ingestions from cache
-   */
-  public async getIngestions(): Promise<{ ingestions: any[]; metadata: any } | null> {
-    try {
-      // get() is memory-first with ETag revalidation — no extra layer needed.
-      return await this.get('cache/ingestions.json');
-    } catch (error) {
-      logger.error('Failed to get ingestions from cache', { error });
-      return null;
-    }
-  }
-
-  /**
-   * Get master cache with flexible status filtering
-   * @param options.statusFilter - Filter by asset status (default: ACTIVE - most common use case)
-   */
-  public async getMasterCache(options?: {
-    statusFilter?: AssetStatusFilter;
-  }): Promise<MasterCache> {
-    const statusFilter = options?.statusFilter || DEFAULT_STATUS_FILTER;
-
-    // Delegate to CacheReader which handles memory caching and S3 access
-    return await this.cacheReader.getMasterCache({ statusFilter });
-  }
-
-  /**
-   * Master cache plus a version string derived from the per-type S3 ETags —
-   * changes iff any underlying type cache changed. Safe memoization key for
-   * data derived from the master cache.
-   */
-  public async getMasterCacheWithVersion(options?: {
-    statusFilter?: AssetStatusFilter;
-  }): Promise<{ cache: MasterCache; version: string }> {
-    const statusFilter = options?.statusFilter || DEFAULT_STATUS_FILTER;
-    return await this.cacheReader.getMasterCacheWithVersion({ statusFilter });
-  }
-
-  public async getTypeCache(assetType: AssetType): Promise<CacheEntry[]> {
-    return await this.getCacheEntries({ assetType });
-  }
-
-  /**
-   * Like get(), but also returns the S3 ETag the value was validated against.
-   * The ETag serves as a cheap version identifier for derived-data memoization.
-   */
+  /** A document and the S3 ETag it was validated against (a cheap version for memoizing). */
   public getWithEtag<T = any>(key: string): Promise<{ value: T | null; etag?: string }> {
-    // Coalesced: concurrent callers for the same key share one flight
-    return this.getSingleFlight.run(key, async () => {
+    return this.flights.run(key, async () => {
       try {
-        const cached = this.memoryAdapter.getValidatedEntry<T>(key);
+        const cached = this.memory.getValidatedEntry<T>(key);
         if (cached) {
           if (Date.now() - cached.validatedAt < CACHE_CONFIG.REVALIDATE_WINDOW_MS) {
             return { value: cached.value, etag: cached.etag };
           }
-          const verdict = await this.revalidateAgainstS3(key, cached.etag);
+          const verdict = await this.revalidate(key, cached.etag);
           if (verdict === 'fresh') {
-            this.memoryAdapter.markValidated(key);
+            this.memory.markValidated(key);
             return { value: cached.value, etag: cached.etag };
           }
           if (verdict === 'missing') {
-            this.memoryAdapter.delete(key);
+            this.memory.delete(key);
             return { value: null };
           }
           if (verdict === 'unknown') {
-            // Transient HEAD failure — serve the (possibly slightly stale) copy
-            // rather than failing the read.
+            // A HEAD that failed: serve the copy rather than fail the read.
             return { value: cached.value, etag: cached.etag };
           }
-          // 'stale' → fall through to a fresh GET
         }
-
         const result = await this.s3Service
           .getObjectWithETag<T>(this.bucketName, key)
           .catch(() => null);
@@ -468,7 +75,7 @@ export class CacheService extends EventEmitter {
           return { value: null };
         }
         const data = typeof result.data === 'string' ? (JSON.parse(result.data) as T) : result.data;
-        this.memoryAdapter.setValidated(key, data, result.etag);
+        this.memory.setValidated(key, data, result.etag);
         return { value: data, etag: result.etag };
       } catch (error) {
         logger.error('Failed to get cache item', { key, error });
@@ -477,261 +84,57 @@ export class CacheService extends EventEmitter {
     });
   }
 
-  /**
-   * List all keys matching a prefix
-   */
-  public async list(prefix: string): Promise<string[]> {
-    try {
-      const objects = await this.s3Service.listObjects(this.bucketName, prefix);
-      return objects.map((obj: any) => obj.key || '').filter((key: string) => key);
-    } catch (error) {
-      logger.error('Failed to list cache keys', { prefix, error });
-      return [];
-    }
-  }
-
-  public async markForSync(
-    assetType: AssetType,
-    assetIds: string[],
-    components: string[]
-  ): Promise<any> {
-    const writer = await this.getCacheWriter();
-    return writer.markForSync(assetType, assetIds, components);
-  }
-
-  /**
-   * Put any object to cache by key
-   */
+  /** Write a document (pretty by default for reading by hand; compact for large ones). */
   public async put<T = any>(key: string, data: T, options?: { compact?: boolean }): Promise<void> {
-    try {
-      // Store in S3 (pretty by default for hand-inspection; compact for large
-      // derived blobs); capture the new ETag so this instance's memory copy
-      // is immediately marked fresh.
-      const etag = await this.s3Service.putObject(
-        this.bucketName,
-        key,
-        options?.compact ? JSON.stringify(data) : JSON.stringify(data, null, 2)
-      );
-      this.memoryAdapter.setValidated(key, data, etag);
-    } catch (error) {
-      logger.error('Failed to put cache item', { key, error });
-      throw error;
-    }
-  }
-
-  /**
-   * Put activity cache
-   */
-  public async putActivityCache(data: any): Promise<void> {
-    return await this.put('cache/activity-cache.json', data);
-  }
-
-  /**
-   * Put activity persistence
-   */
-  public async putActivityPersistence(data: any): Promise<void> {
-    return await this.put('cache/activity-persistence.json', data);
-  }
-
-  public async rebuildCache(
-    forceRefresh = false,
-    rebuildLineage = true,
-    exportStateService?: any
-  ): Promise<any> {
-    const writer = await this.getCacheWriter();
-    return writer.rebuildCache(forceRefresh, rebuildLineage, exportStateService);
-  }
-
-  public async rebuildCacheForAssetType(
-    assetType: AssetType,
-    exportStateService?: any
-  ): Promise<any> {
-    const writer = await this.getCacheWriter();
-    return writer.rebuildCacheForAssetType(assetType, exportStateService);
-  }
-
-  /**
-   * Register a hook to run after cache rebuilds (see runCacheRebuildHooks).
-   * Idempotent per function reference.
-   */
-  public registerCacheRebuildHook(hook: () => Promise<void>): void {
-    if (!this.cacheRebuildHooks.includes(hook)) {
-      this.cacheRebuildHooks.push(hook);
-    }
-  }
-
-  public async removeAssetFromCache(assetType: AssetType, assetId: string): Promise<boolean> {
-    const writer = await this.getCacheWriter();
-    return writer.removeAssetFromCache(assetType, assetId);
-  }
-
-  public async replaceAsset(
-    assetType: AssetType,
-    assetId: string,
-    updates: Partial<CacheEntry>
-  ): Promise<any> {
-    // First remove any existing entry to prevent duplicates
-    await this.removeAssetFromCache(assetType, assetId);
-    // Then add/update with the new data
-    const writer = await this.getCacheWriter();
-    return writer.updateAsset(assetType, assetId, updates);
-  }
-
-  /**
-   * Run all registered post-rebuild hooks, awaiting each so callers in the
-   * worker can guarantee completion before the Lambda ends. Hook failures are
-   * logged, never thrown — derived-data recomputation must not fail jobs.
-   */
-  public async runCacheRebuildHooks(): Promise<void> {
-    for (const hook of this.cacheRebuildHooks) {
-      try {
-        await hook();
-      } catch (error) {
-        logger.error('Cache rebuild hook failed (non-fatal)', { error });
-      }
-    }
-  }
-
-  /**
-   * Save ingestions to cache
-   */
-  public async saveIngestions(ingestions: any[], metadata: any): Promise<void> {
-    await this.put('cache/ingestions.json', {
-      ingestions,
-      metadata,
-      lastUpdated: new Date().toISOString(),
-    });
-  }
-
-  public async searchFields(options: any): Promise<any[]> {
-    return await this.cacheReader.searchFields(options);
-  }
-
-  // Allow setting bucket name after initialization for cases where env vars aren't available
-  public setBucketName(bucketName: string): void {
-    this.bucketName = bucketName;
-  }
-
-  public async updateAsset(
-    assetType: AssetType,
-    assetId: string,
-    updates: Partial<CacheEntry>
-  ): Promise<any> {
-    const writer = await this.getCacheWriter();
-    return writer.updateAsset(assetType, assetId, updates);
-  }
-
-  public async updateAssetTags(
-    assetType: AssetType,
-    assetId: string,
-    tags: Array<{ key: string; value: string }>
-  ): Promise<any> {
-    const writer = await this.getCacheWriter();
-    return writer.updateAssetTags(assetType, assetId, tags);
-  }
-
-  public async updateFieldCache(fieldCache: any): Promise<any> {
-    const writer = await this.getCacheWriter();
-    return writer.updateFieldCache(fieldCache);
-  }
-
-  /**
-   * Merge cache entries for just the given assets by re-parsing only their S3
-   * files - the incremental alternative to rebuildCacheForAssetType after an
-   * export where only a subset of assets changed.
-   */
-  public async upsertCacheEntriesForAssets(
-    assetType: AssetType,
-    assetIds: string[],
-    exportStateService?: any
-  ): Promise<void> {
-    const writer = await this.getCacheWriter();
-    return writer.upsertCacheEntriesForAssets(assetType, assetIds, exportStateService);
-  }
-
-  /**
-   * Map asset type to count key for the summary
-   */
-  private getAssetTypeCountKey(assetType: AssetType): keyof AssetTypeCounts | null {
-    const mapping: Record<AssetType, keyof AssetTypeCounts> = {
-      dashboard: 'dashboards',
-      dataset: 'datasets',
-      analysis: 'analyses',
-      datasource: 'datasources',
-      folder: 'folders',
-      user: 'users',
-      theme: 'themes',
-      group: 'groups',
-    };
-    return mapping[assetType] || null;
-  }
-
-  /**
-   * Get empty export summary for when no cache exists
-   */
-  private getEmptyExportSummary(): ExportSummary {
-    return {
-      totalAssets: 0,
-      exportedAssets: 0,
-      lastExportDate: null,
-      exportInProgress: false,
-      needsInitialExport: true,
-      assetTypeCounts: {
-        dashboards: 0,
-        datasets: 0,
-        analyses: 0,
-        datasources: 0,
-        folders: 0,
-        users: 0,
-        groups: 0,
-        themes: 0,
-      },
-      archivedAssetCounts: {
-        dashboards: 0,
-        datasets: 0,
-        analyses: 0,
-        datasources: 0,
-        folders: 0,
-        users: 0,
-        groups: 0,
-        themes: 0,
-        total: 0,
-      },
-      fieldStatistics: null,
-      cacheVersion: 1,
-      message: 'No cache found. Run initial export to build asset inventory.',
-    };
-  }
-
-  private getMemoryCacheSize(): number {
-    const lambdaMemoryMB = parseInt(
-      process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE ||
-        CACHE_CONFIG.DEFAULT_LAMBDA_MEMORY_MB.toString(),
-      10
+    const etag = await this.s3Service.putObject(
+      this.bucketName,
+      key,
+      options?.compact ? JSON.stringify(data) : JSON.stringify(data, null, 2)
     );
-
-    if (lambdaMemoryMB >= CACHE_CONFIG.LARGE_LAMBDA_MEMORY_MB) {
-      return CACHE_CONFIG.LARGE_LAMBDA_CACHE_SIZE;
-    } else if (lambdaMemoryMB >= CACHE_CONFIG.MEDIUM_LAMBDA_MEMORY_MB) {
-      return CACHE_CONFIG.MEDIUM_LAMBDA_CACHE_SIZE;
-    } else {
-      return CACHE_CONFIG.SMALL_LAMBDA_CACHE_SIZE;
-    }
+    this.memory.setValidated(key, data, etag);
   }
 
-  /**
-   * Compare the memory copy's ETag against S3's current ETag via HEAD.
-   */
-  private async revalidateAgainstS3(
+  public getActivityCache(): Promise<any | null> {
+    return this.get(ACTIVITY_CACHE_KEY);
+  }
+
+  public getActivityCacheWithEtag(): Promise<{ value: any | null; etag?: string }> {
+    return this.getWithEtag(ACTIVITY_CACHE_KEY);
+  }
+
+  public putActivityCache(data: any): Promise<void> {
+    return this.put(ACTIVITY_CACHE_KEY, data);
+  }
+
+  /** Activity's historical dates. */
+  public getActivityPersistence(): Promise<any | null> {
+    return this.get(ACTIVITY_PERSISTENCE_KEY);
+  }
+
+  public getActivityPersistenceWithEtag(): Promise<{ value: any | null; etag?: string }> {
+    return this.getWithEtag(ACTIVITY_PERSISTENCE_KEY);
+  }
+
+  public putActivityPersistence(data: any): Promise<void> {
+    return this.put(ACTIVITY_PERSISTENCE_KEY, data);
+  }
+
+  public async getIngestions(): Promise<{ ingestions: any[]; metadata: any } | null> {
+    return await this.get(INGESTIONS_KEY);
+  }
+
+  public async saveIngestions(ingestions: any[], metadata: any): Promise<void> {
+    await this.put(INGESTIONS_KEY, { ingestions, metadata, lastUpdated: new Date().toISOString() });
+  }
+
+  /** Compare the memory copy's ETag with S3's, by HEAD. */
+  private async revalidate(
     key: string,
-    memoryEtag: string | undefined
+    etag: string | undefined
   ): Promise<'fresh' | 'stale' | 'missing' | 'unknown'> {
     try {
       const head = await this.s3Service.headObject(this.bucketName, key);
-      if (head.etag && memoryEtag && head.etag === memoryEtag) {
-        return 'fresh';
-      }
-      return 'stale';
+      return head.etag && etag && head.etag === etag ? 'fresh' : 'stale';
     } catch (error: any) {
       if (
         error?.name === 'NotFound' ||
@@ -744,5 +147,15 @@ export class CacheService extends EventEmitter {
   }
 }
 
-// Export singleton instance
+/** How many documents to hold, by the Lambda's memory. */
+function memoryCacheSize(): number {
+  const mb = parseInt(
+    process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE || CACHE_CONFIG.DEFAULT_LAMBDA_MEMORY_MB.toString(),
+    10
+  );
+  if (mb >= CACHE_CONFIG.LARGE_LAMBDA_MEMORY_MB) return CACHE_CONFIG.LARGE_LAMBDA_CACHE_SIZE;
+  if (mb >= CACHE_CONFIG.MEDIUM_LAMBDA_MEMORY_MB) return CACHE_CONFIG.MEDIUM_LAMBDA_CACHE_SIZE;
+  return CACHE_CONFIG.SMALL_LAMBDA_CACHE_SIZE;
+}
+
 export const cacheService = CacheService.getInstance();

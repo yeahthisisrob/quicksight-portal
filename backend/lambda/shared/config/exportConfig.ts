@@ -44,28 +44,10 @@ export const EXPORT_CONFIG = {
     batchDelay: 0,
   },
 
-  // Caching configuration
-  cache: {
-    // TTL for in-memory metadata cache (ms)
-    metadataTTL: parseInt(process.env.EXPORT_CACHE_METADATA_TTL || '300000', 10), // 5 minutes
-    // TTL for permissions cache (ms)
-    permissionsTTL: parseInt(process.env.EXPORT_CACHE_PERMISSIONS_TTL || '600000', 10), // 10 minutes
-    // TTL for tags cache (ms)
-    tagsTTL: parseInt(process.env.EXPORT_CACHE_TAGS_TTL || '600000', 10), // 10 minutes
-    // Max cache size per type
-    maxSize: parseInt(process.env.EXPORT_CACHE_MAX_SIZE || '5000', 10),
-  },
-
-  // Cache rebuild configuration
-  cacheRebuild: {
-    // Max concurrent S3 read operations during cache rebuild
-    maxConcurrentReads: parseInt(process.env.CACHE_REBUILD_CONCURRENT_READS || '20', 10),
-    // Max concurrent S3 write operations when saving cache files
-    maxConcurrentWrites: parseInt(process.env.CACHE_REBUILD_CONCURRENT_WRITES || '3', 10),
-    // Batch size for processing assets (used for progress logging)
-    batchSize: parseInt(process.env.CACHE_REBUILD_BATCH_SIZE || '50', 10),
-    // Progress logging interval (log every N assets)
-    progressLogInterval: parseInt(process.env.CACHE_REBUILD_PROGRESS_INTERVAL || '50', 10),
+  // Catalog rebuild: export documents read from S3 at once, and types written at once
+  catalogRebuild: {
+    maxConcurrentReads: 20,
+    maxConcurrentWrites: 3,
   },
 
   // S3 operations configuration

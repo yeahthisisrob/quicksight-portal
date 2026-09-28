@@ -1,7 +1,7 @@
 /**
  * The API answers the way its contract says, through the real handler
  * stack: routing, handlers, services and the mappers that build each row,
- * over a cache holding one asset of every type. Only the edges are stubbed
+ * over a catalog holding one asset of every type. Only the edges are stubbed
  * (auth, stored settings, S3, lineage and activity). Every response is
  * checked strictly against the served contract, undeclared fields
  * included, so a row shape that drifts (a data source's engine sent as
@@ -9,76 +9,52 @@
  * browser.
  */
 import type { APIGatewayProxyEvent } from 'aws-lambda';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import served from '../../../../shared/generated/openapi.json';
 import { responseErrors } from '../../shared/api/contract';
+import type { AssetType } from '../../shared/models/asset.model';
+import { catalogEntry, useTestCatalog } from '../../shared/utils/testUtils/testCatalog';
 import { apiHandler } from '../apiHandler';
 
-const T0 = new Date('2026-09-01T00:00:00.000Z');
+const tags = [{ key: 'env', value: 'prod' }];
+const entry = (type: AssetType, id: string, assetName: string, metadata = {}) =>
+  catalogEntry(type, id, { assetName, tags, metadata });
 
-function entry(assetType: string, assetId: string, assetName: string, metadata = {}) {
-  return {
-    assetId,
-    assetType,
-    assetName,
-    arn: `arn:aws:quicksight:us-east-1:123456789012:${assetType}/${assetId}`,
-    status: 'active',
-    enrichmentStatus: 'enriched',
-    createdTime: T0,
-    lastUpdatedTime: T0,
-    exportedAt: T0,
-    exportFilePath: `assets/${assetType}s/${assetId}.json`,
-    storageType: 'individual',
-    tags: [{ key: 'env', value: 'prod' }],
-    permissions: [],
-    metadata,
-  };
-}
+const SEED = [
+  entry('dashboard', 'd1', 'Sales', {
+    sheetCount: 1,
+    visualCount: 2,
+    datasetCount: 1,
+    lineageData: { datasetIds: ['ds1'] },
+    themeArn: 'arn:aws:quicksight:us-east-1:123456789012:theme/brand',
+  }),
+  entry('analysis', 'a1', 'Sales draft', { lineageData: { datasetIds: ['ds1'] } }),
+  entry('dataset', 'ds1', 'orders', {
+    importMode: 'SPICE',
+    sourceType: 'ATHENA',
+    fields: [{ fieldName: 'revenue', dataType: 'DECIMAL' }],
+    calculatedFields: [],
+    lineageData: { datasourceIds: ['src1'] },
+  }),
+  entry('datasource', 'src1', 'Athena primary', {
+    sourceType: 'ATHENA',
+    connectionMode: 'DIRECT_QUERY',
+  }),
+  entry('folder', 'f1', 'Finance', { memberCount: 0 }),
+  entry('user', 'pat', 'pat', { role: 'READER', email: 'pat@example.com', active: true }),
+  entry('group', 'finance', 'finance', { memberCount: 1 }),
+  entry('theme', 'brand', 'Brand', {
+    baseThemeId: 'CLASSIC',
+    versionNumber: 3,
+    dataColors: ['#1F77B4', '#FF7F0E'],
+    uiColors: { PrimaryBackground: '#FFFFFF', Accent: '#1F77B4' },
+    fontFamily: 'Inter',
+  }),
+];
 
-const CACHE = {
-  version: '1',
-  lastUpdated: T0,
-  entries: {
-    dashboard: [
-      entry('dashboard', 'd1', 'Sales', {
-        sheetCount: 1,
-        visualCount: 2,
-        datasetCount: 1,
-        lineageData: { datasetIds: ['ds1'] },
-        themeArn: 'arn:aws:quicksight:us-east-1:123456789012:theme/brand',
-      }),
-    ],
-    analysis: [entry('analysis', 'a1', 'Sales draft', { lineageData: { datasetIds: ['ds1'] } })],
-    dataset: [
-      entry('dataset', 'ds1', 'orders', {
-        importMode: 'SPICE',
-        sourceType: 'ATHENA',
-        fields: [{ fieldName: 'revenue', dataType: 'DECIMAL' }],
-        calculatedFields: [],
-        lineageData: { datasourceIds: ['src1'] },
-      }),
-    ],
-    datasource: [
-      entry('datasource', 'src1', 'Athena primary', {
-        sourceType: 'ATHENA',
-        connectionMode: 'DIRECT_QUERY',
-      }),
-    ],
-    folder: [entry('folder', 'f1', 'Finance', { memberCount: 0 })],
-    user: [entry('user', 'pat', 'pat', { role: 'READER', email: 'pat@example.com', active: true })],
-    group: [entry('group', 'finance', 'finance', { memberCount: 1 })],
-    theme: [
-      entry('theme', 'brand', 'Brand', {
-        baseThemeId: 'CLASSIC',
-        versionNumber: 3,
-        dataColors: ['#1F77B4', '#FF7F0E'],
-        uiColors: { PrimaryBackground: '#FFFFFF', Accent: '#1F77B4' },
-        fontFamily: 'Inter',
-      }),
-    ],
-  },
-};
+const { seed } = useTestCatalog();
+beforeEach(() => seed(SEED));
 
 vi.mock('../../shared/auth', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../shared/auth')>();
@@ -98,17 +74,13 @@ vi.mock('../../shared/services/settings/SettingsStore', () => ({
 vi.mock('../../shared/services/cache/CacheService', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../shared/services/cache/CacheService')>()),
   cacheService: {
-    getMasterCache: vi.fn(async () => CACHE),
-    getMasterCacheWithVersion: vi.fn(async () => ({ cache: CACHE, version: 'v1' })),
-    getCacheEntries: vi.fn(async ({ assetType }: { assetType: string }) =>
-      assetType ? ((CACHE.entries as Record<string, unknown[]>)[assetType] ?? []) : []
-    ),
+    get: vi.fn(async () => null),
+    getWithEtag: vi.fn(async () => ({ value: null })),
     getActivityCache: vi.fn(async () => null),
     getActivityPersistence: vi.fn(async () => null),
     getActivityCacheWithEtag: vi.fn(async () => ({ value: null })),
     getActivityPersistenceWithEtag: vi.fn(async () => ({ value: null })),
-    searchFields: vi.fn(async () => []),
-    getBucketName: vi.fn(() => 'test-bucket'),
+    getIngestions: vi.fn(async () => null),
   },
 }));
 vi.mock('../../shared/services/lineage/LineageService', () => ({
@@ -167,7 +139,7 @@ describe('the API answers as its contract says', () => {
   });
 });
 
-/** A value for each path parameter, from the seeded cache where there is one. */
+/** A value for each path parameter, from the seeded catalog where there is one. */
 const PATH_VALUES: Record<string, string> = {
   assetType: 'dashboard',
   assetId: 'd1',

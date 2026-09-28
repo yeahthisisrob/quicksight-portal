@@ -1,13 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { catalogEntry, useTestCatalog } from '../../../utils/testUtils/testCatalog';
+
 const mocks = vi.hoisted(() => ({
-  getCacheEntries: vi.fn(),
   findBySub: vi.fn(),
 }));
 
-vi.mock('../../cache/CacheService', () => ({
-  cacheService: { getCacheEntries: mocks.getCacheEntries },
-}));
 vi.mock('../../../../adapters/aws/CognitoAdapter', () => ({
   CognitoAdapter: vi.fn(function () {
     return { findBySub: mocks.findBySub };
@@ -20,19 +18,19 @@ vi.mock('../../../utils/logger', () => ({
 import { resetIdentityCache, resolvePeople } from '../IdentityResolver';
 
 const SUB = '4f1c8a2e-9b3d-4e5f-8a6b-7c8d9e0f1a2b';
-const ROB = {
-  assetId: 'rob',
-  assetName: 'rob',
+const ROB = catalogEntry('user', 'rob', {
   arn: 'arn:aws:quicksight:us-east-1:1:user/default/rob',
   metadata: { email: 'Rob@Example.com' },
-};
+});
+
+const { seed } = useTestCatalog();
 
 describe('resolvePeople', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     resetIdentityCache();
     process.env.COGNITO_USER_POOL_ID = 'pool-1';
-    mocks.getCacheEntries.mockResolvedValue([ROB]);
+    await seed([ROB]);
     mocks.findBySub.mockResolvedValue({ username: 'google_123', email: 'rob@example.com' });
   });
 

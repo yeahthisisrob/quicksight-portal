@@ -2,20 +2,15 @@
  * CalculatedFieldTemplateStore - calculated fields saved for reuse.
  *
  * SMUS has no home for a QuickSight calculated field, so the portal keeps
- * these: one DynamoDB item per template in the jobs table under the
- * CALC_TEMPLATE partition. Author adds them to the copies it creates; the
+ * these in its library. Author adds them to the copies it creates; the
  * catalog marks the fields that match one so a canonical expression is easy
  * to find among conflicting variants.
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { ValidationError } from '../../errors/ValidationError';
 import { canonicalExpression } from '../../lib/expressionAnalysis';
-import { logger } from '../../utils/logger';
-import { DynamoDBService } from '../aws/DynamoDBService';
+import { TemplateStore } from './TemplateStore';
 
-const TEMPLATE_PK = 'CALC_TEMPLATE';
 const NAME_MAX_LENGTH = 200;
 
 export interface CalculatedFieldTemplate {
@@ -38,11 +33,6 @@ interface CalculatedFieldTemplateInput {
   description?: string;
   tags?: string[];
   source?: { datasetId?: string; datasetName?: string; listingId?: string };
-}
-
-interface StoredTemplate extends CalculatedFieldTemplate {
-  pk: string;
-  sk: string;
 }
 
 export function validateTemplateInput(raw: unknown): CalculatedFieldTemplateInput {
@@ -80,83 +70,12 @@ export function validateTemplateInput(raw: unknown): CalculatedFieldTemplateInpu
   };
 }
 
-export class CalculatedFieldTemplateStore {
-  private readonly tableName: string;
-
-  public constructor(
-    private readonly dynamo: DynamoDBService = new DynamoDBService(),
-    tableName?: string
-  ) {
-    this.tableName =
-      tableName ||
-      process.env.JOBS_TABLE_NAME ||
-      `quicksight-portal-jobs-${process.env.AWS_ACCOUNT_ID || ''}`;
-  }
-
-  public async list(): Promise<CalculatedFieldTemplate[]> {
-    const items = await this.dynamo.queryPartition<StoredTemplate>(
-      this.tableName,
-      'pk',
-      TEMPLATE_PK
-    );
-    return items.map(strip).sort((a, b) => a.name.localeCompare(b.name));
-  }
-
-  public async get(id: string): Promise<CalculatedFieldTemplate | null> {
-    const item = await this.dynamo.getItem<StoredTemplate>(this.tableName, {
-      pk: TEMPLATE_PK,
-      sk: id,
-    });
-    return item ? strip(item) : null;
-  }
-
-  public async create(
-    input: CalculatedFieldTemplateInput,
-    createdBy: string
-  ): Promise<CalculatedFieldTemplate> {
-    const now = new Date().toISOString();
-    const item: StoredTemplate = {
-      pk: TEMPLATE_PK,
-      sk: randomUUID(),
-      id: '',
-      ...input,
-      createdBy,
-      createdAt: now,
-      updatedAt: now,
-    };
-    item.id = item.sk;
-    await this.dynamo.putItem(this.tableName, item);
-    logger.info('Calculated-field template saved', { id: item.id, name: item.name, createdBy });
-    return strip(item);
-  }
-
-  public async update(
-    id: string,
-    input: CalculatedFieldTemplateInput
-  ): Promise<CalculatedFieldTemplate> {
-    const existing = await this.get(id);
-    if (!existing) {
-      throw Object.assign(new ValidationError(`No template '${id}'`), { statusCode: 404 });
-    }
-    const item: StoredTemplate = {
-      pk: TEMPLATE_PK,
-      sk: id,
-      ...existing,
-      ...input,
-      id,
-      updatedAt: new Date().toISOString(),
-    };
-    await this.dynamo.putItem(this.tableName, item);
-    return strip(item);
-  }
-
-  public async delete(id: string): Promise<void> {
-    const existing = await this.get(id);
-    if (!existing) {
-      throw Object.assign(new ValidationError(`No template '${id}'`), { statusCode: 404 });
-    }
-    await this.dynamo.deleteItem(this.tableName, { pk: TEMPLATE_PK, sk: id });
-    logger.info('Calculated-field template deleted', { id });
+export class CalculatedFieldTemplateStore extends TemplateStore<
+  CalculatedFieldTemplate,
+  CalculatedFieldTemplateInput
+> {
+  public constructor() {
+    super('calculated-field', 'Calculated-field template');
   }
 
   /** Template id by normalised expression, for marking matching fields. */
@@ -170,9 +89,4 @@ export class CalculatedFieldTemplateStore {
     }
     return map;
   }
-}
-
-function strip(item: StoredTemplate): CalculatedFieldTemplate {
-  const { pk: _pk, sk: _sk, ...rest } = item;
-  return rest;
 }

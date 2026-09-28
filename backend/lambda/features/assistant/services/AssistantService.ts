@@ -33,6 +33,7 @@ import {
   datasetColumns,
   entityNames,
 } from '../lib/contextTools';
+import { conversationOf } from '../lib/conversation';
 import {
   builtFilters,
   declaredDatasets,
@@ -72,8 +73,6 @@ export { announcesMore, CONTINUE_NUDGE, describeStep } from '../lib/steps';
 /** Enough for find, plan, preview, prepare, and a correction or two. */
 const MAX_ROUNDS = 12;
 const MAX_RESULT_CHARS = 12_000;
-const MAX_HISTORY = 20;
-const MAX_MESSAGE_CHARS = 8_000;
 const MAX_ARTIFACTS = 6;
 const HTTP_ERROR_MIN = 400;
 const HTTP_OK = 200;
@@ -246,13 +245,11 @@ export class AssistantService {
     run: RunInput = {}
   ): Promise<AssistantChatResult> {
     this.earlierPlans = run.state?.plans ?? [];
-    const turns: ChatTurn[] = history
-      .slice(-MAX_HISTORY)
-      .map((m) =>
-        m.role === 'user'
-          ? { role: 'user', text: m.text.slice(0, MAX_MESSAGE_CHARS) }
-          : { role: 'assistant', text: m.text.slice(0, MAX_MESSAGE_CHARS), toolCalls: [] }
-      );
+    const turns: ChatTurn[] = conversationOf(history).map((m) =>
+      m.role === 'user'
+        ? { role: 'user', text: m.text }
+        : { role: 'assistant', text: m.text, toolCalls: [] }
+    );
     const out: Collected = {
       calls: [],
       actions: [],

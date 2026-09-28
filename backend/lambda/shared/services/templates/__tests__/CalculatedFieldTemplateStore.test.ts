@@ -1,5 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  type PortalTestTable,
+  startPortalTestTable,
+} from '../../../utils/testUtils/portalTestTable';
 import {
   CalculatedFieldTemplateStore,
   validateTemplateInput,
@@ -35,76 +39,54 @@ describe('validateTemplateInput', () => {
   });
 });
 
-describe('CalculatedFieldTemplateStore', () => {
-  const dynamo = {
-    queryPartition: vi.fn(),
-    getItem: vi.fn(),
-    putItem: vi.fn(),
-    deleteItem: vi.fn(),
-  };
-  let store: CalculatedFieldTemplateStore;
+let table: PortalTestTable;
+beforeAll(async () => {
+  table = await startPortalTestTable();
+});
+afterAll(async () => {
+  await table.stop();
+});
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    store = new CalculatedFieldTemplateStore(dynamo as any, 'jobs');
+describe('CalculatedFieldTemplateStore', () => {
+  const store = new CalculatedFieldTemplateStore();
+
+  beforeEach(async () => {
+    for (const t of await store.list()) await store.delete(t.id);
   });
 
-  it('creates under the template partition and strips the keys', async () => {
+  it('creates a template and returns it with its id and who made it', async () => {
     const created = await store.create({ name: 'margin', expression: '{revenue}-{cost}' }, 'rob');
-    const item = dynamo.putItem.mock.calls[0]?.[1];
-    expect(item.pk).toBe('CALC_TEMPLATE');
-    expect(item.sk).toBe(item.id);
-    expect(created).not.toHaveProperty('pk');
-    expect(created).toMatchObject({ name: 'margin', createdBy: 'rob' });
+    expect(created).toMatchObject({
+      name: 'margin',
+      createdBy: 'rob',
+      expression: '{revenue}-{cost}',
+    });
+    expect(await store.get(created.id)).toEqual(created);
   });
 
   it('lists sorted by name and indexes by normalised expression', async () => {
-    dynamo.queryPartition.mockResolvedValue([
-      {
-        pk: 'CALC_TEMPLATE',
-        sk: '2',
-        id: '2',
-        name: 'b',
-        expression: '{a}  -  {b}',
-        createdAt: '',
-        updatedAt: '',
-      },
-      {
-        pk: 'CALC_TEMPLATE',
-        sk: '1',
-        id: '1',
-        name: 'a',
-        expression: '{x}',
-        createdAt: '',
-        updatedAt: '',
-      },
-    ]);
+    await store.create({ name: 'b', expression: '{a}  -  {b}' }, 'rob');
+    await store.create({ name: 'a', expression: '{x}' }, 'rob');
     const list = await store.list();
     expect(list.map((t) => t.name)).toEqual(['a', 'b']);
-    expect(dynamo.queryPartition).toHaveBeenCalledWith('jobs', 'pk', 'CALC_TEMPLATE');
     const index = CalculatedFieldTemplateStore.indexByExpression(list);
-    expect(index.get(index.keys().next().value!)).toBeDefined();
     expect(index.size).toBe(2);
   });
 
   it('updates and deletes only existing templates', async () => {
-    dynamo.getItem.mockResolvedValue(null);
     await expect(store.update('x', { name: 'n', expression: 'e' })).rejects.toMatchObject({
       statusCode: 404,
     });
     await expect(store.delete('x')).rejects.toMatchObject({ statusCode: 404 });
-    dynamo.getItem.mockResolvedValue({
-      pk: 'CALC_TEMPLATE',
-      sk: 'x',
-      id: 'x',
-      name: 'old',
-      expression: 'e',
-      createdAt: 't0',
-      updatedAt: 't0',
+    const made = await store.create({ name: 'old', expression: 'e' }, 'rob');
+    const updated = await store.update(made.id, { name: 'new', expression: 'e2' });
+    expect(updated).toMatchObject({
+      id: made.id,
+      name: 'new',
+      expression: 'e2',
+      createdAt: made.createdAt,
     });
-    const updated = await store.update('x', { name: 'new', expression: 'e2' });
-    expect(updated).toMatchObject({ id: 'x', name: 'new', expression: 'e2', createdAt: 't0' });
-    await store.delete('x');
-    expect(dynamo.deleteItem).toHaveBeenCalledWith('jobs', { pk: 'CALC_TEMPLATE', sk: 'x' });
+    await store.delete(made.id);
+    expect(await store.get(made.id)).toBeNull();
   });
 });

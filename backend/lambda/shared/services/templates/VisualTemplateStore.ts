@@ -5,10 +5,8 @@
  * dataset without them leaves the visual out and says so.
  */
 import { ValidationError } from '../../errors/ValidationError';
-import type { DynamoDBService } from '../aws/DynamoDBService';
 import { type TemplateMeta, TemplateStore } from './TemplateStore';
 
-const TEMPLATE_PK = 'VISUAL_TEMPLATE';
 const NAME_MAX_LENGTH = 200;
 const MAX_VALUES = 10;
 
@@ -97,7 +95,7 @@ export function validateVisualTemplateInput(raw: unknown): VisualTemplateInput {
 }
 
 export class VisualTemplateStore extends TemplateStore<VisualTemplate, VisualTemplateInput> {
-  public constructor(dynamo?: DynamoDBService, tableName?: string) {
-    super(TEMPLATE_PK, 'Visual template', dynamo, tableName);
+  public constructor() {
+    super('visual', 'Visual template');
   }
 }

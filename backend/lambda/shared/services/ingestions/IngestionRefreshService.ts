@@ -16,6 +16,7 @@ import { resolveSourceTypeFromArns } from '../../utils/filterUtils';
 import { logger } from '../../utils/logger';
 import type { QuickSightService } from '../aws/QuickSightService';
 import type { CacheService } from '../cache/CacheService';
+import { catalog } from '../catalog/catalogStore';
 
 interface IngestionRefreshResult {
   ingestions: Ingestion[];
@@ -105,9 +106,8 @@ export class IngestionRefreshService {
     const allIngestions: Ingestion[] = [];
 
     // Get all datasets and datasources from cache
-    const datasets = await this.cacheService.getAllDatasets();
-    const datasourceResult = await this.cacheService.getAssetsByType('datasource');
-    const datasourceEntries = datasourceResult.assets || [];
+    const datasets = await catalog.list('dataset');
+    const datasourceEntries = await catalog.list('datasource');
     const spiceDatasets = datasets.filter((ds) => ds.metadata?.importMode === 'SPICE');
 
     logger.info(`Found ${spiceDatasets.length} SPICE datasets to fetch ingestions for`);

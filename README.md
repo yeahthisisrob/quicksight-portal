@@ -203,7 +203,13 @@ Every step is an ordinary authenticated API call, so the same flow is available 
    pnpm run cdk:bootstrap  # first time only
    just deploy             # checks, builds, then deploys the stack
    ```
-   The stack creates CloudFront + S3 (SPA), the API and worker Lambdas, Cognito, the SQS export queue + DLQ, and the DynamoDB jobs table. Outputs include the **SiteURL** — the portal is live there.
+   The stack creates CloudFront + S3 (SPA), the API and worker Lambdas, Cognito, the SQS export queue + DLQ, and the DynamoDB portal table (the asset catalog, jobs, settings, API keys, the audit log and the template library). Outputs include the **SiteURL** — the portal is live there.
+
+   **Upgrading from 2.35 or earlier** (the catalog moved from S3 files into the portal table):
+   1. `just deploy` - adds the portal table beside the old jobs table.
+   2. `just migrate-portal-table` - copies settings, API keys, the audit log and the library across (safe to run again).
+   3. Run an export from the Export page - it fills the catalog from the export files already in S3, with no QuickSight calls for unchanged assets.
+   4. Once the portal looks right: delete the `cache/<type>.json` and `cache/metadata.json` objects from the metadata bucket, then the `quicksight-portal-jobs-<account>` table.
 
    Optional context flags: `-c enableWaf=false` (WAF is on by default), `-c allowedIpRanges='["1.2.3.4/32"]'` (edge IP allowlist), `-c smusDomainId=dzd_xxxx` (SMUS integration), `-c nag=false` (skip cdk-nag for a one-off synth).
 
@@ -271,7 +277,7 @@ and in CI.
 Use `pnpm`, never `npm` - a stray `npm install` creates a second lockfile and
 reintroduces exactly the version drift the workspace removes.
 
-Local development talks to your real AWS account (S3, DynamoDB, QuickSight); the jobs table is created automatically on first use if it doesn't exist.
+Local development talks to your real AWS account (S3, DynamoDB, QuickSight) and uses the deployed portal table, so deploy the stack once first. Tests never touch AWS: store tests run against DynamoDB Local, which `just test` starts (Java comes from mise).
 
 ## Project Structure
 
@@ -307,7 +313,7 @@ Contract-first via OpenAPI: `shared/schemas/api.openapi.yaml` defines every endp
 
 - Cognito authentication; JWTs verified in the API Lambda on every request
 - CloudFront same-origin API routing; WAF (managed rules) on by default with optional IP allowlisting at the edge
-- Least-privilege IAM scoped to the metadata bucket, jobs table, and QuickSight; encrypted S3/SQS/DynamoDB
+- Least-privilege IAM scoped to the metadata bucket, the portal table, and QuickSight; encrypted S3/SQS/DynamoDB
 - **cdk-nag (AWS Solutions pack) fails synth on unreviewed findings** — every accepted deviation is acknowledged in the stack with a written reason
 - CloudTrail-based activity auditing surfaced in the portal
 - The planner never writes to QuickSight: model output is validated as untrusted data and only reaches the apply step through the same plan a person reviews; Bedrock keeps prompts and definitions inside your account

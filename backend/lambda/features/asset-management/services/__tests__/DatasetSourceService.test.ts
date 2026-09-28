@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { catalog } from '../../../../shared/services/catalog/catalogStore';
+import { catalogEntry, useTestCatalog } from '../../../../shared/utils/testUtils/testCatalog';
 import { DatasetSourceService } from '../DatasetSourceService';
+
+const { seed } = useTestCatalog();
 
 const mocks = vi.hoisted(() => ({
   qs: {
     describeDataset: vi.fn(),
     updateDataSet: vi.fn(),
-  },
-  cache: {
-    getCacheEntries: vi.fn(),
-    updateAsset: vi.fn(),
   },
 }));
 
@@ -17,12 +17,10 @@ vi.mock('../../../../shared/services/aws/ClientFactory', () => ({
   ClientFactory: { getQuickSightService: () => mocks.qs },
 }));
 
-vi.mock('../../../../shared/services/cache/CacheService', () => ({
-  cacheService: mocks.cache,
-}));
-
 const freshness = vi.hoisted(() => vi.fn());
-vi.mock('../../../../shared/services/cache/assetFreshness', () => ({ keepCacheFresh: freshness }));
+vi.mock('../../../../shared/services/catalog/assetFreshness', () => ({
+  keepCatalogFresh: freshness,
+}));
 vi.mock('../../../../shared/utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
@@ -60,13 +58,14 @@ const describeResponse = () => ({
 describe('DatasetSourceService', () => {
   let service: DatasetSourceService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     mocks.qs.describeDataset.mockResolvedValue(describeResponse());
     mocks.qs.updateDataSet.mockResolvedValue({ arn: 'a', dataSetId: 'ds-1' });
-    mocks.cache.getCacheEntries.mockResolvedValue([
-      { assetId: 'athena-a', assetName: 'Athena A', arn: SOURCE_A, metadata: {} },
-      { assetId: 'athena-b', assetName: 'Athena B', arn: SOURCE_B, metadata: {} },
+    await seed([
+      catalogEntry('datasource', 'athena-a', { assetName: 'Athena A', arn: SOURCE_A }),
+      catalogEntry('datasource', 'athena-b', { assetName: 'Athena B', arn: SOURCE_B }),
+      catalogEntry('dataset', 'ds-1', { assetName: 'orders_fact' }),
     ]);
     service = new DatasetSourceService('1');
   });
@@ -230,15 +229,15 @@ describe('DatasetSourceService', () => {
       const result = await service.updateSource('ds-1', { name: '  orders_fact_v2 ' });
 
       expect(mocks.qs.updateDataSet.mock.calls[0]![0].name).toBe('orders_fact_v2');
-      expect(mocks.cache.updateAsset).toHaveBeenCalledWith('dataset', 'ds-1', {
-        assetName: 'orders_fact_v2',
-      });
+      expect((await catalog.get('dataset', 'ds-1'))?.assetName).toBe('orders_fact_v2');
       expect(result.name).toBe('orders_fact_v2');
     });
 
     it('re-reads the dataset after a source change, without patching a name that did not change', async () => {
+      const patch = vi.spyOn(catalog, 'patch');
       await service.updateSource('ds-1', { tables: [{ id: 't-rel', schema: 'other' }] });
-      expect(mocks.cache.updateAsset).not.toHaveBeenCalled();
+      expect(patch).not.toHaveBeenCalled();
+      expect((await catalog.get('dataset', 'ds-1'))?.assetName).toBe('orders_fact');
       expect(freshness).toHaveBeenCalledWith([
         expect.objectContaining({ assetType: 'dataset', assetId: 'ds-1' }),
       ]);
@@ -259,9 +258,14 @@ describe('DatasetSourceService', () => {
 
   describe('listDataSourceOptions', () => {
     it('returns the account data sources sorted by name', async () => {
-      mocks.cache.getCacheEntries.mockResolvedValue([
-        { assetId: 'b', assetName: 'Zeta', arn: SOURCE_B, metadata: { sourceType: 'ATHENA' } },
-        { assetId: 'a', assetName: 'Alpha', arn: SOURCE_A, metadata: {} },
+      await catalog.clear();
+      await seed([
+        catalogEntry('datasource', 'b', {
+          assetName: 'Zeta',
+          arn: SOURCE_B,
+          metadata: { sourceType: 'ATHENA' },
+        }),
+        catalogEntry('datasource', 'a', { assetName: 'Alpha', arn: SOURCE_A }),
       ]);
 
       const options = await service.listDataSourceOptions();
@@ -270,9 +274,8 @@ describe('DatasetSourceService', () => {
     });
 
     it('skips entries with no ARN, which could never be selected', async () => {
-      mocks.cache.getCacheEntries.mockResolvedValue([
-        { assetId: 'a', assetName: 'No arn', arn: '', metadata: {} },
-      ]);
+      await catalog.clear();
+      await seed([catalogEntry('datasource', 'a', { assetName: 'No arn', arn: '' })]);
       expect(await service.listDataSourceOptions()).toEqual([]);
     });
   });

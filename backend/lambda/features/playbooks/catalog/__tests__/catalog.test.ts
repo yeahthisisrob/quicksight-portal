@@ -1,19 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { AssetType } from '../../../../shared/models/asset.model';
+import { catalogEntry, useTestCatalog } from '../../../../shared/utils/testUtils/testCatalog';
 import { PortalCallError } from '../../types';
 import { consolidateAthena } from '../consolidateAthena';
 import { demoCleanup } from '../demoCleanup';
 import { repairErrors } from '../repairErrors';
 
-const entries = vi.hoisted(() => ({ byType: {} as Record<string, any[]> }));
+const { seed } = useTestCatalog();
 
-vi.mock('../../../../shared/services/cache/CacheService', () => ({
-  cacheService: {
-    getCacheEntries: vi.fn(
-      async ({ assetType }: { assetType: string }) => entries.byType[assetType] ?? []
-    ),
-  },
-}));
+type Row = { assetType: string; assetId: string; assetName: string; arn?: string; metadata: any };
+
+async function seedAll(byType: Record<string, Row[]>) {
+  await seed(
+    Object.values(byType)
+      .flat()
+      .map(({ assetType, assetId, ...rest }) => catalogEntry(assetType as AssetType, assetId, rest))
+  );
+}
 
 const ARN = (id: string) => `arn:aws:quicksight:us-east-1:1:datasource/${id}`;
 
@@ -41,9 +45,9 @@ describe('consolidate Athena data sources', () => {
   const call = vi.fn();
   const ctx = { call: call as any, params: { target: 'main' } };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     call.mockReset();
-    entries.byType = {
+    await seedAll({
       datasource: [
         athena('main'),
         athena('old'),
@@ -62,7 +66,7 @@ describe('consolidate Athena data sources', () => {
         dataset('on-pg', ['pg']),
         dataset('on-elsewhere', ['elsewhere']),
       ],
-    };
+    });
   });
 
   it('scopes datasets on another Athena data source, never other engines', async () => {
@@ -134,9 +138,9 @@ describe('repair everything', () => {
   const ctx = { call: call as any, params: {} };
   const t = { assetType: 'dashboard' as const, assetId: 'd1', name: 'Sales' };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     call.mockReset();
-    entries.byType = {
+    await seedAll({
       dashboard: [
         {
           assetType: 'dashboard',
@@ -147,7 +151,7 @@ describe('repair everything', () => {
         { assetType: 'dashboard', assetId: 'd2', assetName: 'Fine', metadata: {} },
       ],
       analysis: [],
-    };
+    });
   });
 
   it('scopes only what QuickSight reports errors on', async () => {
@@ -191,9 +195,9 @@ describe('remove the sample assets', () => {
   const call = vi.fn();
   const ctx = { call: call as any, params: {} };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     call.mockReset();
-    entries.byType = {
+    await seedAll({
       datasource: [
         {
           assetType: 'datasource',
@@ -229,7 +233,7 @@ describe('remove the sample assets', () => {
           metadata: { lineageData: { datasetIds: ['mixed'] } },
         },
       ],
-    };
+    });
   });
 
   it('finds the samples by bucket, in analysis → dataset → data source order', async () => {

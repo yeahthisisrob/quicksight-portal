@@ -22,7 +22,7 @@
 
 import { describeDataSetForEdit, resendDataSet } from '../../../shared/services/aws/datasetUpdate';
 import { QuickSightService } from '../../../shared/services/aws/QuickSightService';
-import { cacheService } from '../../../shared/services/cache/CacheService';
+import { catalog } from '../../../shared/services/catalog/catalogStore';
 import type { AssetType } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
 
@@ -79,7 +79,7 @@ export class RenameService {
     // Listings reflect the new name immediately; the exported S3 file
     // refreshes on the next Smart Sync (QuickSight bumped LastUpdatedTime)
     try {
-      await cacheService.updateAsset(assetType as AssetType, assetId, { assetName: name });
+      await catalog.patch(assetType as AssetType, assetId, { assetName: name });
     } catch (error) {
       // Non-fatal: the rename in QuickSight succeeded; the next export
       // reconciles the cache

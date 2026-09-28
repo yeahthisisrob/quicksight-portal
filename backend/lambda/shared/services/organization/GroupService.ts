@@ -1,5 +1,5 @@
 import { DEBUG_CONFIG } from '../../constants';
-import type { CacheEntry, MasterCache } from '../../models/asset.model';
+import type { CatalogEntry, CatalogSnapshot } from '../../models/asset.model';
 import type {
   ApiResponse,
   AssetExportData,
@@ -11,7 +11,7 @@ import { logger } from '../../utils/logger';
 import { principalMatchesGroup } from '../../utils/quicksightUtils';
 import { QuickSightService } from '../aws/QuickSightService';
 import { S3Service } from '../aws/S3Service';
-import { cacheService } from '../cache/CacheService';
+import { catalog } from '../catalog/catalogStore';
 
 /**
  * Parameters for updating group in export file
@@ -155,8 +155,8 @@ export class GroupService {
     }>;
   }> {
     try {
-      const cache = await cacheService.getMasterCache();
-      const group = cache.entries.group?.find((g: CacheEntry) => g.assetName === groupName);
+      const cache = await catalog.snapshot();
+      const group = cache.entries.group?.find((g: CatalogEntry) => g.assetName === groupName);
 
       logger.debug(`Looking for group ${groupName}`, {
         found: !!group,
@@ -201,10 +201,10 @@ export class GroupService {
    */
   public async getUserGroups(userId: string): Promise<Array<{ groupName: string; arn: string }>> {
     try {
-      const cache = await cacheService.getMasterCache();
+      const cache = await catalog.snapshot();
       const groups = cache.entries.group || [];
 
-      const userGroups = groups.filter((group: CacheEntry) => {
+      const userGroups = groups.filter((group: CatalogEntry) => {
         const members = group.metadata?.members || [];
         return members.some(
           (member: any) =>
@@ -215,7 +215,7 @@ export class GroupService {
         );
       });
 
-      return userGroups.map((group: CacheEntry) => ({
+      return userGroups.map((group: CatalogEntry) => ({
         groupName: group.assetName,
         arn: group.arn,
       }));
@@ -232,12 +232,12 @@ export class GroupService {
    */
   public getUserGroupsBulk(
     userIds: string[],
-    masterCache: MasterCache
+    masterCache: CatalogSnapshot
   ): Map<string, Array<{ groupName: string; arn: string }>> {
     const groups = masterCache.entries.group || [];
 
     // memberKey (memberName | userName | principalId) → groups
-    const groupsByMember = new Map<string, CacheEntry[]>();
+    const groupsByMember = new Map<string, CatalogEntry[]>();
     for (const group of groups) {
       const members = group.metadata?.members || [];
       for (const member of members as any[]) {
@@ -431,9 +431,9 @@ export class GroupService {
    * Check if asset is member of accessible folders
    */
   private checkFolderMembership(
-    entry: CacheEntry,
+    entry: CatalogEntry,
     type: string,
-    accessibleFolders: Array<{ folder: CacheEntry; permissions: string[] }>,
+    accessibleFolders: Array<{ folder: CatalogEntry; permissions: string[] }>,
     assets: AssetAccessInfo[],
     assetsByType: Record<string, number>,
     addedAssetIds: Set<string>
@@ -464,7 +464,7 @@ export class GroupService {
    * Collect all assets accessible by a group
    */
   private collectGroupAssets(
-    group: CacheEntry,
+    group: CatalogEntry,
     cache: any,
     assetTypesToCheck: string[]
   ): {
@@ -505,7 +505,7 @@ export class GroupService {
    * Asset access info type
    */
   private createAssetAccessInfo(
-    entry: CacheEntry,
+    entry: CatalogEntry,
     type: string,
     accessType: 'direct' | 'folder_inherited',
     permissions?: string[],
@@ -526,10 +526,10 @@ export class GroupService {
    * Find folders accessible by a group
    */
   private findAccessibleFolders(
-    group: CacheEntry,
+    group: CatalogEntry,
     cache: any
-  ): Array<{ folder: CacheEntry; permissions: string[] }> {
-    const accessibleFolders: Array<{ folder: CacheEntry; permissions: string[] }> = [];
+  ): Array<{ folder: CatalogEntry; permissions: string[] }> {
+    const accessibleFolders: Array<{ folder: CatalogEntry; permissions: string[] }> = [];
     const folders = cache.entries.folder || [];
     const groupArn = group.arn;
     const groupName = group.assetName;
@@ -580,8 +580,8 @@ export class GroupService {
     type: string,
     context: {
       cache: any;
-      group: CacheEntry;
-      accessibleFolders: Array<{ folder: CacheEntry; permissions: string[] }>;
+      group: CatalogEntry;
+      accessibleFolders: Array<{ folder: CatalogEntry; permissions: string[] }>;
       assets: AssetAccessInfo[];
       assetsByType: Record<string, number>;
       addedAssetIds: Set<string>;
@@ -635,13 +635,13 @@ export class GroupService {
     try {
       if (params.action === 'delete') {
         // For delete, mark as archived in cache
-        await cacheService.updateAsset(ASSET_TYPES.group, params.groupName, {
+        await catalog.patch(ASSET_TYPES.group, params.groupName, {
           status: 'archived',
           lastUpdatedTime: new Date(),
         });
       } else if (params.action === 'create') {
         // For create, add new entry
-        const cacheEntry: Partial<CacheEntry> = {
+        const cacheEntry: Partial<CatalogEntry> = {
           assetId: params.groupName,
           assetName: params.groupName,
           assetType: ASSET_TYPES.group,
@@ -661,10 +661,10 @@ export class GroupService {
           exportFilePath: 'assets/organization/groups.json',
           storageType: 'collection',
         };
-        await cacheService.updateAsset(ASSET_TYPES.group, params.groupName, cacheEntry);
+        await catalog.patch(ASSET_TYPES.group, params.groupName, cacheEntry);
       } else {
         // For update, just update description
-        await cacheService.updateAsset(ASSET_TYPES.group, params.groupName, {
+        await catalog.patch(ASSET_TYPES.group, params.groupName, {
           lastUpdatedTime: params.lastUpdatedTime || new Date(),
           metadata: {
             description: params.description,

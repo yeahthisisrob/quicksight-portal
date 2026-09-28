@@ -207,6 +207,12 @@ deploy: check build
 # MAINTENANCE
 # ============================================================================
 
+# AWS_ACCOUNT_ID and credentials come from the shell; safe to run again.
+# One-time after the portal table deploy: copy settings, keys, audit, library
+[group('maint')]
+migrate-portal-table:
+    {{x}} pnpm --filter @quicksight-portal/cdk exec tsx ../../backend/lambda/scripts/migrate-portal-table.ts
+
 # Show outdated dependencies across the workspace
 [group('maint')]
 outdated:

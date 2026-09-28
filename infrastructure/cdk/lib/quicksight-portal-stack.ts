@@ -157,25 +157,25 @@ export class QuicksightPortalStack extends Stack {
       },
     });
 
-    /* 3b ────────── DynamoDB table for job records + logs */
-    // pk=jobId, sk='META' for the job record; sk='LOG#<ts>#<seq>' for log
-    // entries (one atomic put per log line). GSI lists newest-first; TTL is
-    // the retention backstop behind the cleanupOldJobs sweep. Also holds the
-    // single-export lock item (conditional writes). Job storage never
-    // touches S3.
-    const jobsTable = new DynamoTable(this, 'JobsTable', {
-      tableName: `quicksight-portal-jobs-${this.account}`,
+    /* 3b ────────── The portal's DynamoDB table */
+    // Every entity the portal keeps outside S3, modelled with ElectroDB in
+    // one table: jobs, their logs and items, the export lock, settings, API
+    // keys, the audit log, the library, and the asset catalog. Each change is
+    // a single-item write, so concurrent writers never undo each other. gsi1
+    // lists jobs newest first; `expiresAt` is the TTL for jobs and audit.
+    const portalTable = new DynamoTable(this, 'PortalTable', {
+      tableName: `quicksight-portal-${this.account}`,
       partitionKey: { name: 'pk', type: AttributeType.STRING },
       sortKey: { name: 'sk', type: AttributeType.STRING },
       billingMode: BillingMode.PAY_PER_REQUEST,
       timeToLiveAttribute: 'expiresAt',
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
-      removalPolicy: RemovalPolicy.RETAIN, // job history survives stack teardown
+      removalPolicy: RemovalPolicy.RETAIN, // settings, keys, audit and the catalog survive teardown
     });
-    jobsTable.addGlobalSecondaryIndex({
-      indexName: 'byStartTime',
+    portalTable.addGlobalSecondaryIndex({
+      indexName: 'gsi1',
       partitionKey: { name: 'gsi1pk', type: AttributeType.STRING },
-      sortKey: { name: 'startTime', type: AttributeType.STRING },
+      sortKey: { name: 'gsi1sk', type: AttributeType.STRING },
       projectionType: ProjectionType.ALL,
     });
 
@@ -338,7 +338,7 @@ export class QuicksightPortalStack extends Stack {
       PLANNER_PROVIDER: 'bedrock',
       PLANNER_MODEL_ID: process.env.PLANNER_MODEL_ID || 'us.anthropic.claude-sonnet-4-6',
       EXPORT_QUEUE_URL: exportQueue.queueUrl,
-      JOBS_TABLE_NAME: jobsTable.tableName,
+      PORTAL_TABLE_NAME: portalTable.tableName,
       // In the shared environment: the assistant runs portal routes in the worker too.
       COGNITO_USER_POOL_ID: userPool.userPoolId,
       ...(smusDomainId ? { SMUS_DOMAIN_ID: smusDomainId } : {}),
@@ -362,8 +362,8 @@ export class QuicksightPortalStack extends Stack {
     // Grant API Lambda permission to send messages to the queue
     exportQueue.grantSendMessages(apiLambda);
 
-    // Job records live in DynamoDB (shared execution role covers both Lambdas)
-    jobsTable.grantReadWriteData(lambdaRole);
+    // The portal table (shared execution role covers both Lambdas)
+    portalTable.grantReadWriteData(lambdaRole);
 
     /* 5 ────────── Worker Lambda for export processing */
     const workerLambda = new LambdaFunction(this, 'WorkerLambda', {
@@ -794,9 +794,9 @@ export class QuicksightPortalStack extends Stack {
         reason: metadataBucketReason,
       },
       {
-        id: 'AwsSolutions-IAM5[Resource::<JobsTable1970BC16.Arn>/index/*]',
+        id: 'AwsSolutions-IAM5[Resource::<PortalTable1DA18B3C.Arn>/index/*]',
         reason:
-          'grantReadWriteData covers the jobs table GSI (index/*) - required for job listings.',
+          'grantReadWriteData covers the portal table GSI (index/*) - required for job listings.',
       },
       {
         id: 'AwsSolutions-IAM5[Resource::*]',

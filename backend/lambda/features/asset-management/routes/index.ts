@@ -50,12 +50,6 @@ export const assetManagementRoutes: RouteHandler[] = [
   },
 
   {
-    method: 'POST',
-    path: '/assets/rebuild-index',
-    handler: (event) => handler.rebuildIndex(event),
-  },
-
-  {
     method: 'GET',
     path: /^\/assets\/(dashboard|analysis|dataset|datasource|folder|user|group|theme)\/([^/]+)\/cached$/,
     handler: (event) => handler.getExportedAsset(event),

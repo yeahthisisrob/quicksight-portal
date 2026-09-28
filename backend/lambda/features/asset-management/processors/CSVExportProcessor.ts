@@ -3,7 +3,7 @@
  * Handles generation of CSV files from cached asset data
  * Part of the asset-management vertical slice (VSA)
  */
-import { cacheService } from '../../../shared/services/cache/CacheService';
+import { catalog } from '../../../shared/services/catalog/catalogStore';
 import type { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { getSingularForm } from '../../../shared/types/assetTypes';
@@ -64,7 +64,7 @@ export class CSVExportProcessor {
 
     try {
       // Get all assets from cache (already filtered to active only)
-      const cache = await cacheService.getMasterCache({ statusFilter: AssetStatusFilter.ACTIVE });
+      const cache = await catalog.snapshot(AssetStatusFilter.ACTIVE);
 
       if (!cache?.entries) {
         throw new Error('No cached data available');

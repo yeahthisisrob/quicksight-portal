@@ -13,8 +13,15 @@ import { getAssetId, getAssetName } from '../../../shared/models/quicksight-doma
 import { ArchiveService } from '../../../shared/services/archive/ArchiveService';
 import { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { S3Service } from '../../../shared/services/aws/S3Service';
-import { cacheService } from '../../../shared/services/cache/CacheService';
+import {
+  rebuildCatalog,
+  rebuildCatalogType,
+  upsertCatalogAssets,
+} from '../../../shared/services/catalog/catalogBuilder';
+import { runCatalogRebuiltHooks } from '../../../shared/services/catalog/catalogHooks';
 import { catalogIndexer } from '../../../shared/services/catalog/catalogIndexer';
+import { catalog } from '../../../shared/services/catalog/catalogStore';
+import { rebuildFieldCache } from '../../../shared/services/catalog/fieldCache';
 import type { ExportCheckpoint } from '../../../shared/services/jobs/JobRepository';
 import type {
   JobProgressLogger,
@@ -260,17 +267,11 @@ export class ExportOrchestrator {
     }
   }
 
-  /**
-   * Set the job state service and job ID for this orchestrator instance
-   */
-  /**
-   * Adapter handing CacheWriter's rebuild progress into this job's log pane
-   * (CacheWriter expects { appendLog, checkpoint })
-   */
+  /** The catalog rebuild's progress, into this job's log pane. */
   private buildRebuildProgressLogger(): JobProgressLogger | undefined {
     return this.jobStateService?.progressLogger(
       this.jobId,
-      'Rebuilding cache from existing S3 files...'
+      'Rebuilding the catalog from existing S3 files...'
     );
   }
 
@@ -330,8 +331,7 @@ export class ExportOrchestrator {
       await this.jobStateService.logInfo(this.jobId, 'Rebuild index requested - clearing catalog');
     }
     try {
-      // Clear all caches using the cache service
-      await cacheService.clearAllCaches();
+      await catalog.clear();
 
       // Also clear the data catalog
       await catalogIndexer().clear();
@@ -572,7 +572,7 @@ export class ExportOrchestrator {
       await this.s3Service.ensureBucketExists(this.bucketName);
 
       if (!this.archiveService) {
-        this.archiveService = new ArchiveService(this.bucketName, cacheService);
+        this.archiveService = new ArchiveService(this.bucketName);
       }
     }
     return this.bucketName;
@@ -853,12 +853,16 @@ export class ExportOrchestrator {
         await BaseAssetProcessor.flushCollectionBatches(this.s3Service);
       }
       if (done.length > 0) {
-        await cacheService.upsertCacheEntriesForAssets(assetType, done);
+        await upsertCatalogAssets(assetType, done);
         out.refreshed.push(...done.map((id) => `${assetType}:${id}`));
       }
     }
     if ([...byType.keys()].some((type) => DERIVED_FROM.has(type)) && out.refreshed.length > 0) {
-      await this.rebuildDerivedIndexes();
+      try {
+        await this.rebuildDerived();
+      } catch (error) {
+        logger.warn('Derived indexes could not be rebuilt after a refresh', { error });
+      }
     }
     return out;
   }
@@ -898,21 +902,21 @@ export class ExportOrchestrator {
   }
 
   /**
-   * Lineage, the field cache and the data catalog are built from every
-   * asset, so a refresh that changed a dashboard, analysis, dataset or data
-   * source rebuilds them too - otherwise a rename or a new dataset shows up
-   * in lists but not in lineage, fields or the catalog until the next full
-   * export. A failure here leaves the refreshed entries as they are.
+   * What is built from every asset: the field cache, the data catalog index,
+   * lineage, then the registered hooks (list snapshots). An export and a
+   * refresh that changed a dashboard, analysis, dataset or data source both
+   * run it - otherwise a rename or a new dataset shows up in lists but not
+   * in fields, the catalog or lineage until the next full export. Each step
+   * updates the job's status, which doubles as its heartbeat.
    */
-  private async rebuildDerivedIndexes(): Promise<void> {
-    try {
-      await cacheService.updateFieldCache(null);
-      await catalogIndexer().rebuild();
-      await new LineageService().rebuildLineage();
-      await cacheService.runCacheRebuildHooks();
-    } catch (error) {
-      logger.warn('Derived indexes could not be rebuilt after a refresh', { error });
-    }
+  private async rebuildDerived(): Promise<void> {
+    await this.updateCatalogPhaseStatus('Rebuilding field cache...');
+    await rebuildFieldCache();
+    await this.updateCatalogPhaseStatus('Rebuilding data catalog...');
+    await catalogIndexer().rebuild();
+    await this.updateCatalogPhaseStatus('Rebuilding lineage...');
+    await new LineageService().rebuildLineage();
+    await runCatalogRebuiltHooks();
   }
 
   /**
@@ -1350,54 +1354,12 @@ export class ExportOrchestrator {
         forced: context.forceCatalogRebuild,
       });
 
-      // For rebuild index mode, do a cache rebuild
+      // Rebuild index: the catalog is rebuilt from the export documents in S3
       if (exportOptions.rebuildIndex || isCacheRebuildOnly) {
-        // Rebuild cache with lineage from existing S3 files.
-        // NON-destructive (forceRefresh=false): saveMasterCache overwrites
-        // every per-type cache file anyway, so no pre-clear is needed
-        // (activity/ingestion caches must survive a rebuild).
-        if (this.jobStateService) {
-          await this.jobStateService.updateJobStatus(this.jobId, {
-            message: 'Rebuilding cache from existing S3 files...',
-          });
-        }
-        await cacheService.rebuildCache(false, true, this.buildRebuildProgressLogger());
-        await cacheService.updateFieldCache(null);
-        logger.info('Cache rebuilt successfully from S3 files');
-        if (this.jobStateService) {
-          await this.jobStateService.updateJobStatus(this.jobId, {
-            message: 'Cache rebuilt from S3 files - rebuilding catalogs...',
-          });
-        }
+        await this.updateCatalogPhaseStatus('Rebuilding the catalog from existing S3 files...');
+        await rebuildCatalog(this.buildRebuildProgressLogger());
       }
-
-      // Rebuild field cache once after all exports complete. Each step
-      // below writes a job status update, which doubles as a heartbeat -
-      // the catalog phase is the longest stretch without batch progress.
-      if (!exportOptions.rebuildIndex && !isCacheRebuildOnly) {
-        // rebuildIndex already did this above
-        await this.updateCatalogPhaseStatus('Rebuilding field cache...');
-        await cacheService.updateFieldCache(null);
-      }
-
-      await this.updateCatalogPhaseStatus('Rebuilding data catalog...');
-      // Build the pre-computed catalog index from the freshly rebuilt field cache.
-      await catalogIndexer().rebuild();
-      logger.info('Data catalog rebuilt successfully');
-
-      // Now rebuild lineage since all assets are exported
-      if (!exportOptions.rebuildIndex && !isCacheRebuildOnly) {
-        // rebuildIndex already did this above
-        await this.updateCatalogPhaseStatus('Rebuilding lineage...');
-        const lineageService = new LineageService();
-        await lineageService.rebuildLineage();
-        logger.info('Lineage rebuilt successfully');
-      }
-
-      // Precompute user/group list snapshots so the API Lambda's first
-      // request after this rebuild adopts them instead of re-enriching.
-      // Hook failures are logged inside — never fails the export.
-      await cacheService.runCacheRebuildHooks();
+      await this.rebuildDerived();
     } catch (error) {
       logger.error('Failed to rebuild catalogs after export:', error);
       if (this.jobStateService) {
@@ -1431,7 +1393,7 @@ export class ExportOrchestrator {
       { assetType }
     );
     try {
-      await cacheService.upsertCacheEntriesForAssets(
+      await upsertCatalogAssets(
         assetType,
         Array.from(needsReparse),
         jobStateService.progressLogger(this.jobId, `Re-parsing ${assetType} metadata...`)
@@ -1619,16 +1581,16 @@ export class ExportOrchestrator {
       return;
     }
     try {
-      await cacheService.upsertCacheEntriesForAssets(assetType, processedIds);
+      await upsertCatalogAssets(assetType, processedIds);
     } catch (error) {
       logger.error(
-        `Incremental cache upsert failed for ${assetType} - falling back to full rebuild`,
+        `Incremental catalog upsert failed for ${assetType} - falling back to rebuilding the type`,
         {
           error,
         }
       );
       try {
-        await cacheService.rebuildCacheForAssetType(assetType);
+        await rebuildCatalogType(assetType);
       } catch (rebuildError) {
         logger.error(`Fallback cache rebuild also failed for ${assetType}`, { rebuildError });
       }

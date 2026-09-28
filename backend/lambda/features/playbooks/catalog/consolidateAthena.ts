@@ -10,9 +10,10 @@
  * than moved silently. Columns and table ids are untouched (the source
  * editor never rewrites them), so nothing downstream has to change.
  */
-import type { CacheEntry } from '../../../shared/models/asset.model';
+import type { CatalogEntry } from '../../../shared/models/asset.model';
+import { catalog } from '../../../shared/services/catalog/catalogStore';
 import type { Playbook, PlaybookContext } from '../types';
-import { datasourceIdsOf, idFromArn, liveEntries } from './cache';
+import { datasourceIdsOf, idFromArn } from './cache';
 
 interface SourceTable {
   id: string;
@@ -32,16 +33,16 @@ const ATHENA = 'ATHENA';
 
 const tableCount = (n: number) => `${n} table${n === 1 ? '' : 's'}`;
 
-function typeOf(entry: CacheEntry): string | undefined {
+function typeOf(entry: CatalogEntry): string | undefined {
   return entry.metadata?.sourceType ?? entry.metadata?.datasourceType;
 }
 
-async function athenaSources(): Promise<Map<string, CacheEntry>> {
-  const all = await liveEntries('datasource');
+async function athenaSources(): Promise<Map<string, CatalogEntry>> {
+  const all = await catalog.list('datasource');
   return new Map(all.filter((d) => typeOf(d) === ATHENA).map((d) => [d.assetId, d]));
 }
 
-function chosen(ctx: PlaybookContext, athena: Map<string, CacheEntry>): ChosenSource {
+function chosen(ctx: PlaybookContext, athena: Map<string, CatalogEntry>): ChosenSource {
   const id = String(ctx.params.target ?? '');
   const entry = athena.get(id);
   if (!entry?.arn) {
@@ -76,7 +77,7 @@ export const consolidateAthena: Playbook = {
   async scope(ctx) {
     const athena = await athenaSources();
     const target = chosen(ctx, athena);
-    const datasets = await liveEntries('dataset');
+    const datasets = await catalog.list('dataset');
     return datasets
       .filter((dataset) =>
         datasourceIdsOf(dataset).some((id) => id !== target.id && athena.has(id))
@@ -96,7 +97,7 @@ export const consolidateAthena: Playbook = {
       'GET',
       `/api/assets/dataset/${encodeURIComponent(target.assetId)}/source`
     );
-    const moves: Array<{ table: SourceTable; from: CacheEntry }> = [];
+    const moves: Array<{ table: SourceTable; from: CatalogEntry }> = [];
     for (const table of source.tables) {
       const fromId = idFromArn(table.dataSourceArn);
       const from = fromId ? athena.get(fromId) : undefined;

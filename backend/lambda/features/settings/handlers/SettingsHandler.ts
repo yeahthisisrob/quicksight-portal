@@ -6,6 +6,7 @@ import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { STATUS_CODES } from '../../../shared/constants';
 import { apiKeyStore } from '../../../shared/services/auth/ApiKeyStore';
 import { CacheService } from '../../../shared/services/cache/CacheService';
+import { catalog } from '../../../shared/services/catalog/catalogStore';
 import { settingsStore } from '../../../shared/services/settings/SettingsStore';
 import { SmusService } from '../../../shared/services/smus/SmusService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
@@ -87,10 +88,7 @@ export class SettingsHandler {
   public async listFolders(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       await requireAuth(event);
-      const entries = await CacheService.getInstance().getCacheEntries({
-        assetType: 'folder',
-        statusFilter: AssetStatusFilter.ACTIVE,
-      });
+      const entries = await catalog.list('folder', AssetStatusFilter.ACTIVE);
       const folders = entries
         .map((f: any) => ({
           id: String(f.assetId),

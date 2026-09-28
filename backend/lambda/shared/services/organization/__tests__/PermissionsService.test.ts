@@ -1,17 +1,13 @@
 import { vi } from 'vitest';
 
-import type { CacheEntry, MasterCache } from '../../../models/asset.model';
+import type { AssetType, CatalogEntry, CatalogSnapshot } from '../../../models/asset.model';
 import { principalMatchesGroup, principalMatchesUser } from '../../../utils/quicksightUtils';
+import { catalogEntry } from '../../../utils/testUtils/testCatalog';
 import { PermissionsService } from '../PermissionsService';
 
 vi.mock('../../aws/ClientFactory', () => ({
   ClientFactory: {
     getQuickSightService: vi.fn().mockReturnValue({}),
-  },
-}));
-vi.mock('../../cache/CacheService', () => ({
-  cacheService: {
-    getMasterCache: vi.fn(),
   },
 }));
 vi.mock('../../../utils/logger', () => ({
@@ -28,36 +24,22 @@ const TEAM_A_EXPECTED_ASSETS = 6;
 const TEAM_B_EXPECTED_ASSETS = 3;
 
 function entry(
-  assetType: string,
+  assetType: AssetType,
   assetId: string,
   assetName: string,
-  overrides: Partial<CacheEntry> = {}
-): CacheEntry {
+  overrides: Partial<CatalogEntry> = {}
+): CatalogEntry {
   const arnType = assetType === 'user' ? 'user/default' : assetType;
-  return {
-    assetId,
-    assetType,
+  return catalogEntry(assetType, assetId, {
     assetName,
     arn: `${ARN_PREFIX}:${arnType}/${assetId}`,
-    status: 'active',
-    enrichmentStatus: 'enriched',
-    createdTime: new Date('2024-01-01T00:00:00Z'),
-    lastUpdatedTime: new Date('2024-01-01T00:00:00Z'),
-    exportedAt: new Date('2024-01-01T00:00:00Z'),
-    exportFilePath: `assets/${assetType}s/${assetId}.json`,
-    storageType: 'individual',
-    tags: [],
-    permissions: [],
-    metadata: {},
     ...overrides,
-  } as CacheEntry;
+  });
 }
 
-function masterCache(entries: Partial<Record<string, CacheEntry[]>>): MasterCache {
+function masterCache(entries: Partial<Record<string, CatalogEntry[]>>): CatalogSnapshot {
   return {
     version: '2.0',
-    lastUpdated: new Date('2024-01-01T00:00:00Z'),
-    assetCounts: {} as any,
     entries: {
       dashboard: [],
       analysis: [],
@@ -76,12 +58,12 @@ function masterCache(entries: Partial<Record<string, CacheEntry[]>>): MasterCach
  * copied verbatim from the old getBulkUserAssetCounts/collectUserAccessSources.
  * The rewritten inverted-index version must produce identical output.
  */
-function referenceOldAlgorithm(userNames: string[], cache: MasterCache): Map<string, number> {
+function referenceOldAlgorithm(userNames: string[], cache: CatalogSnapshot): Map<string, number> {
   const users = cache.entries.user || [];
   const groups = cache.entries.group || [];
   const folders = cache.entries.folder || [];
 
-  const findUserGroups = (userName: string): CacheEntry[] =>
+  const findUserGroups = (userName: string): CatalogEntry[] =>
     groups.filter((g) => {
       const members = ((g.metadata as any)?.members as any[]) || [];
       return members.some((m: any) => m.memberName === userName || m.userName === userName);
@@ -89,7 +71,7 @@ function referenceOldAlgorithm(userNames: string[], cache: MasterCache): Map<str
 
   const userContexts = new Map<
     string,
-    { userArn: string; userName: string; userGroups: CacheEntry[]; folders: CacheEntry[] }
+    { userArn: string; userName: string; userGroups: CatalogEntry[]; folders: CatalogEntry[] }
   >();
   for (const name of userNames) {
     const userEntry = users.find((u) => u.assetName === name);
@@ -104,8 +86,8 @@ function referenceOldAlgorithm(userNames: string[], cache: MasterCache): Map<str
   }
 
   const collectSources = (
-    e: CacheEntry,
-    ctx: { userArn: string; userName: string; userGroups: CacheEntry[]; folders: CacheEntry[] }
+    e: CatalogEntry,
+    ctx: { userArn: string; userName: string; userGroups: CatalogEntry[]; folders: CatalogEntry[] }
   ): number => {
     let sources = 0;
     const permissions = (e.permissions as any[]) || [];
@@ -172,7 +154,7 @@ function referenceOldAlgorithm(userNames: string[], cache: MasterCache): Map<str
   return counts;
 }
 
-function buildFixture(): MasterCache {
+function buildFixture(): CatalogSnapshot {
   const alice = entry('user', 'u-alice', 'alice');
   const bob = entry('user', 'u-bob', 'bob');
   const carol = entry('user', 'u-carol', 'carol');
@@ -301,7 +283,7 @@ describe('PermissionsService.getBulkUserAssetCounts', () => {
  * findAccessibleFolders / countDirectGroupAssets / checkFolderMembership).
  * The rewritten single-scan version must produce identical output.
  */
-function referenceOldGroupAlgorithm(cache: MasterCache): Map<string, number> {
+function referenceOldGroupAlgorithm(cache: CatalogSnapshot): Map<string, number> {
   const counts = new Map<string, number>();
   for (const group of cache.entries.group || []) {
     const groupArn = group.arn;
@@ -309,7 +291,7 @@ function referenceOldGroupAlgorithm(cache: MasterCache): Map<string, number> {
     const countedAssets = new Set<string>();
 
     // findAccessibleFolders
-    const accessibleFolders: CacheEntry[] = [];
+    const accessibleFolders: CatalogEntry[] = [];
     for (const folder of cache.entries.folder || []) {
       const hasAccess = ((folder.permissions as any[]) || []).some((p: any) =>
         principalMatchesGroup(p.principal, groupArn, groupName)
@@ -351,7 +333,7 @@ function referenceOldGroupAlgorithm(cache: MasterCache): Map<string, number> {
   return counts;
 }
 
-function buildGroupFixture(): MasterCache {
+function buildGroupFixture(): CatalogSnapshot {
   const teamA = entry('group', 'g-teamA', 'TeamA');
   const teamB = entry('group', 'g-teamB', 'TeamB');
   const teamEmpty = entry('group', 'g-empty', 'TeamEmpty');
