@@ -1814,6 +1814,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/authoring/datasets/{dataSetId}/readers/repair/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What repairing every dashboard and analysis on a dataset would fix
+         * @description After a dataset changed under what reads it (a column renamed or
+         *     gone, a parameter no longer declared), every live dashboard and
+         *     analysis on it is read and its repair plan drawn: each issue with
+         *     the fix the plan proposes. `toRepair` counts the readers with fixes
+         *     and no choice left to a person. Nothing is written.
+         */
+        post: operations["postAuthoringDatasetReadersRepairPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/authoring/datasets/{dataSetId}/readers/repair": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Repair every dashboard and analysis on a dataset, in place
+         * @description Applies each reader's proposed fixes as one update of that reader
+         *     (dashboards get a new published version). A reader with nothing to
+         *     fix is left alone (`clean`); one whose plan still needs a choice is
+         *     left alone and named (`needsChoice`); one QuickSight refuses is
+         *     reported (`failed`) without stopping the rest. Nothing is rebuilt
+         *     or copied.
+         */
+        post: operations["postAuthoringDatasetReadersRepair"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/authoring/datasets/{dataSetId}/calculated-fields": {
         parameters: {
             query?: never;
@@ -5709,6 +5758,24 @@ export interface components {
             folderIds: string[];
             warnings: string[];
         };
+        DatasetReadersRepairPreview: {
+            dataSetId: string;
+            name: string;
+            readers: (components["schemas"]["DatasetReaderRef"] & {
+                plan: components["schemas"]["RepairPlan"];
+            })[];
+            unreadable: components["schemas"]["DatasetReaderRef"][];
+            /** @description Readers with fixes to apply and no choice left to a person. */
+            toRepair: number;
+        };
+        DatasetReadersRepairResult: components["schemas"]["DatasetReadersRepairPreview"] & {
+            results: (components["schemas"]["DatasetReaderRef"] & {
+                /** @enum {string} */
+                outcome: "repaired" | "clean" | "needsChoice" | "failed";
+                changes?: number;
+                error?: string;
+            })[];
+        };
         DatasetReaderRef: {
             assetType: components["schemas"]["AuthorableAssetType"];
             assetId: string;
@@ -9345,6 +9412,60 @@ export interface operations {
                     "application/json": {
                         success: boolean;
                         data: components["schemas"]["DatasetMigrationResult"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthoringDatasetReadersRepairPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataSetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Each reader with its repair plan */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["DatasetReadersRepairPreview"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthoringDatasetReadersRepair: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataSetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What was done to each reader */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["DatasetReadersRepairResult"];
                     };
                 };
             };

@@ -30,6 +30,8 @@ export type RepairIssue = Schemas['RepairIssue'];
 export type RepairPlan = Schemas['RepairPlan'];
 export type DatasetMigrationPreview = Schemas['DatasetMigrationPreview'];
 export type DatasetMigrationResult = Schemas['DatasetMigrationResult'];
+export type DatasetReadersRepairPreview = Schemas['DatasetReadersRepairPreview'];
+export type DatasetReadersRepairResult = Schemas['DatasetReadersRepairResult'];
 export type RestoreRequest = Schemas['RestoreRequest'];
 export type RestoreResult = Schemas['RestoreResult'];
 
@@ -80,6 +82,26 @@ export const authoringApi = {
         body,
       }),
       'Failed to migrate the dataset'
+    );
+  },
+
+  /** Every dashboard and analysis on a dataset with its repair plan. Writes nothing. */
+  async previewReadersRepair(dataSetId: string): Promise<DatasetReadersRepairPreview> {
+    return unwrap(
+      await client.POST('/api/authoring/datasets/{dataSetId}/readers/repair/preview', {
+        params: { path: { dataSetId } },
+      }),
+      'Failed to check what reads the dataset'
+    );
+  },
+
+  /** Apply each reader's proposed fixes in place. */
+  async repairReaders(dataSetId: string): Promise<DatasetReadersRepairResult> {
+    return unwrap(
+      await client.POST('/api/authoring/datasets/{dataSetId}/readers/repair', {
+        params: { path: { dataSetId } },
+      }),
+      'Failed to repair what reads the dataset'
     );
   },
 

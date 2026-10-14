@@ -3866,6 +3866,77 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/authoring/datasets/{dataSetId}/readers/repair/preview:
+    post:
+      operationId: postAuthoringDatasetReadersRepairPreview
+      tags: [Authoring]
+      summary: What repairing every dashboard and analysis on a dataset would fix
+      description: |
+        After a dataset changed under what reads it (a column renamed or
+        gone, a parameter no longer declared), every live dashboard and
+        analysis on it is read and its repair plan drawn: each issue with
+        the fix the plan proposes. `toRepair` counts the readers with fixes
+        and no choice left to a person. Nothing is written.
+      parameters:
+        - name: dataSetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Each reader with its repair plan
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/DatasetReadersRepairPreview'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/authoring/datasets/{dataSetId}/readers/repair:
+    post:
+      operationId: postAuthoringDatasetReadersRepair
+      tags: [Authoring]
+      summary: Repair every dashboard and analysis on a dataset, in place
+      description: |
+        Applies each reader's proposed fixes as one update of that reader
+        (dashboards get a new published version). A reader with nothing to
+        fix is left alone (`clean`); one whose plan still needs a choice is
+        left alone and named (`needsChoice`); one QuickSight refuses is
+        reported (`failed`) without stopping the rest. Nothing is rebuilt
+        or copied.
+      parameters:
+        - name: dataSetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: What was done to each reader
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/DatasetReadersRepairResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/authoring/datasets/{dataSetId}/calculated-fields:
     get:
       operationId: getAuthoringDatasetCalculatedFields
@@ -11461,6 +11532,56 @@ components:
           type: array
           items:
             type: string
+
+    DatasetReadersRepairPreview:
+      type: object
+      required: [dataSetId, name, readers, unreadable, toRepair]
+      properties:
+        dataSetId:
+          type: string
+        name:
+          type: string
+        readers:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/DatasetReaderRef'
+              - type: object
+                required: [plan]
+                properties:
+                  plan:
+                    $ref: '#/components/schemas/RepairPlan'
+        unreadable:
+          type: array
+          items:
+            $ref: '#/components/schemas/DatasetReaderRef'
+        toRepair:
+          type: integer
+          minimum: 0
+          description: Readers with fixes to apply and no choice left to a person.
+
+    DatasetReadersRepairResult:
+      allOf:
+        - $ref: '#/components/schemas/DatasetReadersRepairPreview'
+        - type: object
+          required: [results]
+          properties:
+            results:
+              type: array
+              items:
+                allOf:
+                  - $ref: '#/components/schemas/DatasetReaderRef'
+                  - type: object
+                    required: [outcome]
+                    properties:
+                      outcome:
+                        type: string
+                        enum: [repaired, clean, needsChoice, failed]
+                      changes:
+                        type: integer
+                        minimum: 0
+                      error:
+                        type: string
 
     DatasetReaderRef:
       type: object

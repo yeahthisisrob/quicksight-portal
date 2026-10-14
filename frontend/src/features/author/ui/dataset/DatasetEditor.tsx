@@ -6,7 +6,7 @@
  * Columns are never rewritten, so everything downstream keeps working; a
  * save says how much reads it before it goes.
  */
-import { ArrowBack, OpenInNew, Save, Undo } from '@mui/icons-material';
+import { ArrowBack, Build, OpenInNew, Save, Undo } from '@mui/icons-material';
 import {
   Alert,
   AlertTitle,
@@ -49,6 +49,7 @@ import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 import { Panel } from '../primitives/Panel';
 import { FieldTrace } from './FieldTrace';
 import { MigrationPanel } from './MigrationPanel';
+import { RepairReadersDialog } from './RepairReadersDialog';
 
 const RELATED_LIMIT = 200;
 
@@ -78,6 +79,7 @@ function ReadersPanel({
 }) {
   const readers = useRelated(datasetId, 'uses-dataset', ['dashboard', 'analysis']);
   const hits = readers.data?.hits ?? [];
+  const [repairing, setRepairing] = useState(false);
   return (
     <Panel
       title="What reads it"
@@ -85,10 +87,24 @@ function ReadersPanel({
         readers.isLoading
           ? undefined
           : hits.length
-            ? `${hits.length} dashboard${hits.length === 1 ? '' : 's'} and analyses. Columns are kept on every save, so they keep working.`
+            ? `${hits.length} dashboard${hits.length === 1 ? '' : 's'} and analyses. Columns are kept on every save, so they keep working; if the query changed them, repair fixes every reader in place.`
             : 'Nothing reads it.'
       }
+      actions={
+        hits.length > 0 ? (
+          <Tooltip title="Check every dashboard and analysis on it and apply the fixes, in place">
+            <Button size="small" startIcon={<Build />} onClick={() => setRepairing(true)}>
+              Repair
+            </Button>
+          </Tooltip>
+        ) : undefined
+      }
     >
+      <RepairReadersDialog
+        datasetId={datasetId}
+        open={repairing}
+        onClose={() => setRepairing(false)}
+      />
       {readers.isLoading ? (
         <CircularProgress size={20} />
       ) : readers.error ? (

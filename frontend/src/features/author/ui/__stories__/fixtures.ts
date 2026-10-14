@@ -567,8 +567,57 @@ const MIGRATION_PREVIEW = {
   warnings: [],
 };
 
+/** What reads the Studio story's dataset, each with a repair plan: one broken, one clean. */
+const READERS_REPAIR_PREVIEW = {
+  dataSetId: 'sales-gold',
+  name: 'sales_gold',
+  readers: [
+    { assetType: 'dashboard', assetId: 'dash-sales', name: 'Sales overview', plan: REPAIR_PLAN },
+    {
+      assetType: 'analysis',
+      assetId: 'an-sales',
+      name: 'Sales deep dive',
+      plan: CLEAN_REPAIR_PLAN,
+    },
+  ],
+  unreadable: [],
+  toRepair: 1,
+};
+
 function datasetRoutes(): MockRoute[] {
   return [
+    {
+      method: 'post',
+      url: /\/authoring\/datasets\/[^/]+\/readers\/repair\/preview$/,
+      respond: () => ({ body: { success: true, data: READERS_REPAIR_PREVIEW } }),
+    },
+    {
+      method: 'post',
+      url: /\/authoring\/datasets\/[^/]+\/readers\/repair$/,
+      respond: () => ({
+        body: {
+          success: true,
+          data: {
+            ...READERS_REPAIR_PREVIEW,
+            results: [
+              {
+                assetType: 'dashboard',
+                assetId: 'dash-sales',
+                name: 'Sales overview',
+                outcome: 'repaired',
+                changes: 3,
+              },
+              {
+                assetType: 'analysis',
+                assetId: 'an-sales',
+                name: 'Sales deep dive',
+                outcome: 'clean',
+              },
+            ],
+          },
+        },
+      }),
+    },
     {
       method: 'post',
       url: /\/authoring\/datasets\/[^/]+\/migrate\/preview$/,
