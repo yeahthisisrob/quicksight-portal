@@ -15,20 +15,15 @@ export interface SimpleSelect {
   columns: '*' | Array<{ source: string; name: string }>;
 }
 
-const IDENTIFIER = String.raw`(?:"[^"]+"|` + '`[^`]+`' + String.raw`|[A-Za-z_][\w-]*)`;
+// A bare word, or a double-quoted or backtick-quoted identifier.
+const IDENTIFIER = '(?:"[^"]+"|`[^`]+`|[A-Za-z_][\\w-]*)';
 const TABLE = `${IDENTIFIER}(?:\\.${IDENTIFIER}){1,2}`;
 const SELECT = new RegExp(
-  String.raw`^\s*select\s+(?:distinct\s+)?(?<projection>.+?)\s+from\s+(?<table>` +
-    TABLE +
-    String.raw`)(?:\s+(?:as\s+)?[A-Za-z_]\w*)?(?<rest>\s+(?:where|order\s+by|limit)\b[\s\S]*)?\s*;?\s*$`,
+  `^\\s*select\\s+(?:distinct\\s+)?(?<projection>.+?)\\s+from\\s+(?<table>${TABLE})(?:\\s+(?:as\\s+)?[A-Za-z_]\\w*)?(?<rest>\\s+(?:where|order\\s+by|limit)\\b[\\s\\S]*)?\\s*;?\\s*$`,
   'i'
 );
 const COLUMN = new RegExp(
-  String.raw`^(?:(?<qualifier>[A-Za-z_]\w*)\.)?(?<column>` +
-    IDENTIFIER +
-    String.raw`)(?:\s+(?:as\s+)?(?<alias>` +
-    IDENTIFIER +
-    String.raw`))?$`,
+  `^(?:(?<qualifier>[A-Za-z_]\\w*)\\.)?(?<column>${IDENTIFIER})(?:\\s+(?:as\\s+)?(?<alias>${IDENTIFIER}))?$`,
   'i'
 );
 
