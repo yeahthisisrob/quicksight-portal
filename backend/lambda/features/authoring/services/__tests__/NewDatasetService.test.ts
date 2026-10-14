@@ -349,6 +349,28 @@ describe('NewDatasetService', () => {
     });
   });
 
+  it('holds a new dataset in SPICE unless the request or Settings says direct query, and names the first import', async () => {
+    quickSight.createDataSet.mockResolvedValue({
+      arn: 'arn:ds/new',
+      dataSetId: 'new',
+      ingestionArn: 'arn:aws:quicksight:us-east-1:1:dataset/new/ingestion/ing-1',
+    });
+    const request = {
+      name: 'Signups',
+      source: { kind: 'sql' as const, dataSourceId: 'athena-1', sql: 'select 1 as customer_id' },
+    };
+    expect((await service().preview(request, auth)).importMode).toBe('SPICE');
+    const created = await service().create(request, auth);
+    expect(quickSight.createDataSet.mock.calls[0]![0].importMode).toBe('SPICE');
+    expect(created.ingestionId).toBe('ing-1');
+
+    settings['authoring.datasetImportMode'] = 'DIRECT_QUERY';
+    expect((await service().preview(request, auth)).importMode).toBe('DIRECT_QUERY');
+    expect((await service().preview({ ...request, importMode: 'SPICE' }, auth)).importMode).toBe(
+      'SPICE'
+    );
+  });
+
   it('warns when nothing gives the dataset an audience', async () => {
     owner.mockResolvedValue(undefined);
     const preview = await service().preview(

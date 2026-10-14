@@ -243,6 +243,33 @@ describe('DatasetSourceService', () => {
       ]);
     });
 
+    it('switches a direct-query dataset to SPICE with nothing else changed, and names the first import', async () => {
+      mocks.qs.describeDataset.mockResolvedValue({
+        ...describeResponse(),
+        ImportMode: 'DIRECT_QUERY',
+      });
+      mocks.qs.updateDataSet.mockResolvedValue({
+        arn: 'a',
+        dataSetId: 'ds-1',
+        ingestionArn: 'arn:aws:quicksight:us-east-1:1:dataset/ds-1/ingestion/ing-1',
+      });
+
+      const result = await service.updateSource('ds-1', { importMode: 'SPICE' });
+
+      const sent = mocks.qs.updateDataSet.mock.calls[0]![0];
+      expect(sent.importMode).toBe('SPICE');
+      expect(sent.name).toBe('orders_fact');
+      expect(sent.physicalTableMap).toEqual(describeResponse().PhysicalTableMap);
+      expect(result).toMatchObject({ importMode: 'SPICE', ingestionId: 'ing-1' });
+    });
+
+    it('switches to direct query without an import to wait for', async () => {
+      const result = await service.updateSource('ds-1', { importMode: 'DIRECT_QUERY' });
+      expect(mocks.qs.updateDataSet.mock.calls[0]![0].importMode).toBe('DIRECT_QUERY');
+      expect(result.importMode).toBe('DIRECT_QUERY');
+      expect(result.ingestionId).toBeUndefined();
+    });
+
     it('leaves the live dataset alone if any edit is invalid', async () => {
       await expect(
         service.updateSource('ds-1', {

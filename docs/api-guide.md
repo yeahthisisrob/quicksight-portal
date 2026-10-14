@@ -215,6 +215,7 @@ theme and never write a definition QuickSight would refuse:
 | Replace a calculated field with a column the dataset now has, rename one, or drop one nothing reads | `ops`: `replaceCalculatedField` (identifier, name, column), `renameCalculatedField` (identifier, name, to), `dropCalculatedField` (identifier, name); no sheetId, they follow every reference |
 | Rename a dataset's calculated field without breaking what reads it | `GET /api/authoring/datasets/{id}/calculated-fields?readers=true`, then `POST` the same path with `copyCalculatedField` (name, to); move each reader with a rebind of the same dataset and `columnMap` {old: new}; then `retireCalculatedField` (name, replacedBy), refused while anything still reads the old name. `dryRun: true` checks without writing |
 | Repair an asset QuickSight refuses to write | `POST /api/authoring/{type}/{id}/repair/plan`, then `repairs` on the preview |
+| Repoint a dataset at another table, query or data source, rename it, or switch it between SPICE and direct query | `PUT /api/assets/dataset/{id}/source` with `tables`, `name` or `importMode`; columns are kept, so what reads it keeps working |
 | A dashboard from nothing, by naming columns | `POST /api/authoring/new/preview` with `visuals` |
 
 **Or ask the planner.** A model turns a sentence into a validated
@@ -357,6 +358,13 @@ databases to have an admin grant. Any other engine needs `columns`. The response
 carries `columns`, `columnsFrom` (`listing`, `declared` or `query`),
 `similar` (datasets that already read the same table, as the table or in
 their SQL; reuse one unless a new dataset is wanted) and `listing`.
+
+`importMode` is SPICE unless the request says `DIRECT_QUERY` or an admin
+changed the default in Settings; the preview says which. A SPICE dataset
+starts its first import on creation, and the create response names it in
+`ingestionId`: visuals show data once it completes. An existing dataset
+switches either way with `PUT /api/assets/dataset/{id}/source` and
+`{"importMode": "SPICE"}`, nothing else changed.
 
 Nothing is created in SMUS: a dataset is linked to a listing by what it
 reads, the Glue table behind the listing named as the table or in the SQL,

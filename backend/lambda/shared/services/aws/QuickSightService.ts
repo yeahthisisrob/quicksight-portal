@@ -1475,7 +1475,7 @@ export class QuickSightService {
     dataPrepConfiguration?: any;
     /** New data prep experience: the semantic model written beside those steps. */
     semanticModelConfiguration?: any;
-  }): Promise<any> {
+  }): Promise<{ arn: string; dataSetId: string; ingestionArn?: string }> {
     return await this.executeWithTracking(
       () => this.adapter.updateDataSet(params),
       { operation: 'UpdateDataSet', assetType: ASSET_TYPES.dataset, assetId: params.dataSetId },

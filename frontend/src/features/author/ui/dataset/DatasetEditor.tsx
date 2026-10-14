@@ -1,9 +1,9 @@
 /**
  * One dataset in the Studio: where it reads from (edited here: data source,
- * catalog, schema, table or query, and its name), what reads it, the
- * calculated fields defined on it, and its SMUS governance. Columns are
- * never rewritten, so everything downstream keeps working; a save says how
- * much reads it before it goes.
+ * catalog, schema, table or query, its name, and SPICE or direct query),
+ * what reads it, the calculated fields defined on it, and its SMUS
+ * governance. Columns are never rewritten, so everything downstream keeps
+ * working; a save says how much reads it before it goes.
  */
 import { ArrowBack, OpenInNew, Save, Undo } from '@mui/icons-material';
 import {
@@ -34,7 +34,7 @@ import { useSnackbar } from 'notistack';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 
-import { DatasetSourceTables, useDatasetSourceDraft } from '@/entities/dataset';
+import { DatasetSourceTables, ImportModeToggle, useDatasetSourceDraft } from '@/entities/dataset';
 import type { RebindSource } from '@/entities/definition';
 import { FieldKindChip } from '@/entities/field';
 import { SmusLinkBadge, useSmusDatasetLinks, useSmusStatus } from '@/entities/smus';
@@ -369,7 +369,7 @@ export function DatasetEditor({
       >
         <Panel
           title="Where it reads from"
-          description="Change the data source, table or query. Every column stays as it is; if the new source does not produce them, QuickSight refuses and says so."
+          description="Change the data source, table or query, or switch between SPICE and direct query. Every column stays as it is; if the new source does not produce them, QuickSight refuses and says so."
         >
           {draft.loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -382,14 +382,25 @@ export function DatasetEditor({
             </Alert>
           ) : (
             <Stack spacing={2}>
-              <TextField
-                label="Name"
-                size="small"
-                value={draft.name}
-                onChange={(e) => draft.setName(e.target.value)}
-                disabled={draft.saving}
-                sx={{ maxWidth: 480 }}
-              />
+              <Stack
+                direction="row"
+                spacing={2}
+                sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 1.5 }}
+              >
+                <TextField
+                  label="Name"
+                  size="small"
+                  value={draft.name}
+                  onChange={(e) => draft.setName(e.target.value)}
+                  disabled={draft.saving}
+                  sx={{ flex: '1 1 280px', maxWidth: 480 }}
+                />
+                <ImportModeToggle
+                  value={draft.importMode}
+                  onChange={draft.setImportMode}
+                  disabled={draft.saving}
+                />
+              </Stack>
               <DatasetSourceTables draft={draft} />
               {draft.saveError && (
                 <Alert severity="error">
@@ -423,7 +434,7 @@ export function DatasetEditor({
             </Box>
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
               {readerCount
-                ? `${readerCount} dashboard${readerCount === 1 ? '' : 's'} and analyses read it. Its columns are kept, so they keep working; a SPICE dataset shows the new source after its next refresh.`
+                ? `${readerCount} dashboard${readerCount === 1 ? '' : 's'} and analyses read it. Its columns are kept, so they keep working; a SPICE dataset shows the new source after its next refresh, and one switched to SPICE shows data once its first import completes.`
                 : 'Nothing reads it yet.'}
             </Typography>
           </Stack>

@@ -17,6 +17,7 @@ import { useSnackbar } from 'notistack';
 
 import { useDatasetSourceDraft } from '../model/useDatasetSourceDraft';
 import { DatasetSourceTables } from './DatasetSourceTables';
+import { ImportModeToggle } from './ImportModeToggle';
 
 interface DatasetSourceDialogProps {
   open: boolean;
@@ -77,18 +78,25 @@ export default function DatasetSourceDialog({
 
         {!draft.loading && !draft.loadError && (
           <Stack spacing={3} sx={{ mt: 1 }}>
-            <TextField
-              label="Dataset name"
-              value={draft.name}
-              onChange={(e) => draft.setName(e.target.value)}
-              fullWidth
-              size="small"
-              disabled={draft.saving}
-            />
+            <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
+              <TextField
+                label="Dataset name"
+                value={draft.name}
+                onChange={(e) => draft.setName(e.target.value)}
+                fullWidth
+                size="small"
+                disabled={draft.saving}
+              />
+              <ImportModeToggle
+                value={draft.importMode}
+                onChange={draft.setImportMode}
+                disabled={draft.saving}
+              />
+            </Stack>
             <Alert severity="info">
               Column definitions are kept exactly as they are. This changes only where the data
-              comes from. If the new table or query does not produce those columns, QuickSight
-              rejects the save and says so.
+              comes from, and whether it is held in SPICE or queried directly. If the new table or
+              query does not produce those columns, QuickSight rejects the save and says so.
             </Alert>
             <DatasetSourceTables draft={draft} />
           </Stack>

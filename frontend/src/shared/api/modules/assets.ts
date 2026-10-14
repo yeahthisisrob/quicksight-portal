@@ -7,6 +7,10 @@ type Schemas = components['schemas'];
 type DatasetSource = Schemas['DatasetSource'];
 export type DatasetPhysicalTable = Schemas['DatasetPhysicalTable'];
 export type DatasetTableEdit = Schemas['DatasetTableEdit'];
+/** What one save may change: the name, the import mode, any of the tables. */
+export type DatasetSourceUpdate = NonNullable<
+  paths['/api/assets/dataset/{assetId}/source']['put']['requestBody']
+>['content']['application/json'];
 export type DataSourceOption = Schemas['DataSourceOption'];
 /** The GET response adds the selectable data sources to the dataset's own sources. */
 type DatasetSourceResponse = DatasetSource & { dataSources: DataSourceOption[] };
@@ -137,11 +141,8 @@ export const assetsApi = {
     );
   },
 
-  /** Repoint a dataset's physical tables and/or rename it. */
-  async updateDatasetSource(
-    assetId: string,
-    update: { name?: string; tables?: DatasetTableEdit[] }
-  ): Promise<DatasetSource> {
+  /** Repoint a dataset's physical tables, rename it, or switch it between SPICE and direct query. */
+  async updateDatasetSource(assetId: string, update: DatasetSourceUpdate): Promise<DatasetSource> {
     return unwrap(
       await client.PUT('/api/assets/dataset/{assetId}/source', {
         params: { path: { assetId } },

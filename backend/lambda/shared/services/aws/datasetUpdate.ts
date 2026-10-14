@@ -33,18 +33,35 @@ export async function describeDataSetForEdit(
   return described;
 }
 
+export type DataSetImportMode = 'SPICE' | 'DIRECT_QUERY';
+
+/** The id inside an ingestion ARN (`.../dataset/<id>/ingestion/<ingestionId>`), or undefined. */
+export function ingestionIdOf(ingestionArn: string | undefined): string | undefined {
+  const id = ingestionArn?.split('/ingestion/')[1];
+  return id || undefined;
+}
+
+/**
+ * Resend the dataset with a patch applied. Switching the import mode to
+ * SPICE makes QuickSight start the first import: the result's
+ * `ingestionArn` names it.
+ */
 export function resendDataSet(
   quickSightService: QuickSightService,
   dataSetId: string,
   described: Record<string, any>,
-  patch: { name?: string; physicalTableMap?: Record<string, any> } = {}
-): Promise<unknown> {
+  patch: {
+    name?: string;
+    physicalTableMap?: Record<string, any>;
+    importMode?: DataSetImportMode;
+  } = {}
+): Promise<{ arn: string; dataSetId: string; ingestionArn?: string }> {
   return quickSightService.updateDataSet({
     dataSetId,
     name: patch.name ?? described.Name,
     physicalTableMap: patch.physicalTableMap ?? described.PhysicalTableMap,
     logicalTableMap: described.LogicalTableMap,
-    importMode: described.ImportMode,
+    importMode: patch.importMode ?? described.ImportMode,
     columnGroups: described.ColumnGroups,
     fieldFolders: described.FieldFolders,
     rowLevelPermissionDataSet: described.RowLevelPermissionDataSet,
