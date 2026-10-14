@@ -204,6 +204,24 @@ describe('DatasetSourceService', () => {
       expect(mocks.qs.updateDataSet).not.toHaveBeenCalled();
     });
 
+    it('drops a Glue catalog id from SQL on an Athena source, which Athena would refuse', async () => {
+      await seed([
+        catalogEntry('datasource', 'athena-a', {
+          assetName: 'Athena A',
+          arn: SOURCE_A,
+          metadata: { sourceType: 'ATHENA' },
+        }),
+      ]);
+      await service.updateSource('ds-1', {
+        tables: [
+          { id: 't-sql', sqlQuery: 'SELECT * FROM "123456789012"."analytics_dev"."orders"' },
+        ],
+      });
+      expect(
+        mocks.qs.updateDataSet.mock.calls[0]![0].physicalTableMap['t-sql'].CustomSql.SqlQuery
+      ).toBe('SELECT * FROM "analytics_dev"."orders"');
+    });
+
     it('refuses SQL on a relational table', async () => {
       await expect(
         service.updateSource('ds-1', { tables: [{ id: 't-rel', sqlQuery: 'SELECT 1' }] })

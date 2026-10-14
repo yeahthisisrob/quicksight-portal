@@ -173,6 +173,26 @@ describe('NewDatasetService', () => {
     ]);
   });
 
+  it('removes the Glue catalog id a query names a table through, and says so', async () => {
+    const preview = await service().preview(
+      {
+        name: 'Customers',
+        source: {
+          kind: 'sql',
+          dataSourceId: 'athena-1',
+          sql: 'SELECT * FROM "123456789012"."published_prod"."dim_customer"',
+        },
+      },
+      auth
+    );
+    expect(preview.table).toMatchObject({
+      kind: 'CUSTOM_SQL',
+      sql: 'SELECT * FROM "published_prod"."dim_customer"',
+    });
+    expect(preview.columnsFrom).toBe('listing');
+    expect(preview.warnings[0]).toContain('Glue catalog id');
+  });
+
   it('types a plain select over a published table from the listing, without Athena', async () => {
     const preview = await service().preview(
       {
@@ -287,7 +307,8 @@ describe('NewDatasetService', () => {
       ).table
     ).toEqual({
       kind: 'RELATIONAL',
-      catalog: '123456789012',
+      // The Glue catalog id the listing carries is AwsDataCatalog to Athena.
+      catalog: 'AwsDataCatalog',
       schema: 'published_prod',
       name: 'dim_customer',
     });
