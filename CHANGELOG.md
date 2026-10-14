@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.40.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.40.0...v2.40.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **datasets:** a Glue catalog id in a query or on a table is read as AwsDataCatalog, and the assistant is no longer told to write one ([#314](https://github.com/yeahthisisrob/quicksight-portal/issues/314)) ([d7dfcc6](https://github.com/yeahthisisrob/quicksight-portal/commit/d7dfcc664a34e200854ac669e044f38df1431c79))
+
 ## [2.40.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.39.2...v2.40.0) (2026-10-14)
 
 
