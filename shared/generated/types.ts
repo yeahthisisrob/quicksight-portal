@@ -1386,6 +1386,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/settings/athena-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Which governed databases the portal's role can read through Athena
+         * @description A custom SQL dataset's columns are read by running the query through
+         *     Athena as the portal's Lambda role. Lake Formation hides a table from
+         *     a principal with no grant on it (Athena then says it does not exist),
+         *     and every table SMUS publishes is governed that way. This lists the
+         *     databases behind the published listings with what the role can see,
+         *     read from the Glue catalog as the role, and the one-time command a
+         *     data lake admin runs for the rest. The portal never grants itself.
+         *     `configured: false` without SMUS: there is nothing governed to check.
+         */
+        get: operations["getSettingsAthenaAccess"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings/quicksight/folders": {
         parameters: {
             query?: never;
@@ -5017,6 +5044,31 @@ export interface components {
             /** @description The metadata forms seen across the listings, so a domain that publishes no schema says what it does publish. */
             formNames?: string[];
         };
+        AthenaAccessReport: {
+            /** @description False without SMUS; the rest is then empty. */
+            configured: boolean;
+            /** @description The IAM role the portal runs as - the principal to grant. */
+            role: string;
+            databases: {
+                name: string;
+                /** @description The Glue catalog id when the listings name one other than the account's. */
+                catalog?: string;
+                /** @description Published listings backed by tables in this database. */
+                listings: number;
+                /**
+                 * @description All of those tables are visible to the role, some are, none are, or the check failed.
+                 * @enum {string}
+                 */
+                visible: "all" | "some" | "none" | "unknown";
+                /** @description Listing tables the role cannot see, a few by name. */
+                hiddenTables: string[];
+                error?: string;
+            }[];
+            /** @description One `just athena-grant` per catalog that still has hidden tables; empty when everything is visible. */
+            commands: string[];
+            /** @description The same grants as plain AWS CLI calls with the role filled in, for an admin with credentials but not the repository. */
+            awsCli: string[];
+        };
         SmusProject: {
             id: string;
             name: string;
@@ -8395,6 +8447,30 @@ export interface operations {
                             projects: components["schemas"]["SmusProject"][];
                             diagnostics?: components["schemas"]["SmusProjectDiagnostics"];
                         };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getSettingsAthenaAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["AthenaAccessReport"];
                     };
                 };
             };

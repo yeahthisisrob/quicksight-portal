@@ -1,6 +1,6 @@
 import { Box, Stack } from '@mui/material';
 
-import { ApiKeysPanel, SettingsForm } from '@/features/settings';
+import { ApiKeysPanel, AthenaAccessPanel, SettingsForm } from '@/features/settings';
 
 import { PageHeader } from '@/shared/design-system';
 
@@ -18,6 +18,7 @@ export default function SettingsPage() {
       />
       <Stack spacing={3}>
         <SettingsForm />
+        <AthenaAccessPanel />
         <ApiKeysPanel />
       </Stack>
     </Box>

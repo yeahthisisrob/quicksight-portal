@@ -13,6 +13,11 @@ export const settingsRoutes: RouteHandler[] = [
   },
   {
     method: 'GET',
+    path: '/settings/athena-access',
+    handler: (event) => handler.athenaAccess(event),
+  },
+  {
+    method: 'GET',
     path: '/settings/quicksight/folders',
     handler: (event) => handler.listFolders(event),
   },

@@ -92,7 +92,7 @@ Themes are an asset type end to end: listed with their colors and how many dashb
 - **Archive and restore** - what the portal deletes is kept with its audience, theme and tags, and comes back through the same checks as a transform.
 - **Activity timeline** - every change in the account from CloudTrail on one timeline, with the portal's own writes attributed to the person or the API key behind them, so a change made by an agent reads "Portal · API key claude cli" and filters as made by agents. Assets the portal writes carry `portal:authored-by`, `portal:channel` and `portal:at` tags.
 - **Tags, permissions, folders, users, groups** - browse and edit, inspect who can see what, filter any asset page by a user's access.
-- **Settings** - in DynamoDB with a fallback to the environment, each value showing where it came from; per-organisation authoring guidance, tag standards, default folders and theme.
+- **Settings** - in DynamoDB with a fallback to the environment, each value showing where it came from; per-organisation authoring guidance, tag standards, default folders and theme; an Athena access check that shows which governed databases the portal's role can read and the exact Lake Formation grant for an admin to run.
 - **Parity** - a page that tracks what the AWS console offers against what the portal does, row by row.
 
 ![Dashboards with health columns](docs/screenshots/health-dashboards.png)
@@ -162,7 +162,12 @@ Every write path, in the UI, the API and the Assistant, is the same two calls: a
 
    **Upgrading from 2.35 or earlier** (the catalog moved from S3 files into the portal table): `just deploy`, then `just migrate-portal-table` (safe to run again), then run an export. Once the portal looks right, delete the `cache/<type>.json` and `cache/metadata.json` objects from the metadata bucket and the old `quicksight-portal-jobs-<account>` table.
 
-   **Custom SQL datasets through Athena** need the Lambda role to read the tables a query names and to write the query's results. The stack grants Athena, Glue and Lake Formation access and the results prefix in the metadata bucket; for Lake Formation-governed tables (every SMUS listing), grant the role `SELECT` on those databases once in Lake Formation. A workgroup that enforces its own results location needs the role granted on that bucket too. Or declare the columns in the request.
+   **Custom SQL datasets through Athena** need the Lambda role to read the tables a query names and to write the query's results. The stack grants Athena, Glue and Lake Formation access and the results prefix in the metadata bucket. Lake Formation-governed tables (every SMUS listing) stay hidden from the role until a data lake admin grants it, which Athena reports as "table not found". The portal never grants itself: **Settings → Athena access** shows each database as the role sees it and the exact commands for an admin, as a `just` shortcut or as plain AWS CLI calls with the role filled in. Run once per database, as you run `just smus-grant` once:
+   ```bash
+   just athena-grant published_prod                       # SELECT + DESCRIBE for the role on every table
+   just athena-grant "published_prod,published_dev" catalog=123456789012
+   ```
+   A workgroup that enforces its own results location needs the role granted on that bucket too. Or declare the columns in the request.
 
 4. **Create your first user**
    ```bash
@@ -263,7 +268,8 @@ Contract-first via OpenAPI: `shared/schemas/api.openapi.yaml` defines every endp
 | Export stuck or slow | The job page shows the worker heartbeat and per-type progress; a dead worker fails within 30 minutes and the run can be restarted (Smart Sync resumes incrementally) |
 | Empty portal after deploy | Run a Smart Sync export; check the worker Lambda's CloudWatch logs |
 | Permission denied errors | The Lambda role against QuickSight permissions; QuickSight must be active in the region |
-| A custom SQL dataset preview fails with an Athena error | The role cannot read the tables the query names (grant it in Lake Formation for governed tables, or S3), or cannot write the results: schema queries write to `athena-results/` in the metadata bucket unless the workgroup enforces its own location, which then needs `s3:GetBucketLocation`, `ListBucket` and `PutObject` for the role. Or declare `columns` in the request |
+| A custom SQL dataset preview says the table does not exist | Lake Formation hides tables the Lambda role has no grant on: `just athena-grant <database>` once per database, or declare `columns` in the request |
+| A custom SQL dataset preview cannot write its results | Schema queries write to `athena-results/` in the metadata bucket unless the workgroup enforces its own location, which then needs `s3:GetBucketLocation`, `ListBucket` and `PutObject` for the role |
 | Cognito callback mismatch | The deployed config is wired automatically; for local dev, check `frontend/public/config.js` |
 
 ## Contributing

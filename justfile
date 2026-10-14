@@ -165,6 +165,16 @@ check-storybook:
 smus-grant domain projects='' region='us-east-1' stack='QuicksightPortalStack' designation='PROJECT_CATALOG_VIEWER' role='':
     {{x}} node scripts/smus-grant-portal-access.mjs --domain {{domain}} --region {{region}} --stack {{stack}} --designation {{designation}} {{ if projects != '' { "--projects " + projects } else { "" } }} {{ if role != '' { "--role-arn " + role } else { "" } }}
 
+# Let the portal's Lambda role read Lake Formation-governed tables through
+# Athena, so a custom SQL dataset's columns can be read before it is made.
+# Lake Formation hides ungranted tables (Athena says TABLE_NOT_FOUND). Runs
+# with YOUR data lake admin credentials, once per database.
+#   just athena-grant published_prod
+#   just athena-grant "published_prod,published_dev" catalog=123456789012
+[group('ops')]
+athena-grant databases catalog='' region='us-east-1' stack='QuicksightPortalStack' role='':
+    {{x}} node scripts/athena-grant-portal-access.mjs --databases {{databases}} --region {{region}} --stack {{stack}} {{ if catalog != '' { "--catalog " + catalog } else { "" } }} {{ if role != '' { "--role-arn " + role } else { "" } }}
+
 # ============================================================================
 # BUILD
 # ============================================================================

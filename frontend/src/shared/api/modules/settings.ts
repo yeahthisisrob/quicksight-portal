@@ -11,6 +11,7 @@ export type SettingsUpdate = Schemas['SettingsUpdate'];
 export type SmusProjectDiagnostics = Schemas['SmusProjectDiagnostics'];
 export type ApiKey = Schemas['ApiKey'];
 export type ApiKeyCreated = Schemas['ApiKeyCreated'];
+export type AthenaAccessReport = Schemas['AthenaAccessReport'];
 
 /**
  * Portal settings. Stored in DynamoDB, falling back to the Lambda's env vars
@@ -48,6 +49,11 @@ export const settingsApi = {
   /** Projects in the configured SMUS domain: live, plus the last SMUS export. */
   async listSmusProjects() {
     return unwrap(await client.GET('/api/settings/smus/projects'), 'Failed to list SMUS projects');
+  },
+
+  /** Which governed databases the portal's role can read through Athena, and the admin command for the rest. */
+  async athenaAccess() {
+    return unwrap(await client.GET('/api/settings/athena-access'), 'Failed to check Athena access');
   },
 
   async listFolders() {
