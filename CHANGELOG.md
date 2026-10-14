@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.42.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.41.0...v2.42.0) (2026-10-14)
+
+
+### Features
+
+* **ai:** how hard the thinking models think is a setting, medium by default ([#318](https://github.com/yeahthisisrob/quicksight-portal/issues/318)) ([ca6d2a9](https://github.com/yeahthisisrob/quicksight-portal/commit/ca6d2a9345eed26fe2c842f44cf122d7022d2d5e))
+
 ## [2.41.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.40.1...v2.41.0) (2026-10-14)
 
 
