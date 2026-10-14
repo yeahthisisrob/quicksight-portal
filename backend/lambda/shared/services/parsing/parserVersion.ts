@@ -32,5 +32,8 @@
  * v7: a dataset column renamed in the dataset carries its name before the
  *     renames (columnName), so field lineage follows it to the source
  *     column or the parent dataset's column instead of losing it.
+ * v8: a dataset carries which data prep experience it is built in
+ *     (experience: legacy or dataPrep), so the Datasets page and the data
+ *     catalog can show and filter what still needs moving.
  */
-export const PARSER_METADATA_VERSION = 7;
+export const PARSER_METADATA_VERSION = 8;

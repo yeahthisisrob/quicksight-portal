@@ -87,6 +87,7 @@ const USERS = {
 
 const INDEX = {
   byDataset: new Map([['ds-1', DS1]]),
+  datasets: new Map([['ds-1', { importMode: 'SPICE', experience: 'legacy' as const }]]),
   usersOf: new Map(Object.entries(USERS)),
   visualsOf: new Map([
     [

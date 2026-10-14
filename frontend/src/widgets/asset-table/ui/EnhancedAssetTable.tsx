@@ -26,10 +26,12 @@ import {
   DEFAULT_DATE_FILTER,
   DEFAULT_DUPLICATES_FILTER,
   DEFAULT_ERROR_FILTER,
+  DEFAULT_EXPERIENCE_FILTER,
   DEFAULT_IMPORT_MODE_FILTER,
   DEFAULT_SMUS_FILTER,
   type DuplicatesFilterState,
   type ErrorFilterState,
+  type ExperienceFilterState,
   FilterBar,
   type FolderFilter,
   type FolderOption,
@@ -115,6 +117,7 @@ interface EnhancedAssetTableProps {
   enableDuplicatesFiltering?: boolean;
   /** Enable import mode filtering UI (datasets: SPICE vs DIRECT_QUERY) */
   enableImportModeFiltering?: boolean;
+  enableExperienceFiltering?: boolean;
   /** Enable role filtering UI */
   enableRoleFiltering?: boolean;
   /** Available roles for filtering */
@@ -195,6 +198,7 @@ function buildFetchOptionsFromState(state: {
   smusFilter: SmusFilterState;
   duplicatesFilter: DuplicatesFilterState;
   importModeFilter: ImportModeFilterState;
+  experienceFilter: ExperienceFilterState;
   selectedRoles: string[];
   permissionsFilter: PermissionsFilterState;
   groupMembershipFilter: GroupMembershipFilterState;
@@ -225,6 +229,7 @@ function buildFetchOptionsFromState(state: {
     smusFilter: state.smusFilter !== 'all' ? state.smusFilter : undefined,
     duplicatesFilter: state.duplicatesFilter !== 'all' ? state.duplicatesFilter : undefined,
     importModeFilter: state.importModeFilter !== 'all' ? state.importModeFilter : undefined,
+    experienceFilter: state.experienceFilter !== 'all' ? state.experienceFilter : undefined,
     roleFilter: state.selectedRoles.length > 0 ? JSON.stringify(state.selectedRoles) : undefined,
     permissionsFilter: state.permissionsFilter !== 'all' ? state.permissionsFilter : undefined,
     groupMembershipFilter:
@@ -374,6 +379,7 @@ export default function EnhancedAssetTable({
   enableSmusFiltering = false,
   enableDuplicatesFiltering = false,
   enableImportModeFiltering = false,
+  enableExperienceFiltering = false,
   enableRoleFiltering = false,
   availableRoles = [],
   enablePermissionsFiltering = false,
@@ -413,6 +419,8 @@ export default function EnhancedAssetTable({
   const [importModeFilter, setImportModeFilter] = useState<ImportModeFilterState>(
     DEFAULT_IMPORT_MODE_FILTER
   );
+  const [experienceFilter, setExperienceFilter] =
+    useState<ExperienceFilterState>(DEFAULT_EXPERIENCE_FILTER);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [permissionsFilter, setPermissionsFilter] = useState<PermissionsFilterState>('all');
   const [groupMembershipFilter, setGroupMembershipFilter] =
@@ -532,6 +540,7 @@ export default function EnhancedAssetTable({
         smusFilter,
         duplicatesFilter,
         importModeFilter,
+        experienceFilter,
         selectedRoles,
         permissionsFilter,
         groupMembershipFilter,
@@ -556,6 +565,7 @@ export default function EnhancedAssetTable({
       smusFilter,
       duplicatesFilter,
       importModeFilter,
+      experienceFilter,
       selectedRoles,
       permissionsFilter,
       groupMembershipFilter,
@@ -648,6 +658,9 @@ export default function EnhancedAssetTable({
             enableImportModeFiltering={enableImportModeFiltering}
             importModeFilter={importModeFilter}
             onImportModeFilterChange={setImportModeFilter}
+            enableExperienceFiltering={enableExperienceFiltering}
+            experienceFilter={experienceFilter}
+            onExperienceFilterChange={setExperienceFilter}
             enableRoleFiltering={enableRoleFiltering}
             availableRoles={availableRoles}
             selectedRoles={selectedRoles}

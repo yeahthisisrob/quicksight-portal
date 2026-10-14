@@ -445,6 +445,11 @@ export class AssetService {
       filteredItems = filteredItems.filter((item) => (item as any).importMode === importModeFilter);
     }
 
+    if (request.experienceFilter && request.experienceFilter !== 'all') {
+      const experienceFilter = request.experienceFilter;
+      filteredItems = filteredItems.filter((item) => (item as any).experience === experienceFilter);
+    }
+
     if (request.duplicatesFilter && request.duplicatesFilter !== 'all') {
       const wantDuplicates = request.duplicatesFilter === 'duplicates';
       filteredItems = filteredItems.filter(
@@ -1237,6 +1242,7 @@ export class AssetService {
       lastViewed: sortConfig('lastViewed'),
       lastViewedTime: sortConfig('lastViewedTime'),
       importMode: sortConfig('importMode'),
+      experience: sortConfig('experience'),
       sourceType: sortConfig('sourceType'),
       schemas: sortConfig('schemas'),
       sharesTablesWith: sortConfig('sharesTablesWith'),
@@ -1321,6 +1327,7 @@ export class AssetService {
       name: asset.name,
       uniqueViewers: asset.activity?.uniqueViewers ?? -1,
       importMode: asset.importMode,
+      experience: asset.experience ?? '',
       sourceType: asset.sourceType,
       sharesTablesWith: asset.sharesTablesWith ?? 0,
       type: asset.type,

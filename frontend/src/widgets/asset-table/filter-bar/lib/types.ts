@@ -29,6 +29,8 @@ export type DuplicatesFilterState = 'all' | 'duplicates' | 'unique';
 
 /** DataSet API ImportMode values, plus 'all'. */
 export type ImportModeFilterState = 'all' | 'SPICE' | 'DIRECT_QUERY';
+/** Which data prep experience a dataset is built in, plus 'all'. */
+export type ExperienceFilterState = 'all' | 'legacy' | 'dataPrep';
 
 export type GroupMembershipFilterState = 'all' | 'in_groups' | 'not_in_groups';
 
@@ -115,6 +117,9 @@ export interface FilterBarProps {
   enableImportModeFiltering?: boolean;
   importModeFilter?: ImportModeFilterState;
   onImportModeFilterChange?: (filter: ImportModeFilterState) => void;
+  enableExperienceFiltering?: boolean;
+  experienceFilter?: ExperienceFilterState;
+  onExperienceFilterChange?: (filter: ExperienceFilterState) => void;
 
   // Folder filtering
   enableFolderFiltering?: boolean;

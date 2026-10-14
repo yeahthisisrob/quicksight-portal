@@ -11,6 +11,7 @@ interface FilterBarPropsWithDefaults extends FilterBarProps {
   enableActivityFiltering: boolean;
   enableSmusFiltering: boolean;
   enableImportModeFiltering: boolean;
+  enableExperienceFiltering: boolean;
   enableFolderFiltering: boolean;
   availableFolders: NonNullable<FilterBarProps['availableFolders']>;
   includeFolders: NonNullable<FilterBarProps['includeFolders']>;
@@ -35,6 +36,7 @@ export function applyFilterBarDefaults(props: FilterBarProps): FilterBarPropsWit
     enableActivityFiltering: props.enableActivityFiltering ?? false,
     enableSmusFiltering: props.enableSmusFiltering ?? false,
     enableImportModeFiltering: props.enableImportModeFiltering ?? false,
+    enableExperienceFiltering: props.enableExperienceFiltering ?? false,
     enableFolderFiltering: props.enableFolderFiltering ?? false,
     availableFolders: props.availableFolders ?? [],
     includeFolders: props.includeFolders ?? [],

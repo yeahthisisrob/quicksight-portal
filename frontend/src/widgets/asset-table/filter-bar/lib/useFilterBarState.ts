@@ -5,6 +5,7 @@ import {
   DEFAULT_DATE_FILTER,
   DEFAULT_DUPLICATES_FILTER,
   DEFAULT_ERROR_FILTER,
+  DEFAULT_EXPERIENCE_FILTER,
   DEFAULT_IMPORT_MODE_FILTER,
   DEFAULT_SMUS_FILTER,
 } from './constants';
@@ -15,6 +16,7 @@ import type {
   DateFilterState,
   DuplicatesFilterState,
   ErrorFilterState,
+  ExperienceFilterState,
   FolderFilter,
   FolderOption,
   ImportModeFilterState,
@@ -56,6 +58,8 @@ interface UseFilterBarStateOptions {
   // Import mode
   importModeFilter?: ImportModeFilterState;
   onImportModeFilterChange?: (filter: ImportModeFilterState) => void;
+  experienceFilter?: ExperienceFilterState;
+  onExperienceFilterChange?: (filter: ExperienceFilterState) => void;
 
   // Folders
   includeFolders?: FolderFilter[];
@@ -96,6 +100,8 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     onDuplicatesFilterChange,
     importModeFilter,
     onImportModeFilterChange,
+    experienceFilter,
+    onExperienceFilterChange,
     includeFolders = [],
     excludeFolders = [],
     onIncludeFoldersChange,
@@ -144,6 +150,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     if (smusFilter && smusFilter !== 'all') count++;
     if (duplicatesFilter && duplicatesFilter !== 'all') count++;
     if (importModeFilter && importModeFilter !== 'all') count++;
+    if (experienceFilter && experienceFilter !== 'all') count++;
     count += includeTags.length;
     count += excludeTags.length;
     count += includeFolders.length;
@@ -159,6 +166,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     smusFilter,
     duplicatesFilter,
     importModeFilter,
+    experienceFilter,
     includeTags,
     excludeTags,
     includeFolders,
@@ -271,6 +279,11 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     [onImportModeFilterChange]
   );
 
+  const handleClearExperienceFilter = useCallback(
+    () => onExperienceFilterChange?.(DEFAULT_EXPERIENCE_FILTER),
+    [onExperienceFilterChange]
+  );
+
   const handleClearAll = useCallback(() => {
     onDateFilterChange?.(DEFAULT_DATE_FILTER);
     onErrorFilterChange?.(DEFAULT_ERROR_FILTER);
@@ -278,6 +291,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     onSmusFilterChange?.(DEFAULT_SMUS_FILTER);
     onDuplicatesFilterChange?.(DEFAULT_DUPLICATES_FILTER);
     onImportModeFilterChange?.(DEFAULT_IMPORT_MODE_FILTER);
+    onExperienceFilterChange?.(DEFAULT_EXPERIENCE_FILTER);
     onIncludeTagsChange?.([]);
     onExcludeTagsChange?.([]);
     onIncludeFoldersChange?.([]);
@@ -291,6 +305,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     onSmusFilterChange,
     onDuplicatesFilterChange,
     onImportModeFilterChange,
+    onExperienceFilterChange,
     onIncludeTagsChange,
     onExcludeTagsChange,
     onIncludeFoldersChange,
@@ -332,6 +347,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     handleClearSmusFilter,
     handleClearDuplicatesFilter,
     handleClearImportModeFilter,
+    handleClearExperienceFilter,
     handleClearAll,
   };
 }

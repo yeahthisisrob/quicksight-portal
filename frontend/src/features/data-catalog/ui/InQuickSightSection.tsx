@@ -111,6 +111,14 @@ export function InQuickSightSection({ asset }: InQuickSightSectionProps) {
           {current.importMode && (
             <Chip size="small" variant="outlined" label={current.importMode} />
           )}
+          {current.experience && (
+            <Chip
+              size="small"
+              variant="outlined"
+              color={current.experience === 'dataPrep' ? 'success' : 'warning'}
+              label={current.experience === 'dataPrep' ? 'New data prep' : 'Legacy data prep'}
+            />
+          )}
           <Chip
             size="small"
             variant="outlined"

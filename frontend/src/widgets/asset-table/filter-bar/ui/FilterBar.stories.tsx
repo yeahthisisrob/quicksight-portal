@@ -8,6 +8,7 @@ import type {
   DateFilterState,
   DuplicatesFilterState,
   ErrorFilterState,
+  ExperienceFilterState,
   ImportModeFilterState,
   SmusFilterState,
   TagFilter,
@@ -121,6 +122,7 @@ function DatasetFiltersWrapper() {
   const [smusFilter, setSmusFilter] = useState<SmusFilterState>('all');
   const [duplicatesFilter, setDuplicatesFilter] = useState<DuplicatesFilterState>('duplicates');
   const [importModeFilter, setImportModeFilter] = useState<ImportModeFilterState>('all');
+  const [experienceFilter, setExperienceFilter] = useState<ExperienceFilterState>('legacy');
   return (
     <FilterBar
       enableSmusFiltering
@@ -132,6 +134,9 @@ function DatasetFiltersWrapper() {
       enableImportModeFiltering
       importModeFilter={importModeFilter}
       onImportModeFilterChange={setImportModeFilter}
+      enableExperienceFiltering
+      experienceFilter={experienceFilter}
+      onExperienceFilterChange={setExperienceFilter}
     />
   );
 }

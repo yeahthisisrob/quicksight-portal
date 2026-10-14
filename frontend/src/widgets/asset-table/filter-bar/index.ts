@@ -3,6 +3,7 @@ export {
   DEFAULT_DATE_FILTER,
   DEFAULT_DUPLICATES_FILTER,
   DEFAULT_ERROR_FILTER,
+  DEFAULT_EXPERIENCE_FILTER,
   DEFAULT_IMPORT_MODE_FILTER,
   DEFAULT_SMUS_FILTER,
 } from './lib/constants';
@@ -12,6 +13,7 @@ export type {
   DateFilterState,
   DuplicatesFilterState,
   ErrorFilterState,
+  ExperienceFilterState,
   FolderFilter,
   FolderOption,
   GroupMembershipFilterState,

@@ -136,6 +136,7 @@ function mapDatasetFromCache(entry: CatalogEntry): DatasetListItem & { arn: stri
   return {
     ...base,
     importMode: metadata.importMode || 'SPICE',
+    ...(metadata.experience ? { experience: metadata.experience } : {}),
     fieldCount: metadata.fieldCount || 0,
     sourceType: metadata.sourceType || 'UNKNOWN',
     schemas: extractDatasetSchemas(metadata),

@@ -243,6 +243,7 @@ export default function AssetsPage() {
         enableSmusFiltering={config.assetType === 'dataset' && smusConfigured}
         enableDuplicatesFiltering={config.assetType === 'dataset'}
         enableImportModeFiltering={config.assetType === 'dataset'}
+        enableExperienceFiltering={config.assetType === 'dataset'}
         enableSourceTypeFiltering={['dataset', 'datasource'].includes(config.assetType)}
         availableSourceTypes={
           ['dataset', 'datasource'].includes(config.assetType) ? availableSourceTypes : undefined

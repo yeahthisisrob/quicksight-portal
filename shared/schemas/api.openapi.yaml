@@ -479,6 +479,12 @@ paths:
           schema:
             type: string
             enum: [all, SPICE, DIRECT_QUERY]
+        - name: experienceFilter
+          in: query
+          description: Datasets - only those built in the legacy data prep experience, or only in the new one.
+          schema:
+            type: string
+            enum: [all, legacy, dataPrep]
       responses:
         '200':
           description: Paginated asset list
@@ -7744,6 +7750,13 @@ components:
               type: string
               enum: [SPICE, DIRECT_QUERY]
               description: How data is imported
+            experience:
+              type: string
+              enum: [legacy, dataPrep]
+              description: >
+                Which data prep experience it is built in. Legacy cannot be
+                opened in the new data prep or built on; the Studio moves it.
+                Absent until the dataset has been described by an export.
             fieldCount:
               type: integer
               description: Number of fields in dataset
@@ -10839,6 +10852,10 @@ components:
           $ref: '#/components/schemas/SmusMatchType'
         importMode:
           type: string
+        experience:
+          type: string
+          enum: [legacy, dataPrep]
+          description: Which data prep experience the dataset is built in.
         calculatedFieldCount:
           type: integer
         fields:

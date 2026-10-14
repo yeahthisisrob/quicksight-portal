@@ -118,6 +118,7 @@ export const SALES_GOLD_DATASET: CatalogDataset = {
   name: 'Sales (gold)',
   matchType: 'source-table',
   importMode: 'SPICE',
+  experience: 'legacy',
   calculatedFieldCount: 2,
   fields: [
     {

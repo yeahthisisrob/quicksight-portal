@@ -373,7 +373,9 @@ folders, schedules), what it leaves behind and why it cannot be built;
 `POST /api/authoring/datasets/{id}/migrate` with `{"rebindReaders": true}`
 creates it and repoints every dashboard and analysis reading the original.
 The original stays until deleted. `GET /api/assets/dataset/{id}/source`
-says which `experience` a dataset is in.
+says which `experience` a dataset is in, every dataset row of
+`GET /api/assets/datasets/paginated` carries it, and `experienceFilter=legacy`
+lists the ones still to move.
 
 `importMode` is SPICE unless the request says `DIRECT_QUERY` or an admin
 changed the default in Settings; the preview says which. A SPICE dataset
