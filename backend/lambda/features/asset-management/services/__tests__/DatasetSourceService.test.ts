@@ -162,6 +162,16 @@ describe('DatasetSourceService', () => {
       expect(sent.physicalTableMap['t-rel'].RelationalTable.Schema).toBe('analytics_prod');
     });
 
+    it('says which data prep experience the dataset is built in', async () => {
+      expect((await service.getSource('ds-1')).experience).toBe('legacy');
+      mocks.qs.describeDataset.mockResolvedValue({
+        ...describeResponse(),
+        LogicalTableMap: undefined,
+        DataPrepConfiguration: { SourceTableMap: {} },
+      });
+      expect((await service.getSource('ds-1')).experience).toBe('dataPrep');
+    });
+
     it('edits custom SQL without touching its columns', async () => {
       await service.updateSource('ds-1', {
         tables: [{ id: 't-sql', sqlQuery: '  SELECT 2  ' }],

@@ -76,12 +76,17 @@ interface DatasetSource {
   dataSetId: string;
   name: string;
   importMode: string;
+  /** Which data prep experience it is built in; legacy cannot be opened in the new data prep. */
+  experience: 'legacy' | 'dataPrep';
   tables: DatasetPhysicalTable[];
   /** The SPICE import an update started, when it switched the dataset to SPICE. */
   ingestionId?: string;
 }
 
 const IMPORT_MODES: ReadonlySet<string> = new Set<DataSetImportMode>(['SPICE', 'DIRECT_QUERY']);
+
+const experienceOf = (described: Record<string, any>): DatasetSource['experience'] =>
+  described.DataPrepConfiguration ? 'dataPrep' : 'legacy';
 
 export function isImportMode(value: unknown): value is DataSetImportMode {
   return typeof value === 'string' && IMPORT_MODES.has(value);
@@ -158,6 +163,7 @@ export class DatasetSourceService {
       dataSetId,
       name: current.Name ?? dataSetId,
       importMode: current.ImportMode,
+      experience: experienceOf(current),
       tables,
     };
   }
@@ -222,6 +228,7 @@ export class DatasetSourceService {
       dataSetId,
       name,
       importMode,
+      experience: experienceOf(current),
       tables: Object.entries(physicalTableMap).map(([id, table]) => this.toView(id, table)),
       ...(ingestionId ? { ingestionId } : {}),
     };

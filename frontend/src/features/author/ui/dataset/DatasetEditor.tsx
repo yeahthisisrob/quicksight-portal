@@ -1,9 +1,10 @@
 /**
  * One dataset in the Studio: where it reads from (edited here: data source,
  * catalog, schema, table or query, its name, and SPICE or direct query),
- * what reads it, the calculated fields defined on it, and its SMUS
- * governance. Columns are never rewritten, so everything downstream keeps
- * working; a save says how much reads it before it goes.
+ * what reads it, the calculated fields defined on it, its SMUS governance,
+ * and, for a legacy dataset, the move to the new data prep experience.
+ * Columns are never rewritten, so everything downstream keeps working; a
+ * save says how much reads it before it goes.
  */
 import { ArrowBack, OpenInNew, Save, Undo } from '@mui/icons-material';
 import {
@@ -47,6 +48,7 @@ import { getQuickSightConsoleUrl } from '@/shared/lib/assetTypeUtils';
 
 import { Panel } from '../primitives/Panel';
 import { FieldTrace } from './FieldTrace';
+import { MigrationPanel } from './MigrationPanel';
 
 const RELATED_LIMIT = 200;
 
@@ -329,6 +331,11 @@ export function DatasetEditor({
             </Typography>
             <Chip size="small" variant="outlined" label="Dataset" />
             {draft.importMode && <Chip size="small" variant="outlined" label={draft.importMode} />}
+            {draft.experience === 'legacy' && (
+              <Tooltip title="Built in the legacy data prep experience; see the panel to move it.">
+                <Chip size="small" color="warning" variant="outlined" label="Legacy data prep" />
+              </Tooltip>
+            )}
           </Stack>
           <Typography variant="caption" sx={{ color: 'text.secondary' }}>
             {dataset.id}
@@ -413,6 +420,11 @@ export function DatasetEditor({
         </Panel>
 
         <Stack spacing={2}>
+          <MigrationPanel
+            datasetId={dataset.id}
+            experience={draft.experience}
+            onMigrated={onOpenDataset}
+          />
           <ReadersPanel datasetId={dataset.id} onOpen={onOpen} />
           <SameTablePanel datasetId={dataset.id} onOpenDataset={onOpenDataset} />
           <GovernancePanel datasetId={dataset.id} />

@@ -1758,6 +1758,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/authoring/datasets/{dataSetId}/migrate/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What moving a legacy dataset to the new data prep experience would carry
+         * @description QuickSight has no in-place upgrade: a dataset built with a
+         *     LogicalTableMap (the legacy data prep) cannot be opened in the new
+         *     data prep or be the parent of a new-experience dataset. The migration
+         *     is a twin: a new dataset with the same physical tables, the logical
+         *     tables rewritten as the new pipeline (import, project, rename, cast,
+         *     calculated fields, filters, joins), column descriptions and
+         *     geographic roles on the semantic model, the same import mode,
+         *     permissions, tags, folders, field folders, column groups and refresh
+         *     schedules. The preview says what is `carried`, what is `dropped`,
+         *     and in `refused` why the twin cannot be built (a parent dataset, a
+         *     parameter override). Nothing is written.
+         */
+        post: operations["postAuthoringDatasetMigratePreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/authoring/datasets/{dataSetId}/migrate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a legacy dataset to the new data prep experience, as a twin
+         * @description Writes exactly what the preview showed: a new dataset in the new data
+         *     prep experience, owned by the person who ran it, filed in the
+         *     original's folders and the defaults from Settings. With
+         *     `rebindReaders`, every dashboard and analysis reading the original is
+         *     repointed at the twin (a rebind of identical columns). The original
+         *     is left as it is; delete it from Assets once nothing reads it.
+         *     Refused, writing nothing, when the preview refuses.
+         */
+        post: operations["postAuthoringDatasetMigrate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/authoring/datasets/{dataSetId}/calculated-fields": {
         parameters: {
             query?: never;
@@ -4302,6 +4358,11 @@ export interface components {
             dataSetId: string;
             name: string;
             importMode: string;
+            /**
+             * @description Which data prep experience it is built in. Legacy cannot be opened in the new data prep; POST /api/authoring/datasets/{id}/migrate moves it.
+             * @enum {string}
+             */
+            experience: "legacy" | "dataPrep";
             tables: components["schemas"]["DatasetPhysicalTable"][];
             /** @description The SPICE import an update started, when it switched the dataset to SPICE. */
             ingestionId?: string;
@@ -4616,11 +4677,15 @@ export interface components {
          *     `listing`: a published SMUS listing by `listingId`, whose Glue table
          *     and columns come from its metadata forms, through `dataSourceId` or,
          *     when omitted, the Athena data source the SMUS-linked datasets already
-         *     read through (GET /api/authoring/datasources).
+         *     read through (GET /api/authoring/datasources). A table or a listing
+         *     is read as custom SQL, `SELECT * FROM` the table, unless `asTable`
+         *     is true. Every dataset is written in the new data prep experience.
          */
         NewDatasetSource: {
             /** @enum {string} */
             kind: "sql" | "table" | "listing";
+            /** @description table and listing only - read it as a relational table rather than as a select-all query. */
+            asTable?: boolean;
             dataSourceId?: string;
             sql?: string;
             tableName?: string;
@@ -5614,6 +5679,45 @@ export interface components {
             restricted: boolean;
             /** @description With readers=true, the dashboards and analyses that read it. */
             readers?: components["schemas"]["DatasetFieldReader"][];
+        };
+        DatasetMigrationPreview: {
+            dataSetId: string;
+            name: string;
+            importMode: string;
+            /**
+             * @description Which data prep experience the dataset is built in now.
+             * @enum {string}
+             */
+            experience: "legacy" | "dataPrep";
+            /** @description What the twin carries, in words. */
+            carried: string[];
+            /** @description Legacy details with no place in the new shape, left behind. */
+            dropped: string[];
+            /** @description Why the twin cannot be built; empty when it can. */
+            refused: string[];
+            readers: components["schemas"]["DatasetReaderRef"][];
+            folderIds: string[];
+            warnings: string[];
+        };
+        DatasetReaderRef: {
+            assetType: components["schemas"]["AuthorableAssetType"];
+            assetId: string;
+            name: string;
+        };
+        DatasetMigrationResult: components["schemas"]["DatasetMigrationPreview"] & {
+            /** @enum {string} */
+            assetType: "dataset";
+            /** @description The twin. */
+            assetId: string;
+            arn: string;
+            owner?: string;
+            /** @description SPICE: the twin's first import. */
+            ingestionId?: string;
+            /** @description Each reader repointed at the twin, or why it was not. */
+            rebound: (components["schemas"]["DatasetReaderRef"] & {
+                ok: boolean;
+                error?: string;
+            })[];
         };
         DatasetCalculatedFields: {
             dataSetId: string;
@@ -9170,6 +9274,70 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    postAuthoringDatasetMigratePreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataSetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What the migration would do */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["DatasetMigrationPreview"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthoringDatasetMigrate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataSetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description The twin's name; the original's when omitted. */
+                    name?: string;
+                    newDataSetId?: string;
+                    /** @description Repoint every dashboard and analysis reading the original at the twin. */
+                    rebindReaders?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The twin */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["DatasetMigrationResult"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
         };
     };
     getAuthoringDatasetCalculatedFields: {

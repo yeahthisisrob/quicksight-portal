@@ -216,6 +216,7 @@ theme and never write a definition QuickSight would refuse:
 | Rename a dataset's calculated field without breaking what reads it | `GET /api/authoring/datasets/{id}/calculated-fields?readers=true`, then `POST` the same path with `copyCalculatedField` (name, to); move each reader with a rebind of the same dataset and `columnMap` {old: new}; then `retireCalculatedField` (name, replacedBy), refused while anything still reads the old name. `dryRun: true` checks without writing |
 | Repair an asset QuickSight refuses to write | `POST /api/authoring/{type}/{id}/repair/plan`, then `repairs` on the preview |
 | Repoint a dataset at another table, query or data source, rename it, or switch it between SPICE and direct query | `PUT /api/assets/dataset/{id}/source` with `tables`, `name` or `importMode`; columns are kept, so what reads it keeps working |
+| Move a legacy dataset to the new data prep experience | `POST /api/authoring/datasets/{id}/migrate/preview`, then `.../migrate` with `rebindReaders: true`; a twin, with what reads the original repointed |
 | A dashboard from nothing, by naming columns | `POST /api/authoring/new/preview` with `visuals` |
 
 **Or ask the planner.** A model turns a sentence into a validated
@@ -358,6 +359,21 @@ databases to have an admin grant. Any other engine needs `columns`. The response
 carries `columns`, `columnsFrom` (`listing`, `declared` or `query`),
 `similar` (datasets that already read the same table, as the table or in
 their SQL; reuse one unless a new dataset is wanted) and `listing`.
+
+A `table` or a `listing` is read as custom SQL, `SELECT * FROM` the table,
+unless `source.asTable` is true. Every dataset is written in the new data
+prep experience (`DataPrepConfiguration` and `SemanticModelConfiguration`,
+never the deprecated `LogicalTableMap`). A dataset built in the legacy
+experience cannot be opened in the new data prep or be the parent of a
+new dataset, and QuickSight has no in-place upgrade: `POST
+/api/authoring/datasets/{id}/migrate/preview` says what a twin in the new
+experience would carry (tables, joins, calculated fields, renames, casts,
+filters, descriptions and roles, row-level security, audience, tags,
+folders, schedules), what it leaves behind and why it cannot be built;
+`POST /api/authoring/datasets/{id}/migrate` with `{"rebindReaders": true}`
+creates it and repoints every dashboard and analysis reading the original.
+The original stays until deleted. `GET /api/assets/dataset/{id}/source`
+says which `experience` a dataset is in.
 
 `importMode` is SPICE unless the request says `DIRECT_QUERY` or an admin
 changed the default in Settings; the preview says which. A SPICE dataset

@@ -238,7 +238,11 @@ describe('NewDatasetService', () => {
     });
     expect(athena.querySchema).not.toHaveBeenCalled();
     expect(preview).toMatchObject({
-      table: { kind: 'RELATIONAL', schema: 'public', name: 'orders' },
+      table: {
+        kind: 'CUSTOM_SQL',
+        name: 'Warehouse orders',
+        sql: 'SELECT * FROM "public"."orders"',
+      },
       columns: [{ name: 'id', type: 'INTEGER' }],
       columnsFrom: 'declared',
       similar: [],
@@ -256,13 +260,13 @@ describe('NewDatasetService', () => {
       name: 'Customers v2',
       source: { kind: 'listing', listingId: 'l-cust' },
     });
+    // Read as a select-all query, still typed from the listing and linked to it.
     expect(built).toMatchObject({
       dataSource: { id: 'athena-1' },
       table: {
-        kind: 'RELATIONAL',
-        catalog: 'AwsDataCatalog',
-        schema: 'published_prod',
-        name: 'dim_customer',
+        kind: 'CUSTOM_SQL',
+        name: 'Customers v2',
+        sql: 'SELECT * FROM "published_prod"."dim_customer"',
       },
       columns: [
         { name: 'customer_id', type: 'INTEGER' },
@@ -270,6 +274,19 @@ describe('NewDatasetService', () => {
       ],
       columnsFrom: 'listing',
       listing: { listingId: 'l-cust' },
+    });
+    expect(
+      (
+        await service().preview({
+          name: 'Customers as table',
+          source: { kind: 'listing', listingId: 'l-cust', asTable: true },
+        })
+      ).table
+    ).toEqual({
+      kind: 'RELATIONAL',
+      catalog: 'AwsDataCatalog',
+      schema: 'published_prod',
+      name: 'dim_customer',
     });
     await expect(
       service().preview({ name: 'x', source: { kind: 'listing', listingId: 'nope' } })
@@ -314,15 +331,22 @@ describe('NewDatasetService', () => {
         { Name: 'month', Type: 'DATETIME' },
       ],
     });
-    // An analysis reads the logical table: every column projected from the physical one.
+    // An analysis reads the pipeline: the table imported and every column
+    // projected, in the new data prep experience, never the legacy map.
     const [physicalTableId] = Object.keys(call.physicalTableMap);
-    expect(Object.values(call.logicalTableMap)[0]).toEqual({
-      Alias: 'Signups by month',
-      Source: { PhysicalTableId: physicalTableId },
-      DataTransforms: [
-        { ProjectOperation: { ProjectedColumns: ['customer_id', 'signups', 'month'] } },
-      ],
-    });
+    expect(call.logicalTableMap).toBeUndefined();
+    const prep = call.dataPrepConfiguration;
+    const [sourceId] = Object.keys(prep.SourceTableMap);
+    expect(prep.SourceTableMap[sourceId!]).toEqual({ PhysicalTableId: physicalTableId });
+    const steps = Object.entries(prep.TransformStepMap) as Array<[string, any]>;
+    expect(steps.map(([, s]) => Object.keys(s)[0])).toEqual(['ImportTableStep', 'ProjectStep']);
+    expect(steps[1]![1].ProjectStep.ProjectedColumns).toEqual(['customer_id', 'signups', 'month']);
+    expect(Object.values(prep.DestinationTableMap)).toEqual([
+      { Alias: 'Signups by month', Source: { TransformOperationId: steps[1]![0] } },
+    ]);
+    expect(Object.values(call.semanticModelConfiguration.TableMap)).toEqual([
+      { Alias: 'Signups by month', DestinationTableId: Object.keys(prep.DestinationTableMap)[0] },
+    ]);
     // The dashboard's owners own it, its viewers read it, and the person owns it.
     const principals = Object.fromEntries(
       call.permissions.map((p: any) => [p.Principal, p.Actions])

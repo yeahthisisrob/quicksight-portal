@@ -67,6 +67,7 @@ function Stubbed({
                     dataSetId: 'ds-1',
                     name: 'orders_fact',
                     importMode: 'SPICE',
+                    experience: 'dataPrep',
                     tables,
                     dataSources: DATA_SOURCES,
                   },

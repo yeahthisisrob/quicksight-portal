@@ -15,6 +15,13 @@
  * Nothing is created in SMUS. The listing in the preview is derived from
  * what the dataset reads, by the same matching that links every other
  * dataset in the account.
+ *
+ * A table or a listing is read as custom SQL, `SELECT * FROM the table`,
+ * unless asked for as the table itself: the query is what people open and
+ * extend, and a plain select is still typed from the listing. Every
+ * dataset is written in the new data prep experience (source table, import
+ * and project steps, destination, semantic model): the legacy shape cannot
+ * be opened in the new data prep or built on.
  */
 import { randomUUID } from 'node:crypto';
 
@@ -30,6 +37,7 @@ import {
   type QuickSightColumnType,
   toQuickSightColumnType,
 } from '../../../shared/services/datasets/columnTypes';
+import { dataPrepForTable } from '../../../shared/services/datasets/dataPrep';
 import {
   type DataSourceUsage,
   defaultAthenaDataSource,
@@ -67,8 +75,16 @@ const ATHENA_DEFAULT_CATALOG = 'AwsDataCatalog';
 
 export type NewDatasetSource =
   | { kind: 'sql'; dataSourceId: string; sql: string; tableName?: string }
-  | { kind: 'table'; dataSourceId: string; catalog?: string; schema: string; table: string }
-  | { kind: 'listing'; listingId: string; dataSourceId?: string };
+  | {
+      kind: 'table';
+      dataSourceId: string;
+      catalog?: string;
+      schema: string;
+      table: string;
+      /** Read the table as a relational table rather than as `SELECT * FROM` it. */
+      asTable?: boolean;
+    }
+  | { kind: 'listing'; listingId: string; dataSourceId?: string; asTable?: boolean };
 
 export interface NewDatasetColumn {
   name: string;
@@ -167,7 +183,6 @@ export class NewDatasetService {
     const { preview, dataSource, audience } = await this.compose(request, auth);
     const dataSetId = request.newDataSetId?.trim() || randomUUID();
     const physicalTableId = randomUUID();
-    const logicalTableId = randomUUID();
     const tags = tagsForCreate(dataSetId, request.tags, auth);
     logger.info('Creating dataset from nothing', {
       dataSetId,
@@ -178,10 +193,10 @@ export class NewDatasetService {
       permissions: audience.permissions?.length ?? 0,
     });
 
-    // The physical table declares what the source has; the logical table is
-    // what an analysis reads. QuickSight's console always writes both,
-    // projecting every column; a dataset without the logical table leaves
-    // an analysis built on it blank, with no field to bind.
+    // The physical table declares what the source has; the pipeline is what
+    // an analysis reads: the table imported and every column projected, as
+    // QuickSight's console writes it. A dataset without that leaves an
+    // analysis built on it blank, with no field to bind.
     const created = await this.quickSightService.createDataSet({
       dataSetId,
       name: preview.name,
@@ -189,15 +204,11 @@ export class NewDatasetService {
       permissions: audience.permissions?.length ? audience.permissions : undefined,
       ...(tags.length > 0 ? { tags } : {}),
       physicalTableMap: { [physicalTableId]: physicalTableFor(preview, dataSource.arn) } as any,
-      logicalTableMap: {
-        [logicalTableId]: {
-          Alias: preview.table.name,
-          Source: { PhysicalTableId: physicalTableId },
-          DataTransforms: [
-            { ProjectOperation: { ProjectedColumns: preview.columns.map((c) => c.name) } },
-          ],
-        },
-      } as any,
+      ...dataPrepForTable({
+        physicalTableId,
+        alias: preview.table.name,
+        columns: preview.columns.map((c) => c.name),
+      }),
     });
 
     const { filed, warnings: filing } = await fileInFolders(
@@ -357,12 +368,15 @@ export class NewDatasetService {
       }
       return {
         dataSource,
-        table: {
-          kind: 'RELATIONAL',
-          catalog: listing.table.catalog || ATHENA_DEFAULT_CATALOG,
-          schema: listing.table.database,
-          name: listing.table.name,
-        },
+        table: tableOrSelect(
+          {
+            catalog: listing.table.catalog || ATHENA_DEFAULT_CATALOG,
+            schema: listing.table.database,
+            name: listing.table.name,
+          },
+          source.asTable === true,
+          name
+        ),
         columns: listing.columns.map((c) => ({
           name: c.name,
           type: toQuickSightColumnType(c.type),
@@ -397,12 +411,11 @@ export class NewDatasetService {
       source.catalog?.trim() || (isAthena(dataSource) ? ATHENA_DEFAULT_CATALOG : '');
     return {
       dataSource,
-      table: {
-        kind: 'RELATIONAL',
-        name: table,
-        schema,
-        ...(catalogName ? { catalog: catalogName } : {}),
-      },
+      table: tableOrSelect(
+        { name: table, schema, ...(catalogName ? { catalog: catalogName } : {}) },
+        source.asTable === true,
+        name
+      ),
       columns: declared,
       columnsFrom: 'declared',
     };
@@ -532,6 +545,29 @@ function quoteIdentifier(name: string): string {
 }
 
 /** The PhysicalTableMap entry the preview describes. */
+/** `"schema"."table"`, with the catalog first when it is not Athena's default. */
+function quotedTableRef(table: { catalog?: string; schema?: string; name: string }): string {
+  const quote = (part: string) => `"${part.replace(/"/g, '""')}"`;
+  const parts = [
+    ...(table.catalog && table.catalog !== ATHENA_DEFAULT_CATALOG ? [table.catalog] : []),
+    ...(table.schema ? [table.schema] : []),
+    table.name,
+  ];
+  return parts.map(quote).join('.');
+}
+
+/** The table as a relational table, or as the custom SQL `SELECT * FROM` it (the default). */
+function tableOrSelect(
+  table: { catalog?: string; schema: string; name: string },
+  asTable: boolean,
+  datasetName: string
+): PhysicalTable {
+  if (asTable) {
+    return { kind: 'RELATIONAL', ...table };
+  }
+  return { kind: 'CUSTOM_SQL', name: datasetName, sql: `SELECT * FROM ${quotedTableRef(table)}` };
+}
+
 function physicalTableFor(preview: NewDatasetPreview, dataSourceArn: string): Record<string, any> {
   const columns = preview.columns.map((c) => ({ Name: c.name, Type: c.type }));
   if (preview.table.kind === 'CUSTOM_SQL') {
