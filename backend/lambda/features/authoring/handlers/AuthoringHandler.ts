@@ -24,6 +24,7 @@ import {
   type DatasetMigrationRequest,
   DatasetMigrationService,
 } from '../services/DatasetMigrationService';
+import { DatasetReadersRepairService } from '../services/DatasetReadersRepairService';
 import { DefinitionService } from '../services/DefinitionService';
 import { InsightsService } from '../services/InsightsService';
 import { type NewAssetRequest, NewAssetService } from '../services/NewAssetService';
@@ -483,6 +484,32 @@ export class AuthoringHandler {
     }
   }
 
+  /** POST /authoring/datasets/{dataSetId}/readers/repair/preview */
+  public async previewReadersRepair(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const preview = await this.readersRepairService().preview(this.dataSetId(event));
+      return successResponse(event, { success: true, data: preview });
+    } catch (error: any) {
+      logger.error('Preview readers repair failed', { error });
+      return this.failure(event, error, 'Failed to check what reads the dataset');
+    }
+  }
+
+  /** POST /authoring/datasets/{dataSetId}/readers/repair */
+  public async repairReaders(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const dataSetId = this.dataSetId(event);
+      logger.info('Readers repair requested', { user: user.email, dataSetId });
+      const result = await this.readersRepairService().repair(dataSetId, user);
+      return successResponse(event, { success: true, data: result });
+    } catch (error: any) {
+      logger.error('Readers repair failed', { error });
+      return this.failure(event, error, 'Failed to repair what reads the dataset');
+    }
+  }
+
   /** POST /authoring/themes  body: a theme draft. Creates it in QuickSight, owned by whoever asked. */
   public async createTheme(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
@@ -712,6 +739,10 @@ export class AuthoringHandler {
 
   private migrationService(): DatasetMigrationService {
     return new DatasetMigrationService(this.accountId, this.service());
+  }
+
+  private readersRepairService(): DatasetReadersRepairService {
+    return new DatasetReadersRepairService(this.accountId, this.service());
   }
 
   private dataSetId(event: APIGatewayProxyEvent): string {

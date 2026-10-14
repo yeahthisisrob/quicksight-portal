@@ -81,6 +81,16 @@ export const authoringRoutes: RouteHandler[] = [
     handler: (event) => handler.migrateDataset(event),
   },
   {
+    method: 'POST',
+    path: /^\/authoring\/datasets\/([^/]+)\/readers\/repair\/preview$/,
+    handler: (event) => handler.previewReadersRepair(event),
+  },
+  {
+    method: 'POST',
+    path: /^\/authoring\/datasets\/([^/]+)\/readers\/repair$/,
+    handler: (event) => handler.repairReaders(event),
+  },
+  {
     method: 'GET',
     path: /^\/authoring\/(analysis|dashboard)\/([^/]+)\/datasets$/,
     handler: (event) => handler.getDatasets(event),
