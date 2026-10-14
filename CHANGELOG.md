@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.43.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.42.0...v2.43.0) (2026-10-14)
+
+
+### Features
+
+* **assistant:** a visual change is one planner call, each asset is described once, and every call is traced with its time ([#320](https://github.com/yeahthisisrob/quicksight-portal/issues/320)) ([0c2df20](https://github.com/yeahthisisrob/quicksight-portal/commit/0c2df20289a62542f589bfabc9a08d254f8c8399))
+
 ## [2.42.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.41.0...v2.42.0) (2026-10-14)
 
 
