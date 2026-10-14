@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.39.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.38.0...v2.39.0) (2026-10-14)
+
+
+### Features
+
+* **datasets:** every dataset is written in the new data prep experience, a table reads as select-all SQL, and a legacy dataset migrates to a twin ([#306](https://github.com/yeahthisisrob/quicksight-portal/issues/306)) ([abeef80](https://github.com/yeahthisisrob/quicksight-portal/commit/abeef8044d855390fb70dfa15eb405693171ef97))
+
 ## [2.38.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.37.0...v2.38.0) (2026-10-14)
 
 
