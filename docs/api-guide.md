@@ -345,9 +345,10 @@ curl -sS -X POST "$QSP_API_URL/api/authoring/datasets" \
 `dataSourceId`, optional `catalog`) or `listing` (`listingId`; the data
 source defaults to the Athena one the SMUS-linked datasets already read
 through). QuickSight needs every column declared, so the preview resolves
-them: from the listing's metadata forms, from `columns` when you declare
-them (`[{ "name", "type" }]`, types STRING, INTEGER, DECIMAL, DATETIME,
-BOOLEAN, BIT, JSON), or by asking the engine. For an Athena data source the
+them: from the listing's metadata forms (for a listing, and for a query
+that only selects columns of one published table), from `columns` when
+you declare them (`[{ "name", "type" }]`, types STRING, INTEGER, DECIMAL,
+DATETIME, BOOLEAN, BIT, JSON), or by asking the engine. For an Athena data source the
 portal runs the query through the source's workgroup with no rows read and
 takes the result's columns, so a query Athena refuses comes back as a 400
 with the engine's reason. A governed (Lake Formation) table the portal's
