@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.36.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.35.4...v2.36.0) (2026-10-14)
+
+
+### Features
+
+* **authoring:** datasets from nothing - a query, a table or a SMUS listing, previewed with their columns and the datasets they would duplicate ([#295](https://github.com/yeahthisisrob/quicksight-portal/issues/295)) ([e65c11c](https://github.com/yeahthisisrob/quicksight-portal/commit/e65c11c2fc26d3e8a72dc9b68177103d0b1d42af))
+* **datasets:** datasets reading the same table are counted, filterable and listed in the Studio ([#297](https://github.com/yeahthisisrob/quicksight-portal/issues/297)) ([c4bcd70](https://github.com/yeahthisisrob/quicksight-portal/commit/c4bcd70858f260faa45d2c58bf9160f7176c1b3f))
+
+
+### Bug Fixes
+
+* **datasets:** Athena can write the schema query's results, and says which bucket when it cannot ([#298](https://github.com/yeahthisisrob/quicksight-portal/issues/298)) ([1be4175](https://github.com/yeahthisisrob/quicksight-portal/commit/1be41750a962ba147c84ee9f4b567b633517649f))
+
 ## [2.35.4](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.35.3...v2.35.4) (2026-09-28)
 
 
