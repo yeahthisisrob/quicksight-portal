@@ -51,7 +51,8 @@ const LISTING: CatalogListing = {
   name: 'dim_customer',
   assetType: 'amazon.datazone.GlueTableAssetType',
   owningProjectId: 'proj',
-  table: { database: 'published_prod', name: 'dim_customer' },
+  // The Glue catalog id (the account) as the listing's forms carry it.
+  table: { catalog: '123456789012', database: 'published_prod', name: 'dim_customer' },
   columns: [
     { name: 'customer_id', type: 'bigint' },
     { name: 'signed_up', type: 'timestamp' },
@@ -260,7 +261,9 @@ describe('NewDatasetService', () => {
       name: 'Customers v2',
       source: { kind: 'listing', listingId: 'l-cust' },
     });
-    // Read as a select-all query, still typed from the listing and linked to it.
+    // Read as a select-all query, still typed from the listing and linked to
+    // it. The Glue catalog id is not an Athena catalog name, so the SQL
+    // names the database and table only.
     expect(built).toMatchObject({
       dataSource: { id: 'athena-1' },
       table: {
@@ -284,7 +287,7 @@ describe('NewDatasetService', () => {
       ).table
     ).toEqual({
       kind: 'RELATIONAL',
-      catalog: 'AwsDataCatalog',
+      catalog: '123456789012',
       schema: 'published_prod',
       name: 'dim_customer',
     });

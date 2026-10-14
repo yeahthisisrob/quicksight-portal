@@ -547,11 +547,21 @@ function quoteIdentifier(name: string): string {
 }
 
 /** The PhysicalTableMap entry the preview describes. */
-/** `"schema"."table"`, with the catalog first when it is not Athena's default. */
+/** A Glue catalog id is the account number: a QuickSight table may name it, Athena SQL cannot. */
+const GLUE_CATALOG_ID = /^\d{12}$/;
+
+/**
+ * `"schema"."table"`, with a catalog first only when Athena knows it by
+ * that name: not its default, and not the Glue catalog id a listing carries.
+ */
 function quotedTableRef(table: { catalog?: string; schema?: string; name: string }): string {
   const quote = (part: string) => `"${part.replace(/"/g, '""')}"`;
+  const named =
+    table.catalog &&
+    table.catalog !== ATHENA_DEFAULT_CATALOG &&
+    !GLUE_CATALOG_ID.test(table.catalog);
   const parts = [
-    ...(table.catalog && table.catalog !== ATHENA_DEFAULT_CATALOG ? [table.catalog] : []),
+    ...(named ? [table.catalog as string] : []),
     ...(table.schema ? [table.schema] : []),
     table.name,
   ];
