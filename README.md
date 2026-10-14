@@ -93,7 +93,7 @@ Themes are an asset type end to end: listed with their colors and how many dashb
 - **Archive and restore** - what the portal deletes is kept with its audience, theme and tags, and comes back through the same checks as a transform.
 - **Activity timeline** - every change in the account from CloudTrail on one timeline, with the portal's own writes attributed to the person or the API key behind them, so a change made by an agent reads "Portal · API key claude cli" and filters as made by agents. Assets the portal writes carry `portal:authored-by`, `portal:channel` and `portal:at` tags.
 - **Tags, permissions, folders, users, groups** - browse and edit, inspect who can see what, filter any asset page by a user's access.
-- **Settings** - in DynamoDB with a fallback to the environment, each value showing where it came from; per-organisation authoring guidance, tag standards, default folders and theme; an Athena access check that shows which governed databases the portal's role can read and the exact Lake Formation grant for an admin to run.
+- **Settings** - in DynamoDB with a fallback to the environment, each value showing where it came from; per-organisation authoring guidance, tag standards, default folders and theme; how hard the thinking models think (medium by default, so a plan answers in seconds rather than a minute a step); an Athena access check that shows which governed databases the portal's role can read and the exact Lake Formation grant for an admin to run.
 - **Parity** - a page that tracks what the AWS console offers against what the portal does, row by row.
 
 ![Dashboards with health columns](docs/screenshots/health-dashboards.png)

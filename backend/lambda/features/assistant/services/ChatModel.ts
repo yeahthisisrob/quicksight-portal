@@ -7,7 +7,7 @@
 import type { ContentBlock, Message } from '@aws-sdk/client-bedrock-runtime';
 
 import type { BedrockAdapter } from '../../../adapters/aws/BedrockAdapter';
-import type { AiModel } from '../../../shared/ai/modelCatalog';
+import { type AiModel, aiEffort } from '../../../shared/ai/modelCatalog';
 
 interface ToolCall {
   id: string;
@@ -111,6 +111,7 @@ export class BedrockChatModel implements ChatModel {
       tools,
       maxTokens: maxTokensFor(this.model),
       capabilities: this.model.capabilities,
+      ...(this.model.capabilities.effort ? { effort: aiEffort() } : {}),
     });
     const blocks = result.message.content ?? [];
     return {

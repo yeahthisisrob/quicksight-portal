@@ -16,6 +16,20 @@ export interface ConverseCapabilities {
   temperature: boolean;
   forcedTool: boolean;
   promptCache: boolean;
+  /** Takes `output_config.effort`: how hard an adaptive-thinking model thinks. */
+  effort?: boolean;
+}
+
+export type ConverseEffort = 'low' | 'medium' | 'high';
+
+/** The request fields Converse passes through to the model, for the effort it is asked for. */
+function effortFields(
+  caps: ConverseCapabilities,
+  effort: ConverseEffort | undefined
+): Pick<ConverseCommandInput, 'additionalModelRequestFields'> {
+  return caps.effort && effort
+    ? { additionalModelRequestFields: { output_config: { effort } } as any }
+    : {};
 }
 
 const LEGACY_CAPABILITIES: ConverseCapabilities = {
@@ -34,6 +48,8 @@ interface StructuredOutputRequest {
   inputSchema: Record<string, unknown>;
   maxTokens: number;
   capabilities?: ConverseCapabilities;
+  /** How hard to think, where the model takes it; Bedrock's default (high) otherwise. */
+  effort?: ConverseEffort;
   /** Pictures sent beside the text, for a model that reads images. */
   images?: Array<{ format: 'png' | 'jpeg' | 'gif' | 'webp'; bytes: Uint8Array }>;
 }
@@ -53,6 +69,7 @@ interface ConverseTurnRequest {
   tools: Array<{ name: string; description: string; inputSchema: Record<string, unknown> }>;
   maxTokens: number;
   capabilities: ConverseCapabilities;
+  effort?: ConverseEffort;
 }
 
 interface ConverseTurnResult {
@@ -101,6 +118,7 @@ export class BedrockAdapter {
         maxTokens: req.maxTokens,
         ...(caps.temperature ? { temperature: 0 } : {}),
       },
+      ...effortFields(caps, req.effort),
       toolConfig: {
         tools: [
           {
@@ -121,7 +139,12 @@ export class BedrockAdapter {
       outputTokens: response.usage?.outputTokens ?? 0,
     };
     // One line per call so cost is visible instead of assumed.
-    logger.info('Bedrock converse', { modelId: req.modelId, ...usage, stop: response.stopReason });
+    logger.info('Bedrock converse', {
+      modelId: req.modelId,
+      ...usage,
+      stop: response.stopReason,
+      ...(caps.effort && req.effort ? { effort: req.effort } : {}),
+    });
 
     const blocks = response.output?.message?.content ?? [];
     const toolUse = blocks.find((b): b is { toolUse: ToolUseBlock } => Boolean(b.toolUse))?.toolUse;
@@ -159,6 +182,7 @@ export class BedrockAdapter {
           maxTokens: req.maxTokens,
           ...(req.capabilities.temperature ? { temperature: 0.2 } : {}),
         },
+        ...effortFields(req.capabilities, req.effort),
         toolConfig: { tools, toolChoice: { auto: {} } },
       })
     );
