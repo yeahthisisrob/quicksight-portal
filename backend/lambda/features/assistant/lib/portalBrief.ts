@@ -25,9 +25,9 @@ export function portalConcepts(options: { smus: boolean }): string {
   const smus = options.smus
     ? [
         '- SMUS (SageMaker Unified Studio) is where governed data comes from. Tables are published as listings, and every listing belongs to a project. The portal links each listing to the QuickSight datasets that already read it (by table, by SQL, by name, or through a composite dataset built on a linked one); the Data Catalog page shows those links.',
-        '- "A SMUS dataset", "the governed dataset", "the linked dataset" or the name of a published table means an existing QuickSight dataset linked to a listing. Find it with context_search (types listing or dataset), then context_related on the listing (relations reads-listing, direction in), and use its id. Do not create a dataset (POST /api/smus/assets/{listingId}/dataset) unless the person asks for a new one, or the listing has no linked dataset and they agree.',
+        '- "A SMUS dataset", "the governed dataset", "the linked dataset" or the name of a published table means an existing QuickSight dataset linked to a listing. Find it with context_search (types listing or dataset), then context_related on the listing (relations reads-listing, direction in), and use its id. Do not create a dataset over a listing that already has one unless the person asks for a new one, or the listing has no linked dataset and they agree.',
         '- Projects scope everything: governed datasets, calculated fields and columns all filter by projectId. When the person names a project, or a listing or dataset that belongs to one, work within it. The brief below lists the projects.',
-        '- SMUS tables are Glue tables, read in QuickSight through an Athena data source. A new dataset over a listing (POST /api/smus/assets/{listingId}/dataset) needs no dataSourceId: the portal uses the Athena data source the linked datasets already read through (the brief names it). Send only what the person chose, if anything.',
+        '- SMUS is a link, not a place things are made in. A dataset is linked to a listing by what it reads: the Glue table behind the listing, named as the table or in the SQL. SMUS tables are read in QuickSight through an Athena data source; a new dataset over a listing (source kind listing) needs no dataSourceId, the portal takes the Athena source the linked datasets already read through (the brief names it).',
       ]
     : [
         '- SMUS is not configured for this portal, so there are no governed listings or projects: work with the QuickSight datasets, analyses and dashboards directly.',
@@ -38,6 +38,7 @@ export function portalConcepts(options: { smus: boolean }): string {
     '- The data catalog groups every calculated field in the account by what it computes: where it is defined, which datasets and listings it lives on, conflicts (one name, different expressions), lineage both ways, and whether it matches a template. Search them with context_search (types calculated-field); read one with GET /api/data-catalog/calculated-fields/{key} for conflicts and full lineage.',
     "- Each calculated field in the graph carries its kind (row-level, aggregate, lac-a, lac-w, table-calc), its stage in QuickSight's order of evaluation, its calc level, and whether SPICE materialises it (row-level and no parameter). Only a materialisable field belongs in a dataset or upstream; aggregates, level-aware and table calculations belong in the analysis, and a filter only sees what is evaluated before it.",
     '- Templates are of two kinds. The calculated-field template library holds reusable expressions, added to an asset with addCalculatedFields. Layout standards are dashboards tagged quicksight-portal:template=true, applied with `template` on a rebind or new-asset request. Use list_templates.',
+    '- A new dataset on its own is one write: propose_action POST /api/authoring/datasets with a name and a source (kind sql with the query and dataSourceId; kind table with schema, table and dataSourceId; kind listing with listingId). Its preview settles the columns (read from Athena by running the query without reading a row; declared in `columns` for any other engine) and names the SMUS listing it will be linked to. A folder goes in folderId (find it with context_search, types folder); an audience in permissionsFrom. The data source is a choice: GET /api/authoring/datasources ranks every data source by the datasets reading through it, governed ones first, with its type. When the person named one, or a rule for one ("the most used Athena data source" is the first ATHENA row), take it from that list and say which you took and why. When they named none and more than one could do, ask_person with the likely ones as options before preparing anything.',
     '- Before preparing anything that creates or changes a dataset, an analysis or a dashboard, show the plan with show_plan: where the data comes from, each dataset (existing, or new and through which data source), the calculated fields it adds, and the analysis or dashboard (new, edited, or a copy). Reuse existing datasets unless the person asked for a new one. show_plan judges each calculated field against the guidance and tells you what to change.',
     '- Authoring means: rebind an asset onto other datasets, migrate it onto a layout standard, convert chart types, build visuals from column names, repair what QuickSight refuses, or publish a definition someone edited. To keep the planner to governed datasets, pass their ids as candidateDataSetIds on propose.',
   ].join('\n');
@@ -45,6 +46,7 @@ export function portalConcepts(options: { smus: boolean }): string {
 
 const MAX_TEMPLATES = 20;
 const MAX_PROJECTS = 30;
+const MAX_DATA_SOURCES = 10;
 const FIRST_ERROR_STATUS = 400;
 
 function parseData(response: { status: number; body: string }): any {
@@ -168,12 +170,12 @@ export async function listTemplates(dispatch: Dispatch): Promise<string> {
  * answer, and never claims SMUS is off when the status could not be read.
  */
 export async function buildBrief(dispatch: Dispatch): Promise<string> {
-  const [status, catalog, fields, templates, source] = await Promise.all([
+  const [status, catalog, fields, templates, sources] = await Promise.all([
     read(dispatch, '/api/smus/status'),
     read(dispatch, '/api/data-catalog/smus'),
     read(dispatch, '/api/data-catalog/calculated-fields'),
     listTemplates(dispatch),
-    read(dispatch, '/api/smus/data-source'),
+    read(dispatch, '/api/authoring/datasources'),
   ]);
   const lines: string[] = ['This account right now (read just now, as the person):'];
   if (!status) {
@@ -204,19 +206,24 @@ export async function buildBrief(dispatch: Dispatch): Promise<string> {
       `- ${assets.length} published listings in scope; ${linked} already have a linked QuickSight dataset.`
     );
   }
-  if (status?.configured && source?.dataSource) {
+  const dataSources: any[] = Array.isArray(sources?.dataSources) ? sources.dataSources : [];
+  if (dataSources.length) {
     lines.push(
-      `- New datasets over SMUS listings read through the Athena data source ${source.dataSource.name} (${source.dataSource.id}): ${source.dataSource.reason}.`
+      `- Data sources a new dataset can read through, most used first (name, id, type, datasets reading through it${status?.configured ? ', of which SMUS-linked' : ''}): ${dataSources
+        .slice(0, MAX_DATA_SOURCES)
+        .map(
+          (d) =>
+            `${d.name} (${d.id}, ${d.type ?? 'unknown'}, ${d.datasets}${status?.configured ? `, ${d.governedDatasets}` : ''})`
+        )
+        .join(
+          '; '
+        )}${dataSources.length > MAX_DATA_SOURCES ? `; and ${dataSources.length - MAX_DATA_SOURCES} more (GET /api/authoring/datasources)` : ''}.`
     );
-  } else if (
-    status?.configured &&
-    source &&
-    Array.isArray(source.athena) &&
-    source.athena.length === 0
-  ) {
-    lines.push(
-      '- There is no Athena data source in this account, so a dataset over a SMUS listing cannot be created yet.'
-    );
+    if (status?.configured && !dataSources.some((d) => d.type === 'ATHENA')) {
+      lines.push(
+        '- There is no Athena data source in this account, so a dataset over a SMUS listing cannot be created yet.'
+      );
+    }
   }
   if (fields?.counts) {
     const c = fields.counts;

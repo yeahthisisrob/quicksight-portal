@@ -90,7 +90,7 @@ describe('portal concepts', () => {
     expect(withSmus).toContain('Athena data source');
     expect(withSmus).toContain('context_related');
     const without = portalConcepts({ smus: false });
-    expect(without).not.toContain('Athena');
+    expect(without).not.toContain('Projects scope everything');
     expect(without).toContain('SMUS is not configured');
   });
 });

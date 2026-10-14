@@ -641,11 +641,7 @@ export class DataCatalogHandler {
 
   private fieldCatalog(): FieldCatalogService {
     const config = getSmusConfig();
-    const smusService = new SmusService(
-      cacheService,
-      config,
-      ClientFactory.getQuickSightService(process.env.AWS_ACCOUNT_ID || '')
-    );
+    const smusService = new SmusService(cacheService, config);
     return new FieldCatalogService(smusService, this.smusCatalog());
   }
 
@@ -720,11 +716,7 @@ export class DataCatalogHandler {
   /** Built per request: settings can change the SMUS scope at runtime. */
   private smusCatalog(): SmusCatalogService {
     const config = getSmusConfig();
-    const smusService = new SmusService(
-      cacheService,
-      config,
-      ClientFactory.getQuickSightService(process.env.AWS_ACCOUNT_ID || '')
-    );
+    const smusService = new SmusService(cacheService, config);
     return new SmusCatalogService(smusService, this.fieldMetadataService, this.templateStore);
   }
 

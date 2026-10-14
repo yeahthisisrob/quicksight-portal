@@ -335,7 +335,7 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
   {
     name: 'propose_action',
     description:
-      "Prepare a write that is not authoring (grant, tag, share, delete, a dataset, a template) for the person to run. Authoring writes - creating or editing an analysis or dashboard - come from a plan: show_plan (which puts the Run button under it). The body is checked against the operation's schema (use describe_operation first), and a write with a /preview twin is previewed with the same body; either failing comes back to you to fix. It is not run until they click it.",
+      "Prepare a write that is not authoring (grant, tag, share, delete, a new dataset, a template) for the person to run. Authoring writes - creating or editing an analysis or dashboard - come from a plan: show_plan (which puts the Run button under it). The body is checked against the operation's schema (use describe_operation first), and a write with a /preview twin is previewed with the same body; either failing comes back to you to fix. A new dataset (POST /api/authoring/datasets) is previewed this way too: the preview settles its columns and names the SMUS listing it will be linked to. It is not run until they click it.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -347,7 +347,7 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
         personAskedForNew: {
           type: 'boolean',
           description:
-            'Only for creating a dataset over a listing that already has linked datasets: true when the person explicitly asked for a new one.',
+            'Only for a new dataset that would link to a SMUS listing which already has linked datasets: true when the person explicitly asked for a new one.',
         },
       },
       required: ['title', 'why', 'method', 'path'],

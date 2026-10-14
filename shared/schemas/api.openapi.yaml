@@ -1491,33 +1491,6 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/smus/data-source:
-    get:
-      operationId: getSmusDataSource
-      summary: The Athena data source a new dataset over a SMUS listing reads through
-      description: |
-        SMUS tables are Glue tables read by Athena. The data source chosen is
-        the Athena one most SMUS-linked datasets already read through; with
-        none of those, the one most datasets use; with none, the only Athena
-        source. `athena` lists every Athena source with how many governed
-        datasets read through it.
-      tags: [SMUS]
-      responses:
-        '200':
-          description: The choice
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [success, data]
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    $ref: '#/components/schemas/SmusDataSourceChoice'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
   /api/smus/status:
     get:
       operationId: getSmusStatus
@@ -3097,65 +3070,6 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/smus/assets/{listingId}/dataset:
-    post:
-      operationId: postSmusAssetsByListingIdDataset
-      tags: [SMUS]
-      summary: Create a QuickSight dataset that reads a published SMUS asset
-      description: |
-        Creates a relational-table dataset over the listing's Glue table
-        (catalog, database, table and columns come from the listing's
-        metadata forms) through an existing data source chosen from the
-        account, never typed. Permissions are copied from a reference dataset
-        so the new one has an audience; without that, a created dataset is
-        visible to nobody.
-      parameters:
-        - name: listingId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateSmusDatasetRequest'
-      responses:
-        '200':
-          description: The created dataset
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [success, data]
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    required: [dataSetId, name, arn, dataSource]
-                    properties:
-                      dataSetId:
-                        type: string
-                      name:
-                        type: string
-                      arn:
-                        type: string
-                      dataSource:
-                        type: object
-                        description: The data source the dataset reads through.
-                        required: [id, name]
-                        properties:
-                          id:
-                            type: string
-                          name:
-                            type: string
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
   /api/data-catalog/smus:
     get:
       operationId: getDataCatalogSmus
@@ -4068,6 +3982,114 @@ paths:
                     type: boolean
                   data:
                     $ref: '#/components/schemas/NewAssetResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/authoring/datasources:
+    get:
+      operationId: getAuthoringDatasources
+      tags: [Authoring]
+      summary: The data sources a new dataset can read through, ranked by use
+      description: |
+        Every data source in the account with how many datasets read through
+        it and how many of those are linked to a SMUS listing, governed use
+        first. "The most used Athena data source" is the first row whose
+        `type` is ATHENA. A new dataset over a SMUS listing reads through
+        that one unless the request names another.
+      responses:
+        '200':
+          description: The data sources, by use
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [dataSources]
+                    properties:
+                      dataSources:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DataSourceUsage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/authoring/datasets/preview:
+    post:
+      operationId: postAuthoringDatasetsPreview
+      tags: [Authoring]
+      summary: A dataset from nothing - preview
+      description: |
+        Settles everything the create would write, without writing: the data
+        source, the table or query, the columns and where they came from, the
+        SMUS listing the dataset will be linked to (derived from what it
+        reads; nothing is created in SMUS), and the folders it will be filed
+        in. Columns come from the listing's metadata forms, from `columns`
+        when declared, or from the engine: for an Athena data source the
+        portal runs the query through the source's workgroup without reading
+        a row. Any other engine needs `columns` declared. A query Athena
+        refuses comes back as a 400 with the engine's reason.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewDatasetRequest'
+      responses:
+        '200':
+          description: What the create would write
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/NewDatasetPreview'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/authoring/datasets:
+    post:
+      operationId: postAuthoringDatasets
+      tags: [Authoring]
+      summary: A dataset from nothing - create
+      description: |
+        Same body as the preview. Creates the dataset with exactly what the
+        preview settled, the person who runs it as its owner, the audience of
+        `permissionsFrom` when given, filed in `folderId` and the default
+        folders from Settings, tagged with the organisation's defaults and
+        provenance. The cache learns of it at once, so its SMUS link and its
+        data source's usage count follow without an export.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewDatasetRequest'
+      responses:
+        '200':
+          description: The created dataset
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/NewDatasetResult'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -5979,39 +6001,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AgUiInterrupt'
-
-    SmusDataSourceChoice:
-      type: object
-      required: [dataSource, athena]
-      properties:
-        dataSource:
-          type: object
-          nullable: true
-          required: [id, name, arn, usedBy, reason]
-          properties:
-            id:
-              type: string
-            name:
-              type: string
-            arn:
-              type: string
-            usedBy:
-              type: integer
-              description: SMUS-linked datasets that read through it.
-            reason:
-              type: string
-        athena:
-          type: array
-          items:
-            type: object
-            required: [id, name, usedBy]
-            properties:
-              id:
-                type: string
-              name:
-                type: string
-              usedBy:
-                type: integer
 
     PlanStatus:
       type: string
@@ -9132,6 +9121,223 @@ components:
         themeArn:
           type: string
 
+    DataSourceUsage:
+      type: object
+      required: [id, name, arn, datasets, governedDatasets]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        arn:
+          type: string
+        type:
+          type: string
+          description: The engine, as QuickSight names it (ATHENA, REDSHIFT, ...).
+        workGroup:
+          type: string
+          description: Athena only - the workgroup its queries run in.
+        datasets:
+          type: integer
+          description: Datasets reading through it.
+        governedDatasets:
+          type: integer
+          description: Of those, the ones linked to a SMUS listing.
+
+    NewDatasetColumn:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [STRING, INTEGER, DECIMAL, DATETIME, BIT, BOOLEAN, JSON]
+
+    NewDatasetSource:
+      type: object
+      required: [kind]
+      description: |
+        What the dataset reads. `sql`: a query (`sql`) through `dataSourceId`;
+        `tableName` is the query's display name (the dataset's name when
+        omitted). `table`: `schema` (the database) and `table` through
+        `dataSourceId`; `catalog` defaults to AwsDataCatalog on Athena.
+        `listing`: a published SMUS listing by `listingId`, whose Glue table
+        and columns come from its metadata forms, through `dataSourceId` or,
+        when omitted, the Athena data source the SMUS-linked datasets already
+        read through (GET /api/authoring/datasources).
+      properties:
+        kind:
+          type: string
+          enum: [sql, table, listing]
+        dataSourceId:
+          type: string
+        sql:
+          type: string
+        tableName:
+          type: string
+        catalog:
+          type: string
+        schema:
+          type: string
+        table:
+          type: string
+        listingId:
+          type: string
+
+    NewDatasetRequest:
+      type: object
+      required: [name, source]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        importMode:
+          type: string
+          enum: [DIRECT_QUERY, SPICE]
+          description: Defaults to DIRECT_QUERY.
+        source:
+          $ref: '#/components/schemas/NewDatasetSource'
+        columns:
+          type: array
+          minItems: 1
+          description: |
+            The columns the query or table returns, declared. Needed for any
+            data source that is not Athena (the portal reads them from Athena
+            itself), and accepted for Athena to skip that read. Never for a
+            listing, whose columns come from its forms.
+          items:
+            $ref: '#/components/schemas/NewDatasetColumn'
+        permissionsFrom:
+          type: object
+          description: |
+            Inherit this asset's audience: a dataset's as it is; an analysis's
+            or dashboard's translated to dataset actions (its owners own the
+            dataset, everyone else reads it).
+          required: [assetType, assetId]
+          properties:
+            assetType:
+              type: string
+              enum: [dashboard, analysis, dataset]
+            assetId:
+              type: string
+        folderId:
+          type: string
+          description: Filed here, beside the default folders from Settings.
+        tags:
+          type: array
+          maxItems: 50
+          description: Tags it is created with, beside the organisation's defaults (Settings). portal:* keys are the portal's own.
+          items:
+            $ref: '#/components/schemas/Tag'
+        newDataSetId:
+          type: string
+
+    NewDatasetPreview:
+      type: object
+      required: [name, importMode, dataSource, table, columns, columnsFrom, similar, folderIds, warnings]
+      properties:
+        name:
+          type: string
+        importMode:
+          type: string
+          enum: [DIRECT_QUERY, SPICE]
+        dataSource:
+          type: object
+          required: [id, name]
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            type:
+              type: string
+        table:
+          type: object
+          description: The physical table the dataset reads, as the create will write it.
+          required: [kind, name]
+          properties:
+            kind:
+              type: string
+              enum: [RELATIONAL, CUSTOM_SQL]
+            name:
+              type: string
+              description: Relational - the table. Custom SQL - the query's display name.
+            catalog:
+              type: string
+            schema:
+              type: string
+            sql:
+              type: string
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/NewDatasetColumn'
+        columnsFrom:
+          type: string
+          enum: [declared, listing, query]
+          description: Where the columns came from - the request, the listing's forms, or the engine.
+        listing:
+          type: object
+          description: The SMUS listing the dataset will be linked to, by what it reads.
+          required: [listingId, name, matchType]
+          properties:
+            listingId:
+              type: string
+            name:
+              type: string
+            matchType:
+              $ref: '#/components/schemas/SmusMatchType'
+            url:
+              type: string
+        similar:
+          type: array
+          description: |
+            Datasets that already read the same table - as the table itself,
+            or inside a custom SQL query that names it. Reuse one unless a new
+            dataset is wanted.
+          items:
+            type: object
+            required: [dataSetId, name, table, how]
+            properties:
+              dataSetId:
+                type: string
+              name:
+                type: string
+              table:
+                type: string
+                description: The table both read, as schema.table.
+              how:
+                type: string
+                enum: [table, sql]
+        folderIds:
+          type: array
+          description: The folders it will be filed in - the request's and the defaults from Settings.
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+
+    NewDatasetResult:
+      allOf:
+        - $ref: '#/components/schemas/NewDatasetPreview'
+        - type: object
+          required: [assetType, assetId, arn]
+          properties:
+            assetType:
+              type: string
+              enum: [dataset]
+            assetId:
+              type: string
+            arn:
+              type: string
+            owner:
+              type: string
+              description: The QuickSight user made its owner - the person who built it.
+
     NewAssetResult:
       type: object
       required: [assetType, assetId, name, arn, changes, warnings]
@@ -9899,27 +10105,6 @@ components:
           description: QuickSight datasets the portal matched to this listing.
           items:
             $ref: '#/components/schemas/SmusLinkedDataset'
-
-    CreateSmusDatasetRequest:
-      type: object
-      properties:
-        dataSourceId:
-          type: string
-          description: |
-            An existing QuickSight data source. Omitted: the Athena data source
-            the SMUS-linked datasets already read through (see
-            GET /api/smus/data-source).
-        name:
-          type: string
-          minLength: 1
-          maxLength: 200
-          description: Defaults to the listing name.
-        importMode:
-          type: string
-          enum: [DIRECT_QUERY, SPICE]
-        permissionsFromDataSetId:
-          type: string
-          description: Copy this dataset's permissions onto the new one, so it has the same audience.
 
     GlossaryTerm:
       type: object

@@ -15,9 +15,19 @@ import type { AuthContext } from '../../../shared/auth';
 import { quickSightUserFor } from '../../../shared/services/identity/IdentityResolver';
 import { settingsStore } from '../../../shared/services/settings/SettingsStore';
 import { logger } from '../../../shared/utils/logger';
+import { DATASET_OWNER_ACTIONS } from '../../../shared/utils/permissions';
 import type { AuthorableAssetType } from '../types';
 
-export const OWNER_ACTIONS: Record<AuthorableAssetType, string[]> = {
+/** What the portal creates with an audience: the authorable assets, and datasets. */
+export type AudienceAssetType = AuthorableAssetType | 'dataset';
+
+const FOLDER_MEMBER_TYPE: Record<AudienceAssetType, string> = {
+  analysis: 'ANALYSIS',
+  dashboard: 'DASHBOARD',
+  dataset: 'DATASET',
+};
+
+export const OWNER_ACTIONS: Record<AudienceAssetType, string[]> = {
   analysis: [
     'quicksight:RestoreAnalysis',
     'quicksight:UpdateAnalysisPermissions',
@@ -37,6 +47,7 @@ export const OWNER_ACTIONS: Record<AuthorableAssetType, string[]> = {
     'quicksight:DescribeDashboardPermissions',
     'quicksight:UpdateDashboardPublishedVersion',
   ],
+  dataset: DATASET_OWNER_ACTIONS,
 };
 
 interface Audience {
@@ -51,7 +62,7 @@ interface Audience {
 export function withOwner(
   permissions: any[] | undefined,
   arn: string,
-  assetType: AuthorableAssetType
+  assetType: AudienceAssetType
 ): any[] {
   const actions = OWNER_ACTIONS[assetType];
   const list = (permissions ?? []).map((p) => ({ ...p, Actions: [...(p.Actions ?? [])] }));
@@ -86,17 +97,13 @@ export async function fileInFolders(
   },
   folderIds: string[],
   assetId: string,
-  assetType: AuthorableAssetType
+  assetType: AudienceAssetType
 ): Promise<{ filed: string[]; warnings: string[] }> {
   const filed: string[] = [];
   const warnings: string[] = [];
   for (const folderId of folderIds) {
     try {
-      await quickSight.createFolderMembership(
-        folderId,
-        assetId,
-        assetType === 'dashboard' ? 'DASHBOARD' : 'ANALYSIS'
-      );
+      await quickSight.createFolderMembership(folderId, assetId, FOLDER_MEMBER_TYPE[assetType]);
       filed.push(folderId);
     } catch (error: any) {
       logger.warn('Filing an authored asset failed', { folderId, assetId, error });
@@ -114,7 +121,7 @@ export async function fileInFolders(
  * the default folders.
  */
 export async function audienceFor(
-  assetType: AuthorableAssetType,
+  assetType: AudienceAssetType,
   inherited: any[] | undefined,
   auth: AuthContext | undefined,
   requestFolderId?: string

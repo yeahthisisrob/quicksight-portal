@@ -309,8 +309,48 @@ The theme new assets wear, when they are built from nothing, is the
   added, and `portal:` keys are the portal's own.
 - `POST /api/folders/{folderId}/members` and `.../assets/bulk`.
 - `POST /api/assets/{type}/{id}/rename`, `PUT /api/assets/dataset/{id}/source`.
-- `POST /api/smus/assets/{listingId}/dataset`: a QuickSight dataset over a
-  published SMUS asset.
+
+**A new dataset.** A query, a table, or a published SMUS listing, through
+one of the account's data sources. Preview first: the preview settles the
+columns, says which datasets already read the same table, and names the
+SMUS listing the new one will be linked to. Then create with the same body.
+
+```bash
+# Which data source: every one in the account, most used first, with its engine
+curl -sS "$QSP_API_URL/api/authoring/datasources" -H "Authorization: Bearer $QSP_API_KEY"
+
+# Preview a custom SQL dataset (nothing is written)
+curl -sS -X POST "$QSP_API_URL/api/authoring/datasets/preview" \
+  -H "Authorization: Bearer $QSP_API_KEY" -H "Content-Type: application/json" \
+  --data '{"name":"Signups by month","source":{"kind":"sql","dataSourceId":"<data-source-id>","sql":"select date_trunc('"'"'month'"'"', signed_up) as month, count(*) as signups from published_prod.dim_customer group by 1"},"folderId":"<folder-id>"}'
+
+# Create it
+curl -sS -X POST "$QSP_API_URL/api/authoring/datasets" \
+  -H "Authorization: Bearer $QSP_API_KEY" -H "Content-Type: application/json" \
+  --data '{ ...the same body... }'
+```
+
+`source.kind` is `sql` (`sql`, `dataSourceId`), `table` (`schema`, `table`,
+`dataSourceId`, optional `catalog`) or `listing` (`listingId`; the data
+source defaults to the Athena one the SMUS-linked datasets already read
+through). QuickSight needs every column declared, so the preview resolves
+them: from the listing's metadata forms, from `columns` when you declare
+them (`[{ "name", "type" }]`, types STRING, INTEGER, DECIMAL, DATETIME,
+BOOLEAN, BIT, JSON), or by asking the engine. For an Athena data source the
+portal runs the query through the source's workgroup with no rows read and
+takes the result's columns, so a query Athena refuses comes back as a 400
+with the engine's reason. Any other engine needs `columns`. The response
+carries `columns`, `columnsFrom` (`listing`, `declared` or `query`),
+`similar` (datasets that already read the same table, as the table or in
+their SQL; reuse one unless a new dataset is wanted) and `listing`.
+
+Nothing is created in SMUS: a dataset is linked to a listing by what it
+reads, the Glue table behind the listing named as the table or in the SQL,
+by the same matching that links every other dataset. The person who creates
+it owns it; `permissionsFrom` copies an audience (a dataset's as it is, an
+analysis's or dashboard's translated to dataset actions); it is filed in
+`folderId` and the default folders from Settings, and tagged with the
+organisation's defaults, `tags`, and provenance.
 
 **After a burst of writes made directly against QuickSight** (that is
 expected: when something you need is not here, go to the QuickSight API),
@@ -352,10 +392,11 @@ Before it prepares anything that creates or changes a dataset, an analysis
 or a dashboard, the assistant draws a `plan`: the SMUS listings the data
 comes from (when SMUS is used), the datasets (existing, or new and through
 which data source), and the analysis or dashboard (new, edited or as it
-is). It reuses a dataset already linked to a listing unless you ask for a
-new one. A new dataset over a listing reads through the Athena data source
-the linked datasets already use (`GET /api/smus/data-source` says which and
-why). The `fields` artifact places each calculated field the plan adds:
+is). It reuses a dataset already linked to a listing, or already reading the
+same table, unless you ask for a new one; a dataset on its own is one
+prepared write (`POST /api/authoring/datasets`, previewed first). When no
+data source is named and more than one could serve, it asks which, as
+options. The `fields` artifact places each calculated field the plan adds:
 
 | Verdict | Meaning |
 |---|---|

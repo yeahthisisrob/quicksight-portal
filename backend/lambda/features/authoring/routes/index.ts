@@ -21,6 +21,21 @@ export const authoringRoutes: RouteHandler[] = [
     handler: (event) => handler.createNew(event),
   },
   {
+    method: 'GET',
+    path: '/authoring/datasources',
+    handler: (event) => handler.listDataSources(event),
+  },
+  {
+    method: 'POST',
+    path: '/authoring/datasets/preview',
+    handler: (event) => handler.previewDataset(event),
+  },
+  {
+    method: 'POST',
+    path: '/authoring/datasets',
+    handler: (event) => handler.createDataset(event),
+  },
+  {
     method: 'POST',
     path: '/authoring/themes/propose',
     handler: (event) => handler.proposeTheme(event),
