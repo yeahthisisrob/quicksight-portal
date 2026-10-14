@@ -33,6 +33,7 @@ import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import { ingestionIdOf } from '../../../shared/services/aws/datasetUpdate';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { catalog } from '../../../shared/services/catalog/catalogStore';
+import { stripGlueCatalogIds } from '../../../shared/services/datasets/athenaSql';
 import {
   type QuickSightColumnType,
   toQuickSightColumnType,
@@ -265,6 +266,15 @@ export class NewDatasetService {
 
     const settled = await this.settleSource(request, usage, name);
     const { dataSource, table } = settled;
+    if (table.kind === 'CUSTOM_SQL' && table.sql && isAthena(dataSource)) {
+      const corrected = stripGlueCatalogIds(table.sql);
+      if (corrected.stripped) {
+        table.sql = corrected.sql;
+        warnings.push(
+          'The query named a table through its Glue catalog id (the account number), which Athena does not know; it was removed, and the table is read from the default catalog.'
+        );
+      }
+    }
     const fromListing =
       !settled.columns && table.kind === 'CUSTOM_SQL'
         ? await this.columnsFromListing(table.sql as string)
@@ -372,7 +382,7 @@ export class NewDatasetService {
         dataSource,
         table: tableOrSelect(
           {
-            catalog: listing.table.catalog || ATHENA_DEFAULT_CATALOG,
+            catalog: athenaCatalogName(listing.table.catalog),
             schema: listing.table.database,
             name: listing.table.name,
           },
@@ -410,7 +420,7 @@ export class NewDatasetService {
       throw new ValidationError('A table needs its schema (database) and table name');
     }
     const catalogName =
-      source.catalog?.trim() || (isAthena(dataSource) ? ATHENA_DEFAULT_CATALOG : '');
+      (isAthena(dataSource) ? athenaCatalogName(source.catalog) : source.catalog?.trim()) || '';
     return {
       dataSource,
       table: tableOrSelect(
@@ -547,8 +557,14 @@ function quoteIdentifier(name: string): string {
 }
 
 /** The PhysicalTableMap entry the preview describes. */
-/** A Glue catalog id is the account number: a QuickSight table may name it, Athena SQL cannot. */
+/** A Glue catalog id is the account number; Athena knows that catalog as AwsDataCatalog. */
 const GLUE_CATALOG_ID = /^\d{12}$/;
+
+/** The catalog as Athena names it: the default for none or for a Glue catalog id. */
+function athenaCatalogName(catalogName: string | undefined): string {
+  const name = catalogName?.trim();
+  return !name || GLUE_CATALOG_ID.test(name) ? ATHENA_DEFAULT_CATALOG : name;
+}
 
 /**
  * `"schema"."table"`, with a catalog first only when Athena knows it by

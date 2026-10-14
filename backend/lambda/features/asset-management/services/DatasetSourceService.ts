@@ -45,6 +45,7 @@ import {
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { keepCatalogFresh } from '../../../shared/services/catalog/assetFreshness';
 import { catalog } from '../../../shared/services/catalog/catalogStore';
+import { stripGlueCatalogIds } from '../../../shared/services/datasets/athenaSql';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
 import { logger } from '../../../shared/utils/logger';
@@ -184,9 +185,11 @@ export class DatasetSourceService {
 
     const edits = update.tables ?? [];
     if (edits.length > 0) {
-      const allowedArns = new Set((await this.listDataSourceOptions()).map((o) => o.arn));
+      const options = await this.listDataSourceOptions();
+      const allowedArns = new Set(options.map((o) => o.arn));
+      const athenaArns = new Set(options.filter((o) => o.type === 'ATHENA').map((o) => o.arn));
       for (const edit of edits) {
-        this.applyEdit(physicalTableMap, edit, allowedArns);
+        this.applyEdit(physicalTableMap, edit, allowedArns, athenaArns);
       }
     }
 
@@ -238,7 +241,8 @@ export class DatasetSourceService {
   private applyEdit(
     physicalTableMap: Record<string, Record<string, any>>,
     edit: DatasetTableEdit,
-    allowedArns: Set<string>
+    allowedArns: Set<string>,
+    athenaArns: Set<string>
   ): void {
     const table = physicalTableMap[edit.id];
     if (!table) {
@@ -283,7 +287,10 @@ export class DatasetSourceService {
       if (!sql) {
         throw new ValidationError(`The SQL for physical table '${edit.id}' cannot be empty`);
       }
-      customSql.SqlQuery = sql;
+      // Athena knows a catalog by name only; a Glue catalog id in the query always fails.
+      customSql.SqlQuery = athenaArns.has(customSql.DataSourceArn)
+        ? stripGlueCatalogIds(sql).sql
+        : sql;
     }
 
     if (edit.schema !== undefined || edit.catalog !== undefined) {
