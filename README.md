@@ -162,7 +162,7 @@ Every write path, in the UI, the API and the Assistant, is the same two calls: a
 
    **Upgrading from 2.35 or earlier** (the catalog moved from S3 files into the portal table): `just deploy`, then `just migrate-portal-table` (safe to run again), then run an export. Once the portal looks right, delete the `cache/<type>.json` and `cache/metadata.json` objects from the metadata bucket and the old `quicksight-portal-jobs-<account>` table.
 
-   **Custom SQL datasets through Athena** need the Lambda role to read the tables a query names. The stack grants Athena, Glue and Lake Formation access; for Lake Formation-governed tables (every SMUS listing), grant the role `SELECT` on those databases once in Lake Formation, or declare the columns in the request.
+   **Custom SQL datasets through Athena** need the Lambda role to read the tables a query names and to write the query's results. The stack grants Athena, Glue and Lake Formation access and the results prefix in the metadata bucket; for Lake Formation-governed tables (every SMUS listing), grant the role `SELECT` on those databases once in Lake Formation. A workgroup that enforces its own results location needs the role granted on that bucket too. Or declare the columns in the request.
 
 4. **Create your first user**
    ```bash
@@ -263,7 +263,7 @@ Contract-first via OpenAPI: `shared/schemas/api.openapi.yaml` defines every endp
 | Export stuck or slow | The job page shows the worker heartbeat and per-type progress; a dead worker fails within 30 minutes and the run can be restarted (Smart Sync resumes incrementally) |
 | Empty portal after deploy | Run a Smart Sync export; check the worker Lambda's CloudWatch logs |
 | Permission denied errors | The Lambda role against QuickSight permissions; QuickSight must be active in the region |
-| A custom SQL dataset preview fails with an Athena error | The role cannot read the tables the query names: grant it in Lake Formation (governed tables) or S3, or declare `columns` in the request |
+| A custom SQL dataset preview fails with an Athena error | The role cannot read the tables the query names (grant it in Lake Formation for governed tables, or S3), or cannot write the results: schema queries write to `athena-results/` in the metadata bucket unless the workgroup enforces its own location, which then needs `s3:GetBucketLocation`, `ListBucket` and `PutObject` for the role. Or declare `columns` in the request |
 | Cognito callback mismatch | The deployed config is wired automatically; for local dev, check `frontend/public/config.js` |
 
 ## Contributing

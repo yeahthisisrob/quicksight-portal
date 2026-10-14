@@ -8,6 +8,7 @@ import {
   AthenaClient,
   GetQueryExecutionCommand,
   GetQueryResultsCommand,
+  GetWorkGroupCommand,
   StartQueryExecutionCommand,
   StopQueryExecutionCommand,
 } from '@aws-sdk/client-athena';
@@ -24,7 +25,7 @@ interface SchemaQuery {
   /** The query whose result columns are wanted, as the person wrote it. */
   sql: string;
   workGroup: string;
-  /** Where Athena writes the (empty) result; the workgroup's own wins when it enforces one. */
+  /** Where Athena writes the (empty) result, unless the workgroup enforces its own location. */
   outputLocation: string;
   catalog?: string;
   database?: string;
@@ -41,6 +42,8 @@ class AthenaQueryError extends Error {
 }
 
 const POLL_MS = 500;
+/** Athena's wording when the caller cannot reach the results location. */
+const OUTPUT_LOCATION_FAILURE = /output (bucket|location)|verify\/create|query results/i;
 const MS_PER_SECOND = 1000;
 const TERMINAL = new Set(['SUCCEEDED', 'FAILED', 'CANCELLED']);
 
@@ -64,13 +67,33 @@ export class AthenaAdapter {
     this.client = client ?? new AthenaClient({ region });
   }
 
+  /**
+   * Where this workgroup's results go: its own location when it enforces
+   * its configuration, otherwise the one the caller names. Known before the
+   * query runs, so a failure to write there can say which bucket to grant.
+   */
+  private async resultsLocation(
+    input: SchemaQuery
+  ): Promise<{ location: string; enforced: boolean }> {
+    const workGroup = await this.client.send(
+      new GetWorkGroupCommand({ WorkGroup: input.workGroup })
+    );
+    const configuration = workGroup.WorkGroup?.Configuration;
+    const own = configuration?.ResultConfiguration?.OutputLocation;
+    if (configuration?.EnforceWorkGroupConfiguration && own) {
+      return { location: own, enforced: true };
+    }
+    return { location: input.outputLocation, enforced: false };
+  }
+
   /** The columns `sql` returns, without reading a row. */
   public async querySchema(input: SchemaQuery): Promise<AthenaColumn[]> {
+    const results = await this.resultsLocation(input);
     const started = await this.client.send(
       new StartQueryExecutionCommand({
         QueryString: schemaQuery(input.sql),
         WorkGroup: input.workGroup,
-        ResultConfiguration: { OutputLocation: input.outputLocation },
+        ResultConfiguration: { OutputLocation: results.location },
         ...(input.catalog || input.database
           ? {
               QueryExecutionContext: {
@@ -96,7 +119,12 @@ export class AthenaAdapter {
         break;
       }
       if (TERMINAL.has(state)) {
-        throw new AthenaQueryError(status?.StateChangeReason || `the query ${state.toLowerCase()}`);
+        const reason = status?.StateChangeReason || `the query ${state.toLowerCase()}`;
+        throw new AthenaQueryError(
+          OUTPUT_LOCATION_FAILURE.test(reason)
+            ? `${reason} The query's results go to ${results.location}${results.enforced ? ` (enforced by workgroup ${input.workGroup})` : ''}; the portal's role needs s3:GetBucketLocation, s3:ListBucket and s3:PutObject there`
+            : reason
+        );
       }
       if (Date.now() >= deadline) {
         await this.client
@@ -108,10 +136,10 @@ export class AthenaAdapter {
       }
       await sleep(POLL_MS);
     }
-    const results = await this.client.send(
+    const resultSet = await this.client.send(
       new GetQueryResultsCommand({ QueryExecutionId: queryExecutionId, MaxResults: 1 })
     );
-    const columns = results.ResultSet?.ResultSetMetadata?.ColumnInfo ?? [];
+    const columns = resultSet.ResultSet?.ResultSetMetadata?.ColumnInfo ?? [];
     return columns
       .filter((c) => typeof c.Name === 'string' && c.Name !== '')
       .map((c) => ({ name: c.Name as string, type: c.Type ?? 'varchar' }));
