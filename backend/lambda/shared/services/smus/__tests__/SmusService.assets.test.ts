@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AssetType } from '../../../models/asset.model';
 import { catalogEntry, useTestCatalog } from '../../../utils/testUtils/testCatalog';
 import { catalog } from '../../catalog/catalogStore';
-import { matchesGlob, SmusService, toQuickSightColumnType } from '../SmusService';
+import { matchesGlob, SmusService } from '../SmusService';
 
 vi.mock('../../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -92,7 +92,6 @@ const snapshot = (over: Partial<any> = {}) => ({
 
 describe('SmusService assets', () => {
   const cache = { get: vi.fn() };
-  const qs = { createDataSet: vi.fn(), describeDatasetPermissions: vi.fn() };
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -118,14 +117,9 @@ describe('SmusService assets', () => {
         arn: 'arn:aws:quicksight:us-east-1:1:datasource/athena-1',
       },
     ]);
-    qs.describeDatasetPermissions.mockResolvedValue({
-      Permissions: [{ Principal: 'arn:user/rob', Actions: ['quicksight:DescribeDataSet'] }],
-    });
-    qs.createDataSet.mockResolvedValue({ arn: 'arn:ds/new', dataSetId: 'new' });
   });
 
-  const service = (over: Partial<any> = {}) =>
-    new SmusService(cache as any, config(over), qs as any);
+  const service = (over: Partial<any> = {}) => new SmusService(cache as any, config(over));
 
   it('lists every published asset with its project, table and the datasets already reading it', async () => {
     const result = await service().listAssets();
@@ -157,11 +151,7 @@ describe('SmusService assets', () => {
   });
 
   it('reports not configured without a domain', async () => {
-    const result = await new SmusService(
-      cache as any,
-      config({ enabled: false }),
-      qs as any
-    ).listAssets();
+    const result = await new SmusService(cache as any, config({ enabled: false })).listAssets();
     expect(result).toEqual({ configured: false, projectFilter: [], assets: [], exportedAt: null });
   });
 
@@ -183,132 +173,39 @@ describe('SmusService assets', () => {
     expect(result.exportedAt).toBeNull();
   });
 
-  it('creates a relational dataset over the listing table with mapped column types and copied permissions', async () => {
-    const result = await service().createDatasetFromListing('l-cust', {
-      dataSourceId: 'athena-1',
-      importMode: 'DIRECT_QUERY',
-      permissionsFromDataSetId: 'ds-old',
+  it('finds a listing by id, and the listing a dataset would link to by what it reads', async () => {
+    expect((await service().listing('l-cust'))?.table).toEqual({
+      database: 'published_prod',
+      name: 'dim_customer',
     });
+    expect(await service().listing('nope')).toBeUndefined();
+    expect(await service({ enabled: false, domainId: '' }).listing('l-cust')).toBeUndefined();
 
-    expect(result).toMatchObject({ dataSetId: 'new', name: 'dim_customer', arn: 'arn:ds/new' });
-    const call = qs.createDataSet.mock.calls[0]?.[0];
-    expect(call.importMode).toBe('DIRECT_QUERY');
-    expect(call.permissions).toEqual([
-      { Principal: 'arn:user/rob', Actions: ['quicksight:DescribeDataSet'] },
-    ]);
-    const table = Object.values(call.physicalTableMap)[0] as any;
-    expect(table.RelationalTable).toMatchObject({
-      DataSourceArn: 'arn:aws:quicksight:us-east-1:1:datasource/athena-1',
-      Catalog: 'AwsDataCatalog',
-      Schema: 'published_prod',
-      Name: 'dim_customer',
-      InputColumns: [
-        { Name: 'customer_id', Type: 'INTEGER' },
-        { Name: 'signed_up', Type: 'DATETIME' },
+    // Nothing is created in SMUS: the link is derived from the table read,
+    // as a table or inside a query, exactly as the link map derives it.
+    const byTable = await service().listingFor({
+      name: 'Customers v2',
+      physicalTables: [{ type: 'RELATIONAL', schema: 'published_prod', name: 'dim_customer' }],
+    });
+    expect(byTable).toMatchObject({ linked: true, listingId: 'l-cust', matchType: 'source-table' });
+    const bySql = await service().listingFor({
+      name: 'Signups by month',
+      physicalTables: [
+        { type: 'CUSTOM_SQL', name: 'q', sqlTables: ['published_prod.dim_customer'] },
       ],
     });
-    // An analysis reads the logical table, so every column is projected
-    // from the physical one; a dataset without it has no fields to bind.
-    const [physicalTableId] = Object.keys(call.physicalTableMap);
-    const logical = Object.values(call.logicalTableMap)[0] as any;
-    expect(logical).toEqual({
-      Alias: 'dim_customer',
-      Source: { PhysicalTableId: physicalTableId },
-      DataTransforms: [{ ProjectOperation: { ProjectedColumns: ['customer_id', 'signed_up'] } }],
+    expect(bySql).toMatchObject({ linked: true, listingId: 'l-cust', matchType: 'custom-sql' });
+    const none = await service().listingFor({
+      name: 'Something else',
+      physicalTables: [{ type: 'CUSTOM_SQL', name: 'q', sqlTables: ['staging.events'] }],
     });
-  });
-
-  it('builds over the Athena source the governed datasets read through when none is given', async () => {
-    await dataSources([
-      {
-        assetId: 'athena-old',
-        assetName: 'Athena (old)',
-        arn: 'arn:ds/athena-old',
-        metadata: { sourceType: 'ATHENA' },
-      },
-      {
-        assetId: 'athena-1',
-        assetName: 'Athena',
-        arn: 'arn:aws:quicksight:us-east-1:1:datasource/athena-1',
-        metadata: { sourceType: 'ATHENA' },
-      },
-      {
-        assetId: 'rs',
-        assetName: 'Redshift',
-        arn: 'arn:ds/rs',
-        metadata: { sourceType: 'REDSHIFT' },
-      },
-    ]);
-    await datasets([
-      {
-        assetId: 'ds-cust',
-        assetName: 'Customers (gold)',
-        metadata: {
-          lineageData: {
-            datasourceIds: ['athena-1'],
-            physicalTables: [
-              { type: 'RELATIONAL', schema: 'published_prod', name: 'dim_customer' },
-            ],
-          },
-        },
-      },
-      // Ungoverned datasets read the old source more often; governed usage wins.
-      {
-        assetId: 'x1',
-        assetName: 'adhoc 1',
-        metadata: { lineageData: { datasourceIds: ['athena-old'] } },
-      },
-      {
-        assetId: 'x2',
-        assetName: 'adhoc 2',
-        metadata: { lineageData: { datasourceIds: ['athena-old'] } },
-      },
-    ]);
-
-    const choice = await service().defaultDataSource();
-    expect(choice.dataSource).toMatchObject({
-      id: 'athena-1',
-      usedBy: 1,
-      reason: 'used by 1 dataset linked to SMUS listings',
+    expect(none).toEqual({ datasetId: '', linked: false });
+    // Out of the selected projects: no link, as the catalog would show none.
+    const scoped = await service({ projectIds: ['proj-published-prod'] }).listingFor({
+      name: 'raw',
+      physicalTables: [{ type: 'RELATIONAL', schema: 'bronze-prod', name: 'raw_events' }],
     });
-    expect(choice.athena.map((a) => a.id)).toEqual(['athena-1', 'athena-old']);
-
-    const result = await service().createDatasetFromListing('l-cust', {});
-    expect(result.dataSource).toEqual({ id: 'athena-1', name: 'Athena' });
-    expect(qs.createDataSet.mock.calls[0]?.[0].importMode).toBe('DIRECT_QUERY');
-  });
-
-  it('says so when there is no Athena source to build through', async () => {
-    await dataSources([
-      {
-        assetId: 'rs',
-        assetName: 'Redshift',
-        arn: 'arn:ds/rs',
-        metadata: { sourceType: 'REDSHIFT' },
-      },
-    ]);
-    await expect(service().createDatasetFromListing('l-cust', {})).rejects.toThrow(
-      'No Athena data source exists'
-    );
-  });
-
-  it('refuses a listing without table identity, an unknown listing, and a foreign data source', async () => {
-    await expect(
-      service().createDatasetFromListing('l-noform', {
-        dataSourceId: 'athena-1',
-        importMode: 'SPICE',
-      })
-    ).rejects.toThrow('no table identity');
-    await expect(
-      service().createDatasetFromListing('nope', { dataSourceId: 'athena-1', importMode: 'SPICE' })
-    ).rejects.toThrow("No published asset with listing id 'nope'");
-    await expect(
-      service().createDatasetFromListing('l-cust', {
-        dataSourceId: 'tampered',
-        importMode: 'SPICE',
-      })
-    ).rejects.toThrow("not one of this account's data sources");
-    expect(qs.createDataSet).not.toHaveBeenCalled();
+    expect(scoped.linked).toBe(false);
   });
 
   it('ties a dataset to a listing that was renamed away from its table', async () => {
@@ -510,30 +407,6 @@ describe('helpers', () => {
     expect(matchesGlob('gold-prod', 'published_*')).toBe(false);
     expect(matchesGlob('gold-prod', 'gold-????')).toBe(true);
   });
-
-  it('maps source types to QuickSight input types', () => {
-    expect(
-      [
-        'bigint',
-        'int',
-        'double',
-        'decimal(10,2)',
-        'boolean',
-        'timestamp',
-        'varchar(20)',
-        'array<string>',
-      ].map(toQuickSightColumnType)
-    ).toEqual([
-      'INTEGER',
-      'INTEGER',
-      'DECIMAL',
-      'DECIMAL',
-      'BOOLEAN',
-      'DATETIME',
-      'STRING',
-      'STRING',
-    ]);
-  });
 });
 
 describe('SmusService projects', () => {
@@ -541,7 +414,7 @@ describe('SmusService projects', () => {
 
   it('serves the projects and diagnostics the export captured, with its timestamp', async () => {
     cache.get.mockResolvedValue(snapshot());
-    const service = new SmusService(cache as any, config(), null);
+    const service = new SmusService(cache as any, config());
 
     expect(await service.listProjects()).toEqual(snapshot().projects);
     const discovery = await service.projectDiscovery();
@@ -559,7 +432,7 @@ describe('SmusService projects', () => {
 
   it('has no projects or snapshot before the first export, but still explains itself', async () => {
     cache.get.mockResolvedValue(null);
-    const service = new SmusService(cache as any, config(), null);
+    const service = new SmusService(cache as any, config());
 
     expect(await service.listProjects()).toEqual([]);
     const discovery = await service.projectDiscovery();
@@ -578,7 +451,7 @@ describe('SmusService projects', () => {
           { id: 'proj-new', name: 'brand_new', description: 'not exported yet' },
         ]),
     };
-    const service = new SmusService(cache as any, config(), null);
+    const service = new SmusService(cache as any, config());
 
     const discovery = await service.projectDiscovery(live as any);
 
@@ -594,7 +467,7 @@ describe('SmusService projects', () => {
   it('keeps the snapshot projects and names the error when the live call fails', async () => {
     cache.get.mockResolvedValue(snapshot());
     const live = { listProjects: vi.fn().mockRejectedValue(new Error('AccessDenied')) };
-    const service = new SmusService(cache as any, config(), null);
+    const service = new SmusService(cache as any, config());
 
     const discovery = await service.projectDiscovery(live as any);
 

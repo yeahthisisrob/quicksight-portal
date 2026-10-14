@@ -30,7 +30,6 @@ import {
 import { vocabularySection } from '../../../../shared/ai/authoringVocabulary';
 import { getSmusConfig } from '../../../../shared/config/smusConfig';
 import { ValidationError } from '../../../../shared/errors/ValidationError';
-import { ClientFactory } from '../../../../shared/services/aws/ClientFactory';
 import { CacheService } from '../../../../shared/services/cache/CacheService';
 import { catalog } from '../../../../shared/services/catalog/catalogStore';
 import { SmusService } from '../../../../shared/services/smus/SmusService';
@@ -89,11 +88,7 @@ async function governedDatasetIndex(): Promise<Map<string, { listing: string; pr
     if (!config.enabled) {
       return index;
     }
-    const smus = new SmusService(
-      CacheService.getInstance(),
-      config,
-      ClientFactory.getQuickSightService(process.env.AWS_ACCOUNT_ID || '')
-    );
+    const smus = new SmusService(CacheService.getInstance(), config);
     for (const asset of (await smus.listAssets()).assets) {
       for (const dataset of asset.datasets) {
         if (!index.has(dataset.id)) {

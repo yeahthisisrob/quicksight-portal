@@ -84,7 +84,7 @@ const MS_PER_MINUTE = 60_000;
 const MAX_JOB_WAIT_MINUTES = 5;
 const MAX_JOB_WAIT_MS = MAX_JOB_WAIT_MINUTES * MS_PER_MINUTE;
 const JOB_POLL_MS = 2_000;
-const CREATE_DATASET = /^\/api\/smus\/assets\/([^/?]+)\/dataset$/;
+const CREATE_DATASET = '/api/authoring/datasets';
 const TERMINAL = new Set(['completed', 'failed', 'stopped']);
 const CALCULATED_FIELD = /^\/api\/data-catalog\/calculated-fields\/([^/?]+)$/;
 /** Builds only a plan drafts and previews, so there is one wireframe per change: the plan's. */
@@ -952,17 +952,6 @@ export class AssistantService {
         isError: true,
       };
     }
-    const listing = path.match(CREATE_DATASET)?.[1];
-    if (method === 'POST' && listing && input.personAskedForNew !== true) {
-      const linked = await this.linkedDatasets(decodeURIComponent(listing));
-      if (linked.length > 0) {
-        return {
-          id,
-          content: `This listing already has linked QuickSight datasets: ${linked.join('; ')}. Use one of them. Only prepare a new dataset if the person explicitly asked for a new one (then set personAskedForNew).`,
-          isError: true,
-        };
-      }
-    }
     const template = matchOperation(spec as never, method, path);
     if (!template) {
       return {
@@ -993,6 +982,19 @@ export class AssistantService {
     const rehearsal = await this.rehearse(method, path, template, input.body, out);
     if (rehearsal.problem) {
       return { id, content: rehearsal.problem, isError: true };
+    }
+    // The preview says what the new dataset would read: datasets that
+    // already read that table, and the listing it would link to. An existing
+    // dataset is reused unless the person said new.
+    if (template === CREATE_DATASET && input.personAskedForNew !== true) {
+      const existing = await this.existingDatasetsLike(rehearsal.data);
+      if (existing.length > 0) {
+        return {
+          id,
+          content: `Datasets already read what this one would: ${existing.join('; ')}. Use one of them. Only prepare a new dataset if the person explicitly asked for a new one (then set personAskedForNew).`,
+          isError: true,
+        };
+      }
     }
     // Bound to its own preview, if it has one; never to whatever was drawn last.
     out.actions.push({
@@ -1092,6 +1094,30 @@ export class AssistantService {
     }
     await this.progress(`${describeStep(method, path)}: waiting for it to answer`);
     return this.awaitJob(jobId);
+  }
+
+  /**
+   * Datasets a new one would duplicate, as "name (id)": the preview's
+   * `similar` (same table, as a table or in a query) and, when it would link
+   * to a SMUS listing, every dataset the graph says reads that listing.
+   */
+  private async existingDatasetsLike(preview: any): Promise<string[]> {
+    const similar: any[] = Array.isArray(preview?.similar) ? preview.similar : [];
+    const names = new Map<string, string>(
+      similar
+        .filter((d) => typeof d?.dataSetId === 'string')
+        .map((d) => [d.dataSetId, `${d.name ?? d.dataSetId} (id ${d.dataSetId})`])
+    );
+    const listingId = preview?.listing?.listingId;
+    if (typeof listingId === 'string' && listingId) {
+      for (const line of await this.linkedDatasets(listingId)) {
+        const id = line.match(/\(id (\S+)\)$/)?.[1];
+        if (!id || !names.has(id)) {
+          names.set(id ?? line, line);
+        }
+      }
+    }
+    return [...names.values()];
   }
 
   /** The datasets the graph says already read a listing, as "name (id)". */

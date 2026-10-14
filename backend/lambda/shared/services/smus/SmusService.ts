@@ -8,8 +8,6 @@
  * custom SQL, then name) is derived from that snapshot plus the cached
  * dataset metadata, with a short in-memory TTL and single-flight.
  */
-import { randomUUID } from 'node:crypto';
-
 import type {
   CatalogListing,
   CatalogProject,
@@ -17,22 +15,15 @@ import type {
 } from '../../../adapters/aws/DataZoneAdapter';
 import { getSmusConfig, type SmusConfig } from '../../config/smusConfig';
 import { CACHE_TTL } from '../../constants/timeConstants';
-import { ValidationError } from '../../errors/ValidationError';
-import type { QuickSightService } from '../../services/aws/QuickSightService';
 import type { CacheService } from '../../services/cache/CacheService';
-import { AssetStatusFilter } from '../../types/assetFilterTypes';
-import { ASSET_TYPES } from '../../types/assetTypes';
 import type {
-  CreateSmusDatasetRequest,
   SmusAsset,
   SmusAssetsResult,
-  SmusDataSourceChoice,
   SmusDatasetLink,
   SmusMatchType,
   SmusStatus,
 } from '../../types/smus';
 import { logger } from '../../utils/logger';
-import { normalizePermissionsArray } from '../../utils/permissions';
 import { withTimeout } from '../../utils/withTimeout';
 import { catalog } from '../catalog/catalogStore';
 import {
@@ -76,22 +67,35 @@ export function matchesGlob(value: string, pattern: string): boolean {
   return new RegExp(`^${escaped}$`, 'i').test(value);
 }
 
-/** Glue/Athena source types to the QuickSight InputColumn vocabulary. */
-export function toQuickSightColumnType(sourceType: string): string {
-  const t = sourceType.toLowerCase();
-  if (/^(tinyint|smallint|int|integer|bigint)$/.test(t)) {
-    return 'INTEGER';
+/**
+ * Listings by every name they answer to. A listing is found by its own name
+ * and by the Glue table behind it: publishers rename listings for
+ * readability ("Orders (gold)" over fct_orders), and a dataset only knows
+ * the table it reads, so indexing the name alone left those datasets tied
+ * to nothing. Names first across every listing, so a name never loses to
+ * another listing's table, then the qualified tables, then the bare ones.
+ */
+function indexListings(listings: CatalogListing[]): Map<string, CatalogListing> {
+  const listingsByName = new Map<string, CatalogListing>();
+  const index = (key: string | undefined, listing: CatalogListing) => {
+    if (!key) {
+      return;
+    }
+    const normalized = normalizeForMatch(key);
+    if (normalized && !listingsByName.has(normalized)) {
+      listingsByName.set(normalized, listing);
+    }
+  };
+  for (const listing of listings) {
+    index(listing.name, listing);
   }
-  if (/^(float|double|real|decimal|numeric)/.test(t)) {
-    return 'DECIMAL';
+  for (const listing of listings) {
+    index(listing.table ? `${listing.table.database}.${listing.table.name}` : undefined, listing);
   }
-  if (t === 'boolean') {
-    return 'BOOLEAN';
+  for (const listing of listings) {
+    index(listing.table?.name, listing);
   }
-  if (/^(timestamp|date|datetime)/.test(t)) {
-    return 'DATETIME';
-  }
-  return 'STRING';
+  return listingsByName;
 }
 
 /** Kept as a name for the settings handler; the export job produces it. */
@@ -178,8 +182,7 @@ export class SmusService {
 
   public constructor(
     private readonly cacheService: CacheService,
-    config?: SmusConfig,
-    private readonly quickSightService: QuickSightService | null = null
+    config?: SmusConfig
   ) {
     this.config = config ?? getSmusConfig();
   }
@@ -280,171 +283,35 @@ export class SmusService {
     };
   }
 
-  /**
-   * Create a QuickSight dataset over a listing's Glue table through an
-   * existing data source. Columns come from the listing's forms; the data
-   * source is re-checked against the account's list rather than trusted.
-   */
-  public async createDatasetFromListing(
-    listingId: string,
-    request: CreateSmusDatasetRequest
-  ): Promise<{
-    dataSetId: string;
-    name: string;
-    arn: string;
-    dataSource: { id: string; name: string };
-  }> {
-    if (!this.config.enabled || !this.quickSightService) {
-      throw new ValidationError('SMUS is not configured');
-    }
-    const listing = ((await this.getSnapshot())?.listings ?? []).find(
-      (l) => l.listingId === listingId
-    );
-    if (!listing) {
-      throw new ValidationError(`No published asset with listing id '${listingId}'`);
-    }
-    if (!listing.table) {
-      throw new ValidationError(
-        `'${listing.name}' has no table identity in its metadata forms, so a dataset cannot be built from it`
-      );
-    }
-    if (!listing.columns || listing.columns.length === 0) {
-      throw new ValidationError(`'${listing.name}' lists no columns in its metadata forms`);
-    }
-
-    let dataSourceId = request.dataSourceId;
-    if (!dataSourceId) {
-      const choice = await this.defaultDataSource();
-      if (!choice.dataSource) {
-        throw new ValidationError(
-          'No Athena data source exists in this account to read the SMUS table through; create one in QuickSight or pass dataSourceId'
-        );
-      }
-      dataSourceId = choice.dataSource.id;
-    }
-    const dataSources = await catalog.list(ASSET_TYPES.datasource, AssetStatusFilter.ACTIVE);
-    const dataSource = dataSources.find((d) => d.assetId === dataSourceId);
-    if (!dataSource?.arn) {
-      throw new ValidationError(
-        "The selected data source is not one of this account's data sources"
-      );
-    }
-
-    const name = request.name?.trim() || listing.name;
-    const permissions = request.permissionsFromDataSetId
-      ? normalizePermissionsArray(
-          await this.quickSightService.describeDatasetPermissions(request.permissionsFromDataSetId)
-        )
-      : [];
-
-    const dataSetId = randomUUID();
-    const tableId = randomUUID();
-    const logicalTableId = randomUUID();
-    logger.info('Creating dataset from SMUS listing', {
-      listingId,
-      dataSetId,
-      table: listing.table,
-      columns: listing.columns.length,
-      importMode: request.importMode,
-      permissions: permissions.length,
-    });
-
-    // The physical table declares what the source has; the logical table is
-    // what an analysis reads. QuickSight's own console always writes both,
-    // projecting every column, and every other create path in this repo
-    // carries a logical table too. Datasets made here without one left the
-    // Author flow's analyses blank, with no dataset bound.
-    const created = await this.quickSightService.createDataSet({
-      dataSetId,
-      name,
-      importMode: request.importMode ?? 'DIRECT_QUERY',
-      permissions: permissions.length > 0 ? permissions : undefined,
-      physicalTableMap: {
-        [tableId]: {
-          RelationalTable: {
-            DataSourceArn: dataSource.arn,
-            Catalog: listing.table.catalog || 'AwsDataCatalog',
-            Schema: listing.table.database,
-            Name: listing.table.name,
-            InputColumns: listing.columns.map((c) => ({
-              Name: c.name,
-              Type: toQuickSightColumnType(c.type) as any,
-            })),
-          },
-        },
-      } as any,
-      logicalTableMap: {
-        [logicalTableId]: {
-          Alias: listing.table.name,
-          Source: { PhysicalTableId: tableId },
-          DataTransforms: [
-            { ProjectOperation: { ProjectedColumns: listing.columns.map((c) => c.name) } },
-          ],
-        },
-      } as any,
-    });
-
-    SmusService.invalidateLinkMap();
-    return {
-      dataSetId: created.dataSetId,
-      name,
-      arn: created.arn,
-      dataSource: { id: dataSource.assetId, name: dataSource.assetName },
-    };
+  /** One published listing by id, from the last export; undefined when SMUS is off or it is not there. */
+  public async listing(listingId: string): Promise<CatalogListing | undefined> {
+    return ((await this.getSnapshot())?.listings ?? []).find((l) => l.listingId === listingId);
   }
 
   /**
-   * The Athena data source to build a dataset over a listing through. SMUS
-   * tables are Glue tables read by Athena, and the datasets already linked
-   * to listings show which Athena data source this account uses for them:
-   * the one most of them read through wins. With no linked dataset reading
-   * one, the Athena source most datasets read through; with none of those,
-   * the only Athena source, or none.
+   * The listing a dataset with these sources would be linked to, judged
+   * before it exists exactly as the link map judges it afterwards: the
+   * relational table it reads, the tables named in its SQL, then its name.
+   * Nothing is created in SMUS; the link is derived from what is read.
    */
-  public async defaultDataSource(): Promise<SmusDataSourceChoice> {
-    const [dataSources, datasets, links] = await Promise.all([
-      catalog.list(ASSET_TYPES.datasource, AssetStatusFilter.ACTIVE),
-      catalog.list('dataset'),
-      this.config.enabled ? this.getLinkMap() : Promise.resolve(new Map<string, SmusDatasetLink>()),
-    ]);
-    const athena = dataSources.filter(
-      (d: any) => String(d.metadata?.sourceType ?? '').toUpperCase() === 'ATHENA' && d.arn
+  public async listingFor(dataset: {
+    name: string;
+    physicalTables: Array<{
+      type: 'RELATIONAL' | 'CUSTOM_SQL';
+      name?: string;
+      schema?: string;
+      sqlTables?: string[];
+    }>;
+  }): Promise<SmusDatasetLink> {
+    const listings = this.scopedListings((await this.getSnapshot())?.listings ?? []);
+    return this.resolveDatasetLink(
+      {
+        assetId: '',
+        assetName: dataset.name,
+        metadata: { lineageData: { physicalTables: dataset.physicalTables } },
+      },
+      indexListings(listings)
     );
-    const governed = new Map<string, number>();
-    const overall = new Map<string, number>();
-    for (const dataset of datasets as any[]) {
-      const ids: string[] = dataset.metadata?.lineageData?.datasourceIds ?? [];
-      const isGoverned = links.get(dataset.assetId)?.linked === true;
-      for (const id of new Set(ids)) {
-        overall.set(id, (overall.get(id) ?? 0) + 1);
-        if (isGoverned) {
-          governed.set(id, (governed.get(id) ?? 0) + 1);
-        }
-      }
-    }
-    const ranked = athena
-      .map((d: any) => ({
-        id: d.assetId as string,
-        name: d.assetName as string,
-        arn: d.arn as string,
-        usedBy: governed.get(d.assetId) ?? 0,
-        overall: overall.get(d.assetId) ?? 0,
-      }))
-      .sort((a, b) => b.usedBy - a.usedBy || b.overall - a.overall || a.name.localeCompare(b.name));
-    const best = ranked[0];
-    const reason = !best
-      ? ''
-      : best.usedBy > 0
-        ? `used by ${best.usedBy} dataset${best.usedBy === 1 ? '' : 's'} linked to SMUS listings`
-        : best.overall > 0
-          ? `the Athena data source most datasets read through (${best.overall}); no SMUS-linked dataset reads one yet`
-          : 'the only Athena data source in the account';
-    return {
-      dataSource: best
-        ? { id: best.id, name: best.name, arn: best.arn, usedBy: best.usedBy, reason }
-        : null,
-      athena: ranked.map(({ id, name, usedBy }) => ({ id, name, usedBy })),
-    };
   }
 
   /** Projects in the last export: ListProjects unioned with the listing publishers. */
@@ -595,31 +462,7 @@ export class SmusService {
     const all = snapshot?.listings ?? [];
     const listings = this.scopedListings(all);
 
-    // A listing is found by its own name and by the Glue table behind it.
-    // Publishers rename listings for readability ("Orders (gold)" over
-    // fct_orders), and a dataset only knows the table it reads, so indexing the
-    // name alone left those datasets tied to nothing.
-    const listingsByName = new Map<string, CatalogListing>();
-    const index = (key: string | undefined, listing: CatalogListing) => {
-      if (!key) {
-        return;
-      }
-      const normalized = normalizeForMatch(key);
-      if (normalized && !listingsByName.has(normalized)) {
-        listingsByName.set(normalized, listing);
-      }
-    };
-    // Names first across every listing, so a name never loses to another
-    // listing's table, then the qualified tables, then the bare ones.
-    for (const listing of listings) {
-      index(listing.name, listing);
-    }
-    for (const listing of listings) {
-      index(listing.table ? `${listing.table.database}.${listing.table.name}` : undefined, listing);
-    }
-    for (const listing of listings) {
-      index(listing.table?.name, listing);
-    }
+    const listingsByName = indexListings(listings);
 
     const linkMap = new Map<string, SmusDatasetLink>();
     for (const dataset of datasets) {

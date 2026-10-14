@@ -49,6 +49,13 @@ describe('authoringRoutes', () => {
     expect(find('POST', '/authoring/new/rebind')).toBeUndefined();
   });
 
+  it('serves the data sources and the new-dataset paths literally', () => {
+    expect(find('GET', '/authoring/datasources')).toBeDefined();
+    expect(find('POST', '/authoring/datasets/preview')).toBeDefined();
+    expect(find('POST', '/authoring/datasets')).toBeDefined();
+    expect(find('POST', '/authoring/datasets/ds-1/columns')).toBeUndefined();
+  });
+
   it("serves a dataset's columns without an asset, and only for that path", () => {
     const route = find('GET', '/authoring/datasets/ds-1/columns');
     expect(route).toBeDefined();

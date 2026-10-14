@@ -618,30 +618,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/smus/data-source": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The Athena data source a new dataset over a SMUS listing reads through
-         * @description SMUS tables are Glue tables read by Athena. The data source chosen is
-         *     the Athena one most SMUS-linked datasets already read through; with
-         *     none of those, the one most datasets use; with none, the only Athena
-         *     source. `athena` lists every Athena source with how many governed
-         *     datasets read through it.
-         */
-        get: operations["getSmusDataSource"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/smus/status": {
         parameters: {
             query?: never;
@@ -1478,31 +1454,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/smus/assets/{listingId}/dataset": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create a QuickSight dataset that reads a published SMUS asset
-         * @description Creates a relational-table dataset over the listing's Glue table
-         *     (catalog, database, table and columns come from the listing's
-         *     metadata forms) through an existing data source chosen from the
-         *     account, never typed. Permissions are copied from a reference dataset
-         *     so the new one has an audience; without that, a created dataset is
-         *     visible to nobody.
-         */
-        post: operations["postSmusAssetsByListingIdDataset"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/data-catalog/smus": {
         parameters: {
             query?: never;
@@ -1905,6 +1856,83 @@ export interface paths {
          *     given, records the write and tags the asset with provenance.
          */
         post: operations["postAuthoringNew"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/authoring/datasources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The data sources a new dataset can read through, ranked by use
+         * @description Every data source in the account with how many datasets read through
+         *     it and how many of those are linked to a SMUS listing, governed use
+         *     first. "The most used Athena data source" is the first row whose
+         *     `type` is ATHENA. A new dataset over a SMUS listing reads through
+         *     that one unless the request names another.
+         */
+        get: operations["getAuthoringDatasources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/authoring/datasets/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A dataset from nothing - preview
+         * @description Settles everything the create would write, without writing: the data
+         *     source, the table or query, the columns and where they came from, the
+         *     SMUS listing the dataset will be linked to (derived from what it
+         *     reads; nothing is created in SMUS), and the folders it will be filed
+         *     in. Columns come from the listing's metadata forms, from `columns`
+         *     when declared, or from the engine: for an Athena data source the
+         *     portal runs the query through the source's workgroup without reading
+         *     a row. Any other engine needs `columns` declared. A query Athena
+         *     refuses comes back as a 400 with the engine's reason.
+         */
+        post: operations["postAuthoringDatasetsPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/authoring/datasets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A dataset from nothing - create
+         * @description Same body as the preview. Creates the dataset with exactly what the
+         *     preview settled, the person who runs it as its owner, the audience of
+         *     `permissionsFrom` when given, filed in `folderId` and the default
+         *     folders from Settings, tagged with the organisation's defaults and
+         *     provenance. The cache learns of it at once, so its SMUS link and its
+         *     data source's usage count follow without an export.
+         */
+        post: operations["postAuthoringDatasets"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2746,21 +2774,6 @@ export interface components {
             /** @enum {string} */
             type: "success" | "interrupt";
             interrupts?: components["schemas"]["AgUiInterrupt"][];
-        };
-        SmusDataSourceChoice: {
-            dataSource: {
-                id: string;
-                name: string;
-                arn: string;
-                /** @description SMUS-linked datasets that read through it. */
-                usedBy: number;
-                reason: string;
-            } | null;
-            athena: {
-                id: string;
-                name: string;
-                usedBy: number;
-            }[];
         };
         /** @enum {string} */
         PlanStatus: "existing" | "new" | "edited";
@@ -4501,6 +4514,133 @@ export interface components {
             };
             themeArn?: string;
         };
+        DataSourceUsage: {
+            id: string;
+            name: string;
+            arn: string;
+            /** @description The engine, as QuickSight names it (ATHENA, REDSHIFT, ...). */
+            type?: string;
+            /** @description Athena only - the workgroup its queries run in. */
+            workGroup?: string;
+            /** @description Datasets reading through it. */
+            datasets: number;
+            /** @description Of those, the ones linked to a SMUS listing. */
+            governedDatasets: number;
+        };
+        NewDatasetColumn: {
+            name: string;
+            /** @enum {string} */
+            type: "STRING" | "INTEGER" | "DECIMAL" | "DATETIME" | "BIT" | "BOOLEAN" | "JSON";
+        };
+        /**
+         * @description What the dataset reads. `sql`: a query (`sql`) through `dataSourceId`;
+         *     `tableName` is the query's display name (the dataset's name when
+         *     omitted). `table`: `schema` (the database) and `table` through
+         *     `dataSourceId`; `catalog` defaults to AwsDataCatalog on Athena.
+         *     `listing`: a published SMUS listing by `listingId`, whose Glue table
+         *     and columns come from its metadata forms, through `dataSourceId` or,
+         *     when omitted, the Athena data source the SMUS-linked datasets already
+         *     read through (GET /api/authoring/datasources).
+         */
+        NewDatasetSource: {
+            /** @enum {string} */
+            kind: "sql" | "table" | "listing";
+            dataSourceId?: string;
+            sql?: string;
+            tableName?: string;
+            catalog?: string;
+            schema?: string;
+            table?: string;
+            listingId?: string;
+        };
+        NewDatasetRequest: {
+            name: string;
+            /**
+             * @description Defaults to DIRECT_QUERY.
+             * @enum {string}
+             */
+            importMode?: "DIRECT_QUERY" | "SPICE";
+            source: components["schemas"]["NewDatasetSource"];
+            /**
+             * @description The columns the query or table returns, declared. Needed for any
+             *     data source that is not Athena (the portal reads them from Athena
+             *     itself), and accepted for Athena to skip that read. Never for a
+             *     listing, whose columns come from its forms.
+             */
+            columns?: components["schemas"]["NewDatasetColumn"][];
+            /**
+             * @description Inherit this asset's audience: a dataset's as it is; an analysis's
+             *     or dashboard's translated to dataset actions (its owners own the
+             *     dataset, everyone else reads it).
+             */
+            permissionsFrom?: {
+                /** @enum {string} */
+                assetType: "dashboard" | "analysis" | "dataset";
+                assetId: string;
+            };
+            /** @description Filed here, beside the default folders from Settings. */
+            folderId?: string;
+            /** @description Tags it is created with, beside the organisation's defaults (Settings). portal:* keys are the portal's own. */
+            tags?: components["schemas"]["Tag"][];
+            newDataSetId?: string;
+        };
+        NewDatasetPreview: {
+            name: string;
+            /** @enum {string} */
+            importMode: "DIRECT_QUERY" | "SPICE";
+            dataSource: {
+                id: string;
+                name: string;
+                type?: string;
+            };
+            /** @description The physical table the dataset reads, as the create will write it. */
+            table: {
+                /** @enum {string} */
+                kind: "RELATIONAL" | "CUSTOM_SQL";
+                /** @description Relational - the table. Custom SQL - the query's display name. */
+                name: string;
+                catalog?: string;
+                schema?: string;
+                sql?: string;
+            };
+            columns: components["schemas"]["NewDatasetColumn"][];
+            /**
+             * @description Where the columns came from - the request, the listing's forms, or the engine.
+             * @enum {string}
+             */
+            columnsFrom: "declared" | "listing" | "query";
+            /** @description The SMUS listing the dataset will be linked to, by what it reads. */
+            listing?: {
+                listingId: string;
+                name: string;
+                matchType: components["schemas"]["SmusMatchType"];
+                url?: string;
+            };
+            /**
+             * @description Datasets that already read the same table - as the table itself,
+             *     or inside a custom SQL query that names it. Reuse one unless a new
+             *     dataset is wanted.
+             */
+            similar: {
+                dataSetId: string;
+                name: string;
+                /** @description The table both read, as schema.table. */
+                table: string;
+                /** @enum {string} */
+                how: "table" | "sql";
+            }[];
+            /** @description The folders it will be filed in - the request's and the defaults from Settings. */
+            folderIds: string[];
+            warnings: string[];
+        };
+        NewDatasetResult: components["schemas"]["NewDatasetPreview"] & {
+            /** @enum {string} */
+            assetType: "dataset";
+            assetId: string;
+            arn: string;
+            /** @description The QuickSight user made its owner - the person who built it. */
+            owner?: string;
+        };
         NewAssetResult: {
             /** @enum {string} */
             assetType: "dashboard" | "analysis";
@@ -4887,20 +5027,6 @@ export interface components {
             columns?: components["schemas"]["SmusAssetColumn"][];
             /** @description QuickSight datasets the portal matched to this listing. */
             datasets: components["schemas"]["SmusLinkedDataset"][];
-        };
-        CreateSmusDatasetRequest: {
-            /**
-             * @description An existing QuickSight data source. Omitted: the Athena data source
-             *     the SMUS-linked datasets already read through (see
-             *     GET /api/smus/data-source).
-             */
-            dataSourceId?: string;
-            /** @description Defaults to the listing name. */
-            name?: string;
-            /** @enum {string} */
-            importMode?: "DIRECT_QUERY" | "SPICE";
-            /** @description Copy this dataset's permissions onto the new one, so it has the same audience. */
-            permissionsFromDataSetId?: string;
         };
         GlossaryTerm: {
             name: string;
@@ -7097,30 +7223,6 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    getSmusDataSource: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The choice */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success: boolean;
-                        data: components["schemas"]["SmusDataSourceChoice"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-        };
-    };
     getSmusStatus: {
         parameters: {
             query?: never;
@@ -8386,46 +8488,6 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
-    postSmusAssetsByListingIdDataset: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                listingId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateSmusDatasetRequest"];
-            };
-        };
-        responses: {
-            /** @description The created dataset */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success: boolean;
-                        data: {
-                            dataSetId: string;
-                            name: string;
-                            arn: string;
-                            /** @description The data source the dataset reads through. */
-                            dataSource: {
-                                id: string;
-                                name: string;
-                            };
-                        };
-                    };
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-        };
-    };
     getDataCatalogSmus: {
         parameters: {
             query?: {
@@ -9165,6 +9227,90 @@ export interface operations {
                     "application/json": {
                         success: boolean;
                         data: components["schemas"]["NewAssetResult"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getAuthoringDatasources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The data sources, by use */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            dataSources: components["schemas"]["DataSourceUsage"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthoringDatasetsPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDatasetRequest"];
+            };
+        };
+        responses: {
+            /** @description What the create would write */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["NewDatasetPreview"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthoringDatasets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDatasetRequest"];
+            };
+        };
+        responses: {
+            /** @description The created dataset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["NewDatasetResult"];
                     };
                 };
             };

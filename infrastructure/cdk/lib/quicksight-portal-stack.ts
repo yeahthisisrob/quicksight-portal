@@ -310,6 +310,41 @@ export class QuicksightPortalStack extends Stack {
         ],
       })
     );
+    // A new custom-SQL dataset needs its columns declared, and the portal
+    // learns them the way the QuickSight console does: by running the query
+    // through the Athena data source's workgroup with LIMIT 0 (no rows are
+    // read). Results land under athena-results/ in the metadata bucket.
+    // Glue answers the table lookups the query plans against; Lake
+    // Formation vends access to governed (SMUS) tables once this role is
+    // granted SELECT on them, which is an admin step outside the stack.
+    lambdaRole.addToPolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: [
+          'athena:StartQueryExecution',
+          'athena:GetQueryExecution',
+          'athena:GetQueryResults',
+          'athena:StopQueryExecution',
+          'athena:GetWorkGroup',
+        ],
+        resources: [`arn:aws:athena:${this.region}:${this.account}:workgroup/*`],
+      })
+    );
+    lambdaRole.addToPolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: [
+          'glue:GetDatabase',
+          'glue:GetDatabases',
+          'glue:GetTable',
+          'glue:GetTables',
+          'glue:GetPartition',
+          'glue:GetPartitions',
+          'lakeformation:GetDataAccess',
+        ],
+        resources: ['*'],
+      })
+    );
 
     // SMUS (SageMaker Unified Studio) integration — optional. Provide the
     // DataZone domain id at synth time via CDK context or environment:
@@ -802,9 +837,17 @@ export class QuicksightPortalStack extends Stack {
         id: 'AwsSolutions-IAM5[Resource::*]',
         reason:
           'cloudtrail:LookupEvents, cloudwatch:GetMetricData, the DataZone ' +
-          'catalog calls and the aws-marketplace subscription checks Bedrock ' +
-          'makes before an invoke do not support resource-level scoping.',
+          'catalog calls, the aws-marketplace subscription checks Bedrock ' +
+          'makes before an invoke, and the Glue catalog reads behind an Athena ' +
+          'schema query (the tables a query names are not known at deploy ' +
+          'time) do not support resource-level scoping.',
       },
+      ...nagAccounts.map((acct) => ({
+        id: `AwsSolutions-IAM5[Resource::arn:aws:athena:${this.region}:${acct}:workgroup/*]`,
+        reason:
+          'Schema queries run in whichever workgroup the chosen QuickSight Athena ' +
+          'data source is configured with; the workgroup is data, not deploy config.',
+      })),
       ...nagAccounts.map((acct) => ({
         id: `AwsSolutions-IAM5[Resource::arn:aws:s3:::cdk-hnb659fds-assets-${acct}-${this.region}/*]`,
         reason: 'CDK-managed BucketDeployment reads its own asset bucket.',

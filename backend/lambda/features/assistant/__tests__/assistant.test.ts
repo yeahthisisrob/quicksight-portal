@@ -557,29 +557,54 @@ describe('AssistantService', () => {
     expect(announcesMore("Next, I'll preview the copy.")).toBe(true);
   });
 
-  it('refuses to prepare a new dataset for a listing that already has linked ones, unless asked', async () => {
+  it('refuses to prepare a new dataset that an existing one already covers, unless asked', async () => {
     const dispatch = vi.fn(async ({ path }: { method: string; path: string }) =>
-      path.startsWith(
-        `/api/context/entities/${encodeURIComponent('listing:l-orders')}/related?relations=reads-listing&direction=in`
-      )
+      path === '/api/authoring/datasets/preview'
         ? {
             status: 200,
             body: JSON.stringify({
               data: {
-                hits: [
+                name: 'Orders v2',
+                importMode: 'DIRECT_QUERY',
+                dataSource: { id: 'athena-1', name: 'Athena', type: 'ATHENA' },
+                table: { kind: 'RELATIONAL', schema: 'gold', name: 'orders_gold' },
+                columns: [{ name: 'id', type: 'INTEGER' }],
+                columnsFrom: 'listing',
+                listing: { listingId: 'l-orders', name: 'orders_gold', matchType: 'source-table' },
+                similar: [
                   {
-                    entityId: 'dataset:ds-gold',
-                    type: 'dataset',
+                    dataSetId: 'ds-gold',
                     name: 'Orders (gold)',
-                    summary: 'dataset: Orders (gold)',
-                    attributes: { importMode: 'SPICE' },
-                    via: [{ relation: 'reads-listing', direction: 'in' }],
+                    table: 'gold.orders_gold',
+                    how: 'table',
                   },
                 ],
+                folderIds: [],
+                warnings: [],
               },
             }),
           }
-        : { status: 404, body: '' }
+        : path.startsWith(
+              `/api/context/entities/${encodeURIComponent('listing:l-orders')}/related?relations=reads-listing&direction=in`
+            )
+          ? {
+              status: 200,
+              body: JSON.stringify({
+                data: {
+                  hits: [
+                    {
+                      entityId: 'dataset:ds-gold',
+                      type: 'dataset',
+                      name: 'Orders (gold)',
+                      summary: 'dataset: Orders (gold)',
+                      attributes: { importMode: 'SPICE' },
+                      via: [{ relation: 'reads-listing', direction: 'in' }],
+                    },
+                  ],
+                },
+              }),
+            }
+          : { status: 404, body: '' }
     );
     const create = (personAskedForNew?: boolean) => ({
       toolCalls: [
@@ -590,8 +615,8 @@ describe('AssistantService', () => {
             title: 'Create a dataset',
             why: 'Over orders_gold',
             method: 'POST',
-            path: '/api/smus/assets/l-orders/dataset',
-            body: {},
+            path: '/api/authoring/datasets',
+            body: { name: 'Orders v2', source: { kind: 'listing', listingId: 'l-orders' } },
             ...(personAskedForNew ? { personAskedForNew } : {}),
           },
         },
@@ -604,6 +629,13 @@ describe('AssistantService', () => {
     ).respond([{ role: 'user', text: 'use one of the SMUS datasets' }]);
     expect(refused.actions).toEqual([]);
     expect(refused.reply).toBe('Use Orders (gold).');
+    // Judged from the preview, then the listing's linked datasets.
+    expect(dispatch.mock.calls.map((c) => c[0].path)).toEqual(
+      expect.arrayContaining([
+        '/api/authoring/datasets/preview',
+        expect.stringContaining('/api/context/entities/listing%3Al-orders/related'),
+      ])
+    );
     const asked = await new AssistantService(
       scripted([create(true), { text: 'Prepared.' }]),
       model,

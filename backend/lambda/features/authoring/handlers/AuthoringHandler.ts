@@ -2,14 +2,19 @@ import { randomUUID } from 'node:crypto';
 
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
+import { AthenaAdapter } from '../../../adapters/aws/AthenaAdapter';
 import { CloudWatchAdapter } from '../../../adapters/aws/CloudWatchAdapter';
 import { aiModelViews, isAiModelKey } from '../../../shared/ai/modelCatalog';
 import { actorLabel, requireAuth } from '../../../shared/auth';
 import { metadataBucketName } from '../../../shared/config/metadataBucket';
+import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { STATUS_CODES } from '../../../shared/constants';
 import { activityReader } from '../../../shared/services/activity/activityReader';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
+import { CacheService } from '../../../shared/services/cache/CacheService';
+import { isQuickSightColumnType } from '../../../shared/services/datasets/columnTypes';
 import { jobFactory } from '../../../shared/services/jobs/JobFactory';
+import { SmusService } from '../../../shared/services/smus/SmusService';
 import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import { parseOps } from '../lib/definitionOps';
@@ -18,6 +23,11 @@ import { type DatasetFieldOp, DatasetFieldService } from '../services/DatasetFie
 import { DefinitionService } from '../services/DefinitionService';
 import { InsightsService } from '../services/InsightsService';
 import { type NewAssetRequest, NewAssetService } from '../services/NewAssetService';
+import {
+  type NewDatasetRequest,
+  NewDatasetService,
+  type NewDatasetSource,
+} from '../services/NewDatasetService';
 import { createPlannerModel } from '../services/planner/createPlannerModel';
 import { PlannerService } from '../services/planner/PlannerService';
 import { RebindService } from '../services/RebindService';
@@ -529,6 +539,56 @@ export class AuthoringHandler {
     }
   }
 
+  /** GET /authoring/datasources */
+  public async listDataSources(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const dataSources = await this.newDatasetService().dataSources();
+      return successResponse(event, { success: true, data: { dataSources } });
+    } catch (error: any) {
+      logger.error('List data sources failed', { error });
+      return this.failure(event, error, 'Failed to list the data sources');
+    }
+  }
+
+  /** POST /authoring/datasets/preview */
+  public async previewDataset(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const request = parseNewDatasetRequest(this.parseBody(event));
+      const preview = await this.newDatasetService().preview(request, user);
+      return successResponse(event, { success: true, data: preview });
+    } catch (error: any) {
+      logger.error('Preview new dataset failed', { error });
+      return this.failure(event, error, 'Failed to preview the new dataset');
+    }
+  }
+
+  /** POST /authoring/datasets */
+  public async createDataset(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const request = parseNewDatasetRequest(this.parseBody(event));
+      logger.info('Create dataset requested', { user: user.email, source: request.source.kind });
+      const result = await this.newDatasetService().create(request, user);
+      return successResponse(event, { success: true, data: result });
+    } catch (error: any) {
+      logger.error('Create dataset failed', { error });
+      return this.failure(event, error, 'Failed to create the dataset');
+    }
+  }
+
+  private newDatasetService(): NewDatasetService {
+    const smusConfig = getSmusConfig();
+    return new NewDatasetService(
+      this.accountId,
+      this.service(),
+      new SmusService(CacheService.getInstance(), smusConfig),
+      new AthenaAdapter(process.env.AWS_REGION || 'us-east-1'),
+      smusConfig.enabled
+    );
+  }
+
   private newAssetService(request: NewAssetRequest): NewAssetService {
     const rebind = this.service();
     const planner = request.ask ? new PlannerService(rebind, createPlannerModel()) : undefined;
@@ -904,6 +964,129 @@ function parseTags(raw: unknown): Array<{ key: string; value: string }> | undefi
 
 function badRequest(message: string): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode: STATUS_CODES.BAD_REQUEST });
+}
+
+const DATASET_PERMISSION_SOURCES = new Set(['dashboard', 'analysis', 'dataset']);
+const IMPORT_MODES = new Set(['DIRECT_QUERY', 'SPICE']);
+
+function requiredString(source: Record<string, unknown>, key: string, label: string): string {
+  const value = source[key];
+  if (typeof value !== 'string' || !value.trim()) {
+    throw badRequest(`${label} is required`);
+  }
+  return value;
+}
+
+function optionalString(source: Record<string, unknown>, key: string): string | undefined {
+  const value = source[key];
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'string') {
+    throw badRequest(`${key} must be a string`);
+  }
+  return value;
+}
+
+/** The source of a new dataset: what its kind needs, and nothing it does not. */
+function parseNewDatasetSource(raw: unknown): NewDatasetSource {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    throw badRequest("source is required: { kind: 'sql' | 'table' | 'listing', ... }");
+  }
+  const source = raw as Record<string, unknown>;
+  switch (source.kind) {
+    case 'sql':
+      return {
+        kind: 'sql',
+        dataSourceId: requiredString(source, 'dataSourceId', 'source.dataSourceId'),
+        sql: requiredString(source, 'sql', 'source.sql'),
+        ...(optionalString(source, 'tableName')
+          ? { tableName: optionalString(source, 'tableName') }
+          : {}),
+      };
+    case 'table':
+      return {
+        kind: 'table',
+        dataSourceId: requiredString(source, 'dataSourceId', 'source.dataSourceId'),
+        schema: requiredString(source, 'schema', 'source.schema'),
+        table: requiredString(source, 'table', 'source.table'),
+        ...(optionalString(source, 'catalog')
+          ? { catalog: optionalString(source, 'catalog') }
+          : {}),
+      };
+    case 'listing':
+      return {
+        kind: 'listing',
+        listingId: requiredString(source, 'listingId', 'source.listingId'),
+        ...(optionalString(source, 'dataSourceId')
+          ? { dataSourceId: optionalString(source, 'dataSourceId') }
+          : {}),
+      };
+    default:
+      throw badRequest("source.kind must be 'sql', 'table' or 'listing'");
+  }
+}
+
+function parseDeclaredColumns(raw: unknown): NewDatasetRequest['columns'] {
+  if (raw === undefined || raw === null) return undefined;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw badRequest('columns must be a non-empty list of { name, type }');
+  }
+  const seen = new Set<string>();
+  return raw.map((column, i) => {
+    const name = typeof column?.name === 'string' ? column.name.trim() : '';
+    if (!name) {
+      throw badRequest(`columns[${i}] needs a name`);
+    }
+    if (!isQuickSightColumnType(column?.type)) {
+      throw badRequest(
+        `columns[${i}].type must be STRING, INTEGER, DECIMAL, DATETIME, BIT, BOOLEAN or JSON`
+      );
+    }
+    if (seen.has(name.toLowerCase())) {
+      throw badRequest(`columns names a column twice: ${name}`);
+    }
+    seen.add(name.toLowerCase());
+    return { name, type: column.type };
+  });
+}
+
+function parseNewDatasetRequest(body: Record<string, unknown>): NewDatasetRequest {
+  const name = requiredString(body, 'name', 'name');
+  if (body.importMode !== undefined && !IMPORT_MODES.has(body.importMode as string)) {
+    throw badRequest('importMode must be DIRECT_QUERY or SPICE');
+  }
+  const from = body.permissionsFrom as Record<string, unknown> | undefined;
+  if (
+    from !== undefined &&
+    (typeof from !== 'object' ||
+      from === null ||
+      !DATASET_PERMISSION_SOURCES.has(from.assetType as string) ||
+      typeof from.assetId !== 'string' ||
+      !from.assetId)
+  ) {
+    throw badRequest(
+      "permissionsFrom must be { assetType: 'dashboard' | 'analysis' | 'dataset', assetId }"
+    );
+  }
+  const columns = parseDeclaredColumns(body.columns);
+  return {
+    name,
+    source: parseNewDatasetSource(body.source),
+    ...(body.importMode ? { importMode: body.importMode as NewDatasetRequest['importMode'] } : {}),
+    ...(columns ? { columns } : {}),
+    ...(from
+      ? {
+          permissionsFrom: {
+            assetType: from.assetType as 'dashboard' | 'analysis' | 'dataset',
+            assetId: from.assetId as string,
+          },
+        }
+      : {}),
+    ...(optionalString(body, 'folderId') ? { folderId: optionalString(body, 'folderId') } : {}),
+    ...(optionalString(body, 'newDataSetId')
+      ? { newDataSetId: optionalString(body, 'newDataSetId') }
+      : {}),
+    ...(parseTags(body.tags) ? { tags: parseTags(body.tags) } : {}),
+  };
 }
 
 function parseDatasetFieldOps(raw: unknown): DatasetFieldOp[] {

@@ -65,19 +65,3 @@ export interface SmusAssetsResult {
   /** When the snapshot was taken; null when no SMUS export has run. */
   exportedAt: string | null;
 }
-
-export interface CreateSmusDatasetRequest {
-  /** Omitted: the Athena data source the SMUS-linked datasets already use most. */
-  dataSourceId?: string;
-  name?: string;
-  /** Defaults to DIRECT_QUERY. */
-  importMode?: 'DIRECT_QUERY' | 'SPICE';
-  permissionsFromDataSetId?: string;
-}
-
-/** The Athena data source SMUS tables are read through, and how it was chosen. */
-export interface SmusDataSourceChoice {
-  dataSource: { id: string; name: string; arn: string; usedBy: number; reason: string } | null;
-  /** Every Athena data source, with how many governed datasets read through it. */
-  athena: Array<{ id: string; name: string; usedBy: number }>;
-}

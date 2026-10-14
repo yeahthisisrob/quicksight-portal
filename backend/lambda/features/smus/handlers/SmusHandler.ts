@@ -4,9 +4,7 @@ import { actorLabel, requireAuth } from '../../../shared/auth';
 import { metadataBucketName } from '../../../shared/config/metadataBucket';
 import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { STATUS_CODES } from '../../../shared/constants/httpStatusCodes';
-import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import { CacheService } from '../../../shared/services/cache/CacheService';
-import { keepCatalogFresh } from '../../../shared/services/catalog/assetFreshness';
 import { jobFactory, type SmusExportJobConfig } from '../../../shared/services/jobs/JobFactory';
 import { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { SmusService } from '../../../shared/services/smus/SmusService';
@@ -21,9 +19,7 @@ let smusService: SmusService;
  */
 function getSmusService(): SmusService {
   const config = getSmusConfig();
-  const cacheService = CacheService.getInstance();
-  const quickSightService = ClientFactory.getQuickSightService(process.env.AWS_ACCOUNT_ID || '');
-  smusService = new SmusService(cacheService, config, quickSightService);
+  smusService = new SmusService(CacheService.getInstance(), config);
   return smusService;
 }
 
@@ -96,90 +92,6 @@ export async function listSmusAssets(event: APIGatewayProxyEvent): Promise<APIGa
       event,
       error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
       error?.message || 'Failed to list SMUS assets'
-    );
-  }
-}
-
-/**
- * Create a QuickSight dataset over a published asset's Glue table.
- * POST /api/smus/assets/{listingId}/dataset
- */
-export async function createSmusDataset(
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> {
-  try {
-    const user = await requireAuth(event);
-    const listingId = event.pathParameters?.listingId || '';
-    if (!listingId) {
-      return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Listing id is required');
-    }
-    const body = JSON.parse(event.body || '{}');
-    if (
-      body.dataSourceId !== undefined &&
-      (typeof body.dataSourceId !== 'string' || !body.dataSourceId)
-    ) {
-      return errorResponse(
-        event,
-        STATUS_CODES.BAD_REQUEST,
-        'dataSourceId must be a data source id'
-      );
-    }
-    if (
-      body.importMode !== undefined &&
-      body.importMode !== 'DIRECT_QUERY' &&
-      body.importMode !== 'SPICE'
-    ) {
-      return errorResponse(
-        event,
-        STATUS_CODES.BAD_REQUEST,
-        'importMode must be DIRECT_QUERY or SPICE'
-      );
-    }
-    logger.info('SMUS dataset creation requested', { user: user.email, listingId });
-    const result = await getSmusService().createDatasetFromListing(listingId, {
-      dataSourceId: body.dataSourceId,
-      name: typeof body.name === 'string' ? body.name : undefined,
-      importMode: body.importMode,
-      permissionsFromDataSetId:
-        typeof body.permissionsFromDataSetId === 'string'
-          ? body.permissionsFromDataSetId
-          : undefined,
-    });
-    // The new dataset joins the cache (and its SMUS link resolves) without an export.
-    await keepCatalogFresh([
-      { assetType: 'dataset', assetId: result.dataSetId, name: result.name, arn: result.arn },
-    ]);
-    return successResponse(event, { success: true, data: result });
-  } catch (error: any) {
-    logger.error('Failed to create dataset from SMUS asset', { error });
-    return errorResponse(
-      event,
-      error?.statusCode || STATUS_CODES.BAD_REQUEST,
-      error?.message || 'Failed to create the dataset'
-    );
-  }
-}
-
-/**
- * The Athena data source a new dataset over a listing reads through, and
- * every Athena source with how many governed datasets use it.
- * GET /api/smus/data-source
- */
-export async function getSmusDataSource(
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> {
-  try {
-    await requireAuth(event);
-    return successResponse(event, {
-      success: true,
-      data: await getSmusService().defaultDataSource(),
-    });
-  } catch (error: any) {
-    logger.error('Failed to choose the SMUS data source', { error });
-    return errorResponse(
-      event,
-      error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
-      error?.message || 'Failed to choose a data source'
     );
   }
 }

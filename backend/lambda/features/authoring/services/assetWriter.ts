@@ -13,6 +13,7 @@ import { settingsStore } from '../../../shared/services/settings/SettingsStore';
 import { mergeTags, readDefaultTags, type TagPair } from '../../../shared/tags/tagStandards';
 import { logger } from '../../../shared/utils/logger';
 import type { AuthorableAssetType } from '../types';
+import type { AudienceAssetType } from './audience';
 
 /** QuickSight tag values are capped at 256 characters, and a resource at 50 tags. */
 const TAG_VALUE_MAX = 256;
@@ -75,18 +76,24 @@ function provenanceTags(auth: AuthContext | undefined): TagPair[] {
 }
 
 /**
- * Create it with its tags in the same call: the organisation's defaults,
+ * The tags something new is created with: the organisation's defaults,
  * the ones asked for, and who made it. Tagging afterwards left a window in
  * which it existed untagged, and a cache refresh landing in it kept it so.
  */
+export function tagsForCreate(
+  assetId: string,
+  requested: TagPair[] | undefined,
+  auth: AuthContext | undefined
+): TagPair[] {
+  return withinTagLimit(mergeTags(readDefaultTags(), requested, provenanceTags(auth)), assetId);
+}
+
+/** Create it with its tags in the same call. */
 export async function createAsset(
   quickSight: QuickSightService,
   input: WriteInput & { permissions?: any[]; tags?: TagPair[]; auth?: AuthContext }
 ): Promise<WrittenAsset> {
-  const tags = withinTagLimit(
-    mergeTags(readDefaultTags(), input.tags, provenanceTags(input.auth)),
-    input.assetId
-  );
+  const tags = tagsForCreate(input.assetId, input.tags, input.auth);
   const tagged = tags.length > 0 ? { tags } : {};
   if (input.assetType === 'analysis') {
     const created = await quickSight.createAnalysis({
@@ -161,7 +168,7 @@ export async function recordProvenance(
   quickSight: QuickSightService,
   entry: {
     action: ProvenanceAction;
-    assetType: AuthorableAssetType;
+    assetType: AudienceAssetType;
     assetId: string;
     name: string;
     arn?: string;
