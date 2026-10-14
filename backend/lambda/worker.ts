@@ -92,6 +92,7 @@ interface PlannerMessage {
         assetId: string;
         ask: string;
         candidateDataSetIds?: string[];
+        intent?: 'edit';
       }
     | { kind: 'new-visuals'; newAsset: Record<string, unknown> }
     /** A theme drawn from a picture, stored in the bucket (too big for a queue message). */
@@ -646,6 +647,7 @@ async function processPlannerJob(message: PlannerMessage, record: any): Promise<
       result = await planner.propose(request.assetType, request.assetId, {
         ask: request.ask,
         candidateDataSetIds: request.candidateDataSetIds,
+        ...(request.intent ? { intent: request.intent } : {}),
       });
     } else {
       const { NewAssetService } = await import('./features/authoring/services/NewAssetService');

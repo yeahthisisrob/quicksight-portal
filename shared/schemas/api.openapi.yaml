@@ -6485,6 +6485,7 @@ components:
           type: string
         calls:
           type: array
+          description: Every read and preview the answer made, in order, with what each was for and how long it took.
           items:
             type: object
             required: [method, path, status, ok]
@@ -6497,6 +6498,24 @@ components:
                 type: integer
               ok:
                 type: boolean
+              step:
+                type: string
+                description: What the call was for, in words (Searching, Asking the planner...).
+              ms:
+                type: integer
+                minimum: 0
+              detail:
+                type: array
+                description: The planner's own steps inside this call, each timed.
+                items:
+                  type: object
+                  required: [label, ms]
+                  properties:
+                    label:
+                      type: string
+                    ms:
+                      type: integer
+                      minimum: 0
         actions:
           type: array
           items:
@@ -10040,6 +10059,13 @@ components:
           description: Restrict the datasets the planner may choose from. Defaults to every active dataset.
           items:
             type: string
+        intent:
+          type: string
+          enum: [edit, auto]
+          description: >
+            edit: visual or layout changes only, with the datasets as they
+            are, so the planner spends no model call choosing one. auto (the
+            default) lets it decide.
         model:
           $ref: '#/components/schemas/AiModelKey'
 
@@ -10066,7 +10092,7 @@ components:
 
     Proposal:
       type: object
-      required: [ask, intent, mode, reason, rebinds, unmapped, ops, problems, plan, model]
+      required: [ask, intent, mode, reason, rebinds, unmapped, ops, problems, plan, model, steps]
       properties:
         problems:
           type: array
@@ -10077,8 +10103,8 @@ components:
           type: string
         intent:
           type: string
-          enum: [rebind, unclear]
-          description: unclear when the ask is not a rebind or clone the planner can express.
+          enum: [rebind, edit, unclear]
+          description: edit when the datasets stay as they are and only visuals or layout change; unclear when the ask is neither a rebind nor an edit the planner can express.
         mode:
           type: string
           enum: [update, clone]
@@ -10115,6 +10141,18 @@ components:
               type: string
             model:
               type: string
+        steps:
+          type: array
+          description: How long each step took - each model call and the check of the edits.
+          items:
+            type: object
+            required: [label, ms]
+            properties:
+              label:
+                type: string
+              ms:
+                type: integer
+                minimum: 0
 
     RebindPreview:
       type: object

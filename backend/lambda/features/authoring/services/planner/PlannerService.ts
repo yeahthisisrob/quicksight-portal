@@ -207,6 +207,16 @@ const MAPPING_SCHEMA = {
   },
 } as const;
 
+/** A visual or layout change only: no dataset choice to make, so no call for it. */
+const EDIT_ONLY_CHOICE: Choice = {
+  intent: 'rebind',
+  mode: 'update',
+  name: '',
+  reason: 'Visual and layout changes only; the datasets stay as they are.',
+  rebinds: [],
+  wantsEdits: true,
+};
+
 interface Choice {
   intent: 'rebind' | 'unclear';
   mode: ApplyMode;
@@ -506,18 +516,18 @@ export class PlannerService {
       throw new ValidationError(`The ask must be at most ${MAX_ASK_LENGTH} characters`);
     }
 
+    this.steps = [];
+    // An edit the caller already knows is visual skips the dataset choice:
+    // that is one model call, and the one that would talk about rebinding.
+    const editOnly = request.intent === 'edit';
     const [definition, candidates] = await Promise.all([
       this.rebindService.describeDatasets(assetType, assetId),
-      this.candidates(request.candidateDataSetIds),
+      editOnly ? Promise.resolve([]) : this.candidates(request.candidateDataSetIds),
     ]);
 
-    const choice = await this.chooseTargets(
-      assetType,
-      definition.name,
-      definition.datasets,
-      candidates,
-      ask
-    );
+    const choice = editOnly
+      ? EDIT_ONLY_CHOICE
+      : await this.chooseTargets(assetType, definition.name, definition.datasets, candidates, ask);
     const modelInfo = { provider: this.model.provider, model: '' };
 
     // Layout and visual edits are planned against the definition's outline,
@@ -539,12 +549,13 @@ export class PlannerService {
         problems,
         plan: null,
         model: modelInfo,
+        steps: this.steps,
       };
     }
     if (choice.rebinds.length === 0) {
       return {
         ask,
-        intent: 'rebind',
+        intent: 'edit',
         mode: choice.mode,
         name: choice.name.trim() || undefined,
         reason: choice.reason,
@@ -554,6 +565,7 @@ export class PlannerService {
         problems,
         plan: null,
         model: modelInfo,
+        steps: this.steps,
       };
     }
 
@@ -601,7 +613,21 @@ export class PlannerService {
       problems,
       plan,
       model: modelInfo,
+      steps: this.steps,
     };
+  }
+
+  /** How long each step of the last proposal took, for the trace under an answer. */
+  private steps: Array<{ label: string; ms: number }> = [];
+
+  /** One model call or one check, timed into the proposal's steps. */
+  private async timed<T>(label: string, work: () => Promise<T>): Promise<T> {
+    const started = Date.now();
+    try {
+      return await work();
+    } finally {
+      this.steps.push({ label, ms: Date.now() - started });
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -648,15 +674,17 @@ export class PlannerService {
       'Express every change the ask wants as ops, and nothing it does not: every filter it names with the control and placement it names (addFilter), every visual (addVisual, by column names), every interaction (addAction on the visual that is clicked), and layout changes (move, resize, retype, retitle, remove). The grid is 36 columns wide; rows grow downward. Use only ids from the outline, identifiers and columns from the datasets, and visual titles or ids for appliesTo and targets. Change a visual type only between BarChart, ColumnChart, LineChart, PieChart, DonutChart, Table and PivotTable. If the ask wants no such change, return an empty list.',
     ].join('\n');
 
-    const result = await this.model.complete({
-      label: 'plan-edits',
-      system: this.system(['explorations', 'visuals']),
-      user,
-      schemaName: 'plan_edits',
-      schemaDescription: 'Layout, visual, filter and interaction edits as ops.',
-      schema: EDITS_SCHEMA as unknown as Record<string, unknown>,
-      maxTokens: EDITS_MAX_TOKENS,
-    });
+    const result = await this.timed('plan-edits', () =>
+      this.model.complete({
+        label: 'plan-edits',
+        system: this.system(['explorations', 'visuals']),
+        user,
+        schemaName: 'plan_edits',
+        schemaDescription: 'Layout, visual, filter and interaction edits as ops.',
+        schema: EDITS_SCHEMA as unknown as Record<string, unknown>,
+        maxTokens: EDITS_MAX_TOKENS,
+      })
+    );
 
     const ops = parseEditOps(result.output, outline, new Set(datasets.map((d) => d.identifier)));
     return this.validateOps(assetType, assetId, ops);
@@ -700,15 +728,17 @@ export class PlannerService {
       'Propose what this ask should show, most important first. Use only these identifiers and column names, exactly. KPIs for single numbers, line charts over dates, bar or column charts by a category, tables for detail. Aggregate numeric columns with SUM unless the ask says otherwise; count or distinct-count text columns. Every filter the ask names is a filter, with the control and placement it names (the defaults otherwise); a slider needs its range, so use a range the ask gives or pick another control. Every interaction it names is an action on the visual that is clicked, targeting visuals by key. Give each visual a key. Say what to show, not where or how big: the layout and sizes are decided for you. Build exactly what the ask needs, nothing more.',
     ].join('\n');
 
-    const result = await this.model.complete({
-      label: 'plan-visuals',
-      system: this.system(['explorations', 'visuals']),
-      user,
-      schemaName: 'plan_visuals',
-      schemaDescription: 'The visuals to build, by column names.',
-      schema: VISUALS_SCHEMA as unknown as Record<string, unknown>,
-      maxTokens: VISUALS_MAX_TOKENS,
-    });
+    const result = await this.timed('plan-visuals', () =>
+      this.model.complete({
+        label: 'plan-visuals',
+        system: this.system(['explorations', 'visuals']),
+        user,
+        schemaName: 'plan_visuals',
+        schemaDescription: 'The visuals to build, by column names.',
+        schema: VISUALS_SCHEMA as unknown as Record<string, unknown>,
+        maxTokens: VISUALS_MAX_TOKENS,
+      })
+    );
     return {
       visuals: parseVisualSpecs(result.output, datasets),
       filters: parseFilterSpecs(result.output, datasets),
@@ -726,7 +756,9 @@ export class PlannerService {
     if (ops.length === 0) {
       return { ops: [], problems: [] };
     }
-    const preview = await this.rebindService.preview(assetType, assetId, { rebinds: [] });
+    const preview = await this.timed('validate-ops', () =>
+      this.rebindService.preview(assetType, assetId, { rebinds: [] })
+    );
     const kept: DefinitionOp[] = [];
     const problems: string[] = [];
     for (const op of ops) {
@@ -781,15 +813,17 @@ export class PlannerService {
       'Decide which identifier(s) should read from which candidate dataset, and whether to make a copy or change it in place. Also say whether the ask wants layout or visual changes (moving, resizing, retitling, removing, duplicating or retyping visuals, renaming sheets); those are planned separately.',
     ].join('\n');
 
-    const result = await this.model.complete({
-      label: 'choose-target',
-      system: this.system(['architecture', 'datasets']),
-      user,
-      schemaName: 'choose_target',
-      schemaDescription: 'The datasets to rebind and how.',
-      schema: CHOICE_SCHEMA,
-      maxTokens: CHOICE_MAX_TOKENS,
-    });
+    const result = await this.timed('choose-target', () =>
+      this.model.complete({
+        label: 'choose-target',
+        system: this.system(['architecture', 'datasets']),
+        user,
+        schemaName: 'choose_target',
+        schemaDescription: 'The datasets to rebind and how.',
+        schema: CHOICE_SCHEMA,
+        maxTokens: CHOICE_MAX_TOKENS,
+      })
+    );
 
     return parseChoice(
       result.output,
@@ -823,15 +857,17 @@ export class PlannerService {
       'For every unresolved source column, name the available target column that means the same thing, or "" if none does. Never invent a column.',
     ].join('\n');
 
-    const result = await this.model.complete({
-      label: 'map-columns',
-      system: this.system(['datasets']),
-      user,
-      schemaName: 'map_columns',
-      schemaDescription: 'Source-to-target column mapping for the unresolved columns.',
-      schema: MAPPING_SCHEMA,
-      maxTokens: MAPPING_MAX_TOKENS,
-    });
+    const result = await this.timed('map-columns', () =>
+      this.model.complete({
+        label: 'map-columns',
+        system: this.system(['datasets']),
+        user,
+        schemaName: 'map_columns',
+        schemaDescription: 'Source-to-target column mapping for the unresolved columns.',
+        schema: MAPPING_SCHEMA,
+        maxTokens: MAPPING_MAX_TOKENS,
+      })
+    );
 
     return parseMappings(result.output, unresolved);
   }
