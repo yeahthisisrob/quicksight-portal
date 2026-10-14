@@ -28,11 +28,20 @@
  * A table also cannot change kind: a relational table stays relational and
  * custom SQL stays custom SQL. Switching between them changes the column
  * shape, which is a different (and destructive) operation.
+ *
+ * The import mode (SPICE or direct query) is edited here too, since it is
+ * the same round trip: QuickSight keeps everything else and, on a switch to
+ * SPICE, starts the first import itself.
  */
 
 import { ValidationError } from '../../../shared/errors/ValidationError';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
-import { describeDataSetForEdit, resendDataSet } from '../../../shared/services/aws/datasetUpdate';
+import {
+  type DataSetImportMode,
+  describeDataSetForEdit,
+  ingestionIdOf,
+  resendDataSet,
+} from '../../../shared/services/aws/datasetUpdate';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { keepCatalogFresh } from '../../../shared/services/catalog/assetFreshness';
 import { catalog } from '../../../shared/services/catalog/catalogStore';
@@ -68,6 +77,14 @@ interface DatasetSource {
   name: string;
   importMode: string;
   tables: DatasetPhysicalTable[];
+  /** The SPICE import an update started, when it switched the dataset to SPICE. */
+  ingestionId?: string;
+}
+
+const IMPORT_MODES: ReadonlySet<string> = new Set<DataSetImportMode>(['SPICE', 'DIRECT_QUERY']);
+
+export function isImportMode(value: unknown): value is DataSetImportMode {
+  return typeof value === 'string' && IMPORT_MODES.has(value);
 }
 
 /** A change to one physical table. Omitted fields are left alone. */
@@ -83,6 +100,11 @@ interface DatasetTableEdit {
 interface DatasetSourceUpdate {
   /** Rename the dataset at the same time, if given. */
   name?: string;
+  /**
+   * Hold the data in SPICE or query the source directly. Nothing else about
+   * the dataset changes; switching to SPICE starts its first import.
+   */
+  importMode?: DataSetImportMode;
   tables?: DatasetTableEdit[];
 }
 
@@ -166,14 +188,21 @@ export class DatasetSourceService {
     if (!name) {
       throw new ValidationError('A dataset name is required');
     }
+    const importMode: DataSetImportMode = update.importMode ?? current.ImportMode;
 
     logger.info('Updating dataset source', {
       dataSetId,
       tablesEdited: edits.length,
       renamed: name !== current.Name,
+      importMode: importMode !== current.ImportMode ? importMode : undefined,
     });
 
-    await resendDataSet(this.quickSightService, dataSetId, current, { name, physicalTableMap });
+    const updated = await resendDataSet(this.quickSightService, dataSetId, current, {
+      name,
+      physicalTableMap,
+      importMode,
+    });
+    const ingestionId = ingestionIdOf(updated.ingestionArn);
 
     // Reflect the rename in listings straight away, then re-read the dataset
     // (its sources, lineage and fields changed too) without waiting for an export.
@@ -192,8 +221,9 @@ export class DatasetSourceService {
     return {
       dataSetId,
       name,
-      importMode: current.ImportMode,
+      importMode,
       tables: Object.entries(physicalTableMap).map(([id, table]) => this.toView(id, table)),
+      ...(ingestionId ? { ingestionId } : {}),
     };
   }
 

@@ -1,6 +1,7 @@
 /**
- * Editing where a dataset reads from: its name and each physical table's
- * data source, catalog, schema, table or query. Loaded live from QuickSight,
+ * Editing where a dataset reads from: its name, whether it holds its data in
+ * SPICE or queries the source directly, and each physical table's data
+ * source, catalog, schema, table or query. Loaded live from QuickSight,
  * edited as a draft, and saved as only the fields that changed (QuickSight
  * replaces the whole specification, and keeps every column as it was).
  * The source dialog and the Studio's dataset editor both edit through this.
@@ -11,8 +12,11 @@ import { assetsApi, getApiErrorMessage } from '@/shared/api';
 import type {
   DataSourceOption,
   DatasetPhysicalTable,
+  DatasetSourceUpdate,
   DatasetTableEdit,
 } from '@/shared/api/modules/assets';
+
+import type { ImportMode } from '../ui/ImportModeToggle';
 
 /** A table's editable fields, as strings for the form. */
 interface TableDraft {
@@ -69,7 +73,9 @@ export interface DatasetSourceDraft {
   loadError: string | null;
   saving: boolean;
   saveError: string | null;
+  /** As drafted; `setImportMode` switches it, and the save starts the first SPICE import. */
   importMode: string | null;
+  setImportMode: (mode: ImportMode) => void;
   tables: DatasetPhysicalTable[];
   dataSources: DataSourceOption[];
   drafts: Record<string, TableDraft>;
@@ -97,6 +103,7 @@ export function useDatasetSourceDraft(
   const [dataSources, setDataSources] = useState<DataSourceOption[]>([]);
   const [drafts, setDrafts] = useState<Record<string, TableDraft>>({});
   const [importMode, setImportMode] = useState<string | null>(null);
+  const [originalImportMode, setOriginalImportMode] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [originalName, setOriginalName] = useState('');
 
@@ -111,6 +118,7 @@ export function useDatasetSourceDraft(
       setDataSources(source.dataSources);
       setDrafts(Object.fromEntries(source.tables.map((t) => [t.id, toDraft(t)])));
       setImportMode(source.importMode ?? null);
+      setOriginalImportMode(source.importMode ?? null);
       setName(source.name);
       setOriginalName(source.name);
     } catch (error) {
@@ -133,10 +141,18 @@ export function useDatasetSourceDraft(
     [tables, drafts]
   );
   const renamed = name.trim() !== originalName && name.trim().length > 0;
+  const importModeChanged = importMode !== null && importMode !== originalImportMode;
 
   const changes = useMemo(() => {
     const words: string[] = [];
     if (renamed) words.push(`Rename to "${name.trim()}"`);
+    if (importModeChanged) {
+      words.push(
+        importMode === 'SPICE'
+          ? 'Hold the data in SPICE: the first import starts on save'
+          : 'Query the source directly instead of SPICE'
+      );
+    }
     const sourceName = (arn?: string) => dataSources.find((d) => d.arn === arn)?.name ?? arn;
     for (const edit of edits) {
       const table = tables.find((t) => t.id === edit.id);
@@ -158,17 +174,19 @@ export function useDatasetSourceDraft(
       }
     }
     return words;
-  }, [edits, renamed, name, tables, dataSources]);
+  }, [edits, renamed, name, importModeChanged, importMode, tables, dataSources]);
 
   const save = async (): Promise<boolean> => {
-    if (!datasetId || (edits.length === 0 && !renamed)) return false;
+    if (!datasetId || (edits.length === 0 && !renamed && !importModeChanged)) return false;
     setSaving(true);
     setSaveError(null);
     try {
-      await assetsApi.updateDatasetSource(datasetId, {
+      const update: DatasetSourceUpdate = {
         ...(renamed ? { name: name.trim() } : {}),
+        ...(importModeChanged ? { importMode: importMode as ImportMode } : {}),
         ...(edits.length > 0 ? { tables: edits } : {}),
-      });
+      };
+      await assetsApi.updateDatasetSource(datasetId, update);
       onSaved?.(name.trim());
       await load();
       return true;
@@ -188,6 +206,7 @@ export function useDatasetSourceDraft(
     saving,
     saveError,
     importMode,
+    setImportMode,
     tables,
     dataSources,
     drafts,
@@ -195,11 +214,12 @@ export function useDatasetSourceDraft(
     name,
     setName,
     changes,
-    hasChanges: edits.length > 0 || renamed,
+    hasChanges: edits.length > 0 || renamed || importModeChanged,
     save,
     reset: () => {
       setDrafts(Object.fromEntries(tables.map((t) => [t.id, toDraft(t)])));
       setName(originalName);
+      setImportMode(originalImportMode);
       setSaveError(null);
     },
   };

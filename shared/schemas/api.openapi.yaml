@@ -2341,7 +2341,7 @@ paths:
     put:
       operationId: putAssetsDatasetByAssetIdSource
       tags: [Assets]
-      summary: Repoint a dataset's physical tables and/or rename it
+      summary: Repoint a dataset's physical tables, rename it, or switch it between SPICE and direct query
       description: |
         Applies the given edits and writes the whole specification back to
         QuickSight, which has no partial-update API.
@@ -2354,6 +2354,11 @@ paths:
 
         A table cannot change kind - relational stays relational, custom SQL
         stays custom SQL.
+
+        `importMode` switches the dataset between SPICE and direct query with
+        nothing else changed. A switch to SPICE starts the first import;
+        the response names it in `ingestionId`, and the data shows once it
+        completes.
       parameters:
         - name: assetId
           in: path
@@ -2366,13 +2371,17 @@ paths:
           application/json:
             schema:
               type: object
-              description: Supply a name, a list of table edits, or both.
+              description: Supply a name, an import mode, a list of table edits, or any of them together.
               properties:
                 name:
                   type: string
                   minLength: 1
                   maxLength: 200
                   description: Rename the dataset at the same time
+                importMode:
+                  type: string
+                  enum: [SPICE, DIRECT_QUERY]
+                  description: Hold the data in SPICE, or query the source directly.
                 tables:
                   type: array
                   items:
@@ -8719,6 +8728,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DatasetPhysicalTable'
+        ingestionId:
+          type: string
+          description: The SPICE import an update started, when it switched the dataset to SPICE.
 
     DatasetTableEdit:
       type: object
@@ -9304,7 +9316,10 @@ components:
         importMode:
           type: string
           enum: [DIRECT_QUERY, SPICE]
-          description: Defaults to DIRECT_QUERY.
+          description: |
+            Defaults to the Settings default for new datasets (SPICE unless an
+            admin changed it); the preview says which. A SPICE dataset starts
+            its first import on creation.
         source:
           $ref: '#/components/schemas/NewDatasetSource'
         columns:
@@ -9433,6 +9448,12 @@ components:
             owner:
               type: string
               description: The QuickSight user made its owner - the person who built it.
+            ingestionId:
+              type: string
+              description: |
+                SPICE only: the first import, which QuickSight starts on
+                creation. Visuals show data once it completes; `GET
+                /api/ingestions` lists it.
 
     NewAssetResult:
       type: object

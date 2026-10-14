@@ -20,7 +20,7 @@ import { logger } from '../../../shared/utils/logger';
 import { AssetRestoreService, type RestorableSourceType } from '../services/AssetRestoreService';
 import { AssetService } from '../services/AssetService';
 import { BulkDeleteService } from '../services/BulkDeleteService';
-import { DatasetSourceService } from '../services/DatasetSourceService';
+import { DatasetSourceService, isImportMode } from '../services/DatasetSourceService';
 import { isRenameableAssetType, RenameService } from '../services/RenameService';
 import type { AssetListRequest } from '../types';
 
@@ -722,8 +722,9 @@ export class AssetHandler {
   }
 
   /**
-   * Repoint a dataset's physical tables and/or rename it.
-   * PUT /assets/dataset/{assetId}/source  body: { name?, tables? }
+   * Repoint a dataset's physical tables, rename it, or switch it between
+   * SPICE and direct query.
+   * PUT /assets/dataset/{assetId}/source  body: { name?, importMode?, tables? }
    */
   public async updateDatasetSource(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
@@ -733,12 +734,19 @@ export class AssetHandler {
         return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Dataset id is required');
       }
 
-      const { name, tables } = JSON.parse(event.body || '{}');
-      if (name === undefined && !Array.isArray(tables)) {
+      const { name, importMode, tables } = JSON.parse(event.body || '{}');
+      if (name === undefined && importMode === undefined && !Array.isArray(tables)) {
         return errorResponse(
           event,
           STATUS_CODES.BAD_REQUEST,
-          'Provide a name and/or a tables array to change'
+          'Provide a name, an importMode (SPICE or DIRECT_QUERY) and/or a tables array to change'
+        );
+      }
+      if (importMode !== undefined && !isImportMode(importMode)) {
+        return errorResponse(
+          event,
+          STATUS_CODES.BAD_REQUEST,
+          'importMode must be SPICE or DIRECT_QUERY'
         );
       }
       if (tables !== undefined && !Array.isArray(tables)) {
@@ -747,7 +755,7 @@ export class AssetHandler {
 
       logger.info('Dataset source update requested', { user: user.email, dataSetId });
       const service = new DatasetSourceService(this.accountId);
-      const result = await service.updateSource(dataSetId, { name, tables });
+      const result = await service.updateSource(dataSetId, { name, importMode, tables });
 
       return successResponse(event, { success: true, data: result });
     } catch (error: any) {

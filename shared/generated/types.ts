@@ -1044,7 +1044,7 @@ export interface paths {
          */
         get: operations["getAssetsDatasetByAssetIdSource"];
         /**
-         * Repoint a dataset's physical tables and/or rename it
+         * Repoint a dataset's physical tables, rename it, or switch it between SPICE and direct query
          * @description Applies the given edits and writes the whole specification back to
          *     QuickSight, which has no partial-update API.
          *
@@ -1056,6 +1056,11 @@ export interface paths {
          *
          *     A table cannot change kind - relational stays relational, custom SQL
          *     stays custom SQL.
+         *
+         *     `importMode` switches the dataset between SPICE and direct query with
+         *     nothing else changed. A switch to SPICE starts the first import;
+         *     the response names it in `ingestionId`, and the data shows once it
+         *     completes.
          */
         put: operations["putAssetsDatasetByAssetIdSource"];
         post?: never;
@@ -4298,6 +4303,8 @@ export interface components {
             name: string;
             importMode: string;
             tables: components["schemas"]["DatasetPhysicalTable"][];
+            /** @description The SPICE import an update started, when it switched the dataset to SPICE. */
+            ingestionId?: string;
         };
         /** @description A change to one physical table. Omitted fields are left alone. */
         DatasetTableEdit: {
@@ -4625,7 +4632,9 @@ export interface components {
         NewDatasetRequest: {
             name: string;
             /**
-             * @description Defaults to DIRECT_QUERY.
+             * @description Defaults to the Settings default for new datasets (SPICE unless an
+             *     admin changed it); the preview says which. A SPICE dataset starts
+             *     its first import on creation.
              * @enum {string}
              */
             importMode?: "DIRECT_QUERY" | "SPICE";
@@ -4702,6 +4711,12 @@ export interface components {
             arn: string;
             /** @description The QuickSight user made its owner - the person who built it. */
             owner?: string;
+            /**
+             * @description SPICE only: the first import, which QuickSight starts on
+             *     creation. Visuals show data once it completes; `GET
+             *     /api/ingestions` lists it.
+             */
+            ingestionId?: string;
         };
         NewAssetResult: {
             /** @enum {string} */
@@ -8037,6 +8052,11 @@ export interface operations {
                 "application/json": {
                     /** @description Rename the dataset at the same time */
                     name?: string;
+                    /**
+                     * @description Hold the data in SPICE, or query the source directly.
+                     * @enum {string}
+                     */
+                    importMode?: "SPICE" | "DIRECT_QUERY";
                     tables?: components["schemas"]["DatasetTableEdit"][];
                 };
             };

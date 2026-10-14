@@ -23,6 +23,7 @@ import type { AuthContext } from '../../../shared/auth';
 import { metadataBucketName } from '../../../shared/config/metadataBucket';
 import { ValidationError } from '../../../shared/errors/ValidationError';
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
+import { ingestionIdOf } from '../../../shared/services/aws/datasetUpdate';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { catalog } from '../../../shared/services/catalog/catalogStore';
 import {
@@ -42,6 +43,7 @@ import {
 } from '../../../shared/services/datasets/similarDatasets';
 import { parseSimpleSelect } from '../../../shared/services/datasets/simpleSelect';
 import { extractSqlTableRefs } from '../../../shared/services/parsing/DatasetParser';
+import { settingsStore } from '../../../shared/services/settings/SettingsStore';
 import type { SmusService } from '../../../shared/services/smus/SmusService';
 import type { TagPair } from '../../../shared/tags/tagStandards';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
@@ -75,7 +77,7 @@ export interface NewDatasetColumn {
 
 export interface NewDatasetRequest {
   name: string;
-  /** Defaults to DIRECT_QUERY. */
+  /** Defaults to Settings (authoring.datasetImportMode): SPICE unless an admin changed it. */
   importMode?: 'DIRECT_QUERY' | 'SPICE';
   source: NewDatasetSource;
   /** Declared when the portal cannot read them from the engine; never for a listing. */
@@ -119,6 +121,15 @@ export interface NewDatasetResult extends NewDatasetPreview {
   arn: string;
   /** The QuickSight user made its owner: the person who built it. */
   owner?: string;
+  /** SPICE: the first import, which QuickSight starts on creation; data shows once it completes. */
+  ingestionId?: string;
+}
+
+/** The import mode a request that names none gets: Settings, SPICE unless changed. */
+function defaultImportMode(): 'DIRECT_QUERY' | 'SPICE' {
+  return settingsStore.get('authoring.datasetImportMode') === 'DIRECT_QUERY'
+    ? 'DIRECT_QUERY'
+    : 'SPICE';
 }
 
 interface Composed {
@@ -214,6 +225,7 @@ export class NewDatasetService {
       },
       auth
     );
+    const ingestionId = ingestionIdOf(created.ingestionArn);
     return {
       assetType: 'dataset',
       assetId: created.dataSetId,
@@ -221,6 +233,7 @@ export class NewDatasetService {
       ...preview,
       folderIds: filed,
       ...(audience.owner ? { owner: audience.owner.userName } : {}),
+      ...(ingestionId ? { ingestionId } : {}),
     };
   }
 
@@ -233,7 +246,7 @@ export class NewDatasetService {
     if (name.length > NAME_MAX_LENGTH) {
       throw new ValidationError(`Name must be at most ${NAME_MAX_LENGTH} characters`);
     }
-    const importMode = request.importMode ?? 'DIRECT_QUERY';
+    const importMode = request.importMode ?? defaultImportMode();
     const usage = await this.dataSources();
     const warnings: string[] = [];
 

@@ -271,6 +271,19 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
         optionsFrom: '/settings/quicksight/folders',
       },
       {
+        key: 'authoring.datasetImportMode',
+        label: 'New datasets hold their data in',
+        description:
+          "How a dataset the portal creates holds its data when the request does not say. SPICE imports it (QuickSight starts the first import on creation, and refreshes on the schedule you set); direct query runs the query on every view. QuickSight's console defaults to SPICE. An existing dataset is switched in the Studio or with PUT /api/assets/dataset/{id}/source.",
+        type: 'select',
+        envVar: '',
+        default: 'SPICE',
+        options: [
+          { value: 'SPICE', label: 'SPICE' },
+          { value: 'DIRECT_QUERY', label: 'Direct query' },
+        ],
+      },
+      {
         key: 'authoring.defaultTags',
         label: 'Tag authored assets with',
         description:
