@@ -23,6 +23,7 @@ describe('AthenaAdapter', () => {
   it('starts the query in the workgroup, waits for it, and maps the result columns', async () => {
     const send = vi
       .fn()
+      .mockResolvedValueOnce({ WorkGroup: { Configuration: {} } })
       .mockResolvedValueOnce({ QueryExecutionId: 'q1' })
       .mockResolvedValueOnce({ QueryExecution: { Status: { State: 'RUNNING' } } })
       .mockResolvedValueOnce({ QueryExecution: { Status: { State: 'SUCCEEDED' } } })
@@ -44,16 +45,48 @@ describe('AthenaAdapter', () => {
       { name: 'id', type: 'bigint' },
       { name: 'total', type: 'decimal' },
     ]);
-    const start = send.mock.calls[0]![0].input;
+    expect(send.mock.calls[0]![0].input).toEqual({ WorkGroup: 'primary' });
+    const start = send.mock.calls[1]![0].input;
     expect(start.WorkGroup).toBe('primary');
     expect(start.QueryString).toContain('LIMIT 0');
     expect(start.QueryExecutionContext).toEqual({ Catalog: 'AwsDataCatalog' });
     expect(start.ResultConfiguration).toEqual({ OutputLocation: 's3://bucket/athena-results/' });
   });
 
+  it('writes where the workgroup enforces, and names that bucket when Athena cannot reach it', async () => {
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce({
+        WorkGroup: {
+          Configuration: {
+            EnforceWorkGroupConfiguration: true,
+            ResultConfiguration: { OutputLocation: 's3://analytics-results/athena/' },
+          },
+        },
+      })
+      .mockResolvedValueOnce({ QueryExecutionId: 'q1' })
+      .mockResolvedValueOnce({
+        QueryExecution: {
+          Status: {
+            State: 'FAILED',
+            StateChangeReason: 'Unable to verify/create output bucket analytics-results.',
+          },
+        },
+      });
+    await expect(
+      new AthenaAdapter('us-east-1', { send } as any).querySchema(input)
+    ).rejects.toThrow(
+      "Unable to verify/create output bucket analytics-results. The query's results go to s3://analytics-results/athena/ (enforced by workgroup primary); the portal's role needs s3:GetBucketLocation, s3:ListBucket and s3:PutObject there"
+    );
+    expect(send.mock.calls[1]![0].input.ResultConfiguration).toEqual({
+      OutputLocation: 's3://analytics-results/athena/',
+    });
+  });
+
   it("reports the engine's reason when the query fails", async () => {
     const send = vi
       .fn()
+      .mockResolvedValueOnce({ WorkGroup: { Configuration: {} } })
       .mockResolvedValueOnce({ QueryExecutionId: 'q1' })
       .mockResolvedValueOnce({
         QueryExecution: {
@@ -70,11 +103,13 @@ describe('AthenaAdapter', () => {
 
   it('stops a query that outlives the timeout', async () => {
     const send = vi.fn(async (command: any) =>
-      command.constructor.name === 'StartQueryExecutionCommand'
-        ? { QueryExecutionId: 'q1' }
-        : command.constructor.name === 'StopQueryExecutionCommand'
-          ? {}
-          : { QueryExecution: { Status: { State: 'QUEUED' } } }
+      command.constructor.name === 'GetWorkGroupCommand'
+        ? { WorkGroup: { Configuration: {} } }
+        : command.constructor.name === 'StartQueryExecutionCommand'
+          ? { QueryExecutionId: 'q1' }
+          : command.constructor.name === 'StopQueryExecutionCommand'
+            ? {}
+            : { QueryExecution: { Status: { State: 'QUEUED' } } }
     );
     await expect(
       new AthenaAdapter('us-east-1', { send } as any).querySchema({ ...input, timeoutMs: 1 })

@@ -300,10 +300,23 @@ export class QuicksightPortalStack extends Stack {
         resources: ['*'],
       })
     );
+    // The metadata bucket: exports, caches, the archive, and the results of
+    // the Athena schema queries below (athena-results/). Athena verifies the
+    // results bucket with GetBucketLocation and writes with multipart
+    // uploads, so those are granted alongside the plain object operations.
     lambdaRole.addToPolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
-        actions: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject', 's3:ListBucket'],
+        actions: [
+          's3:GetObject',
+          's3:PutObject',
+          's3:DeleteObject',
+          's3:ListBucket',
+          's3:GetBucketLocation',
+          's3:ListBucketMultipartUploads',
+          's3:ListMultipartUploadParts',
+          's3:AbortMultipartUpload',
+        ],
         resources: [
           `arn:aws:s3:::quicksight-metadata-bucket-${this.account}`,
           `arn:aws:s3:::quicksight-metadata-bucket-${this.account}/*`,
@@ -313,7 +326,9 @@ export class QuicksightPortalStack extends Stack {
     // A new custom-SQL dataset needs its columns declared, and the portal
     // learns them the way the QuickSight console does: by running the query
     // through the Athena data source's workgroup with LIMIT 0 (no rows are
-    // read). Results land under athena-results/ in the metadata bucket.
+    // read). Results land under athena-results/ in the metadata bucket,
+    // unless the workgroup enforces its own results location: then the
+    // role needs GetBucketLocation, ListBucket and PutObject there too.
     // Glue answers the table lookups the query plans against; Lake
     // Formation vends access to governed (SMUS) tables once this role is
     // granted SELECT on them, which is an admin step outside the stack.
