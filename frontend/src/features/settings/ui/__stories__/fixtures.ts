@@ -1,4 +1,4 @@
-import type { SettingsSnapshot } from '@/shared/api/modules/settings';
+import type { AthenaAccessReport, SettingsSnapshot } from '@/shared/api/modules/settings';
 
 import { type MockRoute, requestBody } from '../../../../../.storybook/mocks/api';
 
@@ -136,6 +136,34 @@ const API_KEYS = [
   },
 ];
 
+export const ATHENA_ACCESS: AthenaAccessReport = {
+  configured: true,
+  role: 'arn:aws:iam::123456789012:role/QuicksightPortalStack-LambdaExecutionRole7E2A4D6C',
+  databases: [
+    { name: 'published_prod', listings: 12, visible: 'all', hiddenTables: [] },
+    {
+      name: 'published_dev',
+      listings: 9,
+      visible: 'some',
+      hiddenTables: ['fct_orders', 'dim_customer'],
+    },
+    {
+      name: 'bronze-prod',
+      listings: 3,
+      visible: 'none',
+      hiddenTables: ['raw_events', 'raw_sessions', 'raw_clicks'],
+      error: 'The role cannot see this database at all',
+    },
+  ],
+  commands: ['just athena-grant "published_dev,bronze-prod"'],
+  awsCli: [
+    `aws lakeformation grant-permissions --principal DataLakePrincipalIdentifier=arn:aws:iam::123456789012:role/QuicksightPortalStack-LambdaExecutionRole7E2A4D6C --permissions DESCRIBE --resource '{"Database":{"Name":"published_dev"}}'`,
+    `aws lakeformation grant-permissions --principal DataLakePrincipalIdentifier=arn:aws:iam::123456789012:role/QuicksightPortalStack-LambdaExecutionRole7E2A4D6C --permissions SELECT DESCRIBE --resource '{"Table":{"DatabaseName":"published_dev","TableWildcard":{}}}'`,
+    `aws lakeformation grant-permissions --principal DataLakePrincipalIdentifier=arn:aws:iam::123456789012:role/QuicksightPortalStack-LambdaExecutionRole7E2A4D6C --permissions DESCRIBE --resource '{"Database":{"Name":"bronze-prod"}}'`,
+    `aws lakeformation grant-permissions --principal DataLakePrincipalIdentifier=arn:aws:iam::123456789012:role/QuicksightPortalStack-LambdaExecutionRole7E2A4D6C --permissions SELECT DESCRIBE --resource '{"Table":{"DatabaseName":"bronze-prod","TableWildcard":{}}}'`,
+  ],
+};
+
 export function settingsRoutes(overrides: MockRoute[] = []): MockRoute[] {
   let stored = SNAPSHOT;
   let keys = [...API_KEYS];
@@ -173,6 +201,11 @@ export function settingsRoutes(overrides: MockRoute[] = []): MockRoute[] {
         keys = keys.filter((k) => k.id !== id);
         return { body: { success: true, data: { id } } };
       },
+    },
+    {
+      method: 'get',
+      url: '/settings/athena-access',
+      respond: () => ({ body: { success: true, data: ATHENA_ACCESS } }),
     },
     {
       method: 'get',

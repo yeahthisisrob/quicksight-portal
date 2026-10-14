@@ -350,7 +350,9 @@ them (`[{ "name", "type" }]`, types STRING, INTEGER, DECIMAL, DATETIME,
 BOOLEAN, BIT, JSON), or by asking the engine. For an Athena data source the
 portal runs the query through the source's workgroup with no rows read and
 takes the result's columns, so a query Athena refuses comes back as a 400
-with the engine's reason. Any other engine needs `columns`. The response
+with the engine's reason. A governed (Lake Formation) table the portal's
+role was never granted on reads as "does not exist"; the error says which
+databases to have an admin grant. Any other engine needs `columns`. The response
 carries `columns`, `columnsFrom` (`listing`, `declared` or `query`),
 `similar` (datasets that already read the same table, as the table or in
 their SQL; reuse one unless a new dataset is wanted) and `listing`.

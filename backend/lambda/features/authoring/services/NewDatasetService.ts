@@ -421,8 +421,9 @@ export class NewDatasetService {
       });
       return columns.map((c) => ({ name: c.name, type: toQuickSightColumnType(c.type) }));
     } catch (error: any) {
+      const reason: string = error?.message ?? 'unknown error';
       throw new ValidationError(
-        `Athena (workgroup ${workGroup}) could not run the query to read its columns: ${error?.message ?? 'unknown error'}. Fix the query, or declare the columns.`
+        `Athena (workgroup ${workGroup}) could not run the query to read its columns: ${reason}.${hiddenTableHint(reason, sql)} Fix the query, or declare the columns.`
       );
     }
   }
@@ -443,6 +444,30 @@ export class NewDatasetService {
       await this.rebindService.permissionsOf(from.assetType, from.assetId)
     );
   }
+}
+
+/** Athena's wording when Lake Formation hides a table the role is not granted on. */
+const TABLE_HIDDEN = /TABLE_NOT_FOUND|SCHEMA_NOT_FOUND|does not exist|EntityNotFound/i;
+
+/**
+ * Lake Formation hides a table from a principal with no grant on it, and
+ * Athena then says the table does not exist. Every table SMUS publishes is
+ * governed this way, so a "not found" over a real table usually means the
+ * portal's role was never granted: say so, with the databases to grant.
+ */
+function hiddenTableHint(reason: string, sql: string): string {
+  if (!TABLE_HIDDEN.test(reason)) {
+    return '';
+  }
+  const databases = [
+    ...new Set(
+      extractSqlTableRefs(sql)
+        .map((ref) => ref.split('.').slice(-2, -1)[0])
+        .filter((db): db is string => Boolean(db))
+    ),
+  ];
+  const which = databases.length > 0 ? databases.join(',') : '<database>';
+  return ` If the table exists, Lake Formation is hiding it: the portal's role has no grant on it. Settings > Athena access shows which databases the role can see; a data lake admin runs \`just athena-grant ${which}\` once (SELECT and DESCRIBE for the role on those databases).`;
 }
 
 function quoteIdentifier(name: string): string {

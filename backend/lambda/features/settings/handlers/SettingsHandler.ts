@@ -1,12 +1,18 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { DataZoneAdapter } from '../../../adapters/aws/DataZoneAdapter';
+import { GlueAdapter } from '../../../adapters/aws/GlueAdapter';
+import { StsAdapter } from '../../../adapters/aws/StsAdapter';
 import { requireAuth, requireUser } from '../../../shared/auth';
 import { getSmusConfig } from '../../../shared/config/smusConfig';
 import { STATUS_CODES } from '../../../shared/constants';
 import { apiKeyStore } from '../../../shared/services/auth/ApiKeyStore';
 import { CacheService } from '../../../shared/services/cache/CacheService';
 import { catalog } from '../../../shared/services/catalog/catalogStore';
+import {
+  athenaAccessReport,
+  roleArnFromCaller,
+} from '../../../shared/services/datasets/athenaAccess';
 import { settingsStore } from '../../../shared/services/settings/SettingsStore';
 import { SmusService } from '../../../shared/services/smus/SmusService';
 import { AssetStatusFilter } from '../../../shared/types/assetFilterTypes';
@@ -76,6 +82,41 @@ export class SettingsHandler {
         event,
         error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
         error?.message || 'Failed to list SMUS projects'
+      );
+    }
+  }
+
+  /**
+   * GET /settings/athena-access - which governed databases the portal's role
+   * can read through Athena, and the admin command for the rest.
+   */
+  public async athenaAccess(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const config = getSmusConfig();
+      if (!config.enabled) {
+        return successResponse(event, {
+          success: true,
+          data: { configured: false, role: '', databases: [], commands: [], awsCli: [] },
+        });
+      }
+      const region = process.env.AWS_REGION || 'us-east-1';
+      const [assets, caller] = await Promise.all([
+        new SmusService(CacheService.getInstance(), config).listAssets(),
+        new StsAdapter(region).getCallerIdentity(),
+      ]);
+      const report = await athenaAccessReport(
+        assets.assets,
+        new GlueAdapter(region),
+        roleArnFromCaller(caller.arn)
+      );
+      return successResponse(event, { success: true, data: { configured: true, ...report } });
+    } catch (error: any) {
+      logger.error('Athena access report failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error?.message || 'Failed to check Athena access'
       );
     }
   }

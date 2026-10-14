@@ -27,6 +27,7 @@
     "@aws-sdk/client-cognito-identity-provider": "^3.1149.0",
     "@aws-sdk/client-datazone": "^3.1149.0",
     "@aws-sdk/client-dynamodb": "^3.1149.0",
+    "@aws-sdk/client-glue": "^3.1150.0",
     "@aws-sdk/client-quicksight": "^3.1149.0",
     "@aws-sdk/client-s3": "^3.1149.0",
     "@aws-sdk/client-sqs": "^3.1149.0",

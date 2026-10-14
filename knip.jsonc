@@ -40,5 +40,5 @@
   "ignoreDependencies": ["@quicksight-portal/shared", "tsx", "concurrently"],
   // Installed by mise (just) and the AWS SAM installer (sam), not npm.
   "ignoreBinaries": ["just", "sam"],
-  "ignoreFiles": ["scripts/smus-grant-portal-access.mjs"]
+  "ignoreFiles": ["scripts/smus-grant-portal-access.mjs", "scripts/athena-grant-portal-access.mjs"]
 }
