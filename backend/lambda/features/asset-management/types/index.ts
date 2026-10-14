@@ -77,6 +77,8 @@ export interface AssetListRequest {
   smusFilter?: 'all' | 'smus_linked' | 'not_smus_linked';
   /** Filter datasets by import mode (DataSet API ImportMode): all, SPICE, DIRECT_QUERY */
   importModeFilter?: 'all' | 'SPICE' | 'DIRECT_QUERY';
+  /** Filter datasets by whether another dataset reads one of the same tables. */
+  duplicatesFilter?: 'all' | 'duplicates' | 'unique';
 }
 
 export interface AssetListResponse {

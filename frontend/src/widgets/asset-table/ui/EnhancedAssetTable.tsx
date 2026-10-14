@@ -24,9 +24,11 @@ import {
   type DateFilterState,
   DEFAULT_ACTIVITY_FILTER,
   DEFAULT_DATE_FILTER,
+  DEFAULT_DUPLICATES_FILTER,
   DEFAULT_ERROR_FILTER,
   DEFAULT_IMPORT_MODE_FILTER,
   DEFAULT_SMUS_FILTER,
+  type DuplicatesFilterState,
   type ErrorFilterState,
   FilterBar,
   type FolderFilter,
@@ -109,6 +111,8 @@ interface EnhancedAssetTableProps {
   enableActivityFiltering?: boolean;
   /** Enable SMUS catalog link filtering UI (datasets) */
   enableSmusFiltering?: boolean;
+  /** Enable the same-table filter (datasets another dataset reads the same table as) */
+  enableDuplicatesFiltering?: boolean;
   /** Enable import mode filtering UI (datasets: SPICE vs DIRECT_QUERY) */
   enableImportModeFiltering?: boolean;
   /** Enable role filtering UI */
@@ -189,6 +193,7 @@ function buildFetchOptionsFromState(state: {
   errorFilter: ErrorFilterState;
   activityFilter: ActivityFilterState;
   smusFilter: SmusFilterState;
+  duplicatesFilter: DuplicatesFilterState;
   importModeFilter: ImportModeFilterState;
   selectedRoles: string[];
   permissionsFilter: PermissionsFilterState;
@@ -218,6 +223,7 @@ function buildFetchOptionsFromState(state: {
     errorFilter: state.errorFilter !== 'all' ? state.errorFilter : undefined,
     activityFilter: state.activityFilter !== 'all' ? state.activityFilter : undefined,
     smusFilter: state.smusFilter !== 'all' ? state.smusFilter : undefined,
+    duplicatesFilter: state.duplicatesFilter !== 'all' ? state.duplicatesFilter : undefined,
     importModeFilter: state.importModeFilter !== 'all' ? state.importModeFilter : undefined,
     roleFilter: state.selectedRoles.length > 0 ? JSON.stringify(state.selectedRoles) : undefined,
     permissionsFilter: state.permissionsFilter !== 'all' ? state.permissionsFilter : undefined,
@@ -366,6 +372,7 @@ export default function EnhancedAssetTable({
   errorCount,
   enableActivityFiltering = false,
   enableSmusFiltering = false,
+  enableDuplicatesFiltering = false,
   enableImportModeFiltering = false,
   enableRoleFiltering = false,
   availableRoles = [],
@@ -401,6 +408,8 @@ export default function EnhancedAssetTable({
   const [activityFilter, setActivityFilter] =
     useState<ActivityFilterState>(DEFAULT_ACTIVITY_FILTER);
   const [smusFilter, setSmusFilter] = useState<SmusFilterState>(DEFAULT_SMUS_FILTER);
+  const [duplicatesFilter, setDuplicatesFilter] =
+    useState<DuplicatesFilterState>(DEFAULT_DUPLICATES_FILTER);
   const [importModeFilter, setImportModeFilter] = useState<ImportModeFilterState>(
     DEFAULT_IMPORT_MODE_FILTER
   );
@@ -521,6 +530,7 @@ export default function EnhancedAssetTable({
         errorFilter,
         activityFilter,
         smusFilter,
+        duplicatesFilter,
         importModeFilter,
         selectedRoles,
         permissionsFilter,
@@ -544,6 +554,7 @@ export default function EnhancedAssetTable({
       errorFilter,
       activityFilter,
       smusFilter,
+      duplicatesFilter,
       importModeFilter,
       selectedRoles,
       permissionsFilter,
@@ -631,6 +642,9 @@ export default function EnhancedAssetTable({
             enableSmusFiltering={enableSmusFiltering}
             smusFilter={smusFilter}
             onSmusFilterChange={setSmusFilter}
+            enableDuplicatesFiltering={enableDuplicatesFiltering}
+            duplicatesFilter={duplicatesFilter}
+            onDuplicatesFilterChange={setDuplicatesFilter}
             enableImportModeFiltering={enableImportModeFiltering}
             importModeFilter={importModeFilter}
             onImportModeFilterChange={setImportModeFilter}

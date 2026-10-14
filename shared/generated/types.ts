@@ -1065,6 +1065,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assets/dataset/{assetId}/duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The datasets that read the same tables as this one
+         * @description From the catalog: the tables this dataset reads (its relational
+         *     tables and the tables its custom SQL names, as `schema.table`), and
+         *     every other dataset reading one of them, as the table or inside a
+         *     query. These are the candidates for consolidating onto one dataset.
+         */
+        get: operations["getAssetsDatasetByAssetIdDuplicates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/authoring/{assetType}/{assetId}/datasets": {
         parameters: {
             query?: never;
@@ -3634,6 +3657,8 @@ export interface components {
             sizeInBytes?: number;
             /** @description Data source type resolved from the dataset's data sources (the DataSource API's Type field — ATHENA, REDSHIFT, S3, etc.) */
             sourceType?: string;
+            /** @description How many other datasets read one of the same tables, as the table itself or inside a custom SQL query. Candidates for consolidation when above zero. */
+            sharesTablesWith?: number;
             /** @description Distinct source schemas (databases) from the dataset's relational physical tables — the RelationalTable Schema field, which is the database for Athena sources and the schema for Redshift and other relational engines. Populated at export time. */
             schemas?: string[];
             /** @description Whether dataset has refresh properties configured */
@@ -4224,6 +4249,23 @@ export interface components {
             /** @description False for S3 sources, which have no schema or query to edit. */
             editable: boolean;
         };
+        SimilarDataset: {
+            dataSetId: string;
+            name: string;
+            /** @description The table both read, as schema.table. */
+            table: string;
+            /**
+             * @description Read as the table itself, or inside a custom SQL query.
+             * @enum {string}
+             */
+            how: "table" | "sql";
+        };
+        DatasetDuplicates: {
+            /** @description The tables this dataset reads, as schema.table. */
+            tables: string[];
+            /** @description Other datasets reading one of them. */
+            datasets: components["schemas"]["SimilarDataset"][];
+        };
         DatasetSource: {
             dataSetId: string;
             name: string;
@@ -4621,14 +4663,7 @@ export interface components {
              *     or inside a custom SQL query that names it. Reuse one unless a new
              *     dataset is wanted.
              */
-            similar: {
-                dataSetId: string;
-                name: string;
-                /** @description The table both read, as schema.table. */
-                table: string;
-                /** @enum {string} */
-                how: "table" | "sql";
-            }[];
+            similar: components["schemas"]["SimilarDataset"][];
             /** @description The folders it will be filed in - the request's and the defaults from Settings. */
             folderIds: string[];
             warnings: string[];
@@ -6474,6 +6509,8 @@ export interface operations {
                 sourceTypeFilter?: string;
                 /** @description Datasets - only those linked (or not) to a SMUS listing. */
                 smusFilter?: "all" | "smus_linked" | "not_smus_linked";
+                /** @description Datasets - only those another dataset reads the same table as (`duplicates`), or only those no other does (`unique`). */
+                duplicatesFilter?: "all" | "duplicates" | "unique";
                 /** @description Datasets - only SPICE or only direct query. */
                 importModeFilter?: "all" | "SPICE" | "DIRECT_QUERY";
             };
@@ -7967,6 +8004,33 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    getAssetsDatasetByAssetIdDuplicates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tables and the datasets sharing them */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["DatasetDuplicates"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     getAuthoringByAssetTypeByAssetIdDatasets: {

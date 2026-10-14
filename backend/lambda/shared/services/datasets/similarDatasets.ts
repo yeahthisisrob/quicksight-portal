@@ -37,6 +37,73 @@ export function tablesRead(table: {
   return extractSqlTableRefs(table.sql).map(tableKey);
 }
 
+/** The tables a catalogued dataset reads, as keys: its relational tables and the tables its queries name. */
+export function tablesReadByEntry(dataset: CatalogEntry): string[] {
+  const tables: any[] = dataset.metadata?.lineageData?.physicalTables ?? [];
+  const keys = new Set<string>();
+  for (const t of tables) {
+    if (t?.type === 'RELATIONAL' && typeof t.name === 'string') {
+      keys.add(tableKey(t.schema ? `${t.schema}.${t.name}` : t.name));
+    }
+    for (const ref of Array.isArray(t?.sqlTables) ? t.sqlTables : []) {
+      keys.add(tableKey(String(ref)));
+    }
+  }
+  keys.delete('');
+  return [...keys];
+}
+
+/**
+ * For every dataset, the other datasets that read one of the same tables.
+ * One pass over the catalog: datasets are grouped by table, then each
+ * dataset collects the members of its tables' groups.
+ */
+export function duplicateGroups(datasets: CatalogEntry[]): Map<string, SimilarDataset[]> {
+  const byTable = new Map<string, Array<{ dataset: CatalogEntry; how: 'table' | 'sql' }>>();
+  for (const dataset of datasets) {
+    const tables: any[] = dataset.metadata?.lineageData?.physicalTables ?? [];
+    const seen = new Set<string>();
+    for (const t of tables) {
+      const reads: Array<[string, 'table' | 'sql']> = [];
+      if (t?.type === 'RELATIONAL' && typeof t.name === 'string') {
+        reads.push([tableKey(t.schema ? `${t.schema}.${t.name}` : t.name), 'table']);
+      }
+      for (const ref of Array.isArray(t?.sqlTables) ? t.sqlTables : []) {
+        reads.push([tableKey(String(ref)), 'sql']);
+      }
+      for (const [key, how] of reads) {
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        const group = byTable.get(key) ?? [];
+        group.push({ dataset, how });
+        byTable.set(key, group);
+      }
+    }
+  }
+  const result = new Map<string, SimilarDataset[]>();
+  for (const [table, members] of byTable) {
+    if (members.length < 2) continue;
+    for (const { dataset } of members) {
+      const others = result.get(dataset.assetId) ?? [];
+      for (const other of members) {
+        if (other.dataset.assetId === dataset.assetId) continue;
+        if (others.some((o) => o.dataSetId === other.dataset.assetId)) continue;
+        others.push({
+          dataSetId: other.dataset.assetId,
+          name: other.dataset.assetName,
+          table,
+          how: other.how,
+        });
+      }
+      result.set(dataset.assetId, others);
+    }
+  }
+  for (const others of result.values()) {
+    others.sort((a, b) => a.name.localeCompare(b.name));
+  }
+  return result;
+}
+
 export function similarDatasets(datasets: CatalogEntry[], reads: string[]): SimilarDataset[] {
   const wanted = new Set(reads.map(tableKey).filter(Boolean));
   if (wanted.size === 0) {

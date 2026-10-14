@@ -4,6 +4,7 @@ import {
   Bolt as BoltIcon,
   CheckCircle,
   Clear,
+  ContentCopy as ContentCopyIcon,
   Dashboard as DashboardIcon,
   Error as ErrorIcon,
   FilterList,
@@ -41,6 +42,7 @@ import type {
   DateFieldOption,
   DateFilterState,
   DateRangeOption,
+  DuplicatesFilterState,
   ErrorFilterState,
   FolderFilter,
   FolderOption,
@@ -94,6 +96,9 @@ interface FilterControlsProps {
   enableSmusFiltering?: boolean;
   smusFilter?: SmusFilterState;
   onSmusFilterChange?: (filter: SmusFilterState) => void;
+  enableDuplicatesFiltering?: boolean;
+  duplicatesFilter?: DuplicatesFilterState;
+  onDuplicatesFilterChange?: (filter: DuplicatesFilterState) => void;
   enableImportModeFiltering?: boolean;
   importModeFilter?: ImportModeFilterState;
   onImportModeFilterChange?: (filter: ImportModeFilterState) => void;
@@ -721,11 +726,14 @@ const UserFiltersSection: React.FC<UserFiltersSectionProps> = ({
   </>
 );
 
-/** Dataset-only toggle rows: SMUS catalog link and import mode. */
+/** Dataset-only toggle rows: SMUS catalog link, datasets reading the same table, and import mode. */
 const DatasetLinkFilterRows: React.FC<{
   enableSmusFiltering: boolean;
   smusFilter?: SmusFilterState;
   onSmusFilterChange?: (filter: SmusFilterState) => void;
+  enableDuplicatesFiltering: boolean;
+  duplicatesFilter?: DuplicatesFilterState;
+  onDuplicatesFilterChange?: (filter: DuplicatesFilterState) => void;
   enableImportModeFiltering: boolean;
   importModeFilter?: ImportModeFilterState;
   onImportModeFilterChange?: (filter: ImportModeFilterState) => void;
@@ -733,6 +741,9 @@ const DatasetLinkFilterRows: React.FC<{
   enableSmusFiltering,
   smusFilter,
   onSmusFilterChange,
+  enableDuplicatesFiltering,
+  duplicatesFilter,
+  onDuplicatesFilterChange,
   enableImportModeFiltering,
   importModeFilter,
   onImportModeFilterChange,
@@ -753,6 +764,25 @@ const DatasetLinkFilterRows: React.FC<{
             icon: <HubIcon sx={{ fontSize: 16, mr: 0.5, color: '#8C4FFF' }} />,
           },
           { value: 'not_smus_linked', label: 'Not Linked' },
+        ]}
+      />
+    )}
+
+    {/* Datasets reading the same table as another, as the table or in a query */}
+    {enableDuplicatesFiltering && duplicatesFilter !== undefined && onDuplicatesFilterChange && (
+      <ToggleFilterRow
+        icon={<ContentCopyIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />}
+        label="Same table"
+        value={duplicatesFilter}
+        onChange={(v) => onDuplicatesFilterChange(v as DuplicatesFilterState)}
+        options={[
+          { value: 'all', label: 'All' },
+          {
+            value: 'duplicates',
+            label: 'Shared with others',
+            icon: <ContentCopyIcon sx={{ fontSize: 16, mr: 0.5, color: 'warning.main' }} />,
+          },
+          { value: 'unique', label: 'Read by one' },
         ]}
       />
     )}
@@ -807,6 +837,9 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
   enableSmusFiltering = false,
   smusFilter,
   onSmusFilterChange,
+  enableDuplicatesFiltering = false,
+  duplicatesFilter,
+  onDuplicatesFilterChange,
   enableImportModeFiltering = false,
   importModeFilter,
   onImportModeFilterChange,
@@ -912,6 +945,9 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
         enableSmusFiltering={enableSmusFiltering}
         smusFilter={smusFilter}
         onSmusFilterChange={onSmusFilterChange}
+        enableDuplicatesFiltering={enableDuplicatesFiltering ?? false}
+        duplicatesFilter={duplicatesFilter}
+        onDuplicatesFilterChange={onDuplicatesFilterChange}
         enableImportModeFiltering={enableImportModeFiltering}
         importModeFilter={importModeFilter}
         onImportModeFilterChange={onImportModeFilterChange}

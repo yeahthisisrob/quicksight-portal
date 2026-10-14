@@ -6,7 +6,10 @@ import type {
   AssetFilter,
   AssetOption,
   DateFilterState,
+  DuplicatesFilterState,
   ErrorFilterState,
+  ImportModeFilterState,
+  SmusFilterState,
   TagFilter,
   TagOption,
 } from '../lib/types';
@@ -112,6 +115,34 @@ function InteractiveWrapper(props: {
     />
   );
 }
+
+/** The Datasets page's own rows: SMUS link, the same-table filter, and import mode. */
+function DatasetFiltersWrapper() {
+  const [smusFilter, setSmusFilter] = useState<SmusFilterState>('all');
+  const [duplicatesFilter, setDuplicatesFilter] = useState<DuplicatesFilterState>('duplicates');
+  const [importModeFilter, setImportModeFilter] = useState<ImportModeFilterState>('all');
+  return (
+    <FilterBar
+      enableSmusFiltering
+      smusFilter={smusFilter}
+      onSmusFilterChange={setSmusFilter}
+      enableDuplicatesFiltering
+      duplicatesFilter={duplicatesFilter}
+      onDuplicatesFilterChange={setDuplicatesFilter}
+      enableImportModeFiltering
+      importModeFilter={importModeFilter}
+      onImportModeFilterChange={setImportModeFilter}
+    />
+  );
+}
+
+/**
+ * The dataset-only rows, with "shared with others" set: datasets another
+ * dataset reads the same table as, the candidates for consolidation.
+ */
+export const DatasetFilters: Story = {
+  render: () => <DatasetFiltersWrapper />,
+};
 
 /**
  * Every filter enabled and set: search, date, include and exclude tags,

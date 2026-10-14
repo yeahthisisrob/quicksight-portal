@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   DEFAULT_ACTIVITY_FILTER,
   DEFAULT_DATE_FILTER,
+  DEFAULT_DUPLICATES_FILTER,
   DEFAULT_ERROR_FILTER,
   DEFAULT_IMPORT_MODE_FILTER,
   DEFAULT_SMUS_FILTER,
@@ -12,6 +13,7 @@ import type {
   AssetFilter,
   AssetOption,
   DateFilterState,
+  DuplicatesFilterState,
   ErrorFilterState,
   FolderFilter,
   FolderOption,
@@ -46,6 +48,10 @@ interface UseFilterBarStateOptions {
   // SMUS catalog link
   smusFilter?: SmusFilterState;
   onSmusFilterChange?: (filter: SmusFilterState) => void;
+
+  // Datasets reading the same table as another
+  duplicatesFilter?: DuplicatesFilterState;
+  onDuplicatesFilterChange?: (filter: DuplicatesFilterState) => void;
 
   // Import mode
   importModeFilter?: ImportModeFilterState;
@@ -86,6 +92,8 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     onActivityFilterChange,
     smusFilter,
     onSmusFilterChange,
+    duplicatesFilter,
+    onDuplicatesFilterChange,
     importModeFilter,
     onImportModeFilterChange,
     includeFolders = [],
@@ -134,6 +142,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     if (errorFilter && errorFilter !== 'all') count++;
     if (activityFilter && activityFilter !== 'all') count++;
     if (smusFilter && smusFilter !== 'all') count++;
+    if (duplicatesFilter && duplicatesFilter !== 'all') count++;
     if (importModeFilter && importModeFilter !== 'all') count++;
     count += includeTags.length;
     count += excludeTags.length;
@@ -148,6 +157,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     errorFilter,
     activityFilter,
     smusFilter,
+    duplicatesFilter,
     importModeFilter,
     includeTags,
     excludeTags,
@@ -251,6 +261,11 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     [onSmusFilterChange]
   );
 
+  const handleClearDuplicatesFilter = useCallback(
+    () => onDuplicatesFilterChange?.(DEFAULT_DUPLICATES_FILTER),
+    [onDuplicatesFilterChange]
+  );
+
   const handleClearImportModeFilter = useCallback(
     () => onImportModeFilterChange?.(DEFAULT_IMPORT_MODE_FILTER),
     [onImportModeFilterChange]
@@ -261,6 +276,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     onErrorFilterChange?.(DEFAULT_ERROR_FILTER);
     onActivityFilterChange?.(DEFAULT_ACTIVITY_FILTER);
     onSmusFilterChange?.(DEFAULT_SMUS_FILTER);
+    onDuplicatesFilterChange?.(DEFAULT_DUPLICATES_FILTER);
     onImportModeFilterChange?.(DEFAULT_IMPORT_MODE_FILTER);
     onIncludeTagsChange?.([]);
     onExcludeTagsChange?.([]);
@@ -273,6 +289,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     onErrorFilterChange,
     onActivityFilterChange,
     onSmusFilterChange,
+    onDuplicatesFilterChange,
     onImportModeFilterChange,
     onIncludeTagsChange,
     onExcludeTagsChange,
@@ -313,6 +330,7 @@ export function useFilterBarState(options: UseFilterBarStateOptions) {
     handleClearErrorFilter,
     handleClearActivityFilter,
     handleClearSmusFilter,
+    handleClearDuplicatesFilter,
     handleClearImportModeFilter,
     handleClearAll,
   };

@@ -20,7 +20,7 @@
 //      max-statements, max-nested-callbacks) never caught a bug here and only
 //      produced workarounds, so they are gone.
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
   // Respect .gitignore. Without this Biome formats generated and local-only
   // files that no human owns - cdk.context.json is the one that bites: CDK
   // rewrites it on every synth/deploy (it caches lookups like the SMUS domain

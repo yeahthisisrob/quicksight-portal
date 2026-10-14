@@ -4,6 +4,10 @@ import type { CatalogEntry, CatalogSnapshot } from '../../../shared/models/asset
 import { activityReader } from '../../../shared/services/activity/activityReader';
 import { cacheService } from '../../../shared/services/cache/CacheService';
 import { catalog } from '../../../shared/services/catalog/catalogStore';
+import {
+  duplicateGroups,
+  type SimilarDataset,
+} from '../../../shared/services/datasets/similarDatasets';
 import { resolvePeople } from '../../../shared/services/identity/IdentityResolver';
 import { LineageService } from '../../../shared/services/lineage';
 import { GroupService } from '../../../shared/services/organization/GroupService';
@@ -55,6 +59,8 @@ interface EnrichmentContext {
   lineageMap: Map<string, LineageData>;
   activityMap: Map<string, ActivityData>;
   tagsMap: Map<string, Array<{ key: string; value: string }>>;
+  /** Datasets only: for each, the others reading one of the same tables. */
+  duplicates?: Map<string, SimilarDataset[]>;
 }
 
 // Weight that keeps the active-relationship count the primary sort key, with the
@@ -437,6 +443,13 @@ export class AssetService {
     if (request.importModeFilter && request.importModeFilter !== 'all') {
       const importModeFilter = request.importModeFilter;
       filteredItems = filteredItems.filter((item) => (item as any).importMode === importModeFilter);
+    }
+
+    if (request.duplicatesFilter && request.duplicatesFilter !== 'all') {
+      const wantDuplicates = request.duplicatesFilter === 'duplicates';
+      filteredItems = filteredItems.filter(
+        (item) => ((item as any).sharesTablesWith ?? 0) > 0 === wantDuplicates
+      );
     }
 
     if (request.sourceTypeFilter && request.sourceTypeFilter.length > 0) {
@@ -823,6 +836,13 @@ export class AssetService {
       lineageMap,
       activityMap,
       tagsMap,
+      ...(assetType === ASSET_TYPES.dataset
+        ? {
+            duplicates: duplicateGroups(
+              (cache.entries[ASSET_TYPES.dataset] ?? []) as CatalogEntry[]
+            ),
+          }
+        : {}),
     };
 
     const enriched = await Promise.all(
@@ -1219,6 +1239,7 @@ export class AssetService {
       importMode: sortConfig('importMode'),
       sourceType: sortConfig('sourceType'),
       schemas: sortConfig('schemas'),
+      sharesTablesWith: sortConfig('sharesTablesWith'),
       consumedSpiceCapacityInBytes: sortConfig('consumedSpiceCapacityInBytes'),
       spiceCapacity: sortConfig('spiceCapacity'),
       usedBy: sortConfig('usedBy'),
@@ -1301,6 +1322,7 @@ export class AssetService {
       uniqueViewers: asset.activity?.uniqueViewers ?? -1,
       importMode: asset.importMode,
       sourceType: asset.sourceType,
+      sharesTablesWith: asset.sharesTablesWith ?? 0,
       type: asset.type,
       memberCount: asset.memberCount || asset.Members?.length || 0,
       path: asset.path || asset.fullPath || asset.name || '',
@@ -1559,6 +1581,11 @@ export class AssetService {
 
     // Use the appropriate mapping function based on asset type
     const mappedAsset = mapCacheEntryToAsset(resolvedCacheEntry);
+    if (assetType === ASSET_TYPES.dataset) {
+      // Other datasets reading one of the same tables, as the table or in a query.
+      (mappedAsset as any).sharesTablesWith =
+        context.duplicates?.get(cacheEntry.assetId)?.length ?? 0;
+    }
 
     // Add folder membership data
     this.addFolderMembership(mappedAsset, cacheEntry.assetId, assetFolderMap);

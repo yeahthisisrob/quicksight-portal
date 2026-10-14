@@ -140,6 +140,17 @@ curl -sS "$QSP_API_URL/api/assets/dashboard/<id>/cached" -H "Authorization: Bear
 This is the definition JSON to edit if you are building the change
 yourself (section 4), plus permissions, tags and lineage.
 
+**Datasets reading the same table** as one, as the table or inside a
+custom SQL query, the candidates for consolidating onto one dataset:
+
+```bash
+curl -sS "$QSP_API_URL/api/assets/dataset/<dataset-id>/duplicates" -H "Authorization: Bearer $QSP_API_KEY"
+```
+
+The datasets list carries the same fact as `sharesTablesWith` on every row,
+and `duplicatesFilter=duplicates` on `GET /api/assets/datasets/paginated`
+keeps only those.
+
 **A dataset's columns**, live, with types:
 
 ```bash

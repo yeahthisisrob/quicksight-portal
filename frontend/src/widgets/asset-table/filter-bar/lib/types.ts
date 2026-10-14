@@ -24,6 +24,9 @@ export type ActivityFilterState = 'all' | 'with_activity' | 'without_activity';
 
 export type SmusFilterState = 'all' | 'smus_linked' | 'not_smus_linked';
 
+/** Datasets another dataset reads the same table as, or datasets no other does. */
+export type DuplicatesFilterState = 'all' | 'duplicates' | 'unique';
+
 /** DataSet API ImportMode values, plus 'all'. */
 export type ImportModeFilterState = 'all' | 'SPICE' | 'DIRECT_QUERY';
 
@@ -102,6 +105,11 @@ export interface FilterBarProps {
   enableSmusFiltering?: boolean;
   smusFilter?: SmusFilterState;
   onSmusFilterChange?: (filter: SmusFilterState) => void;
+
+  // Datasets reading the same table as another
+  enableDuplicatesFiltering?: boolean;
+  duplicatesFilter?: DuplicatesFilterState;
+  onDuplicatesFilterChange?: (filter: DuplicatesFilterState) => void;
 
   // Import mode filtering (datasets: SPICE vs DIRECT_QUERY)
   enableImportModeFiltering?: boolean;

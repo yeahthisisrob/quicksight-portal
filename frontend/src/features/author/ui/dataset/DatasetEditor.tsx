@@ -39,6 +39,7 @@ import type { RebindSource } from '@/entities/definition';
 import { FieldKindChip } from '@/entities/field';
 import { SmusLinkBadge, useSmusDatasetLinks, useSmusStatus } from '@/entities/smus';
 
+import { assetsApi } from '@/shared/api';
 import { type ContextHit, contextApi } from '@/shared/api/modules/search';
 import { classifyFields } from '@/shared/lib';
 import { announceAssetChanges } from '@/shared/lib/assetChanges';
@@ -206,6 +207,54 @@ function ColumnsPanel({ datasetId }: { datasetId: string }) {
   );
 }
 
+/**
+ * Other datasets reading one of the same tables, as the table or inside a
+ * query: the candidates for consolidating onto one dataset. Each opens here.
+ */
+function SameTablePanel({
+  datasetId,
+  onOpenDataset,
+}: {
+  datasetId: string;
+  onOpenDataset: (pick: { id: string; name: string }) => void;
+}) {
+  const duplicates = useQuery({
+    queryKey: ['dataset-duplicates', datasetId],
+    queryFn: () => assetsApi.getDatasetDuplicates(datasetId),
+  });
+  const tables = duplicates.data?.tables ?? [];
+  const others = duplicates.data?.datasets ?? [];
+  if (duplicates.isLoading || tables.length === 0) return null;
+  return (
+    <Panel
+      title={others.length === 0 ? 'Reads its tables alone' : `Same table (${others.length})`}
+      description={
+        others.length === 0
+          ? `No other dataset reads ${tables.join(', ')}.`
+          : `Other datasets read ${tables.join(', ')}, as the table or inside a query. Consolidating onto one keeps a single definition to govern.`
+      }
+    >
+      {others.length > 0 && (
+        <List dense disablePadding>
+          {others.map((d) => (
+            <ListItemButton
+              key={d.dataSetId}
+              onClick={() => onOpenDataset({ id: d.dataSetId, name: d.name })}
+              sx={{ borderRadius: 1 }}
+            >
+              <ListItemText
+                primary={d.name}
+                secondary={`${d.table} · ${d.how === 'sql' ? 'in its query' : 'as the table'}`}
+                slotProps={{ secondary: { sx: { fontFamily: 'monospace' } } }}
+              />
+            </ListItemButton>
+          ))}
+        </List>
+      )}
+    </Panel>
+  );
+}
+
 function GovernancePanel({ datasetId }: { datasetId: string }) {
   const status = useSmusStatus();
   const configured = Boolean(status.data?.configured);
@@ -244,11 +293,14 @@ export function DatasetEditor({
   dataset,
   onClose,
   onOpen,
+  onOpenDataset,
 }: {
   dataset: { id: string; name: string };
   onClose: () => void;
   /** Open a dashboard or analysis that reads it. */
   onOpen: (source: RebindSource) => void;
+  /** Open another dataset here, such as one reading the same table. */
+  onOpenDataset: (pick: { id: string; name: string }) => void;
 }) {
   const { enqueueSnackbar } = useSnackbar();
   const [confirming, setConfirming] = useState(false);
@@ -351,6 +403,7 @@ export function DatasetEditor({
 
         <Stack spacing={2}>
           <ReadersPanel datasetId={dataset.id} onOpen={onOpen} />
+          <SameTablePanel datasetId={dataset.id} onOpenDataset={onOpenDataset} />
           <GovernancePanel datasetId={dataset.id} />
           <ColumnsPanel datasetId={dataset.id} />
           <CalculatedFieldsPanel datasetId={dataset.id} />
