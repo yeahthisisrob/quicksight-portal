@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.39.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.39.0...v2.39.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **datasets:** every physical column carries the id the new data prep experience requires ([#308](https://github.com/yeahthisisrob/quicksight-portal/issues/308)) ([dd24054](https://github.com/yeahthisisrob/quicksight-portal/commit/dd240549dd657c43c203f569d740b93740b50e95))
+
 ## [2.39.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.38.0...v2.39.0) (2026-10-14)
 
 
