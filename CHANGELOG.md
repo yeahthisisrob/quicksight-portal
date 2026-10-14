@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.36.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.36.0...v2.36.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **datasets:** a governed table Athena cannot see is named for what it is, with the grant an admin runs, in Settings and in the error ([#299](https://github.com/yeahthisisrob/quicksight-portal/issues/299)) ([d7872a7](https://github.com/yeahthisisrob/quicksight-portal/commit/d7872a7debcf7ab31170c9ee05daebd00fd7220a))
+
 ## [2.36.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.35.4...v2.36.0) (2026-10-14)
 
 
