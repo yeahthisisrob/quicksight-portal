@@ -40,6 +40,7 @@ import {
   similarDatasets,
   tablesRead,
 } from '../../../shared/services/datasets/similarDatasets';
+import { parseSimpleSelect } from '../../../shared/services/datasets/simpleSelect';
 import { extractSqlTableRefs } from '../../../shared/services/parsing/DatasetParser';
 import type { SmusService } from '../../../shared/services/smus/SmusService';
 import type { TagPair } from '../../../shared/tags/tagStandards';
@@ -238,8 +239,13 @@ export class NewDatasetService {
 
     const settled = await this.settleSource(request, usage, name);
     const { dataSource, table } = settled;
-    const columns = settled.columns ?? (await this.columnsFromEngine(dataSource, table));
-    const columnsFrom = settled.columns ? settled.columnsFrom : 'query';
+    const fromListing =
+      !settled.columns && table.kind === 'CUSTOM_SQL'
+        ? await this.columnsFromListing(table.sql as string)
+        : undefined;
+    const columns =
+      settled.columns ?? fromListing ?? (await this.columnsFromEngine(dataSource, table));
+    const columnsFrom = settled.columns ? settled.columnsFrom : fromListing ? 'listing' : 'query';
     if (columns.length === 0) {
       throw new ValidationError('The query returns no columns');
     }
@@ -391,6 +397,44 @@ export class NewDatasetService {
 
   private dataSourceById(usage: DataSourceUsage[], id: string): DataSourceUsage | undefined {
     return usage.find((d) => d.id === id);
+  }
+
+  /**
+   * A query that only selects columns of one published table has its
+   * columns in the listing's forms already: no engine read, and so no Lake
+   * Formation grant, is needed. Anything the listing cannot type (a column
+   * it does not have, a function, a join) is left to the engine.
+   */
+  private async columnsFromListing(sql: string): Promise<NewDatasetColumn[] | undefined> {
+    const select = parseSimpleSelect(sql);
+    if (!select || !this.smusConfigured) {
+      return undefined;
+    }
+    const link = await this.smus.listingFor({
+      name: '',
+      physicalTables: [
+        { type: 'CUSTOM_SQL', name: '', sqlTables: [select.table.split('.').slice(-2).join('.')] },
+      ],
+    });
+    const listing =
+      link.linked && link.listingId ? await this.smus.listing(link.listingId) : undefined;
+    const known = listing?.columns ?? [];
+    if (known.length === 0) {
+      return undefined;
+    }
+    if (select.columns === '*') {
+      return known.map((c) => ({ name: c.name, type: toQuickSightColumnType(c.type) }));
+    }
+    const byName = new Map(known.map((c) => [c.name.toLowerCase(), c]));
+    const columns: NewDatasetColumn[] = [];
+    for (const column of select.columns) {
+      const match = byName.get(column.source.toLowerCase());
+      if (!match) {
+        return undefined;
+      }
+      columns.push({ name: column.name, type: toQuickSightColumnType(match.type) });
+    }
+    return columns;
   }
 
   /**

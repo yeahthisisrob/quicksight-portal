@@ -172,6 +172,42 @@ describe('NewDatasetService', () => {
     ]);
   });
 
+  it('types a plain select over a published table from the listing, without Athena', async () => {
+    const preview = await service().preview(
+      {
+        name: 'Recent customers',
+        source: {
+          kind: 'sql',
+          dataSourceId: 'athena-1',
+          sql: "select customer_id, signed_up as joined_on from published_prod.dim_customer where signed_up > date '2026-01-01'",
+        },
+      },
+      auth
+    );
+    expect(athena.querySchema).not.toHaveBeenCalled();
+    expect(preview).toMatchObject({
+      columns: [
+        { name: 'customer_id', type: 'INTEGER' },
+        { name: 'joined_on', type: 'DATETIME' },
+      ],
+      columnsFrom: 'listing',
+      listing: { listingId: 'l-cust' },
+    });
+    // A column the listing does not have, or anything the listing cannot type, goes to the engine.
+    await service().preview(
+      {
+        name: 'x',
+        source: {
+          kind: 'sql',
+          dataSourceId: 'athena-1',
+          sql: 'select nope from published_prod.dim_customer',
+        },
+      },
+      auth
+    );
+    expect(athena.querySchema).toHaveBeenCalledTimes(1);
+  });
+
   it("says Athena's reason when the query cannot be planned, and asks for declared columns elsewhere", async () => {
     athena.querySchema.mockRejectedValue(new Error('SYNTAX_ERROR: line 1:8: mismatched input'));
     await expect(
