@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.41.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.40.1...v2.41.0) (2026-10-14)
+
+
+### Features
+
+* **datasets:** every dashboard and analysis on a dataset is repaired in place in one call ([#316](https://github.com/yeahthisisrob/quicksight-portal/issues/316)) ([929f828](https://github.com/yeahthisisrob/quicksight-portal/commit/929f8283ad992b0b0eb00081d8226910de428e76))
+
 ## [2.40.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.40.0...v2.40.1) (2026-10-14)
 
 
