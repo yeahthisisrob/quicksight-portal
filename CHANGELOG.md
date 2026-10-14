@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.38.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.37.0...v2.38.0) (2026-10-14)
+
+
+### Features
+
+* **datasets:** new datasets are SPICE by default, and any dataset switches between SPICE and direct query ([#304](https://github.com/yeahthisisrob/quicksight-portal/issues/304)) ([3f0de5e](https://github.com/yeahthisisrob/quicksight-portal/commit/3f0de5ef8a63879a4e0a4642f2a420d22a3b1bef))
+
 ## [2.37.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.36.1...v2.37.0) (2026-10-14)
 
 
