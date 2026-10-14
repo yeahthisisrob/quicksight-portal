@@ -28,6 +28,8 @@ export type RepairOp = Schemas['RepairOp'];
 export type RepairFix = Schemas['RepairFix'];
 export type RepairIssue = Schemas['RepairIssue'];
 export type RepairPlan = Schemas['RepairPlan'];
+export type DatasetMigrationPreview = Schemas['DatasetMigrationPreview'];
+export type DatasetMigrationResult = Schemas['DatasetMigrationResult'];
 export type RestoreRequest = Schemas['RestoreRequest'];
 export type RestoreResult = Schemas['RestoreResult'];
 
@@ -57,6 +59,30 @@ type RepairPlanRequest = PostBody<'/api/authoring/{assetType}/{assetId}/repair/p
  * definition depends on, dry-run a rebind, apply it in place or as a clone.
  */
 export const authoringApi = {
+  /** What moving a legacy dataset to the new data prep experience would carry. Writes nothing. */
+  async previewDatasetMigration(dataSetId: string): Promise<DatasetMigrationPreview> {
+    return unwrap(
+      await client.POST('/api/authoring/datasets/{dataSetId}/migrate/preview', {
+        params: { path: { dataSetId } },
+      }),
+      'Failed to preview the migration'
+    );
+  },
+
+  /** The twin in the new data prep experience, with the readers repointed when asked. */
+  async migrateDataset(
+    dataSetId: string,
+    body: { name?: string; rebindReaders?: boolean }
+  ): Promise<DatasetMigrationResult> {
+    return unwrap(
+      await client.POST('/api/authoring/datasets/{dataSetId}/migrate', {
+        params: { path: { dataSetId } },
+        body,
+      }),
+      'Failed to migrate the dataset'
+    );
+  },
+
   /** The datasets a definition declares and the columns it reads from each. */
   async getDatasets(
     assetType: AuthorableAssetType,

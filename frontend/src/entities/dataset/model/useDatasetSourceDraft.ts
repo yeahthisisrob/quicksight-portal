@@ -76,6 +76,8 @@ export interface DatasetSourceDraft {
   /** As drafted; `setImportMode` switches it, and the save starts the first SPICE import. */
   importMode: string | null;
   setImportMode: (mode: ImportMode) => void;
+  /** Which data prep experience it is built in: `legacy` or `dataPrep`. */
+  experience: string | null;
   tables: DatasetPhysicalTable[];
   dataSources: DataSourceOption[];
   drafts: Record<string, TableDraft>;
@@ -104,6 +106,7 @@ export function useDatasetSourceDraft(
   const [drafts, setDrafts] = useState<Record<string, TableDraft>>({});
   const [importMode, setImportMode] = useState<string | null>(null);
   const [originalImportMode, setOriginalImportMode] = useState<string | null>(null);
+  const [experience, setExperience] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [originalName, setOriginalName] = useState('');
 
@@ -119,6 +122,7 @@ export function useDatasetSourceDraft(
       setDrafts(Object.fromEntries(source.tables.map((t) => [t.id, toDraft(t)])));
       setImportMode(source.importMode ?? null);
       setOriginalImportMode(source.importMode ?? null);
+      setExperience(source.experience ?? null);
       setName(source.name);
       setOriginalName(source.name);
     } catch (error) {
@@ -207,6 +211,7 @@ export function useDatasetSourceDraft(
     saveError,
     importMode,
     setImportMode,
+    experience,
     tables,
     dataSources,
     drafts,

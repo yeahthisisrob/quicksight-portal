@@ -20,6 +20,10 @@ import { logger } from '../../../shared/utils/logger';
 import { parseOps } from '../lib/definitionOps';
 import { parseRepairs } from '../lib/definitionRepairs';
 import { type DatasetFieldOp, DatasetFieldService } from '../services/DatasetFieldService';
+import {
+  type DatasetMigrationRequest,
+  DatasetMigrationService,
+} from '../services/DatasetMigrationService';
 import { DefinitionService } from '../services/DefinitionService';
 import { InsightsService } from '../services/InsightsService';
 import { type NewAssetRequest, NewAssetService } from '../services/NewAssetService';
@@ -450,6 +454,35 @@ export class AuthoringHandler {
     }
   }
 
+  /** POST /authoring/datasets/{dataSetId}/migrate/preview */
+  public async previewDatasetMigration(
+    event: APIGatewayProxyEvent
+  ): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const preview = await this.migrationService().preview(this.dataSetId(event), user);
+      return successResponse(event, { success: true, data: preview });
+    } catch (error: any) {
+      logger.error('Preview dataset migration failed', { error });
+      return this.failure(event, error, 'Failed to preview the migration');
+    }
+  }
+
+  /** POST /authoring/datasets/{dataSetId}/migrate  body: { name?, newDataSetId?, rebindReaders? } */
+  public async migrateDataset(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const dataSetId = this.dataSetId(event);
+      const request = parseMigrationRequest(this.parseBody(event));
+      logger.info('Dataset migration requested', { user: user.email, dataSetId });
+      const result = await this.migrationService().migrate(dataSetId, request, user);
+      return successResponse(event, { success: true, data: result });
+    } catch (error: any) {
+      logger.error('Dataset migration failed', { error });
+      return this.failure(event, error, 'Failed to migrate the dataset');
+    }
+  }
+
   /** POST /authoring/themes  body: a theme draft. Creates it in QuickSight, owned by whoever asked. */
   public async createTheme(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
@@ -675,6 +708,10 @@ export class AuthoringHandler {
 
   private datasetFieldService(): DatasetFieldService {
     return new DatasetFieldService(this.accountId, this.service());
+  }
+
+  private migrationService(): DatasetMigrationService {
+    return new DatasetMigrationService(this.accountId, this.service());
   }
 
   private dataSetId(event: APIGatewayProxyEvent): string {
@@ -1011,6 +1048,7 @@ function parseNewDatasetSource(raw: unknown): NewDatasetSource {
         ...(optionalString(source, 'catalog')
           ? { catalog: optionalString(source, 'catalog') }
           : {}),
+        ...(source.asTable === true ? { asTable: true } : {}),
       };
     case 'listing':
       return {
@@ -1019,10 +1057,24 @@ function parseNewDatasetSource(raw: unknown): NewDatasetSource {
         ...(optionalString(source, 'dataSourceId')
           ? { dataSourceId: optionalString(source, 'dataSourceId') }
           : {}),
+        ...(source.asTable === true ? { asTable: true } : {}),
       };
     default:
       throw badRequest("source.kind must be 'sql', 'table' or 'listing'");
   }
+}
+
+function parseMigrationRequest(body: Record<string, unknown>): DatasetMigrationRequest {
+  if (body.rebindReaders !== undefined && typeof body.rebindReaders !== 'boolean') {
+    throw badRequest('rebindReaders must be true or false');
+  }
+  return {
+    ...(optionalString(body, 'name') ? { name: optionalString(body, 'name') } : {}),
+    ...(optionalString(body, 'newDataSetId')
+      ? { newDataSetId: optionalString(body, 'newDataSetId') }
+      : {}),
+    ...(body.rebindReaders === true ? { rebindReaders: true } : {}),
+  };
 }
 
 function parseDeclaredColumns(raw: unknown): NewDatasetRequest['columns'] {

@@ -545,8 +545,53 @@ const ATHENA = 'arn:aws:quicksight:us-east-1:1:datasource/athena-main';
 const ATHENA_CRM = 'arn:aws:quicksight:us-east-1:1:datasource/athena-crm';
 
 /** A dataset's sources, what reads it and what it defines, for the dataset editor. */
+/** The migration twin's preview: a legacy dataset two things read. */
+const MIGRATION_PREVIEW = {
+  dataSetId: 'sales-gold',
+  name: 'sales_gold',
+  importMode: 'SPICE',
+  experience: 'legacy',
+  carried: [
+    '2 source tables',
+    '1 join',
+    '3 calculated fields',
+    'descriptions and roles on 1 column',
+  ],
+  dropped: ["The unique-key hint on the join 'sales_gold': the new shape has no such property."],
+  refused: [],
+  readers: [
+    { assetType: 'dashboard', assetId: 'dash-sales', name: 'Sales overview' },
+    { assetType: 'analysis', assetId: 'an-sales', name: 'Sales deep dive' },
+  ],
+  folderIds: ['finance'],
+  warnings: [],
+};
+
 function datasetRoutes(): MockRoute[] {
   return [
+    {
+      method: 'post',
+      url: /\/authoring\/datasets\/[^/]+\/migrate\/preview$/,
+      respond: () => ({ body: { success: true, data: MIGRATION_PREVIEW } }),
+    },
+    {
+      method: 'post',
+      url: /\/authoring\/datasets\/[^/]+\/migrate$/,
+      respond: () => ({
+        body: {
+          success: true,
+          data: {
+            ...MIGRATION_PREVIEW,
+            assetType: 'dataset',
+            assetId: 'sales-gold-v2',
+            arn: 'arn:aws:quicksight:us-east-1:1:dataset/sales-gold-v2',
+            owner: 'ana',
+            ingestionId: 'ing-1',
+            rebound: MIGRATION_PREVIEW.readers.map((r) => ({ ...r, ok: true })),
+          },
+        },
+      }),
+    },
     {
       method: 'get',
       url: /\/assets\/dataset\/[^/]+\/source$/,
@@ -557,6 +602,7 @@ function datasetRoutes(): MockRoute[] {
             dataSetId: 'sales-gold',
             name: 'sales_gold',
             importMode: 'SPICE',
+            experience: 'legacy',
             tables: [
               {
                 id: 't-orders',
