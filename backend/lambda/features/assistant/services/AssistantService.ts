@@ -59,6 +59,7 @@ import type {
   AssistantArtifact,
   AssistantCall,
   AssistantChatResult,
+  BuildPlan,
   ChatHistoryMessage,
   PlanBuild,
   QuestionOption,
@@ -96,6 +97,9 @@ const DRAWABLE_PREVIEW =
 
 /** How far along the assistant is, for the person watching. */
 type ProgressReporter = (message: string) => Promise<void> | void;
+
+/** Where a plan's data comes from and what it builds, without the build itself. */
+type PlanLineage = Omit<BuildPlan, 'build'>;
 
 /** Runs one of the portal's own routes as the person, in-process. */
 type PortalDispatch = (request: {
@@ -360,7 +364,13 @@ export class AssistantService {
         return this.context(id, name, input, out);
       case 'list_templates':
         await this.progress('Reading the templates');
-        out.calls.push({ method: 'GET', path: 'list_templates', status: HTTP_OK, ok: true });
+        out.calls.push({
+          method: 'GET',
+          path: 'list_templates',
+          status: HTTP_OK,
+          ok: true,
+          step: 'Reading the templates',
+        });
         return { id, content: await listTemplates(this.dispatch) };
       case 'describe_operation':
         return {
@@ -396,6 +406,7 @@ export class AssistantService {
     input: Record<string, unknown>,
     out: Collected
   ): Promise<ToolResult> {
+    const started = this.now();
     const entityId = str(input, 'entityId');
     await this.progress(name === 'context_search' ? 'Searching' : 'Following the lineage');
     const result =
@@ -421,6 +432,8 @@ export class AssistantService {
       path: `${name} ${name === 'context_search' ? `"${str(input, 'query')}"` : entityId}`,
       status: result.ok ? HTTP_OK : HTTP_NOT_FOUND,
       ok: result.ok,
+      step: name === 'context_search' ? 'Searching' : 'Following the lineage',
+      ms: this.now() - started,
     });
     return { id, content: clip(result.text), isError: !result.ok };
   }
@@ -438,7 +451,13 @@ export class AssistantService {
     }
     // The authoring model drafts the build from the brief; it is checked and
     // previewed before the plan is shown, so a plan the person sees runs.
-    const drafted = await this.draft(parsed.target, parsed.brief, parsed.filters, out);
+    const drafted = await this.draft(
+      parsed.target,
+      parsed.brief,
+      parsed.filters,
+      out,
+      parsed.lineage
+    );
     if ('problem' in drafted) {
       return {
         id,
@@ -508,7 +527,8 @@ export class AssistantService {
     target: PlanTarget,
     brief: string,
     requested: RequestedFilter[],
-    out: Collected
+    out: Collected,
+    lineage?: PlanLineage
   ): Promise<
     | {
         build: PlanBuild;
@@ -538,7 +558,7 @@ export class AssistantService {
       await this.progress(
         `${attempt === 1 ? 'Drafting' : 'Drafting again'}${chosen ? ` with ${chosen.label}` : ''}`
       );
-      const proposed = await this.proposeDraft(target, ask, out);
+      const proposed = await this.proposeDraft(target, ask, out, lineage);
       if ('problem' in proposed) {
         problem = proposed.problem;
       } else {
@@ -571,25 +591,44 @@ export class AssistantService {
   private async proposeDraft(
     target: PlanTarget,
     ask: string,
-    out: Collected
+    out: Collected,
+    lineage?: PlanLineage
   ): Promise<{ build: PlanBuild; reason?: string } | { problem: string }> {
     const model = this.options.authoringModel ? { model: this.options.authoringModel } : {};
     const path =
       'create' in target
         ? '/api/authoring/new/propose'
         : `/api/authoring/${target.edit.assetType}/${encodeURIComponent(target.edit.assetId)}/propose`;
-    const body = 'create' in target ? { ...target.create, ask, ...model } : { ask, ...model };
+    // A change that keeps the asset's datasets is an edit: the planner then
+    // spends no model call choosing a dataset, and never talks of rebinding.
+    const intent =
+      'edit' in target && (await this.keepsDatasets(target.edit, lineage))
+        ? { intent: 'edit' }
+        : {};
+    const body =
+      'create' in target ? { ...target.create, ask, ...model } : { ask, ...model, ...intent };
     const response = await this.run('POST', path, body);
     const ok = response.status < HTTP_ERROR_MIN;
-    out.calls.push({ method: 'POST', path, status: response.status, ok });
-    if (!ok) {
-      return { problem: clip(response.body) };
-    }
-    this.recordPlanner(response.body, out);
     let data: any;
     try {
       data = JSON.parse(response.body)?.data;
     } catch {
+      data = undefined;
+    }
+    out.calls.push({
+      method: 'POST',
+      path,
+      status: response.status,
+      ok,
+      step: describeStep('POST', path),
+      ms: response.ms,
+      ...(Array.isArray(data?.steps) ? { detail: data.steps } : {}),
+    });
+    if (!ok) {
+      return { problem: clip(response.body) };
+    }
+    this.recordPlanner(response.body, out);
+    if (data === undefined) {
       return { problem: 'The planner answered with something unreadable.' };
     }
     if ('create' in target) {
@@ -639,6 +678,40 @@ export class AssistantService {
       },
       ...(data.reason ? { reason: data.reason } : {}),
     };
+  }
+
+  /**
+   * Whether a plan keeps the asset's datasets as they are: every dataset it
+   * names is existing and already read by the asset, per the graph. Then the
+   * change is visual or layout only, and the planner is told so.
+   */
+  private async keepsDatasets(
+    target: { assetType: string; assetId: string },
+    lineage: PlanLineage | undefined
+  ): Promise<boolean> {
+    const planned = lineage?.datasets ?? [];
+    if (planned.length === 0 || planned.some((d) => d.status !== 'existing' || !d.id)) {
+      return false;
+    }
+    const response = await this.dispatch({
+      method: 'GET',
+      path: `/api/context/entities/${encodeURIComponent(`${target.assetType}:${target.assetId}`)}/related?relations=uses-dataset&direction=out&types=dataset&limit=100`,
+    }).catch(() => undefined);
+    if (!response || response.status >= HTTP_ERROR_MIN) {
+      return false;
+    }
+    let hits: any[] = [];
+    try {
+      hits = JSON.parse(response.body)?.data?.hits ?? [];
+    } catch {
+      return false;
+    }
+    const current = new Set(
+      hits
+        .map((h) => (typeof h?.entityId === 'string' ? h.entityId.replace(/^dataset:/, '') : ''))
+        .filter(Boolean)
+    );
+    return current.size > 0 && planned.every((d) => current.has(d.id as string));
   }
 
   /** The planner model an answer used, once, for its chip and its cost. */
@@ -1056,6 +1129,8 @@ export class AssistantService {
       path: previewPath,
       status: response.status,
       ok: response.status < HTTP_ERROR_MIN,
+      step: describeStep('POST', previewPath),
+      ms: response.ms,
     });
     if (response.status >= HTTP_ERROR_MIN) {
       return {
@@ -1073,6 +1148,16 @@ export class AssistantService {
 
   /** Dispatch, waiting on a job when the call queued one. */
   private async run(
+    method: string,
+    path: string,
+    body: unknown
+  ): Promise<{ status: number; body: string; ms: number }> {
+    const started = this.now();
+    const response = await this.runUntimed(method, path, body);
+    return { ...response, ms: this.now() - started };
+  }
+
+  private async runUntimed(
     method: string,
     path: string,
     body: unknown
@@ -1172,14 +1257,27 @@ export class AssistantService {
       await this.progress(describeStep(method, path));
       const response = await this.run(method, path, body);
       const ok = response.status < HTTP_ERROR_MIN;
-      out.calls.push({ method, path, status: response.status, ok });
+      out.calls.push({
+        method,
+        path,
+        status: response.status,
+        ok,
+        step: describeStep(method, path),
+        ms: response.ms,
+      });
       if (ok) {
         this.recordPlanner(response.body, out);
         this.capture(method, path, body, out, dataOf(response.body));
       }
       return { id, content: clip(`HTTP ${response.status}\n${response.body}`), isError: !ok };
     } catch (error) {
-      out.calls.push({ method, path, status: HTTP_SERVER_ERROR, ok: false });
+      out.calls.push({
+        method,
+        path,
+        status: HTTP_SERVER_ERROR,
+        ok: false,
+        step: describeStep(method, path),
+      });
       return {
         id,
         content: `The call failed: ${errorMessage(error)}`,

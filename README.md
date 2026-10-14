@@ -87,6 +87,7 @@ Themes are an asset type end to end: listed with their colors and how many dashb
 - **Full inventory** of dashboards, analyses, datasets, data sources, themes, folders, users and groups, with server-side search, sorting and pagination, bulk tag, folder and delete operations with per-item results, and CSV export.
 - **Edit dataset sources** in place (schema, table, custom SQL, data source) and **change datasets** from any dashboard or analysis row.
 - **Datasets reading the same table** are counted on every row of the Datasets page, filterable, and listed in the Studio's dataset view with one click to open each: the candidates for consolidating onto one definition.
+- **Every answer shows its work**: the "Looked at" chip under an answer opens the calls it made, in order, each with what it was for, how it went and how long it took, down to the planner's own steps.
 - **Which data prep experience** built each dataset is a column and a filter on the Datasets page and a chip in the Data Catalog, so the legacy ones that still need moving are one click away.
 - **Health** on the lists: 30-day views, p90 load time and visual errors for dashboards; refresh runs, p90 ingestion latency and error rows for datasets. One batched CloudWatch read per page.
 - **Smart Sync export** - incremental, touching only what changed in QuickSight; checkpointed across Lambda invocations; one export at a time under an atomic lock; self-healing from the exports already in S3.

@@ -257,6 +257,8 @@ export interface ProposeRequest {
   ask: string;
   /** Restrict the datasets the planner may choose from. Defaults to every active dataset. */
   candidateDataSetIds?: string[];
+  /** `edit`: visual or layout changes only, so no dataset is chosen and no model call is spent on it. */
+  intent?: 'edit' | 'auto';
 }
 
 export interface ProposedRebind extends RebindRequest {
@@ -272,8 +274,8 @@ export interface UnmappedColumn {
 
 export interface Proposal {
   ask: string;
-  /** `unclear` when the ask is not a rebind/clone the planner can express. */
-  intent: 'rebind' | 'unclear';
+  /** `edit`: visual or layout changes with the datasets as they are; `unclear` when the ask is neither. */
+  intent: 'rebind' | 'edit' | 'unclear';
   mode: ApplyMode;
   /** Proposed name; absent means keep the current one. */
   name?: string;
@@ -288,6 +290,8 @@ export interface Proposal {
   /** The server's own dry run of the proposal. Null when the intent is unclear. */
   plan: RebindPlan | null;
   model: { provider: string; model: string };
+  /** How long each step took: each model call and the check of the edits. */
+  steps: Array<{ label: string; ms: number }>;
 }
 
 // ---------------------------------------------------------------------------

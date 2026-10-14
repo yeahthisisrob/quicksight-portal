@@ -68,6 +68,11 @@ export interface AssistantCall {
   path: string;
   status: number;
   ok: boolean;
+  /** What it was for, in words. */
+  step?: string;
+  ms?: number;
+  /** The planner's own steps inside this call, each timed. */
+  detail?: Array<{ label: string; ms: number }>;
 }
 
 /**

@@ -126,6 +126,13 @@ export class RebindService {
   private readonly s3Service: S3Service;
 
   private readonly archive: ArchiveService;
+  /**
+   * Live reads remembered for this instance's lifetime (one request, one
+   * job): a proposal read the same definition five times and each dataset
+   * three. Every write forgets them, so nothing is read stale after it.
+   */
+  private readonly liveDefinitions = new Map<string, Promise<LoadedDefinition>>();
+  private readonly liveDatasets = new Map<string, Promise<Record<string, any>>>();
 
   public constructor(private readonly accountId: string) {
     this.quickSightService = ClientFactory.getQuickSightService(accountId);
@@ -809,6 +816,7 @@ export class RebindService {
     });
 
     // Its archived tags come back in the create call, with who restored it.
+    this.forgetLive();
     const written = await createAsset(this.quickSightService, {
       assetType,
       assetId: targetId,
@@ -1021,6 +1029,21 @@ export class RebindService {
     if (source === 'archive') {
       return (await this.loadArchived(assetType, assetId)).loaded;
     }
+    const key = `${assetType}:${assetId}`;
+    let pending = this.liveDefinitions.get(key);
+    if (!pending) {
+      pending = this.describeLive(assetType, assetId);
+      this.liveDefinitions.set(key, pending);
+      pending.catch(() => this.liveDefinitions.delete(key));
+    }
+    // Callers mutate what they load (repairs, rewrites), so each gets its own copy.
+    return structuredClone(await pending);
+  }
+
+  private async describeLive(
+    assetType: AuthorableAssetType,
+    assetId: string
+  ): Promise<LoadedDefinition> {
     const current =
       assetType === 'dashboard'
         ? await this.quickSightService.describeDashboardDefinition(assetId)
@@ -1038,6 +1061,12 @@ export class RebindService {
       dashboardPublishOptions: current.DashboardPublishOptions,
       errors: Array.isArray(current.Errors) ? current.Errors : undefined,
     };
+  }
+
+  /** After a write nothing read before it may be served again. */
+  private forgetLive(): void {
+    this.liveDefinitions.clear();
+    this.liveDatasets.clear();
   }
 
   private async loadTargetDataset(dataSetId: string): Promise<TargetDataset> {
@@ -1063,7 +1092,17 @@ export class RebindService {
    * their export (taken by the same means, at export time) may still carry
    * output columns, so fall back to it before giving up.
    */
-  private async describeDatasetOrExport(dataSetId: string): Promise<Record<string, any>> {
+  private describeDatasetOrExport(dataSetId: string): Promise<Record<string, any>> {
+    let pending = this.liveDatasets.get(dataSetId);
+    if (!pending) {
+      pending = this.describeDatasetOrExportUncached(dataSetId);
+      this.liveDatasets.set(dataSetId, pending);
+      pending.catch(() => this.liveDatasets.delete(dataSetId));
+    }
+    return pending;
+  }
+
+  private async describeDatasetOrExportUncached(dataSetId: string): Promise<Record<string, any>> {
     try {
       const live = await this.quickSightService.describeDataset(dataSetId);
       if (live?.OutputColumns) {
@@ -1094,6 +1133,7 @@ export class RebindService {
     definition: Record<string, any>,
     loaded: LoadedDefinition
   ): Promise<{ assetId: string; arn: string; versionNumber?: number }> {
+    this.forgetLive();
     return updateAsset(this.quickSightService, {
       assetType,
       assetId,
@@ -1113,6 +1153,7 @@ export class RebindService {
     permissions: any[] | undefined,
     extras: { tags?: TagInput[]; auth?: AuthContext } = {}
   ): Promise<{ assetId: string; arn: string; versionNumber?: number }> {
+    this.forgetLive();
     return createAsset(this.quickSightService, {
       assetType,
       assetId: requestedId?.trim() || randomUUID(),

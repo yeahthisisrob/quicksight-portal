@@ -220,6 +220,56 @@ describe('PlannerService', () => {
     expect(proposal.name).toBe('Sales (copy)');
   });
 
+  it('plans a visual edit with one model call and no dataset choice when told it is an edit', async () => {
+    const outlineService = {
+      ...rebindService,
+      loadDefinitionOutline: vi.fn(async () => [{ sheetId: 's1', name: 'Sheet 1', elements: [] }]),
+      describeTargetDataset: vi.fn(async () => ({
+        dataSetId: 'orders-silver',
+        name: 'orders',
+        columns: [{ name: 'revenue', type: 'DECIMAL' }],
+      })),
+      preview: vi.fn(async () => ({ definition: { Sheets: [{ SheetId: 's1', Visuals: [] }] } })),
+    };
+    const model = new FakeModel([{ ops: [] }]);
+    const planner = new PlannerService(outlineService as any, model, loadCandidates);
+    const proposal = await planner.propose('dashboard', 'd1', {
+      ask: 'add a detailed table at the bottom',
+      intent: 'edit',
+    });
+    expect(model.requests.map((r) => r.label)).toEqual(['plan-edits']);
+    expect(loadCandidates).not.toHaveBeenCalled();
+    expect(proposal.intent).toBe('unclear');
+    expect(proposal.steps.map((s) => s.label)).toEqual(['plan-edits']);
+    expect(proposal.steps[0]!.ms).toBeGreaterThanOrEqual(0);
+  });
+
+  it('calls an ask with edits and no dataset change an edit, with each step timed', async () => {
+    const outlineService = {
+      ...rebindService,
+      loadDefinitionOutline: vi.fn(async () => [{ sheetId: 's1', name: 'Sheet 1', elements: [] }]),
+      describeTargetDataset: vi.fn(async () => ({
+        dataSetId: 'orders-silver',
+        name: 'orders',
+        columns: [{ name: 'revenue', type: 'DECIMAL' }],
+      })),
+      preview: vi.fn(async () => ({ definition: { Sheets: [{ SheetId: 's1', Visuals: [] }] } })),
+    };
+    const model = new FakeModel([
+      { intent: 'rebind', mode: 'update', name: '', reason: '', rebinds: [], wantsEdits: true },
+      { ops: [{ op: 'renameSheet', sheetId: 's1', name: 'Overview' }] },
+    ]);
+    const planner = new PlannerService(outlineService as any, model, loadCandidates);
+    const proposal = await planner.propose('dashboard', 'd1', { ask: 'rename the sheet' });
+    expect(proposal.intent).toBe('edit');
+    expect(proposal.ops).toHaveLength(1);
+    expect(proposal.steps.map((s) => s.label)).toEqual([
+      'choose-target',
+      'plan-edits',
+      'validate-ops',
+    ]);
+  });
+
   it('returns an unclear proposal without planning', async () => {
     const planner = service([
       {
@@ -554,8 +604,9 @@ describe('PlannerService edits', () => {
     expect(proposal.ops).toEqual([
       { op: 'retype', sheetId: 's1', elementId: 'v1', visualType: 'LineChart' },
     ]);
+    // Edits with the datasets as they are: an edit, not a rebind.
     expect(proposal.problems).toEqual([expect.stringMatching(/^move: .*36-column grid/)]);
-    expect(proposal.intent).toBe('rebind');
+    expect(proposal.intent).toBe('edit');
     expect(proposal.plan).toBeNull();
   });
 

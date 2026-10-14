@@ -134,6 +134,62 @@ function scripted(turns: Array<Partial<ChatTurnResult>>): ChatModel & { seen: nu
 describe('AssistantService', () => {
   const model = aiModel('haiku-4-5');
 
+  it('tells the planner a change that keeps the datasets is an edit, and traces each call with its time', async () => {
+    const bodies: Record<string, unknown> = {};
+    const dispatch = vi.fn(async ({ path, body }: { path: string; body?: unknown }) => {
+      if (body !== undefined) bodies[path] = body;
+      return {
+        status: 200,
+        body: JSON.stringify({
+          success: true,
+          data: path.includes('/related')
+            ? { hits: [{ entityId: 'dataset:ds-1', name: 'Orders' }] }
+            : path.endsWith('/propose')
+              ? {
+                  intent: 'edit',
+                  mode: 'update',
+                  rebinds: [],
+                  ops: [{ op: 'renameSheet', sheetId: 's1', name: 'Overview' }],
+                  problems: [],
+                  unmapped: [],
+                  steps: [{ label: 'plan-edits', ms: 1234 }],
+                }
+              : { path, definition: {} },
+        }),
+      };
+    });
+    const chat = scripted([
+      {
+        toolCalls: [
+          {
+            id: 't1',
+            name: 'show_plan',
+            input: {
+              title: 'Rename the sheet',
+              datasets: [{ name: 'Orders', id: 'ds-1', status: 'existing' }],
+              asset: { kind: 'analysis', name: 'Sales', id: 'a1', status: 'edited' },
+              brief: 'Rename the first sheet to Overview; nothing else changes.',
+              filters: [],
+              target: { edit: { assetType: 'analysis', assetId: 'a1' } },
+            },
+          },
+        ],
+      },
+      { text: 'Done.' },
+    ]);
+    const result = await new AssistantService(chat, model, dispatch).respond([
+      { role: 'user', text: 'rename the first sheet of Sales to Overview' },
+    ]);
+    expect(bodies['/api/authoring/analysis/a1/propose']).toMatchObject({ intent: 'edit' });
+    const propose = result.calls.find((c) => c.path.endsWith('/propose'));
+    expect(propose).toMatchObject({
+      step: 'Asking the planner',
+      detail: [{ label: 'plan-edits', ms: 1234 }],
+    });
+    expect(typeof propose?.ms).toBe('number');
+    expect(result.calls.every((c) => typeof c.step === 'string')).toBe(true);
+  });
+
   it('reads, previews, shows lineage, and prepares the write against its preview', async () => {
     const dispatch = vi.fn(async ({ path }: { path: string }) => ({
       status: 200,
@@ -212,8 +268,8 @@ describe('AssistantService', () => {
         planId: result.artifacts[2]!.id,
       }),
     ]);
-    // The four calls, and the dataset's name read from the graph for the plan.
-    expect(dispatch).toHaveBeenCalledTimes(5);
+    // The four calls, the graph asked whether the plan keeps the datasets, and the dataset's name read from the graph for the plan.
+    expect(dispatch).toHaveBeenCalledTimes(6);
     expect(dispatch).toHaveBeenCalledWith(
       expect.objectContaining({ path: '/api/context/entities/dataset%3Ads-gold' })
     );

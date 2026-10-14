@@ -3066,11 +3066,20 @@ export interface components {
                 provider: string;
             }[];
             reply: string;
+            /** @description Every read and preview the answer made, in order, with what each was for and how long it took. */
             calls: {
                 method: string;
                 path: string;
                 status: number;
                 ok: boolean;
+                /** @description What the call was for, in words (Searching, Asking the planner...). */
+                step?: string;
+                ms?: number;
+                /** @description The planner's own steps inside this call, each timed. */
+                detail?: {
+                    label: string;
+                    ms: number;
+                }[];
             }[];
             actions: components["schemas"]["AssistantAction"][];
             artifacts: components["schemas"]["AssistantArtifact"][];
@@ -5041,6 +5050,11 @@ export interface components {
             ask: string;
             /** @description Restrict the datasets the planner may choose from. Defaults to every active dataset. */
             candidateDataSetIds?: string[];
+            /**
+             * @description edit: visual or layout changes only, with the datasets as they are, so the planner spends no model call choosing one. auto (the default) lets it decide.
+             * @enum {string}
+             */
+            intent?: "edit" | "auto";
             model?: components["schemas"]["AiModelKey"];
         };
         ProposedRebind: components["schemas"]["RebindRequest"] & {
@@ -5057,10 +5071,10 @@ export interface components {
             problems: string[];
             ask: string;
             /**
-             * @description unclear when the ask is not a rebind or clone the planner can express.
+             * @description edit when the datasets stay as they are and only visuals or layout change; unclear when the ask is neither a rebind nor an edit the planner can express.
              * @enum {string}
              */
-            intent: "rebind" | "unclear";
+            intent: "rebind" | "edit" | "unclear";
             /** @enum {string} */
             mode: "update" | "clone";
             /** @description Proposed name. Absent means keep the current one. */
@@ -5077,6 +5091,11 @@ export interface components {
                 provider: string;
                 model: string;
             };
+            /** @description How long each step took - each model call and the check of the edits. */
+            steps: {
+                label: string;
+                ms: number;
+            }[];
         };
         RebindPreview: {
             plan: components["schemas"]["RebindPlan"];

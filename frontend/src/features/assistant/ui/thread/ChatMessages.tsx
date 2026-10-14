@@ -13,14 +13,14 @@ import {
   useAuiState,
 } from '@assistant-ui/react';
 import { AutoAwesome, Check, ContentCopy } from '@mui/icons-material';
-import { Box, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { Box, Chip, IconButton, Popover, Stack, Tooltip, Typography } from '@mui/material';
+import { Fragment, useEffect, useState } from 'react';
 
 import { formatCost } from '@/entities/ai-model';
 
 import { pal } from '@/shared/design-system';
 
-import { answerMetaOf } from '../../model/thread';
+import { type AnswerMeta, answerMetaOf } from '../../model/thread';
 import { useChatStatus } from './chatStatus';
 import { MarkdownText } from './MarkdownText';
 
@@ -123,11 +123,68 @@ function chip(label: string) {
   );
 }
 
+const ms = (value: number | undefined) =>
+  value === undefined ? '' : value >= 1000 ? `${(value / 1000).toFixed(1)} s` : `${value} ms`;
+
+/** Every call behind an answer, in order: what for, which, how it went, how long. */
+function CallTrace({ calls }: { calls: AnswerMeta['calls'] }) {
+  const total = calls.reduce((sum, c) => sum + (c.ms ?? 0), 0);
+  return (
+    <Box sx={{ p: 1.5, maxWidth: 560, maxHeight: 420, overflow: 'auto' }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+        Looked at {calls.length} thing{calls.length === 1 ? '' : 's'}
+        {total > 0 ? ` in ${ms(total)}` : ''}
+      </Typography>
+      <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
+        <tbody>
+          {calls.map((call, i) => (
+            <Fragment key={`${i}-${call.path}`}>
+              <Box component="tr" sx={{ '& td': { py: 0.5, pr: 1.5, verticalAlign: 'top' } }}>
+                <td>
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }} noWrap>
+                    {call.step ?? (call.method === 'GET' ? 'Reading' : 'Working')}
+                  </Typography>
+                </td>
+                <td style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                  {call.method} {call.path}
+                </td>
+                <td>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: call.ok ? 'success.main' : 'error.main', whiteSpace: 'nowrap' }}
+                  >
+                    {call.status}
+                  </Typography>
+                </td>
+                <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{ms(call.ms)}</td>
+              </Box>
+              {call.detail?.map((d) => (
+                <Box
+                  component="tr"
+                  key={`${i}-${d.label}`}
+                  sx={{ '& td': { py: 0.25, pr: 1.5, color: 'text.secondary' } }}
+                >
+                  <td />
+                  <td style={{ paddingLeft: 16 }}>↳ {d.label}</td>
+                  <td />
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{ms(d.ms)}</td>
+                </Box>
+              ))}
+            </Fragment>
+          ))}
+        </tbody>
+      </Box>
+    </Box>
+  );
+}
+
 /** Which model answered, what it cost, what it looked at; and copy. */
 function AnswerFooter() {
   const meta = answerMetaOf(useAuiState((s) => s.message.metadata.custom));
+  const [traceAt, setTraceAt] = useState<HTMLElement | null>(null);
   if (!meta) return null;
   const looked = meta.calls.length;
+  const spent = meta.calls.reduce((sum, c) => sum + (c.ms ?? 0), 0);
   return (
     <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
       <Tooltip
@@ -141,15 +198,25 @@ function AnswerFooter() {
         </Tooltip>
       ))}
       {looked > 0 && (
-        <Tooltip
-          title={
-            <Box component="span" sx={{ whiteSpace: 'pre-line' }}>
-              {meta.calls.map((c) => `${c.method} ${c.path} → ${c.status}`).join('\n')}
-            </Box>
-          }
-        >
-          {chip(`Looked at ${looked} thing${looked === 1 ? '' : 's'}`)}
-        </Tooltip>
+        <>
+          <Chip
+            size="small"
+            variant="outlined"
+            clickable
+            onClick={(e) => setTraceAt(e.currentTarget)}
+            label={`Looked at ${looked} thing${looked === 1 ? '' : 's'}${spent > 0 ? ` · ${ms(spent)}` : ''}`}
+            sx={{ height: 22, fontSize: '0.6875rem', color: 'text.secondary' }}
+          />
+          <Popover
+            open={Boolean(traceAt)}
+            anchorEl={traceAt}
+            onClose={() => setTraceAt(null)}
+            anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+            transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          >
+            <CallTrace calls={meta.calls} />
+          </Popover>
+        </>
       )}
       <ActionBarPrimitive.Root hideWhenRunning autohide="never">
         <ActionBarPrimitive.Copy asChild copiedDuration={1_500}>

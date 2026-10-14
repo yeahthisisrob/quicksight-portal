@@ -704,3 +704,26 @@ describe('RebindService with a template', () => {
     expect(last.definition.Sheets[0].Name).toBe('Overview');
   });
 });
+
+describe('RebindService live reads', () => {
+  it('describes an asset once per instance, and each caller gets its own copy', async () => {
+    mocks.qs.describeAnalysisDefinition.mockResolvedValue({
+      Name: 'Sales',
+      Definition: {
+        DataSetIdentifierDeclarations: [
+          { Identifier: 'orders', DataSetArn: 'arn:aws:quicksight:us-east-1:1:dataset/ds-1' },
+        ],
+        Sheets: [],
+      },
+    });
+    const service = new RebindService('1');
+    const first = await service.describeDatasets('analysis', 'a1');
+    const second = await service.describeDatasets('analysis', 'a1');
+    expect(first).toEqual(second);
+    expect(mocks.qs.describeAnalysisDefinition).toHaveBeenCalledTimes(1);
+    const loaded = await service.loadDefinitionWithTheme('analysis', 'a1');
+    loaded.definition.Sheets.push({ SheetId: 'mutated' });
+    expect((await service.loadDefinitionWithTheme('analysis', 'a1')).definition.Sheets).toEqual([]);
+    expect(mocks.qs.describeAnalysisDefinition).toHaveBeenCalledTimes(1);
+  });
+});
