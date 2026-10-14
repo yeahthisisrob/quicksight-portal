@@ -1,5 +1,10 @@
 import { BedrockAdapter } from '../../../../adapters/aws/BedrockAdapter';
-import { type AiModelKey, aiModel, openAiModelId } from '../../../../shared/ai/modelCatalog';
+import {
+  type AiModelKey,
+  aiEffort,
+  aiModel,
+  openAiModelId,
+} from '../../../../shared/ai/modelCatalog';
 import { getPlannerConfig, type PlannerConfig } from '../../../../shared/config/plannerConfig';
 import { BedrockPlannerModel } from './BedrockPlannerModel';
 import { CLI_SPECS, CliPlannerModel } from './CliPlannerModel';
@@ -33,7 +38,8 @@ export function createPlannerModel(
     return new BedrockPlannerModel(
       new BedrockAdapter(config.region),
       model.modelId,
-      model.capabilities
+      model.capabilities,
+      aiEffort()
     );
   }
   switch (config.provider) {

@@ -16,9 +16,28 @@
  * structured answer is asked for with `auto` tool choice and an
  * instruction instead.
  */
+import { settingsStore } from '../services/settings/SettingsStore';
 
 export type AiModelKey = 'haiku-4-5' | 'sonnet-4-6' | 'sonnet-5' | 'opus-5' | 'openai';
 type AiProvider = 'bedrock' | 'openai';
+
+/** How hard a thinking model thinks before it answers (Bedrock `output_config.effort`). */
+export type AiEffort = 'low' | 'medium' | 'high';
+const AI_EFFORTS: readonly AiEffort[] = ['low', 'medium', 'high'];
+/** Bedrock's default when nothing is sent: the model almost always thinks, at length. */
+const DEFAULT_EFFORT: AiEffort = 'medium';
+
+/**
+ * The effort Settings ask for (planner.effort), for every model that takes
+ * one. Medium unless changed: the planner's asks are well specified, and
+ * at high an always-thinking model spends a minute on each of them.
+ */
+export function aiEffort(
+  get: (key: string) => string = (k) => settingsStore.getString(k)
+): AiEffort {
+  const value = get('planner.effort');
+  return (AI_EFFORTS as readonly string[]).includes(value) ? (value as AiEffort) : DEFAULT_EFFORT;
+}
 
 interface AiModelCapabilities {
   /** Accepts `temperature`. */
@@ -29,6 +48,8 @@ interface AiModelCapabilities {
   promptCache: boolean;
   /** OpenAI's newer models take `max_completion_tokens`. */
   maxTokensParam?: 'max_tokens' | 'max_completion_tokens';
+  /** Takes `output_config.effort` (adaptive thinking: Claude 5 and later). */
+  effort?: boolean;
 }
 
 export interface AiModel {
@@ -51,7 +72,12 @@ const CLAUDE_46_AND_OLDER: AiModelCapabilities = {
   forcedTool: true,
   promptCache: true,
 };
-const CLAUDE_5: AiModelCapabilities = { temperature: false, forcedTool: false, promptCache: true };
+const CLAUDE_5: AiModelCapabilities = {
+  temperature: false,
+  forcedTool: false,
+  promptCache: true,
+  effort: true,
+};
 
 export const AI_MODELS: readonly AiModel[] = [
   {

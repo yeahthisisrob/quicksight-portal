@@ -129,6 +129,20 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
         ],
       },
       {
+        key: 'planner.effort',
+        label: 'How hard thinking models think',
+        description:
+          "For the models that think before answering (Claude Sonnet 5, Opus 5), in the planner and the assistant. Medium answers a well-specified ask in seconds; high is the model's own default and can spend a minute on each step of a plan; low is for quick, simple asks.",
+        type: 'select',
+        envVar: '',
+        default: 'medium',
+        options: [
+          { value: 'low', label: 'Low' },
+          { value: 'medium', label: 'Medium' },
+          { value: 'high', label: 'High' },
+        ],
+      },
+      {
         key: 'planner.modelId',
         label: 'Model id',
         description:
