@@ -27,6 +27,7 @@ import { catalog } from '../../../shared/services/catalog/catalogStore';
 import {
   dataPrepFromLegacy,
   type LegacyConversion,
+  withColumnIds,
 } from '../../../shared/services/datasets/dataPrep';
 import type { LineageService } from '../../../shared/services/lineage/LineageService';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
@@ -146,7 +147,8 @@ export class DatasetMigrationService {
     const created = await this.quickSight.createDataSet({
       dataSetId: newDataSetId,
       name,
-      physicalTableMap: described.PhysicalTableMap,
+      // Every column needs an id in the new experience; the legacy ones have none.
+      physicalTableMap: withColumnIds(described.PhysicalTableMap),
       importMode: described.ImportMode,
       permissions: audience.permissions?.length ? audience.permissions : undefined,
       ...(tags.length > 0 ? { tags } : {}),

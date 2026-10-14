@@ -28,6 +28,33 @@ export interface LegacyConversion extends DataPrepSpec {
   refused: string[];
 }
 
+/** The column lists a physical table declares, by kind. */
+const COLUMN_LISTS = ['InputColumns', 'Columns'] as const;
+
+/**
+ * The physical tables with an `Id` on every column. The new experience
+ * refuses a column without one ("must have a valid id"); legacy datasets
+ * never had them. Ids already present are kept, since steps may map them.
+ */
+export function withColumnIds(
+  physicalTableMap: Record<string, any>,
+  id: () => string = randomUUID
+): Record<string, any> {
+  const out = structuredClone(physicalTableMap ?? {});
+  for (const table of Object.values(out) as Array<Record<string, any>>) {
+    for (const kind of Object.values(table) as Array<Record<string, any>>) {
+      for (const list of COLUMN_LISTS) {
+        if (Array.isArray(kind?.[list])) {
+          kind[list] = kind[list].map((column: Record<string, any>) =>
+            column?.Id ? column : { Id: id(), ...column }
+          );
+        }
+      }
+    }
+  }
+  return out;
+}
+
 /** QuickSight allows 64 characters for an alias. */
 const ALIAS_MAX = 64;
 

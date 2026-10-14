@@ -174,8 +174,15 @@ describe('DatasetMigrationService', () => {
     expect(call).toMatchObject({
       name: 'orders_fact',
       importMode: 'SPICE',
-      physicalTableMap: LEGACY.PhysicalTableMap,
       fieldFolders: LEGACY.FieldFolders,
+    });
+    // The same physical table, each column given the id the new experience requires.
+    expect(call.physicalTableMap['p-1'].CustomSql).toEqual({
+      ...LEGACY.PhysicalTableMap['p-1'].CustomSql,
+      Columns: [
+        { Id: expect.any(String), Name: 'id', Type: 'INTEGER' },
+        { Id: expect.any(String), Name: 'amt', Type: 'DECIMAL' },
+      ],
     });
     expect(call.logicalTableMap).toBeUndefined();
     const steps = Object.values(call.dataPrepConfiguration.TransformStepMap) as any[];
