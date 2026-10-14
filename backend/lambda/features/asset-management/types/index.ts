@@ -23,6 +23,7 @@ export interface Asset {
   relatedAssets?: any[];
   // Dataset specific fields
   importMode?: string;
+  experience?: string;
   sourceType?: string;
   consumedSpiceCapacityInBytes?: number;
   // Analysis specific fields
@@ -77,6 +78,8 @@ export interface AssetListRequest {
   smusFilter?: 'all' | 'smus_linked' | 'not_smus_linked';
   /** Filter datasets by import mode (DataSet API ImportMode): all, SPICE, DIRECT_QUERY */
   importModeFilter?: 'all' | 'SPICE' | 'DIRECT_QUERY';
+  /** Filter datasets by data prep experience: all, legacy, dataPrep. */
+  experienceFilter?: 'all' | 'legacy' | 'dataPrep';
   /** Filter datasets by whether another dataset reads one of the same tables. */
   duplicatesFilter?: 'all' | 'duplicates' | 'unique';
 }

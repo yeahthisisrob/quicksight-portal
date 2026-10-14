@@ -1,6 +1,7 @@
 import {
   Timeline as ActivityIcon,
   Add,
+  AutoAwesome as AutoAwesomeIcon,
   Bolt as BoltIcon,
   CheckCircle,
   ContentCopy as ContentCopyIcon,
@@ -25,6 +26,7 @@ import type {
   DateFilterState,
   DuplicatesFilterState,
   ErrorFilterState,
+  ExperienceFilterState,
   FolderFilter,
   ImportModeFilterState,
   SmusFilterState,
@@ -45,6 +47,7 @@ interface FilterHeaderProps {
   smusFilter?: SmusFilterState;
   duplicatesFilter?: DuplicatesFilterState;
   importModeFilter?: ImportModeFilterState;
+  experienceFilter?: ExperienceFilterState;
   selectedAssets: AssetFilter[];
   includeTags: TagFilter[];
   excludeTags: TagFilter[];
@@ -59,6 +62,7 @@ interface FilterHeaderProps {
   onClearSmusFilter?: () => void;
   onClearDuplicatesFilter?: () => void;
   onClearImportModeFilter?: () => void;
+  onClearExperienceFilter?: () => void;
   onRemoveAsset: (index: number) => void;
   onRemoveIncludeTag: (index: number) => void;
   onRemoveExcludeTag: (index: number) => void;
@@ -183,6 +187,21 @@ const ErrorFilterChip: React.FC<{
   />
 );
 
+const ExperienceFilterChip: React.FC<{
+  experienceFilter: ExperienceFilterState;
+  onClear: () => void;
+}> = ({ experienceFilter, onClear }) => (
+  <FilterChip
+    icon={<AutoAwesomeIcon sx={{ fontSize: 14 }} />}
+    label={experienceFilter === 'dataPrep' ? 'New data prep' : 'Legacy data prep'}
+    color={experienceFilter === 'dataPrep' ? 'success' : 'warning'}
+    onDelete={(e) => {
+      e.stopPropagation();
+      onClear();
+    }}
+  />
+);
+
 const ImportModeFilterChip: React.FC<{
   importModeFilter: ImportModeFilterState;
   onClear: () => void;
@@ -240,6 +259,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
   smusFilter,
   duplicatesFilter,
   importModeFilter,
+  experienceFilter,
   selectedAssets,
   includeTags,
   excludeTags,
@@ -254,6 +274,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
   onClearSmusFilter,
   onClearDuplicatesFilter,
   onClearImportModeFilter,
+  onClearExperienceFilter,
   onRemoveAsset,
   onRemoveIncludeTag,
   onRemoveExcludeTag,
@@ -267,6 +288,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
   const hasSmusFilter = smusFilter && smusFilter !== 'all';
   const hasDuplicatesFilter = duplicatesFilter && duplicatesFilter !== 'all';
   const hasImportModeFilter = importModeFilter && importModeFilter !== 'all';
+  const hasExperienceFilter = experienceFilter && experienceFilter !== 'all';
 
   const headerSx = {
     display: 'flex',
@@ -347,6 +369,12 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
           <ImportModeFilterChip
             importModeFilter={importModeFilter}
             onClear={onClearImportModeFilter}
+          />
+        )}
+        {hasExperienceFilter && onClearExperienceFilter && (
+          <ExperienceFilterChip
+            experienceFilter={experienceFilter}
+            onClear={onClearExperienceFilter}
           />
         )}
 

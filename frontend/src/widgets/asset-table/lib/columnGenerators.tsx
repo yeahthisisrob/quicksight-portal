@@ -28,7 +28,12 @@ type Handlers = {
 // Type guards
 const isDataset = (
   _row: AssetRow
-): _row is AssetRow & { sourceType?: string; importMode?: string; sizeInBytes?: number } => {
+): _row is AssetRow & {
+  sourceType?: string;
+  importMode?: string;
+  experience?: string;
+  sizeInBytes?: number;
+} => {
   return true; // This is used only when assetType is 'dataset'
 };
 
@@ -87,6 +92,27 @@ export function generateDatasetColumns(handlers: Handlers): ColumnConfig[] {
         );
       },
       valueGetter: (params) => (isDataset(params.row) ? params.row.importMode || '' : ''),
+    },
+    {
+      id: 'experience',
+      label: 'Data prep',
+      width: 120,
+      visible: true,
+      renderCell: (params: { row: AssetRow; value: any }) => {
+        const experience = isDataset(params.row) ? params.row.experience : undefined;
+        if (!experience) {
+          return null;
+        }
+        return (
+          <Chip
+            size="small"
+            variant="outlined"
+            color={experience === 'dataPrep' ? 'success' : 'warning'}
+            label={experience === 'dataPrep' ? 'New' : 'Legacy'}
+          />
+        );
+      },
+      valueGetter: (params) => (isDataset(params.row) ? params.row.experience || '' : ''),
     },
     {
       id: 'schemas',

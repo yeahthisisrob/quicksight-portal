@@ -39,6 +39,8 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
     onDuplicatesFilterChange: p.onDuplicatesFilterChange,
     importModeFilter: p.importModeFilter,
     onImportModeFilterChange: p.onImportModeFilterChange,
+    experienceFilter: p.experienceFilter,
+    onExperienceFilterChange: p.onExperienceFilterChange,
     includeFolders: p.includeFolders,
     excludeFolders: p.excludeFolders,
     onIncludeFoldersChange: p.onIncludeFoldersChange,
@@ -82,6 +84,7 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
         smusFilter={p.smusFilter}
         duplicatesFilter={p.duplicatesFilter}
         importModeFilter={p.importModeFilter}
+        experienceFilter={p.experienceFilter}
         selectedAssets={p.selectedAssets}
         includeTags={p.includeTags}
         excludeTags={p.excludeTags}
@@ -101,6 +104,9 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
         }
         onClearImportModeFilter={
           p.importModeFilter !== undefined ? state.handleClearImportModeFilter : undefined
+        }
+        onClearExperienceFilter={
+          p.experienceFilter !== undefined ? state.handleClearExperienceFilter : undefined
         }
         onRemoveAsset={state.handleRemoveAsset}
         onRemoveIncludeTag={state.handleRemoveIncludeTag}
@@ -144,6 +150,9 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
             enableImportModeFiltering={p.enableImportModeFiltering}
             importModeFilter={p.importModeFilter}
             onImportModeFilterChange={p.onImportModeFilterChange}
+            enableExperienceFiltering={p.enableExperienceFiltering}
+            experienceFilter={p.experienceFilter}
+            onExperienceFilterChange={p.onExperienceFilterChange}
             enableRoleFiltering={p.enableRoleFiltering ?? false}
             availableRoles={p.availableRoles ?? []}
             selectedRoles={p.selectedRoles ?? []}

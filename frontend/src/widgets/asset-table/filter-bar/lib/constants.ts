@@ -5,6 +5,7 @@ import type {
   DateRangeOption,
   DuplicatesFilterState,
   ErrorFilterState,
+  ExperienceFilterState,
   ImportModeFilterState,
   SmusFilterState,
 } from './types';
@@ -36,3 +37,4 @@ export const DEFAULT_SMUS_FILTER: SmusFilterState = 'all';
 export const DEFAULT_DUPLICATES_FILTER: DuplicatesFilterState = 'all';
 
 export const DEFAULT_IMPORT_MODE_FILTER: ImportModeFilterState = 'all';
+export const DEFAULT_EXPERIENCE_FILTER: ExperienceFilterState = 'all';

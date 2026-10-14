@@ -3739,6 +3739,11 @@ export interface components {
              * @enum {string}
              */
             importMode: "SPICE" | "DIRECT_QUERY";
+            /**
+             * @description Which data prep experience it is built in. Legacy cannot be opened in the new data prep or built on; the Studio moves it. Absent until the dataset has been described by an export.
+             * @enum {string}
+             */
+            experience?: "legacy" | "dataPrep";
             /** @description Number of fields in dataset */
             fieldCount: number;
             /** @description Dataset size in bytes */
@@ -5419,6 +5424,11 @@ export interface components {
             name: string;
             matchType: components["schemas"]["SmusMatchType"];
             importMode?: string;
+            /**
+             * @description Which data prep experience the dataset is built in.
+             * @enum {string}
+             */
+            experience?: "legacy" | "dataPrep";
             calculatedFieldCount: number;
             fields: components["schemas"]["DatasetCatalogField"][];
         };
@@ -6684,6 +6694,8 @@ export interface operations {
                 duplicatesFilter?: "all" | "duplicates" | "unique";
                 /** @description Datasets - only SPICE or only direct query. */
                 importModeFilter?: "all" | "SPICE" | "DIRECT_QUERY";
+                /** @description Datasets - only those built in the legacy data prep experience, or only in the new one. */
+                experienceFilter?: "all" | "legacy" | "dataPrep";
             };
             header?: never;
             path: {

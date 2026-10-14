@@ -1,6 +1,7 @@
 import {
   Timeline as ActivityIcon,
   Add,
+  AutoAwesome as AutoAwesomeIcon,
   Bolt as BoltIcon,
   CheckCircle,
   Clear,
@@ -44,6 +45,7 @@ import type {
   DateRangeOption,
   DuplicatesFilterState,
   ErrorFilterState,
+  ExperienceFilterState,
   FolderFilter,
   FolderOption,
   GroupMembershipFilterState,
@@ -102,6 +104,9 @@ interface FilterControlsProps {
   enableImportModeFiltering?: boolean;
   importModeFilter?: ImportModeFilterState;
   onImportModeFilterChange?: (filter: ImportModeFilterState) => void;
+  enableExperienceFiltering?: boolean;
+  experienceFilter?: ExperienceFilterState;
+  onExperienceFilterChange?: (filter: ExperienceFilterState) => void;
   onActivityFilterChange?: (filter: ActivityFilterState) => void;
 
   // Role controls
@@ -737,6 +742,9 @@ const DatasetLinkFilterRows: React.FC<{
   enableImportModeFiltering: boolean;
   importModeFilter?: ImportModeFilterState;
   onImportModeFilterChange?: (filter: ImportModeFilterState) => void;
+  enableExperienceFiltering: boolean;
+  experienceFilter?: ExperienceFilterState;
+  onExperienceFilterChange?: (filter: ExperienceFilterState) => void;
 }> = ({
   enableSmusFiltering,
   smusFilter,
@@ -747,6 +755,9 @@ const DatasetLinkFilterRows: React.FC<{
   enableImportModeFiltering,
   importModeFilter,
   onImportModeFilterChange,
+  enableExperienceFiltering,
+  experienceFilter,
+  onExperienceFilterChange,
 }) => (
   <>
     {/* SMUS Catalog Link Filter Row */}
@@ -783,6 +794,21 @@ const DatasetLinkFilterRows: React.FC<{
             icon: <ContentCopyIcon sx={{ fontSize: 16, mr: 0.5, color: 'warning.main' }} />,
           },
           { value: 'unique', label: 'Read by one' },
+        ]}
+      />
+    )}
+
+    {/* Data prep experience row: legacy datasets cannot be opened in the new data prep. */}
+    {enableExperienceFiltering && experienceFilter !== undefined && onExperienceFilterChange && (
+      <ToggleFilterRow
+        icon={<AutoAwesomeIcon sx={{ color: colors.neutral[500], fontSize: 20 }} />}
+        label="Data prep"
+        value={experienceFilter}
+        onChange={(v) => onExperienceFilterChange(v as ExperienceFilterState)}
+        options={[
+          { value: 'all', label: 'All' },
+          { value: 'dataPrep', label: 'New' },
+          { value: 'legacy', label: 'Legacy' },
         ]}
       />
     )}
@@ -843,6 +869,9 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
   enableImportModeFiltering = false,
   importModeFilter,
   onImportModeFilterChange,
+  enableExperienceFiltering = false,
+  experienceFilter,
+  onExperienceFilterChange,
   onActivityFilterChange,
   enableRoleFiltering,
   availableRoles,
@@ -951,6 +980,9 @@ export const FilterControls: React.FC<FilterControlsProps> = ({
         enableImportModeFiltering={enableImportModeFiltering}
         importModeFilter={importModeFilter}
         onImportModeFilterChange={onImportModeFilterChange}
+        enableExperienceFiltering={enableExperienceFiltering}
+        experienceFilter={experienceFilter}
+        onExperienceFilterChange={onExperienceFilterChange}
       />
 
       {/* Source Type Filter Row */}

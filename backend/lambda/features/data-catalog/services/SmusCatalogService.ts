@@ -18,6 +18,7 @@ import {
   canonicalExpression,
   extractFieldReferences,
 } from '../../../shared/lib/expressionAnalysis';
+import { catalog } from '../../../shared/services/catalog/catalogStore';
 import { readFields } from '../../../shared/services/catalog/fieldCache';
 import type { FieldInfo } from '../../../shared/services/catalog/fieldTypes';
 import type { SmusService } from '../../../shared/services/smus/SmusService';
@@ -25,6 +26,7 @@ import {
   type CalculatedFieldTemplate,
   CalculatedFieldTemplateStore,
 } from '../../../shared/services/templates/CalculatedFieldTemplateStore';
+import { ASSET_TYPES } from '../../../shared/types/assetTypes';
 import type { SmusAsset } from '../../../shared/types/smus';
 import { logger } from '../../../shared/utils/logger';
 import { matchListingColumn } from '../lib/columnIdentity';
@@ -63,6 +65,8 @@ interface CatalogDataset {
   name: string;
   matchType: SmusAsset['datasets'][number]['matchType'];
   importMode?: string;
+  /** Which data prep experience it is built in. */
+  experience?: 'legacy' | 'dataPrep';
   calculatedFieldCount: number;
   fields: DatasetCatalogField[];
 }
@@ -123,6 +127,8 @@ export interface FieldIndex {
   notes: Map<string, FieldMetadata>;
   /** normalised expression -> template id */
   templates: Map<string, string>;
+  /** dataset id -> how it holds its data and which data prep experience built it */
+  datasets: Map<string, { importMode?: string; experience?: 'legacy' | 'dataPrep' }>;
 }
 
 const FIELD_INDEX_TTL_MS = 60_000;
@@ -330,10 +336,13 @@ export class SmusCatalogService {
         (a, b) => Number(b.isCalculated) - Number(a.isCalculated) || a.name.localeCompare(b.name)
       );
 
+    const facts = index.datasets.get(dataset.id);
     return {
       id: dataset.id,
       name: dataset.name,
       matchType: dataset.matchType,
+      ...(facts?.importMode ? { importMode: facts.importMode } : {}),
+      ...(facts?.experience ? { experience: facts.experience } : {}),
       calculatedFieldCount: fields.filter((f) => f.isCalculated).length,
       fields,
     };
@@ -361,7 +370,7 @@ export class SmusCatalogService {
   }
 
   private async buildFieldIndex(): Promise<FieldIndex> {
-    const [fields, notes, templates] = await Promise.all([
+    const [fields, notes, templates, datasetEntries] = await Promise.all([
       readFields({}) as Promise<FieldInfo[]>,
       this.fieldMetadataService.getAllFieldMetadata({ sourceType: 'dataset' }).catch((error) => {
         logger.warn('Field notes unavailable', { error });
@@ -371,7 +380,22 @@ export class SmusCatalogService {
         logger.warn('Template library unavailable', { error });
         return [] as CalculatedFieldTemplate[];
       }),
+      catalog.list(ASSET_TYPES.dataset).catch((error) => {
+        logger.warn('Dataset facts unavailable', { error });
+        return [];
+      }),
     ]);
+    const datasets = new Map(
+      datasetEntries.map((entry) => [
+        entry.assetId,
+        {
+          ...(entry.metadata?.importMode ? { importMode: String(entry.metadata.importMode) } : {}),
+          ...(entry.metadata?.experience === 'legacy' || entry.metadata?.experience === 'dataPrep'
+            ? { experience: entry.metadata.experience as 'legacy' | 'dataPrep' }
+            : {}),
+        },
+      ])
+    );
 
     const byDataset = new Map<string, FieldInfo[]>();
     const usersOf = new Map<string, FieldInfo[]>();
@@ -414,6 +438,7 @@ export class SmusCatalogService {
       visualsOf,
       notes: new Map(notes.map((n) => [`${n.sourceId}::${n.fieldName}`, n])),
       templates: CalculatedFieldTemplateStore.indexByExpression(templates),
+      datasets,
     };
   }
 

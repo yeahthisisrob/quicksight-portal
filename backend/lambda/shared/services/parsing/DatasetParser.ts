@@ -6,7 +6,12 @@ import {
   type Field,
   type ParserCapabilities,
 } from './BaseAssetParser';
-import { dataTransformsOf, parentDataSetArnsOf, sourceColumnNames } from './dataPrepTransforms';
+import {
+  dataTransformsOf,
+  isNewDataPrep,
+  parentDataSetArnsOf,
+  sourceColumnNames,
+} from './dataPrepTransforms';
 
 /**
  * Dataset metadata extracted from API responses
@@ -18,6 +23,8 @@ interface DatasetMetadata {
   createdTime?: string;
   lastUpdatedTime?: string;
   importMode?: string;
+  /** Which data prep experience it is built in; unknown without a describe. */
+  experience?: 'legacy' | 'dataPrep';
   consumedSpiceCapacityInBytes?: number;
   rowCount?: number;
   fieldCount: number;
@@ -337,6 +344,7 @@ export class DatasetParser extends BaseAssetParser {
       createdTime: listData?.CreatedTime || describeData?.CreatedTime,
       lastUpdatedTime: listData?.LastUpdatedTime || describeData?.LastUpdatedTime,
       importMode: listData?.ImportMode || describeData?.ImportMode,
+      ...(describeData ? { experience: isNewDataPrep(describeData) ? 'dataPrep' : 'legacy' } : {}),
       consumedSpiceCapacityInBytes:
         listData?.ConsumedSpiceCapacityInBytes || describeData?.ConsumedSpiceCapacityInBytes,
       rowCount: describeData?.RowLevelPermissionDataSet?.RowCount,

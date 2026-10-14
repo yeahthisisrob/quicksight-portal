@@ -108,6 +108,7 @@ export interface CatalogEntry {
     // Dataset specific
     fieldCount?: number;
     importMode?: 'SPICE' | 'DIRECT_QUERY';
+    experience?: 'legacy' | 'dataPrep';
     consumedSpiceCapacityInBytes?: number;
     sizeInBytes?: number;
     datasourceArns?: string[];
