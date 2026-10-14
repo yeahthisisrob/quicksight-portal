@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.40.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.39.2...v2.40.0) (2026-10-14)
+
+
+### Features
+
+* **datasets:** the Datasets page and the Data Catalog say which data prep experience built each dataset, with a filter ([#312](https://github.com/yeahthisisrob/quicksight-portal/issues/312)) ([1819087](https://github.com/yeahthisisrob/quicksight-portal/commit/1819087c311aba3065e164aebb94829ef2ea3878))
+
 ## [2.39.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.39.1...v2.39.2) (2026-10-14)
 
 
