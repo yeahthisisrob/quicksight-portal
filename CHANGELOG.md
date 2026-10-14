@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.37.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.36.1...v2.37.0) (2026-10-14)
+
+
+### Features
+
+* **datasets:** a plain select over a published table takes its columns from the listing, with no engine read ([#301](https://github.com/yeahthisisrob/quicksight-portal/issues/301)) ([db37327](https://github.com/yeahthisisrob/quicksight-portal/commit/db373278ed79e54518967198c09ecace95f11ecf))
+
 ## [2.36.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.36.0...v2.36.1) (2026-10-14)
 
 
