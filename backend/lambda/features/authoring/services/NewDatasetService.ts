@@ -37,7 +37,7 @@ import {
   type QuickSightColumnType,
   toQuickSightColumnType,
 } from '../../../shared/services/datasets/columnTypes';
-import { dataPrepForTable } from '../../../shared/services/datasets/dataPrep';
+import { dataPrepForTable, withColumnIds } from '../../../shared/services/datasets/dataPrep';
 import {
   type DataSourceUsage,
   defaultAthenaDataSource,
@@ -203,7 +203,9 @@ export class NewDatasetService {
       importMode: preview.importMode,
       permissions: audience.permissions?.length ? audience.permissions : undefined,
       ...(tags.length > 0 ? { tags } : {}),
-      physicalTableMap: { [physicalTableId]: physicalTableFor(preview, dataSource.arn) } as any,
+      physicalTableMap: withColumnIds({
+        [physicalTableId]: physicalTableFor(preview, dataSource.arn),
+      }) as any,
       ...dataPrepForTable({
         physicalTableId,
         alias: preview.table.name,

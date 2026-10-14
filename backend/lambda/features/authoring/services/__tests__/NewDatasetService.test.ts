@@ -325,10 +325,11 @@ describe('NewDatasetService', () => {
       DataSourceArn: 'arn:aws:quicksight:us-east-1:123456789012:datasource/athena-1',
       Name: 'Signups by month',
       SqlQuery: 'select 1 as customer_id',
+      // Every column carries an id: the new experience refuses one without.
       Columns: [
-        { Name: 'customer_id', Type: 'INTEGER' },
-        { Name: 'signups', Type: 'INTEGER' },
-        { Name: 'month', Type: 'DATETIME' },
+        { Id: expect.any(String), Name: 'customer_id', Type: 'INTEGER' },
+        { Id: expect.any(String), Name: 'signups', Type: 'INTEGER' },
+        { Id: expect.any(String), Name: 'month', Type: 'DATETIME' },
       ],
     });
     // An analysis reads the pipeline: the table imported and every column

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { dataPrepForTable, dataPrepFromLegacy } from '../dataPrep';
+import { dataPrepForTable, dataPrepFromLegacy, withColumnIds } from '../dataPrep';
 
 /** Deterministic ids: s1, s2, ... in the order they are asked for. */
 const ids = () => {
@@ -199,5 +199,35 @@ describe('dataPrepFromLegacy', () => {
       "'t' has a OverrideDatasetParameterOperation the new shape cannot carry.",
     ]);
     expect(dataPrepFromLegacy({ LogicalTableMap: {} }).refused[0]).toContain('no logical table');
+  });
+});
+
+describe('withColumnIds', () => {
+  it('gives every physical column an id, keeping the ones it has and the rest of the table', () => {
+    const out = withColumnIds(
+      {
+        p1: {
+          CustomSql: {
+            DataSourceArn: 'arn:ds',
+            Name: 'q',
+            SqlQuery: 'select 1',
+            Columns: [
+              { Name: 'a', Type: 'INTEGER' },
+              { Id: 'keep', Name: 'b', Type: 'STRING' },
+            ],
+          },
+        },
+        p2: { RelationalTable: { Name: 't', InputColumns: [{ Name: 'c', Type: 'STRING' }] } },
+      },
+      ids()
+    );
+    expect(out.p1.CustomSql.Columns).toEqual([
+      { Id: 'id-1', Name: 'a', Type: 'INTEGER' },
+      { Id: 'keep', Name: 'b', Type: 'STRING' },
+    ]);
+    expect(out.p1.CustomSql.SqlQuery).toBe('select 1');
+    expect(out.p2.RelationalTable.InputColumns).toEqual([
+      { Id: 'id-2', Name: 'c', Type: 'STRING' },
+    ]);
   });
 });
