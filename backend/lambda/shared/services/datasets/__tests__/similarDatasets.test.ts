@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { catalogEntry } from '../../../utils/testUtils/testCatalog';
-import { similarDatasets, tablesRead } from '../similarDatasets';
+import {
+  duplicateGroups,
+  similarDatasets,
+  tablesRead,
+  tablesReadByEntry,
+} from '../similarDatasets';
 
 const dataset = (assetId: string, assetName: string, physicalTables: any[]) =>
   catalogEntry('dataset', assetId, { assetName, metadata: { lineageData: { physicalTables } } });
@@ -34,6 +39,20 @@ describe('similarDatasets', () => {
       { dataSetId: 'ds-orders', name: 'Orders', table: 'gold.orders', how: 'table' },
       { dataSetId: 'ds-orders-sql', name: 'Orders by region', table: 'gold.orders', how: 'sql' },
     ]);
+  });
+
+  it('groups every dataset with the others reading one of its tables, once each', () => {
+    const groups = duplicateGroups(DATASETS);
+    expect(groups.get('ds-orders')).toEqual([
+      { dataSetId: 'ds-orders-sql', name: 'Orders by region', table: 'gold.orders', how: 'sql' },
+    ]);
+    expect(groups.get('ds-orders-sql')).toEqual([
+      { dataSetId: 'ds-orders', name: 'Orders', table: 'gold.orders', how: 'table' },
+    ]);
+    expect(groups.has('ds-customers')).toBe(false);
+    expect(groups.has('ds-upload')).toBe(false);
+    expect(tablesReadByEntry(DATASETS[1]!)).toEqual(['gold.orders', 'gold.regions']);
+    expect(tablesReadByEntry(DATASETS[3]!)).toEqual([]);
   });
 
   it('matches through a catalog prefix and ignores other tables', () => {

@@ -7,6 +7,11 @@ import { actorFromAuth, auditLog } from '../../../shared/services/audit/AuditLog
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import { S3Service } from '../../../shared/services/aws/S3Service';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
+import { catalog } from '../../../shared/services/catalog/catalogStore';
+import {
+  similarDatasets,
+  tablesReadByEntry,
+} from '../../../shared/services/datasets/similarDatasets';
 import { jobFactory } from '../../../shared/services/jobs/JobFactory';
 import { PermissionsService } from '../../../shared/services/organization/PermissionsService';
 import { ASSET_TYPES, ASSET_TYPES_PLURAL, type AssetType } from '../../../shared/types/assetTypes';
@@ -684,6 +689,39 @@ export class AssetHandler {
   }
 
   /**
+   * The datasets that read one of the same tables as this one, as the
+   * table or inside a query, from the catalog.
+   * GET /assets/dataset/{assetId}/duplicates
+   */
+  public async getDatasetDuplicates(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const dataSetId = event.pathParameters?.assetId || '';
+      if (!dataSetId) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Dataset id is required');
+      }
+      const datasets = await catalog.list(ASSET_TYPES.dataset);
+      const dataset = datasets.find((d) => d.assetId === dataSetId);
+      if (!dataset) {
+        return errorResponse(event, STATUS_CODES.NOT_FOUND, 'Dataset not found');
+      }
+      const tables = tablesReadByEntry(dataset);
+      const others = similarDatasets(
+        datasets.filter((d) => d.assetId !== dataSetId),
+        tables
+      );
+      return successResponse(event, { success: true, data: { tables, datasets: others } });
+    } catch (error: any) {
+      logger.error('Get dataset duplicates failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error.message || 'Failed to find datasets reading the same tables'
+      );
+    }
+  }
+
+  /**
    * Repoint a dataset's physical tables and/or rename it.
    * PUT /assets/dataset/{assetId}/source  body: { name?, tables? }
    */
@@ -834,6 +872,7 @@ export class AssetHandler {
         : undefined,
       smusFilter: (queryParams.smusFilter || 'all') as 'all' | 'smus_linked' | 'not_smus_linked',
       importModeFilter: (queryParams.importModeFilter || 'all') as 'all' | 'SPICE' | 'DIRECT_QUERY',
+      duplicatesFilter: (queryParams.duplicatesFilter || 'all') as 'all' | 'duplicates' | 'unique',
     };
   }
 

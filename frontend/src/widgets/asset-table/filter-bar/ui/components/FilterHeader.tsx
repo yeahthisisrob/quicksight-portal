@@ -3,6 +3,7 @@ import {
   Add,
   Bolt as BoltIcon,
   CheckCircle,
+  ContentCopy as ContentCopyIcon,
   Error as ErrorIcon,
   ExpandLess,
   ExpandMore,
@@ -22,6 +23,7 @@ import type {
   ActivityFilterState,
   AssetFilter,
   DateFilterState,
+  DuplicatesFilterState,
   ErrorFilterState,
   FolderFilter,
   ImportModeFilterState,
@@ -41,6 +43,7 @@ interface FilterHeaderProps {
   errorFilter?: ErrorFilterState;
   activityFilter?: ActivityFilterState;
   smusFilter?: SmusFilterState;
+  duplicatesFilter?: DuplicatesFilterState;
   importModeFilter?: ImportModeFilterState;
   selectedAssets: AssetFilter[];
   includeTags: TagFilter[];
@@ -54,6 +57,7 @@ interface FilterHeaderProps {
   onClearErrorFilter?: () => void;
   onClearActivityFilter?: () => void;
   onClearSmusFilter?: () => void;
+  onClearDuplicatesFilter?: () => void;
   onClearImportModeFilter?: () => void;
   onRemoveAsset: (index: number) => void;
   onRemoveIncludeTag: (index: number) => void;
@@ -194,6 +198,21 @@ const ImportModeFilterChip: React.FC<{
   />
 );
 
+const DuplicatesFilterChip: React.FC<{
+  duplicatesFilter: DuplicatesFilterState;
+  onClear: () => void;
+}> = ({ duplicatesFilter, onClear }) => (
+  <FilterChip
+    icon={<ContentCopyIcon sx={{ fontSize: 14 }} />}
+    label={duplicatesFilter === 'duplicates' ? 'Table shared with others' : 'Table read by one'}
+    color={duplicatesFilter === 'duplicates' ? 'warning' : 'info'}
+    onDelete={(e) => {
+      e.stopPropagation();
+      onClear();
+    }}
+  />
+);
+
 const SmusFilterChip: React.FC<{
   smusFilter: SmusFilterState;
   onClear: () => void;
@@ -219,6 +238,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
   errorFilter,
   activityFilter,
   smusFilter,
+  duplicatesFilter,
   importModeFilter,
   selectedAssets,
   includeTags,
@@ -232,6 +252,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
   onClearErrorFilter,
   onClearActivityFilter,
   onClearSmusFilter,
+  onClearDuplicatesFilter,
   onClearImportModeFilter,
   onRemoveAsset,
   onRemoveIncludeTag,
@@ -244,6 +265,7 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
   const hasErrorFilter = errorFilter && errorFilter !== 'all';
   const hasActivityFilter = activityFilter && activityFilter !== 'all';
   const hasSmusFilter = smusFilter && smusFilter !== 'all';
+  const hasDuplicatesFilter = duplicatesFilter && duplicatesFilter !== 'all';
   const hasImportModeFilter = importModeFilter && importModeFilter !== 'all';
 
   const headerSx = {
@@ -310,6 +332,14 @@ export const FilterHeader: React.FC<FilterHeaderProps> = ({
         {/* SMUS link filter chip */}
         {hasSmusFilter && onClearSmusFilter && (
           <SmusFilterChip smusFilter={smusFilter} onClear={onClearSmusFilter} />
+        )}
+
+        {/* Same-table filter chip */}
+        {hasDuplicatesFilter && onClearDuplicatesFilter && (
+          <DuplicatesFilterChip
+            duplicatesFilter={duplicatesFilter}
+            onClear={onClearDuplicatesFilter}
+          />
         )}
 
         {/* Import mode filter chip */}

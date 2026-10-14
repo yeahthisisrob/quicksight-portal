@@ -1,6 +1,7 @@
 export {
   DEFAULT_ACTIVITY_FILTER,
   DEFAULT_DATE_FILTER,
+  DEFAULT_DUPLICATES_FILTER,
   DEFAULT_ERROR_FILTER,
   DEFAULT_IMPORT_MODE_FILTER,
   DEFAULT_SMUS_FILTER,
@@ -9,6 +10,7 @@ export type {
   ActivityFilterState,
   DateFieldOption,
   DateFilterState,
+  DuplicatesFilterState,
   ErrorFilterState,
   FolderFilter,
   FolderOption,

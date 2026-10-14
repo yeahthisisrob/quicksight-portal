@@ -88,6 +88,11 @@ export const assetManagementRoutes: RouteHandler[] = [
     path: /^\/assets\/(dataset)\/([^/]+)\/source$/,
     handler: (event) => handler.updateDatasetSource(event),
   },
+  {
+    method: 'GET',
+    path: /^\/assets\/(dataset)\/([^/]+)\/duplicates$/,
+    handler: (event) => handler.getDatasetDuplicates(event),
+  },
 
   {
     method: 'POST',

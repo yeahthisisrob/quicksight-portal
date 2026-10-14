@@ -214,6 +214,7 @@ export function Editor({ studio }: { studio: Studio }) {
         dataset={studio.dataset}
         onClose={() => studio.open(null)}
         onOpen={(next) => studio.open(next)}
+        onOpenDataset={studio.openDataset}
       />
     );
   }

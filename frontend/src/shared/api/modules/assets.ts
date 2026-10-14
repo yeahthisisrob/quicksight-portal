@@ -10,6 +10,7 @@ export type DatasetTableEdit = Schemas['DatasetTableEdit'];
 export type DataSourceOption = Schemas['DataSourceOption'];
 /** The GET response adds the selectable data sources to the dataset's own sources. */
 type DatasetSourceResponse = DatasetSource & { dataSources: DataSourceOption[] };
+export type DatasetDuplicates = Schemas['DatasetDuplicates'];
 
 type PaginatedQuery = NonNullable<
   paths['/api/assets/{assetType}/paginated']['get']['parameters']['query']
@@ -123,6 +124,16 @@ export const assetsApi = {
     return unwrap(
       await client.GET('/api/assets/dataset/{assetId}/source', { params: { path: { assetId } } }),
       'Failed to read the dataset source'
+    );
+  },
+
+  /** The tables a dataset reads and the other datasets reading one of them. */
+  async getDatasetDuplicates(assetId: string): Promise<DatasetDuplicates> {
+    return unwrap(
+      await client.GET('/api/assets/dataset/{assetId}/duplicates', {
+        params: { path: { assetId } },
+      }),
+      'Failed to find datasets reading the same tables'
     );
   },
 

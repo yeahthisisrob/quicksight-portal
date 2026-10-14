@@ -21,7 +21,7 @@ A self-hosted control plane for Amazon QuickSight that **authors as well as admi
 
 **The Studio** edits and fixes what already exists, by hand and deterministically. No model is asked anything:
 
-- **Editor** - the asset on a canvas with its issues first: a column the dataset no longer has, an undeclared parameter, a dataset that is gone, each with the fix already applied to the canvas. Retitle, retype, move, resize, duplicate or remove visuals; rename sheets; see the datasets it reads and the SMUS asset that governs each; save over the asset or as a named copy. Datasets open here too: where they read from, what reads them, and archived ones restore from here.
+- **Editor** - the asset on a canvas with its issues first: a column the dataset no longer has, an undeclared parameter, a dataset that is gone, each with the fix already applied to the canvas. Retitle, retype, move, resize, duplicate or remove visuals; rename sheets; see the datasets it reads and the SMUS asset that governs each; save over the asset or as a named copy. Datasets open here too: where they read from, what reads them, which other datasets read the same tables, and archived ones restore from here.
 - **Templates** - what the organisation reuses: filter bars, visual templates, calculated-field templates, layout standards, and the calculated-field naming standard the Assistant follows.
 - **Playbooks** - fixes across the whole account: scope, gates, a plan per asset, a preview job, then a run with one row per asset. Most are specs you write from generic conditions and steps; steps that need judgement ask a model, and every answer is checked before it counts.
 
@@ -86,6 +86,7 @@ Themes are an asset type end to end: listed with their colors and how many dashb
 
 - **Full inventory** of dashboards, analyses, datasets, data sources, themes, folders, users and groups, with server-side search, sorting and pagination, bulk tag, folder and delete operations with per-item results, and CSV export.
 - **Edit dataset sources** in place (schema, table, custom SQL, data source) and **change datasets** from any dashboard or analysis row.
+- **Datasets reading the same table** are counted on every row of the Datasets page, filterable, and listed in the Studio's dataset view with one click to open each: the candidates for consolidating onto one definition.
 - **Health** on the lists: 30-day views, p90 load time and visual errors for dashboards; refresh runs, p90 ingestion latency and error rows for datasets. One batched CloudWatch read per page.
 - **Smart Sync export** - incremental, touching only what changed in QuickSight; checkpointed across Lambda invocations; one export at a time under an atomic lock; self-healing from the exports already in S3.
 - **Archive and restore** - what the portal deletes is kept with its audience, theme and tags, and comes back through the same checks as a transform.

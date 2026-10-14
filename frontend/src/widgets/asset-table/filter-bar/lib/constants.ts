@@ -3,6 +3,7 @@ import type {
   DateFieldOption,
   DateFilterState,
   DateRangeOption,
+  DuplicatesFilterState,
   ErrorFilterState,
   ImportModeFilterState,
   SmusFilterState,
@@ -32,5 +33,6 @@ export const DEFAULT_ERROR_FILTER: ErrorFilterState = 'all';
 export const DEFAULT_ACTIVITY_FILTER: ActivityFilterState = 'all';
 
 export const DEFAULT_SMUS_FILTER: SmusFilterState = 'all';
+export const DEFAULT_DUPLICATES_FILTER: DuplicatesFilterState = 'all';
 
 export const DEFAULT_IMPORT_MODE_FILTER: ImportModeFilterState = 'all';

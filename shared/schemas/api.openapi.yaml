@@ -467,6 +467,12 @@ paths:
           schema:
             type: string
             enum: [all, smus_linked, not_smus_linked]
+        - name: duplicatesFilter
+          in: query
+          description: Datasets - only those another dataset reads the same table as (`duplicates`), or only those no other does (`unique`).
+          schema:
+            type: string
+            enum: [all, duplicates, unique]
         - name: importModeFilter
           in: query
           description: Datasets - only SPICE or only direct query.
@@ -2388,6 +2394,40 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+
+  /api/assets/dataset/{assetId}/duplicates:
+    get:
+      operationId: getAssetsDatasetByAssetIdDuplicates
+      tags: [Assets]
+      summary: The datasets that read the same tables as this one
+      description: |
+        From the catalog: the tables this dataset reads (its relational
+        tables and the tables its custom SQL names, as `schema.table`), and
+        every other dataset reading one of them, as the table or inside a
+        query. These are the candidates for consolidating onto one dataset.
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The tables and the datasets sharing them
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/DatasetDuplicates'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /api/authoring/{assetType}/{assetId}/datasets:
     get:
@@ -7582,6 +7622,13 @@ components:
               description: >
                 Data source type resolved from the dataset's data sources
                 (the DataSource API's Type field — ATHENA, REDSHIFT, S3, etc.)
+            sharesTablesWith:
+              type: integer
+              minimum: 0
+              description: >
+                How many other datasets read one of the same tables, as the
+                table itself or inside a custom SQL query. Candidates for
+                consolidation when above zero.
             schemas:
               type: array
               items:
@@ -8597,6 +8644,37 @@ components:
           type: boolean
           description: False for S3 sources, which have no schema or query to edit.
 
+    SimilarDataset:
+      type: object
+      required: [dataSetId, name, table, how]
+      properties:
+        dataSetId:
+          type: string
+        name:
+          type: string
+        table:
+          type: string
+          description: The table both read, as schema.table.
+        how:
+          type: string
+          enum: [table, sql]
+          description: Read as the table itself, or inside a custom SQL query.
+
+    DatasetDuplicates:
+      type: object
+      required: [tables, datasets]
+      properties:
+        tables:
+          type: array
+          description: The tables this dataset reads, as schema.table.
+          items:
+            type: string
+        datasets:
+          type: array
+          description: Other datasets reading one of them.
+          items:
+            $ref: '#/components/schemas/SimilarDataset'
+
     DatasetSource:
       type: object
       required: [dataSetId, name, importMode, tables]
@@ -9298,19 +9376,7 @@ components:
             or inside a custom SQL query that names it. Reuse one unless a new
             dataset is wanted.
           items:
-            type: object
-            required: [dataSetId, name, table, how]
-            properties:
-              dataSetId:
-                type: string
-              name:
-                type: string
-              table:
-                type: string
-                description: The table both read, as schema.table.
-              how:
-                type: string
-                enum: [table, sql]
+            $ref: '#/components/schemas/SimilarDataset'
         folderIds:
           type: array
           description: The folders it will be filed in - the request's and the defaults from Settings.

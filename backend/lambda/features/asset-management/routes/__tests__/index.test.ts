@@ -153,6 +153,16 @@ describe('assetManagementRoutes - pattern matching', () => {
       });
     });
 
+    it("serves a dataset's duplicates beside its source, and only for datasets", () => {
+      const route = assetManagementRoutes.find(
+        (r) =>
+          r.method === 'GET' && r.path instanceof RegExp && r.path.source.includes('duplicates')
+      );
+      expect(route).toBeDefined();
+      expect((route?.path as RegExp).test('/assets/dataset/ds-1/duplicates')).toBe(true);
+      expect((route?.path as RegExp).test('/assets/dashboard/d-1/duplicates')).toBe(false);
+    });
+
     it('should match cached asset routes', () => {
       const cachedRoute = assetManagementRoutes.find(
         (r) => r.method === 'GET' && r.path instanceof RegExp && r.path.source.includes('cached')

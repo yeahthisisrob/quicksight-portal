@@ -35,6 +35,8 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
     onActivityFilterChange: p.onActivityFilterChange,
     smusFilter: p.smusFilter,
     onSmusFilterChange: p.onSmusFilterChange,
+    duplicatesFilter: p.duplicatesFilter,
+    onDuplicatesFilterChange: p.onDuplicatesFilterChange,
     importModeFilter: p.importModeFilter,
     onImportModeFilterChange: p.onImportModeFilterChange,
     includeFolders: p.includeFolders,
@@ -78,6 +80,7 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
         errorFilter={p.errorFilter}
         activityFilter={p.activityFilter}
         smusFilter={p.smusFilter}
+        duplicatesFilter={p.duplicatesFilter}
         importModeFilter={p.importModeFilter}
         selectedAssets={p.selectedAssets}
         includeTags={p.includeTags}
@@ -93,6 +96,9 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
           p.activityFilter !== undefined ? state.handleClearActivityFilter : undefined
         }
         onClearSmusFilter={p.smusFilter !== undefined ? state.handleClearSmusFilter : undefined}
+        onClearDuplicatesFilter={
+          p.duplicatesFilter !== undefined ? state.handleClearDuplicatesFilter : undefined
+        }
         onClearImportModeFilter={
           p.importModeFilter !== undefined ? state.handleClearImportModeFilter : undefined
         }
@@ -132,6 +138,9 @@ export const FilterBar: React.FC<FilterBarProps> = (props) => {
             enableSmusFiltering={p.enableSmusFiltering}
             smusFilter={p.smusFilter}
             onSmusFilterChange={p.onSmusFilterChange}
+            enableDuplicatesFiltering={p.enableDuplicatesFiltering}
+            duplicatesFilter={p.duplicatesFilter}
+            onDuplicatesFilterChange={p.onDuplicatesFilterChange}
             enableImportModeFiltering={p.enableImportModeFiltering}
             importModeFilter={p.importModeFilter}
             onImportModeFilterChange={p.onImportModeFilterChange}

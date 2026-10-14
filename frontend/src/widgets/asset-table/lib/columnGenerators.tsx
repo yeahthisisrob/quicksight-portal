@@ -97,6 +97,14 @@ export function generateDatasetColumns(handlers: Handlers): ColumnConfig[] {
       valueGetter: (params) => ((params.row as any).schemas?.[0] as string) || '',
     },
     {
+      id: 'sharesTablesWith',
+      label: 'Same table',
+      width: 110,
+      visible: true,
+      renderCell: (params: { row: AssetRow; value: any }) => renderSharesTablesWithCell(params),
+      valueGetter: (params) => ((params.row as any).sharesTablesWith as number) ?? 0,
+    },
+    {
       id: 'spiceCapacity',
       label: 'SPICE Size',
       width: 100,
@@ -261,6 +269,26 @@ function renderDatasetActivityCell(
  * the dataset's relational physical tables. Usually one; extras collapse
  * into a "+n" with the full list in the tooltip.
  */
+/** How many other datasets read one of the same tables; the Studio shows which. */
+function renderSharesTablesWithCell(params: { row: AssetRow; value: any }) {
+  const count: number = (params.row as any).sharesTablesWith ?? 0;
+  if (count === 0) {
+    return (
+      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+        Only this one
+      </Typography>
+    );
+  }
+  return (
+    <Tooltip
+      title={`${count} other dataset${count === 1 ? '' : 's'} read${count === 1 ? 's' : ''} the same table, as the table or in a query. Open it in the Studio to see which.`}
+      enterDelay={300}
+    >
+      <Chip label={`+${count}`} size="small" color="warning" variant="outlined" />
+    </Tooltip>
+  );
+}
+
 function renderSchemasCell(params: { row: AssetRow; value: any }) {
   const schemas: string[] = (params.row as any).schemas || [];
   if (schemas.length === 0) {
