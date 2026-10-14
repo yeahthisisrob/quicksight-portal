@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.39.2](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.39.1...v2.39.2) (2026-10-14)
+
+
+### Bug Fixes
+
+* **datasets:** a select-all query never names the Glue catalog id Athena does not know ([#310](https://github.com/yeahthisisrob/quicksight-portal/issues/310)) ([9ceb267](https://github.com/yeahthisisrob/quicksight-portal/commit/9ceb267d0bde4f6f2c2cd533452e9809802f8bcd))
+
 ## [2.39.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.39.0...v2.39.1) (2026-10-14)
 
 
