@@ -11,6 +11,7 @@ import {
   CreateFolderMembershipCommand,
   CreateGroupCommand,
   CreateGroupMembershipCommand,
+  CreateIngestionCommand,
   CreateRefreshScheduleCommand,
   CreateThemeCommand,
   DeleteAnalysisCommand,
@@ -21,6 +22,7 @@ import {
   DeleteFolderMembershipCommand,
   DeleteGroupCommand,
   DeleteGroupMembershipCommand,
+  DeleteRefreshScheduleCommand,
   DeleteThemeCommand,
   DeleteUserCommand,
   DescribeAnalysisCommand,
@@ -74,6 +76,7 @@ import {
   UpdateFolderCommand,
   UpdateFolderPermissionsCommand,
   UpdateGroupCommand,
+  UpdateRefreshScheduleCommand,
   UpdateThemeCommand,
   UpdateThemePermissionsCommand,
   UpdateUserCommand,
@@ -392,6 +395,45 @@ export class QuickSightAdapter {
       MemberName: memberName,
     });
 
+    await this.sendWithRateLimit(command);
+  }
+
+  /** Start a SPICE refresh now. The ingestion id is the caller's (unique per dataset). */
+  public async createIngestion(
+    dataSetId: string,
+    ingestionId: string,
+    ingestionType: 'FULL_REFRESH' | 'INCREMENTAL_REFRESH' = 'FULL_REFRESH'
+  ): Promise<{ ingestionId: string; arn: string; status?: string }> {
+    const command = new CreateIngestionCommand({
+      AwsAccountId: this.awsAccountId,
+      DataSetId: dataSetId,
+      IngestionId: ingestionId,
+      IngestionType: ingestionType,
+    });
+    const response = await this.sendWithRateLimit(command);
+    return {
+      ingestionId: response.IngestionId ?? ingestionId,
+      arn: response.Arn ?? '',
+      status: response.IngestionStatus,
+    };
+  }
+
+  public async updateRefreshSchedule(dataSetId: string, schedule: any): Promise<any> {
+    const command = new UpdateRefreshScheduleCommand({
+      AwsAccountId: this.awsAccountId,
+      DataSetId: dataSetId,
+      Schedule: schedule,
+    });
+    const response = await this.sendWithRateLimit(command);
+    return { Status: response.Status, ScheduleId: response.ScheduleId, Arn: response.Arn };
+  }
+
+  public async deleteRefreshSchedule(dataSetId: string, scheduleId: string): Promise<void> {
+    const command = new DeleteRefreshScheduleCommand({
+      AwsAccountId: this.awsAccountId,
+      DataSetId: dataSetId,
+      ScheduleId: scheduleId,
+    });
     await this.sendWithRateLimit(command);
   }
 

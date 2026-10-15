@@ -1,9 +1,24 @@
 import type { RouteHandler } from '../../../api/types';
 import { AssetHandler } from '../handlers/AssetHandler';
+import { DatasetRefreshHandler } from '../handlers/DatasetRefreshHandler';
 import { IngestionHandler } from '../handlers/IngestionHandler';
 
 const handler = new AssetHandler();
 const ingestionHandler = new IngestionHandler();
+const refreshHandler = new DatasetRefreshHandler();
+
+/** The router's generic names do not know these routes; name the ids from the path. */
+function withScheduleIds<T extends { path: string; pathParameters: any }>(event: T): T {
+  const match = event.path.match(/\/assets\/dataset\/([^/]+)\/refresh-schedules(?:\/([^/]+))?/);
+  return {
+    ...event,
+    pathParameters: {
+      ...(event.pathParameters ?? {}),
+      assetId: match?.[1] ?? '',
+      ...(match?.[2] ? { scheduleId: match[2] } : {}),
+    },
+  };
+}
 
 export const assetManagementRoutes: RouteHandler[] = [
   {
@@ -110,6 +125,38 @@ export const assetManagementRoutes: RouteHandler[] = [
     method: 'GET',
     path: '/ingestions',
     handler: (event) => ingestionHandler.list(event),
+  },
+  {
+    method: 'POST',
+    path: /^\/ingestions\/([^/]+)$/,
+    handler: (event) =>
+      refreshHandler.refreshNow({
+        ...event,
+        pathParameters: {
+          ...(event.pathParameters ?? {}),
+          datasetId: event.path.match(/\/ingestions\/([^/]+)$/)?.[1] ?? '',
+        },
+      }),
+  },
+  {
+    method: 'GET',
+    path: /^\/assets\/dataset\/([^/]+)\/refresh-schedules$/,
+    handler: (event) => refreshHandler.listSchedules(withScheduleIds(event)),
+  },
+  {
+    method: 'POST',
+    path: /^\/assets\/dataset\/([^/]+)\/refresh-schedules$/,
+    handler: (event) => refreshHandler.createSchedule(withScheduleIds(event)),
+  },
+  {
+    method: 'PUT',
+    path: /^\/assets\/dataset\/([^/]+)\/refresh-schedules\/([^/]+)$/,
+    handler: (event) => refreshHandler.updateSchedule(withScheduleIds(event)),
+  },
+  {
+    method: 'DELETE',
+    path: /^\/assets\/dataset\/([^/]+)\/refresh-schedules\/([^/]+)$/,
+    handler: (event) => refreshHandler.deleteSchedule(withScheduleIds(event)),
   },
 
   {

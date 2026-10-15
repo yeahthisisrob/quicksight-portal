@@ -306,6 +306,34 @@ export class QuickSightService {
     );
   }
 
+  public async createIngestion(
+    dataSetId: string,
+    ingestionId: string,
+    ingestionType: 'FULL_REFRESH' | 'INCREMENTAL_REFRESH' = 'FULL_REFRESH'
+  ): Promise<{ ingestionId: string; arn: string; status?: string }> {
+    return await this.executeWithTracking(
+      () => this.adapter.createIngestion(dataSetId, ingestionId, ingestionType),
+      { operation: 'CreateIngestion', assetType: ASSET_TYPES.dataset, assetId: dataSetId },
+      'other'
+    );
+  }
+
+  public async updateRefreshSchedule(dataSetId: string, schedule: any): Promise<any> {
+    return await this.executeWithTracking(
+      () => this.adapter.updateRefreshSchedule(dataSetId, schedule),
+      { operation: 'UpdateRefreshSchedule', assetType: ASSET_TYPES.dataset, assetId: dataSetId },
+      'other'
+    );
+  }
+
+  public async deleteRefreshSchedule(dataSetId: string, scheduleId: string): Promise<void> {
+    await this.executeWithTracking(
+      () => this.adapter.deleteRefreshSchedule(dataSetId, scheduleId),
+      { operation: 'DeleteRefreshSchedule', assetType: ASSET_TYPES.dataset, assetId: dataSetId },
+      'other'
+    );
+  }
+
   public async createRefreshSchedule(dataSetId: string, schedule: any): Promise<any> {
     return await this.executeWithTracking(
       () => this.adapter.createRefreshSchedule(dataSetId, schedule),

@@ -6,7 +6,7 @@
  * Columns are never rewritten, so everything downstream keeps working; a
  * save says how much reads it before it goes.
  */
-import { ArrowBack, Build, OpenInNew, Save, Undo } from '@mui/icons-material';
+import { ArrowBack, Build, OpenInNew, Refresh, Save, Undo } from '@mui/icons-material';
 import {
   Alert,
   AlertTitle,
@@ -30,17 +30,22 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 
-import { DatasetSourceTables, ImportModeToggle, useDatasetSourceDraft } from '@/entities/dataset';
+import {
+  DatasetSourceTables,
+  ImportModeToggle,
+  RefreshScheduleDialog,
+  useDatasetSourceDraft,
+} from '@/entities/dataset';
 import type { RebindSource } from '@/entities/definition';
 import { FieldKindChip } from '@/entities/field';
 import { SmusLinkBadge, useSmusDatasetLinks, useSmusStatus } from '@/entities/smus';
 
-import { assetsApi } from '@/shared/api';
+import { assetsApi, getApiErrorMessage, refreshApi } from '@/shared/api';
 import { type ContextHit, contextApi } from '@/shared/api/modules/search';
 import { classifyFields } from '@/shared/lib';
 import { announceAssetChanges } from '@/shared/lib/assetChanges';
@@ -273,6 +278,76 @@ function SameTablePanel({
   );
 }
 
+/**
+ * The dataset's refreshes: a SPICE refresh now, and the schedules (live)
+ * opened in the same dialog the Datasets page uses.
+ */
+function RefreshPanel({
+  dataset,
+  importMode,
+}: {
+  dataset: { id: string; name: string };
+  importMode?: string;
+}) {
+  const { enqueueSnackbar } = useSnackbar();
+  const [schedulesOpen, setSchedulesOpen] = useState(false);
+  const schedules = useQuery({
+    queryKey: ['refresh-schedules', dataset.id],
+    queryFn: () => refreshApi.listSchedules(dataset.id),
+  });
+  const refreshNow = useMutation({
+    mutationFn: () => refreshApi.refreshNow(dataset.id),
+    onSuccess: (ingestion) =>
+      enqueueSnackbar(`Refreshing "${dataset.name}" (${ingestion.status.toLowerCase()})`, {
+        variant: 'success',
+      }),
+    onError: (error) =>
+      enqueueSnackbar(getApiErrorMessage(error, 'The refresh could not be started'), {
+        variant: 'error',
+      }),
+  });
+  const spice = importMode !== 'DIRECT_QUERY';
+  const count = schedules.data?.length;
+  return (
+    <Panel
+      title="Refreshes"
+      description={
+        spice
+          ? count === undefined
+            ? 'When SPICE reads the source again.'
+            : count === 0
+              ? 'No schedule: SPICE reads the source only when someone asks.'
+              : `${count} schedule${count === 1 ? '' : 's'}: ${schedules.data?.map((s) => s.scheduleFrequency.interval.toLowerCase()).join(', ')}.`
+          : 'Direct query reads the source on every view; there is nothing to refresh.'
+      }
+    >
+      <Stack direction="row" spacing={1}>
+        {spice && (
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<Refresh />}
+            disabled={refreshNow.isPending}
+            onClick={() => refreshNow.mutate()}
+          >
+            Refresh now
+          </Button>
+        )}
+        <Button size="small" variant="outlined" onClick={() => setSchedulesOpen(true)}>
+          Schedules
+        </Button>
+      </Stack>
+      {schedulesOpen && (
+        <RefreshScheduleDialog
+          open
+          onClose={() => setSchedulesOpen(false)}
+          dataset={{ id: dataset.id, name: dataset.name, importMode }}
+        />
+      )}
+    </Panel>
+  );
+}
+
 function GovernancePanel({ datasetId }: { datasetId: string }) {
   const status = useSmusStatus();
   const configured = Boolean(status.data?.configured);
@@ -443,6 +518,7 @@ export function DatasetEditor({
           />
           <ReadersPanel datasetId={dataset.id} onOpen={onOpen} />
           <SameTablePanel datasetId={dataset.id} onOpenDataset={onOpenDataset} />
+          <RefreshPanel dataset={dataset} importMode={draft.importMode ?? undefined} />
           <GovernancePanel datasetId={dataset.id} />
           <ColumnsPanel datasetId={dataset.id} />
           <CalculatedFieldsPanel datasetId={dataset.id} />
