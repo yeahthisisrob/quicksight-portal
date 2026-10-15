@@ -144,7 +144,19 @@ interface AddToFolderStep {
   folder: Templated<string>;
 }
 
+/**
+ * Learn what a dashboard or analysis is for: one model call drafts a
+ * reading of it and of each visual, and lists what the definition cannot
+ * tell. The preview shows the readings and questions for review; the run
+ * confirms the readings as notes the planner reads from then on, and the
+ * questions stay open for a person to answer.
+ */
+interface LearnStep {
+  kind: 'learn';
+}
+
 export type SpecStep =
+  | LearnStep
   | MatchDatasetStep
   | RebindStep
   | TagStep

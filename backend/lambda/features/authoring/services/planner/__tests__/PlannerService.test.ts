@@ -348,6 +348,67 @@ describe('PlannerService', () => {
   });
 });
 
+describe('PlannerService knowledge', () => {
+  it('tells the edits planner what people have confirmed about the asset, its visuals and its columns', async () => {
+    const rebindService = {
+      describeDatasets: vi.fn(async () => ({
+        assetType: 'analysis',
+        assetId: 'a1',
+        name: 'Sales',
+        datasets: [{ identifier: 'orders', dataSetId: 'ds-1', columns: [{ name: 'revenue' }] }],
+      })),
+      loadDefinitionOutline: vi.fn(async () => [
+        {
+          sheetId: 's1',
+          name: 'Overview',
+          layout: 'grid',
+          elements: [{ elementId: 'v1', kind: 'visual', visualType: 'KPI', title: 'Revenue' }],
+        },
+      ]),
+      describeTargetDataset: vi.fn(async () => ({
+        columns: [{ name: 'revenue', type: 'DECIMAL' }],
+      })),
+      preview: vi.fn(async () => ({ definition: {}, outline: [], changes: [] })),
+      plan: vi.fn(),
+    };
+    const model = new FakeModel([{ ops: [] }]);
+    const asked: string[][] = [];
+    const planner = new PlannerService(rebindService as any, model, async () => [], {
+      knowledge: async (ids) => {
+        asked.push(ids);
+        return new Map([
+          [
+            'dataset-column:ds-1/revenue',
+            [
+              {
+                entityId: 'dataset-column:ds-1/revenue',
+                noteId: 'n1',
+                kind: 'meaning' as const,
+                text: 'Net of returns; never sum gross_revenue here.',
+                source: 'person' as const,
+                status: 'confirmed' as const,
+                by: 'rob@example.com',
+                at: '2026-10-15T00:00:00.000Z',
+              },
+            ],
+          ],
+        ]);
+      },
+    });
+    await planner.propose('analysis', 'a1', { ask: 'add a revenue KPI', intent: 'edit' });
+    expect(asked[0]).toEqual([
+      'analysis:a1',
+      'visual:analysis:a1:v1',
+      'dataset:ds-1',
+      'dataset-column:ds-1/revenue',
+    ]);
+    const prompt = model.requests.find((r) => r.label === 'plan-edits')!;
+    expect(prompt.user).toContain('What people have said about these');
+    expect(prompt.user).toContain('Column orders.revenue:');
+    expect(prompt.user).toContain('Net of returns; never sum gross_revenue here.');
+  });
+});
+
 describe('parseChoice', () => {
   const ids = new Set(['orders']);
   const candidates = new Set(['orders-gold']);

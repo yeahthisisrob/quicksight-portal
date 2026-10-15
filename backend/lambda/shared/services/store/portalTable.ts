@@ -263,6 +263,60 @@ const catalogEntry = new Entity({
   },
 });
 
+/** What a note says: what a thing means, how to build with it, which one is the real one, a taste, what changed, or what the model read into it. */
+const NOTE_KINDS = [
+  'meaning',
+  'rule',
+  'identity',
+  'preference',
+  'change',
+  'description',
+  'question',
+] as const;
+export type NoteKind = (typeof NOTE_KINDS)[number];
+const NOTE_SOURCES = ['person', 'model', 'portal'] as const;
+export type NoteSource = (typeof NOTE_SOURCES)[number];
+const NOTE_STATUSES = ['confirmed', 'draft'] as const;
+export type NoteStatus = (typeof NOTE_STATUSES)[number];
+
+/**
+ * What is known about one thing in the account, by its graph entity id
+ * (`analysis:a1`, `visual:analysis:a1:v3`, `dataset-column:ds1:revenue`),
+ * one note per row, newest last by `noteId`. A person's words and what the
+ * portal did are confirmed as written; what a model read into a thing is a
+ * draft until a person confirms it, and only confirmed notes reach a
+ * planner's prompt.
+ */
+const note = new Entity({
+  model: { entity: 'note', version: '1', service },
+  attributes: {
+    entityId: { type: 'string', required: true },
+    /** Time-ordered: `${at}-${random}`. */
+    noteId: { type: 'string', required: true },
+    kind: { type: NOTE_KINDS, required: true },
+    text: { type: 'string', required: true },
+    source: { type: NOTE_SOURCES, required: true },
+    status: { type: NOTE_STATUSES, required: true },
+    /** Who said it (a person's label, "the portal", or the model id). */
+    by: { type: 'string', required: true },
+    at: { type: 'string', required: true },
+    /** For a change: the action and job; for a copy: where from; for a draft: the model. */
+    details: { type: 'any' },
+  },
+  indexes: {
+    byEntity: {
+      pk: { field: 'pk', composite: ['entityId'], ...keep },
+      sk: { field: 'sk', composite: ['noteId'], ...keep },
+    },
+    /** Everything of a status across the account, newest first: the review queue. */
+    byStatus: {
+      index: 'gsi1',
+      pk: { field: 'gsi1pk', composite: ['status'], ...keep },
+      sk: { field: 'gsi1sk', composite: ['noteId'], ...keep },
+    },
+  },
+});
+
 /** A type's catalog version: bumped on every change, so a Lambda knows when its copy is stale. */
 const catalogVersion = new Entity({
   model: { entity: 'catalogVersion', version: '1', service },
@@ -290,12 +344,14 @@ const ENTITIES = {
   libraryItem,
   catalogEntry,
   catalogVersion,
+  note,
 };
 
 export type PortalEntities = typeof ENTITIES;
 export type JobRow = EntityItem<typeof job>;
 export type JobItemRow = EntityItem<typeof jobItem>;
 export type CatalogEntryRow = EntityItem<typeof catalogEntry>;
+export type NoteRow = EntityItem<typeof note>;
 
 let instance: Service<PortalEntities> | null = null;
 

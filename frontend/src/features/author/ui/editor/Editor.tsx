@@ -32,6 +32,7 @@ import { AssetBrowser } from './AssetBrowser';
 import { Canvas, type CanvasView } from './Canvas';
 import { DataPanel } from './DataPanel';
 import { IssuesPanel } from './IssuesPanel';
+import { NotesPanel } from './NotesPanel';
 import { SaveDialog } from './SaveDialog';
 import { SourceRestorePanel } from './SourceRestorePanel';
 import { ThemePanel } from './ThemePanel';
@@ -87,6 +88,7 @@ function SidePanel({ studio, sheetId }: { studio: Studio; sheetId: string }) {
     { value: 'inspect', label: 'Inspect' },
     { value: 'changes', label: 'Changes', badge: state.ops.length || undefined },
     { value: 'data', label: 'Data', badge: ungoverned || undefined },
+    { value: 'notes', label: 'Notes' },
     { value: 'theme', label: 'Theme' },
   ];
 
@@ -118,6 +120,7 @@ function SidePanel({ studio, sheetId }: { studio: Studio; sheetId: string }) {
           ))}
         {state.panel === 'changes' && <ChangesPanel studio={studio} />}
         {state.panel === 'data' && <DataPanel studio={studio} />}
+        {state.panel === 'notes' && <NotesPanel studio={studio} />}
         {state.panel === 'theme' && <ThemePanel studio={studio} />}
       </Box>
     </Panel>

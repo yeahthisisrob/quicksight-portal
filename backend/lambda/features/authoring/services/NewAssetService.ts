@@ -441,6 +441,15 @@ export class NewAssetService {
         folderIds,
         name,
         details: { visuals: composed.visuals.length, changes: composed.changes.length },
+        changes: [
+          {
+            text: `Created with ${composed.visuals.length} visual${composed.visuals.length === 1 ? '' : 's'}`,
+          },
+          ...composed.changes.map((c) => ({
+            text: c.description,
+            ...(c.elementId ? { elementId: c.elementId } : {}),
+          })),
+        ],
       },
       auth
     );

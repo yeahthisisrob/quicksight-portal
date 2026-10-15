@@ -500,30 +500,18 @@ export class AssistantService {
     run: RunInput,
     out: Collected
   ): Promise<DirectPlan | undefined> {
+    if (u.change === 'learn' && u.asset && !run.resume?.length) {
+      return this.learnDirectly(u, out);
+    }
     if (u.change !== 'visual' || !u.asset || !u.brief || run.resume?.length) {
       return undefined;
     }
-    const { kind, name, id } = u.asset;
-    const started = this.now();
-    const hits = (await searchHits(this.dispatch, { query: name, types: [kind] })).filter(
-      (h) => h.type === kind
-    );
-    await this.record(out, {
-      method: 'GET',
-      path: `context_search "${name}"`,
-      status: HTTP_OK,
-      ok: true,
-      step: 'Searching',
-      ms: this.now() - started,
-    });
-    const named = hits.filter((h) => h.name.toLowerCase() === name.toLowerCase());
-    const hit =
-      (id ? hits.find((h) => h.entityId === `${kind}:${id}`) : undefined) ??
-      (named.length === 1 ? named[0] : hits.length === 1 ? hits[0] : undefined);
+    const { kind } = u.asset;
+    const hit = await this.resolveAsset(u.asset, out);
     if (!hit) {
       return undefined;
     }
-    const assetId = hit.entityId.slice(kind.length + 1);
+    const { assetId } = hit;
     // An earlier plan on it that was not run is revised in conversation, so its changes are kept.
     if (this.earlierPlans.some((p) => 'edit' in p.build && p.build.edit.assetId === assetId)) {
       return undefined;
@@ -531,7 +519,7 @@ export class AssistantService {
     const lineageStarted = this.now();
     const datasets = (
       await relatedHits(this.dispatch, {
-        entityId: hit.entityId,
+        entityId: `${kind}:${assetId}`,
         relations: ['uses-dataset'],
         direction: 'out',
         types: ['dataset'],
@@ -539,7 +527,7 @@ export class AssistantService {
     ).map((d) => ({ name: d.name || d.entityId, id: d.entityId.replace(/^dataset:/, '') }));
     await this.record(out, {
       method: 'GET',
-      path: `context_related ${hit.entityId}`,
+      path: `context_related ${kind}:${assetId}`,
       status: datasets.length ? HTTP_OK : HTTP_NOT_FOUND,
       ok: datasets.length > 0,
       step: 'Following the lineage',
@@ -548,7 +536,7 @@ export class AssistantService {
     if (datasets.length === 0) {
       return undefined;
     }
-    const assetName = hit.name || name;
+    const assetName = hit.name;
     const about = `The asset is ${kind} "${assetName}" (id ${assetId}); it reads ${datasets
       .map((d) => `${d.name} (id ${d.id})`)
       .join(', ')}.`;
@@ -608,6 +596,8 @@ export class AssistantService {
         return this.showToPerson(id, input, out);
       case 'prepare_plan':
         return this.preparePlan(id, input, out);
+      case 'remember':
+        return this.remember(id, input, out);
       case 'propose_action':
         return this.proposeAction(id, input, out);
       case 'call_portal_api':
@@ -944,6 +934,76 @@ export class AssistantService {
     return current.size > 0 && planned.every((d) => current.has(d.id as string));
   }
 
+  /**
+   * Learn what one named asset is for, with no conversation: the asset is
+   * found in the graph, the learn job runs, and the answer lists what was
+   * read into it and what only the person can tell. Their answers in the
+   * next messages are kept with remember.
+   */
+  private async learnDirectly(u: Understanding, out: Collected): Promise<DirectPlan | undefined> {
+    const hit = await this.resolveAsset(u.asset!, out);
+    if (!hit) return undefined;
+    const path = `/api/authoring/${hit.kind}/${encodeURIComponent(hit.assetId)}/learn`;
+    const model = this.options.authoringModel ? { model: this.options.authoringModel } : {};
+    const response = await this.run('POST', path, model);
+    await this.record(out, {
+      method: 'POST',
+      path,
+      status: response.status,
+      ok: response.status < HTTP_ERROR_MIN,
+      step: 'Learning what it is for',
+      ms: response.ms,
+    });
+    if (response.status >= HTTP_ERROR_MIN) {
+      return {
+        problem: clip(response.body),
+        about: `The asset is ${hit.kind} "${hit.name}" (id ${hit.assetId}).`,
+      };
+    }
+    const data = dataOf(response.body) ?? {};
+    const drafts: any[] = Array.isArray(data.drafts) ? data.drafts : [];
+    const questions: any[] = Array.isArray(data.questions) ? data.questions : [];
+    const lines = [
+      u.understanding,
+      '',
+      drafts.length
+        ? `What I read into ${hit.kind} "${hit.name}" (unconfirmed until you say so; confirm or edit them in the Studio's Notes panel):\n${drafts.map((d) => `- ${d.text}`).join('\n')}`
+        : `I could not say what ${hit.kind} "${hit.name}" is for from its definition alone.`,
+      '',
+      questions.length
+        ? `What I cannot tell from the definition:\n${questions.map((q, i) => `${i + 1}. ${q.text}`).join('\n')}\nAnswer any of these here and I will keep it on the right thing.`
+        : 'Nothing was unclear enough to ask about.',
+    ];
+    return { reply: lines.join('\n') };
+  }
+
+  /** One asset in the graph for a name (or the id the conversation gave), or nothing when it is not one. */
+  private async resolveAsset(
+    asset: NonNullable<Understanding['asset']>,
+    out: Collected
+  ): Promise<{ kind: 'dashboard' | 'analysis'; assetId: string; name: string } | undefined> {
+    const { kind, name, id } = asset;
+    const started = this.now();
+    const hits = (await searchHits(this.dispatch, { query: name, types: [kind] })).filter(
+      (h) => h.type === kind
+    );
+    await this.record(out, {
+      method: 'GET',
+      path: `context_search "${name}"`,
+      status: HTTP_OK,
+      ok: true,
+      step: 'Searching',
+      ms: this.now() - started,
+    });
+    const named = hits.filter((h) => h.name.toLowerCase() === name.toLowerCase());
+    const hit =
+      (id ? hits.find((h) => h.entityId === `${kind}:${id}`) : undefined) ??
+      (named.length === 1 ? named[0] : hits.length === 1 ? hits[0] : undefined);
+    return hit
+      ? { kind, assetId: hit.entityId.slice(kind.length + 1), name: hit.name || name }
+      : undefined;
+  }
+
   /** The planner model an answer used, once, for its chip and its cost. */
   private recordPlanner(body: string, out: Collected): void {
     const planner = plannerModelOf(body);
@@ -1229,6 +1289,45 @@ export class AssistantService {
       return { id, content: 'Lineage shown.' };
     }
     return { id, content: "kind must be 'asset' or 'lineage'.", isError: true };
+  }
+
+  // --- what the person said, kept ---------------------------------------------
+
+  /** A fact the person stated, kept on the thing it is about, in their name. */
+  private async remember(
+    id: string,
+    input: Record<string, unknown>,
+    out: Collected
+  ): Promise<ToolResult> {
+    const entityId = str(input, 'entityId');
+    const kind = str(input, 'kind');
+    const text = str(input, 'text');
+    if (!entityId || !kind || !text) {
+      return { id, content: 'remember needs entityId, kind and text.', isError: true };
+    }
+    await this.progress('Keeping what you said');
+    const path = `/api/knowledge/${encodeURIComponent(entityId)}`;
+    const resolves = str(input, 'resolves');
+    const response = await this.run('POST', path, {
+      kind,
+      text,
+      ...(resolves ? { resolves } : {}),
+    });
+    const ok = response.status < HTTP_ERROR_MIN;
+    await this.record(out, {
+      method: 'POST',
+      path,
+      status: response.status,
+      ok,
+      step: 'Keeping what you said',
+      ms: response.ms,
+    });
+    return ok
+      ? {
+          id,
+          content: `Kept on ${entityId}${resolves ? ', and the question is closed' : ''}. Say so.`,
+        }
+      : { id, content: `It could not be kept: ${clip(response.body)}`, isError: true };
   }
 
   // --- writes, prepared for the person ---------------------------------------

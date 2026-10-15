@@ -339,6 +339,30 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
     },
   },
   {
+    name: 'remember',
+    description:
+      "Keep something the person said about a thing, on that thing, so it is known from now on: what a column or field means, a rule for building with it (how to count it, which column is the net one), which asset is the real one, or a preference. Saved in their name, confirmed as written, and read by the planner on every later plan. Use the graph's entity id (context_search and context_get give them; a visual is visual:<assetType>:<assetId>:<visualId>, a column dataset-column:<dataSetId>/<column>). When it answers an open question context_get showed (note [id]), pass that id as resolves.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entityId: { type: 'string' },
+        kind: {
+          type: 'string',
+          enum: ['meaning', 'rule', 'identity', 'preference', 'description'],
+        },
+        text: {
+          type: 'string',
+          description: "The fact, in the person's words, one or two sentences.",
+        },
+        resolves: {
+          type: 'string',
+          description: 'The id of the question note this answers, if any.',
+        },
+      },
+      required: ['entityId', 'kind', 'text'],
+    },
+  },
+  {
     name: 'propose_action',
     description:
       "Prepare a write that is not authoring (grant, tag, share, delete, a new dataset, a template) for the person to run. Authoring writes - creating or editing an analysis or dashboard - come from a plan: show_plan (which puts the Run button under it). The body is checked against the operation's schema (use describe_operation first), and a write with a /preview twin is previewed with the same body; either failing comes back to you to fix. A new dataset (POST /api/authoring/datasets) is previewed this way too: the preview settles its columns and names the SMUS listing it will be linked to. It is not run until they click it.",

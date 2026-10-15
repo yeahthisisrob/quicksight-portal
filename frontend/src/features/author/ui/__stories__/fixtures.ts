@@ -18,6 +18,7 @@ import type {
   RepairPlan,
 } from '@/shared/api/modules/authoring';
 import type { CalculatedFieldTemplate } from '@/shared/api/modules/data-catalog';
+import type { Note } from '@/shared/api/modules/knowledge';
 import type { SmusDatasetLink } from '@/shared/api/modules/smus';
 
 import type { MockRoute } from '../../../../../.storybook/mocks/api';
@@ -798,9 +799,147 @@ function archivedRoutes(): MockRoute[] {
   ];
 }
 
+/** What is known about the open asset and its visuals, and the learn job that drafts more. */
+function knowledgeRoutes(): MockRoute[] {
+  const note = (partial: Partial<Note> & Pick<Note, 'noteId' | 'kind' | 'text'>): Note => ({
+    entityId: `dashboard:${SOURCE.id}`,
+    source: 'person',
+    status: 'confirmed',
+    by: 'pat@example.com',
+    at: '2026-10-14T09:00:00Z',
+    ...partial,
+  });
+  const notes: Note[] = [
+    note({
+      noteId: '2026-10-15T10:00:00.000Z-a1',
+      kind: 'question',
+      text: 'Is "Revenue" net of returns, or gross?',
+      source: 'model',
+      status: 'draft',
+      by: 'us.anthropic.claude-sonnet-5',
+      at: '2026-10-15T10:00:00Z',
+    }),
+    note({
+      noteId: '2026-10-15T09:59:00.000Z-a0',
+      kind: 'description',
+      text: 'The weekly sales review: revenue and orders by region, with the trend by month.',
+      source: 'model',
+      status: 'draft',
+      by: 'us.anthropic.claude-sonnet-5',
+      at: '2026-10-15T09:59:00Z',
+    }),
+    note({
+      noteId: '2026-10-14T09:00:00.000Z-9f',
+      kind: 'identity',
+      text: 'The one finance reads on Mondays; the copy in Sandbox is a scratch pad.',
+    }),
+    note({
+      noteId: '2026-10-13T16:00:00.000Z-8e',
+      kind: 'change',
+      text: "Added a table 'Results' to Overview",
+      source: 'portal',
+      by: 'pat@example.com',
+      at: '2026-10-13T16:00:00Z',
+    }),
+  ];
+  return [
+    {
+      method: 'get',
+      url: /\/knowledge$/,
+      respond: (config) => ({
+        body: {
+          success: true,
+          data: {
+            notes:
+              config.params?.status === 'draft'
+                ? notes.filter((n) => n.status === 'draft')
+                : notes.filter((n) => n.status === 'confirmed'),
+          },
+        },
+      }),
+    },
+    {
+      method: 'get',
+      url: /\/knowledge\/[^/]+$/,
+      respond: (config) => ({
+        body: {
+          success: true,
+          data: {
+            entityId: decodeURIComponent(String(config.url).split('/knowledge/')[1] ?? ''),
+            notes: String(config.url).includes('visual%3A') ? notes.slice(0, 1) : notes,
+          },
+        },
+      }),
+    },
+    {
+      method: 'post',
+      url: /\/knowledge\/[^/]+$/,
+      respond: () => ({
+        status: 201,
+        body: {
+          success: true,
+          data: note({ noteId: 'new', kind: 'meaning', text: 'Net of returns.' }),
+        },
+      }),
+    },
+    {
+      method: 'post',
+      url: /\/knowledge\/[^/]+\/[^/]+\/confirm$/,
+      respond: () => ({ body: { success: true, data: { ...notes[1]!, status: 'confirmed' } } }),
+    },
+    {
+      method: 'delete',
+      url: /\/knowledge\/[^/]+\/[^/]+$/,
+      respond: () => ({ body: { success: true, data: { entityId: 'x', noteId: 'y' } } }),
+    },
+    {
+      method: 'post',
+      url: /\/authoring\/(dashboard|analysis)\/[^/]+\/learn$/,
+      respond: () => ({
+        status: 202,
+        body: { success: true, data: { jobId: 'learn-1', status: 'queued', message: 'Learning' } },
+      }),
+    },
+    {
+      method: 'get',
+      url: /\/jobs\/learn-1$/,
+      respond: () => ({
+        body: {
+          success: true,
+          data: {
+            jobId: 'learn-1',
+            jobType: 'planner',
+            status: 'completed',
+            startTime: '2026-10-15T10:00:00Z',
+          },
+        },
+      }),
+    },
+    {
+      method: 'get',
+      url: /\/jobs\/learn-1\/result$/,
+      respond: () => ({
+        body: {
+          success: true,
+          data: {
+            assetType: 'dashboard',
+            assetId: SOURCE.id,
+            name: SOURCE.name,
+            drafts: [notes[1]],
+            questions: [notes[0]],
+            known: 2,
+            model: { provider: 'bedrock', model: 'us.anthropic.claude-sonnet-5' },
+          },
+        },
+      }),
+    },
+  ];
+}
+
 export function authorRoutes(overrides: MockRoute[] = []): MockRoute[] {
   return [
     ...overrides,
+    ...knowledgeRoutes(),
     ...archivedRoutes(),
     ...datasetRoutes(),
     searchRoute(),

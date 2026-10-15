@@ -1,0 +1,1 @@
+export { knowledgeRoutes } from './routes';

@@ -139,9 +139,14 @@ export async function contextGet(
   if (result.status >= FIRST_ERROR_STATUS || !result.data?.entity) {
     return { ok: false, text: result.error ?? `No entity ${entityId}` };
   }
-  const { entity, relations } = result.data;
+  const { entity, relations, notes } = result.data;
   const lines = [
     `${entity.id}: ${entity.summary}${entity.description ? `\n  ${entity.description}` : ''}${attributes(entity.attributes)}`,
+    // What people and the portal have said about it, newest first; a draft is the model's unconfirmed reading.
+    ...((notes as any[]) ?? []).map(
+      (n) =>
+        `  note${n.kind === 'question' ? ` [${n.noteId}]` : ''} (${n.kind}, ${n.by}, ${String(n.at).slice(0, 10)}${n.status === 'draft' ? ', unconfirmed' : ''}): ${n.text}`
+    ),
     ...(relations as any[]).map(
       (r) =>
         `  ${r.direction === 'out' ? r.relation : `${r.relation} (from)`}: ${r.count} - ${r.examples
