@@ -22,15 +22,17 @@ import { SegmentedControl } from '@/shared/design-system';
 
 import { type Studio, type StudioOptions, useStudio } from '../model/useStudio';
 import { Editor } from './editor/Editor';
+import { KnowledgeView } from './knowledge/KnowledgeView';
 import { PlaybooksView } from './playbooks/PlaybooksView';
 import { TemplatesView } from './templates/TemplatesView';
 
-export type StudioView = 'editor' | 'templates' | 'playbooks';
+export type StudioView = 'editor' | 'templates' | 'playbooks' | 'knowledge';
 
 const VIEWS: Array<{ value: StudioView; label: string }> = [
   { value: 'editor', label: 'Editor' },
   { value: 'templates', label: 'Templates' },
   { value: 'playbooks', label: 'Playbooks' },
+  { value: 'knowledge', label: 'Knowledge' },
 ];
 
 const DESCRIPTIONS: Record<StudioView, string> = {
@@ -40,13 +42,15 @@ const DESCRIPTIONS: Record<StudioView, string> = {
     'The pieces the organisation reuses: filter bars, visuals, calculated fields and layouts. The Assistant and the portal apply them.',
   playbooks:
     'Fixes across the whole account. Each shows what it would touch, and why, before anything changes.',
+  knowledge:
+    'What the portal knows about your assets, columns and fields, by id: what people said, what changed, what a model read into them. Confirm or answer what is open; the assistant and the planner read the rest.',
 };
 
 function viewOf(params: URLSearchParams): StudioView {
   const view = params.get('view');
   // 'scripts' was this view's old name; links to it still land here.
   if (view === 'scripts' || view === 'playbooks') return 'playbooks';
-  return view === 'templates' ? view : 'editor';
+  return view === 'templates' || view === 'knowledge' ? view : 'editor';
 }
 
 /** The Studio with its editor state injected, so stories can drive it. */
@@ -89,6 +93,8 @@ export function AuthorStudioView({
         <TemplatesView />
       ) : view === 'playbooks' ? (
         <PlaybooksView />
+      ) : view === 'knowledge' ? (
+        <KnowledgeView />
       ) : (
         <Editor
           key={

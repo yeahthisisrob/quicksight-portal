@@ -8,6 +8,29 @@ const SHIPPED_AT = '2026-09-26T00:00:00Z';
 
 export const EXAMPLE_SPECS: PlaybookSpec[] = [
   {
+    id: 'learn-what-they-do',
+    name: 'Learn what the busy dashboards and analyses are for',
+    description:
+      'For each dashboard or analysis viewed at least the number of times you set, a model reads its outline and the columns it uses and drafts what it is for and what each visual shows, then lists what the definition cannot tell. The preview shows the readings and questions; the run confirms the readings as notes the assistant and the planner read from then on, and the questions stay open for you to answer in the Studio. Nothing in QuickSight changes.',
+    inputs: [
+      {
+        key: 'minViews',
+        label: 'At least this many views',
+        kind: 'number',
+        default: 1,
+        required: true,
+      },
+    ],
+    category: 'data',
+    select: {
+      assetTypes: ['dashboard', 'analysis'],
+      where: [{ kind: 'views', min: '{{minViews}}' }],
+    },
+    steps: [{ kind: 'learn' }],
+    createdAt: SHIPPED_AT,
+    updatedAt: SHIPPED_AT,
+  },
+  {
     id: 'move-to-governed-athena',
     name: 'Move busy dashboards onto governed Athena datasets',
     description:

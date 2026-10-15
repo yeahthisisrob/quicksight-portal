@@ -89,6 +89,8 @@ interface PlannerJobConfig extends BaseJobConfig {
         mode?: 'clone' | 'update';
       }
     | { kind: 'new-visuals'; newAsset: Record<string, unknown> }
+    /** Read what an asset is for and draft notes on it and its visuals. */
+    | { kind: 'learn'; assetType: 'dashboard' | 'analysis'; assetId: string }
     /** A theme drawn from a picture, stored in the bucket (too big for a queue message). */
     | { kind: 'theme-from-image'; imageKey: string; note?: string };
 }
@@ -214,7 +216,7 @@ export class JobFactory {
         }),
         ...(config.jobType === 'playbook' && { playbook: config.request }),
         ...(config.jobType === 'planner' &&
-          config.request.kind === 'propose' && {
+          (config.request.kind === 'propose' || config.request.kind === 'learn') && {
             assetType: config.request.assetType,
             assetId: config.request.assetId,
           }),
@@ -329,7 +331,9 @@ export class JobFactory {
     } else if (config.jobType === 'planner') {
       return config.request.kind === 'propose'
         ? `Planner asked about ${config.request.assetType} ${config.request.assetId}`
-        : 'Planner asked to propose visuals';
+        : config.request.kind === 'learn'
+          ? `Learning what ${config.request.assetType} ${config.request.assetId} is for`
+          : 'Planner asked to propose visuals';
     }
     return 'Job queued';
   }

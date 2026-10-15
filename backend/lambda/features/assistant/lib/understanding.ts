@@ -23,8 +23,8 @@ interface UnderstoodFilter {
 export interface Understanding {
   /** One or two sentences to the person: what they want and what happens next. */
   understanding: string;
-  /** `visual`: a visual or layout change to one existing asset, keeping its data. */
-  change: 'visual' | 'other';
+  /** `visual`: a visual or layout change to one existing asset, keeping its data. `learn`: read what one asset is for. */
+  change: 'visual' | 'learn' | 'other';
   /** For a visual change: the asset as the person named it. */
   asset?: { kind: 'dashboard' | 'analysis'; name: string; id?: string };
   /** For a visual change: a short title for the plan. */
@@ -62,9 +62,9 @@ export const UNDERSTAND_TOOL: ChatTool = {
       },
       change: {
         type: 'string',
-        enum: ['visual', 'other'],
+        enum: ['visual', 'learn', 'other'],
         description:
-          'visual: a visual or layout change to ONE existing analysis or dashboard the person named or the conversation is about (add, move, resize, retype, retitle or remove a visual; add a filter or control), keeping the data it reads. other: everything else - a question, a new analysis or dashboard, a dataset, pointing at other data, tags, sharing, or anything unclear.',
+          'visual: a visual or layout change to ONE existing analysis or dashboard the person named or the conversation is about (add, move, resize, retype, retitle or remove a visual; add a filter or control), keeping the data it reads. learn: the person asks the assistant to learn, study, understand or document what ONE existing analysis or dashboard is for, and to ask them what it cannot tell. other: everything else - a question, a new analysis or dashboard, a dataset, pointing at other data, tags, sharing, a fact they state about something, or anything unclear.',
       },
       asset: {
         type: 'object',
@@ -75,7 +75,8 @@ export const UNDERSTAND_TOOL: ChatTool = {
           name: { type: 'string', description: 'As the person named it; "" when none.' },
           id: { type: 'string', description: 'Its id when the conversation gave one; else "".' },
         },
-        description: 'visual: the analysis or dashboard. Otherwise kind "", name "", id "".',
+        description:
+          'visual or learn: the analysis or dashboard. Otherwise kind "", name "", id "".',
       },
       title: {
         type: 'string',
@@ -138,8 +139,16 @@ export function parseUnderstanding(input: Record<string, unknown>): Understandin
   const asset = (input.asset ?? {}) as Record<string, unknown>;
   const kind = text(asset.kind);
   const name = text(asset.name);
-  const visual =
-    input.change === 'visual' && (kind === 'dashboard' || kind === 'analysis') && name !== '';
+  const named = (kind === 'dashboard' || kind === 'analysis') && name !== '';
+  if (input.change === 'learn' && named) {
+    return {
+      understanding,
+      change: 'learn',
+      asset: { kind, name, ...(text(asset.id) ? { id: text(asset.id) } : {}) },
+      filters: [],
+    };
+  }
+  const visual = input.change === 'visual' && named;
   const filters = (Array.isArray(input.filters) ? input.filters : [])
     .map((f: any) => ({
       column: text(f?.column),

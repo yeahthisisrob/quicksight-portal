@@ -57,6 +57,7 @@ const USER_CONDITIONS = new Set<SpecCondition['kind']>([
 ]);
 const USER_STEPS = new Set<SpecStep['kind']>(['deleteUser']);
 const STEP_FIELDS: Record<SpecStep['kind'], { required: string[]; optional: string[] }> = {
+  learn: { required: [], optional: [] },
   matchDataset: { required: [], optional: ['engine', 'governed', 'infer', 'minConfidence'] },
   rebind: { required: [], optional: [] },
   tag: { required: ['target', 'key', 'value'], optional: [] },

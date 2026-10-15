@@ -1149,6 +1149,116 @@ describe('AssistantService', () => {
     expect(result.reply).toBe('Redrawn with the table wider.');
   });
 
+  it('learns a named asset without a conversation and lists what it read and what it must ask', async () => {
+    const dispatch = vi.fn(async ({ method, path }: { method: string; path: string }) => {
+      if (path.startsWith('/api/context/search')) {
+        return {
+          status: 200,
+          body: JSON.stringify({
+            data: {
+              hits: [
+                { entityId: 'analysis:a1', type: 'analysis', name: 'Sales review', summary: '' },
+              ],
+            },
+          }),
+        };
+      }
+      if (method === 'POST' && path === '/api/authoring/analysis/a1/learn') {
+        return {
+          status: 200,
+          body: JSON.stringify({
+            data: {
+              drafts: [{ text: 'The weekly sales review for finance.' }],
+              questions: [{ text: 'Is revenue net of returns?' }],
+            },
+          }),
+        };
+      }
+      return { status: 404, body: '' };
+    });
+    const chat = scripted([{ text: 'never' }]);
+    const result = await new AssistantService(chat, model, dispatch, {
+      authoringModel: 'opus-5',
+      understand: async () => ({
+        understanding: {
+          understanding: 'Reading Sales review to say what it is for; asking what I cannot tell.',
+          change: 'learn',
+          asset: { kind: 'analysis', name: 'Sales review' },
+          filters: [],
+        },
+        usage: { inputTokens: 1, outputTokens: 1 },
+      }),
+    }).respond([
+      { role: 'user', text: 'learn the sales review and ask me what you do not understand' },
+    ]);
+    expect(chat.seen).toBe(0);
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: '/api/authoring/analysis/a1/learn',
+        body: { model: 'opus-5' },
+      })
+    );
+    expect(result.reply).toContain('Reading Sales review to say what it is for');
+    expect(result.reply).toContain('- The weekly sales review for finance.');
+    expect(result.reply).toContain('1. Is revenue net of returns?');
+    expect(result.calls.map((c) => c.step)).toEqual([
+      'Understanding the ask',
+      'Searching',
+      'Learning what it is for',
+    ]);
+  });
+
+  it('keeps what the person said on the thing it is about, and closes the question it answers', async () => {
+    const dispatch = vi.fn(
+      async ({ method, path, body }: { method: string; path: string; body?: unknown }) =>
+        method === 'POST' && path === '/api/knowledge/dataset-column%3Ads-1%2Frevenue'
+          ? {
+              status: 201,
+              body: JSON.stringify({ success: true, data: { noteId: 'n9', ...(body as object) } }),
+            }
+          : { status: 404, body: '' }
+    );
+    const told: string[] = [];
+    const chat = scripted([
+      {
+        toolCalls: [
+          {
+            id: 'r',
+            name: 'remember',
+            input: {
+              entityId: 'dataset-column:ds-1/revenue',
+              kind: 'meaning',
+              text: 'Net of returns.',
+              resolves: 'q1',
+            },
+          },
+        ],
+      },
+      { text: 'Kept: revenue is net of returns.' },
+    ]);
+    const turn = chat.turn.bind(chat);
+    chat.turn = async (system, turns, tools) => {
+      const last = turns[turns.length - 1];
+      if (last?.role === 'tool') told.push(last.results[0]?.content ?? '');
+      return turn(system, turns, tools);
+    };
+    const result = await new AssistantService(chat, model, dispatch).respond([
+      { role: 'user', text: 'revenue there is net of returns' },
+    ]);
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        path: '/api/knowledge/dataset-column%3Ads-1%2Frevenue',
+        body: { kind: 'meaning', text: 'Net of returns.', resolves: 'q1' },
+      })
+    );
+    expect(told[0]).toContain('the question is closed');
+    expect(result.reply).toBe('Kept: revenue is net of returns.');
+    expect(result.calls.find((c) => c.step === 'Keeping what you said')).toMatchObject({
+      ok: true,
+    });
+  });
+
   it('names the planner model an answer used', async () => {
     const { plannerModelOf } = await import('../services/AssistantService');
     expect(

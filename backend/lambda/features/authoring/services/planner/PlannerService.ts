@@ -32,6 +32,18 @@ import { getSmusConfig } from '../../../../shared/config/smusConfig';
 import { ValidationError } from '../../../../shared/errors/ValidationError';
 import { CacheService } from '../../../../shared/services/cache/CacheService';
 import { catalog } from '../../../../shared/services/catalog/catalogStore';
+import {
+  assetEntityId,
+  columnEntityId,
+  dataSetIdOfArn,
+  datasetEntityId,
+  visualEntityId,
+} from '../../../../shared/services/knowledge/entityIds';
+import { knowledge, type Note } from '../../../../shared/services/knowledge/KnowledgeStore';
+import {
+  knowledgeBlock,
+  PLANNER_NOTE_KINDS,
+} from '../../../../shared/services/knowledge/knowledgeLines';
 import { defaultApplyMode } from '../../../../shared/services/settings/authoringDefaults';
 import { SmusService } from '../../../../shared/services/smus/SmusService';
 import { AssetStatusFilter } from '../../../../shared/types/assetFilterTypes';
@@ -518,7 +530,11 @@ export class PlannerService {
     private readonly model: PlannerModel,
     private readonly loadCandidates: CandidateLoader = defaultCandidateLoader,
     /** The organisation's authoring guidance from Settings, added to the prompts it applies to. */
-    private readonly options: { guidance?: AuthoringGuidance } = {},
+    private readonly options: {
+      guidance?: AuthoringGuidance;
+      /** What people have confirmed about things, by entity id; the store by default. */
+      knowledge?: (entityIds: string[]) => Promise<Map<string, Note[]>>;
+    } = {},
     /** The names of this type's assets, so a copy takes the next free version. */
     private readonly existingNames: (assetType: AuthorableAssetType) => Promise<string[]> = (t) =>
       catalog
@@ -656,6 +672,23 @@ export class PlannerService {
   /** How long each step of the last proposal took, for the trace under an answer. */
   private steps: Array<{ label: string; ms: number }> = [];
 
+  /**
+   * What people have said about these things, as the block a prompt reads:
+   * confirmed notes only, the planner's kinds only, labelled in words. The
+   * tokens spent understanding a thing are spent once; from then on the
+   * planner is told.
+   */
+  private async knownAbout(entries: Array<{ id: string; label: string }>): Promise<string> {
+    if (entries.length === 0) return '';
+    const read = this.options.knowledge ?? ((ids: string[]) => knowledge.confirmedFor(ids));
+    const labels = new Map(entries.map((e) => [e.id, e.label]));
+    const notes = await read([...labels.keys()]).catch(() => new Map<string, Note[]>());
+    return knowledgeBlock(notes, {
+      kinds: PLANNER_NOTE_KINDS,
+      label: (id) => labels.get(id) ?? id,
+    });
+  }
+
   /** The next version of the original's name among the names in use ("Sales v2"). */
   private async copyName(assetType: AuthorableAssetType, current: string): Promise<string> {
     const existing = await this.existingNames(assetType).catch(() => [] as string[]);
@@ -702,12 +735,36 @@ export class PlannerService {
         };
       })
     );
+    const known = await this.knownAbout([
+      { id: assetEntityId(assetType, assetId), label: `The ${assetType}` },
+      ...outline.flatMap((sheet) =>
+        sheet.elements
+          .filter((e) => e.kind === 'visual')
+          .map((e) => ({
+            id: visualEntityId(assetType, assetId, e.elementId),
+            label: `Visual "${e.title ?? e.elementId}" (${e.elementId})`,
+          }))
+      ),
+      ...(described?.datasets ?? []).flatMap((d) => [
+        { id: datasetEntityId(d.dataSetId), label: `Dataset ${d.identifier}` },
+        ...datasets
+          .find((x) => x.identifier === d.identifier)!
+          .columns.map((c) => {
+            const name = c.replace(/ \([A-Z]+\)$/, '');
+            return {
+              id: columnEntityId(d.dataSetId, name),
+              label: `Column ${d.identifier}.${name}`,
+            };
+          }),
+      ]),
+    ]);
     const user = [
       'The sheets of the definition, with the ids you must use:',
       JSON.stringify(outline),
       '',
       'The datasets it reads, by identifier, with their columns and types:',
       JSON.stringify(datasets),
+      ...(known ? ['', known] : []),
       '',
       `The ask: ${JSON.stringify(ask)}`,
       '',
@@ -759,9 +816,22 @@ export class PlannerService {
         .slice(0, MAX_COLUMNS_PER_DATASET)
         .map((c) => `${c.name} (${c.type ?? 'STRING'})`),
     }));
+    const known = await this.knownAbout(
+      datasets.flatMap((d) => {
+        const dataSetId = dataSetIdOfArn(d.dataSetArn);
+        return [
+          { id: datasetEntityId(dataSetId), label: `Dataset ${d.identifier}` },
+          ...d.columns.slice(0, MAX_COLUMNS_PER_DATASET).map((c) => ({
+            id: columnEntityId(dataSetId, c.name),
+            label: `Column ${d.identifier}.${c.name}`,
+          })),
+        ];
+      })
+    );
     const user = [
       'The datasets the dashboard reads, by identifier, with their columns and types:',
       JSON.stringify(listing),
+      ...(known ? ['', known] : []),
       '',
       `The ask: ${JSON.stringify(trimmed)}`,
       '',
@@ -837,6 +907,16 @@ export class PlannerService {
     candidates: CandidateDataset[],
     ask: string
   ): Promise<Choice> {
+    const known = await this.knownAbout([
+      ...datasets.map((d) => ({
+        id: datasetEntityId(d.dataSetId),
+        label: `Dataset ${d.identifier}`,
+      })),
+      ...candidates.map((c) => ({
+        id: datasetEntityId(c.id),
+        label: `Candidate ${c.name} (${c.id})`,
+      })),
+    ]);
     const user = [
       `The ${assetType} "${assetName}" declares these datasets:`,
       JSON.stringify(
@@ -846,6 +926,7 @@ export class PlannerService {
           columnsUsed: d.columns.map((c) => c.name),
         }))
       ),
+      ...(known ? ['', known] : []),
       '',
       'Datasets in the account (id and name). Those with `governed` read a published SMUS listing, shown with its project; when the ask says SMUS, governed, published, a listing or a project, choose among those:',
       JSON.stringify(candidates),

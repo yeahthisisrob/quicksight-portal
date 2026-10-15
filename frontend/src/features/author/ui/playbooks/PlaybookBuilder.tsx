@@ -111,6 +111,10 @@ function fitting<K extends string, V>(
 }
 
 const STEPS: Record<PlaybookSpecStep['kind'], { label: string; help: string }> = {
+  learn: {
+    label: 'Learn what it is for',
+    help: 'A model reads the outline and the columns it uses, drafts what the asset and each visual are for, and lists what the definition cannot tell. The preview shows the readings and questions; the run keeps the readings as notes the assistant and the planner read, and the questions stay open for you to answer in the Studio. Nothing in QuickSight changes.',
+  },
   matchDataset: {
     label: 'Match a replacement dataset',
     help: 'For each dataset it reads, one of this engine (governed, if asked) holding every column it uses. With inference, a model maps names that differ; every mapping is checked.',

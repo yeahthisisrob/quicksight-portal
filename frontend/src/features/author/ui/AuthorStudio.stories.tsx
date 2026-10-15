@@ -1,5 +1,6 @@
 import { Box } from '@mui/material';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { within } from 'storybook/test';
 
 import { MockedApi } from '../../../../.storybook/mocks/api';
 import { authorRoutes, EDITOR_OPS, fakeStudio, REPAIR_PLAN } from './__stories__/fixtures';
@@ -38,6 +39,22 @@ function view(studio: ReturnType<typeof fakeStudio>, current: StudioView = 'edit
     </MockedApi>
   );
 }
+
+// --- knowledge ----------------------------------------------------------------
+
+/** What the portal knows, to review: open questions, unconfirmed readings, and what is known. */
+export const Knowledge: Story = {
+  name: 'Knowledge · review what is known',
+  render: () => view(fakeStudio({ closed: true }), 'knowledge'),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await canvas.findByTestId('knowledge-questions');
+    await canvas.findByText('Is "Revenue" net of returns, or gross?');
+    await canvas.findByText(
+      'The one finance reads on Mondays; the copy in Sandbox is a scratch pad.'
+    );
+  },
+};
 
 // --- editor -------------------------------------------------------------------
 

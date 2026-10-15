@@ -177,6 +177,47 @@ CloudWatch health), `GET /api/activity/timeline` (who changed what, with
 `origins=portal-api` for what keys did), `GET /api/ingestions` (SPICE
 refreshes).
 
+### What is known about a thing: notes
+
+The portal keeps notes on every thing in the account by its graph entity
+id, so they survive renames, copies and rebuilds: `analysis:<id>`,
+`visual:<assetType>:<assetId>:<visualId>`, `dataset-column:<dataSetId>/<column>`,
+`calculated-field:<key>`. Every write the portal makes leaves its change
+list as notes on the asset and the visuals it touched, and a copy records
+where it came from. A person's note is confirmed as written; what a model
+read into a thing is a draft until a person confirms it, and only
+confirmed notes reach the planner, which reads them on every plan for the
+asset, its visuals, its datasets and their columns.
+
+```bash
+# What is known about an analysis (newest first; entity GET returns the same under `notes`)
+curl -sS "$QSP_API_URL/api/knowledge/analysis%3A<id>" -H "Authorization: Bearer $QSP_API_KEY"
+
+# Say what a column means, in your words; kind: meaning | rule | identity | preference | description
+curl -sS -X POST "$QSP_API_URL/api/knowledge/dataset-column%3A<dataSetId>%2Frevenue" \
+  -H "Authorization: Bearer $QSP_API_KEY" -H "Content-Type: application/json" \
+  --data '{"kind":"meaning","text":"Net of returns; gross is gross_revenue."}'
+# `resolves: "<noteId>"` answers an open question and closes it
+
+# The review queue across the account: a model's unconfirmed readings and open questions
+curl -sS "$QSP_API_URL/api/knowledge?status=draft" -H "Authorization: Bearer $QSP_API_KEY"
+# Confirm one in your name (optionally with your edit of the text), or remove it
+curl -sS -X POST "$QSP_API_URL/api/knowledge/<entityId>/<noteId>/confirm" -H "Authorization: Bearer $QSP_API_KEY"
+curl -sS -X DELETE "$QSP_API_URL/api/knowledge/<entityId>/<noteId>" -H "Authorization: Bearer $QSP_API_KEY"
+
+# Learn what an asset is for (a job): one model call drafts readings of it and its visuals
+# as draft notes and lists what the definition cannot tell as open questions
+curl -sS -X POST "$QSP_API_URL/api/authoring/analysis/<id>/learn" \
+  -H "Authorization: Bearer $QSP_API_KEY" -H "Content-Type: application/json" --data '{}'
+# -> { jobId } ; the job's result is a LearnResult { drafts, questions, known }
+```
+
+The assistant does the same in conversation: "learn Sales review and ask me
+what you don't understand", then your answers are kept on the right thing;
+and when you state a fact about something, it keeps that too. The
+"Learn what the busy dashboards and analyses are for" playbook does it
+across the account, with the readings and questions on the review rows.
+
 ## 4. Build the change
 
 Two ways, and they mix.

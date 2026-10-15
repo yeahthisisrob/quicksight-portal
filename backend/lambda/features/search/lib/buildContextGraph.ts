@@ -5,9 +5,11 @@
  * the scoped SMUS listings with their links, and the calculated fields
  * with the assets that define them. Pure.
  */
+
 import { classifyFields, type ExpressionVerdict } from '../../../../../shared/lib/expressionKinds';
 import { expressionFields } from '../../../../../shared/lib/expressionParser';
 import { normalFieldName } from '../../../../../shared/lib/expressionPlacement';
+import { columnEntityId } from '../../../shared/services/knowledge/entityIds';
 import type { SearchDocument } from '../types';
 import { ContextGraph, type EntityType, entityId } from './contextGraph';
 
@@ -270,7 +272,9 @@ export function buildContextGraph(input: GraphInput): ContextGraph {
   return graph;
 }
 
-const columnKey = (datasetId: string, name: string) => `${datasetId}/${name}`;
+/** The graph's column key, shared with the writers and the planner (entityIds.ts). */
+const columnKey = (datasetId: string, name: string) =>
+  columnEntityId(datasetId, name).replace(/^dataset-column:/, '');
 
 /**
  * Field-level lineage: every dataset column as an entity, traced to the

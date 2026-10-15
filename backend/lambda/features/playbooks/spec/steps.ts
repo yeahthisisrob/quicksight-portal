@@ -365,6 +365,41 @@ export async function planStep(
         data: { theme },
       };
     }
+    case 'learn': {
+      if (target.assetType !== 'dashboard' && target.assetType !== 'analysis') {
+        return {
+          kind: 'learn',
+          verdict: 'skip',
+          summary: 'Applies to dashboards and analyses',
+          changes: [],
+        };
+      }
+      const queued = await ctx.call<{ jobId: string }>(
+        'POST',
+        `${authoringPath(target)}/learn`,
+        {}
+      );
+      const learned = await awaitPortalJob<LearnedAsset>(ctx, queued.jobId);
+      const drafts = learned.drafts.map((n) => ({
+        entityId: n.entityId,
+        noteId: n.noteId,
+        text: n.text,
+      }));
+      const questions = learned.questions.map((n) => n.text);
+      if (drafts.length === 0 && questions.length === 0) {
+        return { kind: 'learn', verdict: 'skip', summary: 'Nothing to say about it', changes: [] };
+      }
+      return {
+        kind: 'learn',
+        verdict: 'review',
+        summary: `${drafts.length} reading${drafts.length === 1 ? '' : 's'} to confirm, ${questions.length} question${questions.length === 1 ? '' : 's'} to answer`,
+        changes: [
+          ...drafts.map((d) => `Reading: ${d.text}`),
+          ...questions.map((q) => `Question: ${q}`),
+        ],
+        data: { drafts, questions },
+      };
+    }
     case 'repair': {
       const plan = await repairErrors.plan(ctx, target);
       return {
@@ -445,9 +480,56 @@ export async function applyStep(
     }
     case 'repair':
       return (await repairErrors.apply(ctx, target, plan.data as ItemPlan)).summary;
+    case 'learn': {
+      const { drafts, questions } = plan.data as {
+        drafts: Array<{ entityId: string; noteId: string }>;
+        questions: string[];
+      };
+      for (const draft of drafts) {
+        await ctx.call(
+          'POST',
+          `/api/knowledge/${encodeURIComponent(draft.entityId)}/${encodeURIComponent(draft.noteId)}/confirm`,
+          {}
+        );
+      }
+      return `Confirmed ${drafts.length} reading${drafts.length === 1 ? '' : 's'}${questions.length ? `; ${questions.length} question${questions.length === 1 ? '' : 's'} open` : ''}`;
+    }
     default:
       // A match step only plans; what it found is applied by the steps after it.
       return '';
+  }
+}
+
+/** What the learn job answers with, as far as the step reads it. */
+interface LearnedAsset {
+  drafts: Array<{ entityId: string; noteId: string; text: string }>;
+  questions: Array<{ entityId: string; noteId: string; text: string }>;
+}
+
+const JOB_POLL_MS = 2_000;
+const MINUTE_MS = 60_000;
+const JOB_WAIT_MINUTES = 5;
+const JOB_WAIT_MS = JOB_WAIT_MINUTES * MINUTE_MS;
+const TERMINAL = new Set(['completed', 'failed', 'stopped']);
+
+/** A portal call that queued a job: wait for it, as a person would, and read its result. */
+async function awaitPortalJob<T>(ctx: PlaybookContext, jobId: string): Promise<T> {
+  const deadline = Date.now() + JOB_WAIT_MS;
+  for (;;) {
+    const job = await ctx.call<{ status: string; message?: string; error?: string }>(
+      'GET',
+      `/api/jobs/${encodeURIComponent(jobId)}`
+    );
+    if (TERMINAL.has(job.status)) {
+      if (job.status !== 'completed') {
+        throw new Error(`The job ${job.status}: ${job.error ?? job.message ?? ''}`);
+      }
+      return await ctx.call<T>('GET', `/api/jobs/${encodeURIComponent(jobId)}/result`);
+    }
+    if (Date.now() >= deadline) {
+      throw new Error(`Job ${jobId} is still running after ${JOB_WAIT_MINUTES} minutes`);
+    }
+    await new Promise((done) => setTimeout(done, JOB_POLL_MS));
   }
 }
 

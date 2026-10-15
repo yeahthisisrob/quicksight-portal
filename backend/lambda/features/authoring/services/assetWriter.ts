@@ -5,10 +5,12 @@
  * is published at once, since an unpublished version shows viewers nothing
  * new.
  */
-import type { AuthContext } from '../../../shared/auth';
+import { type AuthContext, actorLabel } from '../../../shared/auth';
 import { actorFromAuth, auditLog } from '../../../shared/services/audit/AuditLog';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { keepCatalogFresh } from '../../../shared/services/catalog/assetFreshness';
+import { assetEntityId, visualEntityId } from '../../../shared/services/knowledge/entityIds';
+import { knowledge, type NewNote } from '../../../shared/services/knowledge/KnowledgeStore';
 import { settingsStore } from '../../../shared/services/settings/SettingsStore';
 import { mergeTags, readDefaultTags, type TagPair } from '../../../shared/tags/tagStandards';
 import { logger } from '../../../shared/utils/logger';
@@ -158,6 +160,47 @@ type ProvenanceAction =
   | 'authoring.restore';
 
 /**
+ * Each change line becomes a confirmed note on the asset, and on the visual
+ * it names when it names one: the history of why a thing is as it is, in
+ * words, written by the portal at the moment it did it. Never fails the write.
+ */
+async function rememberChanges(
+  entry: {
+    action: ProvenanceAction;
+    assetType: AudienceAssetType;
+    assetId: string;
+    changes?: Array<{ text: string; elementId?: string; details?: Record<string, unknown> }>;
+  },
+  by: string
+): Promise<void> {
+  const changes = entry.changes ?? [];
+  if (changes.length === 0) return;
+  const asset = assetEntityId(entry.assetType, entry.assetId);
+  const at = new Date().toISOString();
+  const notes: NewNote[] = changes.flatMap((change) => {
+    const base = {
+      kind: 'change' as const,
+      text: change.text,
+      source: 'portal' as const,
+      by,
+      at,
+      details: { action: entry.action, ...(change.details ?? {}) },
+    };
+    return [
+      { ...base, entityId: asset },
+      ...(change.elementId
+        ? [{ ...base, entityId: visualEntityId(entry.assetType, entry.assetId, change.elementId) }]
+        : []),
+    ];
+  });
+  try {
+    await knowledge.addAll(notes);
+  } catch (error) {
+    logger.warn('Change notes could not be written', { asset, error });
+  }
+}
+
+/**
  * After every write: the cache learns of the asset at once and queues its
  * full refresh (and the folder's, when it was filed), so nobody has to run
  * an export to see it; then the portal's own trace of the write, an audit
@@ -175,6 +218,11 @@ export async function recordProvenance(
     /** The folders it was filed in, whose members changed. */
     folderIds?: string[];
     details: Record<string, unknown>;
+    /**
+     * What changed, in words, kept as notes on the asset (and on the part
+     * each line names), so "why does this exist" is answered for free.
+     */
+    changes?: Array<{ text: string; elementId?: string; details?: Record<string, unknown> }>;
   },
   auth?: AuthContext
 ): Promise<void> {
@@ -198,6 +246,7 @@ export async function recordProvenance(
     assetName: entry.name,
     details: entry.details,
   });
+  await rememberChanges(entry, actorLabel(auth));
   // A new asset was created with these tags; an update records who changed it.
   const tags = entry.action === 'authoring.update' ? provenanceTags(auth) : [];
   if (tags.length === 0) {

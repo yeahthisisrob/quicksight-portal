@@ -96,6 +96,11 @@ interface PlannerMessage {
         intent?: 'edit';
         mode?: 'clone' | 'update';
       }
+    | {
+        kind: 'learn';
+        assetType: 'dashboard' | 'analysis';
+        assetId: string;
+      }
     | { kind: 'new-visuals'; newAsset: Record<string, unknown> }
     /** A theme drawn from a picture, stored in the bucket (too big for a queue message). */
     | { kind: 'theme-from-image'; imageKey: string; note?: string };
@@ -645,6 +650,12 @@ async function processPlannerJob(message: PlannerMessage, record: any): Promise<
         { format: stored.format as 'png', bytes: Buffer.from(stored.data, 'base64') },
         request.note
       );
+    } else if (request.kind === 'learn') {
+      const { LearnService } = await import('./features/authoring/services/LearnService');
+      result = await new LearnService(
+        rebind,
+        createPlannerModel(undefined, isAiModelKey(message.model) ? message.model : undefined)
+      ).learn(request.assetType, request.assetId);
     } else if (request.kind === 'propose') {
       result = await planner.propose(request.assetType, request.assetId, {
         ask: request.ask,

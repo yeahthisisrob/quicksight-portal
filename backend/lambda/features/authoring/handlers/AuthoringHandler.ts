@@ -317,6 +317,32 @@ export class AuthoringHandler {
     }
   }
 
+  /**
+   * POST /authoring/{assetType}/{assetId}/learn - read what the asset is
+   * for, as a job: the drafts and questions land as notes on it and its
+   * visuals, and the job's result lists them.
+   */
+  public async learn(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const target = this.target(event);
+      const body = this.parseBody(event);
+      const queued = await jobFactory.createJob({
+        jobType: 'planner',
+        accountId: this.accountId,
+        bucketName: metadataBucketName(this.accountId),
+        userId: user.userId,
+        startedBy: actorLabel(user),
+        model: this.parseModel(body.model),
+        request: { kind: 'learn', ...target },
+      });
+      return createResponse(event, STATUS_CODES.ACCEPTED, { success: true, data: queued });
+    } catch (error: any) {
+      logger.error('Learn failed', { error });
+      return this.failure(event, error, 'Failed to queue the learning');
+    }
+  }
+
   /** POST /authoring/{assetType}/{assetId}/propose */
   public async propose(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {

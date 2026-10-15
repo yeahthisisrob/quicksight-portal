@@ -97,9 +97,10 @@ export function specPlaybook(spec: PlaybookSpec): Playbook {
     // An infer value that is an input may be turned off when it runs; the choice is still offered.
     infers: spec.steps.some(
       (s) =>
-        (s.kind === 'matchDataset' || s.kind === 'replaceMaterialisedCalcs') &&
-        s.infer !== undefined &&
-        s.infer !== false
+        s.kind === 'learn' ||
+        ((s.kind === 'matchDataset' || s.kind === 'replaceMaterialisedCalcs') &&
+          s.infer !== undefined &&
+          s.infer !== false)
     ),
     params: spec.inputs.map(paramOf),
     writes,

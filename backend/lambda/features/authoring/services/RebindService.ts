@@ -551,13 +551,15 @@ export class RebindService {
     assetType: AuthorableAssetType,
     written: { assetId: string; name: string; arn?: string; folderIds?: string[] },
     request: ApplyRequest,
-    changeCount: number,
+    changes: DefinitionChange[],
+    source: { assetId: string; name: string },
     auth?: AuthContext
   ): Promise<void> {
+    const clone = request.mode === 'clone';
     return recordProvenance(
       this.quickSightService,
       {
-        action: request.mode === 'clone' ? 'authoring.clone' : 'authoring.update',
+        action: clone ? 'authoring.clone' : 'authoring.update',
         assetType,
         assetId: written.assetId,
         name: written.name,
@@ -567,8 +569,25 @@ export class RebindService {
           rebinds: request.rebinds.length,
           ops: request.ops?.length ?? 0,
           repairs: request.repairs?.length ?? 0,
-          changes: changeCount,
+          changes: changes.length,
         },
+        // The lineage of a copy is written at the moment it is made (ids are
+        // not recoverable later), then every change in words.
+        changes: [
+          ...(clone
+            ? [
+                {
+                  text: `Copied from ${assetType} "${source.name}" (${source.assetId})`,
+                  details: { copiedFrom: { assetType, assetId: source.assetId } },
+                },
+              ]
+            : []),
+          ...changes.map((c) => ({
+            text: c.description,
+            ...(c.elementId ? { elementId: c.elementId } : {}),
+            details: { kind: c.kind, ...(c.sheetId ? { sheetId: c.sheetId } : {}) },
+          })),
+        ],
       },
       auth
     );
@@ -663,7 +682,8 @@ export class RebindService {
       assetType,
       { assetId: written.assetId, name, arn: written.arn, folderIds: filed },
       request,
-      changes.length,
+      changes,
+      { assetId, name: loaded.name },
       auth
     );
 

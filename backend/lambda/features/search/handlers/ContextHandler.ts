@@ -11,6 +11,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
+import { knowledge } from '../../../shared/services/knowledge/KnowledgeStore';
 import { errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
 import type { Direction, EntityType, Relation } from '../lib/contextGraph';
@@ -156,7 +157,9 @@ export async function contextEntity(event: APIGatewayProxyEvent): Promise<APIGat
           ...(h.via[0]?.note ? { note: h.via[0].note } : {}),
         })),
     }));
-    return successResponse(event, { success: true, data: { entity, relations } });
+    // What people and the portal have said about it: confirmed first, then open drafts.
+    const notes = await knowledge.list(id).catch(() => []);
+    return successResponse(event, { success: true, data: { entity, relations, notes } });
   } catch (error: any) {
     return fail(event, error, 'Context entity failed');
   }

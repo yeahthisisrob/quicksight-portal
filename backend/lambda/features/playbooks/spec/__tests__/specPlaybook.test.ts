@@ -127,7 +127,9 @@ const params = { minViews: 50, fromEngine: 'REDSHIFT', toEngine: 'ATHENA', infer
 const busy = { assetType: 'dashboard' as const, assetId: 'busy', name: 'Sales overview' };
 
 describe('specPlaybook: the shipped Redshift → governed Athena example', () => {
-  const playbook = specPlaybook(EXAMPLE_SPECS[0]!);
+  const playbook = specPlaybook(
+    EXAMPLE_SPECS.find((example) => example.id === 'move-to-governed-athena')!
+  );
   let world: World;
 
   beforeEach(() => {
@@ -237,7 +239,9 @@ describe('specPlaybook: the shipped Redshift → governed Athena example', () =>
 });
 
 describe('specPlaybook: a team into its shared folder', () => {
-  const playbook = specPlaybook(EXAMPLE_SPECS[1]!);
+  const playbook = specPlaybook(
+    EXAMPLE_SPECS.find((example) => example.id === 'team-into-shared-folder')!
+  );
   const rows = (type: string, items: Array<[string, string]>) =>
     items.map(([id, principal]) => ({
       id,
@@ -296,7 +300,7 @@ describe('specPlaybook: a team into its shared folder', () => {
 describe('specPlaybook: robustness', () => {
   it('selects data sources by their engine (the list row’s sourceType)', async () => {
     const spec = {
-      ...EXAMPLE_SPECS[1]!,
+      ...EXAMPLE_SPECS.find((example) => example.id === 'team-into-shared-folder')!,
       select: {
         assetTypes: ['datasource' as const],
         where: [{ kind: 'readsEngine' as const, engine: 'REDSHIFT' }],
@@ -320,7 +324,9 @@ describe('specPlaybook: robustness', () => {
   });
 
   it('says what was written and what was not when a later step fails', async () => {
-    const playbook = specPlaybook(EXAMPLE_SPECS[0]!);
+    const playbook = specPlaybook(
+      EXAMPLE_SPECS.find((example) => example.id === 'move-to-governed-athena')!
+    );
     const call = vi.fn(async (_method: string, path: string) => {
       if (path.endsWith('/rebind')) return { versionNumber: 3 };
       if (path.startsWith('/api/tags/')) throw new PortalCallError(400, 'Tag limit reached');

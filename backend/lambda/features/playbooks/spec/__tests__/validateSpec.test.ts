@@ -11,7 +11,7 @@ const example = () => {
     createdBy: _b,
     category: _k,
     ...input
-  } = structuredClone(EXAMPLE_SPECS[0]!);
+  } = structuredClone(EXAMPLE_SPECS.find((spec) => spec.id === 'move-to-governed-athena')!);
   return input;
 };
 

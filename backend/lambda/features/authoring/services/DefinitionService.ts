@@ -152,6 +152,11 @@ export class DefinitionService {
         arn: written.arn,
         folderIds: filed,
         details: { definition: true, sheets: definition.Sheets.length },
+        changes: [
+          {
+            text: `Definition published from the editor (${definition.Sheets.length} sheet${definition.Sheets.length === 1 ? '' : 's'})`,
+          },
+        ],
       },
       auth
     );
@@ -216,6 +221,11 @@ export class DefinitionService {
         arn: written.arn,
         folderIds: filed,
         details: { definition: true, sheets: definition.Sheets.length },
+        changes: [
+          {
+            text: `Definition published from the editor (${definition.Sheets.length} sheet${definition.Sheets.length === 1 ? '' : 's'})`,
+          },
+        ],
       },
       auth
     );

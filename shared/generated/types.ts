@@ -569,6 +569,248 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/knowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What is known across the account, newest first, to review
+         * @description Every note of a status, newest first, across every entity: the
+         *     model's unconfirmed readings and open questions to confirm or
+         *     answer (status draft), or what has been confirmed (status
+         *     confirmed). Each note names its entity id.
+         */
+        get: {
+            parameters: {
+                query: {
+                    status: "confirmed" | "draft";
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The notes */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                notes: components["schemas"]["Note"][];
+                            };
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/{entityId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What is known about one thing, by its graph entity id
+         * @description Notes kept by the portal about an entity (analysis:a1, visual:analysis:a1:v3,
+         *     dataset-column:ds1:revenue, calculated-field:k...), newest first: what a
+         *     person said it means or how to build with it, which one is the real
+         *     one, what the portal changed and when, and what a model read into it
+         *     (a draft until confirmed). The planner reads only confirmed notes.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    status?: "confirmed" | "draft";
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    entityId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The notes */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                entityId: string;
+                                notes: components["schemas"]["Note"][];
+                            };
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+            };
+        };
+        put?: never;
+        /**
+         * Say something about a thing, in your own words
+         * @description A person's note, confirmed as written: what a column or field means,
+         *     a rule for building with it, which asset is the canonical one, or a
+         *     preference. With `resolves`, it answers an open question the model
+         *     asked (that question note is removed).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    entityId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        kind: "meaning" | "rule" | "identity" | "preference" | "description";
+                        text: string;
+                        /** @description The id of the question note this answers. */
+                        resolves?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description The note as kept */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["Note"];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/{entityId}/{noteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a note */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    entityId: string;
+                    noteId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Removed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                entityId: string;
+                                noteId: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/{entityId}/{noteId}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm a draft the model wrote, in your name, edited if you like */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    entityId: string;
+                    noteId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        text?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description The note, confirmed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["Note"];
+                        };
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/context/entities/{entityId}": {
         parameters: {
             query?: never;
@@ -1268,6 +1510,63 @@ export interface paths {
          *     asset in place, or `mode: clone` to fix a copy.
          */
         post: operations["postAuthoringByAssetTypeByAssetIdRepairPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/authoring/{assetType}/{assetId}/learn": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Learn what an analysis or dashboard is for, and ask what cannot be told
+         * @description One model call over the asset's outline and the columns it reads
+         *     drafts a reading of the asset and of each visual, and lists what the
+         *     definition cannot tell. The readings are kept as draft notes on the
+         *     asset and its visuals (see /api/knowledge), the unknowns as open
+         *     questions; a person confirms or answers them once, and the planner
+         *     knows from then on. Runs as a job; the result is a LearnResult.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assetType: components["parameters"]["AuthorableAssetType"];
+                    assetId: components["parameters"]["AuthoringAssetId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        model?: components["schemas"]["AiModelKey"];
+                    };
+                };
+            };
+            responses: {
+                /** @description The learn job was queued; its result is a LearnResult */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: components["schemas"]["JobQueued"];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -3268,10 +3567,15 @@ export interface components {
          *     was refreshed in the last two days, after reading the user's activity
          *     again; the portal refuses to delete anyone who is not a reader.
          *     applyTheme (theme): gives a dashboard or analysis the theme.
+         *     learn: a model reads the asset's outline and the columns it uses,
+         *     drafts what it and each visual are for, and lists what the
+         *     definition cannot tell; the preview shows the readings and questions
+         *     for review, the run keeps the readings as confirmed notes (see
+         *     /api/knowledge) and the questions stay open for a person.
          */
         PlaybookSpecStep: {
             /** @enum {string} */
-            kind: "matchDataset" | "rebind" | "tag" | "repair" | "addToFolder" | "replaceMaterialisedCalcs" | "dropUnusedCalcs" | "renameCalcsToStandard" | "renameDatasetCalcsToStandard" | "deleteUser" | "applyTheme";
+            kind: "learn" | "matchDataset" | "rebind" | "tag" | "repair" | "addToFolder" | "replaceMaterialisedCalcs" | "dropUnusedCalcs" | "renameCalcsToStandard" | "renameDatasetCalcsToStandard" | "deleteUser" | "applyTheme";
             engine?: components["schemas"]["PlaybookSpecValue"];
             governed?: components["schemas"]["PlaybookSpecValue"];
             infer?: components["schemas"]["PlaybookSpecValue"];
@@ -6173,8 +6477,46 @@ export interface components {
             /** Format: date-time */
             indexedAt: string;
         };
+        LearnResult: {
+            assetType: components["schemas"]["AuthorableAssetType"];
+            assetId: string;
+            name: string;
+            /** @description What the model read into the asset and its visuals, kept as draft notes. */
+            drafts: components["schemas"]["Note"][];
+            /** @description What it could not tell from the definition, kept as open questions. */
+            questions: components["schemas"]["Note"][];
+            /** @description How many confirmed notes were already there and were read first. */
+            known: number;
+            model: {
+                provider: string;
+                model: string;
+            };
+        };
+        /** @description One thing known about an entity, by whom and when. */
+        Note: {
+            entityId: string;
+            noteId: string;
+            /** @enum {string} */
+            kind: "meaning" | "rule" | "identity" | "preference" | "change" | "description" | "question";
+            text: string;
+            /** @enum {string} */
+            source: "person" | "model" | "portal";
+            /**
+             * @description A model's reading is a draft until a person confirms it; only confirmed notes reach the planner.
+             * @enum {string}
+             */
+            status: "confirmed" | "draft";
+            by: string;
+            /** Format: date-time */
+            at: string;
+            details?: {
+                [key: string]: unknown;
+            };
+        };
         ContextEntityDetail: {
             entity: components["schemas"]["ContextEntity"];
+            /** @description What people and the portal have said about it, newest first (see /api/knowledge). */
+            notes?: components["schemas"]["Note"][];
             relations: {
                 relation: components["schemas"]["ContextRelation"];
                 /** @enum {string} */
