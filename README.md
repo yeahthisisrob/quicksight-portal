@@ -6,7 +6,7 @@
 
 A self-hosted control plane for Amazon QuickSight that **authors as well as administers**. Ask for a dashboard in a sentence and get a checked plan and a wireframe before anything is written. Create a dataset from a SQL query and see its columns, the datasets that already read the same table, and the governed listing it will link to, before it exists. Open a dashboard QuickSight refuses to save and fix it on a canvas. Run a fix across every asset in the account, previewed first. Underneath: every dashboard, analysis, dataset, data source, theme, folder, user and group, with lineage, activity, health, safe export and restore, and the same API for people, scripts and agents. One CDK command deploys it into your own AWS account, and no data leaves it.
 
-![Author: the mockup step](docs/screenshots/author-mockup.png)
+![The Assistant: a prepared change, and where each calculated field it adds belongs](docs/screenshots/assistant-plan.png)
 
 ## What it does
 
@@ -25,9 +25,9 @@ A self-hosted control plane for Amazon QuickSight that **authors as well as admi
 - **Templates** - what the organisation reuses: filter bars, visual templates, calculated-field templates, layout standards, and the calculated-field naming standard the Assistant follows.
 - **Playbooks** - fixes across the whole account: scope, gates, a plan per asset, a preview job, then a run with one row per asset. Most are specs you write from generic conditions and steps; steps that need judgement ask a model, and every answer is checked before it counts.
 
-![Author: the Studio editor with the inspector and the change list](docs/screenshots/author-mockup.png)
+![The Studio editor: the canvas, the inspector and the change count](docs/screenshots/author-editor.png)
 
-![Author: fixing a dashboard QuickSight refuses to write](docs/screenshots/author-repair.png)
+![The Studio editor: the issues QuickSight would refuse, each with its fix](docs/screenshots/author-repair.png)
 
 ### Datasets from nothing, with the facts in front of you
 
@@ -56,7 +56,7 @@ Everything the portal knows is one graph: projects, listings and their columns, 
 
 One row per distinct expression, with where it is defined, the datasets and SMUS listings it lives on, how many dashboards, analyses and visuals use it, and a conflict badge wherever one name carries several expressions. One click opens lineage both ways, down to the visual. Each field carries its kind (row-level, aggregate, level-aware, table calculation), its stage in QuickSight's order of evaluation, and whether SPICE can materialise it, so the Assistant and the planner put each calculated field where the organisation's guidance says it belongs. Plain columns tie back to their SMUS column through renames, and the catalog says which of the two things went wrong when they cannot. Both QuickSight data prep experiences are read and written, so a dataset built in the new experience keeps its steps through every edit.
 
-![Catalog: every calculated field, its usage and its conflicts](docs/screenshots/catalog-calculated-fields.png)
+![Catalog: every calculated field on the asset grid, with where it is defined, its variants and its usage](docs/screenshots/catalog-calculated-fields.png)
 
 ![Catalog: a calculated field's lineage both ways, tied to SMUS](docs/screenshots/catalog-calculated-field-detail.png)
 
@@ -106,6 +106,18 @@ Themes are an asset type end to end: listed with their colors and how many dashb
 - **Tags, permissions, folders, users, groups** - browse and edit, inspect who can see what, filter any asset page by a user's access.
 - **Settings** - in DynamoDB with a fallback to the environment, each value showing where it came from; per-organisation authoring guidance, tag standards, default folders and theme; how hard the thinking models think (medium by default, so a plan answers in seconds rather than a minute a step); an Athena access check that shows which governed databases the portal's role can read and the exact Lake Formation grant for an admin to run.
 - **Parity** - a page that tracks what the AWS console offers against what the portal does, row by row.
+
+![Version history: who changed what, compared with the version before, and put back with one click](docs/screenshots/version-history.png)
+
+![Operations › History: what changed lately across the account](docs/screenshots/operations-history.png)
+
+![Knowledge: what people and the portal know about every thing in the account](docs/screenshots/knowledge.png)
+
+![Settings › Schedules: runs the portal starts by itself](docs/screenshots/settings.png)
+
+![Folders: who can see or work in one, at a role](docs/screenshots/folder-share.png)
+
+![Datasets: refresh now, and the schedules read live](docs/screenshots/refresh-schedules.png)
 
 ![Dashboards with health columns](docs/screenshots/health-dashboards.png)
 
