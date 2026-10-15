@@ -170,7 +170,8 @@ export interface AssetActivityData {
   assetType: string;
   totalViews: number;
   uniqueViewers: number;
-  lastViewed: string;
+  /** Null when nobody has opened it. */
+  lastViewed: string | null;
   viewsByDate: { [date: string]: number };
   viewers: Array<{
     userName: string;
@@ -222,7 +223,8 @@ export interface DatasetActivityData {
 
 export interface UserActivityData {
   userName: string;
-  lastActive: string;
+  /** Null when nothing is recorded for them. */
+  lastActive: string | null;
   totalActivities: number;
   activitiesByDate: { [date: string]: number };
   dashboards: Array<{

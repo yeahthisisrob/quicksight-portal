@@ -18,7 +18,11 @@ import {
   CachePolicy,
   CacheQueryStringBehavior,
   type CfnDistribution,
+  Function as CloudFrontFunction,
   Distribution,
+  FunctionCode,
+  FunctionEventType,
+  FunctionRuntime,
   HeadersFrameOption,
   HeadersReferrerPolicy,
   OriginAccessIdentity,
@@ -662,6 +666,27 @@ export class QuicksightPortalStack extends Stack {
       enableAcceptEncodingBrotli: true,
     });
 
+    // The SPA's routes (/dashboards, /author, ...) are not files in the bucket.
+    // They are rewritten to index.html here, on the S3 behaviour only, instead
+    // of mapping every 404 on the distribution to index.html: that mapping
+    // also caught the API's 404s and handed the browser an HTML page where it
+    // expected JSON ("Unexpected token '<'").
+    const spaRewrite = new CloudFrontFunction(this, 'SpaRewrite', {
+      runtime: FunctionRuntime.JS_2_0,
+      code: FunctionCode.fromInline(
+        [
+          'function handler(event) {',
+          '  var request = event.request;',
+          "  if (request.uri.split('/').pop().indexOf('.') === -1) {",
+          "    request.uri = '/index.html';",
+          '  }',
+          '  return request;',
+          '}',
+        ].join('\n')
+      ),
+      comment: 'Serves index.html for SPA routes (paths without a file extension)',
+    });
+
     const distribution = new Distribution(this, 'Distribution', {
       defaultBehavior: {
         origin: S3BucketOrigin.withOriginAccessIdentity(websiteBucket, {
@@ -672,6 +697,9 @@ export class QuicksightPortalStack extends Stack {
         cachePolicy: CachePolicy.CACHING_OPTIMIZED,
         responseHeadersPolicy: securityHeaders,
         compress: true,
+        functionAssociations: [
+          { function: spaRewrite, eventType: FunctionEventType.VIEWER_REQUEST },
+        ],
       },
       additionalBehaviors: {
         '/api/*': {
@@ -689,14 +717,6 @@ export class QuicksightPortalStack extends Stack {
       // CloudFront certificate (security policy is fixed at TLSv1). Set it
       // (TLS_V1_2_2021) when a custom domain + ACM certificate are added.
       webAclId: waf?.attrArn,
-      errorResponses: [
-        {
-          httpStatus: 404,
-          responseHttpStatus: 200,
-          responsePagePath: '/index.html',
-          ttl: Duration.seconds(0),
-        },
-      ],
     });
 
     const cdnDomain = (distribution.node.defaultChild as CfnDistribution).attrDomainName;

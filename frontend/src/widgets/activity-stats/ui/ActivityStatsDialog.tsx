@@ -122,7 +122,9 @@ export function ActivityStatsDialog({
                 <Grid size={{ xs: 12, sm: 4 }}>
                   <Paper sx={{ p: spacing.md / 8, textAlign: 'center' }}>
                     <AccessTimeIcon color="primary" sx={{ fontSize: 40, mb: spacing.xs / 8 }} />
-                    <Typography variant="body1">{formatDate(activity.lastViewed)}</Typography>
+                    <Typography variant="body1">
+                      {activity.lastViewed ? formatDate(activity.lastViewed) : 'Never'}
+                    </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Last Viewed
                     </Typography>

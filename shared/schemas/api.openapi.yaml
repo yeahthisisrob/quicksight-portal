@@ -778,7 +778,16 @@ paths:
           required: false
           schema:
             type: string
-            enum: [createdTime, status, datasetName, ingestionTimeInSeconds, rowsIngested]
+            enum:
+              [
+                createdTime,
+                status,
+                datasetName,
+                ingestionTimeInSeconds,
+                rowsIngested,
+                sizeInBytes,
+                datasourceType,
+              ]
             default: createdTime
             description: Field to sort by
         - name: sortOrder
@@ -8623,7 +8632,8 @@ components:
         lastViewed:
           type: string
           format: date-time
-          description: Most recent view timestamp (persisted forever)
+          nullable: true
+          description: Most recent view timestamp (persisted forever); null when nobody has opened it
         viewsByDate:
           type: object
           additionalProperties:
@@ -8886,7 +8896,8 @@ components:
         lastActive:
           type: string
           format: date-time
-          description: Last activity timestamp (persisted forever)
+          nullable: true
+          description: Last activity timestamp (persisted forever); null when nothing is recorded
         totalActivities:
           type: integer
           description: Total number of activities in activity window

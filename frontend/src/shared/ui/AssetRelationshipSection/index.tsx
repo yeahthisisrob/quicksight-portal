@@ -22,6 +22,8 @@ interface Asset {
   name: string;
   type: string;
   relationshipType?: string;
+  /** A line under the id: where it is tied, what it is for. */
+  hint?: string;
   isArchived?: boolean;
   activity?: {
     totalViews?: number;
@@ -204,6 +206,14 @@ export function AssetRelationshipSection({
                       </Box>
                     )}
                 </Box>
+                {asset.hint && (
+                  <Typography
+                    variant="caption"
+                    sx={{ display: 'block', color: 'text.secondary', mt: 0.25 }}
+                  >
+                    {asset.hint}
+                  </Typography>
+                )}
                 {/* Tags display */}
                 {asset.tags && asset.tags.length > 0 && (
                   <Box

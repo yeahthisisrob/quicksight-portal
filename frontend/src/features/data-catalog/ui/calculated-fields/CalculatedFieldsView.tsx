@@ -1,6 +1,7 @@
 /**
  * The calculated fields tab: the counts, a show control, a search over names and
- * expressions, the table, and the detail beside it once a row is chosen.
+ * expressions, the grid (which sorts itself), and the detail beside it once a
+ * row is chosen.
  */
 import { Search } from '@mui/icons-material';
 import {
@@ -21,16 +22,11 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { getApiErrorMessage } from '@/shared/api';
 import type { CatalogScope } from '@/shared/api/modules/data-catalog';
-import { Container, EmptyState, pal } from '@/shared/design-system';
+import { Container, EmptyState } from '@/shared/design-system';
 import { useDebounce } from '@/shared/lib/useDebounce';
 
 import { useCalculatedField, useCalculatedFields } from '../../lib/useFieldCatalog';
-import {
-  CALCULATED_FIELD_SORTS,
-  type CalculatedFieldSort,
-  isUnused,
-  sortCalculatedFields,
-} from '../../model/fieldCatalog';
+import { isUnused } from '../../model/fieldCatalog';
 import { CalculatedFieldDetail } from './CalculatedFieldDetail';
 import { CalculatedFieldsTable } from './CalculatedFieldsTable';
 import { FieldCounts } from './FieldCounts';
@@ -65,8 +61,8 @@ const DETAIL_MIN_WIDTH = 520;
 const SKELETON_ROWS = 6;
 const SEARCH_WIDTH = 260;
 const SEARCH_WIDTH_COMPACT = 170;
-const SORT_WIDTH = 180;
-const SORT_WIDTH_COMPACT = 140;
+const SHOW_WIDTH = 150;
+const SHOW_WIDTH_COMPACT = 120;
 
 export function CalculatedFieldsView({
   projectId,
@@ -81,7 +77,6 @@ export function CalculatedFieldsView({
   onOpenListing,
 }: CalculatedFieldsViewProps) {
   const debounced = useDebounce(search, SEARCH_DEBOUNCE_MS);
-  const [sort, setSort] = useState<CalculatedFieldSort>('name');
   const [countFilter, setCountFilter] = useState<CountFilter | undefined>(
     conflictsOnly ? 'conflicts' : undefined
   );
@@ -104,14 +99,10 @@ export function CalculatedFieldsView({
 
   const items = useMemo(() => {
     const all = list.data?.items ?? [];
-    const narrowed =
-      countFilter === 'unused'
-        ? all.filter(isUnused)
-        : countFilter === 'templated'
-          ? all.filter((i) => i.template)
-          : all;
-    return sortCalculatedFields(narrowed, sort);
-  }, [list.data, countFilter, sort]);
+    if (countFilter === 'unused') return all.filter(isUnused);
+    if (countFilter === 'templated') return all.filter((i) => i.template);
+    return all;
+  }, [list.data, countFilter]);
 
   // A search that lands on exactly one field opens it: that is how a hit from
   // the command palette (which carries the name) arrives here.
@@ -185,7 +176,7 @@ export function CalculatedFieldsView({
                   htmlInput: { 'aria-label': 'Search calculated fields' },
                 }}
               />
-              <FormControl size="small" sx={{ minWidth: open ? SORT_WIDTH_COMPACT : SORT_WIDTH }}>
+              <FormControl size="small" sx={{ minWidth: open ? SHOW_WIDTH_COMPACT : SHOW_WIDTH }}>
                 <InputLabel id="calculated-fields-show">Show</InputLabel>
                 <Select
                   labelId="calculated-fields-show"
@@ -194,21 +185,6 @@ export function CalculatedFieldsView({
                   onChange={(e) => show(e.target.value as CountFilter | 'all')}
                 >
                   {SHOW_OPTIONS.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl size="small" sx={{ minWidth: open ? SORT_WIDTH_COMPACT : SORT_WIDTH }}>
-                <InputLabel id="calculated-fields-sort">Sort</InputLabel>
-                <Select
-                  labelId="calculated-fields-sort"
-                  label="Sort"
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as CalculatedFieldSort)}
-                >
-                  {CALCULATED_FIELD_SORTS.map((option) => (
                     <MenuItem key={option.value} value={option.value}>
                       {option.label}
                     </MenuItem>
@@ -244,19 +220,12 @@ export function CalculatedFieldsView({
               }
             />
           ) : (
-            <Box
-              sx={(theme) => ({
-                overflowX: 'auto',
-                '& .MuiTableRow-root.Mui-selected': { bgcolor: pal(theme).surface.selected },
-              })}
-            >
-              <CalculatedFieldsTable
-                items={items}
-                selectedKey={selectedKey}
-                onSelect={(key) => onSelect(key === selectedKey ? undefined : key)}
-                compact={open}
-              />
-            </Box>
+            <CalculatedFieldsTable
+              items={items}
+              selectedKey={selectedKey}
+              onSelect={(key) => onSelect(key === selectedKey ? undefined : key)}
+              compact={open}
+            />
           )}
         </Container>
         {open && (

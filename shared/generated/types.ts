@@ -4388,9 +4388,9 @@ export interface components {
             uniqueViewers: number;
             /**
              * Format: date-time
-             * @description Most recent view timestamp (persisted forever)
+             * @description Most recent view timestamp (persisted forever); null when nobody has opened it
              */
-            lastViewed: string;
+            lastViewed: string | null;
             /** @description View counts by date (YYYY-MM-DD) */
             viewsByDate: {
                 [key: string]: number;
@@ -4555,9 +4555,9 @@ export interface components {
             userName: string;
             /**
              * Format: date-time
-             * @description Last activity timestamp (persisted forever)
+             * @description Last activity timestamp (persisted forever); null when nothing is recorded
              */
-            lastActive: string;
+            lastActive: string | null;
             /** @description Total number of activities in activity window */
             totalActivities: number;
             /** @description Activity counts by date (YYYY-MM-DD) */
@@ -7415,7 +7415,7 @@ export interface operations {
         parameters: {
             query?: {
                 search?: string;
-                sortBy?: "createdTime" | "status" | "datasetName" | "ingestionTimeInSeconds" | "rowsIngested";
+                sortBy?: "createdTime" | "status" | "datasetName" | "ingestionTimeInSeconds" | "rowsIngested" | "sizeInBytes" | "datasourceType";
                 sortOrder?: "asc" | "desc";
                 page?: number;
                 pageSize?: number;

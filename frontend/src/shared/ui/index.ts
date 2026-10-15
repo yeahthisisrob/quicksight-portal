@@ -1,5 +1,6 @@
 // Shared UI components
 
+export { AssetListDialog, type AssetListItem } from './AssetListDialog';
 // DataGrid cell components
 export { ColorSwatches } from './ColorSwatches';
 export { ErrorBoundary } from './ErrorBoundary';

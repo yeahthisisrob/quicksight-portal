@@ -119,7 +119,6 @@ export function AssetRefGrid({ assets }: { assets: CalculatedFieldRef[] }) {
         initialState={{ pagination: { paginationModel: { pageSize: PAGE_SIZE } } }}
         disableRowSelectionOnClick
         disableColumnMenu
-        density="compact"
         sx={{ height, '& .MuiDataGrid-cell': { display: 'flex', alignItems: 'center' } }}
       />
     </Stack>

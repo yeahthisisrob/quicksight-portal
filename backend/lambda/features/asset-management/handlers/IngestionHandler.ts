@@ -241,6 +241,14 @@ export class IngestionHandler {
           field: 'rowsIngested',
           getValue: (item: any) => item.rowsIngested || 0,
         },
+        sizeInBytes: {
+          field: 'sizeInBytes',
+          getValue: (item: any) => item.sizeInBytes || 0,
+        },
+        datasourceType: {
+          field: 'datasourceType',
+          getValue: (item: any) => item.datasourceType || '',
+        },
       };
 
       // Process data with pagination

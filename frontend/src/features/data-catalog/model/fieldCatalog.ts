@@ -1,21 +1,9 @@
 /**
- * Pure helpers for the field-first catalog: how an expression is shown, how
- * rows sort, how "defined in" reads. No React, no network; unit-tested.
+ * Pure helpers for the field-first catalog: how an expression is shown, what
+ * counts as used, why a dataset is tied to a listing. No React, no network;
+ * unit-tested.
  */
-import type {
-  CalculatedFieldRef,
-  CalculatedFieldSummary,
-  CatalogDatasetRef,
-} from '@/shared/api/modules/data-catalog';
-
-export type CalculatedFieldSort = 'name' | 'usage' | 'conflicts' | 'definedIn';
-
-export const CALCULATED_FIELD_SORTS: Array<{ value: CalculatedFieldSort; label: string }> = [
-  { value: 'name', label: 'Name' },
-  { value: 'usage', label: 'Most used' },
-  { value: 'conflicts', label: 'Conflicts first' },
-  { value: 'definedIn', label: 'Defined in most places' },
-];
+import type { CalculatedFieldSummary, CatalogDatasetRef } from '@/shared/api/modules/data-catalog';
 
 const INDENT = '  ';
 /** Expressions shorter than this stay on one line. */
@@ -27,27 +15,6 @@ export function totalUsage(item: Pick<CalculatedFieldSummary, 'usedBy'>): number
 
 export function isUnused(item: Pick<CalculatedFieldSummary, 'usedBy'>): boolean {
   return totalUsage(item) === 0;
-}
-
-export function sortCalculatedFields(
-  items: CalculatedFieldSummary[],
-  sort: CalculatedFieldSort
-): CalculatedFieldSummary[] {
-  const byName = (a: CalculatedFieldSummary, b: CalculatedFieldSummary) =>
-    a.name.localeCompare(b.name) || a.expression.localeCompare(b.expression);
-  const sorted = [...items];
-  switch (sort) {
-    case 'usage':
-      return sorted.sort((a, b) => totalUsage(b) - totalUsage(a) || byName(a, b));
-    case 'conflicts':
-      return sorted.sort(
-        (a, b) => (b.conflict?.variants ?? 0) - (a.conflict?.variants ?? 0) || byName(a, b)
-      );
-    case 'definedIn':
-      return sorted.sort((a, b) => b.definedIn.length - a.definedIn.length || byName(a, b));
-    default:
-      return sorted.sort(byName);
-  }
 }
 
 /**
@@ -71,21 +38,6 @@ export function describeSmusTie(dataset: CatalogDatasetRef): string {
     default:
       return `SMUS listing ${listing.name}${where}, matched on the source table the dataset reads.`;
   }
-}
-
-/** "2 dashboards · 1 dataset", in the order dataset, dashboard, analysis. */
-export function describeDefinedIn(refs: CalculatedFieldRef[]): string {
-  const counts = { dataset: 0, dashboard: 0, analysis: 0 };
-  for (const ref of refs) {
-    counts[ref.type] += 1;
-  }
-  const word = (n: number, singular: string, plural: string) =>
-    `${n} ${n === 1 ? singular : plural}`;
-  const parts: string[] = [];
-  if (counts.dataset) parts.push(word(counts.dataset, 'dataset', 'datasets'));
-  if (counts.dashboard) parts.push(word(counts.dashboard, 'dashboard', 'dashboards'));
-  if (counts.analysis) parts.push(word(counts.analysis, 'analysis', 'analyses'));
-  return parts.join(' · ') || 'nowhere';
 }
 
 /**
