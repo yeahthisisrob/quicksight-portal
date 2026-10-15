@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.49.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.48.1...v2.49.0) (2026-10-15)
+
+
+### Features
+
+* **operations:** the activity refresh is its own section, and the Activity page only reads ([cba0504](https://github.com/yeahthisisrob/quicksight-portal/commit/cba0504283dff9444fd636f0b19384f2de0624de))
+* **operations:** the activity refresh is its own section, and the Activity page only reads ([e980bbe](https://github.com/yeahthisisrob/quicksight-portal/commit/e980bbe2eeddcc712db1ab2ae2e2f412b0dfab03))
+
 ## [2.48.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.48.0...v2.48.1) (2026-10-15)
 
 

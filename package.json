@@ -1,6 +1,6 @@
 {
   "name": "quicksight-assets-portal",
-  "version": "2.48.1",
+  "version": "2.49.0",
   "private": true,
   "scripts": {
     "dev": "just dev",
