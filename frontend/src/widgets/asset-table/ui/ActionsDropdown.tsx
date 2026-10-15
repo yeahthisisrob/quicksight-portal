@@ -1,6 +1,7 @@
 import {
   DesignServices as AuthorIcon,
   EditNote as EditSourceIcon,
+  History as HistoryIcon,
   Hub as HubIcon,
   MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
@@ -34,6 +35,7 @@ interface ActionsDropdownProps {
     onRenameClick?: (asset: any) => void;
     onEditSourceClick?: (asset: any) => void;
     onWireframeClick?: (asset: any) => void;
+    onVersionHistoryClick?: (asset: any) => void;
     onRebindClick?: (asset: any) => void;
   };
 }
@@ -120,6 +122,12 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
           <MenuItem onClick={() => handleAction(() => handlers.onWireframeClick?.(asset))}>
             <WireframeIcon fontSize="small" sx={{ mr: 1 }} />
             View Wireframe
+          </MenuItem>
+        )}
+        {(assetType === 'dashboard' || assetType === 'analysis' || assetType === 'dataset') && (
+          <MenuItem onClick={() => handleAction(() => handlers.onVersionHistoryClick?.(asset))}>
+            <HistoryIcon fontSize="small" sx={{ mr: 1 }} />
+            Version history
           </MenuItem>
         )}
         {(assetType === 'dashboard' || assetType === 'analysis' || assetType === 'dataset') && (

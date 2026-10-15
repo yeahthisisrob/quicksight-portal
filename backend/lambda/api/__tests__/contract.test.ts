@@ -154,6 +154,7 @@ const PATH_VALUES: Record<string, string> = {
   entityId: 'dashboard:d1',
   key: 'cf_x',
   listingId: 'l1',
+  versionId: 'v1',
 };
 
 function sampleQuery(op: any): Record<string, string> {

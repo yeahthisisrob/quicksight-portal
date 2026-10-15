@@ -132,6 +132,23 @@ export const authoringRoutes: RouteHandler[] = [
   },
   {
     method: 'POST',
+    path: /^\/authoring\/(analysis|dashboard|dataset)\/([^/]+)\/versions\/([^/]+)\/restore$/,
+    handler: (event) => {
+      // The router's generic names do not know this route: name the ids from the path.
+      const match = event.path.match(/\/authoring\/([^/]+)\/([^/]+)\/versions\/([^/]+)\/restore/);
+      return handler.rollback({
+        ...event,
+        pathParameters: {
+          ...(event.pathParameters ?? {}),
+          assetType: match?.[1] ?? '',
+          assetId: match?.[2] ?? '',
+          versionId: match?.[3] ?? '',
+        },
+      });
+    },
+  },
+  {
+    method: 'POST',
     path: /^\/authoring\/(analysis|dashboard)\/([^/]+)\/repair\/plan$/,
     handler: (event) => handler.planRepair(event),
   },

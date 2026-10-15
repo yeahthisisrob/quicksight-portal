@@ -58,6 +58,14 @@ const FIELD_PREFIX = /^([A-Za-z][A-Za-z0-9_]{0,15})?$/;
 const FIELD_PREFIX_HINT = 'up to 16 letters, digits or underscores, starting with a letter';
 
 /** How often a scheduled run happens; manual means never by itself. */
+const HISTORY_KEEP_OPTIONS = [
+  { value: '10', label: '10 versions' },
+  { value: '25', label: '25 versions' },
+  { value: '50', label: '50 versions' },
+  { value: '100', label: '100 versions' },
+  { value: '250', label: '250 versions' },
+];
+
 const SCHEDULE_OPTIONS = [
   { value: 'manual', label: 'Manual' },
   { value: '4h', label: 'Every 4 hours' },
@@ -388,6 +396,23 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
         envVar: '',
         default: 'manual',
         options: SCHEDULE_OPTIONS,
+      },
+    ],
+  },
+  {
+    id: 'history',
+    title: 'History',
+    description:
+      'Every dashboard, analysis and dataset keeps its earlier definitions: a version is kept whenever an export, a refresh or a portal write finds the definition changed, with what changed in words. Any version can be compared with any other and restored.',
+    settings: [
+      {
+        key: 'history.keep',
+        label: 'Versions kept per asset',
+        description: 'The oldest versions past this count are dropped when a new one is kept.',
+        type: 'select',
+        envVar: '',
+        default: '50',
+        options: HISTORY_KEEP_OPTIONS,
       },
     ],
   },

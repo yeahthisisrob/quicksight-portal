@@ -157,7 +157,8 @@ type ProvenanceAction =
   | 'authoring.create'
   | 'authoring.update'
   | 'authoring.clone'
-  | 'authoring.restore';
+  | 'authoring.restore'
+  | 'authoring.rollback';
 
 /**
  * Each change line becomes a confirmed note on the asset, and on the visual
@@ -226,9 +227,23 @@ export async function recordProvenance(
   },
   auth?: AuthContext
 ): Promise<void> {
+  // The refresh that follows keeps the new definition as a version; it
+  // records who made the change and what they changed, in these words.
+  const provenance = {
+    source: entry.action === 'authoring.rollback' ? ('rollback' as const) : ('portal' as const),
+    by: auth ? actorLabel(auth) : 'The portal',
+    action: entry.action,
+    changes: (entry.changes ?? []).map((change) => change.text),
+  };
   await keepCatalogFresh(
     [
-      { assetType: entry.assetType, assetId: entry.assetId, name: entry.name, arn: entry.arn },
+      {
+        assetType: entry.assetType,
+        assetId: entry.assetId,
+        name: entry.name,
+        arn: entry.arn,
+        provenance,
+      },
       ...(entry.folderIds ?? []).map((assetId) => ({ assetType: 'folder' as const, assetId })),
     ],
     { accountId: auth?.accountId, userId: auth?.userId }

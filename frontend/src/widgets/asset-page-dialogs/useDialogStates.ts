@@ -97,6 +97,11 @@ export interface WireframeDialogState {
   asset: { id: string; name: string } | null;
 }
 
+export interface VersionHistoryDialogState {
+  open: boolean;
+  asset: { id: string; name: string } | null;
+}
+
 export interface RebindDialogState {
   open: boolean;
   asset: { id: string; name: string } | null;
@@ -173,6 +178,10 @@ export function useDialogStates(refreshAssetType: (type: AssetType) => Promise<v
     dataset: null,
   });
   const [wireframeDialog, setWireframeDialog] = useState<WireframeDialogState>({
+    open: false,
+    asset: null,
+  });
+  const [versionHistoryDialog, setVersionHistoryDialog] = useState<VersionHistoryDialogState>({
     open: false,
     asset: null,
   });
@@ -273,6 +282,8 @@ export function useDialogStates(refreshAssetType: (type: AssetType) => Promise<v
     setDatasetSourceDialog,
     wireframeDialog,
     setWireframeDialog,
+    versionHistoryDialog,
+    setVersionHistoryDialog,
     rebindDialog,
     setRebindDialog,
     userAssetAccessDialog,

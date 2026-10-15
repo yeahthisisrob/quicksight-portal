@@ -5,9 +5,17 @@
  * current record) can ask without importing the export slice.
  */
 import type { AssetType } from '../../types/assetTypes';
+import type { VersionProvenance } from '../history/AssetHistory';
+
+export interface RefreshAssetRef {
+  assetType: AssetType;
+  assetId: string;
+  /** Who wrote it and what changed, for the version the refresh keeps. */
+  provenance?: VersionProvenance;
+}
 
 export type RefreshAssets = (
-  assets: Array<{ assetType: AssetType; assetId: string }>
+  assets: RefreshAssetRef[]
 ) => Promise<{ refreshed: string[]; missing: string[]; failed: string[] }>;
 
 let registered: RefreshAssets | null = null;

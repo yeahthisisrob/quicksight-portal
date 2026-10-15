@@ -1,0 +1,1 @@
+export { historyRoutes } from './routes';

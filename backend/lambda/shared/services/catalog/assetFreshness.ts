@@ -20,6 +20,7 @@ import { metadataBucketName } from '../../config/metadataBucket';
 import { AssetStatus } from '../../models/asset.model';
 import type { AssetType } from '../../types/assetTypes';
 import { logger } from '../../utils/logger';
+import type { VersionProvenance } from '../history/AssetHistory';
 import { JobFactory } from '../jobs/JobFactory';
 import { catalog } from './catalogStore';
 
@@ -28,6 +29,8 @@ interface WrittenAssetRef {
   assetId: string;
   name?: string;
   arn?: string;
+  /** Who wrote it and what changed: the version the refresh keeps says so. */
+  provenance?: VersionProvenance;
 }
 
 /** Assets per refresh job. */
@@ -100,7 +103,11 @@ async function queueRefresh(
         accountId,
         bucketName: metadataBucketName(accountId),
         userId: context.userId ?? 'system',
-        assets: chunk.map(({ assetType, assetId }) => ({ assetType, assetId })),
+        assets: chunk.map(({ assetType, assetId, provenance }) => ({
+          assetType,
+          assetId,
+          ...(provenance ? { provenance } : {}),
+        })),
       });
     } catch (error) {
       logger.warn('Catalog: the refresh of written assets could not be queued', {

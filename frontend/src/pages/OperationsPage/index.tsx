@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { ActivityPanel } from '@/features/activity';
+import { RecentChangesPanel } from '@/features/history';
 import { JobsView } from '@/features/jobs';
 import { SmusExportPanel } from '@/features/smus';
 import {
@@ -34,6 +35,7 @@ const SECTIONS: Array<{
   { id: 'activity', label: 'Activity refresh' },
   { id: 'jobs', label: 'Jobs' },
   { id: 'archived', label: 'Archived assets' },
+  { id: 'history', label: 'History' },
 ];
 
 /**
@@ -76,6 +78,7 @@ export default function OperationsPage() {
         {tab === 'jobs' && <JobsView />}
         {tab === 'smus' && <SmusExportPanel />}
         {tab === 'archived' && <ArchivedAssetsPanel />}
+        {tab === 'history' && <RecentChangesPanel />}
       </SectionNav>
     </Box>
   );

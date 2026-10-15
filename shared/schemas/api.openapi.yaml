@@ -6207,6 +6207,213 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  # History: the versions an asset has been through
+  /api/history:
+    get:
+      operationId: getHistory
+      tags: [History]
+      summary: What changed lately, across the account
+      description: Every version kept, newest first, across every dashboard, analysis and dataset.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: Versions, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [versions]
+                    properties:
+                      versions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AssetVersion'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/history/{assetType}/{assetId}:
+    get:
+      operationId: getHistoryByAssetTypeByAssetId
+      tags: [History]
+      summary: The versions an asset has been through
+      description: |
+        Newest first. A version is kept whenever an export, a refresh or a
+        portal write finds the definition changed (volatile fields such as
+        timestamps and status do not count), with who changed it (a person
+        when the portal wrote it, "Outside the portal" when an export found
+        the change) and what changed in words.
+      parameters:
+        - $ref: '#/components/parameters/VersionedAssetType'
+        - $ref: '#/components/parameters/AuthoringAssetId'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        '200':
+          description: Versions, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [versions]
+                    properties:
+                      versions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AssetVersion'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/history/{assetType}/{assetId}/{versionId}:
+    get:
+      operationId: getHistoryByAssetTypeByAssetIdByVersionId
+      tags: [History]
+      summary: One version, with its definition
+      parameters:
+        - $ref: '#/components/parameters/VersionedAssetType'
+        - $ref: '#/components/parameters/AuthoringAssetId'
+        - $ref: '#/components/parameters/VersionId'
+      responses:
+        '200':
+          description: The version and the definition it kept
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [version, definition]
+                    properties:
+                      version:
+                        $ref: '#/components/schemas/AssetVersion'
+                      definition:
+                        type: object
+                        additionalProperties: true
+                        description: The definition response as kept (volatile fields removed).
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/history/{assetType}/{assetId}/{versionId}/diff:
+    get:
+      operationId: getHistoryByAssetTypeByAssetIdByVersionIdDiff
+      tags: [History]
+      summary: What changed between two versions
+      description: |
+        From the version before (the default), from another version
+        (`against=<versionId>`), or from this version to what is live now
+        (`against=live`): what changed in words, and every differing path.
+      parameters:
+        - $ref: '#/components/parameters/VersionedAssetType'
+        - $ref: '#/components/parameters/AuthoringAssetId'
+        - $ref: '#/components/parameters/VersionId'
+        - name: against
+          in: query
+          required: false
+          schema:
+            type: string
+            description: "`previous` (default), `live`, or a version id"
+        - name: include
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [definitions]
+            description: Also return both definitions, for a side-by-side view.
+      responses:
+        '200':
+          description: The difference
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/VersionDiff'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/authoring/{assetType}/{assetId}/versions/{versionId}/restore:
+    post:
+      operationId: postAuthoringByAssetTypeByAssetIdVersionsByVersionIdRestore
+      tags: [Authoring, History]
+      summary: Put an earlier version back
+      description: |
+        Writes the definition that version kept over the live asset, as a
+        new version (the rollback is itself a change, recorded with who did
+        it and which version came back), so nothing is lost. Runs as a job:
+        poll `GET /api/jobs/{jobId}` and read the `RollbackResult` from
+        `GET /api/jobs/{jobId}/result`; the catalog entry is refreshed before
+        the job completes.
+      parameters:
+        - $ref: '#/components/parameters/VersionedAssetType'
+        - $ref: '#/components/parameters/AuthoringAssetId'
+        - $ref: '#/components/parameters/VersionId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        '202':
+          description: The rollback was queued; its result is the RollbackResult
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/JobQueued'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -6260,6 +6467,19 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/AuthorableAssetType'
+    VersionedAssetType:
+      name: assetType
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [dashboard, analysis, dataset]
+    VersionId:
+      name: versionId
+      in: path
+      required: true
+      schema:
+        type: string
     AuthoringAssetId:
       name: assetId
       in: path
@@ -12619,6 +12839,17 @@ components:
           description: What people and the portal have said about it, newest first (see /api/knowledge).
           items:
             $ref: '#/components/schemas/Note'
+        history:
+          type: object
+          description: The versions kept of an asset entity, newest first (see /api/history); absent when none.
+          required: [total, versions]
+          properties:
+            total:
+              type: integer
+            versions:
+              type: array
+              items:
+                $ref: '#/components/schemas/AssetVersion'
         relations:
           type: array
           items:
@@ -12742,6 +12973,123 @@ components:
           type: boolean
         data:
           $ref: '#/components/schemas/JobQueued'
+
+    AssetVersion:
+      type: object
+      description: One version of a dashboard, analysis or dataset the portal kept.
+      required: [assetType, assetId, versionId, at, name, hash, source, by, summary, changes, size]
+      properties:
+        assetType:
+          type: string
+          enum: [dashboard, analysis, dataset]
+        assetId:
+          type: string
+        versionId:
+          type: string
+          description: Time-ordered and unique.
+        at:
+          type: string
+          format: date-time
+        name:
+          type: string
+        hash:
+          type: string
+          description: A hash of the definition with volatile fields removed.
+        source:
+          type: string
+          enum: [export, portal, rollback]
+          description: Seen by an export (made outside the portal), written by the portal, or a rollback.
+        by:
+          type: string
+          description: Who made it when the portal knows; else "Outside the portal".
+        action:
+          type: string
+          description: The portal action behind a portal write (authoring.update, ...).
+        summary:
+          type: string
+          description: What changed since the version before, in a line.
+        changes:
+          type: array
+          items:
+            type: string
+        previousVersionId:
+          type: string
+        quickSightVersion:
+          type: integer
+          description: QuickSight's own version number, dashboards only.
+        size:
+          type: integer
+          description: The definition object's size in bytes.
+
+    VersionDiffEntry:
+      type: object
+      required: [path, kind]
+      properties:
+        path:
+          type: string
+        kind:
+          type: string
+          enum: [added, removed, changed]
+        before: {}
+        after: {}
+
+    VersionDiff:
+      type: object
+      required: [live, summary, changes, entries, truncated]
+      properties:
+        from:
+          $ref: '#/components/schemas/AssetVersion'
+        to:
+          $ref: '#/components/schemas/AssetVersion'
+        live:
+          type: boolean
+          description: True when `from` is compared with what is live now; `to` is then absent. `from` is absent when `to` is the first version.
+        summary:
+          type: string
+        changes:
+          type: array
+          items:
+            type: string
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/VersionDiffEntry'
+        truncated:
+          type: boolean
+        fromDefinition:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: With `include=definitions`; null when `from` is absent.
+        toDefinition:
+          type: object
+          additionalProperties: true
+          description: With `include=definitions`.
+
+    RollbackResult:
+      type: object
+      required: [assetType, assetId, name, versionId, versionAt, warnings]
+      properties:
+        assetType:
+          type: string
+          enum: [dashboard, analysis, dataset]
+        assetId:
+          type: string
+        name:
+          type: string
+        versionId:
+          type: string
+          description: The version put back.
+        versionAt:
+          type: string
+          format: date-time
+        versionNumber:
+          type: integer
+          description: Dashboards only. The QuickSight version the rollback created.
+        warnings:
+          type: array
+          items:
+            type: string
 
     JobQueued:
       type: object

@@ -332,6 +332,21 @@ anything QuickSight still reports. A dataset or data source is checked with
 `POST /api/assets/{type}/{id}/restore/preview` and restored with
 `.../restore`.
 
+**History.** Every dashboard, analysis and dataset keeps its versions: one is
+kept whenever an export, a refresh or a portal write finds the definition
+changed (volatile fields such as timestamps and status do not count), with who
+changed it (a person when the portal wrote it, "Outside the portal" when an
+export found the change) and what changed in words. `GET /api/history/{type}/{id}`
+lists them newest first; `GET /api/history/{type}/{id}/{versionId}` reads one
+with its definition; `GET /api/history/{type}/{id}/{versionId}/diff` compares it
+with the version before (`?against=<versionId>` with another, `?against=live`
+with what is live now), answering with the change lines and every differing
+path; `GET /api/history` lists what changed lately across the account.
+`POST /api/authoring/{type}/{id}/versions/{versionId}/restore` puts a version
+back: it writes that definition over the live asset as a new version (a job;
+the `RollbackResult` is its result), so nothing is lost. Settings › History sets
+how many versions each asset keeps.
+
 **A theme.** Custom themes are listed with their colors, the theme they
 start from and how many dashboards and analyses wear each one:
 `GET /api/assets/themes/paginated`. Put one on a dashboard or analysis

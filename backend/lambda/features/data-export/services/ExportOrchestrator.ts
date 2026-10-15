@@ -13,6 +13,7 @@ import { getAssetId, getAssetName } from '../../../shared/models/quicksight-doma
 import { ArchiveService } from '../../../shared/services/archive/ArchiveService';
 import { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import { S3Service } from '../../../shared/services/aws/S3Service';
+import type { RefreshAssetRef } from '../../../shared/services/catalog/assetRefresher';
 import {
   rebuildCatalog,
   rebuildCatalogType,
@@ -22,6 +23,7 @@ import { runCatalogRebuiltHooks } from '../../../shared/services/catalog/catalog
 import { catalogIndexer } from '../../../shared/services/catalog/catalogIndexer';
 import { catalog } from '../../../shared/services/catalog/catalogStore';
 import { rebuildFieldCache } from '../../../shared/services/catalog/fieldCache';
+import type { VersionProvenance } from '../../../shared/services/history/AssetHistory';
 import type { ExportCheckpoint } from '../../../shared/services/jobs/JobRepository';
 import type {
   JobProgressLogger,
@@ -803,13 +805,15 @@ export class ExportOrchestrator {
    * processed. An asset QuickSight does not list yet is reported missing.
    */
   public async refreshAssets(
-    assets: Array<{ assetType: AssetType; assetId: string }>
+    assets: RefreshAssetRef[]
   ): Promise<{ refreshed: string[]; missing: string[]; failed: string[] }> {
     await this.ensureBucketName();
     const out = { refreshed: [] as string[], missing: [] as string[], failed: [] as string[] };
     const byType = new Map<AssetType, Set<string>>();
-    for (const { assetType, assetId } of assets) {
+    const provenanceOf = new Map<string, VersionProvenance>();
+    for (const { assetType, assetId, provenance } of assets) {
       byType.set(assetType, (byType.get(assetType) ?? new Set()).add(assetId));
+      if (provenance) provenanceOf.set(`${assetType}:${assetId}`, provenance);
     }
     for (const [assetType, ids] of byType) {
       const processor = this.processors.get(assetType);
@@ -835,7 +839,11 @@ export class ExportOrchestrator {
       for (const summary of found) {
         const id = this.getAssetIdFromSummary(summary, assetType);
         try {
-          const result = await processor.processAsset(summary, { forceRefresh: true });
+          const provenance = provenanceOf.get(`${assetType}:${id}`);
+          const result = await processor.processAsset(summary, {
+            forceRefresh: true,
+            ...(provenance ? { provenance } : {}),
+          });
           if (result.status === 'success') {
             done.push(id);
           } else {

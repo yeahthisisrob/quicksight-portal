@@ -6,12 +6,14 @@ import type { RestoreRequest } from './features/authoring/types';
 import { ExportOrchestrator } from './features/data-export/services/ExportOrchestrator';
 import { SmusExportProcessor } from './features/smus/processors/SmusExportProcessor';
 import { wirePorts } from './ports';
-import type { AuthContext } from './shared/auth';
+import { type AuthContext, actorLabel as actorLabelOf } from './shared/auth';
 import type { SmusConfig } from './shared/config/smusConfig';
 import { JOB_CONFIG, STORAGE_LIMITS, TIME_UNITS, WORKER_CONFIG } from './shared/constants';
 import type { AssetType } from './shared/models/asset.model';
 import { summarizeBulkResult } from './shared/services/bulk/bulkResultSummary';
+import type { RefreshAssetRef } from './shared/services/catalog/assetRefresher';
 import { onCatalogRebuilt, runCatalogRebuiltHooks } from './shared/services/catalog/catalogHooks';
+import { versionMoment } from './shared/services/history/AssetHistory';
 import { jobFactory } from './shared/services/jobs/JobFactory';
 import { JobStateService } from './shared/services/jobs/JobStateService';
 import { queueService } from './shared/services/jobs/QueueService';
@@ -112,6 +114,13 @@ interface PlannerMessage {
         assetType: 'dashboard' | 'analysis';
         assetId: string;
         request: Record<string, unknown>;
+      }
+    /** Put an earlier version back over the live asset. */
+    | {
+        kind: 'rollback';
+        assetType: 'dashboard' | 'analysis' | 'dataset';
+        assetId: string;
+        versionId: string;
       };
   /** The person a write acts as. */
   auth?: AuthContext;
@@ -121,7 +130,7 @@ interface AssetRefreshMessage {
   jobId: string;
   jobType: 'asset-refresh';
   accountId: string;
-  assets: Array<{ assetType: AssetType; assetId: string }>;
+  assets: RefreshAssetRef[];
 }
 
 interface AssistantMessage {
@@ -626,7 +635,12 @@ async function processPlannerJob(message: PlannerMessage, record: any): Promise<
   const { jobId, accountId: msgAccountId, request } = message;
   logger.info('Processing planner job', { jobId, messageId: record.messageId, kind: request.kind });
   const jobStateService = new JobStateService('planner');
-  const opening = request.kind === 'restore' ? 'Reading the archived copy' : 'Asking the planner';
+  const opening =
+    request.kind === 'restore'
+      ? 'Reading the archived copy'
+      : request.kind === 'rollback'
+        ? 'Reading the version'
+        : 'Asking the planner';
 
   try {
     const existing = await jobStateService.getJobStatus(jobId);
@@ -719,6 +733,41 @@ async function processPlannerJob(message: PlannerMessage, record: any): Promise<
         });
       }
       result = restored;
+    } else if (request.kind === 'rollback') {
+      // The write, then the refresh that keeps the rolled-back definition as
+      // a version (naming who did it), before the job completes.
+      const { VersionRestoreService } = await import(
+        './features/authoring/services/VersionRestoreService'
+      );
+      await jobStateService.updateJobStatus(jobId, {
+        status: 'processing',
+        message: 'Writing the version back to QuickSight',
+        progress: RESTORE_PROGRESS.creating,
+      });
+      const rolled = await new VersionRestoreService(msgAccountId).restore(
+        request.assetType,
+        request.assetId,
+        request.versionId,
+        message.auth
+      );
+      await jobStateService.updateJobStatus(jobId, {
+        status: 'processing',
+        message: 'Reading it back into the catalog',
+        progress: RESTORE_PROGRESS.refreshing,
+      });
+      await new ExportOrchestrator(msgAccountId).refreshAssets([
+        {
+          assetType: request.assetType,
+          assetId: request.assetId,
+          provenance: {
+            source: 'rollback',
+            by: message.auth ? actorLabelOf(message.auth) : 'The portal',
+            action: 'authoring.rollback',
+            changes: [`Rolled back to the version of ${versionMoment(rolled.versionAt)}`],
+          },
+        },
+      ]);
+      result = rolled;
     } else if (request.kind === 'propose') {
       result = await planner.propose(request.assetType, request.assetId, {
         ask: request.ask,
@@ -738,7 +787,12 @@ async function processPlannerJob(message: PlannerMessage, record: any): Promise<
     await jobStateService.updateJobStatus(jobId, {
       status: 'completed',
       endTime: new Date().toISOString(),
-      message: request.kind === 'restore' ? 'Restored' : 'The planner answered',
+      message:
+        request.kind === 'restore'
+          ? 'Restored'
+          : request.kind === 'rollback'
+            ? 'Rolled back'
+            : 'The planner answered',
       progress: 100,
     });
     logger.info('Planner job completed', { jobId, kind: request.kind });

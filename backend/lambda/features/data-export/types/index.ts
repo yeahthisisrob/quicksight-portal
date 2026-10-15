@@ -8,8 +8,12 @@ interface RefreshOptions {
   tags: boolean;
 }
 
+import type { VersionProvenance } from '../../../shared/services/history/AssetHistory';
+
 export interface ProcessingContext {
   forceRefresh: boolean;
+  /** Who changed the asset and what they changed, when the portal just wrote it: the version kept says so. */
+  provenance?: VersionProvenance;
   refreshOptions?: RefreshOptions;
   sessionId?: string;
   batchSize?: number;

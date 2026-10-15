@@ -4,6 +4,8 @@
  * reached through the portal's own API, as the person, like everything
  * else the assistant does; the same calls will point at AWS Context.
  */
+
+import { versionMoment } from '../../../shared/services/history/AssetHistory';
 import type { KnownColumn } from './planning';
 
 type Dispatch = (request: {
@@ -139,9 +141,18 @@ export async function contextGet(
   if (result.status >= FIRST_ERROR_STATUS || !result.data?.entity) {
     return { ok: false, text: result.error ?? `No entity ${entityId}` };
   }
-  const { entity, relations, notes } = result.data;
+  const { entity, relations, notes, history } = result.data;
   const lines = [
     `${entity.id}: ${entity.summary}${entity.description ? `\n  ${entity.description}` : ''}${attributes(entity.attributes)}`,
+    // What it has been through: the versions kept, newest first; the whole list and any diff are one GET away.
+    ...(history?.versions?.length
+      ? [
+          `  history: ${history.total} version${history.total === 1 ? '' : 's'} kept (GET /api/history/${encodeURIComponent(entity.id.split(':')[0])}/${encodeURIComponent(entity.id.slice(entity.id.indexOf(':') + 1))} lists them; /{versionId}/diff compares)`,
+          ...(history.versions as any[]).map(
+            (v) => `    ${versionMoment(String(v.at))} by ${v.by} [${v.versionId}]: ${v.summary}`
+          ),
+        ]
+      : []),
     // What people and the portal have said about it, newest first; a draft is the model's unconfirmed reading.
     ...((notes as any[]) ?? []).map(
       (n) =>

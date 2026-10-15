@@ -5,6 +5,7 @@ import { assistantRoutes } from '../features/assistant';
 import { authoringRoutes } from '../features/authoring';
 import { dataCatalogRoutes } from '../features/data-catalog';
 import { dataExportRoutes } from '../features/data-export';
+import { historyRoutes } from '../features/history';
 import { knowledgeRoutes } from '../features/knowledge';
 import { organizationRoutes } from '../features/organization';
 import { playbookRoutes } from '../features/playbooks';
@@ -18,6 +19,7 @@ import { extractPathParams } from './utils/routeUtils';
 const featureRoutes: RouteHandler[] = [
   ...searchRoutes,
   ...knowledgeRoutes,
+  ...historyRoutes,
   ...apiDocsRoutes,
   ...assistantRoutes,
   ...assetManagementRoutes,

@@ -56,6 +56,7 @@ describe('resolveSetting', () => {
       'authoring',
       'provenance',
       'schedules',
+      'history',
     ]);
     expect(snapshot.updatedBy).toBe('rob');
     const spec = snapshot.groups[0]?.settings.find((s) => s.key === 'smus.projectIds');

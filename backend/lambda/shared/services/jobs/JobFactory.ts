@@ -5,6 +5,7 @@ import type { AssetType } from '../../models/asset.model';
 import { errorMessage } from '../../utils/errorMessage';
 import { executeJobLocallyAsync, isLocalDevelopment } from '../../utils/localDevelopment';
 import { logger } from '../../utils/logger';
+import type { VersionProvenance } from '../history/AssetHistory';
 import { JobRepository } from './JobRepository';
 import { type QueueMessage, queueService } from './QueueService';
 
@@ -103,6 +104,13 @@ interface PlannerJobConfig extends BaseJobConfig {
         assetType: 'dashboard' | 'analysis';
         assetId: string;
         request: Record<string, unknown>;
+      }
+    /** Put an earlier version of an asset back over the live one. */
+    | {
+        kind: 'rollback';
+        assetType: 'dashboard' | 'analysis' | 'dataset';
+        assetId: string;
+        versionId: string;
       };
   /** The person the write acts as: the asset's owner and the provenance record. */
   auth?: JobAuth;
@@ -145,7 +153,7 @@ interface PlaybookJobConfig extends BaseJobConfig {
 /** Re-export just these assets and upsert their cache entries (after the portal wrote them). */
 interface AssetRefreshJobConfig extends BaseJobConfig {
   jobType: 'asset-refresh';
-  assets: Array<{ assetType: AssetType; assetId: string }>;
+  assets: Array<{ assetType: AssetType; assetId: string; provenance?: VersionProvenance }>;
 }
 
 type JobConfig =
