@@ -18,11 +18,21 @@ import { PageHeader, SectionNav } from '@/shared/design-system';
 // the page layer's job under FSD, so it lives here rather than in a widget.
 import { ArchivedAssetsPanel } from './ArchivedAssetsPanel';
 
-const SECTIONS: Array<{ id: OperationsTab; label: string }> = [
-  { id: 'export', label: 'Export' },
+const SECTIONS: Array<{
+  id: OperationsTab;
+  label: string;
+  children?: Array<{ id: OperationsTab; label: string }>;
+}> = [
+  {
+    id: 'export',
+    label: 'Export',
+    children: [
+      { id: 'export', label: 'QuickSight' },
+      { id: 'smus', label: 'SageMaker Unified Studio' },
+    ],
+  },
   { id: 'activity', label: 'Activity refresh' },
   { id: 'jobs', label: 'Jobs' },
-  { id: 'smus', label: 'SageMaker Unified Studio' },
   { id: 'archived', label: 'Archived assets' },
 ];
 

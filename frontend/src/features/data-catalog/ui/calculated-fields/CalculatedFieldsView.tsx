@@ -1,5 +1,5 @@
 /**
- * The calculated fields tab: counts that filter, a search over names and
+ * The calculated fields tab: the counts, a show control, a search over names and
  * expressions, the table, and the detail beside it once a row is chosen.
  */
 import { Search } from '@mui/icons-material';
@@ -33,7 +33,16 @@ import {
 } from '../../model/fieldCatalog';
 import { CalculatedFieldDetail } from './CalculatedFieldDetail';
 import { CalculatedFieldsTable } from './CalculatedFieldsTable';
-import { type CountFilter, FieldCounts } from './FieldCounts';
+import { FieldCounts } from './FieldCounts';
+
+/** Which calculated fields the list shows: every one, or one kind worth attention. */
+type CountFilter = 'conflicts' | 'unused' | 'templated';
+const SHOW_OPTIONS: Array<{ value: CountFilter | 'all'; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'conflicts', label: 'Conflicts' },
+  { value: 'unused', label: 'Unused' },
+  { value: 'templated', label: 'Templated' },
+];
 
 interface CalculatedFieldsViewProps {
   projectId?: string;
@@ -112,10 +121,10 @@ export function CalculatedFieldsView({
     }
   }, [debounced, items, selectedKey, onSelect]);
 
-  const toggle = (filter: CountFilter) => {
-    const next = countFilter === filter ? undefined : filter;
-    setCountFilter(next);
-    onConflictsOnly(next === 'conflicts');
+  const show = (next: CountFilter | 'all') => {
+    const filter = next === 'all' ? undefined : next;
+    setCountFilter(filter);
+    onConflictsOnly(filter === 'conflicts');
   };
 
   if (list.isError) {
@@ -136,7 +145,7 @@ export function CalculatedFieldsView({
   return (
     <Stack spacing={2}>
       {list.data ? (
-        <FieldCounts counts={list.data.counts} active={countFilter} onToggle={toggle} />
+        <FieldCounts counts={list.data.counts} />
       ) : (
         <Skeleton variant="rectangular" height={72} />
       )}
@@ -176,6 +185,21 @@ export function CalculatedFieldsView({
                   htmlInput: { 'aria-label': 'Search calculated fields' },
                 }}
               />
+              <FormControl size="small" sx={{ minWidth: open ? SORT_WIDTH_COMPACT : SORT_WIDTH }}>
+                <InputLabel id="calculated-fields-show">Show</InputLabel>
+                <Select
+                  labelId="calculated-fields-show"
+                  label="Show"
+                  value={countFilter ?? 'all'}
+                  onChange={(e) => show(e.target.value as CountFilter | 'all')}
+                >
+                  {SHOW_OPTIONS.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
               <FormControl size="small" sx={{ minWidth: open ? SORT_WIDTH_COMPACT : SORT_WIDTH }}>
                 <InputLabel id="calculated-fields-sort">Sort</InputLabel>
                 <Select

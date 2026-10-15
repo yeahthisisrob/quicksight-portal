@@ -1,5 +1,4 @@
-import { PlayArrow, Stop } from '@mui/icons-material';
-import { Alert, Box, Button, Stack, Typography } from '@mui/material';
+import { Alert, Box, Stack, Typography } from '@mui/material';
 
 import { SegmentedControl } from '@/shared/design-system';
 
@@ -8,12 +7,7 @@ import type { ExportMode } from '../../model/types';
 interface ExportControlsProps {
   exportMode: ExportMode;
   onModeChange: (mode: ExportMode) => void;
-  onStartExport: () => void;
-  onStopExport: () => void;
-  onRefreshStatus: () => void;
-  isRunning: boolean;
-  isRefreshing: boolean;
-  selectedTypesCount: number;
+  disabled?: boolean;
 }
 
 const EXPORT_MODES: Array<{ value: ExportMode; label: string; description: string }> = [
@@ -47,12 +41,14 @@ const EXPORT_MODES: Array<{ value: ExportMode; label: string; description: strin
   },
 ];
 
-function startButtonLabel(exportMode: ExportMode): string {
+/** What the run button says for a mode. */
+export function startButtonLabel(exportMode: ExportMode): string {
   if (exportMode === 'rebuild') return 'Rebuild cache';
   return exportMode === 'force' ? 'Start force export' : 'Start export';
 }
 
-function selectionSummary(exportMode: ExportMode, selectedTypesCount: number): string {
+/** What a run would cover, in a line: "3 asset types · Smart sync". */
+export function selectionSummary(exportMode: ExportMode, selectedTypesCount: number): string {
   const mode = EXPORT_MODES.find((m) => m.value === exportMode);
   if (exportMode === 'rebuild') {
     return `All asset types · ${mode?.label}`;
@@ -64,23 +60,18 @@ function selectionSummary(exportMode: ExportMode, selectedTypesCount: number): s
 }
 
 /**
- * Export mode plus run/stop actions. Layout only: every piece of state lives
- * in the export view.
+ * The export mode, with what it means. Layout only: the state and the run
+ * button live in the export view, which puts the button in its card's header.
  */
 export default function ExportControls({
   exportMode,
   onModeChange,
-  onStartExport,
-  onStopExport,
-  onRefreshStatus: _onRefreshStatus,
-  isRunning,
-  isRefreshing: _isRefreshing,
-  selectedTypesCount,
+  disabled = false,
 }: ExportControlsProps) {
   const selectedMode = EXPORT_MODES.find((m) => m.value === exportMode);
 
   return (
-    <Stack spacing={2}>
+    <Stack spacing={1.5}>
       <Box>
         <Typography variant="subtitle2" sx={{ mb: 1 }}>
           Mode
@@ -92,7 +83,7 @@ export default function ExportControls({
           options={EXPORT_MODES.map((mode) => ({
             value: mode.value,
             label: mode.label,
-            disabled: isRunning,
+            disabled,
           }))}
         />
         {selectedMode && (
@@ -113,32 +104,6 @@ export default function ExportControls({
           large accounts can take a few minutes.
         </Alert>
       )}
-
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={1.5}
-        sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}
-      >
-        {isRunning ? (
-          <Button variant="contained" color="error" startIcon={<Stop />} onClick={onStopExport}>
-            Stop export
-          </Button>
-        ) : (
-          <Button
-            variant="contained"
-            startIcon={<PlayArrow />}
-            onClick={onStartExport}
-            disabled={selectedTypesCount === 0 && exportMode !== 'rebuild'}
-          >
-            {startButtonLabel(exportMode)}
-          </Button>
-        )}
-
-        <Box sx={{ flex: 1 }} />
-        <Typography variant="body2" color="text.secondary">
-          {selectionSummary(exportMode, selectedTypesCount)}
-        </Typography>
-      </Stack>
     </Stack>
   );
 }

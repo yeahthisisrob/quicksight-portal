@@ -20,6 +20,7 @@ import {
   Container,
   EmptyState,
   KeyValuePairs,
+  StatStrip,
   StatusIndicator,
   type StatusType,
 } from '@/shared/design-system';
@@ -28,6 +29,18 @@ import { useSmusExport } from '../model/useSmusExport';
 
 const DATE_FORMAT = 'MMM d, yyyy HH:mm';
 const PROGRESS_MAX = 100;
+const HOUR_MS = 60 * 60 * 1000;
+const FRESH_HOURS = 24;
+const STALE_DAYS = 7;
+const DAY_HOURS = 24;
+
+/** How fresh the snapshot is, as a status beside the time. */
+function freshness(exported: Date): { status: StatusType; note: string } {
+  const ageHours = (Date.now() - exported.getTime()) / HOUR_MS;
+  if (ageHours < FRESH_HOURS) return { status: 'success', note: format(exported, DATE_FORMAT) };
+  if (ageHours < STALE_DAYS * DAY_HOURS) return { status: 'warning', note: 'Consider a refresh' };
+  return { status: 'error', note: 'Stale' };
+}
 
 const JOB_TONE: Record<JobMetadata['status'], { type: StatusType; label: string }> = {
   queued: { type: 'pending', label: 'Queued' },
@@ -73,16 +86,30 @@ function JobProgress({ job }: { job: JobMetadata }) {
 
 function SnapshotFacts({ snapshot }: { snapshot: SmusSnapshotSummary }) {
   const exported = new Date(snapshot.exportedAt);
+  const fresh = freshness(exported);
   const detail = describeProjectDiagnostics(snapshot.diagnostics);
   return (
     <Stack spacing={2}>
+      <StatStrip
+        ariaLabel="SMUS snapshot"
+        items={[
+          { label: 'Projects', value: snapshot.projects.toLocaleString() },
+          { label: 'Published listings', value: snapshot.listings.toLocaleString() },
+          { label: 'Publishing projects', value: snapshot.publishers.toLocaleString() },
+          {
+            label: 'Last export',
+            value: formatDistanceToNow(exported, { addSuffix: true }),
+            hint: (
+              <StatusIndicator type={fresh.status} size="small">
+                {fresh.note}
+              </StatusIndicator>
+            ),
+          },
+        ]}
+      />
       <KeyValuePairs
         columns={3}
         items={[
-          {
-            label: 'Last export',
-            value: `${formatDistanceToNow(exported, { addSuffix: true })} · ${format(exported, DATE_FORMAT)}`,
-          },
           { label: 'Domain', value: snapshot.domainId },
           { label: 'Region', value: snapshot.region },
           {
@@ -93,9 +120,6 @@ function SnapshotFacts({ snapshot }: { snapshot: SmusSnapshotSummary }) {
                 : 'Whole domain',
             info: 'The projects selected under "Projects to read from" in Settings limit what the export captures.',
           },
-          { label: 'Projects', value: snapshot.projects.toLocaleString() },
-          { label: 'Published listings', value: snapshot.listings.toLocaleString() },
-          { label: 'Publishing projects', value: snapshot.publishers.toLocaleString() },
         ]}
       />
       {detail && (

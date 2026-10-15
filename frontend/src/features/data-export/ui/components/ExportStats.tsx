@@ -1,52 +1,12 @@
-import { Archive, Functions, Schedule, Storage } from '@mui/icons-material';
-import { Box, Skeleton, Stack, Typography } from '@mui/material';
 import { format, formatDistanceToNow } from 'date-fns';
-import type { ReactNode } from 'react';
 
-import { Container, StatusIndicator, type StatusType } from '@/shared/design-system';
+import { StatStrip, StatusIndicator, type StatusType } from '@/shared/design-system';
 
 const DATE_FORMAT = 'MMM d, yyyy HH:mm';
 const HOUR_MS = 60 * 60 * 1000;
 const FRESH_HOURS = 6;
 const STALE_DAYS = 7;
 const DAY_HOURS = 24;
-
-interface StatTileProps {
-  label: string;
-  value: ReactNode;
-  detail?: ReactNode;
-  icon: ReactNode;
-  loading?: boolean;
-}
-
-function StatTile({ label, value, detail, icon, loading }: StatTileProps) {
-  return (
-    <Container variant="subtle" sx={{ flex: 1, minWidth: 180 }}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', color: 'text.secondary' }}>
-        {icon}
-        <Typography variant="subtitle2">{label}</Typography>
-      </Stack>
-      {loading ? (
-        <Skeleton variant="text" sx={{ width: 96, fontSize: '1.5rem', mt: 0.5 }} />
-      ) : (
-        <Typography variant="h3" sx={{ mt: 0.5 }}>
-          {value}
-        </Typography>
-      )}
-      {detail && !loading && (
-        <Box sx={{ mt: 0.5 }}>
-          {typeof detail === 'string' ? (
-            <Typography variant="caption" color="text.secondary">
-              {detail}
-            </Typography>
-          ) : (
-            detail
-          )}
-        </Box>
-      )}
-    </Container>
-  );
-}
 
 interface ExportStatsProps {
   totalAssets: number;
@@ -81,6 +41,7 @@ function freshness(lastUpdated: string | null | undefined): {
   return { value, status: 'error', note: 'Stale' };
 }
 
+/** What the cache holds, as the same strip of counts the catalog shows over its lists. */
 export default function ExportStats({
   totalAssets,
   archivedAssets = 0,
@@ -89,39 +50,28 @@ export default function ExportStats({
   loading = false,
 }: ExportStatsProps) {
   const fresh = freshness(lastUpdated);
-
   return (
-    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-      <StatTile
-        label="Cached assets"
-        value={totalAssets.toLocaleString()}
-        icon={<Storage fontSize="small" />}
-        loading={loading}
-      />
-      <StatTile
-        label="Last export"
-        value={fresh.value}
-        detail={
-          <StatusIndicator type={fresh.status} size="small">
-            {fresh.note}
-          </StatusIndicator>
-        }
-        icon={<Schedule fontSize="small" />}
-        loading={loading}
-      />
-      <StatTile
-        label="Fields"
-        value={(fieldStats?.total ?? 0).toLocaleString()}
-        detail={fieldStats ? `${fieldStats.calculated.toLocaleString()} calculated` : undefined}
-        icon={<Functions fontSize="small" />}
-        loading={loading}
-      />
-      <StatTile
-        label="Archived"
-        value={archivedAssets.toLocaleString()}
-        icon={<Archive fontSize="small" />}
-        loading={loading}
-      />
-    </Box>
+    <StatStrip
+      ariaLabel="Cache summary"
+      loading={loading}
+      items={[
+        { label: 'Cached assets', value: totalAssets.toLocaleString() },
+        { label: 'Archived', value: archivedAssets.toLocaleString() },
+        {
+          label: 'Fields',
+          value: (fieldStats?.total ?? 0).toLocaleString(),
+          ...(fieldStats ? { hint: `${fieldStats.calculated.toLocaleString()} calculated` } : {}),
+        },
+        {
+          label: 'Last export',
+          value: fresh.value,
+          hint: (
+            <StatusIndicator type={fresh.status} size="small">
+              {fresh.note}
+            </StatusIndicator>
+          ),
+        },
+      ]}
+    />
   );
 }

@@ -12,7 +12,7 @@ import { Link as RouterLink } from 'react-router-dom';
 
 import { jobsApi } from '@/shared/api';
 import type { JobMetadata } from '@/shared/api/modules/jobs';
-import { Container } from '@/shared/design-system';
+import { Container, StatStrip, StatusIndicator } from '@/shared/design-system';
 
 import { useActivityRefresh } from '../hooks/useActivityRefresh';
 import { ActivityRefreshProgress } from './ActivityRefreshProgress';
@@ -65,9 +65,46 @@ export function ActivityPanel() {
     jobStatus?.status === 'failed' ||
     jobStatus?.status === 'stopped';
   const recent = runs.data ?? [];
+  const lastCompleted = recent.find((j) => j.status === 'completed');
+  const running = recent.find((j) => ACTIVE.has(j.status));
+  const failed = recent.filter((j) => j.status === 'failed').length;
 
   return (
     <Stack spacing={2} data-testid="activity-panel">
+      <StatStrip
+        ariaLabel="Activity refresh summary"
+        loading={runs.isLoading}
+        items={[
+          {
+            label: 'Last completed',
+            value: lastCompleted
+              ? formatDistanceToNow(new Date(lastCompleted.endTime ?? lastCompleted.startTime), {
+                  addSuffix: true,
+                })
+              : 'Never',
+            hint: lastCompleted ? (
+              <StatusIndicator type="success" size="small">
+                {lastCompleted.startedBy ? `by ${lastCompleted.startedBy}` : 'completed'}
+              </StatusIndicator>
+            ) : (
+              <StatusIndicator type="pending" size="small">
+                Run the first refresh
+              </StatusIndicator>
+            ),
+          },
+          {
+            label: 'Running now',
+            value: running ? 'Yes' : 'No',
+            ...(running ? { hint: running.message ?? 'In progress' } : {}),
+          },
+          { label: 'Recent runs', value: recent.length, hint: `Of the last ${RECENT_RUNS}` },
+          {
+            label: 'Failed',
+            value: failed,
+            ...(failed > 0 ? { hint: 'See the log under Jobs' } : {}),
+          },
+        ]}
+      />
       <Container
         header="Activity refresh"
         description={`Reads the last ${REFRESH_DAYS} days of views, viewers and load times from CloudTrail and CloudWatch, and the datasets' refresh runs, into the caches the Activity page and the asset lists read. One runs at a time.`}

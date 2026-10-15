@@ -20,12 +20,7 @@ const meta = {
   args: {
     exportMode: 'smart',
     onModeChange: () => {},
-    onStartExport: () => {},
-    onStopExport: () => {},
-    onRefreshStatus: () => {},
-    isRunning: false,
-    isRefreshing: false,
-    selectedTypesCount: 3,
+    disabled: false,
   },
   render: function Render(args) {
     const [, updateArgs] = useArgs();
@@ -49,7 +44,7 @@ export const RebuildMode: Story = {
   args: { exportMode: 'rebuild' },
 };
 
-/** Nothing selected: start is disabled and activity refresh is hidden. */
-export const NoSelection: Story = {
-  args: { selectedTypesCount: 0 },
+/** While an export runs the mode cannot change. */
+export const Running: Story = {
+  args: { disabled: true },
 };
