@@ -4,21 +4,36 @@ import { useSearchParams } from 'react-router-dom';
 
 import { loadApiTab } from '@/features/api-reference';
 import { loadAssistantTab } from '@/features/assistant';
-import { AuthorStudio } from '@/features/author';
+import { AuthorStudio, type StudioView, studioViewOf } from '@/features/author';
 import { ApiKeysPanel } from '@/features/settings';
 
-import { TabBar } from '@/shared/design-system';
+import { SectionNav } from '@/shared/design-system';
 import { PageLoader } from '@/shared/ui';
 
 type AuthorTab = 'assistant' | 'studio' | 'api';
+/** A section of the page: a tab, or a view of the Studio. */
+type AuthorSection = 'assistant' | 'api' | `studio:${StudioView}`;
 
 const AssistantTab = lazy(loadAssistantTab);
 const ApiTab = lazy(loadApiTab);
 
-const TABS: Array<{ value: AuthorTab; label: string }> = [
-  { value: 'assistant', label: 'Assistant' },
-  { value: 'studio', label: 'Studio' },
-  { value: 'api', label: 'API' },
+const SECTIONS: Array<{
+  id: AuthorSection;
+  label: string;
+  children?: Array<{ id: AuthorSection; label: string }>;
+}> = [
+  { id: 'assistant', label: 'Assistant' },
+  {
+    id: 'studio:editor',
+    label: 'Studio',
+    children: [
+      { id: 'studio:editor', label: 'Editor' },
+      { id: 'studio:templates', label: 'Templates' },
+      { id: 'studio:playbooks', label: 'Playbooks' },
+      { id: 'studio:knowledge', label: 'Knowledge' },
+    ],
+  },
+  { id: 'api', label: 'API' },
 ];
 
 /** Params only the Studio reads: a link carrying any of them opens the Studio. */
@@ -37,35 +52,47 @@ function authorTabOf(params: URLSearchParams): AuthorTab {
  * /author - the Assistant: ask, and it plans, previews and prepares the
  * change, new assets included. ?tab=studio (or ?type=&id=, ?view=) - the
  * Studio, where existing assets are edited and fixed by hand, templates are
- * kept and account-wide playbooks run. ?tab=api - the same authoring by API:
- * the keys and every operation. None of them is gated on SMUS; each uses it
- * when it is configured.
+ * kept, account-wide playbooks run and what is known is reviewed; its views
+ * are sections under it. ?tab=api - the same authoring by API: the keys and
+ * every operation. None of them is gated on SMUS; each uses it when it is
+ * configured.
  */
 export default function AuthorPage() {
   const [params, setParams] = useSearchParams();
   const tab = authorTabOf(params);
-  const select = (next: AuthorTab) => {
+  const section: AuthorSection = tab === 'studio' ? `studio:${studioViewOf(params)}` : tab;
+  const select = (next: AuthorSection) => {
     const copy = new URLSearchParams(params);
-    copy.set('tab', next);
+    const [nextTab, view] = next.split(':') as [AuthorTab, StudioView | undefined];
+    copy.set('tab', nextTab);
+    if (view && view !== 'editor') {
+      copy.set('view', view);
+    } else {
+      copy.delete('view');
+    }
     setParams(copy, { replace: true });
   };
 
   return (
-    <Box sx={{ minWidth: 0 }}>
-      <Box sx={{ px: { xs: 2, md: 3 }, pt: 2, borderBottom: 1, borderColor: 'divider' }}>
-        <TabBar tabs={TABS} value={tab} onChange={select} ariaLabel="Author views" />
-      </Box>
-      {tab === 'api' ? (
-        <Suspense fallback={<PageLoader />}>
-          <ApiTab keysPanel={<ApiKeysPanel />} />
-        </Suspense>
-      ) : tab === 'assistant' ? (
-        <Suspense fallback={<PageLoader />}>
-          <AssistantTab />
-        </Suspense>
-      ) : (
-        <AuthorStudio />
-      )}
+    <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0 }}>
+      <SectionNav<AuthorSection>
+        sections={SECTIONS}
+        value={section}
+        onChange={select}
+        ariaLabel="Author sections"
+      >
+        {tab === 'api' ? (
+          <Suspense fallback={<PageLoader />}>
+            <ApiTab keysPanel={<ApiKeysPanel />} />
+          </Suspense>
+        ) : tab === 'assistant' ? (
+          <Suspense fallback={<PageLoader />}>
+            <AssistantTab />
+          </Suspense>
+        ) : (
+          <AuthorStudio />
+        )}
+      </SectionNav>
     </Box>
   );
 }

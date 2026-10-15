@@ -18,8 +18,6 @@
 import { Box, Typography } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
 
-import { SegmentedControl } from '@/shared/design-system';
-
 import { type Studio, type StudioOptions, useStudio } from '../model/useStudio';
 import { Editor } from './editor/Editor';
 import { KnowledgeView } from './knowledge/KnowledgeView';
@@ -27,13 +25,6 @@ import { PlaybooksView } from './playbooks/PlaybooksView';
 import { TemplatesView } from './templates/TemplatesView';
 
 export type StudioView = 'editor' | 'templates' | 'playbooks' | 'knowledge';
-
-const VIEWS: Array<{ value: StudioView; label: string }> = [
-  { value: 'editor', label: 'Editor' },
-  { value: 'templates', label: 'Templates' },
-  { value: 'playbooks', label: 'Playbooks' },
-  { value: 'knowledge', label: 'Knowledge' },
-];
 
 const DESCRIPTIONS: Record<StudioView, string> = {
   editor:
@@ -46,48 +37,25 @@ const DESCRIPTIONS: Record<StudioView, string> = {
     'What the portal knows about your assets, columns and fields, by id: what people said, what changed, what a model read into them. Confirm or answer what is open; the assistant and the planner read the rest.',
 };
 
-function viewOf(params: URLSearchParams): StudioView {
+/** The Studio view a URL names (the Author page's section list sets it). */
+export function studioViewOf(params: URLSearchParams): StudioView {
   const view = params.get('view');
   // 'scripts' was this view's old name; links to it still land here.
   if (view === 'scripts' || view === 'playbooks') return 'playbooks';
   return view === 'templates' || view === 'knowledge' ? view : 'editor';
 }
 
-/** The Studio with its editor state injected, so stories can drive it. */
-export function AuthorStudioView({
-  studio,
-  view,
-  onViewChange,
-}: {
-  studio: Studio;
-  view: StudioView;
-  onViewChange: (view: StudioView) => void;
-}) {
+/** The Studio with its editor state injected, so stories can drive it; the view comes from the page's section list. */
+export function AuthorStudioView({ studio, view }: { studio: Studio; view: StudioView }) {
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0 }}>
-      <Box
-        sx={{
-          mb: 3,
-          display: 'flex',
-          alignItems: { md: 'flex-end' },
-          flexDirection: { xs: 'column', md: 'row' },
-          gap: 2,
-        }}
-      >
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
-            Studio
-          </Typography>
-          <Typography variant="body1" sx={{ color: 'text.secondary', mt: 0.5 }}>
-            {DESCRIPTIONS[view]}
-          </Typography>
-        </Box>
-        <SegmentedControl<StudioView>
-          ariaLabel="Studio views"
-          value={view}
-          onChange={onViewChange}
-          options={VIEWS}
-        />
+    <Box sx={{ minWidth: 0 }}>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
+          Studio
+        </Typography>
+        <Typography variant="body1" sx={{ color: 'text.secondary', mt: 0.5 }}>
+          {DESCRIPTIONS[view]}
+        </Typography>
       </Box>
       {view === 'templates' ? (
         <TemplatesView />
@@ -109,21 +77,6 @@ export function AuthorStudioView({
 
 export function AuthorStudio(options: StudioOptions = {}) {
   const studio = useStudio(options);
-  const [params, setParams] = useSearchParams();
-  const view = viewOf(params);
-  const select = (next: StudioView) => {
-    setParams(
-      (prev) => {
-        const copy = new URLSearchParams(prev);
-        if (next === 'editor') {
-          copy.delete('view');
-        } else {
-          copy.set('view', next);
-        }
-        return copy;
-      },
-      { replace: true }
-    );
-  };
-  return <AuthorStudioView studio={studio} view={view} onViewChange={select} />;
+  const [params] = useSearchParams();
+  return <AuthorStudioView studio={studio} view={studioViewOf(params)} />;
 }

@@ -9,7 +9,7 @@ import { AssistantChat } from './AssistantChat';
 
 export default function AssistantTab() {
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0 }}>
+    <Box sx={{ minWidth: 0 }}>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
           Assistant

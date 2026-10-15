@@ -35,7 +35,7 @@ type Story = StoryObj<typeof meta>;
 function view(studio: ReturnType<typeof fakeStudio>, current: StudioView = 'editor') {
   return (
     <MockedApi routes={authorRoutes(playbookRoutes())}>
-      <AuthorStudioView studio={studio} view={current} onViewChange={() => {}} />
+      <AuthorStudioView studio={studio} view={current} />
     </MockedApi>
   );
 }

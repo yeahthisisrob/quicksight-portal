@@ -8,6 +8,8 @@ interface SectionNavItem<T extends string> {
   /** A count shown beside the label (unsaved changes, items needing attention). */
   badge?: number;
   disabled?: boolean;
+  /** Sections under this one, listed indented; choosing the parent opens the first. */
+  children?: SectionNavItem<T>[];
 }
 
 interface SectionNavProps<T extends string> {
@@ -27,8 +29,10 @@ const DEFAULT_NAV_WIDTH = 220;
  * A page of sections: the sections listed down the left, the open one on
  * the right. For pages whose sections keep growing (Settings, Operations),
  * where a row of tabs would run out of room. On a narrow screen the list
- * wraps above the content. The open section is the page's current URL, so
- * sync `value` with a query parameter to make it deep-linkable.
+ * wraps above the content. A section may hold sections of its own (the
+ * Studio's editor, templates, playbooks and knowledge under Author), listed
+ * indented beneath it. The open section is the page's current URL, so sync
+ * `value` with a query parameter to make it deep-linkable.
  */
 export function SectionNav<T extends string>({
   sections,
@@ -63,34 +67,46 @@ export function SectionNav<T extends string>({
           p: 0,
         }}
       >
-        {sections.map((section) => {
-          const selected = section.id === value;
-          return (
+        {sections.flatMap((section) => {
+          const nested = section.children ?? [];
+          const open = section.id === value || nested.some((c) => c.id === value);
+          const row = (item: SectionNavItem<T>, depth: number, selected: boolean) => (
             <ListItemButton
-              key={section.id}
+              key={item.id}
               selected={selected}
-              disabled={section.disabled}
-              onClick={() => onChange(section.id)}
-              sx={{ borderRadius: 2, width: { xs: 'auto', md: '100%' } }}
+              disabled={item.disabled}
+              onClick={() => onChange(item.children?.[0]?.id ?? item.id)}
+              sx={{
+                borderRadius: 2,
+                width: { xs: 'auto', md: '100%' },
+                pl: { md: 2 + depth * 2.5 },
+              }}
             >
-              {section.icon && <ListItemIcon sx={{ minWidth: 32 }}>{section.icon}</ListItemIcon>}
+              {item.icon && <ListItemIcon sx={{ minWidth: 32 }}>{item.icon}</ListItemIcon>}
               <ListItemText
-                primary={section.label}
+                primary={item.label}
                 slotProps={{
-                  primary: { variant: 'body2', sx: { fontWeight: selected ? 700 : 500 } },
+                  primary: {
+                    variant: 'body2',
+                    sx: { fontWeight: selected || (depth === 0 && open) ? 700 : 500 },
+                  },
                 }}
               />
-              {section.badge !== undefined && section.badge > 0 && (
+              {item.badge !== undefined && item.badge > 0 && (
                 <Badge
-                  badgeContent={section.badge}
+                  badgeContent={item.badge}
                   color="primary"
                   max={999}
                   sx={{ mr: 1 }}
-                  aria-label={`${section.badge}`}
+                  aria-label={`${item.badge}`}
                 />
               )}
             </ListItemButton>
           );
+          return [
+            row(section, 0, section.id === value),
+            ...nested.map((child) => row(child, 1, child.id === value)),
+          ];
         })}
       </List>
       <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>{children}</Box>

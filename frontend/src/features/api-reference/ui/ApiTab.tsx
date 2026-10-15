@@ -20,7 +20,7 @@ export interface ApiTabProps {
 export default function ApiTab({ keysPanel, origin }: ApiTabProps) {
   const base = origin ?? (typeof window === 'undefined' ? '' : window.location.origin);
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0 }}>
+    <Box sx={{ minWidth: 0 }}>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
           Author by API

@@ -2,7 +2,8 @@
  * The catalog, field-first. Three views under one header and one project
  * select: calculated fields (what SMUS does not have), columns tied to SMUS,
  * and the per-project SMUS assets. The templates the organisation
- * standardises live in the Author Studio. Tab and filters live in the URL.
+ * standardises live in the Author Studio. The open section (listed on the
+ * left, like Settings and Operations) and the filters live in the URL.
  */
 import { CloudSync, Functions, TableChart, ViewColumn } from '@mui/icons-material';
 import { Alert, AlertTitle, Box, Button, Stack } from '@mui/material';
@@ -10,7 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 
 import { getApiErrorMessage } from '@/shared/api';
-import { EmptyState, PageHeader, TabBar } from '@/shared/design-system';
+import { EmptyState, PageHeader, SectionNav } from '@/shared/design-system';
 
 import { useCatalogProjects, useCatalogUrlState } from '../lib/useCatalog';
 import {
@@ -25,10 +26,10 @@ import { CalculatedFieldsView } from './calculated-fields/CalculatedFieldsView';
 import { ColumnsView } from './columns/ColumnsView';
 import { ProjectSelect } from './ProjectSelect';
 
-const TABS: Array<{ value: CatalogTab; label: string; icon: React.ReactElement }> = [
-  { value: 'calculated-fields', label: 'Calculated fields', icon: <Functions fontSize="small" /> },
-  { value: 'columns', label: 'Columns', icon: <ViewColumn fontSize="small" /> },
-  { value: 'smus', label: 'SMUS assets', icon: <TableChart fontSize="small" /> },
+const SECTIONS: Array<{ id: CatalogTab; label: string; icon: React.ReactElement }> = [
+  { id: 'calculated-fields', label: 'Calculated fields', icon: <Functions fontSize="small" /> },
+  { id: 'columns', label: 'Columns', icon: <ViewColumn fontSize="small" /> },
+  { id: 'smus', label: 'SMUS assets', icon: <TableChart fontSize="small" /> },
 ];
 
 function NoExport() {
@@ -158,23 +159,22 @@ export function CatalogTabsPage({
           </Stack>
         }
       />
-      <Box sx={{ mt: 1, mb: 2 }}>
-        <TabBar<CatalogTab>
-          tabs={TABS}
-          value={tab}
-          onChange={(next) => {
-            setSearch('');
-            setUrl({
-              tab: next,
-              q: undefined,
-              field: undefined,
-              conflicts: undefined,
-            });
-          }}
-          ariaLabel="Catalog views"
-        />
-      </Box>
-      {body}
+      <SectionNav<CatalogTab>
+        sections={SECTIONS}
+        value={tab}
+        onChange={(next) => {
+          setSearch('');
+          setUrl({
+            tab: next,
+            q: undefined,
+            field: undefined,
+            conflicts: undefined,
+          });
+        }}
+        ariaLabel="Catalog sections"
+      >
+        {body}
+      </SectionNav>
     </Box>
   );
 }

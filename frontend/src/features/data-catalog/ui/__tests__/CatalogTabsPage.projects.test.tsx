@@ -135,12 +135,12 @@ describe('CatalogTabsPage project filter', () => {
 
     // The SMUS tab shows one project because everything in SMUS is per
     // project, but it must not write that choice down for the other tabs.
-    await user.click(screen.getByRole('tab', { name: /SMUS assets/i }));
+    await user.click(screen.getByRole('button', { name: /SMUS assets/i }));
     await waitFor(() =>
       expect(screen.getByLabelText('Project')).toHaveTextContent('analytics_prod')
     );
 
-    await user.click(screen.getByRole('tab', { name: /Calculated fields/i }));
+    await user.click(screen.getByRole('button', { name: /Calculated fields/i }));
     await waitFor(() => expect(screen.getByText('margin')).toBeInTheDocument());
     expect(screen.getByLabelText('Project')).toHaveTextContent('All projects');
   });
