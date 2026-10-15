@@ -42,6 +42,8 @@ import {
   Table as DynamoTable,
   ProjectionType,
 } from 'aws-cdk-lib/aws-dynamodb';
+import { Rule, RuleTargetInput, Schedule } from 'aws-cdk-lib/aws-events';
+import { LambdaFunction as LambdaTarget } from 'aws-cdk-lib/aws-events-targets';
 import {
   Effect,
   ManagedPolicy,
@@ -439,6 +441,18 @@ export class QuicksightPortalStack extends Stack {
 
     // Worker requeues continuation messages for long-running exports
     exportQueue.grantSendMessages(workerLambda);
+
+    // The hourly tick behind Settings > Schedules: the worker reads the
+    // cadences and starts whichever run is due. One fixed timer, so a
+    // cadence change is a settings write, never a redeploy.
+    new Rule(this, 'ScheduleTick', {
+      schedule: Schedule.rate(Duration.hours(1)),
+      targets: [
+        new LambdaTarget(workerLambda, {
+          event: RuleTargetInput.fromObject({ source: 'schedule-tick' }),
+        }),
+      ],
+    });
 
     /* 6 ────────── API Gateway HTTP API v2 (same-origin via CloudFront) */
     // HTTP API v2: lower cost + lower latency than REST v1, and no

@@ -57,6 +57,15 @@ export interface SettingsSnapshot {
 const FIELD_PREFIX = /^([A-Za-z][A-Za-z0-9_]{0,15})?$/;
 const FIELD_PREFIX_HINT = 'up to 16 letters, digits or underscores, starting with a letter';
 
+/** How often a scheduled run happens; manual means never by itself. */
+const SCHEDULE_OPTIONS = [
+  { value: 'manual', label: 'Manual' },
+  { value: '4h', label: 'Every 4 hours' },
+  { value: '6h', label: 'Every 6 hours' },
+  { value: '12h', label: 'Every 12 hours' },
+  { value: '24h', label: 'Every 24 hours' },
+];
+
 export const SETTINGS_CATALOG: SettingGroupSpec[] = [
   {
     id: 'smus',
@@ -342,6 +351,43 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
         type: 'boolean',
         envVar: 'PROVENANCE_TAG_ASSETS',
         default: true,
+      },
+    ],
+  },
+  {
+    id: 'schedules',
+    title: 'Schedules',
+    description:
+      'Runs the portal starts by itself. Manual (the default) means only the buttons start them. One timer checks every hour; when a run is due and none of that kind is going, it starts one, SMUS first, then the export, then activity, one per hour, so each reads what the one before produced. Runs started this way show "schedule" as who started them.',
+    settings: [
+      {
+        key: 'schedules.smus',
+        label: 'SMUS export',
+        description:
+          'Reads the published listings and projects from SageMaker Unified Studio. Only when SMUS is configured.',
+        type: 'select',
+        envVar: '',
+        default: 'manual',
+        options: SCHEDULE_OPTIONS,
+      },
+      {
+        key: 'schedules.export',
+        label: 'Smart Sync export',
+        description:
+          'The incremental export of what changed in QuickSight: assets, definitions, permissions, tags. Skipped while one is running.',
+        type: 'select',
+        envVar: '',
+        default: 'manual',
+        options: SCHEDULE_OPTIONS,
+      },
+      {
+        key: 'schedules.activity',
+        label: 'Activity refresh',
+        description: 'Views, viewers and load times from CloudWatch, and dataset refresh runs.',
+        type: 'select',
+        envVar: '',
+        default: 'manual',
+        options: SCHEDULE_OPTIONS,
       },
     ],
   },
