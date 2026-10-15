@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
+import { timelineRoutes } from '@/features/activity/ui/__stories__/fixtures';
 import { exportRoutes } from '@/features/data-export/ui/__stories__/routes';
 import { STATUS_EXPORTED, smusExportRoutes } from '@/features/smus/ui/__stories__/fixtures';
 
@@ -25,6 +26,16 @@ export const Export: Story = {
   parameters: { router: { initialEntries: ['/operations'] } },
   render: () => (
     <AppShell path="operations" routes={exportRoutes()}>
+      <OperationsPage />
+    </AppShell>
+  ),
+};
+
+/** /operations?tab=activity - the activity refresh: start one, watch it, and the recent runs. */
+export const Activity: Story = {
+  parameters: { router: { initialEntries: ['/operations?tab=activity'] } },
+  render: () => (
+    <AppShell path="operations" routes={[...timelineRoutes(), ...jobsRoutes()]}>
       <OperationsPage />
     </AppShell>
   ),

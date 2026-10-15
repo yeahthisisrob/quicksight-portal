@@ -1,16 +1,15 @@
 import { Refresh as RefreshIcon } from '@mui/icons-material';
-import { Box, Button, CircularProgress, Stack } from '@mui/material';
+import { Box, Button, Stack } from '@mui/material';
 import { formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 
-import { ActivityRefreshProgress, TimelineFeed, useActivityRefresh } from '@/features/activity';
+import { TimelineFeed } from '@/features/activity';
 
 import { Container, PageHeader, StatusIndicator } from '@/shared/design-system';
 
 /** The feed keeps this much room for the page header and padding. */
 const FEED_HEIGHT = 'calc(100vh - 200px)';
-const REFRESH_DAYS = 90;
-const SPINNER_SIZE = 14;
 
 /**
  * Every change to the account's QuickSight assets, from CloudTrail, with
@@ -18,14 +17,7 @@ const SPINNER_SIZE = 14;
  * them. The default landing page.
  */
 export default function ActivityTimelinePage() {
-  const { refreshing, refreshActivity, jobStatus } = useActivityRefresh();
   const [cacheLastUpdated, setCacheLastUpdated] = useState<string | undefined>();
-
-  const showProgress =
-    refreshing ||
-    jobStatus?.status === 'completed' ||
-    jobStatus?.status === 'failed' ||
-    jobStatus?.status === 'stopped';
 
   return (
     <Box sx={{ minWidth: 0 }}>
@@ -45,18 +37,12 @@ export default function ActivityTimelinePage() {
             )}
             <Button
               size="small"
-              variant="outlined"
-              startIcon={
-                refreshing ? (
-                  <CircularProgress size={SPINNER_SIZE} color="inherit" />
-                ) : (
-                  <RefreshIcon />
-                )
-              }
-              onClick={() => refreshActivity({ assetTypes: ['all'], days: REFRESH_DAYS })}
-              disabled={refreshing}
+              variant="text"
+              component={RouterLink}
+              to="/operations?tab=activity"
+              startIcon={<RefreshIcon />}
             >
-              {refreshing ? 'Refreshing…' : 'Refresh from CloudTrail'}
+              Refresh runs in Operations
             </Button>
           </Stack>
         }
@@ -64,11 +50,6 @@ export default function ActivityTimelinePage() {
       <Container disableContentPadding sx={{ maxHeight: FEED_HEIGHT }}>
         <TimelineFeed onFirstPage={(ctx) => setCacheLastUpdated(ctx.cacheLastUpdated)} />
       </Container>
-      {showProgress && (
-        <Box sx={{ mt: 2 }}>
-          <ActivityRefreshProgress jobStatus={jobStatus} />
-        </Box>
-      )}
     </Box>
   );
 }

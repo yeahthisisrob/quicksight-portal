@@ -22,12 +22,9 @@ const meta = {
     onModeChange: () => {},
     onStartExport: () => {},
     onStopExport: () => {},
-    onRefreshActivity: () => {},
     onRefreshStatus: () => {},
     isRunning: false,
     isRefreshing: false,
-    canRefreshActivity: true,
-    refreshingActivity: false,
     selectedTypesCount: 3,
   },
   render: function Render(args) {
@@ -54,5 +51,5 @@ export const RebuildMode: Story = {
 
 /** Nothing selected: start is disabled and activity refresh is hidden. */
 export const NoSelection: Story = {
-  args: { canRefreshActivity: false, selectedTypesCount: 0 },
+  args: { selectedTypesCount: 0 },
 };

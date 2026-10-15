@@ -16,7 +16,6 @@ import { PageLayout } from '@/shared/ui';
 
 import { useCacheSummary } from '../lib/useCacheSummary';
 import { useExportJob } from '../lib/useExportJob';
-import { useExportOperations } from '../lib/useExportOperations';
 import type { AssetType, ExportMode } from '../model/types';
 import { AssetTypeSelector, ExportControls, ExportJobStatus, ExportStats } from './components';
 import { assetTypeConfig } from './constants';
@@ -86,8 +85,6 @@ export default function DataExportView({ embedded = false }: { embedded?: boolea
     refreshStatus,
   } = useExportJob(loadCacheSummary);
 
-  const { refreshingActivity, refreshActivity } = useExportOperations();
-
   const handleStartExport = async () => {
     await startExport(selectedAssetTypes, exportMode);
     setShowInitialExportPrompt(false);
@@ -154,9 +151,6 @@ export default function DataExportView({ embedded = false }: { embedded?: boolea
               onStartExport={handleStartExport}
               onStopExport={stopExport}
               onRefreshStatus={refreshStatus}
-              onRefreshActivity={refreshActivity}
-              canRefreshActivity={!refreshingActivity}
-              refreshingActivity={refreshingActivity}
               selectedTypesCount={selectedAssetTypes.length}
             />
           </Stack>
