@@ -28,7 +28,7 @@ export default function ActivityTimelinePage() {
     jobStatus?.status === 'stopped';
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0 }}>
+    <Box sx={{ minWidth: 0 }}>
       <PageHeader
         title="Activity"
         description="Who changed what, from where, and when. Portal changes name the person or the API key behind them; console changes name the person."

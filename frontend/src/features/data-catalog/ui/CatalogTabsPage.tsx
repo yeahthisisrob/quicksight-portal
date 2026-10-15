@@ -138,7 +138,7 @@ export function CatalogTabsPage({
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0 }}>
+    <Box sx={{ minWidth: 0 }}>
       <PageHeader
         title="Data catalog"
         description="What SMUS does not have: every calculated field, its lineage and its conflicts, tied back to the SMUS columns it reads."

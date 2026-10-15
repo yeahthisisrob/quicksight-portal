@@ -23,7 +23,7 @@ interface SectionNavProps<T extends string> {
   navWidth?: number;
 }
 
-const DEFAULT_NAV_WIDTH = 220;
+const DEFAULT_NAV_WIDTH = 184;
 
 /**
  * A page of sections: the sections listed down the left, the open one on
@@ -47,7 +47,7 @@ export function SectionNav<T extends string>({
       sx={{
         display: 'flex',
         flexDirection: { xs: 'column', md: 'row' },
-        gap: 3,
+        gap: 2,
         alignItems: 'flex-start',
         minWidth: 0,
       }}
@@ -79,7 +79,9 @@ export function SectionNav<T extends string>({
               sx={{
                 borderRadius: 2,
                 width: { xs: 'auto', md: '100%' },
-                pl: { md: 2 + depth * 2.5 },
+                py: 0.5,
+                pl: { md: 1.5 + depth * 2 },
+                pr: 1.5,
               }}
             >
               {item.icon && <ListItemIcon sx={{ minWidth: 32 }}>{item.icon}</ListItemIcon>}

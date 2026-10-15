@@ -55,7 +55,7 @@ export default function OperationsPage() {
   );
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0 }}>
+    <Box sx={{ minWidth: 0 }}>
       <PageHeader
         title="Operations"
         description="Exports, every job the portal runs, the SageMaker Unified Studio snapshot and archived assets for the whole account."

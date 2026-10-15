@@ -74,7 +74,7 @@ export default function AuthorPage() {
   };
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0 }}>
+    <Box sx={{ minWidth: 0 }}>
       <SectionNav<AuthorSection>
         sections={SECTIONS}
         value={section}

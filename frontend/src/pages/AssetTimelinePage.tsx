@@ -46,7 +46,7 @@ export default function AssetTimelinePage() {
 
   if (!singular || !id) {
     return (
-      <Box sx={{ p: { xs: 2, md: 3 } }}>
+      <Box>
         <PageHeader title="Activity" />
         <Alert severity="error">
           Invalid asset path. Expected /assets/:type/:id/timeline where :type is one of{' '}
@@ -57,7 +57,7 @@ export default function AssetTimelinePage() {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, minWidth: 0 }}>
+    <Box sx={{ minWidth: 0 }}>
       <PageHeader
         breadcrumbs={
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
