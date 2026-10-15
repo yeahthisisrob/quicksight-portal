@@ -1,20 +1,9 @@
 import { Settings as SettingsIcon } from '@mui/icons-material';
-import {
-  Alert,
-  Badge,
-  Box,
-  Button,
-  CircularProgress,
-  List,
-  ListItemButton,
-  ListItemText,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { type ReactNode, useMemo } from 'react';
 
-import { Container, EmptyState, pal } from '@/shared/design-system';
+import { Container, EmptyState, pal, SectionNav } from '@/shared/design-system';
 
 import { type UseSettingsFormOptions, useSettingsForm } from '../lib/useSettingsForm';
 import { SchedulesStatus } from './SchedulesStatus';
@@ -33,8 +22,6 @@ interface SettingsFormProps extends UseSettingsFormOptions {
   onSectionChange?: (section: string) => void;
   panels?: SettingsPanel[];
 }
-
-const NAV_WIDTH = 220;
 
 /**
  * The settings page: a list of sections on the left (every group the
@@ -119,59 +106,17 @@ export function SettingsForm({
   const panel = panels.find((p) => p.id === open);
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: { xs: 'column', md: 'row' },
-        gap: 3,
-        alignItems: 'flex-start',
-        pb: form.isDirty ? 10 : 0,
-      }}
-    >
-      <List
-        component="nav"
-        aria-label="Settings sections"
-        dense
-        sx={{
-          width: { xs: '100%', md: NAV_WIDTH },
-          flexShrink: 0,
-          position: { md: 'sticky' },
-          top: { md: 16 },
-          display: { xs: 'flex', md: 'block' },
-          flexWrap: 'wrap',
-          gap: { xs: 0.5, md: 0 },
-          p: 0,
-        }}
+    <Box sx={{ pb: form.isDirty ? 10 : 0 }}>
+      <SectionNav
+        ariaLabel="Settings sections"
+        value={open}
+        onChange={(next) => onSectionChange?.(next)}
+        sections={sections.map((s) => ({
+          id: s.id,
+          label: s.label,
+          badge: changedByGroup.get(s.id) ?? 0,
+        }))}
       >
-        {sections.map((s) => {
-          const changed = changedByGroup.get(s.id) ?? 0;
-          return (
-            <ListItemButton
-              key={s.id}
-              selected={s.id === open}
-              onClick={() => onSectionChange?.(s.id)}
-              sx={{ borderRadius: 2, width: { xs: 'auto', md: '100%' } }}
-            >
-              <ListItemText
-                primary={s.label}
-                slotProps={{
-                  primary: { variant: 'body2', sx: { fontWeight: s.id === open ? 700 : 500 } },
-                }}
-              />
-              {changed > 0 && (
-                <Badge
-                  badgeContent={changed}
-                  color="primary"
-                  sx={{ mr: 1 }}
-                  aria-label={`${changed} unsaved`}
-                />
-              )}
-            </ListItemButton>
-          );
-        })}
-      </List>
-
-      <Box sx={{ flex: 1, minWidth: 0 }}>
         {group && (
           <Container header={group.title} description={group.description}>
             {group.settings.map((definition) => (
@@ -199,7 +144,7 @@ export function SettingsForm({
           </Container>
         )}
         {panel?.node}
-      </Box>
+      </SectionNav>
 
       {form.isDirty && (
         <Box

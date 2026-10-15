@@ -4,7 +4,7 @@
  *   tokens/      the source of truth (colours by purpose, space, radius, type)
  *   createAppTheme  the MUI theme built from the tokens, light and dark
  *   components/  primitives: Container, PageHeader, StatusIndicator,
- *                KeyValuePairs, EmptyState, SegmentedControl, TabBar
+ *                KeyValuePairs, EmptyState, SegmentedControl, TabBar, SectionNav
  *   theme.ts     deprecated aliases kept so older code keeps working
  *
  * See README.md in this folder for the standard.
@@ -15,6 +15,7 @@ export * from './components/Container';
 export * from './components/EmptyState';
 export * from './components/KeyValuePairs';
 export * from './components/PageHeader';
+export * from './components/SectionNav';
 export * from './components/SegmentedControl';
 export * from './components/StatusIndicator';
 export * from './components/TabBar';
