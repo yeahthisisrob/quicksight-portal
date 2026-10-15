@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.52.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.51.0...v2.52.0) (2026-10-15)
+
+
+### Features
+
+* **datasets:** refresh a SPICE dataset now and manage its refresh schedules ([51cdde3](https://github.com/yeahthisisrob/quicksight-portal/commit/51cdde35c39df3df26c1c0191806e257b1ea36bd))
+* **datasets:** refresh a SPICE dataset now and manage its refresh schedules, from the portal and the assistant ([b47f30a](https://github.com/yeahthisisrob/quicksight-portal/commit/b47f30a29d3500cae16c5f18b32c99d9be145dc8))
+* **folders:** create, share and delete folders, and restore analyses through QuickSight's recovery window ([29af7a1](https://github.com/yeahthisisrob/quicksight-portal/commit/29af7a11d4ad0b253e8d0e0cf5fabf9d262d22df))
+* **folders:** folders can be made, shared and deleted from the portal and the assistant, and a deleted analysis comes back through QuickSight's recovery window ([3b789e9](https://github.com/yeahthisisrob/quicksight-portal/commit/3b789e90420c14ec887f0b1b24b72382257abaab))
+
 ## [2.51.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.50.1...v2.51.0) (2026-10-15)
 
 
