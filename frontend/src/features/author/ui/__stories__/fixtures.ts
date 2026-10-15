@@ -1309,6 +1309,7 @@ export function fakeStudio(options: FakeStudioOptions = {}): Studio {
     dirty,
     canSave: summary.needsChoice === 0,
     saving: false,
+    saveStatus: null,
     saveError: options.saveError ?? null,
     save: async () => null,
     dismissResult: noop,

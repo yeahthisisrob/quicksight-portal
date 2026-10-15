@@ -92,12 +92,16 @@ function Restorations({ asset }: { asset: ArchivedAssetItem }) {
 function ArchivedActionsMenu({
   asset,
   onRestore,
+  onOpenRestored,
   onViewJson,
 }: {
   asset: ArchivedAssetItem;
   onRestore?: (a: ArchivedAssetItem) => void;
+  /** Open the live copy the last restore made; offered once it has one. */
+  onOpenRestored?: (a: ArchivedAssetItem) => void;
   onViewJson: (a: ArchivedAssetItem) => void;
 }) {
+  const lastRestore = asset.restorations?.[asset.restorations.length - 1];
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
@@ -128,7 +132,21 @@ function ArchivedActionsMenu({
               setAnchorEl(null);
             }}
           >
-            {asset.type === 'user' ? 'Restore access' : 'Restore in Studio'}
+            {asset.type === 'user'
+              ? 'Restore access'
+              : lastRestore
+                ? 'Restore again in Studio'
+                : 'Restore in Studio'}
+          </MenuItem>
+        )}
+        {onOpenRestored && lastRestore && (
+          <MenuItem
+            onClick={() => {
+              onOpenRestored(asset);
+              setAnchorEl(null);
+            }}
+          >
+            Open the restored copy
           </MenuItem>
         )}
         <MenuItem
@@ -240,6 +258,19 @@ export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps)
 
   const handleRestore = (asset: ArchivedAssetItem) => navigate(studioLink(asset));
 
+  /** The live asset the last restore created, in the Studio. */
+  const handleOpenRestored = (asset: ArchivedAssetItem) => {
+    const last = asset.restorations?.[asset.restorations.length - 1];
+    if (!last) return;
+    const params = new URLSearchParams({
+      tab: 'studio',
+      type: asset.type,
+      id: last.restoredAs,
+      name: asset.name,
+    });
+    navigate(`/author?${params.toString()}`);
+  };
+
   /** A user comes back through the identity provider; this gives them their groups and permissions. */
   const handleRestoreUser = async (asset: ArchivedAssetItem) => {
     try {
@@ -272,6 +303,13 @@ export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps)
               : RESTORABLE.has(params.row.type)
                 ? handleRestore
                 : undefined
+          }
+          onOpenRestored={
+            params.row.type === 'dashboard' ||
+            params.row.type === 'analysis' ||
+            params.row.type === 'dataset'
+              ? handleOpenRestored
+              : undefined
           }
           onViewJson={handleViewJson}
         />

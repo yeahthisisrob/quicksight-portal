@@ -55,6 +55,14 @@ describe('similarDatasets', () => {
     expect(tablesReadByEntry(DATASETS[3]!)).toEqual([]);
   });
 
+  it('caps the answer only when asked, so a page can list every one', () => {
+    const many = Array.from({ length: 12 }, (_, i) =>
+      dataset(`ds-${i}`, `Copy ${i}`, [{ type: 'RELATIONAL', schema: 'gold', name: 'orders' }])
+    );
+    expect(similarDatasets(many, ['gold.orders'])).toHaveLength(10);
+    expect(similarDatasets(many, ['gold.orders'], Number.POSITIVE_INFINITY)).toHaveLength(12);
+  });
+
   it('matches through a catalog prefix and ignores other tables', () => {
     expect(
       similarDatasets(DATASETS, ['awsdatacatalog.gold.customers']).map((d) => d.dataSetId)

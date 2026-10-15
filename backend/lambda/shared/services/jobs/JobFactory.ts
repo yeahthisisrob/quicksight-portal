@@ -92,7 +92,20 @@ interface PlannerJobConfig extends BaseJobConfig {
     /** Read what an asset is for and draft notes on it and its visuals. */
     | { kind: 'learn'; assetType: 'dashboard' | 'analysis'; assetId: string }
     /** A theme drawn from a picture, stored in the bucket (too big for a queue message). */
-    | { kind: 'theme-from-image'; imageKey: string; note?: string };
+    | { kind: 'theme-from-image'; imageKey: string; note?: string }
+    /**
+     * Bring an archived asset back. Creating a dashboard and reading it back
+     * outlasts the API gateway's limit, so it runs here; `request` is the
+     * authoring slice's RestoreRequest, parsed by its handler.
+     */
+    | {
+        kind: 'restore';
+        assetType: 'dashboard' | 'analysis';
+        assetId: string;
+        request: Record<string, unknown>;
+      };
+  /** The person the write acts as: the asset's owner and the provenance record. */
+  auth?: JobAuth;
 }
 
 /** One message to the assistant; the result is its answer. */

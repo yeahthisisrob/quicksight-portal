@@ -7,6 +7,7 @@ import { catalog } from '../../../shared/services/catalog/catalogStore';
 import {
   duplicateGroups,
   type SimilarDataset,
+  tablesReadByEntry,
 } from '../../../shared/services/datasets/similarDatasets';
 import { resolvePeople } from '../../../shared/services/identity/IdentityResolver';
 import { LineageService } from '../../../shared/services/lineage';
@@ -451,10 +452,12 @@ export class AssetService {
     }
 
     if (request.duplicatesFilter && request.duplicatesFilter !== 'all') {
+      // A dataset whose tables are unknown (null) is neither shared nor alone.
       const wantDuplicates = request.duplicatesFilter === 'duplicates';
-      filteredItems = filteredItems.filter(
-        (item) => ((item as any).sharesTablesWith ?? 0) > 0 === wantDuplicates
-      );
+      filteredItems = filteredItems.filter((item) => {
+        const shares = (item as any).sharesTablesWith;
+        return typeof shares === 'number' && shares > 0 === wantDuplicates;
+      });
     }
 
     if (request.sourceTypeFilter && request.sourceTypeFilter.length > 0) {
@@ -1589,9 +1592,13 @@ export class AssetService {
     // Use the appropriate mapping function based on asset type
     const mappedAsset = mapCacheEntryToAsset(resolvedCacheEntry);
     if (assetType === ASSET_TYPES.dataset) {
-      // Other datasets reading one of the same tables, as the table or in a query.
+      // Other datasets reading one of the same tables, as the table or in a
+      // query; null when no table is known (file-based, or not parsed yet),
+      // which is not the same as reading its tables alone.
       (mappedAsset as any).sharesTablesWith =
-        context.duplicates?.get(cacheEntry.assetId)?.length ?? 0;
+        tablesReadByEntry(cacheEntry as CatalogEntry).length === 0
+          ? null
+          : (context.duplicates?.get(cacheEntry.assetId)?.length ?? 0);
     }
 
     // Add folder membership data

@@ -2,9 +2,11 @@ import type { Context, SQSEvent } from 'aws-lambda';
 
 import { ActivityRefreshProcessor } from './features/activity/processors/ActivityRefreshProcessor';
 import { warmCollectionSnapshots } from './features/asset-management/services/collectionSnapshotWarmer';
+import type { RestoreRequest } from './features/authoring/types';
 import { ExportOrchestrator } from './features/data-export/services/ExportOrchestrator';
 import { SmusExportProcessor } from './features/smus/processors/SmusExportProcessor';
 import { wirePorts } from './ports';
+import type { AuthContext } from './shared/auth';
 import type { SmusConfig } from './shared/config/smusConfig';
 import { JOB_CONFIG, STORAGE_LIMITS, TIME_UNITS, WORKER_CONFIG } from './shared/constants';
 import type { AssetType } from './shared/models/asset.model';
@@ -103,7 +105,16 @@ interface PlannerMessage {
       }
     | { kind: 'new-visuals'; newAsset: Record<string, unknown> }
     /** A theme drawn from a picture, stored in the bucket (too big for a queue message). */
-    | { kind: 'theme-from-image'; imageKey: string; note?: string };
+    | { kind: 'theme-from-image'; imageKey: string; note?: string }
+    /** Bring an archived asset back; `request` is the authoring slice's RestoreRequest. */
+    | {
+        kind: 'restore';
+        assetType: 'dashboard' | 'analysis';
+        assetId: string;
+        request: Record<string, unknown>;
+      };
+  /** The person a write acts as. */
+  auth?: AuthContext;
 }
 
 interface AssetRefreshMessage {
@@ -609,23 +620,26 @@ async function handleBulkOperationError(
  * job's result. Nothing is written to QuickSight here; the caller reviews
  * the proposal and applies it through the authoring endpoints.
  */
+const RESTORE_PROGRESS = { creating: 10, refreshing: 80 };
+
 async function processPlannerJob(message: PlannerMessage, record: any): Promise<void> {
   const { jobId, accountId: msgAccountId, request } = message;
   logger.info('Processing planner job', { jobId, messageId: record.messageId, kind: request.kind });
   const jobStateService = new JobStateService('planner');
+  const opening = request.kind === 'restore' ? 'Reading the archived copy' : 'Asking the planner';
 
   try {
     const existing = await jobStateService.getJobStatus(jobId);
     if (existing) {
       await jobStateService.updateJobStatus(jobId, {
         status: 'processing',
-        message: 'Asking the planner',
+        message: opening,
         progress: 0,
       });
     } else {
       await jobStateService.createJob(jobId, {
         status: 'processing',
-        message: 'Asking the planner',
+        message: opening,
         startTime: new Date().toISOString(),
       });
     }
@@ -672,6 +686,39 @@ async function processPlannerJob(message: PlannerMessage, record: any): Promise<
         rebind,
         createPlannerModel(undefined, isAiModelKey(message.model) ? message.model : undefined)
       ).learn(request.assetType, request.assetId);
+    } else if (request.kind === 'restore') {
+      // Creating a dashboard and reading it back can outlast the API
+      // gateway; here it has the worker's time. The catalog entry is
+      // refreshed before the job completes, so the Studio opens the live
+      // copy as soon as the result arrives.
+      const { assetType, assetId } = request;
+      await jobStateService.updateJobStatus(jobId, {
+        status: 'processing',
+        message: 'Creating it in QuickSight',
+        progress: RESTORE_PROGRESS.creating,
+      });
+      const restored = await rebind.restore(
+        assetType,
+        assetId,
+        request.request as unknown as RestoreRequest,
+        message.auth
+      );
+      await jobStateService.updateJobStatus(jobId, {
+        status: 'processing',
+        message: 'Reading it back into the catalog',
+        progress: RESTORE_PROGRESS.refreshing,
+      });
+      const refreshed = await new ExportOrchestrator(msgAccountId).refreshAssets([
+        { assetType, assetId: restored.assetId },
+      ]);
+      if (refreshed.failed.length > 0) {
+        logger.warn('Restored asset could not be read back into the catalog yet', {
+          jobId,
+          assetType,
+          assetId: restored.assetId,
+        });
+      }
+      result = restored;
     } else if (request.kind === 'propose') {
       result = await planner.propose(request.assetType, request.assetId, {
         ask: request.ask,
@@ -691,7 +738,7 @@ async function processPlannerJob(message: PlannerMessage, record: any): Promise<
     await jobStateService.updateJobStatus(jobId, {
       status: 'completed',
       endTime: new Date().toISOString(),
-      message: 'The planner answered',
+      message: request.kind === 'restore' ? 'Restored' : 'The planner answered',
       progress: 100,
     });
     logger.info('Planner job completed', { jobId, kind: request.kind });

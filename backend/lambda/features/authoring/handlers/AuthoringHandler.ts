@@ -43,6 +43,7 @@ import {
   type DefinitionSource,
   isAuthorableAssetType,
   type RebindRequest,
+  type RestoreRequest,
   type TemplateRequest,
   type TypeRules,
 } from '../types';
@@ -204,30 +205,36 @@ export class AuthoringHandler {
   /**
    * POST /authoring/{assetType}/{assetId}/restore - bring an archived asset
    * back, with the repairs, dataset choices and edits the Studio made.
+   * Creating a dashboard and reading it back outlasts the API gateway's
+   * limit, so it runs as a job; the RestoreResult is the job's result.
    */
   public async restore(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
     try {
       const user = await requireAuth(event);
       const target = this.target(event);
       const body = this.parseBody(event);
+      const request: RestoreRequest = {
+        rebinds: this.parseRebinds(body.rebinds ?? []),
+        ops: parseOps(body.ops),
+        repairs: parseRepairs(body.repairs),
+        name: this.optionalString(body, 'name'),
+        newAssetId: this.optionalString(body, 'newAssetId'),
+        folderId: this.optionalString(body, 'folderId'),
+      };
       logger.info('Restore requested', { user: user.email, ...target });
-      const result = await this.service().restore(
-        target.assetType,
-        target.assetId,
-        {
-          rebinds: this.parseRebinds(body.rebinds ?? []),
-          ops: parseOps(body.ops),
-          repairs: parseRepairs(body.repairs),
-          name: this.optionalString(body, 'name'),
-          newAssetId: this.optionalString(body, 'newAssetId'),
-          folderId: this.optionalString(body, 'folderId'),
-        },
-        user
-      );
-      return successResponse(event, { success: true, data: result });
+      const queued = await jobFactory.createJob({
+        jobType: 'planner',
+        accountId: this.accountId,
+        bucketName: metadataBucketName(this.accountId),
+        userId: user.userId,
+        startedBy: actorLabel(user),
+        request: { kind: 'restore', ...target, request: { ...request } },
+        auth: user,
+      });
+      return createResponse(event, STATUS_CODES.ACCEPTED, { success: true, data: queued });
     } catch (error: any) {
       logger.error('Restore failed', { error });
-      return this.failure(event, error, 'Failed to restore the asset');
+      return this.failure(event, error, 'Failed to queue the restore');
     }
   }
 

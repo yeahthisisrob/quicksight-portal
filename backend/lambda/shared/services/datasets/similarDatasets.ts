@@ -104,7 +104,15 @@ export function duplicateGroups(datasets: CatalogEntry[]): Map<string, SimilarDa
   return result;
 }
 
-export function similarDatasets(datasets: CatalogEntry[], reads: string[]): SimilarDataset[] {
+/**
+ * The datasets reading any of `reads`. `limit` caps the answer for a
+ * preview; a page listing every one passes `Number.POSITIVE_INFINITY`.
+ */
+export function similarDatasets(
+  datasets: CatalogEntry[],
+  reads: string[],
+  limit = MAX_SIMILAR
+): SimilarDataset[] {
   const wanted = new Set(reads.map(tableKey).filter(Boolean));
   if (wanted.size === 0) {
     return [];
@@ -133,5 +141,5 @@ export function similarDatasets(datasets: CatalogEntry[], reads: string[]): Simi
       }
     }
   }
-  return found.sort((a, b) => a.name.localeCompare(b.name)).slice(0, MAX_SIMILAR);
+  return found.sort((a, b) => a.name.localeCompare(b.name)).slice(0, limit);
 }
