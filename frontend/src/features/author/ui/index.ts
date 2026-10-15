@@ -1,1 +1,1 @@
-export { AuthorStudio } from './AuthorStudio';
+export { AuthorStudio, type StudioView, studioViewOf } from './AuthorStudio';

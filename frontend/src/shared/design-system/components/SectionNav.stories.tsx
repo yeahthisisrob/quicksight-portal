@@ -45,5 +45,40 @@ function Demo({ withIcons = false }: { withIcons?: boolean }) {
 
 export const Default: Story = { render: () => <Demo /> };
 
+type Nested = 'assistant' | 'studio:editor' | 'studio:templates' | 'api';
+
+function NestedDemo() {
+  const [value, setValue] = useState<Nested>('studio:templates');
+  return (
+    <SectionNav<Nested>
+      ariaLabel="Nested sections"
+      value={value}
+      onChange={setValue}
+      sections={[
+        { id: 'assistant', label: 'Assistant' },
+        {
+          id: 'studio:editor',
+          label: 'Studio',
+          children: [
+            { id: 'studio:editor', label: 'Editor' },
+            { id: 'studio:templates', label: 'Templates' },
+          ],
+        },
+        { id: 'api', label: 'API' },
+      ]}
+    >
+      <Container
+        header={value}
+        description="The open section; choosing Studio opens its first view."
+      >
+        <Typography variant="body2">Content for {value}.</Typography>
+      </Container>
+    </SectionNav>
+  );
+}
+
+/** Sections under a section, indented; the parent reads bold while any of its views is open. */
+export const Nested: Story = { render: () => <NestedDemo /> };
+
 /** Icons beside the labels, as the Operations page uses them; a zero badge is not shown. */
 export const WithIcons: Story = { render: () => <Demo withIcons /> };
