@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.51.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.50.1...v2.51.0) (2026-10-15)
+
+
+### Features
+
+* **history:** every dashboard, analysis and dataset keeps its versions, with what changed in words, a diff, a rollback, and the assistant aware of it ([2e94225](https://github.com/yeahthisisrob/quicksight-portal/commit/2e942254e9c681ad6b9c4a2e2751db5ca03c3e8a))
+* **history:** version history for dashboards, analyses and datasets with diff, rollback and an assistant that reads it ([d04168b](https://github.com/yeahthisisrob/quicksight-portal/commit/d04168b3ad2fa536281a2538a42412ac6fff2870))
+
+
+### Bug Fixes
+
+* **restore:** restore runs as a job and reads itself back into the catalog, and the Datasets "Same table" count says what it is and opens the Studio ([663ef49](https://github.com/yeahthisisrob/quicksight-portal/commit/663ef496d12f32843fe8009835ad3d26b6916b40))
+* **restore:** restore runs as a job and the Same table count opens the Studio ([a247d5c](https://github.com/yeahthisisrob/quicksight-portal/commit/a247d5c998de0f30dff6a485e2be18c378832baf))
+
 ## [2.50.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.50.0...v2.50.1) (2026-10-15)
 
 
