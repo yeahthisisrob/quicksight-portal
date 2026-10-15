@@ -20,6 +20,7 @@ export { ingestionsApi } from './modules/ingestions';
 export { jobsApi } from './modules/jobs';
 export { knowledgeApi } from './modules/knowledge';
 export { playbooksApi } from './modules/playbooks';
+export { refreshApi } from './modules/refresh';
 export { settingsApi } from './modules/settings';
 export { tagsApi } from './modules/tags';
 export { themesApi } from './modules/themes';

@@ -247,6 +247,22 @@ export function useDialogStates(refreshAssetType: (type: AssetType) => Promise<v
     }
   };
 
+  /** Start a SPICE refresh for the dataset now. */
+  const handleRefreshNow = async (dataset: { id: string; name: string }) => {
+    try {
+      const { refreshApi } = await import('@/shared/api');
+      const ingestion = await refreshApi.refreshNow(dataset.id);
+      enqueueSnackbar(
+        `Refreshing "${dataset.name}" (${ingestion.status.toLowerCase()}); see Ingestions for progress`,
+        {
+          variant: 'success',
+        }
+      );
+    } catch (error: any) {
+      enqueueSnackbar(error?.message || 'The refresh could not be started', { variant: 'error' });
+    }
+  };
+
   /** Delete the folder; one that still holds assets is emptied first (the assets stay). */
   const handleFolderDelete = async () => {
     if (!deleteFolderDialog.folder) return;
@@ -332,6 +348,7 @@ export function useDialogStates(refreshAssetType: (type: AssetType) => Promise<v
     setDeleteFolderDialog,
     handleFolderDelete,
     isDeletingFolder,
+    handleRefreshNow,
     rebindDialog,
     setRebindDialog,
     userAssetAccessDialog,

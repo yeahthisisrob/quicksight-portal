@@ -532,9 +532,11 @@ export function DialogManager({
         <RefreshScheduleDialog
           open={refreshScheduleDialog.open}
           onClose={() => setRefreshScheduleDialog({ open: false, dataset: null })}
-          datasetName={refreshScheduleDialog.dataset.name}
-          refreshSchedules={refreshScheduleDialog.dataset.refreshSchedules}
-          dataSetRefreshProperties={refreshScheduleDialog.dataset.dataSetRefreshProperties}
+          dataset={{
+            id: refreshScheduleDialog.dataset.id,
+            name: refreshScheduleDialog.dataset.name,
+            importMode: (refreshScheduleDialog.dataset as any).importMode,
+          }}
         />
       )}
 

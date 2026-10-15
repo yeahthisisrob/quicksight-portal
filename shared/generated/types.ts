@@ -339,6 +339,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ingestions/{datasetId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh a SPICE dataset now
+         * @description Starts an ingestion. It shows in the ingestions list at once; its status moves as QuickSight runs it.
+         */
+        post: operations["postIngestionsByDatasetId"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assets/dataset/{assetId}/refresh-schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A dataset's refresh schedules, live */
+        get: operations["getAssetsDatasetByAssetIdRefreshSchedules"];
+        put?: never;
+        /** Add a refresh schedule */
+        post: operations["postAssetsDatasetByAssetIdRefreshSchedules"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assets/dataset/{assetId}/refresh-schedules/{scheduleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change a refresh schedule */
+        put: operations["putAssetsDatasetByAssetIdRefreshSchedulesByScheduleId"];
+        post?: never;
+        /** Remove a refresh schedule */
+        delete: operations["deleteAssetsDatasetByAssetIdRefreshSchedulesByScheduleId"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ingestions": {
         parameters: {
             query?: never;
@@ -4312,6 +4368,23 @@ export interface components {
                 lastRefreshStatus?: string | null;
             };
         };
+        /** @description A schedule as asked for. Weekly needs dayOfWeek, monthly dayOfMonth; time and timezone apply to daily and longer. */
+        RefreshScheduleInput: {
+            /** @enum {string} */
+            interval: "MINUTE15" | "MINUTE30" | "HOURLY" | "DAILY" | "WEEKLY" | "MONTHLY";
+            /** @enum {string} */
+            refreshType: "INCREMENTAL_REFRESH" | "FULL_REFRESH";
+            /** @description HH:MM, 24-hour */
+            timeOfTheDay?: string;
+            /** @description An IANA timezone, such as America/New_York */
+            timezone?: string;
+            /** @enum {string} */
+            dayOfWeek?: "SUNDAY" | "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY";
+            /** @description 1 to 31 */
+            dayOfMonth?: string;
+            /** Format: date-time */
+            startAfterDateTime?: string;
+        };
         RefreshSchedule: {
             /** @description Unique identifier for the refresh schedule */
             scheduleId: string;
@@ -7759,6 +7832,165 @@ export interface operations {
                 };
             };
             500: components["responses"]["InternalServerError"];
+        };
+    };
+    postIngestionsByDatasetId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                datasetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default FULL_REFRESH
+                     * @enum {string}
+                     */
+                    type?: "FULL_REFRESH" | "INCREMENTAL_REFRESH";
+                };
+            };
+        };
+        responses: {
+            /** @description The ingestion started */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["Ingestion"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getAssetsDatasetByAssetIdRefreshSchedules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The schedules */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            schedules: components["schemas"]["RefreshSchedule"][];
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAssetsDatasetByAssetIdRefreshSchedules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshScheduleInput"];
+            };
+        };
+        responses: {
+            /** @description The schedule made */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["RefreshSchedule"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    putAssetsDatasetByAssetIdRefreshSchedulesByScheduleId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetId: string;
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshScheduleInput"];
+            };
+        };
+        responses: {
+            /** @description The schedule as it is now */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["RefreshSchedule"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    deleteAssetsDatasetByAssetIdRefreshSchedulesByScheduleId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetId: string;
+                scheduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            scheduleId: string;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
         };
     };
     getIngestions: {

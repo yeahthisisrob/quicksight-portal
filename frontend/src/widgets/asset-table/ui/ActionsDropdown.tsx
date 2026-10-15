@@ -7,8 +7,10 @@ import {
   MoreVert as MoreVertIcon,
   OpenInNew as OpenInNewIcon,
   SwapHoriz as RebindIcon,
+  Refresh as RefreshIcon,
   DriveFileRenameOutline as RenameIcon,
   Build as RepairIcon,
+  Schedule as ScheduleIcon,
   Share as ShareIcon,
   Timeline as TimelineIcon,
   ViewQuilt as WireframeIcon,
@@ -39,6 +41,8 @@ interface ActionsDropdownProps {
     onWireframeClick?: (asset: any) => void;
     onVersionHistoryClick?: (asset: any) => void;
     onFolderShareClick?: (folder: any) => void;
+    onRefreshNowClick?: (dataset: any) => void;
+    onRefreshScheduleClick?: (dataset: any) => void;
     onFolderDeleteClick?: (folder: any) => void;
     onRebindClick?: (asset: any) => void;
   };
@@ -193,6 +197,18 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
           <MenuItem onClick={() => handleAction(() => handlers.onEditSourceClick?.(asset))}>
             <EditSourceIcon fontSize="small" sx={{ mr: 1 }} />
             Edit Source
+          </MenuItem>
+        )}
+        {assetType === 'dataset' && asset.importMode === 'SPICE' && (
+          <MenuItem onClick={() => handleAction(() => handlers.onRefreshNowClick?.(asset))}>
+            <RefreshIcon fontSize="small" sx={{ mr: 1 }} />
+            Refresh now
+          </MenuItem>
+        )}
+        {assetType === 'dataset' && (
+          <MenuItem onClick={() => handleAction(() => handlers.onRefreshScheduleClick?.(asset))}>
+            <ScheduleIcon fontSize="small" sx={{ mr: 1 }} />
+            Refresh schedules
           </MenuItem>
         )}
         {(assetType === 'dashboard' || assetType === 'analysis') && (

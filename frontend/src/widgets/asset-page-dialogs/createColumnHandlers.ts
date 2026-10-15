@@ -49,6 +49,7 @@ interface DialogSetters {
   setVersionHistoryDialog: (state: VersionHistoryDialogState) => void;
   setFolderSharingDialog: (state: FolderSharingDialogState) => void;
   setDeleteFolderDialog: (state: DeleteFolderDialogState) => void;
+  refreshNow: (dataset: any) => void;
   setRebindDialog: (state: RebindDialogState) => void;
   setNotifyInactiveAnalysesDialog: (state: NotifyInactiveAnalysesDialogState) => void;
   setNotifyUnusedDatasetsDialog: (state: NotifyUnusedDatasetsDialogState) => void;
@@ -86,6 +87,7 @@ export function createColumnHandlers(
     setVersionHistoryDialog,
     setFolderSharingDialog,
     setDeleteFolderDialog,
+    refreshNow,
     setRebindDialog,
     setNotifyInactiveAnalysesDialog,
     setNotifyUnusedDatasetsDialog,
@@ -155,6 +157,9 @@ export function createColumnHandlers(
     },
     onVersionHistoryClick: (asset: any) => {
       setVersionHistoryDialog({ open: true, asset });
+    },
+    onRefreshNowClick: (dataset: any) => {
+      refreshNow(dataset);
     },
     onFolderShareClick: (folder: any) => {
       setFolderSharingDialog({ open: true, folder: { id: folder.id, name: folder.name } });

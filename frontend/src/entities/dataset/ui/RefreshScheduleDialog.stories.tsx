@@ -1,126 +1,98 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { fn } from 'storybook/test';
 
+import { MockedApi, type MockRoute } from '../../../../.storybook/mocks/api';
 import { RefreshScheduleDialog } from './RefreshScheduleDialog';
 
+const SCHEDULES = [
+  {
+    scheduleId: 'daily',
+    scheduleFrequency: { interval: 'DAILY', timeOfTheDay: '06:00', timezone: 'America/New_York' },
+    startAfterDateTime: '2026-07-29T15:44:00.000Z',
+    refreshType: 'FULL_REFRESH',
+    arn: 'arn:aws:quicksight:us-east-1:1:dataset/ds-orders/refresh-schedule/daily',
+  },
+  {
+    scheduleId: 'weekly',
+    scheduleFrequency: {
+      interval: 'WEEKLY',
+      refreshOnDay: { dayOfWeek: 'MONDAY' },
+      timeOfTheDay: '08:00',
+      timezone: 'UTC',
+    },
+    refreshType: 'INCREMENTAL_REFRESH',
+    arn: 'arn:aws:quicksight:us-east-1:1:dataset/ds-orders/refresh-schedule/weekly',
+  },
+];
+
+const routes = (schedules = SCHEDULES): MockRoute[] => [
+  {
+    method: 'get',
+    url: /\/assets\/dataset\/[^/]+\/refresh-schedules$/,
+    respond: () => ({ body: { success: true, data: { schedules } } }),
+  },
+  {
+    method: 'post',
+    url: /\/assets\/dataset\/[^/]+\/refresh-schedules$/,
+    respond: () => ({ status: 201, body: { success: true, data: schedules[0] } }),
+  },
+  {
+    method: 'post',
+    url: /\/ingestions\/[^/]+$/,
+    respond: () => ({
+      status: 201,
+      body: {
+        success: true,
+        data: {
+          id: 'portal-1',
+          datasetId: 'ds-orders',
+          status: 'INITIALIZED',
+          createdTime: '2026-10-15T08:00:00.000Z',
+        },
+      },
+    }),
+  },
+];
+
+/**
+ * A dataset's refreshes: schedules read live, each one changed or removed,
+ * a new one added, and a SPICE refresh started now.
+ */
 const meta: Meta<typeof RefreshScheduleDialog> = {
   title: 'Entities/Dataset/RefreshScheduleDialog',
   component: RefreshScheduleDialog,
-  parameters: {
-    layout: 'centered',
-  },
-  tags: ['autodocs'],
-  argTypes: {
-    open: {
-      control: 'boolean',
-      description: 'Whether the dialog is open',
-    },
-    datasetName: {
-      control: 'text',
-      description: 'Name of the dataset',
-    },
+  parameters: { layout: 'centered' },
+  args: {
+    open: true,
+    onClose: fn(),
+    dataset: { id: 'ds-orders', name: 'Orders', importMode: 'SPICE' },
   },
 };
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const mockRefreshSchedules = [
-  {
-    scheduleId: 'b402358d-771d-483e-9679-6d46ddb3ae8d',
-    scheduleFrequency: {
-      interval: 'DAILY' as const,
-      timeOfTheDay: '11:44',
-      timezone: 'America/New_York',
-    },
-    startAfterDateTime: '2025-07-29T15:44:00.000Z',
-    refreshType: 'FULL_REFRESH' as const,
-    arn: 'arn:aws:quicksight:us-east-1:123456789012:dataset/4b1f052b-2ae1-4059-af73-211445694d63/refresh-schedule/b402358d-771d-483e-9679-6d46ddb3ae8d',
-  },
-  {
-    scheduleId: '969836cf-26f6-46e8-ae6b-612d6775a9cf',
-    scheduleFrequency: {
-      interval: 'WEEKLY' as const,
-      refreshOnDay: {
-        dayOfWeek: 'MONDAY' as const,
-      },
-      timeOfTheDay: '08:00',
-      timezone: 'America/New_York',
-    },
-    startAfterDateTime: '2025-07-29T12:03:00.000Z',
-    refreshType: 'INCREMENTAL_REFRESH' as const,
-    arn: 'arn:aws:quicksight:us-east-1:123456789012:dataset/95ce201a-3fcb-4831-91dc-1c41af6d41d6/refresh-schedule/969836cf-26f6-46e8-ae6b-612d6775a9cf',
-  },
-  {
-    scheduleId: 'hourly-123',
-    scheduleFrequency: {
-      interval: 'HOURLY' as const,
-      timezone: 'UTC',
-    },
-    refreshType: 'INCREMENTAL_REFRESH' as const,
-    arn: 'arn:aws:quicksight:us-east-1:123456789012:dataset/hourly-dataset/refresh-schedule/hourly-123',
-  },
-  {
-    scheduleId: 'monthly-456',
-    scheduleFrequency: {
-      interval: 'MONTHLY' as const,
-      refreshOnDay: {
-        dayOfMonth: '1',
-      },
-      timeOfTheDay: '02:00',
-      timezone: 'America/New_York',
-    },
-    refreshType: 'FULL_REFRESH' as const,
-    arn: 'arn:aws:quicksight:us-east-1:123456789012:dataset/monthly-dataset/refresh-schedule/monthly-456',
-  },
-];
-
-const mockRefreshProperties = {
-  failureConfiguration: {
-    emailAlert: {
-      alertStatus: 'ENABLED',
-    },
-  },
-  refreshConfiguration: {
-    incrementalRefresh: {
-      lookbackWindow: {
-        columnName: 'updated_date',
-        size: 7,
-        sizeUnit: 'DAY',
-      },
-    },
-  },
-};
-
-/** Daily, weekly, hourly and monthly schedules, plus refresh properties. */
-export const Default: Story = {
-  args: {
-    open: true,
-    datasetName: 'Sales Data',
-    refreshSchedules: mockRefreshSchedules,
-    dataSetRefreshProperties: mockRefreshProperties,
-  },
+export const WithSchedules: Story = {
+  render: (args) => (
+    <MockedApi routes={routes()}>
+      <RefreshScheduleDialog {...args} />
+    </MockedApi>
+  ),
 };
 
 export const NoSchedules: Story = {
-  args: {
-    open: true,
-    datasetName: 'Static Dataset',
-    refreshSchedules: [],
-    dataSetRefreshProperties: undefined,
-  },
+  render: (args) => (
+    <MockedApi routes={routes([])}>
+      <RefreshScheduleDialog {...args} />
+    </MockedApi>
+  ),
 };
 
-export const OnlyProperties: Story = {
-  args: {
-    open: true,
-    datasetName: 'Config Only Dataset',
-    refreshSchedules: [],
-    dataSetRefreshProperties: {
-      failureConfiguration: {
-        emailAlert: {
-          alertStatus: 'DISABLED',
-        },
-      },
-    },
-  },
+export const DirectQuery: Story = {
+  args: { dataset: { id: 'ds-live', name: 'Live orders', importMode: 'DIRECT_QUERY' } },
+  render: (args) => (
+    <MockedApi routes={routes([])}>
+      <RefreshScheduleDialog {...args} />
+    </MockedApi>
+  ),
 };

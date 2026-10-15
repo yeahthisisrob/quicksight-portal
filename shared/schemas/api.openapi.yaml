@@ -885,6 +885,191 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 
   # Export file access (for JSON viewer)
+  /api/ingestions/{datasetId}:
+    post:
+      operationId: postIngestionsByDatasetId
+      tags: [Ingestions]
+      summary: Refresh a SPICE dataset now
+      description: Starts an ingestion. It shows in the ingestions list at once; its status moves as QuickSight runs it.
+      parameters:
+        - name: datasetId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [FULL_REFRESH, INCREMENTAL_REFRESH]
+                  default: FULL_REFRESH
+      responses:
+        '201':
+          description: The ingestion started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Ingestion'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/assets/dataset/{assetId}/refresh-schedules:
+    get:
+      operationId: getAssetsDatasetByAssetIdRefreshSchedules
+      tags: [Assets, Ingestions]
+      summary: A dataset's refresh schedules, live
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The schedules
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [schedules]
+                    properties:
+                      schedules:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RefreshSchedule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: postAssetsDatasetByAssetIdRefreshSchedules
+      tags: [Assets, Ingestions]
+      summary: Add a refresh schedule
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshScheduleInput'
+      responses:
+        '201':
+          description: The schedule made
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/RefreshSchedule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/assets/dataset/{assetId}/refresh-schedules/{scheduleId}:
+    put:
+      operationId: putAssetsDatasetByAssetIdRefreshSchedulesByScheduleId
+      tags: [Assets, Ingestions]
+      summary: Change a refresh schedule
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: scheduleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshScheduleInput'
+      responses:
+        '200':
+          description: The schedule as it is now
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/RefreshSchedule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: deleteAssetsDatasetByAssetIdRefreshSchedulesByScheduleId
+      tags: [Assets, Ingestions]
+      summary: Remove a refresh schedule
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: scheduleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Removed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [scheduleId]
+                    properties:
+                      scheduleId:
+                        type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/ingestions:
     get:
       operationId: getIngestions
@@ -8556,6 +8741,33 @@ components:
                 lastRefreshStatus:
                   type: string
                   nullable: true
+
+    RefreshScheduleInput:
+      type: object
+      description: A schedule as asked for. Weekly needs dayOfWeek, monthly dayOfMonth; time and timezone apply to daily and longer.
+      required: [interval, refreshType]
+      properties:
+        interval:
+          type: string
+          enum: [MINUTE15, MINUTE30, HOURLY, DAILY, WEEKLY, MONTHLY]
+        refreshType:
+          type: string
+          enum: [INCREMENTAL_REFRESH, FULL_REFRESH]
+        timeOfTheDay:
+          type: string
+          description: HH:MM, 24-hour
+        timezone:
+          type: string
+          description: An IANA timezone, such as America/New_York
+        dayOfWeek:
+          type: string
+          enum: [SUNDAY, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY]
+        dayOfMonth:
+          type: string
+          description: 1 to 31
+        startAfterDateTime:
+          type: string
+          format: date-time
 
     RefreshSchedule:
       type: object

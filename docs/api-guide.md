@@ -335,6 +335,15 @@ anything QuickSight still reports. A dataset or data source is checked with
 `POST /api/assets/{type}/{id}/restore/preview` and restored with
 `.../restore`.
 
+**Refreshes.** `POST /api/ingestions/{datasetId}` starts a SPICE refresh now
+(`type` FULL_REFRESH or INCREMENTAL_REFRESH); the ingestion shows in
+`GET /api/ingestions` at once. A dataset's schedules are live at
+`GET /api/assets/dataset/{id}/refresh-schedules`; `POST` there adds one
+(`interval`, `refreshType`, `timeOfTheDay` and `timezone` for daily and
+longer, `dayOfWeek` for weekly, `dayOfMonth` for monthly), `PUT
+.../{scheduleId}` changes one and `DELETE .../{scheduleId}` removes it. Every
+write refreshes the dataset's export, which carries the schedules.
+
 **Folders.** `POST /api/folders` makes a shared folder (a `name`, and
 `parentFolderId` to nest it); `DELETE /api/folders/{id}` deletes an empty one,
 or with `?force=true` takes its assets out first (they are kept; subfolders are
