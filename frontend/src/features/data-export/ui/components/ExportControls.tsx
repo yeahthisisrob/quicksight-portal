@@ -124,16 +124,14 @@ export default function ExportControls({
             Stop export
           </Button>
         ) : (
-          <>
-            <Button
-              variant="contained"
-              startIcon={<PlayArrow />}
-              onClick={onStartExport}
-              disabled={selectedTypesCount === 0 && exportMode !== 'rebuild'}
-            >
-              {startButtonLabel(exportMode)}
-            </Button>
-          </>
+          <Button
+            variant="contained"
+            startIcon={<PlayArrow />}
+            onClick={onStartExport}
+            disabled={selectedTypesCount === 0 && exportMode !== 'rebuild'}
+          >
+            {startButtonLabel(exportMode)}
+          </Button>
         )}
 
         <Box sx={{ flex: 1 }} />
