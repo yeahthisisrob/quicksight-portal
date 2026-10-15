@@ -248,6 +248,12 @@ export const ASSISTANT_TOOLS: ChatTool[] = [
               properties: {
                 assetType: { type: 'string', enum: ['analysis', 'dashboard'] },
                 assetId: { type: 'string' },
+                mode: {
+                  type: 'string',
+                  enum: ['copy', 'inPlace'],
+                  description:
+                    'Only when the person said which: the change on a copy, or in place. Leave it out otherwise; Settings decide and the plan says what it did.',
+                },
               },
               required: ['assetType', 'assetId'],
             },

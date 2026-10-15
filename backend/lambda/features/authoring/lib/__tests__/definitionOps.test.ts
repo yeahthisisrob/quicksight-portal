@@ -10,6 +10,37 @@ const visual = (d: any, id: string) =>
     (v: any) => v.VisualId === id
   );
 
+describe('parseOps', () => {
+  it('takes places and sizes in words, and insists on an anchor beside or below', () => {
+    expect(
+      parseOps([
+        { op: 'move', sheetId: 's1', elementId: 'v1', place: 'bottom' },
+        { op: 'resize', sheetId: 's1', elementId: 'v1', size: 'full' },
+        { op: 'duplicate', sheetId: 's1', elementId: 'v1', place: 'beside', anchor: 'v2' },
+      ])
+    ).toEqual([
+      { op: 'move', sheetId: 's1', elementId: 'v1', place: 'bottom' },
+      { op: 'resize', sheetId: 's1', elementId: 'v1', size: 'full' },
+      {
+        op: 'duplicate',
+        sheetId: 's1',
+        elementId: 'v1',
+        title: undefined,
+        col: undefined,
+        row: undefined,
+        place: 'beside',
+        anchor: 'v2',
+      },
+    ]);
+    expect(() =>
+      parseOps([{ op: 'move', sheetId: 's1', elementId: 'v1', place: 'below' }])
+    ).toThrow('needs anchor');
+    expect(() =>
+      parseOps([{ op: 'resize', sheetId: 's1', elementId: 'v1', size: 'huge' }])
+    ).toThrow('ops[0].size');
+  });
+});
+
 describe('applyOps', () => {
   it('never mutates the input', () => {
     const input = sampleDefinition();
@@ -35,6 +66,58 @@ describe('applyOps', () => {
       'Moved the KPI to column 0, row 12 on Overview',
       "Resized 'Revenue by status' to 36 columns by 8 rows on Overview",
     ]);
+  });
+
+  it('places and sizes tiles in words, laying the sheet out again as blocks', () => {
+    // v1 and v2 share row 0 (18 wide each). Put v1 below v2: v2 takes the row, v1 the next.
+    const below = applyOps(sampleDefinition(), [
+      { op: 'move', sheetId: 's1', elementId: 'v1', place: 'below', anchor: 'v2' },
+    ]);
+    expect(
+      grid(below.definition).map((e: any) => [e.ElementId, e.ColumnIndex, e.RowIndex])
+    ).toEqual([
+      ['v2', 0, 0],
+      ['v1', 0, 12],
+    ]);
+    expect(below.changes[0]!.description).toBe(
+      "Placed 'Revenue by status' below the KPI on Overview"
+    );
+    // Beside: right after the anchor in reading order, on its row when it fits.
+    const beside = applyOps(sampleDefinition(), [
+      { op: 'move', sheetId: 's1', elementId: 'v1', place: 'beside', anchor: 'v2' },
+    ]);
+    expect(
+      grid(beside.definition).map((e: any) => [e.ElementId, e.ColumnIndex, e.RowIndex])
+    ).toEqual([
+      ['v2', 0, 0],
+      ['v1', 18, 0],
+    ]);
+    // A size word: the tile takes that block and the rest flows around it.
+    const wide = applyOps(sampleDefinition(), [
+      { op: 'resize', sheetId: 's1', elementId: 'v1', size: 'wide' },
+    ]);
+    expect(grid(wide.definition)).toEqual([
+      expect.objectContaining({
+        ElementId: 'v1',
+        ColumnIndex: 0,
+        RowIndex: 0,
+        ColumnSpan: 36,
+        RowSpan: 10,
+      }),
+      expect.objectContaining({
+        ElementId: 'v2',
+        ColumnIndex: 0,
+        RowIndex: 10,
+        ColumnSpan: 18,
+        RowSpan: 12,
+      }),
+    ]);
+    expect(wide.changes[0]!.description).toBe("Resized 'Revenue by status' to wide on Overview");
+    expect(() =>
+      applyOps(sampleDefinition(), [
+        { op: 'move', sheetId: 's1', elementId: 'v1', place: 'below', anchor: 'nope' },
+      ])
+    ).toThrow("No element 'nope'");
   });
 
   it('refuses a move that leaves the 36-column grid or an unknown element', () => {
@@ -343,6 +426,41 @@ describe('buildOutline', () => {
     const others = cells.filter((e: any) => e.ElementId !== line.VisualId);
     expect(placed.RowIndex).toBe(Math.max(...others.map((e: any) => e.RowIndex + e.RowSpan)));
     expect(changes[0]!.description).toBe("Added a line chart 'Revenue over time' to Overview");
+    // Placed in words: below v1 means after v1's row, before anything under it.
+    const under = applyOps(
+      sampleDefinition(),
+      [
+        {
+          op: 'addVisual',
+          sheetId: 's1',
+          visual: {
+            type: 'LineChart',
+            title: 'Revenue over time',
+            identifier: 'orders',
+            category: 'order_date',
+            values: [{ column: 'revenue' }],
+          },
+          place: 'beside',
+          anchor: 'v1',
+        },
+      ],
+      (identifier, name) =>
+        identifier === 'orders' && columns.has(name)
+          ? { name, type: columns.get(name) as string }
+          : undefined
+    );
+    const added = under.definition.Sheets[0].Visuals.at(-1).LineChartVisual.VisualId;
+    expect(
+      grid(under.definition).map((e: any) => [
+        e.ElementId === added ? 'new' : e.ElementId,
+        e.ColumnIndex,
+        e.RowIndex,
+      ])
+    ).toEqual([
+      ['v1', 0, 0],
+      ['new', 18, 0],
+      ['v2', 0, 12],
+    ]);
     expect(() =>
       applyOps(sampleDefinition(), [
         {

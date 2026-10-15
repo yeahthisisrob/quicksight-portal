@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { TargetColumn } from './columnResolution';
 import type { EditableVisualType } from './definitionOps';
-import { GRID_COLUMNS, type Tile } from './grid';
+import { GRID_COLUMNS, SIZE_TILES, type Tile } from './grid';
 import type { VisualActionSpec } from './visualActions';
 
 export type BuildableVisualType = EditableVisualType | 'KPI';
@@ -38,11 +38,13 @@ const NUMERIC = new Set(['INTEGER', 'DECIMAL']);
 
 /**
  * Tile sizes (grid units): charts half the width, a chart alone on its row
- * the full width; tables and pivot tables full width and tall.
+ * the full width; tables and pivot tables full width. Compact on purpose:
+ * every visual scrolls, so a tile needs to show the shape of the data, not
+ * all of it, and the page should not be mostly white space.
  */
-export const CHART_TILE = { colSpan: GRID_COLUMNS / 2, rowSpan: 12 };
-export const WIDE_CHART_TILE = { colSpan: GRID_COLUMNS, rowSpan: 14 };
-export const TABLE_TILE = { colSpan: GRID_COLUMNS, rowSpan: 18 };
+export const CHART_TILE = SIZE_TILES.medium;
+export const WIDE_CHART_TILE = SIZE_TILES.wide;
+export const TABLE_TILE = { colSpan: GRID_COLUMNS, rowSpan: 12 };
 export const DETAIL_TYPES = new Set<BuildableVisualType>(['Table', 'PivotTable']);
 
 /** The tile a visual of this type gets when it is placed. */

@@ -337,8 +337,16 @@ export class AuthoringHandler {
       if (body.intent !== undefined && body.intent !== 'edit' && body.intent !== 'auto') {
         throw badRequest("intent must be 'edit' or 'auto'");
       }
+      if (body.mode !== undefined && body.mode !== 'clone' && body.mode !== 'update') {
+        throw badRequest("mode must be 'clone' or 'update'");
+      }
 
-      logger.info('Proposal requested', { user: user.email, ...target, intent: body.intent });
+      logger.info('Proposal requested', {
+        user: user.email,
+        ...target,
+        intent: body.intent,
+        mode: body.mode,
+      });
       // The model can think for longer than the API gateway allows, so the
       // ask runs as a job and the proposal is its result.
       const queued = await jobFactory.createJob({
@@ -354,6 +362,7 @@ export class AuthoringHandler {
           ask: body.ask,
           candidateDataSetIds: candidateDataSetIds as string[] | undefined,
           ...(body.intent === 'edit' ? { intent: 'edit' as const } : {}),
+          ...(body.mode ? { mode: body.mode as 'clone' | 'update' } : {}),
         },
       });
       return createResponse(event, STATUS_CODES.ACCEPTED, { success: true, data: queued });

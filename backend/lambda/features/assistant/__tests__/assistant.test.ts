@@ -1005,7 +1005,7 @@ describe('AssistantService', () => {
 
     expect(chat.seen).toBe(0);
     expect(result.reply).toBe(
-      'Adding a table of every result at the bottom of Sales review; planning it now.\n\nThe plan is below with its preview (1 visual; no filter controls) and its Run button; nothing has changed yet. Say what to change, or run it when it looks right.'
+      'Adding a table of every result at the bottom of Sales review; planning it now.\n\nThis changes the analysis in place (Settings › Authoring decides copy or in place). The plan is below with its preview (1 visual; no filter controls) and its Run button; nothing has changed yet. Say what to change, or run it when it looks right.'
     );
     // Said to the person before the planner was asked.
     expect(said[0]).toBe(

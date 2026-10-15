@@ -46,7 +46,19 @@ import {
   type FilterControlKind,
 } from './definitionFilters';
 import { stripHtml, visualEntry, visualTypeName } from './definitionOutline';
-import { CONTROL_TILE, GRID_COLUMNS, gridBottom, reflow } from './grid';
+import {
+  CONTROL_TILE,
+  GRID_COLUMNS,
+  gridBottom,
+  PLACEMENTS,
+  type Placement,
+  placeAndRepack,
+  reflow,
+  repack,
+  SIZE_TILES,
+  TILE_SIZES,
+  type TileSize,
+} from './grid';
 import {
   ACTION_KINDS,
   ACTION_TRIGGERS,
@@ -88,8 +100,25 @@ function isDefinitionScope(op: DefinitionOp): op is DefinitionScopeOp {
 
 export type DefinitionOp =
   | DefinitionScopeOp
-  | { op: 'move'; sheetId: string; elementId: string; col: number; row: number }
-  | { op: 'resize'; sheetId: string; elementId: string; colSpan: number; rowSpan: number }
+  /** Where to, as numbers (col, row), or in words (place, with anchor for beside/below). */
+  | {
+      op: 'move';
+      sheetId: string;
+      elementId: string;
+      col?: number;
+      row?: number;
+      place?: Placement;
+      anchor?: string;
+    }
+  /** How big, in grid units, or in words (size). */
+  | {
+      op: 'resize';
+      sheetId: string;
+      elementId: string;
+      colSpan?: number;
+      rowSpan?: number;
+      size?: TileSize;
+    }
   | { op: 'retype'; sheetId: string; elementId: string; visualType: EditableVisualType }
   | { op: 'retitle'; sheetId: string; elementId: string; title?: string; subtitle?: string }
   | { op: 'remove'; sheetId: string; elementId: string }
@@ -98,6 +127,8 @@ export type DefinitionOp =
       sheetId: string;
       elementId: string;
       title?: string;
+      place?: Placement;
+      anchor?: string;
       col?: number;
       row?: number;
     }
@@ -120,7 +151,7 @@ export type DefinitionOp =
       max?: number;
       lastDays?: number;
     }
-  | { op: 'addVisual'; sheetId: string; visual: VisualSpec }
+  | { op: 'addVisual'; sheetId: string; visual: VisualSpec; place?: Placement; anchor?: string }
   | {
       op: 'addAction';
       sheetId: string;
@@ -153,9 +184,14 @@ export interface DefinitionChange {
   elementId?: string;
 }
 
-/** A new tile's size when the source has none: half the grid wide, a comfortable height. */
-const DEFAULT_COL_SPAN = 18;
-const DEFAULT_ROW_SPAN = 12;
+/** A new tile's size when the source has none: a medium block. */
+const DEFAULT_COL_SPAN = SIZE_TILES.medium.colSpan;
+const DEFAULT_ROW_SPAN = SIZE_TILES.medium.rowSpan;
+
+/** "beside v1" / "below v1" / "at the bottom", for a change's description. */
+function describePlace(sheet: any, place: Placement, anchor: string | undefined): string {
+  return place === 'bottom' ? 'at the bottom' : `${place} ${labelFor(sheet, anchor ?? '')}`;
+}
 /** Enough of a uuid to keep duplicated field ids unique and readable. */
 const ID_SUFFIX_LENGTH = 8;
 export const EDITABLE_VISUAL_TYPES: readonly EditableVisualType[] = [
@@ -415,6 +451,18 @@ export function applyOps(
       case 'move': {
         const grid = gridOf(sheet, index, 'move');
         const element = elementOf(grid, op.elementId, index);
+        if (op.place) {
+          // In words: the tile takes its place in the reading order and the
+          // sheet is laid out again as blocks.
+          grid.Elements = placeAndRepack(grid.Elements, element.ElementId, op.place, op.anchor);
+          changes.push({
+            kind: 'layout',
+            sheetId: op.sheetId,
+            elementId: op.elementId,
+            description: `Placed ${labelFor(sheet, op.elementId)} ${describePlace(sheet, op.place, op.anchor)} on ${sheetName}`,
+          });
+          break;
+        }
         const col = assertInt(op.col, 'col', index, 0, GRID_COLUMNS - 1);
         const row = assertInt(op.row, 'row', index, 0);
         const span = Number(element.ColumnSpan ?? 1);
@@ -436,6 +484,20 @@ export function applyOps(
       case 'resize': {
         const grid = gridOf(sheet, index, 'resize');
         const element = elementOf(grid, op.elementId, index);
+        if (op.size) {
+          // In words: the tile takes the size's block and the sheet is laid out again.
+          const tile = SIZE_TILES[op.size];
+          element.ColumnSpan = tile.colSpan;
+          element.RowSpan = tile.rowSpan;
+          grid.Elements = repack(grid.Elements);
+          changes.push({
+            kind: 'layout',
+            sheetId: op.sheetId,
+            elementId: op.elementId,
+            description: `Resized ${labelFor(sheet, op.elementId)} to ${op.size} on ${sheetName}`,
+          });
+          break;
+        }
         const colSpan = assertInt(op.colSpan, 'colSpan', index, 1, GRID_COLUMNS);
         const rowSpan = assertInt(op.rowSpan, 'rowSpan', index, 1);
         const col = Number(element.ColumnIndex ?? 0);
@@ -606,6 +668,9 @@ export function applyOps(
             element.RowIndex = assertInt(op.row, 'row', index, 0);
           }
           grid.Elements = [...(grid.Elements ?? []), element];
+          if (op.place) {
+            grid.Elements = placeAndRepack(grid.Elements, newId, op.place, op.anchor);
+          }
         }
         changes.push({
           kind: 'visual',
@@ -708,6 +773,9 @@ export function applyOps(
           gridBottom(grid.Elements)
         );
         grid.Elements.push(...placed.elements);
+        if (op.place && op.place !== 'bottom') {
+          grid.Elements = placeAndRepack(grid.Elements, built.id, op.place, op.anchor);
+        }
         sheet.Visuals = [...(sheet.Visuals ?? []), built.visual];
         changes.push({
           kind: 'visual',
@@ -882,6 +950,22 @@ function parseDefinitionScopeOp(entry: Record<string, unknown>, index: number): 
   }
 }
 
+/** A place in words from a request, checked: beside and below need their anchor. */
+function placeOf(
+  entry: Record<string, unknown>,
+  index: number
+): { place?: Placement; anchor?: string } {
+  if (typeof entry.place !== 'string') return {};
+  const place = oneOf(entry.place, PLACEMENTS, `ops[${index}].place`);
+  const anchor = typeof entry.anchor === 'string' ? entry.anchor.trim() : '';
+  if (place !== 'bottom' && !anchor) {
+    throw new ValidationError(
+      `ops[${index}]: place '${place}' needs anchor (the element id it is placed next to)`
+    );
+  }
+  return { place, ...(anchor ? { anchor } : {}) };
+}
+
 export function parseOps(raw: unknown): DefinitionOp[] {
   if (raw === undefined) {
     return [];
@@ -912,16 +996,19 @@ export function parseOps(raw: unknown): DefinitionOp[] {
           op,
           sheetId,
           elementId: needElement(),
-          col: Number(entry.col),
-          row: Number(entry.row),
+          ...placeOf(entry, index),
+          ...(typeof entry.place === 'string'
+            ? {}
+            : { col: Number(entry.col), row: Number(entry.row) }),
         };
       case 'resize':
         return {
           op,
           sheetId,
           elementId: needElement(),
-          colSpan: Number(entry.colSpan),
-          rowSpan: Number(entry.rowSpan),
+          ...(typeof entry.size === 'string'
+            ? { size: oneOf(entry.size, TILE_SIZES, `ops[${index}].size`) }
+            : { colSpan: Number(entry.colSpan), rowSpan: Number(entry.rowSpan) }),
         };
       case 'retype':
         return {
@@ -948,6 +1035,7 @@ export function parseOps(raw: unknown): DefinitionOp[] {
           title: typeof entry.title === 'string' ? entry.title : undefined,
           col: typeof entry.col === 'number' ? entry.col : undefined,
           row: typeof entry.row === 'number' ? entry.row : undefined,
+          ...placeOf(entry, index),
         };
       case 'renameSheet':
         return { op, sheetId, name: String(entry.name ?? '') };
@@ -999,7 +1087,7 @@ export function parseOps(raw: unknown): DefinitionOp[] {
             `ops[${index}]: addVisual needs visual { type, title, identifier, values[] }`
           );
         }
-        return { op, sheetId, visual };
+        return { op, sheetId, visual, ...placeOf(entry, index) };
       }
       case 'addAction': {
         const action = entry.action as VisualActionSpec | undefined;

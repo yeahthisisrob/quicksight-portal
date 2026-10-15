@@ -110,7 +110,13 @@ describe('PlannerService', () => {
   });
 
   const service = (answers: unknown[]) =>
-    new PlannerService(rebindService as any, new FakeModel(answers), loadCandidates);
+    new PlannerService(
+      rebindService as any,
+      new FakeModel(answers),
+      loadCandidates,
+      {},
+      async () => ['Sales', 'Sales v2']
+    );
 
   it('asks which dataset, then only the unresolved columns, and re-plans with the answer', async () => {
     const model = new FakeModel([
@@ -183,7 +189,11 @@ describe('PlannerService', () => {
       },
     ]);
 
-    const proposal = await planner.propose('dashboard', 'd1', { ask: 'switch in place' });
+    // Copy or in place is the request's (or Settings') decision, never the model's.
+    const proposal = await planner.propose('dashboard', 'd1', {
+      ask: 'switch in place',
+      mode: 'update',
+    });
 
     expect(rebindService.plan).toHaveBeenCalledTimes(1);
     expect(proposal.mode).toBe('update');
@@ -217,7 +227,8 @@ describe('PlannerService', () => {
       },
     ]);
     expect(proposal.plan?.canApply).toBe(false);
-    expect(proposal.name).toBe('Sales (copy)');
+    // A copy with no name takes the next version of the original's, among the names in use.
+    expect(proposal.name).toBe('Sales v3');
   });
 
   it('plans a visual edit with one model call and no dataset choice when told it is an edit', async () => {
@@ -341,7 +352,7 @@ describe('parseChoice', () => {
   const ids = new Set(['orders']);
   const candidates = new Set(['orders-gold']);
 
-  it('defaults unknown intent/mode and trims strings', () => {
+  it('defaults unknown intent, ignores a mode the model offers, and trims strings', () => {
     expect(
       parseChoice(
         { intent: 'weird', mode: 'nope', name: ' x ', reason: '', rebinds: [] },
@@ -350,7 +361,6 @@ describe('parseChoice', () => {
       )
     ).toEqual({
       intent: 'rebind',
-      mode: 'clone',
       name: 'x',
       reason: '',
       rebinds: [],

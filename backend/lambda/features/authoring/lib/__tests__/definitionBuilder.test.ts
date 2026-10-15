@@ -85,7 +85,7 @@ describe('buildDefinition', () => {
 
     const elements = sheet.Layouts[0].Configuration.GridLayout.Elements;
     const at = (id: string) => elements.find((e: any) => e.ElementId === id);
-    // A lone KPI takes the band; two charts share a row; the pivot is full width and tall, last.
+    // A lone KPI takes the band; two charts share a row (10 rows tall); the pivot is full width, last.
     expect(at(sheet.Visuals[1].KPIVisual.VisualId)).toMatchObject({
       ColumnIndex: 0,
       ColumnSpan: 36,
@@ -105,8 +105,8 @@ describe('buildDefinition', () => {
     expect(at(sheet.Visuals[3].PivotTableVisual.VisualId)).toMatchObject({
       ColumnIndex: 0,
       ColumnSpan: 36,
-      RowSpan: 18,
-      RowIndex: 18,
+      RowSpan: 12,
+      RowIndex: 16,
     });
     expect(elements.every((e: any) => e.ColumnIndex + e.ColumnSpan <= 36)).toBe(true);
 
@@ -186,7 +186,7 @@ describe('buildDefinition', () => {
         ElementType: 'VISUAL',
         ColumnIndex: 0,
         ColumnSpan: 36,
-        RowSpan: 18,
+        RowSpan: 12,
         RowIndex: 0,
       }),
     ]);

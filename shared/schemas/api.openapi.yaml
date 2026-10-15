@@ -10072,6 +10072,14 @@ components:
             edit: visual or layout changes only, with the datasets as they
             are, so the planner spends no model call choosing one. auto (the
             default) lets it decide.
+        mode:
+          type: string
+          enum: [clone, update]
+          description: >
+            On a copy (clone) or in place (update). The Settings default
+            (authoring.editMode, a copy unless changed) when omitted; the
+            planner never decides this itself. A copy with no name takes the
+            next version of the original's name (v2, v3...).
         model:
           $ref: '#/components/schemas/AiModelKey'
 
@@ -11796,6 +11804,27 @@ components:
         elementId:
           type: string
           description: move, resize, remove, duplicate, retype, retitle, addAction. The layout element id (the visual id for visuals, the control id for controls, wherever they sit); addAction also takes the visual's title.
+        place:
+          type: string
+          enum: [bottom, beside, below]
+          description: >
+            move, duplicate, addVisual. Where the tile goes, in words, instead
+            of col and row: bottom (after everything), beside another tile
+            (on its row when it fits, else the next) or below its row. The
+            sheet is then laid out again as blocks, rows packed left to
+            right with nothing overlapping. addVisual without it goes to the
+            bottom.
+        anchor:
+          type: string
+          description: place beside or below. The element id of the tile it is placed relative to.
+        size:
+          type: string
+          enum: [small, medium, large, wide, full]
+          description: >
+            resize, in words instead of colSpan and rowSpan: small (a third
+            of the width), medium (half), large (two thirds), wide (full
+            width, short), full (full width, tall). The sheet is laid out
+            again as blocks afterwards.
         col:
           type: integer
           minimum: 0

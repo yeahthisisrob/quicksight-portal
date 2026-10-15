@@ -32,10 +32,12 @@ import { getSmusConfig } from '../../../../shared/config/smusConfig';
 import { ValidationError } from '../../../../shared/errors/ValidationError';
 import { CacheService } from '../../../../shared/services/cache/CacheService';
 import { catalog } from '../../../../shared/services/catalog/catalogStore';
+import { defaultApplyMode } from '../../../../shared/services/settings/authoringDefaults';
 import { SmusService } from '../../../../shared/services/smus/SmusService';
 import { AssetStatusFilter } from '../../../../shared/types/assetFilterTypes';
 import { ASSET_TYPES } from '../../../../shared/types/assetTypes';
 import { logger } from '../../../../shared/utils/logger';
+import { nextVersionName } from '../../lib/copyName';
 import {
   BUILDABLE_VISUAL_TYPES,
   type BuilderDataset,
@@ -55,6 +57,7 @@ import {
   parseOps,
 } from '../../lib/definitionOps';
 import type { SheetOutline } from '../../lib/definitionOutline';
+import { PLACEMENTS, type Placement, TILE_SIZES, type TileSize } from '../../lib/grid';
 import { ACTION_KINDS, ACTION_TRIGGERS, type VisualActionSpec } from '../../lib/visualActions';
 import type {
   ApplyMode,
@@ -139,7 +142,7 @@ Be literal about names: pick datasets and columns only from the lists you are gi
 const CHOICE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['intent', 'mode', 'name', 'reason', 'rebinds', 'wantsEdits'],
+  required: ['intent', 'name', 'reason', 'rebinds', 'wantsEdits'],
   properties: {
     wantsEdits: {
       type: 'boolean',
@@ -150,16 +153,10 @@ const CHOICE_SCHEMA = {
       enum: ['rebind', 'unclear'],
       description: 'rebind when the ask is to point this asset (or a copy) at other datasets',
     },
-    mode: {
-      type: 'string',
-      enum: ['clone', 'update'],
-      description:
-        'clone = create a copy; update = change this asset in place. Default to clone unless the ask clearly says in place.',
-    },
     name: {
       type: 'string',
       description:
-        'Name for the result. Empty string keeps the current name (update) or lets the server pick (clone).',
+        'A name for the result only when the ask gives one; empty string otherwise (the current name is kept, or a copy takes the next version of it).',
     },
     reason: { type: 'string', description: 'One sentence.' },
     rebinds: {
@@ -210,7 +207,6 @@ const MAPPING_SCHEMA = {
 /** A visual or layout change only: no dataset choice to make, so no call for it. */
 const EDIT_ONLY_CHOICE: Choice = {
   intent: 'rebind',
-  mode: 'update',
   name: '',
   reason: 'Visual and layout changes only; the datasets stay as they are.',
   rebinds: [],
@@ -219,7 +215,6 @@ const EDIT_ONLY_CHOICE: Choice = {
 
 interface Choice {
   intent: 'rebind' | 'unclear';
-  mode: ApplyMode;
   name: string;
   reason: string;
   rebinds: ProposedRebind[];
@@ -401,6 +396,9 @@ const EDITS_SCHEMA = {
           'row',
           'colSpan',
           'rowSpan',
+          'place',
+          'anchor',
+          'size',
           'visualType',
           'title',
           'name',
@@ -432,10 +430,38 @@ const EDITS_SCHEMA = {
             description:
               'An elementId from the outline (addAction: the visual that carries it); "" for renameSheet, addFilter, addVisual.',
           },
-          col: { type: 'integer', description: 'move/duplicate: 0-35, else -1.' },
-          row: { type: 'integer', description: 'move/duplicate: 0 or more, else -1.' },
-          colSpan: { type: 'integer', description: 'resize: 1-36, else -1.' },
-          rowSpan: { type: 'integer', description: 'resize: 1 or more, else -1.' },
+          col: {
+            type: 'integer',
+            description: 'move/duplicate when the ask gives a column number: 0-35; else -1.',
+          },
+          row: {
+            type: 'integer',
+            description: 'move/duplicate when the ask gives a row number: 0 or more; else -1.',
+          },
+          colSpan: {
+            type: 'integer',
+            description: 'resize when the ask gives grid units: 1-36; else -1.',
+          },
+          rowSpan: {
+            type: 'integer',
+            description: 'resize when the ask gives grid units: 1 or more; else -1.',
+          },
+          place: {
+            type: 'string',
+            enum: ['', 'bottom', 'beside', 'below'],
+            description:
+              'move/duplicate/addVisual: where the tile goes, in words ("at the end" = bottom, "next to X" = beside, "under X" = below); the sheet is laid out again as blocks. "" when col/row are given or for addVisual at the bottom.',
+          },
+          anchor: {
+            type: 'string',
+            description: 'place beside/below: the elementId it is placed next to; else "".',
+          },
+          size: {
+            type: 'string',
+            enum: ['', 'small', 'medium', 'large', 'wide', 'full'],
+            description:
+              'resize, in words: small (a third of the width), medium (half), large (two thirds), wide (full width, short), full (full width, tall); "" when colSpan/rowSpan are given.',
+          },
           visualType: {
             type: 'string',
             description: `retype: one of ${EDITABLE_VISUAL_TYPES.join(', ')}; else "".`,
@@ -492,7 +518,12 @@ export class PlannerService {
     private readonly model: PlannerModel,
     private readonly loadCandidates: CandidateLoader = defaultCandidateLoader,
     /** The organisation's authoring guidance from Settings, added to the prompts it applies to. */
-    private readonly options: { guidance?: AuthoringGuidance } = {}
+    private readonly options: { guidance?: AuthoringGuidance } = {},
+    /** The names of this type's assets, so a copy takes the next free version. */
+    private readonly existingNames: (assetType: AuthorableAssetType) => Promise<string[]> = (t) =>
+      catalog
+        .list(t === 'dashboard' ? ASSET_TYPES.dashboard : ASSET_TYPES.analysis)
+        .then((entries) => entries.map((e) => e.assetName))
   ) {}
 
   /** The preamble, plus the guidance for this kind of decision when the organisation set any. */
@@ -529,6 +560,9 @@ export class PlannerService {
       ? EDIT_ONLY_CHOICE
       : await this.chooseTargets(assetType, definition.name, definition.datasets, candidates, ask);
     const modelInfo = { provider: this.model.provider, model: '' };
+    // Copy or in place is the person's (or the admin's) decision, never the
+    // model's: the request says, or Settings do.
+    const mode: ApplyMode = request.mode ?? defaultApplyMode();
 
     // Layout and visual edits are planned against the definition's outline,
     // then validated by applying them to a preview - an op that fails is
@@ -541,7 +575,7 @@ export class PlannerService {
       return {
         ask,
         intent: 'unclear',
-        mode: choice.mode,
+        mode,
         reason: choice.reason,
         rebinds: [],
         unmapped: [],
@@ -552,12 +586,16 @@ export class PlannerService {
         steps: this.steps,
       };
     }
+    // A copy has to have a name: the one the ask gave, or the next version of the original's.
+    const name =
+      choice.name.trim() ||
+      (mode === 'clone' ? await this.copyName(assetType, definition.name) : undefined);
     if (choice.rebinds.length === 0) {
       return {
         ask,
         intent: 'edit',
-        mode: choice.mode,
-        name: choice.name.trim() || undefined,
+        mode,
+        name,
         reason: choice.reason,
         rebinds: [],
         unmapped: [],
@@ -589,13 +627,11 @@ export class PlannerService {
       plan = await this.rebindService.plan(assetType, assetId, rebinds);
     }
 
-    const name =
-      choice.name.trim() || (choice.mode === 'clone' ? `${definition.name} (copy)` : undefined);
     logger.info('Planner proposal', {
       assetType,
       assetId,
       provider: this.model.provider,
-      mode: choice.mode,
+      mode,
       rebinds: choice.rebinds.length,
       canApply: plan.canApply,
       unmapped: unmapped.length,
@@ -604,7 +640,7 @@ export class PlannerService {
     return {
       ask,
       intent: 'rebind',
-      mode: choice.mode,
+      mode,
       name,
       reason: choice.reason,
       rebinds: choice.rebinds,
@@ -619,6 +655,12 @@ export class PlannerService {
 
   /** How long each step of the last proposal took, for the trace under an answer. */
   private steps: Array<{ label: string; ms: number }> = [];
+
+  /** The next version of the original's name among the names in use ("Sales v2"). */
+  private async copyName(assetType: AuthorableAssetType, current: string): Promise<string> {
+    const existing = await this.existingNames(assetType).catch(() => [] as string[]);
+    return nextVersionName(current, existing);
+  }
 
   /** One model call or one check, timed into the proposal's steps. */
   private async timed<T>(label: string, work: () => Promise<T>): Promise<T> {
@@ -671,7 +713,7 @@ export class PlannerService {
       '',
       vocabularySection(),
       '',
-      'Express every change the ask wants as ops, and nothing it does not: every filter it names with the control and placement it names (addFilter), every visual (addVisual, by column names), every interaction (addAction on the visual that is clicked), and layout changes (move, resize, retype, retitle, remove). The grid is 36 columns wide; rows grow downward. Use only ids from the outline, identifiers and columns from the datasets, and visual titles or ids for appliesTo and targets. Change a visual type only between BarChart, ColumnChart, LineChart, PieChart, DonutChart, Table and PivotTable. If the ask wants no such change, return an empty list.',
+      'Express every change the ask wants as ops, and nothing it does not: every filter it names with the control and placement it names (addFilter), every visual (addVisual, by column names), every interaction (addAction on the visual that is clicked), and layout changes (move, resize, retype, retitle, remove). The layout is blocks on a grid 36 columns wide: say where a tile goes in words (place bottom, or beside/below an anchor element) and how big in words (size), and the sheet is laid out again with nothing overlapping; give col/row or colSpan/rowSpan only when the ask gives numbers. A new visual goes to the bottom unless the ask says where. Use only ids from the outline, identifiers and columns from the datasets, and visual titles or ids for appliesTo and targets. Change a visual type only between BarChart, ColumnChart, LineChart, PieChart, DonutChart, Table and PivotTable. If the ask wants no such change, return an empty list.',
     ].join('\n');
 
     const result = await this.timed('plan-edits', () =>
@@ -810,7 +852,7 @@ export class PlannerService {
       '',
       `The ask: """${ask}"""`,
       '',
-      'Decide which identifier(s) should read from which candidate dataset, and whether to make a copy or change it in place. Also say whether the ask wants layout or visual changes (moving, resizing, retitling, removing, duplicating or retyping visuals, renaming sheets); those are planned separately.',
+      'Decide which identifier(s) should read from which candidate dataset. Whether the result is a copy or the asset itself is decided elsewhere; do not weigh it. Also say whether the ask wants layout or visual changes (moving, resizing, retitling, removing, duplicating or retyping visuals, renaming sheets); those are planned separately.',
     ].join('\n');
 
     const result = await this.timed('choose-target', () =>
@@ -896,7 +938,6 @@ export function parseChoice(
     throw new ValidationError('The planner returned something that is not an object');
   }
   const intent = str(output, 'intent') === 'unclear' ? 'unclear' : 'rebind';
-  const mode: ApplyMode = str(output, 'mode') === 'update' ? 'update' : 'clone';
   const rawRebinds = Array.isArray(output.rebinds) ? output.rebinds : [];
 
   const rebinds: ProposedRebind[] = [];
@@ -926,7 +967,6 @@ export function parseChoice(
 
   return {
     intent,
-    mode,
     name: str(output, 'name'),
     reason: str(output, 'reason'),
     rebinds,
@@ -1073,17 +1113,31 @@ export function parseEditOps(
       sheetId: str(item, 'sheetId'),
       elementId: text('elementId'),
     };
+    const placeWords = () => {
+      const place = text('place');
+      return (PLACEMENTS as readonly string[]).includes(place ?? '')
+        ? { place: place as Placement, ...(text('anchor') ? { anchor: text('anchor') } : {}) }
+        : {};
+    };
+    const sizeWord = () => {
+      const size = text('size');
+      return (TILE_SIZES as readonly string[]).includes(size ?? '')
+        ? { size: size as TileSize }
+        : {};
+    };
     switch (base.op) {
       case 'move':
-        return [{ ...base, col: num('col'), row: num('row') }];
+        return [{ ...base, col: num('col'), row: num('row'), ...placeWords() }];
       case 'resize':
-        return [{ ...base, colSpan: num('colSpan'), rowSpan: num('rowSpan') }];
+        return [{ ...base, colSpan: num('colSpan'), rowSpan: num('rowSpan'), ...sizeWord() }];
       case 'retype':
         return [{ ...base, visualType: text('visualType') }];
       case 'retitle':
         return [{ ...base, title: text('title') }];
       case 'duplicate':
-        return [{ ...base, title: text('title'), col: num('col'), row: num('row') }];
+        return [
+          { ...base, title: text('title'), col: num('col'), row: num('row'), ...placeWords() },
+        ];
       case 'remove':
         return [base];
       case 'renameSheet':
@@ -1100,7 +1154,7 @@ export function parseEditOps(
       }
       case 'addVisual': {
         const visual = visualOf(item.visual, identifiers);
-        return visual ? [{ op: 'addVisual', sheetId: base.sheetId, visual }] : [];
+        return visual ? [{ op: 'addVisual', sheetId: base.sheetId, visual, ...placeWords() }] : [];
       }
       case 'addAction': {
         const action = actionOf(item.action);
