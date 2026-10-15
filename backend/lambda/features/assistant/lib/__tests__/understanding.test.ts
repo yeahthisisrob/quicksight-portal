@@ -29,6 +29,41 @@ describe('parseUnderstanding', () => {
     });
   });
 
+  it('keeps a filter-only ask with its scope and bounds, and reads one with no filter as a visual change', () => {
+    expect(
+      parseUnderstanding({
+        understanding: 'Adding a Region filter to Sales review.',
+        change: 'filter',
+        asset: { kind: 'analysis', name: 'Sales review', id: '' },
+        title: 'Region filter',
+        brief: '',
+        filters: [
+          { column: 'region', dataset: '', control: '', placement: '', min: '', max: '' },
+          { column: 'amount', dataset: '', control: 'slider', placement: '', min: '0', max: '1e3' },
+        ],
+        scope: { sheets: 'named', sheetNames: ['Overview'], visuals: 'all', visualNames: [] },
+        editMode: '',
+      })
+    ).toEqual({
+      understanding: 'Adding a Region filter to Sales review.',
+      change: 'filter',
+      asset: { kind: 'analysis', name: 'Sales review' },
+      title: 'Region filter',
+      filters: [{ column: 'region' }, { column: 'amount', control: 'slider', min: 0, max: 1000 }],
+      scope: { sheets: ['Overview'], visuals: 'all' },
+    });
+    expect(
+      parseUnderstanding({
+        understanding: 'Adding a filter to Sales review.',
+        change: 'filter',
+        asset: { kind: 'analysis', name: 'Sales review', id: '' },
+        brief: 'A filter.',
+        filters: [],
+        scope: { sheets: '', sheetNames: [], visuals: '', visualNames: [] },
+      })
+    ).toMatchObject({ change: 'visual', brief: 'A filter.' });
+  });
+
   it('is "other" when the change is not visual or names no asset, and nothing without the sentence', () => {
     expect(
       parseUnderstanding({

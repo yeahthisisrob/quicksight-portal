@@ -37,6 +37,13 @@ import {
 } from '../lib/contextTools';
 import { conversationOf } from '../lib/conversation';
 import {
+  type FilterDataset,
+  isScopeAnswer,
+  resolveFilterChange,
+  selectedOf,
+  sheetsOf,
+} from '../lib/filterChange';
+import {
   builtFilters,
   declaredDatasets,
   type FilterTargets,
@@ -220,12 +227,18 @@ function understoodContext(u: Understanding, direct: DirectPlan | undefined): st
     `You already told the person: "${u.understanding}". Carry on from there; do not ask what they meant, and do not say it again.`,
   ];
   if (direct && 'problem' in direct) {
+    const tried = u.brief
+      ? `You tried to draw the plan for that change with this brief: ${JSON.stringify(u.brief)}.`
+      : `You tried to add the filters the person asked for (${u.filters.map((f) => f.column).join(', ')}) by code.`;
     lines.push(
-      `${direct.about} You tried to draw the plan for that change with this brief: ${JSON.stringify(u.brief ?? '')}. It failed:\n${direct.problem}\nFix the brief and draw it again with show_plan (the datasets above as existing), or tell the person what is in the way.`
+      `${direct.about} ${tried} It failed:\n${direct.problem}\nFix the brief and draw it again with show_plan (the datasets above as existing), or tell the person what is in the way.`
     );
   }
   return lines.join('\n');
 }
+
+/** The "model" a plan drawn by code alone is credited to. */
+const PORTAL_MODEL = { key: 'portal', label: 'The portal' };
 
 function str(input: Record<string, unknown>, key: string): string {
   const value = input[key];
@@ -323,20 +336,10 @@ export class AssistantService {
     let rounds = 0;
     let nudges = 0;
 
-    let brief: string | undefined;
-    if (this.options.brief) {
-      await this.progress('Reading the portal');
-      const started = this.now();
-      brief = await buildBrief(this.dispatch).catch(() => undefined);
-      await this.record(out, {
-        method: 'GET',
-        path: 'the account brief',
-        status: brief === undefined ? HTTP_SERVER_ERROR : HTTP_OK,
-        ok: brief !== undefined,
-        step: 'Reading the portal',
-        ms: this.now() - started,
-      });
-    }
+    // The account at a glance is read while the message is understood: only
+    // the conversation needs it, and a change planned directly never waits
+    // on it.
+    const readBrief = this.briefReader(out);
     const state = describeRunInput(run);
     // First, what the message means: said to the person at once, then acted
     // on. A visual change to a named asset is planned here and now, with no
@@ -355,6 +358,7 @@ export class AssistantService {
     if (direct && 'reply' in direct) {
       reply = direct.reply;
     }
+    const brief = await readBrief();
     // The live part of the prompt: the account at a glance, then the page's
     // working state and any answers to the previous run's questions, then
     // what was already said to the person.
@@ -448,6 +452,34 @@ export class AssistantService {
     };
   }
 
+  /**
+   * The account brief, started now and read when wanted: the trace row is
+   * written when it is read, with the time it really took.
+   */
+  private briefReader(out: Collected): () => Promise<string | undefined> {
+    if (!this.options.brief) {
+      return async () => undefined;
+    }
+    const started = this.now();
+    const pending = buildBrief(this.dispatch).catch(() => undefined);
+    let recorded = false;
+    return async () => {
+      const brief = await pending;
+      if (!recorded) {
+        recorded = true;
+        await this.record(out, {
+          method: 'GET',
+          path: 'the account brief',
+          status: brief === undefined ? HTTP_SERVER_ERROR : HTTP_OK,
+          ok: brief !== undefined,
+          step: 'Reading the portal',
+          ms: this.now() - started,
+        });
+      }
+      return brief;
+    };
+  }
+
   private async progress(message: string): Promise<void> {
     try {
       await this.options.onProgress?.(message);
@@ -503,6 +535,9 @@ export class AssistantService {
     if (u.change === 'learn' && u.asset && !run.resume?.length) {
       return this.learnDirectly(u, out);
     }
+    if (u.change === 'filter' && u.asset && u.filters.length > 0) {
+      return this.filterDirectly(u, run, out);
+    }
     if (u.change !== 'visual' || !u.asset || !u.brief || run.resume?.length) {
       return undefined;
     }
@@ -556,6 +591,126 @@ export class AssistantService {
     return 'problem' in drawn
       ? { problem: drawn.problem, about }
       : { reply: `${u.understanding}\n\n${drawn.summary}` };
+  }
+
+  /**
+   * Filters added to one named asset, with no model past the understanding:
+   * the asset's own outline and datasets are read, code places each filter
+   * on the dataset that has its column and on the sheets and visuals the
+   * person named. What they did not name and the asset does not settle is
+   * asked once, with the real sheets and visuals as the options; the answer
+   * comes back as ids on the next run and the plan is drawn from them. The
+   * build is previewed and shown as any plan, with its Run button.
+   */
+  private async filterDirectly(
+    u: Understanding,
+    run: RunInput,
+    out: Collected
+  ): Promise<DirectPlan | undefined> {
+    // Only this path's own answer is acted on here; anything else is for the conversation.
+    const answers = run.resume ?? [];
+    const chosen = answers.flatMap((r) => (r.status === 'resolved' ? selectedOf(r.payload) : []));
+    if (answers.length > 0 && !isScopeAnswer(chosen)) {
+      return undefined;
+    }
+    const hit = await this.resolveAsset(u.asset!, out);
+    if (!hit) {
+      return undefined;
+    }
+    const { kind, assetId } = hit;
+    if (this.earlierPlans.some((p) => 'edit' in p.build && p.build.edit.assetId === assetId)) {
+      return undefined;
+    }
+    const about = `The asset is ${kind} "${hit.name}" (id ${assetId}).`;
+    // The asset as it is now: its sheets with their visuals, and the datasets it declares.
+    const path = `/api/authoring/${kind}/${encodeURIComponent(assetId)}/rebind/preview`;
+    await this.progress('Reading the definition');
+    const response = await this.run('POST', path, { rebinds: [] });
+    const ok = response.status < HTTP_ERROR_MIN;
+    await this.record(out, {
+      method: 'POST',
+      path,
+      status: response.status,
+      ok,
+      step: 'Reading the definition',
+      ms: response.ms,
+    });
+    if (!ok) {
+      return { problem: clip(response.body), about };
+    }
+    const data = dataOf(response.body) ?? {};
+    const sheets = sheetsOf(data.outline);
+    await this.progress('Reading dataset columns');
+    const started = this.now();
+    const datasets: FilterDataset[] = await Promise.all(
+      declaredDatasets(data.definition).datasets.map(async (d) => {
+        const [columns, known] = await Promise.all([
+          datasetColumns(this.dispatch, d.dataSetId).catch(() => []),
+          entityNames(this.dispatch, `dataset:${d.dataSetId}`).catch(() => null),
+        ]);
+        return { ...d, ...(known?.name ? { name: known.name } : {}), columns };
+      })
+    );
+    await this.record(out, {
+      method: 'GET',
+      path: `columns of ${datasets.map((d) => d.identifier).join(', ') || 'no dataset'}`,
+      status: datasets.length ? HTTP_OK : HTTP_NOT_FOUND,
+      ok: datasets.length > 0,
+      step: 'Reading dataset columns',
+      ms: this.now() - started,
+    });
+    const change = resolveFilterChange({
+      filters: u.filters,
+      scope: u.scope ?? {},
+      sheets,
+      datasets,
+      chosen,
+    });
+    const facts = `${about} Its sheets: ${sheets.map((s) => `${s.name} (${s.visuals.length} visuals)`).join('; ') || 'none'}. It declares ${datasets.map((d) => `${d.identifier} (dataset ${d.dataSetId}, ${d.columns.length} columns)`).join('; ') || 'no dataset'}.`;
+    if ('problem' in change) {
+      return { problem: change.problem, about: facts };
+    }
+    if ('ask' in change) {
+      await this.progress('Asking which visuals');
+      const asked = await this.askPerson('filter-scope', { ...change.ask }, out);
+      return asked.isError ? undefined : { reply: u.understanding };
+    }
+    const build: PlanBuild = {
+      edit: {
+        assetType: kind,
+        assetId,
+        request: {
+          mode: u.editMode ?? this.options.editMode ?? 'update',
+          rebinds: [],
+          ops: change.ops,
+        },
+      },
+    };
+    const checked = await this.checkPlanned(build, [], out);
+    if ('problem' in checked) {
+      return { problem: checked.problem, about: facts };
+    }
+    const shown = await this.showChecked(
+      {
+        title: u.title || `Filter on ${hit.name}`,
+        lineage: {
+          sources: [],
+          datasets: datasets.map((d) => ({
+            name: d.name ?? d.identifier,
+            id: d.dataSetId,
+            status: 'existing' as const,
+          })),
+          asset: { kind, name: hit.name, id: assetId, status: 'edited' as const },
+        },
+        build: checked.build,
+        model: PORTAL_MODEL,
+        previewId: checked.previewId,
+        definition: checked.definition,
+        ...(checked.built ? { built: checked.built } : {}),
+      },
+      out
+    );
+    return { reply: `${u.understanding}\n\n${change.summary} ${shown.summary}` };
   }
 
   private async runTool(
@@ -688,19 +843,43 @@ export class AssistantService {
         problem: `The authoring model could not draft a build that works, so no plan was shown:\n${drafted.problem}\nTell the person what is in the way, or change the brief and draw the plan again.`,
       };
     }
+    return this.showChecked(
+      { title: str(input, 'title') || 'The plan', lineage: parsed.lineage, ...drafted },
+      out
+    );
+  }
+
+  /**
+   * A checked build, shown as a plan: named from the graph, bound to its
+   * preview, with its own Run button, and each calculated field it adds
+   * judged. `content` is what the chat model hears; `summary` is what the
+   * person reads when no chat model speaks after it.
+   */
+  private async showChecked(
+    drafted: {
+      title: string;
+      lineage: PlanLineage;
+      build: PlanBuild;
+      model: { key: string; label: string };
+      previewId: string;
+      definition: unknown;
+      built?: string;
+      reason?: string;
+    },
+    out: Collected
+  ): Promise<{ planId: string; content: string; summary: string }> {
     // Names from the cached graph, so the plan never shows a bare id.
-    const lineage = await resolveLineage(parsed.lineage, (entityId) =>
+    const lineage = await resolveLineage(drafted.lineage, (entityId) =>
       entityNames(this.dispatch, entityId)
     );
     const plan = { ...lineage, build: drafted.build };
-    const checked = { built: drafted.built };
     const planId = randomUUID();
     // What the plan shows is what its preview built, not what was asked for.
     const filters = builtFilters(drafted.definition);
     out.artifacts.push({
       id: planId,
       kind: 'plan',
-      title: str(input, 'title') || 'The plan',
+      title: drafted.title,
       ...plan,
       model: drafted.model,
       previewId: drafted.previewId,
@@ -713,7 +892,7 @@ export class AssistantService {
     out.actions.push({
       id: randomUUID(),
       title: write.title,
-      why: str(input, 'title') || 'The plan',
+      why: drafted.title,
       method: write.method,
       path: write.path,
       body: write.body,
@@ -736,8 +915,8 @@ export class AssistantService {
     }
     return {
       planId,
-      content: `${verdictsMessage(judged)}\nPlan id ${planId}, drafted by ${drafted.model.label}${drafted.reason ? `: ${drafted.reason}` : ''}.${checked.built ? ` Its preview built: ${checked.built}.` : ''} Its Run button is under it for the person; to change it, draw it again with a changed brief.`,
-      summary: `${describeMode(drafted.build)}The plan is below with its preview${checked.built ? ` (${checked.built})` : ''} and its Run button; nothing has changed yet.${judged.length ? ' The calculated fields it adds are judged beside it.' : ''} Say what to change, or run it when it looks right.`,
+      content: `${verdictsMessage(judged)}\nPlan id ${planId}, drafted by ${drafted.model.label}${drafted.reason ? `: ${drafted.reason}` : ''}.${drafted.built ? ` Its preview built: ${drafted.built}.` : ''} Its Run button is under it for the person; to change it, draw it again with a changed brief.`,
+      summary: `${describeMode(drafted.build)}The plan is below with its preview${drafted.built ? ` (${drafted.built})` : ''} and its Run button; nothing has changed yet.${judged.length ? ' The calculated fields it adds are judged beside it.' : ''} Say what to change, or run it when it looks right.`,
     };
   }
 

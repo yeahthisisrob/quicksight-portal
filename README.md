@@ -64,6 +64,8 @@ One row per distinct expression, with where it is defined, the datasets and SMUS
 
 The natural-language part is deliberately small. What a person asks for becomes structured data at the first step (every filter, every visual, the target), and code holds the build to it: a plan with a filter the preview did not build is never shown. A model is asked narrow questions and answers JSON against a schema; everything else is deterministic TypeScript: what a definition references, whether a target satisfies it, the rewrite itself. **Nothing is applied by a model.** A person, a CLI or an agent reads the plan and runs it.
 
+A filter needs no planner at all. "Add a region filter to Sales review" is read once by the quick model, then code reads the analysis's own sheets, visuals and dataset columns, asks which visuals it should narrow when the ask did not say (the real sheets and visuals are the options, as cards), and draws the plan from the answer with the filter placed on the dataset that has the column. Seconds, not a planner round.
+
 | Provider | Use |
 |---|---|
 | **Amazon Bedrock** (Converse API) | Production. Any Bedrock model with tool use; cross-region inference profiles by default. Your data never leaves your account. |

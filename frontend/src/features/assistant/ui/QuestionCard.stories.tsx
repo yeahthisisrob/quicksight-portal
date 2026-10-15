@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { FILTERS_QUESTION } from './__stories__/assistant';
+import { FILTERS_QUESTION, SCOPE_QUESTION } from './__stories__/assistant';
 import { QuestionCard } from './QuestionCard';
 
 /**
@@ -20,6 +20,11 @@ type Story = StoryObj<typeof meta>;
 export const SeveralOrOther: Story = {
   name: 'Several filters, or something typed',
   args: { interrupt: FILTERS_QUESTION as never },
+};
+
+export const WhichVisuals: Story = {
+  name: 'Which visuals a filter narrows: every sheet, a sheet, or visuals',
+  args: { interrupt: SCOPE_QUESTION as never },
 };
 
 export const Answered: Story = {

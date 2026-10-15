@@ -1279,3 +1279,258 @@ describe('AssistantService', () => {
     expect(plannerModelOf('not json')).toBeUndefined();
   });
 });
+
+describe('AssistantService: filters placed by code', () => {
+  const model = aiModel('haiku-4-5');
+
+  const OUTLINE = [
+    {
+      sheetId: 's1',
+      name: 'Overview',
+      layout: 'grid',
+      elements: [
+        { elementId: 'v1', kind: 'visual', visualType: 'BarChart', title: 'Sales by region' },
+        { elementId: 'v2', kind: 'visual', visualType: 'LineChart', title: 'Orders by month' },
+      ],
+    },
+    {
+      sheetId: 's2',
+      name: 'Detail',
+      layout: 'grid',
+      elements: [{ elementId: 'v3', kind: 'visual', visualType: 'Table' }],
+    },
+  ];
+  const DECLARED = {
+    DataSetIdentifierDeclarations: [
+      { Identifier: 'orders', DataSetArn: 'arn:aws:quicksight:us-east-1:1:dataset/ds-1' },
+    ],
+    Sheets: [{ SheetId: 's1' }, { SheetId: 's2' }],
+  };
+  /** The definition a preview with a Region filter on Overview comes back with. */
+  const WITH_FILTER = {
+    ...DECLARED,
+    FilterGroups: [
+      {
+        Filters: [{ CategoryFilter: { FilterId: 'f1', Column: { ColumnName: 'Region' } } }],
+      },
+    ],
+    Sheets: [
+      {
+        SheetId: 's1',
+        FilterControls: [
+          { Dropdown: { FilterControlId: 'c1', SourceFilterId: 'f1', Type: 'MULTI_SELECT' } },
+        ],
+        SheetControlLayouts: [
+          { Configuration: { GridLayout: { Elements: [{ ElementId: 'c1' }] } } },
+        ],
+      },
+      { SheetId: 's2' },
+    ],
+  };
+
+  /** An analysis with two sheets reading one dataset, and the previews code asks for. */
+  const portal = (columns = [{ name: 'Region', type: 'STRING' }]) =>
+    vi.fn(async ({ method, path, body }: { method: string; path: string; body?: any }) => {
+      const data = path.startsWith('/api/context/search')
+        ? {
+            hits: [
+              { entityId: 'analysis:a1', type: 'analysis', name: 'Sales review', summary: '' },
+            ],
+          }
+        : path.endsWith('/columns')
+          ? { dataSetId: 'ds-1', name: 'Orders', columns }
+          : path.includes('/related')
+            ? { hits: [] }
+            : path.startsWith('/api/context/entities/')
+              ? { entity: { id: 'dataset:ds-1', name: 'Orders' }, relations: [] }
+              : method === 'POST' && path.endsWith('/rebind/preview')
+                ? Array.isArray(body?.ops) && body.ops.length
+                  ? {
+                      definition: WITH_FILTER,
+                      outline: [
+                        {
+                          ...OUTLINE[0],
+                          elements: [
+                            ...OUTLINE[0]!.elements,
+                            {
+                              elementId: 'c1',
+                              kind: 'filterControl',
+                              title: 'Region',
+                              placement: 'controlBar',
+                            },
+                          ],
+                        },
+                        OUTLINE[1],
+                      ],
+                      changes: [],
+                      plan: {},
+                    }
+                  : { definition: DECLARED, outline: OUTLINE, changes: [], plan: {} }
+                : {};
+      return { status: 200, body: JSON.stringify({ success: true, data }) };
+    });
+
+  const filterAsk =
+    (scope: Record<string, unknown> = {}): Understander =>
+    async () => ({
+      understanding: {
+        understanding: 'Adding a Region filter to Sales review.',
+        change: 'filter',
+        asset: { kind: 'analysis', name: 'Sales review' },
+        title: 'Region filter',
+        filters: [{ column: 'region', control: 'dropdown' }],
+        scope,
+      },
+      usage: { inputTokens: 300, outputTokens: 40 },
+    });
+
+  it('asks which visuals, with the real sheets and visuals as options, before any planner or chat model', async () => {
+    const dispatch = portal();
+    const chat = scripted([{ text: 'never' }]);
+    const steps: string[] = [];
+    const result = await new AssistantService(chat, model, dispatch, {
+      understand: filterAsk(),
+      onCall: (c) => {
+        steps.push(c.step ?? '');
+      },
+    }).respond([{ role: 'user', text: 'add a region filter to sales review' }]);
+
+    expect(chat.seen).toBe(0);
+    expect(dispatch.mock.calls.some((c) => c[0].path.endsWith('/propose'))).toBe(false);
+    expect(steps).toEqual([
+      'Understanding the ask',
+      'Searching',
+      'Reading the definition',
+      'Reading dataset columns',
+    ]);
+    expect(result.reply).toBe('Adding a Region filter to Sales review.');
+    expect(result.outcome).toMatchObject({
+      type: 'interrupt',
+      interrupts: [
+        {
+          reason: 'input_required',
+          message: 'Which visuals should the Region filter narrow?',
+          metadata: {
+            multi: true,
+            options: [
+              { id: 'all', label: 'Every visual on every sheet' },
+              { id: 'sheet:s1', label: 'Every visual on Overview' },
+              { id: 'sheet:s2', label: 'Every visual on Detail' },
+              { id: 'visual:s1/v1', label: 'Sales by region' },
+              { id: 'visual:s1/v2', label: 'Orders by month' },
+              { id: 'visual:s2/v3', label: 'Untitled Table' },
+            ],
+          },
+        },
+      ],
+    });
+    expect(result.actions).toEqual([]);
+    expect(result.rounds).toBe(1);
+  });
+
+  it('draws the plan from the answer by code: addFilter ops previewed once, with a Run button and no planner', async () => {
+    const dispatch = portal();
+    const chat = scripted([{ text: 'never' }]);
+    const result = await new AssistantService(chat, model, dispatch, {
+      understand: filterAsk(),
+      editMode: 'update',
+    }).respond(
+      [
+        { role: 'user', text: 'add a region filter to sales review' },
+        { role: 'assistant', text: 'Adding a Region filter to Sales review.' },
+        { role: 'user', text: 'Sales by region' },
+      ],
+      {
+        resume: [
+          { interruptId: 'q1', status: 'resolved', payload: { selected: ['visual:s1/v1'] } },
+        ],
+      }
+    );
+
+    expect(chat.seen).toBe(0);
+    const paths = dispatch.mock.calls.map((c) => c[0].path);
+    expect(paths.filter((p) => p.endsWith('/propose'))).toEqual([]);
+    const previews = dispatch.mock.calls
+      .map((c) => c[0])
+      .filter((c) => c.path.endsWith('/rebind/preview'));
+    expect(previews.map((p) => p.body)).toEqual([
+      { rebinds: [] },
+      {
+        mode: 'update',
+        rebinds: [],
+        ops: [
+          {
+            op: 'addFilter',
+            sheetId: 's1',
+            identifier: 'orders',
+            column: 'Region',
+            columnType: 'STRING',
+            control: 'dropdown',
+            appliesTo: ['v1'],
+          },
+        ],
+      },
+    ]);
+    expect(result.outcome).toEqual({ type: 'success' });
+    expect(result.reply).toBe(
+      'Adding a Region filter to Sales review.\n\nA filter on Region (as a dropdown) goes on Overview (Sales by region). This changes the analysis in place (Settings › Authoring decides copy or in place). The plan is below with its preview (3 visuals; controls: Region) and its Run button; nothing has changed yet. Say what to change, or run it when it looks right.'
+    );
+    const plan = result.artifacts.find((a) => a.kind === 'plan') as any;
+    expect(plan).toMatchObject({
+      title: 'Region filter',
+      model: { key: 'portal', label: 'The portal' },
+      asset: { kind: 'analysis', name: 'Sales review', id: 'a1', status: 'edited' },
+      datasets: [{ name: 'Orders', id: 'ds-1', status: 'existing' }],
+      filters: [{ column: 'Region', control: 'dropdown', placement: 'controlBar' }],
+    });
+    expect(result.actions).toEqual([
+      expect.objectContaining({
+        planId: plan.id,
+        path: '/api/authoring/analysis/a1/rebind',
+        body: previews[1]!.body,
+      }),
+    ]);
+  });
+
+  it('skips the question when the ask said where, and leaves an answer that is not its own to the conversation', async () => {
+    const explicit = await new AssistantService(scripted([{ text: 'never' }]), model, portal(), {
+      understand: filterAsk({ sheets: 'all', visuals: 'all' }),
+    }).respond([{ role: 'user', text: 'add a region filter to every visual on sales review' }]);
+    expect(explicit.outcome).toEqual({ type: 'success' });
+    expect(explicit.actions).toHaveLength(1);
+    expect((explicit.actions[0]!.body as any).ops.map((o: any) => o.sheetId)).toEqual(['s1', 's2']);
+
+    const chat = scripted([{ text: 'Which one did you mean?' }]);
+    const other = await new AssistantService(chat, model, portal(), {
+      understand: filterAsk(),
+    }).respond([{ role: 'user', text: 'the first' }], {
+      resume: [{ interruptId: 'q9', status: 'resolved', payload: { selected: ['order_date'] } }],
+    });
+    expect(chat.seen).toBe(1);
+    expect(other.reply).toBe('Which one did you mean?');
+  });
+
+  it('hands a filter it cannot place to the conversation with the asset, its sheets and the reason', async () => {
+    const contexts: string[] = [];
+    const chat = scripted([{ text: 'There is no Region column.' }]);
+    const turn = chat.turn.bind(chat);
+    chat.turn = async (system, turns, tools) => {
+      contexts.push(system.context ?? '');
+      return turn(system, turns, tools);
+    };
+    const result = await new AssistantService(
+      chat,
+      model,
+      portal([{ name: 'Country', type: 'STRING' }]),
+      {
+        understand: filterAsk(),
+      }
+    ).respond([{ role: 'user', text: 'add a region filter to sales review' }]);
+    expect(result.reply).toBe('There is no Region column.');
+    expect(contexts[0]).toContain('The asset is analysis "Sales review" (id a1).');
+    expect(contexts[0]).toContain('Its sheets: Overview (2 visuals); Detail (1 visuals)');
+    expect(contexts[0]).toContain('add the filters the person asked for (region) by code');
+    expect(contexts[0]).toContain('No dataset it reads has a column named region.');
+    expect(result.artifacts.some((a) => a.kind === 'plan')).toBe(false);
+  });
+});
