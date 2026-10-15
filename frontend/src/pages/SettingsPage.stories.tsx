@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { within } from 'storybook/test';
 
 import { settingsRoutes } from '@/features/settings/ui/__stories__/fixtures';
 
@@ -21,4 +22,19 @@ export const Default: Story = {
       <SettingsPage />
     </AppShell>
   ),
+};
+
+/** The Schedules section, deep-linked: cadences, and where each run stands. */
+export const Schedules: Story = {
+  parameters: { router: { initialEntries: ['/settings?section=schedules'] } },
+  render: () => (
+    <AppShell path="settings" routes={settingsRoutes()}>
+      <SettingsPage />
+    </AppShell>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await canvas.findByTestId('schedules-status');
+    await canvas.findByText('Running now');
+  },
 };

@@ -109,6 +109,65 @@ const SNAPSHOT: SettingsSnapshot = {
         },
       ],
     },
+    {
+      id: 'schedules',
+      title: 'Schedules',
+      description:
+        'Runs the portal starts by itself. Manual (the default) means only the buttons start them. One timer checks every hour; when a run is due and none of that kind is going, it starts one, SMUS first, then the export, then activity, one per hour.',
+      settings: [
+        {
+          key: 'schedules.smus',
+          label: 'SMUS export',
+          description: 'Reads the published listings and projects. Only when SMUS is configured.',
+          type: 'select',
+          value: 'manual',
+          source: 'default',
+          envVar: '',
+          sensitive: false,
+          options: [
+            { value: 'manual', label: 'Manual' },
+            { value: '4h', label: 'Every 4 hours' },
+            { value: '6h', label: 'Every 6 hours' },
+            { value: '12h', label: 'Every 12 hours' },
+            { value: '24h', label: 'Every 24 hours' },
+          ],
+        },
+        {
+          key: 'schedules.export',
+          label: 'Smart Sync export',
+          description: 'The incremental export of what changed in QuickSight.',
+          type: 'select',
+          value: '6h',
+          source: 'stored',
+          envVar: '',
+          sensitive: false,
+          options: [
+            { value: 'manual', label: 'Manual' },
+            { value: '4h', label: 'Every 4 hours' },
+            { value: '6h', label: 'Every 6 hours' },
+            { value: '12h', label: 'Every 12 hours' },
+            { value: '24h', label: 'Every 24 hours' },
+          ],
+        },
+        {
+          key: 'schedules.activity',
+          label: 'Activity refresh',
+          description: 'Views, viewers and load times from CloudWatch.',
+          type: 'select',
+          value: 'manual',
+          source: 'default',
+          envVar: '',
+          sensitive: false,
+          options: [
+            { value: 'manual', label: 'Manual' },
+            { value: '4h', label: 'Every 4 hours' },
+            { value: '6h', label: 'Every 6 hours' },
+            { value: '12h', label: 'Every 12 hours' },
+            { value: '24h', label: 'Every 24 hours' },
+          ],
+        },
+      ],
+    },
   ],
 };
 
@@ -218,6 +277,39 @@ export function settingsRoutes(overrides: MockRoute[] = []): MockRoute[] {
       }),
     },
     { method: 'get', url: '/settings', respond: () => ({ body: { success: true, data: stored } }) },
+    // The schedules readout: each kind's recent jobs.
+    {
+      method: 'get',
+      url: /\/jobs$/,
+      respond: (config) => {
+        const jobType = String(config.params?.type ?? '');
+        const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+        const jobs =
+          jobType === 'export'
+            ? [
+                {
+                  jobId: 'export-1',
+                  jobType: 'export',
+                  status: 'completed',
+                  startTime: hoursAgo(2.5),
+                  endTime: hoursAgo(2),
+                  startedBy: 'schedule',
+                },
+              ]
+            : jobType === 'activity-refresh'
+              ? [
+                  {
+                    jobId: 'activity-1',
+                    jobType: 'activity-refresh',
+                    status: 'processing',
+                    startTime: hoursAgo(0.1),
+                    startedBy: 'rob@example.com',
+                  },
+                ]
+              : [];
+        return { body: { success: true, data: jobs } };
+      },
+    },
     {
       method: 'put',
       url: '/settings',

@@ -162,13 +162,29 @@ interface CSVExportMessage {
 /**
  * Worker Lambda handler for processing the portal's jobs from SQS
  */
-export const handler = async (event: SQSEvent, context: Context): Promise<void> => {
+/** The hourly timer's event (an EventBridge rule targets the worker with this input). */
+interface ScheduleTickEvent {
+  source: 'schedule-tick';
+}
+
+export const handler = async (
+  event: SQSEvent | ScheduleTickEvent,
+  context: Context
+): Promise<void> => {
+  // Ensure Lambda waits for all async operations to complete
+  context.callbackWaitsForEmptyEventLoop = true;
+  if (!('Records' in event)) {
+    // The hourly tick: start whichever scheduled run is due, if any.
+    const { runScheduleTick } = await import('./shared/services/schedules/scheduleTick');
+    const { settingsStore } = await import('./shared/services/settings/SettingsStore');
+    await settingsStore.load();
+    await runScheduleTick();
+    return;
+  }
   logger.info('Worker handler started', {
     recordCount: event.Records?.length,
     requestId: context.awsRequestId,
   });
-  // Ensure Lambda waits for all async operations to complete
-  context.callbackWaitsForEmptyEventLoop = true;
 
   let heartbeatInterval: ReturnType<typeof setInterval> | undefined;
   let isProcessingComplete = false;
