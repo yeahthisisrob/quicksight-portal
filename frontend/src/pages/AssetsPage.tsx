@@ -6,7 +6,7 @@ import { Navigate, useParams } from 'react-router-dom';
 
 import { useAssets } from '@/entities/asset';
 import { useSmusDatasetLinks, useSmusStatus } from '@/entities/smus';
-import { CreateGroupDialog } from '@/features/organization';
+import { CreateFolderDialog, CreateGroupDialog } from '@/features/organization';
 import { DefaultThemeControl, NewThemeDialog } from '@/features/themes';
 import {
   ActivityStatsDialog,
@@ -82,6 +82,7 @@ export default function AssetsPage() {
 
   // Group creation state
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [newThemeOpen, setNewThemeOpen] = useState(false);
 
   // Fetch available tags for filtering
@@ -180,7 +181,16 @@ export default function AssetsPage() {
   const { assets, loading, pagination, fetch } = assetData[config.assetType] || assetData.dashboard;
 
   const extraToolbarActions =
-    config.assetType === 'group' ? (
+    config.assetType === 'folder' ? (
+      <Button
+        variant="contained"
+        startIcon={<AddIcon />}
+        onClick={() => setCreateFolderOpen(true)}
+        size="small"
+      >
+        New folder
+      </Button>
+    ) : config.assetType === 'group' ? (
       <Button
         variant="contained"
         startIcon={<AddIcon />}
@@ -285,6 +295,17 @@ export default function AssetsPage() {
           onClose={() => setActivityDialog({ open: false })}
           userName={activityDialog.asset.name || activityDialog.asset.email}
           userId={activityDialog.asset.id}
+        />
+      )}
+
+      {config.assetType === 'folder' && (
+        <CreateFolderDialog
+          open={createFolderOpen}
+          onClose={() => setCreateFolderOpen(false)}
+          onCreated={() => {
+            setCreateFolderOpen(false);
+            refreshAssetType('folder');
+          }}
         />
       )}
 

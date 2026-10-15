@@ -11,9 +11,24 @@ const groupHandler = new GroupHandler();
 
 export const organizationRoutes: RouteHandler[] = [
   {
+    method: 'POST',
+    path: '/folders',
+    handler: (event) => folderHandler.create(event),
+  },
+  {
     method: 'GET',
     path: /^\/folders\/([^/]+)$/,
     handler: (event) => folderHandler.get(event),
+  },
+  {
+    method: 'DELETE',
+    path: /^\/folders\/([^/]+)$/,
+    handler: (event) => folderHandler.remove(event),
+  },
+  {
+    method: 'GET',
+    path: /^\/folders\/([^/]+)\/permissions$/,
+    handler: (event) => folderHandler.getPermissions(event),
   },
   {
     method: 'GET',

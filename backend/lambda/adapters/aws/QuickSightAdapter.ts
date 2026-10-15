@@ -17,6 +17,7 @@ import {
   DeleteDashboardCommand,
   DeleteDataSetCommand,
   DeleteDataSourceCommand,
+  DeleteFolderCommand,
   DeleteFolderMembershipCommand,
   DeleteGroupCommand,
   DeleteGroupMembershipCommand,
@@ -58,6 +59,7 @@ import {
   PutDataSetRefreshPropertiesCommand,
   type QuickSightClient,
   RegisterUserCommand,
+  RestoreAnalysisCommand,
   TagResourceCommand,
   UntagResourceCommand,
   UpdateAnalysisCommand,
@@ -413,6 +415,25 @@ export class QuickSightAdapter {
     const command = new DeleteAnalysisCommand({
       AwsAccountId: this.awsAccountId,
       AnalysisId: analysisId,
+    });
+    await this.sendWithRateLimit(command);
+  }
+
+  /** Bring a deleted analysis back from QuickSight's recovery window, under its own id. */
+  public async restoreAnalysis(analysisId: string): Promise<{ arn: string; analysisId: string }> {
+    const command = new RestoreAnalysisCommand({
+      AwsAccountId: this.awsAccountId,
+      AnalysisId: analysisId,
+    });
+    const response = await this.sendWithRateLimit(command);
+    return { arn: response.Arn ?? '', analysisId: response.AnalysisId ?? analysisId };
+  }
+
+  /** Delete a folder; QuickSight refuses while it has members or subfolders. */
+  public async deleteFolder(folderId: string): Promise<void> {
+    const command = new DeleteFolderCommand({
+      AwsAccountId: this.awsAccountId,
+      FolderId: folderId,
     });
     await this.sendWithRateLimit(command);
   }

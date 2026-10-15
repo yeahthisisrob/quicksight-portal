@@ -242,6 +242,8 @@ export interface RestoreResult {
   name: string;
   arn: string;
   mode: 'restore';
+  /** Created anew from the archive, or brought back from QuickSight's recovery window under its own id. */
+  via: 'create' | 'recovery';
   versionNumber?: number;
   changes: DefinitionChange[];
   folderIds: string[];

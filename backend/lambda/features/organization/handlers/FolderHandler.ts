@@ -1,6 +1,6 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
-import { requireAuth } from '../../../shared/auth';
+import { actorLabel, requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
 import { BulkOperationsService } from '../../../shared/services/bulk/BulkOperationsService';
 import { FolderService } from '../../../shared/services/organization/FolderService';
@@ -15,6 +15,70 @@ export class FolderHandler {
     const accountId = process.env.AWS_ACCOUNT_ID || '';
     this.folderService = new FolderService(accountId);
     this.bulkOperationsService = new BulkOperationsService(accountId);
+  }
+
+  /** POST /folders - a new folder, under a parent or at the top. */
+  public async create(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const body = JSON.parse(event.body || '{}');
+      if (typeof body.name !== 'string' || !body.name.trim()) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'A folder needs a name');
+      }
+      const folder = await this.folderService.create({
+        name: body.name,
+        parentFolderId: typeof body.parentFolderId === 'string' ? body.parentFolderId : undefined,
+      });
+      return createResponse(event, STATUS_CODES.CREATED, { success: true, data: folder });
+    } catch (error: any) {
+      logger.error('Create folder failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error.message || 'The folder could not be created'
+      );
+    }
+  }
+
+  /** DELETE /folders/{id}?force= - delete a folder; with force, its assets are taken out first. */
+  public async remove(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const { id: folderId } = event.pathParameters || {};
+      if (!folderId) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Folder ID is required');
+      }
+      const force = event.queryStringParameters?.force === 'true';
+      const result = await this.folderService.remove(folderId, { force, by: actorLabel(user) });
+      return successResponse(event, { success: true, data: result });
+    } catch (error: any) {
+      logger.error('Delete folder failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error.message || 'The folder could not be deleted'
+      );
+    }
+  }
+
+  /** GET /folders/{id}/permissions - who can see or work in it, live. */
+  public async getPermissions(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      await requireAuth(event);
+      const { id: folderId } = event.pathParameters || {};
+      if (!folderId) {
+        return errorResponse(event, STATUS_CODES.BAD_REQUEST, 'Folder ID is required');
+      }
+      const permissions = await this.folderService.permissions(folderId);
+      return successResponse(event, { success: true, data: { permissions } });
+    } catch (error: any) {
+      logger.error('Get folder permissions failed', { error });
+      return errorResponse(
+        event,
+        error?.statusCode || STATUS_CODES.INTERNAL_SERVER_ERROR,
+        error.message || 'The folder permissions could not be read'
+      );
+    }
   }
 
   public async addMember(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {

@@ -97,6 +97,16 @@ export interface WireframeDialogState {
   asset: { id: string; name: string } | null;
 }
 
+export interface FolderSharingDialogState {
+  open: boolean;
+  folder: { id: string; name: string } | null;
+}
+
+export interface DeleteFolderDialogState {
+  open: boolean;
+  folder: { id: string; name: string; memberCount?: number } | null;
+}
+
 export interface VersionHistoryDialogState {
   open: boolean;
   asset: { id: string; name: string } | null;
@@ -185,6 +195,15 @@ export function useDialogStates(refreshAssetType: (type: AssetType) => Promise<v
     open: false,
     asset: null,
   });
+  const [folderSharingDialog, setFolderSharingDialog] = useState<FolderSharingDialogState>({
+    open: false,
+    folder: null,
+  });
+  const [deleteFolderDialog, setDeleteFolderDialog] = useState<DeleteFolderDialogState>({
+    open: false,
+    folder: null,
+  });
+  const [isDeletingFolder, setIsDeletingFolder] = useState(false);
   const [rebindDialog, setRebindDialog] = useState<RebindDialogState>({
     open: false,
     asset: null,
@@ -225,6 +244,29 @@ export function useDialogStates(refreshAssetType: (type: AssetType) => Promise<v
       enqueueSnackbar(error.message || 'Failed to delete user', { variant: 'error' });
     } finally {
       setIsDeletingUser(false);
+    }
+  };
+
+  /** Delete the folder; one that still holds assets is emptied first (the assets stay). */
+  const handleFolderDelete = async () => {
+    if (!deleteFolderDialog.folder) return;
+    const folder = deleteFolderDialog.folder;
+    try {
+      setIsDeletingFolder(true);
+      const { foldersApi } = await import('@/shared/api');
+      const result = await foldersApi.remove(folder.id, true);
+      enqueueSnackbar(
+        result.removedMembers > 0
+          ? `Deleted folder "${folder.name}"; ${result.removedMembers} asset${result.removedMembers === 1 ? '' : 's'} taken out of it first`
+          : `Deleted folder "${folder.name}"`,
+        { variant: 'success' }
+      );
+      assetsContext?.removeAssets('folder', [folder.id]);
+      setDeleteFolderDialog({ open: false, folder: null });
+    } catch (error: any) {
+      enqueueSnackbar(error?.message || 'The folder could not be deleted', { variant: 'error' });
+    } finally {
+      setIsDeletingFolder(false);
     }
   };
 
@@ -284,6 +326,12 @@ export function useDialogStates(refreshAssetType: (type: AssetType) => Promise<v
     setWireframeDialog,
     versionHistoryDialog,
     setVersionHistoryDialog,
+    folderSharingDialog,
+    setFolderSharingDialog,
+    deleteFolderDialog,
+    setDeleteFolderDialog,
+    handleFolderDelete,
+    isDeletingFolder,
     rebindDialog,
     setRebindDialog,
     userAssetAccessDialog,

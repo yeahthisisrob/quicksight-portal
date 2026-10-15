@@ -230,11 +230,11 @@ describe('organizationRoutes - organization', () => {
       expect(groupRoutes.length).toBeGreaterThan(0);
       expect(tagRoutes.length).toBeGreaterThan(0);
 
-      // We have 23 total routes:
-      // - 6 folder routes
+      // We have 26 total routes:
+      // - 9 folder routes (create, get, delete, permissions, members, bulk assets)
       // - 9 group/identity routes (including DELETE /users/:userName and its archive and restore)
       // - 7 tag routes
-      const TOTAL_ROUTES = 23;
+      const TOTAL_ROUTES = 26;
       expect(organizationRoutes.length).toBe(TOTAL_ROUTES);
     });
 

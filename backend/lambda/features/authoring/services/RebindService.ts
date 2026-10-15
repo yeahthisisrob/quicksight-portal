@@ -74,7 +74,7 @@ import type {
   RestoreResult,
   TagInput,
 } from '../types';
-import { createAsset, recordProvenance, updateAsset } from './assetWriter';
+import { createAsset, recordProvenance, tagsForCreate, updateAsset } from './assetWriter';
 import { audienceFor, fileInFolders } from './audience';
 
 const NAME_MAX_LENGTH = 200;
@@ -741,18 +741,26 @@ export class RebindService {
     };
   }
 
-  /** Whether QuickSight holds this id now, including a deleted analysis still in recovery. */
-  private async holdsId(assetType: AuthorableAssetType, assetId: string): Promise<string | null> {
+  /**
+   * Whether QuickSight holds this id now: a live asset, or a deleted
+   * analysis still in its recovery window (which can be brought back as is).
+   */
+  private async holdsId(
+    assetType: AuthorableAssetType,
+    assetId: string
+  ): Promise<{ held: 'live' | 'recovery'; message: string } | null> {
     try {
       const found =
         assetType === 'dashboard'
           ? await this.quickSightService.describeDashboard(assetId)
           : await this.quickSightService.describeAnalysis(assetId);
       if (!found) return null;
-      const status = found.Status;
-      return status === 'DELETED'
-        ? `QuickSight still holds the deleted ${assetType} '${assetId}' in its recovery window`
-        : `A ${assetType} with id '${assetId}' exists in QuickSight`;
+      return found.Status === 'DELETED'
+        ? {
+            held: 'recovery',
+            message: `QuickSight still holds the deleted ${assetType} '${assetId}' in its recovery window`,
+          }
+        : { held: 'live', message: `A ${assetType} with id '${assetId}' exists in QuickSight` };
     } catch (error: any) {
       if (
         error?.name === 'ResourceNotFoundException' ||
@@ -787,8 +795,12 @@ export class RebindService {
 
     const targetId = request.newAssetId?.trim() || assetId;
     const taken = await this.holdsId(assetType, targetId);
-    if (taken) {
-      throw new ValidationError(`${taken}; restore it under a new id instead.`);
+    // A deleted analysis QuickSight still holds comes back through its own
+    // recovery, under its id, and the archive's repairs and edits are then
+    // written over it. Anything else must be created under a free id.
+    const recovery = taken?.held === 'recovery' && assetType === 'analysis' && targetId === assetId;
+    if (taken && !recovery) {
+      throw new ValidationError(`${taken.message}; restore it under a new id instead.`);
     }
 
     const name = request.name?.trim() || loaded.name;
@@ -837,17 +849,31 @@ export class RebindService {
 
     // Its archived tags come back in the create call, with who restored it.
     this.forgetLive();
-    const written = await createAsset(this.quickSightService, {
-      assetType,
-      assetId: targetId,
-      name,
-      definition: rewritten.definition,
-      permissions: audience.permissions,
-      themeArn: loaded.themeArn,
-      dashboardPublishOptions: loaded.dashboardPublishOptions,
-      tags: archived.extras.tags,
-      auth,
-    });
+    const written = recovery
+      ? await this.restoreFromRecovery(assetId, {
+          name,
+          definition: rewritten.definition,
+          themeArn: loaded.themeArn,
+          permissions: audience.permissions,
+          tags: archived.extras.tags,
+          auth,
+        })
+      : await createAsset(this.quickSightService, {
+          assetType,
+          assetId: targetId,
+          name,
+          definition: rewritten.definition,
+          permissions: audience.permissions,
+          themeArn: loaded.themeArn,
+          dashboardPublishOptions: loaded.dashboardPublishOptions,
+          tags: archived.extras.tags,
+          auth,
+        });
+    if (recovery) {
+      warnings.unshift(
+        "Brought back from QuickSight's recovery window under its own id; the archive's repairs and edits were written over it, and its audience and tags set again."
+      );
+    }
     warnings.push(...(await this.errorsAfterWrite(assetType, written.assetId)));
     const filing = await fileInFolders(
       this.quickSightService,
@@ -888,11 +914,47 @@ export class RebindService {
       name,
       arn: written.arn,
       mode: 'restore',
+      via: recovery ? 'recovery' : 'create',
       ...(written.versionNumber ? { versionNumber: written.versionNumber } : {}),
       changes,
       folderIds: filing.filed,
       ...(warnings.length ? { warnings } : {}),
     };
+  }
+
+  /**
+   * A deleted analysis back from QuickSight's recovery window: RestoreAnalysis
+   * brings it back as QuickSight held it, then the archive's definition (with
+   * its repairs and edits) is written over it, and the audience and tags that
+   * a create would have carried are set in their own calls.
+   */
+  private async restoreFromRecovery(
+    analysisId: string,
+    input: {
+      name: string;
+      definition: Record<string, any>;
+      themeArn?: string;
+      permissions?: any[];
+      tags?: Array<{ key: string; value: string }>;
+      auth?: AuthContext;
+    }
+  ): Promise<{ assetId: string; arn: string; versionNumber?: number }> {
+    await this.quickSightService.restoreAnalysis(analysisId);
+    const written = await updateAsset(this.quickSightService, {
+      assetType: 'analysis',
+      assetId: analysisId,
+      name: input.name,
+      definition: input.definition,
+      themeArn: input.themeArn,
+    });
+    if (input.permissions?.length) {
+      await this.quickSightService.updatePermissions('analysis', analysisId, input.permissions);
+    }
+    const tags = tagsForCreate(analysisId, input.tags, input.auth);
+    if (tags.length > 0) {
+      await this.quickSightService.tagResource('analysis', analysisId, tags);
+    }
+    return written;
   }
 
   /**

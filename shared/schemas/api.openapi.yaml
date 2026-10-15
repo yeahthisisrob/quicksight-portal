@@ -200,7 +200,132 @@ paths:
                       totalCount:
                         type: integer
 
+  /api/folders:
+    post:
+      operationId: postFolders
+      tags: [Folders]
+      summary: Create a folder
+      description: A shared folder, at the top or under a parent. The portal gives it its id.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                parentFolderId:
+                  type: string
+                  description: The folder to put it under; omitted means the top.
+      responses:
+        '201':
+          description: The folder created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [folderId, arn, name]
+                    properties:
+                      folderId:
+                        type: string
+                      arn:
+                        type: string
+                      name:
+                        type: string
+                      parentFolderId:
+                        type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/folders/{folderId}/permissions:
+    get:
+      operationId: getFoldersByFolderIdPermissions
+      tags: [Folders]
+      summary: Who can see or work in a folder
+      description: Live from QuickSight, each user or group with the role its actions amount to.
+      parameters:
+        - name: folderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The folder's permissions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [permissions]
+                    properties:
+                      permissions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FolderPermission'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/folders/{folderId}:
+    delete:
+      operationId: deleteFoldersByFolderId
+      tags: [Folders]
+      summary: Delete a folder
+      description: |
+        QuickSight refuses a folder with members; `force=true` takes its
+        assets out first (they are not deleted). Subfolders are never removed
+        on the way. The folder's catalog entry is archived as a record.
+      parameters:
+        - name: folderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: force
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    required: [folderId, removedMembers]
+                    properties:
+                      folderId:
+                        type: string
+                      removedMembers:
+                        type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     get:
       operationId: getFoldersByFolderId
       tags: [Folders]
@@ -315,7 +440,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [DASHBOARD, ANALYSIS, DATASET, DATASOURCE]
+            enum: [DASHBOARD, ANALYSIS, DATASET, DATASOURCE, USER, GROUP]
           description: The type of asset to remove from the folder
       responses:
         '200':
@@ -8178,6 +8303,28 @@ components:
               type: string
               description: Folder description
 
+    FolderPermission:
+      type: object
+      description: One user or group on a folder, with the role its actions amount to.
+      required: [principal, name, type, role, actions]
+      properties:
+        principal:
+          type: string
+          description: The QuickSight ARN
+        name:
+          type: string
+          description: The user or group name (namespace/name)
+        type:
+          type: string
+          enum: [USER, GROUP]
+        role:
+          type: string
+          enum: [ADMIN, AUTHOR, VIEWER]
+        actions:
+          type: array
+          items:
+            type: string
+
     FolderMember:
       type: object
       required: [MemberId, MemberType, MemberName]
@@ -10514,8 +10661,12 @@ components:
 
     RestoreResult:
       type: object
-      required: [assetType, assetId, name, arn, mode, changes, folderIds]
+      required: [assetType, assetId, name, arn, mode, via, changes, folderIds]
       properties:
+        via:
+          type: string
+          enum: [create, recovery]
+          description: Created anew from the archive, or brought back from QuickSight's recovery window under its own id (analyses only).
         assetType:
           $ref: '#/components/schemas/AuthorableAssetType'
         assetId:
