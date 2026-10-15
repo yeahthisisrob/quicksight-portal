@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.50.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.49.0...v2.50.0) (2026-10-15)
+
+
+### Features
+
+* **design-system:** one StatStrip for every summary, and the export screen brought up to it ([2547f6b](https://github.com/yeahthisisrob/quicksight-portal/commit/2547f6bf53516ad481e2a8d5260a246679709e9e))
+* **design-system:** one StatStrip for every summary, and the export screen brought up to it ([10266dc](https://github.com/yeahthisisrob/quicksight-portal/commit/10266dcf4cfaebca5d618747b4ac9c82a607ad84))
+
 ## [2.49.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.48.1...v2.49.0) (2026-10-15)
 
 
