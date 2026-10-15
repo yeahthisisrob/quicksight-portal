@@ -32,6 +32,8 @@ import {
   contextSearch,
   datasetColumns,
   entityNames,
+  relatedHits,
+  searchHits,
 } from '../lib/contextTools';
 import { conversationOf } from '../lib/conversation';
 import {
@@ -53,6 +55,7 @@ import { buildBrief, listTemplates } from '../lib/portalBrief';
 import { classifyCall, describeOperation } from '../lib/portalCalls';
 import { describeRunInput, type RunInput } from '../lib/runInput';
 import { announcesMore, CONTINUE_NUDGE, describeStep, MAX_NUDGES } from '../lib/steps';
+import type { Understander, Understanding, Understood } from '../lib/understanding';
 import type {
   AgUiInterrupt,
   AssistantAction,
@@ -98,6 +101,13 @@ const DRAWABLE_PREVIEW =
 /** How far along the assistant is, for the person watching. */
 type ProgressReporter = (message: string) => Promise<void> | void;
 
+/** A row of the trace, as it happens: a call made, or a model turn taken. */
+type CallReporter = (call: AssistantCall) => Promise<void> | void;
+
+/** The `method` of a trace row that is a model turn, not a call to the portal. */
+export const MODEL_TURN = 'MODEL';
+const TEXT_EXCERPT = 160;
+
 /** Where a plan's data comes from and what it builds, without the build itself. */
 type PlanLineage = Omit<BuildPlan, 'build'>;
 
@@ -110,6 +120,13 @@ type PortalDispatch = (request: {
 
 interface AssistantOptions {
   onProgress?: ProgressReporter;
+  /** Each trace row as it is made, so the person can watch the work. */
+  onCall?: CallReporter;
+  /**
+   * Says what the message means before anything runs (one quick model call).
+   * A visual change to a named asset then goes straight to the planner.
+   */
+  understand?: Understander;
   /** Whether SMUS is configured: its concepts are only described when it is. */
   smus?: boolean;
   /** The organisation's authoring guidance from Settings. */
@@ -169,6 +186,33 @@ function clip(text: string): string {
   return text.length > MAX_RESULT_CHARS
     ? `${text.slice(0, MAX_RESULT_CHARS)}\n[truncated ${text.length - MAX_RESULT_CHARS} characters: narrow the request with limit, pageSize, search or types]`
     : text;
+}
+
+/** The start of what the model said while it acted, in one line. */
+function excerpt(text: string): string | undefined {
+  const line = text.replace(/\s+/g, ' ').trim();
+  if (!line) return undefined;
+  return line.length > TEXT_EXCERPT ? `${line.slice(0, TEXT_EXCERPT)}…` : line;
+}
+
+/** What planning directly from the understanding came to. */
+type DirectPlan =
+  /** Drawn: the answer is the understanding and the plan. */
+  | { reply: string }
+  /** The plan could not be drafted; the conversation takes it from here. */
+  | { problem: string; about: string };
+
+/** What the chat model hears about the understanding already given to the person. */
+function understoodContext(u: Understanding, direct: DirectPlan | undefined): string {
+  const lines = [
+    `You already told the person: "${u.understanding}". Carry on from there; do not ask what they meant, and do not say it again.`,
+  ];
+  if (direct && 'problem' in direct) {
+    lines.push(
+      `${direct.about} You tried to draw the plan for that change with this brief: ${JSON.stringify(u.brief ?? '')}. It failed:\n${direct.problem}\nFix the brief and draw it again with show_plan (the datasets above as existing), or tell the person what is in the way.`
+    );
+  }
+  return lines.join('\n');
 }
 
 function str(input: Record<string, unknown>, key: string): string {
@@ -270,11 +314,45 @@ export class AssistantService {
     let brief: string | undefined;
     if (this.options.brief) {
       await this.progress('Reading the portal');
+      const started = this.now();
       brief = await buildBrief(this.dispatch).catch(() => undefined);
+      await this.record(out, {
+        method: 'GET',
+        path: 'the account brief',
+        status: brief === undefined ? HTTP_SERVER_ERROR : HTTP_OK,
+        ok: brief !== undefined,
+        step: 'Reading the portal',
+        ms: this.now() - started,
+      });
+    }
+    const state = describeRunInput(run);
+    // First, what the message means: said to the person at once, then acted
+    // on. A visual change to a named asset is planned here and now, with no
+    // conversation rounds in between.
+    const understood = await this.understand(history, state, out);
+    if (understood) {
+      usage.inputTokens += understood.usage.inputTokens;
+      usage.outputTokens += understood.usage.outputTokens;
+      rounds += 1;
+      await this.progress(understood.understanding.understanding);
+    }
+    const direct = understood
+      ? await this.planDirectly(understood.understanding, run, out)
+      : undefined;
+    const planned = direct !== undefined && 'reply' in direct;
+    if (direct && 'reply' in direct) {
+      reply = direct.reply;
     }
     // The live part of the prompt: the account at a glance, then the page's
-    // working state and any answers to the previous run's questions.
-    const context = [brief, describeRunInput(run)].filter(Boolean).join('\n\n');
+    // working state and any answers to the previous run's questions, then
+    // what was already said to the person.
+    const context = [
+      brief,
+      state,
+      understood ? understoodContext(understood.understanding, direct) : '',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
     const prompt: ChatSystem = {
       stable: systemPrompt({
         smus: this.options.smus ?? true,
@@ -285,12 +363,24 @@ export class AssistantService {
       ...(context ? { context } : {}),
     };
 
-    while (rounds < MAX_ROUNDS) {
+    while (!planned && rounds < MAX_ROUNDS) {
       rounds += 1;
-      await this.progress(rounds === 1 ? 'Thinking' : 'Thinking about what it found');
+      const first = turns.every((t) => t.role === 'user');
+      await this.progress(first ? 'Thinking' : 'Thinking about what it found');
+      const started = this.now();
       const turn = await this.chat.turn(prompt, turns, ASSISTANT_TOOLS);
       usage.inputTokens += turn.usage.inputTokens;
       usage.outputTokens += turn.usage.outputTokens;
+      const note = turn.reasoning ?? (turn.toolCalls.length ? excerpt(turn.text) : undefined);
+      await this.record(out, {
+        method: MODEL_TURN,
+        path: this.model.label,
+        status: HTTP_OK,
+        ok: true,
+        step: first ? 'Thinking' : 'Thinking about what it found',
+        ms: this.now() - started,
+        ...(note ? { note } : {}),
+      });
       turns.push({ role: 'assistant', text: turn.text, toolCalls: turn.toolCalls, raw: turn.raw });
       if (turn.text) {
         reply = turn.text;
@@ -351,6 +441,118 @@ export class AssistantService {
     }
   }
 
+  /** A trace row: kept for the answer, and told to whoever is watching. */
+  private async record(out: Collected, call: AssistantCall): Promise<void> {
+    out.calls.push(call);
+    try {
+      await this.options.onCall?.(call);
+    } catch {
+      // Watching is a courtesy too.
+    }
+  }
+
+  /** What the message means, in one quick model call; the sentence is the first trace row. */
+  private async understand(
+    history: ChatHistoryMessage[],
+    state: string,
+    out: Collected
+  ): Promise<Understood | undefined> {
+    if (!this.options.understand) return undefined;
+    const started = this.now();
+    const understood = await this.options.understand(history, state).catch(() => undefined);
+    await this.record(out, {
+      method: MODEL_TURN,
+      path: this.model.label,
+      status: understood ? HTTP_OK : HTTP_SERVER_ERROR,
+      ok: Boolean(understood),
+      step: 'Understanding the ask',
+      ms: this.now() - started,
+      ...(understood ? { note: understood.understanding.understanding } : {}),
+    });
+    return understood;
+  }
+
+  /**
+   * A visual change to one named asset, planned without a conversation:
+   * the asset is found in the graph by its name (or the id the conversation
+   * gave), its datasets are read from the graph, and the plan is drawn as
+   * show_plan would draw it. The answer is the understanding and the plan.
+   * Anything that does not resolve cleanly is left to the conversation, and
+   * a plan that cannot be drafted goes there with its reason.
+   */
+  private async planDirectly(
+    u: Understanding,
+    run: RunInput,
+    out: Collected
+  ): Promise<DirectPlan | undefined> {
+    if (u.change !== 'visual' || !u.asset || !u.brief || run.resume?.length) {
+      return undefined;
+    }
+    const { kind, name, id } = u.asset;
+    const started = this.now();
+    const hits = (await searchHits(this.dispatch, { query: name, types: [kind] })).filter(
+      (h) => h.type === kind
+    );
+    await this.record(out, {
+      method: 'GET',
+      path: `context_search "${name}"`,
+      status: HTTP_OK,
+      ok: true,
+      step: 'Searching',
+      ms: this.now() - started,
+    });
+    const named = hits.filter((h) => h.name.toLowerCase() === name.toLowerCase());
+    const hit =
+      (id ? hits.find((h) => h.entityId === `${kind}:${id}`) : undefined) ??
+      (named.length === 1 ? named[0] : hits.length === 1 ? hits[0] : undefined);
+    if (!hit) {
+      return undefined;
+    }
+    const assetId = hit.entityId.slice(kind.length + 1);
+    // An earlier plan on it that was not run is revised in conversation, so its changes are kept.
+    if (this.earlierPlans.some((p) => 'edit' in p.build && p.build.edit.assetId === assetId)) {
+      return undefined;
+    }
+    const lineageStarted = this.now();
+    const datasets = (
+      await relatedHits(this.dispatch, {
+        entityId: hit.entityId,
+        relations: ['uses-dataset'],
+        direction: 'out',
+        types: ['dataset'],
+      })
+    ).map((d) => ({ name: d.name || d.entityId, id: d.entityId.replace(/^dataset:/, '') }));
+    await this.record(out, {
+      method: 'GET',
+      path: `context_related ${hit.entityId}`,
+      status: datasets.length ? HTTP_OK : HTTP_NOT_FOUND,
+      ok: datasets.length > 0,
+      step: 'Following the lineage',
+      ms: this.now() - lineageStarted,
+    });
+    if (datasets.length === 0) {
+      return undefined;
+    }
+    const assetName = hit.name || name;
+    const about = `The asset is ${kind} "${assetName}" (id ${assetId}); it reads ${datasets
+      .map((d) => `${d.name} (id ${d.id})`)
+      .join(', ')}.`;
+    const drawn = await this.drawPlan(
+      {
+        title: u.title || `Change to ${assetName}`,
+        datasets: datasets.map((d) => ({ ...d, status: 'existing' })),
+        asset: { kind, name: assetName, id: assetId, status: 'edited' },
+        brief: u.brief,
+        filters: u.filters,
+        target: { edit: { assetType: kind, assetId } },
+      },
+      out
+    );
+    return 'problem' in drawn
+      ? { problem: drawn.problem, about }
+      : { reply: `${u.understanding}\n\n${drawn.summary}` };
+  }
+
   private async runTool(
     id: string,
     name: string,
@@ -364,7 +566,7 @@ export class AssistantService {
         return this.context(id, name, input, out);
       case 'list_templates':
         await this.progress('Reading the templates');
-        out.calls.push({
+        await this.record(out, {
           method: 'GET',
           path: 'list_templates',
           status: HTTP_OK,
@@ -427,7 +629,7 @@ export class AssistantService {
               types: strings(input, 'types'),
               limit: int(input, 'limit'),
             });
-    out.calls.push({
+    await this.record(out, {
       method: 'GET',
       path: `${name} ${name === 'context_search' ? `"${str(input, 'query')}"` : entityId}`,
       status: result.ok ? HTTP_OK : HTTP_NOT_FOUND,
@@ -445,9 +647,25 @@ export class AssistantService {
     input: Record<string, unknown>,
     out: Collected
   ): Promise<ToolResult> {
+    const drawn = await this.drawPlan(input, out);
+    return 'problem' in drawn
+      ? { id, content: drawn.problem, isError: true }
+      : { id, content: drawn.content };
+  }
+
+  /**
+   * A plan, drawn: drafted by the authoring model from the brief, checked,
+   * previewed, judged, and shown with its own Run button. `content` is what
+   * the chat model hears; `summary` is what the person reads when no chat
+   * model speaks after it.
+   */
+  private async drawPlan(
+    input: Record<string, unknown>,
+    out: Collected
+  ): Promise<{ planId: string; content: string; summary: string } | { problem: string }> {
     const parsed = parsePlan(input);
     if (typeof parsed === 'string') {
-      return { id, content: parsed, isError: true };
+      return { problem: parsed };
     }
     // The authoring model drafts the build from the brief; it is checked and
     // previewed before the plan is shown, so a plan the person sees runs.
@@ -460,9 +678,7 @@ export class AssistantService {
     );
     if ('problem' in drafted) {
       return {
-        id,
-        content: `The authoring model could not draft a build that works, so no plan was shown:\n${drafted.problem}\nTell the person what is in the way, or change the brief and draw the plan again.`,
-        isError: true,
+        problem: `The authoring model could not draft a build that works, so no plan was shown:\n${drafted.problem}\nTell the person what is in the way, or change the brief and draw the plan again.`,
       };
     }
     // Names from the cached graph, so the plan never shows a bare id.
@@ -512,8 +728,9 @@ export class AssistantService {
       });
     }
     return {
-      id,
+      planId,
       content: `${verdictsMessage(judged)}\nPlan id ${planId}, drafted by ${drafted.model.label}${drafted.reason ? `: ${drafted.reason}` : ''}.${checked.built ? ` Its preview built: ${checked.built}.` : ''} Its Run button is under it for the person; to change it, draw it again with a changed brief.`,
+      summary: `The plan is below with its preview${checked.built ? ` (${checked.built})` : ''} and its Run button; nothing has changed yet.${judged.length ? ' The calculated fields it adds are judged beside it.' : ''} Say what to change, or run it when it looks right.`,
     };
   }
 
@@ -615,7 +832,7 @@ export class AssistantService {
     } catch {
       data = undefined;
     }
-    out.calls.push({
+    await this.record(out, {
       method: 'POST',
       path,
       status: response.status,
@@ -693,24 +910,13 @@ export class AssistantService {
     if (planned.length === 0 || planned.some((d) => d.status !== 'existing' || !d.id)) {
       return false;
     }
-    const response = await this.dispatch({
-      method: 'GET',
-      path: `/api/context/entities/${encodeURIComponent(`${target.assetType}:${target.assetId}`)}/related?relations=uses-dataset&direction=out&types=dataset&limit=100`,
-    }).catch(() => undefined);
-    if (!response || response.status >= HTTP_ERROR_MIN) {
-      return false;
-    }
-    let hits: any[] = [];
-    try {
-      hits = JSON.parse(response.body)?.data?.hits ?? [];
-    } catch {
-      return false;
-    }
-    const current = new Set(
-      hits
-        .map((h) => (typeof h?.entityId === 'string' ? h.entityId.replace(/^dataset:/, '') : ''))
-        .filter(Boolean)
-    );
+    const hits = await relatedHits(this.dispatch, {
+      entityId: `${target.assetType}:${target.assetId}`,
+      relations: ['uses-dataset'],
+      direction: 'out',
+      types: ['dataset'],
+    }).catch(() => []);
+    const current = new Set(hits.map((h) => h.entityId.replace(/^dataset:/, '')));
     return current.size > 0 && planned.every((d) => current.has(d.id as string));
   }
 
@@ -1124,7 +1330,7 @@ export class AssistantService {
     }
     await this.progress('Checking the change with a preview');
     const response = await this.run('POST', previewPath, body);
-    out.calls.push({
+    await this.record(out, {
       method: 'POST',
       path: previewPath,
       status: response.status,
@@ -1257,7 +1463,7 @@ export class AssistantService {
       await this.progress(describeStep(method, path));
       const response = await this.run(method, path, body);
       const ok = response.status < HTTP_ERROR_MIN;
-      out.calls.push({
+      await this.record(out, {
         method,
         path,
         status: response.status,
@@ -1271,7 +1477,7 @@ export class AssistantService {
       }
       return { id, content: clip(`HTTP ${response.status}\n${response.body}`), isError: !ok };
     } catch (error) {
-      out.calls.push({
+      await this.record(out, {
         method,
         path,
         status: HTTP_SERVER_ERROR,
@@ -1292,8 +1498,9 @@ export class AssistantService {
    */
   private async awaitJob(jobId: string): Promise<{ status: number; body: string }> {
     const deadline = this.now() + MAX_JOB_WAIT_MS;
-    while (this.now() < deadline) {
-      await this.sleep(JOB_POLL_MS);
+    // Looked at once before any wait: a job run in this very process (the
+    // planner, inside the worker) is often done already.
+    for (;;) {
       const job = await this.dispatch({
         method: 'GET',
         path: `/api/jobs/${encodeURIComponent(jobId)}`,
@@ -1307,16 +1514,19 @@ export class AssistantService {
       } catch {
         // An unreadable status is retried until the deadline.
       }
-      if (!TERMINAL.has(status)) {
-        continue;
+      if (TERMINAL.has(status)) {
+        if (status !== 'completed') {
+          return { status: HTTP_SERVER_ERROR, body: `The job ${status}: ${message}` };
+        }
+        return this.dispatch({
+          method: 'GET',
+          path: `/api/jobs/${encodeURIComponent(jobId)}/result`,
+        });
       }
-      if (status !== 'completed') {
-        return { status: HTTP_SERVER_ERROR, body: `The job ${status}: ${message}` };
+      if (this.now() >= deadline) {
+        break;
       }
-      return this.dispatch({
-        method: 'GET',
-        path: `/api/jobs/${encodeURIComponent(jobId)}/result`,
-      });
+      await this.sleep(JOB_POLL_MS);
     }
     return {
       status: HTTP_ACCEPTED,

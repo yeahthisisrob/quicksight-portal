@@ -8,11 +8,13 @@ import spec from '../../../../../shared/generated/openapi.json';
 import { aiModel, aiModelViews, costOf, typicalCost } from '../../../shared/ai/modelCatalog';
 import { getAuthContext, withInProcessAuth } from '../../../shared/auth';
 import { apiIndex, classifyCall, describeOperation } from '../lib/portalCalls';
+import type { Understander } from '../lib/understanding';
 import {
   AssistantService,
   announcesMore,
   CONTINUE_NUDGE,
   describeStep,
+  MODEL_TURN,
 } from '../services/AssistantService';
 import type { ChatModel, ChatTurnResult } from '../services/ChatModel';
 
@@ -245,12 +247,21 @@ describe('AssistantService', () => {
     ]);
 
     expect(result.reply).toBe('Here is the copy; run it when it looks right.');
-    expect(result.calls.map((c) => c.path)).toEqual([
+    // Every call, and every model turn, in order, with the turns' own time.
+    expect(result.calls.map((c) => (c.method === MODEL_TURN ? 'thinking' : c.path))).toEqual([
+      'thinking',
       '/api/search?q=margin',
       '/api/data-catalog/calculated-fields/margin%3A%3Aabc',
+      'thinking',
       '/api/authoring/dashboard/d1/propose',
       '/api/authoring/dashboard/d1/rebind/preview',
+      'thinking',
     ]);
+    expect(result.calls[0]).toMatchObject({
+      method: MODEL_TURN,
+      path: model.label,
+      step: 'Thinking',
+    });
     const kinds = result.artifacts.map((a) => a.kind);
     expect(kinds).toEqual(['lineage', 'preview', 'plan', 'asset']);
     expect(result.artifacts[0]).toMatchObject({ fieldKey: 'margin::abc' });
@@ -300,7 +311,7 @@ describe('AssistantService', () => {
       { role: 'user', text: 'do it' },
     ]);
     expect(dispatch).not.toHaveBeenCalled();
-    expect(result.calls).toEqual([]);
+    expect(result.calls.filter((c) => c.method !== MODEL_TURN)).toEqual([]);
     expect(result.actions).toEqual([]);
   });
 
@@ -430,7 +441,10 @@ describe('AssistantService', () => {
       failing,
       { sleep: async () => {} }
     ).respond([{ role: 'user', text: 'go' }]);
-    expect(failed.calls[0]).toMatchObject({ status: 500, ok: false });
+    expect(failed.calls.find((c) => c.method !== MODEL_TURN)).toMatchObject({
+      status: 500,
+      ok: false,
+    });
     expect(told[0]).toContain('AccessDenied');
     expect(failed.artifacts.some((a) => a.kind === 'plan')).toBe(false);
 
@@ -450,7 +464,7 @@ describe('AssistantService', () => {
         now: () => clock,
       }
     ).respond([{ role: 'user', text: 'go' }]);
-    expect(waited.calls[0]).toMatchObject({ status: 202 });
+    expect(waited.calls.find((c) => c.method !== MODEL_TURN)).toMatchObject({ status: 202 });
     expect(clock).toBeGreaterThanOrEqual(5 * 60 * 1000);
   });
 
@@ -473,7 +487,10 @@ describe('AssistantService', () => {
     expect(dispatch).toHaveBeenCalledWith(
       expect.objectContaining({ path: '/api/jobs/top-1/result' })
     );
-    expect(result.calls[0]).toMatchObject({ status: 200, ok: true });
+    expect(result.calls.find((c) => c.method !== MODEL_TURN)).toMatchObject({
+      status: 200,
+      ok: true,
+    });
   });
 
   it('will not draft or preview a build beside the plan', async () => {
@@ -911,6 +928,225 @@ describe('AssistantService', () => {
     ]);
     expect((calls[0] as any).body).toMatchObject({ model: 'sonnet-4-6' });
     expect((calls[2] as any).body.ask).toContain('previous draft could not be built');
+  });
+
+  /** A graph with one analysis reading one dataset, a planner that answers at once, and a preview. */
+  const graph = (overrides: Record<string, unknown> = {}) =>
+    vi.fn(async ({ method, path, body }: { method: string; path: string; body?: unknown }) => {
+      const data = path.startsWith('/api/context/search')
+        ? {
+            hits: [
+              {
+                entityId: 'analysis:a1',
+                type: 'analysis',
+                name: 'Sales review',
+                summary: 'analysis: Sales review',
+              },
+              ...((overrides.twin as unknown[]) ?? []),
+            ],
+          }
+        : path.includes('/related')
+          ? { hits: [{ entityId: 'dataset:ds-1', type: 'dataset', name: 'Orders', summary: '' }] }
+          : path.endsWith('/propose')
+            ? (overrides.proposal ?? {
+                intent: 'edit',
+                mode: 'update',
+                rebinds: [],
+                ops: [
+                  {
+                    op: 'addVisual',
+                    sheetId: 's1',
+                    visual: { type: 'Table', title: 'Results', identifier: 'orders', values: [] },
+                  },
+                ],
+                problems: [],
+                unmapped: [],
+                steps: [{ label: 'plan-edits', ms: 900 }],
+              })
+            : method === 'POST'
+              ? { definition: {}, outline: [{ elements: [{ kind: 'visual' }] }] }
+              : { entity: { id: path, name: 'Orders' }, relations: [] };
+      void body;
+      return { status: 200, body: JSON.stringify({ success: true, data }) };
+    });
+
+  const visual = (asset = { kind: 'analysis' as const, name: 'Sales review' }) => ({
+    understanding: 'Adding a table of every result at the bottom of Sales review; planning it now.',
+    change: 'visual' as const,
+    asset,
+    title: 'Results table',
+    brief: 'A table of every result at the bottom of the first sheet.',
+    filters: [],
+  });
+
+  it('says what it understood, plans a visual change straight away, and answers without a conversation', async () => {
+    const dispatch = graph();
+    const chat = scripted([{ text: 'This chat turn must never happen.' }]);
+    const said: string[] = [];
+    const seen: string[] = [];
+    const understand: Understander = async () => ({
+      understanding: visual(),
+      usage: { inputTokens: 400, outputTokens: 50 },
+    });
+    const result = await new AssistantService(chat, model, dispatch, {
+      understand,
+      onProgress: (s) => {
+        said.push(s);
+      },
+      onCall: (c) => {
+        seen.push(c.step ?? '');
+      },
+    }).respond([
+      {
+        role: 'user',
+        text: 'add a detailed table of all the results at the bottom of sales review',
+      },
+    ]);
+
+    expect(chat.seen).toBe(0);
+    expect(result.reply).toBe(
+      'Adding a table of every result at the bottom of Sales review; planning it now.\n\nThe plan is below with its preview (1 visual; no filter controls) and its Run button; nothing has changed yet. Say what to change, or run it when it looks right.'
+    );
+    // Said to the person before the planner was asked.
+    expect(said[0]).toBe(
+      'Adding a table of every result at the bottom of Sales review; planning it now.'
+    );
+    expect(seen).toEqual([
+      'Understanding the ask',
+      'Searching',
+      'Following the lineage',
+      'Asking the planner',
+      'Previewing the change',
+    ]);
+    expect(result.calls[0]).toMatchObject({
+      method: MODEL_TURN,
+      step: 'Understanding the ask',
+      note: 'Adding a table of every result at the bottom of Sales review; planning it now.',
+    });
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: '/api/authoring/analysis/a1/propose',
+        body: {
+          ask: 'A table of every result at the bottom of the first sheet.',
+          intent: 'edit',
+        },
+      })
+    );
+    const plan = result.artifacts.find((a) => a.kind === 'plan') as any;
+    expect(plan).toMatchObject({
+      title: 'Results table',
+      asset: { kind: 'analysis', name: 'Sales review', id: 'a1', status: 'edited' },
+      datasets: [{ name: 'Orders', id: 'ds-1', status: 'existing' }],
+    });
+    expect(result.actions).toEqual([
+      expect.objectContaining({ planId: plan.id, path: '/api/authoring/analysis/a1/rebind' }),
+    ]);
+    expect(result.rounds).toBe(1);
+    expect(result.usage).toEqual({ inputTokens: 400, outputTokens: 50 });
+  });
+
+  it('leaves an ask it cannot pin to one asset, or that is not a visual change, to the conversation, told what was already said', async () => {
+    const contexts: string[] = [];
+    const listen = (chat: ReturnType<typeof scripted>) => {
+      const turn = chat.turn.bind(chat);
+      chat.turn = async (system, turns, tools) => {
+        contexts.push(system.context ?? '');
+        return turn(system, turns, tools);
+      };
+      return chat;
+    };
+    // Two analyses by that name: the conversation sorts it out.
+    const ambiguous = await new AssistantService(
+      listen(scripted([{ text: 'Which Sales review?' }])),
+      model,
+      graph({
+        twin: [{ entityId: 'analysis:a2', type: 'analysis', name: 'Sales review', summary: '' }],
+      }),
+      {
+        understand: async () => ({
+          understanding: visual(),
+          usage: { inputTokens: 1, outputTokens: 1 },
+        }),
+      }
+    ).respond([{ role: 'user', text: 'add a table to sales review' }]);
+    expect(ambiguous.reply).toBe('Which Sales review?');
+    expect(contexts[0]).toContain('You already told the person');
+    expect(ambiguous.artifacts).toEqual([]);
+
+    // Not a visual change: the conversation, as before, after the understanding.
+    const other = await new AssistantService(
+      listen(scripted([{ text: 'margin is revenue minus cost.' }])),
+      model,
+      graph(),
+      {
+        understand: async () => ({
+          understanding: { understanding: 'Looking up margin.', change: 'other', filters: [] },
+          usage: { inputTokens: 1, outputTokens: 1 },
+        }),
+      }
+    ).respond([{ role: 'user', text: 'what is margin' }]);
+    expect(other.reply).toBe('margin is revenue minus cost.');
+    expect(other.rounds).toBe(2);
+    expect(other.calls.map((c) => c.step)).toEqual(['Understanding the ask', 'Thinking']);
+  });
+
+  it('hands a visual change the planner could not draft to the conversation with the reason and the asset', async () => {
+    const contexts: string[] = [];
+    const chat = scripted([{ text: 'The planner refused: Results table needs a column.' }]);
+    const turn = chat.turn.bind(chat);
+    chat.turn = async (system, turns, tools) => {
+      contexts.push(system.context ?? '');
+      return turn(system, turns, tools);
+    };
+    const result = await new AssistantService(
+      chat,
+      model,
+      graph({
+        proposal: { intent: 'unclear', reason: 'No column named result.', rebinds: [], ops: [] },
+      }),
+      {
+        understand: async () => ({
+          understanding: visual(),
+          usage: { inputTokens: 1, outputTokens: 1 },
+        }),
+      }
+    ).respond([{ role: 'user', text: 'add a results table to sales review' }]);
+    expect(result.reply).toBe('The planner refused: Results table needs a column.');
+    expect(contexts[0]).toContain(
+      'The asset is analysis "Sales review" (id a1); it reads Orders (id ds-1).'
+    );
+    expect(contexts[0]).toContain('No column named result.');
+    expect(result.artifacts.some((a) => a.kind === 'plan')).toBe(false);
+  });
+
+  it('revises an unrun plan on the same asset in conversation rather than planning over it', async () => {
+    const chat = scripted([{ text: 'Redrawn with the table wider.' }]);
+    const result = await new AssistantService(chat, model, graph(), {
+      understand: async () => ({
+        understanding: visual(),
+        usage: { inputTokens: 1, outputTokens: 1 },
+      }),
+    }).respond([{ role: 'user', text: 'make the table wider' }], {
+      state: {
+        plans: [
+          {
+            id: 'plan-1',
+            title: 'Results table',
+            build: {
+              edit: {
+                assetType: 'analysis',
+                assetId: 'a1',
+                request: { mode: 'update', rebinds: [] },
+              },
+            },
+          },
+        ],
+        drafts: [],
+        ran: [],
+      },
+    });
+    expect(chat.seen).toBe(1);
+    expect(result.reply).toBe('Redrawn with the table wider.');
   });
 
   it('names the planner model an answer used', async () => {

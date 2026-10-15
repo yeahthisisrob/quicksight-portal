@@ -264,8 +264,19 @@ function ScrollToBottom() {
  * keeps them, and the runtime is fed from it.
  */
 export function AssistantChat() {
-  const { conversation, status, error, busy, ask, answer, retry, recordRun, cancel, reset } =
-    useConversation();
+  const {
+    conversation,
+    status,
+    events,
+    error,
+    busy,
+    ask,
+    answer,
+    retry,
+    recordRun,
+    cancel,
+    reset,
+  } = useConversation();
   const entries = conversation.entries;
   const total = entries.reduce((sum, e) => sum + (e.role === 'assistant' ? e.result.cost : 0), 0);
   const last = entries[entries.length - 1];
@@ -294,8 +305,8 @@ export function AssistantChat() {
   });
 
   const chatStatus = useMemo(
-    () => ({ status, since: conversation.pending?.since }),
-    [status, conversation.pending?.since]
+    () => ({ status, events, since: conversation.pending?.since }),
+    [status, events, conversation.pending?.since]
   );
 
   return (

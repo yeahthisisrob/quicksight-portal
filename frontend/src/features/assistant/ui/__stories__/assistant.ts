@@ -118,12 +118,30 @@ export const SCRIPTED_ANSWER = {
   reply:
     'margin is revenue minus cost on orders_gold, and margin_pct is built on it. I previewed a copy of Sales overview on sales_gold: every column resolves after two renames. Check the wireframe, then run it.',
   calls: [
-    { method: 'GET', path: '/api/search?q=margin&limit=5', status: 200, ok: true },
+    {
+      method: 'MODEL',
+      path: 'Claude Sonnet 5',
+      status: 200,
+      ok: true,
+      step: 'Understanding the ask',
+      ms: 2_400,
+      note: 'Tracing margin and previewing a copy of Sales overview on sales_gold.',
+    },
+    {
+      method: 'GET',
+      path: '/api/search?q=margin&limit=5',
+      status: 200,
+      ok: true,
+      step: 'Searching',
+      ms: 120,
+    },
     {
       method: 'GET',
       path: `/api/data-catalog/calculated-fields/${encodeURIComponent(MARGIN_KEY)}`,
       status: 200,
       ok: true,
+      step: 'Tracing calculated fields',
+      ms: 310,
     },
     {
       method: 'POST',
@@ -496,8 +514,51 @@ export function assistantRoutes(): MockRoute[] {
             jobId: 'assistant-working',
             jobType: 'assistant',
             status: 'processing',
-            message: 'Asking the planner: waiting for it to answer',
+            message:
+              'Adding a table of every result at the bottom of Sales overview; planning it now.',
             startTime: '2026-09-25T10:00:00Z',
+          },
+        },
+      }),
+    },
+    // The steps it has taken so far, as the job logs them while it works.
+    {
+      method: 'get',
+      url: /\/jobs\/assistant-working\/logs/,
+      respond: () => ({
+        body: {
+          success: true,
+          data: {
+            logs: [
+              {
+                timestamp: '2026-09-25T10:00:01Z',
+                level: 'info',
+                message: 'Reading the portal: GET the account brief',
+                details: { ms: 640 },
+              },
+              {
+                timestamp: '2026-09-25T10:00:04Z',
+                level: 'info',
+                message: 'Understanding the ask: Claude Sonnet 5',
+                details: {
+                  ms: 2_900,
+                  note: 'Adding a table of every result at the bottom of Sales overview; planning it now.',
+                },
+              },
+              {
+                timestamp: '2026-09-25T10:00:04Z',
+                level: 'info',
+                message: 'Searching: GET context_search "Sales overview"',
+                details: { ms: 85 },
+              },
+              {
+                timestamp: '2026-09-25T10:00:04Z',
+                level: 'info',
+                message: 'Following the lineage: GET context_related dashboard:sales-overview',
+                details: { ms: 40 },
+              },
+            ],
+            cursor: '4',
           },
         },
       }),
