@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.46.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.46.0...v2.46.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* **export:** a theme is a known asset summary, so the export no longer fails on it ([040ca0e](https://github.com/yeahthisisrob/quicksight-portal/commit/040ca0e7320b933c495fca7d461ddd29a2672595))
+* **export:** a theme is a known asset summary, so the export no longer fails on it ([bf044af](https://github.com/yeahthisisrob/quicksight-portal/commit/bf044af4cd7dda8c534e3db1998a9fc484364e79))
+
 ## [2.46.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.45.0...v2.46.0) (2026-10-15)
 
 
