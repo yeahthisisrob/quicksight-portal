@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.45.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.44.0...v2.45.0) (2026-10-15)
+
+
+### Features
+
+* **knowledge:** keep what is learned by id, let the portal and people write it, and read it on every plan ([3fb93c1](https://github.com/yeahthisisrob/quicksight-portal/commit/3fb93c1e401e13c46a2ae4a6c340420dc77b08e8))
+* **knowledge:** keep what is learned by id, let the portal and people write it, and read it on every plan ([1217476](https://github.com/yeahthisisrob/quicksight-portal/commit/121747696550f2f8b18e4b7130072f471ddb85b6))
+
 ## [2.44.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.43.0...v2.44.0) (2026-10-15)
 
 
