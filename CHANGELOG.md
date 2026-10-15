@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.53.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.52.0...v2.53.0) (2026-10-15)
+
+
+### Features
+
+* **assistant:** place filters by code, asking which visuals from the asset's own outline ([5d26c3f](https://github.com/yeahthisisrob/quicksight-portal/commit/5d26c3f4b9b55c471eeac2777b66002b6a5d1930))
+* **assistant:** place filters by code, asking which visuals from the asset's own outline ([2798b25](https://github.com/yeahthisisrob/quicksight-portal/commit/2798b25b254f245fbd12bcb4a4c47bd106b637ce))
+
 ## [2.52.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.51.0...v2.52.0) (2026-10-15)
 
 
