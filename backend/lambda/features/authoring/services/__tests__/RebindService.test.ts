@@ -25,6 +25,8 @@ const mocks = vi.hoisted(() => ({
     describeAnalysis: vi.fn(),
     describeDashboard: vi.fn(),
     tagResource: vi.fn(),
+    restoreAnalysis: vi.fn(),
+    updatePermissions: vi.fn(),
   },
   s3: { getObject: vi.fn() },
   archive: { getArchivedAsset: vi.fn(), markRestored: vi.fn() },
@@ -505,6 +507,41 @@ describe('RebindService restoring an archived asset', () => {
     service = new RebindService('1');
   });
 
+  it("brings an analysis back through QuickSight's recovery window under its own id, then writes the archive over it", async () => {
+    mocks.qs.describeAnalysis.mockResolvedValue({ AnalysisId: 'a1', Status: 'DELETED' });
+    mocks.qs.restoreAnalysis.mockResolvedValue({ arn: 'arn:analysis/a1', analysisId: 'a1' });
+    mocks.qs.updateAnalysis.mockResolvedValue({ arn: 'arn:analysis/a1' });
+
+    const result = await service.restore('analysis', 'a1', { rebinds: [] });
+
+    expect(result.via).toBe('recovery');
+    expect(mocks.qs.restoreAnalysis).toHaveBeenCalledWith('a1');
+    expect(mocks.qs.createAnalysis).not.toHaveBeenCalled();
+    expect(mocks.qs.updateAnalysis.mock.calls[0]?.[0]).toMatchObject({
+      analysisId: 'a1',
+      name: 'Sales analysis',
+    });
+    const grants = mocks.qs.updatePermissions.mock.calls[0]?.[2];
+    expect(grants.map((g: any) => g.Principal)).toEqual(expect.arrayContaining([ROB, ANALYSTS]));
+    expect(grants.map((g: any) => g.Principal)).not.toContain(GONE);
+    expect(mocks.qs.tagResource).toHaveBeenCalled();
+    expect(result.warnings?.[0]).toMatch(/recovery window/);
+  });
+
+  it('refuses a deleted dashboard id, which has no recovery window', async () => {
+    mocks.qs.describeDashboard.mockResolvedValue({ DashboardId: 'd1', Status: 'DELETED' });
+    mocks.archive.getArchivedAsset.mockResolvedValue(
+      archivedRecord({
+        definition: {
+          data: { Name: 'Exec', Definition: sampleDefinition(), DashboardPublishOptions: {} },
+        },
+      })
+    );
+    await expect(service.restore('dashboard', 'd1', { rebinds: [] })).rejects.toThrow(
+      /recovery window.*new id/
+    );
+  });
+
   it('reads the archived definition, never QuickSight, when asked for the archive', async () => {
     const result = await service.describeDatasets('analysis', 'a1', 'archive');
     expect(result.name).toBe('Sales analysis');
@@ -544,10 +581,9 @@ describe('RebindService restoring an archived asset', () => {
       if (id === 'a1') return { Status: 'DELETED' };
       throw notFound();
     });
-    await expect(service.restore('analysis', 'a1', { rebinds: [] })).rejects.toThrow(
-      'recovery window'
-    );
+    // Deleted but still held: a new id is created, never recovered.
     await service.restore('analysis', 'a1', { rebinds: [], newAssetId: 'a1-restored' });
+    expect(mocks.qs.restoreAnalysis).not.toHaveBeenCalled();
     expect(mocks.qs.createAnalysis.mock.calls[0]?.[0].analysisId).toBe('a1-restored');
   });
 

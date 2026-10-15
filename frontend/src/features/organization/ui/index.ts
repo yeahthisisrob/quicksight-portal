@@ -1,6 +1,8 @@
 export { default as AddToGroupDialog } from './AddToGroupDialog';
+export { CreateFolderDialog } from './CreateFolderDialog';
 export { CreateGroupDialog } from './CreateGroupDialog';
 export { default as FolderMembersDialog } from './FolderMembersDialog';
+export { FolderSharingDialog } from './FolderSharingDialog';
 export { GroupAssetsDialog } from './GroupAssetsDialog';
 export { default as GroupMembersDialog } from './GroupMembersDialog';
 export { UpdateGroupDialog } from './UpdateGroupDialog';

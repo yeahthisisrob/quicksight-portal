@@ -13,6 +13,13 @@ vi.mock('../../../utils/logger');
 vi.mock('../TagService');
 const freshness = vi.hoisted(() => vi.fn());
 vi.mock('../../catalog/assetFreshness', () => ({ keepCatalogFresh: freshness }));
+const store = vi.hoisted(() => ({
+  get: vi.fn(),
+  archive: vi.fn(),
+  list: vi.fn().mockResolvedValue([]),
+  snapshot: vi.fn().mockResolvedValue({ entries: {} }),
+}));
+vi.mock('../../catalog/catalogStore', () => ({ catalog: store }));
 
 describe('FolderService', () => {
   let folderService: FolderService;
@@ -28,6 +35,9 @@ describe('FolderService', () => {
       listFolders: vi.fn().mockResolvedValue([]),
       listFolderMembers: vi.fn().mockResolvedValue([]),
       updateFolderPermissions: vi.fn().mockResolvedValue({}),
+      createFolder: vi.fn().mockResolvedValue({ arn: 'arn:folder/new', folderId: 'new' }),
+      deleteFolder: vi.fn().mockResolvedValue(undefined),
+      describeFolderPermissions: vi.fn().mockResolvedValue([]),
     };
 
     mockS3Service = {
@@ -149,6 +159,63 @@ describe('FolderService', () => {
       await expect(
         folderService.addAssetToFolder('folder-123', 'dashboard-456', 'DASHBOARD' as any)
       ).rejects.toThrow('Failed to add member');
+    });
+  });
+  describe('create, delete and permissions', () => {
+    it('creates a shared folder with a fresh id and tells the catalog at once', async () => {
+      freshness.mockReset();
+      const created = await folderService.create({ name: '  Finance  ' });
+      expect(mockQuickSightService.createFolder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Finance',
+          folderType: 'SHARED',
+          folderId: created.folderId,
+        })
+      );
+      expect(created.arn).toBe('arn:folder/new');
+      expect(freshness).toHaveBeenCalledWith([
+        { assetType: 'folder', assetId: created.folderId, name: 'Finance', arn: 'arn:folder/new' },
+      ]);
+    });
+
+    it('refuses to delete a folder that still holds assets unless forced, then takes them out first', async () => {
+      mockQuickSightService.listFolderMembers.mockResolvedValue([
+        { MemberId: 'd1', MemberType: 'DASHBOARD', MemberArn: 'arn:...:dashboard/d1' },
+      ]);
+      await expect(folderService.remove('f1')).rejects.toThrow(/still holds 1 asset/);
+      expect(mockQuickSightService.deleteFolder).not.toHaveBeenCalled();
+
+      const result = await folderService.remove('f1', { force: true, by: 'pat' });
+      expect(mockQuickSightService.deleteFolderMembership).toHaveBeenCalledWith(
+        'f1',
+        'd1',
+        'DASHBOARD'
+      );
+      expect(mockQuickSightService.deleteFolder).toHaveBeenCalledWith('f1');
+      expect(result).toEqual({ folderId: 'f1', removedMembers: 1 });
+    });
+
+    it('reads who is on a folder with the role their actions amount to', async () => {
+      mockQuickSightService.describeFolderPermissions.mockResolvedValue([
+        {
+          Principal: 'arn:aws:quicksight:us-east-1:1:group/default/analysts',
+          Actions: ['quicksight:DescribeFolder', 'quicksight:CreateAnalysis'],
+        },
+        {
+          Principal: 'arn:aws:quicksight:us-east-1:1:user/default/pat',
+          Actions: ['quicksight:DescribeFolder', 'quicksight:UpdateFolderPermissions'],
+        },
+        {
+          Principal: 'arn:aws:quicksight:us-east-1:1:user/default/sam',
+          Actions: ['quicksight:DescribeFolder'],
+        },
+      ]);
+      const permissions = await folderService.permissions('f1');
+      expect(permissions.map((p) => [p.name, p.type, p.role])).toEqual([
+        ['default/analysts', 'GROUP', 'AUTHOR'],
+        ['default/pat', 'USER', 'ADMIN'],
+        ['default/sam', 'USER', 'VIEWER'],
+      ]);
     });
   });
 });

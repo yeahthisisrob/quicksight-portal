@@ -1,5 +1,8 @@
+import { randomUUID } from 'node:crypto';
+
 import type { components } from '@shared/generated/types';
 
+import { ValidationError } from '../../errors/ValidationError';
 import { AssetStatusFilter } from '../../types/assetFilterTypes';
 import { ASSET_TYPES, type AssetType } from '../../types/assetTypes';
 import type { FolderMetadata } from '../../types/organization';
@@ -16,6 +19,7 @@ import { TagService } from './TagService';
 type FolderListItem = components['schemas']['FolderListItem'];
 type FolderDetails = components['schemas']['FolderDetails'];
 type FolderMember = components['schemas']['FolderMember'];
+type FolderPermission = components['schemas']['FolderPermission'];
 
 // QuickSight's member types for folder members (uppercase)
 type QuickSightMemberType = 'DASHBOARD' | 'ANALYSIS' | 'DATASET' | 'DATASOURCE' | 'USER' | 'GROUP';
@@ -109,10 +113,112 @@ export class FolderService {
         [{ Principal: principal, Actions: actions }],
         []
       );
+      await keepCatalogFresh([{ assetType: 'folder', assetId: folderId }]);
     } catch (error) {
       logger.error('Failed to add folder member', { folderId, memberId, error });
       throw error;
     }
+  }
+
+  /**
+   * A new folder, under a parent or at the top. Its id is the portal's: a
+   * UUID, like the console gives. The catalog learns of it at once and the
+   * refresh that follows fills in the rest.
+   */
+  public async create(input: {
+    name: string;
+    parentFolderId?: string;
+  }): Promise<{ folderId: string; arn: string; name: string; parentFolderId?: string }> {
+    const name = input.name.trim();
+    if (!name) {
+      throw new ValidationError('A folder needs a name');
+    }
+    let parentFolderArn: string | undefined;
+    if (input.parentFolderId) {
+      const parent = await catalog.get('folder', input.parentFolderId);
+      if (!parent?.arn) {
+        throw new ValidationError(`No folder ${input.parentFolderId} to put it under`);
+      }
+      parentFolderArn = parent.arn;
+    }
+    const folderId = randomUUID();
+    const created = await this.quickSightService.createFolder({
+      folderId,
+      name,
+      folderType: 'SHARED',
+      parentFolderArn,
+    });
+    await keepCatalogFresh([
+      { assetType: 'folder', assetId: folderId, name, arn: created.arn },
+      ...(input.parentFolderId
+        ? [{ assetType: 'folder' as const, assetId: input.parentFolderId }]
+        : []),
+    ]);
+    return { folderId, arn: created.arn, name, parentFolderId: input.parentFolderId };
+  }
+
+  /**
+   * Delete a folder. QuickSight refuses one with members; with `force` the
+   * assets are taken out of it first (they are not deleted). Subfolders
+   * are never removed on the way: QuickSight's refusal is passed on.
+   */
+  public async remove(
+    folderId: string,
+    options: { force?: boolean; by?: string } = {}
+  ): Promise<{ folderId: string; removedMembers: number }> {
+    const members = await this.getMembers(folderId);
+    if (members.length > 0 && !options.force) {
+      throw new ValidationError(
+        `The folder still holds ${members.length} asset${members.length === 1 ? '' : 's'}; take them out first, or delete with force to take them out on the way`
+      );
+    }
+    for (const member of members) {
+      await this.removeAssetFromFolder(
+        folderId,
+        member.MemberId,
+        member.MemberType as QuickSightAssetMemberType,
+        false
+      );
+    }
+    await this.quickSightService.deleteFolder(folderId);
+    await catalog.archive([
+      {
+        assetType: 'folder',
+        assetId: folderId,
+        archiveReason: 'Deleted via portal',
+        archivedBy: options.by,
+      },
+    ]);
+    if (members.length > 0) {
+      await keepCatalogFresh(
+        members.map((m) => ({
+          assetType: MEMBER_TYPE_TO_ASSET_TYPE[m.MemberType as QuickSightAssetMemberType],
+          assetId: m.MemberId,
+        }))
+      );
+    }
+    return { folderId, removedMembers: members.length };
+  }
+
+  /** Who can see or work in the folder, live from QuickSight, with each principal's role. */
+  public async permissions(folderId: string): Promise<FolderPermission[]> {
+    const permissions: Array<{ Principal?: string; Actions?: string[] }> =
+      await this.quickSightService.describeFolderPermissions(folderId);
+    return permissions
+      .filter((p) => p.Principal)
+      .map((p) => {
+        const arn = p.Principal as string;
+        const actions = p.Actions ?? [];
+        const kind = arn.includes(':group/') ? 'GROUP' : 'USER';
+        const name = arn.split('/').slice(1).join('/') || arn;
+        return {
+          principal: arn,
+          name,
+          type: kind,
+          role: this.roleOfActions(actions),
+          actions,
+        };
+      });
   }
 
   public async get(folderId: string): Promise<FolderDetails> {
@@ -343,6 +449,7 @@ export class FolderService {
         [],
         [{ Principal: principal, Actions: [] }]
       );
+      await keepCatalogFresh([{ assetType: 'folder', assetId: folderId }]);
     } catch (error) {
       logger.error('Failed to remove folder member', { folderId, memberId, error });
       throw error;
@@ -381,6 +488,18 @@ export class FolderService {
       return 'GROUP';
     }
     return undefined;
+  }
+
+  /** The role a set of actions amounts to: the inverse of mapRoleToActions. */
+  private roleOfActions(actions: string[]): FolderMemberRole {
+    if (actions.includes('quicksight:UpdateFolderPermissions')) return 'ADMIN';
+    if (
+      actions.includes('quicksight:CreateAnalysis') ||
+      actions.includes('quicksight:CreateDashboard')
+    ) {
+      return 'AUTHOR';
+    }
+    return 'VIEWER';
   }
 
   private mapRoleToActions(role: FolderMemberRole): string[] {

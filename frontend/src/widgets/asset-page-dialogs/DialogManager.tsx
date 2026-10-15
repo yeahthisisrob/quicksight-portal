@@ -26,6 +26,7 @@ import { RebindDialog } from '@/features/asset-management';
 import {
   AddToGroupDialog,
   FolderMembersDialog,
+  FolderSharingDialog,
   GroupAssetsDialog,
   GroupMembersDialog,
   UpdateGroupDialog,
@@ -36,15 +37,18 @@ import {
 import { isRenamable } from '@/shared/api/modules/assets';
 import type { AssetType } from '@/shared/types/asset';
 import { JsonViewerModal } from '@/shared/ui';
+import ConfirmationDialog from '@/shared/ui/ConfirmationDialog';
 
 import { AssetFoldersDialog, PermissionsDialog, RelatedAssetsDialog, TagsDialog } from './dialogs';
 import type {
   AssetFoldersDialogState,
   DatasetSourceDialogState,
   DefinitionErrorsDialogState,
+  DeleteFolderDialogState,
   DeleteGroupDialogState,
   DeleteUserDialogState,
   FolderMembersDialogState,
+  FolderSharingDialogState,
   GroupAssetsDialogState,
   GroupMembersDialogState,
   JsonViewerDialogState,
@@ -306,6 +310,12 @@ interface DialogManagerProps {
   setWireframeDialog: (state: WireframeDialogState) => void;
   versionHistoryDialog: VersionHistoryDialogState;
   setVersionHistoryDialog: (state: VersionHistoryDialogState) => void;
+  folderSharingDialog: FolderSharingDialogState;
+  setFolderSharingDialog: (state: FolderSharingDialogState) => void;
+  deleteFolderDialog: DeleteFolderDialogState;
+  setDeleteFolderDialog: (state: DeleteFolderDialogState) => void;
+  handleFolderDelete: () => Promise<void>;
+  isDeletingFolder: boolean;
   rebindDialog: RebindDialogState;
   setRebindDialog: (state: RebindDialogState) => void;
   notifyInactiveAnalysesDialog: NotifyInactiveAnalysesDialogState;
@@ -374,6 +384,12 @@ export function DialogManager({
   setWireframeDialog,
   versionHistoryDialog,
   setVersionHistoryDialog,
+  folderSharingDialog,
+  setFolderSharingDialog,
+  deleteFolderDialog,
+  setDeleteFolderDialog,
+  handleFolderDelete,
+  isDeletingFolder,
   rebindDialog,
   setRebindDialog,
   notifyInactiveAnalysesDialog,
@@ -461,6 +477,30 @@ export function DialogManager({
           assetId={wireframeDialog.asset.id}
           assetName={wireframeDialog.asset.name}
           assetType={assetType}
+        />
+      )}
+
+      {folderSharingDialog.folder && assetType === 'folder' && (
+        <FolderSharingDialog
+          open={folderSharingDialog.open}
+          onClose={() => setFolderSharingDialog({ open: false, folder: null })}
+          folder={folderSharingDialog.folder}
+        />
+      )}
+      {deleteFolderDialog.folder && assetType === 'folder' && (
+        <ConfirmationDialog
+          open={deleteFolderDialog.open}
+          onClose={() => setDeleteFolderDialog({ open: false, folder: null })}
+          onConfirm={() => void handleFolderDelete()}
+          title={`Delete folder "${deleteFolderDialog.folder.name}"?`}
+          message={
+            deleteFolderDialog.folder.memberCount
+              ? `It holds ${deleteFolderDialog.folder.memberCount} asset${deleteFolderDialog.folder.memberCount === 1 ? '' : 's'}; they are taken out of it first and kept. Subfolders must be deleted on their own.`
+              : 'It is empty. Subfolders, if any, must be deleted on their own.'
+          }
+          confirmText="Delete folder"
+          severity="error"
+          loading={isDeletingFolder}
         />
       )}
 

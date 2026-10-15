@@ -72,6 +72,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a folder
+         * @description A shared folder, at the top or under a parent. The portal gives it its id.
+         */
+        post: operations["postFolders"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/folders/{folderId}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who can see or work in a folder
+         * @description Live from QuickSight, each user or group with the role its actions amount to.
+         */
+        get: operations["getFoldersByFolderIdPermissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/folders/{folderId}": {
         parameters: {
             query?: never;
@@ -83,7 +123,13 @@ export interface paths {
         get: operations["getFoldersByFolderId"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete a folder
+         * @description QuickSight refuses a folder with members; `force=true` takes its
+         *     assets out first (they are not deleted). Subfolders are never removed
+         *     on the way. The folder's catalog entry is archived as a record.
+         */
+        delete: operations["deleteFoldersByFolderId"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4137,6 +4183,18 @@ export interface components {
             /** @description Folder description */
             description?: string;
         };
+        /** @description One user or group on a folder, with the role its actions amount to. */
+        FolderPermission: {
+            /** @description The QuickSight ARN */
+            principal: string;
+            /** @description The user or group name (namespace/name) */
+            name: string;
+            /** @enum {string} */
+            type: "USER" | "GROUP";
+            /** @enum {string} */
+            role: "ADMIN" | "AUTHOR" | "VIEWER";
+            actions: string[];
+        };
         FolderMember: {
             /** @description Asset ID of the member */
             MemberId: string;
@@ -5456,6 +5514,11 @@ export interface components {
             folderId?: string;
         };
         RestoreResult: {
+            /**
+             * @description Created anew from the archive, or brought back from QuickSight's recovery window under its own id (analyses only).
+             * @enum {string}
+             */
+            via: "create" | "recovery";
             assetType: components["schemas"]["AuthorableAssetType"];
             assetId: string;
             name: string;
@@ -7162,6 +7225,73 @@ export interface operations {
             };
         };
     };
+    postFolders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** @description The folder to put it under; omitted means the top. */
+                    parentFolderId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The folder created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            folderId: string;
+                            arn: string;
+                            name: string;
+                            parentFolderId?: string;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getFoldersByFolderIdPermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                folderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The folder's permissions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            permissions: components["schemas"]["FolderPermission"][];
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
     getFoldersByFolderId: {
         parameters: {
             query?: never;
@@ -7185,6 +7315,38 @@ export interface operations {
                     };
                 };
             };
+        };
+    };
+    deleteFoldersByFolderId: {
+        parameters: {
+            query?: {
+                force?: boolean;
+            };
+            header?: never;
+            path: {
+                folderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            folderId: string;
+                            removedMembers: number;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
         };
     };
     getFoldersByFolderIdMembers: {
@@ -7254,7 +7416,7 @@ export interface operations {
         parameters: {
             query: {
                 /** @description The type of asset to remove from the folder */
-                type: "DASHBOARD" | "ANALYSIS" | "DATASET" | "DATASOURCE";
+                type: "DASHBOARD" | "ANALYSIS" | "DATASET" | "DATASOURCE" | "USER" | "GROUP";
             };
             header?: never;
             path: {

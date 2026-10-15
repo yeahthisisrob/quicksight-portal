@@ -1,5 +1,6 @@
 import {
   DesignServices as AuthorIcon,
+  Delete as DeleteIcon,
   EditNote as EditSourceIcon,
   History as HistoryIcon,
   Hub as HubIcon,
@@ -8,6 +9,7 @@ import {
   SwapHoriz as RebindIcon,
   DriveFileRenameOutline as RenameIcon,
   Build as RepairIcon,
+  Share as ShareIcon,
   Timeline as TimelineIcon,
   ViewQuilt as WireframeIcon,
 } from '@mui/icons-material';
@@ -36,6 +38,8 @@ interface ActionsDropdownProps {
     onEditSourceClick?: (asset: any) => void;
     onWireframeClick?: (asset: any) => void;
     onVersionHistoryClick?: (asset: any) => void;
+    onFolderShareClick?: (folder: any) => void;
+    onFolderDeleteClick?: (folder: any) => void;
     onRebindClick?: (asset: any) => void;
   };
 }
@@ -167,10 +171,22 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
               {asset.definitionErrors.length === 1 ? '' : 's'} in Studio
             </MenuItem>
           )}
+        {assetType === 'folder' && (
+          <MenuItem onClick={() => handleAction(() => handlers.onFolderShareClick?.(asset))}>
+            <ShareIcon fontSize="small" sx={{ mr: 1 }} />
+            Share
+          </MenuItem>
+        )}
         {RENAMEABLE_TYPES.includes(assetType) && (
           <MenuItem onClick={() => handleAction(() => handlers.onRenameClick?.(asset))}>
             <RenameIcon fontSize="small" sx={{ mr: 1 }} />
             Rename
+          </MenuItem>
+        )}
+        {assetType === 'folder' && (
+          <MenuItem onClick={() => handleAction(() => handlers.onFolderDeleteClick?.(asset))}>
+            <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+            Delete folder
           </MenuItem>
         )}
         {assetType === 'dataset' && (

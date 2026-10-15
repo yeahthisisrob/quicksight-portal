@@ -8,9 +8,11 @@ import type {
   AssetFoldersDialogState,
   DatasetSourceDialogState,
   DefinitionErrorsDialogState,
+  DeleteFolderDialogState,
   DeleteGroupDialogState,
   DeleteUserDialogState,
   FolderMembersDialogState,
+  FolderSharingDialogState,
   GroupAssetsDialogState,
   GroupMembersDialogState,
   JsonViewerDialogState,
@@ -45,6 +47,8 @@ interface DialogSetters {
   setDatasetSourceDialog: (state: DatasetSourceDialogState) => void;
   setWireframeDialog: (state: WireframeDialogState) => void;
   setVersionHistoryDialog: (state: VersionHistoryDialogState) => void;
+  setFolderSharingDialog: (state: FolderSharingDialogState) => void;
+  setDeleteFolderDialog: (state: DeleteFolderDialogState) => void;
   setRebindDialog: (state: RebindDialogState) => void;
   setNotifyInactiveAnalysesDialog: (state: NotifyInactiveAnalysesDialogState) => void;
   setNotifyUnusedDatasetsDialog: (state: NotifyUnusedDatasetsDialogState) => void;
@@ -80,6 +84,8 @@ export function createColumnHandlers(
     setDatasetSourceDialog,
     setWireframeDialog,
     setVersionHistoryDialog,
+    setFolderSharingDialog,
+    setDeleteFolderDialog,
     setRebindDialog,
     setNotifyInactiveAnalysesDialog,
     setNotifyUnusedDatasetsDialog,
@@ -149,6 +155,15 @@ export function createColumnHandlers(
     },
     onVersionHistoryClick: (asset: any) => {
       setVersionHistoryDialog({ open: true, asset });
+    },
+    onFolderShareClick: (folder: any) => {
+      setFolderSharingDialog({ open: true, folder: { id: folder.id, name: folder.name } });
+    },
+    onFolderDeleteClick: (folder: any) => {
+      setDeleteFolderDialog({
+        open: true,
+        folder: { id: folder.id, name: folder.name, memberCount: folder.memberCount },
+      });
     },
     onRebindClick: (asset: any) => {
       setRebindDialog({ open: true, asset });

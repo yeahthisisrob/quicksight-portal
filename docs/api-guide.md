@@ -323,7 +323,10 @@ nothing:** `POST /api/authoring/new` with the preview's body plus
 same pipeline as a transform: read it with `?source=archive` on
 `.../repair/plan`, `.../rebind/plan` and `.../rebind/preview`, then
 `POST /api/authoring/{type}/{id}/restore` with the `rebinds`, `ops` and
-`repairs` it needs (and `newAssetId` if QuickSight still holds its id). It
+`repairs` it needs (and `newAssetId` if a live asset holds its id). A deleted
+analysis QuickSight still holds in its recovery window comes back through that
+recovery under its own id, with the archive's repairs and edits written over it
+(`via: recovery` in the result); anything else is created. It
 runs as a job (`202` with a `jobId`; the `RestoreResult` is the job's
 result) because creating a dashboard and reading it back can outlast a web
 request. It comes back fixed, with its archived audience, theme and tags,
@@ -331,6 +334,17 @@ or not at all; the result's `warnings` say what could not be carried and
 anything QuickSight still reports. A dataset or data source is checked with
 `POST /api/assets/{type}/{id}/restore/preview` and restored with
 `.../restore`.
+
+**Folders.** `POST /api/folders` makes a shared folder (a `name`, and
+`parentFolderId` to nest it); `DELETE /api/folders/{id}` deletes an empty one,
+or with `?force=true` takes its assets out first (they are kept; subfolders are
+never removed on the way). `GET /api/folders/{id}/permissions` lists who can
+see or work in it with the role their actions amount to; `POST
+/api/folders/{id}/members` with `memberType` USER or GROUP, the `memberId` and
+a `role` (VIEWER, AUTHOR, ADMIN) shares it, and `DELETE
+/api/folders/{id}/members/{memberId}?type=USER` takes someone off it. Assets go
+in through the same members route, or many at once with `POST
+/api/folders/{id}/assets/bulk`.
 
 **History.** Every dashboard, analysis and dataset keeps its versions: one is
 kept whenever an export, a refresh or a portal write finds the definition

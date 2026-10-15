@@ -1567,6 +1567,23 @@ export class QuickSightService {
     );
   }
 
+  public async deleteFolder(folderId: string): Promise<void> {
+    await this.executeWithTracking(
+      () => this.adapter.deleteFolder(folderId),
+      { operation: 'DeleteFolder', assetType: ASSET_TYPES.folder, assetId: folderId },
+      'other'
+    );
+  }
+
+  /** A deleted analysis back from the recovery window, under its own id. */
+  public async restoreAnalysis(analysisId: string): Promise<{ arn: string; analysisId: string }> {
+    return await this.executeWithTracking(
+      () => this.adapter.restoreAnalysis(analysisId),
+      { operation: 'RestoreAnalysis', assetType: ASSET_TYPES.analysis, assetId: analysisId },
+      'other'
+    );
+  }
+
   public async updateFolderPermissions(
     folderId: string,
     permissions: any[],

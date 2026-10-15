@@ -244,6 +244,10 @@ export class QuicksightPortalStack extends Stack {
           'quicksight:UpdateRefreshSchedule',
           'quicksight:DeleteRefreshSchedule',
           'quicksight:PutDataSetRefreshProperties',
+          'quicksight:CreateIngestion',
+          'quicksight:DeleteFolder',
+          'quicksight:RestoreAnalysis',
+          'quicksight:StartDashboardSnapshotJob',
         ],
         resources: [`arn:aws:quicksight:${this.region}:${this.account}:*`],
       })
