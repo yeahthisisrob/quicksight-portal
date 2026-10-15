@@ -139,6 +139,8 @@ interface AssistantOptions {
   brief?: boolean;
   /** Sent as `model` on propose calls that do not name one. */
   authoringModel?: string;
+  /** What Settings say a change to an existing asset is made on, so the assistant says so too. */
+  editMode?: 'clone' | 'update';
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
 }
@@ -201,6 +203,16 @@ type DirectPlan =
   | { reply: string }
   /** The plan could not be drafted; the conversation takes it from here. */
   | { problem: string; about: string };
+
+/** Whether a build changes its asset on a copy or in place, said plainly; nothing for a new asset. */
+function describeMode(build: PlanBuild): string {
+  if (!('edit' in build)) return '';
+  const { request, assetType } = build.edit;
+  if (request.mode === 'clone') {
+    return `This is made on a copy${request.name ? ` named "${request.name}"` : ''}; the original ${assetType} is untouched (Settings › Authoring decides copy or in place). `;
+  }
+  return `This changes the ${assetType} in place (Settings › Authoring decides copy or in place). `;
+}
 
 /** What the chat model hears about the understanding already given to the person. */
 function understoodContext(u: Understanding, direct: DirectPlan | undefined): string {
@@ -348,6 +360,9 @@ export class AssistantService {
     // what was already said to the person.
     const context = [
       brief,
+      this.options.editMode
+        ? `Changes to an existing analysis or dashboard are made ${this.options.editMode === 'clone' ? 'on a copy (named the next version, v2, v3...; the original is untouched)' : 'in place'} unless the person says otherwise (Settings › Authoring). Say so when you show such a plan; put mode "copy" or "inPlace" in target.edit only when the person said which.`
+        : '',
       state,
       understood ? understoodContext(understood.understanding, direct) : '',
     ]
@@ -544,7 +559,9 @@ export class AssistantService {
         asset: { kind, name: assetName, id: assetId, status: 'edited' },
         brief: u.brief,
         filters: u.filters,
-        target: { edit: { assetType: kind, assetId } },
+        target: {
+          edit: { assetType: kind, assetId, ...(u.editMode ? { mode: u.editMode } : {}) },
+        },
       },
       out
     );
@@ -730,7 +747,7 @@ export class AssistantService {
     return {
       planId,
       content: `${verdictsMessage(judged)}\nPlan id ${planId}, drafted by ${drafted.model.label}${drafted.reason ? `: ${drafted.reason}` : ''}.${checked.built ? ` Its preview built: ${checked.built}.` : ''} Its Run button is under it for the person; to change it, draw it again with a changed brief.`,
-      summary: `The plan is below with its preview${checked.built ? ` (${checked.built})` : ''} and its Run button; nothing has changed yet.${judged.length ? ' The calculated fields it adds are judged beside it.' : ''} Say what to change, or run it when it looks right.`,
+      summary: `${describeMode(drafted.build)}The plan is below with its preview${checked.built ? ` (${checked.built})` : ''} and its Run button; nothing has changed yet.${judged.length ? ' The calculated fields it adds are judged beside it.' : ''} Say what to change, or run it when it looks right.`,
     };
   }
 
@@ -823,7 +840,14 @@ export class AssistantService {
         ? { intent: 'edit' }
         : {};
     const body =
-      'create' in target ? { ...target.create, ask, ...model } : { ask, ...model, ...intent };
+      'create' in target
+        ? { ...target.create, ask, ...model }
+        : {
+            ask,
+            ...model,
+            ...intent,
+            ...(target.edit.mode ? { mode: target.edit.mode } : {}),
+          };
     const response = await this.run('POST', path, body);
     const ok = response.status < HTTP_ERROR_MIN;
     let data: any;

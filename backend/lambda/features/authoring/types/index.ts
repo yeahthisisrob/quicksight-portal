@@ -259,6 +259,8 @@ export interface ProposeRequest {
   candidateDataSetIds?: string[];
   /** `edit`: visual or layout changes only, so no dataset is chosen and no model call is spent on it. */
   intent?: 'edit' | 'auto';
+  /** On a copy or in place; the Settings default (`authoring.editMode`) when omitted. */
+  mode?: ApplyMode;
 }
 
 export interface ProposedRebind extends RebindRequest {

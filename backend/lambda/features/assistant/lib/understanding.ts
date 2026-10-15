@@ -32,6 +32,8 @@ export interface Understanding {
   /** For a visual change: exactly what changes, for the planner. */
   brief?: string;
   filters: UnderstoodFilter[];
+  /** Only when the person said so: on a copy (clone) or in place (update). */
+  editMode?: 'clone' | 'update';
 }
 
 export interface Understood {
@@ -51,7 +53,7 @@ export const UNDERSTAND_TOOL: ChatTool = {
   inputSchema: {
     type: 'object',
     additionalProperties: false,
-    required: ['understanding', 'change', 'asset', 'title', 'brief', 'filters'],
+    required: ['understanding', 'change', 'asset', 'title', 'brief', 'filters', 'editMode'],
     properties: {
       understanding: {
         type: 'string',
@@ -84,6 +86,12 @@ export const UNDERSTAND_TOOL: ChatTool = {
         type: 'string',
         description:
           'visual: exactly what changes, for the planner: each visual with its type and the columns it shows in the person\'s words, where it goes (the bottom of the sheet, beside X), each filter with its control and placement, and nothing the person did not ask for. Else "".',
+      },
+      editMode: {
+        type: 'string',
+        enum: ['', 'copy', 'inPlace'],
+        description:
+          'Only when the person explicitly said the change goes on a copy ("make a copy", "a new version") or in place ("change it directly", "the original"); "" otherwise - Settings decide.',
       },
       filters: {
         type: 'array',
@@ -143,6 +151,8 @@ export function parseUnderstanding(input: Record<string, unknown>): Understandin
   if (!visual) {
     return { understanding, change: 'other', filters };
   }
+  const editMode =
+    input.editMode === 'copy' ? 'clone' : input.editMode === 'inPlace' ? 'update' : undefined;
   return {
     understanding,
     change: 'visual',
@@ -150,6 +160,7 @@ export function parseUnderstanding(input: Record<string, unknown>): Understandin
     ...(text(input.title) ? { title: text(input.title) } : {}),
     ...(text(input.brief) ? { brief: text(input.brief) } : {}),
     filters,
+    ...(editMode ? { editMode } : {}),
   };
 }
 

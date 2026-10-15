@@ -52,7 +52,7 @@ import {
 } from '../../../shared/services/datasets/similarDatasets';
 import { parseSimpleSelect } from '../../../shared/services/datasets/simpleSelect';
 import { extractSqlTableRefs } from '../../../shared/services/parsing/DatasetParser';
-import { settingsStore } from '../../../shared/services/settings/SettingsStore';
+import { defaultImportMode } from '../../../shared/services/settings/authoringDefaults';
 import type { SmusService } from '../../../shared/services/smus/SmusService';
 import type { TagPair } from '../../../shared/tags/tagStandards';
 import { ASSET_TYPES } from '../../../shared/types/assetTypes';
@@ -143,12 +143,6 @@ export interface NewDatasetResult extends NewDatasetPreview {
 }
 
 /** The import mode a request that names none gets: Settings, SPICE unless changed. */
-function defaultImportMode(): 'DIRECT_QUERY' | 'SPICE' {
-  return settingsStore.get('authoring.datasetImportMode') === 'DIRECT_QUERY'
-    ? 'DIRECT_QUERY'
-    : 'SPICE';
-}
-
 interface Composed {
   preview: NewDatasetPreview;
   dataSource: DataSourceUsage;

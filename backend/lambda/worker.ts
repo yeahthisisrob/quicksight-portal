@@ -94,6 +94,7 @@ interface PlannerMessage {
         ask: string;
         candidateDataSetIds?: string[];
         intent?: 'edit';
+        mode?: 'clone' | 'update';
       }
     | { kind: 'new-visuals'; newAsset: Record<string, unknown> }
     /** A theme drawn from a picture, stored in the bucket (too big for a queue message). */
@@ -649,6 +650,7 @@ async function processPlannerJob(message: PlannerMessage, record: any): Promise<
         ask: request.ask,
         candidateDataSetIds: request.candidateDataSetIds,
         ...(request.intent ? { intent: request.intent } : {}),
+        ...(request.mode ? { mode: request.mode } : {}),
       });
     } else {
       const { NewAssetService } = await import('./features/authoring/services/NewAssetService');
@@ -777,6 +779,7 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       { readCustomVocabulary },
       { getSmusConfig },
       { readTagStandards },
+      { defaultApplyMode },
     ] = await Promise.all([
       import('./shared/ai/modelCatalog'),
       import('./adapters/aws/BedrockAdapter'),
@@ -790,6 +793,7 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       import('./shared/ai/authoringVocabulary'),
       import('./shared/config/smusConfig'),
       import('./shared/tags/tagStandards'),
+      import('./shared/services/settings/authoringDefaults'),
     ]);
     await settingsStore.load();
     if (!isAiModelKey(message.model)) {
@@ -811,6 +815,7 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       vocabulary,
       tagStandards: readTagStandards(),
       understand: understandWith(chat, vocabulary),
+      editMode: defaultApplyMode(),
       ...(message.authoringModel && isAiModelKey(message.authoringModel)
         ? { authoringModel: message.authoringModel }
         : {}),

@@ -298,6 +298,19 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
         ],
       },
       {
+        key: 'authoring.editMode',
+        label: 'Changes to an existing analysis or dashboard are made',
+        description:
+          'What the assistant and the planner do when asked to change an analysis or dashboard and the ask does not say. On a copy: the change is made on a new copy (named with the next version, v2, v3...) and the original is untouched until you decide; the safe default. In place: the asset itself is changed (a dashboard gets a new version; the previous definition stays in its history). Either way nothing runs until the person runs it.',
+        type: 'select',
+        envVar: '',
+        default: 'copy',
+        options: [
+          { value: 'copy', label: 'On a copy (safe)' },
+          { value: 'inPlace', label: 'In place' },
+        ],
+      },
+      {
         key: 'authoring.defaultTags',
         label: 'Tag authored assets with',
         description:

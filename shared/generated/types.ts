@@ -5061,6 +5061,11 @@ export interface components {
              * @enum {string}
              */
             intent?: "edit" | "auto";
+            /**
+             * @description On a copy (clone) or in place (update). The Settings default (authoring.editMode, a copy unless changed) when omitted; the planner never decides this itself. A copy with no name takes the next version of the original's name (v2, v3...).
+             * @enum {string}
+             */
+            mode?: "clone" | "update";
             model?: components["schemas"]["AiModelKey"];
         };
         ProposedRebind: components["schemas"]["RebindRequest"] & {
@@ -5901,6 +5906,18 @@ export interface components {
             max?: number;
             /** @description move, resize, remove, duplicate, retype, retitle, addAction. The layout element id (the visual id for visuals, the control id for controls, wherever they sit); addAction also takes the visual's title. */
             elementId?: string;
+            /**
+             * @description move, duplicate, addVisual. Where the tile goes, in words, instead of col and row: bottom (after everything), beside another tile (on its row when it fits, else the next) or below its row. The sheet is then laid out again as blocks, rows packed left to right with nothing overlapping. addVisual without it goes to the bottom.
+             * @enum {string}
+             */
+            place?: "bottom" | "beside" | "below";
+            /** @description place beside or below. The element id of the tile it is placed relative to. */
+            anchor?: string;
+            /**
+             * @description resize, in words instead of colSpan and rowSpan: small (a third of the width), medium (half), large (two thirds), wide (full width, short), full (full width, tall). The sheet is laid out again as blocks afterwards.
+             * @enum {string}
+             */
+            size?: "small" | "medium" | "large" | "wide" | "full";
             /** @description move, duplicate. Grid column, 0-35. */
             col?: number;
             /** @description move, duplicate. Grid row. */

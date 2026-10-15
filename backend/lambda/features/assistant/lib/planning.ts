@@ -30,7 +30,14 @@ export type PlanTarget =
       /** A new asset's frame: type, name, datasets and filing - not its visuals or filters. */
       create: Record<string, any>;
     }
-  | { edit: { assetType: 'dashboard' | 'analysis'; assetId: string } };
+  | {
+      edit: {
+        assetType: 'dashboard' | 'analysis';
+        assetId: string;
+        /** Only when the person said: a copy (clone) or in place (update). Settings decide otherwise. */
+        mode?: 'clone' | 'update';
+      };
+    };
 
 export interface ParsedPlan {
   lineage: Omit<BuildPlan, 'build'>;
@@ -229,7 +236,15 @@ function parseTarget(raw: unknown): PlanTarget | string {
     typeof edit.assetId === 'string' &&
     edit.assetId
   ) {
-    return { edit: { assetType: edit.assetType, assetId: edit.assetId } };
+    const mode =
+      edit.mode === 'copy' || edit.mode === 'clone'
+        ? 'clone'
+        : edit.mode === 'inPlace' || edit.mode === 'update'
+          ? 'update'
+          : undefined;
+    return {
+      edit: { assetType: edit.assetType, assetId: edit.assetId, ...(mode ? { mode } : {}) },
+    };
   }
   return 'A plan needs its target: `create` ({ assetType, name, datasets: [{ identifier, dataSetId }] }) for a new asset, or `edit` ({ assetType, assetId }) for an existing one.';
 }

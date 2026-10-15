@@ -85,6 +85,8 @@ interface PlannerJobConfig extends BaseJobConfig {
         assetId: string;
         ask: string;
         candidateDataSetIds?: string[];
+        intent?: 'edit';
+        mode?: 'clone' | 'update';
       }
     | { kind: 'new-visuals'; newAsset: Record<string, unknown> }
     /** A theme drawn from a picture, stored in the bucket (too big for a queue message). */

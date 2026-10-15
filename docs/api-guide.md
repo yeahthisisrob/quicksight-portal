@@ -229,6 +229,10 @@ curl -sS -X POST "$QSP_API_URL/api/authoring/dashboard/<id>/propose" \
   -H "Authorization: Bearer $QSP_API_KEY" -H "Content-Type: application/json" \
   --data '{"ask": "copy this onto the orders gold dataset and make the trend a line chart"}'
 # -> { jobId } ; the job's result is a Proposal: rebinds, ops, a dry-run plan, and why
+# Whether it lands on a copy or on the asset itself is yours, not the model's:
+# send mode "clone" or "update", or leave it out and Settings decide
+# (authoring.editMode; a copy unless changed). A copy with no name takes the
+# next version of the original's name (v2, v3...).
 
 # From nothing: the planner proposes visuals from the datasets' columns
 curl -sS -X POST "$QSP_API_URL/api/authoring/new/propose" \
@@ -464,7 +468,12 @@ To change an existing analysis, send ops to `.../rebind` with
 `mode: "update"`: `addVisual` (a VisualSpec), `addFilter` (the dataset
 identifier, the column, and the same control, placement and `appliesTo`) and
 `addAction` (a visual by element id or title, and the action), alongside
-`move`, `resize`, `retype`, `retitle` and `remove`.
+`move`, `resize`, `retype`, `retitle` and `remove`. The layout is blocks on
+a 36-column grid: `move`, `duplicate` and `addVisual` take `place`
+(`bottom`, or `beside` / `below` an `anchor` element) and `resize` takes
+`size` (`small`, `medium`, `large`, `wide`, `full`); the sheet is then laid
+out again with rows packed and nothing overlapping. `col`/`row` and
+`colSpan`/`rowSpan` still work when you mean exact grid units.
 
 Anything that cannot be built as asked - a column the dataset does not
 have, a control that does not fit its column, a slider without its range -
