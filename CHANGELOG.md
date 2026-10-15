@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.46.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.45.0...v2.46.0) (2026-10-15)
+
+
+### Features
+
+* **settings:** scheduled SMUS, Smart Sync and activity runs, and one settings section at a time ([e194c2a](https://github.com/yeahthisisrob/quicksight-portal/commit/e194c2aff5bb0240eab448e090b85fcea89817d1))
+* **settings:** scheduled SMUS, Smart Sync and activity runs, and one settings section at a time ([d81c0d6](https://github.com/yeahthisisrob/quicksight-portal/commit/d81c0d63b3480625b1fd57f32559095d2a788c99))
+
 ## [2.45.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.44.0...v2.45.0) (2026-10-15)
 
 
