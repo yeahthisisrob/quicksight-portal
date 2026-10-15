@@ -35,6 +35,7 @@ import {
   MUTATION_EVENT_TO_ASSET_TYPE,
   normalizeServiceEventDetails,
 } from '../lib/cloudTrailEvents';
+import { emptyAssetActivity, emptyUserActivity } from '../lib/emptyActivity';
 import {
   applyTimelinePredicate,
   buildTimelinePredicate,
@@ -190,17 +191,19 @@ export class ActivityService {
   }
 
   /**
-   * Get activity data for a specific asset
+   * Activity for one dashboard or analysis. One nobody has opened gets an
+   * empty record, not nothing: "never viewed" is an answer.
    */
   public async getAssetActivity(
     assetType: Extract<AssetType, 'dashboard' | 'analysis'>,
     assetId: string
-  ): Promise<AssetActivityData | null> {
+  ): Promise<AssetActivityData> {
     const cache = await this.cacheService.getActivityCache();
     const persistence = await this.cacheService.getActivityPersistence();
+    const assetName = await this.getAssetNameFromCache(assetType, assetId);
 
     if (!cache) {
-      return null;
+      return emptyAssetActivity(assetType, assetId, assetName);
     }
 
     const activityData = this.processAssetActivityEvents(cache, assetType, assetId);
@@ -208,10 +211,8 @@ export class ActivityService {
       activityData.lastViewed || this.getPersistedDate(persistence, assetType, assetId);
 
     if (!lastViewed) {
-      return null;
+      return emptyAssetActivity(assetType, assetId, assetName);
     }
-
-    const assetName = await this.getAssetNameFromCache(assetType, assetId);
 
     // Get user groups for all viewers efficiently
     const viewerNames = Array.from(activityData.viewers.keys());
@@ -460,19 +461,24 @@ export class ActivityService {
   /**
    * Get user activity data
    */
-  public async getUserActivity(userName: string): Promise<UserActivityData | null> {
+  /**
+   * A person's activity. Someone with nothing recorded gets an empty record,
+   * not nothing: the list already counts them at zero, and the dialog that
+   * opens on them should say "never", not fail.
+   */
+  public async getUserActivity(userName: string): Promise<UserActivityData> {
     const cache = await this.cacheService.getActivityCache();
     const persistence = await this.cacheService.getActivityPersistence();
 
     if (!cache) {
-      return null;
+      return emptyUserActivity(userName);
     }
 
     const activityData = this.processUserActivityEvents(cache, userName);
     const lastActive = activityData.lastActive || this.findPersistedUserDate(persistence, userName);
 
     if (!lastActive) {
-      return null;
+      return emptyUserActivity(userName);
     }
 
     const assetNames = await this.getAssetNamesForUser();
@@ -1432,7 +1438,7 @@ export class ActivityService {
    * so a direct lookup fully covers the match.
    */
   private findPersistedUserDate(persistence: any, userName: string): string | null {
-    return persistence.users[userName] ?? null;
+    return persistence?.users?.[userName] ?? null;
   }
 
   /**

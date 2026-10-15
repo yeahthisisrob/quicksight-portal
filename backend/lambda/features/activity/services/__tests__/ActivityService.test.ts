@@ -183,13 +183,40 @@ describe('ActivityService - Asset Activity', () => {
   });
 
   describe('getAssetActivity', () => {
-    it('should return null when no cache exists', async () => {
+    it('answers with an empty record when no cache exists', async () => {
       mockCacheService.getActivityCache.mockResolvedValue(null);
       mockCacheService.getActivityPersistence.mockResolvedValue(null);
 
       const result = await activityService.getAssetActivity('dashboard', TEST_DASHBOARD_ID);
 
-      expect(result).toBeNull();
+      expect(result).toEqual({
+        assetId: TEST_DASHBOARD_ID,
+        assetName: undefined,
+        assetType: 'dashboard',
+        totalViews: 0,
+        uniqueViewers: 0,
+        lastViewed: null,
+        viewsByDate: {},
+        viewers: [],
+      });
+    });
+
+    it('answers with an empty record for an asset nobody has opened', async () => {
+      mockCacheService.getActivityCache.mockResolvedValue(createMockCache([]));
+      mockCacheService.getActivityPersistence.mockResolvedValue({
+        version: '1.0',
+        lastUpdated: TEST_DATE,
+        dashboards: {},
+        analyses: {},
+        users: {},
+      });
+      await seed([catalogEntry('dashboard', TEST_DASHBOARD_ID, { assetName: 'Quiet Dashboard' })]);
+
+      const result = await activityService.getAssetActivity('dashboard', TEST_DASHBOARD_ID);
+
+      expect(result.assetName).toBe('Quiet Dashboard');
+      expect(result.totalViews).toBe(0);
+      expect(result.lastViewed).toBeNull();
     });
 
     it('should return asset activity data for dashboard', async () => {
@@ -328,13 +355,32 @@ describe('ActivityService - User Activity', () => {
   });
 
   describe('getUserActivity', () => {
-    it('should return null when no cache exists', async () => {
+    it('answers with an empty record when no cache exists', async () => {
       mockCacheService.getActivityCache.mockResolvedValue(null);
       mockCacheService.getActivityPersistence.mockResolvedValue(null);
 
       const result = await activityService.getUserActivity(TEST_USER_NAME);
 
-      expect(result).toBeNull();
+      expect(result).toEqual({
+        userName: TEST_USER_NAME,
+        lastActive: null,
+        totalActivities: 0,
+        activitiesByDate: {},
+        dashboards: [],
+        analyses: [],
+      });
+    });
+
+    it('answers with an empty record for a person with nothing recorded', async () => {
+      mockCacheService.getActivityCache.mockResolvedValue(
+        createMockCache([createMockEvent('GetDashboard', TEST_DASHBOARD_ID, 'someone-else')])
+      );
+      mockCacheService.getActivityPersistence.mockResolvedValue(null);
+
+      const result = await activityService.getUserActivity(TEST_USER_NAME);
+
+      expect(result.totalActivities).toBe(0);
+      expect(result.lastActive).toBeNull();
     });
 
     it('should return user activity data', async () => {
@@ -919,10 +965,12 @@ describe('ActivityService - Performance', () => {
       expect(summary.dashboards.totalViews).toBe(ZERO_ACTIVITIES);
 
       const assetActivity = await activityService.getAssetActivity('dashboard', TEST_DASHBOARD_ID);
-      expect(assetActivity).toBeNull();
+      expect(assetActivity.totalViews).toBe(ZERO_ACTIVITIES);
+      expect(assetActivity.lastViewed).toBeNull();
 
       const userActivity = await activityService.getUserActivity(TEST_USER_NAME);
-      expect(userActivity).toBeNull();
+      expect(userActivity.totalActivities).toBe(ZERO_ACTIVITIES);
+      expect(userActivity.lastActive).toBeNull();
     });
   });
 });
