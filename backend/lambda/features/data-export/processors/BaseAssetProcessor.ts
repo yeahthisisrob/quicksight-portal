@@ -5,6 +5,8 @@ import { metadataBucketName } from '../../../shared/config/metadataBucket';
 import type { AssetExportData } from '../../../shared/models/asset-export.model';
 import type { QuickSightService } from '../../../shared/services/aws/QuickSightService';
 import type { S3Service } from '../../../shared/services/aws/S3Service';
+import { assetHistory } from '../../../shared/services/history/AssetHistory';
+import { isVersionedType, snapshotOf } from '../../../shared/services/history/definitionSnapshot';
 import type { TagService } from '../../../shared/services/organization/TagService';
 import type { AssetParserService } from '../../../shared/services/parsing/AssetParserService';
 import { errorMessage } from '../../../shared/utils/errorMessage';
@@ -374,6 +376,7 @@ export abstract class BaseAssetProcessor {
         await this.saveToCollection(bucketName, assetId, exportData);
       } else {
         await this.s3Service.putObject(bucketName, cacheKey, exportData);
+        await this.keepVersion(assetId, exportData, context);
       }
       result.timing.phases.saving = Date.now() - savingStart;
 
@@ -391,6 +394,35 @@ export abstract class BaseAssetProcessor {
       });
 
       return result;
+    }
+  }
+
+  /**
+   * Keep the definition as a version when it changed since the last one
+   * kept. The export it rides on is worth more than the version: a failure
+   * here is logged, never thrown.
+   */
+  private async keepVersion(
+    assetId: string,
+    exportData: AssetExportData,
+    context: ProcessingContext
+  ): Promise<void> {
+    if (!isVersionedType(this.assetType)) return;
+    try {
+      const snapshot = snapshotOf(this.assetType, exportData);
+      if (!snapshot) return;
+      await assetHistory().keep({
+        assetType: this.assetType,
+        assetId,
+        snapshot,
+        ...(context.provenance ? { provenance: context.provenance } : {}),
+      });
+    } catch (error) {
+      logger.warn('History: the version could not be kept', {
+        assetType: this.assetType,
+        assetId,
+        error: errorMessage(error),
+      });
     }
   }
 

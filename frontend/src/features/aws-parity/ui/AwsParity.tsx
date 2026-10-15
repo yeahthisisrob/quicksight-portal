@@ -112,10 +112,10 @@ export const PARITY_ROWS: ParityRow[] = [
   },
   {
     capability: 'Version history',
-    portal: { level: 'no', note: 'Last export only' },
+    portal: { level: 'yes', note: 'Dashboards, analyses, datasets; diff and restore' },
     aws: { level: 'partial', note: 'Dashboards; datasets in console' },
     detail:
-      "To close: versioning on the metadata bucket, a version kept only when the definition changes, with diff and restore of any version. Dashboards merge with QuickSight's own versions.",
+      'A version is kept whenever an export, a refresh or a portal write finds the definition changed, with who changed it and what changed in words. Any version compares with the one before, another, or what is live now, and can be put back as a new version. In the Studio, on every asset row, under Operations, and through the API for the assistant.',
   },
   {
     capability: 'Assets as code, cross-account',

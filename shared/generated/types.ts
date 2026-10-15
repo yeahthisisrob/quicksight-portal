@@ -3118,6 +3118,114 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What changed lately, across the account
+         * @description Every version kept, newest first, across every dashboard, analysis and dataset.
+         */
+        get: operations["getHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/history/{assetType}/{assetId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The versions an asset has been through
+         * @description Newest first. A version is kept whenever an export, a refresh or a
+         *     portal write finds the definition changed (volatile fields such as
+         *     timestamps and status do not count), with who changed it (a person
+         *     when the portal wrote it, "Outside the portal" when an export found
+         *     the change) and what changed in words.
+         */
+        get: operations["getHistoryByAssetTypeByAssetId"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/history/{assetType}/{assetId}/{versionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One version, with its definition */
+        get: operations["getHistoryByAssetTypeByAssetIdByVersionId"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/history/{assetType}/{assetId}/{versionId}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What changed between two versions
+         * @description From the version before (the default), from another version
+         *     (`against=<versionId>`), or from this version to what is live now
+         *     (`against=live`): what changed in words, and every differing path.
+         */
+        get: operations["getHistoryByAssetTypeByAssetIdByVersionIdDiff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/authoring/{assetType}/{assetId}/versions/{versionId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put an earlier version back
+         * @description Writes the definition that version kept over the live asset, as a
+         *     new version (the rollback is itself a change, recorded with who did
+         *     it and which version came back), so nothing is lost. Runs as a job:
+         *     poll `GET /api/jobs/{jobId}` and read the `RollbackResult` from
+         *     `GET /api/jobs/{jobId}/result`; the catalog entry is refreshed before
+         *     the job completes.
+         */
+        post: operations["postAuthoringByAssetTypeByAssetIdVersionsByVersionIdRestore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6522,6 +6630,11 @@ export interface components {
             entity: components["schemas"]["ContextEntity"];
             /** @description What people and the portal have said about it, newest first (see /api/knowledge). */
             notes?: components["schemas"]["Note"][];
+            /** @description The versions kept of an asset entity, newest first (see /api/history); absent when none. */
+            history?: {
+                total: number;
+                versions: components["schemas"]["AssetVersion"][];
+            };
             relations: {
                 relation: components["schemas"]["ContextRelation"];
                 /** @enum {string} */
@@ -6582,6 +6695,74 @@ export interface components {
         JobQueuedEnvelope: {
             success: boolean;
             data: components["schemas"]["JobQueued"];
+        };
+        /** @description One version of a dashboard, analysis or dataset the portal kept. */
+        AssetVersion: {
+            /** @enum {string} */
+            assetType: "dashboard" | "analysis" | "dataset";
+            assetId: string;
+            /** @description Time-ordered and unique. */
+            versionId: string;
+            /** Format: date-time */
+            at: string;
+            name: string;
+            /** @description A hash of the definition with volatile fields removed. */
+            hash: string;
+            /**
+             * @description Seen by an export (made outside the portal), written by the portal, or a rollback.
+             * @enum {string}
+             */
+            source: "export" | "portal" | "rollback";
+            /** @description Who made it when the portal knows; else "Outside the portal". */
+            by: string;
+            /** @description The portal action behind a portal write (authoring.update, ...). */
+            action?: string;
+            /** @description What changed since the version before, in a line. */
+            summary: string;
+            changes: string[];
+            previousVersionId?: string;
+            /** @description QuickSight's own version number, dashboards only. */
+            quickSightVersion?: number;
+            /** @description The definition object's size in bytes. */
+            size: number;
+        };
+        VersionDiffEntry: {
+            path: string;
+            /** @enum {string} */
+            kind: "added" | "removed" | "changed";
+            before?: unknown;
+            after?: unknown;
+        };
+        VersionDiff: {
+            from?: components["schemas"]["AssetVersion"];
+            to?: components["schemas"]["AssetVersion"];
+            /** @description True when `from` is compared with what is live now; `to` is then absent. `from` is absent when `to` is the first version. */
+            live: boolean;
+            summary: string;
+            changes: string[];
+            entries: components["schemas"]["VersionDiffEntry"][];
+            truncated: boolean;
+            /** @description With `include=definitions`; null when `from` is absent. */
+            fromDefinition?: {
+                [key: string]: unknown;
+            } | null;
+            /** @description With `include=definitions`. */
+            toDefinition?: {
+                [key: string]: unknown;
+            };
+        };
+        RollbackResult: {
+            /** @enum {string} */
+            assetType: "dashboard" | "analysis" | "dataset";
+            assetId: string;
+            name: string;
+            /** @description The version put back. */
+            versionId: string;
+            /** Format: date-time */
+            versionAt: string;
+            /** @description Dashboards only. The QuickSight version the rollback created. */
+            versionNumber?: number;
+            warnings: string[];
         };
         /**
          * @description A call that runs as a job. Poll `GET /api/jobs/{jobId}` until
@@ -6833,6 +7014,8 @@ export interface components {
         FieldSourceId: string;
         FieldName: string;
         AuthorableAssetType: components["schemas"]["AuthorableAssetType"];
+        VersionedAssetType: "dashboard" | "analysis" | "dataset";
+        VersionId: string;
         AuthoringAssetId: string;
         PlaybookId: string;
         /** @description `archive` reads the copy the portal kept when the asset was deleted, instead of QuickSight, so an archived asset can be checked, repaired, edited and previewed before it is restored. */
@@ -11456,6 +11639,168 @@ export interface operations {
                     };
                 };
             };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getHistory: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Versions, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            versions: components["schemas"]["AssetVersion"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getHistoryByAssetTypeByAssetId: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                assetType: components["parameters"]["VersionedAssetType"];
+                assetId: components["parameters"]["AuthoringAssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Versions, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            versions: components["schemas"]["AssetVersion"][];
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getHistoryByAssetTypeByAssetIdByVersionId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: components["parameters"]["VersionedAssetType"];
+                assetId: components["parameters"]["AuthoringAssetId"];
+                versionId: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The version and the definition it kept */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: {
+                            version: components["schemas"]["AssetVersion"];
+                            /** @description The definition response as kept (volatile fields removed). */
+                            definition: {
+                                [key: string]: unknown;
+                            };
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getHistoryByAssetTypeByAssetIdByVersionIdDiff: {
+        parameters: {
+            query?: {
+                against?: string;
+                include?: "definitions";
+            };
+            header?: never;
+            path: {
+                assetType: components["parameters"]["VersionedAssetType"];
+                assetId: components["parameters"]["AuthoringAssetId"];
+                versionId: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The difference */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["VersionDiff"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postAuthoringByAssetTypeByAssetIdVersionsByVersionIdRestore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assetType: components["parameters"]["VersionedAssetType"];
+                assetId: components["parameters"]["AuthoringAssetId"];
+                versionId: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description The rollback was queued; its result is the RollbackResult */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        data: components["schemas"]["JobQueued"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
         };
     };

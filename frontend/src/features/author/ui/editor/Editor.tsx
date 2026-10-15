@@ -17,6 +17,8 @@ import { Box, Button, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/
 import { formatDistanceToNow } from 'date-fns';
 import { useMemo, useState } from 'react';
 
+import { VersionHistory } from '@/entities/asset-version';
+
 import { TabBar } from '@/shared/design-system';
 
 import { outlineFromModel } from '../../lib/ops';
@@ -38,6 +40,28 @@ import { SourceRestorePanel } from './SourceRestorePanel';
 import { ThemePanel } from './ThemePanel';
 
 const SIDE_WIDTH = 420;
+
+/** The versions the open asset has been through; a rollback reopens it live. */
+function HistoryPanel({ studio }: { studio: Studio }) {
+  const source = studio.state.source;
+  if (!source) return null;
+  if (studio.state.origin === 'archive') {
+    return (
+      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+        History is kept for live assets; restore this one first.
+      </Typography>
+    );
+  }
+  return (
+    <VersionHistory
+      assetType={source.type}
+      assetId={source.id}
+      assetName={source.name}
+      layout="stacked"
+      onRestored={() => studio.open(source, 'live')}
+    />
+  );
+}
 
 function ChangesPanel({ studio }: { studio: Studio }) {
   const sourceOutline = useMemo(
@@ -89,6 +113,7 @@ function SidePanel({ studio, sheetId }: { studio: Studio; sheetId: string }) {
     { value: 'changes', label: 'Changes', badge: state.ops.length || undefined },
     { value: 'data', label: 'Data', badge: ungoverned || undefined },
     { value: 'notes', label: 'Notes' },
+    { value: 'history', label: 'History' },
     { value: 'theme', label: 'Theme' },
   ];
 
@@ -121,6 +146,7 @@ function SidePanel({ studio, sheetId }: { studio: Studio; sheetId: string }) {
         {state.panel === 'changes' && <ChangesPanel studio={studio} />}
         {state.panel === 'data' && <DataPanel studio={studio} />}
         {state.panel === 'notes' && <NotesPanel studio={studio} />}
+        {state.panel === 'history' && <HistoryPanel studio={studio} />}
         {state.panel === 'theme' && <ThemePanel studio={studio} />}
       </Box>
     </Panel>

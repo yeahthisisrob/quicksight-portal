@@ -13,6 +13,10 @@ import { activityReader } from '../../../shared/services/activity/activityReader
 import { ClientFactory } from '../../../shared/services/aws/ClientFactory';
 import { CacheService } from '../../../shared/services/cache/CacheService';
 import { isQuickSightColumnType } from '../../../shared/services/datasets/columnTypes';
+import {
+  isVersionedType,
+  type VersionedAssetType,
+} from '../../../shared/services/history/definitionSnapshot';
 import { jobFactory } from '../../../shared/services/jobs/JobFactory';
 import { SmusService } from '../../../shared/services/smus/SmusService';
 import { createResponse, errorResponse, successResponse } from '../../../shared/utils/cors';
@@ -235,6 +239,45 @@ export class AuthoringHandler {
     } catch (error: any) {
       logger.error('Restore failed', { error });
       return this.failure(event, error, 'Failed to queue the restore');
+    }
+  }
+
+  /**
+   * POST /authoring/{assetType}/{assetId}/versions/{versionId}/restore -
+   * put an earlier version back, as a job (the write and the refresh that
+   * records it outlast a web request). The result is a RollbackResult.
+   */
+  public async rollback(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    try {
+      const user = await requireAuth(event);
+      const assetType = event.pathParameters?.assetType ?? '';
+      const assetId = event.pathParameters?.assetId ?? '';
+      const versionId = event.pathParameters?.versionId ?? '';
+      if (!isVersionedType(assetType as any)) {
+        throw badRequest('History is kept for dashboards, analyses and datasets');
+      }
+      if (!assetId || !versionId) {
+        throw badRequest('Asset id and version id are required');
+      }
+      logger.info('Rollback requested', { user: user.email, assetType, assetId, versionId });
+      const queued = await jobFactory.createJob({
+        jobType: 'planner',
+        accountId: this.accountId,
+        bucketName: metadataBucketName(this.accountId),
+        userId: user.userId,
+        startedBy: actorLabel(user),
+        request: {
+          kind: 'rollback',
+          assetType: assetType as VersionedAssetType,
+          assetId,
+          versionId,
+        },
+        auth: user,
+      });
+      return createResponse(event, STATUS_CODES.ACCEPTED, { success: true, data: queued });
+    } catch (error: any) {
+      logger.error('Rollback failed', { error });
+      return this.failure(event, error, 'Failed to queue the rollback');
     }
   }
 

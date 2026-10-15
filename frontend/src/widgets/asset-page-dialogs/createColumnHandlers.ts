@@ -23,6 +23,7 @@ import type {
   UpdateGroupDialogState,
   UserAssetAccessDialogState,
   UserGroupsDialogState,
+  VersionHistoryDialogState,
   WireframeDialogState,
 } from './useDialogStates';
 
@@ -43,6 +44,7 @@ interface DialogSetters {
   setRenameAssetDialog: (state: RenameAssetDialogState) => void;
   setDatasetSourceDialog: (state: DatasetSourceDialogState) => void;
   setWireframeDialog: (state: WireframeDialogState) => void;
+  setVersionHistoryDialog: (state: VersionHistoryDialogState) => void;
   setRebindDialog: (state: RebindDialogState) => void;
   setNotifyInactiveAnalysesDialog: (state: NotifyInactiveAnalysesDialogState) => void;
   setNotifyUnusedDatasetsDialog: (state: NotifyUnusedDatasetsDialogState) => void;
@@ -77,6 +79,7 @@ export function createColumnHandlers(
     setRenameAssetDialog,
     setDatasetSourceDialog,
     setWireframeDialog,
+    setVersionHistoryDialog,
     setRebindDialog,
     setNotifyInactiveAnalysesDialog,
     setNotifyUnusedDatasetsDialog,
@@ -143,6 +146,9 @@ export function createColumnHandlers(
     },
     onWireframeClick: (asset: any) => {
       setWireframeDialog({ open: true, asset });
+    },
+    onVersionHistoryClick: (asset: any) => {
+      setVersionHistoryDialog({ open: true, asset });
     },
     onRebindClick: (asset: any) => {
       setRebindDialog({ open: true, asset });

@@ -11,6 +11,8 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 import { requireAuth } from '../../../shared/auth';
 import { STATUS_CODES } from '../../../shared/constants';
+import { type AssetVersion, assetHistory } from '../../../shared/services/history/AssetHistory';
+import type { VersionedAssetType } from '../../../shared/services/history/definitionSnapshot';
 import { knowledge } from '../../../shared/services/knowledge/KnowledgeStore';
 import { errorResponse, successResponse } from '../../../shared/utils/cors';
 import { logger } from '../../../shared/utils/logger';
@@ -134,6 +136,23 @@ export async function contextSearch(event: APIGatewayProxyEvent): Promise<APIGat
   }
 }
 
+const HISTORY_PREVIEW = 5;
+
+/** The last few versions of a dashboard, analysis or dataset entity, and how many there are. */
+async function historyOf(
+  entityId: string
+): Promise<{ total: number; versions: AssetVersion[] } | null> {
+  const match = entityId.match(/^(dashboard|analysis|dataset):(.+)$/);
+  if (!match) return null;
+  try {
+    const versions = await assetHistory().list(match[1] as VersionedAssetType, match[2]!);
+    if (versions.length === 0) return null;
+    return { total: versions.length, versions: versions.slice(0, HISTORY_PREVIEW) };
+  } catch {
+    return null;
+  }
+}
+
 export async function contextEntity(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   try {
     await requireAuth(event);
@@ -159,7 +178,12 @@ export async function contextEntity(event: APIGatewayProxyEvent): Promise<APIGat
     }));
     // What people and the portal have said about it: confirmed first, then open drafts.
     const notes = await knowledge.list(id).catch(() => []);
-    return successResponse(event, { success: true, data: { entity, relations, notes } });
+    // What it has been through: the versions kept, newest first (assets only).
+    const history = await historyOf(id);
+    return successResponse(event, {
+      success: true,
+      data: { entity, relations, notes, ...(history ? { history } : {}) },
+    });
   } catch (error: any) {
     return fail(event, error, 'Context entity failed');
   }

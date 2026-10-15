@@ -317,6 +317,59 @@ const note = new Entity({
   },
 });
 
+const VERSION_SOURCES = ['export', 'portal', 'rollback'] as const;
+export type AssetVersionSource = (typeof VERSION_SOURCES)[number];
+
+/**
+ * One version of a dashboard, analysis or dataset: kept whenever an export
+ * or a refresh finds its definition changed. The row is the index (when,
+ * who, what changed, in words); the definition itself is an object in the
+ * bucket under `history/`, named by the row's versionId.
+ */
+const assetVersion = new Entity({
+  model: { entity: 'assetVersion', version: '1', service },
+  attributes: {
+    assetType: { type: 'string', required: true },
+    assetId: { type: 'string', required: true },
+    /** Time-ordered and unique: the time compacted, plus a few random characters. */
+    versionId: { type: 'string', required: true },
+    at: { type: 'string', required: true },
+    name: { type: 'string', required: true },
+    /** A hash of the definition with volatile fields removed; equal hashes are one version. */
+    hash: { type: 'string', required: true },
+    /** How the change arrived: seen by an export, written by the portal, or a rollback. */
+    source: { type: VERSION_SOURCES, required: true },
+    /** Who made it when the portal knows (a person's label); else what saw it. */
+    by: { type: 'string', required: true },
+    /** The portal action behind a portal write (authoring.update, ...). */
+    action: { type: 'string' },
+    /** What changed since the version before, in a line. */
+    summary: { type: 'string', required: true },
+    /** What changed, line by line. */
+    changes: { type: 'list', items: { type: 'string' }, required: true },
+    /** The version before this one, when there is one. */
+    previousVersionId: { type: 'string' },
+    /** QuickSight's own version number, dashboards only. */
+    quickSightVersion: { type: 'number' },
+    /** The definition object's size in the bucket. */
+    size: { type: 'number', required: true },
+    /** Constant: every version of every asset, time-ordered, for the account-wide feed. */
+    feed: { type: 'string', required: true, default: 'all' },
+  },
+  indexes: {
+    byAsset: {
+      pk: { field: 'pk', composite: ['assetType', 'assetId'], ...keep },
+      sk: { field: 'sk', composite: ['versionId'], ...keep },
+    },
+    /** Every version across the account, newest first: what changed lately. */
+    byTime: {
+      index: 'gsi1',
+      pk: { field: 'gsi1pk', composite: ['feed'], ...keep },
+      sk: { field: 'gsi1sk', composite: ['versionId'], ...keep },
+    },
+  },
+});
+
 /** A type's catalog version: bumped on every change, so a Lambda knows when its copy is stale. */
 const catalogVersion = new Entity({
   model: { entity: 'catalogVersion', version: '1', service },
@@ -345,6 +398,7 @@ const ENTITIES = {
   catalogEntry,
   catalogVersion,
   note,
+  assetVersion,
 };
 
 export type PortalEntities = typeof ENTITIES;
@@ -352,6 +406,7 @@ export type JobRow = EntityItem<typeof job>;
 export type JobItemRow = EntityItem<typeof jobItem>;
 export type CatalogEntryRow = EntityItem<typeof catalogEntry>;
 export type NoteRow = EntityItem<typeof note>;
+export type AssetVersionRow = EntityItem<typeof assetVersion>;
 
 let instance: Service<PortalEntities> | null = null;
 

@@ -12,6 +12,7 @@ import {
 import { memo } from 'react';
 
 import { BulkDeleteDialog, DefinitionErrorsDialog, RenameAssetDialog } from '@/entities/asset';
+import { VersionHistoryDialog } from '@/entities/asset-version';
 import { DatasetSourceDialog, RefreshScheduleDialog } from '@/entities/dataset';
 import { WireframeDialog } from '@/entities/definition';
 import { AddToFolderDialog } from '@/entities/folder';
@@ -56,6 +57,7 @@ import type {
   UpdateGroupDialogState,
   UserAssetAccessDialogState,
   UserGroupsDialogState,
+  VersionHistoryDialogState,
   WireframeDialogState,
 } from './useDialogStates';
 
@@ -302,6 +304,8 @@ interface DialogManagerProps {
   setDatasetSourceDialog: (state: DatasetSourceDialogState) => void;
   wireframeDialog: WireframeDialogState;
   setWireframeDialog: (state: WireframeDialogState) => void;
+  versionHistoryDialog: VersionHistoryDialogState;
+  setVersionHistoryDialog: (state: VersionHistoryDialogState) => void;
   rebindDialog: RebindDialogState;
   setRebindDialog: (state: RebindDialogState) => void;
   notifyInactiveAnalysesDialog: NotifyInactiveAnalysesDialogState;
@@ -368,6 +372,8 @@ export function DialogManager({
   setDatasetSourceDialog,
   wireframeDialog,
   setWireframeDialog,
+  versionHistoryDialog,
+  setVersionHistoryDialog,
   rebindDialog,
   setRebindDialog,
   notifyInactiveAnalysesDialog,
@@ -457,6 +463,18 @@ export function DialogManager({
           assetType={assetType}
         />
       )}
+
+      {/* The versions a dashboard, analysis or dataset has been through */}
+      {versionHistoryDialog.asset &&
+        (assetType === 'dashboard' || assetType === 'analysis' || assetType === 'dataset') && (
+          <VersionHistoryDialog
+            open={versionHistoryDialog.open}
+            onClose={() => setVersionHistoryDialog({ open: false, asset: null })}
+            assetType={assetType}
+            assetId={versionHistoryDialog.asset.id}
+            assetName={versionHistoryDialog.asset.name}
+          />
+        )}
 
       {/* Point a dashboard/analysis at different datasets, in place or as a copy */}
       {rebindDialog.asset && (assetType === 'dashboard' || assetType === 'analysis') && (

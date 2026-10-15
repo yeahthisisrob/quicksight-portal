@@ -15,6 +15,7 @@ export {
 export { exportApi } from './modules/export';
 export { foldersApi } from './modules/folders';
 export { groupsApi } from './modules/groups';
+export { historyApi } from './modules/history';
 export { ingestionsApi } from './modules/ingestions';
 export { jobsApi } from './modules/jobs';
 export { knowledgeApi } from './modules/knowledge';
