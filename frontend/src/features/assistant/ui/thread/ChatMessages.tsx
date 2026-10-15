@@ -38,18 +38,48 @@ function useElapsed(since: number | undefined): number {
   return since ? Math.max(0, Math.round((now - since) / MS_PER_S)) : 0;
 }
 
-/** What the assistant is doing right now, and for how long. */
+/** How many of the steps taken so far are shown under the status line. */
+const RECENT_EVENTS = 6;
+
+/** What the assistant is doing right now, for how long, and the steps it took to get here. */
 function Working({ status }: EmptyMessagePartProps) {
-  const { status: doing, since } = useChatStatus();
+  const { status: doing, since, events = [] } = useChatStatus();
   const seconds = useElapsed(since);
   if (status.type !== 'running') return null;
+  const recent = events.slice(-RECENT_EVENTS);
+  return (
+    <Stack spacing={0.75} data-testid="assistant-working" role="status" aria-live="polite">
+      <WorkingLine doing={doing} seconds={seconds} />
+      {recent.length > 0 && (
+        <Box component="ol" sx={{ m: 0, pl: 2.25, color: 'text.secondary' }}>
+          {recent.map((event, i) => (
+            <Box component="li" key={`${events.length - recent.length + i}-${event.message}`}>
+              <Typography variant="caption" component="span">
+                {event.message}
+                {event.ms !== undefined ? ` · ${ms(event.ms)}` : ''}
+              </Typography>
+              {event.note && (
+                <Typography
+                  variant="caption"
+                  component="span"
+                  sx={{ display: 'block', fontStyle: 'italic', opacity: 0.8 }}
+                >
+                  {event.note}
+                </Typography>
+              )}
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Stack>
+  );
+}
+
+function WorkingLine({ doing, seconds }: { doing: string | null; seconds: number }) {
   return (
     <Stack
       direction="row"
       spacing={1.25}
-      data-testid="assistant-working"
-      role="status"
-      aria-live="polite"
       sx={{ alignItems: 'center', color: 'text.secondary', minHeight: 28 }}
     >
       <Box
@@ -126,14 +156,20 @@ function chip(label: string) {
 const ms = (value: number | undefined) =>
   value === undefined ? '' : value >= 1000 ? `${(value / 1000).toFixed(1)} s` : `${value} ms`;
 
-/** Every call behind an answer, in order: what for, which, how it went, how long. */
+/** A trace row that is a model turn, not a call to the portal (the contract's MODEL method). */
+const isModelTurn = (call: AnswerMeta['calls'][number]) => call.method === 'MODEL';
+
+/** Every call and model turn behind an answer, in order: what for, which, how it went, how long. */
 function CallTrace({ calls }: { calls: AnswerMeta['calls'] }) {
   const total = calls.reduce((sum, c) => sum + (c.ms ?? 0), 0);
+  const looked = calls.filter((c) => !isModelTurn(c)).length;
+  const thought = calls.filter(isModelTurn).length;
   return (
     <Box sx={{ p: 1.5, maxWidth: 560, maxHeight: 420, overflow: 'auto' }}>
       <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-        Looked at {calls.length} thing{calls.length === 1 ? '' : 's'}
-        {total > 0 ? ` in ${ms(total)}` : ''}
+        Looked at {looked} thing{looked === 1 ? '' : 's'}
+        {thought > 0 ? `, thought ${thought} time${thought === 1 ? '' : 's'}` : ''}
+        {total > 0 ? `, ${ms(total)} in all` : ''}
       </Typography>
       <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
         <tbody>
@@ -146,7 +182,15 @@ function CallTrace({ calls }: { calls: AnswerMeta['calls'] }) {
                   </Typography>
                 </td>
                 <td style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
-                  {call.method} {call.path}
+                  {isModelTurn(call) ? call.path : `${call.method} ${call.path}`}
+                  {call.note && (
+                    <Typography
+                      variant="caption"
+                      sx={{ display: 'block', fontFamily: 'inherit', fontStyle: 'italic' }}
+                    >
+                      {call.note}
+                    </Typography>
+                  )}
                 </td>
                 <td>
                   <Typography
@@ -183,7 +227,7 @@ function AnswerFooter() {
   const meta = answerMetaOf(useAuiState((s) => s.message.metadata.custom));
   const [traceAt, setTraceAt] = useState<HTMLElement | null>(null);
   if (!meta) return null;
-  const looked = meta.calls.length;
+  const looked = meta.calls.filter((c) => !isModelTurn(c)).length;
   const spent = meta.calls.reduce((sum, c) => sum + (c.ms ?? 0), 0);
   return (
     <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
@@ -197,14 +241,14 @@ function AnswerFooter() {
           {chip(`Planner: ${helper.label}`)}
         </Tooltip>
       ))}
-      {looked > 0 && (
+      {meta.calls.length > 0 && (
         <>
           <Chip
             size="small"
             variant="outlined"
             clickable
             onClick={(e) => setTraceAt(e.currentTarget)}
-            label={`Looked at ${looked} thing${looked === 1 ? '' : 's'}${spent > 0 ? ` · ${ms(spent)}` : ''}`}
+            label={`${looked > 0 ? `Looked at ${looked} thing${looked === 1 ? '' : 's'}` : `${meta.calls.length} step${meta.calls.length === 1 ? '' : 's'}`}${spent > 0 ? ` · ${ms(spent)}` : ''}`}
             sx={{ height: 22, fontSize: '0.6875rem', color: 'text.secondary' }}
           />
           <Popover

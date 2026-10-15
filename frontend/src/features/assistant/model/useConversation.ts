@@ -7,10 +7,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { assistantApi } from '@/shared/api';
+import { assistantApi, jobsApi } from '@/shared/api';
 import type { AgUiInterrupt } from '@/shared/api/modules/assistant';
 import { useAiModel } from '@/shared/lib';
 
+import type { ChatEvent } from '../ui/thread/chatStatus';
 import {
   type ActionRun,
   type Conversation,
@@ -34,10 +35,23 @@ function browserStorage(): Storage | undefined {
   }
 }
 
+/** A job log line as a step of the work: its message, how long it took, and the model's note. */
+function eventOf(log: { message: string; details?: Record<string, unknown> }): ChatEvent {
+  const ms = log.details?.ms;
+  const note = log.details?.note;
+  return {
+    message: log.message,
+    ...(typeof ms === 'number' ? { ms } : {}),
+    ...(typeof note === 'string' && note ? { note } : {}),
+  };
+}
+
 interface ConversationState {
   conversation: Conversation;
   /** What the assistant said it is doing, while it works. */
   status: string | null;
+  /** The steps it has taken so far on the answer in flight, as the job logs them. */
+  events: ChatEvent[];
   error: string | null;
   busy: boolean;
   ask: (text: string) => void;
@@ -57,6 +71,7 @@ export function useConversation(): ConversationState {
     loadConversation(browserStorage())
   );
   const [status, setStatus] = useState<string | null>(null);
+  const [events, setEvents] = useState<ChatEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const waiting = useRef<string | null>(null);
 
@@ -71,11 +86,32 @@ export function useConversation(): ConversationState {
     waiting.current = jobId;
     setError(null);
     setStatus('Thinking');
+    setEvents([]);
+    // The job logs each step as it is taken; every status read also reads
+    // the lines logged since the last one, so the page shows the work live.
+    let cursor: string | undefined;
+    let reading = false;
+    const readEvents = async () => {
+      if (reading) return;
+      reading = true;
+      try {
+        const page = await jobsApi.getJobLogPage(jobId, cursor);
+        cursor = page.cursor ?? cursor;
+        if (waiting.current === jobId && page.logs.length) {
+          setEvents((current) => [...current, ...page.logs.map(eventOf)]);
+        }
+      } catch {
+        // The log is a courtesy; the answer arrives regardless.
+      } finally {
+        reading = false;
+      }
+    };
     assistantApi
       .waitForAnswer(jobId, (job) => {
         if (waiting.current === jobId && job.message) {
           setStatus(job.message);
         }
+        void readEvents();
       })
       .then((result) => {
         if (waiting.current === jobId) {
@@ -92,6 +128,7 @@ export function useConversation(): ConversationState {
         if (waiting.current === jobId) {
           waiting.current = null;
           setStatus(null);
+          setEvents([]);
         }
       });
   }, []);
@@ -187,15 +224,29 @@ export function useConversation(): ConversationState {
   const cancel = useCallback(() => {
     waiting.current = null;
     setStatus(null);
+    setEvents([]);
     setConversation((c) => withoutPending(c));
   }, []);
 
   const reset = useCallback(() => {
     waiting.current = null;
     setStatus(null);
+    setEvents([]);
     setError(null);
     setConversation(EMPTY_CONVERSATION);
   }, []);
 
-  return { conversation, status, error, busy, ask, answer, retry, recordRun, cancel, reset };
+  return {
+    conversation,
+    status,
+    events,
+    error,
+    busy,
+    ask,
+    answer,
+    retry,
+    recordRun,
+    cancel,
+    reset,
+  };
 }

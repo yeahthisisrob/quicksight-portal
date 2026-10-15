@@ -10,6 +10,7 @@ import { JOB_CONFIG, STORAGE_LIMITS, TIME_UNITS, WORKER_CONFIG } from './shared/
 import type { AssetType } from './shared/models/asset.model';
 import { summarizeBulkResult } from './shared/services/bulk/bulkResultSummary';
 import { onCatalogRebuilt, runCatalogRebuiltHooks } from './shared/services/catalog/catalogHooks';
+import { jobFactory } from './shared/services/jobs/JobFactory';
 import { JobStateService } from './shared/services/jobs/JobStateService';
 import { queueService } from './shared/services/jobs/QueueService';
 import { errorMessage } from './shared/utils/errorMessage';
@@ -677,6 +678,14 @@ async function processPlannerJob(message: PlannerMessage, record: any): Promise<
   }
 }
 
+// A planner job created inside the worker (the assistant drafting a plan, a
+// playbook step) runs here and now instead of through the queue: no SQS
+// hop, no second invocation to start cold, and the assistant's first look
+// at the job often finds it done.
+jobFactory.runInline('planner', (message) =>
+  processPlannerJob(message as unknown as PlannerMessage, { messageId: 'in-process' })
+);
+
 /**
  * One message to the assistant. The worker is the composition root here:
  * it gives the assistant a way to call the portal's own routes in-process,
@@ -761,6 +770,7 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       { getPlannerConfig },
       { BedrockChatModel, OpenAiChatModel },
       { AssistantService },
+      { understandWith },
       { inProcessDispatch },
       { settingsStore },
       { readAuthoringGuidance },
@@ -773,6 +783,7 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
       import('./shared/config/plannerConfig'),
       import('./features/assistant/services/ChatModel'),
       import('./features/assistant/services/AssistantService'),
+      import('./features/assistant/lib/understanding'),
       import('./api/inProcessDispatch'),
       import('./shared/services/settings/SettingsStore'),
       import('./shared/ai/authoringGuidance'),
@@ -791,13 +802,15 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
         ? new OpenAiChatModel(config.openAi.baseUrl, config.openAi.apiKey, openAiModelId(), model)
         : new BedrockChatModel(new BedrockAdapter(config.region), model);
     const dispatch = inProcessDispatch(message.auth);
+    const vocabulary = readCustomVocabulary();
     const started = Date.now();
     const result = await new AssistantService(chat, model, dispatch, {
       brief: true,
       smus: getSmusConfig().enabled,
       guidance: readAuthoringGuidance(),
-      vocabulary: readCustomVocabulary(),
+      vocabulary,
       tagStandards: readTagStandards(),
+      understand: understandWith(chat, vocabulary),
       ...(message.authoringModel && isAiModelKey(message.authoringModel)
         ? { authoringModel: message.authoringModel }
         : {}),
@@ -811,6 +824,19 @@ async function processAssistantJob(message: AssistantMessage, record: any): Prom
             ASSISTANT_PROGRESS_CEILING,
             Math.round((Date.now() - started) / ASSISTANT_MS_PER_SECOND)
           ),
+        }),
+      // And each trace row lands in the job's log as it happens, so the page
+      // can show the work as it is done, not only once it is over.
+      onCall: (call) =>
+        jobStateService.appendLog(jobId, {
+          timestamp: new Date().toISOString(),
+          level: call.ok ? 'info' : 'warn',
+          message: `${call.step ?? 'Working'}: ${call.method === 'MODEL' ? call.path : `${call.method} ${call.path}`}`,
+          details: {
+            ms: call.ms,
+            ...(call.note ? { note: call.note } : {}),
+            ...(call.detail ? { steps: call.detail } : {}),
+          },
         }),
     }).respond(message.messages, {
       ...(message.threadId ? { threadId: message.threadId } : {}),

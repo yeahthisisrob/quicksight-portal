@@ -3066,10 +3066,16 @@ export interface components {
                 provider: string;
             }[];
             reply: string;
-            /** @description Every read and preview the answer made, in order, with what each was for and how long it took. */
+            /**
+             * @description Every read, preview and model turn behind the answer, in order,
+             *     with what each was for and how long it took. A model turn has
+             *     method MODEL and the model's label as its path.
+             */
             calls: {
                 method: string;
                 path: string;
+                /** @description For a model turn, what it thought or said while it acted, in a line. */
+                note?: string;
                 status: number;
                 ok: boolean;
                 /** @description What the call was for, in words (Searching, Asking the planner...). */

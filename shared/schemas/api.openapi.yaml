@@ -6485,7 +6485,10 @@ components:
           type: string
         calls:
           type: array
-          description: Every read and preview the answer made, in order, with what each was for and how long it took.
+          description: |
+            Every read, preview and model turn behind the answer, in order,
+            with what each was for and how long it took. A model turn has
+            method MODEL and the model's label as its path.
           items:
             type: object
             required: [method, path, status, ok]
@@ -6494,6 +6497,9 @@ components:
                 type: string
               path:
                 type: string
+              note:
+                type: string
+                description: For a model turn, what it thought or said while it acted, in a line.
               status:
                 type: integer
               ok:

@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import type { SmusConfig } from '../../config/smusConfig';
 import type { AssetType } from '../../models/asset.model';
+import { errorMessage } from '../../utils/errorMessage';
 import { executeJobLocallyAsync, isLocalDevelopment } from '../../utils/localDevelopment';
 import { logger } from '../../utils/logger';
 import { JobRepository } from './JobRepository';
@@ -141,8 +142,11 @@ type JobConfig =
   | AssetRefreshJobConfig
   | PlaybookJobConfig;
 
+type InlineRunner = (message: QueueMessage) => Promise<void>;
+
 export class JobFactory {
   private static instance: JobFactory;
+  private readonly inlineRunners = new Map<string, InlineRunner>();
 
   public static getInstance(): JobFactory {
     if (!JobFactory.instance) {
@@ -153,6 +157,17 @@ export class JobFactory {
 
   private constructor() {
     // JobFactory handles job creation and queueing
+  }
+
+  /**
+   * Run jobs of this type in this process instead of queuing them. The
+   * worker registers the planner: a planner job the assistant creates from
+   * inside the worker then starts at once, in the same invocation, instead
+   * of waiting on SQS and a second, usually cold, invocation. The job record
+   * is created and finished exactly as a queued one would be.
+   */
+  public runInline(jobType: string, runner: InlineRunner): void {
+    this.inlineRunners.set(jobType, runner);
   }
 
   public async createJob(
@@ -227,6 +242,7 @@ export class JobFactory {
       initialMessage,
     };
 
+    const inline = this.inlineRunners.get(config.jobType);
     try {
       if (isLocalDevelopment()) {
         // In local dev, simulate SQS by directly calling the worker
@@ -235,6 +251,14 @@ export class JobFactory {
           jobType: config.jobType,
           message,
         });
+      } else if (inline) {
+        // The next tick, so the caller gets its job id before the work starts.
+        setTimeout(() => {
+          inline(message).catch((error) => {
+            logger.error('Inline job failed', { jobId, error: errorMessage(error) });
+          });
+        }, 0);
+        logger.info('Job started in-process', { jobId, jobType: config.jobType });
       } else {
         // Production: Send to SQS
         await queueService.sendMessage(message);

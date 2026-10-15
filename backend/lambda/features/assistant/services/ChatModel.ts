@@ -6,7 +6,7 @@
  */
 import type { ContentBlock, Message } from '@aws-sdk/client-bedrock-runtime';
 
-import type { BedrockAdapter } from '../../../adapters/aws/BedrockAdapter';
+import type { BedrockAdapter, ConverseEffort } from '../../../adapters/aws/BedrockAdapter';
 import { type AiModel, aiEffort } from '../../../shared/ai/modelCatalog';
 
 interface ToolCall {
@@ -38,6 +38,8 @@ export interface ChatTurnResult {
   toolCalls: ToolCall[];
   raw: unknown;
   usage: { inputTokens: number; outputTokens: number };
+  /** What a thinking model thought before it answered, in one line, for the person watching. */
+  reasoning?: string;
 }
 
 /** The rules (identical every turn, so cached) and the live brief of the account. */
@@ -46,15 +48,38 @@ export interface ChatSystem {
   context?: string;
 }
 
+export interface ChatTurnOptions {
+  /** How hard to think on this turn, where the model takes it; the Settings effort otherwise. */
+  effort?: ConverseEffort;
+}
+
 export interface ChatModel {
-  turn(system: ChatSystem, turns: ChatTurn[], tools: ChatTool[]): Promise<ChatTurnResult>;
+  turn(
+    system: ChatSystem,
+    turns: ChatTurn[],
+    tools: ChatTool[],
+    options?: ChatTurnOptions
+  ): Promise<ChatTurnResult>;
 }
 
 const THINKING_MAX_TOKENS = 16_000;
 const PLAIN_MAX_TOKENS = 4_096;
+const REASONING_EXCERPT = 240;
 
 function maxTokensFor(model: AiModel): number {
   return model.thinks ? THINKING_MAX_TOKENS : PLAIN_MAX_TOKENS;
+}
+
+/** The first line or so of what the model thought, from its reasoning blocks. */
+function reasoningOf(blocks: ContentBlock[]): string | undefined {
+  const text = blocks
+    .map((b) => (b as any).reasoningContent?.reasoningText?.text)
+    .filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text) return undefined;
+  return text.length > REASONING_EXCERPT ? `${text.slice(0, REASONING_EXCERPT)}…` : text;
 }
 
 export class BedrockChatModel implements ChatModel {
@@ -66,7 +91,8 @@ export class BedrockChatModel implements ChatModel {
   public async turn(
     system: ChatSystem,
     turns: ChatTurn[],
-    tools: ChatTool[]
+    tools: ChatTool[],
+    options: ChatTurnOptions = {}
   ): Promise<ChatTurnResult> {
     const messages: Message[] = turns.map((turn): Message => {
       if (turn.role === 'user') {
@@ -111,9 +137,10 @@ export class BedrockChatModel implements ChatModel {
       tools,
       maxTokens: maxTokensFor(this.model),
       capabilities: this.model.capabilities,
-      ...(this.model.capabilities.effort ? { effort: aiEffort() } : {}),
+      ...(this.model.capabilities.effort ? { effort: options.effort ?? aiEffort() } : {}),
     });
     const blocks = result.message.content ?? [];
+    const reasoning = reasoningOf(blocks);
     return {
       text: blocks
         .map((b) => b.text ?? '')
@@ -128,6 +155,7 @@ export class BedrockChatModel implements ChatModel {
         })),
       raw: result.message,
       usage: result.usage,
+      ...(reasoning ? { reasoning } : {}),
     };
   }
 }

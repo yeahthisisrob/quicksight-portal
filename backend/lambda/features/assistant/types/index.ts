@@ -73,6 +73,8 @@ export interface AssistantCall {
   ms?: number;
   /** The planner's own steps inside this call, each timed. */
   detail?: Array<{ label: string; ms: number }>;
+  /** For a model turn: what it thought or said while it acted, in a line. */
+  note?: string;
 }
 
 /**

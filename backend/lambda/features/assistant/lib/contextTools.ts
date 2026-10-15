@@ -45,6 +45,58 @@ function attributes(attrs: Record<string, unknown> | undefined): string {
     : '';
 }
 
+/** A graph hit as code reads it: its id (`type:id`), type and name. */
+export interface GraphHit {
+  entityId: string;
+  type: string;
+  name: string;
+  summary: string;
+}
+
+function hitsOf(raw: unknown): GraphHit[] {
+  return (Array.isArray(raw) ? raw : [])
+    .filter((h: any) => typeof h?.entityId === 'string')
+    .map((h: any) => ({
+      entityId: h.entityId,
+      type: typeof h.type === 'string' ? h.type : (h.entityId.split(':')[0] ?? ''),
+      name: typeof h.name === 'string' ? h.name : '',
+      summary: typeof h.summary === 'string' ? h.summary : '',
+    }));
+}
+
+/** The search's hits, for code that resolves a name to an entity. */
+export async function searchHits(
+  dispatch: Dispatch,
+  input: { query: string; types?: string[]; limit?: number }
+): Promise<GraphHit[]> {
+  const result = await data(
+    dispatch,
+    `/api/context/search${query({
+      q: input.query,
+      types: input.types?.join(','),
+      limit: Math.min(input.limit ?? SEARCH_LIMIT, SEARCH_LIMIT * 2),
+    })}`
+  );
+  return result.status >= FIRST_ERROR_STATUS ? [] : hitsOf(result.data?.hits);
+}
+
+/** What the graph relates to an entity, for code (the datasets an asset reads, say). */
+export async function relatedHits(
+  dispatch: Dispatch,
+  input: { entityId: string; relations: string[]; direction: 'in' | 'out'; types?: string[] }
+): Promise<GraphHit[]> {
+  const result = await data(
+    dispatch,
+    `/api/context/entities/${encodeURIComponent(input.entityId)}/related${query({
+      relations: input.relations.join(','),
+      direction: input.direction,
+      types: input.types?.join(','),
+      limit: RELATED_LIMIT * 2,
+    })}`
+  );
+  return result.status >= FIRST_ERROR_STATUS ? [] : hitsOf(result.data?.hits);
+}
+
 export async function contextSearch(
   dispatch: Dispatch,
   input: { query: string; types?: string[]; projectId?: string; limit?: number }
