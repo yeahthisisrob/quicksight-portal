@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.48.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.47.0...v2.48.0) (2026-10-15)
+
+
+### Features
+
+* **design-system:** the Data Catalog and Author pages use SectionNav, with the Studio's views nested under Author ([d624df7](https://github.com/yeahthisisrob/quicksight-portal/commit/d624df744f48bf8096da425b922e80878ba4ff4c))
+* **design-system:** the Data Catalog and Author pages use SectionNav, with the Studio's views nested under Author ([61c34f3](https://github.com/yeahthisisrob/quicksight-portal/commit/61c34f3a51bcf9b8a93bd6bb22c52594342a35be))
+
 ## [2.47.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.46.1...v2.47.0) (2026-10-15)
 
 
