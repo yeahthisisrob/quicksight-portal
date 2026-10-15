@@ -194,15 +194,23 @@ export const authoringApi = {
   async restore(
     assetType: AuthorableAssetType,
     assetId: string,
-    request: RestoreRequest
+    request: RestoreRequest,
+    onProgress?: (message: string) => void
   ): Promise<RestoreResult> {
-    return unwrap(
+    // Creating a dashboard and reading it back can outlast a web request,
+    // so the API queues it; the job's message says what it is doing.
+    const queued = unwrap(
       await client.POST('/api/authoring/{assetType}/{assetId}/restore', {
         params: { path: { assetType, assetId } },
         body: request,
       }),
-      'Failed to restore it'
+      'Failed to queue the restore'
     );
+    return jobsApi.awaitResult<RestoreResult>(queued.jobId, {
+      onProgress: (job) => {
+        if (job.message) onProgress?.(job.message);
+      },
+    });
   },
 
   /** Views from the portal's activity data and, for dashboards, CloudWatch health. */

@@ -109,7 +109,7 @@ function SavedSummary({
         <Button variant="outlined" startIcon={<ViewQuilt />} onClick={() => setWireframeOpen(true)}>
           View wireframe
         </Button>
-        {copy && (
+        {(copy || result.mode === 'restore') && (
           <Button
             variant="outlined"
             onClick={() =>
@@ -299,6 +299,11 @@ export function SaveDialog({ studio, open, onClose }: SaveDialogProps) {
                   ? 'A dataset that cannot be read still needs one chosen on the Issues panel.'
                   : 'Some columns still do not resolve.'}
                 {restoring ? ' An asset comes back fixed, or not at all.' : ''}
+              </Alert>
+            )}
+            {studio.saving && studio.saveStatus && (
+              <Alert severity="info" icon={<CircularProgress size={18} />}>
+                {studio.saveStatus}
               </Alert>
             )}
             {studio.saveError && (

@@ -706,9 +706,11 @@ export class AssetHandler {
         return errorResponse(event, STATUS_CODES.NOT_FOUND, 'Dataset not found');
       }
       const tables = tablesReadByEntry(dataset);
+      // Every one: the list column counts them all, and this is where it points.
       const others = similarDatasets(
         datasets.filter((d) => d.assetId !== dataSetId),
-        tables
+        tables,
+        Number.POSITIVE_INFINITY
       );
       return successResponse(event, { success: true, data: { tables, datasets: others } });
     } catch (error: any) {

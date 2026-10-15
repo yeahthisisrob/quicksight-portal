@@ -2865,6 +2865,11 @@ paths:
         archived one less users and groups that no longer exist, with the
         person restoring it as owner; its name, theme and tags come back,
         and the archive records who restored it, when and as what.
+
+        Creating a dashboard and reading it back can outlast a web request,
+        so this runs as a job: poll `GET /api/jobs/{jobId}` and read the
+        `RestoreResult` from `GET /api/jobs/{jobId}/result`. The catalog
+        entry is refreshed before the job completes.
       parameters:
         - $ref: '#/components/parameters/AuthorableAssetType'
         - $ref: '#/components/parameters/AuthoringAssetId'
@@ -2875,8 +2880,8 @@ paths:
             schema:
               $ref: '#/components/schemas/RestoreRequest'
       responses:
-        '200':
-          description: The asset that was restored
+        '202':
+          description: The restore was queued; its result is the RestoreResult
           content:
             application/json:
               schema:
@@ -2886,7 +2891,7 @@ paths:
                   success:
                     type: boolean
                   data:
-                    $ref: '#/components/schemas/RestoreResult'
+                    $ref: '#/components/schemas/JobQueued'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -8131,7 +8136,9 @@ components:
             sharesTablesWith:
               type: integer
               minimum: 0
+              nullable: true
               description: >
+                Null when the portal knows no table for it (file-based, or not parsed yet).
                 How many other datasets read one of the same tables, as the
                 table itself or inside a custom SQL query. Candidates for
                 consolidation when above zero.

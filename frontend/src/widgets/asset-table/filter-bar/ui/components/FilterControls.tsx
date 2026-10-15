@@ -790,10 +790,10 @@ const DatasetLinkFilterRows: React.FC<{
           { value: 'all', label: 'All' },
           {
             value: 'duplicates',
-            label: 'Shared with others',
+            label: 'Read by other datasets too',
             icon: <ContentCopyIcon sx={{ fontSize: 16, mr: 0.5, color: 'warning.main' }} />,
           },
-          { value: 'unique', label: 'Read by one' },
+          { value: 'unique', label: 'Read by this one only' },
         ]}
       />
     )}

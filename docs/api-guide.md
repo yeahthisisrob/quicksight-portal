@@ -324,9 +324,11 @@ same pipeline as a transform: read it with `?source=archive` on
 `.../repair/plan`, `.../rebind/plan` and `.../rebind/preview`, then
 `POST /api/authoring/{type}/{id}/restore` with the `rebinds`, `ops` and
 `repairs` it needs (and `newAssetId` if QuickSight still holds its id). It
-comes back fixed, with its archived audience, theme and tags, or not at all;
-the result's `warnings` say what could not be carried and anything
-QuickSight still reports. A dataset or data source is checked with
+runs as a job (`202` with a `jobId`; the `RestoreResult` is the job's
+result) because creating a dashboard and reading it back can outlast a web
+request. It comes back fixed, with its archived audience, theme and tags,
+or not at all; the result's `warnings` say what could not be carried and
+anything QuickSight still reports. A dataset or data source is checked with
 `POST /api/assets/{type}/{id}/restore/preview` and restored with
 `.../restore`.
 

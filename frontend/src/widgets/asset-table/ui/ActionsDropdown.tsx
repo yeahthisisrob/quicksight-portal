@@ -122,7 +122,7 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
             View Wireframe
           </MenuItem>
         )}
-        {(assetType === 'dashboard' || assetType === 'analysis') && (
+        {(assetType === 'dashboard' || assetType === 'analysis' || assetType === 'dataset') && (
           <MenuItem
             onClick={() =>
               handleAction(() =>
@@ -133,7 +133,7 @@ export const ActionsDropdown = memo(({ asset, assetType, handlers }: ActionsDrop
             }
           >
             <AuthorIcon fontSize="small" sx={{ mr: 1 }} />
-            Edit in Studio
+            {assetType === 'dataset' ? 'Open in Studio' : 'Edit in Studio'}
           </MenuItem>
         )}
         {(assetType === 'dashboard' || assetType === 'analysis') && (

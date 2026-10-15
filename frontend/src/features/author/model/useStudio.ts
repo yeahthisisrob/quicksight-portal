@@ -178,6 +178,8 @@ export interface Studio {
   /** Every issue that blocks a write has been dealt with. */
   canSave: boolean;
   saving: boolean;
+  /** What a save that runs as a job is doing right now, in its own words. */
+  saveStatus: string | null;
   saveError: string | null;
   save: (request: SaveRequest) => Promise<StudioResult | null>;
   dismissResult: () => void;
@@ -427,6 +429,7 @@ export function useStudio(options: StudioOptions = {}): Studio {
     summary.needsChoice === 0 &&
     (draft.rebinds.length === 0 || draft.canApply);
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const save = useCallback(
@@ -437,6 +440,7 @@ export function useStudio(options: StudioOptions = {}): Studio {
       const copy = request.mode === 'clone';
       const restoring = request.mode === 'restore';
       setSaving(true);
+      setSaveStatus(null);
       setSaveError(null);
       try {
         const edits = {
@@ -445,12 +449,17 @@ export function useStudio(options: StudioOptions = {}): Studio {
           repairs: repairRequest.repairs.length > 0 ? repairRequest.repairs : undefined,
         };
         const written = restoring
-          ? await authoringApi.restore(source.type, source.id, {
-              ...edits,
-              name: request.name?.trim() || undefined,
-              newAssetId: request.newAssetId?.trim() || undefined,
-              folderId: request.folder?.id,
-            })
+          ? await authoringApi.restore(
+              source.type,
+              source.id,
+              {
+                ...edits,
+                name: request.name?.trim() || undefined,
+                newAssetId: request.newAssetId?.trim() || undefined,
+                folderId: request.folder?.id,
+              },
+              setSaveStatus
+            )
           : await authoringApi.applyRebind(source.type, source.id, {
               ...edits,
               mode: request.mode as RebindMode,
@@ -500,6 +509,7 @@ export function useStudio(options: StudioOptions = {}): Studio {
         return null;
       } finally {
         setSaving(false);
+        setSaveStatus(null);
       }
     },
     [
@@ -690,6 +700,7 @@ export function useStudio(options: StudioOptions = {}): Studio {
     dirty,
     canSave,
     saving,
+    saveStatus,
     saveError,
     save,
     dismissResult,

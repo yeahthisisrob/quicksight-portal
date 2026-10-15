@@ -1475,6 +1475,11 @@ export interface paths {
          *     archived one less users and groups that no longer exist, with the
          *     person restoring it as owner; its name, theme and tags come back,
          *     and the archive records who restored it, when and as what.
+         *
+         *     Creating a dashboard and reading it back can outlast a web request,
+         *     so this runs as a job: poll `GET /api/jobs/{jobId}` and read the
+         *     `RestoreResult` from `GET /api/jobs/{jobId}/result`. The catalog
+         *     entry is refreshed before the job completes.
          */
         post: operations["postAuthoringByAssetTypeByAssetIdRestore"];
         delete?: never;
@@ -4118,8 +4123,8 @@ export interface components {
             sizeInBytes?: number;
             /** @description Data source type resolved from the dataset's data sources (the DataSource API's Type field — ATHENA, REDSHIFT, S3, etc.) */
             sourceType?: string;
-            /** @description How many other datasets read one of the same tables, as the table itself or inside a custom SQL query. Candidates for consolidation when above zero. */
-            sharesTablesWith?: number;
+            /** @description Null when the portal knows no table for it (file-based, or not parsed yet). How many other datasets read one of the same tables, as the table itself or inside a custom SQL query. Candidates for consolidation when above zero. */
+            sharesTablesWith?: number | null;
             /** @description Distinct source schemas (databases) from the dataset's relational physical tables — the RelationalTable Schema field, which is the database for Athena sources and the schema for Redshift and other relational engines. Populated at export time. */
             schemas?: string[];
             /** @description Whether dataset has refresh properties configured */
@@ -8824,15 +8829,15 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The asset that was restored */
-            200: {
+            /** @description The restore was queued; its result is the RestoreResult */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
                         success: boolean;
-                        data: components["schemas"]["RestoreResult"];
+                        data: components["schemas"]["JobQueued"];
                     };
                 };
             };
