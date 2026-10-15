@@ -83,12 +83,20 @@ export type User = UserSummary;
 export type Group = GroupSummary;
 
 // Union type for all asset summaries
+/** A custom theme as ListThemes returns it (QuickSight's own themes are never listed). */
+interface ThemeSummary extends BaseAssetSummary {
+  themeId: string;
+  name: string;
+  latestVersionNumber?: number;
+}
+
 export type AssetSummary =
   | DashboardSummary
   | DatasetSummary
   | AnalysisSummary
   | DatasourceSummary
   | FolderSummary
+  | ThemeSummary
   | UserSummary
   | GroupSummary;
 
@@ -111,6 +119,10 @@ function isDatasourceSummary(asset: AssetSummary): asset is DatasourceSummary {
 
 function isFolderSummary(asset: AssetSummary): asset is FolderSummary {
   return 'folderId' in asset;
+}
+
+function isThemeSummary(asset: AssetSummary): asset is ThemeSummary {
+  return 'themeId' in asset;
 }
 
 function isUserSummary(asset: AssetSummary): asset is UserSummary {
@@ -138,13 +150,18 @@ export function getAssetId(asset: AssetSummary): string {
   if (isFolderSummary(asset)) {
     return asset.folderId;
   }
+  if (isThemeSummary(asset)) {
+    return asset.themeId;
+  }
   if (isUserSummary(asset)) {
     return asset.userName;
   }
   if (isGroupSummary(asset)) {
     return asset.groupName;
   }
-  throw new Error('Unknown asset type');
+  throw new Error(
+    `Unknown asset type: a summary with ${Object.keys(asset as object).join(', ') || 'no fields'}`
+  );
 }
 
 export function getAssetName(asset: AssetSummary): string {
