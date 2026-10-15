@@ -37,7 +37,7 @@ import { PersonLabel } from '@/entities/user';
 
 import { getApiErrorMessage } from '@/shared/api';
 import type { JobMetadata, JobStatus, JobType } from '@/shared/api/modules/jobs';
-import { pal, SegmentedControl } from '@/shared/design-system';
+import { pal, SegmentedControl, StatStrip } from '@/shared/design-system';
 
 import { useJobsList } from '../lib/useJobs';
 import {
@@ -145,17 +145,35 @@ const COLUMNS: GridColDef<JobMetadata>[] = [
   },
 ];
 
-function Summary({ jobs, since }: { jobs: JobMetadata[]; since: JobsSince }) {
+/** The jobs in view, counted: how many, running, failed, completed. */
+function Summary({
+  jobs,
+  since,
+  loading,
+}: {
+  jobs: JobMetadata[];
+  since: JobsSince;
+  loading: boolean;
+}) {
   const running = jobs.filter((j) => isActive(j.status)).length;
   const failed = jobs.filter((j) => j.status === 'failed').length;
+  const completed = jobs.filter((j) => j.status === 'completed').length;
   const window = SINCE_OPTIONS.find((o) => o.value === since)?.label.toLowerCase();
   return (
-    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-      {jobs.length} job{jobs.length === 1 ? '' : 's'}
-      {since === 'all' ? '' : ` in the last ${window}`}
-      {running > 0 ? ` · ${running} running` : ''}
-      {failed > 0 ? ` · ${failed} failed` : ''}
-    </Typography>
+    <StatStrip
+      ariaLabel="Jobs summary"
+      loading={loading}
+      items={[
+        {
+          label: 'Jobs',
+          value: jobs.length,
+          hint: since === 'all' ? 'All time' : `In the last ${window}`,
+        },
+        { label: 'Running', value: running },
+        { label: 'Failed', value: failed },
+        { label: 'Completed', value: completed },
+      ]}
+    />
   );
 }
 
@@ -170,6 +188,7 @@ export function JobsView() {
 
   return (
     <Stack spacing={2} data-testid="jobs-view">
+      <Summary jobs={rows} since={filters.since} loading={jobs.isLoading} />
       <Stack
         direction="row"
         spacing={1.5}
@@ -221,7 +240,6 @@ export function JobsView() {
           options={SINCE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
         />
         <Box sx={{ flex: 1 }} />
-        <Summary jobs={rows} since={filters.since} />
         <Tooltip title="Refresh">
           <span>
             <IconButton

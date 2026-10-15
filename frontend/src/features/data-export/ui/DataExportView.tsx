@@ -5,7 +5,8 @@
  * run), the live job, then this export's log, followed live. Every past job
  * is on Operations > Jobs; the account's activity has its own page.
  */
-import { Alert, Box, Button, Divider, Stack } from '@mui/material';
+import { PlayArrow, Stop } from '@mui/icons-material';
+import { Alert, Box, Button, Divider, Stack, Typography } from '@mui/material';
 import { type ReactNode, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 
@@ -18,6 +19,7 @@ import { useCacheSummary } from '../lib/useCacheSummary';
 import { useExportJob } from '../lib/useExportJob';
 import type { AssetType, ExportMode } from '../model/types';
 import { AssetTypeSelector, ExportControls, ExportJobStatus, ExportStats } from './components';
+import { selectionSummary, startButtonLabel } from './components/ExportControls';
 import { assetTypeConfig } from './constants';
 
 const LOG_HEIGHT = 400;
@@ -75,15 +77,8 @@ export default function DataExportView({ embedded = false }: { embedded?: boolea
     loadCacheSummary,
   } = useCacheSummary();
 
-  const {
-    currentJobId,
-    jobStatus,
-    isRunning,
-    isRefreshing,
-    startExport,
-    stopExport,
-    refreshStatus,
-  } = useExportJob(loadCacheSummary);
+  const { currentJobId, jobStatus, isRunning, startExport, stopExport } =
+    useExportJob(loadCacheSummary);
 
   const handleStartExport = async () => {
     await startExport(selectedAssetTypes, exportMode);
@@ -125,8 +120,29 @@ export default function DataExportView({ embedded = false }: { embedded?: boolea
         />
 
         <Container
-          header="QuickSight export"
-          description="Pull definitions, permissions and tags from QuickSight into the cache the rest of the portal reads."
+          header="Export"
+          description="Definitions, permissions and tags, into the cache the rest of the portal reads. Smart sync touches only what changed."
+          actions={
+            isRunning ? (
+              <Button variant="contained" color="error" startIcon={<Stop />} onClick={stopExport}>
+                Stop export
+              </Button>
+            ) : (
+              <Button
+                variant="contained"
+                startIcon={<PlayArrow />}
+                onClick={handleStartExport}
+                disabled={selectedAssetTypes.length === 0 && exportMode !== 'rebuild'}
+              >
+                {startButtonLabel(exportMode)}
+              </Button>
+            )
+          }
+          footer={
+            <Typography variant="body2" color="text.secondary">
+              {selectionSummary(exportMode, selectedAssetTypes.length)}
+            </Typography>
+          }
         >
           <Stack spacing={2.5}>
             <AssetTypeSelector
@@ -146,12 +162,7 @@ export default function DataExportView({ embedded = false }: { embedded?: boolea
             <ExportControls
               exportMode={exportMode}
               onModeChange={setExportMode}
-              isRunning={isRunning}
-              isRefreshing={isRefreshing}
-              onStartExport={handleStartExport}
-              onStopExport={stopExport}
-              onRefreshStatus={refreshStatus}
-              selectedTypesCount={selectedAssetTypes.length}
+              disabled={isRunning}
             />
           </Stack>
         </Container>

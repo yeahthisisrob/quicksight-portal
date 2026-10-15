@@ -26,7 +26,7 @@ import { useEffect } from 'react';
 
 import { getApiErrorMessage } from '@/shared/api';
 import type { CatalogScope, ColumnCatalogItem } from '@/shared/api/modules/data-catalog';
-import { Container, EmptyState, pal } from '@/shared/design-system';
+import { Container, EmptyState, StatStrip } from '@/shared/design-system';
 import { useDebounce } from '@/shared/lib/useDebounce';
 
 import { useColumns } from '../../lib/useFieldCatalog';
@@ -57,41 +57,16 @@ function Counts({
   // Two SMUS numbers, because they fail separately: a dataset that never
   // matched a listing is a linking problem, a listing whose schema does not
   // name the column is an export problem.
-  const cells: Array<[string, number]> = [
-    ['Columns', counts.columns],
-    ['Datasets', counts.datasets],
-    ['From a SMUS table', counts.withSmus],
-    ['Matched to a SMUS column', counts.withSmusColumn],
-  ];
   return (
-    <Box
-      sx={(theme) => ({
-        display: 'grid',
-        gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' },
-        border: `1px solid ${pal(theme).line.divider}`,
-        borderRadius: `${theme.shape.borderRadius}px`,
-        bgcolor: pal(theme).surface.container,
-        overflow: 'hidden',
-      })}
-    >
-      {cells.map(([label, value], index) => (
-        <Box
-          key={label}
-          sx={(theme) => ({
-            px: 2,
-            py: 1.5,
-            borderLeft: index === 0 ? 'none' : `1px solid ${pal(theme).line.divider}`,
-          })}
-        >
-          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-            {label}
-          </Typography>
-          <Typography variant="h3" component="span" sx={{ fontWeight: 700 }}>
-            {value}
-          </Typography>
-        </Box>
-      ))}
-    </Box>
+    <StatStrip
+      ariaLabel="Column counts"
+      items={[
+        { label: 'Columns', value: counts.columns },
+        { label: 'Datasets', value: counts.datasets },
+        { label: 'From a SMUS table', value: counts.withSmus },
+        { label: 'Matched to a SMUS column', value: counts.withSmusColumn },
+      ]}
+    />
   );
 }
 

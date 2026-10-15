@@ -9,11 +9,13 @@ import {
   MenuItem,
   Select,
   type SelectChangeEvent,
+  Stack,
   Tooltip,
   Typography,
 } from '@mui/material';
 import type { GridRowSelectionModel } from '@mui/x-data-grid';
 import type { components } from '@shared/generated/types';
+import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { useSnackbar } from 'notistack';
 import { useCallback, useState } from 'react';
@@ -26,9 +28,9 @@ import {
   type FetchAssetsOptions,
 } from '@/widgets/asset-table';
 
-import { assetsApi, usersApi } from '@/shared/api';
+import { assetsApi, exportApi, usersApi } from '@/shared/api';
 import type { ArchivedQuery } from '@/shared/api/modules/assets';
-import { pal } from '@/shared/design-system';
+import { pal, StatStrip } from '@/shared/design-system';
 import { EMPTY_SELECTION } from '@/shared/lib/gridSelection';
 import { assetIcons } from '@/shared/ui/icons';
 import { JsonViewerModal } from '@/shared/ui/JsonViewer';
@@ -169,6 +171,30 @@ interface ArchivedAssetsPanelProps {
  * and why, and each time it was restored. Restoring itself happens in the
  * Studio, where an asset's errors are fixed before it comes back.
  */
+/** What the archive holds by type, from the cache summary. */
+function ArchiveCounts() {
+  const summary = useQuery({
+    queryKey: ['export-summary'],
+    queryFn: () => exportApi.getExportSummary(),
+  });
+  const counts = summary.data?.archivedAssetCounts;
+  const n = (value: number | undefined) => (value ?? 0).toLocaleString();
+  return (
+    <StatStrip
+      ariaLabel="Archive summary"
+      loading={summary.isLoading}
+      items={[
+        { label: 'Archived', value: n(counts?.total), hint: 'Restorable from the Studio' },
+        { label: 'Dashboards', value: n(counts?.dashboards) },
+        { label: 'Analyses', value: n(counts?.analyses) },
+        { label: 'Datasets', value: n(counts?.datasets) },
+        { label: 'Data sources', value: n(counts?.datasources) },
+        { label: 'Folders', value: n(counts?.folders) },
+      ]}
+    />
+  );
+}
+
 export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps) {
   const { enqueueSnackbar } = useSnackbar();
   const [assets, setAssets] = useState<ArchivedAssetItem[]>([]);
@@ -380,7 +406,8 @@ export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps)
   );
 
   return (
-    <>
+    <Stack spacing={2}>
+      <ArchiveCounts />
       <EnhancedAssetTable
         assets={assets}
         loading={loading}
@@ -408,6 +435,6 @@ export function ArchivedAssetsPanel({ onTotalChange }: ArchivedAssetsPanelProps)
           assetName={selectedAsset.name}
         />
       )}
-    </>
+    </Stack>
   );
 }
