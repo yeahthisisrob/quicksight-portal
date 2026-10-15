@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.47.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.46.1...v2.47.0) (2026-10-15)
+
+
+### Features
+
+* **design-system:** one section navigation for Settings and Operations ([0e33004](https://github.com/yeahthisisrob/quicksight-portal/commit/0e330042ae528387c0b1dc61ece149e23973733c))
+* **design-system:** one section navigation for Settings and Operations ([85fad81](https://github.com/yeahthisisrob/quicksight-portal/commit/85fad81e67294fe1d9511ba47a91c8391746e9ee))
+
 ## [2.46.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.46.0...v2.46.1) (2026-10-15)
 
 
