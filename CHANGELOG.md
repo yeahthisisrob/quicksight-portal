@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.48.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.48.0...v2.48.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* **ui:** Author, Operations, the Data Catalog and the timelines pad like the asset pages ([729555a](https://github.com/yeahthisisrob/quicksight-portal/commit/729555a64f371a62a075f6801c683c0a0767dd8b))
+* **ui:** Author, Operations, the Data Catalog and the timelines pad like the asset pages ([9af4404](https://github.com/yeahthisisrob/quicksight-portal/commit/9af4404eb11c5e0d16e4a827e45c8159ebb4aaf6))
+
 ## [2.48.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.47.0...v2.48.0) (2026-10-15)
 
 
