@@ -1,7 +1,6 @@
 // Hooks
 
 export { useDatasetActivity } from './hooks/useActivityData';
-export { useActivityRefresh } from './hooks/useActivityRefresh';
 export type { TimelineAssetType } from './hooks/useActivityTimeline';
 // Types
 export type {
@@ -10,7 +9,7 @@ export type {
 } from './model/types';
 // UI Components
 
-export { ActivityRefreshProgress } from './ui/ActivityRefreshProgress';
+export { ActivityPanel } from './ui/ActivityPanel';
 export { InactivityMailtoDialog } from './ui/InactivityMailtoDialog';
 export { TimelineFeed } from './ui/TimelineFeed';
 export { UserInactiveMailtoDialog } from './ui/UserInactiveMailtoDialog';

@@ -2,6 +2,7 @@ import { Box } from '@mui/material';
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import { ActivityPanel } from '@/features/activity';
 import { JobsView } from '@/features/jobs';
 import { SmusExportPanel } from '@/features/smus';
 import {
@@ -12,19 +13,18 @@ import {
 } from '@/widgets/operations';
 
 import { PageHeader, SectionNav } from '@/shared/design-system';
-import { navigationIcons } from '@/shared/ui/icons';
 
 // Composes two widgets (the asset table and the restore dialog), which is
 // the page layer's job under FSD, so it lives here rather than in a widget.
 import { ArchivedAssetsPanel } from './ArchivedAssetsPanel';
 
-const SECTIONS: Array<{ value: OperationsTab; label: string; icon: keyof typeof navigationIcons }> =
-  [
-    { value: 'export', label: 'Export', icon: 'exportManagement' },
-    { value: 'jobs', label: 'Jobs', icon: 'jobs' },
-    { value: 'smus', label: 'SageMaker Unified Studio', icon: 'dataCatalog' },
-    { value: 'archived', label: 'Archived assets', icon: 'archive' },
-  ];
+const SECTIONS: Array<{ id: OperationsTab; label: string }> = [
+  { id: 'export', label: 'Export' },
+  { id: 'activity', label: 'Activity refresh' },
+  { id: 'jobs', label: 'Jobs' },
+  { id: 'smus', label: 'SageMaker Unified Studio' },
+  { id: 'archived', label: 'Archived assets' },
+];
 
 /**
  * Exports, every job the portal runs, the SMUS export and archived assets:
@@ -58,18 +58,11 @@ export default function OperationsPage() {
     <Box sx={{ minWidth: 0 }}>
       <PageHeader
         title="Operations"
-        description="Exports, every job the portal runs, the SageMaker Unified Studio snapshot and archived assets for the whole account."
+        description="The QuickSight export, the activity refresh, every job the portal runs, the SageMaker Unified Studio snapshot and archived assets for the whole account."
       />
-      <SectionNav
-        ariaLabel="Operations sections"
-        value={tab}
-        onChange={setTab}
-        sections={SECTIONS.map(({ value, label, icon }) => {
-          const Icon = navigationIcons[icon];
-          return { id: value, label, icon: <Icon fontSize="small" /> };
-        })}
-      >
+      <SectionNav ariaLabel="Operations sections" value={tab} onChange={setTab} sections={SECTIONS}>
         {tab === 'export' && <ExportPanel />}
+        {tab === 'activity' && <ActivityPanel />}
         {tab === 'jobs' && <JobsView />}
         {tab === 'smus' && <SmusExportPanel />}
         {tab === 'archived' && <ArchivedAssetsPanel />}

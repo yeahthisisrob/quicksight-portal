@@ -1,5 +1,5 @@
-import { Analytics, PlayArrow, Stop } from '@mui/icons-material';
-import { Alert, Box, Button, Stack, Tooltip, Typography } from '@mui/material';
+import { PlayArrow, Stop } from '@mui/icons-material';
+import { Alert, Box, Button, Stack, Typography } from '@mui/material';
 
 import { SegmentedControl } from '@/shared/design-system';
 
@@ -10,12 +10,9 @@ interface ExportControlsProps {
   onModeChange: (mode: ExportMode) => void;
   onStartExport: () => void;
   onStopExport: () => void;
-  onRefreshActivity: () => void;
   onRefreshStatus: () => void;
   isRunning: boolean;
   isRefreshing: boolean;
-  canRefreshActivity: boolean;
-  refreshingActivity: boolean;
   selectedTypesCount: number;
 }
 
@@ -75,12 +72,9 @@ export default function ExportControls({
   onModeChange,
   onStartExport,
   onStopExport,
-  onRefreshActivity,
   onRefreshStatus: _onRefreshStatus,
   isRunning,
   isRefreshing: _isRefreshing,
-  canRefreshActivity,
-  refreshingActivity,
   selectedTypesCount,
 }: ExportControlsProps) {
   const selectedMode = EXPORT_MODES.find((m) => m.value === exportMode);
@@ -139,21 +133,6 @@ export default function ExportControls({
             >
               {startButtonLabel(exportMode)}
             </Button>
-
-            {canRefreshActivity && (
-              <Tooltip title="Fetch CloudTrail activity and dataset ingestion history">
-                <span>
-                  <Button
-                    variant="outlined"
-                    startIcon={<Analytics />}
-                    onClick={onRefreshActivity}
-                    disabled={refreshingActivity}
-                  >
-                    {refreshingActivity ? 'Refreshing activity' : 'Refresh activity'}
-                  </Button>
-                </span>
-              </Tooltip>
-            )}
           </>
         )}
 

@@ -5,7 +5,7 @@
  * standardises live in the Author Studio. The open section (listed on the
  * left, like Settings and Operations) and the filters live in the URL.
  */
-import { CloudSync, Functions, TableChart, ViewColumn } from '@mui/icons-material';
+import { CloudSync } from '@mui/icons-material';
 import { Alert, AlertTitle, Box, Button, Stack } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
@@ -26,10 +26,10 @@ import { CalculatedFieldsView } from './calculated-fields/CalculatedFieldsView';
 import { ColumnsView } from './columns/ColumnsView';
 import { ProjectSelect } from './ProjectSelect';
 
-const SECTIONS: Array<{ id: CatalogTab; label: string; icon: React.ReactElement }> = [
-  { id: 'calculated-fields', label: 'Calculated fields', icon: <Functions fontSize="small" /> },
-  { id: 'columns', label: 'Columns', icon: <ViewColumn fontSize="small" /> },
-  { id: 'smus', label: 'SMUS assets', icon: <TableChart fontSize="small" /> },
+const SECTIONS: Array<{ id: CatalogTab; label: string }> = [
+  { id: 'calculated-fields', label: 'Calculated fields' },
+  { id: 'columns', label: 'Columns' },
+  { id: 'smus', label: 'SMUS assets' },
 ];
 
 function NoExport() {

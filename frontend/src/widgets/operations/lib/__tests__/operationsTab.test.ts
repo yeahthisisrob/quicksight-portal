@@ -12,6 +12,7 @@ describe('operations tab URL sync', () => {
     expect(parseOperationsTab('archived')).toBe('archived');
     expect(parseOperationsTab('smus')).toBe('smus');
     expect(parseOperationsTab('jobs')).toBe('jobs');
+    expect(parseOperationsTab('activity')).toBe('activity');
   });
 
   it('falls back to export for anything unknown or missing', () => {
