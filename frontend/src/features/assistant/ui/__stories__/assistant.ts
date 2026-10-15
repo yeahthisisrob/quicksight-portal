@@ -416,6 +416,30 @@ export const FILTERS_QUESTION = {
   },
 } as const;
 
+/**
+ * The question code asks before placing a filter, when the ask did not say
+ * where: the asset's own sheets and visuals are the options.
+ */
+export const SCOPE_QUESTION = {
+  id: 'int-scope',
+  reason: 'input_required',
+  message: 'Which visuals should the Region filter narrow?',
+  metadata: {
+    multi: true,
+    allowOther: false,
+    options: [
+      { id: 'all', label: 'Every visual on every sheet', description: '2 sheets, 5 visuals' },
+      { id: 'sheet:s1', label: 'Every visual on Overview', description: '3 visuals' },
+      { id: 'sheet:s2', label: 'Every visual on Detail', description: '2 visuals' },
+      { id: 'visual:s1/v1', label: 'Sales by region', description: 'BarChart on Overview' },
+      { id: 'visual:s1/v2', label: 'Orders by month', description: 'LineChart on Overview' },
+      { id: 'visual:s1/v3', label: 'Margin', description: 'KPI on Overview' },
+      { id: 'visual:s2/v4', label: 'Every order', description: 'Table on Detail' },
+      { id: 'visual:s2/v5', label: 'Untitled PivotTable', description: 'PivotTable on Detail' },
+    ],
+  },
+} as const;
+
 /** A reply that leans on markdown: a table, a list, inline code and a block. */
 export const MARKDOWN_ANSWER = {
   ...SCRIPTED_ANSWER,
