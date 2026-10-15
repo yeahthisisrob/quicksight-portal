@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.44.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.43.0...v2.44.0) (2026-10-15)
+
+
+### Features
+
+* **assistant:** say what was understood first, plan a visual change without a conversation, and show the steps live ([47b9742](https://github.com/yeahthisisrob/quicksight-portal/commit/47b9742e8039cebe9468030f78af08317ac6f6a5))
+* **assistant:** say what was understood first, plan a visual change without a conversation, and show the steps live ([d36cb2d](https://github.com/yeahthisisrob/quicksight-portal/commit/d36cb2dd6e5d5023fee2bc1b524a72262b3a5e9c))
+* **authoring:** copy or in place is a setting, copies take the next version name, and layout edits are blocks ([a23c7e7](https://github.com/yeahthisisrob/quicksight-portal/commit/a23c7e7811ff9e51fda12f730d05a0ea10bfe664))
+* **authoring:** copy or in place is a setting, copies take the next version name, and layout edits are blocks ([cb65d8b](https://github.com/yeahthisisrob/quicksight-portal/commit/cb65d8b371af889401be1d89deaaad6e5f2b6022))
+
 ## [2.43.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.42.0...v2.43.0) (2026-10-14)
 
 
