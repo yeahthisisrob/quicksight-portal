@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.50.1](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.50.0...v2.50.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* **api:** API 404s reach the browser as JSON, activity reads answer "never" instead of failing, ingestions sort by SPICE size, and calculated fields move onto the asset grid ([090736d](https://github.com/yeahthisisrob/quicksight-portal/commit/090736d2b6beaba8c46eb59066308cba0d831f8a))
+* **api:** JSON 404s through CloudFront, empty activity records, ingestion size sort, and calculated fields on the asset grid ([88a218a](https://github.com/yeahthisisrob/quicksight-portal/commit/88a218a8e0c624e12b01f63f5bd457abb7f0c537))
+
 ## [2.50.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.49.0...v2.50.0) (2026-10-15)
 
 
