@@ -23,7 +23,7 @@
   "type": "commonjs",
   "devDependencies": {
     "@types/node": "^26.6.5",
-    "@vitest/coverage-v8": "^5.0.3",
+    "@vitest/coverage-v8": "^5.0.5",
     "aws-cdk": "^2.1145.0",
     "aws-cdk-lib": "^2.273.0",
     "cdk-nag": "^3.0.2",
