@@ -25,9 +25,9 @@
     "verify:slices": "node scripts/verify-slice-boundaries.mjs"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.15",
+    "@biomejs/biome": "^2.6.2",
     "concurrently": "^10.0.6",
-    "knip": "^6.41.0",
+    "knip": "^6.42.1",
     "typescript": "^7.0.2"
   },
   "packageManager": "pnpm@12.4.2",
