@@ -102,7 +102,7 @@ api method path body='':
 
 # Everything CI runs. Do this before opening a PR.
 [group('check')]
-check: lint deadcode typecheck test architecture
+check: lint deadcode typecheck test architecture contract-current
     @echo "All checks passed."
 
 # Format + lint the whole repo (Biome, ~150ms)
@@ -188,6 +188,12 @@ build:
 [group('build')]
 build-dev:
     {{x}} pnpm --filter @quicksight-portal/lambda exec node build.js dev
+
+# The committed generated types match the schema (the step CI runs after the tests)
+[group('check')]
+contract-current:
+    {{x}} pnpm --filter @quicksight-portal/shared run generate
+    git diff --exit-code --stat shared/generated
 
 # Validate the OpenAPI schema and regenerate shared types
 [group('build')]

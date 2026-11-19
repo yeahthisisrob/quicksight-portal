@@ -126,7 +126,8 @@ describe('CatalogTabsPage project filter', () => {
     await user.click(within(screen.getByRole('listbox')).getByText('All projects'));
     await waitFor(() => expect(screen.getByText('margin')).toBeInTheDocument());
     expect(screen.getByLabelText('Project')).toHaveTextContent('All projects');
-  });
+    // Three menu round trips through MUI: past the 5 s default on a loaded CI runner, well inside it locally.
+  }, 20_000);
 
   it('keeps every project after a trip through the SMUS tab, which is bound to one', async () => {
     const user = userEvent.setup();

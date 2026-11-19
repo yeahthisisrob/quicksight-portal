@@ -58,7 +58,9 @@ pre-push:
     - name: contract
       # The generated types are committed; this fails if the OpenAPI schema and
       # shared/generated/types.ts have drifted apart.
+      # set -e: a generator that crashes must fail the push, not pass because the old files are unchanged
       run: |
+        set -e
         mise exec -- pnpm --filter @quicksight-portal/shared run generate
         git diff --exit-code --stat shared/generated \
           || { echo "shared/generated is stale - run 'just contract' and commit the result"; exit 1; }
