@@ -18,7 +18,7 @@ export const FILTER_BARS = [
       { column: 'region', title: 'Region', span: 2 },
       { column: 'product_line', title: 'Product line', span: 2 },
     ],
-    createdBy: 'rob@example.com',
+    createdBy: 'maya.chen@example.com',
     createdAt: '2026-09-20T10:00:00Z',
     updatedAt: '2026-09-25T10:00:00Z',
   },

@@ -20,8 +20,8 @@ const AGENT = {
   actor: { kind: 'api-key' as const, id: 'k-cli', label: 'claude cli' },
   channel: 'api' as const,
 };
-const ROB = {
-  actor: { kind: 'user' as const, id: 'u-rob', label: 'rob@example.com' },
+const MAYA = {
+  actor: { kind: 'user' as const, id: 'u-maya', label: 'maya.chen@example.com' },
   channel: 'ui' as const,
 };
 
@@ -33,8 +33,8 @@ function event(over: Partial<TimelineEvent> & Pick<TimelineEvent, 'timestamp'>):
     eventName: 'UpdateDashboard',
     kind: 'mutation',
     action: 'update',
-    user: 'rob',
-    actor: { kind: 'user', label: 'rob', raw: 'rob' },
+    user: 'maya',
+    actor: { kind: 'user', label: 'maya', raw: 'maya' },
     origin: 'console',
     resourceType: 'dashboard',
     assetType: 'dashboard',
@@ -76,7 +76,7 @@ export const TIMELINE_EVENTS: TimelineEvent[] = [
     origin: 'portal-api',
     provenance: { ...AGENT, action: 'authoring.update', distanceMs: 4100 },
   }),
-  // Rob renaming a dataset in the portal UI.
+  // Maya renaming a dataset in the portal UI.
   event({
     timestamp: minutesAgo(48),
     eventName: 'UpdateDataSet',
@@ -87,7 +87,7 @@ export const TIMELINE_EVENTS: TimelineEvent[] = [
     user: PORTAL_RAW,
     actor: PORTAL,
     origin: 'portal-ui',
-    provenance: { ...ROB, action: 'asset.rename', distanceMs: 300 },
+    provenance: { ...MAYA, action: 'asset.rename', distanceMs: 300 },
   }),
   // A portal write the audit log does not know about.
   event({
@@ -171,7 +171,7 @@ export const TIMELINE_EVENTS: TimelineEvent[] = [
     user: PORTAL_RAW,
     actor: PORTAL,
     origin: 'portal-ui',
-    provenance: { ...ROB, action: 'asset.delete', distanceMs: 150 },
+    provenance: { ...MAYA, action: 'asset.delete', distanceMs: 150 },
   }),
   event({
     timestamp: daysAgo(1, 6),
@@ -202,8 +202,8 @@ export const TIMELINE_EVENTS: TimelineEvent[] = [
     assetType: 'theme',
     assetId: 'brand',
     assetName: 'Brand',
-    user: 'rob',
-    actor: { kind: 'user', label: 'rob', raw: 'rob' },
+    user: 'maya',
+    actor: { kind: 'user', label: 'maya', raw: 'maya' },
     origin: 'portal',
   }),
   // Three days ago.
@@ -215,8 +215,8 @@ export const TIMELINE_EVENTS: TimelineEvent[] = [
     assetType: 'group',
     assetId: 'finance-readers',
     assetName: 'finance-readers',
-    user: 'rob',
-    actor: { kind: 'user', label: 'rob', raw: 'rob' },
+    user: 'maya',
+    actor: { kind: 'user', label: 'maya', raw: 'maya' },
     origin: 'console',
   }),
 ];

@@ -326,7 +326,7 @@ export const TEMPLATES: CalculatedFieldTemplate[] = [
       datasetName: 'Sales (gold)',
       listingId: 'lst-sales-gold',
     },
-    createdBy: 'rob@example.com',
+    createdBy: 'maya.chen@example.com',
     createdAt: '2026-09-10T10:00:00Z',
     updatedAt: '2026-09-15T14:30:00Z',
   },

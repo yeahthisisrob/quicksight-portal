@@ -13,12 +13,12 @@ export const ITEMS = [
     lastActivity: daysAgo(35),
     archivedDate: daysAgo(3),
     archiveReason: 'No views in 180 days',
-    archivedBy: 'rob@example.com',
+    archivedBy: 'maya.chen@example.com',
     archivedByPerson: {
-      label: 'rob@example.com',
+      label: 'maya.chen@example.com',
       kind: 'person',
-      email: 'rob@example.com',
-      quickSightUserName: 'rob',
+      email: 'maya.chen@example.com',
+      quickSightUserName: 'maya',
     },
     restorations: [
       {
@@ -64,7 +64,27 @@ export const ITEMS = [
   },
 ];
 
-export const archivedRoutes = (items: unknown[], fail?: string): MockRoute[] => [
+/** The archive's counts by type, as the cache summary reports them. */
+const archivedCounts = (items: Array<{ type?: string }>) => {
+  const of = (type: string) => items.filter((item) => item.type === type).length;
+  return {
+    total: items.length,
+    dashboards: of('dashboard'),
+    analyses: of('analysis'),
+    datasets: of('dataset'),
+    datasources: of('datasource'),
+    folders: of('folder'),
+  };
+};
+
+export const archivedRoutes = (items: Array<{ type?: string }>, fail?: string): MockRoute[] => [
+  {
+    method: 'get',
+    url: '/export/summary',
+    respond: () => ({
+      body: { success: true, data: { archivedAssetCounts: archivedCounts(items) } },
+    }),
+  },
   {
     method: 'get',
     url: '/assets/archived',

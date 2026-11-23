@@ -1,6 +1,7 @@
 import { alpha, Chip } from '@mui/material';
 import React from 'react';
 
+import { pal } from '@/shared/design-system';
 import { colors, components, typography } from '@/shared/design-system/theme';
 
 import type { TypedChipProps } from '../index';
@@ -39,6 +40,8 @@ const getTagColors = (specialTag: string | null | undefined) => {
 export const TagChip = React.forwardRef<HTMLDivElement, TagChipProps>(
   ({ Icon, label, effectiveVariant, size, showIcon, specialTag, ...chipProps }, ref) => {
     const chipColors = getTagColors(specialTag);
+    const tone = specialTag === 'error' || specialTag === 'warning' ? specialTag : null;
+    const filled = effectiveVariant === 'filled';
 
     return (
       <Chip
@@ -47,7 +50,7 @@ export const TagChip = React.forwardRef<HTMLDivElement, TagChipProps>(
         variant={effectiveVariant}
         label={label}
         icon={showIcon ? <Icon /> : undefined}
-        sx={{
+        sx={(theme) => ({
           height: size === 'small' ? components.chip.height.small : components.chip.height.medium,
           backgroundColor: effectiveVariant === 'filled' ? chipColors.color : chipColors.bg,
           color: effectiveVariant === 'filled' ? 'white' : chipColors.color,
@@ -74,8 +77,30 @@ export const TagChip = React.forwardRef<HTMLDivElement, TagChipProps>(
                     : alpha(chipColors.bg, 0.8),
               }
             : {},
-          ...chipProps.sx,
-        }}
+          // The light values above are fixed; the dark scheme asks the theme.
+          ...theme.applyStyles('dark', {
+            backgroundColor: tone
+              ? filled
+                ? pal(theme).tone[tone].text
+                : pal(theme).tone[tone].bg
+              : filled
+                ? pal(theme).surface.selected
+                : pal(theme).surface.hover,
+            color: tone
+              ? filled
+                ? pal(theme).text.onBrand
+                : pal(theme).tone[tone].text
+              : pal(theme).text.primary,
+            borderColor: filled
+              ? 'transparent'
+              : tone
+                ? pal(theme).tone[tone].border
+                : pal(theme).line.default,
+            '& .MuiChip-icon': { color: 'inherit' },
+            '&:hover': chipProps.onClick ? { backgroundColor: pal(theme).surface.selected } : {},
+          }),
+          ...(chipProps.sx as object),
+        })}
         {...chipProps}
       />
     );

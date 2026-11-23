@@ -618,13 +618,13 @@ export default function EnhancedAssetTable({
 
         <Paper
           ref={containerRef}
-          sx={{
-            ...tableStyles.container,
+          sx={(theme) => ({
+            ...tableStyles.container(theme),
             height: availableHeight,
             maxHeight: availableHeight,
             display: 'flex',
             flexDirection: 'column',
-          }}
+          })}
         >
           <FilterBar
             showSearch
@@ -722,7 +722,7 @@ export default function EnhancedAssetTable({
                 // density selector still lets users switch.
                 density: 'compact',
               }}
-              sx={{ ...tableStyles.dataGrid, height: '100%' }}
+              sx={(theme) => ({ ...tableStyles.dataGrid(theme), height: '100%' })}
             />
           </Box>
         </Paper>

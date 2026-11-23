@@ -416,11 +416,11 @@ const SAVED_REPORTS = [
     mode: 'run',
     status: 'completed',
     message: '2 changed, 1 skipped, 1 failed',
-    startedBy: 'rob@example.com',
+    startedBy: 'maya.chen@example.com',
     startTime: AT,
     counts: countRows(RUN_ROWS),
     savedAt: '2026-09-26T15:00:00Z',
-    savedBy: 'rob@example.com',
+    savedBy: 'maya.chen@example.com',
   },
 ];
 

@@ -21,7 +21,7 @@ const meta = {
   args: {
     open: true,
     onClose: () => {},
-    userName: 'john.doe@company.com',
+    userName: 'john.doe@example.com',
     // Over 20 characters, so the header shortens it.
     userId: 'user-001-with-a-long-identifier',
   },
@@ -31,7 +31,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const activity: UserActivity = {
-  userName: 'john.doe@company.com',
+  userName: 'john.doe@example.com',
   lastActive: '2024-01-24T15:45:00Z',
   totalActivities: 342,
   activitiesByDate: {
@@ -71,10 +71,10 @@ export const Default: Story = {
 
 /** Never active: "Never" for last active, and no dashboard, analysis or daily sections. */
 export const InactiveUser: Story = {
-  args: { userName: 'inactive.user@company.com', userId: 'user-inactive' },
+  args: { userName: 'inactive.user@example.com', userId: 'user-inactive' },
   parameters: {
     activityResponse: activityOk({
-      userName: 'inactive.user@company.com',
+      userName: 'inactive.user@example.com',
       lastActive: null,
       totalActivities: 0,
       activitiesByDate: {},

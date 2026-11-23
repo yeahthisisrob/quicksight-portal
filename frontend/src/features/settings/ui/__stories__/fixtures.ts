@@ -4,7 +4,7 @@ import { type MockRoute, requestBody } from '../../../../../.storybook/mocks/api
 
 const SNAPSHOT: SettingsSnapshot = {
   updatedAt: '2026-09-18T14:02:00Z',
-  updatedBy: 'rob',
+  updatedBy: 'maya',
   groups: [
     {
       id: 'smus',
@@ -183,7 +183,7 @@ const API_KEYS = [
     label: 'claude cli',
     prefix: 'qsp_7Hq2mLp9',
     createdAt: '2026-09-18T14:02:00.000Z',
-    createdBy: 'rob@example.com',
+    createdBy: 'maya.chen@example.com',
     lastUsedAt: '2026-09-19T09:41:00.000Z',
   },
   {
@@ -191,7 +191,7 @@ const API_KEYS = [
     label: 'nightly export',
     prefix: 'qsp_Aa91xZ4k',
     createdAt: '2026-09-01T08:00:00.000Z',
-    createdBy: 'rob@example.com',
+    createdBy: 'maya.chen@example.com',
   },
 ];
 
@@ -243,7 +243,7 @@ export function settingsRoutes(overrides: MockRoute[] = []): MockRoute[] {
           label,
           prefix: 'qsp_NewKey12',
           createdAt: new Date().toISOString(),
-          createdBy: 'rob@example.com',
+          createdBy: 'maya.chen@example.com',
         };
         keys = [key, ...keys];
         return {
@@ -303,7 +303,7 @@ export function settingsRoutes(overrides: MockRoute[] = []): MockRoute[] {
                     jobType: 'activity-refresh',
                     status: 'processing',
                     startTime: hoursAgo(0.1),
-                    startedBy: 'rob@example.com',
+                    startedBy: 'maya.chen@example.com',
                   },
                 ]
               : [];

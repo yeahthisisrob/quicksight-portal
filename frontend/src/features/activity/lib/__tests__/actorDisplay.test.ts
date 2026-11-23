@@ -50,14 +50,14 @@ describe('actorDisplay', () => {
           actor: PORTAL,
           origin: 'portal-ui',
           provenance: {
-            actor: { kind: 'user', id: 'u1', label: 'rob@example.com' },
+            actor: { kind: 'user', id: 'u1', label: 'maya.chen@example.com' },
             channel: 'ui',
             action: 'asset.rename',
             distanceMs: 0,
           },
         })
       )
-    ).toMatchObject({ label: 'Portal', via: 'rob@example.com', icon: 'portal' });
+    ).toMatchObject({ label: 'Portal', via: 'maya.chen@example.com', icon: 'portal' });
     expect(actorDisplay(base({ actor: PORTAL, origin: 'portal' }))).toEqual({
       label: 'Portal',
       icon: 'portal',
@@ -66,14 +66,14 @@ describe('actorDisplay', () => {
   });
 
   it('keeps the raw actor in the tooltip only when it differs from the label', () => {
-    const raw = 'AWSReservedSSO_Admin_0123456789ab/rob';
-    expect(actorDisplay(base({ actor: { kind: 'role', label: 'Admin / rob', raw } }))).toEqual({
-      label: 'Admin / rob',
+    const raw = 'AWSReservedSSO_Admin_0123456789ab/maya';
+    expect(actorDisplay(base({ actor: { kind: 'role', label: 'Admin / maya', raw } }))).toEqual({
+      label: 'Admin / maya',
       icon: 'role',
       tooltip: [raw],
     });
-    expect(actorDisplay(base({ actor: { kind: 'user', label: 'rob', raw: 'rob' } }))).toEqual({
-      label: 'rob',
+    expect(actorDisplay(base({ actor: { kind: 'user', label: 'maya', raw: 'maya' } }))).toEqual({
+      label: 'maya',
       icon: 'user',
       tooltip: [],
     });

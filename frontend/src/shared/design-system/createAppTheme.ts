@@ -23,7 +23,7 @@ import { darkColors, lightColors, type SemanticColors } from './tokens/semantic'
 export const pal = (theme: Theme) => (theme.vars ?? theme).palette;
 
 /** `color-mix` keeps alpha tints working with CSS-variable colours. */
-const tint = (color: string, percent: number) =>
+export const tint = (color: string, percent: number) =>
   `color-mix(in srgb, ${color} ${percent}%, transparent)`;
 
 const px = (n: number) => `${n}px`;

@@ -43,6 +43,7 @@ function getChipMetadata(type: ChipType) {
 
   return {
     config,
+    colorKey: colorConfig && 'colorKey' in config ? config.colorKey : null,
     Icon,
     isJsonHighlight,
     isStatusType,
@@ -111,10 +112,16 @@ const TypedChip = React.forwardRef<HTMLDivElement, TypedChipProps>(
         return <JsonHighlightChip {...commonProps} />;
 
       case 'assetType':
-        if (!metadata.colorConfig) {
+        if (!metadata.colorConfig || !metadata.colorKey) {
           throw new Error(`Missing color config for chip type: ${type}`);
         }
-        return <AssetTypeChip {...commonProps} colorConfig={metadata.colorConfig} />;
+        return (
+          <AssetTypeChip
+            {...commonProps}
+            colorConfig={metadata.colorConfig}
+            colorKey={metadata.colorKey}
+          />
+        );
 
       default:
         throw new Error(`Unknown renderer type: ${rendererType}`);
