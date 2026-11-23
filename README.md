@@ -66,11 +66,11 @@ The natural-language part is deliberately small. What a person asks for becomes 
 
 A filter needs no planner at all. "Add a region filter to Sales review" is read once by the quick model, then code reads the analysis's own sheets, visuals and dataset columns, asks which visuals it should narrow when the ask did not say (the real sheets and visuals are the options, as cards), and draws the plan from the answer with the filter placed on the dataset that has the column. Seconds, not a planner round.
 
-| Provider | Use |
-|---|---|
-| **Amazon Bedrock** (Converse API) | Production. Any Bedrock model with tool use; cross-region inference profiles by default. Your data never leaves your account. |
-| Local **Claude** or **Codex** CLI | Development. The planner runs through your own logged-in CLI with no cloud credentials. Never used inside Lambda. |
-| Any **OpenAI-compatible** endpoint | Grok, OpenAI, or a gateway, via `PLANNER_BASE_URL`. |
+| Provider                           | Use                                                                                                                           |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Amazon Bedrock** (Converse API)  | Production. Any Bedrock model with tool use; cross-region inference profiles by default. Your data never leaves your account. |
+| Local **Claude** or **Codex** CLI  | Development. The planner runs through your own logged-in CLI with no cloud credentials. Never used inside Lambda.             |
+| Any **OpenAI-compatible** endpoint | Grok, OpenAI, or a gateway, via `PLANNER_BASE_URL`.                                                                           |
 
 The provider and model are settings, not a redeploy, and the Assistant lets each person pick the model for a conversation, with list prices beside each.
 
@@ -133,17 +133,17 @@ Every page is a thin client over the REST API, and an API key gives a CLI, a CI 
 
 ## Architecture
 
-| Layer | Technology |
-|---|---|
-| Frontend | React + TypeScript + MUI on a token-based design system (light and dark), organised by [Feature-Sliced Design](https://feature-sliced.design/), every component in Storybook |
-| Backend | Node.js 22 Lambda (TypeScript), organised by Vertical Slice Architecture; slices never import each other, and what several need lives in `shared/` |
-| Models | Amazon Bedrock (Converse) by default; local Claude or Codex CLI or any OpenAI-compatible endpoint behind the same interface |
-| API | HTTP API (API Gateway v2) behind CloudFront (same-origin), contract-first via OpenAPI |
-| Auth | Cognito user pool; JWT verified in-Lambda on every route; API keys; optional WAF and IP allowlist at the edge |
-| State | **DynamoDB**, one table: the asset catalog, jobs with their logs and items, settings, API keys, the audit log and the template library, every change a single conditional write |
-| Documents | **S3**: exported asset definitions (the source of truth), the archive, derived caches (activity, ingestions, fields, the SMUS snapshot), each with one writer |
-| Jobs | SQS + a worker Lambda with a self-requeuing continuation for long runs |
-| Infrastructure | AWS CDK with [cdk-nag](https://github.com/cdklabs/cdk-nag) (AWS Solutions rules) enforced on every synth |
+| Layer          | Technology                                                                                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend       | React + TypeScript + MUI on a token-based design system (light and dark), organised by [Feature-Sliced Design](https://feature-sliced.design/), every component in Storybook    |
+| Backend        | Node.js 22 Lambda (TypeScript), organised by Vertical Slice Architecture; slices never import each other, and what several need lives in `shared/`                              |
+| Models         | Amazon Bedrock (Converse) by default; local Claude or Codex CLI or any OpenAI-compatible endpoint behind the same interface                                                     |
+| API            | HTTP API (API Gateway v2) behind CloudFront (same-origin), contract-first via OpenAPI                                                                                           |
+| Auth           | Cognito user pool; JWT verified in-Lambda on every route; API keys; optional WAF and IP allowlist at the edge                                                                   |
+| State          | **DynamoDB**, one table: the asset catalog, jobs with their logs and items, settings, API keys, the audit log and the template library, every change a single conditional write |
+| Documents      | **S3**: exported asset definitions (the source of truth), the archive, derived caches (activity, ingestions, fields, the SMUS snapshot), each with one writer                   |
+| Jobs           | SQS + a worker Lambda with a self-requeuing continuation for long runs                                                                                                          |
+| Infrastructure | AWS CDK with [cdk-nag](https://github.com/cdklabs/cdk-nag) (AWS Solutions rules) enforced on every synth                                                                        |
 
 ### How a write happens
 
@@ -162,14 +162,17 @@ Every write path, in the UI, the API and the Assistant, is the same two calls: a
 **Prerequisites:** [mise](https://mise.jdx.dev) (`curl https://mise.run | sh`), an AWS account with QuickSight (Enterprise edition for the full API), the AWS CLI with credentials, and Docker Desktop only for local development.
 
 1. **Clone and install**
+
    ```bash
    git clone https://github.com/yeahthisisrob/quicksight-portal.git
    cd quicksight-portal
    just install
    ```
+
    `just install` fetches the exact Node, pnpm, lefthook and gitleaks versions pinned in `mise.toml`, installs the workspace and registers the git hooks. Without mise or just yet: `curl https://mise.run | sh && mise install && mise exec -- just install`.
 
 2. **Point at your AWS account**
+
    ```bash
    export CDK_DEFAULT_ACCOUNT=your-aws-account-id
    export CDK_DEFAULT_REGION=us-east-1
@@ -177,11 +180,13 @@ Every write path, in the UI, the API and the Assistant, is the same two calls: a
    ```
 
 3. **Deploy**
+
    ```bash
    just synth              # review what will be created
    pnpm run cdk:bootstrap  # first time only
    just deploy             # checks, builds, then deploys the stack
    ```
+
    The stack creates CloudFront + S3 (the SPA), the API and worker Lambdas, Cognito, the SQS export queue and DLQ, and the DynamoDB portal table. Outputs include the **SiteURL**.
 
    Context flags: `-c enableWaf=false` (WAF is on by default), `-c allowedIpRanges='["1.2.3.4/32"]'` (edge IP allowlist), `-c smusDomainId=dzd_xxxx` (SMUS integration), `-c nag=false` (skip cdk-nag for a one-off synth).
@@ -189,13 +194,16 @@ Every write path, in the UI, the API and the Assistant, is the same two calls: a
    **Upgrading from 2.35 or earlier** (the catalog moved from S3 files into the portal table): `just deploy`, then `just migrate-portal-table` (safe to run again), then run an export. Once the portal looks right, delete the `cache/<type>.json` and `cache/metadata.json` objects from the metadata bucket and the old `quicksight-portal-jobs-<account>` table.
 
    **Custom SQL datasets through Athena** need the Lambda role to read the tables a query names and to write the query's results. The stack grants Athena, Glue and Lake Formation access and the results prefix in the metadata bucket. Lake Formation-governed tables (every SMUS listing) stay hidden from the role until a data lake admin grants it, which Athena reports as "table not found". The portal never grants itself: **Settings → Athena access** shows each database as the role sees it and the exact commands for an admin, as a `just` shortcut or as plain AWS CLI calls with the role filled in. Run once per database, as you run `just smus-grant` once:
+
    ```bash
    just athena-grant published_prod                       # SELECT + DESCRIBE for the role on every table
    just athena-grant "published_prod,published_dev" catalog=123456789012
    ```
+
    A workgroup that enforces its own results location needs the role granted on that bucket too. Or declare the columns in the request.
 
 4. **Create your first user**
+
    ```bash
    aws cognito-idp admin-create-user \
      --user-pool-id <UserPoolId from CDK output> \
@@ -207,6 +215,7 @@ Every write path, in the UI, the API and the Assistant, is the same two calls: a
      --username you@example.com \
      --group-name QuickSightUsers
    ```
+
    Add admins to the `Admins` group.
 
 5. **Run your first export** - sign in, open **Operations**, and start a **Smart Sync**. The portal fills itself from your QuickSight account.
@@ -232,15 +241,15 @@ cp sam/template.yaml.example sam/template.yaml
 cp sam/env.example.json sam/env.json
 ```
 
-| Concern | Tool | Config |
-| --- | --- | --- |
-| Tool versions | mise | `mise.toml`, `mise.lock` |
-| Packages | pnpm workspace | `pnpm-workspace.yaml`, one `pnpm-lock.yaml` |
-| Format + lint | Biome | `biome.jsonc` |
-| Dead code | knip | `knip.jsonc` |
-| Tasks | just | `justfile` |
-| Git hooks | lefthook | `lefthook.yml` |
-| Secrets | gitleaks | `.gitleaksignore` |
+| Concern       | Tool           | Config                                      |
+| ------------- | -------------- | ------------------------------------------- |
+| Tool versions | mise           | `mise.toml`, `mise.lock`                    |
+| Packages      | pnpm workspace | `pnpm-workspace.yaml`, one `pnpm-lock.yaml` |
+| Format + lint | Biome          | `biome.jsonc`                               |
+| Dead code     | knip           | `knip.jsonc`                                |
+| Tasks         | just           | `justfile`                                  |
+| Git hooks     | lefthook       | `lefthook.yml`                              |
+| Secrets       | gitleaks       | `.gitleaksignore`                           |
 
 Biome formats and lints the whole repo in about 150ms and also enforces the architecture: the backend's Vertical Slice rules (only the adapter layer touches an AWS SDK; only one file touches DynamoDB) and the frontend's Feature-Sliced rules (a layer imports only from layers below it, through their public APIs) live in `biome.jsonc`. Because a linter that silently stops matching still reports success, `scripts/verify-architecture-rules.mjs` writes deliberate violations at the paths those rules target and asserts each is caught; `scripts/verify-slice-boundaries.mjs` proves no backend slice imports another. Both run in `just check` and in CI.
 
@@ -289,14 +298,14 @@ Contract-first via OpenAPI: `shared/schemas/api.openapi.yaml` defines every endp
 
 ## Troubleshooting
 
-| Symptom | Check |
-|---|---|
-| Export stuck or slow | The job page shows the worker heartbeat and per-type progress; a dead worker fails within 30 minutes and the run can be restarted (Smart Sync resumes incrementally) |
-| Empty portal after deploy | Run a Smart Sync export; check the worker Lambda's CloudWatch logs |
-| Permission denied errors | The Lambda role against QuickSight permissions; QuickSight must be active in the region |
-| A custom SQL dataset preview says the table does not exist | Lake Formation hides tables the Lambda role has no grant on: `just athena-grant <database>` once per database, or declare `columns` in the request |
-| A custom SQL dataset preview cannot write its results | Schema queries write to `athena-results/` in the metadata bucket unless the workgroup enforces its own location, which then needs `s3:GetBucketLocation`, `ListBucket` and `PutObject` for the role |
-| Cognito callback mismatch | The deployed config is wired automatically; for local dev, check `frontend/public/config.js` |
+| Symptom                                                    | Check                                                                                                                                                                                               |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Export stuck or slow                                       | The job page shows the worker heartbeat and per-type progress; a dead worker fails within 30 minutes and the run can be restarted (Smart Sync resumes incrementally)                                |
+| Empty portal after deploy                                  | Run a Smart Sync export; check the worker Lambda's CloudWatch logs                                                                                                                                  |
+| Permission denied errors                                   | The Lambda role against QuickSight permissions; QuickSight must be active in the region                                                                                                             |
+| A custom SQL dataset preview says the table does not exist | Lake Formation hides tables the Lambda role has no grant on: `just athena-grant <database>` once per database, or declare `columns` in the request                                                  |
+| A custom SQL dataset preview cannot write its results      | Schema queries write to `athena-results/` in the metadata bucket unless the workgroup enforces its own location, which then needs `s3:GetBucketLocation`, `ListBucket` and `PutObject` for the role |
+| Cognito callback mismatch                                  | The deployed config is wired automatically; for local dev, check `frontend/public/config.js`                                                                                                        |
 
 ## Contributing
 

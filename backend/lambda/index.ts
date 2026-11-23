@@ -4,9 +4,13 @@ import { apiHandler } from './api/apiHandler';
 import { wirePorts } from './ports';
 import { STATUS_CODES } from './shared/constants';
 import { errorResponse, successResponse } from './shared/utils/cors';
+import { registerLocalWorker } from './shared/utils/localDevelopment';
 import { logger } from './shared/utils/logger';
 
 wirePorts();
+// Local development has no queue: a job this API starts runs on the worker's
+// own handler, loaded when the first one does.
+registerLocalWorker(async () => (await import('./worker')).handler);
 
 // Warm start optimization - keep track of initialization
 let isWarm = false;

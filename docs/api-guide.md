@@ -84,24 +84,24 @@ curl -sS "$QSP_API_URL/api/context/entities/listing%3A<listing-id>/related?relat
 
 Relations read subject to object:
 
-| Relation | From | To |
-|---|---|---|
-| `in-project` | listing | project |
-| `has-column` | listing | listing-column |
-| `tagged` | listing | glossary-term |
-| `reads-listing` | dataset | listing |
-| `through-datasource` | dataset | datasource |
-| `exposes` | dataset | listing-column |
-| `uses-dataset` | analysis, dashboard | dataset |
-| `uses-theme` | analysis, dashboard | theme |
-| `defined-in` | calculated-field | analysis, dashboard, dataset |
-| `reads-column` | calculated-field | listing-column |
-| `in-asset` | visual | analysis, dashboard |
-| `in-folder` | asset | folder |
-| `column-of` | dataset-column | dataset |
-| `derived-from` | dataset-column | the parent dataset's column, or the listing-column it carries (followed through renames) |
-| `reads-field` | calculated-field | dataset-column, calculated-field |
-| `shows` | visual | dataset-column, calculated-field |
+| Relation             | From                | To                                                                                       |
+| -------------------- | ------------------- | ---------------------------------------------------------------------------------------- |
+| `in-project`         | listing             | project                                                                                  |
+| `has-column`         | listing             | listing-column                                                                           |
+| `tagged`             | listing             | glossary-term                                                                            |
+| `reads-listing`      | dataset             | listing                                                                                  |
+| `through-datasource` | dataset             | datasource                                                                               |
+| `exposes`            | dataset             | listing-column                                                                           |
+| `uses-dataset`       | analysis, dashboard | dataset                                                                                  |
+| `uses-theme`         | analysis, dashboard | theme                                                                                    |
+| `defined-in`         | calculated-field    | analysis, dashboard, dataset                                                             |
+| `reads-column`       | calculated-field    | listing-column                                                                           |
+| `in-asset`           | visual              | analysis, dashboard                                                                      |
+| `in-folder`          | asset               | folder                                                                                   |
+| `column-of`          | dataset-column      | dataset                                                                                  |
+| `derived-from`       | dataset-column      | the parent dataset's column, or the listing-column it carries (followed through renames) |
+| `reads-field`        | calculated-field    | dataset-column, calculated-field                                                         |
+| `shows`              | visual              | dataset-column, calculated-field                                                         |
 
 `direction=in` follows a relation backwards: the datasets that read a
 listing, the dashboards that use a dataset. Field lineage works the same
@@ -245,20 +245,20 @@ it is clean. For an asset that does not exist yet, `POST
 a preview then an apply. All of them keep the source's permissions and
 theme and never write a definition QuickSight would refuse:
 
-| Want | Call |
-|---|---|
-| Point an asset at different datasets, with column renames checked | `POST /api/authoring/{type}/{id}/rebind/plan`, then `.../rebind/preview` |
-| Edit visuals as operations: move, resize, retype, retitle, remove, duplicate, rename a sheet | `ops` on `.../rebind/preview` (the preview's `outline` gives the element ids) |
-| Migrate onto a template dashboard's layout standard | `template` on `.../rebind/preview` |
-| Convert chart families, standardise KPIs, add casts for changed column types | `typeRules` on `.../rebind/preview` |
-| Add calculated fields from the template library | `addCalculatedFields` on `.../rebind/preview` |
-| See each calculated field, its expression and what reads it | `GET /api/authoring/{type}/{id}/calculated-fields` |
-| Replace a calculated field with a column the dataset now has, rename one, or drop one nothing reads | `ops`: `replaceCalculatedField` (identifier, name, column), `renameCalculatedField` (identifier, name, to), `dropCalculatedField` (identifier, name); no sheetId, they follow every reference |
-| Rename a dataset's calculated field without breaking what reads it | `GET /api/authoring/datasets/{id}/calculated-fields?readers=true`, then `POST` the same path with `copyCalculatedField` (name, to); move each reader with a rebind of the same dataset and `columnMap` {old: new}; then `retireCalculatedField` (name, replacedBy), refused while anything still reads the old name. `dryRun: true` checks without writing |
-| Repair an asset QuickSight refuses to write | `POST /api/authoring/{type}/{id}/repair/plan`, then `repairs` on the preview |
-| Repoint a dataset at another table, query or data source, rename it, or switch it between SPICE and direct query | `PUT /api/assets/dataset/{id}/source` with `tables`, `name` or `importMode`; columns are kept, so what reads it keeps working |
-| Move a legacy dataset to the new data prep experience | `POST /api/authoring/datasets/{id}/migrate/preview`, then `.../migrate` with `rebindReaders: true`; a twin, with what reads the original repointed |
-| A dashboard from nothing, by naming columns | `POST /api/authoring/new/preview` with `visuals` |
+| Want                                                                                                             | Call                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Point an asset at different datasets, with column renames checked                                                | `POST /api/authoring/{type}/{id}/rebind/plan`, then `.../rebind/preview`                                                                                                                                                                                                                                                                                   |
+| Edit visuals as operations: move, resize, retype, retitle, remove, duplicate, rename a sheet                     | `ops` on `.../rebind/preview` (the preview's `outline` gives the element ids)                                                                                                                                                                                                                                                                              |
+| Migrate onto a template dashboard's layout standard                                                              | `template` on `.../rebind/preview`                                                                                                                                                                                                                                                                                                                         |
+| Convert chart families, standardise KPIs, add casts for changed column types                                     | `typeRules` on `.../rebind/preview`                                                                                                                                                                                                                                                                                                                        |
+| Add calculated fields from the template library                                                                  | `addCalculatedFields` on `.../rebind/preview`                                                                                                                                                                                                                                                                                                              |
+| See each calculated field, its expression and what reads it                                                      | `GET /api/authoring/{type}/{id}/calculated-fields`                                                                                                                                                                                                                                                                                                         |
+| Replace a calculated field with a column the dataset now has, rename one, or drop one nothing reads              | `ops`: `replaceCalculatedField` (identifier, name, column), `renameCalculatedField` (identifier, name, to), `dropCalculatedField` (identifier, name); no sheetId, they follow every reference                                                                                                                                                              |
+| Rename a dataset's calculated field without breaking what reads it                                               | `GET /api/authoring/datasets/{id}/calculated-fields?readers=true`, then `POST` the same path with `copyCalculatedField` (name, to); move each reader with a rebind of the same dataset and `columnMap` {old: new}; then `retireCalculatedField` (name, replacedBy), refused while anything still reads the old name. `dryRun: true` checks without writing |
+| Repair an asset QuickSight refuses to write                                                                      | `POST /api/authoring/{type}/{id}/repair/plan`, then `repairs` on the preview                                                                                                                                                                                                                                                                               |
+| Repoint a dataset at another table, query or data source, rename it, or switch it between SPICE and direct query | `PUT /api/assets/dataset/{id}/source` with `tables`, `name` or `importMode`; columns are kept, so what reads it keeps working                                                                                                                                                                                                                              |
+| Move a legacy dataset to the new data prep experience                                                            | `POST /api/authoring/datasets/{id}/migrate/preview`, then `.../migrate` with `rebindReaders: true`; a twin, with what reads the original repointed                                                                                                                                                                                                         |
+| A dashboard from nothing, by naming columns                                                                      | `POST /api/authoring/new/preview` with `visuals`                                                                                                                                                                                                                                                                                                           |
 
 **Or ask the planner.** A model turns a sentence into a validated
 proposal. These run as jobs (section 2), because a long think outlives a
@@ -507,6 +507,7 @@ text only, each time.
 
 **The run protocol follows AG-UI 1.0** ([docs.ag-ui.com](https://docs.ag-ui.com)). Only
 its data model is used; the transport is still a job you poll.
+
 - **Every result has an `outcome`.** It is `{ "type": "success" }` when the answer is done. It is `{ "type": "interrupt", "interrupts": [...] }` when the assistant asked a question.
 - **A question is an interrupt with reason `input_required`.** Its `metadata.options` hold the choices, each tied to a context-graph entity where it names one. `responseSchema` is the JSON Schema of the answer.
 - **To answer,** send the next message with `resume: [{ "interruptId": "...", "status": "resolved", "payload": { "selected": ["dataset:abc"] } }]`.
@@ -523,13 +524,13 @@ prepared write (`POST /api/authoring/datasets`, previewed first). When no
 data source is named and more than one could serve, it asks which, as
 options. The `fields` artifact places each calculated field the plan adds:
 
-| Verdict | Meaning |
-|---|---|
-| `use-column` | Row-level, and the dataset already has it as a column |
-| `push-down` | Row-level; your guidance says the source should materialise it |
-| `dataset` | Row-level; your guidance says it belongs in the QuickSight dataset |
-| `row-level` | Row-level; your guidance states no preference |
-| `analysis` | Aggregates, table or level-aware calculations, or parameters |
+| Verdict      | Meaning                                                            |
+| ------------ | ------------------------------------------------------------------ |
+| `use-column` | Row-level, and the dataset already has it as a column              |
+| `push-down`  | Row-level; your guidance says the source should materialise it     |
+| `dataset`    | Row-level; your guidance says it belongs in the QuickSight dataset |
+| `row-level`  | Row-level; your guidance states no preference                      |
+| `analysis`   | Aggregates, table or level-aware calculations, or parameters       |
 
 **Filters, controls and interactions.** Building from nothing
 (`POST /api/authoring/new`), send `filters` by column name, each with the

@@ -7,7 +7,7 @@ updates:
   # against four lockfiles could (and did) leave packages on different versions
   # of the same tool.
   - package-ecosystem: npm
-    directory: "/"
+    directory: '/'
     schedule:
       interval: weekly
       day: monday
@@ -15,31 +15,31 @@ updates:
     groups:
       # AWS SDK ships very frequently and its packages must move together.
       aws-sdk:
-        patterns: ["@aws-sdk/*", "@smithy/*"]
+        patterns: ['@aws-sdk/*', '@smithy/*']
       # Everything that only lints, formats, tests or builds. Safe to take in
       # bulk because CI proves it.
       tooling:
         patterns:
-          - "@biomejs/*"
-          - "vitest"
-          - "@vitest/*"
-          - "typescript"
-          - "vite"
-          - "@vitejs/*"
-          - "storybook"
-          - "@storybook/*"
-          - "openapi-typescript"
-          - "@redocly/*"
-        update-types: ["minor", "patch"]
+          - '@biomejs/*'
+          - 'vitest'
+          - '@vitest/*'
+          - 'typescript'
+          - 'vite'
+          - '@vitejs/*'
+          - 'storybook'
+          - '@storybook/*'
+          - 'openapi-typescript'
+          - '@redocly/*'
+        update-types: ['minor', 'patch']
       minor-and-patch:
-        update-types: ["minor", "patch"]
+        update-types: ['minor', 'patch']
 
   - package-ecosystem: github-actions
-    directory: "/"
+    directory: '/'
     schedule:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
     groups:
       actions:
-        patterns: ["*"]
+        patterns: ['*']

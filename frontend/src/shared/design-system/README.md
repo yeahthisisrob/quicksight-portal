@@ -40,24 +40,26 @@ theme.ts          deprecated aliases for the pre-token exports
 ```tsx
 import { pal } from '@/shared/design-system';
 
-<Box sx={(theme) => ({
-  backgroundColor: pal(theme).surface.container,
-  border: `1px solid ${pal(theme).line.default}`,
-  color: pal(theme).text.secondary,
-})} />
+<Box
+  sx={(theme) => ({
+    backgroundColor: pal(theme).surface.container,
+    border: `1px solid ${pal(theme).line.default}`,
+    color: pal(theme).text.secondary,
+  })}
+/>;
 ```
 
 `pal(theme)` returns `theme.vars.palette` when CSS variables are on (always,
 in the app) and `theme.palette` otherwise (tests). Palette groups:
 
-| Group | What it is for |
-| --- | --- |
-| `brand.primary / hover / active / subtle` | The action colour and its tint |
-| `surface.page / container / hover / selected / raised / inverse / input / disabled / backdrop` | Backgrounds |
-| `line.default / divider / strong / focus` | Borders |
-| `text.primary / secondary / muted / disabled / inverse / link / linkHover / onBrand` | Text |
-| `tone.success / error / warning / info / pending / stopped` | `{ text, bg, border }` per status |
-| `asset.dashboard / analysis / dataset / ...` | `{ main, subtle, strong }` per asset type |
+| Group                                                                                          | What it is for                            |
+| ---------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `brand.primary / hover / active / subtle`                                                      | The action colour and its tint            |
+| `surface.page / container / hover / selected / raised / inverse / input / disabled / backdrop` | Backgrounds                               |
+| `line.default / divider / strong / focus`                                                      | Borders                                   |
+| `text.primary / secondary / muted / disabled / inverse / link / linkHover / onBrand`           | Text                                      |
+| `tone.success / error / warning / info / pending / stopped`                                    | `{ text, bg, border }` per status         |
+| `asset.dashboard / analysis / dataset / ...`                                                   | `{ main, subtle, strong }` per asset type |
 
 MUI's own keys (`primary`, `error`, `background`, `text`, `divider`) map to
 the same tokens, so `color="text.secondary"` and `bgcolor="background.paper"`
@@ -73,17 +75,17 @@ CSS-variable colours where `alpha()` does not.
 
 ## Primitives
 
-All exported from `@/shared/design-system`. Stories under *Design System*.
+All exported from `@/shared/design-system`. Stories under _Design System_.
 
-| Component | Use it for |
-| --- | --- |
-| `Container` | Any surface with a header row: `header`, `description`, `actions`, `footer`, `variant="subtle"`, `disableContentPadding`, `fitHeight` |
-| `PageHeader` | The top of a page: `title`, `description`, `counter`, `actions`, `breadcrumbs`, children for tabs |
-| `StatusIndicator` | Icon + text for a state: `success`, `error`, `warning`, `info`, `pending`, `stopped`, `in-progress`, `loading` |
-| `KeyValuePairs` | Labelled facts in a grid: `items`, `columns` |
-| `EmptyState` | What a list shows instead of nothing: `title`, `description`, `icon`, `action` |
-| `SegmentedControl` | A single choice between 2-5 short options |
-| `TabBar` | Tabs that switch views of one page; sync `value` with `?tab=` |
+| Component          | Use it for                                                                                                                            |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `Container`        | Any surface with a header row: `header`, `description`, `actions`, `footer`, `variant="subtle"`, `disableContentPadding`, `fitHeight` |
+| `PageHeader`       | The top of a page: `title`, `description`, `counter`, `actions`, `breadcrumbs`, children for tabs                                     |
+| `StatusIndicator`  | Icon + text for a state: `success`, `error`, `warning`, `info`, `pending`, `stopped`, `in-progress`, `loading`                        |
+| `KeyValuePairs`    | Labelled facts in a grid: `items`, `columns`                                                                                          |
+| `EmptyState`       | What a list shows instead of nothing: `title`, `description`, `icon`, `action`                                                        |
+| `SegmentedControl` | A single choice between 2-5 short options                                                                                             |
+| `TabBar`           | Tabs that switch views of one page; sync `value` with `?tab=`                                                                         |
 
 `PageLayout` (in `shared/ui`) wraps `PageHeader` and is still fine to use.
 
@@ -104,21 +106,21 @@ scheme only.
 `shadows`, `transitions` and `components`, mapped onto the new tokens and
 marked `@deprecated`. Replace as you touch a file:
 
-| Old | New |
-| --- | --- |
-| `colors.primary.main` | `pal(theme).brand.primary` |
-| `colors.assetTypes.dashboard.main / .light / .dark` | `pal(theme).asset.dashboard.main / .subtle / .strong` |
-| `colors.status.error` | `pal(theme).tone.error.text` |
-| `colors.neutral[200]` (a border) | `pal(theme).line.divider` or `.default` |
-| `colors.neutral[600]` (text) | `pal(theme).text.secondary` |
-| `colors.background.default` | `pal(theme).surface.container` |
-| `spacing.md / 8` in `sx` | `2` (MUI units) |
-| `typography.fontWeight.semibold` | `600`, or `variant="subtitle2"` |
-| `borderRadius.lg` | `tokens.radius.container` or `theme.shape.borderRadius` |
-| `shadows.md` | `tokens.elevation.container` |
-| hand-rolled bordered `Paper` | `Container` |
-| hand-rolled title row | `PageHeader` |
-| coloured text for a state | `StatusIndicator` |
+| Old                                                 | New                                                     |
+| --------------------------------------------------- | ------------------------------------------------------- |
+| `colors.primary.main`                               | `pal(theme).brand.primary`                              |
+| `colors.assetTypes.dashboard.main / .light / .dark` | `pal(theme).asset.dashboard.main / .subtle / .strong`   |
+| `colors.status.error`                               | `pal(theme).tone.error.text`                            |
+| `colors.neutral[200]` (a border)                    | `pal(theme).line.divider` or `.default`                 |
+| `colors.neutral[600]` (text)                        | `pal(theme).text.secondary`                             |
+| `colors.background.default`                         | `pal(theme).surface.container`                          |
+| `spacing.md / 8` in `sx`                            | `2` (MUI units)                                         |
+| `typography.fontWeight.semibold`                    | `600`, or `variant="subtitle2"`                         |
+| `borderRadius.lg`                                   | `tokens.radius.container` or `theme.shape.borderRadius` |
+| `shadows.md`                                        | `tokens.elevation.container`                            |
+| hand-rolled bordered `Paper`                        | `Container`                                             |
+| hand-rolled title row                               | `PageHeader`                                            |
+| coloured text for a state                           | `StatusIndicator`                                       |
 
 ## Adding to the system
 
@@ -132,5 +134,5 @@ marked `@deprecated`. Replace as you touch a file:
 
 ## Storybook
 
-`just storybook`, then *Design System / Overview* for tokens and primitives
-side by side, and *Design System / <Component>* for each primitive.
+`just storybook`, then _Design System / Overview_ for tokens and primitives
+side by side, and _Design System / <Component>_ for each primitive.

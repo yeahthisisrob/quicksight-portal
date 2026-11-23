@@ -6,6 +6,18 @@
 import { errorMessage } from './errorMessage';
 import { logger } from './logger';
 
+/** The worker's handler, as a job run in local development calls it. */
+type LocalWorker = (event: any, context: any) => Promise<unknown>;
+
+// A port: this module sits under every slice that queues a job, and the worker
+// sits above them all, so the worker is handed in rather than imported. Each
+// Lambda entry point (index.ts, worker.ts) fills it once.
+let loadLocalWorker: (() => Promise<LocalWorker>) | undefined;
+
+export function registerLocalWorker(load: () => Promise<LocalWorker>): void {
+  loadLocalWorker = load;
+}
+
 interface LocalJobExecutionConfig {
   jobId: string;
   jobType: string;
@@ -50,8 +62,10 @@ async function executeJobLocally(config: LocalJobExecutionConfig): Promise<void>
   });
 
   try {
-    // Import worker handler
-    const { handler: workerHandler } = await import('../../worker');
+    if (!loadLocalWorker) {
+      throw new Error('No local worker registered (registerLocalWorker)');
+    }
+    const workerHandler = await loadLocalWorker();
 
     // Create mock SQS event
     const mockEvent = createMockSQSEvent(config);
