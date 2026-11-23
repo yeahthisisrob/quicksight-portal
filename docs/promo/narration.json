@@ -1,0 +1,47 @@
+{
+  "voice": "A calm, confident woman in her thirties with a warm, clear, mid-range voice. Neutral American English. Measured, unhurried pace with crisp articulation. Friendly and precise, like a senior engineer giving a product walkthrough. Studio quality, close microphone, no background noise.",
+  "reference": "Hi, I'm going to walk you through the portal, one screen at a time, and show you what each part does.",
+  "seed": 7,
+  "lines": [
+    {
+      "id": "open",
+      "text": "This is the QuickSight Assets Portal. An open source control plane for Amazon QuickSight, that runs in your own AWS account."
+    },
+    {
+      "id": "dashboards",
+      "text": "Every dashboard is listed with who actually opens it. Sort by activity, and see the views and the viewers behind any count."
+    },
+    {
+      "id": "datasets",
+      "text": "Need to move a dataset to a new data source? Pick the source, check the preview, and apply."
+    },
+    {
+      "id": "json",
+      "text": "The full definition of any asset is one click away, as JSON."
+    },
+    {
+      "id": "archive",
+      "text": "Select what nobody opens, and delete it. The portal archives each definition first, so nothing is lost."
+    },
+    {
+      "id": "timeline",
+      "text": "The activity timeline shows who changed what, from the console, the portal, or an agent, with the stored event behind each line."
+    },
+    {
+      "id": "lineage",
+      "text": "The data catalog traces every calculated field, from its source columns to the visuals that read it."
+    },
+    {
+      "id": "assistant",
+      "text": "The assistant drafts a plan, and a preview of what it would build. Nothing is written until you run it."
+    },
+    {
+      "id": "parity",
+      "text": "And here is how the portal compares with AWS today, capability by capability, with the gaps on both sides."
+    },
+    {
+      "id": "close",
+      "text": "The QuickSight Assets Portal. Open source, and one command to deploy. Everything you just saw is the real portal, running on made up data."
+    }
+  ]
+}
