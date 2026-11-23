@@ -6,7 +6,7 @@ info:
     url: https://opensource.org/licenses/MIT
   description: API for managing and viewing QuickSight assets
   version: 1.0.0
-  
+
 servers:
   - url: /
     description: This portal (the API is served from the same origin as the page)
@@ -158,7 +158,18 @@ paths:
           in: query
           schema:
             type: string
-            enum: [name, type, createdTime, lastUpdatedTime, lastExportTime, archivedDate, archiveReason, archivedBy, lastActivity]
+            enum:
+              [
+                name,
+                type,
+                createdTime,
+                lastUpdatedTime,
+                lastExportTime,
+                archivedDate,
+                archiveReason,
+                archivedBy,
+                lastActivity,
+              ]
             default: archivedDate
           description: Field to sort by
         - name: sortOrder
@@ -417,7 +428,7 @@ paths:
                     type: boolean
                   message:
                     type: string
-  
+
   /api/folders/{folderId}/members/{memberId}:
     delete:
       operationId: deleteFoldersByFolderIdMembersByMemberId
@@ -665,13 +676,13 @@ paths:
                     example: true
                   jobId:
                     type: string
-                    example: "csv-export-1234567890-abcd1234"
+                    example: 'csv-export-1234567890-abcd1234'
                   status:
                     type: string
-                    example: "queued"
+                    example: 'queued'
                   message:
                     type: string
-                    example: "CSV export job for dashboards queued"
+                    example: 'CSV export job for dashboards queued'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -823,7 +834,7 @@ paths:
           description: Asset not found
 
   # Tag management endpoints
-          
+
   /api/export/summary:
     get:
       operationId: getExportSummary
@@ -1196,7 +1207,7 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalServerError'
-    
+
     delete:
       operationId: deleteIngestionsByDatasetIdByIngestionId
       tags: [Ingestions]
@@ -6655,7 +6666,7 @@ paths:
           required: false
           schema:
             type: string
-            description: "`previous` (default), `live`, or a version id"
+            description: '`previous` (default), `live`, or a version id'
         - name: include
           in: query
           required: false
@@ -6731,7 +6742,7 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: JWT token for API authentication
-  
+
   parameters:
     JobId:
       name: jobId
@@ -7349,7 +7360,21 @@ components:
 
     JobType:
       type: string
-      enum: [export, deploy, ingestion, rebuild, activity-refresh, bulk-operation, csv-export, smus-export, planner, assistant, asset-refresh, playbook]
+      enum:
+        [
+          export,
+          deploy,
+          ingestion,
+          rebuild,
+          activity-refresh,
+          bulk-operation,
+          csv-export,
+          smus-export,
+          planner,
+          assistant,
+          asset-refresh,
+          playbook,
+        ]
 
     Playbook:
       type: object
@@ -7598,7 +7623,21 @@ components:
       properties:
         kind:
           type: string
-          enum: [views, viewsAtMost, tagged, nameContains, hasErrors, readsEngine, readsGoverned, sharedWith, role, inactiveForDays, noAccess, usesTheme]
+          enum:
+            [
+              views,
+              viewsAtMost,
+              tagged,
+              nameContains,
+              hasErrors,
+              readsEngine,
+              readsGoverned,
+              sharedWith,
+              role,
+              inactiveForDays,
+              noAccess,
+              usesTheme,
+            ]
         min:
           $ref: '#/components/schemas/PlaybookSpecValue'
         max:
@@ -7661,7 +7700,21 @@ components:
       properties:
         kind:
           type: string
-          enum: [learn, matchDataset, rebind, tag, repair, addToFolder, replaceMaterialisedCalcs, dropUnusedCalcs, renameCalcsToStandard, renameDatasetCalcsToStandard, deleteUser, applyTheme]
+          enum:
+            [
+              learn,
+              matchDataset,
+              rebind,
+              tag,
+              repair,
+              addToFolder,
+              replaceMaterialisedCalcs,
+              dropUnusedCalcs,
+              renameCalcsToStandard,
+              renameDatasetCalcsToStandard,
+              deleteUser,
+              applyTheme,
+            ]
         engine:
           $ref: '#/components/schemas/PlaybookSpecValue'
         governed:
@@ -7781,7 +7834,6 @@ components:
           type: string
         model:
           type: string
-
 
     SourceRestorePreview:
       type: object
@@ -8177,16 +8229,16 @@ components:
     SearchMatchReason:
       type: string
       enum:
-        - name           # Matched on asset name
-        - id             # Matched on asset ID
-        - description    # Matched on description
-        - arn            # Matched on ARN
-        - tag_key        # Matched on tag key
-        - tag_value      # Matched on tag value
-        - permission     # Matched on permission principal (user/group name)
-        - dependency_dataset     # Asset depends on a dataset matching the query
-        - dependency_datasource  # Asset depends on a datasource matching the query
-        - dependency_analysis    # Asset depends on an analysis matching the query
+        - name # Matched on asset name
+        - id # Matched on asset ID
+        - description # Matched on description
+        - arn # Matched on ARN
+        - tag_key # Matched on tag key
+        - tag_value # Matched on tag value
+        - permission # Matched on permission principal (user/group name)
+        - dependency_dataset # Asset depends on a dataset matching the query
+        - dependency_datasource # Asset depends on a datasource matching the query
+        - dependency_analysis # Asset depends on an analysis matching the query
       description: |
         Indicates why an asset was included in search results.
         Multiple reasons can apply to a single asset.
@@ -8254,7 +8306,7 @@ components:
               description: Datasets and data sources - the source types in use, with counts.
               items:
                 $ref: '#/components/schemas/FilterValueCount'
-    
+
     FilterValueCount:
       type: object
       required: [value, count]
@@ -8331,7 +8383,8 @@ components:
 
     AssetListItem:
       type: object
-      required: [id, name, type, status, createdTime, lastUpdatedTime, lastExportTime, enrichmentStatus]
+      required:
+        [id, name, type, status, createdTime, lastUpdatedTime, lastExportTime, enrichmentStatus]
       properties:
         id:
           type: string
@@ -8467,7 +8520,7 @@ components:
             path:
               type: string
               description: Full folder path like /parent/child
-              example: "/Marketing/Reports"
+              example: '/Marketing/Reports'
             memberCount:
               type: integer
               description: Number of assets in folder
@@ -8590,7 +8643,7 @@ components:
             dashboardStatus:
               type: string
               description: Dashboard creation status
-              example: "CREATION_SUCCESSFUL"
+              example: 'CREATION_SUCCESSFUL'
             visualCount:
               type: integer
               description: Number of visuals in dashboard
@@ -8655,7 +8708,7 @@ components:
                         type: object
                     arn:
                       type: string
-    
+
     DatasetListItem:
       allOf:
         - $ref: '#/components/schemas/AssetListItem'
@@ -8833,7 +8886,7 @@ components:
               properties:
                 vpcConnectionArn:
                   type: string
-    
+
     ThemeDraft:
       type: object
       required: [name, dataColors]
@@ -8932,7 +8985,7 @@ components:
             principalId:
               type: string
               description: Principal ID of the group
-    
+
     UserListItem:
       allOf:
         - $ref: '#/components/schemas/AssetListItem'
@@ -8946,7 +8999,7 @@ components:
             role:
               type: string
               description: User role in QuickSight
-              example: "AUTHOR"
+              example: 'AUTHOR'
             active:
               type: boolean
               description: Whether user is active
@@ -9253,7 +9306,8 @@ components:
       description: >
         Activity for a dataset — refresh (ingestion) history plus aggregated
         view/update activity of the dashboards and analyses that use it.
-      required: [datasetId, totalViews, uniqueViewers, viewsByDate, usedBy, ingestions, refreshSummary]
+      required:
+        [datasetId, totalViews, uniqueViewers, viewsByDate, usedBy, ingestions, refreshSummary]
       properties:
         datasetId:
           type: string
@@ -9542,7 +9596,15 @@ components:
           type: boolean
         data:
           type: object
-          required: [totalAssets, exportedAssets, lastExportDate, exportInProgress, assetTypeCounts, fieldStatistics]
+          required:
+            [
+              totalAssets,
+              exportedAssets,
+              lastExportDate,
+              exportInProgress,
+              assetTypeCounts,
+              fieldStatistics,
+            ]
           properties:
             totalAssets:
               type: integer
@@ -10423,7 +10485,8 @@ components:
 
     NewDatasetPreview:
       type: object
-      required: [name, importMode, dataSource, table, columns, columnsFrom, similar, folderIds, warnings]
+      required:
+        [name, importMode, dataSource, table, columns, columnsFrom, similar, folderIds, warnings]
       properties:
         name:
           type: string
@@ -11158,7 +11221,7 @@ components:
           $ref: '#/components/schemas/ApiKey'
         secret:
           type: string
-          description: "Shown once. Send it as `Authorization: Bearer <secret>`."
+          description: 'Shown once. Send it as `Authorization: Bearer <secret>`.'
 
     SettingsUpdate:
       type: object
@@ -12400,7 +12463,19 @@ components:
 
     DatasetMigrationPreview:
       type: object
-      required: [dataSetId, name, importMode, experience, carried, dropped, refused, readers, folderIds, warnings]
+      required:
+        [
+          dataSetId,
+          name,
+          importMode,
+          experience,
+          carried,
+          dropped,
+          refused,
+          readers,
+          folderIds,
+          warnings,
+        ]
       properties:
         dataSetId:
           type: string
@@ -12612,7 +12687,22 @@ components:
       properties:
         op:
           type: string
-          enum: [move, resize, retype, retitle, remove, duplicate, renameSheet, addFilter, addVisual, addAction, replaceCalculatedField, renameCalculatedField, dropCalculatedField]
+          enum:
+            [
+              move,
+              resize,
+              retype,
+              retitle,
+              remove,
+              duplicate,
+              renameSheet,
+              addFilter,
+              addVisual,
+              addAction,
+              replaceCalculatedField,
+              renameCalculatedField,
+              dropCalculatedField,
+            ]
         sheetId:
           type: string
           description: Every op but the calculated-field ones.
@@ -12966,7 +13056,21 @@ components:
     # SMUS (SageMaker Unified Studio) schemas
     SearchableType:
       type: string
-      enum: [dashboard, analysis, dataset, datasource, folder, project, smus-listing, smus-column, calculated-field, visual, template, theme]
+      enum:
+        [
+          dashboard,
+          analysis,
+          dataset,
+          datasource,
+          folder,
+          project,
+          smus-listing,
+          smus-column,
+          calculated-field,
+          visual,
+          template,
+          theme,
+        ]
 
     SearchAssetRef:
       type: object
@@ -13050,11 +13154,45 @@ components:
 
     ContextEntityType:
       type: string
-      enum: [project, listing, listing-column, glossary-term, datasource, dataset, dataset-column, calculated-field, analysis, dashboard, visual, template, folder, theme]
+      enum:
+        [
+          project,
+          listing,
+          listing-column,
+          glossary-term,
+          datasource,
+          dataset,
+          dataset-column,
+          calculated-field,
+          analysis,
+          dashboard,
+          visual,
+          template,
+          folder,
+          theme,
+        ]
 
     ContextRelation:
       type: string
-      enum: [in-project, has-column, tagged, reads-listing, through-datasource, exposes, uses-dataset, defined-in, reads-column, in-asset, in-folder, column-of, derived-from, reads-field, shows, uses-theme]
+      enum:
+        [
+          in-project,
+          has-column,
+          tagged,
+          reads-listing,
+          through-datasource,
+          exposes,
+          uses-dataset,
+          defined-in,
+          reads-column,
+          in-asset,
+          in-folder,
+          column-of,
+          derived-from,
+          reads-field,
+          shows,
+          uses-theme,
+        ]
 
     ContextEntity:
       type: object

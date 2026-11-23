@@ -18,12 +18,15 @@ import { jobFactory } from './shared/services/jobs/JobFactory';
 import { JobStateService } from './shared/services/jobs/JobStateService';
 import { queueService } from './shared/services/jobs/QueueService';
 import { errorMessage } from './shared/utils/errorMessage';
+import { registerLocalWorker } from './shared/utils/localDevelopment';
 import { logger } from './shared/utils/logger';
 
 // Composition root: once the catalog is rebuilt, the collection snapshots are
 // precomputed; the ports are filled as in index.ts.
 onCatalogRebuilt(warmCollectionSnapshots);
 wirePorts();
+// In local development a job this worker starts runs on its own handler.
+registerLocalWorker(async () => handler);
 
 interface ExportMessage {
   jobId: string;

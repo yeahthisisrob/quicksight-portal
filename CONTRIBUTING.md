@@ -52,12 +52,14 @@ By participating in this project, you agree to maintain a respectful and inclusi
 ### Local Development
 
 1. Clone your fork:
+
    ```bash
    git clone https://github.com/yourusername/quicksight-assets-portal.git
    cd quicksight-assets-portal
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    cd frontend && npm install && cd ..
@@ -65,6 +67,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
    ```
 
 3. Set up configuration:
+
    ```bash
    cp env.json.example env.json
    cp frontend/public/config.js.example frontend/public/config.js
@@ -72,6 +75,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
    ```
 
 4. Start development servers:
+
    ```bash
    # Terminal 1: Backend
    cd backend/lambda && npm run dev
@@ -150,15 +154,18 @@ npm test -- --coverage
 - Aim for >80% code coverage
 
 Example test structure:
+
 ```typescript
 describe('ComponentName', () => {
   it('should handle normal case', () => {
     // Arrange
-    const input = { /* test data */ };
-    
+    const input = {
+      /* test data */
+    };
+
     // Act
     const result = functionUnderTest(input);
-    
+
     // Assert
     expect(result).toEqual(expectedOutput);
   });
@@ -182,6 +189,7 @@ footer (optional)
 ```
 
 Types:
+
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation changes
@@ -191,6 +199,7 @@ Types:
 - `chore`: Build process or auxiliary tool changes
 
 Examples:
+
 ```
 feat(export): add support for bulk dashboard export
 fix(auth): resolve token refresh issue
@@ -216,6 +225,7 @@ docs(readme): update installation instructions
 ## Pull Request Process
 
 1. **Update your branch** with latest main:
+
    ```bash
    git checkout main
    git pull upstream main
@@ -264,6 +274,7 @@ Maintainers handle releases following semantic versioning:
 ## Recognition
 
 Contributors are recognized in:
+
 - GitHub contributors page
 - Release notes
 - Project documentation
