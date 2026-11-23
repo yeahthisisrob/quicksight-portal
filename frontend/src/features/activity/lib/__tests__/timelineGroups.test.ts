@@ -9,13 +9,13 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 const at = (iso: string, over: Partial<TimelineEvent> = {}): TimelineEvent =>
   ({
-    id: `e-${iso}-${over.assetId ?? ''}-${over.user ?? 'rob'}`,
+    id: `e-${iso}-${over.assetId ?? ''}-${over.user ?? 'maya'}`,
     timestamp: iso,
     eventName: 'UpdateDashboard',
     kind: 'mutation',
     action: 'update',
-    user: 'rob',
-    actor: { kind: 'user', label: 'rob', raw: 'rob' },
+    user: 'maya',
+    actor: { kind: 'user', label: 'maya', raw: 'maya' },
     origin: 'console',
     resourceType: 'dashboard',
     assetType: 'dashboard',
@@ -98,7 +98,7 @@ describe('groupTimeline', () => {
       at('2026-09-19T10:01:00.000Z', {
         actor: portal,
         origin: 'portal-ui',
-        provenance: provenance('rob', 'user'),
+        provenance: provenance('maya', 'user'),
       }),
     ];
     const [today] = groupTimeline(events, NOW);

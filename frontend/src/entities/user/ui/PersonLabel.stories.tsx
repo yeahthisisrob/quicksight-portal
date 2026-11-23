@@ -17,16 +17,16 @@ export const Kinds: Story = {
     <Stack spacing={1.5} sx={{ p: 3 }}>
       <PersonLabel
         person={{
-          label: 'rob@example.com',
+          label: 'maya.chen@example.com',
           kind: 'person',
-          email: 'rob@example.com',
-          quickSightUserName: 'rob',
+          email: 'maya.chen@example.com',
+          quickSightUserName: 'maya',
         }}
       />
       <PersonLabel person={{ label: 'google_1043', kind: 'person' }} />
       <PersonLabel person={{ label: 'claude-cli (API key)', kind: 'api-key' }} />
       <PersonLabel person={{ label: 'The portal', kind: 'portal' }} />
-      <PersonLabel fallback="rob@example.com" />
+      <PersonLabel fallback="maya.chen@example.com" />
     </Stack>
   ),
 };

@@ -6,6 +6,7 @@
  */
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { alpha, Box, useTheme } from '@mui/material';
+import { useColorScheme } from '@mui/material/styles';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 
 import { type HighlightType, highlightConfigs } from '../utils/jsonHighlighter';
@@ -32,6 +33,8 @@ export const JsonContent = forwardRef<JsonContentHandle, JsonContentProps>(funct
   ref
 ) {
   const theme = useTheme();
+  // The scheme lives in the provider (CSS variables); `theme.palette.mode` is the default scheme's.
+  const { mode } = useColorScheme();
   const editorRef = useRef<MonacoEditor | null>(null);
   const decorations = useRef<Decorations | null>(null);
   const text = useMemo(() => JSON.stringify(data ?? {}, null, 2), [data]);
@@ -81,7 +84,7 @@ export const JsonContent = forwardRef<JsonContentHandle, JsonContentProps>(funct
         height="100%"
         language="json"
         value={text}
-        theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
+        theme={mode === 'dark' ? 'vs-dark' : 'light'}
         onMount={(editor) => {
           editorRef.current = editor;
           mark();

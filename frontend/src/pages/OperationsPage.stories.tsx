@@ -5,9 +5,9 @@ import { exportRoutes } from '@/features/data-export/ui/__stories__/routes';
 import { STATUS_EXPORTED, smusExportRoutes } from '@/features/smus/ui/__stories__/fixtures';
 
 import { AppShell } from '../../.storybook/mocks/AppShell';
+import { archiveRoutes, createAccount } from '../../.storybook/mocks/account';
 import { jobsRoutes } from '../../.storybook/mocks/jobs';
 import OperationsPage from './OperationsPage';
-import { archivedRoutes, ITEMS } from './OperationsPage/__stories__/fixtures';
 
 /**
  * The Operations page in the app shell, API stubbed: the QuickSight export,
@@ -61,10 +61,11 @@ export const Smus: Story = {
   ),
 };
 
+/** /operations?tab=archived - the archive ledger, its counts and its rows from the same account. */
 export const ArchivedAssets: Story = {
   parameters: { router: { initialEntries: ['/operations?tab=archived'] } },
   render: () => (
-    <AppShell path="operations" routes={archivedRoutes(ITEMS)}>
+    <AppShell path="operations" routes={archiveRoutes(createAccount())}>
       <OperationsPage />
     </AppShell>
   ),

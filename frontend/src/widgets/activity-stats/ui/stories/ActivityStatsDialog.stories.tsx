@@ -48,18 +48,18 @@ const activity: ActivityData = {
   },
   viewers: [
     {
-      userName: 'john.doe@company.com',
+      userName: 'john.doe@example.com',
       viewCount: 234,
       lastViewed: '2024-01-24T15:30:00Z',
       groups: ['Executives', 'Finance', 'All staff'],
     },
     {
-      userName: 'jane.smith@company.com',
+      userName: 'jane.smith@example.com',
       viewCount: 187,
       lastViewed: '2024-01-24T14:20:00Z',
       groups: ['Finance'],
     },
-    { userName: 'mike.johnson@company.com', viewCount: 156, lastViewed: '2024-01-24T10:15:00Z' },
+    { userName: 'mike.johnson@example.com', viewCount: 156, lastViewed: '2024-01-24T10:15:00Z' },
   ],
 };
 

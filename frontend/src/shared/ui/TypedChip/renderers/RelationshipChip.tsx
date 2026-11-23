@@ -1,6 +1,7 @@
 import { alpha, Chip } from '@mui/material';
 import React from 'react';
 
+import { pal, tint } from '@/shared/design-system';
 import { colors, components, typography } from '@/shared/design-system/theme';
 
 import type { TypedChipProps } from '../index';
@@ -14,6 +15,7 @@ interface RelationshipChipProps extends TypedChipProps {
 export const RelationshipChip = React.forwardRef<HTMLDivElement, RelationshipChipProps>(
   ({ Icon, label, effectiveVariant, size, showIcon, count, ...chipProps }, ref) => {
     const hasCount = count !== undefined && count > 0;
+    const filled = effectiveVariant === 'filled';
 
     return (
       <Chip
@@ -22,7 +24,7 @@ export const RelationshipChip = React.forwardRef<HTMLDivElement, RelationshipChi
         variant={effectiveVariant}
         label={label}
         icon={showIcon && hasCount ? <Icon /> : undefined}
-        sx={{
+        sx={(theme) => ({
           height: size === 'small' ? components.chip.height.small : components.chip.height.medium,
           minWidth: '40px',
           backgroundColor: hasCount
@@ -66,8 +68,36 @@ export const RelationshipChip = React.forwardRef<HTMLDivElement, RelationshipChi
                 },
               }
             : {},
-          ...chipProps.sx,
-        }}
+          // The light values above are fixed; the dark scheme asks the theme.
+          ...theme.applyStyles('dark', {
+            backgroundColor: hasCount
+              ? filled
+                ? pal(theme).brand.primary
+                : pal(theme).brand.subtle
+              : pal(theme).surface.hover,
+            color: hasCount
+              ? filled
+                ? pal(theme).text.onBrand
+                : pal(theme).brand.primary
+              : pal(theme).text.muted,
+            borderColor: filled
+              ? 'transparent'
+              : hasCount
+                ? tint(pal(theme).brand.primary, 50)
+                : pal(theme).line.default,
+            '& .MuiChip-icon': {
+              color: filled ? pal(theme).text.onBrand : pal(theme).brand.primary,
+            },
+            '&:hover': chipProps.onClick
+              ? {
+                  backgroundColor: hasCount ? pal(theme).brand.hover : pal(theme).surface.selected,
+                  color: hasCount ? pal(theme).text.onBrand : pal(theme).text.primary,
+                  '& .MuiChip-icon': { color: pal(theme).text.onBrand },
+                }
+              : {},
+          }),
+          ...(chipProps.sx as object),
+        })}
         {...chipProps}
       />
     );

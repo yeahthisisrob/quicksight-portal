@@ -10,7 +10,7 @@ const report: PlaybookReport = {
   playbookTitle: 'Consolidate Athena data sources',
   mode: 'run',
   status: 'completed',
-  startedBy: 'rob@example.com',
+  startedBy: 'maya.chen@example.com',
   startTime: '2026-09-26T14:00:00Z',
   endTime: '2026-09-26T14:05:00Z',
   params: { target: 'athena-main' },

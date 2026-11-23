@@ -55,8 +55,8 @@ describe('job presentation', () => {
   });
 
   it('names who started it, never an opaque sign-in id', () => {
-    expect(startedByLabel({ startedBy: 'rob@example.com', userId: '4f1c' })).toBe(
-      'rob@example.com'
+    expect(startedByLabel({ startedBy: 'maya.chen@example.com', userId: '4f1c' })).toBe(
+      'maya.chen@example.com'
     );
     expect(startedByLabel({ userId: 'analyst@example.com' })).toBe('analyst@example.com');
     expect(startedByLabel({ userId: 'api-key:claude-cli' })).toBe('claude-cli (API key)');

@@ -456,12 +456,12 @@ const ARCHIVED = [
     type: 'dashboard',
     archivedDate: ARCHIVED_AT,
     archiveReason: 'Replaced by Sales overview (gold)',
-    archivedBy: 'rob@example.com',
+    archivedBy: 'maya.chen@example.com',
     archivedByPerson: {
-      label: 'rob@example.com',
+      label: 'maya.chen@example.com',
       kind: 'person',
-      email: 'rob@example.com',
-      quickSightUserName: 'rob',
+      email: 'maya.chen@example.com',
+      quickSightUserName: 'maya',
     },
   },
   {
@@ -486,8 +486,12 @@ const ARCHIVED = [
     type: 'dataset',
     archivedDate: '2026-09-01T10:00:00Z',
     archiveReason: 'Replaced by orders_gold',
-    archivedBy: 'rob@example.com',
-    archivedByPerson: { label: 'rob@example.com', kind: 'person', quickSightUserName: 'rob' },
+    archivedBy: 'maya.chen@example.com',
+    archivedByPerson: {
+      label: 'maya.chen@example.com',
+      kind: 'person',
+      quickSightUserName: 'maya',
+    },
   },
   {
     id: 'legacy-athena',
@@ -1282,7 +1286,7 @@ export function fakeStudio(options: FakeStudioOptions = {}): Studio {
       ? {
           archivedAt: '2026-08-02T14:10:00Z',
           archiveReason: 'Replaced by Sales overview (gold)',
-          archivedBy: 'rob@example.com',
+          archivedBy: 'maya.chen@example.com',
         }
       : null,
     preview: {

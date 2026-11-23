@@ -22,7 +22,7 @@ export * from './components/StatusIndicator';
 export * from './components/TabBar';
 // Constants
 // Theme
-export { pal } from './createAppTheme';
+export { pal, tint } from './createAppTheme';
 // Hooks
 // Providers
 
