@@ -296,7 +296,8 @@ export class QuicksightPortalStack extends Stack {
       })
     );
     // SMUS (SageMaker Unified Studio) catalog lookups: listings (with their
-    // metadata forms) and the project list the settings page chooses from.
+    // metadata forms), the project list the settings page chooses from, and
+    // one asset as it is now, which a metadata sync preview reads.
     // Harmless when no SMUS domain is configured.
     lambdaRole.addToPolicy(
       new PolicyStatement({
@@ -306,6 +307,7 @@ export class QuicksightPortalStack extends Stack {
           'datazone:ListProjects',
           'datazone:GetProject',
           'datazone:GetUserProfile',
+          'datazone:GetAsset',
         ],
         resources: ['*'],
       })
@@ -372,7 +374,8 @@ export class QuicksightPortalStack extends Stack {
     );
 
     // Metadata sync - optional, and the only thing in the portal that writes
-    // outside QuickSight, so the write access is granted only when asked for:
+    // outside QuickSight, so the write access is granted only when asked for
+    // (reading is not: a preview works without this):
     //   cdk deploy -c metadataSync=true   (or "metadataSync": true in cdk.context.json)
     // It lets the role rewrite a Glue table's comments and description and
     // revise and republish a SMUS asset. IAM is half of it: Lake Formation
@@ -396,11 +399,7 @@ export class QuicksightPortalStack extends Stack {
       lambdaRole.addToPolicy(
         new PolicyStatement({
           effect: Effect.ALLOW,
-          actions: [
-            'datazone:GetAsset',
-            'datazone:CreateAssetRevision',
-            'datazone:CreateListingChangeSet',
-          ],
+          actions: ['datazone:CreateAssetRevision', 'datazone:CreateListingChangeSet'],
           resources: ['*'],
         })
       );

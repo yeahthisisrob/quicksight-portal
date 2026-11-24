@@ -175,6 +175,16 @@ smus-grant domain projects='' region='us-east-1' stack='QuicksightPortalStack' d
 athena-grant databases catalog='' region='us-east-1' stack='QuicksightPortalStack' role='':
     {{x}} node scripts/athena-grant-portal-access.mjs --databases {{databases}} --region {{region}} --stack {{stack}} {{ if catalog != '' { "--catalog " + catalog } else { "" } }} {{ if role != '' { "--role-arn " + role } else { "" } }}
 
+# Let the metadata sync read and write the descriptions of Lake
+# Formation-governed tables: DESCRIBE and ALTER on every table of each
+# database, and no SELECT. Runs with YOUR data lake admin credentials, once
+# per database. The SMUS side is `just smus-grant` with PROJECT_CONTRIBUTOR.
+#   just metadata-sync-grant published_prod
+#   just metadata-sync-grant "published_prod,published_dev" catalog=123456789012
+[group('ops')]
+metadata-sync-grant databases catalog='' region='us-east-1' stack='QuicksightPortalStack' role='':
+    {{x}} node scripts/athena-grant-portal-access.mjs --metadata-sync --databases {{databases}} --region {{region}} --stack {{stack}} {{ if catalog != '' { "--catalog " + catalog } else { "" } }} {{ if role != '' { "--role-arn " + role } else { "" } }}
+
 # ============================================================================
 # BUILD
 # ============================================================================

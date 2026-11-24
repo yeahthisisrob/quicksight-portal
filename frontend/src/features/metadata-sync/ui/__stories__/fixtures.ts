@@ -125,36 +125,50 @@ const RUN_CLEAN: MetadataSyncReport = {
   tables: [],
 };
 
+const LF_REFUSAL =
+  'AccessDeniedException: Insufficient Lake Formation permission(s): Required Describe on';
+const IAM_REFUSAL =
+  'User: arn:aws:sts::123456789012:assumed-role/Portal-LambdaExecutionRole/worker is not authorized to perform: datazone:CreateAssetRevision on resource: arn:aws:datazone:us-east-1:123456789012:domain/dzd_example because no identity-based policy allows the datazone:CreateAssetRevision action';
+const REFUSED_TABLES = [
+  'customers',
+  'orders',
+  'order_lines',
+  'returns',
+  'shipments',
+  'stores',
+  'suppliers',
+  'targets',
+];
+
+/** A deployment whose grants are not finished: every table refused, for two reasons. */
 const RUN_REFUSED: MetadataSyncReport = {
   ...RUN_CLEAN,
   finishedAt: ago(0.2),
-  totals: { tables: 42, adoptions: 1, conflicts: 0, writes: 0, failed: 1 },
-  tables: [
-    {
-      database: 'sales',
-      table: 'customers',
-      adoptions: [
-        {
-          key: 'region',
-          field: 'description',
-          value: 'Where the customer is billed.',
-          from: ASSET,
-        },
-      ],
-      conflicts: [],
-      sides: [
-        {
-          side: 'glue',
-          kind: 'glue',
-          label: 'sales.customers',
-          outcome: 'failed',
-          writes: [{ key: 'region', field: 'description', value: 'Where the customer is billed.' }],
-          error:
-            'AccessDeniedException: Insufficient Lake Formation permission(s): Required Alter on customers',
-        },
-      ],
-    },
-  ],
+  totals: { tables: 42, adoptions: 0, conflicts: 0, writes: 0, failed: REFUSED_TABLES.length * 2 },
+  tables: REFUSED_TABLES.map((table) => ({
+    database: 'sales',
+    table,
+    adoptions: [],
+    conflicts: [],
+    sides: [
+      {
+        side: 'glue',
+        kind: 'glue' as const,
+        label: `sales.${table}`,
+        outcome: 'failed' as const,
+        writes: [],
+        error: `${LF_REFUSAL} ${table}`,
+      },
+      {
+        side: `smus:asset-${table}`,
+        kind: 'smus' as const,
+        label: table,
+        outcome: 'failed' as const,
+        writes: [],
+        error: IAM_REFUSAL,
+      },
+    ],
+  })),
 };
 
 const ON = { enabled: true, turnedOn: true, smusConfigured: true };
