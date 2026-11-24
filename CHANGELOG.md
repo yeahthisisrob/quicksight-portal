@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.54.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.53.0...v2.54.0) (2026-11-24)
+
+
+### Features
+
+* **metadata-sync:** keep table and column descriptions the same in Glue and SMUS, opt-in ([#371](https://github.com/yeahthisisrob/quicksight-portal/issues/371)) ([c2d5682](https://github.com/yeahthisisrob/quicksight-portal/commit/c2d56823dc1e69b6030d2f668cb9ab1adb99247d))
+
 ## [2.53.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.52.0...v2.53.0) (2026-10-15)
 
 
