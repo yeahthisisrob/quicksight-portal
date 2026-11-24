@@ -13,10 +13,15 @@
  *   2. SELECT and DESCRIBE on every table in it (a table wildcard, so
  *      tables published later are covered)
  *
+ * With --metadata-sync the grant is the one the metadata sync needs
+ * instead: DESCRIBE and ALTER on every table, to read and rewrite their
+ * comments and description, and no SELECT, since it never reads a row.
+ *
  * Usage:
  *   node scripts/athena-grant-portal-access.mjs --databases published_prod[,published_dev]
  *        [--catalog 123456789012] [--region us-east-1]
- *        [--role-arn arn:aws:iam::123:role/...] [--stack QuicksightPortalStack] [--dry-run]
+ *        [--role-arn arn:aws:iam::123:role/...] [--stack QuicksightPortalStack]
+ *        [--metadata-sync] [--dry-run]
  *
  * Without --role-arn the role is read from the CDK stack's LambdaExecutionRole.
  * --catalog is the Glue catalog id (the account by default); a federated or
@@ -41,6 +46,8 @@ const args = Object.fromEntries(
 const region = args.region ?? process.env.AWS_REGION ?? 'us-east-1';
 const stack = args.stack ?? 'QuicksightPortalStack';
 const dryRun = args['dry-run'] === 'true';
+const forMetadataSync = args['metadata-sync'] === 'true';
+const tablePermissions = forMetadataSync ? ['DESCRIBE', 'ALTER'] : ['SELECT', 'DESCRIBE'];
 const databases = (args.databases ?? '')
   .split(',')
   .map((s) => s.trim())
@@ -100,14 +107,18 @@ console.log(
   `Granting ${principal} in Lake Formation${args.catalog ? ` (catalog ${args.catalog})` : ''}:`
 );
 for (const database of databases) {
-  console.log(`- ${database}: DESCRIBE on the database, SELECT and DESCRIBE on every table`);
+  console.log(
+    `- ${database}: DESCRIBE on the database, ${tablePermissions.join(' and ')} on every table`
+  );
   grant(principal, ['DESCRIBE'], { Database: { ...catalog, Name: database } });
-  grant(principal, ['SELECT', 'DESCRIBE'], {
+  grant(principal, tablePermissions, {
     Table: { ...catalog, DatabaseName: database, TableWildcard: {} },
   });
 }
 console.log(
   dryRun
     ? 'Dry run: nothing granted.'
-    : 'Done. A custom SQL dataset preview over these tables now reads its columns through Athena.'
+    : forMetadataSync
+      ? 'Done. The metadata sync can now read these tables and write their descriptions.'
+      : 'Done. A custom SQL dataset preview over these tables now reads its columns through Athena.'
 );

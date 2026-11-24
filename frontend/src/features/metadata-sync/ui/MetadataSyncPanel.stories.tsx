@@ -53,7 +53,7 @@ export const InStep: Story = {
   ),
 };
 
-/** The role was not granted the write: the refusal AWS gave is shown beside the table. */
+/** Grants not finished: refusals are grouped by what is missing, each with its fix. */
 export const WriteRefused: Story = {
   render: () => (
     <MockedApi routes={metadataSyncRoutes(STATUS_REFUSED)}>

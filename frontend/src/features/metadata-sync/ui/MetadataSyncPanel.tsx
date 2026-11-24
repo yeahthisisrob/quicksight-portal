@@ -45,10 +45,13 @@ import {
   type StatusType,
 } from '@/shared/design-system';
 
+import { groupRefusals, type RefusalGroup } from '../lib/refusals';
 import { useMetadataSync } from '../model/useMetadataSync';
 
 const PROGRESS_MAX = 100;
 const TABLE_KEY = '#table';
+/** How many refused tables a group names before it counts the rest. */
+const TABLES_SHOWN = 6;
 /** A long description is shown cut; the whole text is in the title. */
 const TEXT_MAX = 140;
 
@@ -166,11 +169,45 @@ function ConflictRow({
   );
 }
 
+/** One missing grant: what it is, the tables it stopped, and the fix. */
+function Refusal({ group }: { group: RefusalGroup }) {
+  const more = group.tables.length - TABLES_SHOWN;
+  return (
+    <Alert severity={group.kind === 'other' ? 'error' : 'warning'}>
+      <Typography variant="subtitle2">
+        {group.title} ({plural(group.tables.length, 'table')})
+      </Typography>
+      <Typography variant="body2" sx={{ mt: 0.5 }}>
+        {group.fix}
+      </Typography>
+      {group.command && (
+        <Box
+          component="code"
+          sx={{ display: 'block', mt: 1, fontSize: 13, overflowWrap: 'anywhere' }}
+        >
+          {group.command}
+        </Box>
+      )}
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+        {group.tables.slice(0, TABLES_SHOWN).join(', ')}
+        {more > 0 ? ` and ${more.toLocaleString()} more` : ''}
+      </Typography>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        title={group.example}
+        sx={{ display: 'block', mt: 0.5, overflowWrap: 'anywhere' }}
+      >
+        AWS said: {cut(group.example)}
+      </Typography>
+    </Alert>
+  );
+}
+
 function ChangesTable({ report }: { report: MetadataSyncReport }) {
+  // A refusal is shown once, by what is missing, above; a row each would bury the rest.
   const rows = report.tables.flatMap((table) =>
-    table.sides
-      .filter((side) => side.writes.length > 0 || side.outcome === 'failed')
-      .map((side) => ({ table, side }))
+    table.sides.filter((side) => side.writes.length > 0).map((side) => ({ table, side }))
   );
   if (rows.length === 0) {
     return null;
@@ -207,23 +244,17 @@ function ChangesTable({ report }: { report: MetadataSyncReport }) {
                 </StatusIndicator>
               </TableCell>
               <TableCell>
-                {side.error ? (
-                  <Typography variant="body2" color="error">
-                    {side.error}
-                  </Typography>
-                ) : (
-                  <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.5 }}>
-                    {side.writes.map((write) => (
-                      <Chip
-                        key={`${write.key}:${write.field}`}
-                        size="small"
-                        variant="outlined"
-                        title={write.was ? `${write.was} → ${write.value}` : write.value}
-                        label={write.key === TABLE_KEY ? `table ${write.field}` : write.key}
-                      />
-                    ))}
-                  </Stack>
-                )}
+                <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+                  {side.writes.map((write) => (
+                    <Chip
+                      key={`${write.key}:${write.field}`}
+                      size="small"
+                      variant="outlined"
+                      title={write.was ? `${write.was} → ${write.value}` : write.value}
+                      label={write.key === TABLE_KEY ? `table ${write.field}` : write.key}
+                    />
+                  ))}
+                </Stack>
               </TableCell>
             </TableRow>
           );
@@ -251,6 +282,7 @@ function ReportView({
   const adoptions = report.tables.flatMap((table) =>
     table.adoptions.map((adoption) => ({ table, adoption }))
   );
+  const refusals = groupRefusals(report);
   return (
     <Stack spacing={2.5}>
       <StatStrip
@@ -270,12 +302,9 @@ function ReportView({
           },
         ]}
       />
-      {report.totals.failed > 0 && (
-        <Alert severity="error">
-          {plural(report.totals.failed, 'place')} could not be read or written. The reason AWS gave
-          is beside each below; a write the role is not allowed to make is the usual one.
-        </Alert>
-      )}
+      {refusals.map((group) => (
+        <Refusal key={group.kind} group={group} />
+      ))}
       {conflicts.length > 0 && (
         <Box>
           <Typography variant="subtitle2">

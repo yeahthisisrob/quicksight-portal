@@ -126,7 +126,7 @@ export const SETTINGS_CATALOG: SettingGroupSpec[] = [
     id: 'metadataSync',
     title: 'Metadata sync',
     description:
-      'Keeps the description of each table and column the same in Glue and in SageMaker Unified Studio, which AWS does not copy between. An edit made in either is adopted and copied to the other; text is put back on a table that was dropped and created again. Off by default: it is the one part of the portal that writes outside QuickSight. Needs SMUS configured, and the write access the README lists.',
+      'Keeps the description of each table and column the same in Glue and in SageMaker Unified Studio, which AWS does not copy between. An edit made in either is adopted and copied to the other; text is put back on a table that was dropped and created again. Off by default: it is the one part of the portal that writes outside QuickSight. Needs SMUS configured. This switch alone lets a preview run; writing also needs the stack deployed with "metadataSync": true in cdk.context.json, and the Lake Formation and SMUS project grants the README lists. Whatever is missing is named on the card with its fix.',
     settings: [
       {
         key: 'metadataSync.enabled',

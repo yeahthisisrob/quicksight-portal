@@ -59,7 +59,7 @@ For every table the SMUS export knows, the sync compares three things: the text 
 
 Glue takes column comments (cut to its 255 characters) and the table description; nothing else about the table is touched, and a write is retried when a load commits in between. SMUS takes the asset's name and description and its column business metadata form, with every other form sent back as it was, and a published asset is published again. Business names live in SMUS alone and are kept so a recreated asset gets them back. A Glue view is left to whoever publishes it. The kept text is one small document per table in the portal's bucket: no database, no queue, no extra function. It runs on the worker the exports already use, on demand from **Operations › Metadata sync** or on a cadence from Settings › Schedules.
 
-Turning it on takes three grants and a switch, since the portal's role only reads Glue and SMUS otherwise:
+A preview needs only to read: the portal's role must see the tables in Lake Formation and have its seat in the SMUS domain. Writing takes three more grants and a switch:
 
 ```bash
 # 1. Deploy with the write access (glue:UpdateTable, and revising and publishing SMUS assets)
@@ -68,12 +68,11 @@ cd infrastructure/cdk && npx cdk deploy -c metadataSync=true   # or "metadataSyn
 # 2. Make the role a contributor of each project whose assets it should write
 just smus-grant dzd_xxxx "analytics_prod" us-east-1 QuicksightPortalStack PROJECT_CONTRIBUTOR
 
-# 3. As a data lake admin, let the role alter the tables (per database)
-aws lakeformation grant-permissions --principal DataLakePrincipalIdentifier=<the portal's Lambda role ARN> \
-  --permissions ALTER --resource '{"Table":{"DatabaseName":"published_prod","TableWildcard":{}}}'
+# 3. As a data lake admin, let the role describe and alter the tables (per database; no SELECT)
+just metadata-sync-grant published_prod
 ```
 
-Then turn on **Settings › Metadata sync** and run a preview. A grant that is missing does not fail the run: the table it was refused on is listed with the reason AWS gave, and is tried again next time.
+Then turn on **Settings › Metadata sync** and run a preview. A grant that is missing does not fail the run. The card groups what was refused by what is missing, the deploy flag, the Lake Formation grant or the project seat, with the tables it was refused on and the command that fixes it, and those tables are tried again next time.
 
 ### The context graph and search
 
