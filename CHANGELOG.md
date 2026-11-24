@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.55.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.54.0...v2.55.0) (2026-11-24)
+
+
+### Features
+
+* **metadata-sync:** cover the tables a project owns without publishing them, and a view follows its table ([#375](https://github.com/yeahthisisrob/quicksight-portal/issues/375)) ([103b7eb](https://github.com/yeahthisisrob/quicksight-portal/commit/103b7ebdfb2bb7119c978e9b612764b8b9dae985))
+
+
+### Bug Fixes
+
+* **metadata-sync:** a preview needs no deploy flag, refusals are grouped by the missing grant with its fix, and one recipe grants the tables ([#373](https://github.com/yeahthisisrob/quicksight-portal/issues/373)) ([88a1711](https://github.com/yeahthisisrob/quicksight-portal/commit/88a171190bbfbda11da45a6e3e1d3e2c1a2c6812))
+
 ## [2.54.0](https://github.com/yeahthisisrob/quicksight-portal/compare/v2.53.0...v2.54.0) (2026-11-24)
 
 
