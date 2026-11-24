@@ -57,7 +57,9 @@ For every table the SMUS export knows, the sync compares three things: the text 
 - **A conflict writes nothing.** A field edited differently in two places since the last sync is shown on the card with what each place says, and stays as it is everywhere until someone picks.
 - **A preview writes nothing.** It reports what a run would adopt and write, table by table.
 
-Glue takes column comments (cut to its 255 characters) and the table description; nothing else about the table is touched, and a write is retried when a load commits in between. SMUS takes the asset's name and description and its column business metadata form, with every other form sent back as it was, and a published asset is published again. Business names live in SMUS alone and are kept so a recreated asset gets them back. A Glue view is left to whoever publishes it. The kept text is one small document per table in the portal's bucket: no database, no queue, no extra function. It runs on the worker the exports already use, on demand from **Operations › Metadata sync** or on a cadence from Settings › Schedules.
+**Which tables.** The published listings the SMUS export read, always. Under Settings › Metadata sync you can also pick projects, and then every table asset those projects own is covered, published or not: the projects that own the pipeline tables. **A view follows its table.** A view that selects from exactly one table in scope is a pointer to it, so its SMUS asset is synced as one more asset of that table, for the columns the view has. Describe a pipeline table once, in Glue or in SMUS, and the words reach its Glue comments, its own asset and the asset of each view published over it. A view over several tables in scope is left alone, and a view's own Glue text is never written.
+
+Glue takes column comments (cut to its 255 characters) and the table description; nothing else about the table is touched, and a write is retried when a load commits in between. SMUS takes the asset's name and description and its column business metadata form, with every other form sent back as it was, and a published asset is published again. Business names live in SMUS alone and are kept so a recreated asset gets them back. The kept text is one small document per table in the portal's bucket: no database, no queue, no extra function. It runs on the worker the exports already use, on demand from **Operations › Metadata sync** or on a cadence from Settings › Schedules.
 
 A preview needs only to read: the portal's role must see the tables in Lake Formation and have its seat in the SMUS domain. Writing takes three more grants and a switch:
 
@@ -65,7 +67,7 @@ A preview needs only to read: the portal's role must see the tables in Lake Form
 # 1. Deploy with the write access (glue:UpdateTable, and revising and publishing SMUS assets)
 cd infrastructure/cdk && npx cdk deploy -c metadataSync=true   # or "metadataSync": true in cdk.context.json, then just deploy
 
-# 2. Make the role a contributor of each project whose assets it should write
+# 2. Make the role a contributor of each project whose assets it should write, or whose own assets it should cover
 just smus-grant dzd_xxxx "analytics_prod" us-east-1 QuicksightPortalStack PROJECT_CONTRIBUTOR
 
 # 3. As a data lake admin, let the role describe and alter the tables (per database; no SELECT)

@@ -2,7 +2,7 @@ import type { Table } from '@aws-sdk/client-glue';
 import { describe, expect, it } from 'vitest';
 
 import { TABLE_KEY } from '../../types';
-import { glueShown, glueTableInput, isGlueView } from '../glueText';
+import { glueShown, glueTableInput } from '../glueText';
 
 const table: Table = {
   Name: 'orders',
@@ -65,12 +65,5 @@ describe('glueTableInput', () => {
   it('keeps the description when only a column is written', () => {
     const input = glueTableInput(table, [{ key: 'order_id', field: 'description', value: 'New.' }]);
     expect(input.Description).toBe('Every order.');
-  });
-});
-
-describe('isGlueView', () => {
-  it('knows a Data Catalog view, which is never written', () => {
-    expect(isGlueView({ ...table, ViewDefinition: { IsProtected: false } })).toBe(true);
-    expect(isGlueView(table)).toBe(false);
   });
 });

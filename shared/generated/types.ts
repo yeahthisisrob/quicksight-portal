@@ -7067,6 +7067,8 @@ export interface components {
                 /** @description Places that could not be read or written. */
                 failed: number;
             };
+            /** @description What could not be read while finding the tables in scope, in words. */
+            problems?: string[];
             /** @description Only the tables with an adoption, a conflict, a write or a failure. */
             tables: components["schemas"]["MetadataSyncTableResult"][];
         };
@@ -7075,6 +7077,8 @@ export interface components {
             enabled: boolean;
             turnedOn: boolean;
             smusConfigured: boolean;
+            /** @description Projects whose own assets are synced beside the published listings. */
+            projectIds?: string[];
             lastPreview: components["schemas"]["MetadataSyncReport"] | null;
             lastRun: components["schemas"]["MetadataSyncReport"] | null;
         };

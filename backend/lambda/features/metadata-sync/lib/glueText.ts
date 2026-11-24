@@ -11,9 +11,6 @@ import type { Column, Table, TableInput } from '@aws-sdk/client-glue';
 
 import { type FieldWrite, type Shown, TABLE_KEY } from '../types';
 
-/** A Data Catalog view is recreated from its SQL by whoever publishes it; never written here. */
-export const isGlueView = (table: Table): boolean => Boolean(table.ViewDefinition);
-
 export function glueShown(
   table: Pick<Table, 'StorageDescriptor' | 'PartitionKeys' | 'Description'>
 ): Shown {

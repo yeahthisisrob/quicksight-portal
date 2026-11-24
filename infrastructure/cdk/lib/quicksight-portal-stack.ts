@@ -297,7 +297,8 @@ export class QuicksightPortalStack extends Stack {
     );
     // SMUS (SageMaker Unified Studio) catalog lookups: listings (with their
     // metadata forms), the project list the settings page chooses from, and
-    // one asset as it is now, which a metadata sync preview reads.
+    // one asset as it is now and the assets a project owns, which a metadata
+    // sync preview reads.
     // Harmless when no SMUS domain is configured.
     lambdaRole.addToPolicy(
       new PolicyStatement({
@@ -308,6 +309,7 @@ export class QuicksightPortalStack extends Stack {
           'datazone:GetProject',
           'datazone:GetUserProfile',
           'datazone:GetAsset',
+          'datazone:Search',
         ],
         resources: ['*'],
       })

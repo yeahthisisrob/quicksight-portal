@@ -1,7 +1,7 @@
 import type { Table } from '@aws-sdk/client-glue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { CatalogAsset, CatalogListing } from '../../../../adapters/aws/DataZoneAdapter';
+import type { CatalogAsset, ProjectAsset } from '../../../../adapters/aws/DataZoneAdapter';
 import { COLUMN_FORM } from '../../lib/smusText';
 import { GLUE_SIDE, smusSide, type TableRecord } from '../../types';
 import { MetadataSyncService, tablesInScope } from '../MetadataSyncService';
@@ -10,14 +10,10 @@ vi.mock('../../../../shared/utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-const listing = (assetId: string, table = 'orders'): CatalogListing => ({
-  listingId: `listing-${assetId}`,
+const listing = (assetId: string, table = 'orders', database = 'sales'): ProjectAsset => ({
   assetId,
   name: `${table} (${assetId})`,
-  assetType: 'amazon.datazone.GlueTableAssetType',
-  table: { database: 'sales', name: table },
-  glossaryTerms: [],
-  forms: [],
+  table: { database, name: table },
 });
 
 const glueTable = (comment?: string): Table => ({
@@ -67,21 +63,21 @@ function harness() {
   return { glue, dataZone, records, saved, service };
 }
 
-const pass = (mode: 'preview' | 'run', listings: CatalogListing[]) => ({
+const pass = (mode: 'preview' | 'run', assets: ProjectAsset[]) => ({
   mode,
-  listings,
+  assets,
   snapshotAt: '2026-01-01T00:00:00.000Z',
 });
 
 describe('tablesInScope', () => {
-  it('groups the listings of one table and leaves out a listing that names no table', () => {
+  it('groups the assets of one table, and counts an asset found twice once', () => {
     const scopes = tablesInScope([
       listing('a'),
       listing('b'),
       listing('c', 'customers'),
-      { ...listing('d'), table: undefined },
+      listing('a'),
     ]);
-    expect(scopes.map((s) => [s.table, s.listings.length])).toEqual([
+    expect(scopes.map((s) => [s.table, s.assets.length])).toEqual([
       ['customers', 1],
       ['orders', 2],
     ]);
@@ -198,7 +194,9 @@ describe('MetadataSyncService', () => {
 
   it('skips a view and a missing table without failing the pass', async () => {
     h.glue.getTable.mockImplementation(async (_db: string, name: string) =>
-      name === 'orders' ? { ...glueTable(), ViewDefinition: {} } : null
+      name === 'orders'
+        ? { ...glueTable(), ViewDefinition: {}, ViewOriginalText: 'SELECT 1 FROM elsewhere.t' }
+        : null
     );
     h.dataZone.getAsset.mockResolvedValue(asset('a', 'The order.'));
 
@@ -206,5 +204,83 @@ describe('MetadataSyncService', () => {
 
     expect(report.totals).toMatchObject({ tables: 2, failed: 0 });
     expect(h.glue.updateTable).not.toHaveBeenCalled();
+  });
+
+  it("gives a view over one table that table's text on its own asset, for the columns it has", async () => {
+    const view: Table = {
+      Name: 'orders_v',
+      TableType: 'VIRTUAL_VIEW',
+      ViewOriginalText: 'SELECT order_id FROM "sales"."orders"',
+      StorageDescriptor: { Columns: [{ Name: 'order_id', Type: 'bigint' }] },
+    };
+    const base: Table = {
+      Name: 'orders',
+      VersionId: '1',
+      Description: 'Every order.',
+      StorageDescriptor: {
+        Columns: [
+          { Name: 'order_id', Type: 'bigint', Comment: 'The order.' },
+          { Name: 'internal_note', Type: 'string', Comment: 'Not in the view.' },
+        ],
+      },
+    };
+    h.glue.getTable.mockImplementation(async (database: string) =>
+      database === 'published' ? view : base
+    );
+    h.dataZone.getAsset.mockImplementation(async (_domain: string, id: string) => asset(id));
+
+    const report = await h.service.run(
+      pass('run', [listing('base'), listing('view', 'orders_v', 'published')])
+    );
+
+    expect(report.totals.tables).toBe(1);
+    const [table] = report.tables;
+    expect(table).toMatchObject({ database: 'sales', table: 'orders' });
+    const onView = table?.sides.find((s) => s.side === smusSide('view'));
+    expect(onView?.label).toContain('view published.orders_v');
+    expect(onView?.writes.map((w) => w.key).sort()).toEqual(['#table', 'order_id']);
+    const onBase = table?.sides.find((s) => s.side === smusSide('base'));
+    expect(onBase?.writes.map((w) => w.key).sort()).toEqual([
+      '#table',
+      'internal_note',
+      'order_id',
+    ]);
+    expect(h.glue.updateTable).not.toHaveBeenCalled();
+  });
+
+  it('leaves a view over two tables in scope alone: a join has no one table to follow', async () => {
+    const join: Table = {
+      Name: 'orders_v',
+      TableType: 'VIRTUAL_VIEW',
+      ViewOriginalText: 'SELECT * FROM sales.orders o JOIN sales.customers c ON 1=1',
+    };
+    h.glue.getTable.mockImplementation(async (database: string) =>
+      database === 'published' ? join : glueTable('The order.')
+    );
+    h.dataZone.getAsset.mockImplementation(async (_domain: string, id: string) => asset(id));
+
+    const report = await h.service.run(
+      pass('preview', [
+        listing('o'),
+        listing('c', 'customers'),
+        listing('view', 'orders_v', 'published'),
+      ])
+    );
+
+    expect(report.totals.tables).toBe(3);
+    const withViewAsset = report.tables.filter((t) =>
+      t.sides.some((side) => side.side === smusSide('view'))
+    );
+    expect(withViewAsset.map((t) => `${t.database}.${t.table}`)).toEqual(['published.orders_v']);
+  });
+
+  it('carries what could not be read while finding the scope into the report', async () => {
+    const report = await h.service.run({
+      ...pass('preview', []),
+      problems: ['The assets of project Pipeline could not be listed: AccessDenied'],
+    });
+    expect(report.problems).toEqual([
+      'The assets of project Pipeline could not be listed: AccessDenied',
+    ]);
   });
 });

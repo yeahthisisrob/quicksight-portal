@@ -3,7 +3,7 @@
  * over every table in the SMUS snapshot, narrated into the job log, with
  * the report written for the Operations page.
  */
-import { DataZoneAdapter } from '../../../adapters/aws/DataZoneAdapter';
+import { DataZoneAdapter, type ProjectAsset } from '../../../adapters/aws/DataZoneAdapter';
 import { GlueAdapter } from '../../../adapters/aws/GlueAdapter';
 import { getMetadataSyncConfig } from '../../../shared/config/metadataSyncConfig';
 import { getSmusConfig } from '../../../shared/config/smusConfig';
@@ -11,6 +11,7 @@ import { CacheService } from '../../../shared/services/cache/CacheService';
 import type { JobStateService } from '../../../shared/services/jobs/JobStateService';
 import { settingsStore } from '../../../shared/services/settings/SettingsStore';
 import { SmusService } from '../../../shared/services/smus/SmusService';
+import { errorMessage } from '../../../shared/utils/errorMessage';
 import { logger } from '../../../shared/utils/logger';
 import { MetadataSyncService } from '../services/MetadataSyncService';
 import { MetadataSyncStore } from '../services/MetadataSyncStore';
@@ -61,21 +62,44 @@ export class MetadataSyncProcessor {
 
     await this.jobStateService.updateJobStatus(this.jobId, {
       status: 'processing',
-      message: `${mode === 'preview' ? 'Previewing' : 'Syncing'} ${snapshot.listings.length} listings`,
+      message: mode === 'preview' ? 'Finding the tables to preview' : 'Finding the tables to sync',
       progress: PROGRESS.started,
     });
+
+    const dataZone = new DataZoneAdapter(smus.region);
+    // The published listings the export read, then every asset of the projects picked.
+    const assets: ProjectAsset[] = snapshot.listings.flatMap((listing) =>
+      listing.table ? [{ assetId: listing.assetId, name: listing.name, table: listing.table }] : []
+    );
+    const problems: string[] = [];
+    for (const projectId of config.projectIds) {
+      const name = snapshot.projects.find((p) => p.id === projectId)?.name ?? projectId;
+      try {
+        const owned = await dataZone.listProjectAssets(smus.domainId, projectId);
+        assets.push(...owned);
+        await this.jobStateService.logInfo(
+          this.jobId,
+          `Project ${name}: ${owned.length} table assets`
+        );
+      } catch (error) {
+        const reason = `The assets of project ${name} could not be listed: ${errorMessage(error)}`;
+        problems.push(reason);
+        await this.jobStateService.logWarn(this.jobId, reason);
+      }
+    }
 
     const store = new MetadataSyncStore();
     const service = new MetadataSyncService(
       new GlueAdapter(smus.region),
-      new DataZoneAdapter(smus.region),
+      dataZone,
       store,
       smus.domainId
     );
     const report = await service.run({
       mode,
-      listings: snapshot.listings,
+      assets,
       snapshotAt: snapshot.exportedAt,
+      problems,
       jobId: this.jobId,
       startedBy,
       progress: async (done, total) => {

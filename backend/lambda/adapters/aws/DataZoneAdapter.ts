@@ -14,6 +14,7 @@ import {
   GetProjectCommand,
   GetUserProfileCommand,
   ListProjectsCommand,
+  SearchCommand,
   SearchListingsCommand,
   type SearchListingsCommandOutput,
 } from '@aws-sdk/client-datazone';
@@ -40,6 +41,13 @@ export interface CatalogListing {
   /** Every metadata form on the listing, flattened to label/value pairs. */
   forms: Array<{ name: string; fields: Array<{ key: string; value: string }> }>;
   createdAt?: string;
+}
+
+/** An asset a project owns, published or not, and the Glue table it stands for. */
+export interface ProjectAsset {
+  assetId: string;
+  name: string;
+  table: { catalog?: string; database: string; name: string };
 }
 
 /** One asset as it is now, with the forms a revision must send back. */
@@ -450,6 +458,42 @@ export class DataZoneAdapter {
       nextToken = response.nextToken;
     } while (nextToken);
     return projects.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /**
+   * Every asset a project owns that stands for a Glue table, published or
+   * not. A listing search only sees what was published; a project that keeps
+   * its tables as inventory is read this way. DataZone answers only for a
+   * project the caller is a member of.
+   */
+  public async listProjectAssets(domainId: string, projectId: string): Promise<ProjectAsset[]> {
+    const assets: ProjectAsset[] = [];
+    let nextToken: string | undefined;
+    do {
+      const page = await this.client.send(
+        new SearchCommand({
+          domainIdentifier: domainId,
+          owningProjectIdentifier: projectId,
+          searchScope: 'ASSET',
+          additionalAttributes: ['FORMS'],
+          maxResults: SEARCH_PAGE_SIZE,
+          nextToken,
+        })
+      );
+      for (const item of page.items ?? []) {
+        const asset = item.assetItem;
+        if (!asset?.identifier) continue;
+        const arn = asset.externalIdentifier?.match(/:glue:[^:]*:([^:]*):table\/([^/]+)\/(.+)$/);
+        const table =
+          parseListingForms(asset.additionalAttributes?.formsOutput as any).table ??
+          (arn?.[2] && arn[3] ? { catalog: arn[1], database: arn[2], name: arn[3] } : undefined);
+        if (table) {
+          assets.push({ assetId: asset.identifier, name: asset.name ?? table.name, table });
+        }
+      }
+      nextToken = page.nextToken;
+    } while (nextToken && assets.length < MAX_LISTINGS);
+    return assets;
   }
 
   /** An asset as it is now, or null when the domain has none by that id. */
