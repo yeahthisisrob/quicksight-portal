@@ -1,4 +1,12 @@
-const OPERATIONS_TABS = ['export', 'activity', 'jobs', 'smus', 'archived', 'history'] as const;
+const OPERATIONS_TABS = [
+  'export',
+  'activity',
+  'jobs',
+  'smus',
+  'metadata-sync',
+  'archived',
+  'history',
+] as const;
 export type OperationsTab = (typeof OPERATIONS_TABS)[number];
 
 const DEFAULT_OPERATIONS_TAB: OperationsTab = 'export';

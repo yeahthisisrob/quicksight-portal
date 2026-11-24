@@ -35,7 +35,7 @@ A self-hosted control plane for Amazon QuickSight that **authors as well as admi
 
 ### SageMaker Unified Studio is a link, not a place
 
-The portal reads the published catalog of a SMUS (DataZone) domain: each listing with its project, the Glue table and columns from its metadata forms, glossary terms, and the QuickSight datasets already reading it. A dataset is linked to a listing by what it reads, the table behind the listing named as the table or in the SQL, by one matcher the Datasets page, the catalog and the Assistant all share. Nothing is ever created in SMUS. Everything works without SMUS; with it, governed data is where the Assistant starts.
+The portal reads the published catalog of a SMUS (DataZone) domain: each listing with its project, the Glue table and columns from its metadata forms, glossary terms, and the QuickSight datasets already reading it. A dataset is linked to a listing by what it reads, the table behind the listing named as the table or in the SQL, by one matcher the Datasets page, the catalog and the Assistant all share. Nothing is created in SMUS, and the one thing ever written there, a table's descriptions, is off unless you turn on the metadata sync below. Everything works without SMUS; with it, governed data is where the Assistant starts.
 
 **Exported, not live.** Like QuickSight, SMUS is read by an export job, never on a page request. The SMUS export sweeps the domain once, scoped to the projects selected in Settings, and writes one snapshot: projects, listings with their forms and columns, and how the sweep went, including which role called DataZone and whether the domain knows it. Give the portal a seat in the domain once, with admin credentials:
 
@@ -45,6 +45,35 @@ just smus-grant dzd_xxxx "analytics_prod,analytics_dev"
 ```
 
 ![Operations: the SMUS export](docs/screenshots/operations-smus.png)
+
+### Metadata sync: one description, in Glue and in SMUS
+
+AWS keeps what a table and its columns mean in two places and copies it between neither. A Glue table carries column comments and a description, which Athena, Spark and QuickSight read. Its SMUS asset carries business names and descriptions, which is what people browse. An edit in one never reaches the other, and a table dropped and created again starts blank. Until AWS offers one plane, the portal can be the bridge. **It is off by default**: this is the one thing in the portal that writes outside QuickSight, so a deployment turns it on.
+
+For every table the SMUS export knows, the sync compares three things: the text the portal keeps for it, what Glue and each of its SMUS assets showed after the last sync, and what they show now.
+
+- **An edit is adopted.** Text changed by hand in Glue or in SMUS becomes the kept text and is copied to the other.
+- **Missing text is put back.** A table or an asset that was created again gets its descriptions back on the next run. An empty field is never read as an edit, so text is not lost because a copy lost it.
+- **A conflict writes nothing.** A field edited differently in two places since the last sync is shown on the card with what each place says, and stays as it is everywhere until someone picks.
+- **A preview writes nothing.** It reports what a run would adopt and write, table by table.
+
+Glue takes column comments (cut to its 255 characters) and the table description; nothing else about the table is touched, and a write is retried when a load commits in between. SMUS takes the asset's name and description and its column business metadata form, with every other form sent back as it was, and a published asset is published again. Business names live in SMUS alone and are kept so a recreated asset gets them back. A Glue view is left to whoever publishes it. The kept text is one small document per table in the portal's bucket: no database, no queue, no extra function. It runs on the worker the exports already use, on demand from **Operations › Metadata sync** or on a cadence from Settings › Schedules.
+
+Turning it on takes three grants and a switch, since the portal's role only reads Glue and SMUS otherwise:
+
+```bash
+# 1. Deploy with the write access (glue:UpdateTable, and revising and publishing SMUS assets)
+cd infrastructure/cdk && npx cdk deploy -c metadataSync=true   # or "metadataSync": true in cdk.context.json, then just deploy
+
+# 2. Make the role a contributor of each project whose assets it should write
+just smus-grant dzd_xxxx "analytics_prod" us-east-1 QuicksightPortalStack PROJECT_CONTRIBUTOR
+
+# 3. As a data lake admin, let the role alter the tables (per database)
+aws lakeformation grant-permissions --principal DataLakePrincipalIdentifier=<the portal's Lambda role ARN> \
+  --permissions ALTER --resource '{"Table":{"DatabaseName":"published_prod","TableWildcard":{}}}'
+```
+
+Then turn on **Settings › Metadata sync** and run a preview. A grant that is missing does not fail the run: the table it was refused on is listed with the reason AWS gave, and is tried again next time.
 
 ### The context graph and search
 
@@ -98,7 +127,7 @@ Themes are an asset type end to end: listed with their colors and how many dashb
 - **Learn what an asset is for**: "learn Sales review and ask me what you don't understand" in the assistant, "Learn it" in the editor, or the "Learn what the busy dashboards and analyses are for" playbook across the account. One model call over the outline and the columns drafts what the asset and each visual are for and lists what the definition cannot tell; the answers go in once and are known from then on.
 - **Which data prep experience** built each dataset is a column and a filter on the Datasets page and a chip in the Data Catalog, so the legacy ones that still need moving are one click away.
 - **Health** on the lists: 30-day views, p90 load time and visual errors for dashboards; refresh runs, p90 ingestion latency and error rows for datasets. One batched CloudWatch read per page.
-- **Schedules** - Settings › Schedules runs the SMUS export, the Smart Sync export and the activity refresh by themselves every 4, 6, 12 or 24 hours (manual by default). One hourly timer reads the cadences and starts at most one run that is due, SMUS first, then the export, then activity, never beside a running export; the section shows when each last completed and when the next is due. Every summary is the design system's StatStrip (the cache, the SMUS snapshot, the archive, the jobs in view, the activity refresh, the catalog's counts): numbers only, never controls. Settings, Operations, the Data Catalog and Author are each one section at a time, listed on the left (the design system's SectionNav, with the Studio's editor, templates, playbooks and knowledge nested under Author) and named in the URL; Settings counts unsaved changes per section.
+- **Schedules** - Settings › Schedules runs the SMUS export, the metadata sync (when it is turned on), the Smart Sync export and the activity refresh by themselves every 4, 6, 12 or 24 hours (manual by default). One hourly timer reads the cadences and starts at most one run that is due, SMUS first, then the metadata sync, then the export, then activity, never beside a running export; the section shows when each last completed and when the next is due. Every summary is the design system's StatStrip (the cache, the SMUS snapshot, the archive, the jobs in view, the activity refresh, the catalog's counts): numbers only, never controls. Settings, Operations, the Data Catalog and Author are each one section at a time, listed on the left (the design system's SectionNav, with the Studio's editor, templates, playbooks and knowledge nested under Author) and named in the URL; Settings counts unsaved changes per section.
 - **Version history** - every dashboard, analysis and dataset keeps the definitions it has been through: a version is kept whenever an export, a refresh or a portal write finds the definition changed (timestamps and status do not count), in the metadata bucket under `history/` with an index row in the portal table saying when, who (a person when the portal wrote it, "Outside the portal" when Smart Sync found the change) and what changed in words (visuals added, moved or removed, calculated fields changed, a dataset's query or columns). Any version compares with the one before, any other, or what is live now, in words and side by side as JSON; any version can be put back, as a new version, so nothing is lost. The History panel in the Studio editor, "Version history" on every asset row, and Operations › History (what changed lately across the account) show it; the assistant sees the last versions of anything it reads and can list, compare and propose a rollback through the API. Settings › History sets how many versions each asset keeps.
 - **Folders, in full** - the Folders page makes new folders (at the top or inside another), shares one with people and groups at a role (viewer, author, admin, read live from QuickSight), and deletes one (its assets are taken out first and kept). The assistant can do the same through the API. A deleted analysis that QuickSight still holds in its recovery window is restored through that recovery under its own id, with the archive's repairs and edits written over it, instead of being refused.
 - **Refresh now, and on a schedule** - a SPICE dataset is refreshed from its row menu, from its refresh dialog, from the Studio's Refreshes panel, or by the assistant, and the ingestion shows in Operations at once. The same dialog reads the dataset's refresh schedules live from QuickSight and adds, changes or removes them (every 15 or 30 minutes, hourly, daily, weekly on a day, monthly on a date; full or incremental; time and timezone); the export that carries them is refreshed after every change.
@@ -133,17 +162,17 @@ Every page is a thin client over the REST API, and an API key gives a CLI, a CI 
 
 ## Architecture
 
-| Layer          | Technology                                                                                                                                                                      |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Frontend       | React + TypeScript + MUI on a token-based design system (light and dark), organised by [Feature-Sliced Design](https://feature-sliced.design/), every component in Storybook    |
-| Backend        | Node.js 22 Lambda (TypeScript), organised by Vertical Slice Architecture; slices never import each other, and what several need lives in `shared/`                              |
-| Models         | Amazon Bedrock (Converse) by default; local Claude or Codex CLI or any OpenAI-compatible endpoint behind the same interface                                                     |
-| API            | HTTP API (API Gateway v2) behind CloudFront (same-origin), contract-first via OpenAPI                                                                                           |
-| Auth           | Cognito user pool; JWT verified in-Lambda on every route; API keys; optional WAF and IP allowlist at the edge                                                                   |
-| State          | **DynamoDB**, one table: the asset catalog, jobs with their logs and items, settings, API keys, the audit log and the template library, every change a single conditional write |
-| Documents      | **S3**: exported asset definitions (the source of truth), the archive, derived caches (activity, ingestions, fields, the SMUS snapshot), each with one writer                   |
-| Jobs           | SQS + a worker Lambda with a self-requeuing continuation for long runs                                                                                                          |
-| Infrastructure | AWS CDK with [cdk-nag](https://github.com/cdklabs/cdk-nag) (AWS Solutions rules) enforced on every synth                                                                        |
+| Layer          | Technology                                                                                                                                                                                          |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend       | React + TypeScript + MUI on a token-based design system (light and dark), organised by [Feature-Sliced Design](https://feature-sliced.design/), every component in Storybook                        |
+| Backend        | Node.js 22 Lambda (TypeScript), organised by Vertical Slice Architecture; slices never import each other, and what several need lives in `shared/`                                                  |
+| Models         | Amazon Bedrock (Converse) by default; local Claude or Codex CLI or any OpenAI-compatible endpoint behind the same interface                                                                         |
+| API            | HTTP API (API Gateway v2) behind CloudFront (same-origin), contract-first via OpenAPI                                                                                                               |
+| Auth           | Cognito user pool; JWT verified in-Lambda on every route; API keys; optional WAF and IP allowlist at the edge                                                                                       |
+| State          | **DynamoDB**, one table: the asset catalog, jobs with their logs and items, settings, API keys, the audit log and the template library, every change a single conditional write                     |
+| Documents      | **S3**: exported asset definitions (the source of truth), the archive, derived caches (activity, ingestions, fields, the SMUS snapshot), the metadata sync's record per table, each with one writer |
+| Jobs           | SQS + a worker Lambda with a self-requeuing continuation for long runs                                                                                                                              |
+| Infrastructure | AWS CDK with [cdk-nag](https://github.com/cdklabs/cdk-nag) (AWS Solutions rules) enforced on every synth                                                                                            |
 
 ### How a write happens
 
@@ -282,6 +311,7 @@ Contract-first via OpenAPI: `shared/schemas/api.openapi.yaml` defines every endp
 - `/api/playbooks/*` - the account-wide fixes: list, preview, run, rows and reports; custom playbook specs
 - `/api/data-catalog/*` - calculated fields with lineage and conflicts, columns tied to SMUS, the template library
 - `/api/smus/*` - status, the export, published assets with their linked datasets
+- `/api/metadata-sync/*` - whether it is on, a preview or a run, the last reports, settling a conflict
 - `/api/assets/*`, `/api/export`, `/api/jobs/*` - inventory, archive and restore, exports, job status and results
 - `/api/activity/*`, `/api/ingestions` - views, viewers, the timeline, refresh history
 - `/api/folders`, `/api/users`, `/api/groups`, `/api/tags` - organisation and governance

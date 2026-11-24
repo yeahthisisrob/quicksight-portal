@@ -7,6 +7,7 @@ import { dataCatalogRoutes } from '../features/data-catalog';
 import { dataExportRoutes } from '../features/data-export';
 import { historyRoutes } from '../features/history';
 import { knowledgeRoutes } from '../features/knowledge';
+import { metadataSyncRoutes } from '../features/metadata-sync';
 import { organizationRoutes } from '../features/organization';
 import { playbookRoutes } from '../features/playbooks';
 import { searchRoutes } from '../features/search';
@@ -31,6 +32,7 @@ const featureRoutes: RouteHandler[] = [
   ...playbookRoutes,
   ...settingsRoutes,
   ...smusRoutes,
+  ...metadataSyncRoutes,
   ...jobRoutes, // Shared job management routes
 ];
 

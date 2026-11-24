@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import { ActivityPanel } from '@/features/activity';
 import { RecentChangesPanel } from '@/features/history';
 import { JobsView } from '@/features/jobs';
+import { MetadataSyncPanel } from '@/features/metadata-sync';
 import { SmusExportPanel } from '@/features/smus';
 import {
   ExportPanel,
@@ -33,13 +34,14 @@ const SECTIONS: Array<{
     ],
   },
   { id: 'activity', label: 'Activity refresh' },
+  { id: 'metadata-sync', label: 'Metadata sync' },
   { id: 'jobs', label: 'Jobs' },
   { id: 'archived', label: 'Archived assets' },
   { id: 'history', label: 'History' },
 ];
 
 /**
- * Exports, every job the portal runs, the SMUS export and archived assets:
+ * Exports, every job the portal runs, the SMUS export, the metadata sync and archived assets:
  * the things an operator does to the account rather than to one asset. One
  * section at a time, listed on the left like Settings; the open one is in
  * the URL.
@@ -77,6 +79,7 @@ export default function OperationsPage() {
         {tab === 'activity' && <ActivityPanel />}
         {tab === 'jobs' && <JobsView />}
         {tab === 'smus' && <SmusExportPanel />}
+        {tab === 'metadata-sync' && <MetadataSyncPanel />}
         {tab === 'archived' && <ArchivedAssetsPanel />}
         {tab === 'history' && <RecentChangesPanel />}
       </SectionNav>

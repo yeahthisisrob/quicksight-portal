@@ -371,6 +371,41 @@ export class QuicksightPortalStack extends Stack {
       })
     );
 
+    // Metadata sync - optional, and the only thing in the portal that writes
+    // outside QuickSight, so the write access is granted only when asked for:
+    //   cdk deploy -c metadataSync=true   (or "metadataSync": true in cdk.context.json)
+    // It lets the role rewrite a Glue table's comments and description and
+    // revise and republish a SMUS asset. IAM is half of it: Lake Formation
+    // must still grant ALTER on the tables, and each SMUS project must have
+    // the role as a contributor (see the README). Turning the feature on in
+    // Settings without this fails each write with the refusal AWS gave.
+    // True from cdk.context.json, 'true' from -c on the command line.
+    const metadataSyncCtx = this.node.tryGetContext('metadataSync');
+    if (metadataSyncCtx === true || metadataSyncCtx === 'true') {
+      lambdaRole.addToPolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['glue:UpdateTable'],
+          resources: [
+            `arn:aws:glue:*:${this.account}:catalog`,
+            `arn:aws:glue:*:${this.account}:database/*`,
+            `arn:aws:glue:*:${this.account}:table/*/*`,
+          ],
+        })
+      );
+      lambdaRole.addToPolicy(
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: [
+            'datazone:GetAsset',
+            'datazone:CreateAssetRevision',
+            'datazone:CreateListingChangeSet',
+          ],
+          resources: ['*'],
+        })
+      );
+    }
+
     // SMUS (SageMaker Unified Studio) integration — optional. Provide the
     // DataZone domain id at synth time via CDK context or environment:
     //   cdk deploy -c smusDomainId=dzd_xxxx
@@ -869,6 +904,16 @@ export class QuicksightPortalStack extends Stack {
         id: `AwsSolutions-IAM5[Resource::arn:aws:quicksight:${this.region}:${acct}:*]`,
         reason: quicksightAdminReason,
       })),
+      ...nagAccounts.flatMap((acct) =>
+        ['catalog', 'database/*', 'table/*/*'].map((resource) => ({
+          id: `AwsSolutions-IAM5[Resource::arn:aws:glue:*:${acct}:${resource}]`,
+          reason:
+            'Metadata sync (only with -c metadataSync=true) rewrites the comments of ' +
+            'whichever tables the selected SMUS projects publish; the tables are not ' +
+            'known at synth time, nor the region of the SMUS domain, and Lake Formation decides ' +
+            'which ones the role may alter.',
+        }))
+      ),
       ...['GetObject*', 'GetBucket*', 'List*', 'DeleteObject*', 'Abort*'].map((a) => ({
         id: `AwsSolutions-IAM5[Action::s3:${a}]`,
         reason: metadataBucketReason,

@@ -4,6 +4,7 @@ import { ActivityRefreshProcessor } from './features/activity/processors/Activit
 import { warmCollectionSnapshots } from './features/asset-management/services/collectionSnapshotWarmer';
 import type { RestoreRequest } from './features/authoring/types';
 import { ExportOrchestrator } from './features/data-export/services/ExportOrchestrator';
+import { MetadataSyncProcessor } from './features/metadata-sync/processors/MetadataSyncProcessor';
 import { SmusExportProcessor } from './features/smus/processors/SmusExportProcessor';
 import { wirePorts } from './ports';
 import { type AuthContext, actorLabel as actorLabelOf } from './shared/auth';
@@ -70,6 +71,14 @@ interface SmusExportMessage {
   accountId: string;
   userId?: string;
   options?: { smus?: SmusConfig };
+}
+
+interface MetadataSyncMessage {
+  jobId: string;
+  jobType: 'metadata-sync';
+  accountId: string;
+  userId?: string;
+  options?: { mode?: 'preview' | 'run'; startedBy?: string };
 }
 
 interface BulkOperationMessage {
@@ -280,6 +289,8 @@ async function processRecord(record: any, context: Context): Promise<void> {
       await processActivityRefreshJob(rawMessage as ActivityRefreshMessage, record);
     } else if (rawMessage.jobType === 'smus-export') {
       await processSmusExportJob(rawMessage as SmusExportMessage, record);
+    } else if (rawMessage.jobType === 'metadata-sync') {
+      await processMetadataSyncJob(rawMessage as MetadataSyncMessage, record);
     } else if (rawMessage.jobType === 'bulk-operation') {
       await processBulkOperationJob(rawMessage as BulkOperationMessage, record);
     } else if (rawMessage.jobType === 'csv-export') {
@@ -476,6 +487,39 @@ async function processSmusExportJob(message: SmusExportMessage, record: any): Pr
       endTime: new Date().toISOString(),
       message: `SMUS export failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Process a metadata sync job: a preview or a run of the three-way sync of
+ * table and column text between Glue and SageMaker Unified Studio.
+ */
+async function processMetadataSyncJob(message: MetadataSyncMessage, record: any): Promise<void> {
+  const { jobId } = message;
+  const mode = message.options?.mode === 'run' ? 'run' : 'preview';
+  logger.info('Processing metadata sync job', { jobId, mode, messageId: record.messageId });
+
+  const jobStateService = new JobStateService('metadata-sync');
+  try {
+    await cleanupStuckJobs(jobStateService, 'metadata-sync');
+    const existing = await jobStateService.getJobStatus(jobId);
+    if (!existing) {
+      await jobStateService.createJob(jobId, {
+        status: 'processing',
+        message: 'Metadata sync started',
+        startTime: new Date().toISOString(),
+      });
+    }
+    await new MetadataSyncProcessor(jobStateService, jobId).run(mode, message.options?.startedBy);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Metadata sync job failed', { jobId, error: reason });
+    await jobStateService.updateJobStatus(jobId, {
+      status: 'failed',
+      endTime: new Date().toISOString(),
+      message: `Metadata sync failed: ${reason}`,
+      error: reason,
     });
   }
 }

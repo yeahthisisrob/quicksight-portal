@@ -10,6 +10,7 @@ export const JOB_TYPE_LABELS: Record<JobType, string> = {
   export: 'Export',
   'activity-refresh': 'Activity refresh',
   'smus-export': 'SMUS export',
+  'metadata-sync': 'Metadata sync',
   'bulk-operation': 'Bulk operation',
   'csv-export': 'CSV export',
   planner: 'Planner',

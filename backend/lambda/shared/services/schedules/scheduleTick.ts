@@ -1,31 +1,34 @@
 /**
  * The runs the portal starts by itself. One timer fires the worker every
- * hour; the tick reads the three cadences from Settings, finds when each
- * kind last completed and whether one is going, and starts at most one
- * run that is due, in the order the data flows: the SMUS export, then the
- * Smart Sync export, then the activity refresh. Nothing starts while an
+ * hour; the tick reads the cadences from Settings, finds when each kind
+ * last completed and whether one is going, and starts at most one run that
+ * is due, in the order the data flows: the SMUS export, then the metadata
+ * sync (which reads its snapshot), then the Smart Sync export, then the
+ * activity refresh. Nothing starts while an
  * export is in flight, since the other two read what it produces. Manual,
  * the default, means a kind never starts by itself.
  */
 
 import { metadataBucketName } from '../../config/metadataBucket';
+import { getMetadataSyncConfig } from '../../config/metadataSyncConfig';
 import { getSmusConfig } from '../../config/smusConfig';
 import { logger } from '../../utils/logger';
 import { jobFactory } from '../jobs/JobFactory';
 import { JobRepository } from '../jobs/JobRepository';
 import { settingsStore } from '../settings/SettingsStore';
 
-export type ScheduledJobType = 'smus-export' | 'export' | 'activity-refresh';
+export type ScheduledJobType = 'smus-export' | 'metadata-sync' | 'export' | 'activity-refresh';
 
 /** The Settings key that holds each kind's cadence. */
 const SCHEDULE_SETTING: Record<ScheduledJobType, string> = {
   'smus-export': 'schedules.smus',
+  'metadata-sync': 'schedules.metadataSync',
   export: 'schedules.export',
   'activity-refresh': 'schedules.activity',
 };
 
 /** In the order the data flows: each reads what the one before produced. */
-const PRIORITY: ScheduledJobType[] = ['smus-export', 'export', 'activity-refresh'];
+const PRIORITY: ScheduledJobType[] = ['smus-export', 'metadata-sync', 'export', 'activity-refresh'];
 const ACTIVE = new Set(['queued', 'processing', 'stopping']);
 const SECONDS_PER_HOUR = 3_600;
 const MS_PER_SECOND = 1_000;
@@ -75,12 +78,14 @@ export function kindStates(
 /**
  * The one kind to start now, or null: the first in flow order whose
  * cadence says it is due and that is not already going. Nothing while an
- * export is going; the SMUS export only when SMUS is configured.
+ * export is going; the SMUS export only when SMUS is configured, and the
+ * metadata sync only when it is turned on.
  */
 export function pickDue(input: {
   cadence: (kind: ScheduledJobType) => number | null;
   states: Record<ScheduledJobType, KindState>;
   smusEnabled: boolean;
+  metadataSyncEnabled: boolean;
   now: Date;
 }): { kind: ScheduledJobType | null; skipped: string[] } {
   const skipped: string[] = [];
@@ -92,6 +97,10 @@ export function pickDue(input: {
     if (cadence === null) continue;
     if (kind === 'smus-export' && !input.smusEnabled) {
       skipped.push('SMUS is not configured');
+      continue;
+    }
+    if (kind === 'metadata-sync' && !input.metadataSyncEnabled) {
+      skipped.push('metadata sync is turned off');
       continue;
     }
     const state = input.states[kind];
@@ -111,6 +120,7 @@ interface TickDeps {
   >;
   setting: (key: string) => string;
   smusEnabled: () => boolean;
+  metadataSyncEnabled: () => boolean;
   start: (kind: ScheduledJobType) => Promise<string>;
   now?: () => Date;
 }
@@ -127,6 +137,7 @@ export async function runScheduleTick(deps: TickDeps = defaultDeps()): Promise<{
       cadence: (k) => cadenceHours(deps.setting(SCHEDULE_SETTING[k])),
       states,
       smusEnabled: deps.smusEnabled(),
+      metadataSyncEnabled: deps.metadataSyncEnabled(),
       now: (deps.now ?? (() => new Date()))(),
     });
     if (!kind) {
@@ -149,6 +160,7 @@ function defaultDeps(): TickDeps {
     listJobs: () => new JobRepository().listJobs({ limit: RECENT_JOBS }),
     setting: (key) => settingsStore.getString(key),
     smusEnabled: () => getSmusConfig().enabled,
+    metadataSyncEnabled: () => getMetadataSyncConfig().enabled,
     start: async (kind) => {
       const base = { accountId, bucketName, startedBy: SCHEDULE_ACTOR };
       const queued =
@@ -164,11 +176,17 @@ function defaultDeps(): TickDeps {
                 jobType: 'activity-refresh',
                 options: { assetTypes: ['all'] },
               })
-            : await jobFactory.createJob({
-                ...base,
-                jobType: 'smus-export',
-                options: { smus: getSmusConfig() },
-              });
+            : kind === 'metadata-sync'
+              ? await jobFactory.createJob({
+                  ...base,
+                  jobType: 'metadata-sync',
+                  options: { mode: 'run', startedBy: SCHEDULE_ACTOR },
+                })
+              : await jobFactory.createJob({
+                  ...base,
+                  jobType: 'smus-export',
+                  options: { smus: getSmusConfig() },
+                });
       return queued.jobId;
     },
   };

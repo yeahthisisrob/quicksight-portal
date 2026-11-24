@@ -3,10 +3,14 @@
  * SMUS (SageMaker Unified Studio) integration. SMUS domains are DataZone
  * domains under the hood, so catalog lookups go through DataZone APIs.
  *
- * Consumed by SmusService only (adapter → service pattern).
+ * Reads are consumed by SmusService; the asset read and revision are the
+ * metadata sync's, the only writer (adapter → service pattern).
  */
 import {
+  CreateAssetRevisionCommand,
+  CreateListingChangeSetCommand,
   DataZoneClient,
+  GetAssetCommand,
   GetProjectCommand,
   GetUserProfileCommand,
   ListProjectsCommand,
@@ -36,6 +40,32 @@ export interface CatalogListing {
   /** Every metadata form on the listing, flattened to label/value pairs. */
   forms: Array<{ name: string; fields: Array<{ key: string; value: string }> }>;
   createdAt?: string;
+}
+
+/** One asset as it is now, with the forms a revision must send back. */
+export interface CatalogAsset {
+  assetId: string;
+  name: string;
+  description?: string;
+  /** The asset's source, a Glue table ARN for a table asset. */
+  externalIdentifier?: string;
+  glossaryTerms: string[];
+  forms: Array<{ formName: string; typeName?: string; typeRevision?: string; content?: string }>;
+  /** Set when the asset is published: a revision is a draft until it is published again. */
+  listingId?: string;
+}
+
+/** What a new revision of an asset carries: all of it, since a revision replaces the last. */
+export interface CatalogAssetRevision {
+  name: string;
+  description?: string;
+  glossaryTerms?: string[];
+  forms: Array<{
+    formName: string;
+    typeIdentifier?: string;
+    typeRevision?: string;
+    content?: string;
+  }>;
 }
 
 export interface CatalogProject {
@@ -420,5 +450,65 @@ export class DataZoneAdapter {
       nextToken = response.nextToken;
     } while (nextToken);
     return projects.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /** An asset as it is now, or null when the domain has none by that id. */
+  public async getAsset(domainId: string, assetId: string): Promise<CatalogAsset | null> {
+    try {
+      const out = await this.client.send(
+        new GetAssetCommand({ domainIdentifier: domainId, identifier: assetId })
+      );
+      return {
+        assetId,
+        name: out.name ?? '',
+        description: out.description || undefined,
+        externalIdentifier: out.externalIdentifier,
+        glossaryTerms: out.glossaryTerms ?? [],
+        forms: (out.formsOutput ?? []).map((f) => ({
+          formName: f.formName ?? '',
+          typeName: f.typeName,
+          typeRevision: f.typeRevision,
+          content: f.content,
+        })),
+        listingId: out.listing?.listingId,
+      };
+    } catch (error) {
+      if ((error as Error).name === 'ResourceNotFoundException') {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Write a new revision of an asset and, when the asset is published,
+   * publish it again: a revision is a draft until it is.
+   */
+  public async reviseAsset(
+    domainId: string,
+    asset: Pick<CatalogAsset, 'assetId' | 'listingId'>,
+    revision: CatalogAssetRevision
+  ): Promise<void> {
+    const out = await this.client.send(
+      new CreateAssetRevisionCommand({
+        domainIdentifier: domainId,
+        identifier: asset.assetId,
+        name: revision.name,
+        description: revision.description,
+        glossaryTerms: revision.glossaryTerms,
+        formsInput: revision.forms,
+      })
+    );
+    if (asset.listingId) {
+      await this.client.send(
+        new CreateListingChangeSetCommand({
+          domainIdentifier: domainId,
+          entityIdentifier: asset.assetId,
+          entityType: 'ASSET',
+          entityRevision: out.revision,
+          action: 'PUBLISH',
+        })
+      );
+    }
   }
 }

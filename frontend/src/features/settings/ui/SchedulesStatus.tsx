@@ -13,6 +13,7 @@ import type { JobMetadata, JobType } from '@/shared/api/modules/jobs';
 /** The runs Settings can schedule, in the order they flow. */
 const SCHEDULED_KINDS: Array<{ jobType: JobType; settingKey: string; label: string }> = [
   { jobType: 'smus-export', settingKey: 'schedules.smus', label: 'SMUS export' },
+  { jobType: 'metadata-sync', settingKey: 'schedules.metadataSync', label: 'Metadata sync' },
   { jobType: 'export', settingKey: 'schedules.export', label: 'Smart Sync export' },
   { jobType: 'activity-refresh', settingKey: 'schedules.activity', label: 'Activity refresh' },
 ];

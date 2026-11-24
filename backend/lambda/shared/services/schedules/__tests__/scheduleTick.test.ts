@@ -40,8 +40,14 @@ describe('schedules', () => {
     expect(
       pickDue({
         cadence,
-        states: { 'smus-export': idle, export: idle, 'activity-refresh': idle },
+        states: {
+          'smus-export': idle,
+          'metadata-sync': idle,
+          export: idle,
+          'activity-refresh': idle,
+        },
         smusEnabled: true,
+        metadataSyncEnabled: false,
         now: NOW,
       })
     ).toEqual({ kind: 'smus-export', skipped: [] });
@@ -49,8 +55,14 @@ describe('schedules', () => {
     expect(
       pickDue({
         cadence,
-        states: { 'smus-export': idle, export: idle, 'activity-refresh': idle },
+        states: {
+          'smus-export': idle,
+          'metadata-sync': idle,
+          export: idle,
+          'activity-refresh': idle,
+        },
         smusEnabled: false,
+        metadataSyncEnabled: false,
         now: NOW,
       })
     ).toEqual({ kind: 'export', skipped: ['SMUS is not configured'] });
@@ -60,10 +72,12 @@ describe('schedules', () => {
         cadence,
         states: {
           'smus-export': { active: false, lastCompletedAt: hoursAgo(1) },
+          'metadata-sync': idle,
           export: { active: false, lastCompletedAt: hoursAgo(2) },
           'activity-refresh': { active: false, lastCompletedAt: hoursAgo(5) },
         },
         smusEnabled: true,
+        metadataSyncEnabled: false,
         now: NOW,
       }).kind
     ).toBe('activity-refresh');
@@ -71,8 +85,14 @@ describe('schedules', () => {
     expect(
       pickDue({
         cadence,
-        states: { 'smus-export': idle, export: { active: true }, 'activity-refresh': idle },
+        states: {
+          'smus-export': idle,
+          'metadata-sync': idle,
+          export: { active: true },
+          'activity-refresh': idle,
+        },
         smusEnabled: true,
+        metadataSyncEnabled: false,
         now: NOW,
       })
     ).toEqual({ kind: null, skipped: ['an export is running'] });
@@ -80,11 +100,34 @@ describe('schedules', () => {
     expect(
       pickDue({
         cadence: () => null,
-        states: { 'smus-export': idle, export: idle, 'activity-refresh': idle },
+        states: {
+          'smus-export': idle,
+          'metadata-sync': idle,
+          export: idle,
+          'activity-refresh': idle,
+        },
         smusEnabled: true,
+        metadataSyncEnabled: false,
         now: NOW,
       }).kind
     ).toBeNull();
+  });
+
+  it('starts the metadata sync after the SMUS export it reads, and only when it is turned on', () => {
+    const idle = { active: false };
+    const states = {
+      'smus-export': { active: false, lastCompletedAt: hoursAgo(1) },
+      'metadata-sync': idle,
+      export: idle,
+      'activity-refresh': idle,
+    };
+    const cadence = () => 6;
+    expect(
+      pickDue({ cadence, states, smusEnabled: true, metadataSyncEnabled: true, now: NOW }).kind
+    ).toBe('metadata-sync');
+    expect(
+      pickDue({ cadence, states, smusEnabled: true, metadataSyncEnabled: false, now: NOW })
+    ).toEqual({ kind: 'export', skipped: ['metadata sync is turned off'] });
   });
 
   it('runs a tick end to end and never throws', async () => {
@@ -93,6 +136,7 @@ describe('schedules', () => {
       listJobs: async () => [],
       setting: (key) => (key === 'schedules.export' ? '6h' : 'manual'),
       smusEnabled: () => false,
+      metadataSyncEnabled: () => false,
       start,
       now: () => NOW,
     });
@@ -104,6 +148,7 @@ describe('schedules', () => {
       },
       setting: () => '4h',
       smusEnabled: () => false,
+      metadataSyncEnabled: () => false,
       start,
       now: () => NOW,
     });
